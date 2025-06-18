@@ -1,16 +1,22 @@
 package com.storesight.backend.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.storesight.backend.model.Notification;
+import com.storesight.backend.repository.NotificationRepository;
+import java.util.List;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
 
 @Service
 public class NotificationService {
   private final StringRedisTemplate stringRedisTemplate;
   private final ObjectMapper objectMapper = new ObjectMapper();
   private final WebClient webClient = WebClient.create();
+  private final NotificationRepository notificationRepository;
 
   @Value("${sendgrid.api_key:YOUR_SENDGRID_API_KEY}")
   private String sendGridApiKey;
@@ -24,8 +30,11 @@ public class NotificationService {
   @Value("${twilio.from_number:+1234567890}")
   private String twilioFromNumber;
 
-  public NotificationService(StringRedisTemplate stringRedisTemplate) {
+  @Autowired
+  public NotificationService(
+      StringRedisTemplate stringRedisTemplate, NotificationRepository notificationRepository) {
     this.stringRedisTemplate = stringRedisTemplate;
+    this.notificationRepository = notificationRepository;
   }
 
   public void sendEmailAlert(String to, String subject, String body) {
@@ -84,5 +93,22 @@ public class NotificationService {
         .retrieve()
         .bodyToMono(String.class)
         .subscribe();
+  }
+
+  public Mono<List<Notification>> getNotifications(String shop) {
+    return Mono.just(notificationRepository.findByShopOrderByCreatedAtDesc(shop));
+  }
+
+  public Mono<Void> markAsRead(String shop, String notificationId) {
+    return Mono.fromRunnable(
+        () -> {
+          notificationRepository
+              .findById(notificationId)
+              .ifPresent(
+                  notification -> {
+                    notification.setRead(true);
+                    notificationRepository.save(notification);
+                  });
+        });
   }
 }

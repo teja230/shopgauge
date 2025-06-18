@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'react-hot-toast';
 import { CheckCircleIcon } from '@heroicons/react/24/solid';
+import { useNavigate } from 'react-router-dom';
 
 const features = [
   'Real-time competitor price tracking',
@@ -49,27 +50,30 @@ const pricing = [
 ];
 
 const HomePage = () => {
-  const [showLoginForm, setShowLoginForm] = useState(false);
   const [shopDomain, setShopDomain] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { isAuthenticated, logout } = useAuth();
+  const [showForm, setShowForm] = useState(false);
+  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
 
-  const handleLogin = () => {
-    console.log('Login button clicked');
-    setShowLoginForm(true);
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard');
+    }
+  }, [isAuthenticated, navigate]);
+
+  const handleStartClick = () => {
+    setShowForm(true);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Form submitted with domain:', shopDomain);
-    
     if (!shopDomain) {
       toast.error('Please enter your store name');
       return;
     }
 
     setIsLoading(true);
-
     try {
       // Clean up the shop domain
       let cleanDomain = shopDomain.trim().toLowerCase();
@@ -85,19 +89,23 @@ const HomePage = () => {
         cleanDomain = `${cleanDomain}.myshopify.com`;
       }
 
-      console.log('Redirecting to login with domain:', cleanDomain);
-      
-      // Add a small delay to ensure the loading state is visible
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // Redirect to the login endpoint
-      window.location.href = `/api/auth/shopify/login?shop=${encodeURIComponent(cleanDomain)}`;
+      // Redirect to the login endpoint with the shop parameter
+      window.location.href = `http://localhost:8080/api/auth/shopify/login?shop=${encodeURIComponent(cleanDomain)}`;
     } catch (error) {
-      console.error('Error during login:', error);
-      toast.error('Failed to initiate login. Please try again.');
+      console.error('Login failed:', error);
+      toast.error('Failed to connect to Shopify. Please try again.');
+    } finally {
       setIsLoading(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex flex-col items-center px-4 py-8">
@@ -107,16 +115,50 @@ const HomePage = () => {
           Unlock actionable analytics, competitor price alerts, and automated notifications for your Shopify store. 
           Grow faster with StoreSight's all-in-one dashboard and automation suite.
         </p>
-        {!isAuthenticated && !showLoginForm && (
-          <button 
-            onClick={handleLogin}
-            className="inline-flex items-center px-6 py-3 rounded-lg font-semibold shadow transition mb-2 bg-[#5A31F4] hover:bg-[#4A2FD4] text-white"
-          >
-            <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12.5 0C5.6 0 0 5.6 0 12.5S5.6 25 12.5 25 25 19.4 25 12.5 19.4 0 12.5 0zm0 4.2c4.6 0 8.3 3.7 8.3 8.3s-3.7 8.3-8.3 8.3-8.3-3.7-8.3-8.3 3.7-8.3 8.3-8.3z"/>
-            </svg>
-            Start 3-Day Free Trial
-          </button>
+        {!isAuthenticated && (
+          <div className="flex flex-col items-center gap-4">
+            {!showForm ? (
+              <button
+                onClick={handleStartClick}
+                className="inline-flex items-center px-6 py-3 rounded-lg font-semibold shadow transition bg-[#5A31F4] hover:bg-[#4A2FD4] text-white"
+              >
+                <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12.5 0C5.6 0 0 5.6 0 12.5S5.6 25 12.5 25 25 19.4 25 12.5 19.4 0 12.5 0zm0 4.2c4.6 0 8.3 3.7 8.3 8.3s-3.7 8.3-8.3 8.3-8.3-3.7-8.3-8.3 3.7-8.3 8.3-8.3z"/>
+                </svg>
+                Start 3-Day Free Trial
+              </button>
+            ) : (
+              <form onSubmit={handleLogin} className="flex flex-col items-center gap-4">
+                <div className="flex flex-col sm:flex-row gap-2 w-full max-w-md">
+                  <input
+                    type="text"
+                    value={shopDomain}
+                    onChange={(e) => setShopDomain(e.target.value)}
+                    placeholder="Enter your store name (e.g. mystore)"
+                    className="flex-1 px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    disabled={isLoading}
+                  />
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="inline-flex items-center px-6 py-2 rounded-lg font-semibold shadow transition bg-[#5A31F4] hover:bg-[#4A2FD4] text-white disabled:opacity-50"
+                  >
+                    {isLoading ? (
+                      <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
+                    ) : (
+                      <>
+                        <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12.5 0C5.6 0 0 5.6 0 12.5S5.6 25 12.5 25 25 19.4 25 12.5 19.4 0 12.5 0zm0 4.2c4.6 0 8.3 3.7 8.3 8.3s-3.7 8.3-8.3 8.3-8.3-3.7-8.3-8.3 3.7-8.3 8.3-8.3z"/>
+                        </svg>
+                        Connect Store
+                      </>
+                    )}
+                  </button>
+                </div>
+                <p className="text-sm text-gray-500">Enter your store name without .myshopify.com</p>
+              </form>
+            )}
+          </div>
         )}
       </header>
 
@@ -186,53 +228,6 @@ const HomePage = () => {
           </div>
         </div>
       </section>
-
-      {/* Login Form Modal */}
-      {showLoginForm && !isAuthenticated && (
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg p-8 max-w-md w-full">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Connect Your Shopify Store</h3>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label htmlFor="shopDomain" className="block text-sm font-medium text-gray-700">
-                  Enter your Shopify store name
-                </label>
-                <div className="mt-1">
-                  <input
-                    type="text"
-                    id="shopDomain"
-                    value={shopDomain}
-                    onChange={(e) => setShopDomain(e.target.value)}
-                    placeholder="your-store-name"
-                    className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                    disabled={isLoading}
-                  />
-                </div>
-                <p className="mt-2 text-sm text-gray-500">
-                  Just enter your store name (e.g., "your-store-name")
-                </p>
-              </div>
-              <div className="flex justify-end space-x-3">
-                <button
-                  type="button"
-                  onClick={() => setShowLoginForm(false)}
-                  className="inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                  disabled={isLoading}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                  disabled={isLoading}
-                >
-                  {isLoading ? 'Connecting...' : 'Continue'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

@@ -60,6 +60,44 @@
     </module>
 
     <module name="TreeWalker">
+        <module name="UnusedImports"/>
+        <module name="RedundantImport"/>
+        <module name="RedundantModifier"/>
+        <module name="ModifierOrder"/>
+        <module name="UpperEll"/>
+        <module name="EmptyBlock"/>
+        <module name="NeedBraces"/>
+        <module name="LeftCurly"/>
+        <module name="RightCurly"/>
+        <module name="EmptyStatement"/>
+        <module name="EqualsHashCode"/>
+        <module name="IllegalInstantiation"/>
+        <module name="InnerAssignment"/>
+        <module name="MagicNumber"/>
+        <module name="MultipleVariableDeclarations"/>
+        <module name="SimplifyBooleanExpression"/>
+        <module name="SimplifyBooleanReturn"/>
+        <module name="StringLiteralEquality"/>
+        <module name="NestedForDepth">
+            <property name="max" value="2"/>
+        </module>
+        <module name="NestedIfDepth">
+            <property name="max" value="2"/>
+        </module>
+        <module name="NestedTryDepth">
+            <property name="max" value="1"/>
+        </module>
+        <module name="ReturnCount">
+            <property name="max" value="3"/>
+            <property name="maxForVoid" value="2"/>
+        </module>
+        <module name="JavaNCSS">
+            <property name="methodMaximum" value="30"/>
+            <property name="classMaximum" value="1500"/>
+        </module>
+        <module name="CyclomaticComplexity">
+            <property name="max" value="10"/>
+        </module>
         <module name="OuterTypeFilename"/>
         <module name="IllegalTokenText">
             <property name="tokens" value="STRING_LITERAL, CHAR_LITERAL"/>
@@ -77,10 +115,6 @@
         <module name="OneTopLevelClass"/>
         <module name="NoLineWrap">
             <property name="tokens" value="PACKAGE_DEF, IMPORT, STATIC_IMPORT"/>
-        </module>
-        <module name="NeedBraces">
-            <property name="tokens"
-                      value="LITERAL_DO, LITERAL_ELSE, LITERAL_FOR, LITERAL_IF, LITERAL_WHILE"/>
         </module>
         <module name="LeftCurly">
             <property name="id" value="LeftCurlyEol"/>
@@ -180,12 +214,9 @@
                                    multi-block statement (4.1.3)"/>
         </module>
         <module name="OneStatementPerLine"/>
-        <module name="MultipleVariableDeclarations"/>
         <module name="ArrayTypeStyle"/>
         <module name="MissingSwitchDefault"/>
         <module name="FallThrough"/>
-        <module name="UpperEll"/>
-        <module name="ModifierOrder"/>
         <module name="EmptyLineSeparator">
             <property name="tokens"
                       value="PACKAGE_DEF, IMPORT, STATIC_IMPORT, CLASS_DEF, INTERFACE_DEF, ENUM_DEF,
