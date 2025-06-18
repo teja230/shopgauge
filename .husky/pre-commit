@@ -1,0 +1,16 @@
+#!/bin/sh
+
+# Run backend formatting and tests
+cd backend && ./gradlew spotlessApply && ./gradlew test
+BACKEND_STATUS=$?
+cd ..
+
+# Run frontend linting
+cd frontend && npm run lint
+FRONTEND_STATUS=$?
+cd ..
+
+# Exit with non-zero if any step failed
+if [ $BACKEND_STATUS -ne 0 ] || [ $FRONTEND_STATUS -ne 0 ]; then
+  exit 1
+fi

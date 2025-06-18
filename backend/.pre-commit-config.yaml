@@ -1,0 +1,15 @@
+repos:
+  - repo: https://github.com/diffplug/spotless
+    rev: v6.22.0
+    hooks:
+      - id: spotless-check
+        name: Spotless Check
+        entry: ./gradlew spotlessCheck
+        language: system
+  - repo: https://github.com/pre-commit/mirrors-checkstyle
+    rev: v10.12.3
+    hooks:
+      - id: checkstyle
+        name: Checkstyle
+        entry: ./gradlew checkstyleMain
+        language: system 

@@ -1,0 +1,45 @@
+services:
+  - type: web
+    name: cartclarity-backend
+    env: docker
+    plan: standard
+    dockerfilePath: backend/Dockerfile
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: default
+      - key: DB_URL
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASS
+        sync: false
+      - key: REDIS_HOST
+        sync: false
+      - key: REDIS_PORT
+        sync: false
+      - key: SENDGRID_API_KEY
+        sync: false
+  - type: worker
+    name: cartclarity-worker
+    env: docker
+    plan: standard
+    dockerfilePath: backend/Dockerfile
+    startCommand: "java -jar app.jar --spring.profiles.active=worker"
+    envVars:
+      - key: DB_URL
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASS
+        sync: false
+      - key: REDIS_HOST
+        sync: false
+      - key: REDIS_PORT
+        sync: false
+      - key: SENDGRID_API_KEY
+        sync: false
+  - type: static
+    name: cartclarity-frontend
+    env: static
+    buildCommand: "cd frontend && npm install && npm run build"
+    staticPublishPath: frontend/dist 
