@@ -10,41 +10,24 @@ const features = [
   'Customizable dashboard',
   'Performance analytics',
   'Inventory management',
-  'Sales forecasting'
+  'Sales forecasting',
+  'Shopify integration',
+  'Email notifications'
 ];
 
 const pricing = [
   {
-    tier: 'Basic',
-    price: '$29/month',
-    features: [
-      'Up to 5 competitors',
-      'Basic analytics',
-      'Email alerts',
-      '24/7 support'
-    ]
-  },
-  {
     tier: 'Pro',
-    price: '$79/month',
+    price: '$9.99/month',
     features: [
-      'Up to 20 competitors',
-      'Advanced analytics',
-      'SMS & email alerts',
+      'Track unlimited competitors',
+      'Advanced analytics dashboard',
+      'Real-time price alerts',
       'Priority support',
-      'Custom reports'
-    ]
-  },
-  {
-    tier: 'Enterprise',
-    price: '$199/month',
-    features: [
-      'Unlimited competitors',
-      'Enterprise analytics',
-      'API access',
-      'Dedicated support',
-      'Custom integrations',
-      'White-label reports'
+      'Custom exports',
+      'Shopify integration',
+      'Email notifications',
+      'Sales forecasting'
     ]
   }
 ];
@@ -177,21 +160,28 @@ const HomePage = () => {
 
       {/* Pricing Section */}
       <section className="w-full max-w-4xl">
-        <h2 className="text-2xl font-bold mb-4 text-blue-800 text-center">Pricing</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {pricing.map((tier) => (
-            <div key={tier.tier} className="bg-white rounded-lg shadow p-6 flex flex-col items-center border-2 border-blue-100 hover:border-blue-400 transition">
-              <h3 className="text-xl font-semibold mb-2 text-blue-900">{tier.tier}</h3>
-              <div className="text-3xl font-bold mb-4">{tier.price}</div>
-              <ul className="mb-4 space-y-1">
-                {tier.features.map((f) => (
-                  <li key={f} className="flex items-center text-gray-700">
-                    <CheckCircleIcon className="w-4 h-4 text-green-500 mr-1" /> {f}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+        <h2 className="text-2xl font-bold mb-4 text-blue-800 text-center">Simple, Transparent Pricing</h2>
+        <div className="flex justify-center">
+          <div className="bg-white rounded-lg shadow p-8 flex flex-col items-center border-2 border-blue-100 hover:border-blue-400 transition max-w-md w-full">
+            <h3 className="text-2xl font-semibold mb-2 text-blue-900">{pricing[0].tier}</h3>
+            <div className="text-4xl font-bold mb-6">{pricing[0].price}</div>
+            <ul className="mb-6 space-y-3 w-full">
+              {pricing[0].features.map((f) => (
+                <li key={f} className="flex items-center text-gray-700">
+                  <CheckCircleIcon className="w-5 h-5 text-green-500 mr-2" /> {f}
+                </li>
+              ))}
+            </ul>
+            <button
+              onClick={handleStartClick}
+              className="w-full inline-flex items-center justify-center px-6 py-3 rounded-lg font-semibold shadow transition bg-[#5A31F4] hover:bg-[#4A2FD4] text-white"
+            >
+              <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12.5 0C5.6 0 0 5.6 0 12.5S5.6 25 12.5 25 25 19.4 25 12.5 19.4 0 12.5 0zm0 4.2c4.6 0 8.3 3.7 8.3 8.3s-3.7 8.3-8.3 8.3-8.3-3.7-8.3-8.3 3.7-8.3 8.3-8.3z"/>
+              </svg>
+              Start 3-Day Free Trial
+            </button>
+          </div>
         </div>
       </section>
 

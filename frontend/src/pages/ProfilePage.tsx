@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { useAuth } from '../App';
+import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
 
 export default function ProfilePage() {
-  const { shop, refresh } = useAuth();
+  const { shop } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
 
   const handleRefreshToken = async () => {
@@ -20,12 +20,32 @@ export default function ProfilePage() {
       }
       
       toast.success('Token refreshed successfully');
-      await refresh(); // Refresh the auth state
+      // Auth state will be updated automatically
     } catch (error) {
       console.error('Token refresh failed:', error);
       toast.error('Failed to refresh token. Please try logging in again.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleShopDisconnect = async () => {
+    try {
+      const response = await fetch('/api/auth/disconnect', {
+        method: 'POST',
+        credentials: 'include'
+      });
+      
+      if (response.ok) {
+        toast.success('Shop disconnected successfully');
+        // Redirect to home page after disconnect
+        window.location.href = '/';
+      } else {
+        throw new Error('Failed to disconnect shop');
+      }
+    } catch (error) {
+      console.error('Error disconnecting shop:', error);
+      toast.error('Failed to disconnect shop');
     }
   };
 
@@ -63,11 +83,7 @@ export default function ProfilePage() {
         <div className="space-y-4">
           <div>
             <button
-              onClick={() => {
-                if (window.confirm('Are you sure you want to disconnect your store? This will remove all your data.')) {
-                  window.location.href = '/api/auth/shopify/logout';
-                }
-              }}
+              onClick={handleShopDisconnect}
               className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
             >
               Disconnect Store

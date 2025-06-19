@@ -65,6 +65,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Auth: Auth check failed:', error);
       setShop(null);
       setIsAuthenticated(false);
+      // Don't redirect on connection errors, just show error state
+      if (error instanceof Error && error.message.includes('Failed to fetch')) {
+        console.log('Auth: Connection error, staying on current page');
+        return;
+      }
       if (location.pathname !== '/') {
         navigate('/');
       }
@@ -120,6 +125,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!mounted) {
           console.log('Auth: Component unmounted after error');
           return;
+        }
+
+        // Handle connection errors differently
+        if (error instanceof Error && error.message.includes('Failed to fetch')) {
+          console.log('Auth: Connection error, retrying...');
+          if (retryCount < maxRetries) {
+            retryCount++;
+            console.log(`Auth: Retrying auth check (${retryCount}/${maxRetries})`);
+            setTimeout(checkAuth, 2000); // Retry after 2 seconds
+            return;
+          }
         }
 
         if (retryCount < maxRetries) {

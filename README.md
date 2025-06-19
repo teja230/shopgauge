@@ -1,73 +1,103 @@
-# StoreSight - E-commerce Analytics & Automation for Shopify
+# StoreSight - Shopify Analytics Dashboard
 
-StoreSight is a modern Shopify app for actionable analytics, competitor price monitoring, and automated notifications.
-Built for ambitious merchants who want to optimize, automate, and grow.
+StoreSight is a modern analytics dashboard for Shopify stores that provides real-time insights, competitor tracking, and
+automated reporting.
 
 ## Features
 
-- **Real-time competitor price tracking**: Monitor competitor prices in real-time
-- **Automated price change alerts**: Get instant notifications when prices change
-- **Customizable dashboard**: Tailor your analytics view to your needs
-- **Performance analytics**: Track your store's key metrics
-- **Inventory management**: Keep track of your stock levels
-- **Sales forecasting**: Predict future sales trends
+### Core Features
+
+- Real-time revenue tracking
+- Order analytics and trends
+- Product performance metrics
+- Inventory management
+- Sales funnel visualization
+- Abandoned cart tracking
+- Automated reporting
+
+### Premium Features
+
+- Competitor price tracking
+- Market trend analysis
+- Advanced inventory forecasting
+- Custom report scheduling
+- Email/Slack/SMS alerts
+- API access for custom integrations
 
 ## Pricing
 
-### Basic Plan - $29/month
+### Pro Tier ($9.99/month)
 
-- Up to 5 competitors
-- Basic analytics
-- Email alerts
-- 24/7 support
-
-### Pro Plan - $79/month
-
-- Up to 20 competitors
-- Advanced analytics
-- SMS & email alerts
+- Real-time revenue tracking
+- Order analytics and trends
+- Product performance metrics
+- Inventory management
+- Sales funnel visualization
+- Abandoned cart tracking
+- Automated reporting
+- Competitor price tracking
+- Market trend analysis
+- Advanced inventory forecasting
+- Custom report scheduling
+- Email/Slack/SMS alerts
+- API access for custom integrations
 - Priority support
-- Custom reports
-
-### Enterprise Plan - $199/month
-
-- Unlimited competitors
-- Enterprise analytics
-- API access
-- Dedicated support
-- Custom integrations
-- White-label reports
-
-## Free Trial
-
-- 3-day free trial
-- Full access to all features
-- No credit card required
-- Cancel anytime
 
 ## Getting Started
 
-1. Sign up for a free trial
-2. Connect your Shopify store
-3. Start getting insights immediately
+1. Clone the repository
+2. Install dependencies:
+   ```bash
+   # Backend
+   cd backend
+   ./mvnw clean install
 
-## Requirements
+   # Frontend
+   cd frontend
+   npm install
+   ```
+3. Configure environment variables:
+   ```bash
+   # Backend
+   cp backend/src/main/resources/application.example.properties backend/src/main/resources/application.properties
+   
+   # Frontend
+   cp frontend/.env.example frontend/.env
+   ```
+4. Start the development servers:
+   ```bash
+   # Backend
+   cd backend
+   ./mvnw spring-boot:run
 
-- A Shopify store
-- Admin access to your store
-- Modern web browser
+   # Frontend
+   cd frontend
+   npm run dev
+   ```
 
-## Support
+## Technology Stack
 
-For support, please contact us at support@storesight.ai or visit our [help center](https://help.storesight.ai).
+- Frontend: React, TypeScript, Material-UI
+- Backend: Spring Boot, Java
+- Database: PostgreSQL
+- Authentication: OAuth 2.0
+- API: RESTful
+
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Contributing
+## Support
 
-We welcome contributions! Please see our [contributing guidelines](CONTRIBUTING.md) for more information.
+For support, email support@storesight.com or join our Slack channel.
 
 ## Analytics & Automation
 

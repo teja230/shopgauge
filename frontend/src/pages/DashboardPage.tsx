@@ -1,48 +1,109 @@
 import React, { useEffect, useState } from 'react';
 import { MetricCard } from '../components/ui/MetricCard';
-import { InsightBanner } from '../components/ui/InsightBanner';
-import { getInsights, fetchWithAuth } from '../api';
-import type { Insight } from '../api';
-import toast, { Toaster } from 'react-hot-toast';
+import { fetchWithAuth } from '../api';
 import { Link, useNavigate } from 'react-router-dom';
-import { ResponsiveContainer, LineChart, XAxis, YAxis, Tooltip as RechartsTooltip, Line, BarChart, Bar, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
+import { ResponsiveContainer, LineChart, XAxis, YAxis, Legend, Tooltip as RechartsTooltip, Line, BarChart, Bar, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
 import { Tooltip } from '../components/ui/Tooltip';
 import { Dialog } from '@headlessui/react';
 import { useAuth } from '../contexts/AuthContext';
-import { CircularProgress, Alert, Snackbar, Box, Chip, IconButton, Link as MuiLink, Button, Menu, MenuItem, Grid, Card, Typography, List, ListItem, ListItemText, Paper } from '@mui/material';
+import { CircularProgress, Alert, Snackbar, Box, Chip, IconButton, Link as MuiLink, Button, Menu, MenuItem, Grid, Card, Typography, List, ListItem, ListItemText, Paper, CardContent } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import type { Theme } from '@mui/material/styles';
-import { TrendingUp, TrendingDown, ShoppingCart, Inventory, AddBox, OpenInNew, Refresh, MoreVert, Timeline, Add, Storefront, ListAlt, Person } from '@mui/icons-material';
+import { TrendingUp, TrendingDown, ShoppingCart, Inventory, AddBox, OpenInNew, Refresh, MoreVert, Timeline, Add, Storefront, ListAlt, Person, RemoveShoppingCart, Warning, Close, Logout } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { AppBar, Toolbar } from '@mui/material';
 import { SpeedDial, SpeedDialAction, SpeedDialIcon } from '@mui/material';
+import Avatar from '@mui/material/Avatar';
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
+import Inventory2Icon from '@mui/icons-material/Inventory2';
+import { useTheme, useMediaQuery } from '@mui/material';
 
+// Modern, elegant, and professional dashboard UI improvements
 const DashboardContainer = styled(Box)(({ theme }) => ({
-  padding: theme.spacing(3),
+  minHeight: '100vh',
   backgroundColor: theme.palette.background.default,
-  minHeight: '100vh'
+  display: 'flex',
+  flexDirection: 'column'
 }));
 
-const GridContainer = styled(Grid)(({ theme }: { theme: Theme }) => ({
-  marginTop: theme.spacing(2),
+const DashboardHeader = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  padding: theme.spacing(3),
+  backgroundColor: theme.palette.background.paper,
+  borderBottom: `1px solid ${theme.palette.divider}`,
+  [theme.breakpoints.down('sm')]: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: theme.spacing(2),
+    padding: theme.spacing(2)
+  }
+}));
+
+const HeaderContent = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  alignItems: 'center',
+  gap: theme.spacing(2)
+}));
+
+const HeaderIcon = styled(Storefront)(({ theme }) => ({
+  fontSize: 32,
+  color: theme.palette.primary.main
+}));
+
+const HeaderTitle = styled(Typography)(({ theme }) => ({
+  fontSize: '1.5rem',
+  fontWeight: 600,
+  color: theme.palette.text.primary,
+  marginBottom: theme.spacing(0.5)
+}));
+
+const HeaderSubtitle = styled(Typography)(({ theme }) => ({
+  fontSize: '0.875rem',
+  color: theme.palette.text.secondary
+}));
+
+const ShopLink = styled('a')(({ theme }) => ({
+  color: theme.palette.primary.main,
+  textDecoration: 'none',
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: theme.spacing(0.5),
+  '&:hover': {
+    textDecoration: 'underline'
+  }
+}));
+
+const HeaderActions = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  alignItems: 'center',
+  gap: theme.spacing(2),
+  [theme.breakpoints.down('sm')]: {
+    width: '100%',
+    justifyContent: 'space-between'
+  }
 }));
 
 const StyledCard = styled(Card)(({ theme }) => ({
   height: '100%',
   display: 'flex',
   flexDirection: 'column',
-  transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
+  borderRadius: theme.shape.borderRadius,
+  transition: 'all 0.3s ease',
   '&:hover': {
-    transform: 'translateY(-4px)',
-    boxShadow: theme.shadows[4],
+    transform: 'translateY(-2px)',
+    boxShadow: theme.shadows[8],
   },
 }));
 
 const CardTitle = styled(Typography)(({ theme }) => ({
-  padding: theme.spacing(2),
-  borderBottom: `1px solid ${theme.palette.divider}`,
-  color: theme.palette.primary.main,
   fontWeight: 600,
+  marginBottom: theme.spacing(2),
+  color: theme.palette.text.primary,
+  display: 'flex',
+  alignItems: 'center',
+  gap: theme.spacing(1),
 }));
 
 const LoadingContainer = styled(Box)(({ theme }) => ({
@@ -59,78 +120,51 @@ const ErrorContainer = styled(Box)(({ theme }) => ({
 }));
 
 const MetricValue = styled(Typography)(({ theme }) => ({
-  padding: theme.spacing(2),
-  fontSize: '2rem',
-  fontWeight: 600,
-  color: theme.palette.text.primary,
+  padding: theme.spacing(3),
+  fontSize: '2.75rem',
+  fontWeight: 700,
+  background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
+  WebkitBackgroundClip: 'text',
+  WebkitTextFillColor: 'transparent',
+  letterSpacing: '-1px',
 }));
 
-const MetricDelta = styled(Box)(({ theme }) => ({
+const MetricLabel = styled(Typography)(({ theme }) => ({
+  padding: theme.spacing(0, 3, 3),
+  color: theme.palette.text.secondary,
   display: 'flex',
   alignItems: 'center',
   gap: theme.spacing(1),
-  padding: theme.spacing(0, 2, 2),
+  fontWeight: 500,
+  fontSize: '1rem',
 }));
 
 const ChartContainer = styled(Box)(({ theme }) => ({
-  padding: theme.spacing(2),
-  height: '400px',
+  height: 300,
+  padding: theme.spacing(1),
+  borderRadius: theme.shape.borderRadius,
+  backgroundColor: theme.palette.background.paper,
 }));
 
-const ProductLink = styled(Link)(({ theme }) => ({
+const ProductLink = styled(MuiLink)(({ theme }) => ({
+  color: theme.palette.primary.main,
+  textDecoration: 'none',
   display: 'flex',
   alignItems: 'center',
   gap: theme.spacing(1),
-  color: theme.palette.primary.main,
-  textDecoration: 'none',
   '&:hover': {
     textDecoration: 'underline',
   },
 }));
 
-const DashboardHeader = styled(Box)(({ theme }) => ({
-  padding: theme.spacing(3),
-  backgroundColor: theme.palette.background.paper,
-  borderBottom: `1px solid ${theme.palette.divider}`,
-  marginBottom: theme.spacing(4),
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
-}));
-
-const HeaderTitle = styled(Typography)(({ theme }) => ({
-  fontSize: '1.875rem',
-  fontWeight: 600,
-  color: theme.palette.text.primary,
-  display: 'flex',
-  alignItems: 'center',
-  gap: theme.spacing(1),
-}));
-
-const HeaderActions = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  alignItems: 'center',
-  gap: theme.spacing(2),
-}));
-
-const StyledLink = styled(Link)(({ theme }) => ({
+const OrderLink = styled(MuiLink)(({ theme }) => ({
   color: theme.palette.primary.main,
   textDecoration: 'none',
   display: 'flex',
   alignItems: 'center',
   gap: theme.spacing(1),
-  padding: theme.spacing(1),
-  borderRadius: theme.shape.borderRadius,
   '&:hover': {
-    backgroundColor: theme.palette.action.hover,
-    textDecoration: 'none',
-  },
-}));
-
-const StyledGrid = styled(Grid)(({ theme }) => ({
-  '&.MuiGrid-item': {
-    padding: theme.spacing(2),
+    textDecoration: 'underline',
   },
 }));
 
@@ -139,42 +173,42 @@ interface Product {
   title: string;
   quantity: number;
   total_price: number;
-  variants: Array<{
-    id: string;
-    title: string;
-    price: string;
-  }>;
+}
+
+interface Order {
+  id: string;
+  created_at: string;
+  total_price: number;
+  customer?: {
+    first_name: string;
+    last_name: string;
+  };
+}
+
+interface RevenueData {
+  created_at: string;
+  total_price: number;
+}
+
+interface DashboardInsight {
+  totalRevenue: number;
+  revenue?: number;
+  newProducts: number;
+  abandonedCarts: number;
+  lowInventory: number;
+  topProducts: any[];
+  orders: any[];
+  recentOrders: any[];
+  timeseries: any[];
+  conversionRate?: number;
+  conversionRateDelta?: number;
+  abandonedCartCount?: number;
 }
 
 interface InventoryItem {
   id: string;
   title: string;
   quantity: number;
-}
-
-interface Order {
-  id: string;
-  name: string;
-  created_at: string;
-  total_price: string;
-  customer?: {
-    first_name: string;
-    last_name: string;
-  };
-  financial_status?: string;
-  fulfillment_status?: string;
-  order_status_url?: string;
-}
-
-interface RevenueData {
-  revenue: number;
-}
-
-interface RevenueTSData {
-  timeseries: Array<{
-    created_at: string;
-    total_price: number;
-  }>;
 }
 
 interface AbandonedCartsData {
@@ -202,941 +236,664 @@ interface OrdersData {
 
 const COLORS = ['#2563eb', '#16a34a', '#d97706', '#dc2626', '#7c3aed'];
 
-interface GridItemProps {
-  xs?: number;
-  md?: number;
-  lg?: number;
-  children: React.ReactNode;
-}
+// Add a modern SaaS hero section at the top of the dashboard
+const HeroSection = styled(Box)(({ theme }) => ({
+  background: 'linear-gradient(90deg, #f5f7fa 0%, #c3cfe2 100%)',
+  borderRadius: theme.shape.borderRadius,
+  padding: theme.spacing(4, 4, 4, 4),
+  marginBottom: theme.spacing(5),
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  boxShadow: theme.shadows[1],
+  gap: theme.spacing(4),
+}));
 
-const GridItem = ({ xs, md, lg, children }: GridItemProps) => {
-  const gridProps = {
-    xs,
-    md,
-    lg,
-    item: true as const
-  };
+const HeroText = styled(Box)(({ theme }) => ({
+  flex: 1,
+}));
 
-  return (
-    <Grid {...gridProps}>
-      <Box sx={{ p: 2 }}>
-        {children}
-      </Box>
-    </Grid>
-  );
+const HeroTitle = styled(Typography)(({ theme }) => ({
+  fontSize: '2.5rem',
+  fontWeight: 800,
+  color: theme.palette.primary.main,
+  marginBottom: theme.spacing(1),
+  letterSpacing: '-1px',
+}));
+
+const HeroSubtitle = styled(Typography)(({ theme }) => ({
+  fontSize: '1.25rem',
+  color: theme.palette.text.secondary,
+  marginBottom: theme.spacing(2),
+}));
+
+const HeroImage = styled('img')(() => ({
+  width: 180,
+  height: 180,
+  objectFit: 'contain',
+  borderRadius: 24,
+  boxShadow: '0 4px 24px 0 rgba(80, 112, 255, 0.10)',
+}));
+
+const GridContainer = styled(Grid)(({ theme }) => ({
+  marginTop: theme.spacing(2),
+  gap: theme.spacing(3),
+}));
+
+const ProductList = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: theme.spacing(2),
+  maxHeight: '400px',
+  overflowY: 'auto',
+  padding: theme.spacing(1),
+  '&::-webkit-scrollbar': {
+    width: '8px',
+  },
+  '&::-webkit-scrollbar-track': {
+    background: 'rgba(0, 0, 0, 0.05)',
+    borderRadius: '4px',
+  },
+  '&::-webkit-scrollbar-thumb': {
+    background: 'rgba(0, 0, 0, 0.1)',
+    borderRadius: '4px',
+    '&:hover': {
+      background: 'rgba(0, 0, 0, 0.2)',
+    },
+  },
+}));
+
+const ProductItem = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  alignItems: 'center',
+  gap: theme.spacing(2),
+  padding: theme.spacing(1.5),
+  borderRadius: theme.shape.borderRadius,
+  backgroundColor: 'rgba(0, 0, 0, 0.02)',
+  transition: 'all 0.2s ease',
+  '&:hover': {
+    backgroundColor: 'rgba(0, 0, 0, 0.04)',
+    transform: 'translateY(-1px)',
+  },
+}));
+
+const ProductInfo = styled(Box)(() => ({
+  display: 'flex',
+  alignItems: 'center',
+  gap: 12,
+  marginBottom: 8,
+}));
+
+const ProductName = styled(Typography)(({ theme }) => ({
+  fontWeight: 600,
+  fontSize: '0.95rem',
+  color: theme.palette.text.primary,
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  marginBottom: theme.spacing(0.5),
+}));
+
+const ProductStats = styled(Typography)(({ theme }) => ({
+  fontSize: '0.85rem',
+  color: theme.palette.text.secondary,
+  display: 'flex',
+  alignItems: 'center',
+  gap: theme.spacing(1),
+}));
+
+const OrderList = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: theme.spacing(2),
+  maxHeight: '400px',
+  overflowY: 'auto',
+  padding: theme.spacing(1),
+  '&::-webkit-scrollbar': {
+    width: '8px',
+  },
+  '&::-webkit-scrollbar-track': {
+    background: 'rgba(0, 0, 0, 0.05)',
+    borderRadius: '4px',
+  },
+  '&::-webkit-scrollbar-thumb': {
+    background: 'rgba(0, 0, 0, 0.1)',
+    borderRadius: '4px',
+    '&:hover': {
+      background: 'rgba(0, 0, 0, 0.2)',
+    },
+  },
+}));
+
+const OrderItem = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  alignItems: 'center',
+  gap: theme.spacing(2),
+  padding: theme.spacing(1.5),
+  borderRadius: theme.shape.borderRadius,
+  backgroundColor: 'rgba(0, 0, 0, 0.02)',
+  transition: 'all 0.2s ease',
+  '&:hover': {
+    backgroundColor: 'rgba(0, 0, 0, 0.04)',
+    transform: 'translateY(-1px)',
+  },
+}));
+
+const OrderInfo = styled(Box)(() => ({
+  display: 'flex',
+  alignItems: 'center',
+  gap: 12,
+  marginBottom: 8,
+}));
+
+const OrderTitle = styled(Typography)(({ theme }) => ({
+  fontWeight: 600,
+  fontSize: '0.95rem',
+  color: theme.palette.text.primary,
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  marginBottom: theme.spacing(0.5),
+}));
+
+const OrderDetails = styled(Typography)(({ theme }) => ({
+  fontSize: '0.85rem',
+  color: theme.palette.text.secondary,
+  display: 'flex',
+  alignItems: 'center',
+  gap: theme.spacing(1),
+}));
+
+const ProductAvatar = styled(Avatar)(({ theme }) => ({
+  width: 48,
+  height: 48,
+  backgroundColor: theme.palette.primary.light,
+  color: theme.palette.primary.main,
+  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+}));
+
+const OrderAvatar = styled(Avatar)(({ theme }) => ({
+  width: 48,
+  height: 48,
+  backgroundColor: theme.palette.warning.light,
+  color: theme.palette.warning.dark,
+  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+}));
+
+const StatusChip = styled(Chip)(({ theme }) => ({
+  borderRadius: theme.shape.borderRadius,
+  fontWeight: 500,
+  '&.MuiChip-colorSuccess': {
+    backgroundColor: theme.palette.success.light,
+    color: theme.palette.success.dark,
+  },
+  '&.MuiChip-colorWarning': {
+    backgroundColor: theme.palette.warning.light,
+    color: theme.palette.warning.dark,
+  },
+}));
+
+const SectionHeader = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  marginBottom: theme.spacing(3),
+  paddingBottom: theme.spacing(2),
+  borderBottom: `1px solid ${theme.palette.divider}`,
+}));
+
+const SectionTitle = styled(Typography)(({ theme }) => ({
+  fontSize: '1.25rem',
+  fontWeight: 600,
+  color: theme.palette.text.primary,
+  display: 'flex',
+  alignItems: 'center',
+  gap: theme.spacing(1),
+}));
+
+const GraphContainer = styled(Box)(({ theme }) => ({
+  position: 'relative',
+  padding: theme.spacing(2),
+  backgroundColor: theme.palette.background.paper,
+  borderRadius: theme.shape.borderRadius,
+  boxShadow: '0 2px 12px rgba(0, 0, 0, 0.05)',
+}));
+
+const GraphHeader = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  marginBottom: theme.spacing(3),
+}));
+
+const GraphTitle = styled(Typography)(({ theme }) => ({
+  fontSize: '1.25rem',
+  fontWeight: 600,
+  color: theme.palette.text.primary,
+  display: 'flex',
+  alignItems: 'center',
+  gap: theme.spacing(1),
+}));
+
+const GraphLink = styled(MuiLink)(({ theme }) => ({
+  color: theme.palette.primary.main,
+  textDecoration: 'none',
+  display: 'flex',
+  alignItems: 'center',
+  gap: theme.spacing(1),
+  fontSize: '0.875rem',
+  '&:hover': {
+    textDecoration: 'underline',
+  },
+}));
+
+const formatDate = (dateString: string) => {
+  return format(new Date(dateString), 'MMM d, yyyy');
 };
 
-export default function DashboardPage() {
-  const { shop, loading: authLoading } = useAuth();
+const DashboardPage = () => {
   const navigate = useNavigate();
-  const [insights, setInsights] = useState<Insight | null>(null);
+  const { shop, loading: authLoading, logout } = useAuth();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const [insights, setInsights] = useState<DashboardInsight | null>(null);
   const [loading, setLoading] = useState(true);
-  const [revenueData, setRevenueData] = useState<RevenueData | null>(null);
-  const [revenueLoading, setRevenueLoading] = useState(true);
-  const [revenueError, setRevenueError] = useState<string | null>(null);
-  const [revenueTSData, setRevenueTSData] = useState<RevenueTSData | null>(null);
-  const [revenueTSLoading, setRevenueTSLoading] = useState(true);
-  const [revenueTSError, setRevenueTSError] = useState<string | null>(null);
-
-  // Onboarding/help banner
-  const [showHelp, setShowHelp] = useState(true);
-
-  // Product-level analytics
-  const [topProductsData, setTopProductsData] = useState<TopProductsData | null>(null);
-  const [topProductsLoading, setTopProductsLoading] = useState(true);
-  const [topProductsError, setTopProductsError] = useState<string | null>(null);
-
-  // Low inventory
-  const [lowInventoryData, setLowInventoryData] = useState<LowInventoryData | null>(null);
-  const [lowInventoryLoading, setLowInventoryLoading] = useState(true);
-  const [lowInventoryError, setLowInventoryError] = useState<string | null>(null);
-
-  // New products
-  const [newProductsData, setNewProductsData] = useState<NewProductsData | null>(null);
-  const [newProductsLoading, setNewProductsLoading] = useState(true);
-  const [newProductsError, setNewProductsError] = useState<string | null>(null);
-
-  // Abandoned carts
-  const [abandonedCartsData, setAbandonedCartsData] = useState<AbandonedCartsData | null>(null);
-  const [abandonedCartsLoading, setAbandonedCartsLoading] = useState(true);
-  const [abandonedCartsError, setAbandonedCartsError] = useState<string | null>(null);
-
-  // Cohort/funnel analysis (mock data for now)
-  const [funnelData] = useState([
-    { stage: 'Visited', count: 1000 },
-    { stage: 'Added to Cart', count: 300 },
-    { stage: 'Checkout Started', count: 120 },
-    { stage: 'Purchased', count: 80 },
-  ]);
-
-  // Walkthrough modal
-  const [showWalkthrough, setShowWalkthrough] = useState(() => {
-    return localStorage.getItem('storesight_walkthrough_complete') !== 'true';
-  });
-  const [walkStep, setWalkStep] = useState(0);
-  const walkthroughSteps = [
-    {
-      title: 'Welcome to StoreSight!',
-      desc: 'This quick tour will show you how to get the most out of your analytics dashboard.',
-    },
-    {
-      title: 'Revenue & Orders',
-      desc: 'See your total revenue and order count for the last 30 days, plus daily trends.',
-    },
-    {
-      title: 'Top Products & Inventory',
-      desc: 'Track your best sellers and spot low inventory before it becomes a problem.',
-    },
-    {
-      title: 'Competitor Price Watcher',
-      desc: 'Monitor competitor prices and get instant alerts for changes.',
-    },
-    {
-      title: 'Automated Alerts & Reports',
-      desc: 'Set up notifications and export reports to stay on top of your business.',
-    },
-    {
-      title: "You're all set!",
-      desc: 'Explore the dashboard and reach out via the help links if you need anything.',
-    },
-  ];
-  const completeWalkthrough = () => {
-    setShowWalkthrough(false);
-    localStorage.setItem('storesight_walkthrough_complete', 'true');
-  };
-
-  // Report schedule UI
-  const [reportSchedule, setReportSchedule] = useState('none');
-  const [reportScheduleLoading, setReportScheduleLoading] = useState(true);
-  const [reportScheduleStatus, setReportScheduleStatus] = useState<string | null>(null);
-
-  // Debug auth state
-  useEffect(() => {
-    console.log('Dashboard: Auth state changed', { shop, authLoading });
-  }, [shop, authLoading]);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!shop || authLoading) {
-      console.log('Dashboard: Skipping data fetch - no shop or auth loading', { shop, authLoading });
-      return;
-    }
+    const fetchData = async () => {
+      if (!shop) {
+        setError('No shop selected');
+        setLoading(false);
+        return;
+      }
 
-    console.log('Dashboard: Shop authenticated, fetching data');
-    async function fetchData() {
       try {
         setLoading(true);
-        const [insightsData] = await Promise.all([
-          getInsights(),
+        setError(null);
+
+        // Fetch orders with pagination (10 pages = 100 orders)
+        const orderPromises = Array.from({ length: 10 }, (_, i) => 
+          fetchWithAuth(`/api/analytics/orders/timeseries?page=${i + 1}&limit=10`)
+        );
+        const orderResponses = await Promise.all(orderPromises);
+        const orderData = await Promise.all(orderResponses.map(r => r.json()));
+        
+        // Combine orders from all pages and sort by date (newest first)
+        const allOrders = orderData
+          .flatMap(data => data.timeseries || [])
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+        // Get other data from the remaining responses
+        const [revenueResponse, productsResponse, lowInventoryResponse, newProductsResponse, insightsResponse] = 
+          await Promise.all([
+            fetchWithAuth('/api/analytics/revenue/timeseries'),
+            fetchWithAuth('/api/analytics/products'),
+            fetchWithAuth('/api/analytics/inventory/low'),
+            fetchWithAuth('/api/analytics/new_products'),
+            fetchWithAuth('/api/insights')
+          ]);
+
+        const [
+          revenueData,
+          productsData,
+          lowInventoryData,
+          newProductsData,
+          insightsData
+        ] = await Promise.all([
+          revenueResponse.json(),
+          productsResponse.json(),
+          lowInventoryResponse.json(),
+          newProductsResponse.json(),
+          insightsResponse.json()
         ]);
-        console.log('Dashboard: Got insights data:', insightsData);
-        setInsights(insightsData);
-      } catch (e: any) {
-        console.error('Dashboard: Error fetching insights:', e);
-        if (e.message.includes('Please log in')) {
-          navigate('/');
+
+        // Set insights with available data
+        setInsights({
+          totalRevenue: revenueData.totalRevenue || revenueData.revenue || 0,
+          newProducts: newProductsData.newProducts || 0,
+          abandonedCarts: insightsData.abandoned_cart_count || 0,
+          lowInventory: lowInventoryData.lowInventory?.length || 0,
+          topProducts: productsData.products || [],
+          orders: allOrders,
+          recentOrders: allOrders.slice(0, 5),
+          timeseries: revenueData.timeseries || [],
+          conversionRate: insightsData?.conversion_rate || 0,
+          conversionRateDelta: insightsData?.conversion_rate_delta || 0,
+          abandonedCartCount: insightsData.abandoned_cart_count || 0,
+        });
+
+        // Only show error if we have no data from any endpoint
+        const hasAnyData = allOrders.length > 0 || 
+          (productsData.products && productsData.products.length > 0) ||
+          (revenueData.timeseries && revenueData.timeseries.length > 0);
+
+        if (!hasAnyData) {
+          setError('No data available yet. Check back soon!');
+        }
+
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+        if (error instanceof Error) {
+          if (error.message.includes('Unauthorized')) {
+            setError('Please log in to view your dashboard');
+          } else {
+            setError('Failed to load dashboard data. Please try again later.');
+          }
         } else {
-          toast.error(e.message || 'Failed to load data');
+          setError('An unexpected error occurred');
         }
       } finally {
         setLoading(false);
       }
-    }
+    };
+
     fetchData();
-  }, [shop, authLoading, navigate]);
+  }, [shop]);
 
-  useEffect(() => {
-    if (!shop || authLoading) {
-      console.log('Dashboard: Skipping revenue fetch - no shop or auth loading');
-      return;
-    }
-
-    console.log('Dashboard: Fetching revenue data');
-    async function fetchRevenue() {
-      try {
-        setRevenueLoading(true);
-        setRevenueError(null);
-        const res = await fetchWithAuth('/api/analytics/revenue');
-        const data = await res.json();
-        if (!res.ok) {
-          throw new Error(data.error || 'Failed to fetch revenue');
-        }
-        console.log('Dashboard: Revenue data:', data);
-        setRevenueData(data);
-      } catch (e: any) {
-        console.error('Dashboard: Revenue fetch error:', e);
-        setRevenueError(e.message);
-        setRevenueData(null);
-      } finally {
-        setRevenueLoading(false);
-      }
-    }
-    fetchRevenue();
-  }, [shop, authLoading]);
-
-  useEffect(() => {
-    if (!shop || authLoading) {
-      console.log('Dashboard: Skipping revenue timeseries fetch - no shop or auth loading');
-      return;
-    }
-
-    console.log('Dashboard: Fetching revenue timeseries');
-    async function fetchRevenueTS() {
-      try {
-        setRevenueTSLoading(true);
-        setRevenueTSError(null);
-        const res = await fetchWithAuth('/api/analytics/revenue/timeseries');
-        const data = await res.json();
-        if (!res.ok) {
-          throw new Error(data.error || 'Failed to fetch revenue timeseries');
-        }
-        console.log('Dashboard: Revenue timeseries data:', data);
-        setRevenueTSData(data);
-      } catch (e: any) {
-        console.error('Dashboard: Revenue timeseries fetch error:', e);
-        setRevenueTSError(e.message);
-        setRevenueTSData(null);
-      } finally {
-        setRevenueTSLoading(false);
-      }
-    }
-    fetchRevenueTS();
-  }, [shop, authLoading]);
-
-  const [ordersTimeseries, setOrdersTimeseries] = useState<Order[]>([]);
-  const [ordersTSLoading, setOrdersTSLoading] = useState(true);
-  const [ordersTSError, setOrdersTSError] = useState<string | null>(null);
-  const [ordersPage, setOrdersPage] = useState(1);
-  const [hasMoreOrders, setHasMoreOrders] = useState(false);
-  const [ordersLoading, setOrdersLoading] = useState(false);
-
-  useEffect(() => {
-    if (!shop || authLoading) return;
-
-    async function fetchOrdersTS() {
-      try {
-        setOrdersTSLoading(true);
-        setOrdersTSError(null);
-        const res = await fetchWithAuth(`/api/analytics/orders/timeseries?page=${ordersPage}&limit=10`);
-        const data = await res.json();
-        if (!res.ok) {
-          throw new Error(data.error || 'Failed to fetch orders timeseries');
-        }
-        console.log('Dashboard: Orders timeseries data:', data);
-        setOrdersTimeseries(data.timeseries || []);
-        setHasMoreOrders(data.has_more);
-      } catch (e: any) {
-        console.error('Dashboard: Orders timeseries error:', e);
-        setOrdersTSError(e.message);
-        setOrdersTimeseries([]);
-      } finally {
-        setOrdersTSLoading(false);
-      }
-    }
-    fetchOrdersTS();
-  }, [shop, authLoading, ordersPage]);
-
-  const loadMoreOrders = () => {
-    setOrdersPage(prev => prev + 1);
-  };
-
-  useEffect(() => {
-    if (!shop || authLoading) return;
-
-    async function fetchTopProducts() {
-      try {
-        setTopProductsLoading(true);
-        setTopProductsError(null);
-        const res = await fetchWithAuth('/api/analytics/products');
-        const data = await res.json();
-        if (!res.ok) {
-          throw new Error(data.error || 'Failed to fetch top products');
-        }
-        console.log('Dashboard: Top products data:', data);
-        setTopProductsData(data);
-      } catch (e: any) {
-        console.error('Dashboard: Top products error:', e);
-        setTopProductsError(e.message);
-        setTopProductsData(null);
-      } finally {
-        setTopProductsLoading(false);
-      }
-    }
-    fetchTopProducts();
-  }, [shop, authLoading]);
-
-  useEffect(() => {
-    if (!shop || authLoading) return;
-
-    async function fetchLowInventory() {
-      try {
-        setLowInventoryLoading(true);
-        setLowInventoryError(null);
-        const res = await fetchWithAuth('/api/analytics/inventory/low');
-        const data = await res.json();
-        if (!res.ok) {
-          throw new Error(data.error || 'Failed to fetch low inventory');
-        }
-        console.log('Dashboard: Low inventory data:', data);
-        setLowInventoryData(data);
-      } catch (e: any) {
-        console.error('Dashboard: Low inventory error:', e);
-        setLowInventoryError(e.message);
-        setLowInventoryData(null);
-      } finally {
-        setLowInventoryLoading(false);
-      }
-    }
-    fetchLowInventory();
-  }, [shop, authLoading]);
-
-  useEffect(() => {
-    if (!shop || authLoading) return;
-
-    async function fetchNewProducts() {
-      try {
-        setNewProductsLoading(true);
-        setNewProductsError(null);
-        const res = await fetchWithAuth('/api/analytics/new_products');
-        const data = await res.json();
-        if (!res.ok) {
-          throw new Error(data.error || 'Failed to fetch new products');
-        }
-        console.log('Dashboard: New products data:', data);
-        setNewProductsData(data);
-      } catch (e: any) {
-        console.error('Dashboard: New products error:', e);
-        setNewProductsError(e.message);
-        setNewProductsData(null);
-      } finally {
-        setNewProductsLoading(false);
-      }
-    }
-    fetchNewProducts();
-  }, [shop, authLoading]);
-
-  useEffect(() => {
-    if (!shop || authLoading) return;
-
-    async function fetchAbandonedCarts() {
-      try {
-        setAbandonedCartsLoading(true);
-        setAbandonedCartsError(null);
-        const res = await fetchWithAuth('/api/analytics/abandoned_carts');
-        const data = await res.json();
-        if (!res.ok) {
-          throw new Error(data.error || 'Failed to fetch abandoned carts');
-        }
-        console.log('Dashboard: Abandoned carts data:', data);
-        setAbandonedCartsData(data);
-      } catch (e: any) {
-        console.error('Dashboard: Abandoned carts error:', e);
-        setAbandonedCartsError(e.message);
-        setAbandonedCartsData(null);
-      } finally {
-        setAbandonedCartsLoading(false);
-      }
-    }
-    fetchAbandonedCarts();
-  }, [shop, authLoading]);
-
-  useEffect(() => {
-    if (!shop || authLoading) {
-      console.log('Dashboard: Skipping report schedule fetch - no shop or auth loading');
-      return;
-    }
-
-    console.log('Dashboard: Fetching report schedule');
-    async function fetchSchedule() {
-      try {
-        setReportScheduleLoading(true);
-        const res = await fetchWithAuth('/api/analytics/report/schedule');
-        const data = await res.json();
-        if (!res.ok) {
-          throw new Error(data.error || 'Failed to fetch report schedule');
-        }
-        console.log('Dashboard: Report schedule data:', data);
-        setReportSchedule(data.schedule || 'none');
-      } catch (e: any) {
-        console.error('Dashboard: Report schedule error:', e);
-        setReportSchedule('none');
-      } finally {
-        setReportScheduleLoading(false);
-      }
-    }
-    fetchSchedule();
-  }, [shop, authLoading]);
-
-  const handleScheduleChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const value = e.target.value;
-    setReportSchedule(value);
-    setReportScheduleStatus(null);
+  const handleLogout = async () => {
     try {
-      const res = await fetchWithAuth('/api/analytics/report/schedule', {
-        method: 'POST',
-        body: JSON.stringify({ schedule: value }),
-      });
-      if (!res.ok) throw new Error('Failed to save schedule');
-      setReportScheduleStatus('Saved!');
-    } catch {
-      setReportScheduleStatus('Failed to save');
-    }
-    setTimeout(() => setReportScheduleStatus(null), 2000);
-  };
-
-  const [error, setError] = useState<string | null>(null);
-
-  const handleError = (error: Error) => {
-    setError(error.message);
-    setTimeout(() => setError(null), 5000);
-  };
-
-  const formatCurrency = (value: number) => {
-    if (isNaN(value) || value === null || value === undefined) {
-      return '$0.00';
-    }
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(value);
-  };
-
-  const formatDate = (dateString: string) => {
-    return format(new Date(dateString), 'MMM d, yyyy');
-  };
-
-  const getShopifyProductUrl = (productId: string) => {
-    return `https://${shop}/admin/products/${productId}`;
-  };
-
-  const getShopifyOrderUrl = (orderId: string) => {
-    return `https://${shop}/admin/orders/${orderId}`;
-  };
-
-  const getShopifyCartUrl = (cartId: string) => {
-    return `https://${shop}/admin/checkouts/${cartId}`;
-  };
-
-  const [chartType, setChartType] = useState<'line' | 'bar' | 'pie'>('line');
-  const [chartMenuAnchor, setChartMenuAnchor] = useState<null | HTMLElement>(null);
-  const [quickActionsOpen, setQuickActionsOpen] = useState(false);
-
-  const handleChartMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
-    setChartMenuAnchor(event.currentTarget);
-  };
-
-  const handleChartMenuClose = () => {
-    setChartMenuAnchor(null);
-  };
-
-  const handleChartTypeChange = (type: 'line' | 'bar' | 'pie') => {
-    setChartType(type);
-    handleChartMenuClose();
-  };
-
-  const renderChart = () => {
-    if (!revenueTSData?.timeseries) return <Box sx={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <Typography>No data available</Typography>
-    </Box>;
-
-    switch (chartType) {
-      case 'line':
-        return (
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={revenueTSData.timeseries}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="created_at" tickFormatter={formatDate} />
-              <YAxis tickFormatter={(value) => formatCurrency(value)} />
-              <RechartsTooltip
-                formatter={(value: number) => formatCurrency(value)}
-                labelFormatter={formatDate}
-              />
-              <Line
-                type="monotone"
-                dataKey="total_price"
-                stroke="#8884d8"
-                strokeWidth={2}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        );
-      case 'bar':
-        return (
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={revenueTSData.timeseries}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="created_at" tickFormatter={formatDate} />
-              <YAxis tickFormatter={(value) => formatCurrency(value)} />
-              <RechartsTooltip
-                formatter={(value: number) => formatCurrency(value)}
-                labelFormatter={formatDate}
-              />
-              <Bar dataKey="total_price" fill="#8884d8" />
-            </BarChart>
-          </ResponsiveContainer>
-        );
-      case 'pie':
-        return (
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={revenueTSData.timeseries}
-                dataKey="total_price"
-                nameKey="created_at"
-                cx="50%"
-                cy="50%"
-                outerRadius={80}
-                label={({ name, value }) => `${formatDate(name)}: ${formatCurrency(value)}`}
-              >
-                {revenueTSData.timeseries.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <RechartsTooltip
-                formatter={(value: number) => formatCurrency(value)}
-                labelFormatter={formatDate}
-              />
-            </PieChart>
-          </ResponsiveContainer>
-        );
-      default:
-        return null;
+      await logout();
+      navigate('/');
+    } catch (err) {
+      console.error('Logout failed:', err);
     }
   };
 
-  // Quick actions
-  const quickActions = [
-    {
-      icon: <Add />, name: 'Create Product', onClick: () => window.open(`https://${shop}/admin/products/new`, '_blank')
-    },
-    {
-      icon: <Storefront />, name: 'View All Products', onClick: () => window.open(`https://${shop}/admin/products`, '_blank')
-    },
-    {
-      icon: <ListAlt />, name: 'View Orders', onClick: () => window.open(`https://${shop}/admin/orders`, '_blank')
-    },
-    {
-      icon: <Person />, name: 'Profile', onClick: () => window.open(`https://${shop}/admin/settings/account`, '_blank')
-    },
-  ];
-
-  // Recent orders section
-  const renderRecentOrders = () => (
-    <StyledCard>
-      <CardTitle variant="h6">Recent Orders</CardTitle>
-      {ordersTimeseries && ordersTimeseries.length > 0 ? (
-        <>
-          <List>
-            {ordersTimeseries.map((order: Order) => (
-              <ListItem 
-                key={order.id}
-                sx={{
-                  borderBottom: '1px solid',
-                  borderColor: 'divider',
-                  '&:last-child': {
-                    borderBottom: 'none'
-                  }
-                }}
-                secondaryAction={
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Chip 
-                      label={order.financial_status || 'pending'} 
-                      color={order.financial_status === 'paid' ? 'success' : 'warning'}
-                      size="small"
-                    />
-                    <MuiLink
-                      href={`https://${shop}/admin/orders/${order.id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      underline="hover"
-                    >
-                      <OpenInNew fontSize="small" />
-                    </MuiLink>
-                  </Box>
-                }
-              >
-                <ListItemText
-                  primary={
-                    <Typography variant="subtitle1" fontWeight="medium">
-                      #{order.name}
-                      {order.customer && (
-                        <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 1 }}>
-                          • {order.customer.first_name} {order.customer.last_name}
-                        </Typography>
-                      )}
-                    </Typography>
-                  }
-                  secondary={
-                    <Typography component="span" variant="body2" color="text.secondary">
-                      <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 0.5 }}>
-                        <span>{formatDate(order.created_at)}</span>
-                        <Typography component="span" color="primary" fontWeight="medium">
-                          {formatCurrency(Number(order.total_price) || 0)}
-                        </Typography>
-                        {order.fulfillment_status && (
-                          <Chip 
-                            label={order.fulfillment_status} 
-                            size="small"
-                            variant="outlined"
-                          />
-                        )}
-                      </Box>
-                    </Typography>
-                  }
-                />
-              </ListItem>
-            ))}
-          </List>
-          {hasMoreOrders && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2, mb: 2 }}>
-              <Button
-                variant="outlined"
-                onClick={loadMoreOrders}
-                disabled={ordersLoading}
-                startIcon={ordersLoading ? <CircularProgress size={20} /> : <Add />}
-              >
-                Load More Orders
-              </Button>
-            </Box>
-          )}
-        </>
-      ) : (
-        <Typography color="text.secondary" sx={{ p: 2 }}>No recent orders found.</Typography>
-      )}
-    </StyledCard>
-  );
-
-  if (authLoading || loading) {
+  if (loading) {
     return (
-      <LoadingContainer>
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        minHeight: '60vh' 
+      }}>
         <CircularProgress />
-      </LoadingContainer>
+      </Box>
     );
   }
 
-  if (!shop) {
-    return null; // Will be redirected by the useEffect
+  if (error) {
+    return (
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        minHeight: '60vh',
+        flexDirection: 'column',
+        gap: 2
+      }}>
+        <Typography variant="h6" color="text.secondary">
+          {error}
+        </Typography>
+        {error === 'No data available yet. Check back soon!' && (
+          <Typography variant="body2" color="text.secondary" component="div">
+            Your dashboard will populate with data once you start making sales
+          </Typography>
+        )}
+      </Box>
+    );
   }
 
   return (
     <DashboardContainer>
-      <AppBar position="static" color="default" elevation={1} sx={{ mb: 4 }}>
-        <Toolbar>
-          <Box display="flex" alignItems="center" flexGrow={1}>
-            <img src="/logo.svg" alt="StoreSight" style={{ height: 32, marginRight: 12 }} />
-            <Typography variant="h6" color="primary" fontWeight={700}>Dashboard</Typography>
-          </Box>
-          <Button
-            color="primary"
-            variant="outlined"
-            startIcon={<OpenInNew />}
-            href={`https://${shop}/admin`}
-            target="_blank"
-            rel="noopener noreferrer"
-            sx={{ mr: 2 }}
-          >
-            Shopify Admin
-          </Button>
-          <IconButton onClick={() => window.location.reload()}><Refresh /></IconButton>
-          <SpeedDial
-            ariaLabel="Quick Actions"
-            icon={<SpeedDialIcon />}
-            direction="down"
-            sx={{ ml: 2 }}
-          >
-            {quickActions.map((action) => (
-              <SpeedDialAction
-                key={action.name}
-                icon={action.icon}
-                tooltipTitle={action.name}
-                onClick={action.onClick}
-              />
-            ))}
-          </SpeedDial>
-        </Toolbar>
-      </AppBar>
-
-      <Snackbar
-        open={!!error}
-        autoHideDuration={5000}
-        onClose={() => setError(null)}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      <Box 
+        sx={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          gap: { xs: 2, md: 3 },
+          width: '100%',
+          maxWidth: '1400px',
+          margin: '0 auto',
+          px: { xs: 2, md: 3 },
+          pt: 3
+        }}
       >
-        <Alert severity="error" onClose={() => setError(null)}>
-          {error}
-        </Alert>
-      </Snackbar>
+        {error && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
 
-      <Grid container spacing={3}>
-        <GridItem xs={12} md={6} lg={3}>
-          <StyledCard>
-            <CardTitle variant="h6">Total Revenue</CardTitle>
-            <MetricValue>
-              {formatCurrency(revenueData?.revenue || 0)}
-            </MetricValue>
-          </StyledCard>
-        </GridItem>
+        {/* Metrics Overview */}
+        <Box 
+          sx={{ 
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr 1fr' },
+            gap: 2
+          }}
+        >
+          <MetricCard
+            key="conversion-rate"
+            label="Conversion Rate"
+            value={`${insights?.conversionRate?.toFixed(2) || '0'}%`}
+            delta={insights?.conversionRateDelta?.toString() || '0'}
+            deltaType={insights?.conversionRateDelta && insights.conversionRateDelta > 0 ? 'up' : 'down'}
+          />
+          <MetricCard
+            key="abandoned-carts"
+            label="Abandoned Carts"
+            value={insights?.abandonedCarts?.toString() || '0'}
+            delta="0"
+            deltaType="neutral"
+          />
+          <MetricCard
+            key="low-inventory"
+            label="Low Inventory"
+            value={typeof insights?.lowInventory === 'number' ? insights.lowInventory.toString() : '0'}
+            delta="0"
+            deltaType="neutral"
+          />
+          <MetricCard
+            key="new-products"
+            label="New Products"
+            value={typeof insights?.newProducts === 'number' ? insights.newProducts.toString() : '0'}
+            delta="0"
+            deltaType="neutral"
+          />
+        </Box>
 
-        <GridItem xs={12} md={6} lg={3}>
-          <StyledCard>
-            <CardTitle variant="h6">Abandoned Carts</CardTitle>
-            {abandonedCartsData ? (
-              <>
-                <MetricValue color="error">
-                  {abandonedCartsData.abandonedCarts}
-                </MetricValue>
-                <MetricDelta>
-                  <TrendingDown color="error" />
-                  <Typography color="error.main" variant="body2">
-                    {abandonedCartsData.abandonedCarts > 5 ? 'High' : 'Normal'} abandonment rate
-                  </Typography>
-                </MetricDelta>
-              </>
+        {/* Products and Orders */}
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            gap: { xs: 2, md: 3 }, 
+            flexDirection: { xs: 'column', md: 'row' },
+            width: '100%'
+          }}
+        >
+          <Box 
+            sx={{ 
+              flex: 1,
+              minWidth: 0,
+              display: 'flex',
+              flexDirection: 'column'
+            }}
+          >
+            <StyledCard sx={{ height: '100%' }}>
+              <CardContent>
+                <SectionHeader>
+                  <SectionTitle>
+                    <Inventory2Icon color="primary" />
+                    Top Products
+                  </SectionTitle>
+                </SectionHeader>
+                {insights?.topProducts?.length ? (
+                  <ProductList>
+                    {insights.topProducts.map((product) => (
+                      <ProductItem key={`product-${product.id}`}>
+                        <ProductInfo>
+                          <ProductName>
+                            <ProductLink 
+                              href={`https://${shop}/admin/products/${product.id}`} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                            >
+                              {product.title}
+                              <OpenInNew fontSize="small" />
+                            </ProductLink>
+                          </ProductName>
+                          <ProductStats>
+                            {product.quantity} units sold • ${product.total_price}
+                          </ProductStats>
+                        </ProductInfo>
+                      </ProductItem>
+                    ))}
+                  </ProductList>
+                ) : (
+                  <Box sx={{ p: 3, textAlign: 'center' }}>
+                    <Typography variant="h6" color="text.secondary" gutterBottom>
+                      No products data available yet
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" component="div">
+                      Product performance data will appear here once you start making sales
+                    </Typography>
+                  </Box>
+                )}
+              </CardContent>
+            </StyledCard>
+          </Box>
+
+          <Box 
+            sx={{ 
+              flex: 1,
+              minWidth: 0,
+              display: 'flex',
+              flexDirection: 'column'
+            }}
+          >
+            <StyledCard sx={{ height: '100%' }}>
+              <CardContent>
+                <SectionHeader>
+                  <SectionTitle>
+                    <ListAlt color="primary" />
+                    Recent Orders
+                  </SectionTitle>
+                </SectionHeader>
+                {insights?.orders?.length ? (
+                  <OrderList>
+                    {insights.orders.map((order, index) => (
+                      <OrderItem key={`order-${order.id || `temp-${index}`}`}>
+                        <OrderInfo>
+                          <OrderTitle>
+                            {order.id ? (
+                              <OrderLink 
+                                href={`https://${shop}/admin/orders/${order.id}`} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                              >
+                                Order #{order.id}
+                                <OpenInNew fontSize="small" />
+                              </OrderLink>
+                            ) : (
+                              <Typography variant="body1" color="text.secondary" component="div">
+                                Order #{`Temporary-${index + 1}`}
+                              </Typography>
+                            )}
+                            {order.customer && (
+                              <Typography 
+                                component="span" 
+                                variant="body2" 
+                                color="text.secondary" 
+                                sx={{ 
+                                  ml: 1,
+                                  display: { xs: 'none', sm: 'inline' }
+                                }}
+                              >
+                                • {order.customer.first_name} {order.customer.last_name}
+                              </Typography>
+                            )}
+                          </OrderTitle>
+                          <OrderDetails>
+                            {formatDate(order.created_at)} • ${order.total_price}
+                          </OrderDetails>
+                        </OrderInfo>
+                      </OrderItem>
+                    ))}
+                  </OrderList>
+                ) : (
+                  <Box sx={{ p: 3, textAlign: 'center' }}>
+                    <Typography variant="h6" color="text.secondary" gutterBottom>
+                      No orders data available yet
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" component="div">
+                      Order data will appear here once you start receiving orders
+                    </Typography>
+                  </Box>
+                )}
+              </CardContent>
+            </StyledCard>
+          </Box>
+        </Box>
+
+        {/* Revenue Graph */}
+        <Box sx={{ width: '100%' }}>
+          <GraphContainer>
+            <GraphHeader>
+              <GraphTitle>
+                <TrendingUp color="primary" />
+                Revenue Overview
+              </GraphTitle>
+              <GraphLink 
+                href={`https://${shop}/admin/analytics`} 
+                target="_blank" 
+                rel="noopener noreferrer"
+              >
+                View in Shopify Analytics
+                <OpenInNew fontSize="small" />
+              </GraphLink>
+            </GraphHeader>
+            {insights?.timeseries?.length ? (
+              <ResponsiveContainer width="100%" height={400}>
+                <LineChart data={insights.timeseries}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(0, 0, 0, 0.05)" />
+                  <XAxis 
+                    dataKey="created_at" 
+                    stroke="rgba(0, 0, 0, 0.5)"
+                    tick={{ fill: 'rgba(0, 0, 0, 0.7)' }}
+                  />
+                  <YAxis 
+                    stroke="rgba(0, 0, 0, 0.5)"
+                    tick={{ fill: 'rgba(0, 0, 0, 0.7)' }}
+                    tickFormatter={(value: number) => `$${value}`}
+                  />
+                  <Legend />
+                  <Line 
+                    type="monotone" 
+                    dataKey="total_price" 
+                    stroke="#2563eb" 
+                    strokeWidth={2}
+                    dot={{ fill: '#2563eb', strokeWidth: 2 }}
+                    activeDot={{ r: 6, fill: '#2563eb' }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
             ) : (
-              <ErrorContainer>Failed to load abandoned carts data</ErrorContainer>
-            )}
-          </StyledCard>
-        </GridItem>
-
-        <GridItem xs={12} md={6} lg={3}>
-          <StyledCard>
-            <CardTitle variant="h6">Low Inventory</CardTitle>
-            {lowInventoryData ? (
-              <>
-                <MetricValue color="warning.main">
-                  {lowInventoryData.lowInventory.length}
-                </MetricValue>
-                <MetricDelta>
-                  <Inventory color="warning" />
-                  <Typography color="warning.main" variant="body2">
-                    Products need attention
-                  </Typography>
-                </MetricDelta>
-              </>
-            ) : (
-              <ErrorContainer>Failed to load inventory data</ErrorContainer>
-            )}
-          </StyledCard>
-        </GridItem>
-
-        <GridItem xs={12} md={6} lg={3}>
-          <StyledCard>
-            <CardTitle variant="h6">New Products</CardTitle>
-            {newProductsData ? (
-              <>
-                <MetricValue color="success.main">
-                  {newProductsData.newProducts}
-                </MetricValue>
-                <MetricDelta>
-                  <AddBox color="success" />
-                  <Typography color="success.main" variant="body2">
-                    Added this month
-                  </Typography>
-                </MetricDelta>
-              </>
-            ) : (
-              <ErrorContainer>Failed to load new products data</ErrorContainer>
-            )}
-          </StyledCard>
-        </GridItem>
-
-        <GridItem xs={12}>
-          <StyledCard>
-            <CardTitle variant="h6">Revenue Trend</CardTitle>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, px: 2 }}>
-              <Box>
-                <Button
-                  variant={chartType === 'line' ? 'contained' : 'outlined'}
-                  onClick={() => handleChartTypeChange('line')}
-                  sx={{ mr: 1 }}
-                >
-                  Line
-                </Button>
-                <Button
-                  variant={chartType === 'bar' ? 'contained' : 'outlined'}
-                  onClick={() => handleChartTypeChange('bar')}
-                  sx={{ mr: 1 }}
-                >
-                  Bar
-                </Button>
-                <Button
-                  variant={chartType === 'pie' ? 'contained' : 'outlined'}
-                  onClick={() => handleChartTypeChange('pie')}
-                >
-                  Pie
-                </Button>
+              <Box sx={{ 
+                height: 400, 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                flexDirection: 'column',
+                gap: 2
+              }}>
+                <Typography variant="h6" color="text.secondary">
+                  No revenue data available yet
+                </Typography>
+                <Typography variant="body2" color="text.secondary" component="div">
+                  Revenue data will appear here once you start making sales
+                </Typography>
               </Box>
-            </Box>
-            <ChartContainer>
-              {renderChart()}
-            </ChartContainer>
-          </StyledCard>
-        </GridItem>
-
-        <GridItem xs={12}>
-          <StyledCard>
-            <CardTitle variant="h6">Top Products</CardTitle>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, px: 2 }}>
-              <Chip label="Last 30 Days" size="small" />
-            </Box>
-            {topProductsData ? (
-              <List>
-                {topProductsData.products.map((product: Product) => (
-                  <ListItem
-                    key={product.id}
-                    secondaryAction={
-                      <MuiLink
-                        href={getShopifyProductUrl(product.id)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        underline="hover"
-                        component="a"
-                      >
-                        View in Shopify
-                        <OpenInNew fontSize="small" />
-                      </MuiLink>
-                    }
-                  >
-                    <ListItemText
-                      primary={product.title}
-                      secondary={
-                        <Typography component="span" variant="body2" color="text.secondary">
-                          <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                            <span>{product.quantity || 0} units sold</span>
-                            <Typography component="span" color="primary" fontWeight="medium">
-                              {formatCurrency(Number(product.total_price))}
-                            </Typography>
-                          </Box>
-                        </Typography>
-                      }
-                    />
-                  </ListItem>
-                ))}
-              </List>
-            ) : (
-              <ErrorContainer>Failed to load top products data</ErrorContainer>
             )}
-          </StyledCard>
-        </GridItem>
+          </GraphContainer>
+        </Box>
 
-        <GridItem xs={12} md={6}>
-          <StyledCard>
-            <CardTitle variant="h6">Low Inventory Items</CardTitle>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, px: 2 }}>
-              <Chip label="Need Attention" size="small" color="warning" />
-            </Box>
-            {lowInventoryData ? (
-              <List>
-                {lowInventoryData.lowInventory.map((item: InventoryItem) => (
-                  <ListItem
-                    key={item.id}
-                    secondaryAction={
-                      <MuiLink
-                        href={getShopifyProductUrl(item.id)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        underline="hover"
-                        component="a"
-                      >
-                        Restock
-                        <OpenInNew fontSize="small" />
-                      </MuiLink>
-                    }
-                  >
-                    <ListItemText
-                      primary={item.title}
-                      secondary={`Only ${item.quantity} units left`}
-                    />
-                  </ListItem>
-                ))}
-              </List>
-            ) : (
-              <ErrorContainer>Failed to load low inventory data</ErrorContainer>
-            )}
-          </StyledCard>
-        </GridItem>
-
-        <GridItem xs={12} md={6}>
-          <StyledCard>
-            <CardTitle variant="h6">Cohort & Funnel Analysis</CardTitle>
-            <div className="flex flex-col sm:flex-row gap-4 items-end">
-              {funnelData.map((stage, i) => (
-                <div key={stage.stage} className="flex-1 flex flex-col items-center">
-                  <div className="bg-blue-100 text-blue-900 rounded-full w-20 h-20 flex items-center justify-center text-2xl font-bold mb-2">
-                    {stage.count}
-                  </div>
-                  <div className="text-sm font-medium text-center">{stage.stage}</div>
-                  {i < funnelData.length - 1 && <div className="h-8 w-1 bg-blue-200 mx-auto my-2 rounded" />}
-                </div>
-              ))}
-            </div>
-          </StyledCard>
-        </GridItem>
-
-        <GridItem xs={12} md={6}>
-          <StyledCard>
-            <CardTitle variant="h6">Export & Reporting</CardTitle>
-            <div className="flex flex-col sm:flex-row gap-4 mb-4">
-              <button className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700" onClick={() => window.open('/api/analytics/export/csv', '_blank')}>Download CSV</button>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-4 items-center">
-              <label className="font-medium">Scheduled Email Report:</label>
-              {reportScheduleLoading ? <span>Loading...</span> : (
-                <select value={reportSchedule} onChange={handleScheduleChange} className="border rounded px-2 py-1">
-                  <option value="none">None</option>
-                  <option value="daily">Daily</option>
-                  <option value="weekly">Weekly</option>
-                </select>
-              )}
-              {reportScheduleStatus && <span className="ml-2 text-green-600">{reportScheduleStatus}</span>}
-            </div>
-          </StyledCard>
-        </GridItem>
-
-        <GridItem xs={12}>
-          <StyledCard>
-            <CardTitle variant="h6">Event-driven Automations</CardTitle>
-            <ul className="list-disc pl-6 text-gray-700">
-              <li>Competitor price change &rarr; Email/Slack/SMS alert</li>
-              <li>Low inventory &rarr; Email/Slack/SMS alert</li>
-              <li>Sales milestone &rarr; Email/Slack/SMS alert</li>
-              <li>New product added &rarr; Email/Slack/SMS alert</li>
-            </ul>
-            <div className="mt-2 text-xs text-gray-500">Automations are managed in your notification settings.</div>
-          </StyledCard>
-        </GridItem>
-
-        <GridItem xs={12}>
-          <StyledCard>
-            <CardTitle variant="h6">Walkthrough</CardTitle>
-            {showWalkthrough && (
-              <Dialog open={showWalkthrough} onClose={completeWalkthrough} className="fixed z-50 inset-0 flex items-center justify-center">
-                <div className="fixed inset-0 bg-black bg-opacity-30" />
-                <div className="relative bg-white rounded-lg shadow-xl p-8 max-w-md mx-auto z-10 animate-fadeIn">
-                  <Dialog.Title className="text-xl font-bold mb-2">{walkthroughSteps[walkStep].title}</Dialog.Title>
-                  <Dialog.Description className="mb-4 text-gray-700">{walkthroughSteps[walkStep].desc}</Dialog.Description>
-                  <div className="flex justify-between items-center mt-4">
-                    <button className="text-blue-600 underline" onClick={completeWalkthrough}>Skip</button>
-                    <div className="flex gap-2">
-                      {walkStep > 0 && <button className="px-3 py-1 rounded bg-gray-100" onClick={() => setWalkStep(walkStep - 1)}>Back</button>}
-                      {walkStep < walkthroughSteps.length - 1 ? (
-                        <button className="px-3 py-1 rounded bg-blue-600 text-white" onClick={() => setWalkStep(walkStep + 1)}>Next</button>
-                      ) : (
-                        <button className="px-3 py-1 rounded bg-green-600 text-white" onClick={completeWalkthrough}>Finish</button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </Dialog>
-            )}
-          </StyledCard>
-        </GridItem>
-
-        <GridItem xs={12}>
-          {renderRecentOrders()}
-        </GridItem>
-      </Grid>
+        <Typography variant="body2" color="text.secondary">
+          {insights ? 'Dashboard updated with latest data' : 'Loading insights...'}
+        </Typography>
+      </Box>
     </DashboardContainer>
   );
-}
+};
+
+export default DashboardPage;
