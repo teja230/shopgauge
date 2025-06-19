@@ -51,6 +51,9 @@ public class ShopifyAuthController {
   @Value("${shopify.redirect_uri}")
   private String redirectUri;
 
+  @Value("${frontend.url}")
+  private String frontendUrl;
+
   @Autowired
   public ShopifyAuthController(
       WebClient.Builder webClientBuilder,
@@ -156,7 +159,7 @@ public class ShopifyAuthController {
       response.addCookie(shopCookie);
 
       logger.info("Setting cookie for shop: {}", shop);
-      response.sendRedirect("http://localhost:5173/dashboard");
+      response.sendRedirect(frontendUrl + "/dashboard");
     } catch (Exception e) {
       logger.error("Error in callback for shop: {}", shop, e);
       response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Error in callback");
@@ -299,6 +302,48 @@ public class ShopifyAuthController {
     logger.info("Auth: Found token for shop: {}", shop);
     response.put("shop", shop);
     return Mono.just(ResponseEntity.ok(response));
+  }
+
+  @GetMapping("/reauth")
+  public ResponseEntity<?> reauth(
+      @CookieValue(value = "shop", required = false) String shop,
+      HttpServletRequest request,
+      HttpServletResponse response) {
+    logger.info("Re-authentication requested for shop: {}", shop);
+    logger.info("Request cookies: {}", Arrays.toString(request.getCookies()));
+    logger.info("Request headers: {}", request.getHeaderNames());
+
+    try {
+      if (shop == null || shop.trim().isEmpty()) {
+        logger.warn("No shop cookie found in re-auth request");
+        return ResponseEntity.badRequest()
+            .body(Map.of("error", "Shop parameter is required - please log in first"));
+      }
+
+      // Validate shop domain format
+      if (!shop.matches("^[a-zA-Z0-9][a-zA-Z0-9-]*\\.myshopify\\.com$")) {
+        return ResponseEntity.badRequest().body(Map.of("error", "Invalid shop domain format"));
+      }
+
+      String state = generateState();
+      // Invalidate existing token so that new one is issued with updated scopes
+      shopService.removeToken(shop);
+      String url =
+          String.format(
+              "https://%s/admin/oauth/authorize?client_id=%s&scope=%s&redirect_uri=%s&state=%s",
+              shop,
+              apiKey,
+              URLEncoder.encode(scopes, StandardCharsets.UTF_8),
+              URLEncoder.encode(redirectUri, StandardCharsets.UTF_8),
+              state);
+      logger.info("Re-authentication: Redirecting to Shopify OAuth URL: {}", url);
+      response.sendRedirect(url);
+      return null; // Response is already sent
+    } catch (Exception e) {
+      logger.error("Error in re-authentication endpoint for shop: {}", shop, e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to process re-authentication request"));
+    }
   }
 
   @PostMapping("/profile/disconnect")

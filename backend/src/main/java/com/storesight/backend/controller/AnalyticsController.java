@@ -127,17 +127,40 @@ public class AnalyticsController {
                               (List<Map<String, Object>>) data.get("orders");
                           List<Map<String, Object>> timeseries =
                               orders.stream()
+                                  .filter(
+                                      order -> {
+                                        // Show all orders, but prioritize fulfilled ones
+                                        Object fulfillmentStatus = order.get("fulfillment_status");
+                                        return fulfillmentStatus != null || order.get("id") != null;
+                                      })
                                   .map(
-                                      order ->
-                                          Map.of(
-                                              "id", order.get("id"),
-                                              "name", order.get("name"),
-                                              "created_at", order.get("created_at"),
-                                              "total_price", order.get("total_price"),
-                                              "customer", order.get("customer"),
-                                              "financial_status", order.get("financial_status"),
-                                              "fulfillment_status", order.get("fulfillment_status"),
-                                              "order_status_url", order.get("order_status_url")))
+                                      order -> {
+                                        Map<String, Object> orderData = new HashMap<>();
+                                        orderData.put("id", order.get("id"));
+                                        orderData.put("name", order.get("name"));
+                                        orderData.put("created_at", order.get("created_at"));
+                                        orderData.put("total_price", order.get("total_price"));
+                                        orderData.put("customer", order.get("customer"));
+                                        orderData.put(
+                                            "financial_status", order.get("financial_status"));
+                                        orderData.put(
+                                            "fulfillment_status", order.get("fulfillment_status"));
+                                        orderData.put(
+                                            "order_status_url", order.get("order_status_url"));
+
+                                        // Add Shopify admin URL for the order
+                                        Object orderId = order.get("id");
+                                        if (orderId != null) {
+                                          orderData.put(
+                                              "shopify_order_url",
+                                              "https://"
+                                                  + shop
+                                                  + "/admin/orders/"
+                                                  + orderId.toString());
+                                        }
+
+                                        return orderData;
+                                      })
                                   .collect(Collectors.toList());
 
                           Map<String, Object> result =
@@ -163,7 +186,18 @@ public class AnalyticsController {
             })
         .onErrorResume(
             e -> {
-              logger.error("Failed to fetch orders timeseries", e);
+              logger.error("Failed to fetch orders timeseries: {}", e.getMessage());
+              // Check if it's a 403 error (permission issue)
+              if (e.getMessage().contains("403")) {
+                logger.warn(
+                    "Orders API access denied - shop may need to re-authenticate with read_orders scope");
+                Map<String, Object> errorResponse = new HashMap<>(defaultOrders);
+                errorResponse.put(
+                    "error",
+                    "Orders access requires re-authentication. Please reconnect your store.");
+                errorResponse.put("error_code", "INSUFFICIENT_PERMISSIONS");
+                return Mono.just(ResponseEntity.ok().body(errorResponse));
+              }
               return Mono.<ResponseEntity<Map<String, Object>>>just(
                   ResponseEntity.ok().body(defaultOrders));
             });
@@ -284,6 +318,7 @@ public class AnalyticsController {
               }
               Map<String, Object> response = new HashMap<>();
               response.put("lowInventory", lowStock);
+              response.put("lowInventoryCount", lowStock.size());
               response.put(
                   "shopify_inventory_url",
                   "https://" + shop + "/admin/products?inventory_status=low");
@@ -291,7 +326,21 @@ public class AnalyticsController {
               return ResponseEntity.ok(response);
             })
         .onErrorResume(
-            e -> handleError(e, "Failed to fetch low inventory", Map.of("products", List.of())));
+            e -> {
+              logger.error("Failed to fetch low inventory: {}", e.getMessage());
+              Map<String, Object> errorResponse = new HashMap<>();
+              errorResponse.put("lowInventory", List.of());
+              errorResponse.put("lowInventoryCount", 0);
+              if (e.getMessage().contains("403")) {
+                errorResponse.put(
+                    "error",
+                    "Inventory access requires re-authentication. Please reconnect your store.");
+                errorResponse.put("error_code", "INSUFFICIENT_PERMISSIONS");
+              } else {
+                errorResponse.put("error", "Failed to fetch low inventory");
+              }
+              return Mono.just(ResponseEntity.ok().body(errorResponse));
+            });
   }
 
   @GetMapping("/new_products")
@@ -355,7 +404,21 @@ public class AnalyticsController {
               return ResponseEntity.ok(response);
             })
         .onErrorResume(
-            e -> handleError(e, "Failed to fetch new products", Map.of("products", List.of())));
+            e -> {
+              logger.error("Failed to fetch new products: {}", e.getMessage());
+              Map<String, Object> errorResponse = new HashMap<>();
+              errorResponse.put("newProducts", 0);
+              errorResponse.put("products", List.of());
+              if (e.getMessage().contains("403")) {
+                errorResponse.put(
+                    "error",
+                    "Products access requires re-authentication. Please reconnect your store.");
+                errorResponse.put("error_code", "INSUFFICIENT_PERMISSIONS");
+              } else {
+                errorResponse.put("error", "Failed to fetch new products");
+              }
+              return Mono.just(ResponseEntity.ok().body(errorResponse));
+            });
   }
 
   @GetMapping("/abandoned_carts")
@@ -534,12 +597,100 @@ public class AnalyticsController {
         .onErrorResume(
             e -> {
               logger.error("Error fetching revenue", e);
+              // Check if it's a 403 error (permission issue)
+              if (e.getMessage().contains("403")) {
+                logger.warn(
+                    "Revenue API access denied - shop may need to re-authenticate with read_orders scope");
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("revenue", 0.0);
+                errorResponse.put(
+                    "error",
+                    "Orders access requires re-authentication. Please reconnect your store.");
+                errorResponse.put("error_code", "INSUFFICIENT_PERMISSIONS");
+                return Mono.just(ResponseEntity.ok().body(errorResponse));
+              }
               Map<String, Object> response = new HashMap<>();
               response.put("error", "Failed to fetch revenue");
               response.put("revenue", 0.0);
-              return Mono.just(
-                  ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response));
+              return Mono.just(ResponseEntity.ok().body(response));
             });
+  }
+
+  @GetMapping("/permissions/check")
+  public Mono<ResponseEntity<Map<String, Object>>> checkPermissions(
+      @CookieValue(value = "shop", required = false) String shop) {
+    if (shop == null) {
+      return Mono.just(
+          ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+              .body(Map.of("error", "Not authenticated")));
+    }
+
+    String token = shopService.getTokenForShop(shop);
+    if (token == null) {
+      Map<String, Object> response = new HashMap<>();
+      response.put("error", "No token for shop");
+      response.put("authenticated", false);
+      response.put("reauth_url", "/api/auth/shopify/reauth");
+      return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response));
+    }
+
+    // Test different endpoints to check permissions
+    Map<String, Object> permissions = new HashMap<>();
+    permissions.put("shop", shop);
+    permissions.put("authenticated", true);
+    permissions.put("scopes_required", "read_products,read_orders,read_customers,read_inventory");
+
+    // Test products endpoint (basic permission)
+    String productsUrl = "https://" + shop + "/admin/api/2023-10/products.json?limit=1";
+    return webClient
+        .get()
+        .uri(productsUrl)
+        .header("X-Shopify-Access-Token", token)
+        .retrieve()
+        .bodyToMono(String.class)
+        .map(
+            response -> {
+              permissions.put("products_access", true);
+              return testOrdersAccess(shop, token, permissions);
+            })
+        .onErrorResume(
+            e -> {
+              permissions.put("products_access", false);
+              permissions.put("products_error", e.getMessage());
+              return Mono.just(testOrdersAccess(shop, token, permissions));
+            });
+  }
+
+  private ResponseEntity<Map<String, Object>> testOrdersAccess(
+      String shop, String token, Map<String, Object> permissions) {
+    // Test orders endpoint
+    String ordersUrl = "https://" + shop + "/admin/api/2023-10/orders.json?limit=1";
+    try {
+      webClient
+          .get()
+          .uri(ordersUrl)
+          .header("X-Shopify-Access-Token", token)
+          .retrieve()
+          .bodyToMono(String.class)
+          .subscribe(
+              response -> permissions.put("orders_access", true),
+              error -> {
+                permissions.put("orders_access", false);
+                permissions.put("orders_error", error.getMessage());
+                if (error.getMessage().contains("403")) {
+                  permissions.put("reauth_required", true);
+                  permissions.put("reauth_url", "/api/auth/shopify/reauth");
+                  permissions.put(
+                      "message",
+                      "Some endpoints require re-authentication with updated permissions");
+                }
+              });
+    } catch (Exception e) {
+      permissions.put("orders_access", false);
+      permissions.put("orders_error", e.getMessage());
+    }
+
+    return ResponseEntity.ok(permissions);
   }
 
   @GetMapping("/revenue/timeseries")

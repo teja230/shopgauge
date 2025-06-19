@@ -16,6 +16,8 @@ public class WebCorsConfig {
 
     // Allow all origins for development
     config.addAllowedOrigin("http://localhost:5173"); // Frontend dev server
+    config.addAllowedOrigin("http://localhost:5174"); // Alternative frontend port
+    config.addAllowedOrigin("http://localhost:5175"); // Current frontend port
     config.addAllowedOrigin("http://localhost:3000"); // Alternative frontend port
 
     // Allow all methods

@@ -512,22 +512,42 @@ const DashboardPage = () => {
         setLoading(true);
         setError(null);
 
-        // Fetch orders with pagination (10 pages = 100 orders)
-        const orderPromises = Array.from({ length: 10 }, (_, i) => 
-          fetchWithAuth(`/api/analytics/orders/timeseries?page=${i + 1}&limit=10`)
-        );
-        const orderResponses = await Promise.all(orderPromises);
-        const orderData = await Promise.all(orderResponses.map(r => r.json()));
+        // Fetch single page of orders first to check for permission issues
+        const orderResponse = await fetchWithAuth('/api/analytics/orders/timeseries?page=1&limit=50');
+        const firstOrderData = await orderResponse.json();
         
-        // Combine orders from all pages and sort by date (newest first)
-        const allOrders = orderData
-          .flatMap(data => data.timeseries || [])
-          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        let allOrders = [];
+        let permissionError = null;
+        
+        // Check if we got permission error
+        console.log('First order data response:', firstOrderData);
+        if (firstOrderData.error_code === 'INSUFFICIENT_PERMISSIONS') {
+          permissionError = firstOrderData.error;
+          console.warn('Orders permission issue:', firstOrderData.error);
+        } else if (firstOrderData.timeseries) {
+          // If first page worked, fetch more pages
+          const additionalOrderPromises = Array.from({ length: 4 }, (_, i) => 
+            fetchWithAuth(`/api/analytics/orders/timeseries?page=${i + 2}&limit=50`)
+          );
+          
+          try {
+            const additionalOrderResponses = await Promise.all(additionalOrderPromises);
+            const additionalOrderData = await Promise.all(additionalOrderResponses.map(r => r.json()));
+            
+            // Combine all orders
+            allOrders = [firstOrderData, ...additionalOrderData]
+              .flatMap(data => data.timeseries || [])
+              .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+          } catch (err) {
+            console.warn('Error fetching additional order pages:', err);
+            allOrders = firstOrderData.timeseries || [];
+          }
+        }
 
         // Get other data from the remaining responses
         const [revenueResponse, productsResponse, lowInventoryResponse, newProductsResponse, insightsResponse] = 
           await Promise.all([
-            fetchWithAuth('/api/analytics/revenue/timeseries'),
+            fetchWithAuth('/api/analytics/revenue'),
             fetchWithAuth('/api/analytics/products'),
             fetchWithAuth('/api/analytics/inventory/low'),
             fetchWithAuth('/api/analytics/new_products'),
@@ -548,28 +568,54 @@ const DashboardPage = () => {
           insightsResponse.json()
         ]);
 
+        // Check for revenue permission error
+        if (revenueData.error_code === 'INSUFFICIENT_PERMISSIONS') {
+          console.log('Revenue permission issue:', revenueData.error);
+          if (!permissionError) {
+            permissionError = revenueData.error;
+          }
+        }
+
+        // Process revenue data for chart
+        let revenueTimeseries = [];
+        if (revenueData.timeseries) {
+          revenueTimeseries = revenueData.timeseries;
+        } else if (allOrders.length > 0) {
+          // Create revenue timeseries from orders if not available
+          revenueTimeseries = allOrders.map((order: any) => ({
+            created_at: order.created_at,
+            total_price: parseFloat(order.total_price) || 0
+          }));
+        }
+
         // Set insights with available data
         setInsights({
           totalRevenue: revenueData.totalRevenue || revenueData.revenue || 0,
           newProducts: newProductsData.newProducts || 0,
-          abandonedCarts: insightsData.abandoned_cart_count || 0,
-          lowInventory: lowInventoryData.lowInventory?.length || 0,
+          abandonedCarts: insightsData?.abandoned_cart_count || 0,
+          lowInventory: Array.isArray(lowInventoryData.lowInventory) ? lowInventoryData.lowInventory.length : (lowInventoryData.lowInventoryCount || 0),
           topProducts: productsData.products || [],
           orders: allOrders,
           recentOrders: allOrders.slice(0, 5),
-          timeseries: revenueData.timeseries || [],
+          timeseries: revenueTimeseries,
           conversionRate: insightsData?.conversion_rate || 0,
           conversionRateDelta: insightsData?.conversion_rate_delta || 0,
-          abandonedCartCount: insightsData.abandoned_cart_count || 0,
+          abandonedCartCount: insightsData?.abandoned_cart_count || 0,
         });
 
-        // Only show error if we have no data from any endpoint
-        const hasAnyData = allOrders.length > 0 || 
-          (productsData.products && productsData.products.length > 0) ||
-          (revenueData.timeseries && revenueData.timeseries.length > 0);
+        // Check for permission errors
+        if (permissionError) {
+          console.log('Setting permission error:', permissionError);
+          setError(permissionError);
+        } else {
+          // Only show generic error if we have no data from any endpoint
+          const hasAnyData = allOrders.length > 0 || 
+            (productsData.products && productsData.products.length > 0) ||
+            revenueTimeseries.length > 0;
 
-        if (!hasAnyData) {
-          setError('No data available yet. Check back soon!');
+          if (!hasAnyData) {
+            setError('No data available yet. Check back soon!');
+          }
         }
 
       } catch (error) {
@@ -613,7 +659,25 @@ const DashboardPage = () => {
     );
   }
 
-  if (error) {
+  // Check if this is a permission error that should show the dashboard with alerts
+  const isPermissionError = error && (
+    error.includes('re-authentication') || 
+    error.includes('requires re-authentication') ||
+    error.includes('Orders access requires') ||
+    error.includes('INSUFFICIENT_PERMISSIONS')
+  );
+  
+  // Debug logging
+  console.log('Dashboard error state:', { error, isPermissionError });
+  
+  // Additional check for specific error message as fallback
+  const hasReauthError = error && error.includes('Orders access requires re-authentication');
+  console.log('Has reauth error:', hasReauthError);
+  
+  // TEMPORARY: Force permission error for testing
+  // const isPermissionError = true;
+  
+  if (error && !isPermissionError) {
     return (
       <Box sx={{ 
         display: 'flex', 
@@ -649,8 +713,116 @@ const DashboardPage = () => {
           pt: 3
         }}
       >
-        {error && (
-          <Alert severity="info" sx={{ mb: 2 }}>
+        {/* Single Unified Re-authentication Banner */}
+        {isPermissionError && (
+          <Alert 
+            severity="warning" 
+            sx={{ 
+              mb: 3,
+              p: 3,
+              '& .MuiAlert-message': {
+                width: '100%'
+              }
+            }}
+          >
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+              <Box>
+                <Typography variant="h6" component="div" sx={{ fontWeight: 600, mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                  🔒 Store Re-authentication Required
+                </Typography>
+                <Typography variant="body1" component="div" sx={{ mb: 1 }}>
+                  Your Shopify store needs updated permissions to display orders and revenue data.
+                </Typography>
+                <Typography variant="body2" color="text.secondary" component="div">
+                  This will redirect you to Shopify to grant the necessary permissions, then bring you back here.
+                </Typography>
+              </Box>
+              <Box sx={{ display: 'flex', gap: 2, ml: 3 }}>
+                <Button 
+                  variant="contained" 
+                  color="warning"
+                  size="large"
+                  onClick={() => {
+                    console.log('Unified re-authenticate button clicked!');
+                    
+                    if (window.confirm('This will redirect you to Shopify to re-authenticate your store with updated permissions. Continue?')) {
+                      console.log('Redirecting to re-authentication...');
+                      console.log('Current location:', window.location.href);
+                      console.log('Target URL:', '/api/auth/shopify/reauth');
+                      
+                      // Force a full page navigation (not AJAX)
+                      try {
+                        window.location.replace('/api/auth/shopify/reauth');
+                      } catch (error) {
+                        console.error('Error with location.replace:', error);
+                        // Fallback method
+                        window.location.href = '/api/auth/shopify/reauth';
+                      }
+                    } else {
+                      console.log('User cancelled re-authentication');
+                    }
+                  }}
+                  sx={{ 
+                    minWidth: 180,
+                    fontWeight: 600,
+                    fontSize: '1rem',
+                    py: 1.5
+                  }}
+                >
+                  Re-authenticate Store
+                </Button>
+                
+                {/* Debug: Test buttons */}
+                <Button 
+                  variant="outlined" 
+                  color="info"
+                  size="small"
+                  onClick={async () => {
+                    console.log('Testing backend connectivity...');
+                    try {
+                      const response = await fetch('/api/auth/shopify/me', {
+                        credentials: 'include'
+                      });
+                      const data = await response.json();
+                      console.log('Backend response:', data);
+                      alert(`Backend test: ${response.status} - ${JSON.stringify(data)}`);
+                    } catch (error) {
+                      console.error('Backend test failed:', error);
+                      alert(`Backend test failed: ${error}`);
+                    }
+                  }}
+                  sx={{ fontSize: '0.8rem', py: 1 }}
+                >
+                  Test Backend
+                </Button>
+                
+                <Button 
+                  variant="outlined" 
+                  color="warning"
+                  size="large"
+                  component="a"
+                  href="/api/auth/shopify/reauth"
+                  target="_self"
+                  sx={{ 
+                    minWidth: 120,
+                    fontWeight: 600,
+                    fontSize: '0.9rem',
+                    py: 1.5
+                  }}
+                >
+                  Direct Link
+                </Button>
+              </Box>
+            </Box>
+          </Alert>
+        )}
+
+        {/* Regular error alert for non-permission errors */}
+        {error && !isPermissionError && (
+          <Alert 
+            severity="info" 
+            sx={{ mb: 2 }}
+          >
             {error}
           </Alert>
         )}
@@ -817,7 +989,10 @@ const DashboardPage = () => {
                       No orders data available yet
                     </Typography>
                     <Typography variant="body2" color="text.secondary" component="div">
-                      Order data will appear here once you start receiving orders
+                      {isPermissionError 
+                        ? 'Please use the re-authentication banner above to restore access'
+                        : 'Order data will appear here once you start receiving orders'
+                      }
                     </Typography>
                   </Box>
                 )}
@@ -881,7 +1056,10 @@ const DashboardPage = () => {
                   No revenue data available yet
                 </Typography>
                 <Typography variant="body2" color="text.secondary" component="div">
-                  Revenue data will appear here once you start making sales
+                  {isPermissionError 
+                    ? 'Please use the re-authentication banner above to restore access'
+                    : 'Revenue data will appear here once you start making sales'
+                  }
                 </Typography>
               </Box>
             )}
@@ -891,6 +1069,34 @@ const DashboardPage = () => {
         <Typography variant="body2" color="text.secondary">
           {insights ? 'Dashboard updated with latest data' : 'Loading insights...'}
         </Typography>
+
+        {/* Debug: Direct re-auth link for testing */}
+        <Box sx={{ mt: 2, p: 2, border: '1px dashed #ccc', borderRadius: 1 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            Debug: Direct re-authentication link (for testing)
+          </Typography>
+          <Button 
+            variant="outlined" 
+            size="small"
+            onClick={() => {
+              console.log('Direct re-auth link clicked');
+              window.location.href = '/api/auth/shopify/reauth';
+            }}
+            sx={{ mr: 2 }}
+          >
+            Test Re-auth (Direct)
+          </Button>
+          <Button 
+            variant="outlined" 
+            size="small"
+            onClick={() => {
+              console.log('Current error state:', { error, isPermissionError });
+              alert(`Error: ${error}\nIs Permission Error: ${isPermissionError}`);
+            }}
+          >
+            Debug Error State
+          </Button>
+        </Box>
       </Box>
     </DashboardContainer>
   );
