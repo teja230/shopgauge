@@ -23,5 +23,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm ci --workspace frontend
-      - run: npm run lint --workspace frontend 
+      - run: npm ci
+        working-directory: frontend
+      - run: npm run lint
+        working-directory: frontend
