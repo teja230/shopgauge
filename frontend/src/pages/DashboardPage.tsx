@@ -608,14 +608,8 @@ const DashboardPage = () => {
           console.log('Setting permission error:', permissionError);
           setError(permissionError);
         } else {
-          // Only show generic error if we have no data from any endpoint
-          const hasAnyData = allOrders.length > 0 || 
-            (productsData.products && productsData.products.length > 0) ||
-            revenueTimeseries.length > 0;
-
-          if (!hasAnyData) {
-            setError('No data available yet. Check back soon!');
-          }
+          // Clear any previous non-permission error (no generic "no data" banner)
+          setError(null);
         }
 
       } catch (error) {
@@ -738,35 +732,18 @@ const DashboardPage = () => {
                 </Typography>
               </Box>
               <Box sx={{ display: 'flex', gap: 2, ml: 3 }}>
-                <Button 
-                  variant="contained" 
+                <Button
+                  variant="contained"
                   color="warning"
                   size="large"
-                  onClick={() => {
-                    console.log('Unified re-authenticate button clicked!');
-                    
-                    if (window.confirm('This will redirect you to Shopify to re-authenticate your store with updated permissions. Continue?')) {
-                      console.log('Redirecting to re-authentication...');
-                      console.log('Current location:', window.location.href);
-                      console.log('Target URL:', '/api/auth/shopify/reauth');
-                      
-                      // Force a full page navigation (not AJAX)
-                      try {
-                        window.location.replace('/api/auth/shopify/reauth');
-                      } catch (error) {
-                        console.error('Error with location.replace:', error);
-                        // Fallback method
-                        window.location.href = '/api/auth/shopify/reauth';
-                      }
-                    } else {
-                      console.log('User cancelled re-authentication');
-                    }
-                  }}
-                  sx={{ 
+                  component="a"
+                  href={`/api/auth/shopify/reauth?shop=${encodeURIComponent(shop ?? '')}`}
+                  target="_self"
+                  sx={{
                     minWidth: 180,
                     fontWeight: 600,
                     fontSize: '1rem',
-                    py: 1.5
+                    py: 1.5,
                   }}
                 >
                   Re-authenticate Store
@@ -801,7 +778,7 @@ const DashboardPage = () => {
                   color="warning"
                   size="large"
                   component="a"
-                  href="/api/auth/shopify/reauth"
+                  href={`/api/auth/shopify/reauth?shop=${encodeURIComponent(shop ?? '')}`}
                   target="_self"
                   sx={{ 
                     minWidth: 120,
@@ -1070,33 +1047,7 @@ const DashboardPage = () => {
           {insights ? 'Dashboard updated with latest data' : 'Loading insights...'}
         </Typography>
 
-        {/* Debug: Direct re-auth link for testing */}
-        <Box sx={{ mt: 2, p: 2, border: '1px dashed #ccc', borderRadius: 1 }}>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            Debug: Direct re-authentication link (for testing)
-          </Typography>
-          <Button 
-            variant="outlined" 
-            size="small"
-            onClick={() => {
-              console.log('Direct re-auth link clicked');
-              window.location.href = '/api/auth/shopify/reauth';
-            }}
-            sx={{ mr: 2 }}
-          >
-            Test Re-auth (Direct)
-          </Button>
-          <Button 
-            variant="outlined" 
-            size="small"
-            onClick={() => {
-              console.log('Current error state:', { error, isPermissionError });
-              alert(`Error: ${error}\nIs Permission Error: ${isPermissionError}`);
-            }}
-          >
-            Debug Error State
-          </Button>
-        </Box>
+        {/* Debug helpers removed for production */}
       </Box>
     </DashboardContainer>
   );

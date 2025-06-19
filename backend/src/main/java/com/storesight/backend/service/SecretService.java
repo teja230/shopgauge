@@ -10,6 +10,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
+/**
+ * Service for storing encrypted secrets in Redis.
+ *
+ * <p>TODO: Replace Redis usage with the hosting platform's managed secrets service (e.g., AWS
+ * Secrets Manager, GCP Secret Manager, Azure Key Vault). Redis is great for development, but
+ * managed secret stores provide automatic rotation, auditing, and scoped access in production.
+ */
 @Service
 public class SecretService {
   private final StringRedisTemplate redisTemplate;

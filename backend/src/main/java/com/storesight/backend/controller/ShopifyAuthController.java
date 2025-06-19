@@ -2,6 +2,7 @@ package com.storesight.backend.controller;
 
 import com.storesight.backend.repository.ShopRepository;
 import com.storesight.backend.service.NotificationService;
+import com.storesight.backend.service.SecretService;
 import com.storesight.backend.service.ShopService;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
@@ -38,11 +39,12 @@ public class ShopifyAuthController {
   private final NotificationService notificationService;
   private final StringRedisTemplate redisTemplate;
   private final ShopRepository shopRepository;
+  private final SecretService secretService;
 
-  @Value("${shopify.api.key}")
+  @Value("${shopify.api.key:}")
   private String apiKey;
 
-  @Value("${shopify.api.secret}")
+  @Value("${shopify.api.secret:}")
   private String apiSecret;
 
   @Value("${shopify.scopes}")
@@ -60,13 +62,35 @@ public class ShopifyAuthController {
       ShopService shopService,
       NotificationService notificationService,
       StringRedisTemplate redisTemplate,
-      ShopRepository shopRepository) {
+      ShopRepository shopRepository,
+      SecretService secretService) {
     this.webClient = webClientBuilder.build();
     this.shopService = shopService;
     this.notificationService = notificationService;
     this.redisTemplate = redisTemplate;
     this.shopRepository = shopRepository;
+    this.secretService = secretService;
     logger.info("ShopifyAuthController initialized with API key: {}", apiKey);
+
+    // Fallback to Redis-stored secrets if env vars are not provided
+    if (apiKey == null || apiKey.isBlank()) {
+      secretService
+          .getSecret("shopify_api_key")
+          .ifPresent(
+              val -> {
+                this.apiKey = val;
+                logger.info("Loaded Shopify API key from Redis secret store");
+              });
+    }
+    if (apiSecret == null || apiSecret.isBlank()) {
+      secretService
+          .getSecret("shopify_api_secret")
+          .ifPresent(
+              val -> {
+                this.apiSecret = val;
+                logger.info("Loaded Shopify API secret from Redis secret store");
+              });
+    }
   }
 
   @GetMapping("/login")
@@ -154,8 +178,7 @@ public class ShopifyAuthController {
       shopCookie.setPath("/");
       shopCookie.setMaxAge((int) java.time.Duration.ofDays(30).getSeconds());
       shopCookie.setHttpOnly(false); // Set to false for development
-      shopCookie.setSecure(false); // Set to false for development
-      shopCookie.setDomain("localhost"); // Set domain for development
+      shopCookie.setSecure(false);
       response.addCookie(shopCookie);
 
       logger.info("Setting cookie for shop: {}", shop);
@@ -307,11 +330,18 @@ public class ShopifyAuthController {
   @GetMapping("/reauth")
   public ResponseEntity<?> reauth(
       @CookieValue(value = "shop", required = false) String shop,
+      @RequestParam(value = "shop", required = false) String shopParam,
       HttpServletRequest request,
       HttpServletResponse response) {
     logger.info("Re-authentication requested for shop: {}", shop);
     logger.info("Request cookies: {}", Arrays.toString(request.getCookies()));
     logger.info("Request headers: {}", request.getHeaderNames());
+
+    // Fallback: if no shop cookie but query param provided, use it
+    if ((shop == null || shop.isBlank()) && shopParam != null && !shopParam.isBlank()) {
+      shop = shopParam;
+      logger.info("Using shop from query parameter: {}", shop);
+    }
 
     try {
       if (shop == null || shop.trim().isEmpty()) {
@@ -358,7 +388,6 @@ public class ShopifyAuthController {
       shopCookie.setMaxAge(0);
       shopCookie.setHttpOnly(false);
       shopCookie.setSecure(false);
-      shopCookie.setDomain("localhost");
       response.addCookie(shopCookie);
 
       logger.info("Auth: Cleared shop cookie for: {}", shop);
