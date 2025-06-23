@@ -7,6 +7,7 @@ import DashboardPage from './pages/DashboardPage';
 import CompetitorsPage from './pages/CompetitorsPage';
 import AdminPage from './pages/AdminPage';
 import ProfilePage from './pages/ProfilePage';
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import NavBar from './components/NavBar';
 import PrivacyBanner from './components/ui/PrivacyBanner';
 import { ThemeProvider } from '@mui/material/styles';
@@ -72,6 +73,10 @@ const AppContent: React.FC = () => {
                 <ProfilePage />
               </ProtectedRoute>
             }
+          />
+          <Route
+            path="/privacy-policy"
+            element={<PrivacyPolicyPage />}
           />
         </Routes>
       </main>

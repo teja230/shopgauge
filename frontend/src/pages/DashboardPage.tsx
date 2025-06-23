@@ -1073,8 +1073,6 @@ const DashboardPage = () => {
             key="revenue"
             label="Total Revenue"
             value={`$${insights?.totalRevenue?.toLocaleString() || '0'}`}
-            delta="0"
-            deltaType="neutral"
             loading={cardLoading.revenue}
             error={cardErrors.revenue}
             onRetry={() => handleCardLoad('revenue')}
@@ -1084,7 +1082,7 @@ const DashboardPage = () => {
             key="conversion-rate"
             label="Conversion Rate"
             value={`${insights?.conversionRate?.toFixed(2) || '0'}%`}
-            delta={insights?.conversionRateDelta?.toString() || '0'}
+            delta={insights?.conversionRateDelta && insights.conversionRateDelta !== 0 ? insights.conversionRateDelta.toString() : undefined}
             deltaType={insights?.conversionRateDelta && insights.conversionRateDelta > 0 ? 'up' : 'down'}
             loading={cardLoading.insights}
             error={cardErrors.insights}
@@ -1095,8 +1093,6 @@ const DashboardPage = () => {
             key="abandoned-carts"
             label="Abandoned Carts"
             value={insights?.abandonedCarts?.toString() || '0'}
-            delta="0"
-            deltaType="neutral"
             loading={cardLoading.abandonedCarts}
             error={cardErrors.abandonedCarts}
             onRetry={() => handleCardLoad('abandonedCarts')}
@@ -1106,8 +1102,6 @@ const DashboardPage = () => {
             key="low-inventory"
             label="Low Inventory"
             value={typeof insights?.lowInventory === 'number' ? insights.lowInventory.toString() : '0'}
-            delta="0"
-            deltaType="neutral"
             loading={cardLoading.inventory}
             error={cardErrors.inventory}
             onRetry={() => handleCardLoad('inventory')}
@@ -1117,8 +1111,6 @@ const DashboardPage = () => {
             key="new-products"
             label="New Products"
             value={typeof insights?.newProducts === 'number' ? insights.newProducts.toString() : '0'}
-            delta="0"
-            deltaType="neutral"
             loading={cardLoading.newProducts}
             error={cardErrors.newProducts}
             onRetry={() => handleCardLoad('newProducts')}

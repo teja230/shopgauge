@@ -41,7 +41,7 @@ export const PrivacyBanner: React.FC<PrivacyBannerProps> = ({ onAccept, onDeclin
   };
 
   const handleViewPrivacy = () => {
-    window.open('/PRIVACY_POLICY.md', '_blank');
+    window.open('/privacy-policy', '_blank');
   };
 
   if (!isVisible || hasInteracted) {
