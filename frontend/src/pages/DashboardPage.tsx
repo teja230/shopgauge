@@ -2,11 +2,11 @@ import { useEffect, useState, useCallback } from 'react';
 import { MetricCard } from '../components/ui/MetricCard';
 import { fetchWithAuth } from '../api';
 import { useNavigate } from 'react-router-dom';
-import { ResponsiveContainer, LineChart, XAxis, YAxis, Legend, Line, CartesianGrid } from 'recharts';
+import { RevenueChart } from '../components/ui/RevenueChart';
 import { useAuth } from '../contexts/AuthContext';
 import { CircularProgress, Alert, Box, IconButton, Link as MuiLink, Button, Card, Typography, CardContent } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import { TrendingUp, OpenInNew, Refresh, Storefront, ListAlt, Inventory2 } from '@mui/icons-material';
+import { OpenInNew, Refresh, Storefront, ListAlt, Inventory2 } from '@mui/icons-material';
 import { format } from 'date-fns';
 
 // Modern, elegant, and professional dashboard UI improvements
@@ -1332,120 +1332,12 @@ const DashboardPage = () => {
 
         {/* Revenue Graph */}
         <Box sx={{ width: '100%' }}>
-          <GraphContainer>
-            <GraphHeader>
-              <GraphTitle>
-                <TrendingUp color="primary" />
-                Revenue Overview
-              </GraphTitle>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                {cardErrors.revenue && (
-                  <IconButton 
-                    size="small" 
-                    onClick={() => handleCardLoad('revenue')}
-                    className="text-red-500 hover:text-red-700"
-                  >
-                    <Refresh fontSize="small" />
-                  </IconButton>
-                )}
-                <GraphLink 
-                  href={`https://${shop}/admin/analytics`} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                >
-                  View in Shopify Analytics
-                  <OpenInNew fontSize="small" />
-                </GraphLink>
-              </Box>
-            </GraphHeader>
-            {cardLoading.revenue ? (
-              <Box sx={{ 
-                height: 400, 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                flexDirection: 'column',
-                gap: 2
-              }}>
-                <CircularProgress size={32} />
-                <Typography variant="body2" color="text.secondary">
-                  Loading revenue data...
-                </Typography>
-              </Box>
-            ) : cardErrors.revenue ? (
-              <Box sx={{ 
-                height: 400, 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                flexDirection: 'column',
-                gap: 2
-              }}>
-                <Typography variant="h6" color="error" gutterBottom>
-                  {cardErrors.revenue || 'Failed to load revenue data'}
-                </Typography>
-                <Button 
-                  variant="outlined" 
-                  size="small" 
-                  onClick={() => handleCardLoad('revenue')}
-                  startIcon={<Refresh />}
-                >
-                  Retry
-                </Button>
-              </Box>
-            ) : insights?.timeseries?.length ? (
-              <ResponsiveContainer width="100%" height={400}>
-                <LineChart data={insights.timeseries}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(0, 0, 0, 0.05)" />
-                  <XAxis 
-                    dataKey="created_at" 
-                    stroke="rgba(0, 0, 0, 0.5)"
-                    tick={{ fill: 'rgba(0, 0, 0, 0.7)' }}
-                  />
-                  <YAxis 
-                    stroke="rgba(0, 0, 0, 0.5)"
-                    tick={{ fill: 'rgba(0, 0, 0, 0.7)' }}
-                    tickFormatter={(value: number) => `$${value}`}
-                  />
-                  <Legend />
-                  <Line 
-                    type="monotone" 
-                    dataKey="total_price" 
-                    stroke="#2563eb" 
-                    strokeWidth={2}
-                    dot={{ fill: '#2563eb', strokeWidth: 2 }}
-                    activeDot={{ r: 6, fill: '#2563eb' }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            ) : (
-              <Box sx={{ 
-                height: 400, 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                flexDirection: 'column',
-                gap: 2
-              }}>
-                <Typography variant="h6" color="text.secondary">
-                  No revenue data available yet
-                </Typography>
-                <Typography variant="body2" color="text.secondary" component="div">
-                  {error 
-                    ? 'Please log in again to restore access'
-                    : 'Revenue data will appear here once you start making sales'
-                  }
-                </Typography>
-                <Button 
-                  variant="outlined" 
-                  size="small" 
-                  onClick={() => handleCardLoad('revenue')}
-                >
-                  Load Revenue Data
-                </Button>
-              </Box>
-            )}
-          </GraphContainer>
+          <RevenueChart
+            data={insights?.timeseries || []}
+            loading={cardLoading.revenue}
+            error={cardErrors.revenue}
+            height={450}
+          />
         </Box>
 
         <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', mt: 2 }}>
