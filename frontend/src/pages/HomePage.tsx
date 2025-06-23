@@ -36,14 +36,11 @@ const HomePage = () => {
   const [shopDomain, setShopDomain] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, authLoading } = useAuth();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      navigate('/dashboard');
-    }
-  }, [isAuthenticated, navigate]);
+  // Determine if user is authenticated after auth check completes
+  const showAuthConnected = isAuthenticated && !authLoading;
 
   const handleStartClick = () => {
     setShowForm(true);
@@ -98,7 +95,22 @@ const HomePage = () => {
           Unlock actionable analytics, competitor price alerts, and automated notifications for your Shopify store. 
           Grow faster with StoreSight's all-in-one dashboard and automation suite.
         </p>
-        {!isAuthenticated && (
+        {showAuthConnected ? (
+          <div className="flex flex-col items-center gap-4">
+            <div className="text-center">
+              <p className="text-green-600 font-semibold mb-2">✓ You're already connected!</p>
+              <button
+                onClick={() => navigate('/dashboard')}
+                className="inline-flex items-center px-6 py-3 rounded-lg font-semibold shadow transition bg-[#5A31F4] hover:bg-[#4A2FD4] text-white"
+              >
+                <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12.5 0C5.6 0 0 5.6 0 12.5S5.6 25 12.5 25 25 19.4 25 12.5 19.4 0 12.5 0zm0 4.2c4.6 0 8.3 3.7 8.3 8.3s-3.7 8.3-8.3 8.3-8.3-3.7-8.3-8.3 3.7-8.3 8.3-8.3z"/>
+                </svg>
+                Go to Dashboard
+              </button>
+            </div>
+          </div>
+        ) : (
           <div className="flex flex-col items-center gap-4">
             {!showForm ? (
               <button
@@ -173,13 +185,13 @@ const HomePage = () => {
               ))}
             </ul>
             <button
-              onClick={handleStartClick}
+              onClick={showAuthConnected ? () => navigate('/dashboard') : handleStartClick}
               className="w-full inline-flex items-center justify-center px-6 py-3 rounded-lg font-semibold shadow transition bg-[#5A31F4] hover:bg-[#4A2FD4] text-white"
             >
               <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12.5 0C5.6 0 0 5.6 0 12.5S5.6 25 12.5 25 25 19.4 25 12.5 19.4 0 12.5 0zm0 4.2c4.6 0 8.3 3.7 8.3 8.3s-3.7 8.3-8.3 8.3-8.3-3.7-8.3-8.3 3.7-8.3 8.3-8.3z"/>
               </svg>
-              Start 3-Day Free Trial
+              {showAuthConnected ? 'Go to Dashboard' : 'Start 3-Day Free Trial'}
             </button>
           </div>
         </div>

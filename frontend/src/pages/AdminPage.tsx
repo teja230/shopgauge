@@ -17,6 +17,7 @@ import {
 } from '@mui/material';
 import { Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material';
 import { fetchWithAuth } from '../api';
+import { useAuth } from '../contexts/AuthContext';
 
 interface Secret {
   key: string;
@@ -24,6 +25,7 @@ interface Secret {
 }
 
 const AdminPage: React.FC = () => {
+  const { shop } = useAuth();
   const [secrets, setSecrets] = useState<Secret[]>([]);
   const [newKey, setNewKey] = useState('');
   const [newValue, setNewValue] = useState('');
@@ -42,7 +44,30 @@ const AdminPage: React.FC = () => {
   };
 
   useEffect(() => {
+    // Clear data if no shop (logout/disconnect)
+    if (!shop) {
+      setSecrets([]);
+      setNewKey('');
+      setNewValue('');
+      setEditingKey(null);
+      setError(null);
+      setSuccess(null);
+      return;
+    }
+
     fetchSecrets();
+  }, [shop]);
+
+  // Cleanup effect when component unmounts
+  useEffect(() => {
+    return () => {
+      setSecrets([]);
+      setNewKey('');
+      setNewValue('');
+      setEditingKey(null);
+      setError(null);
+      setSuccess(null);
+    };
   }, []);
 
   const handleAddSecret = async () => {

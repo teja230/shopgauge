@@ -4,6 +4,7 @@ import com.storesight.backend.repository.ShopRepository;
 import com.storesight.backend.service.NotificationService;
 import com.storesight.backend.service.SecretService;
 import com.storesight.backend.service.ShopService;
+import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -13,9 +14,11 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -71,7 +74,10 @@ public class ShopifyAuthController {
     this.shopRepository = shopRepository;
     this.secretService = secretService;
     logger.info("ShopifyAuthController initialized with API key: {}", apiKey);
+  }
 
+  @PostConstruct
+  public void initializeSecrets() {
     // Fallback to Redis-stored secrets if env vars are not provided
     if (apiKey == null || apiKey.isBlank()) {
       secretService
@@ -91,6 +97,14 @@ public class ShopifyAuthController {
                 logger.info("Loaded Shopify API secret from Redis secret store");
               });
     }
+
+    // Log final state
+    logger.info(
+        "Final ShopifyAuthController state - API key: {}, API secret: {}",
+        apiKey != null ? apiKey.substring(0, Math.min(8, apiKey.length())) + "..." : "null",
+        apiSecret != null
+            ? apiSecret.substring(0, Math.min(8, apiSecret.length())) + "..."
+            : "null");
   }
 
   @GetMapping("/login")
@@ -162,6 +176,11 @@ public class ShopifyAuthController {
     String shop = params.get("shop");
     String code = params.get("code");
     logger.info("Callback received - shop: {}, code: {}", shop, code);
+    logger.info(
+        "Callback - Request headers: {}",
+        Collections.list(request.getHeaderNames()).stream()
+            .collect(Collectors.toMap(name -> name, request::getHeader)));
+    logger.info("Callback - Request cookies: {}", Arrays.toString(request.getCookies()));
 
     if (shop == null || code == null) {
       response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing required parameters");
@@ -179,9 +198,22 @@ public class ShopifyAuthController {
       shopCookie.setMaxAge((int) java.time.Duration.ofDays(30).getSeconds());
       shopCookie.setHttpOnly(false); // Set to false for development
       shopCookie.setSecure(false);
+      // Add SameSite attribute to prevent browser cookie issues
+      String cookieValue =
+          shopCookie.getName()
+              + "="
+              + shopCookie.getValue()
+              + "; Path="
+              + shopCookie.getPath()
+              + "; Max-Age="
+              + shopCookie.getMaxAge()
+              + "; SameSite=Lax";
+      response.addHeader("Set-Cookie", cookieValue);
+      // Also add the standard cookie for compatibility
       response.addCookie(shopCookie);
 
       logger.info("Setting cookie for shop: {}", shop);
+      logger.info("Cookie value being set: {}", cookieValue);
       response.sendRedirect(frontendUrl + "/dashboard");
     } catch (Exception e) {
       logger.error("Error in callback for shop: {}", shop, e);
@@ -327,72 +359,135 @@ public class ShopifyAuthController {
     return Mono.just(ResponseEntity.ok(response));
   }
 
-  @GetMapping("/reauth")
-  public ResponseEntity<?> reauth(
-      @CookieValue(value = "shop", required = false) String shop,
-      @RequestParam(value = "shop", required = false) String shopParam,
-      HttpServletRequest request,
-      HttpServletResponse response) {
-    logger.info("Re-authentication requested for shop: {}", shop);
-    logger.info("Request cookies: {}", Arrays.toString(request.getCookies()));
-    logger.info("Request headers: {}", request.getHeaderNames());
-
-    // Fallback: if no shop cookie but query param provided, use it
-    if ((shop == null || shop.isBlank()) && shopParam != null && !shopParam.isBlank()) {
-      shop = shopParam;
-      logger.info("Using shop from query parameter: {}", shop);
-    }
-
-    try {
-      if (shop == null || shop.trim().isEmpty()) {
-        logger.warn("No shop cookie found in re-auth request");
-        return ResponseEntity.badRequest()
-            .body(Map.of("error", "Shop parameter is required - please log in first"));
-      }
-
-      // Validate shop domain format
-      if (!shop.matches("^[a-zA-Z0-9][a-zA-Z0-9-]*\\.myshopify\\.com$")) {
-        return ResponseEntity.badRequest().body(Map.of("error", "Invalid shop domain format"));
-      }
-
-      String state = generateState();
-      // Invalidate existing token so that new one is issued with updated scopes
-      shopService.removeToken(shop);
-      String url =
-          String.format(
-              "https://%s/admin/oauth/authorize?client_id=%s&scope=%s&redirect_uri=%s&state=%s",
-              shop,
-              apiKey,
-              URLEncoder.encode(scopes, StandardCharsets.UTF_8),
-              URLEncoder.encode(redirectUri, StandardCharsets.UTF_8),
-              state);
-      logger.info("Re-authentication: Redirecting to Shopify OAuth URL: {}", url);
-      response.sendRedirect(url);
-      return null; // Response is already sent
-    } catch (Exception e) {
-      logger.error("Error in re-authentication endpoint for shop: {}", shop, e);
-      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-          .body(Map.of("error", "Failed to process re-authentication request"));
-    }
-  }
-
   @PostMapping("/profile/disconnect")
   public ResponseEntity<Map<String, String>> disconnect(
       @CookieValue(value = "shop", required = false) String shop, HttpServletResponse response) {
     logger.info("Auth: Disconnecting shop: {}", shop);
 
     if (shop != null) {
-      // Clear the shop cookie
-      Cookie shopCookie = new Cookie("shop", null);
+      // Clear the access token from Redis and database
+      try {
+        shopService.removeToken(shop);
+        logger.info("Auth: Cleared access token for shop: {}", shop);
+      } catch (Exception e) {
+        logger.error("Auth: Error clearing access token for shop: {}", shop, e);
+      }
+
+      // Clear the shop cookie with multiple approaches to ensure it's removed
+      Cookie shopCookie = new Cookie("shop", "");
       shopCookie.setPath("/");
       shopCookie.setMaxAge(0);
       shopCookie.setHttpOnly(false);
       shopCookie.setSecure(false);
       response.addCookie(shopCookie);
 
+      // Also add a Set-Cookie header to ensure the cookie is cleared
+      String clearCookieHeader =
+          "shop=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+      response.addHeader("Set-Cookie", clearCookieHeader);
+
       logger.info("Auth: Cleared shop cookie for: {}", shop);
     }
 
     return ResponseEntity.ok(Map.of("status", "success"));
+  }
+
+  @GetMapping("/test-cookie")
+  public ResponseEntity<Map<String, Object>> testCookie(
+      @CookieValue(value = "shop", required = false) String shop,
+      HttpServletRequest request,
+      HttpServletResponse response) {
+
+    Map<String, Object> result = new HashMap<>();
+    result.put("shop_from_cookie", shop);
+    result.put("all_cookies", Arrays.toString(request.getCookies()));
+    result.put("user_agent", request.getHeader("User-Agent"));
+    result.put("origin", request.getHeader("Origin"));
+    result.put("referer", request.getHeader("Referer"));
+
+    // Try to set a test cookie
+    Cookie testCookie = new Cookie("test_cookie", "test_value_" + System.currentTimeMillis());
+    testCookie.setPath("/");
+    testCookie.setMaxAge(300); // 5 minutes
+    testCookie.setHttpOnly(false);
+    testCookie.setSecure(false);
+    response.addCookie(testCookie);
+
+    result.put("test_cookie_set", true);
+    result.put("timestamp", System.currentTimeMillis());
+
+    return ResponseEntity.ok(result);
+  }
+
+  @PostMapping("/profile/force-disconnect")
+  public ResponseEntity<Map<String, String>> forceDisconnect(
+      @CookieValue(value = "shop", required = false) String shopCookie,
+      @RequestParam(value = "shop", required = false) String shopParam,
+      @RequestBody(required = false) Map<String, Object> body,
+      HttpServletResponse response,
+      HttpServletRequest request) {
+    logger.info("Auth: Force disconnect called");
+    logger.info("Auth: Shop from cookie: {}", shopCookie);
+    logger.info("Auth: Shop from param: {}", shopParam);
+    logger.info("Auth: Request body: {}", body);
+
+    // Determine shop from cookie, param, or body
+    String shop = shopCookie;
+    if (shop == null || shop.isBlank()) {
+      if (shopParam != null && !shopParam.isBlank()) {
+        shop = shopParam;
+        logger.info("Auth: Using shop from param: {}", shop);
+      } else if (body != null
+          && body.get("shop") != null
+          && !body.get("shop").toString().isBlank()) {
+        shop = body.get("shop").toString();
+        logger.info("Auth: Using shop from body: {}", shop);
+      }
+    } else {
+      logger.info("Auth: Using shop from cookie: {}", shop);
+    }
+
+    logger.info("Auth: Force disconnecting shop: {}", shop);
+
+    // Clear all possible cookies
+    Cookie[] cookies = request.getCookies();
+    if (cookies != null) {
+      for (Cookie cookie : cookies) {
+        if (cookie.getName().equals("shop")) {
+          Cookie clearCookie = new Cookie("shop", "");
+          clearCookie.setPath("/");
+          clearCookie.setMaxAge(0);
+          clearCookie.setHttpOnly(false);
+          clearCookie.setSecure(false);
+          response.addCookie(clearCookie);
+          logger.info("Auth: Force cleared shop cookie: {}", cookie.getValue());
+        }
+      }
+    }
+    // Add multiple Set-Cookie headers to ensure clearing
+    response.addHeader(
+        "Set-Cookie", "shop=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT");
+    response.addHeader(
+        "Set-Cookie", "shop=; Path=/api; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT");
+    response.addHeader(
+        "Set-Cookie",
+        "shop=; Domain=localhost; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT");
+
+    if (shop != null && !shop.isBlank()) {
+      // Clear the access token from Redis and database
+      try {
+        logger.info("Auth: Calling shopService.removeToken for shop: {}", shop);
+        shopService.removeToken(shop);
+        logger.info("Auth: Force cleared access token for shop: {}", shop);
+      } catch (Exception e) {
+        logger.error("Auth: Error force clearing access token for shop: {}", shop, e);
+      }
+    } else {
+      logger.warn("Auth: No shop provided for force disconnect");
+    }
+
+    logger.info("Auth: Force disconnect completed");
+    return ResponseEntity.ok(
+        Map.of("status", "force_disconnected", "message", "All cookies and tokens cleared"));
   }
 }

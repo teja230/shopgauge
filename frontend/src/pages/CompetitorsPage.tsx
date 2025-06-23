@@ -4,13 +4,23 @@ import type { Competitor } from '../components/ui/CompetitorTable';
 import { getCompetitors, addCompetitor, deleteCompetitor } from '../api';
 import toast, { Toaster } from 'react-hot-toast';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function CompetitorsPage() {
+  const { shop } = useAuth();
   const [competitors, setCompetitors] = useState<Competitor[]>([]);
   const [url, setUrl] = useState('');
   const [productId, setProductId] = useState('');
 
   useEffect(() => {
+    // Clear data if no shop (logout/disconnect)
+    if (!shop) {
+      setCompetitors([]);
+      setUrl('');
+      setProductId('');
+      return;
+    }
+
     async function fetchData() {
       try {
         const competitorsData = await getCompetitors();
@@ -20,6 +30,15 @@ export default function CompetitorsPage() {
       }
     }
     fetchData();
+  }, [shop]);
+
+  // Cleanup effect when component unmounts
+  useEffect(() => {
+    return () => {
+      setCompetitors([]);
+      setUrl('');
+      setProductId('');
+    };
   }, []);
 
   const handleAdd = async (e: React.FormEvent) => {

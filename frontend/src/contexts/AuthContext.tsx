@@ -31,6 +31,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [shop, setShop] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   // Debug state changes
   useEffect(() => {
@@ -39,11 +40,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       shop,
       authLoading,
       loading,
+      isLoggingOut,
       path: location.pathname
     });
-  }, [isAuthenticated, shop, authLoading, loading, location.pathname]);
+  }, [isAuthenticated, shop, authLoading, loading, isLoggingOut, location.pathname]);
 
   const refreshAuth = async () => {
+    // Skip auth checks if we're in the process of logging out
+    if (isLoggingOut) {
+      console.log('Auth: Skipping refreshAuth during logout');
+      return;
+    }
+    
     console.log('Auth: Starting refreshAuth');
     try {
       console.log('Auth: Checking authentication status');
@@ -160,11 +168,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Set up periodic auth check
     const interval = setInterval(() => {
-      if (mounted) {
+      if (mounted && !isLoggingOut) {
         console.log('Auth: Starting periodic auth check');
         refreshAuth();
       } else {
-        console.log('Auth: Component unmounted, skipping periodic check');
+        console.log('Auth: Skipping periodic check - mounted:', mounted, 'isLoggingOut:', isLoggingOut);
       }
     }, 60000); // Check every minute
 
@@ -177,16 +185,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
-      console.log('Auth: Logging out');
-      await fetch('/api/auth/shopify/profile/disconnect', {
+      console.log('Auth: Starting logout process');
+      setIsLoggingOut(true); // Prevent auth checks during logout
+      
+      console.log('Auth: Calling force-disconnect endpoint');
+      
+      await fetch('/api/auth/shopify/profile/force-disconnect', {
         method: 'POST',
         credentials: 'include',
       });
+      
+      console.log('Auth: Force-disconnect API call completed');
       setShop(null);
       setIsAuthenticated(false);
+      
+      // Reset logout state
+      setIsLoggingOut(false);
+      
+      // Redirect to home page after successful disconnect
+      console.log('Auth: Redirecting to home page after disconnect');
       navigate('/');
     } catch (error) {
       console.error('Auth: Logout failed:', error);
+      setIsLoggingOut(false); // Reset logout state on error
+      // Fallback to home page if logout fails
+      navigate('/');
     }
   };
 

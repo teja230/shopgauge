@@ -6,7 +6,9 @@ import HomePage from './pages/HomePage';
 import DashboardPage from './pages/DashboardPage';
 import CompetitorsPage from './pages/CompetitorsPage';
 import AdminPage from './pages/AdminPage';
+import ProfilePage from './pages/ProfilePage';
 import NavBar from './components/NavBar';
+import PrivacyBanner from './components/ui/PrivacyBanner';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import theme from './theme';
@@ -30,6 +32,8 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 };
 
 const AppContent: React.FC = () => {
+  const { isAuthenticated } = useAuth();
+  
   console.log('AppContent: Rendering');
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col animate-fadeIn">
@@ -61,8 +65,18 @@ const AppContent: React.FC = () => {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
         </Routes>
       </main>
+      {/* Show privacy banner only for authenticated users */}
+      {isAuthenticated && <PrivacyBanner />}
     </div>
   );
 };

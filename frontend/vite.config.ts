@@ -25,4 +25,6 @@ export default defineConfig({
       },
     },
   },
+  // Ensure static files in public directory are served correctly
+  publicDir: 'public',
 })
