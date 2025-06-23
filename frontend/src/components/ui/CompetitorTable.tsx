@@ -9,6 +9,8 @@ export interface Competitor {
   inStock: boolean;
   percentDiff: number;
   lastChecked: string;
+  name?: string;
+  image?: string;
 }
 
 interface CompetitorTableProps {
@@ -21,7 +23,7 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({ data = [], onD
     <table className="min-w-full bg-white rounded shadow text-sm">
       <thead>
         <tr>
-          <th className="px-4 py-2 text-left">URL</th>
+          <th className="px-4 py-2 text-left">Competitor</th>
           <th className="px-4 py-2 text-left">Price</th>
           <th className="px-4 py-2 text-left">% Diff</th>
           <th className="px-4 py-2 text-left">In Stock</th>
@@ -36,7 +38,12 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({ data = [], onD
               <Avatar sx={{ bgcolor: '#e0e7ff', color: '#3730a3', width: 32, height: 32, fontSize: 18 }}>
                 <GroupIcon fontSize="small" />
               </Avatar>
-              <span>{row.url}</span>
+              <div className="min-w-0 flex-1">
+                {row.name && (
+                  <div className="font-medium text-gray-900 truncate">{row.name}</div>
+                )}
+                <div className="text-gray-500 text-xs truncate">{row.url}</div>
+              </div>
             </td>
             <td className="px-4 py-2">${row.price.toFixed(2)}</td>
             <td className={`px-4 py-2 ${row.percentDiff < 0 ? 'text-red-600' : 'text-green-600'}`}>{row.percentDiff.toFixed(1)}%</td>

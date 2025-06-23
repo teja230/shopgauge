@@ -30,6 +30,8 @@ export interface Competitor {
   inStock: boolean;
   percentDiff: number;
   lastChecked: string;
+  name?: string;
+  image?: string;
 }
 
 export const api = axios.create({
@@ -116,6 +118,51 @@ export async function deleteCompetitor(id: string): Promise<void> {
     method: 'DELETE',
   });
   return handleResponse<void>(res);
+}
+
+// New competitor suggestion interfaces and functions
+export interface CompetitorSuggestion {
+  id: number;
+  suggestedUrl: string;
+  title: string;
+  price: number;
+  source: string;
+  discoveredAt: string;
+  status: string;
+}
+
+export interface SuggestionResponse {
+  content: CompetitorSuggestion[];
+  totalElements: number;
+  totalPages: number;
+  size: number;
+  number: number;
+}
+
+export async function getCompetitorSuggestions(page: number = 0, size: number = 10, status: string = 'NEW'): Promise<SuggestionResponse> {
+  const res = await fetch(`/api/competitors/suggestions?page=${page}&size=${size}&status=${status}`, defaultOptions);
+  return handleResponse<SuggestionResponse>(res);
+}
+
+export async function getSuggestionCount(): Promise<{ newSuggestions: number }> {
+  const res = await fetch('/api/competitors/suggestions/count', defaultOptions);
+  return handleResponse<{ newSuggestions: number }>(res);
+}
+
+export async function approveSuggestion(id: number): Promise<{ message: string }> {
+  const res = await fetch(`/api/competitors/suggestions/${id}/approve`, {
+    ...defaultOptions,
+    method: 'POST',
+  });
+  return handleResponse<{ message: string }>(res);
+}
+
+export async function ignoreSuggestion(id: number): Promise<{ message: string }> {
+  const res = await fetch(`/api/competitors/suggestions/${id}/ignore`, {
+    ...defaultOptions,
+    method: 'POST',
+  });
+  return handleResponse<{ message: string }>(res);
 }
 
 export const getAuthShop = async () => {

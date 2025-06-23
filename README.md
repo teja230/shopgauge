@@ -536,3 +536,64 @@ This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENS
 ---
 
 **Built with ❤️ for Shopify merchants who want better insights into their business.**
+
+# Competitor Discovery
+
+## Configuration
+
+StoreSight uses a **hybrid configuration pattern** that follows the same approach as Shopify integration:
+
+1. **Environment Variables** (primary)
+2. **Redis SecretService** (fallback)
+3. **Application Properties** (defaults)
+
+### Environment Variables (Recommended)
+
+```bash
+# SerpAPI Configuration
+SERPAPI_KEY=your_actual_serpapi_key_here
+DISCOVERY_PROVIDER=serpapi
+DISCOVERY_ENABLED=true
+```
+
+### Redis SecretService (Admin Interface)
+
+If environment variables are not available, the system will automatically fallback to encrypted secrets stored in Redis:
+
+- Access the Admin page at `/admin` (when authenticated)
+- Add secret key: `serpapi_key` with your actual API key
+- The system will automatically detect and use this value
+
+### Configuration Priority
+
+1. **Environment Variable**: `${SERPAPI_KEY:}`
+2. **Redis Secret**: `serpapi_key` (encrypted)
+3. **Default**: `dummy_serpapi_key` (disabled)
+
+### Production Deployment
+
+For production, set environment variables through your hosting platform:
+
+**Render.com:**
+
+```bash
+# Environment Variables
+SERPAPI_KEY=your_production_serpapi_key
+DISCOVERY_ENABLED=true
+SECRETS_ENCRYPTION_KEY=your_32_character_encryption_key
+```
+
+**Local Development:**
+
+```bash
+# application.properties (for testing)
+discovery.serpapi.key=dummy_serpapi_key
+discovery.enabled=false
+```
+
+This pattern ensures:
+
+- ✅ **Security**: No secrets in code or config files
+- ✅ **Flexibility**: Multiple configuration sources
+- ✅ **Fallback**: Graceful degradation when API unavailable
+- ✅ **Consistency**: Same pattern as Shopify, SendGrid, Twilio

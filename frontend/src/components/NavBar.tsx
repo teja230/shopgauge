@@ -1,16 +1,40 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { AppBar, Toolbar, Typography, Box, Button } from '@mui/material';
+import { AppBar, Toolbar, Typography, Box, Button, Badge } from '@mui/material';
+import { getSuggestionCount } from '../api';
 
 const NavBar: React.FC = () => {
   const { isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [suggestionCount, setSuggestionCount] = useState(0);
 
   const handleLogout = () => {
     logout();
   };
+
+  // Fetch suggestion count when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      const fetchSuggestionCount = async () => {
+        try {
+          const response = await getSuggestionCount();
+          setSuggestionCount(response.newSuggestions);
+        } catch (error) {
+          console.error('Error fetching suggestion count:', error);
+          setSuggestionCount(0);
+        }
+      };
+
+      fetchSuggestionCount();
+      // Poll for updates every 30 seconds
+      const interval = setInterval(fetchSuggestionCount, 30000);
+      return () => clearInterval(interval);
+    } else {
+      setSuggestionCount(0);
+    }
+  }, [isAuthenticated]);
 
   return (
     <AppBar position="static">
@@ -30,15 +54,21 @@ const NavBar: React.FC = () => {
               >
                 Dashboard
               </Button>
-              <Button
-                color="inherit"
-                onClick={() => navigate('/competitors')}
-                sx={{
-                  backgroundColor: location.pathname === '/competitors' ? 'rgba(255, 255, 255, 0.1)' : 'transparent'
-                }}
+              <Badge 
+                badgeContent={suggestionCount} 
+                color="error"
+                invisible={suggestionCount === 0}
               >
-                Competitors
-              </Button>
+                <Button
+                  color="inherit"
+                  onClick={() => navigate('/competitors')}
+                  sx={{
+                    backgroundColor: location.pathname === '/competitors' ? 'rgba(255, 255, 255, 0.1)' : 'transparent'
+                  }}
+                >
+                  Competitors
+                </Button>
+              </Badge>
               <Button
                 color="inherit"
                 onClick={() => navigate('/admin')}

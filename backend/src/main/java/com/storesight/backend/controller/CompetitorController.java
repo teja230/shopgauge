@@ -1,18 +1,28 @@
 package com.storesight.backend.controller;
 
+import com.storesight.backend.model.CompetitorSuggestion;
+import com.storesight.backend.repository.CompetitorSuggestionRepository;
+import com.storesight.backend.service.discovery.CompetitorDiscoveryService;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api")
 public class CompetitorController {
   @Autowired private JdbcTemplate jdbcTemplate;
+  @Autowired private CompetitorSuggestionRepository suggestionRepository;
+  @Autowired private CompetitorDiscoveryService discoveryService;
 
   @GetMapping("/competitors")
   public List<CompetitorDto> getCompetitors() {
@@ -30,6 +40,127 @@ public class CompetitorController {
                     "2025-06-17T16:54:02.307+00:00" // TODO: use real lastChecked
                     ))
         .collect(Collectors.toList());
+  }
+
+  /** Get competitor suggestions for the authenticated shop */
+  @GetMapping("/competitors/suggestions")
+  public ResponseEntity<Page<CompetitorSuggestionDto>> getSuggestions(
+      HttpServletRequest request,
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "10") int size,
+      @RequestParam(defaultValue = "NEW") String status) {
+
+    Long shopId = getShopIdFromRequest(request);
+    if (shopId == null) {
+      return ResponseEntity.badRequest().build();
+    }
+
+    Pageable pageable = PageRequest.of(page, size, Sort.by("discoveredAt").descending());
+    CompetitorSuggestion.Status statusEnum =
+        CompetitorSuggestion.Status.valueOf(status.toUpperCase());
+
+    Page<CompetitorSuggestion> suggestions =
+        suggestionRepository.findByShopIdAndStatus(shopId, statusEnum, pageable);
+    Page<CompetitorSuggestionDto> result = suggestions.map(this::convertToDto);
+
+    return ResponseEntity.ok(result);
+  }
+
+  /** Get count of NEW suggestions for badge display */
+  @GetMapping("/competitors/suggestions/count")
+  public ResponseEntity<Map<String, Long>> getSuggestionCount(HttpServletRequest request) {
+    Long shopId = getShopIdFromRequest(request);
+    if (shopId == null) {
+      return ResponseEntity.badRequest().build();
+    }
+
+    long newCount =
+        suggestionRepository.countByShopIdAndStatus(shopId, CompetitorSuggestion.Status.NEW);
+    return ResponseEntity.ok(Map.of("newSuggestions", newCount));
+  }
+
+  /** Approve a competitor suggestion */
+  @PostMapping("/competitors/suggestions/{id}/approve")
+  public ResponseEntity<Map<String, String>> approveSuggestion(
+      @PathVariable Long id, HttpServletRequest request) {
+
+    Long shopId = getShopIdFromRequest(request);
+    if (shopId == null) {
+      return ResponseEntity.badRequest().build();
+    }
+
+    CompetitorSuggestion suggestion = suggestionRepository.findById(id).orElse(null);
+    if (suggestion == null || !suggestion.getShopId().equals(shopId)) {
+      return ResponseEntity.notFound().build();
+    }
+
+    // Move to approved status
+    suggestion.setStatus(CompetitorSuggestion.Status.APPROVED);
+    suggestionRepository.save(suggestion);
+
+    // TODO: Create actual competitor_url entry for price tracking
+    // This would involve inserting into competitor_urls table
+
+    return ResponseEntity.ok(Map.of("message", "Suggestion approved and now being tracked"));
+  }
+
+  /** Ignore a competitor suggestion */
+  @PostMapping("/competitors/suggestions/{id}/ignore")
+  public ResponseEntity<Map<String, String>> ignoreSuggestion(
+      @PathVariable Long id, HttpServletRequest request) {
+
+    Long shopId = getShopIdFromRequest(request);
+    if (shopId == null) {
+      return ResponseEntity.badRequest().build();
+    }
+
+    CompetitorSuggestion suggestion = suggestionRepository.findById(id).orElse(null);
+    if (suggestion == null || !suggestion.getShopId().equals(shopId)) {
+      return ResponseEntity.notFound().build();
+    }
+
+    // Move to ignored status
+    suggestion.setStatus(CompetitorSuggestion.Status.IGNORED);
+    suggestionRepository.save(suggestion);
+
+    return ResponseEntity.ok(Map.of("message", "Suggestion ignored"));
+  }
+
+  /** Get discovery stats (for admin/debugging) */
+  @GetMapping("/competitors/discovery/stats")
+  public ResponseEntity<Map<String, Object>> getDiscoveryStats() {
+    return ResponseEntity.ok(discoveryService.getDiscoveryStats());
+  }
+
+  /** Extract shop ID from session cookie */
+  private Long getShopIdFromRequest(HttpServletRequest request) {
+    if (request.getCookies() != null) {
+      for (Cookie cookie : request.getCookies()) {
+        if ("shop".equals(cookie.getName())) {
+          String shopDomain = cookie.getValue();
+          // Get shop ID from domain
+          List<Map<String, Object>> shops =
+              jdbcTemplate.queryForList(
+                  "SELECT id FROM shops WHERE shopify_domain = ?", shopDomain);
+          if (!shops.isEmpty()) {
+            return ((Number) shops.get(0).get("id")).longValue();
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  /** Convert entity to DTO */
+  private CompetitorSuggestionDto convertToDto(CompetitorSuggestion suggestion) {
+    return new CompetitorSuggestionDto(
+        suggestion.getId(),
+        suggestion.getSuggestedUrl(),
+        suggestion.getTitle(),
+        suggestion.getPrice(),
+        suggestion.getSource().toString(),
+        suggestion.getDiscoveredAt().toString(),
+        suggestion.getStatus().toString());
   }
 
   public static class CompetitorDto {
@@ -53,6 +184,33 @@ public class CompetitorController {
       this.inStock = inStock;
       this.percentDiff = percentDiff;
       this.lastChecked = lastChecked;
+    }
+  }
+
+  public static class CompetitorSuggestionDto {
+    public Long id;
+    public String suggestedUrl;
+    public String title;
+    public java.math.BigDecimal price;
+    public String source;
+    public String discoveredAt;
+    public String status;
+
+    public CompetitorSuggestionDto(
+        Long id,
+        String suggestedUrl,
+        String title,
+        java.math.BigDecimal price,
+        String source,
+        String discoveredAt,
+        String status) {
+      this.id = id;
+      this.suggestedUrl = suggestedUrl;
+      this.title = title;
+      this.price = price;
+      this.source = source;
+      this.discoveredAt = discoveredAt;
+      this.status = status;
     }
   }
 }
