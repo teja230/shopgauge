@@ -4,22 +4,22 @@ FROM openjdk:17-jdk-slim
 # Set working directory
 WORKDIR /app
 
-# Copy gradle wrapper and build files
-COPY gradlew .
-COPY gradle gradle
-COPY build.gradle .
-COPY settings.gradle .
+# Copy Gradle wrapper and project files from backend directory in repository
+COPY backend/gradlew ./gradlew
+COPY backend/gradle ./gradle
+COPY backend/build.gradle ./build.gradle
+COPY backend/settings.gradle ./settings.gradle
+
+# Copy source code
+COPY backend/src ./src
 
 # Make gradlew executable
 RUN chmod +x ./gradlew
 
-# Copy source code
-COPY src src
-
-# Build the application
+# Build the application (skip tests for faster container build)
 RUN ./gradlew build -x test
 
-# Copy the built jar
+# Copy the built jar to a consistent location
 RUN cp build/libs/*.jar app.jar
 
 # Expose port
