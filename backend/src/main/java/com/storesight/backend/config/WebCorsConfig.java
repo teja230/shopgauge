@@ -17,11 +17,11 @@ public class WebCorsConfig {
     // Allow all origins for development
     config.addAllowedOrigin("http://localhost:5173"); // Frontend dev server
     config.addAllowedOrigin("http://localhost:3000"); // Alternative dev server
-    
+
     // Allow Render static site domain
     config.addAllowedOriginPattern("https://*.onrender.com");
     config.addAllowedOrigin("https://storesight.onrender.com");
-    
+
     // Allow Shopify domains for webhook/app installation
     config.addAllowedOriginPattern("https://*.myshopify.com");
     config.addAllowedOriginPattern("https://shopify.com");
@@ -32,7 +32,7 @@ public class WebCorsConfig {
 
     // Allow all headers
     config.addAllowedHeader("*");
-    
+
     // Explicitly allow common headers
     config.addAllowedHeader("Content-Type");
     config.addAllowedHeader("Authorization");
@@ -44,7 +44,7 @@ public class WebCorsConfig {
 
     // Allow credentials for cookie support
     config.setAllowCredentials(true);
-    
+
     // Set max age for preflight cache
     config.setMaxAge(3600L);
 

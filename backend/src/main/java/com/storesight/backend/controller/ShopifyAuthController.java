@@ -344,7 +344,7 @@ public class ShopifyAuthController {
       // Set the shop cookie with proper domain configuration for Render
       Cookie shopCookie = new Cookie("shop", shop);
       shopCookie.setPath("/");
-      
+
       // Configure cookie for cross-domain access on Render
       boolean isProduction = frontendUrl != null && frontendUrl.contains("onrender.com");
       if (isProduction) {
@@ -357,27 +357,30 @@ public class ShopifyAuthController {
         shopCookie.setSecure(false); // HTTP allowed in development
         logger.info("Development environment detected - using local cookie settings");
       }
-      
+
       shopCookie.setHttpOnly(false); // Allow JavaScript access
       shopCookie.setMaxAge(60 * 60 * 24 * 7); // 7 days
-      
+
       // Set SameSite attribute for cross-domain requests
-      response.setHeader("Set-Cookie", 
-          String.format("%s=%s; Path=%s; Max-Age=%d; %s %s SameSite=None",
-              shopCookie.getName(), 
+      response.setHeader(
+          "Set-Cookie",
+          String.format(
+              "%s=%s; Path=%s; Max-Age=%d; %s %s SameSite=None",
+              shopCookie.getName(),
               shopCookie.getValue(),
               shopCookie.getPath(),
               shopCookie.getMaxAge(),
               isProduction ? "Domain=" + shopCookie.getDomain() + ";" : "",
-              isProduction ? "Secure;" : ""
-          ));
-      
-      logger.info("Cookie configuration: domain={}, secure={}, path={}", 
-          shopCookie.getDomain(), isProduction, shopCookie.getPath());
+              isProduction ? "Secure;" : ""));
+
+      logger.info(
+          "Cookie configuration: domain={}, secure={}, path={}",
+          shopCookie.getDomain(),
+          isProduction,
+          shopCookie.getPath());
 
       // Always redirect with shop parameter as fallback
-      String redirectUrl =
-          frontendUrl + "/?shop=" + java.net.URLEncoder.encode(shop, "UTF-8");
+      String redirectUrl = frontendUrl + "/?shop=" + java.net.URLEncoder.encode(shop, "UTF-8");
 
       logger.info(
           "Cookie set successfully, redirecting to frontend with shop parameter: {}", redirectUrl);
@@ -802,11 +805,13 @@ public class ShopifyAuthController {
     logger.info("Test cookie endpoint called");
     logger.info("Shop from cookie: {}", shop);
     logger.info("All cookies: {}", Arrays.toString(request.getCookies()));
-    logger.info("Request headers: {}", Collections.list(request.getHeaderNames()).stream()
-        .collect(Collectors.toMap(name -> name, request::getHeader)));
+    logger.info(
+        "Request headers: {}",
+        Collections.list(request.getHeaderNames()).stream()
+            .collect(Collectors.toMap(name -> name, request::getHeader)));
 
     boolean isProduction = frontendUrl != null && frontendUrl.contains("onrender.com");
-    
+
     Map<String, Object> result = new HashMap<>();
     result.put("shop_from_cookie", shop);
     result.put("is_production", isProduction);
@@ -814,20 +819,22 @@ public class ShopifyAuthController {
     result.put("user_agent", request.getHeader("User-Agent"));
     result.put("origin", request.getHeader("Origin"));
     result.put("referer", request.getHeader("Referer"));
-    result.put("all_cookies", request.getCookies() != null ? 
-        Arrays.stream(request.getCookies())
-              .collect(Collectors.toMap(Cookie::getName, Cookie::getValue)) : 
-        Collections.emptyMap());
+    result.put(
+        "all_cookies",
+        request.getCookies() != null
+            ? Arrays.stream(request.getCookies())
+                .collect(Collectors.toMap(Cookie::getName, Cookie::getValue))
+            : Collections.emptyMap());
 
     // Set a test cookie with proper domain configuration
     String testValue = "test_value_" + System.currentTimeMillis();
-    
+
     if (isProduction) {
       // Production: Use Set-Cookie header with proper domain
-      String setCookieHeader = String.format(
-          "test_cookie=%s; Path=/; Max-Age=300; Domain=.onrender.com; Secure; SameSite=None",
-          testValue
-      );
+      String setCookieHeader =
+          String.format(
+              "test_cookie=%s; Path=/; Max-Age=300; Domain=.onrender.com; Secure; SameSite=None",
+              testValue);
       response.addHeader("Set-Cookie", setCookieHeader);
       result.put("cookie_domain", ".onrender.com");
       result.put("cookie_secure", true);
@@ -938,35 +945,44 @@ public class ShopifyAuthController {
     result.put("api_secret_configured", apiSecret != null && !apiSecret.isBlank());
     result.put("redirect_uri", redirectUri);
     result.put("frontend_url", frontendUrl);
-    
+
     // Add environment variable debugging
     result.put("env_frontend_url", System.getenv("FRONTEND_URL"));
-    result.put("env_shopify_api_key", System.getenv("SHOPIFY_API_KEY") != null ? "configured" : "not_configured");
-    result.put("env_shopify_api_secret", System.getenv("SHOPIFY_API_SECRET") != null ? "configured" : "not_configured");
+    result.put(
+        "env_shopify_api_key",
+        System.getenv("SHOPIFY_API_KEY") != null ? "configured" : "not_configured");
+    result.put(
+        "env_shopify_api_secret",
+        System.getenv("SHOPIFY_API_SECRET") != null ? "configured" : "not_configured");
     result.put("env_shopify_redirect_uri", System.getenv("SHOPIFY_REDIRECT_URI"));
-    
+
     return ResponseEntity.ok(result);
   }
-  
+
   @GetMapping("/debug-environment")
   public ResponseEntity<Map<String, Object>> debugEnvironment() {
     Map<String, Object> result = new HashMap<>();
-    
+
     // Safe environment variables to expose (no secrets)
     result.put("FRONTEND_URL", System.getenv("FRONTEND_URL"));
     result.put("SHOPIFY_REDIRECT_URI", System.getenv("SHOPIFY_REDIRECT_URI"));
-    result.put("SHOPIFY_API_KEY_SET", System.getenv("SHOPIFY_API_KEY") != null && !System.getenv("SHOPIFY_API_KEY").isEmpty());
-    result.put("SHOPIFY_API_SECRET_SET", System.getenv("SHOPIFY_API_SECRET") != null && !System.getenv("SHOPIFY_API_SECRET").isEmpty());
-    
+    result.put(
+        "SHOPIFY_API_KEY_SET",
+        System.getenv("SHOPIFY_API_KEY") != null && !System.getenv("SHOPIFY_API_KEY").isEmpty());
+    result.put(
+        "SHOPIFY_API_SECRET_SET",
+        System.getenv("SHOPIFY_API_SECRET") != null
+            && !System.getenv("SHOPIFY_API_SECRET").isEmpty());
+
     // Configuration values from application.properties
     result.put("config_frontend_url", frontendUrl);
     result.put("config_redirect_uri", redirectUri);
     result.put("config_api_key_set", apiKey != null && !apiKey.isEmpty());
     result.put("config_api_secret_set", apiSecret != null && !apiSecret.isEmpty());
-    
+
     // Environment detection
     result.put("is_production", frontendUrl != null && frontendUrl.contains("onrender.com"));
-    
+
     return ResponseEntity.ok(result);
   }
 }
