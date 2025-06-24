@@ -324,7 +324,11 @@ public class ShopifyAuthController {
       mac.init(secretKeySpec);
 
       byte[] hmacBytes = mac.doFinal(queryString.getBytes(StandardCharsets.UTF_8));
-      String calculatedHmac = Base64.getEncoder().encodeToString(hmacBytes);
+      StringBuilder sb = new StringBuilder();
+      for (byte b : hmacBytes) {
+        sb.append(String.format("%02x", b));
+      }
+      String calculatedHmac = sb.toString();
 
       logger.debug(
           "HMAC validation - Query string: {}, Calculated HMAC: {}, Received HMAC: {}",

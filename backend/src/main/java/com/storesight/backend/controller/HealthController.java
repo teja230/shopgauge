@@ -1,44 +1,65 @@
 package com.storesight.backend.controller;
 
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api")
 public class HealthController {
+
+  private static final Logger logger = LoggerFactory.getLogger(HealthController.class);
+
+  @Value("${spring.application.name:storesight-backend}")
+  private String applicationName;
+
+  @Value("${shopify.api.key:}")
+  private String apiKey;
+
+  @Value("${shopify.api.secret:}")
+  private String apiSecret;
+
+  @Value("${shopify.redirect_uri:}")
+  private String redirectUri;
+
+  @Value("${frontend.url:}")
+  private String frontendUrl;
 
   @Autowired private StringRedisTemplate redisTemplate;
 
   @GetMapping("/health")
   public ResponseEntity<Map<String, Object>> health() {
-    Map<String, Object> response = new HashMap<>();
-    response.put("status", "UP");
-    response.put("timestamp", LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
-    response.put("service", "storesight-backend");
-    response.put("version", "1.0.0");
+    Map<String, Object> health = new HashMap<>();
+    health.put("status", "UP");
+    health.put("application", applicationName);
+    health.put("timestamp", System.currentTimeMillis());
 
-    return ResponseEntity.ok(response);
+    return ResponseEntity.ok(health);
   }
 
   @GetMapping("/health/detailed")
   public ResponseEntity<Map<String, Object>> detailedHealth() {
-    Map<String, Object> response = new HashMap<>();
+    Map<String, Object> health = new HashMap<>();
+    health.put("status", "UP");
+    health.put("application", applicationName);
+    health.put("timestamp", System.currentTimeMillis());
+
+    // Check configuration
+    Map<String, Object> config = new HashMap<>();
+    config.put("api_key_configured", apiKey != null && !apiKey.isBlank());
+    config.put("api_secret_configured", apiSecret != null && !apiSecret.isBlank());
+    config.put("redirect_uri_configured", redirectUri != null && !redirectUri.isBlank());
+    config.put("frontend_url_configured", frontendUrl != null && !frontendUrl.isBlank());
+
+    health.put("configuration", config);
+
     Map<String, Object> checks = new HashMap<>();
-
-    // Basic service check
-    response.put("status", "UP");
-    response.put("timestamp", LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
-    response.put("service", "storesight-backend");
-    response.put("version", "1.0.0");
-
     // Redis connectivity check
     try {
       redisTemplate.opsForValue().set("health:check", "ok");
@@ -53,12 +74,7 @@ public class HealthController {
       checks.put("redis", Map.of("status", "DOWN", "message", "Redis error: " + e.getMessage()));
     }
 
-    // Database check would go here if needed
-    // For now, we'll assume it's healthy if the service is running
-    checks.put(
-        "database", Map.of("status", "UP", "message", "Database connection assumed healthy"));
-
-    response.put("checks", checks);
+    health.put("checks", checks);
 
     // Overall status based on checks
     boolean allHealthy =
@@ -66,18 +82,10 @@ public class HealthController {
             .allMatch(check -> "UP".equals(((Map<String, Object>) check).get("status")));
 
     if (!allHealthy) {
-      response.put("status", "DOWN");
-      return ResponseEntity.status(503).body(response);
+      health.put("status", "DOWN");
+      return ResponseEntity.status(503).body(health);
     }
 
-    return ResponseEntity.ok(response);
-  }
-
-  @GetMapping("/ping")
-  public ResponseEntity<Map<String, String>> ping() {
-    Map<String, String> response = new HashMap<>();
-    response.put("message", "pong");
-    response.put("timestamp", LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
-    return ResponseEntity.ok(response);
+    return ResponseEntity.ok(health);
   }
 }
