@@ -369,20 +369,24 @@ public class ShopifyAuthController {
       response.addCookie(shopCookie);
 
       // Also set cookie using header for better control over SameSite attribute
+      // For cross-origin requests between subdomains, we need SameSite=None
+      String sameSiteValue = isProduction ? "None" : "Lax";
       response.addHeader(
           "Set-Cookie",
           String.format(
-              "%s=%s; Path=%s; Max-Age=%d; SameSite=Lax; %s",
+              "%s=%s; Path=%s; Max-Age=%d; SameSite=%s; %s",
               shopCookie.getName(),
               shopCookie.getValue(),
               shopCookie.getPath(),
               shopCookie.getMaxAge(),
+              sameSiteValue,
               isProduction ? "Secure;" : ""));
 
       logger.info(
-          "Cookie configuration: secure={}, path={}, SameSite=Lax",
+          "Cookie configuration: secure={}, path={}, SameSite={}",
           isProduction,
-          shopCookie.getPath());
+          shopCookie.getPath(),
+          sameSiteValue);
 
       // Always redirect with shop parameter as fallback
       String redirectUrl = frontendUrl + "/?shop=" + java.net.URLEncoder.encode(shop, "UTF-8");
@@ -832,8 +836,11 @@ public class ShopifyAuthController {
       response.addCookie(shopCookie);
 
       // Also add a Set-Cookie header to ensure the cookie is cleared
+      // Use SameSite=None for production to ensure cross-origin clearing works
+      boolean isProduction = frontendUrl != null && frontendUrl.contains("onrender.com");
+      String sameSiteValue = isProduction ? "None" : "Lax";
       String clearCookieHeader =
-          "shop=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Secure; SameSite=Lax";
+          String.format("shop=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Secure; SameSite=%s", sameSiteValue);
       response.addHeader("Set-Cookie", clearCookieHeader);
 
       logger.info("Auth: Cleared shop cookie for: {}", shop);
@@ -941,9 +948,12 @@ public class ShopifyAuthController {
     String shop = shopParam != null ? shopParam : shopCookie;
 
     // Clear cookie with the correct domain setting for Render
+    // Use SameSite=None for production cross-origin requests
+    boolean isProduction = frontendUrl != null && frontendUrl.contains("onrender.com");
+    String sameSiteValue = isProduction ? "None" : "Lax";
     response.addHeader(
         "Set-Cookie",
-        "shop=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Secure; SameSite=Lax");
+        String.format("shop=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Secure; SameSite=%s", sameSiteValue));
 
     // Also clear without domain for localhost development
     response.addHeader(
