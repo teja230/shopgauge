@@ -5,29 +5,30 @@ import { CheckCircleIcon } from '@heroicons/react/24/solid';
 import { useNavigate } from 'react-router-dom';
 
 const features = [
-  'Real-time competitor price tracking',
+  'Real-time competitor price monitoring',
   'Automated price change alerts',
-  'Customizable dashboard',
-  'Performance analytics',
-  'Inventory management',
-  'Sales forecasting',
-  'Shopify integration',
-  'Email notifications'
+  'Shopify integration & analytics',
+  'Competitor discovery & tracking',
+  'Email & SMS notifications',
+  'Custom dashboard & reports',
+  'Data export & privacy controls',
+  'GDPR/CCPA compliance'
 ];
 
 const pricing = [
   {
     tier: 'Pro',
-    price: '$9.99/month',
+    price: '$19.99/month',
     features: [
       'Track unlimited competitors',
+      'Real-time price monitoring',
+      'Automated alerts (Email & SMS)',
       'Advanced analytics dashboard',
-      'Real-time price alerts',
-      'Priority support',
-      'Custom exports',
+      'Competitor discovery tools',
       'Shopify integration',
-      'Email notifications',
-      'Sales forecasting'
+      'Data export capabilities',
+      'Priority support',
+      'GDPR/CCPA compliance'
     ]
   }
 ];
@@ -36,7 +37,7 @@ const HomePage = () => {
   const [shopDomain, setShopDomain] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
-  const { isAuthenticated, authLoading } = useAuth();
+  const { isAuthenticated, authLoading, logout } = useAuth();
   const navigate = useNavigate();
 
   // Determine if user is authenticated after auth check completes
@@ -44,6 +45,18 @@ const HomePage = () => {
 
   const handleStartClick = () => {
     setShowForm(true);
+  };
+
+  const handleSwitchStore = async () => {
+    try {
+      // Clear current session first
+      await logout();
+      // Show the form for connecting a new store
+      setShowForm(true);
+    } catch (error) {
+      console.error('Failed to switch store:', error);
+      toast.error('Failed to switch store. Please try again.');
+    }
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -99,15 +112,26 @@ const HomePage = () => {
           <div className="flex flex-col items-center gap-4">
             <div className="text-center">
               <p className="text-green-600 font-semibold mb-2">✓ You're already connected!</p>
-              <button
-                onClick={() => navigate('/dashboard')}
-                className="inline-flex items-center px-6 py-3 rounded-lg font-semibold shadow transition bg-[#5A31F4] hover:bg-[#4A2FD4] text-white"
-              >
-                <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12.5 0C5.6 0 0 5.6 0 12.5S5.6 25 12.5 25 25 19.4 25 12.5 19.4 0 12.5 0zm0 4.2c4.6 0 8.3 3.7 8.3 8.3s-3.7 8.3-8.3 8.3-8.3-3.7-8.3-8.3 3.7-8.3 8.3-8.3z"/>
-                </svg>
-                Go to Dashboard
-              </button>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={() => navigate('/dashboard')}
+                  className="inline-flex items-center px-6 py-3 rounded-lg font-semibold shadow transition bg-[#5A31F4] hover:bg-[#4A2FD4] text-white"
+                >
+                  <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12.5 0C5.6 0 0 5.6 0 12.5S5.6 25 12.5 25 25 19.4 25 12.5 19.4 0 12.5 0zm0 4.2c4.6 0 8.3 3.7 8.3 8.3s-3.7 8.3-8.3 8.3-8.3-3.7-8.3-8.3 3.7-8.3 8.3-8.3z"/>
+                  </svg>
+                  Go to Dashboard
+                </button>
+                <button
+                  onClick={handleSwitchStore}
+                  className="inline-flex items-center px-6 py-3 rounded-lg font-semibold shadow transition border-2 border-[#5A31F4] text-[#5A31F4] bg-white hover:bg-[#5A31F4] hover:text-white"
+                >
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                  </svg>
+                  Switch Store
+                </button>
+              </div>
             </div>
           </div>
         ) : (

@@ -71,21 +71,21 @@ const NavBar: React.FC = () => {
               </Badge>
               <Button
                 color="inherit"
-                onClick={() => navigate('/admin')}
-                sx={{
-                  backgroundColor: location.pathname === '/admin' ? 'rgba(255, 255, 255, 0.1)' : 'transparent'
-                }}
-              >
-                Admin
-              </Button>
-              <Button
-                color="inherit"
                 onClick={() => navigate('/profile')}
                 sx={{
                   backgroundColor: location.pathname === '/profile' ? 'rgba(255, 255, 255, 0.1)' : 'transparent'
                 }}
               >
                 Profile
+              </Button>
+              <Button
+                color="inherit"
+                onClick={() => navigate('/admin')}
+                sx={{
+                  backgroundColor: location.pathname === '/admin' ? 'rgba(255, 255, 255, 0.1)' : 'transparent'
+                }}
+              >
+                Admin
               </Button>
               <Button color="inherit" onClick={handleLogout}>
                 Logout

@@ -29,7 +29,7 @@ public class SecretsConfig {
       secretService.storeSecret("sendgrid.api.key", "your-sendgrid-api-key");
       secretService.storeSecret("twilio.account.sid", "your-twilio-account-sid");
       secretService.storeSecret("twilio.auth.token", "your-twilio-auth-token");
-      secretService.storeSecret("serpapi_key", "your-serpapi-key");
+      secretService.storeSecret("serpapi.api.key", "your-serpapi-key");
     }
   }
 
@@ -65,7 +65,7 @@ public class SecretsConfig {
 
   public String getSerpApiKey() {
     return secretService
-        .getSecret("serpapi_key")
+        .getSecret("serpapi.api.key")
         .orElseThrow(() -> new RuntimeException("SerpAPI key not found"));
   }
 }

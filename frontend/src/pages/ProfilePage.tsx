@@ -10,6 +10,9 @@ export default function ProfilePage() {
   const [isDeletingData, setIsDeletingData] = useState(false);
   const [showPrivacyReport, setShowPrivacyReport] = useState(false);
   const [privacyReport, setPrivacyReport] = useState<any>(null);
+  const [showStoreSwitcher, setShowStoreSwitcher] = useState(false);
+  const [newStoreDomain, setNewStoreDomain] = useState('');
+  const [isConnectingStore, setIsConnectingStore] = useState(false);
 
   const handleReAuthenticate = async () => {
     try {
@@ -166,17 +169,249 @@ export default function ProfilePage() {
     }
   };
 
+  const handleConnectNewStore = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newStoreDomain) {
+      toast.error('Please enter a store domain');
+      return;
+    }
+
+    setIsConnectingStore(true);
+    try {
+      // Clean up the shop domain
+      let cleanDomain = newStoreDomain.trim().toLowerCase();
+      
+      // Remove any protocol or www prefix
+      cleanDomain = cleanDomain.replace(/^(https?:\/\/)?(www\.)?/, '');
+      
+      // Remove any trailing slashes
+      cleanDomain = cleanDomain.replace(/\/+$/, '');
+      
+      // If it doesn't end with .myshopify.com, add it
+      if (!cleanDomain.endsWith('.myshopify.com')) {
+        cleanDomain = `${cleanDomain}.myshopify.com`;
+      }
+
+      // Redirect to the login endpoint with the shop parameter
+      window.location.href = `/api/auth/shopify/login?shop=${encodeURIComponent(cleanDomain)}`;
+    } catch (error) {
+      console.error('Failed to connect new store:', error);
+      toast.error('Failed to connect store. Please try again.');
+    } finally {
+      setIsConnectingStore(false);
+    }
+  };
+
+  const handleSwitchStore = async (targetShop: string) => {
+    try {
+      // This would typically involve updating the current session
+      // For now, we'll redirect to the login flow for the target shop
+      window.location.href = `/api/auth/shopify/login?shop=${encodeURIComponent(targetShop)}`;
+    } catch (error) {
+      console.error('Failed to switch store:', error);
+      toast.error('Failed to switch store. Please try again.');
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold text-gray-900 mb-8">Profile & Settings</h1>
       
       <div className="bg-white shadow rounded-lg p-6 mb-8">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Store Information</h2>
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Shop Name</label>
-            <div className="mt-1 text-gray-900">{shop}</div>
+        <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+          <span className="mr-2">🏪</span>
+          Store Information
+        </h2>
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Current Store</label>
+                <div className="flex items-center space-x-2">
+                  <div className="flex-1 bg-gray-50 px-3 py-2 rounded-md border">
+                    <span className="text-gray-900 font-mono text-sm">{shop}</span>
+                  </div>
+                  <div className="flex items-center text-green-600">
+                    <svg className="w-5 h-5 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    <span className="text-sm font-medium">Active</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Connection Status</label>
+                <div className="flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span className="text-sm text-gray-600">Active Shopify Integration</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Last Data Sync</label>
+                <div className="text-sm text-gray-600">
+                  {new Date().toLocaleDateString('en-US', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Data Collection</label>
+                <div className="flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                  <span className="text-sm text-gray-600">Orders, Analytics, & Metrics</span>
+                </div>
+              </div>
+            </div>
           </div>
+          
+          <div className="border-t pt-4">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-gray-600">
+                <span className="font-medium">Need to update your store connection?</span>
+                <p className="text-xs text-gray-500 mt-1">Re-authenticate with Shopify if you're experiencing issues</p>
+              </div>
+              <button
+                onClick={handleReAuthenticate}
+                disabled={isLoading}
+                className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+              >
+                {isLoading ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Re-authenticating...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Re-authenticate
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Store Management Section */}
+      <div className="bg-white shadow rounded-lg p-6 mb-8">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+          <span className="mr-2">🔄</span>
+          Store Management
+        </h2>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-medium text-gray-900">Switch Store</h3>
+              <p className="text-sm text-gray-600">Connect additional stores or switch between connected stores</p>
+            </div>
+            <button
+              onClick={() => setShowStoreSwitcher(!showStoreSwitcher)}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              {showStoreSwitcher ? 'Hide' : 'Manage Stores'}
+            </button>
+          </div>
+          
+          {showStoreSwitcher && (
+            <div className="border-t pt-4 space-y-4">
+              {/* Current Store */}
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium text-blue-900">Current Store</h4>
+                    <p className="text-sm text-blue-700">{shop}</p>
+                  </div>
+                  <div className="flex items-center text-blue-600">
+                    <svg className="w-5 h-5 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    <span className="text-sm font-medium">Active</span>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Connect New Store */}
+              <div className="border-t pt-4">
+                <h4 className="font-medium text-gray-900 mb-3">Connect New Store</h4>
+                <form onSubmit={handleConnectNewStore} className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="text"
+                    value={newStoreDomain}
+                    onChange={(e) => setNewStoreDomain(e.target.value)}
+                    placeholder="Enter store name (e.g. mystore)"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    disabled={isConnectingStore}
+                  />
+                  <button
+                    type="submit"
+                    disabled={isConnectingStore}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                  >
+                    {isConnectingStore ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Connecting...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                        Connect Store
+                      </>
+                    )}
+                  </button>
+                </form>
+                <p className="text-xs text-gray-500 mt-1">Enter your store name without .myshopify.com</p>
+              </div>
+              
+              {/* Quick Actions */}
+              <div className="border-t pt-4">
+                <h4 className="font-medium text-gray-900 mb-3">Quick Actions</h4>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => window.location.href = '/'}
+                    className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                    </svg>
+                    Go to Home
+                  </button>
+                  <button
+                    onClick={() => window.location.href = '/dashboard'}
+                    className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                    Go to Dashboard
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -288,25 +523,6 @@ export default function ProfilePage() {
           </div>
         </div>
       )}
-
-      <div className="bg-white shadow rounded-lg p-6 mb-8">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Authentication</h2>
-        <div className="space-y-4">
-          <div>
-            <p className="text-sm text-gray-600 mb-2">
-              If you're experiencing permission issues or need to refresh your Shopify connection, 
-              click the button below to re-authenticate with Shopify.
-            </p>
-            <button
-              onClick={handleReAuthenticate}
-              disabled={isLoading}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-            >
-              {isLoading ? 'Re-authenticating...' : 'Re-authenticate with Shopify'}
-            </button>
-          </div>
-        </div>
-      </div>
 
       <div className="bg-white shadow rounded-lg p-6">
         <h2 className="text-xl font-semibold text-gray-900 mb-4">Danger Zone</h2>

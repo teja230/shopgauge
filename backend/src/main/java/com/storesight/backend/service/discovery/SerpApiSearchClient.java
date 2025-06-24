@@ -48,7 +48,7 @@ public class SerpApiSearchClient implements SearchClient {
     // Fallback to Redis-stored secrets if env vars are not provided
     if (apiKey == null || apiKey.isBlank() || apiKey.equals("dummy_serpapi_key")) {
       secretService
-          .getSecret("serpapi_key")
+          .getSecret("serpapi.api.key")
           .ifPresent(
               val -> {
                 this.apiKey = val;

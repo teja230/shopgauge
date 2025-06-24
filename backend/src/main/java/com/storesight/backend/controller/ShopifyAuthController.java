@@ -81,7 +81,7 @@ public class ShopifyAuthController {
     // Fallback to Redis-stored secrets if env vars are not provided
     if (apiKey == null || apiKey.isBlank()) {
       secretService
-          .getSecret("shopify_api_key")
+          .getSecret("shopify.api.key")
           .ifPresent(
               val -> {
                 this.apiKey = val;
@@ -90,7 +90,7 @@ public class ShopifyAuthController {
     }
     if (apiSecret == null || apiSecret.isBlank()) {
       secretService
-          .getSecret("shopify_api_secret")
+          .getSecret("shopify.api.secret")
           .ifPresent(
               val -> {
                 this.apiSecret = val;

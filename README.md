@@ -33,6 +33,7 @@ graph TB
     subgraph "External Services"
         Competitors[Web Scraping<br/>Competitor Data<br/>Selenium + JSoup]
         Notifications[Email/SMS<br/>SendGrid + Twilio]
+        Discovery[Competitor Discovery<br/>SerpAPI Integration]
     end
     
     UI --> Auth
@@ -45,6 +46,7 @@ graph TB
     Services --> Shopify
     Services --> Competitors
     Services --> Notifications
+    Services --> Discovery
     
     style UI fill:#e1f5fe
     style Gateway fill:#f3e5f5
@@ -103,6 +105,7 @@ graph LR
         S2[Shopify Products API]
         S3[Shopify Customers API]
         S4[Competitor Websites]
+        S5[SerpAPI Discovery]
     end
     
     subgraph "Data Processing"
@@ -110,6 +113,7 @@ graph LR
         Transform[Data Transformation<br/>Aggregation & Metrics]
         Enrich[Data Enrichment<br/>URLs & Links]
         Worker[Background Worker<br/>Scraping & Alerts]
+        Discovery[Competitor Discovery<br/>Automated Suggestions]
     end
     
     subgraph "Storage"
@@ -124,16 +128,19 @@ graph LR
         Revenue[Revenue Chart]
         Competitors[Competitor Table]
         Insights[Insight Banners]
+        Suggestions[Competitor Suggestions]
     end
     
     S1 --> Cache
     S2 --> Cache
     S3 --> Cache
     S4 --> Worker
+    S5 --> Discovery
     
     Cache --> Transform
     Transform --> Enrich
     Worker --> Transform
+    Discovery --> Transform
     Enrich --> DB
     Enrich --> Memory
     
@@ -144,10 +151,12 @@ graph LR
     Dashboard --> Revenue
     Dashboard --> Competitors
     Dashboard --> Insights
+    Dashboard --> Suggestions
     
     style Cache fill:#ffeb3b
     style Transform fill:#4caf50
     style Worker fill:#ff9800
+    style Discovery fill:#9c27b0
     style Dashboard fill:#2196f3
 ``` 
 
@@ -169,9 +178,12 @@ graph LR
 | `/api/analytics/new_products`      | GET             | Recently added products             | Cookie         |
 | `/api/analytics/permissions/check` | GET             | Check API permissions               | Cookie         |
 | `/api/competitors`                 | GET/POST/DELETE | Competitor management               | Cookie         |
+| `/api/competitors/suggestions`     | GET/POST/DELETE | Competitor discovery suggestions    | Cookie         |
 | `/api/insights`                    | GET             | Dashboard insights                  | Cookie         |
 | `/api/admin/debug`                 | GET             | Debug API access issues             | Cookie         |
 | `/api/admin/secrets`               | GET/POST/DELETE | Manage encrypted secrets            | Cookie         |
+| `/api/admin/integrations/status`   | GET             | Check integration status            | Cookie         |
+| `/api/admin/integrations/test`     | POST            | Test email/SMS integrations         | Cookie         |
 
 ### Error Handling & Permission Management
 
@@ -248,15 +260,24 @@ graph TD
 - 📊 **Interactive Dashboards** - Responsive charts and visualizations with real-time updates
 - 🔄 **Automatic Data Sync** - Real-time synchronization with Shopify APIs
 
+### Competitor Intelligence
+
+- 🏪 **Competitor Price Monitoring** - Real-time tracking of competitor prices and products
+- 🔍 **Automated Competitor Discovery** - AI-powered suggestions for new competitors to track
+- 📊 **Competitor Analytics** - Price change alerts, market positioning, and trend analysis
+- 🔄 **Web Scraping Engine** - Automated data collection from competitor websites
+- 📧 **Price Change Alerts** - Instant notifications when competitors change prices
+- 📋 **Competitor Management** - Add, remove, and organize competitor tracking
+
 ### Advanced Features
 
-- 🏪 **Competitor Tracking** - Monitor competitor prices and products with web scraping
 - 📧 **Automated Alerts** - Email/SMS notifications for key events and threshold breaches
 - 📋 **Custom Reports** - Scheduled reports and data exports
 - 🔍 **Low Inventory Alerts** - Proactive inventory management with automated notifications
 - 📱 **Mobile Responsive** - Full mobile and tablet support with responsive design
-- 🔐 **Privacy Compliance** - Built-in privacy controls and data protection features
+- 🔐 **Privacy Compliance** - Built-in privacy controls and GDPR/CCPA compliance
 - 🔧 **Secret Management** - Encrypted secret storage in Redis with admin interface
+- 🔄 **Store Switching** - Seamless switching between multiple Shopify stores
 
 ### Integration Features
 
@@ -266,6 +287,24 @@ graph TD
 - 🛡️ **Error Handling** - Comprehensive error recovery and user-friendly error messages
 - 🔗 **Deep Links** - Direct links to Shopify admin pages for seamless navigation
 - 🔍 **Debug Tools** - Built-in debugging endpoints for troubleshooting API access issues
+
+## 💰 Pricing
+
+### Pro Plan - $19.99/month
+
+**Everything you need to grow your Shopify business:**
+
+- ✅ Track unlimited competitors
+- ✅ Real-time price monitoring
+- ✅ Automated alerts (Email & SMS)
+- ✅ Advanced analytics dashboard
+- ✅ Competitor discovery tools
+- ✅ Shopify integration
+- ✅ Data export capabilities
+- ✅ Priority support
+- ✅ GDPR/CCPA compliance
+
+**Start with a 3-day free trial - no credit card required!**
 
 ## 🚀 Quick Start
 
@@ -340,13 +379,18 @@ shopify.api.key=${SHOPIFY_API_KEY:}
 shopify.api.secret=${SHOPIFY_API_SECRET:}
 shopify.scopes=read_products,read_orders,read_customers,read_inventory
 shopify.redirect_uri=${SHOPIFY_REDIRECT_URI:http://localhost:8080/api/auth/shopify/callback}
+# Competitor Discovery (SerpAPI)
+discovery.serpapi.key=${SERPAPI_KEY:dummy_serpapi_key}
+discovery.enabled=${DISCOVERY_ENABLED:false}
+discovery.provider=${DISCOVERY_PROVIDER:serpapi}
+# External Services
+sendgrid.api-key=${SENDGRID_API_KEY:dummy_sendgrid_key}
+twilio.account_sid=${TWILIO_ACCOUNT_SID:dummy_twilio_sid}
+twilio.auth_token=${TWILIO_AUTH_TOKEN:dummy_twilio_token}
+twilio.from_number=${TWILIO_FROM_NUMBER:+1234567890}
 # Frontend URL
 frontend.url=${FRONTEND_URL:http://localhost:5173}
-# External Services (dummy values for development)
-sendgrid.api-key=dummy_sendgrid_key
-twilio.account_sid=dummy_twilio_sid
-twilio.auth_token=dummy_twilio_token
-twilio.from_number=${TWILIO_FROM_NUMBER:+1234567890}
+
 # Server
 server.port=${SERVER_PORT:8080}
 ```
@@ -455,6 +499,8 @@ The application is configured for deployment on Render.com using the `render.yam
 - [ ] Configure load balancing (if needed)
 - [ ] Request Protected Customer Data access from Shopify
 - [ ] Set up secret encryption key (`SECRETS_ENCRYPTION_KEY`)
+- [ ] Configure SerpAPI for competitor discovery
+- [ ] Set up SendGrid/Twilio for notifications
 
 ## 🧪 Testing
 
@@ -523,6 +569,11 @@ cd backend
 - Cause: Missing or invalid encryption key
 - Solution: Set `SECRETS_ENCRYPTION_KEY` environment variable (16+ characters)
 
+**Competitor Discovery Not Working**
+
+- Cause: SerpAPI key not configured or invalid
+- Solution: Set `SERPAPI_KEY` environment variable or add via Admin interface
+
 ### Getting Help
 
 - 📧 Email: support@storesight.com
@@ -561,13 +612,13 @@ DISCOVERY_ENABLED=true
 If environment variables are not available, the system will automatically fallback to encrypted secrets stored in Redis:
 
 - Access the Admin page at `/admin` (when authenticated)
-- Add secret key: `serpapi_key` with your actual API key
+- Add secret key: `serpapi.api.key` with your actual API key
 - The system will automatically detect and use this value
 
 ### Configuration Priority
 
 1. **Environment Variable**: `${SERPAPI_KEY:}`
-2. **Redis Secret**: `serpapi_key` (encrypted)
+2. **Redis Secret**: `serpapi.api.key` (encrypted)
 3. **Default**: `dummy_serpapi_key` (disabled)
 
 ### Production Deployment
