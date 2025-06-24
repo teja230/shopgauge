@@ -44,7 +44,7 @@ compliance features.
 - **Comprehensive Testing**: Unit tests, integration tests, and end-to-end testing
 - **CI/CD Ready**: Docker containerization and Render deployment configuration
 - **API-First Design**: RESTful APIs with comprehensive documentation
-- **Real-time Updates**: WebSocket support for live dashboard updates
+- **Reactive Architecture**: WebFlux-based reactive programming for scalability
 
 ## 🏗️ Architecture Overview
 
@@ -61,11 +61,12 @@ graph TB
     end
     
     subgraph "Backend Layer"
-        Gateway[Spring Boot Gateway<br/>Port 8080]
-        Controllers[REST Controllers<br/>Analytics, Auth, Competitors, Insights]
+        Gateway[Spring Boot Application<br/>Port 8080]
+        Controllers[REST Controllers<br/>Analytics, Auth, Competitors, Insights, Admin]
         Services[Business Services<br/>Shop, Insights, Notifications, Alerts]
         Discovery[Competitor Discovery<br/>SerpAPI + Web Scraping]
         Security[Security Layer<br/>CORS + OAuth + Audit]
+        Workers[Scheduled Workers<br/>Discovery, Scraping, Cleanup]
     end
     
     subgraph "Data Layer"
@@ -94,6 +95,9 @@ graph TB
     Discovery --> WebScraping
     Services --> SendGrid
     Services --> Twilio
+    Workers --> Discovery
+    Workers --> PostgreSQL
+    Workers --> Redis
     
     style UI fill:#e1f5fe
     style Gateway fill:#f3e5f5
@@ -169,7 +173,7 @@ graph LR
     subgraph "Storage"
         DB[(PostgreSQL<br/>Persistent Data)]
         Memory[(Redis<br/>Session & Cache)]
-        Secrets[(Redis<br/>Encrypted Secrets)]
+        EnvSecrets[Environment Variables<br/>Production Secrets]
     end
     
     subgraph "Frontend Components"
@@ -196,7 +200,7 @@ graph LR
     
     Memory --> Dashboard
     DB --> Dashboard
-    Secrets --> Dashboard
+    EnvSecrets --> Dashboard
     Dashboard --> Metrics
     Dashboard --> Revenue
     Dashboard --> Competitors
@@ -219,7 +223,7 @@ graph LR
 | `/api/auth/shopify/install`        | GET             | Initiate OAuth flow                 | None           |
 | `/api/auth/shopify/callback`       | GET             | Handle OAuth callback               | None           |
 | `/api/auth/shopify/reauth`         | GET             | Re-authenticate with updated scopes | Cookie         |
-| `/api/auth/me`                     | GET             | Get current shop info               | Cookie         |
+| `/api/auth/shopify/me`             | GET             | Get current shop info               | Cookie         |
 | `/api/analytics/orders/timeseries` | GET             | Orders data with pagination         | Cookie         |
 | `/api/analytics/revenue`           | GET             | Revenue metrics                     | Cookie         |
 | `/api/analytics/abandoned-carts`   | GET             | Abandoned cart analytics            | Cookie         |
@@ -308,10 +312,11 @@ CREATE TABLE audit_logs (
 ### Prerequisites
 
 - **Java 17** or higher
-- **Node.js 18** or higher
-- **PostgreSQL 15** or higher
+- **Node.js 18** or higher  
+- **PostgreSQL 15+** or higher (PostgreSQL 16 recommended for production)
 - **Redis 7** or higher
-- **Shopify Partner Account** with app credentials
+- **Shopify Partner Account** with app credentials and API access
+- **Docker** (optional, for containerized development)
 
 ### Local Development Setup
 
@@ -428,29 +433,68 @@ npm run test
 
 ### Render Deployment
 
-The application includes a `render.yaml` configuration for easy deployment to Render:
+The application is production-ready with a comprehensive `render.yaml` configuration:
 
 ```yaml
 services:
-   - type: web
-     name: storesight-backend
-     env: docker
-     plan: standard
-     dockerfilePath: backend/Dockerfile
-
-   - type: worker
-     name: storesight-worker
-     env: docker
-     plan: standard
-     dockerfilePath: backend/Dockerfile
-     startCommand: "java -jar app.jar --spring.profiles.active=worker"
-
-   - type: static
-     name: storesight-frontend
-     env: static
-     buildCommand: "cd frontend && npm install && npm run build"
-     staticPublishPath: frontend/dist
+  # Backend Service
+  - type: web
+    name: storesight-backend
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerContext: .
+    dockerfilePath: backend/Dockerfile
+    envVars:
+      - key: SHOPIFY_API_KEY
+        sync: false
+      - key: SHOPIFY_API_SECRET  
+        sync: false
+      - key: SERPAPI_KEY
+        sync: false
+      - key: SENDGRID_API_KEY
+        sync: false
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      # ... additional configuration variables
+      
+  # Frontend Service  
+  - type: web
+    name: storesight
+    runtime: static
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    rootDir: frontend
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+        
+# Managed Services        
+databases:
+  - name: storesight-db
+    databaseName: storesight
+    user: storesight_user
+    plan: free
+    region: oregon
+    postgresMajorVersion: "16"
+    
+keyvalue:
+  - name: storesight-redis
+    plan: free
+    region: oregon
+    maxmemoryPolicy: allkeys-lru
 ```
+
+**Production Features:**
+- ✅ **Managed PostgreSQL 16** with automatic backups
+- ✅ **Redis KeyValue Store** with LRU eviction policy  
+- ✅ **Environment-based Secrets** management
+- ✅ **SPA Routing** with proper rewrites
+- ✅ **Multi-region Deployment** (Oregon region)
+- ✅ **Auto-scaling** and health checks
 
 ## 🔒 Security & Compliance
 
@@ -465,11 +509,14 @@ services:
 
 ### Security Measures
 
-- 🔐 **OAuth 2.0 Authentication** - Secure Shopify integration
-- 🛡️ **CORS Protection** - Cross-origin request security
-- 🔍 **Input Validation** - Comprehensive input sanitization
-- 📝 **Audit Logging** - All actions logged for security monitoring
-- 🔄 **Session Management** - Secure session handling with Redis
+- 🔐 **OAuth 2.0 Authentication** - Secure Shopify integration with token refresh
+- 🛡️ **CORS Protection** - Multi-origin support for development and production
+- 🔍 **Input Validation** - Comprehensive input sanitization and SQL injection prevention
+- 📝 **Audit Logging** - PostgreSQL-based audit trail with IP tracking and user agents
+- 🔄 **Session Management** - Redis-based session persistence with secure cookies
+- 🔒 **Environment Secrets** - Production secrets managed via Render environment variables
+- 🚫 **Code Reuse Prevention** - OAuth authorization code replay attack protection
+- 🍪 **Secure Cookies** - HttpOnly, Secure, SameSite cookie configuration
 
 ## 🤝 Contributing
 
@@ -516,11 +563,19 @@ We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.
 
 ### External Services
 
-- **Shopify API**: OAuth integration and data access
-- **SerpAPI**: Competitor discovery
-- **SendGrid**: Email notifications
-- **Twilio**: SMS alerts
-- **Selenium**: Web scraping for competitor data
+- **Shopify API**: OAuth integration and data access with Protected Customer Data support
+- **SerpAPI**: AI-powered competitor discovery with Google Shopping integration
+- **SendGrid**: Transactional email notifications and alerts
+- **Twilio**: SMS notifications and real-time alerts
+- **Selenium WebDriver**: Automated web scraping for competitor price monitoring
+
+### Production Infrastructure
+
+- **Render.com**: Cloud hosting with auto-scaling and health checks
+- **PostgreSQL 16**: Managed database with automatic backups
+- **Redis**: KeyValue store for sessions, caching, and rate limiting
+- **Docker**: Containerized deployment with multi-stage builds
+- **GitHub**: Source code management with automated deployments
 
 ## 📄 License
 
@@ -536,16 +591,30 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 
 ## 🗺️ Roadmap
 
+### Recently Completed ✅
+
+- [x] **Production Deployment** - Live application on Render with managed services
+- [x] **Environment Secrets** - Secure secret management via environment variables
+- [x] **Session Persistence** - Redis-based session storage with secure cookies
+- [x] **Audit Logging** - PostgreSQL-based compliance logging with 365-day retention
+- [x] **OAuth Security** - Authorization code replay attack prevention
+- [x] **CORS Configuration** - Multi-origin support for development and production
+- [x] **Error Handling** - Comprehensive error boundaries and user-friendly messages
+- [x] **SPA Routing** - Proper single-page application routing on static hosting
+
 ### Upcoming Features
 
+- [ ] **WebSocket Real-time Updates** - Live dashboard updates without page refresh
 - [ ] **Advanced AI Insights** - Machine learning-powered business recommendations
 - [ ] **Multi-store Management** - Support for multiple Shopify stores
-- [ ] **Real-time Notifications** - WebSocket-based live updates
 - [ ] **Advanced Reporting** - Custom report builder and scheduling
 - [ ] **Mobile App** - React Native mobile application
 - [ ] **API Rate Limiting** - Advanced rate limiting and throttling
 - [ ] **Data Export** - CSV/Excel export functionality
 - [ ] **Webhook Integration** - Real-time Shopify webhook processing
+- [ ] **Advanced Price Alerts** - Configurable price change thresholds
+- [ ] **Competitor Analysis Dashboard** - Dedicated competitor intelligence page
+- [ ] **Background Workers** - Dedicated worker processes for data processing
 
 ### Performance Improvements
 
@@ -553,6 +622,7 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 - [ ] **Database Optimization** - Query optimization and indexing
 - [ ] **CDN Integration** - Global content delivery network
 - [ ] **Load Balancing** - Horizontal scaling support
+- [ ] **Monitoring & Observability** - Application performance monitoring
 
 ---
 
