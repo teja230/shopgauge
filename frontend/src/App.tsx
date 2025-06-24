@@ -11,6 +11,7 @@ import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import NotFoundPage from './pages/NotFoundPage';
 import NavBar from './components/NavBar';
 import PrivacyBanner from './components/ui/PrivacyBanner';
+import ErrorBoundary from './components/ErrorBoundary';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import theme from './theme';
@@ -155,15 +156,26 @@ const App: React.FC = () => {
     console.log('App: Rendering');
   }
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <Router>
-        <AuthProvider>
-          <Toaster position="top-right" />
-          <AppContent />
-        </AuthProvider>
-      </Router>
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <Router>
+          <AuthProvider>
+            <Toaster 
+              position="top-center"
+              toastOptions={{
+                duration: 4000,
+                style: {
+                  borderRadius: '8px',
+                  fontWeight: '500',
+                },
+              }}
+            />
+            <AppContent />
+          </AuthProvider>
+        </Router>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 };
 

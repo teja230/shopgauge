@@ -65,6 +65,74 @@ let isHandlingAuthError = false;
 let authErrorCount = 0;
 const MAX_AUTH_ERRORS = 3;
 
+// Function to show session expired notification
+const showSessionExpiredNotification = () => {
+  // Try to use react-hot-toast if available
+  const toast = (window as any).toast;
+  if (toast && typeof toast.error === 'function') {
+    toast.error('Your session has expired. Please sign in again.', {
+      duration: 4000,
+      position: 'top-center',
+      style: {
+        background: '#ef4444',
+        color: '#ffffff',
+        fontWeight: '500',
+      },
+    });
+  } else {
+    // Fallback to a custom notification div
+    const existingNotification = document.getElementById('session-expired-notification');
+    if (existingNotification) {
+      existingNotification.remove();
+    }
+    
+    const notification = document.createElement('div');
+    notification.id = 'session-expired-notification';
+    notification.innerHTML = `
+      <div style="
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #ef4444;
+        color: white;
+        padding: 16px 20px;
+        border-radius: 8px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        z-index: 10000;
+        font-family: 'Inter', sans-serif;
+        font-weight: 500;
+        max-width: 400px;
+        animation: slideInFromRight 0.3s ease-out;
+      ">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h2v2h-2v-2zm0-8h2v6h-2V9z"/>
+          </svg>
+          <span>Your session has expired. Redirecting to sign in...</span>
+        </div>
+      </div>
+      <style>
+        @keyframes slideInFromRight {
+          from { transform: translateX(100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+      </style>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Auto-remove after 3 seconds
+    setTimeout(() => {
+      if (notification && notification.parentNode) {
+        notification.style.animation = 'slideInFromRight 0.3s ease-out reverse';
+        setTimeout(() => {
+          notification.remove();
+        }, 300);
+      }
+    }, 3000);
+  }
+};
+
 // Function to handle global auth errors with rate limiting
 const handleGlobalAuthError = () => {
   authErrorCount++;
@@ -84,11 +152,17 @@ const handleGlobalAuthError = () => {
   document.cookie = 'shop=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
   document.cookie = 'SESSION=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
   
-  // Show user-friendly notification only if not on home page
+  // Show professional notification only if not on home page
   if (typeof window !== 'undefined' && window.location.pathname !== '/' && window.location.pathname !== '/index.html') {
-    console.log('API: Session expired, redirecting to home');
-    // Redirect to home page immediately, don't wait
-    window.location.href = '/';
+    console.log('API: Session expired, showing notification and redirecting');
+    
+    // Show elegant notification
+    showSessionExpiredNotification();
+    
+    // Redirect after a brief delay to let user see the notification
+    setTimeout(() => {
+      window.location.href = '/';
+    }, 1500);
   }
   
   // Reset flags after handling
@@ -141,7 +215,7 @@ async function handleResponse<T>(response: Response): Promise<T> {
       console.log('API: Unauthorized, clearing auth state');
       // Clear any stale auth state
       document.cookie = 'shop=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
-      throw new Error('Please log in to continue');
+      throw new Error('Authentication required');
     }
     const error = await response.text();
     console.error('API: Error response:', response.status, error);
@@ -233,7 +307,7 @@ export const getAuthShop = async () => {
     return data.shop;
   } catch (error) {
     console.error('API: Error getting auth shop:', error);
-    if (error instanceof Error && error.message === 'Please log in to continue') {
+    if (error instanceof Error && error.message === 'Authentication required') {
       return null;
     }
     throw error;

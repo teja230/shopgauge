@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { getAuthShop, API_BASE_URL } from '../api';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../api';
+import { useSessionNotification } from '../hooks/useSessionNotification';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -28,6 +29,7 @@ export const useAuth = () => useContext(AuthContext);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { showSessionExpired, showConnectionError } = useSessionNotification();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [shop, setShop] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -134,12 +136,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('Failed to refresh auth:', error);
       }
       console.error('Auth: Error during refresh:', error);
+      
+      // Check if it's an authentication error vs connection error
+      if (error instanceof Error && error.message.includes('Authentication required')) {
+        // Show professional session expired notification
+        if (location.pathname !== '/' && !isLoggingOut) {
+          showSessionExpired({ redirectDelay: 1000 });
+        }
+      } else if (error instanceof Error && error.message.includes('Failed to fetch')) {
+        // Connection error - don't redirect immediately
+        showConnectionError();
+      }
+      
       setShop(null);
       setIsAuthenticated(false);
-      // Only redirect to home if we're not already there and not in the middle of logging out
-      if (location.pathname !== '/' && !isLoggingOut) {
-        console.log('Auth: Redirecting to home due to error from:', location.pathname);
-        navigate('/');
+      // Only redirect to home if it's an auth error (not connection error) and we're not already there
+      if (location.pathname !== '/' && !isLoggingOut && 
+          error instanceof Error && error.message.includes('Authentication required')) {
+        console.log('Auth: Redirecting to home due to auth error from:', location.pathname);
+        setTimeout(() => navigate('/'), 1000); // Delay to show notification
       }
     }
   }, [location.pathname, navigate, isLoggingOut]);
@@ -272,6 +287,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
             setTimeout(checkAuth, 2000); // Retry after 2 seconds
             return;
+          } else {
+            // Show connection error instead of session expired
+            showConnectionError();
           }
         }
 
