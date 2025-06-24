@@ -24,8 +24,36 @@ public class CustomErrorController implements ErrorController {
     Object message = request.getAttribute("javax.servlet.error.message");
     Object exception = request.getAttribute("javax.servlet.error.exception");
     Object path = request.getAttribute("javax.servlet.error.request_uri");
-
     String requestPath = path != null ? path.toString() : request.getRequestURI();
+
+    // Exclude specific paths from error handling
+    if (requestPath != null
+        && (requestPath.contains("/api/auth/shopify/callback")
+            || requestPath.contains("/api/auth/shopify/login")
+            || requestPath.contains("/api/auth/shopify/install")
+            || requestPath.contains("/actuator/")
+            || requestPath.contains("/health"))) {
+      logger.debug("Excluding path from error controller: {}", requestPath);
+      // Return a simple response to avoid interference
+      return ResponseEntity.ok(Map.of("status", "UP", "message", "Application is running"));
+    }
+
+    // If no error attributes are set, this is not an error - return 404 to let Spring handle
+    // routing
+    if (status == null && message == null && exception == null) {
+      logger.debug(
+          "Error controller called but no error attributes found - returning 404 to let Spring handle routing");
+      Map<String, Object> notFoundResponse = new HashMap<>();
+      notFoundResponse.put("timestamp", System.currentTimeMillis());
+      notFoundResponse.put("status", 404);
+      notFoundResponse.put("error", "Not Found");
+      notFoundResponse.put("message", "The requested resource was not found");
+      notFoundResponse.put("path", requestPath);
+      return ResponseEntity.status(HttpStatus.NOT_FOUND).body(notFoundResponse);
+    }
+
+    int statusCode = status != null ? (Integer) status : 500;
+    String errorMessage = message != null ? message.toString() : "An unexpected error occurred";
 
     // Don't log errors for health checks or expected 404s
     if (requestPath != null
@@ -33,17 +61,6 @@ public class CustomErrorController implements ErrorController {
       logger.debug("Health check or favicon request to error controller: {}", requestPath);
       return ResponseEntity.ok(Map.of("status", "UP"));
     }
-
-    // If no error attributes are set, this might be a health check or other request
-    // that shouldn't trigger the error controller
-    if (status == null && message == null && exception == null) {
-      logger.debug(
-          "Error controller called but no error attributes found - likely a health check or invalid request");
-      return ResponseEntity.ok(Map.of("status", "UP", "message", "Application is running"));
-    }
-
-    int statusCode = status != null ? (Integer) status : 500;
-    String errorMessage = message != null ? message.toString() : "An unexpected error occurred";
 
     logger.error(
         "Error occurred - Status: {}, Message: {}, Path: {}, Exception: {}",
@@ -74,9 +91,6 @@ public class CustomErrorController implements ErrorController {
     } else if (statusCode == 403) {
       errorResponse.put("debug_info", "Access forbidden.");
       errorResponse.put("suggestion", "You don't have permission to access this resource.");
-    } else if (statusCode == 400) {
-      errorResponse.put("debug_info", "Bad request - invalid parameters or data.");
-      errorResponse.put("suggestion", "Check your request parameters and try again.");
     }
 
     // Add HTML response for browser requests
