@@ -98,6 +98,49 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
     // Handle 401 Unauthorized globally
     if (response.status === 401) {
       console.log('API: Unauthorized response detected, handling globally');
+      
+      // Try to refresh authentication before failing
+      try {
+        console.log('API: Attempting to refresh authentication...');
+        const refreshResponse = await fetch(`${API_BASE_URL}/api/auth/shopify/refresh`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (refreshResponse.ok) {
+          const refreshData = await refreshResponse.json();
+          console.log('API: Authentication refresh successful:', refreshData);
+          
+          // Retry the original request
+          console.log('API: Retrying original request after refresh...');
+          const retryResponse = await fetch(fullUrl, {
+            ...options,
+            credentials: 'include',
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              ...options.headers,
+            },
+          });
+          
+          if (retryResponse.ok) {
+            console.log('API: Retry successful after auth refresh');
+            return retryResponse;
+          } else {
+            console.log('API: Retry failed even after auth refresh');
+          }
+        } else {
+          console.log('API: Authentication refresh failed');
+        }
+      } catch (refreshError) {
+        console.error('API: Auth refresh error:', refreshError);
+      }
+      
+      // If refresh didn't work, proceed with original error handling
       handleGlobalAuthError();
       throw new Error('Authentication required');
     }

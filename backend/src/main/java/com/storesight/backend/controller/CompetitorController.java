@@ -5,6 +5,7 @@ import com.storesight.backend.repository.CompetitorSuggestionRepository;
 import com.storesight.backend.service.discovery.CompetitorDiscoveryService;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -17,8 +18,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.HashMap;
 
 @RestController
 @RequestMapping("/api")
@@ -80,10 +79,10 @@ public class CompetitorController {
   @GetMapping("/competitors/suggestions/count")
   public ResponseEntity<Map<String, Object>> getSuggestionCount(HttpServletRequest request) {
     System.out.println("getSuggestionCount called");
-    
+
     Long shopId = getShopIdFromRequest(request);
     System.out.println("Shop ID from request: " + shopId);
-    
+
     if (shopId == null) {
       System.out.println("No shop ID found, returning 401");
       return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -100,7 +99,7 @@ public class CompetitorController {
       // Log error but return 0 count to prevent frontend errors
       System.err.println("Error getting suggestion count: " + e.getMessage());
       e.printStackTrace();
-      
+
       // Return 500 instead of 200 so we can see the actual error
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
           .body(Map.of("error", "Database error: " + e.getMessage(), "newSuggestions", 0L));
@@ -181,7 +180,7 @@ public class CompetitorController {
   @GetMapping("/competitors/debug/auth")
   public ResponseEntity<Map<String, Object>> debugAuth(HttpServletRequest request) {
     Map<String, Object> debug = new HashMap<>();
-    
+
     // Check cookies
     Map<String, String> cookies = new HashMap<>();
     if (request.getCookies() != null) {
@@ -190,12 +189,12 @@ public class CompetitorController {
       }
     }
     debug.put("cookies", cookies);
-    
+
     // Check shop ID extraction
     Long shopId = getShopIdFromRequest(request);
     debug.put("shopId", shopId);
     debug.put("shopIdFound", shopId != null);
-    
+
     // Check database connection for shops table
     try {
       long shopCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM shops", Long.class);
@@ -205,14 +204,15 @@ public class CompetitorController {
       debug.put("databaseError", e.getMessage());
       debug.put("databaseConnected", false);
     }
-    
+
     // If shop cookie exists, check if shop exists in database
     String shopCookie = cookies.get("shop");
     if (shopCookie != null) {
       try {
-        List<Map<String, Object>> shops = jdbcTemplate.queryForList(
-            "SELECT id, shopify_domain, created_at FROM shops WHERE shopify_domain = ?", 
-            shopCookie);
+        List<Map<String, Object>> shops =
+            jdbcTemplate.queryForList(
+                "SELECT id, shopify_domain, created_at FROM shops WHERE shopify_domain = ?",
+                shopCookie);
         debug.put("shopInDatabase", !shops.isEmpty());
         if (!shops.isEmpty()) {
           debug.put("shopRecord", shops.get(0));
@@ -221,7 +221,7 @@ public class CompetitorController {
         debug.put("shopQueryError", e.getMessage());
       }
     }
-    
+
     return ResponseEntity.ok(debug);
   }
 
@@ -231,16 +231,32 @@ public class CompetitorController {
       for (Cookie cookie : request.getCookies()) {
         if ("shop".equals(cookie.getName())) {
           String shopDomain = cookie.getValue();
-          // Get shop ID from domain
-          List<Map<String, Object>> shops =
-              jdbcTemplate.queryForList(
-                  "SELECT id FROM shops WHERE shopify_domain = ?", shopDomain);
-          if (!shops.isEmpty()) {
-            return ((Number) shops.get(0).get("id")).longValue();
+          System.out.println("Looking for shop ID for domain: " + shopDomain);
+          
+          try {
+            // Get shop ID from domain
+            List<Map<String, Object>> shops =
+                jdbcTemplate.queryForList(
+                    "SELECT id FROM shops WHERE shopify_domain = ?", shopDomain);
+            if (!shops.isEmpty()) {
+              Long shopId = ((Number) shops.get(0).get("id")).longValue();
+              System.out.println("Found shop ID: " + shopId + " for domain: " + shopDomain);
+              return shopId;
+            } else {
+              System.out.println("No shop found in database for domain: " + shopDomain);
+              
+              // Log all shops in database for debugging
+              List<Map<String, Object>> allShops = jdbcTemplate.queryForList("SELECT id, shopify_domain FROM shops");
+              System.out.println("All shops in database: " + allShops);
+            }
+          } catch (Exception e) {
+            System.err.println("Database error getting shop ID: " + e.getMessage());
+            e.printStackTrace();
           }
         }
       }
     }
+    System.out.println("No shop cookie found or no matching shop in database");
     return null;
   }
 
