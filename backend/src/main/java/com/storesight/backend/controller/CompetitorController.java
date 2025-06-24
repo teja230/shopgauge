@@ -18,6 +18,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
+
 @RestController
 @RequestMapping("/api")
 public class CompetitorController {
@@ -77,20 +79,31 @@ public class CompetitorController {
   /** Get count of NEW suggestions for badge display */
   @GetMapping("/competitors/suggestions/count")
   public ResponseEntity<Map<String, Object>> getSuggestionCount(HttpServletRequest request) {
+    System.out.println("getSuggestionCount called");
+    
     Long shopId = getShopIdFromRequest(request);
+    System.out.println("Shop ID from request: " + shopId);
+    
     if (shopId == null) {
+      System.out.println("No shop ID found, returning 401");
       return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
           .body(Map.of("error", "Authentication required", "newSuggestions", 0L));
     }
 
     try {
+      System.out.println("Querying suggestion count for shop ID: " + shopId);
       long newCount =
           suggestionRepository.countByShopIdAndStatus(shopId, CompetitorSuggestion.Status.NEW);
+      System.out.println("Found " + newCount + " new suggestions");
       return ResponseEntity.ok(Map.of("newSuggestions", newCount));
     } catch (Exception e) {
       // Log error but return 0 count to prevent frontend errors
       System.err.println("Error getting suggestion count: " + e.getMessage());
-      return ResponseEntity.ok(Map.of("newSuggestions", 0L));
+      e.printStackTrace();
+      
+      // Return 500 instead of 200 so we can see the actual error
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Database error: " + e.getMessage(), "newSuggestions", 0L));
     }
   }
 
@@ -162,6 +175,54 @@ public class CompetitorController {
     } catch (Exception e) {
       return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
     }
+  }
+
+  /** Debug endpoint to check authentication status */
+  @GetMapping("/competitors/debug/auth")
+  public ResponseEntity<Map<String, Object>> debugAuth(HttpServletRequest request) {
+    Map<String, Object> debug = new HashMap<>();
+    
+    // Check cookies
+    Map<String, String> cookies = new HashMap<>();
+    if (request.getCookies() != null) {
+      for (Cookie cookie : request.getCookies()) {
+        cookies.put(cookie.getName(), cookie.getValue());
+      }
+    }
+    debug.put("cookies", cookies);
+    
+    // Check shop ID extraction
+    Long shopId = getShopIdFromRequest(request);
+    debug.put("shopId", shopId);
+    debug.put("shopIdFound", shopId != null);
+    
+    // Check database connection for shops table
+    try {
+      long shopCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM shops", Long.class);
+      debug.put("totalShopsInDb", shopCount);
+      debug.put("databaseConnected", true);
+    } catch (Exception e) {
+      debug.put("databaseError", e.getMessage());
+      debug.put("databaseConnected", false);
+    }
+    
+    // If shop cookie exists, check if shop exists in database
+    String shopCookie = cookies.get("shop");
+    if (shopCookie != null) {
+      try {
+        List<Map<String, Object>> shops = jdbcTemplate.queryForList(
+            "SELECT id, shopify_domain, created_at FROM shops WHERE shopify_domain = ?", 
+            shopCookie);
+        debug.put("shopInDatabase", !shops.isEmpty());
+        if (!shops.isEmpty()) {
+          debug.put("shopRecord", shops.get(0));
+        }
+      } catch (Exception e) {
+        debug.put("shopQueryError", e.getMessage());
+      }
+    }
+    
+    return ResponseEntity.ok(debug);
   }
 
   /** Extract shop ID from session cookie */
