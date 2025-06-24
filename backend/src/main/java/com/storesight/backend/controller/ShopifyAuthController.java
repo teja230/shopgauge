@@ -177,9 +177,13 @@ public class ShopifyAuthController {
     String code = params.get("code");
     String error = params.get("error");
     String errorDescription = params.get("error_description");
-    
-    logger.info("Callback received - shop: {}, code: {}, error: {}, error_description: {}", 
-        shop, code != null ? code.substring(0, Math.min(8, code.length())) + "..." : "null", error, errorDescription);
+
+    logger.info(
+        "Callback received - shop: {}, code: {}, error: {}, error_description: {}",
+        shop,
+        code != null ? code.substring(0, Math.min(8, code.length())) + "..." : "null",
+        error,
+        errorDescription);
     logger.info(
         "Callback - Request headers: {}",
         Collections.list(request.getHeaderNames()).stream()
@@ -189,13 +193,15 @@ public class ShopifyAuthController {
     // Check for Shopify error response
     if (error != null) {
       logger.error("Shopify OAuth error: {} - {}", error, errorDescription);
-      response.sendError(HttpServletResponse.SC_BAD_REQUEST, "OAuth error: " + error + " - " + errorDescription);
+      response.sendError(
+          HttpServletResponse.SC_BAD_REQUEST, "OAuth error: " + error + " - " + errorDescription);
       return;
     }
 
     if (shop == null || code == null) {
       logger.error("Missing required parameters - shop: {}, code: {}", shop, code);
-      response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing required parameters: shop and/or code");
+      response.sendError(
+          HttpServletResponse.SC_BAD_REQUEST, "Missing required parameters: shop and/or code");
       return;
     }
 
@@ -203,7 +209,7 @@ public class ShopifyAuthController {
       logger.info("Starting token exchange process for shop: {}", shop);
       String accessToken = exchangeCodeForAccessToken(shop, code);
       logger.info("Access token obtained for shop: {}", shop);
-      
+
       String sessionId = request.getSession(true).getId();
       logger.info("Saving shop data - shop: {}, sessionId: {}", shop, sessionId);
       shopService.saveShop(shop, accessToken, sessionId);
@@ -234,7 +240,7 @@ public class ShopifyAuthController {
       response.sendRedirect(frontendUrl + "/dashboard");
     } catch (Exception e) {
       logger.error("Error in callback for shop: {} - Error details: {}", shop, e.getMessage(), e);
-      
+
       // Provide more specific error messages
       String errorMessage = "Authentication failed";
       if (e.getMessage().contains("API key")) {
@@ -244,8 +250,9 @@ public class ShopifyAuthController {
       } else if (e.getMessage().contains("network") || e.getMessage().contains("connection")) {
         errorMessage = "Network error during authentication";
       }
-      
-      response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, errorMessage + ": " + e.getMessage());
+
+      response.sendError(
+          HttpServletResponse.SC_INTERNAL_SERVER_ERROR, errorMessage + ": " + e.getMessage());
     }
   }
 
@@ -256,27 +263,33 @@ public class ShopifyAuthController {
   }
 
   private String exchangeCodeForAccessToken(String shop, String code) {
-    logger.info("Exchanging code for access token - shop: {}, code: {}", shop, code != null ? code.substring(0, Math.min(8, code.length())) + "..." : "null");
-    logger.info("Using API credentials - key: {}, secret: {}", 
+    logger.info(
+        "Exchanging code for access token - shop: {}, code: {}",
+        shop,
+        code != null ? code.substring(0, Math.min(8, code.length())) + "..." : "null");
+    logger.info(
+        "Using API credentials - key: {}, secret: {}",
         apiKey != null ? apiKey.substring(0, Math.min(8, apiKey.length())) + "..." : "null",
-        apiSecret != null ? apiSecret.substring(0, Math.min(8, apiSecret.length())) + "..." : "null");
-    
+        apiSecret != null
+            ? apiSecret.substring(0, Math.min(8, apiSecret.length())) + "..."
+            : "null");
+
     if (apiKey == null || apiKey.isBlank()) {
       logger.error("Shopify API key is missing or empty");
       throw new RuntimeException("Shopify API key is not configured");
     }
-    
+
     if (apiSecret == null || apiSecret.isBlank()) {
       logger.error("Shopify API secret is missing or empty");
       throw new RuntimeException("Shopify API secret is not configured");
     }
-    
+
     String url = "https://" + shop + "/admin/oauth/access_token";
     Map<String, String> body =
         Map.of("client_id", apiKey, "client_secret", apiSecret, "code", code);
-    
+
     logger.info("Making token exchange request to: {}", url);
-    
+
     try {
       return webClient
           .post()
@@ -284,16 +297,17 @@ public class ShopifyAuthController {
           .bodyValue(body)
           .retrieve()
           .bodyToMono(Map.class)
-          .map(response -> {
-            logger.info("Token exchange response: {}", response);
-            String accessToken = (String) response.get("access_token");
-            if (accessToken == null || accessToken.isBlank()) {
-              logger.error("No access token in response: {}", response);
-              throw new RuntimeException("No access token received from Shopify");
-            }
-            logger.info("Successfully obtained access token");
-            return accessToken;
-          })
+          .map(
+              response -> {
+                logger.info("Token exchange response: {}", response);
+                String accessToken = (String) response.get("access_token");
+                if (accessToken == null || accessToken.isBlank()) {
+                  logger.error("No access token in response: {}", response);
+                  throw new RuntimeException("No access token received from Shopify");
+                }
+                logger.info("Successfully obtained access token");
+                return accessToken;
+              })
           .block();
     } catch (Exception e) {
       logger.error("Error during token exchange for shop: {}", shop, e);
