@@ -444,9 +444,13 @@ public class ShopifyAuthController {
     String shop = shopParam != null ? shopParam : shopCookie;
     response.addHeader(
         "Set-Cookie", "shop=; Path=/api; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT");
+    // Clear cookie for both localhost and production domains
     response.addHeader(
         "Set-Cookie",
         "shop=; Domain=localhost; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT");
+    response.addHeader(
+        "Set-Cookie",
+        "shop=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax");
 
     if (shop != null && !shop.isBlank()) {
       // Clear the access token from Redis and database

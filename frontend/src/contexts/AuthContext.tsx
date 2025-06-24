@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { getAuthShop } from '../api';
+import { getAuthShop, API_BASE_URL } from '../api';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../api';
 
@@ -168,7 +168,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       console.log('Auth: Calling force-disconnect endpoint');
       
-      await fetch('/api/auth/shopify/profile/force-disconnect', {
+      await fetch(`${API_BASE_URL}/api/auth/shopify/profile/force-disconnect`, {
         method: 'POST',
         credentials: 'include',
       });

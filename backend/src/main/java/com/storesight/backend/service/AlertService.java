@@ -247,9 +247,14 @@ public class AlertService implements StreamListener<String, MapRecord<String, St
         if (email == null) continue;
         // Fetch CSV from export endpoint
         java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
+        // Use environment variable for backend URL, fallback to localhost for development
+        String backendUrl = System.getenv("BACKEND_URL");
+        if (backendUrl == null || backendUrl.isEmpty()) {
+            backendUrl = "http://localhost:8080";
+        }
         var req =
             java.net.http.HttpRequest.newBuilder()
-                .uri(new java.net.URI("http://localhost:8080/api/analytics/export/csv"))
+                .uri(new java.net.URI(backendUrl + "/api/analytics/export/csv"))
                 .header("Cookie", "shop=" + shop)
                 .build();
         var resp = client.send(req, java.net.http.HttpResponse.BodyHandlers.ofByteArray());

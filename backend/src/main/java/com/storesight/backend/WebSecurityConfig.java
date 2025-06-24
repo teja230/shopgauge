@@ -34,7 +34,13 @@ public class WebSecurityConfig {
   @Bean
   public CorsConfigurationSource corsConfigurationSource() {
     CorsConfiguration configuration = new CorsConfiguration();
-    configuration.setAllowedOrigins(Arrays.asList("http://localhost:5173"));
+    // Allow both localhost for development and production URLs
+    configuration.setAllowedOrigins(Arrays.asList(
+        "http://localhost:5173", 
+        "http://localhost:5174",
+        "https://storesight.onrender.com"
+    ));
+    configuration.setAllowedOriginPatterns(Arrays.asList("https://*.onrender.com"));
     configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
     configuration.setAllowedHeaders(Arrays.asList("*"));
     configuration.setExposedHeaders(Arrays.asList("*"));

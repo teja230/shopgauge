@@ -1196,7 +1196,12 @@ public class AnalyticsController {
           }
 
           debugInfo.put("recommendations", recommendations);
-          debugInfo.put("reauth_url", "http://localhost:8080/api/auth/shopify/login?shop=" + shop);
+          // Use environment variable for backend URL, fallback to localhost for development
+          String backendUrl = System.getenv("BACKEND_URL");
+          if (backendUrl == null || backendUrl.isEmpty()) {
+              backendUrl = "http://localhost:8080";
+          }
+          debugInfo.put("reauth_url", backendUrl + "/api/auth/shopify/login?shop=" + shop);
 
           return ResponseEntity.ok(debugInfo);
         });
@@ -1271,22 +1276,32 @@ public class AnalyticsController {
                         "1. App needs to request 'Protected Customer Data' access from Shopify",
                         "2. App needs to be re-installed with updated permissions",
                         "3. Store owner needs to approve additional permissions"));
+                // Use environment variable for backend URL, fallback to localhost for development
+                String backendUrl = System.getenv("BACKEND_URL");
+                if (backendUrl == null || backendUrl.isEmpty()) {
+                    backendUrl = "http://localhost:8080";
+                }
                 errorResult.put(
                     "next_steps",
                     List.of(
                         "1. Visit https://" + shop + "/admin/apps to check app permissions",
                         "2. Try re-installing the app: "
-                            + "http://localhost:8080/api/auth/shopify/login?shop="
+                            + backendUrl + "/api/auth/shopify/login?shop="
                             + shop,
                         "3. Contact Shopify support for Protected Customer Data approval"));
               } else if (e.getMessage().contains("401")) {
                 errorResult.put("error_type", "AUTHENTICATION_FAILED");
                 errorResult.put("explanation", "The access token is invalid or expired");
+                // Use environment variable for backend URL, fallback to localhost for development
+                String backendUrl = System.getenv("BACKEND_URL");
+                if (backendUrl == null || backendUrl.isEmpty()) {
+                    backendUrl = "http://localhost:8080";
+                }
                 errorResult.put(
                     "next_steps",
                     List.of(
                         "Re-authenticate: "
-                            + "http://localhost:8080/api/auth/shopify/login?shop="
+                            + backendUrl + "/api/auth/shopify/login?shop="
                             + shop));
               } else {
                 errorResult.put("error_type", "UNKNOWN_ERROR");
@@ -1460,8 +1475,13 @@ public class AnalyticsController {
           helpfulLinks.put(
               "Protected Customer Data Guide",
               "https://shopify.dev/docs/apps/launch/protected-customer-data");
+          // Use environment variable for backend URL, fallback to localhost for development
+          String backendUrl = System.getenv("BACKEND_URL");
+          if (backendUrl == null || backendUrl.isEmpty()) {
+              backendUrl = "http://localhost:8080";
+          }
           helpfulLinks.put(
-              "Re-authenticate App", "http://localhost:8080/api/auth/shopify/login?shop=" + shop);
+              "Re-authenticate App", backendUrl + "/api/auth/shopify/login?shop=" + shop);
           permissionsReport.put("helpful_links", helpfulLinks);
 
           // Add timestamp

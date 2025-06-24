@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
+import { API_BASE_URL } from '../api';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -25,7 +26,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const checkAuth = async () => {
     try {
-      const response = await axios.get('http://localhost:8080/api/auth/shopify/me', {
+      const response = await axios.get(`${API_BASE_URL}/api/auth/shopify/me`, {
         withCredentials: true
       });
       if (response.data.shop) {
@@ -41,7 +42,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
-      await axios.post('http://localhost:8080/api/auth/shopify/profile/disconnect', {}, {
+      await axios.post(`${API_BASE_URL}/api/auth/shopify/profile/disconnect`, {}, {
         withCredentials: true
       });
       setIsAuthenticated(false);

@@ -3,6 +3,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'react-hot-toast';
 import { CheckCircleIcon } from '@heroicons/react/24/solid';
 import { useNavigate } from 'react-router-dom';
+import { getInsights, fetchWithAuth } from '../api';
+import { API_BASE_URL } from '../api';
 
 const features = [
   'Real-time competitor price monitoring',
@@ -83,7 +85,7 @@ const HomePage = () => {
       }
 
       // Redirect to the login endpoint with the shop parameter
-      window.location.href = `http://localhost:8080/api/auth/shopify/login?shop=${encodeURIComponent(cleanDomain)}`;
+      window.location.href = `${API_BASE_URL}/api/auth/shopify/login?shop=${encodeURIComponent(cleanDomain)}`;
     } catch (error) {
       console.error('Login failed:', error);
       toast.error('Failed to connect to Shopify. Please try again.');

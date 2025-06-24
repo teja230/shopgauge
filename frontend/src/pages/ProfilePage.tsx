@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { API_BASE_URL } from '../api';
 
 export default function ProfilePage() {
   const { shop, logout } = useAuth();
@@ -21,7 +22,7 @@ export default function ProfilePage() {
       setIsLoading(true);
       // Redirect to Shopify OAuth flow for re-authentication
       if (shop) {
-        window.location.href = '/api/auth/shopify/login?shop=' + encodeURIComponent(shop);
+        window.location.href = `${API_BASE_URL}/api/auth/shopify/login?shop=${encodeURIComponent(shop)}`;
       } else {
         toast.error('No shop found. Please disconnect and reconnect.');
       }
@@ -55,7 +56,7 @@ export default function ProfilePage() {
     
     try {
       console.log('Force disconnect: Calling API with shop:', shop);
-      const res = await fetch('/api/auth/shopify/profile/force-disconnect', {
+      const res = await fetch(`${API_BASE_URL}/api/auth/shopify/profile/force-disconnect`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -89,7 +90,7 @@ export default function ProfilePage() {
   const handleDataExport = async () => {
     setIsExporting(true);
     try {
-      const response = await fetch('/api/analytics/privacy/data-export', {
+      const response = await fetch(`${API_BASE_URL}/api/analytics/privacy/data-export`, {
         method: 'GET',
         credentials: 'include',
       });
@@ -124,7 +125,7 @@ export default function ProfilePage() {
 
     setIsDeletingData(true);
     try {
-      const response = await fetch('/api/analytics/privacy/data-deletion', {
+      const response = await fetch(`${API_BASE_URL}/api/analytics/privacy/data-deletion`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -153,7 +154,7 @@ export default function ProfilePage() {
 
   const handlePrivacyReport = async () => {
     try {
-      const response = await fetch('/api/analytics/privacy/compliance-report', {
+      const response = await fetch(`${API_BASE_URL}/api/analytics/privacy/compliance-report`, {
         method: 'GET',
         credentials: 'include',
       });
@@ -195,7 +196,7 @@ export default function ProfilePage() {
       }
 
       // Redirect to the login endpoint with the shop parameter
-      window.location.href = `/api/auth/shopify/login?shop=${encodeURIComponent(cleanDomain)}`;
+      window.location.href = `${API_BASE_URL}/api/auth/shopify/login?shop=${encodeURIComponent(cleanDomain)}`;
     } catch (error) {
       console.error('Failed to connect new store:', error);
       toast.error('Failed to connect store. Please try again.');
