@@ -20,8 +20,8 @@ RUN chmod +x ./gradlew
 RUN ./gradlew build -x test
 
 # Copy the built jar to a consistent location
-RUN JAR_FILE=$(ls build/libs | grep '\\.jar$' | grep -v plain | head -n 1) && \
-    cp "build/libs/$JAR_FILE" app.jar
+RUN JAR_FILE=$(ls build/libs | grep '.jar$' | grep -v plain | head -n 1) && \
+    cp "build/libs/${JAR_FILE}" app.jar
 
 # Expose port
 EXPOSE 8080
