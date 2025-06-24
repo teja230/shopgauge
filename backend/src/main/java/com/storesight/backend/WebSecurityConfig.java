@@ -1,20 +1,30 @@
 package com.storesight.backend;
 
-import java.util.Arrays;
+import com.storesight.backend.config.ShopifyAuthenticationFilter;
+import com.storesight.backend.service.ShopService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.session.web.http.CookieSerializer;
 import org.springframework.session.web.http.DefaultCookieSerializer;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 
+import java.util.Arrays;
+
 @Configuration
 @EnableWebSecurity
 public class WebSecurityConfig {
+
+  private final ShopService shopService;
+
+  public WebSecurityConfig(ShopService shopService) {
+    this.shopService = shopService;
+  }
 
   @Bean
   public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -22,13 +32,19 @@ public class WebSecurityConfig {
         .cors(cors -> cors.configurationSource(corsConfigurationSource()))
         .authorizeHttpRequests(
             auth ->
-                auth.requestMatchers("/api/auth/shopify/**")
+                auth.requestMatchers("/api/auth/shopify/**", "/actuator/**")
                     .permitAll()
                     .anyRequest()
-                    .permitAll()) // Temporarily allow all requests for debugging
+                    .authenticated())
         .sessionManagement(
-            session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED));
+            session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
+        .addFilterBefore(shopifyAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);
     return http.build();
+  }
+
+  @Bean
+  public ShopifyAuthenticationFilter shopifyAuthenticationFilter() {
+    return new ShopifyAuthenticationFilter(shopService);
   }
 
   @Bean
