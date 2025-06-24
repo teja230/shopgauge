@@ -288,8 +288,13 @@
       try {
         var path = window.location.pathname + window.location.search + window.location.hash;
         
-        // Avoid infinite redirect loops
-        if (path === '/' || path.startsWith('/?redirect=')) {
+        // Avoid infinite redirect loops and handle index.html specifically
+        if (path === '/' || path.startsWith('/?redirect=') || path === '/index.html') {
+          // If we're on index.html, just redirect to root without parameters
+          if (path === '/index.html') {
+            console.log('404 Redirect: Redirecting from index.html to root');
+            window.location.replace('/');
+          }
           return;
         }
         

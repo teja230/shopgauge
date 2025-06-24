@@ -62,10 +62,20 @@ api.interceptors.response.use(
 
 // Global auth state management
 let isHandlingAuthError = false;
+let authErrorCount = 0;
+const MAX_AUTH_ERRORS = 3;
 
-// Function to handle global auth errors
+// Function to handle global auth errors with rate limiting
 const handleGlobalAuthError = () => {
-  if (isHandlingAuthError) return; // Prevent multiple simultaneous auth error handling
+  authErrorCount++;
+  
+  // Prevent spam of auth errors
+  if (isHandlingAuthError || authErrorCount > MAX_AUTH_ERRORS) {
+    if (authErrorCount > MAX_AUTH_ERRORS) {
+      console.log('API: Too many auth errors, temporarily ignoring');
+    }
+    return;
+  }
   
   isHandlingAuthError = true;
   console.log('API: Handling global auth error');
@@ -74,30 +84,18 @@ const handleGlobalAuthError = () => {
   document.cookie = 'shop=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
   document.cookie = 'SESSION=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
   
-  // Clear any local auth state
-  localStorage.removeItem('auth_state');
-  sessionStorage.removeItem('auth_state');
-  
-  // Show user-friendly notification
-  if (typeof window !== 'undefined' && window.location.pathname !== '/') {
-    // Try to use toast notification if available
-    const toast = (window as any).toast;
-    if (toast && typeof toast.error === 'function') {
-      toast.error('Session expired. Please log in again.');
-    } else {
-      alert('Session expired. Please log in again.');
-    }
-    
-    // Redirect to home page after a short delay
-    setTimeout(() => {
-      window.location.href = '/';
-    }, 1000);
+  // Show user-friendly notification only if not on home page
+  if (typeof window !== 'undefined' && window.location.pathname !== '/' && window.location.pathname !== '/index.html') {
+    console.log('API: Session expired, redirecting to home');
+    // Redirect to home page immediately, don't wait
+    window.location.href = '/';
   }
   
-  // Reset flag after handling
+  // Reset flags after handling
   setTimeout(() => {
     isHandlingAuthError = false;
-  }, 2000);
+    authErrorCount = 0; // Reset error count after cooldown
+  }, 5000); // Longer cooldown to prevent loops
 };
 
 export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {

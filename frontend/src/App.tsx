@@ -59,16 +59,23 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 const RedirectHandler: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { authLoading } = useAuth();
 
   useEffect(() => {
+    // Don't process redirects while auth is loading
+    if (authLoading) {
+      return;
+    }
+
     const params = new URLSearchParams(location.search);
     const redirectPath = params.get('redirect');
     
-    if (redirectPath) {
+    if (redirectPath && redirectPath !== '/index.html') {
+      console.log('RedirectHandler: Processing redirect to:', redirectPath);
       // Remove the redirect parameter and navigate to the intended path
       navigate(redirectPath, { replace: true });
     }
-  }, [navigate, location]);
+  }, [navigate, location, authLoading]);
 
   return null;
 };
@@ -95,6 +102,8 @@ const AppContent: React.FC = () => {
       <main className="flex-1">
         <Routes>
           <Route path="/" element={<HomePage />} />
+          {/* Handle /index.html route explicitly */}
+          <Route path="/index.html" element={<Navigate to="/" replace />} />
           <Route
             path="/dashboard"
             element={

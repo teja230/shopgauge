@@ -310,11 +310,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [navigate, location.pathname]);
 
-  useEffect(() => {
-    if (!isLoggingOut) {
-      refreshAuth();
-    }
-  }, [isLoggingOut, refreshAuth]);
+  // Remove the aggressive refresh effect that causes loops
+  // useEffect(() => {
+  //   if (!isLoggingOut) {
+  //     refreshAuth();
+  //   }
+  // }, [isLoggingOut, refreshAuth]);
 
   const logout = async () => {
     try {
