@@ -31,6 +31,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
 
 @RestController
@@ -177,13 +178,19 @@ public class ShopifyAuthController {
     String code = params.get("code");
     String error = params.get("error");
     String errorDescription = params.get("error_description");
+    String hmac = params.get("hmac");
+    String state = params.get("state");
+    String timestamp = params.get("timestamp");
 
     logger.info(
-        "Callback received - shop: {}, code: {}, error: {}, error_description: {}",
+        "Callback received - shop: {}, code: {}, error: {}, error_description: {}, hmac: {}, state: {}, timestamp: {}",
         shop,
         code != null ? code.substring(0, Math.min(8, code.length())) + "..." : "null",
         error,
-        errorDescription);
+        errorDescription,
+        hmac != null ? hmac.substring(0, Math.min(8, hmac.length())) + "..." : "null",
+        state != null ? state.substring(0, Math.min(8, state.length())) + "..." : "null",
+        timestamp);
     logger.info(
         "Callback - Request headers: {}",
         Collections.list(request.getHeaderNames()).stream()
@@ -205,14 +212,55 @@ public class ShopifyAuthController {
       return;
     }
 
+    // Validate HMAC if present (optional but recommended for security)
+    if (hmac != null && apiSecret != null) {
+      try {
+        boolean isValidHmac = validateHmac(params, apiSecret);
+        if (!isValidHmac) {
+          logger.error("HMAC validation failed for shop: {}", shop);
+          response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "HMAC validation failed");
+          return;
+        }
+        logger.info("HMAC validation successful for shop: {}", shop);
+      } catch (Exception hmacError) {
+        logger.warn("HMAC validation error (continuing anyway): {}", hmacError.getMessage());
+      }
+    } else {
+      logger.info(
+          "Skipping HMAC validation - hmac: {}, apiSecret: {}",
+          hmac != null ? "present" : "null",
+          apiSecret != null ? "present" : "null");
+    }
+
     try {
       logger.info("Starting token exchange process for shop: {}", shop);
       String accessToken = exchangeCodeForAccessToken(shop, code);
       logger.info("Access token obtained for shop: {}", shop);
 
-      String sessionId = request.getSession(true).getId();
+      // Create session more carefully with Redis fallback
+      String sessionId = null;
+      try {
+        var session = request.getSession(true);
+        sessionId = session.getId();
+        logger.info("Session created successfully - sessionId: {}", sessionId);
+      } catch (Exception sessionError) {
+        logger.warn(
+            "Failed to create session (likely Redis issue), using fallback approach: {}",
+            sessionError.getMessage());
+        // Fallback: use a timestamp-based session ID that doesn't require Redis
+        sessionId = "fallback_" + System.currentTimeMillis() + "_" + shop.hashCode();
+        logger.info("Using fallback sessionId: {}", sessionId);
+      }
+
       logger.info("Saving shop data - shop: {}, sessionId: {}", shop, sessionId);
-      shopService.saveShop(shop, accessToken, sessionId);
+      try {
+        shopService.saveShop(shop, accessToken, sessionId);
+        logger.info("Shop data saved successfully");
+      } catch (Exception saveError) {
+        logger.error("Failed to save shop data to Redis/database: {}", saveError.getMessage());
+        // Continue with cookie setting even if save fails
+        // The token exchange was successful, so we can still set the cookie
+      }
 
       logger.info("Setting cookie for shop: {}", shop);
 
@@ -251,6 +299,46 @@ public class ShopifyAuthController {
     return Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
   }
 
+  private boolean validateHmac(Map<String, String> params, String apiSecret) {
+    try {
+      // Remove hmac from params for validation
+      Map<String, String> paramsForValidation = new HashMap<>(params);
+      String receivedHmac = paramsForValidation.remove("hmac");
+
+      if (receivedHmac == null) {
+        return false;
+      }
+
+      // Sort parameters alphabetically
+      String queryString =
+          paramsForValidation.entrySet().stream()
+              .sorted(Map.Entry.comparingByKey())
+              .map(entry -> entry.getKey() + "=" + entry.getValue())
+              .collect(Collectors.joining("&"));
+
+      // Create HMAC using SHA256
+      javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
+      javax.crypto.spec.SecretKeySpec secretKeySpec =
+          new javax.crypto.spec.SecretKeySpec(
+              apiSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+      mac.init(secretKeySpec);
+
+      byte[] hmacBytes = mac.doFinal(queryString.getBytes(StandardCharsets.UTF_8));
+      String calculatedHmac = Base64.getEncoder().encodeToString(hmacBytes);
+
+      logger.debug(
+          "HMAC validation - Query string: {}, Calculated HMAC: {}, Received HMAC: {}",
+          queryString,
+          calculatedHmac,
+          receivedHmac);
+
+      return calculatedHmac.equals(receivedHmac);
+    } catch (Exception e) {
+      logger.error("Error validating HMAC: {}", e.getMessage(), e);
+      return false;
+    }
+  }
+
   private String exchangeCodeForAccessToken(String shop, String code) {
     logger.info(
         "Exchanging code for access token - shop: {}, code: {}",
@@ -278,6 +366,11 @@ public class ShopifyAuthController {
         Map.of("client_id", apiKey, "client_secret", apiSecret, "code", code);
 
     logger.info("Making token exchange request to: {}", url);
+    logger.info(
+        "Request body parameters: client_id={}, client_secret={}, code={}",
+        apiKey.substring(0, Math.min(8, apiKey.length())) + "...",
+        apiSecret.substring(0, Math.min(8, apiSecret.length())) + "...",
+        code != null ? code.substring(0, Math.min(8, code.length())) + "..." : "null");
 
     try {
       return webClient
@@ -296,6 +389,20 @@ public class ShopifyAuthController {
                 }
                 logger.info("Successfully obtained access token");
                 return accessToken;
+              })
+          .onErrorMap(
+              WebClientResponseException.class,
+              ex -> {
+                logger.error(
+                    "Shopify OAuth error - Status: {}, Body: {}",
+                    ex.getStatusCode(),
+                    ex.getResponseBodyAsString());
+                return new RuntimeException(
+                    "Shopify OAuth failed: "
+                        + ex.getStatusCode()
+                        + " - "
+                        + ex.getResponseBodyAsString(),
+                    ex);
               })
           .block();
     } catch (Exception e) {
@@ -470,6 +577,30 @@ public class ShopifyAuthController {
     return ResponseEntity.ok(Map.of("status", "success"));
   }
 
+  @GetMapping("/test-credentials")
+  public ResponseEntity<Map<String, Object>> testCredentials() {
+    Map<String, Object> result = new HashMap<>();
+
+    result.put("api_key_loaded", apiKey != null && !apiKey.isBlank());
+    result.put("api_secret_loaded", apiSecret != null && !apiSecret.isBlank());
+    result.put("api_key_length", apiKey != null ? apiKey.length() : 0);
+    result.put("api_secret_length", apiSecret != null ? apiSecret.length() : 0);
+    result.put(
+        "api_key_preview",
+        apiKey != null ? apiKey.substring(0, Math.min(8, apiKey.length())) + "..." : "null");
+    result.put(
+        "api_secret_preview",
+        apiSecret != null
+            ? apiSecret.substring(0, Math.min(8, apiSecret.length())) + "..."
+            : "null");
+    result.put("scopes", scopes);
+    result.put("redirect_uri", redirectUri);
+    result.put("frontend_url", frontendUrl);
+    result.put("timestamp", System.currentTimeMillis());
+
+    return ResponseEntity.ok(result);
+  }
+
   @GetMapping("/test-cookie")
   public ResponseEntity<Map<String, Object>> testCookie(
       @CookieValue(value = "shop", required = false) String shop,
@@ -540,5 +671,30 @@ public class ShopifyAuthController {
     logger.info("Auth: Force disconnect completed");
     return ResponseEntity.ok(
         Map.of("status", "force_disconnected", "message", "All cookies and tokens cleared"));
+  }
+
+  @GetMapping("/debug-config")
+  public ResponseEntity<Map<String, Object>> debugConfig() {
+    Map<String, Object> result = new HashMap<>();
+    
+    // Check environment variables
+    result.put("SHOPIFY_API_KEY_env", System.getenv("SHOPIFY_API_KEY") != null ? "SET" : "NOT_SET");
+    result.put("SHOPIFY_API_SECRET_env", System.getenv("SHOPIFY_API_SECRET") != null ? "SET" : "NOT_SET");
+    result.put("SHOPIFY_REDIRECT_URI_env", System.getenv("SHOPIFY_REDIRECT_URI"));
+    result.put("FRONTEND_URL_env", System.getenv("FRONTEND_URL"));
+    
+    // Check loaded values
+    result.put("api_key_loaded", apiKey != null && !apiKey.isBlank());
+    result.put("api_secret_loaded", apiSecret != null && !apiSecret.isBlank());
+    result.put("api_key_length", apiKey != null ? apiKey.length() : 0);
+    result.put("api_secret_length", apiSecret != null ? apiSecret.length() : 0);
+    result.put("api_key_preview", apiKey != null ? apiKey.substring(0, Math.min(8, apiKey.length())) + "..." : "null");
+    result.put("api_secret_preview", apiSecret != null ? apiSecret.substring(0, Math.min(8, apiSecret.length())) + "..." : "null");
+    result.put("scopes", scopes);
+    result.put("redirect_uri", redirectUri);
+    result.put("frontend_url", frontendUrl);
+    result.put("timestamp", System.currentTimeMillis());
+    
+    return ResponseEntity.ok(result);
   }
 }
