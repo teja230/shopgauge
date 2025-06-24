@@ -25,6 +25,15 @@ public class CustomErrorController implements ErrorController {
     Object exception = request.getAttribute("javax.servlet.error.exception");
     Object path = request.getAttribute("javax.servlet.error.request_uri");
 
+    String requestPath = path != null ? path.toString() : request.getRequestURI();
+
+    // Don't log errors for health checks or expected 404s
+    if (requestPath != null
+        && (requestPath.contains("/health") || requestPath.contains("/favicon.ico"))) {
+      logger.debug("Health check or favicon request to error controller: {}", requestPath);
+      return ResponseEntity.ok(Map.of("status", "UP"));
+    }
+
     // If no error attributes are set, this might be a health check or other request
     // that shouldn't trigger the error controller
     if (status == null && message == null && exception == null) {
@@ -35,14 +44,6 @@ public class CustomErrorController implements ErrorController {
 
     int statusCode = status != null ? (Integer) status : 500;
     String errorMessage = message != null ? message.toString() : "An unexpected error occurred";
-    String requestPath = path != null ? path.toString() : request.getRequestURI();
-
-    // Don't log errors for health checks or expected 404s
-    if (requestPath != null
-        && (requestPath.contains("/health") || requestPath.contains("/favicon.ico"))) {
-      logger.debug("Health check or favicon request to error controller: {}", requestPath);
-      return ResponseEntity.ok(Map.of("status", "UP"));
-    }
 
     logger.error(
         "Error occurred - Status: {}, Message: {}, Path: {}, Exception: {}",
@@ -73,6 +74,9 @@ public class CustomErrorController implements ErrorController {
     } else if (statusCode == 403) {
       errorResponse.put("debug_info", "Access forbidden.");
       errorResponse.put("suggestion", "You don't have permission to access this resource.");
+    } else if (statusCode == 400) {
+      errorResponse.put("debug_info", "Bad request - invalid parameters or data.");
+      errorResponse.put("suggestion", "Check your request parameters and try again.");
     }
 
     // Add HTML response for browser requests

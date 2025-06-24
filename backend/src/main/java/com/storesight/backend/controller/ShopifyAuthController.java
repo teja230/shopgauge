@@ -276,24 +276,37 @@ public class ShopifyAuthController {
       // Check for Shopify error response
       if (error != null) {
         logger.error("Shopify OAuth error: {} - {}", error, errorDescription);
-        response.sendError(
-            HttpServletResponse.SC_BAD_REQUEST, "OAuth error: " + error + " - " + errorDescription);
+        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        response.setContentType("application/json");
+        response
+            .getWriter()
+            .write(
+                String.format(
+                    "{\"error\": \"OAuth error\", \"message\": \"%s - %s\"}",
+                    error, errorDescription));
         return;
       }
 
       if (shop == null || code == null) {
         logger.error("Missing required parameters - shop: {}, code: {}", shop, code);
-        response.sendError(
-            HttpServletResponse.SC_BAD_REQUEST, "Missing required parameters: shop and/or code");
+        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        response.setContentType("application/json");
+        response
+            .getWriter()
+            .write(
+                "{\"error\": \"Missing parameters\", \"message\": \"Missing required parameters: shop and/or code\"}");
         return;
       }
 
       // Check if authorization code has already been used
       if (isCodeAlreadyUsed(code)) {
         logger.error("Authorization code already used for shop: {}", shop);
-        response.sendError(
-            HttpServletResponse.SC_BAD_REQUEST,
-            "Authorization code has already been used or has expired");
+        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        response.setContentType("application/json");
+        response
+            .getWriter()
+            .write(
+                "{\"error\": \"Code already used\", \"message\": \"Authorization code has already been used or has expired\"}");
         return;
       }
 
@@ -303,7 +316,12 @@ public class ShopifyAuthController {
           boolean isValidHmac = validateHmac(params, apiSecret);
           if (!isValidHmac) {
             logger.error("HMAC validation failed for shop: {}", shop);
-            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "HMAC validation failed");
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json");
+            response
+                .getWriter()
+                .write(
+                    "{\"error\": \"HMAC validation failed\", \"message\": \"Invalid request signature\"}");
             return;
           }
           logger.info("HMAC validation successful for shop: {}", shop);
@@ -370,6 +388,9 @@ public class ShopifyAuthController {
         errorMessage = "Failed to obtain access token from Shopify";
       } else if (e.getMessage().contains("network") || e.getMessage().contains("connection")) {
         errorMessage = "Network error during authentication";
+      } else if (e.getMessage().contains("authorization code was not found or was already used")) {
+        errorMessage =
+            "Authorization code has already been used or has expired. Please try the installation process again.";
       }
 
       // Return a proper error response instead of throwing
