@@ -170,7 +170,11 @@ const App: React.FC = () => {
                 style: {
                   borderRadius: '8px',
                   fontWeight: '500',
+                  zIndex: 9999,
                 },
+              }}
+              containerStyle={{
+                zIndex: 9999,
               }}
             />
             <AppContent />
