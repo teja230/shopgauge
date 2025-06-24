@@ -106,6 +106,10 @@ services:
     staticPublishPath: dist
     autoDeployTrigger: "off"
     rootDir: frontend
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
   - type: keyvalue
     name: storesight-redis
     plan: free

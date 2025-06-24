@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>StoreSight - Redirecting...</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: "Inter", "Helvetica", "Arial", sans-serif;
+      background-color: #f5f5f5;
+      color: #213547;
+      line-height: 1.5;
+      font-weight: 400;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    
+    .container {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+      animation: fadeIn 0.7s ease-in;
+    }
+    
+    .logo {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #2563eb;
+      margin-bottom: 2rem;
+      opacity: 0;
+      animation: slideUp 0.8s ease-out 0.2s forwards;
+    }
+    
+    .error-code {
+      font-size: 6rem;
+      font-weight: 700;
+      color: #9ca3af;
+      margin-bottom: 1rem;
+      opacity: 0;
+      animation: slideUp 0.8s ease-out 0.4s forwards;
+    }
+    
+    .title {
+      font-size: 2rem;
+      font-weight: 600;
+      color: #1f2937;
+      margin-bottom: 1rem;
+      text-align: center;
+      opacity: 0;
+      animation: slideUp 0.8s ease-out 0.6s forwards;
+    }
+    
+    .description {
+      font-size: 1rem;
+      color: #6b7280;
+      margin-bottom: 2rem;
+      text-align: center;
+      max-width: 600px;
+      opacity: 0;
+      animation: slideUp 0.8s ease-out 0.8s forwards;
+    }
+    
+    .spinner-container {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 2rem;
+      opacity: 0;
+      animation: slideUp 0.8s ease-out 1s forwards;
+    }
+    
+    .spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid #e5e7eb;
+      border-top: 3px solid #2563eb;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    
+    .loading-text {
+      font-size: 1rem;
+      color: #2563eb;
+      font-weight: 500;
+    }
+    
+    .debug-info {
+      background: white;
+      padding: 1.5rem;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+      max-width: 600px;
+      width: 100%;
+      margin-top: 2rem;
+      opacity: 0;
+      animation: slideUp 0.8s ease-out 1.2s forwards;
+    }
+    
+    .debug-title {
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: #1f2937;
+      margin-bottom: 1rem;
+    }
+    
+    .debug-item {
+      font-size: 0.875rem;
+      color: #6b7280;
+      margin-bottom: 0.5rem;
+      word-break: break-all;
+    }
+    
+    .fallback-link {
+      display: inline-block;
+      background-color: #2563eb;
+      color: white;
+      padding: 0.75rem 1.5rem;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 500;
+      margin-top: 1rem;
+      transition: background-color 0.2s;
+    }
+    
+    .fallback-link:hover {
+      background-color: #1d4ed8;
+    }
+    
+    /* Animations */
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    
+    @keyframes slideUp {
+      from { 
+        opacity: 0; 
+        transform: translateY(20px); 
+      }
+      to { 
+        opacity: 1; 
+        transform: translateY(0); 
+      }
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    /* Responsive design */
+    @media (max-width: 768px) {
+      .error-code {
+        font-size: 4rem;
+      }
+      
+      .title {
+        font-size: 1.5rem;
+      }
+      
+      .container {
+        padding: 1rem;
+      }
+    }
+    
+    /* Dark mode support */
+    @media (prefers-color-scheme: dark) {
+      body {
+        background-color: #1f2937;
+        color: #f9fafb;
+      }
+      
+      .debug-info {
+        background-color: #374151;
+      }
+      
+      .debug-title {
+        color: #f9fafb;
+      }
+      
+      .debug-item {
+        color: #d1d5db;
+      }
+    }
+  </style>
+  <script type="text/javascript">
+    // This script will redirect from the 404 page to the root page
+    // and pass the current path as a parameter so the React app can handle routing
+    (function() {
+      try {
+        var path = window.location.pathname + window.location.search + window.location.hash;
+        
+        // Avoid infinite redirect loops
+        if (path === '/' || path.startsWith('/?redirect=')) {
+          return;
+        }
+        
+        console.log('404 Redirect: Attempting to redirect from', path);
+        
+        // Add a small delay to show the loading animation
+        setTimeout(function() {
+          var redirectUrl = '/?redirect=' + encodeURIComponent(path);
+          console.log('404 Redirect: Redirecting to', redirectUrl);
+          window.location.replace(redirectUrl);
+        }, 1500);
+        
+      } catch (e) {
+        console.error('404 Redirect Error:', e);
+        // Fallback to just redirecting to root after a delay
+        setTimeout(function() {
+          window.location.replace('/');
+        }, 2000);
+      }
+    })();
+  </script>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">StoreSight</div>
+    
+    <div class="error-code">404</div>
+    
+    <h1 class="title">Hang tight, we're redirecting you...</h1>
+    
+    <p class="description">
+      We're taking you to the right place. This usually happens when you've bookmarked 
+      or shared a direct link to a page in our app.
+    </p>
+    
+    <div class="spinner-container">
+      <div class="spinner"></div>
+      <span class="loading-text">Loading your page...</span>
+    </div>
+    
+    <div class="debug-info">
+      <div class="debug-title">Technical Details</div>
+      <div class="debug-item"><strong>Requested URL:</strong> <span id="current-url"></span></div>
+      <div class="debug-item"><strong>Path:</strong> <span id="current-path"></span></div>
+      <div class="debug-item"><strong>Timestamp:</strong> <span id="timestamp"></span></div>
+    </div>
+    
+    <noscript>
+      <div style="text-align: center; margin-top: 2rem; padding: 2rem; background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
+        <h2 style="color: #dc2626; margin-bottom: 1rem;">JavaScript Required</h2>
+        <p style="margin-bottom: 1rem;">This application requires JavaScript to function properly.</p>
+        <a href="/" class="fallback-link">Go to Homepage</a>
+      </div>
+    </noscript>
+  </div>
+  
+  <script>
+    // Populate debug information
+    document.getElementById('current-url').textContent = window.location.href;
+    document.getElementById('current-path').textContent = window.location.pathname;
+    document.getElementById('timestamp').textContent = new Date().toLocaleString();
+  </script>
+</body>
+</html> 

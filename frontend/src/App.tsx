@@ -1,5 +1,5 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import HomePage from './pages/HomePage';
@@ -55,6 +55,24 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   return <>{children}</>;
 };
 
+// Component to handle redirects from 404.html
+const RedirectHandler: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const redirectPath = params.get('redirect');
+    
+    if (redirectPath) {
+      // Remove the redirect parameter and navigate to the intended path
+      navigate(redirectPath, { replace: true });
+    }
+  }, [navigate, location]);
+
+  return null;
+};
+
 const AppContent: React.FC = () => {
   const { isAuthenticated } = useAuth();
   
@@ -72,6 +90,7 @@ const AppContent: React.FC = () => {
   
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col animate-fadeIn">
+      <RedirectHandler />
       <NavBar />
       <main className="flex-1">
         <Routes>
