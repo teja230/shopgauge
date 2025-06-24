@@ -104,18 +104,18 @@ services:
         sync: false
     buildCommand: npm install && npm run build
     staticPublishPath: dist
-    autoDeployTrigger: "on"
+    autoDeployTrigger: "off"
     rootDir: frontend
     routes:
       - type: rewrite
         source: /*
         destination: /index.html
-  - type: keyvalue
-    name: storesight-redis
-    plan: free
-    region: oregon
-    maxmemoryPolicy: allkeys-lru
-    ipAllowList:
-      - source: 57.132.182.47/32
-        description: teja230@gmail.com
-version: "1"
+      - type: keyvalue
+        name: storesight-redis
+        plan: free
+        region: oregon
+        maxmemoryPolicy: allkeys-lru
+        ipAllowList:
+          - source: 57.132.182.47/32
+            description: teja230@gmail.com
+    version: "1"
