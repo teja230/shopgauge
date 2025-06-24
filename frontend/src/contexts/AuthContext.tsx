@@ -67,6 +67,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [isAuthenticated, shop, authLoading, loading, isLoggingOut, location.pathname]);
 
   const refreshAuth = useCallback(async () => {
+    // Prevent duplicate calls
+    if (authLoading) {
+      console.log('Auth: Refresh already in progress, skipping duplicate call');
+      return;
+    }
+
+    console.log('Auth: Starting refresh auth');
+    setAuthLoading(true);
+    setLoading(true);
+
     try {
       // First, check if there's a shop parameter in the URL (for OAuth callback)
       const urlParams = new URLSearchParams(window.location.search);
@@ -75,6 +85,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (shopFromUrl) {
         console.log('Auth: Found shop in URL parameter:', shopFromUrl);
         console.log('Auth: This appears to be a Shopify OAuth callback');
+        
+        // Show loading state to user
+        setAuthLoading(true);
+        setLoading(true);
         
         // Instead of immediately setting as authenticated, check with backend first
         try {
@@ -91,18 +105,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const data = await response.json();
             setShop(data.shop || shopFromUrl);
             setIsAuthenticated(true);
-            setAuthLoading(false);
-            setLoading(false);
             
             // Clean up URL
             const newUrl = new URL(window.location.href);
             newUrl.searchParams.delete('shop');
             window.history.replaceState({}, '', newUrl.toString());
-            return;
           } else {
             // User needs to go through OAuth flow
             console.log('Auth: User not authenticated, initiating OAuth flow');
             console.log('Auth: Redirecting to Shopify OAuth');
+            
+            // Show loading message before redirect
+            setAuthLoading(true);
+            setLoading(true);
             
             // Redirect to your backend's OAuth initiation endpoint
             window.location.href = `${API_BASE_URL}/api/auth/shopify?shop=${encodeURIComponent(shopFromUrl)}`;
@@ -114,50 +129,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           window.location.href = `${API_BASE_URL}/api/auth/shopify?shop=${encodeURIComponent(shopFromUrl)}`;
           return;
         }
-      }
-      
-      // Check for shop in cookies as fallback
-      const shopFromCookie = getCookie('shop');
-      if (shopFromCookie) {
-        // Only log in development
-        if (import.meta.env.DEV) {
-          console.log('Auth: Found shop in cookie:', shopFromCookie);
-        }
-        setShop(shopFromCookie);
-        setIsAuthenticated(true);
-        setAuthLoading(false);
-        setLoading(false);
-        return;
-      }
-      
-      console.log('Auth: No shop in URL or cookie, checking backend auth');
-      const shopName = await getAuthShop();
-      if (shopName) {
-        console.log('Auth: Backend returned shop:', shopName);
-        setShop(shopName);
-        setIsAuthenticated(true);
       } else {
-        console.log('Auth: No shop from backend, user not authenticated');
-        setShop(null);
-        setIsAuthenticated(false);
-        // Only redirect to home if we're not already there and not in the middle of logging out
-        if (location.pathname !== '/' && !isLoggingOut) {
-          console.log('Auth: Redirecting to home from:', location.pathname);
-          navigate('/');
+        // Check for shop in cookies as fallback
+        const shopFromCookie = getCookie('shop');
+        if (shopFromCookie) {
+          // Only log in development
+          if (import.meta.env.DEV) {
+            console.log('Auth: Found shop in cookie:', shopFromCookie);
+          }
+          setShop(shopFromCookie);
+          setIsAuthenticated(true);
+        } else {
+          console.log('Auth: No shop in URL or cookie, checking backend auth');
+          const shopName = await getAuthShop();
+          if (shopName) {
+            console.log('Auth: Backend returned shop:', shopName);
+            setShop(shopName);
+            setIsAuthenticated(true);
+          } else {
+            console.log('Auth: No shop from backend, user not authenticated');
+            setShop(null);
+            setIsAuthenticated(false);
+            // Only redirect to home if we're not already there and not in the middle of logging out
+            if (location.pathname !== '/' && !isLoggingOut) {
+              console.log('Auth: Redirecting to home from:', location.pathname);
+              navigate('/');
+            }
+          }
         }
       }
     } catch (error) {
-      // Only log in development
-      if (import.meta.env.DEV) {
-        console.error('Failed to refresh auth:', error);
-      }
       console.error('Auth: Error during refresh:', error);
       
       // Check if it's an authentication error vs connection error
       if (error instanceof Error && error.message.includes('Authentication required')) {
         // Show professional session expired notification
         if (location.pathname !== '/' && !isLoggingOut) {
-          showSessionExpired({ redirectDelay: 1000 });
+          showSessionExpired({ redirectDelay: 2000 });
         }
       } else if (error instanceof Error && error.message.includes('Failed to fetch')) {
         // Connection error - don't redirect immediately
@@ -170,165 +178,139 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (location.pathname !== '/' && !isLoggingOut && 
           error instanceof Error && error.message.includes('Authentication required')) {
         console.log('Auth: Redirecting to home due to auth error from:', location.pathname);
-        setTimeout(() => navigate('/'), 1000); // Delay to show notification
+        setTimeout(() => navigate('/'), 2000); // Delay to show notification
       }
+    } finally {
+      setAuthLoading(false);
+      setLoading(false);
     }
-  }, [location.pathname, navigate, isLoggingOut]);
+  }, [location.pathname, navigate, isLoggingOut, authLoading]);
 
-  // Initial auth check
+  // Initial auth check - prevent running multiple times
   useEffect(() => {
-    // Only log in development
-    if (import.meta.env.DEV) {
-      console.log('Auth: Initializing auth provider');
-    }
+    console.log('Auth: Initializing auth provider');
     
     let mounted = true;
     let retryCount = 0;
     const maxRetries = 3;
+    let isAuthInProgress = false;
 
     const checkAuth = async () => {
-      if (!mounted) {
-        // Only log in development
-        if (import.meta.env.DEV) {
-          console.log('Auth: Component unmounted, skipping auth check');
-        }
+      if (!mounted || isAuthInProgress) {
+        console.log('Auth: Skipping auth check - component unmounted or already in progress');
         return;
       }
       
-      // Only log in development
-      if (import.meta.env.DEV) {
-        console.log('Auth: Starting initial auth check');
-      }
+      isAuthInProgress = true;
+      console.log('Auth: Starting initial auth check');
       
-      // First, check if there's a shop parameter in the URL (for OAuth callback)
-      const urlParams = new URLSearchParams(window.location.search);
-      const shopFromUrl = urlParams.get('shop');
-      
-      if (shopFromUrl) {
-        console.log('Auth: Found shop in URL parameter:', shopFromUrl);
-        // Clean up the URL by removing the shop parameter
-        const newUrl = new URL(window.location.href);
-        newUrl.searchParams.delete('shop');
-        window.history.replaceState({}, '', newUrl.toString());
-        
-        // Set the shop cookie for 7 days
-        setCookie('shop', shopFromUrl, 7);
-        console.log('Auth: Set shop cookie:', shopFromUrl);
-        
-        // Set the shop from URL parameter
-        setShop(shopFromUrl);
-        setIsAuthenticated(true);
-        setAuthLoading(false);
-        setLoading(false);
-        return;
-      }
-      
-      // Check for shop in cookies as fallback
-      const shopFromCookie = getCookie('shop');
-      if (shopFromCookie) {
-        // Only log in development
-        if (import.meta.env.DEV) {
-          console.log('Auth: Found shop in cookie:', shopFromCookie);
-        }
-        setShop(shopFromCookie);
-        setIsAuthenticated(true);
-        setAuthLoading(false);
-        setLoading(false);
-        return;
-      }
+      // Set loading states at the beginning
+      setAuthLoading(true);
+      setLoading(true);
       
       try {
-        const shopName = await getAuthShop();
+        // First, check if there's a shop parameter in the URL (for OAuth callback)
+        const urlParams = new URLSearchParams(window.location.search);
+        const shopFromUrl = urlParams.get('shop');
         
-        // Only log in development
-        if (import.meta.env.DEV) {
-          console.log('Auth: Initial shop name:', shopName);
+        if (shopFromUrl) {
+          console.log('Auth: Found shop in URL parameter:', shopFromUrl);
+          // Clean up the URL by removing the shop parameter
+          const newUrl = new URL(window.location.href);
+          newUrl.searchParams.delete('shop');
+          window.history.replaceState({}, '', newUrl.toString());
+          
+          // Set the shop cookie for 7 days
+          setCookie('shop', shopFromUrl, 7);
+          console.log('Auth: Set shop cookie:', shopFromUrl);
+          
+          // Set the shop from URL parameter
+          setShop(shopFromUrl);
+          setIsAuthenticated(true);
+          return;
         }
         
+        // Check for shop in cookies as fallback
+        const shopFromCookie = getCookie('shop');
+        if (shopFromCookie) {
+          console.log('Auth: Found shop in cookie:', shopFromCookie);
+          setShop(shopFromCookie);
+          setIsAuthenticated(true);
+          return;
+        }
+        
+        // Check backend auth as last resort
+        console.log('Auth: No shop in URL/cookie, checking backend auth');
+        const shopName = await getAuthShop();
+        
         if (!mounted) {
-          // Only log in development
-          if (import.meta.env.DEV) {
-            console.log('Auth: Component unmounted after auth check');
-          }
+          console.log('Auth: Component unmounted after auth check');
           return;
         }
 
         if (shopName) {
-          // Only log in development
-          if (import.meta.env.DEV) {
-            console.log('Auth: Setting initial authenticated state');
-          }
+          console.log('Auth: Backend returned shop:', shopName);
           setShop(shopName);
           setIsAuthenticated(true);
-          setAuthLoading(false);
-          setLoading(false);
         } else {
-          // Only log in development
-          if (import.meta.env.DEV) {
-            console.log('Auth: No initial shop name, redirecting to home');
-          }
+          console.log('Auth: No shop from backend, user not authenticated');
           setShop(null);
           setIsAuthenticated(false);
-          setAuthLoading(false);
-          setLoading(false);
           if (location.pathname !== '/') {
+            console.log('Auth: Redirecting to home from:', location.pathname);
             navigate('/');
           }
         }
       } catch (error) {
-        // Only log in development
-        if (import.meta.env.DEV) {
-          console.error('Auth: Initial auth check failed:', error);
-        }
+        console.error('Auth: Initial auth check failed:', error);
         
         if (!mounted) {
-          // Only log in development
-          if (import.meta.env.DEV) {
-            console.log('Auth: Component unmounted after error');
-          }
+          console.log('Auth: Component unmounted after error');
           return;
         }
 
         // Handle connection errors differently
         if (error instanceof Error && error.message.includes('Failed to fetch')) {
-          // Only log in development
-          if (import.meta.env.DEV) {
-            console.log('Auth: Connection error, retrying...');
-          }
+          console.log('Auth: Connection error during initial auth check');
           if (retryCount < maxRetries) {
             retryCount++;
-            // Only log in development
-            if (import.meta.env.DEV) {
-              console.log(`Auth: Retrying auth check (${retryCount}/${maxRetries})`);
-            }
-            setTimeout(checkAuth, 2000); // Retry after 2 seconds
+            console.log(`Auth: Retrying auth check (${retryCount}/${maxRetries})`);
+            setTimeout(() => {
+              isAuthInProgress = false;
+              checkAuth();
+            }, 2000); // Retry after 2 seconds
             return;
           } else {
             // Show connection error instead of session expired
             showConnectionError();
           }
+        } else if (error instanceof Error && error.message.includes('Authentication required')) {
+          // Show session expired notification for auth errors
+          if (location.pathname !== '/') {
+            showSessionExpired({ redirectDelay: 2000 });
+            setTimeout(() => navigate('/'), 2000);
+          }
         }
 
-        if (retryCount < maxRetries) {
+        if (retryCount < maxRetries && !(error instanceof Error && error.message.includes('Authentication required'))) {
           retryCount++;
-          // Only log in development
-          if (import.meta.env.DEV) {
-            console.log(`Auth: Retrying auth check (${retryCount}/${maxRetries})`);
-          }
-          setTimeout(checkAuth, 1000); // Retry after 1 second
+          console.log(`Auth: Retrying auth check (${retryCount}/${maxRetries})`);
+          setTimeout(() => {
+            isAuthInProgress = false;
+            checkAuth();
+          }, 1000); // Retry after 1 second
         } else {
-          // Only log in development
-          if (import.meta.env.DEV) {
-            console.log('Auth: Max retries reached, redirecting to home');
-          }
+          console.log('Auth: Max retries reached or auth error, setting unauthenticated state');
           setShop(null);
           setIsAuthenticated(false);
-          setAuthLoading(false);
-          setLoading(false);
-          if (location.pathname !== '/') {
+          if (location.pathname !== '/' && !(error instanceof Error && error.message.includes('Authentication required'))) {
             navigate('/');
           }
         }
+      } finally {
+        setAuthLoading(false);
+        setLoading(false);
+        isAuthInProgress = false;
       }
     };
 
@@ -336,13 +318,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     checkAuth();
 
     return () => {
-      // Only log in development
-      if (import.meta.env.DEV) {
-        console.log('Auth: Cleaning up');
-      }
+      console.log('Auth: Cleaning up auth provider');
       mounted = false;
     };
-  }, [navigate, location.pathname]);
+  }, [navigate, location.pathname, showSessionExpired, showConnectionError]);
 
   // Remove the aggressive refresh effect that causes loops
   // useEffect(() => {

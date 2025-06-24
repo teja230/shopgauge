@@ -18,10 +18,6 @@ import theme from './theme';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, authLoading } = useAuth();
-  // Only log in development
-  if (import.meta.env.DEV) {
-    console.log('ProtectedRoute: Checking auth', { isAuthenticated, authLoading });
-  }
   
   console.log('ProtectedRoute: Auth status', { 
     isAuthenticated, 
@@ -31,27 +27,23 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   });
   
   if (authLoading) {
-    // Only log in development
-    if (import.meta.env.DEV) {
-      console.log('ProtectedRoute: Auth loading');
-    }
     console.log('ProtectedRoute: Showing loading state');
-    return <div>Loading...</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-white">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <h2 className="text-xl font-semibold text-blue-900 mb-2">Authenticating...</h2>
+          <p className="text-blue-700">Please wait while we verify your access.</p>
+        </div>
+      </div>
+    );
   }
   
   if (!isAuthenticated) {
-    // Only log in development
-    if (import.meta.env.DEV) {
-      console.log('ProtectedRoute: Not authenticated, redirecting to home');
-    }
     console.log('ProtectedRoute: Not authenticated, redirecting to home from:', window.location.pathname);
     return <Navigate to="/" replace />;
   }
   
-  // Only log in development
-  if (import.meta.env.DEV) {
-    console.log('ProtectedRoute: Authenticated, rendering children');
-  }
   console.log('ProtectedRoute: Authenticated, rendering children for:', window.location.pathname);
   return <>{children}</>;
 };
@@ -82,19 +74,29 @@ const RedirectHandler: React.FC = () => {
 };
 
 const AppContent: React.FC = () => {
-  const { isAuthenticated } = useAuth();
-  
-  // Only log in development
-  if (import.meta.env.DEV) {
-    console.log('AppContent: Rendering');
-  }
+  const { isAuthenticated, authLoading, loading } = useAuth();
   
   console.log('AppContent: Current location', {
     pathname: window.location.pathname,
     search: window.location.search,
     hash: window.location.hash,
-    isAuthenticated
+    isAuthenticated,
+    authLoading,
+    loading
   });
+
+  // Show global loading state when initializing
+  if (loading || (authLoading && window.location.pathname !== '/')) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-white">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <h2 className="text-xl font-semibold text-blue-900 mb-2">Loading StoreSight...</h2>
+          <p className="text-blue-700">Please wait while we set up your dashboard.</p>
+        </div>
+      </div>
+    );
+  }
   
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col animate-fadeIn">
