@@ -22,6 +22,7 @@ public class AlertService implements StreamListener<String, MapRecord<String, St
   private final StringRedisTemplate stringRedisTemplate;
   private final ObjectMapper objectMapper = new ObjectMapper();
   private final SecretService secretService;
+  private final WebClient webClient;
 
   @Value("${sendgrid.api_key:}")
   private String sendGridApiKey;
@@ -35,18 +36,18 @@ public class AlertService implements StreamListener<String, MapRecord<String, St
   @Value("${twilio.from_number:+1234567890}")
   private String twilioFromNumber;
 
-  private final WebClient webClient = WebClient.create();
-
   private boolean sendGridEnabled = false;
   private boolean twilioEnabled = false;
 
   public AlertService(
       RedisTemplate<String, Object> redisTemplate,
       StringRedisTemplate stringRedisTemplate,
-      SecretService secretService) {
+      SecretService secretService,
+      WebClient.Builder webClientBuilder) {
     this.redisTemplate = redisTemplate;
     this.stringRedisTemplate = stringRedisTemplate;
     this.secretService = secretService;
+    this.webClient = webClientBuilder.build();
   }
 
   @PostConstruct

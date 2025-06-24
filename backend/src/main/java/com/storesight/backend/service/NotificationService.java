@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.storesight.backend.model.Notification;
 import com.storesight.backend.repository.NotificationRepository;
 import jakarta.annotation.PostConstruct;
-import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,13 +13,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
+
 @Service
 public class NotificationService {
   private static final Logger log = LoggerFactory.getLogger(NotificationService.class);
 
   private final StringRedisTemplate stringRedisTemplate;
   private final ObjectMapper objectMapper = new ObjectMapper();
-  private final WebClient webClient = WebClient.create();
+  private final WebClient webClient;
   private final NotificationRepository notificationRepository;
   private final SecretService secretService;
 
@@ -43,10 +44,12 @@ public class NotificationService {
   public NotificationService(
       StringRedisTemplate stringRedisTemplate,
       NotificationRepository notificationRepository,
-      SecretService secretService) {
+      SecretService secretService,
+      WebClient.Builder webClientBuilder) {
     this.stringRedisTemplate = stringRedisTemplate;
     this.notificationRepository = notificationRepository;
     this.secretService = secretService;
+    this.webClient = webClientBuilder.build();
   }
 
   @PostConstruct
