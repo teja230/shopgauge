@@ -62,6 +62,14 @@ const AppContent: React.FC = () => {
   if (import.meta.env.DEV) {
     console.log('AppContent: Rendering');
   }
+  
+  console.log('AppContent: Current location', {
+    pathname: window.location.pathname,
+    search: window.location.search,
+    hash: window.location.hash,
+    isAuthenticated
+  });
+  
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col animate-fadeIn">
       <NavBar />
