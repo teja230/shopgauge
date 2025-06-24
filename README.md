@@ -1,8 +1,44 @@
-# StoreSight - Shopify Analytics Dashboard
+# StoreSight - Advanced Shopify Analytics & Competitor Intelligence Platform
 
-StoreSight is a modern, real-time analytics dashboard for Shopify stores that provides comprehensive insights into
-revenue, orders, abandoned carts, conversion rates, inventory management, and competitor tracking with seamless Shopify
-integration.
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Java](https://img.shields.io/badge/Java-17-orange.svg)](https://openjdk.java.net/projects/jdk/17/)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.2.3-green.svg)](https://spring.io/projects/spring-boot)
+[![React](https://img.shields.io/badge/React-18.2.0-blue.svg)](https://reactjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.5.4-blue.svg)](https://www.typescriptlang.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-blue.svg)](https://www.postgresql.org/)
+[![Redis](https://img.shields.io/badge/Redis-7+-red.svg)](https://redis.io/)
+
+StoreSight is a comprehensive, enterprise-grade analytics and competitor intelligence platform designed specifically for Shopify merchants. It provides real-time business insights, automated competitor discovery, and advanced data privacy compliance features.
+
+## 🚀 Key Features
+
+### 📊 **Advanced Analytics Dashboard**
+- **Real-time Revenue Tracking**: Live sales data with trend analysis and forecasting
+- **Conversion Rate Optimization**: Detailed conversion funnel analysis with industry benchmarks
+- **Inventory Intelligence**: Low stock alerts, product performance metrics, and demand forecasting
+- **Abandoned Cart Recovery**: Automated detection and recovery strategies for abandoned carts
+- **Customer Behavior Analytics**: Anonymous customer journey mapping and segmentation
+
+### 🎯 **Competitor Intelligence**
+- **Automated Competitor Discovery**: AI-powered competitor identification using SerpAPI integration
+- **Price Monitoring**: Real-time price tracking across competitor websites
+- **Market Position Analysis**: Competitive landscape insights and positioning strategies
+- **Suggestion Management**: Curated competitor suggestions with approval workflow
+- **Web Scraping**: Automated data collection from competitor sites using Selenium
+
+### 🔒 **Enterprise Security & Compliance**
+- **GDPR/CCPA Compliance**: Full data privacy compliance with automatic data retention policies
+- **Shopify Protected Data**: Compliant with Shopify's Protected Customer Data requirements
+- **Audit Logging**: Complete audit trail with 365-day retention for compliance monitoring
+- **Encryption**: AES-256 encryption at rest, TLS 1.3 in transit
+- **Data Minimization**: Only essential data processed for analytics
+
+### 🔧 **Developer Experience**
+- **Modern Tech Stack**: Spring Boot 3.2.3, React 18, TypeScript, PostgreSQL, Redis
+- **Comprehensive Testing**: Unit tests, integration tests, and end-to-end testing
+- **CI/CD Ready**: Docker containerization and Render deployment configuration
+- **API-First Design**: RESTful APIs with comprehensive documentation
+- **Real-time Updates**: WebSocket support for live dashboard updates
 
 ## 🏗️ Architecture Overview
 
@@ -12,28 +48,31 @@ integration.
 graph TB
     subgraph "Frontend Layer"
         UI[React Dashboard<br/>TypeScript + Vite + MUI]
-        Auth[Authentication Context]
-        API[API Client<br/>Fetch with Auth]
+        Auth[Authentication Context<br/>Shopify OAuth]
+        API[API Client<br/>Axios with Auth]
         Pages[Dashboard, Competitors, Admin, Profile]
+        Components[Metric Cards, Charts, Tables]
     end
     
     subgraph "Backend Layer"
         Gateway[Spring Boot Gateway<br/>Port 8080]
         Controllers[REST Controllers<br/>Analytics, Auth, Competitors, Insights]
         Services[Business Services<br/>Shop, Insights, Notifications, Alerts]
-        Security[Security Layer<br/>CORS + OAuth]
+        Discovery[Competitor Discovery<br/>SerpAPI + Web Scraping]
+        Security[Security Layer<br/>CORS + OAuth + Audit]
     end
     
     subgraph "Data Layer"
-        PostgreSQL[(PostgreSQL<br/>Shops, Metrics, Notifications)]
-        Redis[(Redis<br/>Tokens, Cache, Secrets)]
+        PostgreSQL[(PostgreSQL<br/>Shops, Metrics, Notifications, Audit Logs)]
+        Redis[(Redis<br/>Sessions, Cache, Secrets)]
         Shopify[Shopify API<br/>Orders, Products, Customers]
     end
     
     subgraph "External Services"
-        Competitors[Web Scraping<br/>Competitor Data<br/>Selenium + JSoup]
-        Notifications[Email/SMS<br/>SendGrid + Twilio]
-        Discovery[Competitor Discovery<br/>SerpAPI Integration]
+        SerpAPI[SerpAPI<br/>Competitor Discovery]
+        SendGrid[SendGrid<br/>Email Notifications]
+        Twilio[Twilio<br/>SMS Alerts]
+        WebScraping[Selenium + JSoup<br/>Price Monitoring]
     end
     
     UI --> Auth
@@ -44,17 +83,20 @@ graph TB
     Services --> PostgreSQL
     Services --> Redis
     Services --> Shopify
-    Services --> Competitors
-    Services --> Notifications
     Services --> Discovery
+    Discovery --> SerpAPI
+    Discovery --> WebScraping
+    Services --> SendGrid
+    Services --> Twilio
     
     style UI fill:#e1f5fe
     style Gateway fill:#f3e5f5
     style PostgreSQL fill:#e8f5e8
     style Shopify fill:#fff3e0
-``` 
+    style Discovery fill:#ffebee
+```
 
-## 🔄 Authentication Flow
+## 🔄 Authentication & Security Flow
 
 ### Shopify OAuth Integration
 
@@ -65,10 +107,11 @@ sequenceDiagram
     participant Backend
     participant Shopify
     participant Redis
+    participant PostgreSQL
     
     User->>Frontend: Access Dashboard
     Frontend->>Backend: GET /api/auth/shopify/me
-    Backend->>Redis: Check shop token
+    Backend->>Redis: Check session token
     
     alt No Token Found
         Backend->>Frontend: 401 Unauthorized
@@ -80,8 +123,9 @@ sequenceDiagram
         User->>Shopify: Grant Permissions
         Shopify->>Backend: GET /callback?code=auth_code
         Backend->>Shopify: Exchange code for access_token
-        Shopify->>Backend: access_token
-        Backend->>Redis: Store token with shop
+        Shopify->>Backend: access_token + shop_info
+        Backend->>PostgreSQL: Store shop data
+        Backend->>Redis: Store session token
         Backend->>Frontend: Set shop cookie & redirect
         Frontend->>User: Dashboard with data
     else Token Exists
@@ -92,7 +136,7 @@ sequenceDiagram
         Backend->>Frontend: Analytics response
         Frontend->>User: Dashboard with data
     end
-``` 
+```
 
 ## 📊 Data Flow Architecture
 
@@ -158,7 +202,7 @@ graph LR
     style Worker fill:#ff9800
     style Discovery fill:#9c27b0
     style Dashboard fill:#2196f3
-``` 
+```
 
 ## 🔌 API Architecture
 
@@ -195,447 +239,301 @@ graph LR
 - 🛡️ **Privacy Compliance** - GDPR/CCPA compliant data processing and retention
 - 🔧 **Debug Endpoints** - Built-in troubleshooting tools for API access issues
 
-### Data Privacy & Compliance
+## 🗄️ Database Schema
 
-- ✅ **Data Minimization** - Only essential fields processed for analytics
-- ✅ **Purpose Limitation** - Processing limited to stated business purposes
-- ✅ **Retention Policies** - 60-day order data, 90-day analytics, 365-day audit logs
-- ✅ **Encryption** - TLS 1.3 in transit, AES-256 at rest
-- ✅ **Audit Logging** - Complete PostgreSQL audit trail with IP tracking
-- ✅ **Customer Rights** - Data access, deletion, and opt-out mechanisms
-- ✅ **Consent Tracking** - Customer consent recorded and respected
+### Core Tables
 
-## 🛠️ Technology Stack
+```sql
+-- Shops table for store management
+CREATE TABLE shops (
+    id SERIAL PRIMARY KEY,
+    shopify_domain VARCHAR(255) NOT NULL UNIQUE,
+    access_token VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
-### Frontend
+-- Products table for inventory tracking
+CREATE TABLE products (
+    id SERIAL PRIMARY KEY,
+    shop_id INTEGER REFERENCES shops(id),
+    shopify_product_id VARCHAR(64) NOT NULL,
+    title VARCHAR(255),
+    price NUMERIC(12,2),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
-- **Framework**: React 18 with TypeScript
-- **UI Library**: Material-UI (MUI) v7 with custom theme
-- **Additional UI**: Tailwind CSS for utility classes
-- **Routing**: React Router v6
-- **Charts**: Recharts for data visualization
-- **HTTP Client**: Fetch API with authentication wrapper
-- **Build Tool**: Vite
-- **Development**: Hot reload, TypeScript checking
+-- Orders table for sales analytics
+CREATE TABLE orders (
+    id SERIAL PRIMARY KEY,
+    shop_id INTEGER REFERENCES shops(id),
+    shopify_order_id VARCHAR(64) NOT NULL,
+    total_price NUMERIC(12,2),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
-### Backend
+-- Competitor suggestions for discovery
+CREATE TABLE competitor_suggestions (
+    id BIGSERIAL PRIMARY KEY,
+    shop_id BIGINT NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
+    product_id BIGINT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    suggested_url TEXT NOT NULL,
+    title VARCHAR(255),
+    price NUMERIC(12,2),
+    source VARCHAR(50) NOT NULL DEFAULT 'GOOGLE_SHOPPING',
+    discovered_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    status VARCHAR(20) NOT NULL DEFAULT 'NEW',
+    UNIQUE(shop_id, product_id, suggested_url)
+);
 
-- **Framework**: Spring Boot 3.2.3
-- **Language**: Java 17+
-- **Web**: Spring Web MVC + WebFlux (Hybrid)
-- **Security**: Spring Security with OAuth2
-- **Database**: Spring Data JPA with PostgreSQL
-- **Caching**: Spring Data Redis (Reactive + Traditional)
-- **Migrations**: Flyway
-- **Build Tool**: Gradle
-- **Web Scraping**: Selenium WebDriver + JSoup
-- **Background Processing**: Spring Scheduling
-
-### Infrastructure
-
-- **Database**: PostgreSQL 14+
-- **Cache**: Redis 6+ (sessions, cache, encrypted secrets)
-- **Deployment**: Render.com (via render.yaml)
-- **Monitoring**: Spring Actuator
-- **Logging**: SLF4J with Logback
-
-## ✨ Features
-
-### Core Analytics
-
-- 📈 **Real-time Revenue Tracking** - Live revenue metrics and trends with historical data
-- 📦 **Order Analytics** - Order volume, trends, and customer insights with timeseries data
-- 🛒 **Abandoned Cart Analysis** - Track and analyze abandoned cart rates and recovery opportunities
-- 📊 **Conversion Rate Monitoring** - Real-time conversion rate tracking with industry benchmarks
-- 🛍️ **Product Performance** - Top products, sales metrics, inventory levels
-- 📊 **Interactive Dashboards** - Responsive charts and visualizations with real-time updates
-- 🔄 **Automatic Data Sync** - Real-time synchronization with Shopify APIs
-
-### Competitor Intelligence
-
-- 🏪 **Competitor Price Monitoring** - Real-time tracking of competitor prices and products
-- 🔍 **Automated Competitor Discovery** - AI-powered suggestions for new competitors to track
-- 📊 **Competitor Analytics** - Price change alerts, market positioning, and trend analysis
-- 🔄 **Web Scraping Engine** - Automated data collection from competitor websites
-- 📧 **Price Change Alerts** - Instant notifications when competitors change prices
-- 📋 **Competitor Management** - Add, remove, and organize competitor tracking
-
-### Advanced Features
-
-- 📧 **Automated Alerts** - Email/SMS notifications for key events and threshold breaches
-- 📋 **Custom Reports** - Scheduled reports and data exports
-- 🔍 **Low Inventory Alerts** - Proactive inventory management with automated notifications
-- 📱 **Mobile Responsive** - Full mobile and tablet support with responsive design
-- 🔐 **Privacy Compliance** - Built-in privacy controls and GDPR/CCPA compliance
-- 🔧 **Secret Management** - Encrypted secret storage in Redis with admin interface
-- 🔄 **Store Switching** - Seamless switching between multiple Shopify stores
-
-### Integration Features
-
-- 🔐 **Shopify OAuth** - Secure authentication with proper scopes and token management
-- 🔄 **Permission Management** - Graceful handling of API limitations and Protected Customer Data restrictions
-- 💾 **Smart Caching** - Redis caching for improved performance and reduced API calls
-- 🛡️ **Error Handling** - Comprehensive error recovery and user-friendly error messages
-- 🔗 **Deep Links** - Direct links to Shopify admin pages for seamless navigation
-- 🔍 **Debug Tools** - Built-in debugging endpoints for troubleshooting API access issues
-
-## 💰 Pricing
-
-### Pro Plan - $19.99/month
-
-**Everything you need to grow your Shopify business:**
-
-- ✅ Track unlimited competitors
-- ✅ Real-time price monitoring
-- ✅ Automated alerts (Email & SMS)
-- ✅ Advanced analytics dashboard
-- ✅ Competitor discovery tools
-- ✅ Shopify integration
-- ✅ Data export capabilities
-- ✅ Priority support
-- ✅ GDPR/CCPA compliance
-
-**Start with a 3-day free trial - no credit card required!**
+-- Audit logs for compliance
+CREATE TABLE audit_logs (
+    id BIGSERIAL PRIMARY KEY,
+    shop_id BIGINT REFERENCES shops(id),
+    action VARCHAR(100) NOT NULL,
+    details TEXT,
+    user_agent VARCHAR(500),
+    ip_address VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
-- **Java 17+** (for backend)
-- **Node.js 18+** (for frontend)
-- **PostgreSQL 14+** (for database)
-- **Redis 6+** (for caching)
-- **Shopify Partner Account** (for API credentials)
+- **Java 17** or higher
+- **Node.js 18** or higher
+- **PostgreSQL 15** or higher
+- **Redis 7** or higher
+- **Shopify Partner Account** with app credentials
 
-### 1. Clone Repository
+### Local Development Setup
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/your-username/storesight.git
+   cd storesight
+   ```
+
+2. **Set up environment variables**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your actual values
+   ```
+
+3. **Start PostgreSQL and Redis**
+   ```bash
+   # Using Docker
+   docker run -d --name postgres -e POSTGRES_PASSWORD=storesight -p 5432:5432 postgres:15
+   docker run -d --name redis -p 6379:6379 redis:7
+   ```
+
+4. **Run database migrations**
+   ```bash
+   cd backend
+   ./gradlew flywayMigrate
+   ```
+
+5. **Start the backend**
+   ```bash
+   cd backend
+   ./gradlew bootRun
+   ```
+
+6. **Start the frontend**
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
+
+7. **Access the application**
+   - Frontend: http://localhost:5173
+   - Backend API: http://localhost:8080
+
+### Environment Variables
+
+Required environment variables (see `ENVIRONMENT_SETUP.md` for details):
 
 ```bash
-git clone https://github.com/your-org/storesight.git
-cd storesight
-```
-
-### 2. Backend Setup
-
-```bash
-cd backend
-
-# Configure application properties
-# Edit src/main/resources/application.properties with your settings:
-# - Database connection
-# - Redis connection  
-# - Shopify API credentials
-# - External service keys
-
-# Build and run
-./gradlew bootRun
-```
-
-### 3. Frontend Setup
-
-```bash
-cd frontend
-
-# Install dependencies
-npm install
-
-# Start development server (no .env file needed for local development)
-npm run dev
-```
-
-### 4. Database Setup
-
-```bash
-# Create database
-createdb storesight
-
-# Run migrations (handled automatically by Flyway)
-# Migrations are in: backend/src/main/resources/db/migration/
-```
-
-## 📝 Configuration
-
-### Backend Configuration (`application.properties`)
-
-```properties
 # Database
-spring.datasource.url=jdbc:postgresql://localhost:5432/storesight
-spring.datasource.username=storesight
-spring.datasource.password=storesight
+DB_URL=jdbc:postgresql://localhost:5432/storesight
+DB_USER=storesight
+DB_PASS=storesight
+
 # Redis
-spring.data.redis.host=localhost
-spring.data.redis.port=6379
+REDIS_HOST=localhost
+REDIS_PORT=6379
 
-# Shopify API
-shopify.api.key=${SHOPIFY_API_KEY:}
-shopify.api.secret=${SHOPIFY_API_SECRET:}
-shopify.scopes=read_products,read_orders,read_customers,read_inventory
-shopify.redirect_uri=${SHOPIFY_REDIRECT_URI:http://localhost:8080/api/auth/shopify/callback}
-# Competitor Discovery (SerpAPI)
-discovery.serpapi.key=${SERPAPI_KEY:dummy_serpapi_key}
-discovery.enabled=${DISCOVERY_ENABLED:false}
-discovery.provider=${DISCOVERY_PROVIDER:serpapi}
-# External Services
-sendgrid.api-key=${SENDGRID_API_KEY:dummy_sendgrid_key}
-twilio.account_sid=${TWILIO_ACCOUNT_SID:dummy_twilio_sid}
-twilio.auth_token=${TWILIO_AUTH_TOKEN:dummy_twilio_token}
-twilio.from_number=${TWILIO_FROM_NUMBER:+1234567890}
-# Frontend URL
-frontend.url=${FRONTEND_URL:http://localhost:5173}
+# Shopify (Required)
+SHOPIFY_API_KEY=your_shopify_api_key
+SHOPIFY_API_SECRET=your_shopify_api_secret
+SHOPIFY_REDIRECT_URI=http://localhost:8080/api/auth/shopify/callback
 
-# Server
-server.port=${SERVER_PORT:8080}
+# Optional Services
+SERPAPI_KEY=your_serpapi_key
+SENDGRID_API_KEY=your_sendgrid_key
+TWILIO_ACCOUNT_SID=your_twilio_sid
+TWILIO_AUTH_TOKEN=your_twilio_token
 ```
-
-### Frontend Configuration
-
-No environment file needed for local development. The frontend automatically connects to `http://localhost:8080` for the
-backend API.
-
-## 🔧 Development
-
-### Running in Development Mode
-
-```bash
-# Terminal 1: Backend
-cd backend && ./gradlew bootRun
-
-# Terminal 2: Frontend  
-cd frontend && npm run dev
-
-# Terminal 3: Database (if using Docker)
-docker run --name storesight-postgres -e POSTGRES_DB=storesight -e POSTGRES_USER=storesight -e POSTGRES_PASSWORD=storesight -p 5432:5432 -d postgres:14
-
-# Terminal 4: Redis (if using Docker)
-docker run --name storesight-redis -p 6379:6379 -d redis:6
-```
-
-### Building for Production
-
-```bash
-# Backend
-cd backend
-./gradlew build
-java -jar build/libs/storesight-backend-*.jar
-
-# Frontend
-cd frontend
-npm run build
-# Serve the dist/ directory with your web server
-```
-
-## 📚 API Documentation
-
-### Shopify Integration
-
-The application integrates with Shopify using OAuth 2.0 and requires the following scopes:
-
-- `read_products` - Access product catalog and inventory
-- `read_orders` - Access order history and analytics
-- `read_customers` - Access customer data and insights
-- `read_inventory` - Access inventory levels and alerts
-
-### Protected Customer Data
-
-⚠️ **Important**: The app requires special approval from Shopify for Protected Customer Data access. This includes:
-
-- Order details and customer information
-- Revenue analytics and financial data
-- Customer behavior insights
-
-To enable full functionality:
-
-1. Contact Shopify Partner Support
-2. Request Protected Customer Data access
-3. Re-authenticate your app after approval
-
-### Rate Limiting
-
-- Shopify API: 40 requests per app per store per minute
-- Application implements intelligent caching and request batching
-- Graceful degradation when rate limits are exceeded
-
-### Error Codes
-
-| Code                        | Description                         | Resolution                                     |
-|-----------------------------|-------------------------------------|------------------------------------------------|
-| `INSUFFICIENT_PERMISSIONS`  | Missing Shopify API scopes          | Re-authenticate via `/api/auth/shopify/reauth` |
-| `PROTECTED_DATA_RESTRICTED` | Protected Customer Data restriction | Contact Shopify for app approval               |
-| `RATE_LIMITED`              | Shopify API rate limit exceeded     | Wait and retry, cached data served             |
-| `SHOPIFY_UNAVAILABLE`       | Shopify API temporarily unavailable | Cached data served, retry automatically        |
-
-## 🚢 Deployment
-
-### Render.com Deployment
-
-The application is configured for deployment on Render.com using the `render.yaml` configuration:
-
-```bash
-# Deploy to Render.com
-# 1. Connect your GitHub repository to Render
-# 2. The render.yaml file will automatically configure:
-#    - Web service (backend)
-#    - Worker service (background tasks)
-#    - Static site (frontend)
-# 3. Set environment variables in Render dashboard
-```
-
-### Production Checklist
-
-- [ ] Configure production database
-- [ ] Set up Redis cluster
-- [ ] Configure HTTPS/SSL
-- [ ] Set production Shopify app credentials
-- [ ] Configure monitoring and logging
-- [ ] Set up backup procedures
-- [ ] Configure load balancing (if needed)
-- [ ] Request Protected Customer Data access from Shopify
-- [ ] Set up secret encryption key (`SECRETS_ENCRYPTION_KEY`)
-- [ ] Configure SerpAPI for competitor discovery
-- [ ] Set up SendGrid/Twilio for notifications
 
 ## 🧪 Testing
 
-### Backend Tests
-
+### Backend Testing
 ```bash
 cd backend
 ./gradlew test
 ```
 
-### Frontend Tests
-
+### Frontend Testing
 ```bash
 cd frontend
-npm test
+npm run test
 ```
 
-### Integration Tests
-
+### Integration Testing
 ```bash
-cd backend
+# Run with test containers
 ./gradlew integrationTest
 ```
 
+## 🚀 Deployment
+
+### Docker Deployment
+
+1. **Build the application**
+   ```bash
+   docker-compose build
+   ```
+
+2. **Deploy with Docker Compose**
+   ```bash
+   docker-compose up -d
+   ```
+
+### Render Deployment
+
+The application includes a `render.yaml` configuration for easy deployment to Render:
+
+```yaml
+services:
+  - type: web
+    name: storesight-backend
+    env: docker
+    plan: standard
+    dockerfilePath: backend/Dockerfile
+    
+  - type: worker
+    name: storesight-worker
+    env: docker
+    plan: standard
+    dockerfilePath: backend/Dockerfile
+    startCommand: "java -jar app.jar --spring.profiles.active=worker"
+    
+  - type: static
+    name: storesight-frontend
+    env: static
+    buildCommand: "cd frontend && npm install && npm run build"
+    staticPublishPath: frontend/dist
+```
+
+## 🔒 Security & Compliance
+
+### Data Privacy Features
+
+- ✅ **GDPR/CCPA Compliance** - Full data privacy compliance
+- ✅ **Shopify Protected Data** - Compliant with Shopify requirements
+- ✅ **Data Minimization** - Only essential data processed
+- ✅ **Automatic Retention** - 60-day data retention with auto-deletion
+- ✅ **Audit Logging** - Complete audit trail for compliance
+- ✅ **Encryption** - AES-256 at rest, TLS 1.3 in transit
+
+### Security Measures
+
+- 🔐 **OAuth 2.0 Authentication** - Secure Shopify integration
+- 🛡️ **CORS Protection** - Cross-origin request security
+- 🔍 **Input Validation** - Comprehensive input sanitization
+- 📝 **Audit Logging** - All actions logged for security monitoring
+- 🔄 **Session Management** - Secure session handling with Redis
+
 ## 🤝 Contributing
 
+We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details on:
+
+- Code style and conventions
+- Testing requirements
+- Pull request process
+- Issue reporting
+
+### Development Workflow
+
 1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+2. Create a feature branch
+3. Make your changes
+4. Add tests
+5. Submit a pull request
 
-### Development Guidelines
+## 📚 Documentation
 
-- Follow existing code style and conventions
-- Add tests for new features
-- Update documentation for API changes
-- Ensure all tests pass before submitting PR
+- [Environment Setup](ENVIRONMENT_SETUP.md) - Detailed setup instructions
+- [Contributing Guidelines](CONTRIBUTING.md) - How to contribute
+- [Privacy Policy](PRIVACY_POLICY.md) - Data handling and privacy
+- [API Documentation](docs/api.md) - Complete API reference
 
-## 🆘 Support & Troubleshooting
+## 🏗️ Technology Stack
 
-### Common Issues
+### Backend
+- **Framework**: Spring Boot 3.2.3
+- **Language**: Java 17
+- **Database**: PostgreSQL 15
+- **Cache**: Redis 7
+- **Build Tool**: Gradle
+- **Testing**: JUnit 5, TestContainers
 
-**403 Forbidden Errors (Protected Customer Data)**
+### Frontend
+- **Framework**: React 18
+- **Language**: TypeScript 5.5.4
+- **Build Tool**: Vite
+- **UI Library**: Material-UI (MUI)
+- **Charts**: Recharts
+- **Styling**: Tailwind CSS
 
-- Cause: Shopify Protected Customer Data restrictions
-- Solution: Contact Shopify Partner Support for app approval, then re-authenticate
-
-**Empty Dashboard Data**
-
-- Cause: New store with no orders/products or API permission issues
-- Solution: Add products and test orders in Shopify, check API permissions
-
-**Connection Errors**
-
-- Cause: Database or Redis connection issues
-- Solution: Check connection strings and service status
-
-**OAuth Authentication Issues**
-
-- Cause: Incorrect app credentials or redirect URIs
-- Solution: Verify Shopify app settings and environment variables
-
-**Secret Management Issues**
-
-- Cause: Missing or invalid encryption key
-- Solution: Set `SECRETS_ENCRYPTION_KEY` environment variable (16+ characters)
-
-**Competitor Discovery Not Working**
-
-- Cause: SerpAPI key not configured or invalid
-- Solution: Set `SERPAPI_KEY` environment variable or add via Admin interface
-
-### Getting Help
-
-- 📧 Email: support@storesight.com
-- 💬 GitHub Issues: [Create an issue](https://github.com/your-org/storesight/issues)
-- 📖 Documentation: [Full docs](https://docs.storesight.com)
+### External Services
+- **Shopify API**: OAuth integration and data access
+- **SerpAPI**: Competitor discovery
+- **SendGrid**: Email notifications
+- **Twilio**: SMS alerts
+- **Selenium**: Web scraping for competitor data
 
 ## 📄 License
 
-This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+
+## 🆘 Support
+
+- **Documentation**: Check the docs folder for detailed guides
+- **Issues**: Report bugs and feature requests via GitHub Issues
+- **Discussions**: Use GitHub Discussions for questions and ideas
+- **Email**: support@storesight.com
+
+## 🗺️ Roadmap
+
+### Upcoming Features
+- [ ] **Advanced AI Insights** - Machine learning-powered business recommendations
+- [ ] **Multi-store Management** - Support for multiple Shopify stores
+- [ ] **Real-time Notifications** - WebSocket-based live updates
+- [ ] **Advanced Reporting** - Custom report builder and scheduling
+- [ ] **Mobile App** - React Native mobile application
+- [ ] **API Rate Limiting** - Advanced rate limiting and throttling
+- [ ] **Data Export** - CSV/Excel export functionality
+- [ ] **Webhook Integration** - Real-time Shopify webhook processing
+
+### Performance Improvements
+- [ ] **Caching Optimization** - Advanced Redis caching strategies
+- [ ] **Database Optimization** - Query optimization and indexing
+- [ ] **CDN Integration** - Global content delivery network
+- [ ] **Load Balancing** - Horizontal scaling support
 
 ---
 
-**Built with ❤️ for Shopify merchants who want better insights into their business.**
-
-# Competitor Discovery
-
-## Configuration
-
-StoreSight uses a **hybrid configuration pattern** that follows the same approach as Shopify integration:
-
-1. **Environment Variables** (primary)
-2. **Redis SecretService** (fallback)
-3. **Application Properties** (defaults)
-
-### Environment Variables (Recommended)
-
-```bash
-# SerpAPI Configuration
-SERPAPI_KEY=your_actual_serpapi_key_here
-DISCOVERY_PROVIDER=serpapi
-DISCOVERY_ENABLED=true
-```
-
-### Redis SecretService (Admin Interface)
-
-If environment variables are not available, the system will automatically fallback to encrypted secrets stored in Redis:
-
-- Access the Admin page at `/admin` (when authenticated)
-- Add secret key: `serpapi.api.key` with your actual API key
-- The system will automatically detect and use this value
-
-### Configuration Priority
-
-1. **Environment Variable**: `${SERPAPI_KEY:}`
-2. **Redis Secret**: `serpapi.api.key` (encrypted)
-3. **Default**: `dummy_serpapi_key` (disabled)
-
-### Production Deployment
-
-For production, set environment variables through your hosting platform:
-
-**Render.com:**
-
-```bash
-# Environment Variables
-SERPAPI_KEY=your_production_serpapi_key
-DISCOVERY_ENABLED=true
-SECRETS_ENCRYPTION_KEY=your_32_character_encryption_key
-```
-
-**Local Development:**
-
-```bash
-# application.properties (for testing)
-discovery.serpapi.key=dummy_serpapi_key
-discovery.enabled=false
-```
-
-This pattern ensures:
-
-- ✅ **Security**: No secrets in code or config files
-- ✅ **Flexibility**: Multiple configuration sources
-- ✅ **Fallback**: Graceful degradation when API unavailable
-- ✅ **Consistency**: Same pattern as Shopify, SendGrid, Twilio
+**StoreSight** - Empowering Shopify merchants with intelligent analytics and competitor insights. 🚀

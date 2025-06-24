@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: cartclarity-backend
+    name: storesight-backend
     env: docker
     plan: standard
     dockerfilePath: backend/Dockerfile
@@ -17,10 +17,20 @@ services:
         sync: false
       - key: REDIS_PORT
         sync: false
+      - key: SHOPIFY_API_KEY
+        sync: false
+      - key: SHOPIFY_API_SECRET
+        sync: false
       - key: SENDGRID_API_KEY
         sync: false
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: SERPAPI_API_KEY
+        sync: false
   - type: worker
-    name: cartclarity-worker
+    name: storesight-worker
     env: docker
     plan: standard
     dockerfilePath: backend/Dockerfile
@@ -36,10 +46,20 @@ services:
         sync: false
       - key: REDIS_PORT
         sync: false
+      - key: SHOPIFY_API_KEY
+        sync: false
+      - key: SHOPIFY_API_SECRET
+        sync: false
       - key: SENDGRID_API_KEY
         sync: false
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: SERPAPI_API_KEY
+        sync: false
   - type: static
-    name: cartclarity-frontend
+    name: storesight-frontend
     env: static
     buildCommand: "cd frontend && npm install && npm run build"
     staticPublishPath: frontend/dist 

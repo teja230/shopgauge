@@ -1,108 +1,122 @@
 package com.storesight.backend.service;
 
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import java.util.Map;
 import java.util.Optional;
-import javax.crypto.Cipher;
-import javax.crypto.spec.SecretKeySpec;
+import java.util.HashMap;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 /**
- * Service for storing encrypted secrets in Redis.
- *
- * <p>TODO: Replace Redis usage with the hosting platform's managed secrets service (e.g., AWS
- * Secrets Manager, GCP Secret Manager, Azure Key Vault). Redis is great for development, but
- * managed secret stores provide automatic rotation, auditing, and scoped access in production.
+ * Service for managing secrets using environment variables in production.
+ * Redis is still used for other purposes like session persistence and Shopify tokens.
  */
 @Service
 public class SecretService {
   private final StringRedisTemplate redisTemplate;
-  private final String encryptionKey; // This should be set via environment variable
-  private static final String SECRET_PREFIX = "secret:";
-
+  
   @Autowired
   public SecretService(StringRedisTemplate redisTemplate) {
     this.redisTemplate = redisTemplate;
-    String envKey = System.getenv("SECRETS_ENCRYPTION_KEY");
-    if (envKey == null || envKey.isBlank()) {
-      // Fallback to a non-encrypted mode for local development.
-      // In production, ensure SECRETS_ENCRYPTION_KEY is defined and 16/24/32 chars long for AES.
-      System.err.println(
-          "[WARN] SECRETS_ENCRYPTION_KEY is not set – storing secrets in plaintext. Please set this env variable in production.");
-    }
-    this.encryptionKey = envKey; // may be null – handled in encrypt/decrypt
   }
 
-  public void storeSecret(String key, String value) {
-    try {
-      String encryptedValue = encrypt(value);
-      redisTemplate.opsForValue().set(SECRET_PREFIX + key, encryptedValue);
-    } catch (Exception e) {
-      throw new RuntimeException("Failed to store secret", e);
-    }
-  }
-
+  /**
+   * Get secret from environment variables.
+   * Secrets are managed by the hosting platform (Render) environment variables.
+   */
   public Optional<String> getSecret(String key) {
-    try {
-      String encryptedValue = redisTemplate.opsForValue().get(SECRET_PREFIX + key);
-      if (encryptedValue == null) {
-        return Optional.empty();
-      }
-      return Optional.of(decrypt(encryptedValue));
-    } catch (Exception e) {
-      throw new RuntimeException("Failed to retrieve secret", e);
-    }
+    // Map secret keys to environment variable names
+    String envVarName = mapSecretKeyToEnvVar(key);
+    String value = System.getenv(envVarName);
+    return Optional.ofNullable(value);
   }
 
+  /**
+   * Store secret - in production, this should be done through Render's environment variables UI.
+   * This method is kept for backward compatibility but logs a warning.
+   */
+  public void storeSecret(String key, String value) {
+    System.out.println("[WARN] storeSecret() called - secrets should be managed through Render environment variables in production");
+    System.out.println("[INFO] To set secret '" + key + "', add environment variable: " + mapSecretKeyToEnvVar(key));
+  }
+
+  /**
+   * Delete secret - in production, this should be done through Render's environment variables UI.
+   */
   public void deleteSecret(String key) {
-    redisTemplate.delete(SECRET_PREFIX + key);
+    System.out.println("[WARN] deleteSecret() called - secrets should be managed through Render environment variables in production");
+    System.out.println("[INFO] To delete secret '" + key + "', remove environment variable: " + mapSecretKeyToEnvVar(key));
   }
 
-  private String encrypt(String value) throws Exception {
-    if (encryptionKey == null || encryptionKey.length() < 16) {
-      // No encryption key – return value as is
-      return value;
-    }
-    SecretKeySpec secretKey =
-        new SecretKeySpec(encryptionKey.getBytes(StandardCharsets.UTF_8), "AES");
-    Cipher cipher = Cipher.getInstance("AES");
-    cipher.init(Cipher.ENCRYPT_MODE, secretKey);
-    byte[] encryptedBytes = cipher.doFinal(value.getBytes());
-    return Base64.getEncoder().encodeToString(encryptedBytes);
-  }
-
-  private String decrypt(String encrypted) throws Exception {
-    if (encryptionKey == null || encryptionKey.length() < 16) {
-      // Stored plaintext
-      return encrypted;
-    }
-    SecretKeySpec secretKey =
-        new SecretKeySpec(encryptionKey.getBytes(StandardCharsets.UTF_8), "AES");
-    Cipher cipher = Cipher.getInstance("AES");
-    cipher.init(Cipher.DECRYPT_MODE, secretKey);
-    byte[] decryptedBytes = cipher.doFinal(Base64.getDecoder().decode(encrypted));
-    return new String(decryptedBytes);
-  }
-
+  /**
+   * List all configured secrets (returns keys only for security).
+   */
   public Map<String, String> listSecrets() {
-    java.util.Set<String> keys = redisTemplate.keys(SECRET_PREFIX + "*");
-    java.util.Map<String, String> result = new java.util.HashMap<>();
-    if (keys != null) {
-      for (String redisKey : keys) {
-        String key = redisKey.substring(SECRET_PREFIX.length());
-        try {
-          String encrypted = redisTemplate.opsForValue().get(redisKey);
-          if (encrypted != null) {
-            result.put(key, decrypt(encrypted));
-          }
-        } catch (Exception e) {
-          // skip problematic secret
-        }
+    Map<String, String> secrets = new HashMap<>();
+    
+    // Only return keys of secrets that are configured
+    String[] secretKeys = {
+        "shopify.api.key",
+        "shopify.api.secret", 
+        "sendgrid.api.key",
+        "twilio.account.sid",
+        "twilio.auth.token",
+        "serpapi.api.key"
+    };
+    
+    for (String key : secretKeys) {
+      if (getSecret(key).isPresent()) {
+        secrets.put(key, "[CONFIGURED]"); // Don't return actual values for security
       }
     }
-    return result;
+    
+    return secrets;
+  }
+
+  /**
+   * Map secret keys to environment variable names.
+   */
+  private String mapSecretKeyToEnvVar(String secretKey) {
+    switch (secretKey) {
+      case "shopify.api.key":
+        return "SHOPIFY_API_KEY";
+      case "shopify.api.secret":
+        return "SHOPIFY_API_SECRET";
+      case "sendgrid.api.key":
+        return "SENDGRID_API_KEY";
+      case "twilio.account.sid":
+        return "TWILIO_ACCOUNT_SID";
+      case "twilio.auth.token":
+        return "TWILIO_AUTH_TOKEN";
+      case "serpapi.api.key":
+        return "SERPAPI_API_KEY";
+      default:
+        // Convert dot notation to uppercase with underscores
+        return secretKey.toUpperCase().replace(".", "_");
+    }
+  }
+
+  // Redis methods for other purposes (session persistence, Shopify tokens, etc.)
+  
+  /**
+   * Store data in Redis (for non-secret data like sessions, tokens, etc.)
+   */
+  public void storeInRedis(String key, String value) {
+    redisTemplate.opsForValue().set(key, value);
+  }
+
+  /**
+   * Get data from Redis (for non-secret data like sessions, tokens, etc.)
+   */
+  public Optional<String> getFromRedis(String key) {
+    String value = redisTemplate.opsForValue().get(key);
+    return Optional.ofNullable(value);
+  }
+
+  /**
+   * Delete data from Redis (for non-secret data like sessions, tokens, etc.)
+   */
+  public void deleteFromRedis(String key) {
+    redisTemplate.delete(key);
   }
 }
