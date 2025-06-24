@@ -1,6 +1,8 @@
 package com.storesight.backend.controller;
 
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.HashMap;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.web.servlet.error.ErrorController;
@@ -9,9 +11,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
-
-import java.util.HashMap;
-import java.util.Map;
 
 @Controller
 public class CustomErrorController implements ErrorController {
@@ -26,24 +25,24 @@ public class CustomErrorController implements ErrorController {
     Object exception = request.getAttribute("javax.servlet.error.exception");
     Object path = request.getAttribute("javax.servlet.error.request_uri");
 
-      // If no error attributes are set, this might be a health check or other request
-      // that shouldn't trigger the error controller
-      if (status == null && message == null && exception == null) {
-          logger.debug(
-                  "Error controller called but no error attributes found - likely a health check or invalid request");
-          return ResponseEntity.ok(Map.of("status", "UP", "message", "Application is running"));
-      }
+    // If no error attributes are set, this might be a health check or other request
+    // that shouldn't trigger the error controller
+    if (status == null && message == null && exception == null) {
+      logger.debug(
+          "Error controller called but no error attributes found - likely a health check or invalid request");
+      return ResponseEntity.ok(Map.of("status", "UP", "message", "Application is running"));
+    }
 
     int statusCode = status != null ? (Integer) status : 500;
     String errorMessage = message != null ? message.toString() : "An unexpected error occurred";
-      String requestPath = path != null ? path.toString() : request.getRequestURI();
+    String requestPath = path != null ? path.toString() : request.getRequestURI();
 
-      // Don't log errors for health checks or expected 404s
-      if (requestPath != null
-              && (requestPath.contains("/health") || requestPath.contains("/favicon.ico"))) {
-          logger.debug("Health check or favicon request to error controller: {}", requestPath);
-          return ResponseEntity.ok(Map.of("status", "UP"));
-      }
+    // Don't log errors for health checks or expected 404s
+    if (requestPath != null
+        && (requestPath.contains("/health") || requestPath.contains("/favicon.ico"))) {
+      logger.debug("Health check or favicon request to error controller: {}", requestPath);
+      return ResponseEntity.ok(Map.of("status", "UP"));
+    }
 
     logger.error(
         "Error occurred - Status: {}, Message: {}, Path: {}, Exception: {}",
