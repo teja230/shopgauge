@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { getAuthShop } from '../api';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { api } from '../api';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -45,48 +46,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   }, [isAuthenticated, shop, authLoading, loading, isLoggingOut, location.pathname]);
 
-  const refreshAuth = async () => {
-    // Skip auth checks if we're in the process of logging out
-    if (isLoggingOut) {
-      console.log('Auth: Skipping refreshAuth during logout');
-      return;
-    }
-    
-    console.log('Auth: Starting refreshAuth');
+  const refreshAuth = useCallback(async () => {
     try {
-      console.log('Auth: Checking authentication status');
-      const shopName = await getAuthShop();
-      console.log('Auth: Got shop name:', shopName);
-      if (shopName) {
-        console.log('Auth: Setting authenticated state');
-        setShop(shopName);
+      const response = await api.get('/auth/status');
+      if (response.data.authenticated) {
+        setShop(response.data.shop);
         setIsAuthenticated(true);
       } else {
-        console.log('Auth: No shop name, redirecting to home');
         setShop(null);
         setIsAuthenticated(false);
-        if (location.pathname !== '/') {
-          navigate('/');
-        }
       }
     } catch (error) {
-      console.error('Auth: Auth check failed:', error);
+      console.error('Failed to refresh auth:', error);
       setShop(null);
       setIsAuthenticated(false);
-      // Don't redirect on connection errors, just show error state
-      if (error instanceof Error && error.message.includes('Failed to fetch')) {
-        console.log('Auth: Connection error, staying on current page');
-        return;
-      }
-      if (location.pathname !== '/') {
-        navigate('/');
-      }
-    } finally {
-      console.log('Auth: Setting loading states to false');
-      setAuthLoading(false);
-      setLoading(false);
     }
-  };
+  }, []);
 
   // Initial auth check
   useEffect(() => {
@@ -182,6 +157,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       clearInterval(interval);
     };
   }, [navigate, location.pathname]);
+
+  useEffect(() => {
+    if (!isLoggingOut) {
+      refreshAuth();
+    }
+  }, [isLoggingOut, refreshAuth]);
 
   const logout = async () => {
     try {

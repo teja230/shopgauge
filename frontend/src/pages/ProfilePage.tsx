@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
 export default function ProfilePage() {
@@ -13,6 +14,7 @@ export default function ProfilePage() {
   const [showStoreSwitcher, setShowStoreSwitcher] = useState(false);
   const [newStoreDomain, setNewStoreDomain] = useState('');
   const [isConnectingStore, setIsConnectingStore] = useState(false);
+  const navigate = useNavigate();
 
   const handleReAuthenticate = async () => {
     try {
@@ -202,15 +204,10 @@ export default function ProfilePage() {
     }
   };
 
-  const handleSwitchStore = async (targetShop: string) => {
-    try {
-      // This would typically involve updating the current session
-      // For now, we'll redirect to the login flow for the target shop
-      window.location.href = `/api/auth/shopify/login?shop=${encodeURIComponent(targetShop)}`;
-    } catch (error) {
-      console.error('Failed to switch store:', error);
-      toast.error('Failed to switch store. Please try again.');
-    }
+  const handleSwitchStore = () => {
+    // Clear current session and show store connection form
+    logout();
+    navigate('/');
   };
 
   return (

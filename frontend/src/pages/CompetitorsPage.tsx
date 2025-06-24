@@ -4,7 +4,6 @@ import type { Competitor } from '../components/ui/CompetitorTable';
 import { SuggestionDrawer } from '../components/ui/SuggestionDrawer';
 import { getCompetitors, addCompetitor, deleteCompetitor, getSuggestionCount } from '../api';
 import toast, { Toaster } from 'react-hot-toast';
-import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { 
   SparklesIcon, 
@@ -19,44 +18,48 @@ import type { CompetitorSuggestion } from '../api';
 // Demo data for when SerpAPI is not configured
 const DEMO_COMPETITORS: Competitor[] = [
   {
-    id: 'demo-1',
-    url: 'https://amazon.com/dp/B08N5WRWNW',
-    price: 299.99,
-    inStock: true,
-    percentDiff: -15.2,
-    lastChecked: '2 hours ago',
     name: 'Amazon - Echo Dot (4th Gen)',
-    image: 'https://m.media-amazon.com/images/I/714Rq4k05UL._AC_SL1000_.jpg'
+    website: 'https://amazon.com/dp/B08N5WRWNW',
+    status: 'active',
+    lastChecked: '2 hours ago',
+    metrics: {
+      revenue: 1500000,
+      products: 1250,
+      traffic: 50000
+    }
   },
   {
-    id: 'demo-2',
-    url: 'https://amazon.com/dp/B08C7W5L7D',
-    price: 89.99,
-    inStock: true,
-    percentDiff: 8.5,
-    lastChecked: '1 hour ago',
     name: 'Amazon - Fire TV Stick 4K',
-    image: 'https://m.media-amazon.com/images/I/51CgKGfMelL._AC_SL1000_.jpg'
+    website: 'https://amazon.com/dp/B08C7W5L7D',
+    status: 'active',
+    lastChecked: '1 hour ago',
+    metrics: {
+      revenue: 890000,
+      products: 890,
+      traffic: 35000
+    }
   },
   {
-    id: 'demo-3',
-    url: 'https://amazon.com/dp/B08N5KWB9H',
-    price: 199.99,
-    inStock: false,
-    percentDiff: -22.1,
-    lastChecked: '30 minutes ago',
     name: 'Amazon - Echo Show 8',
-    image: 'https://m.media-amazon.com/images/I/61W9LX7Hl7L._AC_SL1000_.jpg'
+    website: 'https://amazon.com/dp/B08N5KWB9H',
+    status: 'inactive',
+    lastChecked: '30 minutes ago',
+    metrics: {
+      revenue: 0,
+      products: 0,
+      traffic: 0
+    }
   },
   {
-    id: 'demo-4',
-    url: 'https://amazon.com/dp/B07FZ8S74R',
-    price: 149.99,
-    inStock: true,
-    percentDiff: 12.3,
-    lastChecked: '15 minutes ago',
     name: 'Amazon - Echo Plus (2nd Gen)',
-    image: 'https://m.media-amazon.com/images/I/61W9LX7Hl7L._AC_SL1000_.jpg'
+    website: 'https://amazon.com/dp/B07FZ8S74R',
+    status: 'active',
+    lastChecked: '15 minutes ago',
+    metrics: {
+      revenue: 750000,
+      products: 600,
+      traffic: 25000
+    }
   }
 ];
 
@@ -169,13 +172,13 @@ export default function CompetitorsPage() {
     try {
       if (isDemoMode) {
         // For demo mode, just remove from local state
-        setCompetitors((prev) => prev.filter((c) => c.id !== id));
+        setCompetitors((prev) => prev.filter((c) => c.name !== id));
         toast.success('Demo competitor removed');
         return;
       }
       
       await deleteCompetitor(id);
-      setCompetitors((prev) => prev.filter((c) => c.id !== id));
+      setCompetitors((prev) => prev.filter((c) => c.name !== id));
       toast.success('Competitor deleted successfully');
     } catch {
       toast.error('Failed to delete competitor');
@@ -366,12 +369,12 @@ export default function CompetitorsPage() {
 // Inside CompetitorTable component (assuming it's a custom component), update the row rendering to include Avatar/Icon
 /*
 {competitors.map((competitor) => (
-  <TableRow key={competitor.id}>
+  <TableRow key={competitor.name}>
     <TableCell>
       <Avatar sx={{ bgcolor: '#e0e7ff', color: '#3730a3', mr: 1 }}>
         <GroupIcon />
       </Avatar>
-      {competitor.name || competitor.url}
+      {competitor.name || competitor.website}
     </TableCell>
     ...
   </TableRow>

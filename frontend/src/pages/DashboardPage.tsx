@@ -1,10 +1,11 @@
-import { useEffect, useState, useCallback } from 'react';
-import { MetricCard } from '../components/ui/MetricCard';
-import { fetchWithAuth } from '../api';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Box, Typography, Grid, Card, CardContent, Alert, CircularProgress, Link as MuiLink } from '@mui/material';
 import { RevenueChart } from '../components/ui/RevenueChart';
+import { MetricCard } from '../components/ui/MetricCard';
+import { InsightBanner } from '../components/ui/InsightBanner';
+import { getInsights, fetchWithAuth } from '../api';
 import { useAuth } from '../contexts/AuthContext';
-import { CircularProgress, Alert, Box, IconButton, Link as MuiLink, Button, Card, Typography, CardContent } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
 import { styled } from '@mui/material/styles';
 import { OpenInNew, Refresh, Storefront, ListAlt, Inventory2 } from '@mui/icons-material';
 import { format } from 'date-fns';

@@ -19,7 +19,16 @@ import {
   CircularProgress,
   Card,
   CardContent,
-  Chip
+  Chip,
+  CardHeader,
+  Grid,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemSecondaryAction,
 } from '@mui/material';
 import { 
   Delete as DeleteIcon, 
@@ -29,7 +38,9 @@ import {
   Sms as SmsIcon,
   Add as AddIcon,
   Save as SaveIcon,
-  Cancel as CancelIcon
+  Cancel as CancelIcon,
+  ExpandMore as ExpandMoreIcon,
+  Refresh as RefreshIcon
 } from '@mui/icons-material';
 import { fetchWithAuth } from '../api';
 import { useAuth } from '../contexts/AuthContext';
@@ -56,10 +67,9 @@ const AdminPage: React.FC = () => {
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [, setTestEmail] = useState('');
-  const [, setTestSms] = useState('');
-  const [, setTestResult] = useState<string | null>(null);
-  const [] = useState(false);
+  const [testEmail, setTestEmail] = useState('');
+  const [testPhone, setTestPhone] = useState('');
+  const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [sendGridStatus, setSendGridStatus] = useState<'enabled' | 'disabled' | 'unknown'>('unknown');
   const [twilioStatus, setTwilioStatus] = useState<'enabled' | 'disabled' | 'unknown'>('unknown');
   const [showAddForm, setShowAddForm] = useState(false);
@@ -95,8 +105,8 @@ const AdminPage: React.FC = () => {
       setError(null);
       setSuccess(null);
       setTestEmail('');
-      setTestSms('');
-      setTestResult(null);
+      setTestPhone('');
+      setAlert(null);
       setSendGridStatus('unknown');
       setTwilioStatus('unknown');
       setShowAddForm(false);
@@ -116,8 +126,8 @@ const AdminPage: React.FC = () => {
       setError(null);
       setSuccess(null);
       setTestEmail('');
-      setTestSms('');
-      setTestResult(null);
+      setTestPhone('');
+      setAlert(null);
       setSendGridStatus('unknown');
       setTwilioStatus('unknown');
       setShowAddForm(false);
@@ -168,7 +178,33 @@ const AdminPage: React.FC = () => {
     }
   };
 
+  const handleTestEmail = async () => {
+    try {
+      await fetchWithAuth('/admin/test-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: testEmail }),
+      });
+      setTestEmail('');
+      setAlert({ type: 'success', message: 'Test email sent successfully!' });
+    } catch (error) {
+      setAlert({ type: 'error', message: 'Failed to send test email' });
+    }
+  };
 
+  const handleTestSMS = async () => {
+    try {
+      await fetchWithAuth('/admin/test-sms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: testPhone }),
+      });
+      setTestPhone('');
+      setAlert({ type: 'success', message: 'Test SMS sent successfully!' });
+    } catch (error) {
+      setAlert({ type: 'error', message: 'Failed to send test SMS' });
+    }
+  };
 
   // Group secrets by integration
   const integrationSecrets = Object.keys(INTEGRATION_CONFIG).map(key => ({

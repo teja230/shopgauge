@@ -1,14 +1,14 @@
+/// <reference types="lib.dom.d.ts" />
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
-console.log('API: Using API URL:', API_URL);
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+console.log('API: Using API URL:', API_BASE_URL);
 
 const defaultOptions: RequestInit = {
   credentials: 'include',
   headers: {
-    'Accept': 'application/json',
-    'Content-Type': 'application/json'
-  }
+    'Content-Type': 'application/json',
+  },
 };
 
 export interface Insight {
@@ -24,18 +24,19 @@ export interface Insight {
 }
 
 export interface Competitor {
-  id: string;
-  url: string;
-  price: number;
-  inStock: boolean;
-  percentDiff: number;
+  name: string;
+  website: string;
+  status: 'active' | 'inactive';
   lastChecked: string;
-  name?: string;
-  image?: string;
+  metrics?: {
+    revenue?: number;
+    products?: number;
+    traffic?: number;
+  };
 }
 
 export const api = axios.create({
-  baseURL: API_URL,
+  baseURL: API_BASE_URL,
   withCredentials: true,
   headers: {
     'Accept': 'application/json',
@@ -61,7 +62,7 @@ api.interceptors.response.use(
 );
 
 export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
-  const fullUrl = `${API_URL}${url}`;
+  const fullUrl = `${API_BASE_URL}${url}`;
   console.log('API: Fetching:', fullUrl);
   const response = await fetch(fullUrl, {
     ...options,
