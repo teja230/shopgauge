@@ -1,5 +1,5 @@
-# Use OpenJDK 17 as base image
-FROM openjdk:17-jdk-slim
+# Multi-stage build for better caching and smaller final image
+FROM openjdk:17-jdk-slim AS builder
 
 # Set working directory
 WORKDIR /app
@@ -9,19 +9,30 @@ COPY backend/gradlew ./gradlew
 COPY backend/gradle ./gradle
 COPY backend/build.gradle ./build.gradle
 COPY backend/settings.gradle ./settings.gradle
-
-# Copy source code
-COPY backend/src ./src
+COPY backend/pom.xml ./pom.xml
 
 # Make gradlew executable
 RUN chmod +x ./gradlew
 
-# Build the application (skip tests for faster container build)
-RUN ./gradlew build -x test
+# Download dependencies first (better Docker layer caching)
+RUN ./gradlew dependencies --no-daemon || true
 
-# Copy the built jar to a consistent location
-RUN JAR_FILE=$(ls build/libs | grep '.jar$' | grep -v plain | head -n 1) && \
-    cp "build/libs/${JAR_FILE}" app.jar
+# Copy source code
+COPY backend/src ./src
+
+# Build the application (skip tests for faster container build)
+# Use --no-daemon to avoid daemon-related issues in Docker
+# Set JVM options for better memory management in Docker
+ENV GRADLE_OPTS="-Xmx1024m -Dfile.encoding=UTF-8"
+RUN ./gradlew clean build -x test --no-daemon
+
+# Final stage
+FROM openjdk:17-jre-slim
+
+WORKDIR /app
+
+# Copy the built jar from builder stage
+COPY --from=builder /app/build/libs/*-SNAPSHOT.jar app.jar
 
 # Expose port
 EXPOSE 8080
