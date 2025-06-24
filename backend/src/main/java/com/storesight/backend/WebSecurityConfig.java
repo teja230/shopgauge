@@ -27,7 +27,7 @@ public class WebSecurityConfig {
                     .anyRequest()
                     .permitAll()) // Temporarily allow all requests for debugging
         .sessionManagement(
-            session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+            session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED));
     return http.build();
   }
 
@@ -59,6 +59,8 @@ public class WebSecurityConfig {
     serializer.setSameSite("Lax");
     serializer.setUseSecureCookie(true); // Set to false for localhost if needed
     serializer.setCookiePath("/");
+    // Set domain to .onrender.com to allow cross-subdomain cookies
+    serializer.setDomainName(".onrender.com");
     return serializer;
   }
 }

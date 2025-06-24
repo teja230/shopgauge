@@ -215,13 +215,18 @@ public class ShopifyAuthController {
       shopService.saveShop(shop, accessToken, sessionId);
 
       logger.info("Setting cookie for shop: {}", shop);
-      logger.info("Cookie value being set: {}", accessToken);
-      logger.info("Redirecting to frontend: {}/dashboard", frontendUrl);
       
-      // Instead of setting cookies (which won't work cross-domain), 
-      // redirect with shop info as URL parameters
-      String redirectUrl = frontendUrl + "/dashboard?shop=" + java.net.URLEncoder.encode(shop, StandardCharsets.UTF_8) + "&auth=success";
-      response.sendRedirect(redirectUrl);
+      // Set the shop cookie
+      Cookie shopCookie = new Cookie("shop", shop);
+      shopCookie.setPath("/");
+      shopCookie.setDomain(".onrender.com"); // Set domain for cross-subdomain cookies
+      shopCookie.setSecure(true); // Use secure cookies in production
+      shopCookie.setHttpOnly(false); // Allow JavaScript access if needed
+      shopCookie.setMaxAge(60 * 60 * 24 * 7); // 7 days
+      response.addCookie(shopCookie);
+      
+      logger.info("Cookie set successfully, redirecting to frontend: {}/dashboard", frontendUrl);
+      response.sendRedirect(frontendUrl + "/dashboard");
     } catch (Exception e) {
       logger.error("Error in callback for shop: {} - Error details: {}", shop, e.getMessage(), e);
 
@@ -445,17 +450,18 @@ public class ShopifyAuthController {
         logger.error("Auth: Error clearing access token for shop: {}", shop, e);
       }
 
-      // Clear the shop cookie with multiple approaches to ensure it's removed
+      // Clear the shop cookie with the correct domain setting
       Cookie shopCookie = new Cookie("shop", "");
       shopCookie.setPath("/");
+      shopCookie.setDomain(".onrender.com"); // Match the domain used when setting the cookie
       shopCookie.setMaxAge(0);
       shopCookie.setHttpOnly(false);
-      shopCookie.setSecure(false);
+      shopCookie.setSecure(true); // Match the secure setting used when setting the cookie
       response.addCookie(shopCookie);
 
       // Also add a Set-Cookie header to ensure the cookie is cleared
       String clearCookieHeader =
-          "shop=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+          "shop=; Path=/; Domain=.onrender.com; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Secure; SameSite=Lax";
       response.addHeader("Set-Cookie", clearCookieHeader);
 
       logger.info("Auth: Cleared shop cookie for: {}", shop);
@@ -499,15 +505,15 @@ public class ShopifyAuthController {
       HttpServletResponse response,
       HttpServletRequest request) {
     String shop = shopParam != null ? shopParam : shopCookie;
+    
+    // Clear cookie with the correct domain setting for Render
     response.addHeader(
-        "Set-Cookie", "shop=; Path=/api; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT");
-    // Clear cookie for both localhost and production domains
+        "Set-Cookie", "shop=; Path=/; Domain=.onrender.com; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Secure; SameSite=Lax");
+    
+    // Also clear without domain for localhost development
     response.addHeader(
         "Set-Cookie",
         "shop=; Domain=localhost; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT");
-    response.addHeader(
-        "Set-Cookie",
-        "shop=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax");
 
     if (shop != null && !shop.isBlank()) {
       // Clear the access token from Redis and database
