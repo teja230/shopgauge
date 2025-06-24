@@ -5,7 +5,7 @@ import { MetricCard } from '../components/ui/MetricCard';
 import { InsightBanner } from '../components/ui/InsightBanner';
 import { getInsights, fetchWithAuth } from '../api';
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { styled } from '@mui/material/styles';
 import { OpenInNew, Refresh, Storefront, ListAlt, Inventory2 } from '@mui/icons-material';
 import { format } from 'date-fns';
@@ -476,7 +476,8 @@ interface CardErrorState {
 
 const DashboardPage = () => {
   const navigate = useNavigate();
-  const { shop } = useAuth();
+  const location = useLocation();
+  const { shop, setShop } = useAuth();
   const [insights, setInsights] = useState<DashboardInsight | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -502,6 +503,31 @@ const DashboardPage = () => {
     orders: null,
     abandonedCarts: null
   });
+
+  // Handle URL parameters from OAuth callback
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.search);
+    const shopParam = urlParams.get('shop');
+    const authParam = urlParams.get('auth');
+    
+    if (shopParam && authParam === 'success') {
+      console.log('Processing OAuth callback - shop:', shopParam);
+      
+      // Set the shop cookie on the frontend domain
+      const cookieValue = `shop=${shopParam}; Path=/; Max-Age=${30 * 24 * 60 * 60}; SameSite=Lax`;
+      document.cookie = cookieValue;
+      
+      // Update the auth context
+      if (setShop) {
+        setShop(shopParam);
+      }
+      
+      // Clean up the URL parameters
+      navigate('/dashboard', { replace: true });
+      
+      console.log('Successfully set shop cookie and updated auth context');
+    }
+  }, [location.search, navigate, setShop]);
 
   // Retry logic with exponential backoff
   const retryWithBackoff = useCallback(async (apiCall: () => Promise<any>, maxRetries = 3) => {

@@ -214,30 +214,14 @@ public class ShopifyAuthController {
       logger.info("Saving shop data - shop: {}, sessionId: {}", shop, sessionId);
       shopService.saveShop(shop, accessToken, sessionId);
 
-      // Set cookie with proper attributes
-      Cookie shopCookie = new Cookie("shop", shop);
-      shopCookie.setPath("/");
-      shopCookie.setMaxAge((int) java.time.Duration.ofDays(30).getSeconds());
-      shopCookie.setHttpOnly(false); // Set to false for development
-      shopCookie.setSecure(false);
-      // Add SameSite attribute to prevent browser cookie issues
-      String cookieValue =
-          shopCookie.getName()
-              + "="
-              + shopCookie.getValue()
-              + "; Path="
-              + shopCookie.getPath()
-              + "; Max-Age="
-              + shopCookie.getMaxAge()
-              + "; SameSite=Lax";
-      response.addHeader("Set-Cookie", cookieValue);
-      // Also add the standard cookie for compatibility
-      response.addCookie(shopCookie);
-
       logger.info("Setting cookie for shop: {}", shop);
-      logger.info("Cookie value being set: {}", cookieValue);
+      logger.info("Cookie value being set: {}", accessToken);
       logger.info("Redirecting to frontend: {}/dashboard", frontendUrl);
-      response.sendRedirect(frontendUrl + "/dashboard");
+      
+      // Instead of setting cookies (which won't work cross-domain), 
+      // redirect with shop info as URL parameters
+      String redirectUrl = frontendUrl + "/dashboard?shop=" + java.net.URLEncoder.encode(shop, StandardCharsets.UTF_8) + "&auth=success";
+      response.sendRedirect(redirectUrl);
     } catch (Exception e) {
       logger.error("Error in callback for shop: {} - Error details: {}", shop, e.getMessage(), e);
 
