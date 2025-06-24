@@ -51,14 +51,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Debug state changes
   useEffect(() => {
-    console.log('Auth: State changed', {
-      isAuthenticated,
-      shop,
-      authLoading,
-      loading,
-      isLoggingOut,
-      path: location.pathname
-    });
+    // Only log in development
+    if (import.meta.env.DEV) {
+      console.log('Auth: State changed', {
+        isAuthenticated,
+        shop,
+        authLoading,
+        loading,
+        isLoggingOut,
+        path: location.pathname
+      });
+    }
   }, [isAuthenticated, shop, authLoading, loading, isLoggingOut, location.pathname]);
 
   const refreshAuth = useCallback(async () => {
@@ -89,7 +92,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Check for shop in cookies as fallback
       const shopFromCookie = getCookie('shop');
       if (shopFromCookie) {
-        console.log('Auth: Found shop in cookie:', shopFromCookie);
+        // Only log in development
+        if (import.meta.env.DEV) {
+          console.log('Auth: Found shop in cookie:', shopFromCookie);
+        }
         setShop(shopFromCookie);
         setIsAuthenticated(true);
         setAuthLoading(false);
@@ -110,7 +116,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
     } catch (error) {
-      console.error('Failed to refresh auth:', error);
+      // Only log in development
+      if (import.meta.env.DEV) {
+        console.error('Failed to refresh auth:', error);
+      }
       setShop(null);
       setIsAuthenticated(false);
       // Only redirect to home if we're not already there and not in the middle of logging out
@@ -122,18 +131,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Initial auth check
   useEffect(() => {
-    console.log('Auth: Initializing auth provider');
+    // Only log in development
+    if (import.meta.env.DEV) {
+      console.log('Auth: Initializing auth provider');
+    }
+    
     let mounted = true;
     let retryCount = 0;
     const maxRetries = 3;
 
     const checkAuth = async () => {
       if (!mounted) {
-        console.log('Auth: Component unmounted, skipping auth check');
+        // Only log in development
+        if (import.meta.env.DEV) {
+          console.log('Auth: Component unmounted, skipping auth check');
+        }
         return;
       }
       
-      console.log('Auth: Starting initial auth check');
+      // Only log in development
+      if (import.meta.env.DEV) {
+        console.log('Auth: Starting initial auth check');
+      }
       
       // First, check if there's a shop parameter in the URL (for OAuth callback)
       const urlParams = new URLSearchParams(window.location.search);
@@ -161,7 +180,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Check for shop in cookies as fallback
       const shopFromCookie = getCookie('shop');
       if (shopFromCookie) {
-        console.log('Auth: Found shop in cookie:', shopFromCookie);
+        // Only log in development
+        if (import.meta.env.DEV) {
+          console.log('Auth: Found shop in cookie:', shopFromCookie);
+        }
         setShop(shopFromCookie);
         setIsAuthenticated(true);
         setAuthLoading(false);
@@ -171,21 +193,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       try {
         const shopName = await getAuthShop();
-        console.log('Auth: Initial shop name:', shopName);
+        
+        // Only log in development
+        if (import.meta.env.DEV) {
+          console.log('Auth: Initial shop name:', shopName);
+        }
         
         if (!mounted) {
-          console.log('Auth: Component unmounted after auth check');
+          // Only log in development
+          if (import.meta.env.DEV) {
+            console.log('Auth: Component unmounted after auth check');
+          }
           return;
         }
 
         if (shopName) {
-          console.log('Auth: Setting initial authenticated state');
+          // Only log in development
+          if (import.meta.env.DEV) {
+            console.log('Auth: Setting initial authenticated state');
+          }
           setShop(shopName);
           setIsAuthenticated(true);
           setAuthLoading(false);
           setLoading(false);
         } else {
-          console.log('Auth: No initial shop name, redirecting to home');
+          // Only log in development
+          if (import.meta.env.DEV) {
+            console.log('Auth: No initial shop name, redirecting to home');
+          }
           setShop(null);
           setIsAuthenticated(false);
           setAuthLoading(false);
@@ -195,19 +230,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }
       } catch (error) {
-        console.error('Auth: Initial auth check failed:', error);
+        // Only log in development
+        if (import.meta.env.DEV) {
+          console.error('Auth: Initial auth check failed:', error);
+        }
         
         if (!mounted) {
-          console.log('Auth: Component unmounted after error');
+          // Only log in development
+          if (import.meta.env.DEV) {
+            console.log('Auth: Component unmounted after error');
+          }
           return;
         }
 
         // Handle connection errors differently
         if (error instanceof Error && error.message.includes('Failed to fetch')) {
-          console.log('Auth: Connection error, retrying...');
+          // Only log in development
+          if (import.meta.env.DEV) {
+            console.log('Auth: Connection error, retrying...');
+          }
           if (retryCount < maxRetries) {
             retryCount++;
-            console.log(`Auth: Retrying auth check (${retryCount}/${maxRetries})`);
+            // Only log in development
+            if (import.meta.env.DEV) {
+              console.log(`Auth: Retrying auth check (${retryCount}/${maxRetries})`);
+            }
             setTimeout(checkAuth, 2000); // Retry after 2 seconds
             return;
           }
@@ -215,10 +262,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (retryCount < maxRetries) {
           retryCount++;
-          console.log(`Auth: Retrying auth check (${retryCount}/${maxRetries})`);
+          // Only log in development
+          if (import.meta.env.DEV) {
+            console.log(`Auth: Retrying auth check (${retryCount}/${maxRetries})`);
+          }
           setTimeout(checkAuth, 1000); // Retry after 1 second
         } else {
-          console.log('Auth: Max retries reached, redirecting to home');
+          // Only log in development
+          if (import.meta.env.DEV) {
+            console.log('Auth: Max retries reached, redirecting to home');
+          }
           setShop(null);
           setIsAuthenticated(false);
           setAuthLoading(false);
@@ -234,7 +287,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     checkAuth();
 
     return () => {
-      console.log('Auth: Cleaning up');
+      // Only log in development
+      if (import.meta.env.DEV) {
+        console.log('Auth: Cleaning up');
+      }
       mounted = false;
     };
   }, [navigate, location.pathname]);
@@ -247,17 +303,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
-      console.log('Auth: Starting logout process');
+      // Only log in development
+      if (import.meta.env.DEV) {
+        console.log('Auth: Starting logout process');
+      }
       setIsLoggingOut(true); // Prevent auth checks during logout
       
-      console.log('Auth: Calling force-disconnect endpoint');
+      // Only log in development
+      if (import.meta.env.DEV) {
+        console.log('Auth: Calling force-disconnect endpoint');
+      }
       
       await fetch(`${API_BASE_URL}/api/auth/shopify/profile/force-disconnect`, {
         method: 'POST',
         credentials: 'include',
       });
       
-      console.log('Auth: Force-disconnect API call completed');
+      // Only log in development
+      if (import.meta.env.DEV) {
+        console.log('Auth: Force-disconnect API call completed');
+      }
       setShop(null);
       setIsAuthenticated(false);
       
@@ -265,18 +330,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoggingOut(false);
       
       // Redirect to home page after successful disconnect
-      console.log('Auth: Redirecting to home page after disconnect');
+      // Only log in development
+      if (import.meta.env.DEV) {
+        console.log('Auth: Redirecting to home page after disconnect');
+      }
       navigate('/');
     } catch (error) {
-      console.error('Auth: Logout failed:', error);
+      // Only log in development
+      if (import.meta.env.DEV) {
+        console.error('Auth: Logout failed:', error);
+      }
       setIsLoggingOut(false); // Reset logout state on error
       // Fallback to home page if logout fails
       navigate('/');
     }
   };
 
-  // Log initial render
-  console.log('Auth: Provider rendered');
+  // Log initial render only in development
+  if (import.meta.env.DEV) {
+    console.log('Auth: Provider rendered');
+  }
 
   return (
     <AuthContext.Provider value={{ isAuthenticated, shop, authLoading, logout, refreshAuth, loading, setShop }}>

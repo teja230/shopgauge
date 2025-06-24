@@ -17,26 +17,41 @@ import theme from './theme';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, authLoading } = useAuth();
-  console.log('ProtectedRoute: Checking auth', { isAuthenticated, authLoading });
+  // Only log in development
+  if (import.meta.env.DEV) {
+    console.log('ProtectedRoute: Checking auth', { isAuthenticated, authLoading });
+  }
   
   if (authLoading) {
-    console.log('ProtectedRoute: Auth loading');
+    // Only log in development
+    if (import.meta.env.DEV) {
+      console.log('ProtectedRoute: Auth loading');
+    }
     return <div>Loading...</div>;
   }
   
   if (!isAuthenticated) {
-    console.log('ProtectedRoute: Not authenticated, redirecting to home');
+    // Only log in development
+    if (import.meta.env.DEV) {
+      console.log('ProtectedRoute: Not authenticated, redirecting to home');
+    }
     return <Navigate to="/" replace />;
   }
   
-  console.log('ProtectedRoute: Authenticated, rendering children');
+  // Only log in development
+  if (import.meta.env.DEV) {
+    console.log('ProtectedRoute: Authenticated, rendering children');
+  }
   return <>{children}</>;
 };
 
 const AppContent: React.FC = () => {
   const { isAuthenticated } = useAuth();
   
-  console.log('AppContent: Rendering');
+  // Only log in development
+  if (import.meta.env.DEV) {
+    console.log('AppContent: Rendering');
+  }
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col animate-fadeIn">
       <NavBar />
@@ -89,7 +104,10 @@ const AppContent: React.FC = () => {
 };
 
 const App: React.FC = () => {
-  console.log('App: Rendering');
+  // Only log in development
+  if (import.meta.env.DEV) {
+    console.log('App: Rendering');
+  }
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />

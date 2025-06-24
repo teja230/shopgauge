@@ -14,7 +14,11 @@ const API_BASE = '/api';
 
 async function fetchWithAuth(url: string, options: RequestInit = {}) {
   const fullUrl = url.startsWith('http') ? url : `${API_BASE}${url}`;
-  console.log('API: Making request to', fullUrl);
+  // Only log in development or for non-auth endpoints
+  if (import.meta.env.DEV && !url.includes('/auth/shopify/me')) {
+    console.log('API: Making request to', fullUrl);
+  }
+  
   try {
     const response = await fetch(fullUrl, {
       ...options,
@@ -25,7 +29,11 @@ async function fetchWithAuth(url: string, options: RequestInit = {}) {
         ...options.headers,
       },
     });
-    console.log('API: Response status for', fullUrl, ':', response.status);
+    
+    // Only log response status in development and for non-auth endpoints
+    if (import.meta.env.DEV && !url.includes('/auth/shopify/me')) {
+      console.log('API: Response status for', fullUrl, ':', response.status);
+    }
     
     // Try to parse response as JSON
     let data;
@@ -37,32 +45,50 @@ async function fetchWithAuth(url: string, options: RequestInit = {}) {
     }
 
     if (!response.ok) {
-      console.error('API: Error response from', fullUrl, ':', data);
+      // Only log errors for non-auth endpoints or in development
+      if (import.meta.env.DEV || !url.includes('/auth/shopify/me')) {
+        console.error('API: Error response from', fullUrl, ':', data);
+      }
       if (response.status === 401) {
-        throw new Error('Please log in');
+        throw new Error('Authentication required');
       }
       throw new Error(typeof data === 'string' ? data : data.error || 'API request failed');
     }
 
     return response;
   } catch (error) {
-    console.error('API: Request failed for', fullUrl, ':', error);
+    // Only log errors for non-auth endpoints or in development
+    if (import.meta.env.DEV || !url.includes('/auth/shopify/me')) {
+      console.error('API: Request failed for', fullUrl, ':', error);
+    }
     throw error;
   }
 }
 
 export async function getAuthShop(): Promise<string> {
-  console.log('API: Getting auth shop');
+  // Only log in development
+  if (import.meta.env.DEV) {
+    console.log('API: Getting auth shop');
+  }
+  
   try {
     const response = await fetchWithAuth('/auth/shopify/me');
     const data = await response.json();
-    console.log('API: Auth shop response:', data);
+    
+    // Only log in development
+    if (import.meta.env.DEV) {
+      console.log('API: Auth shop response:', data);
+    }
+    
     if (!data.shop) {
       throw new Error('No shop found in response');
     }
     return data.shop;
   } catch (error) {
-    console.error('API: Failed to get auth shop:', error);
+    // Only log in development
+    if (import.meta.env.DEV) {
+      console.error('API: Failed to get auth shop:', error);
+    }
     throw error;
   }
 }
