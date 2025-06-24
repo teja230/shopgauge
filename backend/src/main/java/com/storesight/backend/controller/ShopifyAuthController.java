@@ -358,9 +358,11 @@ public class ShopifyAuthController {
 
       // For cross-subdomain communication on Render, use URL parameters
       // This ensures the frontend can access the shop information
-      String redirectUrl = frontendUrl + "/dashboard?shop=" + java.net.URLEncoder.encode(shop, "UTF-8");
-      
-      logger.info("Cookie set successfully, redirecting to frontend with shop parameter: {}", redirectUrl);
+      String redirectUrl =
+          frontendUrl + "/dashboard?shop=" + java.net.URLEncoder.encode(shop, "UTF-8");
+
+      logger.info(
+          "Cookie set successfully, redirecting to frontend with shop parameter: {}", redirectUrl);
       response.sendRedirect(redirectUrl);
     } catch (Exception e) {
       logger.error("Error in callback - Error details: {}", e.getMessage(), e);
