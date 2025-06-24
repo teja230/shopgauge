@@ -75,7 +75,7 @@ public class ShopifyAuthController {
       ShopRepository shopRepository,
       SecretService secretService) {
 
-    // Configure WebClient with better timeout and retry settings for Shopify API calls
+    // Configure WebClient with optimized settings for Shopify API calls
     this.webClient =
         webClientBuilder
             .codecs(
