@@ -34,8 +34,9 @@ services:
     env: docker
     plan: standard
     dockerfilePath: backend/Dockerfile
-    startCommand: "java -jar app.jar --spring.profiles.active=worker"
     envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: worker
       - key: DB_URL
         sync: false
       - key: DB_USER
