@@ -59,8 +59,8 @@ public class WebSecurityConfig {
     serializer.setSameSite("Lax");
     serializer.setUseSecureCookie(true); // Set to false for localhost if needed
     serializer.setCookiePath("/");
-    // Set domain to .onrender.com to allow cross-subdomain cookies
-    serializer.setDomainName(".onrender.com");
+    // Don't set domain for now - let the browser handle it automatically
+    // serializer.setDomainName(".onrender.com"); // This was causing the error
     return serializer;
   }
 }

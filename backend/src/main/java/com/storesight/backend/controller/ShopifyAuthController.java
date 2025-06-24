@@ -351,7 +351,8 @@ public class ShopifyAuthController {
       // Set the shop cookie
       Cookie shopCookie = new Cookie("shop", shop);
       shopCookie.setPath("/");
-      shopCookie.setDomain(".onrender.com"); // Set domain for cross-subdomain cookies
+      // Don't set domain for now - let the browser handle it automatically
+      // shopCookie.setDomain(".onrender.com"); // This was causing the error
       shopCookie.setSecure(true); // Use secure cookies in production
       shopCookie.setHttpOnly(false); // Allow JavaScript access if needed
       shopCookie.setMaxAge(60 * 60 * 24 * 7); // 7 days
@@ -667,15 +668,14 @@ public class ShopifyAuthController {
       // Clear the shop cookie with the correct domain setting
       Cookie shopCookie = new Cookie("shop", "");
       shopCookie.setPath("/");
-      shopCookie.setDomain(".onrender.com"); // Match the domain used when setting the cookie
       shopCookie.setMaxAge(0);
       shopCookie.setHttpOnly(false);
-      shopCookie.setSecure(true); // Match the secure setting used when setting the cookie
+      shopCookie.setSecure(true); // Use secure cookies in production
       response.addCookie(shopCookie);
 
       // Also add a Set-Cookie header to ensure the cookie is cleared
       String clearCookieHeader =
-          "shop=; Path=/; Domain=.onrender.com; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Secure; SameSite=Lax";
+          "shop=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Secure; SameSite=Lax";
       response.addHeader("Set-Cookie", clearCookieHeader);
 
       logger.info("Auth: Cleared shop cookie for: {}", shop);
@@ -747,7 +747,7 @@ public class ShopifyAuthController {
     // Clear cookie with the correct domain setting for Render
     response.addHeader(
         "Set-Cookie",
-        "shop=; Path=/; Domain=.onrender.com; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Secure; SameSite=Lax");
+        "shop=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Secure; SameSite=Lax");
 
     // Also clear without domain for localhost development
     response.addHeader(
