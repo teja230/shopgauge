@@ -50,6 +50,24 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
       shopDomain = request.getParameter("shop");
       if (shopDomain != null) {
         logger.info("Found shop in query parameter: {}", shopDomain);
+
+        // Set a new cookie for future requests if we found the shop in the query parameter
+        // This helps with cross-domain cookie issues
+        Cookie shopCookie = new Cookie("shop", shopDomain);
+        shopCookie.setPath("/");
+        shopCookie.setHttpOnly(false);
+        shopCookie.setMaxAge(60 * 60 * 24 * 7); // 7 days
+        shopCookie.setSecure(true);
+        response.addCookie(shopCookie);
+
+        // Also set the SameSite attribute via header
+        response.addHeader(
+            "Set-Cookie",
+            String.format(
+                "shop=%s; Path=/; Max-Age=%d; SameSite=None; Secure",
+                shopDomain, 60 * 60 * 24 * 7));
+
+        logger.info("Set new shop cookie for subsequent requests: {}", shopDomain);
       }
     }
 
@@ -58,6 +76,20 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
       shopDomain = (String) request.getSession().getAttribute("shopDomain");
       if (shopDomain != null) {
         logger.info("Found shop in session attribute: {}", shopDomain);
+      }
+    }
+
+    if (shopDomain == null) {
+      // Check referer header for shop parameter as last resort
+      String referer = request.getHeader("referer");
+      if (referer != null && referer.contains("shop=")) {
+        int shopIndex = referer.indexOf("shop=");
+        String shopParam = referer.substring(shopIndex + 5);
+        if (shopParam.contains("&")) {
+          shopParam = shopParam.substring(0, shopParam.indexOf("&"));
+        }
+        shopDomain = shopParam;
+        logger.info("Extracted shop from referer URL: {}", shopDomain);
       }
     }
 
@@ -120,7 +152,7 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
                           + c.getValue()
                           + " (domain="
                           + c.getDomain()
-                          + ", path="
+                          + ",path="
                           + c.getPath()
                           + ")")
               .collect(Collectors.joining(", ")));
