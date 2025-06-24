@@ -74,7 +74,14 @@ public class ShopifyAuthController {
       StringRedisTemplate redisTemplate,
       ShopRepository shopRepository,
       SecretService secretService) {
-    this.webClient = webClientBuilder.build();
+
+    // Configure WebClient with better timeout and retry settings for Shopify API calls
+    this.webClient =
+        webClientBuilder
+            .codecs(
+                configurer -> configurer.defaultCodecs().maxInMemorySize(10 * 1024 * 1024)) // 10MB
+            .build();
+
     this.shopService = shopService;
     this.notificationService = notificationService;
     this.redisTemplate = redisTemplate;
@@ -471,56 +478,119 @@ public class ShopifyAuthController {
         apiSecret.substring(0, Math.min(8, apiSecret.length())) + "...",
         code != null ? code.substring(0, Math.min(8, code.length())) + "..." : "null");
 
-    try {
-      return webClient
-          .post()
-          .uri(url)
-          .bodyValue(body)
-          .retrieve()
-          .bodyToMono(Map.class)
-          .map(
-              response -> {
-                logger.info("Token exchange response: {}", response);
-                String accessToken = (String) response.get("access_token");
-                if (accessToken == null || accessToken.isBlank()) {
-                  logger.error("No access token in response: {}", response);
-                  throw new RuntimeException("No access token received from Shopify");
-                }
-                logger.info("Successfully obtained access token");
-                return accessToken;
-              })
-          .onErrorMap(
-              WebClientResponseException.class,
-              ex -> {
-                String responseBody = ex.getResponseBodyAsString();
-                logger.error(
-                    "Shopify OAuth error - Status: {}, Body: {}", ex.getStatusCode(), responseBody);
+    // Retry configuration
+    int maxRetries = 3;
+    int retryCount = 0;
+    long retryDelayMs = 1000; // Start with 1 second
 
-                // Provide more specific error messages based on the response
-                String errorMessage;
-                if (responseBody.contains("authorization code was not found or was already used")) {
-                  errorMessage =
-                      "Authorization code has already been used or has expired. Please try the installation process again.";
-                } else if (responseBody.contains("invalid_request")) {
-                  errorMessage =
-                      "Invalid OAuth request. Please check your Shopify app configuration.";
-                } else if (responseBody.contains("unauthorized_client")) {
-                  errorMessage = "Unauthorized client. Please check your Shopify API credentials.";
-                } else if (responseBody.contains("invalid_grant")) {
-                  errorMessage =
-                      "Invalid authorization grant. Please try the installation process again.";
-                } else {
-                  errorMessage =
-                      "Shopify OAuth failed: " + ex.getStatusCode() + " - " + responseBody;
-                }
+    while (retryCount < maxRetries) {
+      try {
+        logger.info("Token exchange attempt {} of {}", retryCount + 1, maxRetries);
 
-                return new RuntimeException(errorMessage, ex);
-              })
-          .block();
-    } catch (Exception e) {
-      logger.error("Error during token exchange for shop: {}", shop, e);
-      throw new RuntimeException("Failed to exchange code for access token: " + e.getMessage(), e);
+        return webClient
+            .post()
+            .uri(url)
+            .bodyValue(body)
+            .retrieve()
+            .bodyToMono(Map.class)
+            .timeout(java.time.Duration.ofSeconds(30)) // 30 second timeout
+            .map(
+                response -> {
+                  logger.info("Token exchange response: {}", response);
+                  String accessToken = (String) response.get("access_token");
+                  if (accessToken == null || accessToken.isBlank()) {
+                    logger.error("No access token in response: {}", response);
+                    throw new RuntimeException("No access token received from Shopify");
+                  }
+                  logger.info("Successfully obtained access token");
+                  return accessToken;
+                })
+            .onErrorMap(
+                WebClientResponseException.class,
+                ex -> {
+                  String responseBody = ex.getResponseBodyAsString();
+                  logger.error(
+                      "Shopify OAuth error - Status: {}, Body: {}",
+                      ex.getStatusCode(),
+                      responseBody);
+
+                  // Provide more specific error messages based on the response
+                  String errorMessage;
+                  if (responseBody.contains(
+                      "authorization code was not found or was already used")) {
+                    errorMessage =
+                        "Authorization code has already been used or has expired. Please try the installation process again.";
+                  } else if (responseBody.contains("invalid_request")) {
+                    errorMessage =
+                        "Invalid OAuth request. Please check your Shopify app configuration.";
+                  } else if (responseBody.contains("unauthorized_client")) {
+                    errorMessage =
+                        "Unauthorized client. Please check your Shopify API credentials.";
+                  } else if (responseBody.contains("invalid_grant")) {
+                    errorMessage =
+                        "Invalid authorization grant. Please try the installation process again.";
+                  } else {
+                    errorMessage =
+                        "Shopify OAuth failed: " + ex.getStatusCode() + " - " + responseBody;
+                  }
+
+                  return new RuntimeException(errorMessage, ex);
+                })
+            .block();
+
+      } catch (Exception e) {
+        retryCount++;
+        String errorMessage = e.getMessage();
+
+        // Check if it's a network connectivity issue
+        boolean isNetworkError =
+            errorMessage != null
+                && (errorMessage.contains("Connection reset by peer")
+                    || errorMessage.contains("Connection refused")
+                    || errorMessage.contains("connect timed out")
+                    || errorMessage.contains("read timed out")
+                    || errorMessage.contains("Network is unreachable")
+                    || errorMessage.contains("No route to host"));
+
+        if (isNetworkError && retryCount < maxRetries) {
+          logger.warn(
+              "Network error during token exchange (attempt {} of {}): {}. Retrying in {} ms...",
+              retryCount,
+              maxRetries,
+              errorMessage,
+              retryDelayMs);
+
+          try {
+            Thread.sleep(retryDelayMs);
+            retryDelayMs *= 2; // Exponential backoff
+          } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Token exchange interrupted", ie);
+          }
+          continue;
+        }
+
+        // If it's not a network error or we've exhausted retries, throw the exception
+        logger.error(
+            "Error during token exchange for shop: {} (attempt {} of {})",
+            shop,
+            retryCount,
+            maxRetries,
+            e);
+
+        if (isNetworkError) {
+          throw new RuntimeException(
+              "Network connectivity issue with Shopify servers. Please try again later.", e);
+        } else {
+          throw new RuntimeException(
+              "Failed to exchange code for access token: " + e.getMessage(), e);
+        }
+      }
     }
+
+    // This should never be reached, but just in case
+    throw new RuntimeException(
+        "Failed to exchange code for access token after " + maxRetries + " attempts");
   }
 
   @GetMapping("/export")
