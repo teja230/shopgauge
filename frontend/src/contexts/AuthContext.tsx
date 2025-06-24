@@ -34,6 +34,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
+  // Helper function to set cookies
+  const setCookie = (name: string, value: string, days: number) => {
+    const expires = new Date();
+    expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000));
+    document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/;secure;samesite=lax`;
+  };
+
+  // Helper function to read cookies
+  const getCookie = (name: string): string | null => {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop()?.split(';').shift() || null;
+    return null;
+  };
+
   // Debug state changes
   useEffect(() => {
     console.log('Auth: State changed', {
@@ -53,15 +68,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const shopFromUrl = urlParams.get('shop');
       
       if (shopFromUrl) {
-        console.log('Auth: Found shop in URL parameter during refresh:', shopFromUrl);
+        console.log('Auth: Found shop in URL parameter:', shopFromUrl);
         // Clean up the URL by removing the shop parameter
         const newUrl = new URL(window.location.href);
         newUrl.searchParams.delete('shop');
         window.history.replaceState({}, '', newUrl.toString());
         
+        // Set the shop cookie for 7 days
+        setCookie('shop', shopFromUrl, 7);
+        console.log('Auth: Set shop cookie:', shopFromUrl);
+        
         // Set the shop from URL parameter
         setShop(shopFromUrl);
         setIsAuthenticated(true);
+        setAuthLoading(false);
+        setLoading(false);
+        return;
+      }
+      
+      // Check for shop in cookies as fallback
+      const shopFromCookie = getCookie('shop');
+      if (shopFromCookie) {
+        console.log('Auth: Found shop in cookie:', shopFromCookie);
+        setShop(shopFromCookie);
+        setIsAuthenticated(true);
+        setAuthLoading(false);
+        setLoading(false);
         return;
       }
       
@@ -114,8 +146,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         newUrl.searchParams.delete('shop');
         window.history.replaceState({}, '', newUrl.toString());
         
+        // Set the shop cookie for 7 days
+        setCookie('shop', shopFromUrl, 7);
+        console.log('Auth: Set shop cookie:', shopFromUrl);
+        
         // Set the shop from URL parameter
         setShop(shopFromUrl);
+        setIsAuthenticated(true);
+        setAuthLoading(false);
+        setLoading(false);
+        return;
+      }
+      
+      // Check for shop in cookies as fallback
+      const shopFromCookie = getCookie('shop');
+      if (shopFromCookie) {
+        console.log('Auth: Found shop in cookie:', shopFromCookie);
+        setShop(shopFromCookie);
         setIsAuthenticated(true);
         setAuthLoading(false);
         setLoading(false);

@@ -8,6 +8,7 @@ import CompetitorsPage from './pages/CompetitorsPage';
 import AdminPage from './pages/AdminPage';
 import ProfilePage from './pages/ProfilePage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
+import NotFoundPage from './pages/NotFoundPage';
 import NavBar from './components/NavBar';
 import PrivacyBanner from './components/ui/PrivacyBanner';
 import { ThemeProvider } from '@mui/material/styles';
@@ -78,6 +79,7 @@ const AppContent: React.FC = () => {
             path="/privacy-policy"
             element={<PrivacyPolicyPage />}
           />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>
       {/* Show privacy banner only for authenticated users */}
