@@ -26,42 +26,25 @@ public class CustomErrorController implements ErrorController {
     Object path = request.getAttribute("javax.servlet.error.request_uri");
     String requestPath = path != null ? path.toString() : request.getRequestURI();
 
-    // Exclude specific paths from error handling
-    if (requestPath != null
-        && (requestPath.contains("/api/auth/shopify/callback")
-            || requestPath.contains("/api/auth/shopify/login")
-            || requestPath.contains("/api/auth/shopify/install")
-            || requestPath.contains("/actuator/")
-            || requestPath.contains("/health"))) {
-      logger.debug("Excluding path from error controller: {}", requestPath);
-      // Return a simple response to avoid interference
-      return ResponseEntity.ok(Map.of("status", "UP", "message", "Application is running"));
+    // Only handle actual errors (status code >= 400)
+    if (status == null) {
+      logger.debug("No error status found, letting request pass through: {}", requestPath);
+      // Return null to let Spring handle the request normally
+      return null;
     }
 
-    // If no error attributes are set, this is not an error - return 404 to let Spring handle
-    // routing
-    if (status == null && message == null && exception == null) {
+    int statusCode = (Integer) status;
+
+    // Don't handle successful requests or redirects
+    if (statusCode < 400) {
       logger.debug(
-          "Error controller called but no error attributes found - returning 404 to let Spring handle routing");
-      Map<String, Object> notFoundResponse = new HashMap<>();
-      notFoundResponse.put("timestamp", System.currentTimeMillis());
-      notFoundResponse.put("status", 404);
-      notFoundResponse.put("error", "Not Found");
-      notFoundResponse.put("message", "The requested resource was not found");
-      notFoundResponse.put("path", requestPath);
-      return ResponseEntity.status(HttpStatus.NOT_FOUND).body(notFoundResponse);
+          "Not an error status ({}), letting request pass through: {}", statusCode, requestPath);
+      return null;
     }
 
-    int statusCode = status != null ? (Integer) status : 500;
     String errorMessage = message != null ? message.toString() : "An unexpected error occurred";
 
-    // Don't log errors for health checks or expected 404s
-    if (requestPath != null
-        && (requestPath.contains("/health") || requestPath.contains("/favicon.ico"))) {
-      logger.debug("Health check or favicon request to error controller: {}", requestPath);
-      return ResponseEntity.ok(Map.of("status", "UP"));
-    }
-
+    // Log the error
     logger.error(
         "Error occurred - Status: {}, Message: {}, Path: {}, Exception: {}",
         statusCode,
@@ -69,39 +52,26 @@ public class CustomErrorController implements ErrorController {
         requestPath,
         exception);
 
-    Map<String, Object> errorResponse = new HashMap<>();
-    errorResponse.put("timestamp", System.currentTimeMillis());
-    errorResponse.put("status", statusCode);
-    errorResponse.put("error", getErrorTitle(statusCode));
-    errorResponse.put("message", errorMessage);
-    errorResponse.put("path", requestPath);
-
-    // Add helpful information for debugging
-    if (statusCode == 500) {
-      errorResponse.put(
-          "debug_info", "This is a server error. Please check the logs for more details.");
-      errorResponse.put(
-          "suggestion", "Try refreshing the page or contact support if the problem persists.");
-    } else if (statusCode == 404) {
-      errorResponse.put("debug_info", "The requested resource was not found.");
-      errorResponse.put("suggestion", "Check the URL or navigate back to the home page.");
-    } else if (statusCode == 401) {
-      errorResponse.put("debug_info", "Authentication required.");
-      errorResponse.put("suggestion", "Please log in to access this resource.");
-    } else if (statusCode == 403) {
-      errorResponse.put("debug_info", "Access forbidden.");
-      errorResponse.put("suggestion", "You don't have permission to access this resource.");
-    }
-
-    // Add HTML response for browser requests
+    // Check if the request expects HTML (browser request)
     String acceptHeader = request.getHeader("Accept");
-    if (acceptHeader != null && acceptHeader.contains("text/html")) {
+    boolean isHtmlRequest = acceptHeader != null && acceptHeader.contains("text/html");
+
+    if (isHtmlRequest) {
+      // Return HTML error page for browser requests
       return ResponseEntity.status(HttpStatus.valueOf(statusCode))
           .header("Content-Type", "text/html;charset=UTF-8")
           .body(Map.of("html", generateErrorHtml(statusCode, errorMessage, requestPath)));
-    }
+    } else {
+      // Return JSON error response for API requests
+      Map<String, Object> errorResponse = new HashMap<>();
+      errorResponse.put("timestamp", System.currentTimeMillis());
+      errorResponse.put("status", statusCode);
+      errorResponse.put("error", getErrorTitle(statusCode));
+      errorResponse.put("message", errorMessage);
+      errorResponse.put("path", requestPath);
 
-    return ResponseEntity.status(HttpStatus.valueOf(statusCode)).body(errorResponse);
+      return ResponseEntity.status(HttpStatus.valueOf(statusCode)).body(errorResponse);
+    }
   }
 
   private String getErrorTitle(int statusCode) {
@@ -128,6 +98,12 @@ public class CustomErrorController implements ErrorController {
   private String generateErrorHtml(int statusCode, String message, String path) {
     String title = getErrorTitle(statusCode);
     String color = statusCode >= 500 ? "#dc2626" : statusCode >= 400 ? "#d97706" : "#2563eb";
+    String icon =
+        statusCode >= 500
+            ? "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+            : statusCode >= 400
+                ? "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+                : "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z";
 
     return """
             <!DOCTYPE html>
@@ -140,40 +116,38 @@ public class CustomErrorController implements ErrorController {
                 <style>
                     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
                     body { font-family: 'Inter', system-ui, sans-serif; }
+                    .gradient-bg { background: linear-gradient(135deg, #667eea 0%%, #764ba2 100%%); }
                 </style>
             </head>
-            <body class="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center px-4">
+            <body class="min-h-screen gradient-bg flex items-center justify-center px-4">
                 <div class="max-w-md w-full">
-                    <div class="bg-white rounded-2xl shadow-xl p-8 text-center">
+                    <div class="bg-white rounded-2xl shadow-2xl p-8 text-center transform hover:scale-105 transition-transform duration-300">
                         <!-- Error Icon -->
-                        <div class="mx-auto w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mb-6">
-                            <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                        <div class="mx-auto w-20 h-20 rounded-full bg-red-100 flex items-center justify-center mb-6">
+                            <svg class="w-10 h-10 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="%s"></path>
                             </svg>
                         </div>
 
                         <!-- Error Code -->
-                        <div class="text-6xl font-bold text-gray-300 mb-4">%d</div>
+                        <div class="text-7xl font-bold text-gray-300 mb-4">%d</div>
 
                         <!-- Error Title -->
-                        <h1 class="text-2xl font-bold text-gray-900 mb-2">%s</h1>
+                        <h1 class="text-3xl font-bold text-gray-900 mb-3">%s</h1>
 
                         <!-- Error Message -->
-                        <p class="text-gray-600 mb-6">%s</p>
+                        <p class="text-gray-600 mb-6 text-lg">%s</p>
 
-                        <!-- Path Info -->
-                        <div class="bg-gray-50 rounded-lg p-3 mb-6">
-                            <p class="text-sm text-gray-500">Requested path:</p>
-                            <p class="text-sm font-mono text-gray-700 break-all">%s</p>
-                        </div>
+                        <!-- Path Info (only for 404) -->
+                        %s
 
                         <!-- Action Buttons -->
-                        <div class="space-y-3">
-                            <button onclick="window.history.back()" class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
+                        <div class="space-y-4">
+                            <button onclick="window.history.back()" class="w-full px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all duration-300 font-semibold shadow-lg hover:shadow-xl">
                                 ← Go Back
                             </button>
-                            <button onclick="window.location.href='https://storesight.onrender.com'" class="w-full px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium">
-                                Go to Homepage
+                            <button onclick="window.location.href='https://storesight.onrender.com'" class="w-full px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-all duration-300 font-semibold">
+                                🏠 Go to Homepage
                             </button>
                         </div>
 
@@ -181,23 +155,39 @@ public class CustomErrorController implements ErrorController {
                         <div class="mt-8 pt-6 border-t border-gray-200">
                             <p class="text-sm text-gray-500">
                                 Need help? Contact us at
-                                <a href="mailto:support@storesight.com" class="text-blue-600 hover:underline">support@storesight.com</a>
+                                <a href="mailto:support@storesight.com" class="text-blue-600 hover:underline font-medium">support@storesight.com</a>
                             </p>
                         </div>
                     </div>
                 </div>
 
-                <!-- Fun Animation -->
-                <div class="fixed top-4 right-4 opacity-10">
-                    <div class="animate-bounce">
-                        <svg class="w-8 h-8 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-                        </svg>
-                    </div>
+                <!-- Floating Elements -->
+                <div class="fixed top-10 left-10 opacity-20 animate-bounce">
+                    <div class="w-8 h-8 bg-white rounded-full"></div>
+                </div>
+                <div class="fixed bottom-10 right-10 opacity-20 animate-pulse">
+                    <div class="w-6 h-6 bg-white rounded-full"></div>
+                </div>
+                <div class="fixed top-1/2 left-1/4 opacity-10 animate-spin">
+                    <div class="w-4 h-4 bg-white rounded-full"></div>
                 </div>
             </body>
             </html>
             """
-        .formatted(title, statusCode, title, message, path);
+        .formatted(
+            title,
+            icon,
+            statusCode,
+            title,
+            message,
+            statusCode == 404
+                ? """
+                <div class="bg-gray-50 rounded-xl p-4 mb-6">
+                    <p class="text-sm text-gray-500 mb-2">Requested path:</p>
+                    <p class="text-sm font-mono text-gray-700 break-all bg-white p-2 rounded border">%s</p>
+                </div>
+                """
+                    .formatted(path)
+                : "");
   }
 }
