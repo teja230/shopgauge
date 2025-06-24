@@ -104,7 +104,7 @@ services:
         sync: false
     buildCommand: npm install && npm run build
     staticPublishPath: dist
-    autoDeployTrigger: "off"
+    autoDeployTrigger: "on"
     rootDir: frontend
     routes:
       - type: rewrite
