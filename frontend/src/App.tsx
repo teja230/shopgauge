@@ -77,6 +77,7 @@ const AppContent: React.FC = () => {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/debug" element={<DebugAuthState />} />
+          <Route path="/test" element={<div style={{padding: '20px'}}><h1>Test Route Works!</h1><p>This is an unprotected test route.</p></div>} />
           <Route
             path="/dashboard"
             element={
