@@ -5,7 +5,6 @@ import com.storesight.backend.model.Notification;
 import com.storesight.backend.repository.NotificationRepository;
 import jakarta.annotation.PostConstruct;
 import java.util.List;
-import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;

@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.storesight.backend.model.AuditLog;
 import com.storesight.backend.service.DataPrivacyService;
 import com.storesight.backend.service.ShopService;
+import jakarta.servlet.http.HttpSession;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -22,7 +23,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
-import jakarta.servlet.http.HttpSession;
 
 @RestController
 @RequestMapping("/api/analytics")
@@ -261,8 +261,7 @@ public class AnalyticsController {
   @GetMapping("/products")
   @SuppressWarnings("unchecked")
   public Mono<ResponseEntity<Map<String, Object>>> productAnalytics(
-      @CookieValue(value = "shop", required = false) String shop,
-      HttpSession session) {
+      @CookieValue(value = "shop", required = false) String shop, HttpSession session) {
     if (shop == null) {
       logger.error("No shop provided in request");
       Map<String, Object> response = new HashMap<>();
@@ -389,8 +388,7 @@ public class AnalyticsController {
   @GetMapping("/inventory/low")
   @SuppressWarnings("unchecked")
   public Mono<ResponseEntity<Map<String, Object>>> lowInventory(
-      @CookieValue(value = "shop", required = false) String shop,
-      HttpSession session) {
+      @CookieValue(value = "shop", required = false) String shop, HttpSession session) {
     if (shop == null) {
       Map<String, Object> data = new HashMap<>();
       data.put("products", List.of());
@@ -500,8 +498,7 @@ public class AnalyticsController {
   @GetMapping("/new_products")
   @SuppressWarnings("unchecked")
   public Mono<ResponseEntity<Map<String, Object>>> newProducts(
-      @CookieValue(value = "shop", required = false) String shop,
-      HttpSession session) {
+      @CookieValue(value = "shop", required = false) String shop, HttpSession session) {
     if (shop == null) {
       Map<String, Object> data = new HashMap<>();
       data.put("products", List.of());
@@ -584,8 +581,7 @@ public class AnalyticsController {
 
   @GetMapping("/abandoned_carts")
   public Mono<ResponseEntity<Map<String, Object>>> abandonedCarts(
-      @CookieValue(value = "shop", required = false) String shop,
-      HttpSession session) {
+      @CookieValue(value = "shop", required = false) String shop, HttpSession session) {
     if (shop == null) {
       Map<String, Object> data = new HashMap<>();
       data.put("carts", List.of());
@@ -694,17 +690,18 @@ public class AnalyticsController {
 
   @GetMapping("/report/schedule")
   public Mono<ResponseEntity<Map<String, String>>> getReportSchedule(
-      @CookieValue(value = "shop", required = false) String shop,
-      HttpSession session) {
+      @CookieValue(value = "shop", required = false) String shop, HttpSession session) {
     if (shop == null) {
-      return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-          .body(Map.of("error", "Not authenticated")));
+      return Mono.just(
+          ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+              .body(Map.of("error", "Not authenticated")));
     }
 
     String token = shopService.getTokenForShop(shop, session.getId());
     if (token == null) {
-      return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-          .body(Map.of("error", "No token for shop")));
+      return Mono.just(
+          ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+              .body(Map.of("error", "No token for shop")));
     }
 
     String key = "report_schedule:" + shop;
@@ -718,14 +715,16 @@ public class AnalyticsController {
       @RequestBody Map<String, String> body,
       HttpSession session) {
     if (shop == null) {
-      return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-          .body(Map.of("error", "Not authenticated")));
+      return Mono.just(
+          ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+              .body(Map.of("error", "Not authenticated")));
     }
 
     String token = shopService.getTokenForShop(shop, session.getId());
     if (token == null) {
-      return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-          .body(Map.of("error", "No token for shop")));
+      return Mono.just(
+          ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+              .body(Map.of("error", "No token for shop")));
     }
 
     String schedule = body.get("schedule");
@@ -739,8 +738,7 @@ public class AnalyticsController {
 
   @GetMapping("/revenue")
   public Mono<ResponseEntity<Map<String, Object>>> revenue(
-      @CookieValue(value = "shop", required = false) String shop,
-      HttpSession session) {
+      @CookieValue(value = "shop", required = false) String shop, HttpSession session) {
     if (shop == null) {
       Map<String, Object> data = new HashMap<>();
       data.put("revenue", "$0.00");
@@ -876,8 +874,7 @@ public class AnalyticsController {
 
   @GetMapping("/permissions/check")
   public Mono<ResponseEntity<Map<String, Object>>> checkPermissions(
-      @CookieValue(value = "shop", required = false) String shop,
-      HttpSession session) {
+      @CookieValue(value = "shop", required = false) String shop, HttpSession session) {
     if (shop == null) {
       Map<String, Object> data = new HashMap<>();
       data.put("permissions", Map.of());
@@ -963,8 +960,7 @@ public class AnalyticsController {
   @GetMapping("/revenue/timeseries")
   @SuppressWarnings("unchecked")
   public Mono<ResponseEntity<Map<String, Object>>> revenueTimeseries(
-      @CookieValue(value = "shop", required = false) String shop,
-      HttpSession session) {
+      @CookieValue(value = "shop", required = false) String shop, HttpSession session) {
     if (shop == null) {
       Map<String, Object> data = new HashMap<>();
       data.put("timeseries", List.of());
@@ -1007,8 +1003,7 @@ public class AnalyticsController {
 
   @GetMapping("/conversion")
   public Mono<ResponseEntity<Map<String, Object>>> conversionRate(
-      @CookieValue(value = "shop", required = false) String shop,
-      HttpSession session) {
+      @CookieValue(value = "shop", required = false) String shop, HttpSession session) {
     if (shop == null) {
       Map<String, Object> data = new HashMap<>();
       data.put("conversion_rate", "0.00%");
@@ -1119,8 +1114,7 @@ public class AnalyticsController {
 
   @GetMapping("/debug/access")
   public Mono<ResponseEntity<Map<String, Object>>> debugAccess(
-      @CookieValue(value = "shop", required = false) String shop,
-      HttpSession session) {
+      @CookieValue(value = "shop", required = false) String shop, HttpSession session) {
     if (shop == null) {
       Map<String, Object> data = new HashMap<>();
       data.put("debug_info", Map.of());
@@ -1210,8 +1204,7 @@ public class AnalyticsController {
 
   @GetMapping("/debug/orders")
   public Mono<ResponseEntity<Map<String, Object>>> debugOrders(
-      @CookieValue(value = "shop", required = false) String shop,
-      HttpSession session) {
+      @CookieValue(value = "shop", required = false) String shop, HttpSession session) {
     if (shop == null) {
       Map<String, Object> data = new HashMap<>();
       data.put("debug_info", Map.of());
@@ -1306,8 +1299,7 @@ public class AnalyticsController {
 
   @GetMapping("/permissions/comprehensive-check")
   public Mono<ResponseEntity<Map<String, Object>>> comprehensivePermissionsCheck(
-      @CookieValue(value = "shop", required = false) String shop,
-      HttpSession session) {
+      @CookieValue(value = "shop", required = false) String shop, HttpSession session) {
     if (shop == null) {
       Map<String, Object> data = new HashMap<>();
       data.put("permissions", Map.of());
@@ -1481,8 +1473,7 @@ public class AnalyticsController {
 
   @GetMapping("/orders")
   public ResponseEntity<Map<String, Object>> getOrders(
-      @CookieValue(value = "shop", required = false) String shop,
-      HttpSession session) {
+      @CookieValue(value = "shop", required = false) String shop, HttpSession session) {
     if (shop == null) {
       Map<String, Object> response = new HashMap<>();
       response.put("error", "Not authenticated");
@@ -1594,8 +1585,7 @@ public class AnalyticsController {
 
   @GetMapping("/privacy/compliance-report")
   public ResponseEntity<Map<String, Object>> getComplianceReport(
-      @CookieValue(value = "shop", required = false) String shop,
-      HttpSession session) {
+      @CookieValue(value = "shop", required = false) String shop, HttpSession session) {
     if (shop == null) {
       Map<String, Object> response = new HashMap<>();
       response.put("error", "Not authenticated");
@@ -1738,8 +1728,7 @@ public class AnalyticsController {
 
   @GetMapping("/privacy/data-export")
   public ResponseEntity<?> exportUserData(
-      @CookieValue(value = "shop", required = false) String shop,
-      HttpSession session) {
+      @CookieValue(value = "shop", required = false) String shop, HttpSession session) {
     if (shop == null) {
       return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
           .body(Map.of("error", "Not authenticated"));

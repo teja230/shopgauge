@@ -20,7 +20,7 @@ public class AdminController {
 
   @Autowired
   public AdminController(
-      SecretService secretService, 
+      SecretService secretService,
       NotificationService notificationService,
       DataPrivacyService dataPrivacyService) {
     this.secretService = secretService;
@@ -115,39 +115,42 @@ public class AdminController {
 
   @GetMapping("/audit-logs/deleted-shops")
   public ResponseEntity<Map<String, Object>> getAuditLogsFromDeletedShops(
-      @RequestParam(defaultValue = "0") int page,
-      @RequestParam(defaultValue = "50") int size) {
+      @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "50") int size) {
     try {
       List<AuditLog> auditLogs = dataPrivacyService.getAuditLogsFromDeletedShops(page, size);
-      
+
       Map<String, Object> response = new HashMap<>();
       response.put("audit_logs", auditLogs);
       response.put("page", page);
       response.put("size", size);
       response.put("total_count", auditLogs.size());
       response.put("note", "These are audit logs from shops that have been deleted");
-      
+
       return ResponseEntity.ok(response);
     } catch (Exception e) {
       return ResponseEntity.status(500)
-          .body(Map.of("error", "Failed to retrieve audit logs from deleted shops", "message", e.getMessage()));
+          .body(
+              Map.of(
+                  "error",
+                  "Failed to retrieve audit logs from deleted shops",
+                  "message",
+                  e.getMessage()));
     }
   }
 
   @GetMapping("/audit-logs/all")
   public ResponseEntity<Map<String, Object>> getAllAuditLogs(
-      @RequestParam(defaultValue = "0") int page,
-      @RequestParam(defaultValue = "50") int size) {
+      @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "50") int size) {
     try {
       List<AuditLog> auditLogs = dataPrivacyService.getAllAuditLogs(page, size);
-      
+
       Map<String, Object> response = new HashMap<>();
       response.put("audit_logs", auditLogs);
       response.put("page", page);
       response.put("size", size);
       response.put("total_count", auditLogs.size());
       response.put("note", "All audit logs including those from deleted shops");
-      
+
       return ResponseEntity.ok(response);
     } catch (Exception e) {
       return ResponseEntity.status(500)

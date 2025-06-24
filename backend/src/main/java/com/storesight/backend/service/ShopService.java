@@ -25,7 +25,13 @@ public class ShopService {
   public void saveShop(String shopifyDomain, String accessToken, String sessionId) {
     logger.info("Saving shop: {} for session: {}", shopifyDomain, sessionId);
     // Save to Redis for quick access, scoped to session
-    redisTemplate.opsForValue().set("shop_token:" + shopifyDomain + ":" + sessionId, accessToken, 60, java.util.concurrent.TimeUnit.MINUTES);
+    redisTemplate
+        .opsForValue()
+        .set(
+            "shop_token:" + shopifyDomain + ":" + sessionId,
+            accessToken,
+            60,
+            java.util.concurrent.TimeUnit.MINUTES);
 
     // Save to database for persistence
     Optional<Shop> existing = shopRepository.findByShopifyDomain(shopifyDomain);
@@ -50,8 +56,17 @@ public class ShopService {
     if (shop.isPresent()) {
       token = shop.get().getAccessToken();
       if (token != null) {
-        logger.info("Found token in database, caching in Redis for shop: {} and session: {}", shopifyDomain, sessionId);
-        redisTemplate.opsForValue().set("shop_token:" + shopifyDomain + ":" + sessionId, token, 60, java.util.concurrent.TimeUnit.MINUTES);
+        logger.info(
+            "Found token in database, caching in Redis for shop: {} and session: {}",
+            shopifyDomain,
+            sessionId);
+        redisTemplate
+            .opsForValue()
+            .set(
+                "shop_token:" + shopifyDomain + ":" + sessionId,
+                token,
+                60,
+                java.util.concurrent.TimeUnit.MINUTES);
       } else {
         logger.warn("Shop found but no token in database for shop: {}", shopifyDomain);
       }

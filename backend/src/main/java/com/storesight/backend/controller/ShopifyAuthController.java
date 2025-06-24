@@ -251,7 +251,8 @@ public class ShopifyAuthController {
       return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).build());
     }
     String sessionId = request.getSession(false) != null ? request.getSession(false).getId() : null;
-    String token = (sessionId != null && shop != null) ? shopService.getTokenForShop(shop, sessionId) : null;
+    String token =
+        (sessionId != null && shop != null) ? shopService.getTokenForShop(shop, sessionId) : null;
     if (token == null) {
       return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).build());
     }
@@ -353,7 +354,8 @@ public class ShopifyAuthController {
     }
 
     String sessionId = request.getSession(false) != null ? request.getSession(false).getId() : null;
-    String token = (sessionId != null && shop != null) ? shopService.getTokenForShop(shop, sessionId) : null;
+    String token =
+        (sessionId != null && shop != null) ? shopService.getTokenForShop(shop, sessionId) : null;
     if (token == null) {
       logger.warn("Auth: No token found for shop: {} and session: {}", shop, sessionId);
       response.put("error", "Not authenticated");
@@ -368,13 +370,16 @@ public class ShopifyAuthController {
 
   @PostMapping("/profile/disconnect")
   public ResponseEntity<Map<String, String>> disconnect(
-      @CookieValue(value = "shop", required = false) String shop, HttpServletResponse response, HttpServletRequest request) {
+      @CookieValue(value = "shop", required = false) String shop,
+      HttpServletResponse response,
+      HttpServletRequest request) {
     logger.info("Auth: Disconnecting shop: {}", shop);
 
     if (shop != null) {
       // Clear the access token from Redis and database
       try {
-        String sessionId = request.getSession(false) != null ? request.getSession(false).getId() : null;
+        String sessionId =
+            request.getSession(false) != null ? request.getSession(false).getId() : null;
         if (sessionId != null) {
           shopService.removeToken(shop, sessionId);
           logger.info("Auth: Cleared access token for shop: {} and session: {}", shop, sessionId);
@@ -446,11 +451,16 @@ public class ShopifyAuthController {
     if (shop != null && !shop.isBlank()) {
       // Clear the access token from Redis and database
       try {
-        String sessionId = request.getSession(false) != null ? request.getSession(false).getId() : null;
+        String sessionId =
+            request.getSession(false) != null ? request.getSession(false).getId() : null;
         if (sessionId != null) {
-          logger.info("Auth: Calling shopService.removeToken for shop: {} and session: {}", shop, sessionId);
+          logger.info(
+              "Auth: Calling shopService.removeToken for shop: {} and session: {}",
+              shop,
+              sessionId);
           shopService.removeToken(shop, sessionId);
-          logger.info("Auth: Force cleared access token for shop: {} and session: {}", shop, sessionId);
+          logger.info(
+              "Auth: Force cleared access token for shop: {} and session: {}", shop, sessionId);
         }
       } catch (Exception e) {
         logger.error("Auth: Error force clearing access token for shop: {}", shop, e);
