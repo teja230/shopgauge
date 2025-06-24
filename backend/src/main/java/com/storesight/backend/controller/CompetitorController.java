@@ -13,6 +13,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
@@ -44,7 +45,7 @@ public class CompetitorController {
 
   /** Get competitor suggestions for the authenticated shop */
   @GetMapping("/competitors/suggestions")
-  public ResponseEntity<Page<CompetitorSuggestionDto>> getSuggestions(
+  public ResponseEntity<?> getSuggestions(
       HttpServletRequest request,
       @RequestParam(defaultValue = "0") int page,
       @RequestParam(defaultValue = "10") int size,
@@ -52,31 +53,45 @@ public class CompetitorController {
 
     Long shopId = getShopIdFromRequest(request);
     if (shopId == null) {
-      return ResponseEntity.badRequest().build();
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+          .body(Map.of("error", "Authentication required"));
     }
 
-    Pageable pageable = PageRequest.of(page, size, Sort.by("discoveredAt").descending());
-    CompetitorSuggestion.Status statusEnum =
-        CompetitorSuggestion.Status.valueOf(status.toUpperCase());
+    try {
+      Pageable pageable = PageRequest.of(page, size, Sort.by("discoveredAt").descending());
+      CompetitorSuggestion.Status statusEnum =
+          CompetitorSuggestion.Status.valueOf(status.toUpperCase());
 
-    Page<CompetitorSuggestion> suggestions =
-        suggestionRepository.findByShopIdAndStatus(shopId, statusEnum, pageable);
-    Page<CompetitorSuggestionDto> result = suggestions.map(this::convertToDto);
+      Page<CompetitorSuggestion> suggestions =
+          suggestionRepository.findByShopIdAndStatus(shopId, statusEnum, pageable);
+      Page<CompetitorSuggestionDto> result = suggestions.map(this::convertToDto);
 
-    return ResponseEntity.ok(result);
+      return ResponseEntity.ok(result);
+    } catch (Exception e) {
+      System.err.println("Error getting suggestions: " + e.getMessage());
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to load suggestions"));
+    }
   }
 
   /** Get count of NEW suggestions for badge display */
   @GetMapping("/competitors/suggestions/count")
-  public ResponseEntity<Map<String, Long>> getSuggestionCount(HttpServletRequest request) {
+  public ResponseEntity<Map<String, Object>> getSuggestionCount(HttpServletRequest request) {
     Long shopId = getShopIdFromRequest(request);
     if (shopId == null) {
-      return ResponseEntity.badRequest().build();
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+          .body(Map.of("error", "Authentication required", "newSuggestions", 0L));
     }
 
-    long newCount =
-        suggestionRepository.countByShopIdAndStatus(shopId, CompetitorSuggestion.Status.NEW);
-    return ResponseEntity.ok(Map.of("newSuggestions", newCount));
+    try {
+      long newCount =
+          suggestionRepository.countByShopIdAndStatus(shopId, CompetitorSuggestion.Status.NEW);
+      return ResponseEntity.ok(Map.of("newSuggestions", newCount));
+    } catch (Exception e) {
+      // Log error but return 0 count to prevent frontend errors
+      System.err.println("Error getting suggestion count: " + e.getMessage());
+      return ResponseEntity.ok(Map.of("newSuggestions", 0L));
+    }
   }
 
   /** Approve a competitor suggestion */
