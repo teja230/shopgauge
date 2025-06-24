@@ -8,11 +8,14 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-blue.svg)](https://www.postgresql.org/)
 [![Redis](https://img.shields.io/badge/Redis-7+-red.svg)](https://redis.io/)
 
-StoreSight is a comprehensive, enterprise-grade analytics and competitor intelligence platform designed specifically for Shopify merchants. It provides real-time business insights, automated competitor discovery, and advanced data privacy compliance features.
+StoreSight is a comprehensive, enterprise-grade analytics and competitor intelligence platform designed specifically for
+Shopify merchants. It provides real-time business insights, automated competitor discovery, and advanced data privacy
+compliance features.
 
 ## 🚀 Key Features
 
 ### 📊 **Advanced Analytics Dashboard**
+
 - **Real-time Revenue Tracking**: Live sales data with trend analysis and forecasting
 - **Conversion Rate Optimization**: Detailed conversion funnel analysis with industry benchmarks
 - **Inventory Intelligence**: Low stock alerts, product performance metrics, and demand forecasting
@@ -20,6 +23,7 @@ StoreSight is a comprehensive, enterprise-grade analytics and competitor intelli
 - **Customer Behavior Analytics**: Anonymous customer journey mapping and segmentation
 
 ### 🎯 **Competitor Intelligence**
+
 - **Automated Competitor Discovery**: AI-powered competitor identification using SerpAPI integration
 - **Price Monitoring**: Real-time price tracking across competitor websites
 - **Market Position Analysis**: Competitive landscape insights and positioning strategies
@@ -27,6 +31,7 @@ StoreSight is a comprehensive, enterprise-grade analytics and competitor intelli
 - **Web Scraping**: Automated data collection from competitor sites using Selenium
 
 ### 🔒 **Enterprise Security & Compliance**
+
 - **GDPR/CCPA Compliance**: Full data privacy compliance with automatic data retention policies
 - **Shopify Protected Data**: Compliant with Shopify's Protected Customer Data requirements
 - **Audit Logging**: Complete audit trail with 365-day retention for compliance monitoring
@@ -34,6 +39,7 @@ StoreSight is a comprehensive, enterprise-grade analytics and competitor intelli
 - **Data Minimization**: Only essential data processed for analytics
 
 ### 🔧 **Developer Experience**
+
 - **Modern Tech Stack**: Spring Boot 3.2.3, React 18, TypeScript, PostgreSQL, Redis
 - **Comprehensive Testing**: Unit tests, integration tests, and end-to-end testing
 - **CI/CD Ready**: Docker containerization and Render deployment configuration
@@ -417,24 +423,24 @@ The application includes a `render.yaml` configuration for easy deployment to Re
 
 ```yaml
 services:
-  - type: web
-    name: storesight-backend
-    env: docker
-    plan: standard
-    dockerfilePath: backend/Dockerfile
-    
-  - type: worker
-    name: storesight-worker
-    env: docker
-    plan: standard
-    dockerfilePath: backend/Dockerfile
-    startCommand: "java -jar app.jar --spring.profiles.active=worker"
-    
-  - type: static
-    name: storesight-frontend
-    env: static
-    buildCommand: "cd frontend && npm install && npm run build"
-    staticPublishPath: frontend/dist
+   - type: web
+     name: storesight-backend
+     env: docker
+     plan: standard
+     dockerfilePath: backend/Dockerfile
+
+   - type: worker
+     name: storesight-worker
+     env: docker
+     plan: standard
+     dockerfilePath: backend/Dockerfile
+     startCommand: "java -jar app.jar --spring.profiles.active=worker"
+
+   - type: static
+     name: storesight-frontend
+     env: static
+     buildCommand: "cd frontend && npm install && npm run build"
+     staticPublishPath: frontend/dist
 ```
 
 ## 🔒 Security & Compliance
@@ -478,11 +484,11 @@ We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.
 - [Environment Setup](ENVIRONMENT_SETUP.md) - Detailed setup instructions
 - [Contributing Guidelines](CONTRIBUTING.md) - How to contribute
 - [Privacy Policy](PRIVACY_POLICY.md) - Data handling and privacy
-- [API Documentation](docs/api.md) - Complete API reference
 
 ## 🏗️ Technology Stack
 
 ### Backend
+
 - **Framework**: Spring Boot 3.2.3
 - **Language**: Java 17
 - **Database**: PostgreSQL 15
@@ -491,6 +497,7 @@ We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.
 - **Testing**: JUnit 5, TestContainers
 
 ### Frontend
+
 - **Framework**: React 18
 - **Language**: TypeScript 5.5.4
 - **Build Tool**: Vite
@@ -499,6 +506,7 @@ We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.
 - **Styling**: Tailwind CSS
 
 ### External Services
+
 - **Shopify API**: OAuth integration and data access
 - **SerpAPI**: Competitor discovery
 - **SendGrid**: Email notifications
@@ -519,6 +527,7 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 ## 🗺️ Roadmap
 
 ### Upcoming Features
+
 - [ ] **Advanced AI Insights** - Machine learning-powered business recommendations
 - [ ] **Multi-store Management** - Support for multiple Shopify stores
 - [ ] **Real-time Notifications** - WebSocket-based live updates
@@ -529,6 +538,7 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 - [ ] **Webhook Integration** - Real-time Shopify webhook processing
 
 ### Performance Improvements
+
 - [ ] **Caching Optimization** - Advanced Redis caching strategies
 - [ ] **Database Optimization** - Query optimization and indexing
 - [ ] **CDN Integration** - Global content delivery network
@@ -536,4 +546,4 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 
 ---
 
-**StoreSight** - Empowering Shopify merchants with intelligent analytics and competitor insights. 🚀
+**Built with ❤️ for Shopify merchants who want intelligent analytics and competitor insights. 🚀**
