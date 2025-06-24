@@ -5,6 +5,7 @@ import com.storesight.backend.service.NotificationService;
 import com.storesight.backend.service.SecretService;
 import com.storesight.backend.service.ShopService;
 import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -18,6 +19,10 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,6 +49,11 @@ public class ShopifyAuthController {
   private final StringRedisTemplate redisTemplate;
   private final ShopRepository shopRepository;
   private final SecretService secretService;
+
+  // Cache to prevent authorization code reuse
+  private final ConcurrentHashMap<String, Long> usedCodes = new ConcurrentHashMap<>();
+  private final ScheduledExecutorService cleanupExecutor =
+      Executors.newSingleThreadScheduledExecutor();
 
   @Value("${shopify.api.key:}")
   private String apiKey;
@@ -74,7 +84,9 @@ public class ShopifyAuthController {
     this.redisTemplate = redisTemplate;
     this.shopRepository = shopRepository;
     this.secretService = secretService;
-    logger.info("ShopifyAuthController initialized with API key: {}", apiKey);
+
+    // Schedule cleanup of used codes every 10 minutes (codes expire after 5 minutes anyway)
+    this.cleanupExecutor.scheduleAtFixedRate(this::cleanupUsedCodes, 10, 10, TimeUnit.MINUTES);
   }
 
   @PostConstruct
@@ -106,6 +118,53 @@ public class ShopifyAuthController {
         apiSecret != null
             ? apiSecret.substring(0, Math.min(8, apiSecret.length())) + "..."
             : "null");
+  }
+
+  @PreDestroy
+  public void cleanup() {
+    if (cleanupExecutor != null && !cleanupExecutor.isShutdown()) {
+      cleanupExecutor.shutdown();
+      try {
+        if (!cleanupExecutor.awaitTermination(5, TimeUnit.SECONDS)) {
+          cleanupExecutor.shutdownNow();
+        }
+      } catch (InterruptedException e) {
+        cleanupExecutor.shutdownNow();
+        Thread.currentThread().interrupt();
+      }
+    }
+  }
+
+  private void cleanupUsedCodes() {
+    long now = System.currentTimeMillis();
+    long fiveMinutesAgo = now - (5 * 60 * 1000); // 5 minutes ago
+
+    usedCodes.entrySet().removeIf(entry -> entry.getValue() < fiveMinutesAgo);
+    logger.debug("Cleaned up used authorization codes, remaining: {}", usedCodes.size());
+  }
+
+  private boolean isCodeAlreadyUsed(String code) {
+    if (code == null) return false;
+
+    Long usedTime = usedCodes.get(code);
+    if (usedTime != null) {
+      long now = System.currentTimeMillis();
+      long fiveMinutesAgo = now - (5 * 60 * 1000);
+
+      if (usedTime > fiveMinutesAgo) {
+        logger.warn(
+            "Authorization code already used within 5 minutes: {}",
+            code.substring(0, Math.min(8, code.length())) + "...");
+        return true;
+      } else {
+        // Code is old, remove it
+        usedCodes.remove(code);
+      }
+    }
+
+    // Mark code as used
+    usedCodes.put(code, System.currentTimeMillis());
+    return false;
   }
 
   @GetMapping("/login")
@@ -174,65 +233,74 @@ public class ShopifyAuthController {
       HttpServletResponse response,
       HttpServletRequest request)
       throws IOException {
-    String shop = params.get("shop");
-    String code = params.get("code");
-    String error = params.get("error");
-    String errorDescription = params.get("error_description");
-    String hmac = params.get("hmac");
-    String state = params.get("state");
-    String timestamp = params.get("timestamp");
-
-    logger.info(
-        "Callback received - shop: {}, code: {}, error: {}, error_description: {}, hmac: {}, state: {}, timestamp: {}",
-        shop,
-        code != null ? code.substring(0, Math.min(8, code.length())) + "..." : "null",
-        error,
-        errorDescription,
-        hmac != null ? hmac.substring(0, Math.min(8, hmac.length())) + "..." : "null",
-        state != null ? state.substring(0, Math.min(8, state.length())) + "..." : "null",
-        timestamp);
-    logger.info(
-        "Callback - Request headers: {}",
-        Collections.list(request.getHeaderNames()).stream()
-            .collect(Collectors.toMap(name -> name, request::getHeader)));
-    logger.info("Callback - Request cookies: {}", Arrays.toString(request.getCookies()));
-
-    // Check for Shopify error response
-    if (error != null) {
-      logger.error("Shopify OAuth error: {} - {}", error, errorDescription);
-      response.sendError(
-          HttpServletResponse.SC_BAD_REQUEST, "OAuth error: " + error + " - " + errorDescription);
-      return;
-    }
-
-    if (shop == null || code == null) {
-      logger.error("Missing required parameters - shop: {}, code: {}", shop, code);
-      response.sendError(
-          HttpServletResponse.SC_BAD_REQUEST, "Missing required parameters: shop and/or code");
-      return;
-    }
-
-    // Validate HMAC if present (optional but recommended for security)
-    if (hmac != null && apiSecret != null) {
-      try {
-        boolean isValidHmac = validateHmac(params, apiSecret);
-        if (!isValidHmac) {
-          logger.error("HMAC validation failed for shop: {}", shop);
-          response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "HMAC validation failed");
-          return;
-        }
-        logger.info("HMAC validation successful for shop: {}", shop);
-      } catch (Exception hmacError) {
-        logger.warn("HMAC validation error (continuing anyway): {}", hmacError.getMessage());
-      }
-    } else {
-      logger.info(
-          "Skipping HMAC validation - hmac: {}, apiSecret: {}",
-          hmac != null ? "present" : "null",
-          apiSecret != null ? "present" : "null");
-    }
-
     try {
+      String shop = params.get("shop");
+      String code = params.get("code");
+      String error = params.get("error");
+      String errorDescription = params.get("error_description");
+      String hmac = params.get("hmac");
+      String state = params.get("state");
+      String timestamp = params.get("timestamp");
+
+      logger.info(
+          "Callback received - shop: {}, code: {}, error: {}, error_description: {}, hmac: {}, state: {}, timestamp: {}",
+          shop,
+          code != null ? code.substring(0, Math.min(8, code.length())) + "..." : "null",
+          error,
+          errorDescription,
+          hmac != null ? hmac.substring(0, Math.min(8, hmac.length())) + "..." : "null",
+          state != null ? state.substring(0, Math.min(8, state.length())) + "..." : "null",
+          timestamp);
+      logger.info(
+          "Callback - Request headers: {}",
+          Collections.list(request.getHeaderNames()).stream()
+              .collect(Collectors.toMap(name -> name, request::getHeader)));
+      logger.info("Callback - Request cookies: {}", Arrays.toString(request.getCookies()));
+
+      // Check for Shopify error response
+      if (error != null) {
+        logger.error("Shopify OAuth error: {} - {}", error, errorDescription);
+        response.sendError(
+            HttpServletResponse.SC_BAD_REQUEST, "OAuth error: " + error + " - " + errorDescription);
+        return;
+      }
+
+      if (shop == null || code == null) {
+        logger.error("Missing required parameters - shop: {}, code: {}", shop, code);
+        response.sendError(
+            HttpServletResponse.SC_BAD_REQUEST, "Missing required parameters: shop and/or code");
+        return;
+      }
+
+      // Check if authorization code has already been used
+      if (isCodeAlreadyUsed(code)) {
+        logger.error("Authorization code already used for shop: {}", shop);
+        response.sendError(
+            HttpServletResponse.SC_BAD_REQUEST,
+            "Authorization code has already been used or has expired");
+        return;
+      }
+
+      // Validate HMAC if present (optional but recommended for security)
+      if (hmac != null && apiSecret != null) {
+        try {
+          boolean isValidHmac = validateHmac(params, apiSecret);
+          if (!isValidHmac) {
+            logger.error("HMAC validation failed for shop: {}", shop);
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "HMAC validation failed");
+            return;
+          }
+          logger.info("HMAC validation successful for shop: {}", shop);
+        } catch (Exception hmacError) {
+          logger.warn("HMAC validation error (continuing anyway): {}", hmacError.getMessage());
+        }
+      } else {
+        logger.info(
+            "Skipping HMAC validation - hmac: {}, apiSecret: {}",
+            hmac != null ? "present" : "null",
+            apiSecret != null ? "present" : "null");
+      }
+
       logger.info("Starting token exchange process for shop: {}", shop);
       String accessToken = exchangeCodeForAccessToken(shop, code);
       logger.info("Access token obtained for shop: {}", shop);
@@ -276,7 +344,7 @@ public class ShopifyAuthController {
       logger.info("Cookie set successfully, redirecting to frontend: {}/dashboard", frontendUrl);
       response.sendRedirect(frontendUrl + "/dashboard");
     } catch (Exception e) {
-      logger.error("Error in callback for shop: {} - Error details: {}", shop, e.getMessage(), e);
+      logger.error("Error in callback - Error details: {}", e.getMessage(), e);
 
       // Provide more specific error messages
       String errorMessage = "Authentication failed";
@@ -288,8 +356,14 @@ public class ShopifyAuthController {
         errorMessage = "Network error during authentication";
       }
 
-      response.sendError(
-          HttpServletResponse.SC_INTERNAL_SERVER_ERROR, errorMessage + ": " + e.getMessage());
+      // Return a proper error response instead of throwing
+      response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+      response.setContentType("application/json");
+      response
+          .getWriter()
+          .write(
+              String.format(
+                  "{\"error\": \"%s\", \"message\": \"%s\"}", errorMessage, e.getMessage()));
     }
   }
 
@@ -397,16 +471,29 @@ public class ShopifyAuthController {
           .onErrorMap(
               WebClientResponseException.class,
               ex -> {
+                String responseBody = ex.getResponseBodyAsString();
                 logger.error(
-                    "Shopify OAuth error - Status: {}, Body: {}",
-                    ex.getStatusCode(),
-                    ex.getResponseBodyAsString());
-                return new RuntimeException(
-                    "Shopify OAuth failed: "
-                        + ex.getStatusCode()
-                        + " - "
-                        + ex.getResponseBodyAsString(),
-                    ex);
+                    "Shopify OAuth error - Status: {}, Body: {}", ex.getStatusCode(), responseBody);
+
+                // Provide more specific error messages based on the response
+                String errorMessage;
+                if (responseBody.contains("authorization code was not found or was already used")) {
+                  errorMessage =
+                      "Authorization code has already been used or has expired. Please try the installation process again.";
+                } else if (responseBody.contains("invalid_request")) {
+                  errorMessage =
+                      "Invalid OAuth request. Please check your Shopify app configuration.";
+                } else if (responseBody.contains("unauthorized_client")) {
+                  errorMessage = "Unauthorized client. Please check your Shopify API credentials.";
+                } else if (responseBody.contains("invalid_grant")) {
+                  errorMessage =
+                      "Invalid authorization grant. Please try the installation process again.";
+                } else {
+                  errorMessage =
+                      "Shopify OAuth failed: " + ex.getStatusCode() + " - " + responseBody;
+                }
+
+                return new RuntimeException(errorMessage, ex);
               })
           .block();
     } catch (Exception e) {
@@ -679,33 +766,63 @@ public class ShopifyAuthController {
 
   @GetMapping("/debug-config")
   public ResponseEntity<Map<String, Object>> debugConfig() {
-    Map<String, Object> result = new HashMap<>();
-
-    // Check environment variables
-    result.put("SHOPIFY_API_KEY_env", System.getenv("SHOPIFY_API_KEY") != null ? "SET" : "NOT_SET");
-    result.put(
-        "SHOPIFY_API_SECRET_env", System.getenv("SHOPIFY_API_SECRET") != null ? "SET" : "NOT_SET");
-    result.put("SHOPIFY_REDIRECT_URI_env", System.getenv("SHOPIFY_REDIRECT_URI"));
-    result.put("FRONTEND_URL_env", System.getenv("FRONTEND_URL"));
-
-    // Check loaded values
-    result.put("api_key_loaded", apiKey != null && !apiKey.isBlank());
-    result.put("api_secret_loaded", apiSecret != null && !apiSecret.isBlank());
-    result.put("api_key_length", apiKey != null ? apiKey.length() : 0);
-    result.put("api_secret_length", apiSecret != null ? apiSecret.length() : 0);
-    result.put(
-        "api_key_preview",
+    Map<String, Object> config = new HashMap<>();
+    config.put(
+        "apiKey",
         apiKey != null ? apiKey.substring(0, Math.min(8, apiKey.length())) + "..." : "null");
-    result.put(
-        "api_secret_preview",
+    config.put(
+        "apiSecret",
         apiSecret != null
             ? apiSecret.substring(0, Math.min(8, apiSecret.length())) + "..."
             : "null");
-    result.put("scopes", scopes);
+    config.put("scopes", scopes);
+    config.put("redirectUri", redirectUri);
+    config.put("frontendUrl", frontendUrl);
+    config.put("timestamp", System.currentTimeMillis());
+
+    logger.info("Debug config requested: {}", config);
+    return ResponseEntity.ok(config);
+  }
+
+  @GetMapping("/debug-callback-test")
+  public ResponseEntity<Map<String, Object>> debugCallbackTest() {
+    Map<String, Object> result = new HashMap<>();
+    result.put("used_codes_count", usedCodes.size());
+    result.put(
+        "used_codes",
+        usedCodes.keySet().stream()
+            .map(code -> code.substring(0, Math.min(8, code.length())) + "...")
+            .collect(Collectors.toList()));
+    result.put("current_time", System.currentTimeMillis());
+    result.put("cleanup_executor_shutdown", cleanupExecutor.isShutdown());
+    return ResponseEntity.ok(result);
+  }
+
+  @GetMapping("/debug-oauth-state")
+  public ResponseEntity<Map<String, Object>> debugOauthState() {
+    Map<String, Object> result = new HashMap<>();
+    result.put("used_codes_count", usedCodes.size());
+    result.put(
+        "used_codes_details",
+        usedCodes.entrySet().stream()
+            .map(
+                entry -> {
+                  Map<String, Object> codeInfo = new HashMap<>();
+                  codeInfo.put(
+                      "code_preview",
+                      entry.getKey().substring(0, Math.min(8, entry.getKey().length())) + "...");
+                  codeInfo.put("used_at", entry.getValue());
+                  codeInfo.put(
+                      "age_minutes", (System.currentTimeMillis() - entry.getValue()) / (1000 * 60));
+                  return codeInfo;
+                })
+            .collect(Collectors.toList()));
+    result.put("current_time", System.currentTimeMillis());
+    result.put("cleanup_executor_shutdown", cleanupExecutor.isShutdown());
+    result.put("api_key_configured", apiKey != null && !apiKey.isBlank());
+    result.put("api_secret_configured", apiSecret != null && !apiSecret.isBlank());
     result.put("redirect_uri", redirectUri);
     result.put("frontend_url", frontendUrl);
-    result.put("timestamp", System.currentTimeMillis());
-
     return ResponseEntity.ok(result);
   }
 }
