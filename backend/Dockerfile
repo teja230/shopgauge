@@ -1,5 +1,5 @@
 # Multi-stage build for better caching and smaller final image
-FROM openjdk:17-jdk-slim AS builder
+FROM eclipse-temurin:17-jdk-alpine AS builder
 
 # Set working directory
 WORKDIR /app
@@ -27,7 +27,7 @@ ENV GRADLE_OPTS="-Xmx1024m -Dfile.encoding=UTF-8"
 RUN ./gradlew clean build -x test --no-daemon
 
 # Final stage
-FROM openjdk:17-jre-slim
+FROM eclipse-temurin:17-jre-alpine
 
 WORKDIR /app
 
