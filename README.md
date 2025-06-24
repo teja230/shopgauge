@@ -353,25 +353,32 @@ CREATE TABLE audit_logs (
    npm run dev
    ```
 
-7. **Access the application**
+7. **Access the local development environment**
    - Frontend: http://localhost:5173
    - Backend API: http://localhost:8080
 
-### Environment Variables
+## 🌐 Live Demo
 
-Required environment variables (see `ENVIRONMENT_SETUP.md` for details):
+Try the live application without any setup:
+
+- **Frontend**: [https://storesight.onrender.com](https://storesight.onrender.com)
+- **Backend API**: [https://storesight-backend.onrender.com](https://storesight-backend.onrender.com)
+
+### Environment Variables for Local Development
+
+Required environment variables for local development (see `ENVIRONMENT_SETUP.md` for details):
 
 ```bash
-# Database
+# Database (Local Development)
 DB_URL=jdbc:postgresql://localhost:5432/storesight
 DB_USER=storesight
 DB_PASS=storesight
 
-# Redis
+# Redis (Local Development)
 REDIS_HOST=localhost
 REDIS_PORT=6379
 
-# Shopify (Required)
+# Shopify (Required - Get from your Shopify Partner account)
 SHOPIFY_API_KEY=your_shopify_api_key
 SHOPIFY_API_SECRET=your_shopify_api_secret
 SHOPIFY_REDIRECT_URI=http://localhost:8080/api/auth/shopify/callback
@@ -382,6 +389,8 @@ SENDGRID_API_KEY=your_sendgrid_key
 TWILIO_ACCOUNT_SID=your_twilio_sid
 TWILIO_AUTH_TOKEN=your_twilio_token
 ```
+
+> **💡 Tip**: Want to try StoreSight without local setup? Use our [live demo](https://storesight.onrender.com) instead!
 
 ## 🧪 Testing
 
@@ -519,7 +528,8 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 
 ## 🆘 Support
 
-- **Documentation**: Check the docs folder for detailed guides
+- **Live Demo**: Try the application at [https://storesight.onrender.com](https://storesight.onrender.com)
+- **Documentation**: Check the documentation files in the repository
 - **Issues**: Report bugs and feature requests via GitHub Issues
 - **Discussions**: Use GitHub Discussions for questions and ideas
 - **Email**: support@storesight.com
