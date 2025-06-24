@@ -48,6 +48,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const refreshAuth = useCallback(async () => {
     try {
+      // First, check if there's a shop parameter in the URL (for OAuth callback)
+      const urlParams = new URLSearchParams(window.location.search);
+      const shopFromUrl = urlParams.get('shop');
+      
+      if (shopFromUrl) {
+        console.log('Auth: Found shop in URL parameter during refresh:', shopFromUrl);
+        // Clean up the URL by removing the shop parameter
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.delete('shop');
+        window.history.replaceState({}, '', newUrl.toString());
+        
+        // Set the shop from URL parameter
+        setShop(shopFromUrl);
+        setIsAuthenticated(true);
+        return;
+      }
+      
       const shopName = await getAuthShop();
       if (shopName) {
         setShop(shopName);
@@ -85,6 +102,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       console.log('Auth: Starting initial auth check');
+      
+      // First, check if there's a shop parameter in the URL (for OAuth callback)
+      const urlParams = new URLSearchParams(window.location.search);
+      const shopFromUrl = urlParams.get('shop');
+      
+      if (shopFromUrl) {
+        console.log('Auth: Found shop in URL parameter:', shopFromUrl);
+        // Clean up the URL by removing the shop parameter
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.delete('shop');
+        window.history.replaceState({}, '', newUrl.toString());
+        
+        // Set the shop from URL parameter
+        setShop(shopFromUrl);
+        setIsAuthenticated(true);
+        setAuthLoading(false);
+        setLoading(false);
+        return;
+      }
+      
       try {
         const shopName = await getAuthShop();
         console.log('Auth: Initial shop name:', shopName);

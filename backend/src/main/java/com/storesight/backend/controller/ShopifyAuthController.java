@@ -348,18 +348,20 @@ public class ShopifyAuthController {
 
       logger.info("Setting cookie for shop: {}", shop);
 
-      // Set the shop cookie
+      // Set the shop cookie (for same-domain access)
       Cookie shopCookie = new Cookie("shop", shop);
       shopCookie.setPath("/");
-      // Don't set domain for now - let the browser handle it automatically
-      // shopCookie.setDomain(".onrender.com"); // This was causing the error
       shopCookie.setSecure(true); // Use secure cookies in production
       shopCookie.setHttpOnly(false); // Allow JavaScript access if needed
       shopCookie.setMaxAge(60 * 60 * 24 * 7); // 7 days
       response.addCookie(shopCookie);
 
-      logger.info("Cookie set successfully, redirecting to frontend: {}/dashboard", frontendUrl);
-      response.sendRedirect(frontendUrl + "/dashboard");
+      // For cross-subdomain communication on Render, use URL parameters
+      // This ensures the frontend can access the shop information
+      String redirectUrl = frontendUrl + "/dashboard?shop=" + java.net.URLEncoder.encode(shop, "UTF-8");
+      
+      logger.info("Cookie set successfully, redirecting to frontend with shop parameter: {}", redirectUrl);
+      response.sendRedirect(redirectUrl);
     } catch (Exception e) {
       logger.error("Error in callback - Error details: {}", e.getMessage(), e);
 
