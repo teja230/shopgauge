@@ -24,17 +24,17 @@ public class SessionConfig {
     template.setKeySerializer(new StringRedisSerializer());
     template.setHashKeySerializer(new StringRedisSerializer());
 
-      // Use JSON serializer for values with type information
-      ObjectMapper objectMapper = new ObjectMapper();
-      objectMapper.activateDefaultTyping(
-              LaissezFaireSubTypeValidator.instance,
-              ObjectMapper.DefaultTyping.NON_FINAL,
-              JsonTypeInfo.As.PROPERTY);
+    // Use JSON serializer for values with type information
+    ObjectMapper objectMapper = new ObjectMapper();
+    objectMapper.activateDefaultTyping(
+            LaissezFaireSubTypeValidator.instance,
+            ObjectMapper.DefaultTyping.NON_FINAL,
+            JsonTypeInfo.As.PROPERTY);
 
-      GenericJackson2JsonRedisSerializer jsonSerializer =
-              new GenericJackson2JsonRedisSerializer(objectMapper);
-      template.setValueSerializer(jsonSerializer);
-      template.setHashValueSerializer(jsonSerializer);
+    GenericJackson2JsonRedisSerializer jsonSerializer =
+            new GenericJackson2JsonRedisSerializer(objectMapper);
+    template.setValueSerializer(jsonSerializer);
+    template.setHashValueSerializer(jsonSerializer);
 
     template.afterPropertiesSet();
     return template;
