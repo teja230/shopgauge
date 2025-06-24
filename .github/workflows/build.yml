@@ -9,14 +9,70 @@ on:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    
+    # Add services for testing
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: storesight
+          POSTGRES_USER: storesight
+          POSTGRES_PASSWORD: storesight
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+          
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    env:
+      # Database configuration for tests
+      DB_URL: jdbc:postgresql://localhost:5432/storesight
+      DB_USER: storesight
+      DB_PASS: storesight
+      REDIS_HOST: localhost
+      REDIS_PORT: 6379
+      # Dummy values for required environment variables
+      SHOPIFY_API_KEY: test_key
+      SHOPIFY_API_SECRET: test_secret
+      SERPAPI_KEY: test_serpapi_key
+      SENDGRID_API_KEY: test_sendgrid_key
+      TWILIO_ACCOUNT_SID: test_twilio_sid
+      TWILIO_AUTH_TOKEN: test_twilio_token
+      
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
-      - run: ./gradlew test spotlessCheck
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
         working-directory: backend
+      - name: Run tests and checks
+        run: ./gradlew test spotlessCheck
+        working-directory: backend
+        
   frontend:
     runs-on: ubuntu-latest
     steps:
@@ -24,7 +80,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm install
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
         working-directory: frontend
       - run: npm run lint
         working-directory: frontend
