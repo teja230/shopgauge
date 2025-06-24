@@ -400,7 +400,7 @@ public class AnalyticsController {
       response.put("products", List.of());
       return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response));
     }
-    String url = "https://" + shop + "/admin/api/2023-10/products.json?fields=title,variants";
+    String url = "https://" + shop + "/admin/api/2023-10/products.json";
     return webClient
         .get()
         .uri(url)
@@ -424,16 +424,23 @@ public class AnalyticsController {
                         }
                       } catch (Exception ignored) {
                       }
-                      if (qty < 5) {
+                      // Flag products with inventory < 5 OR negative inventory (like gift cards with -1)
+                      if (qty < 5 || qty < 0) {
                         Object productIdObj = product.get("id");
                         if (productIdObj != null) {
                           String productId = productIdObj.toString();
+                          String productTitle = (String) product.get("title");
+                          String variantTitle = (String) variant.get("title");
+                          
+                          logger.debug("Low inventory detected: {} (variant: {}) - quantity: {}", 
+                              productTitle, variantTitle, qty);
+                          
                           lowStock.add(
                               Map.of(
                                   "title",
-                                  product.get("title"),
+                                  productTitle,
                                   "variant",
-                                  variant.get("title"),
+                                  variantTitle,
                                   "quantity",
                                   qty,
                                   "product_id",
@@ -446,6 +453,9 @@ public class AnalyticsController {
                   }
                 }
               }
+              
+              logger.info("Found {} products with low inventory for shop {}", lowStock.size(), shop);
+              
               Map<String, Object> response = new HashMap<>();
               response.put("lowInventory", lowStock);
               response.put("lowInventoryCount", lowStock.size());
