@@ -1199,7 +1199,7 @@ public class AnalyticsController {
           // Use environment variable for backend URL, fallback to localhost for development
           String backendUrl = System.getenv("BACKEND_URL");
           if (backendUrl == null || backendUrl.isEmpty()) {
-              backendUrl = "http://localhost:8080";
+            backendUrl = "http://localhost:8080";
           }
           debugInfo.put("reauth_url", backendUrl + "/api/auth/shopify/login?shop=" + shop);
 
@@ -1279,14 +1279,15 @@ public class AnalyticsController {
                 // Use environment variable for backend URL, fallback to localhost for development
                 String backendUrl = System.getenv("BACKEND_URL");
                 if (backendUrl == null || backendUrl.isEmpty()) {
-                    backendUrl = "http://localhost:8080";
+                  backendUrl = "http://localhost:8080";
                 }
                 errorResult.put(
                     "next_steps",
                     List.of(
                         "1. Visit https://" + shop + "/admin/apps to check app permissions",
                         "2. Try re-installing the app: "
-                            + backendUrl + "/api/auth/shopify/login?shop="
+                            + backendUrl
+                            + "/api/auth/shopify/login?shop="
                             + shop,
                         "3. Contact Shopify support for Protected Customer Data approval"));
               } else if (e.getMessage().contains("401")) {
@@ -1295,14 +1296,12 @@ public class AnalyticsController {
                 // Use environment variable for backend URL, fallback to localhost for development
                 String backendUrl = System.getenv("BACKEND_URL");
                 if (backendUrl == null || backendUrl.isEmpty()) {
-                    backendUrl = "http://localhost:8080";
+                  backendUrl = "http://localhost:8080";
                 }
                 errorResult.put(
                     "next_steps",
                     List.of(
-                        "Re-authenticate: "
-                            + backendUrl + "/api/auth/shopify/login?shop="
-                            + shop));
+                        "Re-authenticate: " + backendUrl + "/api/auth/shopify/login?shop=" + shop));
               } else {
                 errorResult.put("error_type", "UNKNOWN_ERROR");
                 errorResult.put("explanation", "An unexpected error occurred");
@@ -1478,7 +1477,7 @@ public class AnalyticsController {
           // Use environment variable for backend URL, fallback to localhost for development
           String backendUrl = System.getenv("BACKEND_URL");
           if (backendUrl == null || backendUrl.isEmpty()) {
-              backendUrl = "http://localhost:8080";
+            backendUrl = "http://localhost:8080";
           }
           helpfulLinks.put(
               "Re-authenticate App", backendUrl + "/api/auth/shopify/login?shop=" + shop);

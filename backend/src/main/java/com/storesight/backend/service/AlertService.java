@@ -250,7 +250,7 @@ public class AlertService implements StreamListener<String, MapRecord<String, St
         // Use environment variable for backend URL, fallback to localhost for development
         String backendUrl = System.getenv("BACKEND_URL");
         if (backendUrl == null || backendUrl.isEmpty()) {
-            backendUrl = "http://localhost:8080";
+          backendUrl = "http://localhost:8080";
         }
         var req =
             java.net.http.HttpRequest.newBuilder()

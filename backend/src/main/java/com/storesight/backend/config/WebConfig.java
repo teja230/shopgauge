@@ -19,7 +19,7 @@ public class WebConfig implements WebMvcConfigurer {
             "http://localhost:5173", // Frontend dev server
             "http://localhost:5174", // Alternative dev port
             "https://storesight.onrender.com" // Production frontend
-        )
+            )
         .allowedOriginPatterns("https://*.onrender.com") // Allow all Render subdomains
         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
         .allowedHeaders("*")
