@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'react-hot-toast';
 import { CheckCircleIcon } from '@heroicons/react/24/solid';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { getInsights, fetchWithAuth } from '../api';
 import { API_BASE_URL } from '../api';
 
@@ -39,11 +39,24 @@ const HomePage = () => {
   const [shopDomain, setShopDomain] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [isOAuthFlow, setIsOAuthFlow] = useState(false);
   const { isAuthenticated, authLoading, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Check if we're in an OAuth flow from Shopify
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.search);
+    const shopFromUrl = urlParams.get('shop');
+    
+    if (shopFromUrl) {
+      setIsOAuthFlow(true);
+      console.log('HomePage: Detected OAuth flow from Shopify');
+    }
+  }, [location.search]);
 
   // Determine if user is authenticated after auth check completes
-  const showAuthConnected = isAuthenticated && !authLoading;
+  const showAuthConnected = isAuthenticated && !authLoading && !isOAuthFlow;
 
   const handleStartClick = () => {
     setShowForm(true);
@@ -94,10 +107,22 @@ const HomePage = () => {
     }
   };
 
-  if (isLoading) {
+  // Show loading state for OAuth flow or general loading
+  if (isLoading || isOAuthFlow) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-white">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <h2 className="text-xl font-semibold text-blue-900 mb-2">
+            {isOAuthFlow ? 'Connecting to Shopify...' : 'Loading...'}
+          </h2>
+          <p className="text-blue-700">
+            {isOAuthFlow 
+              ? 'We\'re setting up your StoreSight analytics dashboard. This will just take a moment.'
+              : 'Please wait while we load your dashboard.'
+            }
+          </p>
+        </div>
       </div>
     );
   }

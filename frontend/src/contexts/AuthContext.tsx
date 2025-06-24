@@ -74,30 +74,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (shopFromUrl) {
         console.log('Auth: Found shop in URL parameter:', shopFromUrl);
-        console.log('Auth: Current URL:', window.location.href);
-        console.log('Auth: Current path:', window.location.pathname);
+        console.log('Auth: This appears to be a Shopify OAuth callback');
         
-        // Clean up the URL by removing the shop parameter
-        const newUrl = new URL(window.location.href);
-        newUrl.searchParams.delete('shop');
-        window.history.replaceState({}, '', newUrl.toString());
-        console.log('Auth: Updated URL to:', newUrl.toString());
-        
-        // Set the shop cookie for 7 days
-        setCookie('shop', shopFromUrl, 7);
-        console.log('Auth: Set shop cookie:', shopFromUrl);
-        
-        // Verify cookie was set
-        const cookieValue = getCookie('shop');
-        console.log('Auth: Verified cookie value:', cookieValue);
-        
-        // Set the shop from URL parameter
-        setShop(shopFromUrl);
-        setIsAuthenticated(true);
-        setAuthLoading(false);
-        setLoading(false);
-        console.log('Auth: Authentication complete via URL parameter');
-        return;
+        // Instead of immediately setting as authenticated, check with backend first
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/auth/shopify/me`, {
+            credentials: 'include',
+            headers: {
+              'Accept': 'application/json',
+            },
+          });
+          
+          if (response.ok) {
+            // User is already authenticated, proceed normally
+            console.log('Auth: User already authenticated, setting shop');
+            const data = await response.json();
+            setShop(data.shop || shopFromUrl);
+            setIsAuthenticated(true);
+            setAuthLoading(false);
+            setLoading(false);
+            
+            // Clean up URL
+            const newUrl = new URL(window.location.href);
+            newUrl.searchParams.delete('shop');
+            window.history.replaceState({}, '', newUrl.toString());
+            return;
+          } else {
+            // User needs to go through OAuth flow
+            console.log('Auth: User not authenticated, initiating OAuth flow');
+            console.log('Auth: Redirecting to Shopify OAuth');
+            
+            // Redirect to your backend's OAuth initiation endpoint
+            window.location.href = `${API_BASE_URL}/api/auth/shopify?shop=${encodeURIComponent(shopFromUrl)}`;
+            return;
+          }
+        } catch (oauthError) {
+          console.log('Auth: Error checking auth status, initiating OAuth flow');
+          // If there's any error, initiate OAuth flow
+          window.location.href = `${API_BASE_URL}/api/auth/shopify?shop=${encodeURIComponent(shopFromUrl)}`;
+          return;
+        }
       }
       
       // Check for shop in cookies as fallback

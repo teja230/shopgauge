@@ -135,6 +135,15 @@ const showSessionExpiredNotification = () => {
 
 // Function to handle global auth errors with rate limiting
 const handleGlobalAuthError = () => {
+  // Check if we're in a Shopify OAuth flow - don't handle as session expired
+  const urlParams = new URLSearchParams(window.location.search);
+  const shopFromUrl = urlParams.get('shop');
+  
+  if (shopFromUrl) {
+    console.log('API: 401 during OAuth flow, not treating as session expired');
+    return;
+  }
+  
   authErrorCount++;
   
   // Prevent spam of auth errors
