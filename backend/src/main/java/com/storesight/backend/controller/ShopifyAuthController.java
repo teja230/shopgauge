@@ -215,7 +215,7 @@ public class ShopifyAuthController {
       shopService.saveShop(shop, accessToken, sessionId);
 
       logger.info("Setting cookie for shop: {}", shop);
-      
+
       // Set the shop cookie
       Cookie shopCookie = new Cookie("shop", shop);
       shopCookie.setPath("/");
@@ -224,7 +224,7 @@ public class ShopifyAuthController {
       shopCookie.setHttpOnly(false); // Allow JavaScript access if needed
       shopCookie.setMaxAge(60 * 60 * 24 * 7); // 7 days
       response.addCookie(shopCookie);
-      
+
       logger.info("Cookie set successfully, redirecting to frontend: {}/dashboard", frontendUrl);
       response.sendRedirect(frontendUrl + "/dashboard");
     } catch (Exception e) {
@@ -505,11 +505,12 @@ public class ShopifyAuthController {
       HttpServletResponse response,
       HttpServletRequest request) {
     String shop = shopParam != null ? shopParam : shopCookie;
-    
+
     // Clear cookie with the correct domain setting for Render
     response.addHeader(
-        "Set-Cookie", "shop=; Path=/; Domain=.onrender.com; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Secure; SameSite=Lax");
-    
+        "Set-Cookie",
+        "shop=; Path=/; Domain=.onrender.com; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Secure; SameSite=Lax");
+
     // Also clear without domain for localhost development
     response.addHeader(
         "Set-Cookie",
