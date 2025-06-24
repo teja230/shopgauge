@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { AppBar, Toolbar, Typography, Box, Button, Badge } from '@mui/material';
+import InsightsIcon from '@mui/icons-material/Insights';
 import { getSuggestionCount } from '../api';
 
 const NavBar: React.FC = () => {
@@ -39,9 +40,22 @@ const NavBar: React.FC = () => {
   return (
     <AppBar position="static">
       <Toolbar>
-        <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-          StoreSight
-        </Typography>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            cursor: 'pointer',
+            mr: 2,
+            userSelect: 'none',
+          }}
+          onClick={() => navigate('/')}
+        >
+          <InsightsIcon sx={{ mr: 1, fontSize: 28 }} />
+          <Typography variant="h6" component="div" sx={{ fontWeight: 600 }}>
+            StoreSight
+          </Typography>
+        </Box>
+        <Box sx={{ display: 'flex', gap: 2, flexGrow: 1 }} />
         <Box sx={{ display: 'flex', gap: 2 }}>
           {isAuthenticated ? (
             <>
