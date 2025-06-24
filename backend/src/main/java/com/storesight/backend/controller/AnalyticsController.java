@@ -424,17 +424,21 @@ public class AnalyticsController {
                         }
                       } catch (Exception ignored) {
                       }
-                      // Flag products with inventory < 5 OR negative inventory (like gift cards with -1)
+                      // Flag products with inventory < 5 OR negative inventory (like gift cards
+                      // with -1)
                       if (qty < 5 || qty < 0) {
                         Object productIdObj = product.get("id");
                         if (productIdObj != null) {
                           String productId = productIdObj.toString();
                           String productTitle = (String) product.get("title");
                           String variantTitle = (String) variant.get("title");
-                          
-                          logger.debug("Low inventory detected: {} (variant: {}) - quantity: {}", 
-                              productTitle, variantTitle, qty);
-                          
+
+                          logger.debug(
+                              "Low inventory detected: {} (variant: {}) - quantity: {}",
+                              productTitle,
+                              variantTitle,
+                              qty);
+
                           lowStock.add(
                               Map.of(
                                   "title",
@@ -453,9 +457,10 @@ public class AnalyticsController {
                   }
                 }
               }
-              
-              logger.info("Found {} products with low inventory for shop {}", lowStock.size(), shop);
-              
+
+              logger.info(
+                  "Found {} products with low inventory for shop {}", lowStock.size(), shop);
+
               Map<String, Object> response = new HashMap<>();
               response.put("lowInventory", lowStock);
               response.put("lowInventoryCount", lowStock.size());
