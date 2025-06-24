@@ -27,12 +27,12 @@ public class SessionConfig {
     // Use JSON serializer for values with type information
     ObjectMapper objectMapper = new ObjectMapper();
     objectMapper.activateDefaultTyping(
-            LaissezFaireSubTypeValidator.instance,
-            ObjectMapper.DefaultTyping.NON_FINAL,
-            JsonTypeInfo.As.PROPERTY);
+        LaissezFaireSubTypeValidator.instance,
+        ObjectMapper.DefaultTyping.NON_FINAL,
+        JsonTypeInfo.As.PROPERTY);
 
     GenericJackson2JsonRedisSerializer jsonSerializer =
-            new GenericJackson2JsonRedisSerializer(objectMapper);
+        new GenericJackson2JsonRedisSerializer(objectMapper);
     template.setValueSerializer(jsonSerializer);
     template.setHashValueSerializer(jsonSerializer);
 
