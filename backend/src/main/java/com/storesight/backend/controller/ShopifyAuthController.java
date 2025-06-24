@@ -19,10 +19,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,10 +47,9 @@ public class ShopifyAuthController {
   private final ShopRepository shopRepository;
   private final SecretService secretService;
 
-  // Cache to prevent authorization code reuse
-  private final ConcurrentHashMap<String, Long> usedCodes = new ConcurrentHashMap<>();
-  private final ScheduledExecutorService cleanupExecutor =
-      Executors.newSingleThreadScheduledExecutor();
+  // Redis key prefix for tracking used authorization codes
+  private static final String USED_CODE_PREFIX = "oauth:used_code:";
+  private static final int CODE_TTL_SECONDS = 5 * 60; // 5 minutes
 
   @Value("${shopify.api.key:}")
   private String apiKey;
@@ -84,87 +80,107 @@ public class ShopifyAuthController {
     this.redisTemplate = redisTemplate;
     this.shopRepository = shopRepository;
     this.secretService = secretService;
-
-    // Schedule cleanup of used codes every 10 minutes (codes expire after 5 minutes anyway)
-    this.cleanupExecutor.scheduleAtFixedRate(this::cleanupUsedCodes, 10, 10, TimeUnit.MINUTES);
   }
 
   @PostConstruct
   public void initializeSecrets() {
-    // Fallback to Redis-stored secrets if env vars are not provided
-    if (apiKey == null || apiKey.isBlank()) {
-      secretService
-          .getSecret("shopify.api.key")
-          .ifPresent(
-              val -> {
-                this.apiKey = val;
-                logger.info("Loaded Shopify API key from Redis secret store");
-              });
-    }
-    if (apiSecret == null || apiSecret.isBlank()) {
-      secretService
-          .getSecret("shopify.api.secret")
-          .ifPresent(
-              val -> {
-                this.apiSecret = val;
-                logger.info("Loaded Shopify API secret from Redis secret store");
-              });
-    }
+    try {
+      // Load secrets from environment or secret service
+      String envApiKey = System.getenv("SHOPIFY_API_KEY");
+      String envApiSecret = System.getenv("SHOPIFY_API_SECRET");
 
-    // Log final state
-    logger.info(
-        "Final ShopifyAuthController state - API key: {}, API secret: {}",
-        apiKey != null ? apiKey.substring(0, Math.min(8, apiKey.length())) + "..." : "null",
-        apiSecret != null
-            ? apiSecret.substring(0, Math.min(8, apiSecret.length())) + "..."
-            : "null");
+      if (envApiKey != null && !envApiKey.isBlank()) {
+        this.apiKey = envApiKey;
+        logger.info("Loaded Shopify API key from environment");
+      } else {
+        logger.warn("Shopify API key not found in environment");
+      }
+
+      if (envApiSecret != null && !envApiSecret.isBlank()) {
+        this.apiSecret = envApiSecret;
+        logger.info("Loaded Shopify API secret from environment");
+      } else {
+        logger.warn("Shopify API secret not found in environment");
+      }
+
+      logger.info(
+          "ShopifyAuthController initialized with API key: {}",
+          apiKey != null ? apiKey.substring(0, Math.min(8, apiKey.length())) + "..." : "null");
+    } catch (Exception e) {
+      logger.error("Error initializing secrets: {}", e.getMessage(), e);
+    }
   }
 
   @PreDestroy
   public void cleanup() {
-    if (cleanupExecutor != null && !cleanupExecutor.isShutdown()) {
-      cleanupExecutor.shutdown();
-      try {
-        if (!cleanupExecutor.awaitTermination(5, TimeUnit.SECONDS)) {
-          cleanupExecutor.shutdownNow();
-        }
-      } catch (InterruptedException e) {
-        cleanupExecutor.shutdownNow();
-        Thread.currentThread().interrupt();
-      }
-    }
-  }
-
-  private void cleanupUsedCodes() {
-    long now = System.currentTimeMillis();
-    long fiveMinutesAgo = now - (5 * 60 * 1000); // 5 minutes ago
-
-    usedCodes.entrySet().removeIf(entry -> entry.getValue() < fiveMinutesAgo);
-    logger.debug("Cleaned up used authorization codes, remaining: {}", usedCodes.size());
+    // Cleanup logic if needed
   }
 
   private boolean isCodeAlreadyUsed(String code) {
     if (code == null) return false;
 
-    Long usedTime = usedCodes.get(code);
-    if (usedTime != null) {
-      long now = System.currentTimeMillis();
-      long fiveMinutesAgo = now - (5 * 60 * 1000);
+    String redisKey = USED_CODE_PREFIX + code;
 
-      if (usedTime > fiveMinutesAgo) {
-        logger.warn(
-            "Authorization code already used within 5 minutes: {}",
-            code.substring(0, Math.min(8, code.length())) + "...");
-        return true;
-      } else {
-        // Code is old, remove it
-        usedCodes.remove(code);
-      }
+    // Check if code exists in Redis
+    Boolean exists = redisTemplate.hasKey(redisKey);
+    if (Boolean.TRUE.equals(exists)) {
+      logger.warn(
+          "Authorization code already used within 5 minutes: {}",
+          code.substring(0, Math.min(8, code.length())) + "...");
+      return true;
     }
 
-    // Mark code as used
-    usedCodes.put(code, System.currentTimeMillis());
+    // Mark code as used with TTL
+    redisTemplate
+        .opsForValue()
+        .set(
+            redisKey,
+            String.valueOf(System.currentTimeMillis()),
+            java.time.Duration.ofSeconds(CODE_TTL_SECONDS));
+    logger.debug(
+        "Marked authorization code as used: {}",
+        code.substring(0, Math.min(8, code.length())) + "...");
     return false;
+  }
+
+  private long getUsedCodesCount() {
+    try {
+      Set<String> keys = redisTemplate.keys(USED_CODE_PREFIX + "*");
+      return keys != null ? keys.size() : 0;
+    } catch (Exception e) {
+      logger.warn("Error getting used codes count: {}", e.getMessage());
+      return 0;
+    }
+  }
+
+  private List<Map<String, Object>> getUsedCodesDetails() {
+    try {
+      Set<String> keys = redisTemplate.keys(USED_CODE_PREFIX + "*");
+      if (keys == null || keys.isEmpty()) {
+        return List.of();
+      }
+
+      return keys.stream()
+          .map(
+              key -> {
+                String code = key.substring(USED_CODE_PREFIX.length());
+                String usedTimeStr = redisTemplate.opsForValue().get(key);
+                Long usedTime = usedTimeStr != null ? Long.parseLong(usedTimeStr) : null;
+
+                Map<String, Object> codeInfo = new HashMap<>();
+                codeInfo.put("code_preview", code.substring(0, Math.min(8, code.length())) + "...");
+                codeInfo.put("used_at", usedTime);
+                if (usedTime != null) {
+                  codeInfo.put(
+                      "age_minutes", (System.currentTimeMillis() - usedTime) / (1000 * 60));
+                }
+                return codeInfo;
+              })
+          .collect(Collectors.toList());
+    } catch (Exception e) {
+      logger.warn("Error getting used codes details: {}", e.getMessage());
+      return List.of();
+    }
   }
 
   @GetMapping("/login")
@@ -787,38 +803,18 @@ public class ShopifyAuthController {
   @GetMapping("/debug-callback-test")
   public ResponseEntity<Map<String, Object>> debugCallbackTest() {
     Map<String, Object> result = new HashMap<>();
-    result.put("used_codes_count", usedCodes.size());
-    result.put(
-        "used_codes",
-        usedCodes.keySet().stream()
-            .map(code -> code.substring(0, Math.min(8, code.length())) + "...")
-            .collect(Collectors.toList()));
+    result.put("used_codes_count", getUsedCodesCount());
+    result.put("used_codes_details", getUsedCodesDetails());
     result.put("current_time", System.currentTimeMillis());
-    result.put("cleanup_executor_shutdown", cleanupExecutor.isShutdown());
     return ResponseEntity.ok(result);
   }
 
   @GetMapping("/debug-oauth-state")
   public ResponseEntity<Map<String, Object>> debugOauthState() {
     Map<String, Object> result = new HashMap<>();
-    result.put("used_codes_count", usedCodes.size());
-    result.put(
-        "used_codes_details",
-        usedCodes.entrySet().stream()
-            .map(
-                entry -> {
-                  Map<String, Object> codeInfo = new HashMap<>();
-                  codeInfo.put(
-                      "code_preview",
-                      entry.getKey().substring(0, Math.min(8, entry.getKey().length())) + "...");
-                  codeInfo.put("used_at", entry.getValue());
-                  codeInfo.put(
-                      "age_minutes", (System.currentTimeMillis() - entry.getValue()) / (1000 * 60));
-                  return codeInfo;
-                })
-            .collect(Collectors.toList()));
+    result.put("used_codes_count", getUsedCodesCount());
+    result.put("used_codes_details", getUsedCodesDetails());
     result.put("current_time", System.currentTimeMillis());
-    result.put("cleanup_executor_shutdown", cleanupExecutor.isShutdown());
     result.put("api_key_configured", apiKey != null && !apiKey.isBlank());
     result.put("api_secret_configured", apiSecret != null && !apiSecret.isBlank());
     result.put("redirect_uri", redirectUri);
