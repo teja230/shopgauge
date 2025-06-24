@@ -13,6 +13,7 @@ import java.util.concurrent.Executors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -23,8 +24,13 @@ import org.springframework.transaction.annotation.Transactional;
 public class CompetitorDiscoveryService {
 
   private static final Logger log = LoggerFactory.getLogger(CompetitorDiscoveryService.class);
-  private static final int MAX_RESULTS_PER_PRODUCT = 5;
   private static final Executor discoveryExecutor = Executors.newFixedThreadPool(3);
+
+  @Value("${discovery.interval.hours:24}")
+  private int discoveryIntervalHours;
+
+  @Value("${discovery.max.results:10}")
+  private int maxResultsPerProduct;
 
   @Autowired private CompetitorSuggestionRepository suggestionRepository;
 
@@ -34,15 +40,16 @@ public class CompetitorDiscoveryService {
 
   @Autowired private KeywordBuilder keywordBuilder;
 
-  /** Scheduled task to discover competitors for all active shops Runs daily at 3:45 AM */
-  @Scheduled(cron = "0 45 3 * * *")
+  /** Scheduled task to discover competitors for all active shops */
+  @Scheduled(cron = "0 45 3 * * *") // Default: daily at 3:45 AM
   public void discoverCompetitorsForAllShops() {
     if (!searchClient.isEnabled()) {
       log.info("Competitor discovery is disabled - search client not available");
       return;
     }
 
-    log.info("Starting daily competitor discovery for all shops");
+    log.info(
+        "Starting competitor discovery for all shops (interval: {} hours)", discoveryIntervalHours);
 
     try {
       List<Map<String, Object>> activeShops =
@@ -69,7 +76,7 @@ public class CompetitorDiscoveryService {
       }
 
     } catch (Exception e) {
-      log.error("Error in daily competitor discovery: {}", e.getMessage(), e);
+      log.error("Error in competitor discovery: {}", e.getMessage(), e);
     }
   }
 
@@ -149,7 +156,7 @@ public class CompetitorDiscoveryService {
 
     // Search for competitors
     List<SearchClient.SearchResult> searchResults =
-        searchClient.search(keywords, MAX_RESULTS_PER_PRODUCT);
+        searchClient.search(keywords, maxResultsPerProduct);
 
     if (searchResults.isEmpty()) {
       log.debug("No search results found for product: {}", productTitle);
@@ -252,11 +259,26 @@ public class CompetitorDiscoveryService {
         Map.of(
             "searchClientEnabled", searchClient.isEnabled(),
             "searchClientProvider", searchClient.getProviderName(),
+            "discoveryIntervalHours", discoveryIntervalHours,
+            "maxResultsPerProduct", maxResultsPerProduct,
             "totalSuggestions", totalSuggestions,
             "newSuggestions", newSuggestions,
             "approvedSuggestions", approvedSuggestions);
 
     log.debug("Discovery stats: {}", stats);
     return stats;
+  }
+
+  /** Get discovery configuration */
+  public Map<String, Object> getDiscoveryConfig() {
+    return Map.of(
+        "intervalHours",
+        discoveryIntervalHours,
+        "maxResultsPerProduct",
+        maxResultsPerProduct,
+        "searchClientEnabled",
+        searchClient.isEnabled(),
+        "searchClientProvider",
+        searchClient.getProviderName());
   }
 }

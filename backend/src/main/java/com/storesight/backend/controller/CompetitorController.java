@@ -132,6 +132,23 @@ public class CompetitorController {
     return ResponseEntity.ok(discoveryService.getDiscoveryStats());
   }
 
+  /** Get discovery configuration */
+  @GetMapping("/competitors/discovery/config")
+  public ResponseEntity<Map<String, Object>> getDiscoveryConfig() {
+    return ResponseEntity.ok(discoveryService.getDiscoveryConfig());
+  }
+
+  /** Manually trigger discovery for a specific shop (for testing/admin use) */
+  @PostMapping("/competitors/discovery/trigger/{shopId}")
+  public ResponseEntity<Map<String, String>> triggerDiscovery(@PathVariable Long shopId) {
+    try {
+      discoveryService.triggerDiscoveryForShop(shopId);
+      return ResponseEntity.ok(Map.of("message", "Discovery triggered for shop ID: " + shopId));
+    } catch (Exception e) {
+      return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+    }
+  }
+
   /** Extract shop ID from session cookie */
   private Long getShopIdFromRequest(HttpServletRequest request) {
     if (request.getCookies() != null) {

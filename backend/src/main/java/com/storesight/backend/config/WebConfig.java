@@ -12,19 +12,14 @@ public class WebConfig implements WebMvcConfigurer {
 
   @Override
   public void addCorsMappings(CorsRegistry registry) {
-    logger.info("Configuring CORS");
     registry
         .addMapping("/**")
         .allowedOrigins(
-            "http://localhost:5173", // Frontend dev server
-            "http://localhost:5174", // Alternative dev port
-            "https://storesight.onrender.com" // Production frontend
-            )
-        .allowedOriginPatterns("https://*.onrender.com") // Allow all Render subdomains
+            "http://localhost:5173", "http://localhost:5174", "https://storesight.onrender.com")
         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
         .allowedHeaders("*")
-        .allowCredentials(true)
-        .maxAge(3600);
+        .allowCredentials(true);
+
     logger.info("CORS configured for localhost and production URLs");
   }
 }
