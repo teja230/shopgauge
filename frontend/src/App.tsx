@@ -22,11 +22,19 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
     console.log('ProtectedRoute: Checking auth', { isAuthenticated, authLoading });
   }
   
+  console.log('ProtectedRoute: Auth status', { 
+    isAuthenticated, 
+    authLoading, 
+    path: window.location.pathname,
+    search: window.location.search 
+  });
+  
   if (authLoading) {
     // Only log in development
     if (import.meta.env.DEV) {
       console.log('ProtectedRoute: Auth loading');
     }
+    console.log('ProtectedRoute: Showing loading state');
     return <div>Loading...</div>;
   }
   
@@ -35,6 +43,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
     if (import.meta.env.DEV) {
       console.log('ProtectedRoute: Not authenticated, redirecting to home');
     }
+    console.log('ProtectedRoute: Not authenticated, redirecting to home from:', window.location.pathname);
     return <Navigate to="/" replace />;
   }
   
@@ -42,6 +51,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   if (import.meta.env.DEV) {
     console.log('ProtectedRoute: Authenticated, rendering children');
   }
+  console.log('ProtectedRoute: Authenticated, rendering children for:', window.location.pathname);
   return <>{children}</>;
 };
 

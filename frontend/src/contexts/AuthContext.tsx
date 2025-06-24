@@ -72,20 +72,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (shopFromUrl) {
         console.log('Auth: Found shop in URL parameter:', shopFromUrl);
+        console.log('Auth: Current URL:', window.location.href);
+        console.log('Auth: Current path:', window.location.pathname);
+        
         // Clean up the URL by removing the shop parameter
         const newUrl = new URL(window.location.href);
         newUrl.searchParams.delete('shop');
         window.history.replaceState({}, '', newUrl.toString());
+        console.log('Auth: Updated URL to:', newUrl.toString());
         
         // Set the shop cookie for 7 days
         setCookie('shop', shopFromUrl, 7);
         console.log('Auth: Set shop cookie:', shopFromUrl);
+        
+        // Verify cookie was set
+        const cookieValue = getCookie('shop');
+        console.log('Auth: Verified cookie value:', cookieValue);
         
         // Set the shop from URL parameter
         setShop(shopFromUrl);
         setIsAuthenticated(true);
         setAuthLoading(false);
         setLoading(false);
+        console.log('Auth: Authentication complete via URL parameter');
         return;
       }
       
@@ -103,15 +112,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
       
+      console.log('Auth: No shop in URL or cookie, checking backend auth');
       const shopName = await getAuthShop();
       if (shopName) {
+        console.log('Auth: Backend returned shop:', shopName);
         setShop(shopName);
         setIsAuthenticated(true);
       } else {
+        console.log('Auth: No shop from backend, user not authenticated');
         setShop(null);
         setIsAuthenticated(false);
         // Only redirect to home if we're not already there and not in the middle of logging out
         if (location.pathname !== '/' && !isLoggingOut) {
+          console.log('Auth: Redirecting to home from:', location.pathname);
           navigate('/');
         }
       }
@@ -120,10 +133,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (import.meta.env.DEV) {
         console.error('Failed to refresh auth:', error);
       }
+      console.error('Auth: Error during refresh:', error);
       setShop(null);
       setIsAuthenticated(false);
       // Only redirect to home if we're not already there and not in the middle of logging out
       if (location.pathname !== '/' && !isLoggingOut) {
+        console.log('Auth: Redirecting to home due to error from:', location.pathname);
         navigate('/');
       }
     }
