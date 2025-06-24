@@ -68,6 +68,7 @@ const AppContent: React.FC = () => {
       <main className="flex-1">
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/debug" element={<DebugAuthState />} />
           <Route
             path="/dashboard"
             element={
@@ -109,6 +110,25 @@ const AppContent: React.FC = () => {
       </main>
       {/* Show privacy banner only for authenticated users */}
       {isAuthenticated && <PrivacyBanner />}
+    </div>
+  );
+};
+
+// Simple debug component to show auth state
+const DebugAuthState: React.FC = () => {
+  const { isAuthenticated, shop, authLoading, loading } = useAuth();
+  
+  return (
+    <div style={{ padding: '20px', backgroundColor: '#f0f0f0', margin: '20px', borderRadius: '8px' }}>
+      <h2>Debug Auth State</h2>
+      <p><strong>isAuthenticated:</strong> {isAuthenticated ? 'true' : 'false'}</p>
+      <p><strong>shop:</strong> {shop || 'null'}</p>
+      <p><strong>authLoading:</strong> {authLoading ? 'true' : 'false'}</p>
+      <p><strong>loading:</strong> {loading ? 'true' : 'false'}</p>
+      <p><strong>Current URL:</strong> {window.location.href}</p>
+      <p><strong>Current Path:</strong> {window.location.pathname}</p>
+      <p><strong>Current Search:</strong> {window.location.search}</p>
+      <p><strong>Cookies:</strong> {document.cookie}</p>
     </div>
   );
 };
