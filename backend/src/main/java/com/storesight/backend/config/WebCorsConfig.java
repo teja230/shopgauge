@@ -20,6 +20,10 @@ public class WebCorsConfig {
     config.addAllowedOrigin("http://localhost:5175"); // Current frontend port
     config.addAllowedOrigin("http://localhost:3000"); // Alternative frontend port
 
+    // Allow Render static site domain
+    config.addAllowedOriginPattern("https://*.onrender.com");
+    config.addAllowedOriginPattern("https://storesight-frontend.onrender.com");
+
     // Allow all methods
     config.addAllowedMethod("*");
 
