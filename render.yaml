@@ -57,9 +57,4 @@ services:
       - key: TWILIO_AUTH_TOKEN
         sync: false
       - key: SERPAPI_API_KEY
-        sync: false
-  - type: static
-    name: storesight-frontend
-    env: static
-    buildCommand: "cd frontend && npm install && npm run build"
-    staticPublishPath: frontend/dist 
+        sync: false 
