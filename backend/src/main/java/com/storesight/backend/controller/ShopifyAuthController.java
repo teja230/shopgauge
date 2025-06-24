@@ -190,7 +190,8 @@ public class ShopifyAuthController {
     try {
       String accessToken = exchangeCodeForAccessToken(shop, code);
       logger.info("Access token obtained for shop: {}", shop);
-      shopService.saveShop(shop, accessToken);
+      String sessionId = request.getSession(true).getId();
+      shopService.saveShop(shop, accessToken, sessionId);
 
       // Set cookie with proper attributes
       Cookie shopCookie = new Cookie("shop", shop);
@@ -244,11 +245,13 @@ public class ShopifyAuthController {
   @GetMapping("/export")
   public Mono<ResponseEntity<byte[]>> exportData(
       @CookieValue(value = "shop", required = false) String shop,
-      @RequestParam(required = false) String type) {
+      @RequestParam(required = false) String type,
+      HttpServletRequest request) {
     if (shop == null) {
       return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).build());
     }
-    String token = shopService.getTokenForShop(shop);
+    String sessionId = request.getSession(false) != null ? request.getSession(false).getId() : null;
+    String token = (sessionId != null && shop != null) ? shopService.getTokenForShop(shop, sessionId) : null;
     if (token == null) {
       return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).build());
     }
@@ -282,20 +285,21 @@ public class ShopifyAuthController {
 
   @GetMapping("/notifications")
   public Mono<ResponseEntity<Map<String, Object>>> getNotifications(
-      @CookieValue(value = "shop", required = false) String shop) {
+      @CookieValue(value = "shop", required = false) String shop, HttpServletRequest request) {
     if (shop == null) {
       Map<String, Object> response = new HashMap<>();
       response.put("error", "Not authenticated");
       response.put("notifications", List.of());
       return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response));
     }
+    String sessionId = request.getSession(false) != null ? request.getSession(false).getId() : null;
     return notificationService
-        .getNotifications(shop)
+        .getNotifications(shop, sessionId)
         .map(
             notifications -> {
-              Map<String, Object> response = new HashMap<>();
-              response.put("notifications", notifications);
-              return ResponseEntity.ok(response);
+              Map<String, Object> responseMap = new HashMap<>();
+              responseMap.put("notifications", notifications);
+              return ResponseEntity.ok(responseMap);
             })
         .onErrorResume(
             e -> {
@@ -310,7 +314,8 @@ public class ShopifyAuthController {
   @PostMapping("/notifications/mark-read")
   public Mono<ResponseEntity<Map<String, String>>> markNotificationAsRead(
       @CookieValue(value = "shop", required = false) String shop,
-      @RequestBody Map<String, String> body) {
+      @RequestBody Map<String, String> body,
+      HttpServletRequest request) {
     if (shop == null) {
       return Mono.just(
           ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -321,8 +326,9 @@ public class ShopifyAuthController {
       return Mono.just(
           ResponseEntity.badRequest().body(Map.of("error", "Notification ID is required")));
     }
+    String sessionId = request.getSession(false) != null ? request.getSession(false).getId() : null;
     return notificationService
-        .markAsRead(shop, notificationId)
+        .markAsRead(shop, notificationId, sessionId)
         .then(Mono.just(ResponseEntity.ok(Map.of("status", "success"))))
         .onErrorResume(
             e ->
@@ -346,29 +352,33 @@ public class ShopifyAuthController {
       return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response));
     }
 
-    String token = shopService.getTokenForShop(shop);
+    String sessionId = request.getSession(false) != null ? request.getSession(false).getId() : null;
+    String token = (sessionId != null && shop != null) ? shopService.getTokenForShop(shop, sessionId) : null;
     if (token == null) {
-      logger.warn("Auth: No token found for shop: {}", shop);
+      logger.warn("Auth: No token found for shop: {} and session: {}", shop, sessionId);
       response.put("error", "Not authenticated");
       response.put("shop", null);
       return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response));
     }
 
-    logger.info("Auth: Found token for shop: {}", shop);
+    logger.info("Auth: Found token for shop: {} and session: {}", shop, sessionId);
     response.put("shop", shop);
     return Mono.just(ResponseEntity.ok(response));
   }
 
   @PostMapping("/profile/disconnect")
   public ResponseEntity<Map<String, String>> disconnect(
-      @CookieValue(value = "shop", required = false) String shop, HttpServletResponse response) {
+      @CookieValue(value = "shop", required = false) String shop, HttpServletResponse response, HttpServletRequest request) {
     logger.info("Auth: Disconnecting shop: {}", shop);
 
     if (shop != null) {
       // Clear the access token from Redis and database
       try {
-        shopService.removeToken(shop);
-        logger.info("Auth: Cleared access token for shop: {}", shop);
+        String sessionId = request.getSession(false) != null ? request.getSession(false).getId() : null;
+        if (sessionId != null) {
+          shopService.removeToken(shop, sessionId);
+          logger.info("Auth: Cleared access token for shop: {} and session: {}", shop, sessionId);
+        }
       } catch (Exception e) {
         logger.error("Auth: Error clearing access token for shop: {}", shop, e);
       }
@@ -426,47 +436,7 @@ public class ShopifyAuthController {
       @RequestBody(required = false) Map<String, Object> body,
       HttpServletResponse response,
       HttpServletRequest request) {
-    logger.info("Auth: Force disconnect called");
-    logger.info("Auth: Shop from cookie: {}", shopCookie);
-    logger.info("Auth: Shop from param: {}", shopParam);
-    logger.info("Auth: Request body: {}", body);
-
-    // Determine shop from cookie, param, or body
-    String shop = shopCookie;
-    if (shop == null || shop.isBlank()) {
-      if (shopParam != null && !shopParam.isBlank()) {
-        shop = shopParam;
-        logger.info("Auth: Using shop from param: {}", shop);
-      } else if (body != null
-          && body.get("shop") != null
-          && !body.get("shop").toString().isBlank()) {
-        shop = body.get("shop").toString();
-        logger.info("Auth: Using shop from body: {}", shop);
-      }
-    } else {
-      logger.info("Auth: Using shop from cookie: {}", shop);
-    }
-
-    logger.info("Auth: Force disconnecting shop: {}", shop);
-
-    // Clear all possible cookies
-    Cookie[] cookies = request.getCookies();
-    if (cookies != null) {
-      for (Cookie cookie : cookies) {
-        if (cookie.getName().equals("shop")) {
-          Cookie clearCookie = new Cookie("shop", "");
-          clearCookie.setPath("/");
-          clearCookie.setMaxAge(0);
-          clearCookie.setHttpOnly(false);
-          clearCookie.setSecure(false);
-          response.addCookie(clearCookie);
-          logger.info("Auth: Force cleared shop cookie: {}", cookie.getValue());
-        }
-      }
-    }
-    // Add multiple Set-Cookie headers to ensure clearing
-    response.addHeader(
-        "Set-Cookie", "shop=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT");
+    String shop = shopParam != null ? shopParam : shopCookie;
     response.addHeader(
         "Set-Cookie", "shop=; Path=/api; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT");
     response.addHeader(
@@ -476,9 +446,12 @@ public class ShopifyAuthController {
     if (shop != null && !shop.isBlank()) {
       // Clear the access token from Redis and database
       try {
-        logger.info("Auth: Calling shopService.removeToken for shop: {}", shop);
-        shopService.removeToken(shop);
-        logger.info("Auth: Force cleared access token for shop: {}", shop);
+        String sessionId = request.getSession(false) != null ? request.getSession(false).getId() : null;
+        if (sessionId != null) {
+          logger.info("Auth: Calling shopService.removeToken for shop: {} and session: {}", shop, sessionId);
+          shopService.removeToken(shop, sessionId);
+          logger.info("Auth: Force cleared access token for shop: {} and session: {}", shop, sessionId);
+        }
       } catch (Exception e) {
         logger.error("Auth: Error force clearing access token for shop: {}", shop, e);
       }

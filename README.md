@@ -177,6 +177,7 @@ graph LR
 | `/api/analytics/inventory/low`     | GET             | Low inventory items                 | Cookie         |
 | `/api/analytics/new_products`      | GET             | Recently added products             | Cookie         |
 | `/api/analytics/permissions/check` | GET             | Check API permissions               | Cookie         |
+| `/api/analytics/audit-logs`        | GET             | View audit logs for compliance      | Cookie         |
 | `/api/competitors`                 | GET/POST/DELETE | Competitor management               | Cookie         |
 | `/api/competitors/suggestions`     | GET/POST/DELETE | Competitor discovery suggestions    | Cookie         |
 | `/api/insights`                    | GET             | Dashboard insights                  | Cookie         |
@@ -187,32 +188,22 @@ graph LR
 
 ### Error Handling & Permission Management
 
-```mermaid
-graph TD
-    Request[API Request] --> Auth{Authenticated?}
-    Auth -->|No| Unauthorized[401 Unauthorized]
-    Auth -->|Yes| Shopify[Shopify API Call]
-    
-    Shopify --> Success{Success?}
-    Success -->|200 OK| Cache[Cache Response<br/>5min TTL]
-    Success -->|403 Forbidden| PermError[Protected Customer Data Error]
-    Success -->|429 Rate Limit| RateLimit[Rate Limit Handler]
-    Success -->|Other Error| GenError[Generic Error Handler]
-    
-    PermError --> PermResponse[Return: error_code: INSUFFICIENT_PERMISSIONS<br/>message: Re-authentication required]
-    RateLimit --> Fallback[Return Cached Data<br/>or Empty Response]
-    GenError --> ErrorResponse[Return: error: API unavailable]
-    
-    Cache --> Response[200 OK with Data]
-    PermResponse --> Frontend1[Frontend: Show Re-auth Button]
-    Fallback --> Frontend2[Frontend: Show Cached Data]
-    ErrorResponse --> Frontend3[Frontend: Show Error Message]
-    
-    style PermError fill:#ff9800
-    style RateLimit fill:#f44336
-    style Cache fill:#4caf50
-    style Success fill:#2196f3
-```
+- 🔍 **Comprehensive Error Codes** - Detailed error responses with resolution guidance
+- 📊 **Permission Validation** - Real-time API access validation and scope checking
+- 🔄 **Automatic Retry Logic** - Intelligent retry with exponential backoff
+- 📝 **Audit Trail** - Complete PostgreSQL-based audit logging with 365-day retention
+- 🛡️ **Privacy Compliance** - GDPR/CCPA compliant data processing and retention
+- 🔧 **Debug Endpoints** - Built-in troubleshooting tools for API access issues
+
+### Data Privacy & Compliance
+
+- ✅ **Data Minimization** - Only essential fields processed for analytics
+- ✅ **Purpose Limitation** - Processing limited to stated business purposes
+- ✅ **Retention Policies** - 60-day order data, 90-day analytics, 365-day audit logs
+- ✅ **Encryption** - TLS 1.3 in transit, AES-256 at rest
+- ✅ **Audit Logging** - Complete PostgreSQL audit trail with IP tracking
+- ✅ **Customer Rights** - Data access, deletion, and opt-out mechanisms
+- ✅ **Consent Tracking** - Customer consent recorded and respected
 
 ## 🛠️ Technology Stack
 

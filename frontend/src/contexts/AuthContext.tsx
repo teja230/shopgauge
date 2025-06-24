@@ -48,20 +48,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const refreshAuth = useCallback(async () => {
     try {
-      const response = await api.get('/auth/status');
-      if (response.data.authenticated) {
-        setShop(response.data.shop);
+      const shopName = await getAuthShop();
+      if (shopName) {
+        setShop(shopName);
         setIsAuthenticated(true);
       } else {
         setShop(null);
         setIsAuthenticated(false);
+        // Only redirect to home if we're not already there and not in the middle of logging out
+        if (location.pathname !== '/' && !isLoggingOut) {
+          navigate('/');
+        }
       }
     } catch (error) {
       console.error('Failed to refresh auth:', error);
       setShop(null);
       setIsAuthenticated(false);
+      // Only redirect to home if we're not already there and not in the middle of logging out
+      if (location.pathname !== '/' && !isLoggingOut) {
+        navigate('/');
+      }
     }
-  }, []);
+  }, [location.pathname, navigate, isLoggingOut]);
 
   // Initial auth check
   useEffect(() => {
@@ -141,20 +149,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Start initial auth check
     checkAuth();
 
-    // Set up periodic auth check
-    const interval = setInterval(() => {
-      if (mounted && !isLoggingOut) {
-        console.log('Auth: Starting periodic auth check');
-        refreshAuth();
-      } else {
-        console.log('Auth: Skipping periodic check - mounted:', mounted, 'isLoggingOut:', isLoggingOut);
-      }
-    }, 60000); // Check every minute
-
     return () => {
       console.log('Auth: Cleaning up');
       mounted = false;
-      clearInterval(interval);
     };
   }, [navigate, location.pathname]);
 

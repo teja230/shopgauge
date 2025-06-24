@@ -1,7 +1,11 @@
 package com.storesight.backend.controller;
 
+import com.storesight.backend.model.AuditLog;
+import com.storesight.backend.service.DataPrivacyService;
 import com.storesight.backend.service.NotificationService;
 import com.storesight.backend.service.SecretService;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -12,11 +16,16 @@ import org.springframework.web.bind.annotation.*;
 public class AdminController {
   private final SecretService secretService;
   private final NotificationService notificationService;
+  private final DataPrivacyService dataPrivacyService;
 
   @Autowired
-  public AdminController(SecretService secretService, NotificationService notificationService) {
+  public AdminController(
+      SecretService secretService, 
+      NotificationService notificationService,
+      DataPrivacyService dataPrivacyService) {
     this.secretService = secretService;
     this.notificationService = notificationService;
+    this.dataPrivacyService = dataPrivacyService;
   }
 
   @PostMapping("/secrets")
@@ -101,6 +110,48 @@ public class AdminController {
     } catch (Exception e) {
       return ResponseEntity.ok(
           Map.of("success", false, "error", "Failed to send test SMS: " + e.getMessage()));
+    }
+  }
+
+  @GetMapping("/audit-logs/deleted-shops")
+  public ResponseEntity<Map<String, Object>> getAuditLogsFromDeletedShops(
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "50") int size) {
+    try {
+      List<AuditLog> auditLogs = dataPrivacyService.getAuditLogsFromDeletedShops(page, size);
+      
+      Map<String, Object> response = new HashMap<>();
+      response.put("audit_logs", auditLogs);
+      response.put("page", page);
+      response.put("size", size);
+      response.put("total_count", auditLogs.size());
+      response.put("note", "These are audit logs from shops that have been deleted");
+      
+      return ResponseEntity.ok(response);
+    } catch (Exception e) {
+      return ResponseEntity.status(500)
+          .body(Map.of("error", "Failed to retrieve audit logs from deleted shops", "message", e.getMessage()));
+    }
+  }
+
+  @GetMapping("/audit-logs/all")
+  public ResponseEntity<Map<String, Object>> getAllAuditLogs(
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "50") int size) {
+    try {
+      List<AuditLog> auditLogs = dataPrivacyService.getAllAuditLogs(page, size);
+      
+      Map<String, Object> response = new HashMap<>();
+      response.put("audit_logs", auditLogs);
+      response.put("page", page);
+      response.put("size", size);
+      response.put("total_count", auditLogs.size());
+      response.put("note", "All audit logs including those from deleted shops");
+      
+      return ResponseEntity.ok(response);
+    } catch (Exception e) {
+      return ResponseEntity.status(500)
+          .body(Map.of("error", "Failed to retrieve all audit logs", "message", e.getMessage()));
     }
   }
 }

@@ -61,20 +61,81 @@ api.interceptors.response.use(
   }
 );
 
+// Global auth state management
+let isHandlingAuthError = false;
+
+// Function to handle global auth errors
+const handleGlobalAuthError = () => {
+  if (isHandlingAuthError) return; // Prevent multiple simultaneous auth error handling
+  
+  isHandlingAuthError = true;
+  console.log('API: Handling global auth error');
+  
+  // Clear auth cookies
+  document.cookie = 'shop=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+  document.cookie = 'SESSION=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+  
+  // Clear any local auth state
+  localStorage.removeItem('auth_state');
+  sessionStorage.removeItem('auth_state');
+  
+  // Show user-friendly notification
+  if (typeof window !== 'undefined' && window.location.pathname !== '/') {
+    // Try to use toast notification if available
+    const toast = (window as any).toast;
+    if (toast && typeof toast.error === 'function') {
+      toast.error('Session expired. Please log in again.');
+    } else {
+      alert('Session expired. Please log in again.');
+    }
+    
+    // Redirect to home page after a short delay
+    setTimeout(() => {
+      window.location.href = '/';
+    }, 1000);
+  }
+  
+  // Reset flag after handling
+  setTimeout(() => {
+    isHandlingAuthError = false;
+  }, 2000);
+};
+
 export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
   const fullUrl = `${API_BASE_URL}${url}`;
   console.log('API: Fetching:', fullUrl);
-  const response = await fetch(fullUrl, {
-    ...options,
-    credentials: 'include',
-    headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
-  console.log('API: Response status:', response.status, fullUrl);
-  return response;
+  
+  try {
+    const response = await fetch(fullUrl, {
+      ...options,
+      credentials: 'include',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+    });
+    console.log('API: Response status:', response.status, fullUrl);
+    
+    // Handle 401 Unauthorized globally
+    if (response.status === 401) {
+      console.log('API: Unauthorized response detected, handling globally');
+      handleGlobalAuthError();
+      throw new Error('Authentication required');
+    }
+    
+    return response;
+  } catch (error) {
+    console.error('API: Request failed for', fullUrl, ':', error);
+    
+    // Handle network errors that might be auth-related
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      console.log('API: Network error, might be auth-related');
+      // Don't trigger global auth error for network issues
+    }
+    
+    throw error;
+  }
 };
 
 async function handleResponse<T>(response: Response): Promise<T> {

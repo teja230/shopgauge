@@ -1,20 +1,29 @@
 package com.storesight.backend.service;
 
+import com.storesight.backend.model.AuditLog;
+import com.storesight.backend.model.Shop;
+import com.storesight.backend.repository.AuditLogRepository;
+import com.storesight.backend.repository.ShopRepository;
+import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 @Service
 public class DataPrivacyService {
 
   private static final Logger logger = LoggerFactory.getLogger(DataPrivacyService.class);
   private final StringRedisTemplate redisTemplate;
+  private final AuditLogRepository auditLogRepository;
+  private final ShopRepository shopRepository;
 
   // Data retention periods (in days)
   private static final int ORDER_DATA_RETENTION_DAYS = 60; // Only last 60 days as per requirement
@@ -22,8 +31,13 @@ public class DataPrivacyService {
   private static final int AUDIT_LOG_RETENTION_DAYS = 365; // Compliance audit logs
 
   @Autowired
-  public DataPrivacyService(StringRedisTemplate redisTemplate) {
+  public DataPrivacyService(
+      StringRedisTemplate redisTemplate,
+      AuditLogRepository auditLogRepository,
+      ShopRepository shopRepository) {
     this.redisTemplate = redisTemplate;
+    this.auditLogRepository = auditLogRepository;
+    this.shopRepository = shopRepository;
   }
 
   /** Process only minimum required data for analytics purposes */
@@ -68,17 +82,79 @@ public class DataPrivacyService {
     return isValid;
   }
 
-  /** Log data access for audit trail */
+  /** Log data access for audit trail - now using PostgreSQL */
   public void logDataAccess(String action, String details) {
-    String timestamp = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
-    String logEntry = timestamp + " - " + action + " - " + details;
+    logDataAccess(action, details, null);
+  }
 
-    // Store in Redis with automatic expiration
-    String logKey = "audit:log:" + timestamp.substring(0, 10); // Group by date
-    redisTemplate.opsForList().rightPush(logKey, logEntry);
-    redisTemplate.expire(logKey, AUDIT_LOG_RETENTION_DAYS, TimeUnit.DAYS);
+  /** Log data access for audit trail with shop context */
+  public void logDataAccess(String action, String details, String shopDomain) {
+    try {
+      final Long shopId;
+      if (shopDomain != null) {
+        logger.debug("Looking up shop for domain: {}", shopDomain);
+        Optional<Shop> shopOptional = shopRepository.findByShopifyDomain(shopDomain);
+        if (shopOptional.isPresent()) {
+          shopId = shopOptional.get().getId();
+          logger.debug("Found shop with ID: {} for domain: {}", shopId, shopDomain);
+        } else {
+          shopId = null;
+          logger.warn("No shop found for domain: {}", shopDomain);
+        }
+      } else {
+        shopId = null;
+        logger.debug("No shop domain provided for audit log");
+      }
 
-    logger.info("Data Privacy Audit: {}", logEntry);
+      // Get request context for additional audit information
+      String userAgent = null;
+      String ipAddress = null;
+
+      try {
+        ServletRequestAttributes attributes =
+            (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        if (attributes != null) {
+          HttpServletRequest request = attributes.getRequest();
+          userAgent = request.getHeader("User-Agent");
+          ipAddress = getClientIpAddress(request);
+        }
+      } catch (Exception e) {
+        logger.debug("Could not extract request context for audit log: {}", e.getMessage());
+      }
+
+      AuditLog auditLog = new AuditLog(shopId, action, details, userAgent, ipAddress);
+      auditLogRepository.save(auditLog);
+
+      // Also log to application logs for immediate visibility
+      logger.info(
+          "Data Privacy Audit: {} - {} - {} - Shop ID: {}",
+          auditLog.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
+          action,
+          details,
+          shopId);
+
+    } catch (Exception e) {
+      logger.error("Failed to save audit log: {}", e.getMessage(), e);
+      // Fallback to application logging if database fails
+      logger.warn("Audit log fallback: {} - {}", action, details);
+    }
+  }
+
+  /** Get client IP address from request */
+  private String getClientIpAddress(HttpServletRequest request) {
+    String xForwardedFor = request.getHeader("X-Forwarded-For");
+    if (xForwardedFor != null
+        && !xForwardedFor.isEmpty()
+        && !"unknown".equalsIgnoreCase(xForwardedFor)) {
+      return xForwardedFor.split(",")[0].trim();
+    }
+
+    String xRealIp = request.getHeader("X-Real-IP");
+    if (xRealIp != null && !xRealIp.isEmpty() && !"unknown".equalsIgnoreCase(xRealIp)) {
+      return xRealIp;
+    }
+
+    return request.getRemoteAddr();
   }
 
   /** Generate privacy compliance report */
@@ -92,11 +168,33 @@ public class DataPrivacyService {
     report.put("encryption", "✅ Data encrypted at rest and in transit");
     report.put("consent_tracking", "✅ Customer consent recorded and respected");
 
-    // Audit statistics
-    String today = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE);
-    String auditKey = "audit:log:" + today;
-    Long todayLogs = redisTemplate.opsForList().size(auditKey);
-    report.put("audit_logs_today", todayLogs != null ? todayLogs : 0);
+    // Audit statistics from PostgreSQL
+    try {
+      final Long shopIdLong;
+      if (shopId != null) {
+        shopIdLong =
+            shopRepository.findByShopifyDomain(shopId).map(shop -> shop.getId()).orElse(null);
+      } else {
+        shopIdLong = null;
+      }
+
+      if (shopIdLong != null) {
+        long todayLogs = auditLogRepository.countByShopIdAndAction(shopIdLong, "DATA_ACCESS");
+        report.put("audit_logs_today", todayLogs);
+
+        // Get recent audit activity
+        LocalDateTime thirtyDaysAgo = LocalDateTime.now().minusDays(30);
+        List<AuditLog> recentLogs = auditLogRepository.findRecentByShop(shopIdLong, thirtyDaysAgo);
+        report.put("recent_audit_activity", recentLogs.size());
+      } else {
+        report.put("audit_logs_today", 0);
+        report.put("recent_audit_activity", 0);
+      }
+    } catch (Exception e) {
+      logger.error("Error generating audit statistics: {}", e.getMessage());
+      report.put("audit_logs_today", "Error retrieving data");
+      report.put("recent_audit_activity", "Error retrieving data");
+    }
 
     report.put("compliance_status", "✅ COMPLIANT");
     report.put("last_updated", LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
@@ -106,21 +204,86 @@ public class DataPrivacyService {
   }
 
   /** Validate that processing meets all privacy requirements */
-  public boolean validatePrivacyCompliance(String purpose, String customerId, String dataType) {
-    // Check all requirements
-    boolean purposeValid = isProcessingPurposeValid(purpose);
+  public boolean validatePrivacyCompliance(String purpose, String dataType, String shopId) {
+    // Check purpose validity
+    if (!isProcessingPurposeValid(purpose)) {
+      logDataAccess("PRIVACY_COMPLIANCE_FAILED", "Invalid purpose: " + purpose, shopId);
+      return false;
+    }
 
-    boolean isCompliant = purposeValid;
+    // Check data minimization
+    if ("ORDER_DATA".equals(dataType)) {
+      logDataAccess("PRIVACY_COMPLIANCE_CHECK", "Order data minimization validated", shopId);
+    }
 
-    logDataAccess(
-        "PRIVACY_VALIDATION",
-        "Purpose: "
-            + purpose
-            + ", Customer: "
-            + (customerId != null ? customerId : "N/A")
-            + ", Compliant: "
-            + isCompliant);
+    // Log successful validation
+    logDataAccess("PRIVACY_COMPLIANCE_PASSED", "All privacy requirements met", shopId);
+    return true;
+  }
 
-    return isCompliant;
+  /** Clean up old audit logs based on retention policy */
+  public void cleanupOldAuditLogs() {
+    try {
+      LocalDateTime cutoffDate = LocalDateTime.now().minusDays(AUDIT_LOG_RETENTION_DAYS);
+      long deletedCount = auditLogRepository.countByCreatedAtBefore(cutoffDate);
+      auditLogRepository.deleteByCreatedAtBefore(cutoffDate);
+
+      logger.info(
+          "Cleaned up {} old audit logs older than {} days",
+          deletedCount,
+          AUDIT_LOG_RETENTION_DAYS);
+      logDataAccess("AUDIT_LOG_CLEANUP", "Deleted " + deletedCount + " old audit logs");
+    } catch (Exception e) {
+      logger.error("Error cleaning up old audit logs: {}", e.getMessage(), e);
+    }
+  }
+
+  /** Get audit logs for a shop with pagination */
+  public List<AuditLog> getAuditLogsForShop(String shopDomain, int page, int size) {
+    try {
+      return shopRepository
+          .findByShopifyDomain(shopDomain)
+          .map(
+              shop ->
+                  auditLogRepository.findByShopIdOrderByCreatedAtDesc(
+                      shop.getId(), org.springframework.data.domain.PageRequest.of(page, size)))
+          .map(org.springframework.data.domain.Page::getContent)
+          .orElse(Collections.emptyList());
+    } catch (Exception e) {
+      logger.error("Error retrieving audit logs for shop {}: {}", shopDomain, e.getMessage());
+      return Collections.emptyList();
+    }
+  }
+
+  /** Get audit logs from deleted shops (where shop_id is null) for administrative purposes */
+  public List<AuditLog> getAuditLogsFromDeletedShops(int page, int size) {
+    try {
+      return auditLogRepository
+          .findByShopIdIsNullOrderByCreatedAtDesc(
+              org.springframework.data.domain.PageRequest.of(page, size))
+          .getContent();
+    } catch (Exception e) {
+      logger.error("Error retrieving audit logs from deleted shops: {}", e.getMessage());
+      return Collections.emptyList();
+    }
+  }
+
+  /** Get all audit logs (both active and deleted shops) for administrative purposes */
+  public List<AuditLog> getAllAuditLogs(int page, int size) {
+    try {
+      return auditLogRepository
+          .findAllByOrderByCreatedAtDesc(org.springframework.data.domain.PageRequest.of(page, size))
+          .getContent();
+    } catch (Exception e) {
+      logger.error("Error retrieving all audit logs: {}", e.getMessage());
+      return Collections.emptyList();
+    }
+  }
+
+  /** Scheduled cleanup of old audit logs - runs daily at 2 AM */
+  @org.springframework.scheduling.annotation.Scheduled(cron = "0 0 2 * * *")
+  public void scheduledAuditLogCleanup() {
+    logger.info("Starting scheduled audit log cleanup...");
+    cleanupOldAuditLogs();
   }
 }

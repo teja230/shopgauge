@@ -5,6 +5,7 @@ import com.storesight.backend.model.Notification;
 import com.storesight.backend.repository.NotificationRepository;
 import jakarta.annotation.PostConstruct;
 import java.util.List;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -204,6 +205,14 @@ public class NotificationService {
                     notificationRepository.save(notification);
                   });
         });
+  }
+
+  public Mono<List<Notification>> getNotifications(String shop, String sessionId) {
+    return getNotifications(shop); // ignore sessionId for now
+  }
+
+  public Mono<Void> markAsRead(String shop, String notificationId, String sessionId) {
+    return markAsRead(shop, notificationId); // ignore sessionId for now
   }
 
   public boolean isSendGridEnabled() {
