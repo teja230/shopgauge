@@ -232,7 +232,7 @@ public class CompetitorController {
         if ("shop".equals(cookie.getName())) {
           String shopDomain = cookie.getValue();
           System.out.println("Looking for shop ID for domain: " + shopDomain);
-          
+
           try {
             // Get shop ID from domain
             List<Map<String, Object>> shops =
@@ -244,9 +244,10 @@ public class CompetitorController {
               return shopId;
             } else {
               System.out.println("No shop found in database for domain: " + shopDomain);
-              
+
               // Log all shops in database for debugging
-              List<Map<String, Object>> allShops = jdbcTemplate.queryForList("SELECT id, shopify_domain FROM shops");
+              List<Map<String, Object>> allShops =
+                  jdbcTemplate.queryForList("SELECT id, shopify_domain FROM shops");
               System.out.println("All shops in database: " + allShops);
             }
           } catch (Exception e) {

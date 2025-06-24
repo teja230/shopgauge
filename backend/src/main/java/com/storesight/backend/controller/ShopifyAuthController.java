@@ -721,12 +721,13 @@ public class ShopifyAuthController {
     String sessionId = request.getSession(false) != null ? request.getSession(false).getId() : null;
     String token =
         (sessionId != null && shop != null) ? shopService.getTokenForShop(shop, sessionId) : null;
-    
+
     // If no token found with session ID, try to recover from database
     if (token == null && shop != null) {
-      logger.warn("Auth: No token with session ID, attempting recovery from database for shop: {}", shop);
+      logger.warn(
+          "Auth: No token with session ID, attempting recovery from database for shop: {}", shop);
       token = shopService.getTokenForShop(shop, "fallback");
-      
+
       // If we found a token in database, refresh it in Redis with current session
       if (token != null && sessionId != null) {
         logger.info("Auth: Found token in database, refreshing session for shop: {}", shop);
@@ -738,7 +739,7 @@ public class ShopifyAuthController {
         }
       }
     }
-    
+
     if (token == null) {
       logger.warn("Auth: No token found for shop: {} and session: {}", shop, sessionId);
       response.put("error", "Session expired - please re-authenticate");
@@ -755,34 +756,33 @@ public class ShopifyAuthController {
   /** Refresh authentication for a shop - useful for session recovery */
   @PostMapping("/refresh")
   public Mono<ResponseEntity<Map<String, Object>>> refreshAuth(
-      @CookieValue(value = "shop", required = false) String shop, 
-      HttpServletRequest request) {
+      @CookieValue(value = "shop", required = false) String shop, HttpServletRequest request) {
     logger.info("Auth: Refresh requested for shop: {}", shop);
-    
+
     Map<String, Object> response = new HashMap<>();
-    
+
     if (shop == null) {
       logger.warn("Auth: No shop cookie for refresh");
       response.put("error", "No shop specified");
       response.put("success", false);
       return Mono.just(ResponseEntity.badRequest().body(response));
     }
-    
+
     // Try to get token from database
     String token = shopService.getTokenForShop(shop, "database-lookup");
-    
+
     if (token != null) {
       // Refresh session with current session ID
       String sessionId = request.getSession(true).getId(); // Create session if needed
       try {
         shopService.saveShop(shop, token, sessionId);
         logger.info("Auth: Session refreshed for shop: {} with session: {}", shop, sessionId);
-        
+
         response.put("success", true);
         response.put("shop", shop);
         response.put("message", "Authentication refreshed");
         return Mono.just(ResponseEntity.ok(response));
-        
+
       } catch (Exception e) {
         logger.error("Auth: Failed to refresh session: {}", e.getMessage());
         response.put("error", "Failed to refresh session");
