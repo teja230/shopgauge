@@ -1,61 +1,117 @@
+# Exported from Render on 2025-06-24T20:11:18Z
+databases:
+  - name: storesight-db
+    databaseName: storesight
+    user: storesight_user
+    plan: free
+    region: oregon
+    ipAllowList:
+      - source: 0.0.0.0/0
+        description: everywhere
+    postgresMajorVersion: "16"
 services:
   - type: web
     name: storesight-backend
-    env: docker
-    plan: standard
-    dockerfilePath: backend/Dockerfile
+    runtime: docker
+    repo: https://github.com/teja230/storesight
+    plan: free
     envVars:
+      - key: METRICS_ENABLED
+        sync: false
+      - key: HEALTH_CHECK_ENABLED
+        sync: false
+      - key: AUTO_DELETE_ENABLED
+        sync: false
+      - key: DATA_RETENTION_DAYS
+        sync: false
+      - key: DISCOVERY_MAX_RESULTS
+        sync: false
+      - key: DISCOVERY_INTERVAL_HOURS
+        sync: false
+      - key: DISCOVERY_PROVIDER
+        sync: false
+      - key: DISCOVERY_ENABLED
+        sync: false
+      - key: SMS_NOTIFICATIONS_ENABLED
+        sync: false
+      - key: EMAIL_NOTIFICATIONS_ENABLED
+        sync: false
+      - key: API_RATE_LIMIT_BURST_SIZE
+        sync: false
+      - key: API_RATE_LIMIT_REQUESTS_PER_MINUTE
+        sync: false
+      - key: JWT_SECRET
+        sync: false
       - key: SPRING_PROFILES_ACTIVE
-        value: default
-      - key: DB_URL
         sync: false
-      - key: DB_USER
+      - key: LOGGING_LEVEL_HIBERNATE
         sync: false
-      - key: DB_PASS
+      - key: LOGGING_LEVEL_SPRING
         sync: false
-      - key: REDIS_HOST
+      - key: LOGGING_LEVEL_STORESIGHT
         sync: false
-      - key: REDIS_PORT
+      - key: LOGGING_LEVEL_ROOT
         sync: false
-      - key: SHOPIFY_API_KEY
+      - key: BACKEND_URL
         sync: false
-      - key: SHOPIFY_API_SECRET
+      - key: FRONTEND_URL
         sync: false
-      - key: SENDGRID_API_KEY
+      - key: SERVER_PORT
         sync: false
-      - key: TWILIO_ACCOUNT_SID
+      - key: SERPAPI_KEY
+        sync: false
+      - key: TWILIO_FROM_NUMBER
         sync: false
       - key: TWILIO_AUTH_TOKEN
         sync: false
-      - key: SERPAPI_API_KEY
-        sync: false
-  - type: worker
-    name: storesight-worker
-    env: docker
-    plan: standard
-    dockerfilePath: backend/Dockerfile
-    envVars:
-      - key: SPRING_PROFILES_ACTIVE
-        value: worker
-      - key: DB_URL
-        sync: false
-      - key: DB_USER
-        sync: false
-      - key: DB_PASS
-        sync: false
-      - key: REDIS_HOST
-        sync: false
-      - key: REDIS_PORT
-        sync: false
-      - key: SHOPIFY_API_KEY
-        sync: false
-      - key: SHOPIFY_API_SECRET
+      - key: TWILIO_ACCOUNT_SID
         sync: false
       - key: SENDGRID_API_KEY
         sync: false
-      - key: TWILIO_ACCOUNT_SID
+      - key: SHOPIFY_SCOPES
         sync: false
-      - key: TWILIO_AUTH_TOKEN
+      - key: SHOPIFY_REDIRECT_URI
         sync: false
-      - key: SERPAPI_API_KEY
-        sync: false 
+      - key: SHOPIFY_API_SECRET
+        sync: false
+      - key: SHOPIFY_API_KEY
+        sync: false
+      - key: REDIS_PORT
+        sync: false
+      - key: REDIS_HOST
+        fromService:
+          name: storesight-redis
+          type: keyvalue
+          property: host
+      - key: DB_USER
+        sync: false
+      - key: DB_URL
+        sync: false
+      - key: DB_PASS
+        fromDatabase:
+          name: storesight-db
+          property: password
+    region: oregon
+    dockerContext: .
+    dockerfilePath: backend/Dockerfile
+    autoDeployTrigger: "off"
+  - type: web
+    name: storesight
+    runtime: static
+    repo: https://github.com/teja230/storesight
+    envVars:
+      - key: VITE_API_BASE_URL
+        sync: false
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    autoDeployTrigger: "off"
+    rootDir: frontend
+  - type: keyvalue
+    name: storesight-redis
+    plan: free
+    region: oregon
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList:
+      - source: 57.132.182.47/32
+        description: teja230@gmail.com
+version: "1"
