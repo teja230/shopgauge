@@ -676,25 +676,32 @@ public class ShopifyAuthController {
   @GetMapping("/debug-config")
   public ResponseEntity<Map<String, Object>> debugConfig() {
     Map<String, Object> result = new HashMap<>();
-    
+
     // Check environment variables
     result.put("SHOPIFY_API_KEY_env", System.getenv("SHOPIFY_API_KEY") != null ? "SET" : "NOT_SET");
-    result.put("SHOPIFY_API_SECRET_env", System.getenv("SHOPIFY_API_SECRET") != null ? "SET" : "NOT_SET");
+    result.put(
+        "SHOPIFY_API_SECRET_env", System.getenv("SHOPIFY_API_SECRET") != null ? "SET" : "NOT_SET");
     result.put("SHOPIFY_REDIRECT_URI_env", System.getenv("SHOPIFY_REDIRECT_URI"));
     result.put("FRONTEND_URL_env", System.getenv("FRONTEND_URL"));
-    
+
     // Check loaded values
     result.put("api_key_loaded", apiKey != null && !apiKey.isBlank());
     result.put("api_secret_loaded", apiSecret != null && !apiSecret.isBlank());
     result.put("api_key_length", apiKey != null ? apiKey.length() : 0);
     result.put("api_secret_length", apiSecret != null ? apiSecret.length() : 0);
-    result.put("api_key_preview", apiKey != null ? apiKey.substring(0, Math.min(8, apiKey.length())) + "..." : "null");
-    result.put("api_secret_preview", apiSecret != null ? apiSecret.substring(0, Math.min(8, apiSecret.length())) + "..." : "null");
+    result.put(
+        "api_key_preview",
+        apiKey != null ? apiKey.substring(0, Math.min(8, apiKey.length())) + "..." : "null");
+    result.put(
+        "api_secret_preview",
+        apiSecret != null
+            ? apiSecret.substring(0, Math.min(8, apiSecret.length())) + "..."
+            : "null");
     result.put("scopes", scopes);
     result.put("redirect_uri", redirectUri);
     result.put("frontend_url", frontendUrl);
     result.put("timestamp", System.currentTimeMillis());
-    
+
     return ResponseEntity.ok(result);
   }
 }
