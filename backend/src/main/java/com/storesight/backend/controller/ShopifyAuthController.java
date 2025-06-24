@@ -9,12 +9,6 @@ import jakarta.annotation.PreDestroy;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import java.io.IOException;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-import java.time.LocalDate;
-import java.util.*;
-import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +19,13 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
+
+import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/auth/shopify")
@@ -339,7 +340,11 @@ public class ShopifyAuthController {
         // The token exchange was successful, so we can still set the cookie
       }
 
-      logger.info("Setting cookie for shop: {}", shop);
+      // Store shop in session as well (as a fallback authentication mechanism)
+      if (request.getSession(false) != null) {
+        request.getSession().setAttribute("shopDomain", shop);
+        logger.info("Stored shop domain in session: {}", shop);
+      }
 
       // Set the shop cookie with proper domain configuration for Render
       Cookie shopCookie = new Cookie("shop", shop);
@@ -348,10 +353,10 @@ public class ShopifyAuthController {
       // Configure cookie for cross-domain access on Render
       boolean isProduction = frontendUrl != null && frontendUrl.contains("onrender.com");
       if (isProduction) {
-        // On Render, set domain to allow cross-subdomain access
-        shopCookie.setDomain(".onrender.com");
-        shopCookie.setSecure(true); // HTTPS required for cross-domain cookies
-        logger.info("Production environment detected - setting cookie domain to .onrender.com");
+        // For production, don't set domain (let browser use the current domain)
+        // This avoids cross-domain cookie issues
+        shopCookie.setSecure(true);
+        logger.info("Production environment detected - using secure cookies");
       } else {
         // Development environment - localhost doesn't need domain
         shopCookie.setSecure(false); // HTTP allowed in development
@@ -361,21 +366,22 @@ public class ShopifyAuthController {
       shopCookie.setHttpOnly(false); // Allow JavaScript access
       shopCookie.setMaxAge(60 * 60 * 24 * 7); // 7 days
 
-      // Set SameSite attribute for cross-domain requests
-      response.setHeader(
+      // Add cookie to response
+      response.addCookie(shopCookie);
+
+      // Also set cookie using header for better control over SameSite attribute
+      response.addHeader(
           "Set-Cookie",
           String.format(
-              "%s=%s; Path=%s; Max-Age=%d; %s %s SameSite=None",
+              "%s=%s; Path=%s; Max-Age=%d; SameSite=Lax; %s",
               shopCookie.getName(),
               shopCookie.getValue(),
               shopCookie.getPath(),
               shopCookie.getMaxAge(),
-              isProduction ? "Domain=" + shopCookie.getDomain() + ";" : "",
               isProduction ? "Secure;" : ""));
 
       logger.info(
-          "Cookie configuration: domain={}, secure={}, path={}",
-          shopCookie.getDomain(),
+          "Cookie configuration: secure={}, path={}, SameSite=Lax",
           isProduction,
           shopCookie.getPath());
 
