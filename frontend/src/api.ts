@@ -236,17 +236,17 @@ async function handleResponse<T>(response: Response): Promise<T> {
 }
 
 export async function getInsights(): Promise<Insight> {
-  const res = await fetch('/api/insights', defaultOptions);
+  const res = await fetch(`${API_BASE_URL}/api/insights`, defaultOptions);
   return handleResponse<Insight>(res);
 }
 
 export async function getCompetitors(): Promise<Competitor[]> {
-  const res = await fetch('/api/competitors', defaultOptions);
+  const res = await fetch(`${API_BASE_URL}/api/competitors`, defaultOptions);
   return handleResponse<Competitor[]>(res);
 }
 
 export async function addCompetitor(url: string, productId: string): Promise<Competitor> {
-  const res = await fetch('/api/competitors', {
+  const res = await fetch(`${API_BASE_URL}/api/competitors`, {
     ...defaultOptions,
     method: 'POST',
     body: JSON.stringify({ url, productId }),
@@ -255,7 +255,7 @@ export async function addCompetitor(url: string, productId: string): Promise<Com
 }
 
 export async function deleteCompetitor(id: string): Promise<void> {
-  const res = await fetch(`/api/competitors/${id}`, {
+  const res = await fetch(`${API_BASE_URL}/api/competitors/${id}`, {
     ...defaultOptions,
     method: 'DELETE',
   });
@@ -282,17 +282,17 @@ export interface SuggestionResponse {
 }
 
 export async function getCompetitorSuggestions(page: number = 0, size: number = 10, status: string = 'NEW'): Promise<SuggestionResponse> {
-  const res = await fetch(`/api/competitors/suggestions?page=${page}&size=${size}&status=${status}`, defaultOptions);
+  const res = await fetch(`${API_BASE_URL}/api/competitors/suggestions?page=${page}&size=${size}&status=${status}`, defaultOptions);
   return handleResponse<SuggestionResponse>(res);
 }
 
 export async function getSuggestionCount(): Promise<{ newSuggestions: number }> {
-  const res = await fetch('/api/competitors/suggestions/count', defaultOptions);
+  const res = await fetch(`${API_BASE_URL}/api/competitors/suggestions/count`, defaultOptions);
   return handleResponse<{ newSuggestions: number }>(res);
 }
 
 export async function approveSuggestion(id: number): Promise<{ message: string }> {
-  const res = await fetch(`/api/competitors/suggestions/${id}/approve`, {
+  const res = await fetch(`${API_BASE_URL}/api/competitors/suggestions/${id}/approve`, {
     ...defaultOptions,
     method: 'POST',
   });
@@ -300,7 +300,7 @@ export async function approveSuggestion(id: number): Promise<{ message: string }
 }
 
 export async function ignoreSuggestion(id: number): Promise<{ message: string }> {
-  const res = await fetch(`/api/competitors/suggestions/${id}/ignore`, {
+  const res = await fetch(`${API_BASE_URL}/api/competitors/suggestions/${id}/ignore`, {
     ...defaultOptions,
     method: 'POST',
   });
