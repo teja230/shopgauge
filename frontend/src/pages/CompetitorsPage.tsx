@@ -3,7 +3,7 @@ import { CompetitorTable } from '../components/ui/CompetitorTable';
 import type { Competitor } from '../components/ui/CompetitorTable';
 import { SuggestionDrawer } from '../components/ui/SuggestionDrawer';
 import { getCompetitors, addCompetitor, deleteCompetitor, getSuggestionCount } from '../api';
-import toast, { Toaster } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
 import { 
   SparklesIcon, 
@@ -216,8 +216,6 @@ export default function CompetitorsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 p-6">
-      <Toaster position="top-right" />
-      
       {/* Header */}
       <div className="max-w-7xl mx-auto">
         {/* Main Content */}

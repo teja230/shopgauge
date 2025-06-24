@@ -60,80 +60,8 @@ api.interceptors.response.use(
   }
 );
 
-// Global auth state management
-let isHandlingAuthError = false;
-let authErrorCount = 0;
-const MAX_AUTH_ERRORS = 3;
-
-// Function to show session expired notification
-const showSessionExpiredNotification = () => {
-  // Try to use react-hot-toast if available
-  const toast = (window as any).toast;
-  if (toast && typeof toast.error === 'function') {
-    toast.error('Your session has expired. Please sign in again.', {
-      duration: 4000,
-      position: 'top-center',
-      style: {
-        background: '#ef4444',
-        color: '#ffffff',
-        fontWeight: '500',
-      },
-    });
-  } else {
-    // Fallback to a custom notification div
-    const existingNotification = document.getElementById('session-expired-notification');
-    if (existingNotification) {
-      existingNotification.remove();
-    }
-    
-    const notification = document.createElement('div');
-    notification.id = 'session-expired-notification';
-    notification.innerHTML = `
-      <div style="
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: #ef4444;
-        color: white;
-        padding: 16px 20px;
-        border-radius: 8px;
-        box-shadow: 0 10px 25px rgba(0,0,0,0.3);
-        z-index: 10000;
-        font-family: 'Inter', sans-serif;
-        font-weight: 500;
-        max-width: 400px;
-        animation: slideInFromRight 0.3s ease-out;
-      ">
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h2v2h-2v-2zm0-8h2v6h-2V9z"/>
-          </svg>
-          <span>Your session has expired. Redirecting to sign in...</span>
-        </div>
-      </div>
-      <style>
-        @keyframes slideInFromRight {
-          from { transform: translateX(100%); opacity: 0; }
-          to { transform: translateX(0); opacity: 1; }
-        }
-      </style>
-    `;
-    
-    document.body.appendChild(notification);
-    
-    // Auto-remove after 3 seconds
-    setTimeout(() => {
-      if (notification && notification.parentNode) {
-        notification.style.animation = 'slideInFromRight 0.3s ease-out reverse';
-        setTimeout(() => {
-          notification.remove();
-        }, 300);
-      }
-    }, 3000);
-  }
-};
-
-// Function to handle global auth errors with rate limiting
+// Simple function to handle global auth errors without notifications
+// Let AuthContext handle the user notifications
 const handleGlobalAuthError = () => {
   // Check if we're in a Shopify OAuth flow - don't handle as session expired
   const urlParams = new URLSearchParams(window.location.search);
@@ -144,41 +72,11 @@ const handleGlobalAuthError = () => {
     return;
   }
   
-  authErrorCount++;
-  
-  // Prevent spam of auth errors
-  if (isHandlingAuthError || authErrorCount > MAX_AUTH_ERRORS) {
-    if (authErrorCount > MAX_AUTH_ERRORS) {
-      console.log('API: Too many auth errors, temporarily ignoring');
-    }
-    return;
-  }
-  
-  isHandlingAuthError = true;
-  console.log('API: Handling global auth error');
+  console.log('API: Handling global auth error - clearing cookies');
   
   // Clear auth cookies
   document.cookie = 'shop=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
   document.cookie = 'SESSION=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
-  
-  // Show professional notification only if not on home page
-  if (typeof window !== 'undefined' && window.location.pathname !== '/' && window.location.pathname !== '/index.html') {
-    console.log('API: Session expired, showing notification and redirecting');
-    
-    // Show elegant notification
-    showSessionExpiredNotification();
-    
-    // Redirect after a brief delay to let user see the notification
-    setTimeout(() => {
-      window.location.href = '/';
-    }, 1500);
-  }
-  
-  // Reset flags after handling
-  setTimeout(() => {
-    isHandlingAuthError = false;
-    authErrorCount = 0; // Reset error count after cooldown
-  }, 5000); // Longer cooldown to prevent loops
 };
 
 export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {

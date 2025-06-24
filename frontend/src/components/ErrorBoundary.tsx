@@ -24,26 +24,11 @@ class ErrorBoundary extends Component<Props, State> {
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('ErrorBoundary caught an error:', error, errorInfo);
     
-    // Show professional error notification instead of browser alert
-    if (error.message.includes('Authentication required') || 
-        error.message.includes('session') || 
-        error.message.includes('expired')) {
-      toast.error('Your session has expired. Please sign in again.', {
-        duration: 4000,
-        position: 'top-center',
-        style: {
-          background: '#ef4444',
-          color: '#ffffff',
-          fontWeight: '500',
-        },
-        icon: '🔒',
-      });
-      
-      // Redirect to home after a delay
-      setTimeout(() => {
-        window.location.href = '/';
-      }, 2000);
-    } else {
+    // Only show generic error notifications
+    // Let AuthContext handle session-related errors
+    if (!error.message.includes('Authentication required') && 
+        !error.message.includes('session') && 
+        !error.message.includes('expired')) {
       toast.error('Something went wrong. Please refresh the page.', {
         duration: 4000,
         position: 'top-center',

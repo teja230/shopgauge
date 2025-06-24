@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import toast from 'react-hot-toast';
 
 interface SessionNotificationOptions {
@@ -8,7 +8,9 @@ interface SessionNotificationOptions {
 }
 
 export const useSessionNotification = () => {
-  const showSessionExpired = useCallback((options: SessionNotificationOptions = {}) => {
+  const redirectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  const showSessionExpiredNotification = useCallback((options: SessionNotificationOptions = {}) => {
     const {
       redirect = true,
       redirectDelay = 2000,
@@ -26,15 +28,19 @@ export const useSessionNotification = () => {
           background: '#ef4444',
           color: '#ffffff',
           fontWeight: '500',
-          boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
         },
         icon: '🔒',
       });
     }
 
     if (redirect && window.location.pathname !== '/') {
+      // Clear any existing redirect timeout
+      if (redirectTimeoutRef.current) {
+        clearTimeout(redirectTimeoutRef.current);
+      }
+      
       console.log('SessionNotification: Scheduling redirect in', redirectDelay, 'ms');
-      setTimeout(() => {
+      redirectTimeoutRef.current = setTimeout(() => {
         console.log('SessionNotification: Redirecting to home');
         window.location.href = '/';
       }, redirectDelay);
@@ -68,9 +74,18 @@ export const useSessionNotification = () => {
     });
   }, []);
 
+  // Cleanup function to clear timeouts
+  const cleanup = useCallback(() => {
+    if (redirectTimeoutRef.current) {
+      clearTimeout(redirectTimeoutRef.current);
+      redirectTimeoutRef.current = null;
+    }
+  }, []);
+
   return {
-    showSessionExpired,
+    showSessionExpired: showSessionExpiredNotification,
     showConnectionError,
     showGenericError,
+    cleanup,
   };
 }; 

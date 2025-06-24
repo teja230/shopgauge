@@ -24,7 +24,7 @@ public class ShopService {
 
   public void saveShop(String shopifyDomain, String accessToken, String sessionId) {
     logger.info("Saving shop: {} for session: {}", shopifyDomain, sessionId);
-    
+
     // Save to Redis for quick access, both with and without session ID
     redisTemplate
         .opsForValue()
@@ -33,14 +33,10 @@ public class ShopService {
             accessToken,
             60,
             java.util.concurrent.TimeUnit.MINUTES);
-    
+
     redisTemplate
         .opsForValue()
-        .set(
-            "shop_token:" + shopifyDomain,
-            accessToken,
-            60,
-            java.util.concurrent.TimeUnit.MINUTES);
+        .set("shop_token:" + shopifyDomain, accessToken, 60, java.util.concurrent.TimeUnit.MINUTES);
 
     // Save to database for persistence
     Optional<Shop> existing = shopRepository.findByShopifyDomain(shopifyDomain);
@@ -53,14 +49,14 @@ public class ShopService {
 
   public String getTokenForShop(String shopifyDomain, String sessionId) {
     logger.info("Getting token for shop: {} and session: {}", shopifyDomain, sessionId);
-    
+
     // Try Redis with session ID first
     String token = redisTemplate.opsForValue().get("shop_token:" + shopifyDomain + ":" + sessionId);
     if (token != null) {
       logger.info("Found token in Redis for shop: {} and session: {}", shopifyDomain, sessionId);
       return token;
     }
-    
+
     // Try Redis with just shop domain (fallback for session mismatches)
     token = redisTemplate.opsForValue().get("shop_token:" + shopifyDomain);
     if (token != null) {
@@ -75,7 +71,7 @@ public class ShopService {
               java.util.concurrent.TimeUnit.MINUTES);
       return token;
     }
-    
+
     logger.debug("No token in Redis, checking database for shop: {}", shopifyDomain);
     // Fall back to database
     Optional<Shop> shop = shopRepository.findByShopifyDomain(shopifyDomain);
@@ -96,11 +92,7 @@ public class ShopService {
                 java.util.concurrent.TimeUnit.MINUTES);
         redisTemplate
             .opsForValue()
-            .set(
-                "shop_token:" + shopifyDomain,
-                token,
-                60,
-                java.util.concurrent.TimeUnit.MINUTES);
+            .set("shop_token:" + shopifyDomain, token, 60, java.util.concurrent.TimeUnit.MINUTES);
       } else {
         logger.warn("Shop found but no token in database for shop: {}", shopifyDomain);
       }
