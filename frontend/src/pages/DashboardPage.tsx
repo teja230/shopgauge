@@ -10,6 +10,25 @@ import { styled } from '@mui/material/styles';
 import { OpenInNew, Refresh, Storefront, ListAlt, Inventory2 } from '@mui/icons-material';
 import { format } from 'date-fns';
 
+// Cache configuration
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
+
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+  lastUpdated: Date;
+}
+
+interface DashboardCache {
+  revenue?: CacheEntry<{ totalRevenue: number; timeseries: any[] }>;
+  products?: CacheEntry<{ products: any[] }>;
+  inventory?: CacheEntry<{ lowInventory: number }>;
+  newProducts?: CacheEntry<{ newProducts: number }>;
+  abandonedCarts?: CacheEntry<{ abandonedCarts: number }>;
+  orders?: CacheEntry<{ orders: any[]; recentOrders: any[] }>;
+  insights?: CacheEntry<{ conversionRate?: number; conversionRateDelta?: number }>;
+}
+
 // Modern, elegant, and professional dashboard UI improvements
 const DashboardContainer = styled(Box)(({ theme }) => ({
   minHeight: '100vh',
@@ -75,6 +94,24 @@ const HeaderActions = styled(Box)(({ theme }) => ({
     width: '100%',
     justifyContent: 'space-between'
   }
+}));
+
+const RefreshButton = styled(Button)(({ theme }) => ({
+  borderRadius: theme.shape.borderRadius,
+  textTransform: 'none',
+  fontWeight: 500,
+  gap: theme.spacing(1),
+  '&:disabled': {
+    backgroundColor: theme.palette.action.disabledBackground,
+  }
+}));
+
+const LastUpdatedText = styled(Typography)(({ theme }) => ({
+  fontSize: '0.75rem',
+  color: theme.palette.text.secondary,
+  display: 'flex',
+  alignItems: 'center',
+  gap: theme.spacing(0.5),
 }));
 
 const StyledCard = styled(Card)(({ theme }) => ({
@@ -159,6 +196,8 @@ const OrderLink = styled(MuiLink)(({ theme }) => ({
     textDecoration: 'underline',
   },
 }));
+
+
 
 interface Product {
   id: string;
@@ -483,6 +522,11 @@ const DashboardPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [hasRateLimit, setHasRateLimit] = useState(false);
   
+  // Cache state management
+  const [cache, setCache] = useState<DashboardCache>({});
+  const [lastGlobalUpdate, setLastGlobalUpdate] = useState<Date | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  
   // Individual card loading states
   const [cardLoading, setCardLoading] = useState<CardLoadingState>({
     revenue: false,
@@ -503,6 +547,99 @@ const DashboardPage = () => {
     orders: null,
     abandonedCarts: null
   });
+
+  // Helper function to check if cache entry is fresh
+  const isCacheFresh = useCallback((cacheEntry: CacheEntry<any> | undefined): boolean => {
+    if (!cacheEntry) return false;
+    return Date.now() - cacheEntry.timestamp < CACHE_DURATION;
+  }, []);
+
+  // Helper function to get cache or fetch fresh data
+  const getCachedOrFetch = useCallback(async (
+    cacheKey: keyof DashboardCache,
+    fetchFunction: () => Promise<any>,
+    forceRefresh = false
+  ): Promise<any> => {
+    const cachedEntry = cache[cacheKey];
+    
+    if (!forceRefresh && isCacheFresh(cachedEntry)) {
+      console.log(`Using cached data for ${cacheKey}`);
+      return cachedEntry!.data;
+    }
+    
+    console.log(`Fetching fresh data for ${cacheKey}`);
+    const freshData = await fetchFunction();
+    const now = new Date();
+    
+    setCache(prev => ({
+      ...prev,
+      [cacheKey]: {
+        data: freshData,
+        timestamp: Date.now(),
+        lastUpdated: now
+      }
+    }));
+    
+    setLastGlobalUpdate(now);
+    return freshData;
+  }, [cache, isCacheFresh]);
+
+  // Manual refresh function
+  const handleRefreshAll = useCallback(async () => {
+    if (isRefreshing) return;
+    
+    setIsRefreshing(true);
+    try {
+      // Clear cache to force fresh data
+      setCache({});
+      
+      // Trigger a re-fetch of all data
+      handleCardLoad('revenue');
+      handleCardLoad('products');
+      handleCardLoad('inventory');
+      handleCardLoad('newProducts');
+      handleCardLoad('abandonedCarts');
+      handleCardLoad('orders');
+      
+      console.log('Dashboard refresh initiated');
+    } catch (error) {
+      console.error('Error refreshing dashboard:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [isRefreshing]);
+
+  // Get the most recent update time across all cache entries
+  const getMostRecentUpdateTime = useCallback((): Date | null => {
+    const updateTimes = Object.values(cache)
+      .filter(entry => entry?.lastUpdated)
+      .map(entry => entry!.lastUpdated);
+    
+    if (updateTimes.length === 0) return null;
+    
+    return updateTimes.reduce((latest, current) => 
+      current > latest ? current : latest
+    );
+  }, [cache]);
+
+  // Format last updated text
+  const getLastUpdatedText = useCallback((): string => {
+    const lastUpdate = getMostRecentUpdateTime();
+    if (!lastUpdate) return 'Never updated';
+    
+    const now = new Date();
+    const diffMinutes = Math.floor((now.getTime() - lastUpdate.getTime()) / (1000 * 60));
+    
+    if (diffMinutes < 1) return 'Just updated';
+    if (diffMinutes === 1) return '1 minute ago';
+    if (diffMinutes < 60) return `${diffMinutes} minutes ago`;
+    
+    const diffHours = Math.floor(diffMinutes / 60);
+    if (diffHours === 1) return '1 hour ago';
+    if (diffHours < 24) return `${diffHours} hours ago`;
+    
+    return format(lastUpdate, 'MMM d, h:mm a');
+  }, [getMostRecentUpdateTime]);
 
   // Handle URL parameters from OAuth callback
   useEffect(() => {
@@ -555,13 +692,15 @@ const DashboardPage = () => {
   }, []);
 
   // Individual card data fetching functions
-  const fetchRevenueData = useCallback(async () => {
+  const fetchRevenueData = useCallback(async (forceRefresh = false) => {
     setCardLoading(prev => ({ ...prev, revenue: true }));
     setCardErrors(prev => ({ ...prev, revenue: null }));
     
     try {
-      const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/revenue'));
-      const data = await response.json();
+      const data = await getCachedOrFetch('revenue', async () => {
+        const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/revenue'));
+        return await response.json();
+      }, forceRefresh);
       
       if ((data.error_code === 'INSUFFICIENT_PERMISSIONS' || (data.error && data.error.includes('re-authentication')))) {
         setCardErrors(prev => ({ ...prev, revenue: 'Permission denied – please re-authenticate with Shopify' }));
@@ -1068,6 +1207,37 @@ const DashboardPage = () => {
 
   return (
     <DashboardContainer>
+      {/* Dashboard Header with Refresh */}
+      <DashboardHeader>
+        <HeaderContent>
+          <HeaderIcon />
+          <Box>
+            <HeaderTitle>Store Analytics Dashboard</HeaderTitle>
+            <HeaderSubtitle>
+              <ShopLink href={`https://${shop}`} target="_blank" rel="noopener noreferrer">
+                {shop}
+                <OpenInNew fontSize="inherit" />
+              </ShopLink>
+            </HeaderSubtitle>
+          </Box>
+        </HeaderContent>
+        <HeaderActions>
+          <Box sx={{ textAlign: 'right', mr: 2 }}>
+            <LastUpdatedText>
+              Last updated: {getLastUpdatedText()}
+            </LastUpdatedText>
+          </Box>
+          <RefreshButton
+            variant="outlined"
+            disabled={isRefreshing}
+            onClick={handleRefreshAll}
+            startIcon={isRefreshing ? <CircularProgress size={16} /> : <Refresh />}
+          >
+            {isRefreshing ? 'Updating...' : 'Refresh Data'}
+          </RefreshButton>
+        </HeaderActions>
+      </DashboardHeader>
+      
       <Box 
         sx={{ 
           display: 'flex', 
