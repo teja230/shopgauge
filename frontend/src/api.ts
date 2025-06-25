@@ -10,30 +10,6 @@ const defaultOptions: RequestInit = {
   },
 };
 
-export interface Insight {
-  conversionRate: number;
-  conversionRateDelta: number;
-  topSellingProducts: Array<{
-    title: string;
-    sales: number;
-    delta: number;
-  }>;
-  abandonedCartCount: number;
-  insightText: string;
-}
-
-export interface Competitor {
-  name: string;
-  website: string;
-  status: 'active' | 'inactive';
-  lastChecked: string;
-  metrics?: {
-    revenue?: number;
-    products?: number;
-    traffic?: number;
-  };
-}
-
 export const api = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true,
@@ -60,27 +36,6 @@ api.interceptors.response.use(
   }
 );
 
-// Simple function to handle global auth errors without notifications
-// Let AuthContext handle the user notifications
-const handleGlobalAuthError = () => {
-  // Check if we're in a Shopify OAuth flow - don't handle as session expired
-  const urlParams = new URLSearchParams(window.location.search);
-  const shopFromUrl = urlParams.get('shop');
-  
-  if (shopFromUrl) {
-    console.log('API: 401 during OAuth flow, not treating as session expired');
-    return;
-  }
-  
-  console.log('API: Handling global auth error - clearing cookies');
-  
-  // Clear auth cookies with proper domain
-  const isProduction = window.location.hostname.includes('shopgaugeai.com');
-  const domainAttribute = isProduction ? '; domain=.shopgaugeai.com' : '';
-  document.cookie = `shop=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT${domainAttribute};`;
-  document.cookie = `SESSION=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT${domainAttribute};`;
-};
-
 export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
   const fullUrl = `${API_BASE_URL}${url}`;
   console.log('API: Fetching:', fullUrl);
@@ -97,10 +52,9 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
     });
     console.log('API: Response status:', response.status, fullUrl);
     
-    // Handle 401 Unauthorized - just clear auth and throw error
+    // Handle 401 Unauthorized
     if (response.status === 401) {
       console.log('API: Unauthorized response detected');
-      handleGlobalAuthError();
       throw new Error('Authentication required');
     }
     
@@ -110,6 +64,30 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
     throw error;
   }
 };
+
+export interface Insight {
+  conversionRate: number;
+  conversionRateDelta: number;
+  topSellingProducts: Array<{
+    title: string;
+    sales: number;
+    delta: number;
+  }>;
+  abandonedCartCount: number;
+  insightText: string;
+}
+
+export interface Competitor {
+  name: string;
+  website: string;
+  status: 'active' | 'inactive';
+  lastChecked: string;
+  metrics?: {
+    revenue?: number;
+    products?: number;
+    traffic?: number;
+  };
+}
 
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {

@@ -32,119 +32,82 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
       HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
       throws ServletException, IOException {
 
-    // Skip auth for public endpoints
-    String path = request.getRequestURI();
-    if (path.startsWith("/api/auth/") || path.startsWith("/actuator/")) {
-      filterChain.doFilter(request, response);
-      return;
-    }
-
-    // Log all request details for debugging
-    logRequestDetails(request);
-
-    // Extract shop from cookie
-    String shopDomain = getShopFromCookie(request);
-
-    // If shop parameter is present in query string, use it as fallback
-    if (shopDomain == null) {
-      shopDomain = request.getParameter("shop");
-      if (shopDomain != null) {
-        logger.info("Found shop in query parameter: {}", shopDomain);
-
-        // Set a new cookie for future requests if we found the shop in the query parameter
-        // This helps with cross-domain cookie issues
-        Cookie shopCookie = new Cookie("shop", shopDomain);
-        shopCookie.setPath("/");
-        shopCookie.setHttpOnly(false);
-        shopCookie.setMaxAge(60 * 60 * 24 * 7); // 7 days
-        shopCookie.setSecure(true);
-        response.addCookie(shopCookie);
-
-        // Also set the SameSite attribute via header
-        // For same-site requests (both www and api on shopgaugeai.com), use Lax
-        response.addHeader(
-            "Set-Cookie",
-            String.format(
-                "shop=%s; Path=/; Max-Age=%d; Domain=shopgaugeai.com; SameSite=Lax; Secure",
-                shopDomain, 60 * 60 * 24 * 7));
-
-        logger.info("Set new shop cookie for subsequent requests: {}", shopDomain);
-      }
-    }
-
-    // Look for shop in the session as a last resort
-    if (shopDomain == null && request.getSession(false) != null) {
-      shopDomain = (String) request.getSession().getAttribute("shopDomain");
-      if (shopDomain != null) {
-        logger.info("Found shop in session attribute: {}", shopDomain);
-      }
-    }
-
-    if (shopDomain == null) {
-      // Check referer header for shop parameter as last resort
-      String referer = request.getHeader("referer");
-      if (referer != null && referer.contains("shop=")) {
-        int shopIndex = referer.indexOf("shop=");
-        String shopParam = referer.substring(shopIndex + 5);
-        if (shopParam.contains("&")) {
-          shopParam = shopParam.substring(0, shopParam.indexOf("&"));
-        }
-        shopDomain = shopParam;
-        logger.info("Extracted shop from referer URL: {}", shopDomain);
-      }
-    }
-
-    if (shopDomain == null) {
-      logger.warn("Authentication failed: No shop found in cookie, query parameter, or session");
-      unauthorized(response);
-      return;
-    }
-
-    logger.info("Found shop in request: {}", shopDomain);
-
-    // Get sessionId if available
-    String sessionId = request.getSession(false) != null ? request.getSession().getId() : null;
-
-    // If no session ID, try to create a fallback session identifier
-    if (sessionId == null) {
-      // Use a combination of shop and request characteristics as fallback
-      String userAgent = request.getHeader("User-Agent");
-      String remoteAddr = request.getRemoteAddr();
-      sessionId = "fallback_" + Math.abs((shopDomain + userAgent + remoteAddr).hashCode());
-      logger.info("Using fallback session ID for shop {}: {}", shopDomain, sessionId);
-    }
-
-    // Verify shop has a valid access token
-    String accessToken = shopService.getTokenForShop(shopDomain, sessionId);
-    if (accessToken == null) {
-      logger.warn("No access token found for shop: {} with session: {}", shopDomain, sessionId);
-
-      // Try without session ID as fallback
-      accessToken = shopService.getTokenForShop(shopDomain, null);
-      if (accessToken == null) {
-        logger.warn(
-            "No access token found for shop: {} (tried with and without session)", shopDomain);
-        unauthorized(response);
+    try {
+      // Skip auth for public endpoints
+      String path = request.getRequestURI();
+      if (path.startsWith("/api/auth/") || path.startsWith("/actuator/") || path.startsWith("/error")) {
+        filterChain.doFilter(request, response);
         return;
-      } else {
-        logger.info("Found access token for shop: {} without session ID", shopDomain);
       }
+
+      // Log request details for debugging (only in debug mode)
+      if (logger.isDebugEnabled()) {
+        logRequestDetails(request);
+      }
+
+      // Extract shop from cookie with fallback mechanisms
+      String shopDomain = getShopFromCookie(request);
+
+      // Fallback 1: Check query parameter
+      if (shopDomain == null) {
+        shopDomain = request.getParameter("shop");
+        if (shopDomain != null) {
+          logger.info("Found shop in query parameter: {}", shopDomain);
+          setShopCookie(response, shopDomain);
+        }
+      }
+
+      // Fallback 2: Check session
+      if (shopDomain == null) {
+        shopDomain = getShopFromSession(request);
+        if (shopDomain != null) {
+          logger.info("Found shop in session: {}", shopDomain);
+        }
+      }
+
+      // Fallback 3: Check Authorization header (for API clients)
+      if (shopDomain == null) {
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+          // Extract shop from JWT or custom token if needed
+          logger.debug("Authorization header present, checking for shop context");
+        }
+      }
+
+      if (shopDomain != null && !shopDomain.trim().isEmpty()) {
+        // Validate shop domain format
+        if (isValidShopDomain(shopDomain)) {
+                     // Verify shop exists in database
+           if (shopService.getTokenForShop(shopDomain, null) != null) {
+            // Set authentication context
+            UsernamePasswordAuthenticationToken authentication =
+                new UsernamePasswordAuthenticationToken(
+                    shopDomain, null, AuthorityUtils.createAuthorityList("ROLE_SHOP"));
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+            
+            logger.debug("Authentication set for shop: {}", shopDomain);
+          } else {
+            logger.warn("Shop not found in database: {}", shopDomain);
+            handleAuthenticationFailure(response, "Shop not found. Please re-authenticate.");
+            return;
+          }
+        } else {
+          logger.warn("Invalid shop domain format: {}", shopDomain);
+          handleAuthenticationFailure(response, "Invalid shop domain format.");
+          return;
+        }
+      } else {
+        logger.debug("No shop domain found in request: {}", path);
+        handleAuthenticationFailure(response, "Authentication required. Please connect your Shopify store.");
+        return;
+      }
+
+      filterChain.doFilter(request, response);
+      
+    } catch (Exception e) {
+      logger.error("Authentication filter error for path: {} - {}", request.getRequestURI(), e.getMessage(), e);
+      handleAuthenticationFailure(response, "Authentication error occurred. Please try again.");
     }
-
-    // Store shop in session for future requests as a fallback
-    if (request.getSession(false) != null) {
-      request.getSession().setAttribute("shopDomain", shopDomain);
-    }
-
-    // Authentication successful, set security context
-    var authentication =
-        new UsernamePasswordAuthenticationToken(
-            shopDomain, accessToken, AuthorityUtils.createAuthorityList("ROLE_SHOP"));
-    SecurityContextHolder.getContext().setAuthentication(authentication);
-    logger.info("Successfully authenticated shop: {}", shopDomain);
-
-    // Continue with the request
-    filterChain.doFilter(request, response);
   }
 
   private void logRequestDetails(HttpServletRequest request) {
@@ -205,9 +168,66 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
     return null;
   }
 
-  private void unauthorized(HttpServletResponse response) throws IOException {
+  private String getShopFromSession(HttpServletRequest request) {
+    try {
+      if (request.getSession(false) != null) {
+        return (String) request.getSession().getAttribute("shopDomain");
+      }
+    } catch (Exception e) {
+      logger.warn("Error accessing session: {}", e.getMessage());
+    }
+    return null;
+  }
+
+  private boolean isValidShopDomain(String shopDomain) {
+    if (shopDomain == null || shopDomain.trim().isEmpty()) {
+      return false;
+    }
+    
+    // Basic validation - should end with .myshopify.com or be a custom domain
+    String domain = shopDomain.toLowerCase().trim();
+    return domain.matches("^[a-zA-Z0-9][a-zA-Z0-9\\-]*[a-zA-Z0-9]*(\\.[a-zA-Z0-9][a-zA-Z0-9\\-]*[a-zA-Z0-9]*)*$") 
+           && domain.length() > 3 && domain.length() < 100;
+  }
+
+  private void setShopCookie(HttpServletResponse response, String shopDomain) {
+    try {
+      Cookie shopCookie = new Cookie("shop", shopDomain);
+      shopCookie.setPath("/");
+      shopCookie.setHttpOnly(false);
+      shopCookie.setMaxAge(60 * 60 * 24 * 7); // 7 days
+      shopCookie.setSecure(true);
+      response.addCookie(shopCookie);
+
+      // Set SameSite attribute via header for better browser compatibility
+      response.addHeader(
+          "Set-Cookie",
+          String.format(
+              "shop=%s; Path=/; Max-Age=%d; Domain=shopgaugeai.com; SameSite=Lax; Secure",
+              shopDomain, 60 * 60 * 24 * 7));
+
+      logger.info("Set shop cookie for: {}", shopDomain);
+    } catch (Exception e) {
+      logger.warn("Failed to set shop cookie: {}", e.getMessage());
+    }
+  }
+
+  private void handleAuthenticationFailure(HttpServletResponse response, String message) throws IOException {
     response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
     response.setContentType("application/json");
-    response.getWriter().write("{\"error\":\"Authentication required\"}");
+    response.setCharacterEncoding("UTF-8");
+    
+    // Add CORS headers for error responses
+    response.setHeader("Access-Control-Allow-Origin", "https://www.shopgaugeai.com");
+    response.setHeader("Access-Control-Allow-Credentials", "true");
+    response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    response.setHeader("Access-Control-Allow-Headers", "*");
+    
+    String jsonResponse = String.format(
+        "{\"error\":\"Authentication required\",\"message\":\"%s\",\"timestamp\":%d}", 
+        message, System.currentTimeMillis());
+    
+    response.getWriter().write(jsonResponse);
+    response.getWriter().flush();
   }
 }

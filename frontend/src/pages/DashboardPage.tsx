@@ -10,17 +10,20 @@ import { styled } from '@mui/material/styles';
 import { OpenInNew, Refresh, Storefront, ListAlt, Inventory2 } from '@mui/icons-material';
 import { format } from 'date-fns';
 
-// Cache configuration
+// Cache configuration - Enterprise-grade settings
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
-const CACHE_KEY = 'dashboard_cache';
+const CACHE_KEY = 'dashboard_cache_v2'; // Version to force cache refresh if needed
+const CACHE_VERSION = '1.0.0';
 
 interface CacheEntry<T> {
   data: T;
   timestamp: number;
   lastUpdated: Date;
+  version: string;
 }
 
 interface DashboardCache {
+  version?: string;
   revenue?: CacheEntry<{ totalRevenue: number; timeseries: any[] }>;
   products?: CacheEntry<{ products: any[] }>;
   inventory?: CacheEntry<{ lowInventory: number }>;
@@ -30,32 +33,62 @@ interface DashboardCache {
   insights?: CacheEntry<{ conversionRate?: number; conversionRateDelta?: number }>;
 }
 
-// Helper functions for sessionStorage cache management
+// Enterprise-grade cache management with versioning and validation
 const loadCacheFromStorage = (): DashboardCache => {
   try {
     const stored = sessionStorage.getItem(CACHE_KEY);
     if (stored) {
       const parsed = JSON.parse(stored);
+      
+      // Version check - invalidate if version mismatch
+      if (parsed.version !== CACHE_VERSION) {
+        console.log('Cache version mismatch, clearing cache');
+        sessionStorage.removeItem(CACHE_KEY);
+        return { version: CACHE_VERSION };
+      }
+      
       // Convert date strings back to Date objects
       Object.keys(parsed).forEach(key => {
         if (parsed[key]?.lastUpdated) {
           parsed[key].lastUpdated = new Date(parsed[key].lastUpdated);
         }
       });
+      
+      console.log('Loaded cache from storage with', Object.keys(parsed).length - 1, 'entries');
       return parsed;
     }
   } catch (error) {
     console.warn('Failed to load cache from storage:', error);
+    sessionStorage.removeItem(CACHE_KEY); // Clear corrupted cache
   }
-  return {};
+  return { version: CACHE_VERSION };
 };
 
 const saveCacheToStorage = (cache: DashboardCache) => {
   try {
+    // Ensure version is set
+    cache.version = CACHE_VERSION;
     sessionStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+    console.log('Saved cache to storage with', Object.keys(cache).length - 1, 'entries');
   } catch (error) {
     console.warn('Failed to save cache to storage:', error);
+    // If storage is full, try to clear old cache and retry
+    try {
+      sessionStorage.clear();
+      cache.version = CACHE_VERSION;
+      sessionStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+      console.log('Cleared storage and saved cache successfully');
+    } catch (retryError) {
+      console.error('Failed to save cache even after clearing storage:', retryError);
+    }
   }
+};
+
+// Cache invalidation helper - clears both memory and storage
+const invalidateCache = () => {
+  console.log('Invalidating all cache');
+  sessionStorage.removeItem(CACHE_KEY);
+  return { version: CACHE_VERSION };
 };
 
 // Modern, elegant, and professional dashboard UI improvements
@@ -594,7 +627,10 @@ const DashboardPage = () => {
     fetchFunction: () => Promise<any>,
     forceRefresh = false
   ): Promise<any> => {
-    const cachedEntry = cache[cacheKey];
+    // Skip version key
+    if (cacheKey === 'version') return null;
+    
+    const cachedEntry = cache[cacheKey] as CacheEntry<any> | undefined;
     
     if (!forceRefresh && isCacheFresh(cachedEntry)) {
       console.log(`Using cached data for ${cacheKey}`);
@@ -610,7 +646,8 @@ const DashboardPage = () => {
       [cacheKey]: {
         data: freshData,
         timestamp: Date.now(),
-        lastUpdated: now
+        lastUpdated: now,
+        version: CACHE_VERSION
       }
     }));
     
@@ -622,9 +659,9 @@ const DashboardPage = () => {
 
   // Get the most recent update time across all cache entries
   const getMostRecentUpdateTime = useCallback((): Date | null => {
-    const updateTimes = Object.values(cache)
-      .filter(entry => entry?.lastUpdated)
-      .map(entry => entry!.lastUpdated);
+    const updateTimes = Object.entries(cache)
+      .filter(([key, entry]) => key !== 'version' && entry?.lastUpdated)
+      .map(([, entry]) => (entry as CacheEntry<any>).lastUpdated);
     
     if (updateTimes.length === 0) return null;
     
@@ -1196,8 +1233,8 @@ const DashboardPage = () => {
     setIsRefreshing(true);
     try {
       // Clear cache from both state and sessionStorage to force fresh data
-      setCache({});
-      sessionStorage.removeItem(CACHE_KEY);
+      const freshCache = invalidateCache();
+      setCache(freshCache);
       
       // Set all cards to loading state
       setCardLoading({
