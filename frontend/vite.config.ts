@@ -1,9 +1,39 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { readFileSync } from 'fs'
+import { resolve } from 'path'
+
+// Custom plugin to simulate _redirects behavior in development
+const redirectsPlugin = () => {
+  return {
+    name: 'redirects-dev',
+    configureServer(server: any) {
+      server.middlewares.use((req: any, res: any, next: any) => {
+        const url = req.url || '';
+        
+        // Routes that should serve loading.html (simulating _redirects file)
+        const loadingRoutes = ['/dashboard', '/competitors', '/admin', '/profile', '/privacy-policy', '/test-loading'];
+        
+        if (loadingRoutes.includes(url)) {
+          try {
+            const loadingHtml = readFileSync(resolve(__dirname, 'public/loading.html'), 'utf-8');
+            res.setHeader('Content-Type', 'text/html');
+            res.end(loadingHtml);
+            return;
+          } catch (err) {
+            console.error('Error serving loading.html:', err);
+          }
+        }
+        
+        next();
+      });
+    },
+  };
+};
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), redirectsPlugin()],
   build: {
     // Reduce bundle size
     minify: 'terser',
