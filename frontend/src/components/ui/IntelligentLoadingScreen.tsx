@@ -39,21 +39,22 @@ const sparkle = keyframes`
   50% { opacity: 1; transform: scale(1); }
 `;
 
-// Styled components
+// Styled components - Updated to match site theme
 const LoadingContainer = styled(Box)(({ theme }) => ({
   minHeight: '100vh',
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
   justifyContent: 'center',
-  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+  backgroundColor: theme.palette.background.default,
+  background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
   color: 'white',
   position: 'relative',
   overflow: 'hidden',
-  fontFamily: '"Inter", "Helvetica", "Arial", sans-serif',
+  fontFamily: theme.typography.fontFamily,
 }));
 
-const BackgroundShapes = styled(Box)({
+const BackgroundShapes = styled(Box)(({ theme }) => ({
   position: 'absolute',
   top: 0,
   left: 0,
@@ -63,7 +64,7 @@ const BackgroundShapes = styled(Box)({
   zIndex: 0,
   '& .shape': {
     position: 'absolute',
-    background: 'rgba(255, 255, 255, 0.1)',
+    background: 'rgba(255, 255, 255, 0.08)',
     borderRadius: '50%',
     animation: `${float} 6s ease-in-out infinite`,
     '&:nth-of-type(1)': {
@@ -88,54 +89,69 @@ const BackgroundShapes = styled(Box)({
       animationDelay: '4s',
     },
   },
-});
+}));
 
-const ContentContainer = styled(Box)({
+const ContentContainer = styled(Box)(({ theme }) => ({
   position: 'relative',
   zIndex: 1,
   textAlign: 'center',
   maxWidth: '600px',
-  padding: '2rem',
-});
+  padding: theme.spacing(4),
+  [theme.breakpoints.down('sm')]: {
+    padding: theme.spacing(2),
+  },
+}));
 
-const Logo = styled(Typography)({
+const Logo = styled(Typography)(({ theme }) => ({
   fontSize: '3rem',
   fontWeight: 700,
-  marginBottom: '2rem',
+  marginBottom: theme.spacing(3),
   animation: `${slideUp} 0.8s ease-out 0.2s both`,
-  background: 'linear-gradient(45deg, #ffffff, #e0e7ff)',
+  background: 'linear-gradient(45deg, #ffffff, rgba(255, 255, 255, 0.8))',
   WebkitBackgroundClip: 'text',
   WebkitTextFillColor: 'transparent',
   backgroundClip: 'text',
-});
+  [theme.breakpoints.down('sm')]: {
+    fontSize: '2.5rem',
+  },
+}));
 
-const LoadingIcon = styled(Box)({
+const LoadingIcon = styled(Box)(({ theme }) => ({
   fontSize: '4rem',
-  marginBottom: '2rem',
+  marginBottom: theme.spacing(3),
   animation: `${slideUp} 0.8s ease-out 0.4s both, ${pulse} 2s ease-in-out infinite`,
-});
+  [theme.breakpoints.down('sm')]: {
+    fontSize: '3rem',
+  },
+}));
 
-const Title = styled(Typography)({
+const Title = styled(Typography)(({ theme }) => ({
   fontSize: '2rem',
   fontWeight: 600,
-  marginBottom: '1rem',
+  marginBottom: theme.spacing(2),
   animation: `${slideUp} 0.8s ease-out 0.6s both`,
-});
+  [theme.breakpoints.down('sm')]: {
+    fontSize: '1.5rem',
+  },
+}));
 
-const Description = styled(Typography)({
+const Description = styled(Typography)(({ theme }) => ({
   fontSize: '1.1rem',
-  marginBottom: '3rem',
+  marginBottom: theme.spacing(4),
   opacity: 0.9,
   animation: `${slideUp} 0.8s ease-out 0.8s both`,
-});
+  [theme.breakpoints.down('sm')]: {
+    fontSize: '1rem',
+  },
+}));
 
-const AnalyticsContainer = styled(Box)({
+const AnalyticsContainer = styled(Box)(({ theme }) => ({
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
-  gap: '2rem',
+  gap: theme.spacing(3),
   animation: `${slideUp} 0.8s ease-out 1s both`,
-});
+}));
 
 const ChartContainer = styled(Box)({
   display: 'flex',
@@ -145,58 +161,59 @@ const ChartContainer = styled(Box)({
   marginBottom: '1rem',
 });
 
-const ChartBar = styled(Box)<{ height: number; delay: number }>(({ height, delay }) => ({
+const ChartBar = styled(Box)<{ height: number; delay: number }>(({ height, delay, theme }) => ({
   width: '12px',
-  backgroundColor: 'rgba(255, 255, 255, 0.8)',
-  borderRadius: '6px 6px 0 0',
+  backgroundColor: 'rgba(255, 255, 255, 0.9)',
+  borderRadius: theme.shape.borderRadius,
   '--target-height': `${height}%`,
   animation: `${chartGrow} 1s ease-out ${delay}s both`,
 }));
 
-const DataPoints = styled(Box)({
+const DataPoints = styled(Box)(({ theme }) => ({
   display: 'flex',
-  gap: '1rem',
+  gap: theme.spacing(2),
   justifyContent: 'center',
   flexWrap: 'wrap',
-});
-
-const DataPoint = styled(Box)<{ delay: number }>(({ delay }) => ({
-  fontSize: '1.5rem',
-  padding: '0.5rem',
-  borderRadius: '50%',
-  backgroundColor: 'rgba(255, 255, 255, 0.2)',
-  animation: `${sparkle} 2s ease-in-out ${delay}s infinite`,
 }));
 
-const ProgressContainer = styled(Box)({
+const DataPoint = styled(Box)<{ delay: number }>(({ delay, theme }) => ({
+  fontSize: '1.5rem',
+  padding: theme.spacing(1),
+  borderRadius: '50%',
+  backgroundColor: 'rgba(255, 255, 255, 0.15)',
+  animation: `${sparkle} 2s ease-in-out ${delay}s infinite`,
+  border: '1px solid rgba(255, 255, 255, 0.2)',
+}));
+
+const ProgressContainer = styled(Box)(({ theme }) => ({
   width: '100%',
-  maxWidth: '300px',
-  marginTop: '2rem',
-});
+  maxWidth: '400px',
+  marginTop: theme.spacing(3),
+}));
 
-const LoadingText = styled(Typography)({
+const LoadingText = styled(Typography)(({ theme }) => ({
   fontSize: '0.9rem',
-  opacity: 0.8,
-  marginBottom: '0.5rem',
-  animation: `${dataFlow} 3s ease-in-out infinite`,
-});
+  opacity: 0.9,
+  marginBottom: theme.spacing(1),
+  fontWeight: 500,
+}));
 
-const SpinnerContainer = styled(Box)({
+const SpinnerContainer = styled(Box)(({ theme }) => ({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  gap: '1rem',
-  marginTop: '1rem',
-});
+  gap: theme.spacing(2),
+  marginTop: theme.spacing(2),
+}));
 
-const Spinner = styled(Box)({
+const Spinner = styled(Box)(({ theme }) => ({
   width: '24px',
   height: '24px',
-  border: '3px solid rgba(255, 255, 255, 0.3)',
+  border: '3px solid rgba(255, 255, 255, 0.2)',
   borderTop: '3px solid white',
   borderRadius: '50%',
   animation: `${rotate} 1s linear infinite`,
-});
+}));
 
 interface IntelligentLoadingScreenProps {
   message?: string;
@@ -293,18 +310,19 @@ const IntelligentLoadingScreen: React.FC<IntelligentLoadingScreenProps> = ({
             variant="determinate" 
             value={currentProgress}
             sx={{
-              height: 6,
-              borderRadius: 3,
-              backgroundColor: 'rgba(255, 255, 255, 0.3)',
+              height: 8,
+              borderRadius: 4,
+              backgroundColor: 'rgba(255, 255, 255, 0.2)',
               '& .MuiLinearProgress-bar': {
-                borderRadius: 3,
-                background: 'linear-gradient(90deg, #ffffff, #e0e7ff)',
+                borderRadius: 4,
+                backgroundColor: 'white',
+                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
               },
             }}
           />
           <SpinnerContainer>
             <Spinner />
-            <Typography variant="caption" sx={{ opacity: 0.7 }}>
+            <Typography variant="body2" sx={{ opacity: 0.9, fontWeight: 500 }}>
               {Math.round(currentProgress)}%
             </Typography>
           </SpinnerContainer>

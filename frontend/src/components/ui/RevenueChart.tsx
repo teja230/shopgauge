@@ -537,12 +537,34 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
             onChange={(_, newType) => newType && setChartType(newType)}
             size="small"
             sx={{
+              backgroundColor: 'white',
+              border: '1px solid rgba(0, 0, 0, 0.1)',
+              borderRadius: 2,
+              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)',
               '& .MuiToggleButton-root': {
-                px: 2,
+                px: 1.5,
                 py: 1,
                 fontSize: '0.75rem',
                 textTransform: 'none',
                 fontWeight: 500,
+                border: 'none',
+                borderRadius: 1.5,
+                margin: 0.25,
+                minWidth: 'auto',
+                color: 'text.secondary',
+                backgroundColor: 'transparent',
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  backgroundColor: 'rgba(37, 99, 235, 0.08)',
+                  color: 'primary.main',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'primary.main',
+                  color: 'white',
+                  '&:hover': {
+                    backgroundColor: 'primary.dark',
+                  },
+                },
               },
             }}
           >
@@ -554,13 +576,15 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
-                  gap: 0.5,
+                  gap: 0.25,
                   minWidth: 'auto',
                 }}
                 title={chartTypeConfig[type].description}
               >
-                {chartTypeConfig[type].icon}
-                <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>
+                {React.cloneElement(chartTypeConfig[type].icon, { 
+                  sx: { fontSize: '1rem' } 
+                })}
+                <Typography variant="caption" sx={{ fontSize: '0.65rem', lineHeight: 1 }}>
                   {chartTypeConfig[type].label}
                 </Typography>
               </ToggleButton>
