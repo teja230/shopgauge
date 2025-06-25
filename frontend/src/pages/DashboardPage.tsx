@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Box, Typography, Grid, Card, CardContent, Alert, CircularProgress, Link as MuiLink, IconButton, Button } from '@mui/material';
 import { RevenueChart } from '../components/ui/RevenueChart';
 import { MetricCard } from '../components/ui/MetricCard';
@@ -697,12 +697,43 @@ const DashboardPage = () => {
   }, [getMostRecentUpdateTime]);
 
   // Handle URL parameters from OAuth callback and Profile page redirects
+  // Track if we've already shown the notification for this session
+  const notificationShownRef = useRef<Set<string>>(new Set());
+  
+  // Cleanup notification tracking when component unmounts
+  useEffect(() => {
+    return () => {
+      notificationShownRef.current.clear();
+    };
+  }, []);
+
+  // Helper function to mark notification as shown and manage memory
+  const markNotificationShown = useCallback((key: string) => {
+    notificationShownRef.current.add(key);
+    
+    // Limit the size of tracking set to prevent memory issues
+    if (notificationShownRef.current.size > 50) {
+      const entries = Array.from(notificationShownRef.current);
+      notificationShownRef.current.clear();
+      // Keep only the most recent 25 entries
+      entries.slice(-25).forEach(entry => notificationShownRef.current.add(entry));
+    }
+  }, []);
+
   useEffect(() => {
     // Check for success notifications from URL params
     const searchParams = new URLSearchParams(location.search);
     const reauth = searchParams.get('reauth');
     const connected = searchParams.get('connected');
     const reconnected = searchParams.get('reconnected');
+
+    // Create a unique key for this notification to prevent duplicates
+    const notificationKey = `${reauth}-${connected}-${reconnected}-${location.search}`;
+    
+    // Only show notification if we haven't shown it for this specific case
+    if (notificationShownRef.current.has(notificationKey)) {
+      return;
+    }
 
     // Handle success notifications from Profile page redirects
     if (reauth === 'success') {
@@ -718,6 +749,9 @@ const DashboardPage = () => {
       sessionStorage.removeItem('dashboard_cache_v1.1');
       sessionStorage.removeItem('dashboard_cache_v2');
       setCache(invalidateCache());
+      
+      // Mark this notification as shown
+      markNotificationShown(notificationKey);
       
       // Clean up URL params
       const cleanUrl = window.location.pathname;
@@ -736,6 +770,9 @@ const DashboardPage = () => {
       sessionStorage.removeItem('dashboard_cache_v2');
       setCache(invalidateCache());
       
+      // Mark this notification as shown
+      markNotificationShown(notificationKey);
+      
       // Clean up URL params
       const cleanUrl = window.location.pathname;
       window.history.replaceState({}, document.title, cleanUrl);
@@ -749,11 +786,14 @@ const DashboardPage = () => {
       sessionStorage.removeItem('dashboard_cache_v2');
       setCache(invalidateCache());
       
+      // Mark this notification as shown
+      markNotificationShown(notificationKey);
+      
       // Clean up URL params
       const cleanUrl = window.location.pathname;
       window.history.replaceState({}, document.title, cleanUrl);
     }
-  }, [location.search, navigate, setShop, notifications]);
+  }, [location.search, navigate]);
 
   // Retry logic with exponential backoff
   const retryWithBackoff = useCallback(async (apiCall: () => Promise<any>, maxRetries = 3) => {

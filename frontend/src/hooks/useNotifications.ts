@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, useEffect } from 'react';
+import { useCallback, useRef, useState, useEffect, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import { fetchWithAuth } from '../api';
 
@@ -459,7 +459,7 @@ export const useNotifications = () => {
     }
   }, []);
 
-  return {
+  return useMemo(() => ({
     // State
     notifications,
     unreadCount,
@@ -490,5 +490,27 @@ export const useNotifications = () => {
     showStoreError,
     showStoreWarning,
     showStoreInfo,
-  };
+  }), [
+    notifications,
+    unreadCount,
+    loading,
+    error,
+    addNotification,
+    showSuccess,
+    showError,
+    showWarning,
+    showInfo,
+    showSessionExpired,
+    showConnectionError,
+    fetchNotifications,
+    markAsRead,
+    markAllAsRead,
+    deleteNotification,
+    clearAll,
+    cleanup,
+    showStoreSuccess,
+    showStoreError,
+    showStoreWarning,
+    showStoreInfo,
+  ]);
 }; 
