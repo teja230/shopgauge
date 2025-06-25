@@ -119,11 +119,34 @@ public class AdminController {
     try {
       List<AuditLog> auditLogs = dataPrivacyService.getAuditLogsFromDeletedShops(page, size);
 
+      // Map audit logs to include shop domain information
+      List<Map<String, Object>> mappedLogs =
+          auditLogs.stream()
+              .map(
+                  log -> {
+                    Map<String, Object> logMap = new HashMap<>();
+                    logMap.put("id", log.getId());
+                    logMap.put("shopId", log.getShopId());
+                    logMap.put("action", log.getAction());
+                    logMap.put("details", log.getDetails());
+                    logMap.put("userAgent", log.getUserAgent());
+                    logMap.put("ipAddress", log.getIpAddress());
+                    logMap.put("createdAt", log.getCreatedAt());
+                    logMap.put("timestamp", log.getCreatedAt()); // For frontend compatibility
+
+                    // Extract shop domain from the log
+                    String shopDomain = dataPrivacyService.getShopDomainFromLog(log);
+                    logMap.put("shopDomain", shopDomain);
+
+                    return logMap;
+                  })
+              .collect(java.util.stream.Collectors.toList());
+
       Map<String, Object> response = new HashMap<>();
-      response.put("audit_logs", auditLogs);
+      response.put("audit_logs", mappedLogs);
       response.put("page", page);
       response.put("size", size);
-      response.put("total_count", auditLogs.size());
+      response.put("total_count", mappedLogs.size());
       response.put("note", "These are audit logs from shops that have been deleted");
 
       return ResponseEntity.ok(response);
@@ -144,11 +167,34 @@ public class AdminController {
     try {
       List<AuditLog> auditLogs = dataPrivacyService.getAllAuditLogs(page, size);
 
+      // Map audit logs to include shop domain information
+      List<Map<String, Object>> mappedLogs =
+          auditLogs.stream()
+              .map(
+                  log -> {
+                    Map<String, Object> logMap = new HashMap<>();
+                    logMap.put("id", log.getId());
+                    logMap.put("shopId", log.getShopId());
+                    logMap.put("action", log.getAction());
+                    logMap.put("details", log.getDetails());
+                    logMap.put("userAgent", log.getUserAgent());
+                    logMap.put("ipAddress", log.getIpAddress());
+                    logMap.put("createdAt", log.getCreatedAt());
+                    logMap.put("timestamp", log.getCreatedAt()); // For frontend compatibility
+
+                    // Extract shop domain from the log
+                    String shopDomain = dataPrivacyService.getShopDomainFromLog(log);
+                    logMap.put("shopDomain", shopDomain);
+
+                    return logMap;
+                  })
+              .collect(java.util.stream.Collectors.toList());
+
       Map<String, Object> response = new HashMap<>();
-      response.put("audit_logs", auditLogs);
+      response.put("audit_logs", mappedLogs);
       response.put("page", page);
       response.put("size", size);
-      response.put("total_count", auditLogs.size());
+      response.put("total_count", mappedLogs.size());
       response.put("note", "All audit logs including those from deleted shops");
 
       return ResponseEntity.ok(response);
@@ -191,6 +237,55 @@ public class AdminController {
     } catch (Exception e) {
       return ResponseEntity.status(500)
           .body(Map.of("error", "Failed to retrieve deleted shops", "message", e.getMessage()));
+    }
+  }
+
+  @GetMapping("/audit-logs/active-shops")
+  public ResponseEntity<Map<String, Object>> getAuditLogsFromActiveShops(
+      @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "50") int size) {
+    try {
+      // Get all audit logs that have shop IDs (not null = active shops)
+      List<AuditLog> auditLogs = dataPrivacyService.getAuditLogsFromActiveShops(page, size);
+
+      // Map audit logs to include shop domain information
+      List<Map<String, Object>> mappedLogs =
+          auditLogs.stream()
+              .map(
+                  log -> {
+                    Map<String, Object> logMap = new HashMap<>();
+                    logMap.put("id", log.getId());
+                    logMap.put("shopId", log.getShopId());
+                    logMap.put("action", log.getAction());
+                    logMap.put("details", log.getDetails());
+                    logMap.put("userAgent", log.getUserAgent());
+                    logMap.put("ipAddress", log.getIpAddress());
+                    logMap.put("createdAt", log.getCreatedAt());
+                    logMap.put("timestamp", log.getCreatedAt()); // For frontend compatibility
+
+                    // Extract shop domain from the log
+                    String shopDomain = dataPrivacyService.getShopDomainFromLog(log);
+                    logMap.put("shopDomain", shopDomain);
+
+                    return logMap;
+                  })
+              .collect(java.util.stream.Collectors.toList());
+
+      Map<String, Object> response = new HashMap<>();
+      response.put("audit_logs", mappedLogs);
+      response.put("page", page);
+      response.put("size", size);
+      response.put("total_count", mappedLogs.size());
+      response.put("note", "These are audit logs from active shops (shops that still exist)");
+
+      return ResponseEntity.ok(response);
+    } catch (Exception e) {
+      return ResponseEntity.status(500)
+          .body(
+              Map.of(
+                  "error",
+                  "Failed to retrieve audit logs from active shops",
+                  "message",
+                  e.getMessage()));
     }
   }
 }

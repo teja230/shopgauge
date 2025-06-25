@@ -179,21 +179,61 @@ public class DataPrivacyService {
       }
 
       if (shopIdLong != null) {
-        long todayLogs = auditLogRepository.countByShopIdAndAction(shopIdLong, "DATA_ACCESS");
-        report.put("audit_logs_today", todayLogs);
+        // Count today's data access logs (all data-related actions)
+        LocalDateTime startOfToday =
+            LocalDateTime.now().withHour(0).withMinute(0).withSecond(0).withNano(0);
+        LocalDateTime endOfToday = startOfToday.plusDays(1);
+        List<AuditLog> todayLogs =
+            auditLogRepository.findByShopIdAndCreatedAtBetweenOrderByCreatedAtDesc(
+                shopIdLong, startOfToday, endOfToday);
 
-        // Get recent audit activity
+        // Filter for data access related actions
+        long dataAccessCount =
+            todayLogs.stream().filter(log -> isDataAccessAction(log.getAction())).count();
+        report.put("audit_logs_today", dataAccessCount);
+
+        // Get recent audit activity (last 30 days)
         LocalDateTime thirtyDaysAgo = LocalDateTime.now().minusDays(30);
         List<AuditLog> recentLogs = auditLogRepository.findRecentByShop(shopIdLong, thirtyDaysAgo);
-        report.put("recent_audit_activity", recentLogs.size());
+
+        // Filter for data access related actions
+        long recentDataAccessCount =
+            recentLogs.stream().filter(log -> isDataAccessAction(log.getAction())).count();
+        report.put("recent_audit_activity", recentDataAccessCount);
+
+        // Add detailed audit statistics for weekly breakdown
+        try {
+          LocalDateTime sevenDaysAgo = LocalDateTime.now().minusDays(7);
+          List<AuditLog> weeklyLogs =
+              auditLogRepository.findByShopIdAndCreatedAtBetweenOrderByCreatedAtDesc(
+                  shopIdLong, sevenDaysAgo, LocalDateTime.now());
+
+          Map<String, Long> actionBreakdown =
+              weeklyLogs.stream()
+                  .filter(log -> isDataAccessAction(log.getAction()))
+                  .collect(
+                      java.util.stream.Collectors.groupingBy(
+                          AuditLog::getAction, java.util.stream.Collectors.counting()));
+
+          report.put("weekly_action_breakdown", actionBreakdown);
+          report.put(
+              "total_weekly_access_events",
+              actionBreakdown.values().stream().mapToLong(Long::longValue).sum());
+        } catch (Exception e) {
+          logger.warn("Error generating detailed audit statistics: {}", e.getMessage());
+        }
       } else {
         report.put("audit_logs_today", 0);
         report.put("recent_audit_activity", 0);
+        report.put("weekly_action_breakdown", new java.util.HashMap<>());
+        report.put("total_weekly_access_events", 0);
       }
     } catch (Exception e) {
       logger.error("Error generating audit statistics: {}", e.getMessage());
       report.put("audit_logs_today", "Error retrieving data");
       report.put("recent_audit_activity", "Error retrieving data");
+      report.put("weekly_action_breakdown", new java.util.HashMap<>());
+      report.put("total_weekly_access_events", 0);
     }
 
     report.put("compliance_status", "✅ COMPLIANT");
@@ -238,6 +278,24 @@ public class DataPrivacyService {
     }
   }
 
+  /** Check if an audit log action is related to data access */
+  private boolean isDataAccessAction(String action) {
+    if (action == null) {
+      return false;
+    }
+
+    // Define data access related actions
+    return action.contains("DATA_REQUEST")
+        || action.contains("DATA_ACCESS")
+        || action.contains("REVENUE_DATA")
+        || action.contains("ORDER_DATA")
+        || action.contains("STORE_STATS")
+        || action.contains("DATA_EXPORT")
+        || action.contains("ANALYTICS")
+        || action.equals("DATA_MINIMIZED")
+        || action.equals("ORDER_DATA_MINIMIZED");
+  }
+
   /** Get audit logs for a shop with pagination */
   public List<AuditLog> getAuditLogsForShop(String shopDomain, int page, int size) {
     try {
@@ -264,6 +322,19 @@ public class DataPrivacyService {
           .getContent();
     } catch (Exception e) {
       logger.error("Error retrieving audit logs from deleted shops: {}", e.getMessage());
+      return Collections.emptyList();
+    }
+  }
+
+  /** Get audit logs from active shops (where shop_id is not null) for administrative purposes */
+  public List<AuditLog> getAuditLogsFromActiveShops(int page, int size) {
+    try {
+      return auditLogRepository
+          .findByShopIdIsNotNullOrderByCreatedAtDesc(
+              org.springframework.data.domain.PageRequest.of(page, size))
+          .getContent();
+    } catch (Exception e) {
+      logger.error("Error retrieving audit logs from active shops: {}", e.getMessage());
       return Collections.emptyList();
     }
   }
@@ -361,7 +432,7 @@ public class DataPrivacyService {
   }
 
   /** Get shop domain from audit log - either from shop ID or extract from details */
-  private String getShopDomainFromLog(AuditLog log) {
+  public String getShopDomainFromLog(AuditLog log) {
     try {
       if (log.getShopId() != null) {
         Optional<Shop> shop = shopRepository.findById(log.getShopId());

@@ -65,6 +65,9 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
   /** Find audit logs from deleted shops (where shop_id is null) with pagination */
   Page<AuditLog> findByShopIdIsNullOrderByCreatedAtDesc(Pageable pageable);
 
+  /** Find audit logs from active shops (where shop_id is not null) with pagination */
+  Page<AuditLog> findByShopIdIsNotNullOrderByCreatedAtDesc(Pageable pageable);
+
   /** Find all audit logs ordered by creation date */
   Page<AuditLog> findAllByOrderByCreatedAtDesc(Pageable pageable);
 

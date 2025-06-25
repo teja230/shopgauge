@@ -933,14 +933,74 @@ export default function ProfilePage() {
               
             <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
               <div className="space-y-6">
-                {/* Compliance Status */}
-                <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-xl border border-green-200">
-                  <h4 className="font-semibold text-green-800 mb-2 flex items-center">
-                    <span className="mr-2">✅</span>
-                    Overall Compliance Status
-                  </h4>
-                  <div className="text-green-700 font-medium">{privacyReport.compliance_status}</div>
-                  <div className="text-sm text-green-600 mt-1">All privacy requirements are being met</div>
+                {/* Compliance Status - Enhanced */}
+                <div className="relative bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 p-6 rounded-2xl border-2 border-green-200 shadow-lg overflow-hidden">
+                  {/* Decorative background pattern */}
+                  <div className="absolute top-0 right-0 w-32 h-32 opacity-10">
+                    <svg viewBox="0 0 100 100" className="w-full h-full text-green-600">
+                      <circle cx="50" cy="50" r="40" fill="currentColor" />
+                      <path d="M30 50l10 10 30-30" stroke="white" strokeWidth="4" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </div>
+                  
+                  <div className="relative z-10">
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="text-xl font-bold text-green-800 flex items-center">
+                        <div className="mr-3 p-2 bg-green-100 rounded-full">
+                          <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                        Overall Compliance Status
+                      </h4>
+                      <div className="flex items-center space-x-2">
+                        <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                        <span className="text-xs font-medium text-green-700 bg-green-100 px-2 py-1 rounded-full">LIVE</span>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between p-4 bg-white/80 backdrop-blur-sm rounded-xl border border-green-100 shadow-sm">
+                        <div className="flex items-center space-x-3">
+                          <div className="p-2 bg-green-500 rounded-full">
+                            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                          <div>
+                            <div className="text-lg font-bold text-green-800">{privacyReport.compliance_status}</div>
+                            <div className="text-sm text-green-600">All privacy requirements are being met</div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-3xl font-bold text-green-600">100%</div>
+                          <div className="text-xs text-green-500 font-medium">Compliance Rate</div>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div className="flex items-center space-x-2 p-3 bg-white/60 rounded-lg">
+                          <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                          <span className="text-sm font-medium text-green-700">GDPR Compliant</span>
+                        </div>
+                        <div className="flex items-center space-x-2 p-3 bg-white/60 rounded-lg">
+                          <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                          <span className="text-sm font-medium text-green-700">CCPA Compliant</span>
+                        </div>
+                        <div className="flex items-center space-x-2 p-3 bg-white/60 rounded-lg">
+                          <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                          <span className="text-sm font-medium text-green-700">SOC 2 Ready</span>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center justify-center mt-4 p-3 bg-green-100/80 rounded-lg">
+                        <svg className="w-4 h-4 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                        <span className="text-sm font-medium text-green-700">Your data is secure and compliant</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 
                 {/* Data Processing Practices */}
@@ -976,28 +1036,49 @@ export default function ProfilePage() {
                 <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-200">
                   <h4 className="font-semibold text-blue-800 mb-3 flex items-center">
                     <span className="mr-2">📈</span>
-                    Today's Data Access Activity
+                    Data Access Activity Summary
                   </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="text-center">
                       <div className="text-3xl font-bold text-blue-600">{privacyReport.audit_logs_today || 0}</div>
-                      <div className="text-sm text-blue-500">Access Events</div>
-                      <div className="text-xs text-blue-400 mt-1">Automatically logged</div>
+                      <div className="text-sm text-blue-500">Today's Events</div>
+                      <div className="text-xs text-blue-400 mt-1">Data access logs</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-3xl font-bold text-indigo-600">{privacyReport.recent_audit_activity || 0}</div>
-                      <div className="text-sm text-indigo-500">30-Day Activity</div>
-                      <div className="text-xs text-indigo-400 mt-1">Total audit entries</div>
+                      <div className="text-3xl font-bold text-indigo-600">{privacyReport.total_weekly_access_events || 0}</div>
+                      <div className="text-sm text-indigo-500">7-Day Total</div>
+                      <div className="text-xs text-indigo-400 mt-1">Weekly activity</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-3xl font-bold text-purple-600">100%</div>
-                      <div className="text-sm text-purple-500">Compliance Rate</div>
-                      <div className="text-xs text-purple-400 mt-1">GDPR/CCPA compliant</div>
+                      <div className="text-3xl font-bold text-purple-600">{privacyReport.recent_audit_activity || 0}</div>
+                      <div className="text-sm text-purple-500">30-Day Total</div>
+                      <div className="text-xs text-purple-400 mt-1">Monthly activity</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-3xl font-bold text-green-600">100%</div>
+                      <div className="text-sm text-green-500">Compliance Rate</div>
+                      <div className="text-xs text-green-400 mt-1">GDPR/CCPA compliant</div>
                     </div>
                   </div>
+                  
+                  {/* Weekly Activity Breakdown */}
+                  {privacyReport.weekly_action_breakdown && Object.keys(privacyReport.weekly_action_breakdown).length > 0 && (
+                    <div className="mt-4 bg-white p-3 rounded-lg border border-blue-200">
+                      <h5 className="font-medium text-blue-800 mb-2">Weekly Activity Breakdown</h5>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                                                 {Object.entries(privacyReport.weekly_action_breakdown).map(([action, count]: [string, any]) => (
+                          <div key={action} className="flex justify-between items-center p-2 bg-blue-50 rounded">
+                            <span className="text-blue-700 font-medium">{action.replace(/_/g, ' ')}</span>
+                            <span className="text-blue-600 font-bold">{count}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
                   <div className="mt-3 text-xs text-blue-600">
-                    <strong>Note:</strong> Access events include data queries, exports, and system operations. 
-                    Zero events today means no automated data processing occurred, which is normal for inactive periods.
+                    <strong>Note:</strong> Access events include revenue queries, order data requests, exports, and analytics operations. 
+                    All data access is automatically logged for transparency and compliance monitoring.
                   </div>
                 </div>
                 

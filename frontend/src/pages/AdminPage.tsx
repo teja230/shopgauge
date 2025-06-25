@@ -561,6 +561,8 @@ const AdminPage: React.FC = () => {
       
       if (auditLogType === 'deleted') {
         endpoint = `/api/admin/audit-logs/deleted-shops?page=${auditPage}&size=${auditRowsPerPage}`;
+      } else if (auditLogType === 'active') {
+        endpoint = `/api/admin/audit-logs/active-shops?page=${auditPage}&size=${auditRowsPerPage}`;
       }
       
       const response = await fetchWithAuth(endpoint);
@@ -1343,8 +1345,8 @@ const AdminPage: React.FC = () => {
             </>
           )}
 
-          {/* Audit Logs Table */}
-          {auditLogType !== 'active' && auditLogType !== 'deleted' && (
+          {/* Audit Logs Table - Now shown for all types */}
+          {true && (
             <>
               {auditLoading ? (
                 <Box sx={{ 
