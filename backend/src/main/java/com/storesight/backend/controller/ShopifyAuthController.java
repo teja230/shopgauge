@@ -784,41 +784,40 @@ public class ShopifyAuthController {
           ResponseEntity.status(HttpStatus.UNAUTHORIZED)
               .body(Map.of("error", "Not authenticated")));
     }
-    
+
     String message = body.get("message");
     String type = body.get("type");
     String category = body.get("category");
-    
+
     if (message == null || message.trim().isEmpty()) {
-      return Mono.just(
-          ResponseEntity.badRequest()
-              .body(Map.of("error", "Message is required")));
+      return Mono.just(ResponseEntity.badRequest().body(Map.of("error", "Message is required")));
     }
-    
+
     if (type == null || type.trim().isEmpty()) {
       type = "info"; // Default type
     }
-    
+
     return notificationService
         .createNotification(shop, message, type, category != null ? category : "General")
-        .map(notification -> {
-          Map<String, Object> response = new HashMap<>();
-          response.put("id", notification.getId());
-          response.put("message", notification.getMessage());
-          response.put("type", notification.getType());
-          response.put("read", notification.isRead());
-          response.put("createdAt", notification.getCreatedAt().toString());
-          response.put("category", category);
-          return ResponseEntity.status(HttpStatus.CREATED).body(response);
-        })
-        .onErrorResume(e -> {
-          Map<String, Object> errorResponse = new HashMap<>();
-          errorResponse.put("error", "Failed to create notification");
-          errorResponse.put("message", e.getMessage());
-          return Mono.just(
-              ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                  .body(errorResponse));
-        });
+        .map(
+            notification -> {
+              Map<String, Object> response = new HashMap<>();
+              response.put("id", notification.getId());
+              response.put("message", notification.getMessage());
+              response.put("type", notification.getType());
+              response.put("read", notification.isRead());
+              response.put("createdAt", notification.getCreatedAt().toString());
+              response.put("category", category);
+              return ResponseEntity.status(HttpStatus.CREATED).body(response);
+            })
+        .onErrorResume(
+            e -> {
+              Map<String, Object> errorResponse = new HashMap<>();
+              errorResponse.put("error", "Failed to create notification");
+              errorResponse.put("message", e.getMessage());
+              return Mono.just(
+                  ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse));
+            });
   }
 
   @GetMapping("/me")

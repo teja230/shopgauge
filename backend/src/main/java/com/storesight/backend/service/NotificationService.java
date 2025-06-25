@@ -216,17 +216,19 @@ public class NotificationService {
     return markAsRead(shop, notificationId); // ignore sessionId for now
   }
 
-  public Mono<Notification> createNotification(String shop, String message, String type, String category) {
-    return Mono.fromCallable(() -> {
-      Notification notification = new Notification();
-      notification.setShop(shop);
-      notification.setMessage(message);
-      notification.setType(type);
-      notification.setRead(false);
-      // createdAt will be set by @PrePersist
-      
-      return notificationRepository.save(notification);
-    });
+  public Mono<Notification> createNotification(
+      String shop, String message, String type, String category) {
+    return Mono.fromCallable(
+        () -> {
+          Notification notification = new Notification();
+          notification.setShop(shop);
+          notification.setMessage(message);
+          notification.setType(type);
+          notification.setRead(false);
+          // createdAt will be set by @PrePersist
+
+          return notificationRepository.save(notification);
+        });
   }
 
   public boolean isSendGridEnabled() {
