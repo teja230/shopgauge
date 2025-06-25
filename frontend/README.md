@@ -184,49 +184,55 @@ ShopGauge implements a sophisticated routing system with clear separation betwee
 
 ```mermaid
 graph TD
-    A["User visits /dashboard"] --> B{Server Routing}
+    A["User visits /dashboard"] --> B{_redirects File}
+    A2["User visits /invalid-page"] --> B
     
-    B -->|Valid Route| C["loading.html<br/>🎨 Beautiful gradient<br/>⚡ 200ms redirect<br/>✨ Loading animation"]
-    B -->|Invalid Route| D["404.html<br/>❌ True 404 page<br/>⏱️ 2s delay<br/>🏠 Redirect to home"]
+    B -->|Valid Route<br/>/dashboard| C["index.html<br/>🎯 Direct to React App<br/>⚡ Instant load<br/>✨ No redirects"]
+    B -->|Invalid Route<br/>/invalid-page| D["404.html<br/>❌ Red 404 error<br/>⏱️ 8s countdown timer<br/>🏠 Auto-redirect to home"]
     
-    C --> E["/?redirect=/dashboard"]
-    D --> F["/?redirect=/invalid-page"]
+    C --> E["React App Loads<br/>React Router"]
+    D --> F["Countdown Timer<br/>8 seconds"]
     
-    E --> G["React App<br/>RedirectHandler"]
-    F --> G
+    E -->|Authenticated| G["Dashboard Page<br/>✅ Full access"]
+    E -->|Not Authenticated| H["HomePage<br/>🔐 Login form"]
+    E -->|Invalid React Route| I["NotFoundPage<br/>🔗 Navigation options"]
     
-    G -->|Valid Route| H["Dashboard Page<br/>✅ Authenticated"]
-    G -->|Invalid Route| I["NotFoundPage<br/>🔗 Navigation options"]
-    G -->|Not Authenticated| J["HomePage<br/>🔐 Login required"]
+    F --> J["Redirect to /<br/>HomePage loads"]
     
-    style C fill:#667eea,stroke:#4c51bf,color:#fff
-    style D fill:#f56565,stroke:#c53030,color:#fff
-    style H fill:#48bb78,stroke:#38a169,color:#fff
-    style I fill:#ed8936,stroke:#dd6b20,color:#fff
-    style J fill:#4299e1,stroke:#3182ce,color:#fff
+    style C fill:#48bb78,stroke:#38a169,color:#fff
+    style D fill:#ef4444,stroke:#dc2626,color:#fff
+    style G fill:#3b82f6,stroke:#2563eb,color:#fff
+    style H fill:#f59e0b,stroke:#d97706,color:#fff
+    style I fill:#8b5cf6,stroke:#7c3aed,color:#fff
+    style J fill:#6b7280,stroke:#4b5563,color:#fff
 ```
 
 ### Routing Components
 
-- **`_redirects`** - Netlify configuration that routes valid pages to `loading.html` and invalid pages to `404.html`
-- **`loading.html`** - Beautiful loading page for valid routes with 200ms redirect
-- **`404.html`** - True 404 page for invalid routes with 2s delay
-- **`RedirectHandler`** - React component that processes redirects and validates routes
-- **`NotFoundPage`** - Enhanced 404 page with authentication-aware navigation options
+- **`_redirects`** - Render/Netlify configuration that routes valid pages directly to `index.html` and invalid pages to `404.html`
+- **`index.html`** - Main React app entry point for all valid routes
+- **`404.html`** - True 404 page for invalid routes with red styling and 8-second countdown timer
+- **`loading.html`** - Beautiful gradient loading page (available for special cases, currently unused)
+- **`RedirectHandler`** - React component that processes any redirect parameters
+- **`NotFoundPage`** - Enhanced 404 page within React app for invalid React routes
 
 ### User Experience
 
 **Valid Route Refresh (`/dashboard`):**
-1. Server serves `loading.html` (beautiful gradient page)
-2. 200ms redirect to `/?redirect=/dashboard`
-3. React app loads and redirects to dashboard
-4. **Total time**: ~400ms with smooth loading experience
+1. `_redirects` serves `index.html` directly (200 status)
+2. React app loads immediately with React Router
+3. Dashboard page renders (if authenticated) or redirects to login
+4. **Total time**: ~200ms with instant loading
 
-**Invalid Route Visit (`/fake-page`):**
-1. Server serves `404.html` (proper 404 page)
-2. User sees "Page not found" for 2 seconds
-3. Redirect to React app which shows enhanced NotFoundPage
-4. **Clear messaging**: User understands the page doesn't exist
+**Invalid Route Visit (`/some-fake-page`):**
+1. `_redirects` serves `404.html` (404 status)
+2. User sees red "404 Page not found" with countdown timer
+3. After 8 seconds, auto-redirects to homepage
+4. **Clear messaging**: User knows the page doesn't exist and gets timer feedback
+
+**Development vs Production:**
+- **Development**: Vite plugin serves `index.html` for all routes, React Router handles everything
+- **Production**: `_redirects` file handles server-side routing, then React Router takes over
 
 ## 📱 Responsive Design
 
