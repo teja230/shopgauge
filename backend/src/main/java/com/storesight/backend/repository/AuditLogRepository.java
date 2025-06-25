@@ -67,4 +67,7 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
 
   /** Find all audit logs ordered by creation date */
   Page<AuditLog> findAllByOrderByCreatedAtDesc(Pageable pageable);
+
+  /** Find audit logs created after a specific date */
+  List<AuditLog> findByCreatedAtAfterOrderByCreatedAtDesc(LocalDateTime date);
 }

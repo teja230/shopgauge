@@ -71,9 +71,20 @@ import {
   Assessment as AssessmentIcon,
   Dashboard as DashboardIcon,
   AdminPanelSettings as AdminIcon,
+  Computer as ComputerIcon,
+  PhoneAndroid as PhoneIcon,
+  Tablet as TabletIcon,
+  DesktopMac as DesktopIcon,
+  AccessTime as AccessTimeIcon,
+  Language as LanguageIcon,
+  Public as PublicIcon,
+  Person as PersonIcon,
+  Group as GroupIcon,
+  Storefront as StorefrontIcon,
 } from '@mui/icons-material';
 import { fetchWithAuth } from '../api';
 import { useAuth } from '../context/AuthContext';
+import { styled } from '@mui/material/styles';
 
 interface Secret {
   key: string;
@@ -107,6 +118,138 @@ const INTEGRATION_CONFIG = {
   'twilio.auth.token': { label: 'Twilio Auth Token', help: 'Used for sending SMS notifications', icon: '🔑' },
 };
 
+// Styled components matching the rest of the website
+const AdminContainer = styled(Container)(({ theme }) => ({
+  minHeight: '100vh',
+  backgroundColor: theme.palette.background.default,
+  paddingTop: theme.spacing(4),
+  paddingBottom: theme.spacing(4),
+}));
+
+const HeaderCard = styled(Paper)(({ theme }) => ({
+  padding: theme.spacing(4),
+  marginBottom: theme.spacing(4),
+  borderRadius: 16,
+  background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+  color: 'white',
+  boxShadow: '0 12px 40px rgba(37, 99, 235, 0.3)',
+}));
+
+const AdminHeader = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  [theme.breakpoints.down('md')]: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: theme.spacing(2),
+  },
+}));
+
+const SectionCard = styled(Paper)(({ theme }) => ({
+  borderRadius: 16,
+  overflow: 'hidden',
+  boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
+  transition: 'all 0.3s ease',
+  '&:hover': {
+    boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -2px rgb(0 0 0 / 0.1)',
+  },
+}));
+
+const SectionHeader = styled(Box)(({ theme }) => ({
+  padding: theme.spacing(3),
+  background: 'linear-gradient(90deg, #f8fafc 0%, #e2e8f0 100%)',
+  borderBottom: `1px solid ${theme.palette.divider}`,
+}));
+
+const TabsContainer = styled(Box)(({ theme }) => ({
+  borderBottom: `1px solid ${theme.palette.divider}`,
+  '& .MuiTabs-root': {
+    minHeight: 56,
+  },
+  '& .MuiTab-root': {
+    textTransform: 'none',
+    fontWeight: 600,
+    fontSize: '0.95rem',
+    minHeight: 56,
+    '&.Mui-selected': {
+      color: theme.palette.primary.main,
+    },
+  },
+}));
+
+const FilterContainer = styled(Paper)(({ theme }) => ({
+  padding: theme.spacing(2),
+  marginBottom: theme.spacing(3),
+  borderRadius: theme.shape.borderRadius,
+  backgroundColor: theme.palette.grey[50],
+  border: `1px solid ${theme.palette.divider}`,
+}));
+
+const StyledTable = styled(Table)(({ theme }) => ({
+  '& .MuiTableHead-root': {
+    backgroundColor: theme.palette.grey[100],
+  },
+  '& .MuiTableCell-head': {
+    fontWeight: 600,
+    fontSize: '0.875rem',
+  },
+  '& .MuiTableRow-root:hover': {
+    backgroundColor: theme.palette.action.hover,
+  },
+}));
+
+const DeviceIcon = ({ userAgent }: { userAgent: string }) => {
+  const ua = userAgent?.toLowerCase() || '';
+  
+  if (ua.includes('mobile') || ua.includes('android') || ua.includes('iphone')) {
+    return <PhoneIcon fontSize="small" sx={{ color: 'primary.main' }} />;
+  } else if (ua.includes('tablet') || ua.includes('ipad')) {
+    return <TabletIcon fontSize="small" sx={{ color: 'secondary.main' }} />;
+  } else if (ua.includes('mac')) {
+    return <DesktopIcon fontSize="small" sx={{ color: 'warning.main' }} />;
+  } else {
+    return <ComputerIcon fontSize="small" sx={{ color: 'info.main' }} />;
+  }
+};
+
+const getBrowserInfo = (userAgent: string) => {
+  if (!userAgent) return 'Unknown';
+  
+  const ua = userAgent.toLowerCase();
+  
+  if (ua.includes('chrome')) return 'Chrome';
+  if (ua.includes('firefox')) return 'Firefox';
+  if (ua.includes('safari') && !ua.includes('chrome')) return 'Safari';
+  if (ua.includes('edge')) return 'Edge';
+  if (ua.includes('opera')) return 'Opera';
+  
+  return 'Other';
+};
+
+const getDeviceType = (userAgent: string) => {
+  if (!userAgent) return 'Unknown';
+  
+  const ua = userAgent.toLowerCase();
+  
+  if (ua.includes('mobile') || ua.includes('android') || ua.includes('iphone')) {
+    return 'Mobile';
+  } else if (ua.includes('tablet') || ua.includes('ipad')) {
+    return 'Tablet';
+  } else {
+    return 'Desktop';
+  }
+};
+
+interface ActiveShop {
+  shopDomain: string;
+  lastActivity: string;
+  ipAddress?: string;
+  userAgent?: string;
+  sessionId?: string;
+  isActive: boolean;
+}
+
 const AdminPage: React.FC = () => {
   const { shop, isAuthenticated: isShopAuthenticated } = useAuth();
   const navigate = useNavigate();
@@ -128,7 +271,12 @@ const AdminPage: React.FC = () => {
   const [auditTotalCount, setAuditTotalCount] = useState(0);
   const [auditSearchTerm, setAuditSearchTerm] = useState('');
   const [auditActionFilter, setAuditActionFilter] = useState<string>('all');
-  const [auditLogType, setAuditLogType] = useState<'all' | 'deleted'>('all');
+  const [auditLogType, setAuditLogType] = useState<'all' | 'deleted' | 'active'>('all');
+
+  // Active shops state
+  const [activeShops, setActiveShops] = useState<ActiveShop[]>([]);
+  const [activeShopsLoading, setActiveShopsLoading] = useState(false);
+  const [activeShopsError, setActiveShopsError] = useState<string | null>(null);
 
   // Action categories for audit logs with improved colors and icons
   const actionCategories = {
@@ -251,7 +399,7 @@ const AdminPage: React.FC = () => {
     
     try {
       const hashedInput = await hashPassword(password);
-      const adminPassword = import.meta.env.VITE_ADMIN_PASSWORD || 'admin123';
+      const adminPassword = import.meta.env.VITE_ADMIN_PASSWORD;
       const hashedAdmin = await hashPassword(adminPassword);
       
       if (hashedInput === hashedAdmin) {
@@ -288,6 +436,38 @@ const AdminPage: React.FC = () => {
     } catch (error) {
       console.error('Password verification error:', error);
       setPasswordError('Authentication error. Please try again.');
+    }
+  };
+
+  const fetchActiveShops = async () => {
+    if (!isAuthenticated) return;
+    
+    try {
+      setActiveShopsLoading(true);
+      setActiveShopsError(null);
+      
+      const response = await fetchWithAuth('/api/admin/active-shops');
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.active_shops) {
+        setActiveShops(data.active_shops);
+      } else if (Array.isArray(data)) {
+        setActiveShops(data);
+      } else {
+        setActiveShops([]);
+      }
+    } catch (err) {
+      console.error('Error fetching active shops:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+      setActiveShopsError(`Failed to fetch active shops: ${errorMessage}`);
+      setActiveShops([]);
+    } finally {
+      setActiveShopsLoading(false);
     }
   };
 
@@ -367,6 +547,9 @@ const AdminPage: React.FC = () => {
   useEffect(() => {
     if (isAuthenticated) {
       fetchAuditLogs();
+      if (auditLogType === 'active') {
+        fetchActiveShops();
+      }
     }
   }, [auditPage, auditRowsPerPage, auditLogType, isAuthenticated]);
 
@@ -486,19 +669,10 @@ const AdminPage: React.FC = () => {
   }
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
+    <AdminContainer maxWidth="xl">
       {/* Header */}
-      <Paper 
-        elevation={0} 
-        sx={{ 
-          p: 4, 
-          mb: 4, 
-          borderRadius: 3,
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          color: 'white'
-        }}
-      >
-        <Stack direction="row" justifyContent="space-between" alignItems="center">
+      <HeaderCard elevation={0}>
+        <AdminHeader>
           <Box>
             <Typography variant="h3" fontWeight="700" sx={{ mb: 1 }}>
               Admin Dashboard
@@ -536,17 +710,13 @@ const AdminPage: React.FC = () => {
           >
             Logout Admin
           </Button>
-        </Stack>
-      </Paper>
+        </AdminHeader>
+      </HeaderCard>
 
-      {/* Audit Logs Section */}
-      <Paper elevation={3} sx={{ borderRadius: 3, overflow: 'hidden' }}>
+      {/* Main Content */}
+      <SectionCard elevation={0}>
         {/* Section Header */}
-        <Box sx={{ 
-          p: 3, 
-          background: 'linear-gradient(90deg, #f8f9fa 0%, #e9ecef 100%)',
-          borderBottom: '1px solid #dee2e6'
-        }}>
+        <SectionHeader>
           <Stack direction="row" justifyContent="space-between" alignItems="center">
             <Box display="flex" alignItems="center" gap={2}>
               <AssessmentIcon sx={{ fontSize: 32, color: 'primary.main' }} />
@@ -562,103 +732,121 @@ const AdminPage: React.FC = () => {
             <Button
               variant="contained"
               startIcon={<RefreshIcon />}
-              onClick={fetchAuditLogs}
-              disabled={auditLoading}
+              onClick={() => {
+                fetchAuditLogs();
+                if (auditLogType === 'active') {
+                  fetchActiveShops();
+                }
+              }}
+              disabled={auditLoading || activeShopsLoading}
               sx={{ borderRadius: 2 }}
             >
-              {auditLoading ? 'Loading...' : 'Refresh'}
+              {auditLoading || activeShopsLoading ? 'Loading...' : 'Refresh'}
             </Button>
           </Stack>
-        </Box>
+        </SectionHeader>
 
         <Box sx={{ p: 3 }}>
-          {/* Log Type Tabs */}
-          <Tabs 
-            value={auditLogType} 
-            onChange={(_, newValue) => setAuditLogType(newValue)}
-            sx={{ 
-              mb: 3,
-              '& .MuiTab-root': {
-                textTransform: 'none',
-                fontWeight: 500,
-                fontSize: '0.95rem',
-              }
-            }}
-          >
-            <Tab 
-              label={
-                <Box display="flex" alignItems="center" gap={1}>
-                  <DashboardIcon fontSize="small" />
-                  All Logs
-                  <Chip label={auditTotalCount} size="small" color="primary" />
-                </Box>
-              } 
-              value="all" 
-            />
-            <Tab 
-              label={
-                <Box display="flex" alignItems="center" gap={1}>
-                  <DeleteIcon fontSize="small" />
-                  Deleted Shops
-                </Box>
-              } 
-              value="deleted" 
-            />
-          </Tabs>
+          {/* Tabs */}
+          <TabsContainer>
+            <Tabs 
+              value={auditLogType} 
+              onChange={(_, newValue) => setAuditLogType(newValue)}
+              sx={{ 
+                '& .MuiTab-root': {
+                  textTransform: 'none',
+                  fontWeight: 500,
+                  fontSize: '0.95rem',
+                }
+              }}
+            >
+              <Tab 
+                label={
+                  <Box display="flex" alignItems="center" gap={1}>
+                    <DashboardIcon fontSize="small" />
+                    All Logs
+                    <Chip label={auditTotalCount} size="small" color="primary" />
+                  </Box>
+                } 
+                value="all" 
+              />
+              <Tab 
+                label={
+                  <Box display="flex" alignItems="center" gap={1}>
+                    <DeleteIcon fontSize="small" />
+                    Deleted Shops
+                  </Box>
+                } 
+                value="deleted" 
+              />
+              <Tab 
+                label={
+                  <Box display="flex" alignItems="center" gap={1}>
+                    <StorefrontIcon fontSize="small" />
+                    Active Shops
+                    <Chip label={activeShops.length} size="small" color="success" />
+                  </Box>
+                } 
+                value="active" 
+              />
+            </Tabs>
+          </TabsContainer>
 
           {/* Search and Filter Controls */}
-          <Paper elevation={1} sx={{ p: 2, mb: 3, borderRadius: 2, bgcolor: 'grey.50' }}>
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-              <TextField
-                label="Search logs..."
-                placeholder="Search by action, details, shop, or IP address"
-                value={auditSearchTerm}
-                onChange={(e) => setAuditSearchTerm(e.target.value)}
-                size="small"
-                sx={{ 
-                  flex: 1,
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                    bgcolor: 'white'
-                  }
-                }}
-                InputProps={{
-                  startAdornment: <SearchIcon sx={{ color: 'text.secondary', mr: 1 }} />
-                }}
-              />
-              
-              <FormControl size="small" sx={{ minWidth: 200 }}>
-                <InputLabel>Filter by Action</InputLabel>
-                <Select
-                  value={auditActionFilter}
-                  onChange={(e) => setAuditActionFilter(e.target.value)}
-                  label="Filter by Action"
+          {auditLogType !== 'active' && (
+            <FilterContainer elevation={0}>
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                <TextField
+                  label="Search logs..."
+                  placeholder="Search by action, details, shop, or IP address"
+                  value={auditSearchTerm}
+                  onChange={(e) => setAuditSearchTerm(e.target.value)}
+                  size="small"
                   sx={{ 
-                    borderRadius: 2,
-                    bgcolor: 'white'
+                    flex: 1,
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      bgcolor: 'white'
+                    }
                   }}
-                >
-                  <MenuItem value="all">
-                    <Box display="flex" alignItems="center" gap={1}>
-                      <FilterIcon fontSize="small" />
-                      All Actions
-                    </Box>
-                  </MenuItem>
-                  {uniqueActions.map(action => (
-                    <MenuItem key={action} value={action}>
+                  InputProps={{
+                    startAdornment: <SearchIcon sx={{ color: 'text.secondary', mr: 1 }} />
+                  }}
+                />
+                
+                <FormControl size="small" sx={{ minWidth: 200 }}>
+                  <InputLabel>Filter by Action</InputLabel>
+                  <Select
+                    value={auditActionFilter}
+                    onChange={(e) => setAuditActionFilter(e.target.value)}
+                    label="Filter by Action"
+                    sx={{ 
+                      borderRadius: 2,
+                      bgcolor: 'white'
+                    }}
+                  >
+                    <MenuItem value="all">
                       <Box display="flex" alignItems="center" gap={1}>
-                        {getActionIcon(action)}
-                        {action}
+                        <FilterIcon fontSize="small" />
+                        All Actions
                       </Box>
                     </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Stack>
-          </Paper>
+                    {uniqueActions.map(action => (
+                      <MenuItem key={action} value={action}>
+                        <Box display="flex" alignItems="center" gap={1}>
+                          {getActionIcon(action)}
+                          {action}
+                        </Box>
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Stack>
+            </FilterContainer>
+          )}
 
           {/* Results Summary */}
-          {!auditLoading && !auditError && (
+          {!auditLoading && !auditError && auditLogType !== 'active' && (
             <Box sx={{ mb: 2 }}>
               <Typography variant="body2" color="text.secondary">
                 Showing {filteredAuditLogs.length} of {auditTotalCount} total audit logs
@@ -668,203 +856,364 @@ const AdminPage: React.FC = () => {
             </Box>
           )}
 
-          {/* Audit Logs Table */}
-          {auditLoading ? (
-            <Box sx={{ 
-              display: 'flex', 
-              flexDirection: 'column',
-              alignItems: 'center', 
-              justifyContent: 'center',
-              py: 8 
-            }}>
-              <CircularProgress size={48} />
-              <Typography variant="body1" sx={{ mt: 2, color: 'text.secondary' }}>
-                Loading audit logs...
-              </Typography>
-            </Box>
-          ) : auditError ? (
-            <Alert 
-              severity="error" 
-              sx={{ 
-                mb: 2, 
-                borderRadius: 2,
-                '& .MuiAlert-message': {
-                  fontSize: '0.95rem'
-                }
-              }}
-              action={
-                <Button color="inherit" size="small" onClick={fetchAuditLogs}>
-                  Try Again
-                </Button>
-              }
-            >
-              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>
-                Unable to Load Audit Logs
-              </Typography>
-              {auditError}
-            </Alert>
-          ) : (
+          {/* Active Shops Table */}
+          {auditLogType === 'active' && (
             <>
-              <TableContainer sx={{ borderRadius: 2, border: '1px solid #e0e0e0' }}>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow sx={{ bgcolor: 'grey.100' }}>
-                      <TableCell sx={{ fontWeight: 600, py: 2 }}>Timestamp</TableCell>
-                      <TableCell sx={{ fontWeight: 600, py: 2 }}>Shop Domain</TableCell>
-                      <TableCell sx={{ fontWeight: 600, py: 2 }}>Action</TableCell>
-                      <TableCell sx={{ fontWeight: 600, py: 2 }}>Details</TableCell>
-                      <TableCell sx={{ fontWeight: 600, py: 2 }}>IP Address</TableCell>
-                      <TableCell sx={{ fontWeight: 600, py: 2 }}>Category</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {filteredAuditLogs.map((log, index) => (
-                      <TableRow 
-                        key={log.id} 
-                        hover
-                        sx={{ 
-                          '&:hover': { bgcolor: 'grey.50' },
-                          borderLeft: `4px solid ${getActionColor(log.action)}20`
-                        }}
-                      >
-                        <TableCell sx={{ py: 2 }}>
-                          <Typography variant="body2" sx={{ 
-                            fontFamily: 'monospace', 
-                            fontSize: '0.8rem',
-                            color: 'text.secondary'
-                          }}>
-                            {new Date(log.timestamp).toLocaleString('en-US', {
-                              month: 'short',
-                              day: '2-digit',
-                              year: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              second: '2-digit'
-                            })}
-                          </Typography>
-                        </TableCell>
-                        <TableCell sx={{ py: 2 }}>
-                          <Box display="flex" alignItems="center" gap={1}>
-                            <StoreIcon fontSize="small" sx={{ color: 'text.secondary' }} />
-                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                              {log.shopDomain || 'Unknown'}
-                            </Typography>
-                          </Box>
-                        </TableCell>
-                        <TableCell sx={{ py: 2 }}>
-                          <Box sx={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            gap: 1,
-                            p: 1,
-                            borderRadius: 1,
-                            bgcolor: getActionBgColor(log.action),
-                            border: `1px solid ${getActionColor(log.action)}30`
-                          }}>
-                            {getActionIcon(log.action)}
-                            <Typography variant="body2" sx={{ 
-                              fontFamily: 'monospace', 
-                              fontSize: '0.8rem',
-                              fontWeight: 500,
-                              color: getActionColor(log.action)
-                            }}>
-                              {log.action}
-                            </Typography>
-                          </Box>
-                        </TableCell>
-                        <TableCell sx={{ py: 2, maxWidth: 350 }}>
-                          <Tooltip title={log.details} arrow>
-                            <Typography variant="body2" sx={{ 
-                              overflow: 'hidden', 
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                              maxWidth: 300
-                            }}>
-                              {log.details}
-                            </Typography>
-                          </Tooltip>
-                        </TableCell>
-                        <TableCell sx={{ py: 2 }}>
-                          <Typography variant="body2" sx={{ 
-                            fontFamily: 'monospace', 
-                            fontSize: '0.8rem',
-                            color: 'text.secondary'
-                          }}>
-                            {log.ipAddress || 'N/A'}
-                          </Typography>
-                        </TableCell>
-                        <TableCell sx={{ py: 2 }}>
-                          <Chip 
-                            label={actionCategories[getActionCategory(log.action) as keyof typeof actionCategories]?.label || 'Other'}
-                            size="small"
-                            sx={{
-                              bgcolor: getActionBgColor(log.action),
-                              color: getActionColor(log.action),
-                              border: `1px solid ${getActionColor(log.action)}30`,
-                              fontWeight: 500,
-                              '& .MuiChip-icon': {
-                                color: getActionColor(log.action)
-                              }
-                            }}
-                            icon={getActionIcon(log.action)}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    {filteredAuditLogs.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={6} sx={{ textAlign: 'center', py: 8 }}>
-                          <Box display="flex" flexDirection="column" alignItems="center" gap={2}>
-                            <InfoIcon sx={{ fontSize: 48, color: 'text.disabled' }} />
-                            <Typography variant="h6" color="text.secondary">
-                              No audit logs found
-                            </Typography>
-                            <Typography variant="body2" color="text.disabled">
-                              {auditSearchTerm || auditActionFilter !== 'all' 
-                                ? 'Try adjusting your search or filter criteria'
-                                : 'No audit logs are available for the selected view'
-                              }
-                            </Typography>
-                          </Box>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-
-              {filteredAuditLogs.length > 0 && (
-                <TablePagination
-                  component="div"
-                  count={auditTotalCount}
-                  page={auditPage}
-                  onPageChange={(_, newPage) => setAuditPage(newPage)}
-                  rowsPerPage={auditRowsPerPage}
-                  onRowsPerPageChange={(e) => {
-                    setAuditRowsPerPage(parseInt(e.target.value, 10));
-                    setAuditPage(0);
-                  }}
-                  rowsPerPageOptions={[10, 25, 50, 100]}
-                  sx={{
-                    mt: 2,
-                    borderTop: '1px solid #e0e0e0',
-                    '& .MuiTablePagination-toolbar': {
-                      px: 2
+              {activeShopsLoading ? (
+                <Box sx={{ 
+                  display: 'flex', 
+                  flexDirection: 'column',
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  py: 8 
+                }}>
+                  <CircularProgress size={48} />
+                  <Typography variant="body1" sx={{ mt: 2, color: 'text.secondary' }}>
+                    Loading active shops...
+                  </Typography>
+                </Box>
+              ) : activeShopsError ? (
+                <Alert 
+                  severity="error" 
+                  sx={{ 
+                    mb: 2, 
+                    borderRadius: 2,
+                    '& .MuiAlert-message': {
+                      fontSize: '0.95rem'
                     }
                   }}
-                />
+                  action={
+                    <Button color="inherit" size="small" onClick={fetchActiveShops}>
+                      Try Again
+                    </Button>
+                  }
+                >
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                    Unable to Load Active Shops
+                  </Typography>
+                  {activeShopsError}
+                </Alert>
+              ) : (
+                <>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    Showing {activeShops.length} active shops
+                  </Typography>
+                  
+                  <TableContainer sx={{ borderRadius: 2, border: '1px solid #e0e0e0' }}>
+                    <StyledTable size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Shop Domain</TableCell>
+                          <TableCell>Last Activity</TableCell>
+                          <TableCell>IP Address</TableCell>
+                          <TableCell>Device</TableCell>
+                          <TableCell>Browser</TableCell>
+                          <TableCell>Status</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {activeShops.map((shop, index) => (
+                          <TableRow key={`${shop.shopDomain}-${index}`}>
+                            <TableCell>
+                              <Box display="flex" alignItems="center" gap={1}>
+                                <StoreIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+                                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                  {shop.shopDomain}
+                                </Typography>
+                              </Box>
+                            </TableCell>
+                            <TableCell>
+                              <Box display="flex" alignItems="center" gap={1}>
+                                <AccessTimeIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+                                <Typography variant="body2" sx={{ 
+                                  fontFamily: 'monospace', 
+                                  fontSize: '0.8rem',
+                                  color: 'text.secondary'
+                                }}>
+                                  {shop.lastActivity ? new Date(shop.lastActivity).toLocaleString('en-US', {
+                                    month: 'short',
+                                    day: '2-digit',
+                                    year: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    second: '2-digit'
+                                  }) : 'Unknown'}
+                                </Typography>
+                              </Box>
+                            </TableCell>
+                            <TableCell>
+                              <Typography variant="body2" sx={{ 
+                                fontFamily: 'monospace', 
+                                fontSize: '0.8rem',
+                                color: 'text.secondary'
+                              }}>
+                                {shop.ipAddress || 'N/A'}
+                              </Typography>
+                            </TableCell>
+                            <TableCell>
+                              <Box display="flex" alignItems="center" gap={1}>
+                                <DeviceIcon userAgent={shop.userAgent || ''} />
+                                <Typography variant="body2">
+                                  {getDeviceType(shop.userAgent || '')}
+                                </Typography>
+                              </Box>
+                            </TableCell>
+                            <TableCell>
+                              <Typography variant="body2">
+                                {getBrowserInfo(shop.userAgent || '')}
+                              </Typography>
+                            </TableCell>
+                            <TableCell>
+                              <Chip 
+                                label={shop.isActive ? 'Active' : 'Inactive'}
+                                size="small"
+                                color={shop.isActive ? 'success' : 'default'}
+                                sx={{ fontWeight: 500 }}
+                              />
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {activeShops.length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={6} sx={{ textAlign: 'center', py: 8 }}>
+                              <Box display="flex" flexDirection="column" alignItems="center" gap={2}>
+                                <GroupIcon sx={{ fontSize: 48, color: 'text.disabled' }} />
+                                <Typography variant="h6" color="text.secondary">
+                                  No active shops found
+                                </Typography>
+                                <Typography variant="body2" color="text.disabled">
+                                  No shops are currently active or connected
+                                </Typography>
+                              </Box>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </StyledTable>
+                  </TableContainer>
+                </>
+              )}
+            </>
+          )}
+
+          {/* Audit Logs Table */}
+          {auditLogType !== 'active' && (
+            <>
+              {auditLoading ? (
+                <Box sx={{ 
+                  display: 'flex', 
+                  flexDirection: 'column',
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  py: 8 
+                }}>
+                  <CircularProgress size={48} />
+                  <Typography variant="body1" sx={{ mt: 2, color: 'text.secondary' }}>
+                    Loading audit logs...
+                  </Typography>
+                </Box>
+              ) : auditError ? (
+                <Alert 
+                  severity="error" 
+                  sx={{ 
+                    mb: 2, 
+                    borderRadius: 2,
+                    '& .MuiAlert-message': {
+                      fontSize: '0.95rem'
+                    }
+                  }}
+                  action={
+                    <Button color="inherit" size="small" onClick={fetchAuditLogs}>
+                      Try Again
+                    </Button>
+                  }
+                >
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                    Unable to Load Audit Logs
+                  </Typography>
+                  {auditError}
+                </Alert>
+              ) : (
+                <>
+                  <TableContainer sx={{ borderRadius: 2, border: '1px solid #e0e0e0' }}>
+                    <StyledTable size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Timestamp</TableCell>
+                          <TableCell>Shop Domain</TableCell>
+                          <TableCell>Action</TableCell>
+                          <TableCell>Details</TableCell>
+                          <TableCell>IP Address</TableCell>
+                          <TableCell>Device Info</TableCell>
+                          <TableCell>Category</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {filteredAuditLogs.map((log, index) => (
+                          <TableRow 
+                            key={log.id} 
+                            hover
+                            sx={{ 
+                              '&:hover': { bgcolor: 'grey.50' },
+                              borderLeft: `4px solid ${getActionColor(log.action)}20`
+                            }}
+                          >
+                            <TableCell>
+                              <Box display="flex" alignItems="center" gap={1}>
+                                <AccessTimeIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+                                <Typography variant="body2" sx={{ 
+                                  fontFamily: 'monospace', 
+                                  fontSize: '0.8rem',
+                                  color: 'text.secondary'
+                                }}>
+                                  {new Date(log.timestamp).toLocaleString('en-US', {
+                                    month: 'short',
+                                    day: '2-digit',
+                                    year: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    second: '2-digit'
+                                  })}
+                                </Typography>
+                              </Box>
+                            </TableCell>
+                            <TableCell>
+                              <Box display="flex" alignItems="center" gap={1}>
+                                <StoreIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+                                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                  {log.shopDomain || 'System'}
+                                </Typography>
+                              </Box>
+                            </TableCell>
+                            <TableCell>
+                              <Box sx={{ 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: 1,
+                                p: 1,
+                                borderRadius: 1,
+                                bgcolor: getActionBgColor(log.action),
+                                border: `1px solid ${getActionColor(log.action)}30`
+                              }}>
+                                {getActionIcon(log.action)}
+                                <Typography variant="body2" sx={{ 
+                                  fontFamily: 'monospace', 
+                                  fontSize: '0.8rem',
+                                  fontWeight: 500,
+                                  color: getActionColor(log.action)
+                                }}>
+                                  {log.action}
+                                </Typography>
+                              </Box>
+                            </TableCell>
+                            <TableCell sx={{ maxWidth: 350 }}>
+                              <Tooltip title={log.details} arrow>
+                                <Typography variant="body2" sx={{ 
+                                  overflow: 'hidden', 
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                  maxWidth: 300
+                                }}>
+                                  {log.details}
+                                </Typography>
+                              </Tooltip>
+                            </TableCell>
+                            <TableCell>
+                              <Typography variant="body2" sx={{ 
+                                fontFamily: 'monospace', 
+                                fontSize: '0.8rem',
+                                color: 'text.secondary'
+                              }}>
+                                {log.ipAddress || 'N/A'}
+                              </Typography>
+                            </TableCell>
+                            <TableCell>
+                              <Box display="flex" alignItems="center" gap={1}>
+                                <DeviceIcon userAgent={log.userAgent || ''} />
+                                <Box>
+                                  <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+                                    {getDeviceType(log.userAgent || '')}
+                                  </Typography>
+                                  <Typography variant="caption" color="text.secondary">
+                                    {getBrowserInfo(log.userAgent || '')}
+                                  </Typography>
+                                </Box>
+                              </Box>
+                            </TableCell>
+                            <TableCell>
+                              <Chip 
+                                label={actionCategories[getActionCategory(log.action) as keyof typeof actionCategories]?.label || 'Other'}
+                                size="small"
+                                sx={{
+                                  bgcolor: getActionBgColor(log.action),
+                                  color: getActionColor(log.action),
+                                  border: `1px solid ${getActionColor(log.action)}30`,
+                                  fontWeight: 500,
+                                  '& .MuiChip-icon': {
+                                    color: getActionColor(log.action)
+                                  }
+                                }}
+                                icon={getActionIcon(log.action)}
+                              />
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {filteredAuditLogs.length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={7} sx={{ textAlign: 'center', py: 8 }}>
+                              <Box display="flex" flexDirection="column" alignItems="center" gap={2}>
+                                <InfoIcon sx={{ fontSize: 48, color: 'text.disabled' }} />
+                                <Typography variant="h6" color="text.secondary">
+                                  No audit logs found
+                                </Typography>
+                                <Typography variant="body2" color="text.disabled">
+                                  {auditSearchTerm || auditActionFilter !== 'all' 
+                                    ? 'Try adjusting your search or filter criteria'
+                                    : 'No audit logs are available for the selected view'
+                                  }
+                                </Typography>
+                              </Box>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </StyledTable>
+                  </TableContainer>
+
+                  {filteredAuditLogs.length > 0 && (
+                    <TablePagination
+                      component="div"
+                      count={auditTotalCount}
+                      page={auditPage}
+                      onPageChange={(_, newPage) => setAuditPage(newPage)}
+                      rowsPerPage={auditRowsPerPage}
+                      onRowsPerPageChange={(e) => {
+                        setAuditRowsPerPage(parseInt(e.target.value, 10));
+                        setAuditPage(0);
+                      }}
+                      rowsPerPageOptions={[10, 25, 50, 100]}
+                      sx={{
+                        mt: 2,
+                        borderTop: '1px solid #e0e0e0',
+                        '& .MuiTablePagination-toolbar': {
+                          px: 2
+                        }
+                      }}
+                    />
+                  )}
+                </>
               )}
             </>
           )}
         </Box>
-      </Paper>
+      </SectionCard>
 
-      {/* Alert Snackbar */}
+      {/* Alert Snackbar - Moved to TOP */}
       <Snackbar 
         open={!!alert} 
         autoHideDuration={6000} 
         onClose={() => setAlert(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
         <Alert 
           onClose={() => setAlert(null)} 
@@ -878,7 +1227,7 @@ const AdminPage: React.FC = () => {
           {alert?.message}
         </Alert>
       </Snackbar>
-    </Container>
+    </AdminContainer>
   );
 };
 

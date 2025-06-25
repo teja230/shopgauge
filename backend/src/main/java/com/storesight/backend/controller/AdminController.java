@@ -157,4 +157,22 @@ public class AdminController {
           .body(Map.of("error", "Failed to retrieve all audit logs", "message", e.getMessage()));
     }
   }
+
+  @GetMapping("/active-shops")
+  public ResponseEntity<Map<String, Object>> getActiveShops() {
+    try {
+      // Get active shops - shops that have made requests recently
+      List<Map<String, Object>> activeShops = dataPrivacyService.getActiveShops();
+
+      Map<String, Object> response = new HashMap<>();
+      response.put("active_shops", activeShops);
+      response.put("total_count", activeShops.size());
+      response.put("note", "Shops that are currently active or have recent activity");
+
+      return ResponseEntity.ok(response);
+    } catch (Exception e) {
+      return ResponseEntity.status(500)
+          .body(Map.of("error", "Failed to retrieve active shops", "message", e.getMessage()));
+    }
+  }
 }
