@@ -188,33 +188,60 @@ graph TD
     A2["User visits /invalid-page"] --> B
     
     B -->|Valid Route<br/>/dashboard| C["index.html<br/>🎯 Direct to React App<br/>⚡ Instant load<br/>✨ No redirects"]
-    B -->|Invalid Route<br/>/invalid-page| D["404.html<br/>❌ Red 404 error<br/>⏱️ 8s countdown timer<br/>🏠 Auto-redirect to home"]
+    B -->|Invalid Route<br/>/invalid-page| D["404.html<br/>❌ Red 404 error<br/>⏱️ 10s countdown timer"]
     
     C --> E["React App Loads<br/>React Router"]
-    D --> F["Countdown Timer<br/>8 seconds"]
+    D --> F{Check Auth State}
     
     E -->|Authenticated| G["Dashboard Page<br/>✅ Full access"]
     E -->|Not Authenticated| H["HomePage<br/>🔐 Login form"]
-    E -->|Invalid React Route| I["NotFoundPage<br/>🔗 Navigation options"]
+    E -->|Invalid React Route| I["NotFoundPage<br/>🔗 Smart redirect"]
     
-    F --> J["Redirect to /<br/>HomePage loads"]
+    F -->|Authenticated<br/>Cache/Cookies found| J["🎯 Auto-redirect to Dashboard<br/>10s countdown"]
+    F -->|Not Authenticated<br/>No session data| K["🏠 Auto-redirect to Home<br/>10s countdown"]
+    
+    I --> L{Check Auth Status}
+    L -->|Authenticated| M["🎯 Auto-redirect to Dashboard<br/>10s countdown + cancel option"]
+    L -->|Not Authenticated| N["🏠 Auto-redirect to Home<br/>10s countdown + cancel option"]
     
     style C fill:#48bb78,stroke:#38a169,color:#fff
     style D fill:#ef4444,stroke:#dc2626,color:#fff
     style G fill:#3b82f6,stroke:#2563eb,color:#fff
     style H fill:#f59e0b,stroke:#d97706,color:#fff
     style I fill:#8b5cf6,stroke:#7c3aed,color:#fff
-    style J fill:#6b7280,stroke:#4b5563,color:#fff
+    style J fill:#10b981,stroke:#059669,color:#fff
+    style K fill:#6b7280,stroke:#4b5563,color:#fff
+    style M fill:#10b981,stroke:#059669,color:#fff
+    style N fill:#6b7280,stroke:#4b5563,color:#fff
 ```
 
 ### Routing Components
 
 - **`_redirects`** - Render/Netlify configuration that routes valid pages directly to `index.html` and invalid pages to `404.html`
 - **`index.html`** - Main React app entry point for all valid routes
-- **`404.html`** - True 404 page for invalid routes with red styling and 8-second countdown timer
+- **`404.html`** - Smart 404 page that checks authentication state and redirects accordingly:
+  - **Authenticated users** → Dashboard (10s countdown)
+  - **Unauthenticated users** → Homepage (10s countdown)
+  - **Red styling** with improved UX messaging
 - **`loading.html`** - Beautiful gradient loading page (available for special cases, currently unused)
 - **`RedirectHandler`** - React component that processes any redirect parameters
-- **`NotFoundPage`** - Enhanced 404 page within React app for invalid React routes
+- **`NotFoundPage`** - React 404 component with authentication-aware auto-redirect and manual navigation options
+
+### Authentication-Aware 404 Behavior
+
+The 404 system intelligently redirects users based on their authentication status:
+
+#### Static 404 Page (`404.html`)
+- **Detection Method**: Checks `sessionStorage` for dashboard cache and cookies for session indicators
+- **Authenticated Users**: Auto-redirect to `/dashboard` after 10 seconds
+- **Unauthenticated Users**: Auto-redirect to `/` (homepage) after 10 seconds
+- **Fallback**: Defaults to homepage if authentication detection fails
+
+#### React 404 Component (`NotFoundPage.tsx`)  
+- **Detection Method**: Uses React `AuthContext` for accurate authentication state
+- **Auto-redirect**: 10-second countdown with destination based on auth status
+- **User Control**: "Cancel Auto-redirect" button to stop countdown and show manual navigation options
+- **Manual Options**: Context-aware buttons (Dashboard/Competitors for authenticated users)
 
 ### User Experience
 

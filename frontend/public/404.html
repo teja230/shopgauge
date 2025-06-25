@@ -379,17 +379,73 @@
           loadingIcon.className = 'error-code invalid-route';
         }
         if (pageTitle) pageTitle.textContent = 'Page not found';
-        if (pageDescription) pageDescription.textContent = 'The page you\'re looking for doesn\'t exist. We\'ll redirect you to the homepage in a moment.';
+        if (pageDescription) pageDescription.textContent = 'The page you\'re looking for doesn\'t exist. We\'ll redirect you in a moment.';
+        
+        // Check authentication state to determine redirect destination
+        function checkAuthAndRedirect() {
+          try {
+            // Check if user is authenticated by looking for session indicators
+            var isAuthenticated = false;
+            
+            // Method 1: Check sessionStorage for dashboard cache (indicates recent authentication)
+            var dashboardCache = sessionStorage.getItem('dashboard_cache_v1.1') || sessionStorage.getItem('dashboard_cache_v2');
+            if (dashboardCache) {
+              try {
+                var cache = JSON.parse(dashboardCache);
+                // If cache exists and is recent (within 6 hours), consider authenticated
+                if (cache.timestamp && (Date.now() - new Date(cache.timestamp).getTime()) < 6 * 60 * 60 * 1000) {
+                  isAuthenticated = true;
+                  console.log('404 Redirect: Found recent dashboard cache, user appears authenticated');
+                }
+              } catch (e) {
+                console.log('404 Redirect: Error parsing dashboard cache', e);
+              }
+            }
+            
+            // Method 2: Check for auth-related cookies (fallback)
+            if (!isAuthenticated) {
+              var cookies = document.cookie.split(';');
+              for (var i = 0; i < cookies.length; i++) {
+                var cookie = cookies[i].trim();
+                // Look for session or auth-related cookies
+                if (cookie.startsWith('JSESSIONID=') || cookie.startsWith('SESSION=') || 
+                    cookie.startsWith('shopify_') || cookie.startsWith('auth_')) {
+                  isAuthenticated = true;
+                  console.log('404 Redirect: Found auth-related cookie, user appears authenticated');
+                  break;
+                }
+              }
+            }
+            
+            var redirectUrl = isAuthenticated ? '/dashboard' : '/';
+            var destination = isAuthenticated ? 'dashboard' : 'homepage';
+            
+            console.log('404 Redirect: Redirecting to ' + destination + ' (' + redirectUrl + ')');
+            
+            // Update UI based on destination
+            if (pageDescription) {
+              pageDescription.textContent = 'The page you\'re looking for doesn\'t exist. We\'ll redirect you to the ' + destination + ' in a moment.';
+            }
+            
+            return redirectUrl;
+          } catch (e) {
+            console.error('404 Redirect: Error checking auth state', e);
+            return '/'; // Default to homepage on error
+          }
+        }
+        
+        var redirectUrl = checkAuthAndRedirect();
         
         // Longer countdown for invalid routes
-        var countdown = 8;
+        var countdown = 10; // Increased to 10 seconds for better user experience
         var countdownElement = document.getElementById('countdown-text');
         
         var countdownInterval = setInterval(function() {
           countdown--;
           if (countdownElement) {
+            var destination = redirectUrl === '/dashboard' ? 'dashboard' : 'homepage';
             if (countdown > 0) {
-              countdownElement.textContent = 'Redirecting to homepage in ' + countdown + ' seconds...';
+              countdownElement.textContent = 'Redirecting to ' + destination + ' in ' + countdown + ' seconds...';
             } else {
               countdownElement.textContent = 'Redirecting now...';
             }
@@ -397,9 +453,8 @@
           
           if (countdown <= 0) {
             clearInterval(countdownInterval);
-            console.log('404 Redirect: Invalid route, redirecting to homepage after 8000ms');
-            // For invalid routes, just go to homepage without redirect parameter
-            window.location.href = '/';
+            console.log('404 Redirect: Invalid route, redirecting to ' + redirectUrl + ' after 10000ms');
+            window.location.href = redirectUrl;
           }
         }, 1000);
         
@@ -427,7 +482,7 @@
     
     <div class="spinner-container">
       <div class="spinner"></div>
-      <span class="loading-text" id="countdown-text">Redirecting to homepage in 8 seconds...</span>
+      <span class="loading-text" id="countdown-text">Redirecting in 10 seconds...</span>
     </div>
     
     <div class="analytics-animation">
