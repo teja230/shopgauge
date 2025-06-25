@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -379,6 +379,7 @@ const AdminPage: React.FC = () => {
   const [isLocked, setIsLocked] = useState(false);
   const [lockoutEnd, setLockoutEnd] = useState(0);
   const [sessionExpiry, setSessionExpiry] = useState(0);
+  const sessionExpiredShownRef = useRef(false);
 
   const MAX_ATTEMPTS = 5;
   const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutes
@@ -419,13 +420,20 @@ const AdminPage: React.FC = () => {
 
     // Session timer
     const interval = setInterval(() => {
-      if (sessionExpiry <= 0) {
+      const now = Date.now();
+      
+      if (sessionExpiry > 0 && now >= sessionExpiry) {
+        if (!sessionExpiredShownRef.current) {
+          sessionExpiredShownRef.current = true;
+          showError('Admin session expired. Please login again.');
+          setIsAuthenticated(false);
+          setIsPasswordDialogOpen(true);
+        }
         setSessionExpiry(0);
         localStorage.removeItem('admin_session_expiry');
-        showError('Admin session expired. Please login again.');
       }
       
-      if (lockoutEnd && Date.now() >= lockoutEnd) {
+      if (lockoutEnd && now >= lockoutEnd) {
         setIsLocked(false);
         setLockoutEnd(0);
         setAttemptCount(0);
@@ -435,7 +443,14 @@ const AdminPage: React.FC = () => {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [sessionExpiry, lockoutEnd, showError]);
+  }, [sessionExpiry, lockoutEnd]);
+
+  // Reset session expired flag when successfully authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      sessionExpiredShownRef.current = false;
+    }
+  }, [isAuthenticated]);
 
   // Hash password with salt for security
   const hashPassword = async (password: string): Promise<string> => {

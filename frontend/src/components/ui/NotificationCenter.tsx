@@ -6,7 +6,7 @@ import {
   AlertCircle, 
   Info, 
   AlertTriangle,
-  RotateCcw,
+  Check,
   Trash2
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
@@ -22,8 +22,6 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   position = 'top-right'
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [filter, setFilter] = useState<'all' | 'unread'>('all');
-  const [scopeFilter, setScopeFilter] = useState<'all' | 'store' | 'personal'>('all');
   const dropdownRef = useRef<HTMLDivElement>(null);
   
   const {
@@ -75,49 +73,31 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   const getNotificationIcon = (type: string) => {
     switch (type) {
       case 'success':
-        return <CheckCircle className="w-5 h-5 text-green-500" />;
+        return <CheckCircle className="w-4 h-4 text-green-500" />;
       case 'error':
-        return <AlertCircle className="w-5 h-5 text-red-500" />;
+        return <AlertCircle className="w-4 h-4 text-red-500" />;
       case 'warning':
-        return <AlertTriangle className="w-5 h-5 text-yellow-500" />;
+        return <AlertTriangle className="w-4 h-4 text-yellow-500" />;
       case 'info':
       default:
-        return <Info className="w-5 h-5 text-blue-500" />;
+        return <Info className="w-4 h-4 text-blue-500" />;
     }
   };
 
-  // Filter notifications
-  const filteredNotifications = notifications.filter(n => {
-    const matchesReadFilter = filter === 'all' || (filter === 'unread' && !n.read);
-    const matchesScopeFilter = scopeFilter === 'all' || n.scope === scopeFilter;
-    const result = matchesReadFilter && matchesScopeFilter;
-    return result;
-  });
-
-  // Count notifications by scope
-  const storeNotifications = notifications.filter(n => n.scope === 'store');
-  const personalNotifications = notifications.filter(n => n.scope === 'personal');
-  const unreadStoreCount = storeNotifications.filter(n => !n.read).length;
-  const unreadPersonalCount = personalNotifications.filter(n => !n.read).length;
-
   // Handle dismiss all notifications
   const handleDismissAll = () => {
-    if (window.confirm('Are you sure you want to dismiss all notifications? This action cannot be undone.')) {
+    if (window.confirm('Clear all notifications?')) {
       clearAll();
     }
   };
 
-  // Format timestamp properly to fix the "about 5 hours" issue
+  // Format timestamp
   const formatTimestamp = (timestamp: string) => {
     try {
       const date = new Date(timestamp);
-      // Ensure we're working with a valid date
-      if (isNaN(date.getTime())) {
-        return 'Invalid date';
-      }
+      if (isNaN(date.getTime())) return 'Invalid date';
       return formatDistanceToNow(date, { addSuffix: true });
     } catch (error) {
-      console.error('Error formatting timestamp:', error);
       return 'Unknown time';
     }
   };
@@ -127,254 +107,138 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
       {/* Notification Bell Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 text-white hover:text-gray-200 hover:bg-white/10 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white/50"
+        className="relative p-2 text-white hover:text-gray-200 hover:bg-white/10 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white/50"
         aria-label={`Notifications ${unreadCount > 0 ? `(${unreadCount} unread)` : ''}`}
       >
         <Bell className="w-6 h-6" />
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-medium animate-pulse">
+          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[20px] h-5 flex items-center justify-center font-medium animate-pulse">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
       </button>
 
-      {/* Notification Dropdown - Fixed positioning to stick to navbar */}
+      {/* Notification Dropdown */}
       {isOpen && (
         <>
-          {/* Backdrop to prevent interaction with content below */}
+          {/* Backdrop */}
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
           
-          {/* Dropdown positioned relative to the button */}
-          <div className="absolute right-0 top-full mt-2 w-96 bg-white rounded-lg shadow-xl border border-gray-200 z-50 flex flex-col" style={{ maxHeight: '80vh' }}>
+          {/* Dropdown */}
+          <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
             {/* Header */}
-            <div className="p-4 border-b border-gray-200 bg-gray-50">
+            <div className="px-4 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">Notifications</h3>
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={() => fetchNotifications()}
-                    className="p-1 text-gray-500 hover:text-gray-700 rounded"
-                    title="Refresh"
-                    disabled={loading}
-                  >
-                    <RotateCcw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                  </button>
-                  <button
-                    onClick={() => setIsOpen(false)}
-                    className="p-1 text-gray-500 hover:text-gray-700 rounded"
-                    title="Close"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
+                <h3 className="font-semibold">Notifications</h3>
+                <button
+                  onClick={() => setIsOpen(false)}
+                  className="p-1 hover:bg-white/20 rounded-lg transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
-              
-              {/* Filter Tabs and Actions */}
-              <div className="flex items-center justify-between mt-3">
-                <div className="flex space-x-1">
-                  <button
-                    onClick={() => setFilter('all')}
-                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                      filter === 'all' 
-                        ? 'bg-blue-100 text-blue-700' 
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    All ({notifications.length})
-                  </button>
-                  <button
-                    onClick={() => setFilter('unread')}
-                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                      filter === 'unread' 
-                        ? 'bg-blue-100 text-blue-700' 
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    Unread ({unreadCount})
-                  </button>
-                </div>
-                
-                {/* Scope Filter */}
-                <div className="flex space-x-1">
-                  <button
-                    onClick={() => setScopeFilter('all')}
-                    className={`px-2 py-1 text-xs font-medium rounded transition-colors ${
-                      scopeFilter === 'all' 
-                        ? 'bg-blue-100 text-blue-700 border border-blue-200' 
-                        : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
-                    All
-                  </button>
-                  <button
-                    onClick={() => setScopeFilter('store')}
-                    className={`px-2 py-1 text-xs font-medium rounded transition-colors ${
-                      scopeFilter === 'store' 
-                        ? 'bg-orange-100 text-orange-700 border border-orange-200' 
-                        : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
-                    Store{unreadStoreCount > 0 && ` (${unreadStoreCount})`}
-                  </button>
-                  <button
-                    onClick={() => setScopeFilter('personal')}
-                    className={`px-2 py-1 text-xs font-medium rounded transition-colors ${
-                      scopeFilter === 'personal' 
-                        ? 'bg-purple-100 text-purple-700 border border-purple-200' 
-                        : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
-                    Personal{unreadPersonalCount > 0 && ` (${unreadPersonalCount})`}
-                  </button>
-                </div>
-              </div>
+              {unreadCount > 0 && (
+                <p className="text-xs text-blue-100 mt-1">
+                  {unreadCount} unread message{unreadCount !== 1 ? 's' : ''}
+                </p>
+              )}
             </div>
 
-            {/* Notifications List */}
-            <div 
-              className="flex-1 overflow-y-auto notification-scroll" 
-              style={{ 
-                maxHeight: '400px',
-                scrollbarWidth: 'thin',
-                scrollbarColor: '#d1d5db #f3f4f6'
-              }}
-            >
+            {/* Content */}
+            <div className="max-h-96 overflow-y-auto">
               {loading ? (
                 <div className="p-8 text-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-                  <p className="mt-2 text-gray-500">Loading notifications...</p>
+                  <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                  <p className="mt-3 text-gray-500 text-sm">Loading...</p>
                 </div>
               ) : error ? (
-                <div className="p-8 text-center">
-                  <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
-                  <p className="text-red-600 font-medium">Failed to load notifications</p>
-                  <p className="text-gray-500 text-sm mt-1">{error}</p>
+                <div className="p-6 text-center">
+                  <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-3" />
+                  <p className="text-red-600 font-medium text-sm">Failed to load</p>
                   <button
-                    onClick={() => fetchNotifications()}
-                    disabled={loading}
-                    className="mt-3 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={fetchNotifications}
+                    className="mt-3 px-3 py-1.5 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 transition-colors"
                   >
-                    {loading ? 'Retrying...' : 'Try Again'}
+                    Retry
                   </button>
                 </div>
-              ) : filteredNotifications.length === 0 ? (
+              ) : notifications.length === 0 ? (
                 <div className="p-8 text-center">
-                  <Bell className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                  <p className="text-gray-500 font-medium">
-                    {filter === 'unread' ? 'No unread notifications' : 'No notifications'}
-                  </p>
-                  <p className="text-gray-400 text-sm mt-1">
-                    {filter === 'unread' 
-                      ? 'All caught up! 🎉' 
-                      : 'Notifications will appear here when you have them'
-                    }
-                  </p>
+                  <Bell className="w-8 h-8 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500 font-medium text-sm">All clear!</p>
+                  <p className="text-gray-400 text-xs mt-1">No notifications to show</p>
                 </div>
               ) : (
-                <div className="divide-y divide-gray-200">
-                  {filteredNotifications.map((notification) => (
+                <>
+                  {notifications.map((notification) => (
                     <div
                       key={notification.id}
-                      className={`p-4 hover:bg-gray-50 transition-colors ${
-                        !notification.read ? 'bg-blue-50' : ''
+                      className={`border-b border-gray-50 last:border-b-0 hover:bg-gray-50 transition-colors ${
+                        !notification.read ? 'bg-blue-50/50' : ''
                       }`}
                     >
-                      <div className="flex items-start space-x-3">
-                        {getNotificationIcon(notification.type)}
-                        
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between">
-                            <p className={`text-sm ${
-                              !notification.read ? 'font-semibold text-gray-900' : 'text-gray-700'
+                      <div className="p-4">
+                        <div className="flex items-start gap-3">
+                          {getNotificationIcon(notification.type)}
+                          
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm leading-5 ${
+                              !notification.read ? 'font-medium text-gray-900' : 'text-gray-700'
                             }`}>
                               {notification.message}
                             </p>
                             
-                            {/* Individual notification dismiss button */}
-                            <button
-                              onClick={() => deleteNotification(notification.id)}
-                              className="p-1 text-gray-400 hover:text-red-600 rounded ml-2 flex-shrink-0"
-                              title="Dismiss notification"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          </div>
-                          
-                          <div className="flex items-center justify-between mt-1">
-                            <p className="text-xs text-gray-500">
-                              {formatTimestamp(notification.createdAt)}
-                            </p>
-                            <div className="flex items-center space-x-2">
-                              {/* Scope indicator - Made smaller */}
-                              <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
-                                notification.scope === 'store' 
-                                  ? 'bg-orange-100 text-orange-700' 
-                                  : 'bg-purple-100 text-purple-700'
-                              }`}>
-                                {notification.scope === 'store' ? 'Store' : 'Personal'}
+                            <div className="flex items-center justify-between mt-2">
+                              <span className="text-xs text-gray-500">
+                                {formatTimestamp(notification.createdAt)}
                               </span>
-                              {notification.category && (
-                                <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
-                                  {notification.category}
-                                </span>
-                              )}
-                              {!notification.read && (
+                              
+                              <div className="flex items-center gap-2">
+                                {!notification.read && (
+                                  <button
+                                    onClick={() => markAsRead(notification.id)}
+                                    className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                                  >
+                                    Mark read
+                                  </button>
+                                )}
                                 <button
-                                  onClick={() => markAsRead(notification.id)}
-                                  className="text-xs text-blue-600 hover:text-blue-700 font-medium"
-                                  title="Mark as read"
+                                  onClick={() => deleteNotification(notification.id)}
+                                  className="text-gray-400 hover:text-red-500 transition-colors"
+                                  title="Dismiss"
                                 >
-                                  Mark read
+                                  <X className="w-3 h-3" />
                                 </button>
-                              )}
+                              </div>
                             </div>
                           </div>
-                          
-                          {notification.action && (
-                            <button
-                              onClick={notification.action.onClick}
-                              className="mt-2 text-sm text-blue-600 hover:text-blue-700 font-medium"
-                            >
-                              {notification.action.label}
-                            </button>
-                          )}
                         </div>
                       </div>
                     </div>
                   ))}
-                </div>
+                </>
               )}
             </div>
 
-            {/* Footer - Only show when there are notifications */}
+            {/* Footer */}
             {notifications.length > 0 && (
-              <div className="border-t border-gray-200 bg-gray-50">
-                {/* Status info */}
-                <div className="px-4 py-2 text-center">
-                  <span className="text-sm text-gray-600">
-                    Showing {filteredNotifications.length} of {notifications.length} notification{filteredNotifications.length !== 1 ? 's' : ''}
-                    {scopeFilter !== 'all' && ` (${scopeFilter})`}
-                  </span>
-                </div>
-                
-                {/* Action buttons */}
-                <div className="flex justify-center space-x-3 px-4 pb-3">
+              <div className="px-4 py-3 bg-gray-50 border-t border-gray-100">
+                <div className="flex justify-between items-center">
                   {unreadCount > 0 && (
                     <button
                       onClick={markAllAsRead}
-                      className="px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-md transition-colors"
-                      title="Mark all as read"
+                      className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
                     >
+                      <Check className="w-3 h-3" />
                       Mark all read
                     </button>
                   )}
                   <button
                     onClick={handleDismissAll}
-                    className="px-3 py-1.5 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors flex items-center space-x-1"
-                    title="Dismiss all notifications"
+                    className="text-xs text-gray-500 hover:text-red-600 font-medium flex items-center gap-1 ml-auto"
                   >
                     <Trash2 className="w-3 h-3" />
-                    <span>Dismiss All</span>
+                    Clear all
                   </button>
                 </div>
               </div>
