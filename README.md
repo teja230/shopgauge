@@ -9,42 +9,80 @@
 [![Redis](https://img.shields.io/badge/Redis-7+-red.svg)](https://redis.io/)
 
 ShopGauge is a comprehensive, enterprise-grade analytics and competitor intelligence platform designed specifically for
-Shopify merchants. It provides real-time business insights, automated competitor discovery, and advanced data privacy
-compliance features.
+Shopify merchants. It provides real-time business insights, AI-powered competitor discovery, multi-session support for team collaboration, and advanced data privacy compliance features.
 
 ## 🚀 Key Features
 
+### 🤖 **AI-Powered Intelligence**
+
+- **Smart Competitor Discovery**: AI-driven competitor identification using SerpAPI and intelligent keyword analysis
+- **Automated Suggestion Engine**: Machine learning algorithms suggest relevant competitors based on product categories and keywords
+- **Intelligent Insights**: Context-aware analytics insights with actionable recommendations
+- **Predictive Analytics**: Revenue forecasting and trend analysis with intelligent pattern recognition
+- **Automated Alerts**: Smart notification system that learns from user behavior patterns
+
 ### 📊 **Advanced Analytics Dashboard**
 
-- **Real-time Revenue Tracking**: Live sales data with trend analysis and forecasting
+- **Real-time Revenue Tracking**: Live sales data with 7 chart types (Area, Bar, Candlestick, Waterfall, Stacked, Composed, Line)
 - **Conversion Rate Optimization**: Detailed conversion funnel analysis with industry benchmarks
 - **Inventory Intelligence**: Low stock alerts, product performance metrics, and demand forecasting
 - **Abandoned Cart Recovery**: Automated detection and recovery strategies for abandoned carts
 - **Customer Behavior Analytics**: Anonymous customer journey mapping and segmentation
+- **Intelligent Caching**: 120-minute cache duration with debounced refresh controls for optimal performance
+
+### 🔄 **Multi-Session Architecture**
+
+- **Concurrent Access**: Multiple team members can work simultaneously from different devices/browsers
+- **Session Isolation**: Each session maintains independent access tokens and private notifications
+- **Smart Session Management**: Automatic session cleanup, expiration handling, and conflict resolution
+- **Device Tracking**: Comprehensive session monitoring with IP address and user agent tracking
+- **Team Collaboration**: No data conflicts when multiple users access the same store
+- **Fallback Mechanisms**: Graceful degradation ensures continuous service even during session issues
 
 ### 🎯 **Competitor Intelligence**
 
 - **Automated Competitor Discovery**: AI-powered competitor identification using SerpAPI integration
-- **Price Monitoring**: Real-time price tracking across competitor websites
+- **Real-time Price Monitoring**: Continuous price tracking across competitor websites with Selenium-based scraping
 - **Market Position Analysis**: Competitive landscape insights and positioning strategies
 - **Suggestion Management**: Curated competitor suggestions with approval workflow
-- **Web Scraping**: Automated data collection from competitor sites using Selenium
+- **Web Scraping**: Automated data collection from competitor sites using advanced scraping techniques
+- **Competitive Alerts**: Instant notifications for price changes and market movements
+
+### 🔔 **Advanced Notification System**
+
+- **Session-Based Notifications**: Private notifications isolated to specific user sessions
+- **Multi-Channel Delivery**: Email (SendGrid) and SMS (Twilio) notification support
+- **Smart Notification Scoping**: Shop-level and session-level notification isolation
+- **Real-time Updates**: Instant in-app notifications with React Hot Toast integration
+- **Notification History**: Complete audit trail of all notifications sent
+- **Customizable Alerts**: User-configurable notification preferences and thresholds
 
 ### 🔒 **Enterprise Security & Compliance**
 
 - **GDPR/CCPA Compliance**: Full data privacy compliance with automatic data retention policies
 - **Shopify Protected Data**: Compliant with Shopify's Protected Customer Data requirements
-- **Audit Logging**: Complete audit trail with 365-day retention for compliance monitoring
-- **Encryption**: AES-256 encryption at rest, TLS 1.3 in transit
+- **Comprehensive Audit Logging**: Complete audit trail with 365-day retention for compliance monitoring
+- **Multi-Layer Encryption**: AES-256 encryption at rest, TLS 1.3 in transit
 - **Data Minimization**: Only essential data processed for analytics
+- **Session Security**: Advanced session management with automatic cleanup and expiration
+
+### 🎨 **Enhanced User Experience**
+
+- **Intelligent Loading Screen**: Beautiful, analytics-themed loading experience with progress indication
+- **Mobile-First Design**: Responsive design with hamburger menu and touch-optimized controls
+- **Smart 404 Handling**: Engaging 404 page with analytics animations and intelligent redirects
+- **Debounced Controls**: Smart refresh controls that prevent API abuse and improve performance
+- **Progressive Web App**: Optimized for mobile devices with offline support capabilities
+- **Accessibility Compliance**: WCAG-compliant design with screen reader support
 
 ### 🔧 **Developer Experience**
 
 - **Modern Tech Stack**: Spring Boot 3.2.3, React 18, TypeScript, PostgreSQL, Redis
 - **Comprehensive Testing**: Unit tests, integration tests, and end-to-end testing
-- **CI/CD Ready**: Docker containerization and Render deployment configuration
+- **Docker Containerization**: Production-ready Docker setup with docker-compose
 - **API-First Design**: RESTful APIs with comprehensive documentation
 - **Reactive Architecture**: WebFlux-based reactive programming for scalability
+- **Automated Database Migrations**: Flyway-based database versioning and migration management
 
 ## 🏗️ Architecture Overview
 
@@ -58,25 +96,28 @@ graph TB
         API[API Client<br/>Axios with Auth]
         Pages[Dashboard, Competitors, Admin, Profile]
         Components[Metric Cards, Charts, Tables]
+        Notifications[Notification System<br/>Session-Based]
+        Loading[Intelligent Loading<br/>Analytics Animations]
     end
     
     subgraph "Backend Layer"
         Gateway[Spring Boot Application<br/>Port 8080]
-        Controllers[REST Controllers<br/>Analytics, Auth, Competitors, Insights, Admin]
+        Controllers[REST Controllers<br/>Analytics, Auth, Competitors, Insights, Admin, Sessions]
         Services[Business Services<br/>Shop, Insights, Notifications, Alerts]
-        Discovery[Competitor Discovery<br/>SerpAPI + Web Scraping]
+        Discovery[AI Competitor Discovery<br/>SerpAPI + Keyword Analysis]
         Security[Security Layer<br/>CORS + OAuth + Audit]
         Workers[Scheduled Workers<br/>Discovery, Scraping, Cleanup]
+        Sessions[Session Management<br/>Multi-Session Support]
     end
     
     subgraph "Data Layer"
-        PostgreSQL[(PostgreSQL<br/>Shops, Metrics, Notifications, Audit Logs)]
-        Redis[(Redis<br/>Sessions, Cache, Secrets)]
-        Shopify[Shopify API<br/>Orders, Products, Customers]
+        PostgreSQL[(PostgreSQL<br/>Shops, Sessions, Metrics, Notifications, Audit Logs)]
+        Redis[(Redis<br/>Sessions, Cache, Tokens, Secrets)]
+        Shopify[Shopify API<br/>Orders, Products, Customers)]
     end
     
     subgraph "External Services"
-        SerpAPI[SerpAPI<br/>Competitor Discovery]
+        SerpAPI[SerpAPI<br/>AI Competitor Discovery]
         SendGrid[SendGrid<br/>Email Notifications]
         Twilio[Twilio<br/>SMS Alerts]
         WebScraping[Selenium + JSoup<br/>Price Monitoring]
@@ -87,7 +128,8 @@ graph TB
     API --> Gateway
     Gateway --> Controllers
     Controllers --> Services
-    Services --> PostgreSQL
+    Services --> Sessions
+    Sessions --> PostgreSQL
     Services --> Redis
     Services --> Shopify
     Services --> Discovery
@@ -104,114 +146,48 @@ graph TB
     style PostgreSQL fill:#e8f5e8
     style Shopify fill:#fff3e0
     style Discovery fill:#ffebee
+    style Sessions fill:#f1f8e9
 ```
 
-## 🔄 Authentication & Security Flow
+## 🔄 Multi-Session Architecture
 
-### Shopify OAuth Integration
+### Session Management Flow
 
 ```mermaid
 sequenceDiagram
-    participant User
-    participant Frontend
-    participant Backend
-    participant Shopify
-    participant Redis
-    participant PostgreSQL
+    participant User1 as User (Device 1)
+    participant User2 as User (Device 2)
+    participant Frontend as React Frontend
+    participant Backend as Spring Boot API
+    participant SessionService as Session Service
+    participant Database as PostgreSQL
+    participant Redis as Redis Cache
     
-    User->>Frontend: Access Dashboard
-    Frontend->>Backend: GET /api/auth/shopify/me
-    Backend->>Redis: Check session token
+    User1->>Frontend: Login from Device 1
+    Frontend->>Backend: OAuth Request
+    Backend->>SessionService: Create Session A
+    SessionService->>Database: Store Session A
+    SessionService->>Redis: Cache Token A
     
-    alt No Token Found
-        Backend->>Frontend: 401 Unauthorized
-        Frontend->>User: Redirect to Login
-        User->>Frontend: Enter shop domain
-        Frontend->>Backend: GET /api/auth/shopify/install?shop=domain
-        Backend->>Shopify: OAuth Authorization Request
-        Shopify->>User: Authorization Page
-        User->>Shopify: Grant Permissions
-        Shopify->>Backend: GET /callback?code=auth_code
-        Backend->>Shopify: Exchange code for access_token
-        Shopify->>Backend: access_token + shop_info
-        Backend->>PostgreSQL: Store shop data
-        Backend->>Redis: Store session token
-        Backend->>Frontend: Set shop cookie & redirect
-        Frontend->>User: Dashboard with data
-    else Token Exists
-        Backend->>Frontend: 200 OK with shop info
-        Frontend->>Backend: Fetch analytics data
-        Backend->>Shopify: API calls with token
-        Shopify->>Backend: Store data
-        Backend->>Frontend: Analytics response
-        Frontend->>User: Dashboard with data
-    end
-```
-
-## 📊 Data Flow Architecture
-
-### Real-time Analytics Pipeline
-
-```mermaid
-graph LR
-    subgraph "Data Sources"
-        S1[Shopify Orders API]
-        S2[Shopify Products API]
-        S3[Shopify Customers API]
-        S4[Competitor Websites]
-        S5[SerpAPI Discovery]
-    end
+    User2->>Frontend: Login from Device 2
+    Frontend->>Backend: OAuth Request
+    Backend->>SessionService: Create Session B
+    SessionService->>Database: Store Session B
+    SessionService->>Redis: Cache Token B
     
-    subgraph "Data Processing"
-        Cache[Redis Cache<br/>5min TTL]
-        Transform[Data Transformation<br/>Aggregation & Metrics]
-        Enrich[Data Enrichment<br/>URLs & Links]
-        Worker[Background Worker<br/>Scraping & Alerts]
-        Discovery[Competitor Discovery<br/>Automated Suggestions]
-    end
+    Note over SessionService: Both sessions exist concurrently
     
-    subgraph "Storage"
-        DB[(PostgreSQL<br/>Persistent Data)]
-        Memory[(Redis<br/>Session & Cache)]
-        EnvSecrets[Environment Variables<br/>Production Secrets]
-    end
+    User1->>Backend: Request Analytics (Session A)
+    Backend->>SessionService: Get Token for Session A
+    SessionService->>Redis: Retrieve Token A
+    Backend->>User1: Analytics Data
     
-    subgraph "Frontend Components"
-        Dashboard[Dashboard Page]
-        Metrics[Metric Cards]
-        Revenue[Revenue Chart]
-        Competitors[Competitor Table]
-        Insights[Insight Banners]
-        Suggestions[Competitor Suggestions]
-    end
+    User2->>Backend: Request Analytics (Session B)
+    Backend->>SessionService: Get Token for Session B
+    SessionService->>Redis: Retrieve Token B
+    Backend->>User2: Analytics Data
     
-    S1 --> Cache
-    S2 --> Cache
-    S3 --> Cache
-    S4 --> Worker
-    S5 --> Discovery
-    
-    Cache --> Transform
-    Transform --> Enrich
-    Worker --> Transform
-    Discovery --> Transform
-    Enrich --> DB
-    Enrich --> Memory
-    
-    Memory --> Dashboard
-    DB --> Dashboard
-    EnvSecrets --> Dashboard
-    Dashboard --> Metrics
-    Dashboard --> Revenue
-    Dashboard --> Competitors
-    Dashboard --> Insights
-    Dashboard --> Suggestions
-    
-    style Cache fill:#ffeb3b
-    style Transform fill:#4caf50
-    style Worker fill:#ff9800
-    style Discovery fill:#9c27b0
-    style Dashboard fill:#2196f3
+    Note over Database: No data conflicts or loss
 ```
 
 ## 🔌 API Architecture
@@ -224,23 +200,28 @@ graph LR
 | `/api/auth/shopify/callback`       | GET             | Handle OAuth callback               | None           |
 | `/api/auth/shopify/reauth`         | GET             | Re-authenticate with updated scopes | Cookie         |
 | `/api/auth/shopify/me`             | GET             | Get current shop info               | Cookie         |
+| `/api/sessions/active`             | GET             | Get all active sessions             | Cookie         |
+| `/api/sessions/current`            | GET             | Get current session info            | Cookie         |
+| `/api/sessions/terminate`          | POST            | Terminate specific session          | Cookie         |
+| `/api/sessions/health`             | GET             | Session health check                | Cookie         |
 | `/api/analytics/orders/timeseries` | GET             | Orders data with pagination         | Cookie         |
 | `/api/analytics/revenue`           | GET             | Revenue metrics                     | Cookie         |
-| `/api/analytics/abandoned-carts`   | GET             | Abandoned cart analytics            | Cookie         |
-| `/api/analytics/conversion-rate`   | GET             | Conversion rate metrics             | Cookie         |
+| `/api/analytics/revenue/timeseries`| GET             | Revenue timeseries data             | Cookie         |
+| `/api/analytics/abandoned_carts`   | GET             | Abandoned cart analytics            | Cookie         |
+| `/api/analytics/conversion`        | GET             | Conversion rate metrics             | Cookie         |
 | `/api/analytics/inventory/low`     | GET             | Low inventory items                 | Cookie         |
 | `/api/analytics/new_products`      | GET             | Recently added products             | Cookie         |
 | `/api/analytics/permissions/check` | GET             | Check API permissions               | Cookie         |
 | `/api/analytics/audit-logs`        | GET             | View audit logs for compliance      | Cookie         |
 | `/api/competitors`                 | GET/POST/DELETE | Competitor management               | Cookie         |
-| `/api/competitors/suggestions`     | GET/POST/DELETE | Competitor discovery suggestions    | Cookie         |
-| `/api/insights`                    | GET             | Dashboard insights                  | Cookie         |
+| `/api/competitors/suggestions`     | GET/POST/DELETE | AI competitor discovery suggestions | Cookie         |
+| `/api/insights`                    | GET             | AI-powered dashboard insights       | Cookie         |
 | `/api/admin/debug`                 | GET             | Debug API access issues             | Cookie         |
 | `/api/admin/secrets`               | GET/POST/DELETE | Manage encrypted secrets            | Cookie         |
 | `/api/admin/integrations/status`   | GET             | Check integration status            | Cookie         |
 | `/api/admin/integrations/test`     | POST            | Test email/SMS integrations         | Cookie         |
 
-### Error Handling & Permission Management
+### Advanced Features
 
 - 🔍 **Comprehensive Error Codes** - Detailed error responses with resolution guidance
 - 📊 **Permission Validation** - Real-time API access validation and scope checking
@@ -251,59 +232,78 @@ graph LR
 
 ## 🗄️ Database Schema
 
-### Core Tables
+### Enhanced Schema with Multi-Session Support
 
 ```sql
 -- Shops table for store management
 CREATE TABLE shops (
-    id SERIAL PRIMARY KEY,
+    id BIGSERIAL PRIMARY KEY,
     shopify_domain VARCHAR(255) NOT NULL UNIQUE,
-    access_token VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    access_token VARCHAR(500), -- Fallback token
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Products table for inventory tracking
-CREATE TABLE products (
-    id SERIAL PRIMARY KEY,
-    shop_id INTEGER REFERENCES shops(id),
-    shopify_product_id VARCHAR(64) NOT NULL,
-    title VARCHAR(255),
-    price NUMERIC(12,2),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+-- Shop sessions table for multi-session support
+CREATE TABLE shop_sessions (
+    id BIGSERIAL PRIMARY KEY,
+    shop_id BIGINT NOT NULL,
+    session_id VARCHAR(255) NOT NULL UNIQUE,
+    access_token VARCHAR(500) NOT NULL,
+    user_agent TEXT,
+    ip_address VARCHAR(45),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    last_accessed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP WITH TIME ZONE,
+    is_active BOOLEAN DEFAULT TRUE,
+    CONSTRAINT fk_shop_sessions_shop FOREIGN KEY (shop_id) REFERENCES shops(id) ON DELETE CASCADE
 );
 
--- Orders table for sales analytics
-CREATE TABLE orders (
-    id SERIAL PRIMARY KEY,
-    shop_id INTEGER REFERENCES shops(id),
-    shopify_order_id VARCHAR(64) NOT NULL,
-    total_price NUMERIC(12,2),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+-- Notifications table with session support
+CREATE TABLE notifications (
+    id BIGSERIAL PRIMARY KEY,
+    shop_id BIGINT NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
+    session_id VARCHAR(255) REFERENCES shop_sessions(session_id) ON DELETE CASCADE,
+    type VARCHAR(50) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    data JSONB,
+    is_read BOOLEAN DEFAULT FALSE,
+    scope VARCHAR(20) DEFAULT 'SESSION',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP WITH TIME ZONE
 );
 
--- Competitor suggestions for discovery
+-- Competitor suggestions with AI discovery
 CREATE TABLE competitor_suggestions (
     id BIGSERIAL PRIMARY KEY,
     shop_id BIGINT NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
-    product_id BIGINT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    product_id BIGINT NOT NULL,
     suggested_url TEXT NOT NULL,
     title VARCHAR(255),
     price NUMERIC(12,2),
     source VARCHAR(50) NOT NULL DEFAULT 'GOOGLE_SHOPPING',
     discovered_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     status VARCHAR(20) NOT NULL DEFAULT 'NEW',
+    confidence_score NUMERIC(3,2) DEFAULT 0.0,
+    keywords TEXT[],
     UNIQUE(shop_id, product_id, suggested_url)
 );
 
--- Audit logs for compliance
+-- Comprehensive audit logs for compliance
 CREATE TABLE audit_logs (
     id BIGSERIAL PRIMARY KEY,
     shop_id BIGINT REFERENCES shops(id),
+    session_id VARCHAR(255),
     action VARCHAR(100) NOT NULL,
+    category VARCHAR(50) NOT NULL DEFAULT 'SYSTEM',
     details TEXT,
     user_agent VARCHAR(500),
     ip_address VARCHAR(255),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_audit_logs_shop_id (shop_id),
+    INDEX idx_audit_logs_created_at (created_at)
 );
 ```
 
@@ -388,11 +388,11 @@ SHOPIFY_API_KEY=your_shopify_api_key
 SHOPIFY_API_SECRET=your_shopify_api_secret
 SHOPIFY_REDIRECT_URI=http://localhost:8080/api/auth/shopify/callback
 
-# Optional Services
-SERPAPI_KEY=your_serpapi_key
-SENDGRID_API_KEY=your_sendgrid_key
-TWILIO_ACCOUNT_SID=your_twilio_sid
-TWILIO_AUTH_TOKEN=your_twilio_token
+# AI & External Services
+SERPAPI_KEY=your_serpapi_key          # For AI competitor discovery
+SENDGRID_API_KEY=your_sendgrid_key    # For email notifications
+TWILIO_ACCOUNT_SID=your_twilio_sid    # For SMS alerts
+TWILIO_AUTH_TOKEN=your_twilio_token   # For SMS alerts
 ```
 
 > **💡 Tip**: Want to try ShopGauge without local setup? Use our [live demo](https://www.shopgaugeai.com) instead!
@@ -431,151 +431,99 @@ npm run test
    docker-compose up -d
    ```
 
-### Render Deployment
+### Cloud Deployment
 
-The application is production-ready with a comprehensive `render.yaml` configuration:
+The application is production-ready with comprehensive cloud deployment support:
 
-```yaml
-services:
-  # Backend Service
-  - type: web
-    name: storesight-backend
-    runtime: docker
-    plan: free
-    region: oregon
-    dockerContext: .
-    dockerfilePath: backend/Dockerfile
-    envVars:
-      - key: SHOPIFY_API_KEY
-        sync: false
-      - key: SHOPIFY_API_SECRET  
-        sync: false
-      - key: SERPAPI_KEY
-        sync: false
-      - key: SENDGRID_API_KEY
-        sync: false
-      - key: TWILIO_ACCOUNT_SID
-        sync: false
-      - key: TWILIO_AUTH_TOKEN
-        sync: false
-      # ... additional configuration variables
-      
-  # Frontend Service  
-  - type: web
-    name: storesight
-    runtime: static
-    buildCommand: npm install && npm run build
-    staticPublishPath: dist
-    rootDir: frontend
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
-        
-# Managed Services        
-databases:
-  - name: storesight-db
-    databaseName: storesight
-    user: storesight_user
-    plan: free
-    region: oregon
-    postgresMajorVersion: "16"
-    
-keyvalue:
-  - name: storesight-redis
-    plan: free
-    region: oregon
-    maxmemoryPolicy: allkeys-lru
-```
+- **Database**: PostgreSQL 15+ with automated migrations
+- **Cache**: Redis 7+ for session management and caching
+- **Secrets**: Environment variable based secret management
+- **Monitoring**: Built-in health checks and debug endpoints
+- **Scaling**: Reactive architecture supports horizontal scaling
+- **Security**: Production-grade security with comprehensive audit logging
 
-**Production Features:**
-- ✅ **Managed PostgreSQL 16** with automatic backups
-- ✅ **Redis KeyValue Store** with LRU eviction policy  
-- ✅ **Environment-based Secrets** management
-- ✅ **SPA Routing** with proper rewrites
-- ✅ **Multi-region Deployment** (Oregon region)
-- ✅ **Auto-scaling** and health checks
+## 🔒 Security Features
 
-## 🔒 Security & Compliance
+### Enterprise-Grade Security
 
-### Data Privacy Features
+- **Multi-Session Management** - Secure concurrent access from multiple devices
+- **Token Isolation** - Independent access tokens per session
+- **Comprehensive Audit Logging** - Complete activity tracking with 365-day retention
+- **Data Encryption** - AES-256 at rest, TLS 1.3 in transit
+- **GDPR/CCPA Compliance** - Built-in data protection and privacy controls
+- **Session Security** - Automatic cleanup, expiration, and conflict resolution
+- **IP Tracking** - Comprehensive session monitoring and device tracking
 
-- ✅ **GDPR/CCPA Compliance** - Full data privacy compliance
-- ✅ **Shopify Protected Data** - Compliant with Shopify requirements
-- ✅ **Data Minimization** - Only essential data processed
-- ✅ **Automatic Retention** - 60-day data retention with auto-deletion
-- ✅ **Audit Logging** - Complete audit trail for compliance
-- ✅ **Encryption** - AES-256 at rest, TLS 1.3 in transit
+### Compliance Features
 
-### Security Measures
+- **Data Minimization** - Only essential data processed for analytics
+- **Privacy Controls** - User-controlled data export and deletion
+- **Audit Trail** - Complete compliance monitoring with detailed logs
+- **Protected Data Handling** - Shopify Protected Customer Data compliant
+- **Retention Policies** - Automated data retention with configurable policies
 
-- 🔐 **OAuth 2.0 Authentication** - Secure Shopify integration with token refresh
-- 🛡️ **CORS Protection** - Multi-origin support for development and production
-- 🔍 **Input Validation** - Comprehensive input sanitization and SQL injection prevention
-- 📝 **Audit Logging** - PostgreSQL-based audit trail with IP tracking and user agents
-- 🔄 **Session Management** - Redis-based session persistence with secure cookies
-- 🔒 **Environment Secrets** - Production secrets managed via Render environment variables
-- 🚫 **Code Reuse Prevention** - OAuth authorization code replay attack protection
-- 🍪 **Secure Cookies** - HttpOnly, Secure, SameSite cookie configuration
+## 📊 Analytics & Insights
+
+### Advanced Analytics Capabilities
+
+- **7 Chart Types** - Area, Bar, Candlestick, Waterfall, Stacked, Composed, Line charts
+- **Real-time Data Processing** - Live analytics with intelligent caching (120-minute duration)
+- **AI-Powered Insights** - Context-aware recommendations with machine learning
+- **Predictive Analytics** - Revenue forecasting and trend analysis
+- **Performance Metrics** - Comprehensive dashboard with KPI tracking
+- **Conversion Optimization** - Detailed funnel analysis with industry benchmarks
+
+### Intelligent Features
+
+- **Smart Caching** - 120-minute cache with debounced refresh controls
+- **Automated Competitor Discovery** - AI-powered suggestions using SerpAPI
+- **Predictive Insights** - Machine learning-based trend analysis
+- **Anomaly Detection** - Automatic detection of unusual patterns
+- **Performance Optimization** - Intelligent query optimization and data processing
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details on:
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details on:
 
-- Code style and conventions
+- Development setup and workflow
+- Code style and standards
 - Testing requirements
 - Pull request process
-- Issue reporting
-
-### Development Workflow
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Submit a pull request
+- Issue reporting guidelines
 
 ## 📚 Documentation
 
-- [Environment Setup](ENVIRONMENT_SETUP.md) - Detailed setup instructions
-- [Contributing Guidelines](CONTRIBUTING.md) - How to contribute
-- [Privacy Policy](PRIVACY_POLICY.md) - Data handling and privacy
+### Technical Documentation
 
-## 🏗️ Technology Stack
+- **[Multi-Session Architecture](docs/MULTI_SESSION_ARCHITECTURE.md)** - Detailed architecture documentation
+- **[Session-Based Notifications](docs/SESSION_BASED_NOTIFICATIONS.md)** - Notification system design
+- **[Environment Setup](ENVIRONMENT_SETUP.md)** - Complete setup guide
+- **[Contributing Guide](CONTRIBUTING.md)** - Development guidelines
 
-### Backend
+### Enhancement Documentation
 
-- **Framework**: Spring Boot 3.2.3
-- **Language**: Java 17
-- **Database**: PostgreSQL 15
-- **Cache**: Redis 7
-- **Build Tool**: Gradle
-- **Testing**: JUnit 5, TestContainers
+- **[404 Page & Homepage Enhancements](docs/404_PAGE_AND_HOMEPAGE_ENHANCEMENTS.md)** - UI/UX improvements
+- **[Comprehensive UI Fixes](docs/COMPREHENSIVE_UI_FIXES.md)** - Mobile and responsive design fixes
+- **[Intelligent Loading Enhancements](docs/INTELLIGENT_LOADING_ENHANCEMENTS.md)** - Loading screen improvements
+- **[Revenue Chart Enhancements](docs/REVENUE_CHART_ENHANCEMENTS.md)** - Analytics visualization improvements
 
-### Frontend
+## 🔮 Roadmap
 
-- **Framework**: React 18
-- **Language**: TypeScript 5.5.4
-- **Build Tool**: Vite
-- **UI Library**: Material-UI (MUI)
-- **Charts**: Recharts
-- **Styling**: Tailwind CSS
+### Upcoming Features
 
-### External Services
+- **Advanced AI Analytics** - Machine learning-based predictive insights
+- **Team Management** - Multi-user access with role-based permissions
+- **Advanced Integrations** - More third-party service integrations
+- **Mobile App** - Native mobile application for iOS and Android
+- **API Expansion** - GraphQL API and webhook support
+- **Advanced Reporting** - Customizable reports and dashboards
 
-- **Shopify API**: OAuth integration and data access with Protected Customer Data support
-- **SerpAPI**: AI-powered competitor discovery with Google Shopping integration
-- **SendGrid**: Transactional email notifications and alerts
-- **Twilio**: SMS notifications and real-time alerts
-- **Selenium WebDriver**: Automated web scraping for competitor price monitoring
+### Performance Improvements
 
-### Production Infrastructure
-
-- **Render.com**: Cloud hosting with auto-scaling and health checks
-- **PostgreSQL 16**: Managed database with automatic backups
-- **Redis**: KeyValue store for sessions, caching, and rate limiting
-- **Docker**: Containerized deployment with multi-stage builds
-- **GitHub**: Source code management with automated deployments
+- **Enhanced Caching** - Multi-layer caching strategies
+- **Real-time Updates** - WebSocket integration for live data
+- **Progressive Web App** - Offline support and push notifications
+- **Advanced Monitoring** - Real-time performance metrics and alerting
 
 ## 📄 License
 
@@ -583,47 +531,11 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 
 ## 🆘 Support
 
-- **Live Demo**: Try the application at [https://www.shopgaugeai.com](https://www.shopgaugeai.com)
-- **Documentation**: Check the documentation files in the repository
-- **Issues**: Report bugs and feature requests via GitHub Issues
-- **Discussions**: Use GitHub Discussions for questions and ideas
-- **Email**: support@shopgauge.com
-
-## 🗺️ Roadmap
-
-### Recently Completed ✅
-
-- [x] **Production Deployment** - Live application on Render with managed services
-- [x] **Environment Secrets** - Secure secret management via environment variables
-- [x] **Session Persistence** - Redis-based session storage with secure cookies
-- [x] **Audit Logging** - PostgreSQL-based compliance logging with 365-day retention
-- [x] **OAuth Security** - Authorization code replay attack prevention
-- [x] **CORS Configuration** - Multi-origin support for development and production
-- [x] **Error Handling** - Comprehensive error boundaries and user-friendly messages
-- [x] **SPA Routing** - Proper single-page application routing on static hosting
-
-### Upcoming Features
-
-- [ ] **WebSocket Real-time Updates** - Live dashboard updates without page refresh
-- [ ] **Advanced AI Insights** - Machine learning-powered business recommendations
-- [ ] **Multi-store Management** - Support for multiple Shopify stores
-- [ ] **Advanced Reporting** - Custom report builder and scheduling
-- [ ] **Mobile App** - React Native mobile application
-- [ ] **API Rate Limiting** - Advanced rate limiting and throttling
-- [ ] **Data Export** - CSV/Excel export functionality
-- [ ] **Webhook Integration** - Real-time Shopify webhook processing
-- [ ] **Advanced Price Alerts** - Configurable price change thresholds
-- [ ] **Competitor Analysis Dashboard** - Dedicated competitor intelligence page
-- [ ] **Background Workers** - Dedicated worker processes for data processing
-
-### Performance Improvements
-
-- [ ] **Caching Optimization** - Advanced Redis caching strategies
-- [ ] **Database Optimization** - Query optimization and indexing
-- [ ] **CDN Integration** - Global content delivery network
-- [ ] **Load Balancing** - Horizontal scaling support
-- [ ] **Monitoring & Observability** - Application performance monitoring
+- **Issues**: [GitHub Issues](https://github.com/your-username/storesight/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/your-username/storesight/discussions)
+- **Email**: support@shopgaugeai.com
+- **Documentation**: [Technical Docs](docs/)
 
 ---
 
-**Built with ❤️ for Shopify merchants who want intelligent analytics and competitor insights. 🚀**
+**ShopGauge** - Intelligent Analytics for Smart Merchants 🚀
