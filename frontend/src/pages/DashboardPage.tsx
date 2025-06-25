@@ -741,13 +741,18 @@ const DashboardPage = () => {
 
   // Individual card data fetching functions
   const fetchRevenueData = useCallback(async (forceRefresh = false) => {
+    console.log('fetchRevenueData called - forceRefresh:', forceRefresh);
     setCardLoading(prev => ({ ...prev, revenue: true }));
     setCardErrors(prev => ({ ...prev, revenue: null }));
     
     try {
       const data = await getCachedOrFetch('revenue', async () => {
+        console.log('Making API call to /api/analytics/revenue');
         const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/revenue'));
-        return await response.json();
+        console.log('Revenue API response status:', response.status);
+        const jsonData = await response.json();
+        console.log('Revenue API response data:', jsonData);
+        return jsonData;
       }, forceRefresh);
       
       if ((data.error_code === 'INSUFFICIENT_PERMISSIONS' || (data.error && data.error.includes('re-authentication')))) {
@@ -1188,7 +1193,9 @@ const DashboardPage = () => {
 
   // Auto-fetch all dashboard data on initial load
   useEffect(() => {
+    console.log('Dashboard useEffect triggered - shop:', shop);
     if (shop && shop.trim() !== '') {
+      console.log('Triggering all data fetches for shop:', shop);
       // Trigger data fetches for all cards
       fetchRevenueData();
       fetchProductsData();
@@ -1197,6 +1204,8 @@ const DashboardPage = () => {
       fetchInsightsData();
       fetchOrdersData();
       fetchAbandonedCartsData();
+    } else {
+      console.log('Shop not available or empty, skipping data fetch');
     }
   }, [shop, fetchRevenueData, fetchProductsData, fetchInventoryData, fetchNewProductsData, fetchInsightsData, fetchOrdersData, fetchAbandonedCartsData]);
 
