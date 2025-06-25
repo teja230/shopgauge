@@ -48,7 +48,14 @@ const NavBar: React.FC = () => {
             mr: 2,
             userSelect: 'none',
           }}
-          onClick={() => navigate('/')}
+          onClick={() => {
+            // Smart navigation: go to dashboard if authenticated, home if not
+            if (isAuthenticated) {
+              navigate('/dashboard');
+            } else {
+              navigate('/');
+            }
+          }}
         >
           <InsightsIcon sx={{ mr: 1, fontSize: 28 }} />
           <Typography variant="h6" component="div" sx={{ fontWeight: 600 }}>

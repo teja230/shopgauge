@@ -68,6 +68,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Clear dashboard cache on logout
       sessionStorage.removeItem('dashboard_cache_v1.1');
+      sessionStorage.removeItem('dashboard_cache_v2');
       
       setIsAuthenticated(false);
       setShop(null);
@@ -76,6 +77,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Clear cache even if logout API fails
       sessionStorage.removeItem('dashboard_cache_v1.1');
+      sessionStorage.removeItem('dashboard_cache_v2');
       setIsAuthenticated(false);
       setShop(null);
     }

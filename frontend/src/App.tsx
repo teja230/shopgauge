@@ -82,7 +82,7 @@ const RedirectHandler: React.FC = () => {
             navigate(redirectPath, { replace: true });
           } else {
             console.log('RedirectHandler: Not authenticated, staying on home page with redirect param');
-            // Keep the redirect parameter for after login
+            // Keep the redirect parameter for after login - no action needed
           }
         } else {
           // Non-protected routes (admin, privacy-policy) can be accessed directly

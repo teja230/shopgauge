@@ -73,7 +73,7 @@ export default function ProfilePage() {
         // Clear local state immediately
         // Note: We can't call logout here as it would cause a loop
         setTimeout(() => {
-          window.location.href = '/';
+          navigate('/');
         }, 1000);
       } else {
         console.error('Force disconnect: API error:', data);
@@ -208,7 +208,8 @@ export default function ProfilePage() {
   const handleSwitchStore = () => {
     // Clear current session and show store connection form
     logout();
-    navigate('/');
+    // Stay on profile page to show the connection form
+    setShowStoreSwitcher(true);
   };
 
   return (
@@ -389,7 +390,7 @@ export default function ProfilePage() {
                 <h4 className="font-medium text-gray-900 mb-3">Quick Actions</h4>
                 <div className="flex flex-wrap gap-2">
                   <button
-                    onClick={() => window.location.href = '/'}
+                    onClick={() => navigate('/')}
                     className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                   >
                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -398,7 +399,7 @@ export default function ProfilePage() {
                     Go to Home
                   </button>
                   <button
-                    onClick={() => window.location.href = '/dashboard'}
+                    onClick={() => navigate('/dashboard')}
                     className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                   >
                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

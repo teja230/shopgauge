@@ -12,8 +12,8 @@ export const useSessionNotification = () => {
   
   const showSessionExpiredNotification = useCallback((options: SessionNotificationOptions = {}) => {
     const {
-      redirect = true,
-      redirectDelay = 2000,
+      redirect = false, // Changed default to false to prevent automatic redirects
+      redirectDelay = 5000, // Increased delay to give users more time
       showToast = true
     } = options;
 

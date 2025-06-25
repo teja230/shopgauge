@@ -853,7 +853,7 @@ const DashboardPage = () => {
       }
     } catch (error: any) {
       if (error.message === 'PERMISSION_ERROR') {
-        navigate('/');
+        setCardErrors(prev => ({ ...prev, products: 'Permission denied – please re-authenticate with Shopify' }));
         return;
       }
       setCardErrors(prev => ({ ...prev, products: 'Failed to load products data' }));
@@ -887,7 +887,7 @@ const DashboardPage = () => {
       }
     } catch (error: any) {
       if (error.message === 'PERMISSION_ERROR') {
-        navigate('/');
+        setCardErrors(prev => ({ ...prev, inventory: 'Permission denied – please re-authenticate with Shopify' }));
         return;
       }
       setCardErrors(prev => ({ ...prev, inventory: 'Failed to load inventory data' }));
@@ -921,7 +921,7 @@ const DashboardPage = () => {
       }
     } catch (error: any) {
       if (error.message === 'PERMISSION_ERROR') {
-        navigate('/');
+        setCardErrors(prev => ({ ...prev, newProducts: 'Permission denied – please re-authenticate with Shopify' }));
         return;
       }
       setCardErrors(prev => ({ ...prev, newProducts: 'Failed to load new products data' }));
