@@ -40,18 +40,38 @@ const HomePage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [isOAuthFlow, setIsOAuthFlow] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [errorCode, setErrorCode] = useState('');
   const { isAuthenticated, authLoading, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Check if we're in an OAuth flow from Shopify
+  // Check if we're in an OAuth flow from Shopify or if there's an error
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
     const shopFromUrl = urlParams.get('shop');
+    const errorFromUrl = urlParams.get('error');
+    const errorMsgFromUrl = urlParams.get('error_message');
     
     if (shopFromUrl) {
       setIsOAuthFlow(true);
       console.log('HomePage: Detected OAuth flow from Shopify');
+    }
+    
+    if (errorFromUrl && errorMsgFromUrl) {
+      setErrorCode(errorFromUrl);
+      setErrorMessage(decodeURIComponent(errorMsgFromUrl));
+      console.log('HomePage: Detected error from OAuth callback:', errorFromUrl, errorMsgFromUrl);
+      
+      // Show error toast
+      toast.error(decodeURIComponent(errorMsgFromUrl), {
+        duration: 8000,
+        position: 'top-center',
+      });
+      
+      // Clear URL parameters after showing error
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, '', newUrl);
     }
   }, [location.search]);
 
@@ -60,6 +80,9 @@ const HomePage = () => {
 
   const handleStartClick = () => {
     setShowForm(true);
+    // Clear any previous errors when starting fresh
+    setErrorMessage('');
+    setErrorCode('');
   };
 
   const handleSwitchStore = async () => {
@@ -68,6 +91,9 @@ const HomePage = () => {
       await logout();
       // Show the form for connecting a new store
       setShowForm(true);
+      // Clear any previous errors
+      setErrorMessage('');
+      setErrorCode('');
     } catch (error) {
       console.error('Failed to switch store:', error);
       toast.error('Failed to switch store. Please try again.');
@@ -207,6 +233,35 @@ const HomePage = () => {
           </div>
         )}
       </header>
+
+      {/* Error Display Section */}
+      {errorMessage && (
+        <div className="mb-8 w-full max-w-2xl mx-auto">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <svg className="h-6 w-6 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-lg font-medium text-red-800">
+                  {errorCode === 'code_used' ? 'Authorization Link Expired' : 'Connection Error'}
+                </h3>
+                <p className="mt-2 text-red-700">{errorMessage}</p>
+                <div className="mt-4">
+                  <button
+                    onClick={handleStartClick}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                  >
+                    Try Again
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Features Grid */}
       <section className="mb-12 w-full max-w-4xl">
