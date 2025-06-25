@@ -85,8 +85,8 @@ const AppContent: React.FC = () => {
     loading
   });
 
-  // Show global loading state when initializing
-  if (loading || (authLoading && window.location.pathname !== '/')) {
+  // Show global loading state only during initial load
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-white">
         <div className="text-center">

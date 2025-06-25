@@ -67,8 +67,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [isAuthenticated, shop, authLoading, loading, isLoggingOut, location.pathname]);
 
-
-
   // Initial auth check - prevent running multiple times
   useEffect(() => {
     console.log('Auth: Initializing auth provider');
@@ -82,10 +80,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       console.log('Auth: Starting initial auth check');
-      
-      // Set loading states at the beginning
-      setAuthLoading(true);
-      setLoading(true);
       
       try {
         // First, check if there's a shop parameter in the URL (for OAuth callback)
@@ -103,9 +97,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setCookie('shop', shopFromUrl, 7);
           console.log('Auth: Set shop cookie:', shopFromUrl);
           
-          // Set the shop from URL parameter
+          // Set authentication state immediately
           setShop(shopFromUrl);
           setIsAuthenticated(true);
+          setAuthLoading(false);
+          setLoading(false);
+          
+          // Navigate to dashboard after setting auth state
+          if (location.pathname === '/') {
+            console.log('Auth: Navigating to dashboard after OAuth callback');
+            navigate('/dashboard');
+          }
           return;
         }
         
@@ -115,6 +117,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.log('Auth: Found shop in cookie:', shopFromCookie);
           setShop(shopFromCookie);
           setIsAuthenticated(true);
+          setAuthLoading(false);
+          setLoading(false);
           return;
         }
         
@@ -122,7 +126,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log('Auth: No shop found, user not authenticated');
         setShop(null);
         setIsAuthenticated(false);
-        if (location.pathname !== '/') {
+        setAuthLoading(false);
+        setLoading(false);
+        
+        // Only redirect to home if we're on a protected route
+        if (location.pathname !== '/' && location.pathname !== '/privacy-policy') {
           console.log('Auth: Redirecting to home from:', location.pathname);
           navigate('/');
         }
@@ -136,12 +144,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         setShop(null);
         setIsAuthenticated(false);
-        if (location.pathname !== '/') {
-          navigate('/');
-        }
-      } finally {
         setAuthLoading(false);
         setLoading(false);
+        
+        // Only redirect to home if we're on a protected route
+        if (location.pathname !== '/' && location.pathname !== '/privacy-policy') {
+          navigate('/');
+        }
       }
     };
 
@@ -153,8 +162,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       mounted = false;
     };
   }, [navigate, location.pathname]);
-
-
 
   const logout = async () => {
     try {
@@ -173,6 +180,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         method: 'POST',
         credentials: 'include',
       });
+      
+      // Clear the shop cookie
+      document.cookie = 'shop=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
       
       // Only log in development
       if (import.meta.env.DEV) {

@@ -53,9 +53,11 @@ const HomePage = () => {
     const errorFromUrl = urlParams.get('error');
     const errorMsgFromUrl = urlParams.get('error_message');
     
-    if (shopFromUrl) {
-      setIsOAuthFlow(true);
-      console.log('HomePage: Detected OAuth flow from Shopify');
+    if (shopFromUrl && !authLoading) {
+      console.log('HomePage: Detected OAuth callback, shop will be processed by AuthContext');
+      // Don't set isOAuthFlow here as AuthContext will handle the redirect
+      // Just wait for the auth context to process the shop parameter
+      return;
     }
     
     if (errorFromUrl && errorMsgFromUrl) {
@@ -72,8 +74,23 @@ const HomePage = () => {
       // Clear URL parameters after showing error
       const newUrl = window.location.pathname;
       window.history.replaceState({}, '', newUrl);
+      
+      // Reset OAuth flow if there was an error
+      setIsOAuthFlow(false);
     }
-  }, [location.search]);
+  }, [location.search, authLoading]);
+
+  // Handle navigation after authentication
+  useEffect(() => {
+    if (isAuthenticated && !authLoading) {
+      console.log('HomePage: User authenticated, checking for dashboard navigation');
+      // If user is authenticated and we were waiting for auth, navigate to dashboard
+      if (location.pathname === '/' && isOAuthFlow) {
+        console.log('HomePage: Navigating to dashboard after OAuth completion');
+        navigate('/dashboard');
+      }
+    }
+  }, [isAuthenticated, authLoading, navigate, location.pathname, isOAuthFlow]);
 
   // Determine if user is authenticated after auth check completes
   const showAuthConnected = isAuthenticated && !authLoading && !isOAuthFlow;
@@ -133,21 +150,14 @@ const HomePage = () => {
     }
   };
 
-  // Show loading state for OAuth flow or general loading
-  if (isLoading || isOAuthFlow) {
+  // Show loading state for form submission only, not OAuth flow
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-white">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <h2 className="text-xl font-semibold text-blue-900 mb-2">
-            {isOAuthFlow ? 'Connecting to Shopify...' : 'Loading...'}
-          </h2>
-          <p className="text-blue-700">
-            {isOAuthFlow 
-              ? 'We\'re setting up your ShopGauge analytics dashboard. This will just take a moment.'
-              : 'Please wait while we load your dashboard.'
-            }
-          </p>
+          <h2 className="text-xl font-semibold text-blue-900 mb-2">Connecting to Shopify...</h2>
+          <p className="text-blue-700">Please wait while we redirect you to Shopify for authentication.</p>
         </div>
       </div>
     );
