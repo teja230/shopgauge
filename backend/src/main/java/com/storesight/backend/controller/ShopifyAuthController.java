@@ -217,7 +217,7 @@ public class ShopifyAuthController {
 
   @GetMapping("/install")
   public ResponseEntity<?> install(
-      @RequestParam String shop, 
+      @RequestParam String shop,
       @RequestParam(required = false) String return_url,
       HttpServletResponse response) {
     try {
@@ -232,21 +232,23 @@ public class ShopifyAuthController {
       }
 
       String state = generateState();
-      
+
       // Store return_url in Redis with state as key for later retrieval
       if (return_url != null && !return_url.isBlank()) {
         try {
-          redisTemplate.opsForValue().set(
-              "oauth:return_url:" + state, 
-              return_url, 
-              java.time.Duration.ofMinutes(10) // 10 minute TTL
-          );
+          redisTemplate
+              .opsForValue()
+              .set(
+                  "oauth:return_url:" + state,
+                  return_url,
+                  java.time.Duration.ofMinutes(10) // 10 minute TTL
+                  );
           logger.info("Stored return_url in Redis with state: {}", state);
         } catch (Exception e) {
           logger.warn("Failed to store return_url in Redis: {}", e.getMessage());
         }
       }
-      
+
       String url =
           String.format(
               "https://%s/admin/oauth/authorize?client_id=%s&scope=%s&redirect_uri=%s&state=%s",

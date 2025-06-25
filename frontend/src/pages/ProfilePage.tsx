@@ -479,11 +479,11 @@ export default function ProfilePage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-blue-50 p-3 rounded-lg">
                     <div className="text-2xl font-bold text-blue-600">{storeStats.totalOrders || 0}</div>
-                    <div className="text-xs text-blue-500">Orders (Past 60 Days)</div>
+                    <div className="text-xs text-blue-500">Orders</div>
                   </div>
                   <div className="bg-green-50 p-3 rounded-lg">
                     <div className="text-2xl font-bold text-green-600">${storeStats.totalRevenue || 0}</div>
-                    <div className="text-xs text-green-500">Revenue (Past 60 Days)</div>
+                    <div className="text-xs text-green-500">Revenue</div>
                   </div>
                 </div>
                 <div className="text-xs text-gray-500 mt-2 text-center">
