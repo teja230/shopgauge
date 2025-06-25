@@ -33,7 +33,12 @@ export const useNotifications = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const redirectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Rate limiting state
+  const lastFetchRef = useRef<number>(0);
+  const RATE_LIMIT_MS = 2000; // Minimum 2 seconds between API calls
 
   // Enhanced toast configurations
   const toastConfig = {
@@ -250,9 +255,21 @@ export const useNotifications = () => {
     );
   }, [addNotification]);
 
-  // Fetch persistent notifications from backend
+  // Fetch persistent notifications from backend with rate limiting
   const fetchNotifications = useCallback(async () => {
+    // Prevent multiple simultaneous calls
+    if (loading) return;
+    
+    // Rate limiting - prevent too frequent API calls
+    const now = Date.now();
+    if (now - lastFetchRef.current < RATE_LIMIT_MS) {
+      console.log('Notification fetch rate limited');
+      return;
+    }
+    lastFetchRef.current = now;
+    
     setLoading(true);
+    setError(null);
     
     try {
       const response = await fetchWithAuth('/api/auth/shopify/notifications');
@@ -267,13 +284,46 @@ export const useNotifications = () => {
         
         const unread = persistentNotifications.filter((n: Notification) => !n.read).length;
         setUnreadCount(unread);
+      } else {
+        setError(`Failed to fetch notifications: ${response.status}`);
       }
     } catch (error) {
       console.error('Failed to fetch notifications:', error);
+      setError('Network error while fetching notifications');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loading]); // Only depend on loading state to prevent infinite loops
+
+  // Load notifications on mount ONLY - remove fetchNotifications dependency
+  useEffect(() => {
+    let isMounted = true;
+    
+    const loadInitialNotifications = async () => {
+      try {
+        const response = await fetchWithAuth('/api/auth/shopify/notifications');
+        if (response.ok && isMounted) {
+          const data = await response.json();
+          const persistentNotifications = data.notifications || [];
+          setNotifications(prev => {
+            const localNotifications = prev.filter(n => !n.persistent);
+            return [...persistentNotifications, ...localNotifications];
+          });
+          
+          const unread = persistentNotifications.filter((n: Notification) => !n.read).length;
+          setUnreadCount(unread);
+        }
+      } catch (error) {
+        console.error('Failed to load initial notifications:', error);
+      }
+    };
+
+    loadInitialNotifications();
+    
+    return () => {
+      isMounted = false;
+    };
+  }, []); // Empty dependency array - only run on mount
 
   // Mark notification as read
   const markAsRead = useCallback(async (notificationId: string) => {
@@ -368,16 +418,12 @@ export const useNotifications = () => {
     }
   }, []);
 
-  // Load notifications on mount
-  useEffect(() => {
-    fetchNotifications();
-  }, [fetchNotifications]);
-
   return {
     // State
     notifications,
     unreadCount,
     loading,
+    error,
 
     // Generic notification functions
     addNotification,

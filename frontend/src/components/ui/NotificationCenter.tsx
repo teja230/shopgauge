@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Bell, 
   X, 
@@ -11,8 +11,8 @@ import {
   Settings,
   RotateCcw
 } from 'lucide-react';
-import { fetchWithAuth } from '../../api';
-import { format, formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow } from 'date-fns';
+import { useNotifications } from '../../hooks/useNotifications';
 
 interface Notification {
   id: string;
@@ -38,14 +38,38 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   position = 'top-right'
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
   const dropdownRef = useRef<HTMLDivElement>(null);
+  
+  // Use the centralized notification hook - no duplicate API calls
+  const {
+    notifications,
+    unreadCount,
+    loading,
+    error,
+    fetchNotifications,
+    markAsRead,
+    markAllAsRead,
+    deleteNotification,
+  } = useNotifications();
 
-  // Close dropdown when clicking outside
+  // Debounced refresh to prevent rapid API calls
+  const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const handleRefresh = () => {
+    if (refreshTimeoutRef.current) {
+      clearTimeout(refreshTimeoutRef.current);
+    }
+    refreshTimeoutRef.current = setTimeout(() => {
+      fetchNotifications();
+    }, 500); // 500ms debounce
+  };
+
+  // Update parent component about count changes
+  useEffect(() => {
+    onNotificationCountChange?.(unreadCount);
+  }, [unreadCount, onNotificationCountChange]);
+
+  // Handle click outside to close dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -53,82 +77,20 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isOpen]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+      }
+    };
   }, []);
-
-  // Fetch notifications
-  const fetchNotifications = async () => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const response = await fetchWithAuth('/api/auth/shopify/notifications');
-      if (response.ok) {
-        const data = await response.json();
-        setNotifications(data.notifications || []);
-        const unread = (data.notifications || []).filter((n: Notification) => !n.read).length;
-        setUnreadCount(unread);
-        onNotificationCountChange?.(unread);
-      } else {
-        throw new Error('Failed to fetch notifications');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load notifications');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Mark notification as read
-  const markAsRead = async (notificationId: string) => {
-    try {
-      const response = await fetchWithAuth('/api/auth/shopify/notifications/mark-read', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: notificationId })
-      });
-      
-      if (response.ok) {
-        setNotifications(prev => 
-          prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
-        );
-        setUnreadCount(prev => Math.max(0, prev - 1));
-        onNotificationCountChange?.(Math.max(0, unreadCount - 1));
-      }
-    } catch (err) {
-      console.error('Failed to mark notification as read:', err);
-    }
-  };
-
-  // Mark all as read
-  const markAllAsRead = async () => {
-    const unreadNotifications = notifications.filter(n => !n.read);
-    
-    try {
-      await Promise.all(
-        unreadNotifications.map(n => markAsRead(n.id))
-      );
-    } catch (err) {
-      console.error('Failed to mark all notifications as read:', err);
-    }
-  };
-
-  // Delete notification (soft delete)
-  const deleteNotification = async (notificationId: string) => {
-    try {
-      // For now, just remove from local state
-      // In a real implementation, you'd call a delete API
-      setNotifications(prev => prev.filter(n => n.id !== notificationId));
-      const wasUnread = notifications.find(n => n.id === notificationId)?.read === false;
-      if (wasUnread) {
-        setUnreadCount(prev => Math.max(0, prev - 1));
-        onNotificationCountChange?.(Math.max(0, unreadCount - 1));
-      }
-    } catch (err) {
-      console.error('Failed to delete notification:', err);
-    }
-  };
 
   // Get icon for notification type
   const getNotificationIcon = (type: string) => {
@@ -161,11 +123,6 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     }
   };
 
-  // Initial load
-  useEffect(() => {
-    fetchNotifications();
-  }, []);
-
   // Filter notifications
   const filteredNotifications = notifications.filter(n => 
     filter === 'all' || (filter === 'unread' && !n.read)
@@ -192,7 +149,6 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
       <button
         onClick={() => {
           setIsOpen(!isOpen);
-          if (!isOpen) fetchNotifications();
         }}
         className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
         aria-label={`Notifications ${unreadCount > 0 ? `(${unreadCount} unread)` : ''}`}
@@ -214,7 +170,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
               <h3 className="text-lg font-semibold text-gray-900">Notifications</h3>
               <div className="flex items-center space-x-2">
                 <button
-                  onClick={() => fetchNotifications()}
+                  onClick={handleRefresh}
                   className="p-1 text-gray-500 hover:text-gray-700 rounded"
                   title="Refresh"
                 >
@@ -276,10 +232,11 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                 <p className="text-red-600 font-medium">Failed to load notifications</p>
                 <p className="text-gray-500 text-sm mt-1">{error}</p>
                 <button
-                  onClick={fetchNotifications}
-                  className="mt-3 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+                  onClick={handleRefresh}
+                  disabled={loading}
+                  className="mt-3 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Try Again
+                  {loading ? 'Retrying...' : 'Try Again'}
                 </button>
               </div>
             ) : filteredNotifications.length === 0 ? (
