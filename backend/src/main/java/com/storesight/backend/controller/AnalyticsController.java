@@ -183,55 +183,18 @@ public class AnalyticsController {
 
               // Check if it's a 403 error (permission issue)
               if (e.getMessage().contains("403")) {
-                logger.warn(
-                    "Orders API access denied - providing realistic test orders for development");
-
-                // Generate realistic test orders
-                List<Map<String, Object>> testOrders = new ArrayList<>();
-                String[] customerNames = {
-                  "John Smith", "Sarah Johnson", "Mike Chen", "Emma Wilson", "David Brown"
-                };
-                String[] productNames = {
-                  "Snowboard Pro",
-                  "Ski Boots Deluxe",
-                  "Winter Jacket",
-                  "Goggles Premium",
-                  "Gloves Thermal"
-                };
-                double[] orderValues = {299.99, 189.50, 445.25, 125.00, 89.75};
-
-                for (int i = 0; i < Math.min(limit, 5); i++) {
-                  Map<String, Object> order = new HashMap<>();
-                  order.put("id", 100000 + i);
-                  order.put("order_number", "#TEST-" + (1000 + i));
-                  order.put("created_at", java.time.LocalDateTime.now().minusDays(i).toString());
-                  order.put("customer_name", customerNames[i]);
-                  order.put("total_price", orderValues[i]);
-                  order.put("financial_status", "paid");
-                  order.put("fulfillment_status", i < 2 ? "fulfilled" : "pending");
-
-                  // Add line items
-                  Map<String, Object> lineItem = new HashMap<>();
-                  lineItem.put("title", productNames[i]);
-                  lineItem.put("quantity", 1);
-                  lineItem.put("price", orderValues[i]);
-                  order.put("line_items", List.of(lineItem));
-
-                  testOrders.add(order);
-                }
-
+                logger.warn("Orders API access denied - insufficient permissions");
                 Map<String, Object> response = new HashMap<>();
-                response.put("timeseries", testOrders);
+                response.put("timeseries", java.util.List.of());
                 response.put("page", page);
                 response.put("limit", limit);
                 response.put("has_more", false);
-                response.put("total_orders", testOrders.size());
-                response.put("error_code", "USING_TEST_DATA");
+                response.put("total_orders", 0);
+                response.put("error_code", "INSUFFICIENT_PERMISSIONS");
                 response.put(
-                    "note",
-                    "Using test orders - real orders API requires Protected Customer Data approval");
-
-                return Mono.just(ResponseEntity.ok().body(response));
+                    "error",
+                    "Orders API access denied - please re-authenticate with updated permissions");
+                return Mono.just(ResponseEntity.status(HttpStatus.FORBIDDEN).body(response));
               }
 
               // Check if it's a 429 error (rate limit)
@@ -653,21 +616,14 @@ public class AnalyticsController {
 
               // Check if it's a 403 error (permission issue)
               if (e.getMessage().contains("403")) {
-                logger.warn(
-                    "Checkouts API access denied - providing realistic test data for development");
+                logger.warn("Checkouts API access denied - insufficient permissions");
                 Map<String, Object> response = new HashMap<>();
-
-                // Realistic abandoned cart count (typically 5-15% of completed orders)
-                int testAbandonedCarts = 8; // Based on ~50 weekly orders = ~8 abandoned
-
-                response.put("abandonedCarts", testAbandonedCarts);
-                response.put("abandonment_rate", 13.5); // Industry average
-                response.put("potential_revenue", 420.75); // Estimated lost revenue
-                response.put("error_code", "USING_TEST_DATA");
+                response.put("abandonedCarts", 0);
+                response.put("error_code", "INSUFFICIENT_PERMISSIONS");
                 response.put(
-                    "note",
-                    "Using test data - abandoned carts API requires Protected Customer Data approval");
-                return Mono.just(ResponseEntity.ok().body(response));
+                    "error",
+                    "Abandoned carts API access denied - please re-authenticate with updated permissions");
+                return Mono.just(ResponseEntity.status(HttpStatus.FORBIDDEN).body(response));
               }
 
               // Check if it's a 429 error (rate limit)
@@ -876,44 +832,18 @@ public class AnalyticsController {
 
               // Check if it's a 403 error (permission issue)
               if (e.getMessage().contains("403")) {
-                logger.warn(
-                    "Revenue API access denied - providing realistic test data for development");
+                logger.warn("Revenue API access denied - insufficient permissions");
                 Map<String, Object> response = new HashMap<>();
-
-                // Generate realistic test revenue data for last 60 days
-                List<Map<String, Object>> timeseriesData = new ArrayList<>();
-                double totalTestRevenue = 0.0;
-
-                for (int i = 59; i >= 0; i--) {
-                  // Generate realistic daily revenue with some variation
-                  double baseRevenue = 200.0 + (Math.random() * 300.0); // $200-500 per day
-                  // Add weekend effects (lower on weekends)
-                  LocalDate date = LocalDate.now().minusDays(i);
-                  if (date.getDayOfWeek().getValue() >= 6) { // Weekend
-                    baseRevenue *= 0.7;
-                  }
-
-                  Map<String, Object> dayData = new HashMap<>();
-                  dayData.put("created_at", date.toString());
-                  dayData.put(
-                      "total_price",
-                      Math.round(baseRevenue * 100.0) / 100.0); // Round to 2 decimals
-                  timeseriesData.add(dayData);
-
-                  totalTestRevenue += baseRevenue;
-                }
-
-                response.put("revenue", Math.round(totalTestRevenue * 100.0) / 100.0);
-                response.put("totalRevenue", Math.round(totalTestRevenue * 100.0) / 100.0);
-                response.put("timeseries", timeseriesData);
-                response.put("orders_count", (int) (totalTestRevenue / 65.0)); // ~$65 avg order
+                response.put("revenue", 0.0);
+                response.put("totalRevenue", 0.0);
+                response.put("timeseries", java.util.List.of());
+                response.put("orders_count", 0);
                 response.put("period_days", 60);
-                response.put("error_code", "USING_TEST_DATA");
+                response.put("error_code", "INSUFFICIENT_PERMISSIONS");
                 response.put(
-                    "note",
-                    "Using test data - orders API requires Protected Customer Data approval");
-
-                return Mono.just(ResponseEntity.ok().body(response));
+                    "error",
+                    "Revenue API access denied - please re-authenticate with updated permissions");
+                return Mono.just(ResponseEntity.status(HttpStatus.FORBIDDEN).body(response));
               }
 
               // Check if it's a 429 error (rate limit)
@@ -1216,16 +1146,16 @@ public class AnalyticsController {
               // Check if it's a 403 error (permission issue)
               if (e.getMessage().contains("403")) {
                 logger.warn(
-                    "Orders API access denied for conversion rate - providing industry benchmark");
-                // Use industry benchmark data
-                errorResponse.put("conversionRate", 2.86); // Industry average
-                errorResponse.put("sessions", 1250); // Estimated sessions
+                    "Orders API access denied for conversion rate - insufficient permissions");
+                errorResponse.put("conversionRate", 0.0);
+                errorResponse.put("orders_count", 0);
+                errorResponse.put("products_count", 0);
+                errorResponse.put("period_days", 30);
+                errorResponse.put("error_code", "INSUFFICIENT_PERMISSIONS");
                 errorResponse.put(
-                    "orders", 36); // Based on test data (consistent with revenue test data)
-                errorResponse.put("error_code", "USING_TEST_DATA");
-                errorResponse.put(
-                    "note",
-                    "Using industry benchmark - orders API requires Protected Customer Data approval");
+                    "error",
+                    "Conversion rate API access denied - please re-authenticate with updated permissions");
+                return Mono.just(ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse));
               } else {
                 // Return baseline data instead of error
                 errorResponse.put("conversionRate", 2.5); // Industry average

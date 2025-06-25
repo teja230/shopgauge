@@ -765,13 +765,13 @@ const DashboardPage = () => {
         return;
       }
       
-      if (data.error_code === 'USING_TEST_DATA') {
-        // Handle test data - show the data without error messages
-        console.log('Using test revenue data:', data);
+      if (data.error_code === 'INSUFFICIENT_PERMISSIONS') {
+        console.log('Revenue API access denied - insufficient permissions');
+        setCardErrors(prev => ({ ...prev, revenue: 'Permission denied – please re-authenticate with Shopify' }));
         setInsights(prev => ({
           ...prev!,
-          totalRevenue: data.totalRevenue || data.revenue || 0,
-          timeseries: data.timeseries || []
+          totalRevenue: 0,
+          timeseries: []
         }));
         return;
       }
@@ -937,12 +937,14 @@ const DashboardPage = () => {
         throw new Error('PERMISSION_ERROR');
       }
       
-      // Handle test data for insights as well
-      if (data.error_code === 'USING_TEST_DATA') {
+      // Handle insufficient permissions for insights
+      if (data.error_code === 'INSUFFICIENT_PERMISSIONS') {
+        console.log('Conversion rate API access denied - insufficient permissions');
+        setCardErrors(prev => ({ ...prev, insights: 'Permission denied – please re-authenticate with Shopify' }));
         setInsights(prev => ({
           ...prev!,
-          conversionRate: data.conversionRate || 2.5,
-          conversionRateDelta: data.conversionRateDelta || 0
+          conversionRate: 0,
+          conversionRateDelta: 0
         }));
         return;
       }
@@ -990,11 +992,12 @@ const DashboardPage = () => {
         return;
       }
       
-      if (data.error_code === 'USING_TEST_DATA') {
-        // Handle test data - show the data without error messages
+      if (data.error_code === 'INSUFFICIENT_PERMISSIONS') {
+        console.log('Abandoned carts API access denied - insufficient permissions');
+        setCardErrors(prev => ({ ...prev, abandonedCarts: 'Permission denied – please re-authenticate with Shopify' }));
         setInsights(prev => ({
           ...prev!,
-          abandonedCarts: data.abandonedCarts || 0
+          abandonedCarts: 0
         }));
         return;
       }
@@ -1045,12 +1048,13 @@ const DashboardPage = () => {
         return;
       }
       
-      if (data.error_code === 'USING_TEST_DATA') {
-        // Handle test data - show the test orders
+      if (data.error_code === 'INSUFFICIENT_PERMISSIONS') {
+        console.log('Orders API access denied - insufficient permissions');
+        setCardErrors(prev => ({ ...prev, orders: 'Permission denied – please re-authenticate with Shopify' }));
         setInsights(prev => ({
           ...prev!,
-          orders: data.timeseries || [],
-          recentOrders: (data.timeseries || []).slice(0, 5)
+          orders: [],
+          recentOrders: []
         }));
         return;
       }
