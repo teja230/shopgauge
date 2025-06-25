@@ -110,31 +110,35 @@ public class ShopifyAuthController {
     // Cleanup logic if needed
   }
 
-  private boolean isCodeAlreadyUsed(String code) {
+  private boolean isCodeSuccessfullyProcessed(String code) {
     if (code == null) return false;
 
     String redisKey = USED_CODE_PREFIX + code;
 
-    // Check if code exists in Redis
-    Boolean exists = redisTemplate.hasKey(redisKey);
-    if (Boolean.TRUE.equals(exists)) {
-      logger.warn(
-          "Authorization code already used within 5 minutes: {}",
+    // Check if code has been successfully processed
+    String processedValue = redisTemplate.opsForValue().get(redisKey);
+    if (processedValue != null && processedValue.equals("SUCCESS")) {
+      logger.info(
+          "Authorization code already successfully processed: {}",
           code.substring(0, Math.min(8, code.length())) + "...");
       return true;
     }
 
-    // Mark code as used with TTL
+    return false;
+  }
+
+  private void markCodeAsSuccessfullyProcessed(String code) {
+    if (code == null) return;
+
+    String redisKey = USED_CODE_PREFIX + code;
+
+    // Mark code as successfully processed with TTL
     redisTemplate
         .opsForValue()
-        .set(
-            redisKey,
-            String.valueOf(System.currentTimeMillis()),
-            java.time.Duration.ofSeconds(CODE_TTL_SECONDS));
-    logger.debug(
-        "Marked authorization code as used: {}",
+        .set(redisKey, "SUCCESS", java.time.Duration.ofSeconds(CODE_TTL_SECONDS));
+    logger.info(
+        "Marked authorization code as successfully processed: {}",
         code.substring(0, Math.min(8, code.length())) + "...");
-    return false;
   }
 
   private long getUsedCodesCount() {
@@ -270,24 +274,41 @@ public class ShopifyAuthController {
       // Check for Shopify error response
       if (error != null) {
         logger.error("Shopify OAuth error: {} - {}", error, errorDescription);
-        response.sendError(
-            HttpServletResponse.SC_BAD_REQUEST, "OAuth error: " + error + " - " + errorDescription);
+        String redirectUrl =
+            frontendUrl
+                + "/?error=oauth_error&error_message="
+                + java.net.URLEncoder.encode(
+                    "OAuth error: "
+                        + error
+                        + " - "
+                        + (errorDescription != null ? errorDescription : "Unknown error"),
+                    "UTF-8");
+        logger.info("Redirecting to frontend with OAuth error: {}", redirectUrl);
+        response.sendRedirect(redirectUrl);
         return;
       }
 
       if (shop == null || code == null) {
         logger.error("Missing required parameters - shop: {}, code: {}", shop, code);
-        response.sendError(
-            HttpServletResponse.SC_BAD_REQUEST, "Missing required parameters: shop and/or code");
+        String redirectUrl =
+            frontendUrl
+                + "/?error=missing_params&error_message="
+                + java.net.URLEncoder.encode(
+                    "Missing required parameters. Please try the installation process again.",
+                    "UTF-8");
+        logger.info("Redirecting to frontend with missing params error: {}", redirectUrl);
+        response.sendRedirect(redirectUrl);
         return;
       }
 
-      // Check if authorization code has already been used
-      if (isCodeAlreadyUsed(code)) {
-        logger.error("Authorization code already used for shop: {}", shop);
-        response.sendError(
-            HttpServletResponse.SC_BAD_REQUEST,
-            "Authorization code has already been used or has expired");
+      // Check if authorization code has already been successfully processed
+      if (isCodeSuccessfullyProcessed(code)) {
+        logger.info(
+            "Authorization code already successfully processed for shop: {}, redirecting to frontend",
+            shop);
+        String redirectUrl = frontendUrl + "/?shop=" + java.net.URLEncoder.encode(shop, "UTF-8");
+        logger.info("Redirecting to frontend: {}", redirectUrl);
+        response.sendRedirect(redirectUrl);
         return;
       }
 
@@ -297,7 +318,14 @@ public class ShopifyAuthController {
           boolean isValidHmac = validateHmac(params, apiSecret);
           if (!isValidHmac) {
             logger.error("HMAC validation failed for shop: {}", shop);
-            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "HMAC validation failed");
+            String redirectUrl =
+                frontendUrl
+                    + "/?error=hmac_validation&error_message="
+                    + java.net.URLEncoder.encode(
+                        "Security validation failed. Please try the installation process again.",
+                        "UTF-8");
+            logger.info("Redirecting to frontend with HMAC validation error: {}", redirectUrl);
+            response.sendRedirect(redirectUrl);
             return;
           }
           logger.info("HMAC validation successful for shop: {}", shop);
@@ -413,6 +441,9 @@ public class ShopifyAuthController {
           isProduction,
           shopCookie.getPath(),
           sameSiteValue);
+
+      // Mark the authorization code as successfully processed
+      markCodeAsSuccessfullyProcessed(code);
 
       // Always redirect with shop parameter as fallback
       String redirectUrl = frontendUrl + "/?shop=" + java.net.URLEncoder.encode(shop, "UTF-8");
