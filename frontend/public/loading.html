@@ -156,6 +156,19 @@
         
         console.log('Loading page: Processing valid route redirect from', path);
         
+        // If this is the test route, don't redirect automatically
+        if (path === '/test-loading') {
+          console.log('Loading page: Test route detected, showing loading page without redirect');
+          // Update the text to indicate this is a test
+          setTimeout(function() {
+            var titleElement = document.querySelector('.title');
+            var descElement = document.querySelector('.description');
+            if (titleElement) titleElement.textContent = 'Loading Page Test';
+            if (descElement) descElement.textContent = 'This is how the loading page looks for valid routes. It normally redirects in 200ms.';
+          }, 100);
+          return;
+        }
+        
         // Quick redirect for valid routes (200ms for smooth UX)
         setTimeout(function() {
           var redirectUrl = '/?redirect=' + encodeURIComponent(path);
