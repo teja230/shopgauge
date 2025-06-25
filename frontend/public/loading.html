@@ -32,78 +32,182 @@
       align-items: center;
       justify-content: center;
       padding: 2rem 1rem;
-      animation: fadeIn 0.3s ease-in;
+      animation: fadeIn 0.7s ease-in;
+      position: relative;
     }
     
     .logo {
       font-size: 2rem;
       font-weight: 700;
       color: white;
+      margin-bottom: 3rem;
+      opacity: 0;
+      animation: slideUp 0.8s ease-out 0.2s forwards;
+    }
+    
+    .loading-icon {
+      font-size: 4rem;
       margin-bottom: 2rem;
       opacity: 0;
-      animation: slideUp 0.4s ease-out 0.1s forwards;
+      animation: slideUp 0.8s ease-out 0.4s forwards, pulse 2s ease-in-out infinite;
     }
     
     .title {
-      font-size: 1.5rem;
+      font-size: 2.5rem;
       font-weight: 600;
-      color: white;
       margin-bottom: 1rem;
       text-align: center;
       opacity: 0;
-      animation: slideUp 0.4s ease-out 0.2s forwards;
+      animation: slideUp 0.8s ease-out 0.6s forwards;
     }
     
     .description {
-      font-size: 1rem;
-      color: rgba(255, 255, 255, 0.9);
-      margin-bottom: 2rem;
+      font-size: 1.2rem;
+      margin-bottom: 3rem;
       text-align: center;
-      max-width: 400px;
-      opacity: 0;
-      animation: slideUp 0.4s ease-out 0.3s forwards;
+      max-width: 600px;
+      opacity: 0.9;
+      animation: slideUp 0.8s ease-out 0.8s forwards;
     }
     
     .spinner-container {
       display: flex;
       align-items: center;
       gap: 1rem;
-      margin-bottom: 2rem;
+      margin-bottom: 3rem;
       opacity: 0;
-      animation: slideUp 0.4s ease-out 0.4s forwards;
+      animation: slideUp 0.8s ease-out 1s forwards;
     }
     
     .spinner {
-      width: 32px;
-      height: 32px;
-      border: 3px solid rgba(255, 255, 255, 0.3);
-      border-top: 3px solid white;
+      width: 40px;
+      height: 40px;
+      border: 4px solid rgba(255, 255, 255, 0.3);
+      border-top: 4px solid white;
       border-radius: 50%;
       animation: spin 1s linear infinite;
     }
     
     .loading-text {
-      font-size: 1rem;
-      color: white;
+      font-size: 1.1rem;
       font-weight: 500;
     }
     
-    .progress-bar {
-      width: 200px;
-      height: 4px;
-      background: rgba(255, 255, 255, 0.2);
-      border-radius: 2px;
-      overflow: hidden;
+    .analytics-animation {
+      margin-top: 2rem;
       opacity: 0;
-      animation: slideUp 0.4s ease-out 0.5s forwards;
+      animation: slideUp 0.8s ease-out 1.2s forwards;
     }
     
-    .progress-fill {
+    .chart-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 3rem;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+    }
+    
+    .bar-chart {
+      display: flex;
+      align-items: end;
+      gap: 8px;
+      height: 80px;
+    }
+    
+    .bar {
+      width: 16px;
+      background: linear-gradient(to top, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.4));
+      border-radius: 4px 4px 0 0;
+      opacity: 0;
+      animation: growBar 1.5s ease-out infinite;
+    }
+    
+    .pie-chart {
+      position: relative;
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      overflow: hidden;
+      transform: rotate(-90deg);
+    }
+    
+    .pie-segment {
+      position: absolute;
+      width: 100%;
       height: 100%;
-      background: white;
-      border-radius: 2px;
-      animation: fillProgress 0.8s ease-out 0.6s forwards;
-      transform: translateX(-100%);
+      border-radius: 50%;
+      animation: rotatePie 2s ease-in-out infinite;
+    }
+    
+    .segment-1 {
+      background: conic-gradient(rgba(255, 255, 255, 0.8) 0deg 120deg, transparent 120deg);
+      animation-delay: 0s;
+    }
+    
+    .segment-2 {
+      background: conic-gradient(transparent 0deg 120deg, rgba(255, 255, 255, 0.6) 120deg 240deg, transparent 240deg);
+      animation-delay: 0.7s;
+    }
+    
+    .segment-3 {
+      background: conic-gradient(transparent 0deg 240deg, rgba(255, 255, 255, 0.4) 240deg 360deg);
+      animation-delay: 1.4s;
+    }
+    
+    .data-points {
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+      margin-top: 1rem;
+    }
+    
+    .data-point {
+      font-size: 2rem;
+      opacity: 0;
+      animation: bounceData 1.5s ease-in-out infinite;
+    }
+    
+    /* Background animation */
+    .background-shapes {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      z-index: -1;
+    }
+    
+    .shape {
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.1);
+      animation: float 6s ease-in-out infinite;
+    }
+    
+    .shape:nth-child(1) {
+      width: 100px;
+      height: 100px;
+      top: 20%;
+      left: 10%;
+      animation-delay: 0s;
+    }
+    
+    .shape:nth-child(2) {
+      width: 150px;
+      height: 150px;
+      top: 60%;
+      right: 10%;
+      animation-delay: 2s;
+    }
+    
+    .shape:nth-child(3) {
+      width: 80px;
+      height: 80px;
+      bottom: 20%;
+      left: 20%;
+      animation-delay: 4s;
     }
     
     /* Animations */
@@ -128,23 +232,82 @@
       100% { transform: rotate(360deg); }
     }
     
-    @keyframes fillProgress {
-      from { transform: translateX(-100%); }
-      to { transform: translateX(0%); }
+    @keyframes pulse {
+      0%, 100% { 
+        opacity: 0.8; 
+        transform: scale(1); 
+      }
+      50% { 
+        opacity: 1; 
+        transform: scale(1.1); 
+      }
+    }
+    
+    @keyframes growBar {
+      0%, 100% { 
+        opacity: 0.4; 
+        transform: scaleY(0.8); 
+      }
+      50% { 
+        opacity: 1; 
+        transform: scaleY(1.1); 
+      }
+    }
+    
+    @keyframes rotatePie {
+      0%, 100% { 
+        opacity: 0.6; 
+        transform: rotate(-90deg) scale(0.95); 
+      }
+      50% { 
+        opacity: 1; 
+        transform: rotate(-90deg) scale(1.05); 
+      }
+    }
+    
+    @keyframes bounceData {
+      0%, 100% { 
+        opacity: 0.5; 
+        transform: translateY(0px) scale(0.9); 
+      }
+      50% { 
+        opacity: 1; 
+        transform: translateY(-10px) scale(1.1); 
+      }
+    }
+    
+    @keyframes float {
+      0%, 100% { 
+        transform: translateY(0px) rotate(0deg); 
+      }
+      33% { 
+        transform: translateY(-20px) rotate(120deg); 
+      }
+      66% { 
+        transform: translateY(10px) rotate(240deg); 
+      }
     }
     
     /* Responsive design */
     @media (max-width: 768px) {
-      .logo {
-        font-size: 1.5rem;
+      .loading-icon {
+        font-size: 3rem;
       }
       
       .title {
-        font-size: 1.25rem;
+        font-size: 2rem;
+      }
+      
+      .description {
+        font-size: 1rem;
       }
       
       .container {
         padding: 1rem;
+      }
+      
+      .chart-container {
+        gap: 2rem;
       }
     }
   </style>
@@ -187,22 +350,49 @@
   </script>
 </head>
 <body>
+  <div class="background-shapes">
+    <div class="shape"></div>
+    <div class="shape"></div>
+    <div class="shape"></div>
+  </div>
+  
   <div class="container">
     <div class="logo">ShopGauge</div>
     
-    <h1 class="title">Loading your page...</h1>
+    <div class="loading-icon">⚡</div>
+    
+    <h1 class="title">Loading your dashboard...</h1>
     
     <p class="description">
-      Taking you to your dashboard in just a moment.
+      Setting up your analytics dashboard. This will only take a moment.
     </p>
     
     <div class="spinner-container">
       <div class="spinner"></div>
-      <span class="loading-text">Loading</span>
+      <span class="loading-text">Preparing your data...</span>
     </div>
     
-    <div class="progress-bar">
-      <div class="progress-fill"></div>
+    <div class="analytics-animation">
+      <div class="chart-container">
+        <div class="bar-chart">
+          <div class="bar" style="height: 60%; animation-delay: 0.1s;"></div>
+          <div class="bar" style="height: 80%; animation-delay: 0.2s;"></div>
+          <div class="bar" style="height: 45%; animation-delay: 0.3s;"></div>
+          <div class="bar" style="height: 90%; animation-delay: 0.4s;"></div>
+          <div class="bar" style="height: 70%; animation-delay: 0.5s;"></div>
+        </div>
+        <div class="pie-chart">
+          <div class="pie-segment segment-1"></div>
+          <div class="pie-segment segment-2"></div>
+          <div class="pie-segment segment-3"></div>
+        </div>
+      </div>
+      <div class="data-points">
+        <div class="data-point" style="animation-delay: 0.2s;">📊</div>
+        <div class="data-point" style="animation-delay: 0.4s;">📈</div>
+        <div class="data-point" style="animation-delay: 0.6s;">💡</div>
+        <div class="data-point" style="animation-delay: 0.8s;">🎯</div>
+      </div>
     </div>
   </div>
 </body>

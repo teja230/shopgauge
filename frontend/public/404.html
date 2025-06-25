@@ -53,8 +53,18 @@
     }
     
     #loading-icon {
+      color: #9ca3af;
+      animation: slideUp 0.8s ease-out 0.4s forwards;
+    }
+    
+    #loading-icon.valid-route {
       color: #2563eb;
       animation: slideUp 0.8s ease-out 0.4s forwards, pulse 2s ease-in-out infinite;
+    }
+    
+    #loading-icon.invalid-route {
+      color: #ef4444;
+      font-weight: 800;
     }
     
     @keyframes pulse {
@@ -329,47 +339,30 @@
         var isValidRoute = validRoutes.includes(cleanPath);
         
         if (isValidRoute) {
-          // For valid routes, show loading animation and redirect quickly
-          console.log('404 Redirect: Valid route detected, showing loading animation for:', cleanPath);
+          // For valid routes that somehow ended up here (shouldn't happen with proper _redirects)
+          // This is a fallback - valid routes should be handled by _redirects → index.html
+          console.log('404 Redirect: Valid route detected (unexpected), redirecting immediately:', cleanPath);
           
-          // Show loading content
+          // Show loading content briefly
           var loadingIcon = document.getElementById('loading-icon');
           var pageTitle = document.getElementById('page-title');
           var pageDescription = document.getElementById('page-description');
           var countdownElement = document.getElementById('countdown-text');
           
-          if (loadingIcon) loadingIcon.textContent = '⚡';
+          if (loadingIcon) {
+            loadingIcon.textContent = '⚡';
+            loadingIcon.className = 'error-code valid-route';
+          }
           if (pageTitle) pageTitle.textContent = 'Loading ShopGauge...';
           if (pageDescription) pageDescription.textContent = 'Setting up your analytics dashboard. This will only take a moment.';
           if (countdownElement) countdownElement.textContent = 'Loading your dashboard...';
           
-          // Redirect to homepage with the path parameter after a brief delay
+          // Quick redirect for valid routes (this is a fallback case)
           setTimeout(function() {
             var redirectUrl = '/?redirect=' + encodeURIComponent(path);
             console.log('404 Redirect: Redirecting valid route to', redirectUrl);
-            
-            // Try multiple redirect methods for better compatibility
-            try {
-              // Method 1: Standard redirect
-              window.location.href = redirectUrl;
-            } catch (e1) {
-              console.error('404 Redirect: Method 1 failed', e1);
-              try {
-                // Method 2: Replace current page
-                window.location.replace(redirectUrl);
-              } catch (e2) {
-                console.error('404 Redirect: Method 2 failed', e2);
-                try {
-                  // Method 3: Assign to location
-                  window.location = redirectUrl;
-                } catch (e3) {
-                  console.error('404 Redirect: All methods failed', e3);
-                  // Fallback: Show manual redirect link
-                  document.body.innerHTML += '<div style="text-align: center; margin-top: 20px;"><a href="' + redirectUrl + '" style="color: #2563eb; font-size: 18px;">Click here to continue to ShopGauge</a></div>';
-                }
-              }
-            }
-          }, 1500); // Reduced back to 1.5 seconds
+            window.location.href = redirectUrl;
+          }, 500); // Very quick redirect since this shouldn't normally happen
           return;
         }
         
@@ -381,7 +374,10 @@
         var pageTitle = document.getElementById('page-title');
         var pageDescription = document.getElementById('page-description');
         
-        if (loadingIcon) loadingIcon.textContent = '404';
+        if (loadingIcon) {
+          loadingIcon.textContent = '404';
+          loadingIcon.className = 'error-code invalid-route';
+        }
         if (pageTitle) pageTitle.textContent = 'Page not found';
         if (pageDescription) pageDescription.textContent = 'The page you\'re looking for doesn\'t exist. We\'ll redirect you to the homepage in a moment.';
         
@@ -421,17 +417,17 @@
   <div class="container">
     <div class="logo">ShopGauge</div>
     
-    <div class="error-code" id="loading-icon">⚡</div>
+    <div class="error-code" id="loading-icon">404</div>
     
-    <h1 class="title" id="page-title">Loading ShopGauge...</h1>
+    <h1 class="title" id="page-title">Page not found</h1>
     
     <p class="description" id="page-description">
-      Setting up your analytics dashboard. This will only take a moment.
+      The page you're looking for doesn't exist. We'll redirect you to the homepage in a moment.
     </p>
     
     <div class="spinner-container">
       <div class="spinner"></div>
-      <span class="loading-text" id="countdown-text">Loading your dashboard...</span>
+      <span class="loading-text" id="countdown-text">Redirecting to homepage in 8 seconds...</span>
     </div>
     
     <div class="analytics-animation">
