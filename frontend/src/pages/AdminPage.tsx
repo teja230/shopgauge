@@ -97,6 +97,7 @@ interface AuditLog {
   action: string;
   details: string;
   timestamp: string;
+  createdAt: string;
   ipAddress?: string;
   userAgent?: string;
 }
@@ -250,6 +251,27 @@ interface ActiveShop {
   isActive: boolean;
 }
 
+// Utility function to extract shop domain from audit log details
+const extractShopDomainFromDetails = (details: string): string | null => {
+  try {
+    // Look for patterns like "shop: domain.myshopify.com" or similar
+    const shopMatch = details.match(/shop[:\s]+([a-zA-Z0-9.-]+\.myshopify\.com)/i);
+    if (shopMatch) {
+      return shopMatch[1];
+    }
+    
+    // Look for domain patterns in the details
+    const domainMatch = details.match(/([a-zA-Z0-9.-]+\.myshopify\.com)/i);
+    if (domainMatch) {
+      return domainMatch[1];
+    }
+    
+    return null;
+  } catch {
+    return null;
+  }
+};
+
 const AdminPage: React.FC = () => {
   const { shop, isAuthenticated: isShopAuthenticated } = useAuth();
   const navigate = useNavigate();
@@ -271,6 +293,7 @@ const AdminPage: React.FC = () => {
   const [auditTotalCount, setAuditTotalCount] = useState(0);
   const [auditSearchTerm, setAuditSearchTerm] = useState('');
   const [auditActionFilter, setAuditActionFilter] = useState<string>('all');
+  const [auditCategoryFilter, setAuditCategoryFilter] = useState<string>('all');
   const [auditLogType, setAuditLogType] = useState<'all' | 'deleted' | 'active'>('all');
 
   // Active shops state
@@ -494,11 +517,22 @@ const AdminPage: React.FC = () => {
       const data = await response.json();
       
       if (data.audit_logs) {
-        setAuditLogs(data.audit_logs);
-        setAuditTotalCount(data.total_count || data.audit_logs.length);
+        // Map backend fields to frontend expected fields
+        const mappedLogs = data.audit_logs.map((log: any) => ({
+          ...log,
+          timestamp: log.createdAt || log.timestamp,
+          shopDomain: log.shopDomain || extractShopDomainFromDetails(log.details) || 'System'
+        }));
+        setAuditLogs(mappedLogs);
+        setAuditTotalCount(data.total_count || mappedLogs.length);
       } else if (Array.isArray(data)) {
-        setAuditLogs(data);
-        setAuditTotalCount(data.length);
+        const mappedLogs = data.map((log: any) => ({
+          ...log,
+          timestamp: log.createdAt || log.timestamp,
+          shopDomain: log.shopDomain || extractShopDomainFromDetails(log.details) || 'System'
+        }));
+        setAuditLogs(mappedLogs);
+        setAuditTotalCount(mappedLogs.length);
       } else {
         setAuditLogs([]);
         setAuditTotalCount(0);
@@ -522,11 +556,13 @@ const AdminPage: React.FC = () => {
       (log.ipAddress && log.ipAddress.toLowerCase().includes(auditSearchTerm.toLowerCase()));
     
     const matchesAction = auditActionFilter === 'all' || log.action === auditActionFilter;
+    const matchesCategory = auditCategoryFilter === 'all' || getActionCategory(log.action) === auditCategoryFilter;
     
-    return matchesSearch && matchesAction;
+    return matchesSearch && matchesAction && matchesCategory;
   });
 
   const uniqueActions = Array.from(new Set(auditLogs.map(log => log.action))).sort();
+  const uniqueCategories = Array.from(new Set(auditLogs.map(log => getActionCategory(log.action)))).sort();
 
   useEffect(() => {
     if (!shop || !isAuthenticated) {
@@ -538,6 +574,7 @@ const AdminPage: React.FC = () => {
       setAuditTotalCount(0);
       setAuditSearchTerm('');
       setAuditActionFilter('all');
+      setAuditCategoryFilter('all');
       setAuditLogType('all');
       return;
     }
@@ -564,6 +601,7 @@ const AdminPage: React.FC = () => {
       setAuditTotalCount(0);
       setAuditSearchTerm('');
       setAuditActionFilter('all');
+      setAuditCategoryFilter('all');
       setAuditLogType('all');
     };
   }, []);
@@ -669,49 +707,7 @@ const AdminPage: React.FC = () => {
   }
 
   return (
-    <AdminContainer maxWidth="xl">
-      {/* Header */}
-      <HeaderCard elevation={0}>
-        <AdminHeader>
-          <Box>
-            <Typography variant="h3" fontWeight="700" sx={{ mb: 1 }}>
-              Admin Dashboard
-            </Typography>
-            <Typography variant="h6" sx={{ opacity: 0.9 }}>
-              System Administration & Compliance Center
-            </Typography>
-          </Box>
-          <Button
-            variant="outlined"
-            startIcon={<LogoutIcon />}
-            onClick={() => {
-              setIsAuthenticated(false);
-              setIsPasswordDialogOpen(true);
-              setPassword('');
-              setSessionExpiry(0);
-              localStorage.removeItem('admin_session_expiry');
-              setAlert({ type: 'success', message: 'Admin session ended securely' });
-              
-              // Redirect based on shop authentication state
-              if (isShopAuthenticated && shop) {
-                navigate('/dashboard');
-              } else {
-                navigate('/');
-              }
-            }}
-            sx={{ 
-              color: 'white',
-              borderColor: 'rgba(255,255,255,0.3)',
-              '&:hover': {
-                borderColor: 'white',
-                bgcolor: 'rgba(255,255,255,0.1)'
-              }
-            }}
-          >
-            Logout Admin
-          </Button>
-        </AdminHeader>
-      </HeaderCard>
+    <AdminContainer maxWidth="xl">{/* Header removed */}
 
       {/* Main Content */}
       <SectionCard elevation={0}>
@@ -722,27 +718,51 @@ const AdminPage: React.FC = () => {
               <AssessmentIcon sx={{ fontSize: 32, color: 'primary.main' }} />
               <Box>
                 <Typography variant="h5" fontWeight="600">
-                  Audit Logs & Compliance
+                  Admin Dashboard - Audit Logs & Compliance
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   Monitor system access and compliance activities
                 </Typography>
               </Box>
             </Box>
-            <Button
-              variant="contained"
-              startIcon={<RefreshIcon />}
-              onClick={() => {
-                fetchAuditLogs();
-                if (auditLogType === 'active') {
-                  fetchActiveShops();
-                }
-              }}
-              disabled={auditLoading || activeShopsLoading}
-              sx={{ borderRadius: 2 }}
-            >
-              {auditLoading || activeShopsLoading ? 'Loading...' : 'Refresh'}
-            </Button>
+            <Stack direction="row" spacing={2}>
+              <Button
+                variant="contained"
+                startIcon={<RefreshIcon />}
+                onClick={() => {
+                  fetchAuditLogs();
+                  if (auditLogType === 'active') {
+                    fetchActiveShops();
+                  }
+                }}
+                disabled={auditLoading || activeShopsLoading}
+                sx={{ borderRadius: 2 }}
+              >
+                {auditLoading || activeShopsLoading ? 'Loading...' : 'Refresh'}
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<LogoutIcon />}
+                onClick={() => {
+                  setIsAuthenticated(false);
+                  setIsPasswordDialogOpen(true);
+                  setPassword('');
+                  setSessionExpiry(0);
+                  localStorage.removeItem('admin_session_expiry');
+                  setAlert({ type: 'success', message: 'Admin session ended securely' });
+                  
+                  // Redirect based on shop authentication state
+                  if (isShopAuthenticated && shop) {
+                    navigate('/dashboard');
+                  } else {
+                    navigate('/');
+                  }
+                }}
+                sx={{ borderRadius: 2 }}
+              >
+                Logout Admin
+              </Button>
+            </Stack>
           </Stack>
         </SectionHeader>
 
@@ -796,6 +816,34 @@ const AdminPage: React.FC = () => {
           {auditLogType !== 'active' && (
             <FilterContainer elevation={0}>
               <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                <FormControl size="small" sx={{ minWidth: 180 }}>
+                  <InputLabel>Filter by Category</InputLabel>
+                  <Select
+                    value={auditCategoryFilter}
+                    onChange={(e) => setAuditCategoryFilter(e.target.value)}
+                    label="Filter by Category"
+                    sx={{ 
+                      borderRadius: 2,
+                      bgcolor: 'white'
+                    }}
+                  >
+                    <MenuItem value="all">
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <FilterIcon fontSize="small" />
+                        All Categories
+                      </Box>
+                    </MenuItem>
+                    {uniqueCategories.map(category => (
+                      <MenuItem key={category} value={category}>
+                        <Box display="flex" alignItems="center" gap={1}>
+                          {actionCategories[category as keyof typeof actionCategories]?.icon}
+                          {actionCategories[category as keyof typeof actionCategories]?.label || category}
+                        </Box>
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                
                 <TextField
                   label="Search logs..."
                   placeholder="Search by action, details, shop, or IP address"
@@ -851,6 +899,7 @@ const AdminPage: React.FC = () => {
               <Typography variant="body2" color="text.secondary">
                 Showing {filteredAuditLogs.length} of {auditTotalCount} total audit logs
                 {auditSearchTerm && ` (filtered by "${auditSearchTerm}")`}
+                {auditCategoryFilter !== 'all' && ` (category: ${actionCategories[auditCategoryFilter as keyof typeof actionCategories]?.label || auditCategoryFilter})`}
                 {auditActionFilter !== 'all' && ` (action: ${auditActionFilter})`}
               </Typography>
             </Box>
@@ -1041,11 +1090,11 @@ const AdminPage: React.FC = () => {
                         <TableRow>
                           <TableCell>Timestamp</TableCell>
                           <TableCell>Shop Domain</TableCell>
-                          <TableCell>Action</TableCell>
+                          <TableCell>Category</TableCell>
                           <TableCell>Details</TableCell>
                           <TableCell>IP Address</TableCell>
                           <TableCell>Device Info</TableCell>
-                          <TableCell>Category</TableCell>
+                          <TableCell>Action</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -1086,25 +1135,20 @@ const AdminPage: React.FC = () => {
                               </Box>
                             </TableCell>
                             <TableCell>
-                              <Box sx={{ 
-                                display: 'flex', 
-                                alignItems: 'center', 
-                                gap: 1,
-                                p: 1,
-                                borderRadius: 1,
-                                bgcolor: getActionBgColor(log.action),
-                                border: `1px solid ${getActionColor(log.action)}30`
-                              }}>
-                                {getActionIcon(log.action)}
-                                <Typography variant="body2" sx={{ 
-                                  fontFamily: 'monospace', 
-                                  fontSize: '0.8rem',
+                              <Chip 
+                                label={actionCategories[getActionCategory(log.action) as keyof typeof actionCategories]?.label || 'Other'}
+                                size="small"
+                                sx={{
+                                  bgcolor: getActionBgColor(log.action),
+                                  color: getActionColor(log.action),
+                                  border: `1px solid ${getActionColor(log.action)}30`,
                                   fontWeight: 500,
-                                  color: getActionColor(log.action)
-                                }}>
-                                  {log.action}
-                                </Typography>
-                              </Box>
+                                  '& .MuiChip-icon': {
+                                    color: getActionColor(log.action)
+                                  }
+                                }}
+                                icon={getActionIcon(log.action)}
+                              />
                             </TableCell>
                             <TableCell sx={{ maxWidth: 350 }}>
                               <Tooltip title={log.details} arrow>
@@ -1141,20 +1185,25 @@ const AdminPage: React.FC = () => {
                               </Box>
                             </TableCell>
                             <TableCell>
-                              <Chip 
-                                label={actionCategories[getActionCategory(log.action) as keyof typeof actionCategories]?.label || 'Other'}
-                                size="small"
-                                sx={{
-                                  bgcolor: getActionBgColor(log.action),
-                                  color: getActionColor(log.action),
-                                  border: `1px solid ${getActionColor(log.action)}30`,
+                              <Box sx={{ 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: 1,
+                                p: 1,
+                                borderRadius: 1,
+                                bgcolor: getActionBgColor(log.action),
+                                border: `1px solid ${getActionColor(log.action)}30`
+                              }}>
+                                {getActionIcon(log.action)}
+                                <Typography variant="body2" sx={{ 
+                                  fontFamily: 'monospace', 
+                                  fontSize: '0.8rem',
                                   fontWeight: 500,
-                                  '& .MuiChip-icon': {
-                                    color: getActionColor(log.action)
-                                  }
-                                }}
-                                icon={getActionIcon(log.action)}
-                              />
+                                  color: getActionColor(log.action)
+                                }}>
+                                  {log.action}
+                                </Typography>
+                              </Box>
                             </TableCell>
                           </TableRow>
                         ))}
