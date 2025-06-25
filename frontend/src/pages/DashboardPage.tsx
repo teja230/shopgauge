@@ -10,6 +10,7 @@ import { styled } from '@mui/material/styles';
 import { OpenInNew, Refresh, Storefront, ListAlt, Inventory2 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
+import { useNotifications } from '../hooks/useNotifications';
 
 // Cache configuration - Enterprise-grade settings
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
@@ -577,9 +578,10 @@ interface CardErrorState {
 }
 
 const DashboardPage = () => {
+  const { isAuthenticated, shop, setShop } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const { shop, setShop } = useAuth();
+  const notifications = useNotifications();
   const [insights, setInsights] = useState<DashboardInsight | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -693,38 +695,21 @@ const DashboardPage = () => {
 
   // Handle URL parameters from OAuth callback and Profile page redirects
   useEffect(() => {
-    const urlParams = new URLSearchParams(location.search);
-    const shopParam = urlParams.get('shop');
-    const authParam = urlParams.get('auth');
-    const reauth = urlParams.get('reauth');
-    const connected = urlParams.get('connected');
-    const reconnected = urlParams.get('reconnected');
-    
-    if (shopParam && authParam === 'success') {
-      console.log('Processing OAuth callback - shop:', shopParam);
-      
-      // Set the shop cookie on the frontend domain
-      const isProduction = window.location.hostname.includes('shopgaugeai.com');
-      const domainAttribute = isProduction ? '; domain=.shopgaugeai.com' : '';
-      const cookieValue = `shop=${shopParam}; Path=/; Max-Age=${30 * 24 * 60 * 60}; SameSite=Lax${domainAttribute}`;
-      document.cookie = cookieValue;
-      
-      // Update the auth context
-      if (setShop) {
-        setShop(shopParam);
-      }
-      
-      // Clean up the URL parameters
-      navigate('/dashboard', { replace: true });
-      
-      console.log('Successfully set shop cookie and updated auth context');
-    }
-    
+    // Check for success notifications from URL params
+    const searchParams = new URLSearchParams(location.search);
+    const reauth = searchParams.get('reauth');
+    const connected = searchParams.get('connected');
+    const reconnected = searchParams.get('reconnected');
+
     // Handle success notifications from Profile page redirects
     if (reauth === 'success') {
-      toast.success('🔐 Re-authentication successful!', {
-        duration: 4000,
-        icon: '✅',
+      notifications.showSuccess('🔐 Re-authentication successful!', {
+        persistent: true,
+        category: 'Authentication',
+        action: {
+          label: 'View Profile',
+          onClick: () => navigate('/profile')
+        }
       });
       // Clear cache to ensure fresh data
       sessionStorage.removeItem('dashboard_cache_v1.1');
@@ -735,9 +720,13 @@ const DashboardPage = () => {
       const cleanUrl = window.location.pathname;
       window.history.replaceState({}, document.title, cleanUrl);
     } else if (connected === 'true') {
-      toast.success('🔗 New store connected successfully!', {
-        duration: 4000,
-        icon: '✅',
+      notifications.showSuccess('🔗 New store connected successfully!', {
+        persistent: true,
+        category: 'Store Connection',
+        action: {
+          label: 'View Settings',
+          onClick: () => navigate('/profile')
+        }
       });
       // Clear cache to ensure fresh data
       sessionStorage.removeItem('dashboard_cache_v1.1');
@@ -748,9 +737,9 @@ const DashboardPage = () => {
       const cleanUrl = window.location.pathname;
       window.history.replaceState({}, document.title, cleanUrl);
     } else if (reconnected === 'true') {
-      toast.success('🔄 Store reconnected successfully!', {
-        duration: 4000,
-        icon: '✅',
+      notifications.showSuccess('🔄 Store reconnected successfully!', {
+        persistent: false, // Don't persist reconnection notifications
+        category: 'Store Connection',
       });
       // Clear cache to ensure fresh data
       sessionStorage.removeItem('dashboard_cache_v1.1');
@@ -761,7 +750,7 @@ const DashboardPage = () => {
       const cleanUrl = window.location.pathname;
       window.history.replaceState({}, document.title, cleanUrl);
     }
-  }, [location.search, navigate, setShop]);
+  }, [location.search, navigate, setShop, notifications]);
 
   // Retry logic with exponential backoff
   const retryWithBackoff = useCallback(async (apiCall: () => Promise<any>, maxRetries = 3) => {

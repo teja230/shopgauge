@@ -4,7 +4,7 @@ import { Fragment } from 'react';
 import { XMarkIcon, CheckIcon, XCircleIcon } from '@heroicons/react/24/outline';
 import type { CompetitorSuggestion } from '../../api';
 import { getCompetitorSuggestions, approveSuggestion, ignoreSuggestion } from '../../api';
-import toast from 'react-hot-toast';
+import { useNotifications } from '../../hooks/useNotifications';
 
 interface SuggestionDrawerProps {
   isOpen: boolean;
@@ -24,6 +24,8 @@ export const SuggestionDrawer: React.FC<SuggestionDrawerProps> = ({
   const [suggestions, setSuggestions] = useState<CompetitorSuggestion[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const notifications = useNotifications();
 
   useEffect(() => {
     if (isOpen) {
@@ -40,12 +42,17 @@ export const SuggestionDrawer: React.FC<SuggestionDrawerProps> = ({
 
   const fetchSuggestions = async () => {
     setLoading(true);
+    setError(null);
+    
     try {
       const response = await getCompetitorSuggestions(0, 20, 'NEW');
       setSuggestions(response.content);
-    } catch (error) {
-      toast.error('Failed to load suggestions');
-      console.error('Error loading suggestions:', error);
+      onSuggestionUpdate();
+    } catch (err) {
+      setError('Failed to load suggestions');
+      notifications.showError('Failed to load suggestions', {
+        category: 'Competitors'
+      });
     } finally {
       setLoading(false);
     }
@@ -56,18 +63,25 @@ export const SuggestionDrawer: React.FC<SuggestionDrawerProps> = ({
     try {
       if (isDemoMode) {
         // In demo mode, just simulate the action
-        toast.success('Demo: Competitor approved - now tracking prices!');
+        notifications.showSuccess('Demo: Competitor approved - now tracking prices!', {
+          category: 'Competitors'
+        });
         setSuggestions(prev => prev.filter(s => s.id !== suggestion.id));
         onSuggestionUpdate();
       } else {
         await approveSuggestion(suggestion.id);
-        toast.success('Competitor approved - now tracking prices!');
+        notifications.showSuccess('Competitor approved - now tracking prices!', {
+          persistent: true,
+          category: 'Competitors'
+        });
         setSuggestions(prev => prev.filter(s => s.id !== suggestion.id));
         onSuggestionUpdate();
       }
     } catch (error) {
-      toast.error('Failed to approve suggestion');
-      console.error('Error approving suggestion:', error);
+      notifications.showError('Failed to approve suggestion', {
+        persistent: true,
+        category: 'Competitors'
+      });
     } finally {
       setActionLoading(null);
     }
@@ -78,18 +92,24 @@ export const SuggestionDrawer: React.FC<SuggestionDrawerProps> = ({
     try {
       if (isDemoMode) {
         // In demo mode, just simulate the action
-        toast.success('Demo: Suggestion ignored');
+        notifications.showSuccess('Demo: Suggestion ignored', {
+          category: 'Competitors'
+        });
         setSuggestions(prev => prev.filter(s => s.id !== suggestion.id));
         onSuggestionUpdate();
       } else {
         await ignoreSuggestion(suggestion.id);
-        toast.success('Suggestion ignored');
+        notifications.showSuccess('Suggestion ignored', {
+          category: 'Competitors'
+        });
         setSuggestions(prev => prev.filter(s => s.id !== suggestion.id));
         onSuggestionUpdate();
       }
     } catch (error) {
-      toast.error('Failed to ignore suggestion');
-      console.error('Error ignoring suggestion:', error);
+      notifications.showError('Failed to ignore suggestion', {
+        persistent: true,
+        category: 'Competitors'
+      });
     } finally {
       setActionLoading(null);
     }

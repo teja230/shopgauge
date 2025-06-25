@@ -236,7 +236,7 @@ public class DataPrivacyService {
       report.put("total_weekly_access_events", 0);
     }
 
-    report.put("compliance_status", "✅ COMPLIANT");
+    report.put("compliance_status", "COMPLIANT");
     report.put("last_updated", LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
 
     logDataAccess("COMPLIANCE_REPORT_GENERATED", shopId);

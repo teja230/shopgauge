@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
-import toast from 'react-hot-toast';
+import { useNotifications } from '../hooks/useNotifications';
 import { API_BASE_URL } from '../api';
 
 export default function ProfilePage() {
@@ -21,6 +21,7 @@ export default function ProfilePage() {
   const [pastStores, setPastStores] = useState<string[]>([]);
   const navigate = useNavigate();
   const location = useLocation();
+  const notifications = useNotifications();
 
   // Save current store to past stores when shop changes
   useEffect(() => {
@@ -51,46 +52,38 @@ export default function ProfilePage() {
 
   // Handle success callback from OAuth - FIXED: Direct Dashboard redirect without nested params
   useEffect(() => {
-    const urlParams = new URLSearchParams(location.search);
-    const successParam = urlParams.get('success');
-    const fromAuthParam = urlParams.get('from_auth');
-    
-    if (successParam === 'true' && shop) {
-      toast.success('🔗 Store connected successfully!', {
-        duration: 3000,
-        icon: '✅',
+    const searchParams = new URLSearchParams(location.search);
+    const connected = searchParams.get('connected');
+    const reauth = searchParams.get('reauth');
+
+    if (connected === 'true') {
+      notifications.showSuccess('🔗 Store connected successfully!', {
+        persistent: true,
+        category: 'Store Connection',
+        action: {
+          label: 'View Dashboard',
+          onClick: () => navigate('/dashboard')
+        }
       });
       
-      // Clear cache to ensure fresh data
-      sessionStorage.removeItem('dashboard_cache_v1.1');
-      sessionStorage.removeItem('dashboard_cache_v2');
-      
-      // Clean up URL params before redirect
-      const cleanUrl = window.location.pathname;
-      window.history.replaceState({}, document.title, cleanUrl);
-      
-      setTimeout(() => {
-        navigate('/dashboard', { replace: true });
-      }, 1000);
-    } else if (fromAuthParam === 'true' && shop) {
-      toast.success('🔐 Re-authentication successful!', {
-        duration: 3000,
-        icon: '✅',
-      });
-      
-      // Clear cache to ensure fresh data
-      sessionStorage.removeItem('dashboard_cache_v1.1');
-      sessionStorage.removeItem('dashboard_cache_v2');
-      
-      // Clean up URL params before redirect
-      const cleanUrl = window.location.pathname;
-      window.history.replaceState({}, document.title, cleanUrl);
-      
-      setTimeout(() => {
-        navigate('/dashboard', { replace: true });
-      }, 1000);
+      // Clean up URL
+      window.history.replaceState({}, document.title, '/profile');
     }
-  }, [location, shop, setShop, navigate]);
+
+    if (reauth === 'success') {
+      notifications.showSuccess('🔐 Re-authentication successful!', {
+        persistent: true,
+        category: 'Authentication',
+        action: {
+          label: 'View Dashboard',
+          onClick: () => navigate('/dashboard')
+        }
+      });
+      
+      // Clean up URL
+      window.history.replaceState({}, document.title, '/profile');
+    }
+  }, [location.search, navigate, notifications]);
 
   // Check connection status and load store stats
   useEffect(() => {
@@ -139,7 +132,10 @@ export default function ProfilePage() {
   const handleReAuthenticate = async () => {
     try {
       setIsLoading(true);
-      toast.loading('Re-authenticating with Shopify...', { id: 'reauth' });
+      notifications.showInfo('Re-authenticating with Shopify...', {
+        category: 'Authentication',
+        duration: 3000
+      });
       
       if (shop) {
         // FIXED: Use dashboard redirect instead of profile for re-auth
@@ -147,11 +143,17 @@ export default function ProfilePage() {
         const returnUrl = encodeURIComponent(`${baseUrl}?reauth=success`);
         window.location.href = `${API_BASE_URL}/api/auth/shopify/login?shop=${encodeURIComponent(shop)}&return_url=${returnUrl}`;
       } else {
-        toast.error('No shop found. Please disconnect and reconnect.', { id: 'reauth' });
+        notifications.showError('No shop found. Please disconnect and reconnect.', {
+          persistent: true,
+          category: 'Authentication'
+        });
       }
     } catch (error) {
       console.error('Re-authentication failed:', error);
-      toast.error('Failed to re-authenticate. Please try again.', { id: 'reauth' });
+      notifications.showError('Failed to re-authenticate. Please try again.', {
+        persistent: true,
+        category: 'Authentication'
+      });
     } finally {
       setIsLoading(false);
     }
@@ -166,12 +168,18 @@ export default function ProfilePage() {
       
       if (!confirmed) return;
 
-      toast.loading('Disconnecting store...', { id: 'disconnect' });
+      notifications.showInfo('Disconnecting store...', {
+        category: 'Store Connection',
+        duration: 3000
+      });
       
       // Use the AuthContext logout function which properly handles state clearing
       await logout();
       
-      toast.success('Store disconnected successfully!', { id: 'disconnect' });
+      notifications.showSuccess('Store disconnected successfully!', {
+        persistent: true,
+        category: 'Store Connection'
+      });
       
       // Redirect to home page after disconnect
       setTimeout(() => {
@@ -179,7 +187,10 @@ export default function ProfilePage() {
       }, 1500);
     } catch (error) {
       console.error('Error disconnecting shop:', error);
-      toast.error('Failed to disconnect store', { id: 'disconnect' });
+      notifications.showError('Failed to disconnect store', {
+        persistent: true,
+        category: 'Store Connection'
+      });
     }
   };
 
@@ -194,13 +205,18 @@ export default function ProfilePage() {
     console.log('Force disconnect: Starting with shop:', shop);
     
     if (!shop) {
-      toast.error('No shop found to disconnect');
+      notifications.showError('No shop found to disconnect', {
+        category: 'Store Connection'
+      });
       setIsForceDisconnecting(false);
       return;
     }
     
     try {
-      toast.loading('Force disconnecting...', { id: 'force-disconnect' });
+      notifications.showInfo('Force disconnecting...', {
+        category: 'Store Connection',
+        duration: 5000
+      });
       
       console.log('Force disconnect: Calling API with shop:', shop);
       const res = await fetch(`${API_BASE_URL}/api/auth/shopify/profile/force-disconnect`, {
@@ -219,9 +235,10 @@ export default function ProfilePage() {
         sessionStorage.clear();
         localStorage.clear();
         
-        toast.success('Force disconnect successful! All tokens and cookies cleared.', { 
-          id: 'force-disconnect',
-          duration: 3000 
+        notifications.showSuccess('Force disconnect successful! All tokens and cookies cleared.', {
+          persistent: true,
+          category: 'Store Connection',
+          duration: 8000
         });
         console.log('Force disconnect: Success, redirecting to home');
         
@@ -232,11 +249,17 @@ export default function ProfilePage() {
         }, 2000);
       } else {
         console.error('Force disconnect: API error:', data);
-        toast.error('Force disconnect failed: ' + (data?.message || 'Unknown error'), { id: 'force-disconnect' });
+        notifications.showError('Force disconnect failed: ' + (data?.message || 'Unknown error'), {
+          persistent: true,
+          category: 'Store Connection'
+        });
       }
     } catch (error) {
       console.error('Force disconnect: Network error:', error);
-      toast.error('Force disconnect failed: Network error', { id: 'force-disconnect' });
+      notifications.showError('Force disconnect failed: Network error', {
+        persistent: true,
+        category: 'Store Connection'
+      });
     } finally {
       setIsForceDisconnecting(false);
     }
@@ -244,7 +267,10 @@ export default function ProfilePage() {
 
   const handleDataExport = async () => {
     setIsExporting(true);
-    toast.loading('Preparing data export...', { id: 'export' });
+    notifications.showInfo('Preparing data export...', {
+      category: 'Data Privacy',
+      duration: 5000
+    });
     
     try {
       const response = await fetch(`${API_BASE_URL}/api/analytics/privacy/data-export`, {
@@ -262,14 +288,27 @@ export default function ProfilePage() {
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
-        toast.success('📥 Data export completed successfully!', { id: 'export' });
+        notifications.showSuccess('📥 Data export completed successfully!', {
+          persistent: true,
+          category: 'Data Privacy',
+          action: {
+            label: 'Download Again',
+            onClick: () => handleDataExport()
+          }
+        });
       } else {
         const error = await response.json();
-        toast.error('Data export failed: ' + (error.message || 'Unknown error'), { id: 'export' });
+        notifications.showError('Data export failed: ' + (error.message || 'Unknown error'), {
+          persistent: true,
+          category: 'Data Privacy'
+        });
       }
     } catch (error) {
       console.error('Data export failed:', error);
-      toast.error('Data export failed: Network error', { id: 'export' });
+      notifications.showError('Data export failed: Network error', {
+        persistent: true,
+        category: 'Data Privacy'
+      });
     } finally {
       setIsExporting(false);
     }
@@ -289,7 +328,10 @@ export default function ProfilePage() {
     if (!secondConfirm) return;
 
     setIsDeletingData(true);
-    toast.loading('Permanently deleting all data...', { id: 'delete' });
+    notifications.showInfo('Permanently deleting all data...', {
+      category: 'Data Privacy',
+      duration: 10000
+    });
     
     try {
       const response = await fetch(`${API_BASE_URL}/api/analytics/privacy/data-deletion`, {
@@ -301,9 +343,10 @@ export default function ProfilePage() {
       
       if (response.ok) {
         const result = await response.json();
-        toast.success('🗑️ All data has been permanently deleted from our systems!', { 
-          id: 'delete',
-          duration: 5000 
+        notifications.showSuccess('🗑️ All data has been permanently deleted from our systems!', {
+          persistent: true,
+          category: 'Data Privacy',
+          duration: 8000
         });
         console.log('Data deletion completed:', result);
         
@@ -317,18 +360,27 @@ export default function ProfilePage() {
         }, 3000);
       } else {
         const error = await response.json();
-        toast.error('Data deletion failed: ' + (error.message || 'Unknown error'), { id: 'delete' });
+        notifications.showError('Data deletion failed: ' + (error.message || 'Unknown error'), {
+          persistent: true,
+          category: 'Data Privacy'
+        });
       }
     } catch (error) {
       console.error('Data deletion failed:', error);
-      toast.error('Data deletion failed: Network error', { id: 'delete' });
+      notifications.showError('Data deletion failed: Network error', {
+        persistent: true,
+        category: 'Data Privacy'
+      });
     } finally {
       setIsDeletingData(false);
     }
   };
 
   const handlePrivacyReport = async () => {
-    toast.loading('Generating privacy compliance report...', { id: 'privacy-report' });
+    notifications.showInfo('Generating privacy compliance report...', {
+      category: 'Data Privacy',
+      duration: 5000
+    });
     
     try {
       const response = await fetch(`${API_BASE_URL}/api/analytics/privacy/compliance-report`, {
@@ -340,13 +392,21 @@ export default function ProfilePage() {
         const report = await response.json();
         setPrivacyReport(report);
         setShowPrivacyReport(true);
-        toast.success('Privacy report generated successfully!', { id: 'privacy-report' });
+        notifications.showSuccess('Privacy report generated successfully!', {
+          category: 'Data Privacy'
+        });
       } else {
-        toast.error('Failed to load privacy report', { id: 'privacy-report' });
+        notifications.showError('Failed to load privacy report', {
+          persistent: true,
+          category: 'Data Privacy'
+        });
       }
     } catch (error) {
       console.error('Privacy report failed:', error);
-      toast.error('Privacy report failed: Network error', { id: 'privacy-report' });
+      notifications.showError('Privacy report failed: Network error', {
+        persistent: true,
+        category: 'Data Privacy'
+      });
     }
   };
 
@@ -354,12 +414,17 @@ export default function ProfilePage() {
   const handleConnectNewStore = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newStoreDomain.trim()) {
-      toast.error('Please enter a store domain');
+      notifications.showError('Please enter a store domain', {
+        category: 'Validation'
+      });
       return;
     }
 
     setIsConnectingStore(true);
-    toast.loading('Connecting to new store...', { id: 'connect-store' });
+    notifications.showInfo('Connecting to new store...', {
+      category: 'Store Connection',
+      duration: 5000
+    });
     
     try {
       // Clean up the shop domain
@@ -384,7 +449,10 @@ export default function ProfilePage() {
       window.location.href = `${API_BASE_URL}/api/auth/shopify/login?shop=${encodeURIComponent(cleanDomain)}&return_url=${returnUrl}`;
     } catch (error) {
       console.error('Failed to connect new store:', error);
-      toast.error('Failed to connect store. Please try again.', { id: 'connect-store' });
+      notifications.showError('Failed to connect store. Please try again.', {
+        persistent: true,
+        category: 'Store Connection'
+      });
     } finally {
       setIsConnectingStore(false);
     }
@@ -392,7 +460,10 @@ export default function ProfilePage() {
 
   // FIXED: Reconnect past store with Dashboard redirect
   const handleReconnectPastStore = (pastStore: string) => {
-    toast.loading(`Reconnecting to ${pastStore}...`, { id: 'reconnect' });
+    notifications.showInfo(`Reconnecting to ${pastStore}...`, {
+      category: 'Store Connection',
+      duration: 5000
+    });
     
     // FIXED: Use dashboard redirect for past store reconnection
     const baseUrl = `${window.location.origin}/dashboard`;
@@ -406,7 +477,9 @@ export default function ProfilePage() {
     sessionStorage.removeItem('dashboard_cache_v1.1');
     sessionStorage.removeItem('dashboard_cache_v2');
     
-    toast.success('Cache cleared! Dashboard will refresh with latest data.');
+    notifications.showSuccess('Cache cleared! Dashboard will refresh with latest data.', {
+      category: 'Operations'
+    });
     
     // Redirect to dashboard to see fresh data
     navigate('/dashboard');
@@ -1153,7 +1226,7 @@ export default function ProfilePage() {
                 className="ml-4 inline-flex items-center px-4 py-3 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
             >
                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V5a3 3 0 013-3h4a3 3 0 013 3v1" />
                 </svg>
               Disconnect Store
             </button>

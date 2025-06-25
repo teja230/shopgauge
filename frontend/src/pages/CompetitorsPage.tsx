@@ -14,6 +14,7 @@ import {
   StopIcon
 } from '@heroicons/react/24/outline';
 import type { CompetitorSuggestion } from '../api';
+import { useNotifications } from '../hooks/useNotifications';
 
 // Demo data for when SerpAPI is not configured
 const DEMO_COMPETITORS: Competitor[] = [
@@ -104,6 +105,7 @@ export default function CompetitorsPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [url, setUrl] = useState('');
   const [productId, setProductId] = useState('');
+  const notifications = useNotifications();
 
   useEffect(() => {
     // Clear data if no shop (logout/disconnect)
@@ -159,12 +161,16 @@ export default function CompetitorsPage() {
     try {
       const newComp = await addCompetitor(url, productId);
       setCompetitors((prev) => [...prev, newComp]);
-      toast.success('Competitor added successfully');
+      notifications.showSuccess('Competitor added successfully', {
+        category: 'Competitors'
+      });
       setUrl('');
       setProductId('');
       setShowAddForm(false);
     } catch {
-      toast.error('Failed to add competitor');
+      notifications.showError('Failed to add competitor', {
+        category: 'Competitors'
+      });
     }
   };
 
@@ -173,15 +179,21 @@ export default function CompetitorsPage() {
       if (isDemoMode) {
         // For demo mode, just remove from local state
         setCompetitors((prev) => prev.filter((c) => c.name !== id));
-        toast.success('Demo competitor removed');
+        notifications.showSuccess('Demo competitor removed', {
+          category: 'Competitors'
+        });
         return;
       }
       
       await deleteCompetitor(id);
       setCompetitors((prev) => prev.filter((c) => c.name !== id));
-      toast.success('Competitor deleted successfully');
+      notifications.showSuccess('Competitor deleted successfully', {
+        category: 'Competitors'
+      });
     } catch {
-      toast.error('Failed to delete competitor');
+      notifications.showError('Failed to delete competitor', {
+        category: 'Competitors'
+      });
     }
   };
 
@@ -205,12 +217,16 @@ export default function CompetitorsPage() {
       setCompetitors([]);
       setIsDemoMode(false);
       setSuggestionCount(0);
-      toast.success('Demo mode disabled');
+      notifications.showSuccess('Demo mode disabled', {
+        category: 'Demo'
+      });
     } else {
       setCompetitors(DEMO_COMPETITORS);
       setIsDemoMode(true);
       setSuggestionCount(DEMO_SUGGESTIONS.length);
-      toast.success('Demo mode enabled');
+      notifications.showSuccess('Demo mode enabled', {
+        category: 'Demo'
+      });
     }
   };
 

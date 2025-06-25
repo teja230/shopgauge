@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { toast } from 'react-hot-toast';
-import { CheckCircleIcon } from '@heroicons/react/24/solid';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { getInsights, fetchWithAuth } from '../api';
 import { API_BASE_URL } from '../api';
+import { useNotifications } from '../hooks/useNotifications';
+import { CheckCircleIcon } from '@heroicons/react/24/solid';
 
 const features = [
   'Real-time competitor price monitoring',
@@ -42,9 +42,10 @@ const HomePage = () => {
   const [isOAuthFlow, setIsOAuthFlow] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [errorCode, setErrorCode] = useState('');
-  const { isAuthenticated, authLoading, logout } = useAuth();
+  const { isAuthenticated, authLoading, logout, setShop } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const notifications = useNotifications();
 
   // Check if we're in an OAuth flow from Shopify or if there's an error
   useEffect(() => {
@@ -66,9 +67,10 @@ const HomePage = () => {
       console.log('HomePage: Detected error from OAuth callback:', errorFromUrl, errorMsgFromUrl);
       
       // Show error toast
-      toast.error(decodeURIComponent(errorMsgFromUrl), {
-        duration: 8000,
-        position: 'top-center',
+      notifications.showError(decodeURIComponent(errorMsgFromUrl), {
+        persistent: true,
+        category: 'Connection',
+        duration: 8000
       });
       
       // Clear URL parameters after showing error
@@ -78,7 +80,7 @@ const HomePage = () => {
       // Reset OAuth flow if there was an error
       setIsOAuthFlow(false);
     }
-  }, [location.search, authLoading]);
+  }, [location.search, authLoading, notifications]);
 
   // Handle navigation after authentication
   useEffect(() => {
@@ -120,14 +122,19 @@ const HomePage = () => {
       setErrorCode('');
     } catch (error) {
       console.error('Failed to switch store:', error);
-      toast.error('Failed to switch store. Please try again.');
+      notifications.showError('Failed to switch store. Please try again.', {
+        persistent: true,
+        category: 'Connection'
+      });
     }
   };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!shopDomain) {
-      toast.error('Please enter your store name');
+      notifications.showError('Please enter your store name', {
+        category: 'Validation'
+      });
       return;
     }
 
@@ -151,7 +158,10 @@ const HomePage = () => {
       window.location.href = `${API_BASE_URL}/api/auth/shopify/login?shop=${encodeURIComponent(cleanDomain)}`;
     } catch (error) {
       console.error('Login failed:', error);
-      toast.error('Failed to connect to Shopify. Please try again.');
+      notifications.showError('Failed to connect to Shopify. Please try again.', {
+        persistent: true,
+        category: 'Connection'
+      });
     } finally {
       setIsLoading(false);
     }
