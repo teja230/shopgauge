@@ -74,7 +74,8 @@ public class WebSecurityConfig {
     serializer.setSameSite("Lax"); // Use Lax for same-site requests (both on shopgaugeai.com)
     serializer.setUseSecureCookie(true);
     serializer.setCookiePath("/");
-    serializer.setDomainName(".shopgaugeai.com"); // Set domain for both www and api subdomains
+    serializer.setDomainName(
+        "shopgaugeai.com"); // Set domain for both www and api subdomains (RFC 6265 compliant)
     return serializer;
   }
 }

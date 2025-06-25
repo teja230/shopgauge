@@ -405,9 +405,9 @@ public class ShopifyAuthController {
       if (isProduction) {
         // For production, set domain to allow sharing between subdomains
         shopCookie.setSecure(true);
-        shopCookie.setDomain(".shopgaugeai.com");
+        shopCookie.setDomain("shopgaugeai.com");
         logger.info(
-            "Production environment detected - using secure cookies with .shopgaugeai.com domain");
+            "Production environment detected - using secure cookies with shopgaugeai.com domain");
       } else {
         // Development environment - localhost doesn't need domain
         shopCookie.setSecure(false); // HTTP allowed in development
@@ -423,7 +423,7 @@ public class ShopifyAuthController {
       // Also set cookie using header for better control over SameSite attribute
       // For same-site requests (both www and api on shopgaugeai.com), use Lax
       String sameSiteValue = isProduction ? "Lax" : "Lax";
-      String domainAttribute = isProduction ? "Domain=.shopgaugeai.com; " : "";
+      String domainAttribute = isProduction ? "Domain=shopgaugeai.com; " : "";
       response.addHeader(
           "Set-Cookie",
           String.format(
@@ -853,7 +853,7 @@ public class ShopifyAuthController {
       // Use SameSite=Lax for production since both domains are on shopgaugeai.com
       boolean isProduction = frontendUrl != null && frontendUrl.contains("shopgaugeai.com");
       String sameSiteValue = isProduction ? "Lax" : "Lax";
-      String domainAttribute = isProduction ? "Domain=.shopgaugeai.com; " : "";
+      String domainAttribute = isProduction ? "Domain=shopgaugeai.com; " : "";
       String clearCookieHeader =
           String.format(
               "shop=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; %sSecure; SameSite=%s",
@@ -927,10 +927,10 @@ public class ShopifyAuthController {
       // Production: Use Set-Cookie header with proper domain
       String setCookieHeader =
           String.format(
-              "test_cookie=%s; Path=/; Max-Age=300; Domain=.shopgaugeai.com; Secure; SameSite=Lax",
+              "test_cookie=%s; Path=/; Max-Age=300; Domain=shopgaugeai.com; Secure; SameSite=Lax",
               testValue);
       response.addHeader("Set-Cookie", setCookieHeader);
-      result.put("cookie_domain", ".shopgaugeai.com");
+      result.put("cookie_domain", "shopgaugeai.com");
       result.put("cookie_secure", true);
       result.put("cookie_samesite", "Lax");
       logger.info("Set production test cookie with header: {}", setCookieHeader);
@@ -968,7 +968,7 @@ public class ShopifyAuthController {
     // Use SameSite=Lax for production same-site requests
     boolean isProduction = frontendUrl != null && frontendUrl.contains("shopgaugeai.com");
     String sameSiteValue = isProduction ? "Lax" : "Lax";
-    String domainAttribute = isProduction ? "Domain=.shopgaugeai.com; " : "";
+    String domainAttribute = isProduction ? "Domain=shopgaugeai.com; " : "";
     response.addHeader(
         "Set-Cookie",
         String.format(

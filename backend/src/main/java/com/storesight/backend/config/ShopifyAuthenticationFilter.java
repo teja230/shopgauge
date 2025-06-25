@@ -65,7 +65,7 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
         response.addHeader(
             "Set-Cookie",
             String.format(
-                "shop=%s; Path=/; Max-Age=%d; Domain=.shopgaugeai.com; SameSite=Lax; Secure",
+                "shop=%s; Path=/; Max-Age=%d; Domain=shopgaugeai.com; SameSite=Lax; Secure",
                 shopDomain, 60 * 60 * 24 * 7));
 
         logger.info("Set new shop cookie for subsequent requests: {}", shopDomain);
