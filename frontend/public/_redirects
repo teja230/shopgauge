@@ -1,0 +1,13 @@
+# Valid application routes - redirect to loading page
+/dashboard              /loading.html    200
+/competitors            /loading.html    200
+/admin                  /loading.html    200
+/profile                /loading.html    200
+/privacy-policy         /loading.html    200
+
+# Root and index routes
+/                       /index.html      200
+/index.html             /index.html      200
+
+# All other routes - show 404 page
+/*                      /404.html        404 

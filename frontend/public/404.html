@@ -300,18 +300,23 @@
         
         console.log('404 Redirect: Attempting to redirect from', path);
         
-        // Check if this is a known valid route for faster redirect
+        // Check if this is a known valid route
         var validRoutes = ['/dashboard', '/competitors', '/admin', '/profile', '/privacy-policy'];
         var isValidRoute = validRoutes.includes(path.split('?')[0].split('#')[0]);
         
-        // Use shorter delay for known valid routes, longer for unknown routes
-        var delay = isValidRoute ? 300 : 1500;
+        if (isValidRoute) {
+          // Redirect valid routes to loading page immediately
+          console.log('404 Redirect: Valid route detected, redirecting to loading page');
+          window.location.replace('/loading.html');
+          return;
+        }
         
+        // For invalid routes, show 404 page with longer delay
         setTimeout(function() {
           var redirectUrl = '/?redirect=' + encodeURIComponent(path);
-          console.log('404 Redirect: Redirecting to', redirectUrl, 'after', delay + 'ms');
+          console.log('404 Redirect: Invalid route, redirecting to', redirectUrl, 'after 2000ms');
           window.location.replace(redirectUrl);
-        }, delay);
+        }, 2000);
         
       } catch (e) {
         console.error('404 Redirect Error:', e);
@@ -329,16 +334,16 @@
     
     <div class="error-code">404</div>
     
-    <h1 class="title">Hang tight, we're redirecting you...</h1>
+    <h1 class="title">Page not found</h1>
     
     <p class="description">
-      We're taking you to the right place. This usually happens when you've bookmarked 
-      or shared a direct link to a page in our app.
+      The page you're looking for doesn't exist. We'll redirect you to the homepage 
+      in a moment, or you can click the link below.
     </p>
     
     <div class="spinner-container">
       <div class="spinner"></div>
-      <span class="loading-text">Loading your page...</span>
+      <span class="loading-text">Redirecting to homepage...</span>
     </div>
     
     <div class="analytics-animation">
