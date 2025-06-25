@@ -5,6 +5,9 @@
 /profile                /loading.html    200
 /privacy-policy         /loading.html    200
 
+# Test route to see loading page (remove after testing)
+/test-loading           /loading.html    200
+
 # Root and index routes
 /                       /index.html      200
 /index.html             /index.html      200

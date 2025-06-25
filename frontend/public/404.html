@@ -311,12 +311,27 @@
           return;
         }
         
-        // For invalid routes, show 404 page with longer delay
-        setTimeout(function() {
-          var redirectUrl = '/?redirect=' + encodeURIComponent(path);
-          console.log('404 Redirect: Invalid route, redirecting to', redirectUrl, 'after 2000ms');
-          window.location.replace(redirectUrl);
-        }, 2000);
+        // For invalid routes, show 404 page with much longer delay
+        var countdown = 8;
+        var countdownElement = document.getElementById('countdown-text');
+        
+        var countdownInterval = setInterval(function() {
+          countdown--;
+          if (countdownElement) {
+            if (countdown > 0) {
+              countdownElement.textContent = 'Redirecting to homepage in ' + countdown + ' seconds...';
+            } else {
+              countdownElement.textContent = 'Redirecting now...';
+            }
+          }
+          
+          if (countdown <= 0) {
+            clearInterval(countdownInterval);
+            var redirectUrl = '/?redirect=' + encodeURIComponent(path);
+            console.log('404 Redirect: Invalid route, redirecting to', redirectUrl, 'after 8000ms');
+            window.location.replace(redirectUrl);
+          }
+        }, 1000);
         
       } catch (e) {
         console.error('404 Redirect Error:', e);
@@ -343,7 +358,7 @@
     
     <div class="spinner-container">
       <div class="spinner"></div>
-      <span class="loading-text">Redirecting to homepage...</span>
+      <span class="loading-text" id="countdown-text">Redirecting to homepage in 8 seconds...</span>
     </div>
     
     <div class="analytics-animation">

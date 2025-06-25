@@ -5,12 +5,16 @@ import { API_BASE_URL } from '../api';
 interface AuthContextType {
   isAuthenticated: boolean;
   shop: string | null;
+  authLoading: boolean;
+  loading: boolean;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
   isAuthenticated: false,
   shop: null,
+  authLoading: true,
+  loading: true,
   logout: () => {},
 });
 
@@ -19,6 +23,8 @@ export const useAuth = () => useContext(AuthContext);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [shop, setShop] = useState<string | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     checkAuth();
@@ -36,6 +42,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         setShop(response.data.shop);
         setIsAuthenticated(true);
+      } else {
+        setIsAuthenticated(false);
+        setShop(null);
       }
     } catch (error) {
       console.error('Auth check failed:', error);
@@ -43,6 +52,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setShop(null);
       // Clear cache on auth failure
       sessionStorage.removeItem('dashboard_cache_v1.1');
+    } finally {
+      setAuthLoading(false);
+      setLoading(false);
     }
   };
 
@@ -68,7 +80,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, shop, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, shop, authLoading, loading, logout }}>
       {children}
     </AuthContext.Provider>
   );

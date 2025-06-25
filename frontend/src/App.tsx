@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import HomePage from './pages/HomePage';
 import DashboardPage from './pages/DashboardPage';
 import CompetitorsPage from './pages/CompetitorsPage';
