@@ -769,7 +769,7 @@ public class AnalyticsController {
             + shop
             + "/admin/api/2023-10/orders.json?created_at_min="
             + since
-            + "T00:00:00-00:00&limit=50";
+            + "T00:00:00-00:00&limit=250";
 
     return webClient
         .get()
@@ -781,6 +781,11 @@ public class AnalyticsController {
             data -> {
               var orders = (List<Map<String, Object>>) data.get("orders");
               double totalRevenue = 0.0;
+
+              logger.info(
+                  "Fetched {} orders from Shopify for revenue calculation (60-day period) for shop {}",
+                  orders != null ? orders.size() : 0,
+                  shop);
 
               if (orders != null) {
                 totalRevenue =
@@ -801,15 +806,17 @@ public class AnalyticsController {
               }
 
               logger.info(
-                  "Calculated revenue: ${} from {} orders for shop {}",
+                  "Calculated total revenue: ${} from {} orders for shop {}",
                   totalRevenue,
                   orders != null ? orders.size() : 0,
                   shop);
 
-              // Also aggregate timeseries data for the chart
+              // Aggregate timeseries data for the chart by day
               Map<String, Double> dailyRevenue = new java.util.LinkedHashMap<>();
 
               if (orders != null) {
+                logger.info("Processing {} orders for daily aggregation", orders.size());
+
                 for (Map<String, Object> order : orders) {
                   String createdAt = (String) order.get("created_at");
                   Object totalPriceObj = order.get("total_price");
@@ -820,10 +827,15 @@ public class AnalyticsController {
                       double orderPrice = Double.parseDouble(totalPriceObj.toString());
                       dailyRevenue.merge(dateOnly, orderPrice, Double::sum);
                     } catch (Exception e) {
-                      // Skip invalid entries
+                      logger.warn(
+                          "Skipping invalid order data: createdAt={}, totalPrice={}",
+                          createdAt,
+                          totalPriceObj);
                     }
                   }
                 }
+
+                logger.info("Aggregated revenue into {} unique days", dailyRevenue.size());
               }
 
               // Convert to timeseries format
@@ -838,6 +850,16 @@ public class AnalyticsController {
               // Sort by date
               timeseriesData.sort(
                   (a, b) -> ((String) a.get("created_at")).compareTo((String) b.get("created_at")));
+
+              logger.info(
+                  "Final timeseries contains {} data points spanning {} days",
+                  timeseriesData.size(),
+                  timeseriesData.size() > 0
+                      ? "from "
+                          + timeseriesData.get(0).get("created_at")
+                          + " to "
+                          + timeseriesData.get(timeseriesData.size() - 1).get("created_at")
+                      : "no dates");
 
               Map<String, Object> result = new HashMap<>();
               result.put("revenue", totalRevenue);
@@ -858,11 +880,11 @@ public class AnalyticsController {
                     "Revenue API access denied - providing realistic test data for development");
                 Map<String, Object> response = new HashMap<>();
 
-                // Generate realistic test revenue data for last 30 days
+                // Generate realistic test revenue data for last 60 days
                 List<Map<String, Object>> timeseriesData = new ArrayList<>();
                 double totalTestRevenue = 0.0;
 
-                for (int i = 29; i >= 0; i--) {
+                for (int i = 59; i >= 0; i--) {
                   // Generate realistic daily revenue with some variation
                   double baseRevenue = 200.0 + (Math.random() * 300.0); // $200-500 per day
                   // Add weekend effects (lower on weekends)
@@ -885,7 +907,7 @@ public class AnalyticsController {
                 response.put("totalRevenue", Math.round(totalTestRevenue * 100.0) / 100.0);
                 response.put("timeseries", timeseriesData);
                 response.put("orders_count", (int) (totalTestRevenue / 65.0)); // ~$65 avg order
-                response.put("period_days", 30);
+                response.put("period_days", 60);
                 response.put("error_code", "USING_TEST_DATA");
                 response.put(
                     "note",
@@ -1017,13 +1039,13 @@ public class AnalyticsController {
       return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response));
     }
 
-    String since = LocalDate.now().minusDays(30).format(DateTimeFormatter.ISO_DATE);
+    String since = LocalDate.now().minusDays(60).format(DateTimeFormatter.ISO_DATE);
     String url =
         "https://"
             + shop
             + "/admin/api/2023-10/orders.json?created_at_min="
             + since
-            + "T00:00:00-00:00";
+            + "T00:00:00-00:00&limit=250";
     return webClient
         .get()
         .uri(url)
@@ -1034,10 +1056,17 @@ public class AnalyticsController {
             data -> {
               var orders = (List<Map<String, Object>>) data.get("orders");
 
+              logger.info(
+                  "Fetched {} orders from Shopify for timeseries (60-day period) for shop {}",
+                  orders != null ? orders.size() : 0,
+                  shop);
+
               // Aggregate orders by day for chart display
               Map<String, Double> dailyRevenue = new java.util.LinkedHashMap<>();
 
               if (orders != null) {
+                logger.info("Processing {} orders for daily timeseries aggregation", orders.size());
+
                 for (Map<String, Object> order : orders) {
                   String createdAt = (String) order.get("created_at");
                   Object totalPriceObj = order.get("total_price");
@@ -1073,15 +1102,23 @@ public class AnalyticsController {
               timeseriesData.sort(
                   (a, b) -> ((String) a.get("created_at")).compareTo((String) b.get("created_at")));
 
+              logger.info(
+                  "Aggregated revenue into {} unique days for timeseries", dailyRevenue.size());
+              logger.info(
+                  "Final timeseries contains {} data points spanning {} days for shop {}",
+                  timeseriesData.size(),
+                  timeseriesData.size() > 0
+                      ? "from "
+                          + timeseriesData.get(0).get("created_at")
+                          + " to "
+                          + timeseriesData.get(timeseriesData.size() - 1).get("created_at")
+                      : "no dates",
+                  shop);
+
               Map<String, Object> response = new HashMap<>();
               response.put("timeseries", timeseriesData);
               response.put("total_days", timeseriesData.size());
-
-              logger.info(
-                  "Aggregated {} orders into {} days of revenue data for shop {}",
-                  orders != null ? orders.size() : 0,
-                  timeseriesData.size(),
-                  shop);
+              response.put("period_days", 60);
 
               return ResponseEntity.ok(response);
             })
