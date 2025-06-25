@@ -4,7 +4,7 @@ StoreSight is an enterprise-grade analytics and competitor intelligence platform
 
 ## 🚀 Live Demo
 
-Try the live application: **[https://storesight.onrender.com](https://storesight.onrender.com)**
+Try the live application: **[https://www.shopgaugeai.com](https://www.shopgaugeai.com)**
 
 ## ✨ Features
 
@@ -130,7 +130,7 @@ src/
 VITE_API_BASE_URL=http://localhost:8080
 
 # Production URL (set automatically by Render)
-VITE_API_BASE_URL=https://storesight-backend.onrender.com
+VITE_API_BASE_URL=https://api.shopgaugeai.com
 ```
 
 ### Proxy Configuration
@@ -217,8 +217,8 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](../LIC
 
 ## 🆘 Support
 
-- **Live Demo**: [https://storesight.onrender.com](https://storesight.onrender.com)
-- **Backend API**: [https://storesight-backend.onrender.com](https://storesight-backend.onrender.com)
+- **Live Demo**: [https://www.shopgaugeai.com](https://www.shopgaugeai.com)
+- **Backend API**: [https://api.shopgaugeai.com](https://api.shopgaugeai.com)
 - **Issues**: Report bugs via GitHub Issues
 - **Documentation**: See main README for complete setup guide
 

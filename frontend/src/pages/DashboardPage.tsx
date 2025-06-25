@@ -514,7 +514,9 @@ const DashboardPage = () => {
       console.log('Processing OAuth callback - shop:', shopParam);
       
       // Set the shop cookie on the frontend domain
-      const cookieValue = `shop=${shopParam}; Path=/; Max-Age=${30 * 24 * 60 * 60}; SameSite=Lax`;
+      const isProduction = window.location.hostname.includes('shopgaugeai.com');
+      const domainAttribute = isProduction ? '; domain=.shopgaugeai.com' : '';
+      const cookieValue = `shop=${shopParam}; Path=/; Max-Age=${30 * 24 * 60 * 60}; SameSite=Lax${domainAttribute}`;
       document.cookie = cookieValue;
       
       // Update the auth context

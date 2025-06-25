@@ -366,8 +366,8 @@ CREATE TABLE audit_logs (
 
 Try the live application without any setup:
 
-- **Frontend**: [https://storesight.onrender.com](https://storesight.onrender.com)
-- **Backend API**: [https://storesight-backend.onrender.com](https://storesight-backend.onrender.com)
+- **Frontend**: [https://www.shopgaugeai.com](https://www.shopgaugeai.com)
+- **Backend API**: [https://api.shopgaugeai.com](https://api.shopgaugeai.com)
 
 ### Environment Variables for Local Development
 
@@ -395,7 +395,7 @@ TWILIO_ACCOUNT_SID=your_twilio_sid
 TWILIO_AUTH_TOKEN=your_twilio_token
 ```
 
-> **💡 Tip**: Want to try StoreSight without local setup? Use our [live demo](https://storesight.onrender.com) instead!
+> **💡 Tip**: Want to try StoreSight without local setup? Use our [live demo](https://www.shopgaugeai.com) instead!
 
 ## 🧪 Testing
 
@@ -583,7 +583,7 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 
 ## 🆘 Support
 
-- **Live Demo**: Try the application at [https://storesight.onrender.com](https://storesight.onrender.com)
+- **Live Demo**: Try the application at [https://www.shopgaugeai.com](https://www.shopgaugeai.com)
 - **Documentation**: Check the documentation files in the repository
 - **Issues**: Report bugs and feature requests via GitHub Issues
 - **Discussions**: Use GitHub Discussions for questions and ideas

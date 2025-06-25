@@ -74,9 +74,11 @@ const handleGlobalAuthError = () => {
   
   console.log('API: Handling global auth error - clearing cookies');
   
-  // Clear auth cookies
-  document.cookie = 'shop=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
-  document.cookie = 'SESSION=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+  // Clear auth cookies with proper domain
+  const isProduction = window.location.hostname.includes('shopgaugeai.com');
+  const domainAttribute = isProduction ? '; domain=.shopgaugeai.com' : '';
+  document.cookie = `shop=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT${domainAttribute};`;
+  document.cookie = `SESSION=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT${domainAttribute};`;
 };
 
 export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
@@ -95,52 +97,9 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
     });
     console.log('API: Response status:', response.status, fullUrl);
     
-    // Handle 401 Unauthorized globally
+    // Handle 401 Unauthorized - just clear auth and throw error
     if (response.status === 401) {
-      console.log('API: Unauthorized response detected, handling globally');
-      
-      // Try to refresh authentication before failing
-      try {
-        console.log('API: Attempting to refresh authentication...');
-        const refreshResponse = await fetch(`${API_BASE_URL}/api/auth/shopify/refresh`, {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-          },
-        });
-        
-        if (refreshResponse.ok) {
-          const refreshData = await refreshResponse.json();
-          console.log('API: Authentication refresh successful:', refreshData);
-          
-          // Retry the original request
-          console.log('API: Retrying original request after refresh...');
-          const retryResponse = await fetch(fullUrl, {
-            ...options,
-            credentials: 'include',
-            headers: {
-              'Accept': 'application/json',
-              'Content-Type': 'application/json',
-              ...options.headers,
-            },
-          });
-          
-          if (retryResponse.ok) {
-            console.log('API: Retry successful after auth refresh');
-            return retryResponse;
-          } else {
-            console.log('API: Retry failed even after auth refresh');
-          }
-        } else {
-          console.log('API: Authentication refresh failed');
-        }
-      } catch (refreshError) {
-        console.error('API: Auth refresh error:', refreshError);
-      }
-      
-      // If refresh didn't work, proceed with original error handling
+      console.log('API: Unauthorized response detected');
       handleGlobalAuthError();
       throw new Error('Authentication required');
     }
@@ -148,13 +107,6 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
     return response;
   } catch (error) {
     console.error('API: Request failed for', fullUrl, ':', error);
-    
-    // Handle network errors that might be auth-related
-    if (error instanceof TypeError && error.message.includes('fetch')) {
-      console.log('API: Network error, might be auth-related');
-      // Don't trigger global auth error for network issues
-    }
-    
     throw error;
   }
 };
@@ -163,8 +115,10 @@ async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     if (response.status === 401) {
       console.log('API: Unauthorized, clearing auth state');
-      // Clear any stale auth state
-      document.cookie = 'shop=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+      // Clear any stale auth state with proper domain
+      const isProduction = window.location.hostname.includes('shopgaugeai.com');
+      const domainAttribute = isProduction ? '; domain=.shopgaugeai.com' : '';
+      document.cookie = `shop=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT${domainAttribute};`;
       throw new Error('Authentication required');
     }
     const error = await response.text();

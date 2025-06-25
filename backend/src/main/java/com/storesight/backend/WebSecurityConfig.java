@@ -2,7 +2,6 @@ package com.storesight.backend;
 
 import com.storesight.backend.config.ShopifyAuthenticationFilter;
 import com.storesight.backend.service.ShopService;
-import java.util.Arrays;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -14,6 +13,8 @@ import org.springframework.session.web.http.CookieSerializer;
 import org.springframework.session.web.http.DefaultCookieSerializer;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
+
+import java.util.Arrays;
 
 @Configuration
 @EnableWebSecurity
@@ -49,11 +50,13 @@ public class WebSecurityConfig {
   @Bean
   public CorsConfigurationSource corsConfigurationSource() {
     CorsConfiguration configuration = new CorsConfiguration();
-    // Allow both localhost for development and production URLs
+    // Allow localhost for development and shopgaugeai.com domains for production
     configuration.setAllowedOrigins(
         Arrays.asList(
-            "http://localhost:5173", "http://localhost:5174", "https://storesight.onrender.com"));
-    configuration.setAllowedOriginPatterns(Arrays.asList("https://*.onrender.com"));
+            "http://localhost:5173", 
+            "http://localhost:5174", 
+            "https://www.shopgaugeai.com"));
+    configuration.setAllowedOriginPatterns(Arrays.asList("https://*.shopgaugeai.com"));
     configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
     configuration.setAllowedHeaders(Arrays.asList("*"));
     configuration.setExposedHeaders(Arrays.asList("*"));
@@ -71,11 +74,10 @@ public class WebSecurityConfig {
     DefaultCookieSerializer serializer = new DefaultCookieSerializer();
     serializer.setCookieName("SESSION");
     serializer.setUseHttpOnlyCookie(true);
-    serializer.setSameSite("None"); // Use None for cross-origin requests
+    serializer.setSameSite("Lax"); // Use Lax for same-site requests (both on shopgaugeai.com)
     serializer.setUseSecureCookie(true);
     serializer.setCookiePath("/");
-    // Don't set domain for now - let the browser handle it automatically
-    // serializer.setDomainName(".onrender.com"); // This was causing the error
+    serializer.setDomainName(".shopgaugeai.com"); // Set domain for both www and api subdomains
     return serializer;
   }
 }

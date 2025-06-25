@@ -3,13 +3,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
 const Dashboard: React.FC = () => {
-  const { isAuthenticated, shop, authLoading, refreshAuth } = useAuth();
+  const { isAuthenticated, shop, authLoading } = useAuth();
   const navigate = useNavigate();
-
-  useEffect(() => {
-    // Check auth status when component mounts
-    refreshAuth();
-  }, [refreshAuth]);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {

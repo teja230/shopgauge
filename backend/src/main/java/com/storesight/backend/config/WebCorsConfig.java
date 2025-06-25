@@ -18,9 +18,9 @@ public class WebCorsConfig {
     config.addAllowedOrigin("http://localhost:5173"); // Frontend dev server
     config.addAllowedOrigin("http://localhost:3000"); // Alternative dev server
 
-    // Allow Render static site domain
-    config.addAllowedOriginPattern("https://*.onrender.com");
-    config.addAllowedOrigin("https://storesight.onrender.com");
+    // Allow shopgaugeai.com domains for production
+    config.addAllowedOriginPattern("https://*.shopgaugeai.com");
+    config.addAllowedOrigin("https://www.shopgaugeai.com");
 
     // Allow Shopify domains for webhook/app installation
     config.addAllowedOriginPattern("https://*.myshopify.com");

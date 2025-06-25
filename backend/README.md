@@ -4,7 +4,7 @@ Enterprise-grade Spring Boot backend for the StoreSight Shopify analytics platfo
 
 ## 🚀 Live API
 
-Production API: **[https://storesight-backend.onrender.com](https://storesight-backend.onrender.com)**
+Production API: **[https://api.shopgaugeai.com](https://api.shopgaugeai.com)**
 
 ## 🏗️ Architecture
 

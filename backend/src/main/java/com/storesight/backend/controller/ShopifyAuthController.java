@@ -9,12 +9,6 @@ import jakarta.annotation.PreDestroy;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import java.io.IOException;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-import java.time.LocalDate;
-import java.util.*;
-import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +19,13 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
+
+import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/auth/shopify")
@@ -349,13 +350,13 @@ public class ShopifyAuthController {
       Cookie shopCookie = new Cookie("shop", shop);
       shopCookie.setPath("/");
 
-      // Configure cookie for cross-domain access on Render
-      boolean isProduction = frontendUrl != null && frontendUrl.contains("onrender.com");
+      // Configure cookie for shopgaugeai.com domain
+      boolean isProduction = frontendUrl != null && frontendUrl.contains("shopgaugeai.com");
       if (isProduction) {
-        // For production, don't set domain (let browser use the current domain)
-        // This avoids cross-domain cookie issues
+        // For production, set domain to allow sharing between subdomains
         shopCookie.setSecure(true);
-        logger.info("Production environment detected - using secure cookies");
+        shopCookie.setDomain(".shopgaugeai.com");
+        logger.info("Production environment detected - using secure cookies with .shopgaugeai.com domain");
       } else {
         // Development environment - localhost doesn't need domain
         shopCookie.setSecure(false); // HTTP allowed in development
@@ -369,16 +370,18 @@ public class ShopifyAuthController {
       response.addCookie(shopCookie);
 
       // Also set cookie using header for better control over SameSite attribute
-      // For cross-origin requests between subdomains, we need SameSite=None
-      String sameSiteValue = isProduction ? "None" : "Lax";
+      // For same-site requests (both www and api on shopgaugeai.com), use Lax
+      String sameSiteValue = isProduction ? "Lax" : "Lax";
+      String domainAttribute = isProduction ? "Domain=.shopgaugeai.com; " : "";
       response.addHeader(
           "Set-Cookie",
           String.format(
-              "%s=%s; Path=%s; Max-Age=%d; SameSite=%s; %s",
+              "%s=%s; Path=%s; Max-Age=%d; %sSameSite=%s; %s",
               shopCookie.getName(),
               shopCookie.getValue(),
               shopCookie.getPath(),
               shopCookie.getMaxAge(),
+              domainAttribute,
               sameSiteValue,
               isProduction ? "Secure;" : ""));
 
@@ -836,13 +839,14 @@ public class ShopifyAuthController {
       response.addCookie(shopCookie);
 
       // Also add a Set-Cookie header to ensure the cookie is cleared
-      // Use SameSite=None for production to ensure cross-origin clearing works
-      boolean isProduction = frontendUrl != null && frontendUrl.contains("onrender.com");
-      String sameSiteValue = isProduction ? "None" : "Lax";
+      // Use SameSite=Lax for production since both domains are on shopgaugeai.com
+      boolean isProduction = frontendUrl != null && frontendUrl.contains("shopgaugeai.com");
+      String sameSiteValue = isProduction ? "Lax" : "Lax";
+      String domainAttribute = isProduction ? "Domain=.shopgaugeai.com; " : "";
       String clearCookieHeader =
           String.format(
-              "shop=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Secure; SameSite=%s",
-              sameSiteValue);
+              "shop=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; %sSecure; SameSite=%s",
+              domainAttribute, sameSiteValue);
       response.addHeader("Set-Cookie", clearCookieHeader);
 
       logger.info("Auth: Cleared shop cookie for: {}", shop);
@@ -889,7 +893,7 @@ public class ShopifyAuthController {
         Collections.list(request.getHeaderNames()).stream()
             .collect(Collectors.toMap(name -> name, request::getHeader)));
 
-    boolean isProduction = frontendUrl != null && frontendUrl.contains("onrender.com");
+    boolean isProduction = frontendUrl != null && frontendUrl.contains("shopgaugeai.com");
 
     Map<String, Object> result = new HashMap<>();
     result.put("shop_from_cookie", shop);
@@ -912,12 +916,12 @@ public class ShopifyAuthController {
       // Production: Use Set-Cookie header with proper domain
       String setCookieHeader =
           String.format(
-              "test_cookie=%s; Path=/; Max-Age=300; Domain=.onrender.com; Secure; SameSite=None",
+              "test_cookie=%s; Path=/; Max-Age=300; Domain=.shopgaugeai.com; Secure; SameSite=Lax",
               testValue);
       response.addHeader("Set-Cookie", setCookieHeader);
-      result.put("cookie_domain", ".onrender.com");
+      result.put("cookie_domain", ".shopgaugeai.com");
       result.put("cookie_secure", true);
-      result.put("cookie_samesite", "None");
+      result.put("cookie_samesite", "Lax");
       logger.info("Set production test cookie with header: {}", setCookieHeader);
     } else {
       // Development: Use regular cookie
@@ -949,15 +953,16 @@ public class ShopifyAuthController {
       HttpServletRequest request) {
     String shop = shopParam != null ? shopParam : shopCookie;
 
-    // Clear cookie with the correct domain setting for Render
-    // Use SameSite=None for production cross-origin requests
-    boolean isProduction = frontendUrl != null && frontendUrl.contains("onrender.com");
-    String sameSiteValue = isProduction ? "None" : "Lax";
+    // Clear cookie with the correct domain setting for shopgaugeai.com
+    // Use SameSite=Lax for production same-site requests
+    boolean isProduction = frontendUrl != null && frontendUrl.contains("shopgaugeai.com");
+    String sameSiteValue = isProduction ? "Lax" : "Lax";
+    String domainAttribute = isProduction ? "Domain=.shopgaugeai.com; " : "";
     response.addHeader(
         "Set-Cookie",
         String.format(
-            "shop=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Secure; SameSite=%s",
-            sameSiteValue));
+            "shop=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; %sSecure; SameSite=%s",
+            domainAttribute, sameSiteValue));
 
     // Also clear without domain for localhost development
     response.addHeader(
@@ -1065,7 +1070,7 @@ public class ShopifyAuthController {
     result.put("config_api_secret_set", apiSecret != null && !apiSecret.isEmpty());
 
     // Environment detection
-    result.put("is_production", frontendUrl != null && frontendUrl.contains("onrender.com"));
+    result.put("is_production", frontendUrl != null && frontendUrl.contains("shopgaugeai.com"));
 
     return ResponseEntity.ok(result);
   }
