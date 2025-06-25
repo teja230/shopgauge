@@ -18,12 +18,6 @@ const slideUp = keyframes`
   100% { transform: translateY(0); opacity: 1; }
 `;
 
-const dataFlow = keyframes`
-  0% { transform: translateX(-100%); opacity: 0; }
-  50% { opacity: 1; }
-  100% { transform: translateX(100%); opacity: 0; }
-`;
-
 const chartGrow = keyframes`
   0% { height: 0%; }
   100% { height: var(--target-height); }
