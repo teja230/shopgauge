@@ -3,29 +3,39 @@ import react from '@vitejs/plugin-react'
 import { readFileSync } from 'fs'
 import { resolve } from 'path'
 
-// Custom plugin to simulate _redirects behavior in development
+// Custom plugin to handle SPA routing in development
+// In production, _redirects file handles this behavior
 const redirectsPlugin = () => {
   return {
-    name: 'redirects-dev',
+    name: 'spa-fallback',
     configureServer(server: any) {
       server.middlewares.use((req: any, res: any, next: any) => {
         const url = req.url || '';
         
-        // Routes that should serve loading.html (simulating _redirects file)
-        const loadingRoutes = ['/dashboard', '/competitors', '/admin', '/profile', '/privacy-policy', '/test-loading'];
+        // Only handle exact route matches, not partial matches or query parameters
+        const cleanUrl = url.split('?')[0]; // Remove query parameters
         
-        if (loadingRoutes.includes(url)) {
-          try {
-            const loadingHtml = readFileSync(resolve(__dirname, 'public/loading.html'), 'utf-8');
-            res.setHeader('Content-Type', 'text/html');
-            res.end(loadingHtml);
-            return;
-          } catch (err) {
-            console.error('Error serving loading.html:', err);
-          }
+        // Skip API routes, static assets, and development files
+        if (cleanUrl.startsWith('/api') || 
+            cleanUrl.startsWith('/@') || 
+            cleanUrl.includes('.') ||
+            cleanUrl === '/') {
+          next();
+          return;
         }
         
-        next();
+        console.log(`[SPA Fallback] Serving index.html for route: ${cleanUrl}`);
+        
+        // For all other routes, serve the main index.html to let React Router handle routing
+        try {
+          const indexHtml = readFileSync(resolve(__dirname, 'index.html'), 'utf-8');
+          res.setHeader('Content-Type', 'text/html');
+          res.end(indexHtml);
+          return;
+        } catch (err) {
+          console.error('Error serving index.html:', err);
+          next();
+        }
       });
     },
   };

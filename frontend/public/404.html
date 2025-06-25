@@ -52,6 +52,22 @@
       animation: slideUp 0.8s ease-out 0.4s forwards;
     }
     
+    #loading-icon {
+      color: #2563eb;
+      animation: slideUp 0.8s ease-out 0.4s forwards, pulse 2s ease-in-out infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { 
+        transform: scale(1);
+        opacity: 0.8;
+      }
+      50% { 
+        transform: scale(1.1);
+        opacity: 1;
+      }
+    }
+    
     .title {
       font-size: 2rem;
       font-weight: 600;
@@ -299,19 +315,77 @@
         }
         
         console.log('404 Redirect: Attempting to redirect from', path);
+        console.log('404 Redirect: Current location details:', {
+          href: window.location.href,
+          pathname: window.location.pathname,
+          search: window.location.search,
+          hash: window.location.hash,
+          origin: window.location.origin
+        });
         
         // Check if this is a known valid route
         var validRoutes = ['/dashboard', '/competitors', '/admin', '/profile', '/privacy-policy'];
-        var isValidRoute = validRoutes.includes(path.split('?')[0].split('#')[0]);
+        var cleanPath = path.split('?')[0].split('#')[0];
+        var isValidRoute = validRoutes.includes(cleanPath);
         
         if (isValidRoute) {
-          // Redirect valid routes to loading page immediately
-          console.log('404 Redirect: Valid route detected, redirecting to loading page');
-          window.location.replace('/loading.html');
+          // For valid routes, show loading animation and redirect quickly
+          console.log('404 Redirect: Valid route detected, showing loading animation for:', cleanPath);
+          
+          // Show loading content
+          var loadingIcon = document.getElementById('loading-icon');
+          var pageTitle = document.getElementById('page-title');
+          var pageDescription = document.getElementById('page-description');
+          var countdownElement = document.getElementById('countdown-text');
+          
+          if (loadingIcon) loadingIcon.textContent = '⚡';
+          if (pageTitle) pageTitle.textContent = 'Loading ShopGauge...';
+          if (pageDescription) pageDescription.textContent = 'Setting up your analytics dashboard. This will only take a moment.';
+          if (countdownElement) countdownElement.textContent = 'Loading your dashboard...';
+          
+          // Redirect to homepage with the path parameter after a brief delay
+          setTimeout(function() {
+            var redirectUrl = '/?redirect=' + encodeURIComponent(path);
+            console.log('404 Redirect: Redirecting valid route to', redirectUrl);
+            
+            // Try multiple redirect methods for better compatibility
+            try {
+              // Method 1: Standard redirect
+              window.location.href = redirectUrl;
+            } catch (e1) {
+              console.error('404 Redirect: Method 1 failed', e1);
+              try {
+                // Method 2: Replace current page
+                window.location.replace(redirectUrl);
+              } catch (e2) {
+                console.error('404 Redirect: Method 2 failed', e2);
+                try {
+                  // Method 3: Assign to location
+                  window.location = redirectUrl;
+                } catch (e3) {
+                  console.error('404 Redirect: All methods failed', e3);
+                  // Fallback: Show manual redirect link
+                  document.body.innerHTML += '<div style="text-align: center; margin-top: 20px;"><a href="' + redirectUrl + '" style="color: #2563eb; font-size: 18px;">Click here to continue to ShopGauge</a></div>';
+                }
+              }
+            }
+          }, 1500); // Reduced back to 1.5 seconds
           return;
         }
         
-        // For invalid routes, show 404 page with much longer delay
+        // For invalid routes, show actual 404 page
+        console.log('404 Redirect: Invalid route detected, showing 404 page');
+        
+        // Show 404 content
+        var loadingIcon = document.getElementById('loading-icon');
+        var pageTitle = document.getElementById('page-title');
+        var pageDescription = document.getElementById('page-description');
+        
+        if (loadingIcon) loadingIcon.textContent = '404';
+        if (pageTitle) pageTitle.textContent = 'Page not found';
+        if (pageDescription) pageDescription.textContent = 'The page you\'re looking for doesn\'t exist. We\'ll redirect you to the homepage in a moment.';
+        
+        // Longer countdown for invalid routes
         var countdown = 8;
         var countdownElement = document.getElementById('countdown-text');
         
@@ -327,9 +401,9 @@
           
           if (countdown <= 0) {
             clearInterval(countdownInterval);
-            var redirectUrl = '/?redirect=' + encodeURIComponent(path);
-            console.log('404 Redirect: Invalid route, redirecting to', redirectUrl, 'after 8000ms');
-            window.location.replace(redirectUrl);
+            console.log('404 Redirect: Invalid route, redirecting to homepage after 8000ms');
+            // For invalid routes, just go to homepage without redirect parameter
+            window.location.href = '/';
           }
         }, 1000);
         
@@ -347,18 +421,17 @@
   <div class="container">
     <div class="logo">ShopGauge</div>
     
-    <div class="error-code">404</div>
+    <div class="error-code" id="loading-icon">⚡</div>
     
-    <h1 class="title">Page not found</h1>
+    <h1 class="title" id="page-title">Loading ShopGauge...</h1>
     
-    <p class="description">
-      The page you're looking for doesn't exist. We'll redirect you to the homepage 
-      in a moment, or you can click the link below.
+    <p class="description" id="page-description">
+      Setting up your analytics dashboard. This will only take a moment.
     </p>
     
     <div class="spinner-container">
       <div class="spinner"></div>
-      <span class="loading-text" id="countdown-text">Redirecting to homepage in 8 seconds...</span>
+      <span class="loading-text" id="countdown-text">Loading your dashboard...</span>
     </div>
     
     <div class="analytics-animation">

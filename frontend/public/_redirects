@@ -1,9 +1,9 @@
-# Valid application routes - redirect to loading page
-/dashboard              /loading.html    200
-/competitors            /loading.html    200
-/admin                  /loading.html    200
-/profile                /loading.html    200
-/privacy-policy         /loading.html    200
+# Valid application routes - serve main app and let React Router handle them
+/dashboard              /index.html      200
+/competitors            /index.html      200
+/admin                  /index.html      200
+/profile                /index.html      200
+/privacy-policy         /index.html      200
 
 # Test route to see loading page (remove after testing)
 /test-loading           /loading.html    200
