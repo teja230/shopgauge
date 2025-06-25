@@ -372,21 +372,110 @@ public class DataPrivacyService {
 
       // Try to extract shop domain from log details if shop ID is null (deleted shop)
       String details = log.getDetails();
-      if (details != null && details.contains(".myshopify.com")) {
-        // Extract shop domain from details using regex
-        java.util.regex.Pattern pattern =
-            java.util.regex.Pattern.compile("([a-zA-Z0-9-]+\\.myshopify\\.com)");
-        java.util.regex.Matcher matcher = pattern.matcher(details);
-        if (matcher.find()) {
-          return matcher.group(1);
+      if (details != null) {
+        // First try to find .myshopify.com domains
+        if (details.contains(".myshopify.com")) {
+          java.util.regex.Pattern pattern =
+              java.util.regex.Pattern.compile("([a-zA-Z0-9-]+\\.myshopify\\.com)");
+          java.util.regex.Matcher matcher = pattern.matcher(details);
+          if (matcher.find()) {
+            return matcher.group(1);
+          }
+        }
+
+        // Try to extract from common patterns in audit logs
+        String[] patterns = {
+          "shop:\\s*([a-zA-Z0-9-]+\\.myshopify\\.com)",
+          "domain:\\s*([a-zA-Z0-9-]+\\.myshopify\\.com)",
+          "for shop ([a-zA-Z0-9-]+\\.myshopify\\.com)",
+          "Shop ([a-zA-Z0-9-]+\\.myshopify\\.com)",
+          "from ([a-zA-Z0-9-]+\\.myshopify\\.com)",
+          "\"shop_domain\":\\s*\"([a-zA-Z0-9-]+\\.myshopify\\.com)\"",
+          "shop_domain=([a-zA-Z0-9-]+\\.myshopify\\.com)"
+        };
+
+        for (String patternStr : patterns) {
+          java.util.regex.Pattern pattern =
+              java.util.regex.Pattern.compile(patternStr, java.util.regex.Pattern.CASE_INSENSITIVE);
+          java.util.regex.Matcher matcher = pattern.matcher(details);
+          if (matcher.find()) {
+            return matcher.group(1);
+          }
+        }
+
+        // If no .myshopify.com found, try to extract any domain-like pattern
+        java.util.regex.Pattern generalPattern =
+            java.util.regex.Pattern.compile("([a-zA-Z0-9-]+\\.[a-zA-Z]{2,})");
+        java.util.regex.Matcher generalMatcher = generalPattern.matcher(details);
+        if (generalMatcher.find()) {
+          String domain = generalMatcher.group(1);
+          // Only return if it looks like a shop domain
+          if (domain.contains("shop")
+              || domain.contains("store")
+              || details.toLowerCase().contains("shopify")) {
+            return domain;
+          }
         }
       }
 
-      return null;
+      return "Unknown Domain";
     } catch (Exception e) {
       logger.warn(
           "Error extracting shop domain from audit log {}: {}", log.getId(), e.getMessage());
-      return null;
+      return "Unknown Domain";
+    }
+  }
+
+  /** Get deleted shops data formatted like active shops for consistent UI */
+  public List<Map<String, Object>> getDeletedShopsData() {
+    try {
+      List<AuditLog> deletedShopLogs =
+          auditLogRepository
+              .findByShopIdIsNullOrderByCreatedAtDesc(
+                  org.springframework.data.domain.PageRequest.of(0, 100))
+              .getContent();
+
+      // Group by shop domain to avoid duplicates
+      Map<String, Map<String, Object>> deletedShopsMap = new HashMap<>();
+
+      for (AuditLog log : deletedShopLogs) {
+        String shopDomain = getShopDomainFromLog(log);
+        if (shopDomain != null && !deletedShopsMap.containsKey(shopDomain)) {
+          Map<String, Object> shopInfo = new HashMap<>();
+          shopInfo.put("shopDomain", shopDomain);
+          shopInfo.put("lastActivity", log.getCreatedAt().toString());
+          shopInfo.put("ipAddress", log.getIpAddress());
+          shopInfo.put("userAgent", log.getUserAgent());
+          shopInfo.put("sessionId", "deleted_" + log.getId());
+          shopInfo.put("isActive", false);
+          shopInfo.put("action", log.getAction());
+          shopInfo.put("details", log.getDetails());
+          shopInfo.put("category", "DATA_DELETION");
+
+          deletedShopsMap.put(shopDomain, shopInfo);
+        }
+      }
+
+      List<Map<String, Object>> result = new ArrayList<>(deletedShopsMap.values());
+
+      // Sort by last activity (most recent first)
+      result.sort(
+          (a, b) -> {
+            String aTime = (String) a.get("lastActivity");
+            String bTime = (String) b.get("lastActivity");
+            if (aTime == null && bTime == null) return 0;
+            if (aTime == null) return 1;
+            if (bTime == null) return -1;
+            return bTime.compareTo(aTime);
+          });
+
+      logger.info("Found {} deleted shops", result.size());
+      logDataAccess("DELETED_SHOPS_RETRIEVED", "Retrieved " + result.size() + " deleted shops");
+
+      return result;
+    } catch (Exception e) {
+      logger.error("Error retrieving deleted shops: {}", e.getMessage(), e);
+      return Collections.emptyList();
     }
   }
 }

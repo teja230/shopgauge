@@ -175,4 +175,22 @@ public class AdminController {
           .body(Map.of("error", "Failed to retrieve active shops", "message", e.getMessage()));
     }
   }
+
+  @GetMapping("/deleted-shops")
+  public ResponseEntity<Map<String, Object>> getDeletedShops() {
+    try {
+      // Get deleted shops data formatted consistently
+      List<Map<String, Object>> deletedShops = dataPrivacyService.getDeletedShopsData();
+
+      Map<String, Object> response = new HashMap<>();
+      response.put("deleted_shops", deletedShops);
+      response.put("total_count", deletedShops.size());
+      response.put("note", "Shops that have been deleted with extracted domain information");
+
+      return ResponseEntity.ok(response);
+    } catch (Exception e) {
+      return ResponseEntity.status(500)
+          .body(Map.of("error", "Failed to retrieve deleted shops", "message", e.getMessage()));
+    }
+  }
 }

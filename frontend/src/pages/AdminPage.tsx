@@ -128,12 +128,12 @@ const AdminContainer = styled(Container)(({ theme }) => ({
 }));
 
 const HeaderCard = styled(Paper)(({ theme }) => ({
-  padding: theme.spacing(4),
-  marginBottom: theme.spacing(4),
-  borderRadius: 16,
-  background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
-  color: 'white',
-  boxShadow: '0 12px 40px rgba(37, 99, 235, 0.3)',
+  padding: theme.spacing(3),
+  marginBottom: theme.spacing(3),
+  borderRadius: 12,
+  backgroundColor: theme.palette.background.paper,
+  boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
+  border: `1px solid ${theme.palette.divider}`,
 }));
 
 const AdminHeader = styled(Box)(({ theme }) => ({
@@ -148,9 +148,11 @@ const AdminHeader = styled(Box)(({ theme }) => ({
 }));
 
 const SectionCard = styled(Paper)(({ theme }) => ({
-  borderRadius: 16,
+  borderRadius: 12,
   overflow: 'hidden',
+  backgroundColor: theme.palette.background.paper,
   boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
+  border: `1px solid ${theme.palette.divider}`,
   transition: 'all 0.3s ease',
   '&:hover': {
     boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -2px rgb(0 0 0 / 0.1)',
@@ -159,12 +161,13 @@ const SectionCard = styled(Paper)(({ theme }) => ({
 
 const SectionHeader = styled(Box)(({ theme }) => ({
   padding: theme.spacing(3),
-  background: 'linear-gradient(90deg, #f8fafc 0%, #e2e8f0 100%)',
+  backgroundColor: theme.palette.background.paper,
   borderBottom: `1px solid ${theme.palette.divider}`,
 }));
 
 const TabsContainer = styled(Box)(({ theme }) => ({
   borderBottom: `1px solid ${theme.palette.divider}`,
+  backgroundColor: theme.palette.background.paper,
   '& .MuiTabs-root': {
     minHeight: 56,
   },
@@ -183,17 +186,18 @@ const FilterContainer = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(2),
   marginBottom: theme.spacing(3),
   borderRadius: theme.shape.borderRadius,
-  backgroundColor: theme.palette.grey[50],
+  backgroundColor: theme.palette.background.paper,
   border: `1px solid ${theme.palette.divider}`,
 }));
 
 const StyledTable = styled(Table)(({ theme }) => ({
   '& .MuiTableHead-root': {
-    backgroundColor: theme.palette.grey[100],
+    backgroundColor: theme.palette.grey[50],
   },
   '& .MuiTableCell-head': {
     fontWeight: 600,
     fontSize: '0.875rem',
+    color: theme.palette.text.primary,
   },
   '& .MuiTableRow-root:hover': {
     backgroundColor: theme.palette.action.hover,
@@ -249,6 +253,21 @@ interface ActiveShop {
   userAgent?: string;
   sessionId?: string;
   isActive: boolean;
+  action?: string;
+  details?: string;
+  category?: string;
+}
+
+interface DeletedShop {
+  shopDomain: string;
+  lastActivity: string;
+  ipAddress?: string;
+  userAgent?: string;
+  sessionId?: string;
+  isActive: boolean;
+  action?: string;
+  details?: string;
+  category?: string;
 }
 
 // Utility function to extract shop domain from audit log details
@@ -300,6 +319,10 @@ const AdminPage: React.FC = () => {
   const [activeShops, setActiveShops] = useState<ActiveShop[]>([]);
   const [activeShopsLoading, setActiveShopsLoading] = useState(false);
   const [activeShopsError, setActiveShopsError] = useState<string | null>(null);
+  
+  const [deletedShops, setDeletedShops] = useState<DeletedShop[]>([]);
+  const [deletedShopsLoading, setDeletedShopsLoading] = useState(false);
+  const [deletedShopsError, setDeletedShopsError] = useState<string | null>(null);
 
   // Action categories for audit logs with improved colors and icons
   const actionCategories = {
@@ -494,6 +517,38 @@ const AdminPage: React.FC = () => {
     }
   };
 
+  const fetchDeletedShops = async () => {
+    if (!isAuthenticated) return;
+    
+    try {
+      setDeletedShopsLoading(true);
+      setDeletedShopsError(null);
+      
+      const response = await fetchWithAuth('/api/admin/deleted-shops');
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.deleted_shops) {
+        setDeletedShops(data.deleted_shops);
+      } else if (Array.isArray(data)) {
+        setDeletedShops(data);
+      } else {
+        setDeletedShops([]);
+      }
+    } catch (err) {
+      console.error('Error fetching deleted shops:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+      setDeletedShopsError(`Failed to fetch deleted shops: ${errorMessage}`);
+      setDeletedShops([]);
+    } finally {
+      setDeletedShopsLoading(false);
+    }
+  };
+
   const fetchAuditLogs = async () => {
     if (!isAuthenticated) return;
     
@@ -586,6 +641,8 @@ const AdminPage: React.FC = () => {
       fetchAuditLogs();
       if (auditLogType === 'active') {
         fetchActiveShops();
+      } else if (auditLogType === 'deleted') {
+        fetchDeletedShops();
       }
     }
   }, [auditPage, auditRowsPerPage, auditLogType, isAuthenticated]);
@@ -733,12 +790,14 @@ const AdminPage: React.FC = () => {
                   fetchAuditLogs();
                   if (auditLogType === 'active') {
                     fetchActiveShops();
+                  } else if (auditLogType === 'deleted') {
+                    fetchDeletedShops();
                   }
                 }}
-                disabled={auditLoading || activeShopsLoading}
+                disabled={auditLoading || activeShopsLoading || deletedShopsLoading}
                 sx={{ borderRadius: 2 }}
               >
-                {auditLoading || activeShopsLoading ? 'Loading...' : 'Refresh'}
+                {auditLoading || activeShopsLoading || deletedShopsLoading ? 'Loading...' : 'Refresh'}
               </Button>
               <Button
                 variant="outlined"
@@ -795,6 +854,7 @@ const AdminPage: React.FC = () => {
                   <Box display="flex" alignItems="center" gap={1}>
                     <DeleteIcon fontSize="small" />
                     Deleted Shops
+                    <Chip label={deletedShops.length} size="small" color="error" />
                   </Box>
                 } 
                 value="deleted" 
@@ -905,7 +965,7 @@ const AdminPage: React.FC = () => {
             </Box>
           )}
 
-          {/* Active Shops Table */}
+          {/* Active Shops Table - Following All Logs Style */}
           {auditLogType === 'active' && (
             <>
               {activeShopsLoading ? (
@@ -952,25 +1012,25 @@ const AdminPage: React.FC = () => {
                     <StyledTable size="small">
                       <TableHead>
                         <TableRow>
+                          <TableCell>Timestamp</TableCell>
                           <TableCell>Shop Domain</TableCell>
-                          <TableCell>Last Activity</TableCell>
+                          <TableCell>Category</TableCell>
+                          <TableCell>Details</TableCell>
                           <TableCell>IP Address</TableCell>
-                          <TableCell>Device</TableCell>
-                          <TableCell>Browser</TableCell>
+                          <TableCell>Device Info</TableCell>
                           <TableCell>Status</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
                         {activeShops.map((shop, index) => (
-                          <TableRow key={`${shop.shopDomain}-${index}`}>
-                            <TableCell>
-                              <Box display="flex" alignItems="center" gap={1}>
-                                <StoreIcon fontSize="small" sx={{ color: 'text.secondary' }} />
-                                <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                                  {shop.shopDomain}
-                                </Typography>
-                              </Box>
-                            </TableCell>
+                          <TableRow 
+                            key={`${shop.shopDomain}-${index}`}
+                            hover
+                            sx={{ 
+                              '&:hover': { bgcolor: 'grey.50' },
+                              borderLeft: `4px solid #16a34a20`
+                            }}
+                          >
                             <TableCell>
                               <Box display="flex" alignItems="center" gap={1}>
                                 <AccessTimeIcon fontSize="small" sx={{ color: 'text.secondary' }} />
@@ -991,6 +1051,42 @@ const AdminPage: React.FC = () => {
                               </Box>
                             </TableCell>
                             <TableCell>
+                              <Box display="flex" alignItems="center" gap={1}>
+                                <StoreIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+                                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                  {shop.shopDomain}
+                                </Typography>
+                              </Box>
+                            </TableCell>
+                            <TableCell>
+                              <Chip 
+                                label="Shop Operations"
+                                size="small"
+                                sx={{
+                                  bgcolor: '#e1f5fe',
+                                  color: '#0288d1',
+                                  border: `1px solid #0288d130`,
+                                  fontWeight: 500,
+                                  '& .MuiChip-icon': {
+                                    color: '#0288d1'
+                                  }
+                                }}
+                                icon={<StoreIcon />}
+                              />
+                            </TableCell>
+                            <TableCell sx={{ maxWidth: 350 }}>
+                              <Tooltip title={`Active session for ${shop.shopDomain} - Last activity: ${shop.lastActivity}`} arrow>
+                                <Typography variant="body2" sx={{ 
+                                  overflow: 'hidden', 
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                  maxWidth: 300
+                                }}>
+                                  Active session - {shop.sessionId || 'N/A'}
+                                </Typography>
+                              </Tooltip>
+                            </TableCell>
+                            <TableCell>
                               <Typography variant="body2" sx={{ 
                                 fontFamily: 'monospace', 
                                 fontSize: '0.8rem',
@@ -1002,29 +1098,42 @@ const AdminPage: React.FC = () => {
                             <TableCell>
                               <Box display="flex" alignItems="center" gap={1}>
                                 <DeviceIcon userAgent={shop.userAgent || ''} />
-                                <Typography variant="body2">
-                                  {getDeviceType(shop.userAgent || '')}
-                                </Typography>
+                                <Box>
+                                  <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+                                    {getDeviceType(shop.userAgent || '')}
+                                  </Typography>
+                                  <Typography variant="caption" color="text.secondary">
+                                    {getBrowserInfo(shop.userAgent || '')}
+                                  </Typography>
+                                </Box>
                               </Box>
                             </TableCell>
                             <TableCell>
-                              <Typography variant="body2">
-                                {getBrowserInfo(shop.userAgent || '')}
-                              </Typography>
-                            </TableCell>
-                            <TableCell>
-                              <Chip 
-                                label={shop.isActive ? 'Active' : 'Inactive'}
-                                size="small"
-                                color={shop.isActive ? 'success' : 'default'}
-                                sx={{ fontWeight: 500 }}
-                              />
+                              <Box sx={{ 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: 1,
+                                p: 1,
+                                borderRadius: 1,
+                                bgcolor: '#e8f5e8',
+                                border: `1px solid #2e7d3230`
+                              }}>
+                                <CheckCircleIcon fontSize="small" sx={{ color: '#2e7d32' }} />
+                                <Typography variant="body2" sx={{ 
+                                  fontFamily: 'monospace', 
+                                  fontSize: '0.8rem',
+                                  fontWeight: 500,
+                                  color: '#2e7d32'
+                                }}>
+                                  ACTIVE
+                                </Typography>
+                              </Box>
                             </TableCell>
                           </TableRow>
                         ))}
                         {activeShops.length === 0 && (
                           <TableRow>
-                            <TableCell colSpan={6} sx={{ textAlign: 'center', py: 8 }}>
+                            <TableCell colSpan={7} sx={{ textAlign: 'center', py: 8 }}>
                               <Box display="flex" flexDirection="column" alignItems="center" gap={2}>
                                 <GroupIcon sx={{ fontSize: 48, color: 'text.disabled' }} />
                                 <Typography variant="h6" color="text.secondary">
@@ -1045,8 +1154,197 @@ const AdminPage: React.FC = () => {
             </>
           )}
 
+          {/* Deleted Shops Table - Following All Logs Style */}
+          {auditLogType === 'deleted' && (
+            <>
+              {deletedShopsLoading ? (
+                <Box sx={{ 
+                  display: 'flex', 
+                  flexDirection: 'column',
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  py: 8 
+                }}>
+                  <CircularProgress size={48} />
+                  <Typography variant="body1" sx={{ mt: 2, color: 'text.secondary' }}>
+                    Loading deleted shops...
+                  </Typography>
+                </Box>
+              ) : deletedShopsError ? (
+                <Alert 
+                  severity="error" 
+                  sx={{ 
+                    mb: 2, 
+                    borderRadius: 2,
+                    '& .MuiAlert-message': {
+                      fontSize: '0.95rem'
+                    }
+                  }}
+                  action={
+                    <Button color="inherit" size="small" onClick={fetchDeletedShops}>
+                      Try Again
+                    </Button>
+                  }
+                >
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                    Unable to Load Deleted Shops
+                  </Typography>
+                  {deletedShopsError}
+                </Alert>
+              ) : (
+                <>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    Showing {deletedShops.length} deleted shops
+                  </Typography>
+                  
+                  <TableContainer sx={{ borderRadius: 2, border: '1px solid #e0e0e0' }}>
+                    <StyledTable size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Timestamp</TableCell>
+                          <TableCell>Shop Domain</TableCell>
+                          <TableCell>Category</TableCell>
+                          <TableCell>Details</TableCell>
+                          <TableCell>IP Address</TableCell>
+                          <TableCell>Device Info</TableCell>
+                          <TableCell>Action</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {deletedShops.map((shop, index) => (
+                          <TableRow 
+                            key={`${shop.shopDomain}-${index}`}
+                            hover
+                            sx={{ 
+                              '&:hover': { bgcolor: 'grey.50' },
+                              borderLeft: `4px solid #d32f2f20`
+                            }}
+                          >
+                            <TableCell>
+                              <Box display="flex" alignItems="center" gap={1}>
+                                <AccessTimeIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+                                <Typography variant="body2" sx={{ 
+                                  fontFamily: 'monospace', 
+                                  fontSize: '0.8rem',
+                                  color: 'text.secondary'
+                                }}>
+                                  {shop.lastActivity ? new Date(shop.lastActivity).toLocaleString('en-US', {
+                                    month: 'short',
+                                    day: '2-digit',
+                                    year: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    second: '2-digit'
+                                  }) : 'Unknown'}
+                                </Typography>
+                              </Box>
+                            </TableCell>
+                            <TableCell>
+                              <Box display="flex" alignItems="center" gap={1}>
+                                <StoreIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+                                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                  {shop.shopDomain || 'Unknown Domain'}
+                                </Typography>
+                              </Box>
+                            </TableCell>
+                            <TableCell>
+                              <Chip 
+                                label="Data Deletion"
+                                size="small"
+                                sx={{
+                                  bgcolor: '#ffebee',
+                                  color: '#d32f2f',
+                                  border: `1px solid #d32f2f30`,
+                                  fontWeight: 500,
+                                  '& .MuiChip-icon': {
+                                    color: '#d32f2f'
+                                  }
+                                }}
+                                icon={<DeleteIcon />}
+                              />
+                            </TableCell>
+                            <TableCell sx={{ maxWidth: 350 }}>
+                              <Tooltip title={shop.details || `Shop ${shop.shopDomain} has been deleted`} arrow>
+                                <Typography variant="body2" sx={{ 
+                                  overflow: 'hidden', 
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                  maxWidth: 300
+                                }}>
+                                  {shop.details || `Shop deletion - ${shop.sessionId}`}
+                                </Typography>
+                              </Tooltip>
+                            </TableCell>
+                            <TableCell>
+                              <Typography variant="body2" sx={{ 
+                                fontFamily: 'monospace', 
+                                fontSize: '0.8rem',
+                                color: 'text.secondary'
+                              }}>
+                                {shop.ipAddress || 'N/A'}
+                              </Typography>
+                            </TableCell>
+                            <TableCell>
+                              <Box display="flex" alignItems="center" gap={1}>
+                                <DeviceIcon userAgent={shop.userAgent || ''} />
+                                <Box>
+                                  <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+                                    {getDeviceType(shop.userAgent || '')}
+                                  </Typography>
+                                  <Typography variant="caption" color="text.secondary">
+                                    {getBrowserInfo(shop.userAgent || '')}
+                                  </Typography>
+                                </Box>
+                              </Box>
+                            </TableCell>
+                            <TableCell>
+                              <Box sx={{ 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: 1,
+                                p: 1,
+                                borderRadius: 1,
+                                bgcolor: '#ffebee',
+                                border: `1px solid #d32f2f30`
+                              }}>
+                                <DeleteIcon fontSize="small" sx={{ color: '#d32f2f' }} />
+                                <Typography variant="body2" sx={{ 
+                                  fontFamily: 'monospace', 
+                                  fontSize: '0.8rem',
+                                  fontWeight: 500,
+                                  color: '#d32f2f'
+                                }}>
+                                  {shop.action || 'DELETED'}
+                                </Typography>
+                              </Box>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {deletedShops.length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={7} sx={{ textAlign: 'center', py: 8 }}>
+                              <Box display="flex" flexDirection="column" alignItems="center" gap={2}>
+                                <DeleteIcon sx={{ fontSize: 48, color: 'text.disabled' }} />
+                                <Typography variant="h6" color="text.secondary">
+                                  No deleted shops found
+                                </Typography>
+                                <Typography variant="body2" color="text.disabled">
+                                  No shops have been deleted or domain extraction failed
+                                </Typography>
+                              </Box>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </StyledTable>
+                  </TableContainer>
+                </>
+              )}
+            </>
+          )}
+
           {/* Audit Logs Table */}
-          {auditLogType !== 'active' && (
+          {auditLogType !== 'active' && auditLogType !== 'deleted' && (
             <>
               {auditLoading ? (
                 <Box sx={{ 
