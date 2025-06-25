@@ -10,8 +10,8 @@ export interface Notification {
   createdAt: string;
   shop: string;
   category?: string;
-  persistent?: boolean; // Whether it should be stored in database
-  duration?: number; // Custom duration for toast
+  persistent?: boolean;
+  duration?: number;
   action?: {
     label: string;
     onClick: () => void;
@@ -29,73 +29,56 @@ export interface NotificationOptions {
   };
 }
 
+// Shared state to prevent multiple API calls
+let globalNotifications: Notification[] = [];
+let globalUnreadCount = 0;
+let isLoadingGlobal = false;
+let lastFetchTime = 0;
+const RATE_LIMIT_MS = 3000; // 3 seconds minimum between API calls
+
 export const useNotifications = () => {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>(globalNotifications);
+  const [unreadCount, setUnreadCount] = useState(globalUnreadCount);
+  const [loading, setLoading] = useState(isLoadingGlobal);
   const [error, setError] = useState<string | null>(null);
   const redirectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
-  // Rate limiting state
-  const lastFetchRef = useRef<number>(0);
-  const RATE_LIMIT_MS = 2000; // Minimum 2 seconds between API calls
+  // Simple, clean toast styling that matches user's preference
+  const createToast = useCallback((message: string, type: 'success' | 'error' | 'warning' | 'info') => {
+    const toastOptions = {
+      duration: type === 'error' ? 6000 : 4000,
+      style: {
+        borderRadius: '8px',
+        background: '#333',
+        color: '#fff',
+        fontWeight: '500',
+        padding: '16px',
+      },
+      // Add dismiss button to toasts
+      dismissible: true,
+    };
 
-  // Enhanced toast configurations
-  const toastConfig = {
-    success: {
-      duration: 4000,
-      style: {
-        background: '#10b981',
-        color: '#ffffff',
-        fontWeight: '500',
-        borderRadius: '8px',
-      },
-    },
-    error: {
-      duration: 6000,
-      style: {
-        background: '#ef4444',
-        color: '#ffffff',
-        fontWeight: '500',
-        borderRadius: '8px',
-      },
-    },
-    warning: {
-      duration: 5000,
-      style: {
-        background: '#f59e0b',
-        color: '#ffffff',
-        fontWeight: '500',
-        borderRadius: '8px',
-      },
-    },
-    info: {
-      duration: 4000,
-      style: {
-        background: '#3b82f6',
-        color: '#ffffff',
-        fontWeight: '500',
-        borderRadius: '8px',
-      },
-    },
-  };
+    const icon = {
+      success: '✅',
+      error: '❌', 
+      warning: '⚠️',
+      info: 'ℹ️'
+    }[type];
 
-  // Get appropriate icon for notification type
-  const getToastIcon = (type: string) => {
     switch (type) {
       case 'success':
-        return '✅';
+        return toast.success(message, { ...toastOptions, icon, style: { ...toastOptions.style, background: '#10b981' } });
       case 'error':
-        return '❌';
+        return toast.error(message, { ...toastOptions, icon, style: { ...toastOptions.style, background: '#ef4444' } });
       case 'warning':
-        return '⚠️';
+        return toast(message, { ...toastOptions, icon, style: { ...toastOptions.style, background: '#f59e0b' } });
       case 'info':
       default:
-        return 'ℹ️';
+        return toast(message, { ...toastOptions, icon, style: { ...toastOptions.style, background: '#3b82f6' } });
     }
-  };
-
-  // Unified notification function
+  }, []);
+  
+  // Simplified notification function - ALL notifications now show in notification center
   const addNotification = useCallback(async (
     message: string,
     type: Notification['type'] = 'info',
@@ -114,42 +97,22 @@ export const useNotifications = () => {
       message,
       type,
       read: false,
-      createdAt: new Date().toISOString(),
-      shop: 'current', // This will be set by backend
+      createdAt: new Date().toISOString(), // Use proper ISO string format
+      shop: 'current',
       category,
       persistent,
-      duration: duration || toastConfig[type].duration,
+      duration,
       action,
     };
 
-    // Show toast notification
+    // Always show toast for immediate feedback
     if (showToast) {
-      const config = {
-        ...toastConfig[type],
-        duration: duration || toastConfig[type].duration,
-        icon: getToastIcon(type),
-        id: notification.id, // Prevent duplicates
-      };
-
-      switch (type) {
-        case 'success':
-          toast.success(message, config);
-          break;
-        case 'error':
-          toast.error(message, config);
-          break;
-        case 'warning':
-          toast(message, { ...config, icon: '⚠️' });
-          break;
-        case 'info':
-        default:
-          toast(message, { ...config, icon: 'ℹ️' });
-          break;
-      }
+      createToast(message, type);
     }
 
-    // Store persistent notifications
+    // ALL notifications now go to notification center (both persistent and UI)
     if (persistent) {
+      // Store persistent notifications in backend
       try {
         const response = await fetchWithAuth('/api/auth/shopify/notifications', {
           method: 'POST',
@@ -163,20 +126,37 @@ export const useNotifications = () => {
 
         if (response.ok) {
           const savedNotification = await response.json();
-          setNotifications(prev => [savedNotification, ...prev]);
-          setUnreadCount(prev => prev + 1);
+          // Update global state with backend notification
+          globalNotifications = [savedNotification, ...globalNotifications];
+          globalUnreadCount += 1;
+          // Update local state
+          setNotifications([...globalNotifications]);
+          setUnreadCount(globalUnreadCount);
+        } else {
+          // If backend fails, still add to local notifications
+          globalNotifications = [notification, ...globalNotifications];
+          globalUnreadCount += 1;
+          setNotifications([...globalNotifications]);
+          setUnreadCount(globalUnreadCount);
         }
       } catch (error) {
         console.error('Failed to save persistent notification:', error);
+        // If backend fails, still add to local notifications
+        globalNotifications = [notification, ...globalNotifications];
+        globalUnreadCount += 1;
+        setNotifications([...globalNotifications]);
+        setUnreadCount(globalUnreadCount);
       }
     } else {
-      // Add to local state for non-persistent notifications
-      setNotifications(prev => [notification, ...prev]);
-      setUnreadCount(prev => prev + 1);
+      // Non-persistent notifications also go to notification center now
+      globalNotifications = [notification, ...globalNotifications];
+      globalUnreadCount += 1;
+      setNotifications([...globalNotifications]);
+      setUnreadCount(globalUnreadCount);
     }
 
     return notification.id;
-  }, []);
+  }, [createToast]);
 
   // Specific notification functions
   const showSuccess = useCallback((message: string, options?: NotificationOptions) => {
@@ -195,7 +175,7 @@ export const useNotifications = () => {
     return addNotification(message, 'info', options);
   }, [addNotification]);
 
-  // Enhanced session notification
+  // Session expired notification
   const showSessionExpired = useCallback((options: {
     redirect?: boolean;
     redirectDelay?: number;
@@ -210,17 +190,7 @@ export const useNotifications = () => {
     const message = 'Your session has expired. Please sign in again.';
 
     if (showToast) {
-      toast.error(message, {
-        duration: 6000,
-        position: 'top-center',
-        style: {
-          background: '#ef4444',
-          color: '#ffffff',
-          fontWeight: '500',
-          borderRadius: '8px',
-        },
-        icon: '🔒',
-      });
+      createToast(message, 'error');
     }
 
     // Add as persistent notification
@@ -239,7 +209,7 @@ export const useNotifications = () => {
         window.location.href = '/';
       }, redirectDelay);
     }
-  }, [addNotification]);
+  }, [createToast, addNotification]);
 
   // Connection error notification
   const showConnectionError = useCallback(() => {
@@ -255,19 +225,18 @@ export const useNotifications = () => {
     );
   }, [addNotification]);
 
-  // Fetch persistent notifications from backend with rate limiting
+  // Simplified fetch function with better rate limiting
   const fetchNotifications = useCallback(async () => {
-    // Prevent multiple simultaneous calls
-    if (loading) return;
+    const now = Date.now();
     
     // Rate limiting - prevent too frequent API calls
-    const now = Date.now();
-    if (now - lastFetchRef.current < RATE_LIMIT_MS) {
-      console.log('Notification fetch rate limited');
+    if (isLoadingGlobal || (now - lastFetchTime < RATE_LIMIT_MS)) {
+      console.log('Notification fetch skipped - rate limited');
       return;
     }
-    lastFetchRef.current = now;
     
+    isLoadingGlobal = true;
+    lastFetchTime = now;
     setLoading(true);
     setError(null);
     
@@ -276,14 +245,17 @@ export const useNotifications = () => {
       if (response.ok) {
         const data = await response.json();
         const persistentNotifications = data.notifications || [];
-        setNotifications(prev => {
-          // Merge persistent notifications with local ones, avoiding duplicates
-          const localNotifications = prev.filter(n => !n.persistent);
-          return [...persistentNotifications, ...localNotifications];
-        });
         
-        const unread = persistentNotifications.filter((n: Notification) => !n.read).length;
-        setUnreadCount(unread);
+        // Merge persistent notifications with local non-persistent ones
+        const localNotifications = globalNotifications.filter(n => !n.persistent);
+        
+        // Update global state
+        globalNotifications = [...persistentNotifications, ...localNotifications];
+        globalUnreadCount = globalNotifications.filter(n => !n.read).length;
+        
+        // Update local state
+        setNotifications([...globalNotifications]);
+        setUnreadCount(globalUnreadCount);
       } else {
         setError(`Failed to fetch notifications: ${response.status}`);
       }
@@ -291,43 +263,26 @@ export const useNotifications = () => {
       console.error('Failed to fetch notifications:', error);
       setError('Network error while fetching notifications');
     } finally {
+      isLoadingGlobal = false;
       setLoading(false);
     }
-  }, [loading]); // Only depend on loading state to prevent infinite loops
+  }, []);
 
-  // Load notifications on mount ONLY - remove fetchNotifications dependency
+  // Load notifications only once when the first component mounts
   useEffect(() => {
-    let isMounted = true;
-    
-    const loadInitialNotifications = async () => {
-      try {
-        const response = await fetchWithAuth('/api/auth/shopify/notifications');
-        if (response.ok && isMounted) {
-          const data = await response.json();
-          const persistentNotifications = data.notifications || [];
-          setNotifications(prev => {
-            const localNotifications = prev.filter(n => !n.persistent);
-            return [...persistentNotifications, ...localNotifications];
-          });
-          
-          const unread = persistentNotifications.filter((n: Notification) => !n.read).length;
-          setUnreadCount(unread);
-        }
-      } catch (error) {
-        console.error('Failed to load initial notifications:', error);
-      }
-    };
-
-    loadInitialNotifications();
-    
-    return () => {
-      isMounted = false;
-    };
-  }, []); // Empty dependency array - only run on mount
+    // Only fetch if we haven't loaded yet and this is the first instance
+    if (globalNotifications.length === 0 && !isLoadingGlobal) {
+      fetchNotifications();
+    } else {
+      // Sync with global state
+      setNotifications([...globalNotifications]);
+      setUnreadCount(globalUnreadCount);
+    }
+  }, []);
 
   // Mark notification as read
   const markAsRead = useCallback(async (notificationId: string) => {
-    const notification = notifications.find(n => n.id === notificationId);
+    const notification = globalNotifications.find(n => n.id === notificationId);
     
     if (notification?.persistent) {
       try {
@@ -338,73 +293,79 @@ export const useNotifications = () => {
         });
         
         if (response.ok) {
-          setNotifications(prev => 
-            prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
+          // Update global state
+          globalNotifications = globalNotifications.map(n => 
+            n.id === notificationId ? { ...n, read: true } : n
           );
-          setUnreadCount(prev => Math.max(0, prev - 1));
+          if (!notification.read) {
+            globalUnreadCount = Math.max(0, globalUnreadCount - 1);
+          }
+          
+          // Update local state
+          setNotifications([...globalNotifications]);
+          setUnreadCount(globalUnreadCount);
         }
       } catch (error) {
         console.error('Failed to mark notification as read:', error);
       }
     } else {
-      // Local notification
-      setNotifications(prev => 
-        prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
+      // Local notification - mark as read locally
+      globalNotifications = globalNotifications.map(n => 
+        n.id === notificationId ? { ...n, read: true } : n
       );
-      setUnreadCount(prev => Math.max(0, prev - 1));
+      if (!notification?.read) {
+        globalUnreadCount = Math.max(0, globalUnreadCount - 1);
+      }
+      
+      // Update local state
+      setNotifications([...globalNotifications]);
+      setUnreadCount(globalUnreadCount);
     }
-  }, [notifications]);
+  }, []);
 
   // Mark all as read
   const markAllAsRead = useCallback(async () => {
-    const unreadNotifications = notifications.filter(n => !n.read);
+    const unreadNotifications = globalNotifications.filter(n => !n.read);
     
     try {
-      // Mark persistent notifications as read
+      // Mark persistent notifications as read via API
       const persistentUnread = unreadNotifications.filter(n => n.persistent);
       await Promise.all(
         persistentUnread.map(n => markAsRead(n.id))
       );
-
+      
       // Mark local notifications as read
       const localUnread = unreadNotifications.filter(n => !n.persistent);
       if (localUnread.length > 0) {
-        setNotifications(prev => 
-          prev.map(n => ({ ...n, read: true }))
-        );
-        setUnreadCount(0);
+        globalNotifications = globalNotifications.map(n => ({ ...n, read: true }));
+        globalUnreadCount = 0;
+        setNotifications([...globalNotifications]);
+        setUnreadCount(globalUnreadCount);
       }
     } catch (error) {
       console.error('Failed to mark all notifications as read:', error);
     }
-  }, [notifications, markAsRead]);
+  }, [markAsRead]);
 
   // Delete notification
   const deleteNotification = useCallback(async (notificationId: string) => {
-    const notification = notifications.find(n => n.id === notificationId);
+    const notification = globalNotifications.find(n => n.id === notificationId);
     
-    if (notification?.persistent) {
-      try {
-        // TODO: Implement delete API endpoint
-        // For now, just remove from local state
-        setNotifications(prev => prev.filter(n => n.id !== notificationId));
-        if (!notification.read) {
-          setUnreadCount(prev => Math.max(0, prev - 1));
-        }
-      } catch (error) {
-        console.error('Failed to delete notification:', error);
-      }
-    } else {
-      // Local notification
-      setNotifications(prev => prev.filter(n => n.id !== notificationId));
-      if (!notification?.read) {
-        setUnreadCount(prev => Math.max(0, prev - 1));
-      }
+    // Update global state
+    globalNotifications = globalNotifications.filter(n => n.id !== notificationId);
+    if (notification && !notification.read) {
+      globalUnreadCount = Math.max(0, globalUnreadCount - 1);
     }
-  }, [notifications]);
+    
+    // Update local state
+    setNotifications([...globalNotifications]);
+    setUnreadCount(globalUnreadCount);
+  }, []);
 
   // Clear all notifications
   const clearAll = useCallback(() => {
+    globalNotifications = [];
+    globalUnreadCount = 0;
     setNotifications([]);
     setUnreadCount(0);
     toast.dismiss(); // Clear all toasts

@@ -195,6 +195,18 @@ public class NotificationService {
     return Mono.just(notificationRepository.findByShopOrderByCreatedAtDesc(shop));
   }
 
+  public Mono<List<Notification>> getNotifications(String shop, String sessionId) {
+    if (sessionId == null || sessionId.trim().isEmpty()) {
+      log.warn(
+          "No session ID provided, falling back to shop-wide notifications for shop: {}", shop);
+      return getNotifications(shop);
+    }
+
+    log.debug("Getting notifications for shop: {} and session: {}", shop, sessionId);
+    return Mono.just(
+        notificationRepository.findByShopAndSessionOrderByCreatedAtDesc(shop, sessionId));
+  }
+
   public Mono<Void> markAsRead(String shop, String notificationId) {
     return Mono.fromRunnable(
         () -> {
@@ -202,32 +214,102 @@ public class NotificationService {
               .findById(notificationId)
               .ifPresent(
                   notification -> {
-                    notification.setRead(true);
-                    notificationRepository.save(notification);
+                    // Verify the notification belongs to the shop for security
+                    if (notification.getShop().equals(shop)) {
+                      notification.setRead(true);
+                      notificationRepository.save(notification);
+                      log.debug(
+                          "Marked notification {} as read for shop: {}", notificationId, shop);
+                    } else {
+                      log.warn(
+                          "Attempted to mark notification {} as read for wrong shop. Expected: {}, Actual: {}",
+                          notificationId,
+                          shop,
+                          notification.getShop());
+                    }
                   });
         });
   }
 
-  public Mono<List<Notification>> getNotifications(String shop, String sessionId) {
-    return getNotifications(shop); // ignore sessionId for now
+  public Mono<Void> markAsRead(String shop, String notificationId, String sessionId) {
+    return Mono.fromRunnable(
+        () -> {
+          notificationRepository
+              .findById(notificationId)
+              .ifPresent(
+                  notification -> {
+                    // Verify the notification belongs to the shop
+                    if (!notification.getShop().equals(shop)) {
+                      log.warn(
+                          "Attempted to mark notification {} as read for wrong shop. Expected: {}, Actual: {}",
+                          notificationId,
+                          shop,
+                          notification.getShop());
+                      return;
+                    }
+
+                    // Check if notification belongs to this session or is shop-wide
+                    if (notification.isShopWide() || notification.belongsToSession(sessionId)) {
+                      notification.setRead(true);
+                      notificationRepository.save(notification);
+                      log.debug(
+                          "Marked notification {} as read for shop: {} and session: {}",
+                          notificationId,
+                          shop,
+                          sessionId);
+                    } else {
+                      log.warn(
+                          "Attempted to mark notification {} as read for wrong session. Notification session: {}, Request session: {}",
+                          notificationId,
+                          notification.getSessionId(),
+                          sessionId);
+                    }
+                  });
+        });
   }
 
-  public Mono<Void> markAsRead(String shop, String notificationId, String sessionId) {
-    return markAsRead(shop, notificationId); // ignore sessionId for now
+  public Mono<Notification> createNotification(
+      String shop, String sessionId, String message, String type, String category) {
+    return Mono.fromCallable(
+        () -> {
+          Notification notification = new Notification(shop, sessionId, message, type, category);
+          Notification saved = notificationRepository.save(notification);
+          log.debug(
+              "Created {} notification for shop: {} and session: {} - {}",
+              type,
+              shop,
+              sessionId,
+              message);
+          return saved;
+        });
   }
 
   public Mono<Notification> createNotification(
       String shop, String message, String type, String category) {
-    return Mono.fromCallable(
-        () -> {
-          Notification notification = new Notification();
-          notification.setShop(shop);
-          notification.setMessage(message);
-          notification.setType(type);
-          notification.setRead(false);
-          // createdAt will be set by @PrePersist
+    return createNotification(shop, null, message, type, category);
+  }
 
-          return notificationRepository.save(notification);
+  public Mono<Long> getUnreadCount(String shop, String sessionId) {
+    if (sessionId == null || sessionId.trim().isEmpty()) {
+      return Mono.just(0L);
+    }
+    return Mono.just(notificationRepository.countUnreadByShopAndSession(shop, sessionId));
+  }
+
+  public Mono<List<Notification>> getNotificationsByCategory(
+      String shop, String sessionId, String category) {
+    if (sessionId == null || sessionId.trim().isEmpty()) {
+      return Mono.just(List.of());
+    }
+    return Mono.just(
+        notificationRepository.findByShopAndSessionAndCategory(shop, sessionId, category));
+  }
+
+  public Mono<Void> cleanupSessionNotifications(String sessionId) {
+    return Mono.fromRunnable(
+        () -> {
+          notificationRepository.deleteBySessionId(sessionId);
+          log.info("Cleaned up notifications for session: {}", sessionId);
         });
   }
 

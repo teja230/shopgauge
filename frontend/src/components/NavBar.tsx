@@ -13,10 +13,6 @@ const NavBar: React.FC = () => {
   const [suggestionCount, setSuggestionCount] = useState(0);
   const [notificationCount, setNotificationCount] = useState(0);
 
-  // You can choose between 'top-right' or 'top-center' positioning
-  const notificationPosition = 'top-center'; // Change this to 'top-right' if preferred
-  const isTopCenter = notificationPosition === 'top-center';
-
   const handleLogout = () => {
     logout();
   };
@@ -107,15 +103,13 @@ const NavBar: React.FC = () => {
                   Profile
                 </Button>
                 
-                {/* Notification Center - conditional positioning */}
-                {!isTopCenter && (
-                  <Box sx={{ ml: 1 }}>
-                    <NotificationCenter 
-                      position="top-right"
-                      onNotificationCountChange={(count) => setNotificationCount(count)}
-                    />
-                  </Box>
-                )}
+                {/* Notification Center positioned near Profile */}
+                <Box sx={{ ml: 1 }}>
+                  <NotificationCenter 
+                    position="top-right"
+                    onNotificationCountChange={(count) => setNotificationCount(count)}
+                  />
+                </Box>
                 
                 <Button color="inherit" onClick={handleLogout}>
                   Logout
@@ -129,14 +123,6 @@ const NavBar: React.FC = () => {
           </Box>
         </Toolbar>
       </AppBar>
-      
-      {/* Top-center notification positioning */}
-      {isAuthenticated && isTopCenter && (
-        <NotificationCenter 
-          position="top-center"
-          onNotificationCountChange={(count) => setNotificationCount(count)}
-        />
-      )}
     </>
   );
 };

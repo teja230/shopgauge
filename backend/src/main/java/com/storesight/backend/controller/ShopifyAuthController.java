@@ -788,6 +788,7 @@ public class ShopifyAuthController {
     String message = body.get("message");
     String type = body.get("type");
     String category = body.get("category");
+    String sessionId = request.getSession(false) != null ? request.getSession(false).getId() : null;
 
     if (message == null || message.trim().isEmpty()) {
       return Mono.just(ResponseEntity.badRequest().body(Map.of("error", "Message is required")));
@@ -797,8 +798,9 @@ public class ShopifyAuthController {
       type = "info"; // Default type
     }
 
+    // Create session-specific notification
     return notificationService
-        .createNotification(shop, message, type, category != null ? category : "General")
+        .createNotification(shop, sessionId, message, type, category != null ? category : "General")
         .map(
             notification -> {
               Map<String, Object> response = new HashMap<>();
@@ -807,7 +809,9 @@ public class ShopifyAuthController {
               response.put("type", notification.getType());
               response.put("read", notification.isRead());
               response.put("createdAt", notification.getCreatedAt().toString());
-              response.put("category", category);
+              response.put("category", notification.getCategory());
+              response.put("shop", notification.getShop());
+              response.put("sessionId", notification.getSessionId());
               return ResponseEntity.status(HttpStatus.CREATED).body(response);
             })
         .onErrorResume(
