@@ -22,20 +22,34 @@ export default function ProfilePage() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Load past stores from localStorage
+  // Save current store to past stores when shop changes
   useEffect(() => {
-    const stored = localStorage.getItem('storesight_past_stores');
-    if (stored) {
-      try {
-        const parsedStores = JSON.parse(stored);
-        setPastStores(parsedStores.filter((store: string) => store !== shop));
-      } catch (error) {
-        console.error('Failed to parse past stores:', error);
+    if (shop) {
+      const stored = localStorage.getItem('storesight_past_stores');
+      let pastStoresList: string[] = [];
+      
+      if (stored) {
+        try {
+          pastStoresList = JSON.parse(stored);
+        } catch (error) {
+          console.error('Failed to parse past stores:', error);
+        }
       }
+
+      // Add current shop to past stores if not already there
+      if (!pastStoresList.includes(shop)) {
+        pastStoresList.unshift(shop); // Add to beginning
+        // Keep only last 5 stores
+        pastStoresList = pastStoresList.slice(0, 5);
+        localStorage.setItem('storesight_past_stores', JSON.stringify(pastStoresList));
+      }
+      
+      // Update past stores state (excluding current shop)
+      setPastStores(pastStoresList.filter(store => store !== shop));
     }
   }, [shop]);
 
-  // Handle success callback from OAuth
+  // Handle success callback from OAuth - FIXED: Direct Dashboard redirect without nested params
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
     const successParam = urlParams.get('success');
@@ -51,6 +65,10 @@ export default function ProfilePage() {
       sessionStorage.removeItem('dashboard_cache_v1.1');
       sessionStorage.removeItem('dashboard_cache_v2');
       
+      // Clean up URL params before redirect
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, cleanUrl);
+      
       setTimeout(() => {
         navigate('/dashboard', { replace: true });
       }, 1000);
@@ -64,15 +82,13 @@ export default function ProfilePage() {
       sessionStorage.removeItem('dashboard_cache_v1.1');
       sessionStorage.removeItem('dashboard_cache_v2');
       
+      // Clean up URL params before redirect
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, cleanUrl);
+      
       setTimeout(() => {
         navigate('/dashboard', { replace: true });
       }, 1000);
-    }
-    
-    // Clean up URL params
-    if (urlParams.has('success') || urlParams.has('from_auth')) {
-      const cleanUrl = window.location.pathname;
-      window.history.replaceState({}, document.title, cleanUrl);
     }
   }, [location, shop, setShop, navigate]);
 
@@ -119,15 +135,16 @@ export default function ProfilePage() {
     }
   };
 
+  // FIXED: Use simple return URL format to avoid Chrome phishing warnings
   const handleReAuthenticate = async () => {
     try {
       setIsLoading(true);
       toast.loading('Re-authenticating with Shopify...', { id: 'reauth' });
       
-      // Redirect to Shopify OAuth flow for re-authentication
       if (shop) {
-        // Use simple return URL without nested parameters to avoid Chrome phishing warnings
-        const returnUrl = encodeURIComponent(`${window.location.origin}/profile?from_auth=true`);
+        // FIXED: Use dashboard redirect instead of profile for re-auth
+        const baseUrl = `${window.location.origin}/dashboard`;
+        const returnUrl = encodeURIComponent(`${baseUrl}?reauth=success`);
         window.location.href = `${API_BASE_URL}/api/auth/shopify/login?shop=${encodeURIComponent(shop)}&return_url=${returnUrl}`;
       } else {
         toast.error('No shop found. Please disconnect and reconnect.', { id: 'reauth' });
@@ -333,6 +350,7 @@ export default function ProfilePage() {
     }
   };
 
+  // FIXED: Connect new store with Dashboard redirect  
   const handleConnectNewStore = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newStoreDomain.trim()) {
@@ -358,8 +376,9 @@ export default function ProfilePage() {
         cleanDomain = `${cleanDomain}.myshopify.com`;
       }
 
-      // Use simple return URL without nested parameters to avoid Chrome phishing warnings
-      const returnUrl = encodeURIComponent(`${window.location.origin}/profile?success=true`);
+      // FIXED: Use dashboard redirect for new store connection 
+      const baseUrl = `${window.location.origin}/dashboard`;
+      const returnUrl = encodeURIComponent(`${baseUrl}?connected=true`);
 
       // Redirect to the login endpoint with the shop parameter
       window.location.href = `${API_BASE_URL}/api/auth/shopify/login?shop=${encodeURIComponent(cleanDomain)}&return_url=${returnUrl}`;
@@ -371,11 +390,13 @@ export default function ProfilePage() {
     }
   };
 
+  // FIXED: Reconnect past store with Dashboard redirect
   const handleReconnectPastStore = (pastStore: string) => {
     toast.loading(`Reconnecting to ${pastStore}...`, { id: 'reconnect' });
     
-    // Use simple return URL without nested parameters to avoid Chrome phishing warnings
-    const returnUrl = encodeURIComponent(`${window.location.origin}/profile?success=true`);
+    // FIXED: Use dashboard redirect for past store reconnection
+    const baseUrl = `${window.location.origin}/dashboard`;
+    const returnUrl = encodeURIComponent(`${baseUrl}?reconnected=true`);
     
     window.location.href = `${API_BASE_URL}/api/auth/shopify/login?shop=${encodeURIComponent(pastStore)}&return_url=${returnUrl}`;
   };
@@ -582,9 +603,15 @@ export default function ProfilePage() {
               onClick={() => setShowStoreSwitcher(!showStoreSwitcher)}
               className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
             >
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
+              {showStoreSwitcher ? (
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                </svg>
+              ) : (
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+              )}
               {showStoreSwitcher ? 'Hide Store Manager' : 'Manage Stores'}
             </button>
           </div>

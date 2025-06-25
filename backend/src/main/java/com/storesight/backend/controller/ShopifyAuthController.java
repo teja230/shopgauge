@@ -216,9 +216,12 @@ public class ShopifyAuthController {
   }
 
   @GetMapping("/install")
-  public ResponseEntity<?> install(@RequestParam String shop, HttpServletResponse response) {
+  public ResponseEntity<?> install(
+      @RequestParam String shop, 
+      @RequestParam(required = false) String return_url,
+      HttpServletResponse response) {
     try {
-      logger.info("Install attempt for shop: {}", shop);
+      logger.info("Install attempt for shop: {} with return_url: {}", shop, return_url);
       if (shop == null || shop.trim().isEmpty()) {
         return ResponseEntity.badRequest().body(Map.of("error", "Shop parameter is required"));
       }
@@ -229,6 +232,21 @@ public class ShopifyAuthController {
       }
 
       String state = generateState();
+      
+      // Store return_url in Redis with state as key for later retrieval
+      if (return_url != null && !return_url.isBlank()) {
+        try {
+          redisTemplate.opsForValue().set(
+              "oauth:return_url:" + state, 
+              return_url, 
+              java.time.Duration.ofMinutes(10) // 10 minute TTL
+          );
+          logger.info("Stored return_url in Redis with state: {}", state);
+        } catch (Exception e) {
+          logger.warn("Failed to store return_url in Redis: {}", e.getMessage());
+        }
+      }
+      
       String url =
           String.format(
               "https://%s/admin/oauth/authorize?client_id=%s&scope=%s&redirect_uri=%s&state=%s",
@@ -451,10 +469,22 @@ public class ShopifyAuthController {
       // Mark the authorization code as successfully processed
       markCodeAsSuccessfullyProcessed(code);
 
-      // Check for return_url parameter for custom redirects (e.g., back to profile after re-auth)
-      String returnUrl = params.get("return_url");
-      String redirectUrl;
+      // Retrieve return_url from Redis using state parameter
+      String returnUrl = null;
+      if (state != null && !state.isBlank()) {
+        try {
+          returnUrl = redisTemplate.opsForValue().get("oauth:return_url:" + state);
+          if (returnUrl != null) {
+            logger.info("Retrieved return_url from Redis: {}", returnUrl);
+            // Clean up the stored return_url
+            redisTemplate.delete("oauth:return_url:" + state);
+          }
+        } catch (Exception e) {
+          logger.warn("Failed to retrieve return_url from Redis: {}", e.getMessage());
+        }
+      }
 
+      String redirectUrl;
       if (returnUrl != null && !returnUrl.isBlank()) {
         // Use custom return URL if provided
         redirectUrl = java.net.URLDecoder.decode(returnUrl, "UTF-8");

@@ -9,6 +9,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { styled } from '@mui/material/styles';
 import { OpenInNew, Refresh, Storefront, ListAlt, Inventory2 } from '@mui/icons-material';
 import { format } from 'date-fns';
+import toast from 'react-hot-toast';
 
 // Cache configuration - Enterprise-grade settings
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
@@ -690,11 +691,14 @@ const DashboardPage = () => {
     return format(lastUpdate, 'MMM d, h:mm a');
   }, [getMostRecentUpdateTime]);
 
-  // Handle URL parameters from OAuth callback
+  // Handle URL parameters from OAuth callback and Profile page redirects
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
     const shopParam = urlParams.get('shop');
     const authParam = urlParams.get('auth');
+    const reauth = urlParams.get('reauth');
+    const connected = urlParams.get('connected');
+    const reconnected = urlParams.get('reconnected');
     
     if (shopParam && authParam === 'success') {
       console.log('Processing OAuth callback - shop:', shopParam);
@@ -714,6 +718,48 @@ const DashboardPage = () => {
       navigate('/dashboard', { replace: true });
       
       console.log('Successfully set shop cookie and updated auth context');
+    }
+    
+    // Handle success notifications from Profile page redirects
+    if (reauth === 'success') {
+      toast.success('🔐 Re-authentication successful!', {
+        duration: 4000,
+        icon: '✅',
+      });
+      // Clear cache to ensure fresh data
+      sessionStorage.removeItem('dashboard_cache_v1.1');
+      sessionStorage.removeItem('dashboard_cache_v2');
+      setCache(invalidateCache());
+      
+      // Clean up URL params
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, cleanUrl);
+    } else if (connected === 'true') {
+      toast.success('🔗 New store connected successfully!', {
+        duration: 4000,
+        icon: '✅',
+      });
+      // Clear cache to ensure fresh data
+      sessionStorage.removeItem('dashboard_cache_v1.1');
+      sessionStorage.removeItem('dashboard_cache_v2');
+      setCache(invalidateCache());
+      
+      // Clean up URL params
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, cleanUrl);
+    } else if (reconnected === 'true') {
+      toast.success('🔄 Store reconnected successfully!', {
+        duration: 4000,
+        icon: '✅',
+      });
+      // Clear cache to ensure fresh data
+      sessionStorage.removeItem('dashboard_cache_v1.1');
+      sessionStorage.removeItem('dashboard_cache_v2');
+      setCache(invalidateCache());
+      
+      // Clean up URL params
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, cleanUrl);
     }
   }, [location.search, navigate, setShop]);
 
