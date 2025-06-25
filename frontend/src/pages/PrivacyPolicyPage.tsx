@@ -1,5 +1,3 @@
- 
-
 import { useNavigate } from 'react-router-dom';
 
 export default function PrivacyPolicyPage() {
@@ -217,7 +215,7 @@ export default function PrivacyPolicyPage() {
                 Contact the merchant who installed our app, or reach out to us directly:
               </p>
               <div className="space-y-2 text-blue-700">
-                <p><strong>Email:</strong> privacy@storesight.com</p>
+                <p><strong>Email:</strong> privacy@shopgaugeai.com</p>
                 <p><strong>Response Time:</strong> Within 48 hours</p>
                 <p><strong>Completion Time:</strong> Within 30 days</p>
               </div>
@@ -296,7 +294,7 @@ export default function PrivacyPolicyPage() {
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 text-center">
                 <h3 className="text-lg font-semibold text-gray-800 mb-3">Data Protection Officer</h3>
                 <div className="space-y-2 text-gray-700">
-                  <p><strong>Email:</strong> dpo@storesight.com</p>
+                  <p><strong>Email:</strong> dpo@shopgaugeai.com</p>
                   <p><strong>Phone:</strong> +1-555-PRIVACY</p>
                   <p className="text-sm">123 Analytics Ave<br/>Data City, DC 12345</p>
                 </div>
@@ -305,9 +303,9 @@ export default function PrivacyPolicyPage() {
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 text-center">
                 <h3 className="text-lg font-semibold text-gray-800 mb-3">Privacy Inquiries</h3>
                 <div className="space-y-2 text-gray-700">
-                  <p><strong>General:</strong> privacy@storesight.com</p>
-                  <p><strong>Data Requests:</strong> requests@storesight.com</p>
-                  <p><strong>Security Issues:</strong> security@storesight.com</p>
+                  <p><strong>General:</strong> privacy@shopgaugeai.com</p>
+                  <p><strong>Data Requests:</strong> requests@shopgaugeai.com</p>
+                  <p><strong>Security Issues:</strong> security@shopgaugeai.com</p>
                 </div>
               </div>
 

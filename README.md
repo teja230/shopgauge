@@ -1,4 +1,4 @@
-# StoreSight - Advanced Shopify Analytics & Competitor Intelligence Platform
+# ShopGauge - Advanced Shopify Analytics & Competitor Intelligence Platform
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Java](https://img.shields.io/badge/Java-17-orange.svg)](https://openjdk.java.net/projects/jdk/17/)
@@ -8,7 +8,7 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-blue.svg)](https://www.postgresql.org/)
 [![Redis](https://img.shields.io/badge/Redis-7+-red.svg)](https://redis.io/)
 
-StoreSight is a comprehensive, enterprise-grade analytics and competitor intelligence platform designed specifically for
+ShopGauge is a comprehensive, enterprise-grade analytics and competitor intelligence platform designed specifically for
 Shopify merchants. It provides real-time business insights, automated competitor discovery, and advanced data privacy
 compliance features.
 
@@ -395,7 +395,7 @@ TWILIO_ACCOUNT_SID=your_twilio_sid
 TWILIO_AUTH_TOKEN=your_twilio_token
 ```
 
-> **💡 Tip**: Want to try StoreSight without local setup? Use our [live demo](https://www.shopgaugeai.com) instead!
+> **💡 Tip**: Want to try ShopGauge without local setup? Use our [live demo](https://www.shopgaugeai.com) instead!
 
 ## 🧪 Testing
 
@@ -587,7 +587,7 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 - **Documentation**: Check the documentation files in the repository
 - **Issues**: Report bugs and feature requests via GitHub Issues
 - **Discussions**: Use GitHub Discussions for questions and ideas
-- **Email**: support@storesight.com
+- **Email**: support@shopgauge.com
 
 ## 🗺️ Roadmap
 

@@ -132,7 +132,7 @@ public class NotificationService {
                 + "\"personalizations\":[{\"to\":[{\"email\":\""
                 + to
                 + "\"}]}],"
-                + "\"from\":{\"email\":\"noreply@storesight.app\"},"
+                + "\"from\":{\"email\":\"noreply@shopgaugeai.com\"},"
                 + "\"subject\":\""
                 + subject
                 + "\","

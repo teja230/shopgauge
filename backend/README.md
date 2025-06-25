@@ -1,6 +1,6 @@
-# StoreSight Backend
+# ShopGauge Backend
 
-Enterprise-grade Spring Boot backend for the StoreSight Shopify analytics platform. Built with Spring Boot 3.2.3, Java 17, and PostgreSQL, providing secure APIs, automated competitor discovery, and comprehensive data privacy compliance.
+Enterprise-grade Spring Boot backend for the ShopGauge Shopify analytics platform. Built with Spring Boot 3.2.3, Java 17, and PostgreSQL, providing secure APIs, automated competitor discovery, and comprehensive data privacy compliance.
 
 ## 🚀 Live API
 

@@ -74,7 +74,7 @@ document outlines our data handling practices in compliance with Shopify's Prote
 
 Contact the merchant who installed our app, or reach out to us directly:
 
-- **Email**: privacy@storesight.com
+- **Email**: privacy@shopgaugeai.com
 - **Response Time**: Within 48 hours
 - **Completion Time**: Within 30 days
 
@@ -150,17 +150,17 @@ We process only the minimum data necessary:
 
 ### Data Protection Officer
 
-- **Email**: dpo@storesight.com
+- **Email**: dpo@shopgaugeai.com
 - **Phone**: +1-555-PRIVACY
 - **Address**: 123 Analytics Ave, Data City, DC 12345
 
 ### Privacy Inquiries
 
-- **General Questions**: privacy@storesight.com
-- **Data Requests**: requests@storesight.com
-- **Security Issues**: security@storesight.com
+- **General Questions**: privacy@shopgaugeai.com
+- **Data Requests**: requests@shopgaugeai.com
+- **Security Issues**: security@shopgaugeai.com
 
-## 📅 Policy Updates
+## �� Policy Updates
 
 **Last Updated**: June 23, 2025
 **Version**: 1.0

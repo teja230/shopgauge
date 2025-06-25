@@ -49,7 +49,7 @@ public class HealthController {
     Map<String, Object> health = new HashMap<>();
     health.put("status", "UP");
     health.put("application", applicationName);
-    health.put("message", "StoreSight Backend is running");
+    health.put("message", "ShopGauge Backend is running");
     health.put("timestamp", System.currentTimeMillis());
 
     logger.debug("Root health check requested");

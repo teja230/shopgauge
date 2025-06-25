@@ -118,7 +118,7 @@ const HomePage = () => {
           </h2>
           <p className="text-blue-700">
             {isOAuthFlow 
-              ? 'We\'re setting up your StoreSight analytics dashboard. This will just take a moment.'
+              ? 'We\'re setting up your ShopGauge analytics dashboard. This will just take a moment.'
               : 'Please wait while we load your dashboard.'
             }
           </p>
@@ -130,10 +130,10 @@ const HomePage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex flex-col items-center px-4 py-8">
       <header className="mb-10 text-center">
-        <h1 className="text-4xl font-extrabold text-blue-900 mb-2">StoreSight</h1>
+        <h1 className="text-4xl font-extrabold text-blue-900 mb-2">ShopGauge</h1>
         <p className="text-lg text-blue-700 mb-4 max-w-2xl mx-auto">
           Unlock actionable analytics, competitor price alerts, and automated notifications for your Shopify store. 
-          Grow faster with StoreSight's all-in-one dashboard and automation suite.
+          Grow faster with ShopGauge's all-in-one dashboard and automation suite.
         </p>
         {showAuthConnected ? (
           <div className="flex flex-col items-center gap-4">
@@ -210,7 +210,7 @@ const HomePage = () => {
 
       {/* Features Grid */}
       <section className="mb-12 w-full max-w-4xl">
-        <h2 className="text-2xl font-bold mb-4 text-blue-800 text-center">Why StoreSight?</h2>
+        <h2 className="text-2xl font-bold mb-4 text-blue-800 text-center">Why ShopGauge?</h2>
         <ul className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
           {features.map((f) => (
             <li key={f} className="flex items-start bg-white rounded shadow p-4">
@@ -253,7 +253,7 @@ const HomePage = () => {
         <h2 className="text-2xl font-bold mb-4 text-blue-800">What Merchants Say</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           <div className="bg-white rounded-lg shadow p-6">
-            <p className="text-gray-700 italic mb-2">"StoreSight helped us spot price changes instantly. Our margins are up 15%!"</p>
+            <p className="text-gray-700 italic mb-2">"ShopGauge helped us spot price changes instantly. Our margins are up 15%!"</p>
             <div className="font-semibold text-blue-900">— Alex, DTC Brand Owner</div>
           </div>
           <div className="bg-white rounded-lg shadow p-6">

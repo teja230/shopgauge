@@ -11,8 +11,8 @@ export const PrivacyBanner: React.FC<PrivacyBannerProps> = ({ onAccept, onDeclin
 
   useEffect(() => {
     // Check if user has already interacted with privacy banner
-    const privacyAccepted = localStorage.getItem('storesight-privacy-accepted');
-    const privacyDeclined = localStorage.getItem('storesight-privacy-declined');
+    const privacyAccepted = localStorage.getItem('shopgauge-privacy-accepted');
+    const privacyDeclined = localStorage.getItem('shopgauge-privacy-declined');
     
     if (!privacyAccepted && !privacyDeclined) {
       // Show banner after 2 seconds
@@ -25,16 +25,16 @@ export const PrivacyBanner: React.FC<PrivacyBannerProps> = ({ onAccept, onDeclin
   }, []);
 
   const handleAccept = () => {
-    localStorage.setItem('storesight-privacy-accepted', 'true');
-    localStorage.setItem('storesight-privacy-timestamp', new Date().toISOString());
+    localStorage.setItem('shopgauge-privacy-accepted', 'true');
+    localStorage.setItem('shopgauge-privacy-timestamp', new Date().toISOString());
     setHasInteracted(true);
     setIsVisible(false);
     onAccept?.();
   };
 
   const handleDecline = () => {
-    localStorage.setItem('storesight-privacy-declined', 'true');
-    localStorage.setItem('storesight-privacy-timestamp', new Date().toISOString());
+    localStorage.setItem('shopgauge-privacy-declined', 'true');
+    localStorage.setItem('shopgauge-privacy-timestamp', new Date().toISOString());
     setHasInteracted(true);
     setIsVisible(false);
     onDecline?.();

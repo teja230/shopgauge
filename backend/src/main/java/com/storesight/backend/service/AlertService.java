@@ -145,7 +145,7 @@ public class AlertService implements StreamListener<String, MapRecord<String, St
                 + "\"personalizations\":[{\"to\":[{\"email\":\""
                 + to
                 + "\"}]}],"
-                + "\"from\":{\"email\":\"noreply@storesight.app\"},"
+                + "\"from\":{\"email\":\"noreply@shopgaugeai.com\"},"
                 + "\"subject\":\""
                 + subject
                 + "\","
@@ -213,7 +213,7 @@ public class AlertService implements StreamListener<String, MapRecord<String, St
         var settings = objectMapper.readValue(json, java.util.Map.class);
         if (settings.get("email") != null) {
           sendEmailAlert(
-              settings.get("email").toString(), "StoreSight Alert: " + eventType, message);
+              settings.get("email").toString(), "ShopGauge Alert: " + eventType, message);
         }
         if (settings.get("slack") != null) {
           sendSlackAlert(settings.get("slack").toString(), message);
@@ -263,10 +263,10 @@ public class AlertService implements StreamListener<String, MapRecord<String, St
         // Send email with CSV attachment (using SendGrid for now)
         sendEmailWithAttachment(
             email,
-            "Your StoreSight Analytics Report",
+            "Your ShopGauge Analytics Report",
             "See attached CSV report.",
             csv,
-            "storesight-analytics.csv");
+            "shopgauge-analytics.csv");
       } catch (Exception e) {
         log.error("Error sending scheduled report for shop {}: {}", shop, e.getMessage(), e);
       }

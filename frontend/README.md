@@ -1,6 +1,6 @@
-# StoreSight Frontend
+# ShopGauge Frontend
 
-StoreSight is an enterprise-grade analytics and competitor intelligence platform for Shopify merchants. Built with React 18, TypeScript, and Vite, it provides real-time business insights, automated competitor discovery, and comprehensive data privacy compliance.
+ShopGauge is an enterprise-grade analytics and competitor intelligence platform for Shopify merchants. Built with React 18, TypeScript, and Vite, it provides real-time business insights, automated competitor tracking, and intelligent business intelligence.
 
 ## 🚀 Live Demo
 
@@ -180,7 +180,7 @@ The frontend implements a secure authentication flow with Shopify OAuth:
 
 ## 📱 Responsive Design
 
-StoreSight is fully responsive and optimized for:
+ShopGauge is fully responsive and optimized for:
 - **Desktop** - Full dashboard experience with all features
 - **Tablet** - Optimized layout for touch interaction
 - **Mobile** - Essential features accessible on mobile devices
@@ -200,7 +200,7 @@ The frontend is automatically deployed to Render with:
 ```yaml
 # render.yaml (frontend service)
 - type: web
-  name: storesight
+  name: shopgauge
   runtime: static
   buildCommand: npm install && npm run build
   staticPublishPath: dist

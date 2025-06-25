@@ -1828,9 +1828,9 @@ public class AnalyticsController {
 
       // Contact information
       Map<String, String> contactInfo = new HashMap<>();
-      contactInfo.put("privacy_email", "privacy@storesight.com");
-      contactInfo.put("dpo_email", "dpo@storesight.com");
-      contactInfo.put("support_email", "support@storesight.com");
+      contactInfo.put("privacy_email", "privacy@shopgaugeai.com");
+      contactInfo.put("dpo_email", "dpo@shopgaugeai.com");
+      contactInfo.put("support_email", "support@shopgaugeai.com");
       exportData.put("contact_information", contactInfo);
 
       // Convert to JSON
@@ -1846,7 +1846,7 @@ public class AnalyticsController {
           .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
           .header(
               "Content-Disposition",
-              "attachment; filename=\"storesight-data-export-"
+              "attachment; filename=\"shopgauge-data-export-"
                   + shop
                   + "-"
                   + LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE)

@@ -83,8 +83,8 @@ public class AdminController {
     try {
       notificationService.sendEmailAlert(
           to,
-          "StoreSight Test Email",
-          "This is a test email from StoreSight Admin Panel. If you received this, your SendGrid integration is working correctly!");
+          "ShopGauge Test Email",
+          "This is a test email from ShopGauge Admin Panel. If you received this, your SendGrid integration is working correctly!");
 
       return ResponseEntity.ok(Map.of("success", true, "message", "Test email sent successfully"));
     } catch (Exception e) {
@@ -104,7 +104,7 @@ public class AdminController {
 
     try {
       notificationService.sendSmsAlert(
-          to, "StoreSight Test SMS: Your Twilio integration is working correctly!");
+          to, "ShopGauge Test SMS: Your Twilio integration is working correctly!");
 
       return ResponseEntity.ok(Map.of("success", true, "message", "Test SMS sent successfully"));
     } catch (Exception e) {

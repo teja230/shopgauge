@@ -52,7 +52,7 @@ const NavBar: React.FC = () => {
         >
           <InsightsIcon sx={{ mr: 1, fontSize: 28 }} />
           <Typography variant="h6" component="div" sx={{ fontWeight: 600 }}>
-            StoreSight
+            ShopGauge
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 2, flexGrow: 1 }} />

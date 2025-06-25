@@ -111,7 +111,7 @@ public class CustomErrorController implements ErrorController {
             <head>
                 <meta charset="UTF-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>%s - StoreSight</title>
+                <title>%s - ShopGauge</title>
                 <script src="https://cdn.tailwindcss.com"></script>
                 <style>
                     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
@@ -155,7 +155,7 @@ public class CustomErrorController implements ErrorController {
                         <div class="mt-8 pt-6 border-t border-gray-200">
                             <p class="text-sm text-gray-500">
                                 Need help? Contact us at
-                                <a href="mailto:support@storesight.com" class="text-blue-600 hover:underline font-medium">support@storesight.com</a>
+                                <a href="mailto:support@shopgaugeai.com" class="text-blue-600 hover:underline font-medium">support@shopgaugeai.com</a>
                             </p>
                         </div>
                     </div>
