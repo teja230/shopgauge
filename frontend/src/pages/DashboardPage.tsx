@@ -741,18 +741,13 @@ const DashboardPage = () => {
 
   // Individual card data fetching functions
   const fetchRevenueData = useCallback(async (forceRefresh = false) => {
-    console.log('fetchRevenueData called - forceRefresh:', forceRefresh);
     setCardLoading(prev => ({ ...prev, revenue: true }));
     setCardErrors(prev => ({ ...prev, revenue: null }));
     
     try {
       const data = await getCachedOrFetch('revenue', async () => {
-        console.log('Making API call to /api/analytics/revenue');
         const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/revenue'));
-        console.log('Revenue API response status:', response.status);
-        const jsonData = await response.json();
-        console.log('Revenue API response data:', jsonData);
-        return jsonData;
+        return await response.json();
       }, forceRefresh);
       
       if ((data.error_code === 'INSUFFICIENT_PERMISSIONS' || (data.error && data.error.includes('re-authentication')))) {
@@ -832,13 +827,15 @@ const DashboardPage = () => {
     }
   }, [retryWithBackoff, getCachedOrFetch]);
 
-  const fetchProductsData = useCallback(async () => {
+  const fetchProductsData = useCallback(async (forceRefresh = false) => {
     setCardLoading(prev => ({ ...prev, products: true }));
     setCardErrors(prev => ({ ...prev, products: null }));
     
     try {
-      const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/products'));
-      const data = await response.json();
+      const data = await getCachedOrFetch('products', async () => {
+        const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/products'));
+        return await response.json();
+      }, forceRefresh);
       
       if (data.error_code === 'INSUFFICIENT_PERMISSIONS' || 
           (data.error && data.error.includes('re-authentication'))) {
@@ -862,15 +859,17 @@ const DashboardPage = () => {
     } finally {
       setCardLoading(prev => ({ ...prev, products: false }));
     }
-  }, [retryWithBackoff, navigate]);
+  }, [retryWithBackoff, navigate, getCachedOrFetch]);
 
-  const fetchInventoryData = useCallback(async () => {
+  const fetchInventoryData = useCallback(async (forceRefresh = false) => {
     setCardLoading(prev => ({ ...prev, inventory: true }));
     setCardErrors(prev => ({ ...prev, inventory: null }));
     
     try {
-      const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/inventory/low'));
-      const data = await response.json();
+      const data = await getCachedOrFetch('inventory', async () => {
+        const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/inventory/low'));
+        return await response.json();
+      }, forceRefresh);
       
       if (data.error_code === 'INSUFFICIENT_PERMISSIONS' || 
           (data.error && data.error.includes('re-authentication'))) {
@@ -894,15 +893,17 @@ const DashboardPage = () => {
     } finally {
       setCardLoading(prev => ({ ...prev, inventory: false }));
     }
-  }, [retryWithBackoff, navigate]);
+  }, [retryWithBackoff, navigate, getCachedOrFetch]);
 
-  const fetchNewProductsData = useCallback(async () => {
+  const fetchNewProductsData = useCallback(async (forceRefresh = false) => {
     setCardLoading(prev => ({ ...prev, newProducts: true }));
     setCardErrors(prev => ({ ...prev, newProducts: null }));
     
     try {
-      const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/new_products'));
-      const data = await response.json();
+      const data = await getCachedOrFetch('newProducts', async () => {
+        const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/new_products'));
+        return await response.json();
+      }, forceRefresh);
       
       if (data.error_code === 'INSUFFICIENT_PERMISSIONS' || 
           (data.error && data.error.includes('re-authentication'))) {
@@ -926,16 +927,17 @@ const DashboardPage = () => {
     } finally {
       setCardLoading(prev => ({ ...prev, newProducts: false }));
     }
-  }, [retryWithBackoff, navigate]);
+  }, [retryWithBackoff, navigate, getCachedOrFetch]);
 
-  const fetchInsightsData = useCallback(async () => {
+  const fetchInsightsData = useCallback(async (forceRefresh = false) => {
     setCardLoading(prev => ({ ...prev, insights: true }));
     setCardErrors(prev => ({ ...prev, insights: null }));
     
     try {
-      // Use the new conversion endpoint that provides better data
-      const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/conversion'));
-      const data = await response.json();
+      const data = await getCachedOrFetch('insights', async () => {
+        const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/conversion'));
+        return await response.json();
+      }, forceRefresh);
       
       if (data.error_code === 'INSUFFICIENT_PERMISSIONS' || 
           (data.error && data.error.includes('re-authentication'))) {
@@ -972,15 +974,17 @@ const DashboardPage = () => {
     } finally {
       setCardLoading(prev => ({ ...prev, insights: false }));
     }
-  }, [retryWithBackoff, navigate]);
+  }, [retryWithBackoff, navigate, getCachedOrFetch]);
 
-  const fetchAbandonedCartsData = useCallback(async () => {
+  const fetchAbandonedCartsData = useCallback(async (forceRefresh = false) => {
     setCardLoading(prev => ({ ...prev, abandonedCarts: true }));
     setCardErrors(prev => ({ ...prev, abandonedCarts: null }));
     
     try {
-      const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/abandoned_carts'));
-      const data = await response.json();
+      const data = await getCachedOrFetch('abandonedCarts', async () => {
+        const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/abandoned_carts'));
+        return await response.json();
+      }, forceRefresh);
       
       if (data.error_code === 'INSUFFICIENT_PERMISSIONS' || 
           (data.error && data.error.includes('re-authentication'))) {
@@ -1024,19 +1028,67 @@ const DashboardPage = () => {
     } finally {
       setCardLoading(prev => ({ ...prev, abandonedCarts: false }));
     }
-  }, [retryWithBackoff]);
+  }, [retryWithBackoff, getCachedOrFetch]);
 
-  const fetchOrdersData = useCallback(async () => {
+  const fetchOrdersData = useCallback(async (forceRefresh = false) => {
     setCardLoading(prev => ({ ...prev, orders: true }));
     setCardErrors(prev => ({ ...prev, orders: null }));
     
     try {
-      // Fetch orders sequentially to avoid overwhelming the API
-      const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/orders/timeseries?page=1&limit=50'));
-      const data = await response.json();
+      const data = await getCachedOrFetch('orders', async () => {
+        // Fetch orders sequentially to avoid overwhelming the API
+        const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/orders/timeseries?page=1&limit=50'));
+        const initialData = await response.json();
+        
+        console.log('Orders API response:', initialData);
+        
+        if (initialData.error_code === 'INSUFFICIENT_PERMISSIONS' || 
+            (initialData.error && initialData.error.includes('re-authentication'))) {
+          return initialData; // Return error data to be handled outside
+        }
+        
+        if (initialData.error_code === 'API_ACCESS_LIMITED' || 
+            initialData.error_code === 'INSUFFICIENT_PERMISSIONS') {
+          return initialData; // Return error data to be handled outside
+        }
+        
+        let allOrders = initialData.timeseries || [];
+        console.log('Initial orders from API:', allOrders.length, allOrders);
+        
+        // Only fetch additional pages if first page worked and we have more data
+        if (!initialData.rate_limited && initialData.has_more) {
+          try {
+            // Fetch additional pages with delays to avoid rate limiting
+            for (let page = 2; page <= 5; page++) {
+              await new Promise(resolve => setTimeout(resolve, 500)); // 500ms delay between pages
+              const additionalResponse = await fetchWithAuth(`/api/analytics/orders/timeseries?page=${page}&limit=50`);
+              const additionalData = await additionalResponse.json();
+              
+              if (additionalData.timeseries) {
+                allOrders = [...allOrders, ...additionalData.timeseries];
+                console.log(`Page ${page} orders:`, additionalData.timeseries.length);
+              }
+              
+              if (!additionalData.has_more) break;
+            }
+          } catch (err) {
+            console.warn('Error fetching additional order pages:', err);
+          }
+        }
+        
+        // Sort orders by date
+        allOrders.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        console.log('Final processed orders:', allOrders.length, allOrders.slice(0, 3));
+        
+        return {
+          ...initialData,
+          timeseries: allOrders,
+          orders: allOrders,
+          recentOrders: allOrders.slice(0, 5)
+        };
+      }, forceRefresh);
       
-      console.log('Orders API response:', data);
-      
+      // Handle error cases
       if (data.error_code === 'INSUFFICIENT_PERMISSIONS' || 
           (data.error && data.error.includes('re-authentication'))) {
         setCardErrors(prev => ({ ...prev, orders: 'Permission denied – please re-authenticate with Shopify' }));
@@ -1064,39 +1116,11 @@ const DashboardPage = () => {
         return;
       }
       
-      let allOrders = data.timeseries || [];
-      console.log('Initial orders from API:', allOrders.length, allOrders);
-      
-      // Only fetch additional pages if first page worked and we have more data
-      if (!data.rate_limited && data.has_more) {
-        try {
-          // Fetch additional pages with delays to avoid rate limiting
-          for (let page = 2; page <= 5; page++) {
-            await new Promise(resolve => setTimeout(resolve, 500)); // 500ms delay between pages
-            const additionalResponse = await fetchWithAuth(`/api/analytics/orders/timeseries?page=${page}&limit=50`);
-            const additionalData = await additionalResponse.json();
-            
-            if (additionalData.timeseries) {
-              allOrders = [...allOrders, ...additionalData.timeseries];
-              console.log(`Page ${page} orders:`, additionalData.timeseries.length);
-            }
-            
-            if (!additionalData.has_more) break;
-          }
-        } catch (err) {
-          console.warn('Error fetching additional order pages:', err);
-        }
-      }
-      
-      // Sort orders by date
-      allOrders.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      console.log('Final processed orders:', allOrders.length, allOrders.slice(0, 3));
-      
       setInsights(prev => {
         const newState = {
           ...prev!,
-          orders: data.rate_limited ? [] : allOrders,
-          recentOrders: data.rate_limited ? [] : allOrders.slice(0, 5)
+          orders: data.rate_limited ? [] : (data.orders || data.timeseries || []),
+          recentOrders: data.rate_limited ? [] : (data.recentOrders || (data.timeseries || []).slice(0, 5))
         };
         console.log('Updated insights state:', newState);
         return newState;
@@ -1115,7 +1139,7 @@ const DashboardPage = () => {
     } finally {
       setCardLoading(prev => ({ ...prev, orders: false }));
     }
-  }, [retryWithBackoff]);
+  }, [retryWithBackoff, getCachedOrFetch]);
 
   // Initialize dashboard with basic structure
   useEffect(() => {
@@ -1193,9 +1217,7 @@ const DashboardPage = () => {
 
   // Auto-fetch all dashboard data on initial load
   useEffect(() => {
-    console.log('Dashboard useEffect triggered - shop:', shop);
     if (shop && shop.trim() !== '') {
-      console.log('Triggering all data fetches for shop:', shop);
       // Trigger data fetches for all cards
       fetchRevenueData();
       fetchProductsData();
@@ -1204,8 +1226,6 @@ const DashboardPage = () => {
       fetchInsightsData();
       fetchOrdersData();
       fetchAbandonedCartsData();
-    } else {
-      console.log('Shop not available or empty, skipping data fetch');
     }
   }, [shop, fetchRevenueData, fetchProductsData, fetchInventoryData, fetchNewProductsData, fetchInsightsData, fetchOrdersData, fetchAbandonedCartsData]);
 
@@ -1276,12 +1296,12 @@ const DashboardPage = () => {
       // Trigger fresh data fetches for all cards
       await Promise.all([
         fetchRevenueData(true),
-        fetchProductsData(),
-        fetchInventoryData(),
-        fetchNewProductsData(),
-        fetchInsightsData(),
-        fetchOrdersData(),
-        fetchAbandonedCartsData()
+        fetchProductsData(true),
+        fetchInventoryData(true),
+        fetchNewProductsData(true),
+        fetchInsightsData(true),
+        fetchOrdersData(true),
+        fetchAbandonedCartsData(true)
       ]);
       
       setIsRefreshing(false);

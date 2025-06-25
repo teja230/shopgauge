@@ -65,8 +65,20 @@ const RedirectHandler: React.FC = () => {
     
     if (redirectPath && redirectPath !== '/index.html') {
       console.log('RedirectHandler: Processing redirect to:', redirectPath);
-      // Remove the redirect parameter and navigate to the intended path
-      navigate(redirectPath, { replace: true });
+      
+      // Define valid routes that should be redirected to
+      const validRoutes = ['/dashboard', '/competitors', '/admin', '/profile', '/privacy-policy'];
+      
+      // Check if the redirect path is a valid route
+      if (validRoutes.includes(redirectPath)) {
+        // Remove the redirect parameter and navigate to the intended path
+        navigate(redirectPath, { replace: true });
+      } else {
+        // Invalid route - remove redirect parameter and let the app handle it normally
+        // This will cause the catch-all route (*) to show the 404 page
+        console.log('RedirectHandler: Invalid route, removing redirect parameter:', redirectPath);
+        navigate(location.pathname, { replace: true });
+      }
     }
   }, [navigate, location, authLoading]);
 

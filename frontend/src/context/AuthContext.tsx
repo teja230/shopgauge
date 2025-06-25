@@ -30,6 +30,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         withCredentials: true
       });
       if (response.data.shop) {
+        // If shop has changed, clear the cache
+        if (shop && shop !== response.data.shop) {
+          sessionStorage.removeItem('dashboard_cache_v1.1');
+        }
         setShop(response.data.shop);
         setIsAuthenticated(true);
       }
@@ -37,6 +41,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Auth check failed:', error);
       setIsAuthenticated(false);
       setShop(null);
+      // Clear cache on auth failure
+      sessionStorage.removeItem('dashboard_cache_v1.1');
     }
   };
 
@@ -45,10 +51,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await axios.post(`${API_BASE_URL}/api/auth/shopify/profile/disconnect`, {}, {
         withCredentials: true
       });
+      
+      // Clear dashboard cache on logout
+      sessionStorage.removeItem('dashboard_cache_v1.1');
+      
       setIsAuthenticated(false);
       setShop(null);
     } catch (error) {
       console.error('Logout failed:', error);
+      
+      // Clear cache even if logout API fails
+      sessionStorage.removeItem('dashboard_cache_v1.1');
+      setIsAuthenticated(false);
+      setShop(null);
     }
   };
 
