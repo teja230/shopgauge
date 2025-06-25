@@ -1445,8 +1445,8 @@ const AdminPage: React.FC = () => {
             </>
           )}
 
-          {/* Audit Logs Table - Now shown for all types */}
-          {true && (
+          {/* Audit Logs Table - Only shown for 'all' type */}
+          {auditLogType === 'all' && (
             <>
               {auditLoading ? (
                 <Box sx={{ 
