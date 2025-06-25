@@ -13,9 +13,10 @@ import toast from 'react-hot-toast';
 import { useNotifications } from '../hooks/useNotifications';
 
 // Cache configuration - Enterprise-grade settings
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
+const CACHE_DURATION = 120 * 60 * 1000; // 120 minutes in milliseconds (increased from 5 minutes)
 const CACHE_KEY = 'dashboard_cache_v2'; // Version to force cache refresh if needed
 const CACHE_VERSION = '1.0.0';
+const REFRESH_DEBOUNCE_MS = 2000; // 2 seconds debounce for refresh button
 
 interface CacheEntry<T> {
   data: T;
@@ -592,6 +593,8 @@ const DashboardPage = () => {
   const [lastGlobalUpdate, setLastGlobalUpdate] = useState<Date | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [lastRefreshTime, setLastRefreshTime] = useState<number>(0); // Track last refresh time for debouncing
+  const [debounceCountdown, setDebounceCountdown] = useState<number>(0); // Real-time countdown for debounce
 
   // Save cache to sessionStorage whenever it changes
   useEffect(() => {
@@ -1300,11 +1303,19 @@ const DashboardPage = () => {
     }, 100); // 100ms delay
   }, [isRefreshing, fetchRevenueData, fetchProductsData, fetchInventoryData, fetchNewProductsData, fetchInsightsData, fetchOrdersData, fetchAbandonedCartsData]);
 
-  // Manual refresh function
+  // Manual refresh function with debounce protection
   const handleRefreshAll = useCallback(async () => {
-    if (isRefreshing) return;
+    const now = Date.now();
     
+    // Check if we're already refreshing or if debounce period hasn't passed
+    if (isRefreshing || (now - lastRefreshTime) < REFRESH_DEBOUNCE_MS) {
+      console.log('Refresh blocked - already refreshing or debounce period active');
+      return;
+    }
+    
+    setLastRefreshTime(now);
     setIsRefreshing(true);
+    
     try {
       // Clear cache from both state and sessionStorage to force fresh data
       const freshCache = invalidateCache();
@@ -1350,7 +1361,7 @@ const DashboardPage = () => {
       console.error('Error refreshing dashboard:', error);
       setIsRefreshing(false);
     }
-  }, [isRefreshing, fetchRevenueData, fetchProductsData, fetchInventoryData, fetchNewProductsData, fetchInsightsData, fetchOrdersData, fetchAbandonedCartsData]);
+  }, [isRefreshing, lastRefreshTime, fetchRevenueData, fetchProductsData, fetchInventoryData, fetchNewProductsData, fetchInsightsData, fetchOrdersData, fetchAbandonedCartsData]);
 
   // Debug logging for orders
   useEffect(() => {
@@ -1385,6 +1396,25 @@ const DashboardPage = () => {
       setHasRateLimit(false);
     };
   }, []);
+
+  // Real-time countdown for debounce timer
+  useEffect(() => {
+    if (lastRefreshTime === 0) return;
+
+    const interval = setInterval(() => {
+      const timeSinceRefresh = Date.now() - lastRefreshTime;
+      const remainingTime = Math.max(0, REFRESH_DEBOUNCE_MS - timeSinceRefresh);
+      
+      if (remainingTime <= 0) {
+        setDebounceCountdown(0);
+        clearInterval(interval);
+      } else {
+        setDebounceCountdown(remainingTime);
+      }
+    }, 100);
+
+    return () => clearInterval(interval);
+  }, [lastRefreshTime]);
 
   if (loading) {
     return (
@@ -1756,11 +1786,23 @@ const DashboardPage = () => {
             <RefreshButton
               variant="outlined"
               size="small"
-              disabled={isRefreshing}
+              disabled={isRefreshing || debounceCountdown > 0}
               onClick={handleRefreshAll}
               startIcon={isRefreshing ? <CircularProgress size={16} /> : <Refresh />}
+              title={
+                isRefreshing 
+                  ? 'Updating dashboard data...' 
+                  : debounceCountdown > 0
+                    ? `Please wait ${Math.ceil(debounceCountdown / 1000)}s before refreshing again`
+                    : 'Refresh all dashboard data'
+              }
             >
-              {isRefreshing ? 'Updating...' : 'Refresh Data'}
+              {isRefreshing 
+                ? 'Updating...' 
+                : debounceCountdown > 0
+                  ? `Wait ${Math.ceil(debounceCountdown / 1000)}s`
+                  : 'Refresh Data'
+              }
             </RefreshButton>
           </Box>
         </Box>

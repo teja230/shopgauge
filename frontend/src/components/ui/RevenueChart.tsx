@@ -4,6 +4,7 @@ import {
   LineChart,
   AreaChart,
   BarChart,
+  ComposedChart,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -11,6 +12,7 @@ import {
   Line,
   Area,
   Bar,
+  ReferenceLine,
 } from 'recharts';
 import {
   Box,
@@ -19,12 +21,18 @@ import {
   Paper,
   Typography,
   Chip,
+  ToggleButton,
+  ToggleButtonGroup,
 } from '@mui/material';
 import {
   TrendingUp,
   BarChart as BarChartIcon,
   ShowChart,
   Timeline,
+  CandlestickChart,
+  WaterfallChart,
+  StackedLineChart,
+  Analytics,
 } from '@mui/icons-material';
 
 interface RevenueData {
@@ -39,7 +47,7 @@ interface RevenueChartProps {
   height?: number;
 }
 
-type ChartType = 'line' | 'area' | 'bar';
+type ChartType = 'line' | 'area' | 'bar' | 'candlestick' | 'waterfall' | 'stacked' | 'composed';
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
@@ -60,19 +68,21 @@ const CustomTooltip = ({ active, payload, label }: any) => {
             day: 'numeric',
           })}
         </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Box
-            sx={{
-              width: 12,
-              height: 12,
-              borderRadius: '50%',
-              backgroundColor: payload[0].color,
-            }}
-          />
-          <Typography variant="body2" fontWeight={600}>
-            Revenue: ${payload[0].value?.toLocaleString()}
-          </Typography>
-        </Box>
+        {payload.map((entry: any, index: number) => (
+          <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+            <Box
+              sx={{
+                width: 12,
+                height: 12,
+                borderRadius: '50%',
+                backgroundColor: entry.color,
+              }}
+            />
+            <Typography variant="body2" fontWeight={600}>
+              {entry.name}: ${entry.value?.toLocaleString()}
+            </Typography>
+          </Box>
+        ))}
       </Paper>
     );
   }
@@ -109,16 +119,43 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
       icon: <ShowChart />,
       label: 'Line',
       color: '#2563eb',
+      description: 'Simple trend line',
     },
     area: {
       icon: <Timeline />,
       label: 'Area',
       color: '#2563eb',
+      description: 'Filled trend area',
     },
     bar: {
       icon: <BarChartIcon />,
       label: 'Bar',
       color: '#2563eb',
+      description: 'Daily revenue bars',
+    },
+    candlestick: {
+      icon: <CandlestickChart />,
+      label: 'Candlestick',
+      color: '#10b981',
+      description: 'High/low patterns',
+    },
+    waterfall: {
+      icon: <WaterfallChart />,
+      label: 'Waterfall',
+      color: '#f59e0b',
+      description: 'Cumulative growth',
+    },
+    stacked: {
+      icon: <StackedLineChart />,
+      label: 'Stacked',
+      color: '#8b5cf6',
+      description: 'Multi-series view',
+    },
+    composed: {
+      icon: <Analytics />,
+      label: 'Composed',
+      color: '#ef4444',
+      description: 'Combined metrics',
     },
   };
 
@@ -132,10 +169,36 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
   const totalRevenue = data?.reduce((sum, item) => sum + (Number(item.total_price) || 0), 0) || 0;
   const averageRevenue = data?.length && totalRevenue > 0 ? totalRevenue / data.length : 0;
   const maxRevenue = data?.length ? Math.max(...data.map(item => Number(item.total_price) || 0)) : 0;
+  const minRevenue = data?.length ? Math.min(...data.map(item => Number(item.total_price) || 0)) : 0;
+
+  // Enhanced data processing for different chart types
+  const processedData = React.useMemo(() => {
+    if (!data || data.length === 0) return [];
+
+    return data.map((item, index) => {
+      const revenue = Number(item.total_price) || 0;
+      const prevRevenue = index > 0 ? Number(data[index - 1].total_price) || 0 : 0;
+      const change = revenue - prevRevenue;
+      const cumulative = index === 0 ? revenue : data.slice(0, index + 1).reduce((sum, d) => sum + (Number(d.total_price) || 0), 0);
+      
+      return {
+        ...item,
+        total_price: revenue,
+        change,
+        cumulative,
+        high: revenue,
+        low: revenue,
+        open: prevRevenue,
+        close: revenue,
+        positive: change >= 0,
+        negative: change < 0,
+      };
+    });
+  }, [data]);
 
   const renderChart = () => {
     const commonProps = {
-      data,
+      data: processedData,
       margin: { top: 20, right: 30, left: 20, bottom: 20 },
     };
 
@@ -247,6 +310,120 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
           </BarChart>
         );
 
+      case 'candlestick':
+        return (
+          <ComposedChart {...commonProps}>
+            {commonGrid}
+            {commonXAxis}
+            {commonYAxis}
+            {commonTooltip}
+            <Bar
+              dataKey="total_price"
+              fill="#10b981"
+              radius={[2, 2, 0, 0]}
+              opacity={0.8}
+            />
+            <Line
+              type="monotone"
+              dataKey="total_price"
+              stroke="#6b7280"
+              strokeWidth={1}
+              dot={false}
+            />
+          </ComposedChart>
+        );
+
+      case 'waterfall':
+        return (
+          <ComposedChart {...commonProps}>
+            {commonGrid}
+            {commonXAxis}
+            {commonYAxis}
+            {commonTooltip}
+            <Bar
+              dataKey="change"
+              fill="#10b981"
+              radius={[2, 2, 0, 0]}
+              opacity={0.8}
+            />
+            <Line
+              type="monotone"
+              dataKey="cumulative"
+              stroke="#f59e0b"
+              strokeWidth={2}
+              dot={{
+                fill: '#f59e0b',
+                strokeWidth: 2,
+                r: 3,
+              }}
+            />
+          </ComposedChart>
+        );
+
+      case 'stacked':
+        return (
+          <AreaChart {...commonProps}>
+            <defs>
+              <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={chartTypeConfig.stacked.color} stopOpacity={0.3} />
+                <stop offset="95%" stopColor={chartTypeConfig.stacked.color} stopOpacity={0.05} />
+              </linearGradient>
+              <linearGradient id="changeGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
+                <stop offset="95%" stopColor="#10b981" stopOpacity={0.05} />
+              </linearGradient>
+            </defs>
+            {commonGrid}
+            {commonXAxis}
+            {commonYAxis}
+            {commonTooltip}
+            <Area
+              type="monotone"
+              dataKey="total_price"
+              stroke={chartTypeConfig.stacked.color}
+              strokeWidth={2}
+              fill="url(#revenueGradient)"
+              stackId="1"
+            />
+            <Area
+              type="monotone"
+              dataKey="change"
+              stroke="#10b981"
+              strokeWidth={1}
+              fill="url(#changeGradient)"
+              stackId="2"
+            />
+          </AreaChart>
+        );
+
+      case 'composed':
+        return (
+          <ComposedChart {...commonProps}>
+            {commonGrid}
+            {commonXAxis}
+            {commonYAxis}
+            {commonTooltip}
+            <Bar
+              dataKey="total_price"
+              fill={chartTypeConfig.composed.color}
+              radius={[2, 2, 0, 0]}
+              opacity={0.6}
+            />
+            <Line
+              type="monotone"
+              dataKey="total_price"
+              stroke="#2563eb"
+              strokeWidth={2}
+              dot={{
+                fill: '#2563eb',
+                strokeWidth: 2,
+                r: 3,
+              }}
+            />
+            <ReferenceLine y={averageRevenue} stroke="#6b7280" strokeDasharray="3 3" />
+          </ComposedChart>
+        );
+
       default:
         return <div />;
     }
@@ -353,28 +530,50 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
         </Box>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          {/* Chart Type Selector */}
-          <ButtonGroup size="small" variant="outlined">
+          {/* Enhanced Chart Type Selector */}
+          <ToggleButtonGroup
+            value={chartType}
+            exclusive
+            onChange={(_, newType) => newType && setChartType(newType)}
+            size="small"
+            sx={{
+              '& .MuiToggleButton-root': {
+                px: 2,
+                py: 1,
+                fontSize: '0.75rem',
+                textTransform: 'none',
+                fontWeight: 500,
+              },
+            }}
+          >
             {(Object.keys(chartTypeConfig) as ChartType[]).map((type) => (
-              <Button
+              <ToggleButton
                 key={type}
-                onClick={() => setChartType(type)}
-                variant={chartType === type ? 'contained' : 'outlined'}
-                startIcon={chartTypeConfig[type].icon}
-                sx={{ minWidth: 'auto', px: 2 }}
+                value={type}
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 0.5,
+                  minWidth: 'auto',
+                }}
+                title={chartTypeConfig[type].description}
               >
-                {chartTypeConfig[type].label}
-              </Button>
+                {chartTypeConfig[type].icon}
+                <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>
+                  {chartTypeConfig[type].label}
+                </Typography>
+              </ToggleButton>
             ))}
-          </ButtonGroup>
+          </ToggleButtonGroup>
         </Box>
       </Box>
 
-      {/* Revenue Summary Stats */}
+      {/* Enhanced Revenue Summary Stats */}
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr 1fr' },
+          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr 1fr' },
           gap: 2,
           mb: 3,
         }}
@@ -427,6 +626,23 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
           </Typography>
           <Typography variant="h6" sx={{ color: 'rgb(245, 158, 11)' }} fontWeight={600}>
             ${isNaN(maxRevenue) ? '0' : maxRevenue.toLocaleString()}
+          </Typography>
+        </Paper>
+
+        <Paper
+          elevation={0}
+          sx={{
+            p: 2,
+            backgroundColor: 'rgba(139, 92, 246, 0.05)',
+            border: '1px solid rgba(139, 92, 246, 0.1)',
+            borderRadius: 2,
+          }}
+        >
+          <Typography variant="body2" color="text.secondary" gutterBottom>
+            Range
+          </Typography>
+          <Typography variant="h6" sx={{ color: 'rgb(139, 92, 246)' }} fontWeight={600}>
+            ${isNaN(maxRevenue - minRevenue) ? '0' : (maxRevenue - minRevenue).toLocaleString()}
           </Typography>
         </Paper>
       </Box>

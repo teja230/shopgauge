@@ -15,6 +15,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import theme from './theme';
+import IntelligentLoadingScreen from './components/ui/IntelligentLoadingScreen';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, authLoading } = useAuth();
@@ -115,15 +116,7 @@ const AppContent: React.FC = () => {
 
   // Show global loading state only during initial load
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-white">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500 mx-auto mb-4"></div>
-          <h2 className="text-xl font-semibold text-blue-900 mb-2">Loading ShopGauge...</h2>
-          <p className="text-blue-700">Please wait while we set up your dashboard.</p>
-        </div>
-      </div>
-    );
+    return <IntelligentLoadingScreen />;
   }
   
   return (

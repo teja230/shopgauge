@@ -27,10 +27,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [shop, setShop] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
 
   useEffect(() => {
-    checkAuth();
-  }, []);
+    // Only show global loading on first app load
+    if (!hasInitiallyLoaded) {
+      checkAuth();
+    }
+  }, [hasInitiallyLoaded]);
 
   const checkAuth = async () => {
     try {
@@ -41,6 +45,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // If shop has changed, clear the cache
         if (shop && shop !== response.data.shop) {
           sessionStorage.removeItem('dashboard_cache_v1.1');
+          sessionStorage.removeItem('dashboard_cache_v2');
         }
         setShop(response.data.shop);
         setIsAuthenticated(true);
@@ -54,9 +59,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setShop(null);
       // Clear cache on auth failure
       sessionStorage.removeItem('dashboard_cache_v1.1');
+      sessionStorage.removeItem('dashboard_cache_v2');
     } finally {
       setAuthLoading(false);
-      setLoading(false);
+      // Only set loading to false after initial load
+      if (!hasInitiallyLoaded) {
+        // Add a small delay to show the loading animation
+        setTimeout(() => {
+          setLoading(false);
+          setHasInitiallyLoaded(true);
+        }, 1500); // 1.5 second minimum loading time for better UX
+      }
     }
   };
 
