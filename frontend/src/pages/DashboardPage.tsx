@@ -12,6 +12,7 @@ import { format } from 'date-fns';
 
 // Cache configuration
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
+const CACHE_KEY = 'dashboard_cache';
 
 interface CacheEntry<T> {
   data: T;
@@ -28,6 +29,34 @@ interface DashboardCache {
   orders?: CacheEntry<{ orders: any[]; recentOrders: any[] }>;
   insights?: CacheEntry<{ conversionRate?: number; conversionRateDelta?: number }>;
 }
+
+// Helper functions for sessionStorage cache management
+const loadCacheFromStorage = (): DashboardCache => {
+  try {
+    const stored = sessionStorage.getItem(CACHE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      // Convert date strings back to Date objects
+      Object.keys(parsed).forEach(key => {
+        if (parsed[key]?.lastUpdated) {
+          parsed[key].lastUpdated = new Date(parsed[key].lastUpdated);
+        }
+      });
+      return parsed;
+    }
+  } catch (error) {
+    console.warn('Failed to load cache from storage:', error);
+  }
+  return {};
+};
+
+const saveCacheToStorage = (cache: DashboardCache) => {
+  try {
+    sessionStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+  } catch (error) {
+    console.warn('Failed to save cache to storage:', error);
+  }
+};
 
 // Modern, elegant, and professional dashboard UI improvements
 const DashboardContainer = styled(Box)(({ theme }) => ({
@@ -522,10 +551,15 @@ const DashboardPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [hasRateLimit, setHasRateLimit] = useState(false);
   
-  // Cache state management
-  const [cache, setCache] = useState<DashboardCache>({});
+  // Cache state management using sessionStorage for persistence across navigation
+  const [cache, setCache] = useState<DashboardCache>(() => loadCacheFromStorage());
   const [lastGlobalUpdate, setLastGlobalUpdate] = useState<Date | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Save cache to sessionStorage whenever it changes
+  useEffect(() => {
+    saveCacheToStorage(cache);
+  }, [cache]);
   
   // Individual card loading states
   const [cardLoading, setCardLoading] = useState<CardLoadingState>({
@@ -590,8 +624,9 @@ const DashboardPage = () => {
     
     setIsRefreshing(true);
     try {
-      // Clear cache to force fresh data
+      // Clear cache from both state and sessionStorage to force fresh data
       setCache({});
+      sessionStorage.removeItem(CACHE_KEY);
       
       // Set all cards to loading state
       setCardLoading({
@@ -615,10 +650,14 @@ const DashboardPage = () => {
         abandonedCarts: null
       });
       
-      console.log('Dashboard refresh initiated');
+      console.log('Dashboard refresh initiated - cache cleared');
+      
+      // Wait a moment then trigger data reload
+      setTimeout(() => {
+        setIsRefreshing(false);
+      }, 500);
     } catch (error) {
       console.error('Error refreshing dashboard:', error);
-    } finally {
       setIsRefreshing(false);
     }
   }, [isRefreshing]);
@@ -1252,37 +1291,6 @@ const DashboardPage = () => {
 
   return (
     <DashboardContainer>
-      {/* Dashboard Header with Refresh */}
-      <DashboardHeader>
-        <HeaderContent>
-          <HeaderIcon />
-          <Box>
-            <HeaderTitle>Store Analytics Dashboard</HeaderTitle>
-            <HeaderSubtitle>
-              <ShopLink href={`https://${shop}`} target="_blank" rel="noopener noreferrer">
-                {shop}
-                <OpenInNew fontSize="inherit" />
-              </ShopLink>
-            </HeaderSubtitle>
-          </Box>
-        </HeaderContent>
-        <HeaderActions>
-          <Box sx={{ textAlign: 'right', mr: 2 }}>
-            <LastUpdatedText>
-              Last updated: {getLastUpdatedText()}
-            </LastUpdatedText>
-          </Box>
-          <RefreshButton
-            variant="outlined"
-            disabled={isRefreshing}
-            onClick={handleRefreshAll}
-            startIcon={isRefreshing ? <CircularProgress size={16} /> : <Refresh />}
-          >
-            {isRefreshing ? 'Updating...' : 'Refresh Data'}
-          </RefreshButton>
-        </HeaderActions>
-      </DashboardHeader>
-      
       <Box 
         sx={{ 
           display: 'flex', 
@@ -1584,15 +1592,43 @@ const DashboardPage = () => {
           />
         </Box>
 
-        <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', mt: 2 }}>
-          {insights ? (
-            hasRateLimit ? 
-              '⚠️ Some data temporarily unavailable due to API rate limits. Refreshing automatically...' : 
-              '✅ Dashboard updated with latest available data'
-          ) : 'Loading your store analytics...'}
-        </Typography>
+        {/* Dashboard Status and Refresh Controls */}
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            flexDirection: { xs: 'column', sm: 'row' },
+            justifyContent: 'space-between',
+            alignItems: { xs: 'center', sm: 'center' },
+            mt: 3,
+            pt: 2,
+            borderTop: '1px solid',
+            borderColor: 'divider',
+            gap: 2
+          }}
+        >
+          <Typography variant="body2" color="text.secondary" sx={{ textAlign: { xs: 'center', sm: 'left' } }}>
+            {insights ? (
+              hasRateLimit ? 
+                '⚠️ Some data temporarily unavailable due to API rate limits. Refreshing automatically...' : 
+                '✅ Dashboard updated with latest available data'
+            ) : 'Loading your store analytics...'}
+          </Typography>
 
-        {/* Debug helpers removed for production */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
+            <LastUpdatedText>
+              Last updated: {getLastUpdatedText()}
+            </LastUpdatedText>
+            <RefreshButton
+              variant="outlined"
+              size="small"
+              disabled={isRefreshing}
+              onClick={handleRefreshAll}
+              startIcon={isRefreshing ? <CircularProgress size={16} /> : <Refresh />}
+            >
+              {isRefreshing ? 'Updating...' : 'Refresh Data'}
+            </RefreshButton>
+          </Box>
+        </Box>
 
 
       </Box>
