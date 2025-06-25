@@ -356,7 +356,8 @@ public class ShopifyAuthController {
         // For production, set domain to allow sharing between subdomains
         shopCookie.setSecure(true);
         shopCookie.setDomain(".shopgaugeai.com");
-        logger.info("Production environment detected - using secure cookies with .shopgaugeai.com domain");
+        logger.info(
+            "Production environment detected - using secure cookies with .shopgaugeai.com domain");
       } else {
         // Development environment - localhost doesn't need domain
         shopCookie.setSecure(false); // HTTP allowed in development
