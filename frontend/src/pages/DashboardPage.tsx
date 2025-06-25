@@ -593,13 +593,27 @@ const DashboardPage = () => {
       // Clear cache to force fresh data
       setCache({});
       
-      // Trigger a re-fetch of all data
-      handleCardLoad('revenue');
-      handleCardLoad('products');
-      handleCardLoad('inventory');
-      handleCardLoad('newProducts');
-      handleCardLoad('abandonedCarts');
-      handleCardLoad('orders');
+      // Set all cards to loading state
+      setCardLoading({
+        revenue: true,
+        products: true,
+        inventory: true,
+        newProducts: true,
+        insights: true,
+        orders: true,
+        abandonedCarts: true
+      });
+      
+      // Clear any previous errors
+      setCardErrors({
+        revenue: null,
+        products: null,
+        inventory: null,
+        newProducts: null,
+        insights: null,
+        orders: null,
+        abandonedCarts: null
+      });
       
       console.log('Dashboard refresh initiated');
     } catch (error) {
@@ -711,27 +725,42 @@ const DashboardPage = () => {
         // Silently handle limited access - show 0 data without error message
         setInsights(prev => ({
           ...prev!,
-          totalRevenue: 0
+          totalRevenue: 0,
+          timeseries: []
         }));
         return;
       }
       
       if (data.error_code === 'USING_TEST_DATA') {
         // Handle test data - show the data without error messages
+        console.log('Using test revenue data:', data);
         setInsights(prev => ({
           ...prev!,
-          totalRevenue: data.revenue || 0
+          totalRevenue: data.totalRevenue || data.revenue || 0,
+          timeseries: data.timeseries || []
         }));
         return;
       }
 
+      // Handle successful data response
       let timeseriesData = data.timeseries || [];
-      // If API didn't return timeseries, fetch separately
-      if (!timeseriesData.length) {
+      const totalRevenue = data.totalRevenue || data.revenue || 0;
+      
+      console.log('Revenue API response:', {
+        totalRevenue,
+        timeseriesLength: timeseriesData.length,
+        periodDays: data.period_days,
+        ordersCount: data.orders_count
+      });
+      
+      // If API didn't return timeseries but we have revenue, try to fetch timeseries separately
+      if (!timeseriesData.length && totalRevenue > 0) {
         try {
+          console.log('Fetching timeseries data separately...');
           const tsResp = await retryWithBackoff(() => fetchWithAuth('/api/analytics/revenue/timeseries'));
           const tsJson = await tsResp.json();
           timeseriesData = tsJson.timeseries || [];
+          console.log('Separate timeseries fetch result:', timeseriesData.length, 'data points');
         } catch (err) {
           console.warn('Failed to fetch revenue timeseries', err);
         }
@@ -739,14 +768,21 @@ const DashboardPage = () => {
       
       setInsights(prev => ({
         ...prev!,
-        totalRevenue: data.rate_limited ? 0 : (data.totalRevenue || data.revenue || 0),
+        totalRevenue: data.rate_limited ? 0 : totalRevenue,
         timeseries: data.rate_limited ? [] : timeseriesData
       }));
       
       if (data.rate_limited) {
         setHasRateLimit(true);
       }
+      
+      console.log('Updated insights with revenue data:', {
+        totalRevenue: data.rate_limited ? 0 : totalRevenue,
+        timeseriesPoints: data.rate_limited ? 0 : timeseriesData.length
+      });
+      
     } catch (error: any) {
+      console.error('Revenue data fetch error:', error);
       if (error.message === 'PERMISSION_ERROR') {
         setCardErrors(prev => ({ ...prev, revenue: 'Permission denied – please re-authenticate with Shopify' }));
         return;
@@ -755,7 +791,7 @@ const DashboardPage = () => {
     } finally {
       setCardLoading(prev => ({ ...prev, revenue: false }));
     }
-  }, [retryWithBackoff]);
+  }, [retryWithBackoff, getCachedOrFetch]);
 
   const fetchProductsData = useCallback(async () => {
     setCardLoading(prev => ({ ...prev, products: true }));
@@ -1071,37 +1107,46 @@ const DashboardPage = () => {
       setLoading(true);
       setError(null);
       
-      // Only initialize if insights is null (first load) or if shop changed
-      setInsights(prev => {
-        if (prev === null) {
-          return {
-            totalRevenue: 0,
-            newProducts: 0,
-            abandonedCarts: 0,
-            lowInventory: 0,
-            topProducts: [],
-            orders: [],
-            recentOrders: [],
-            timeseries: [],
-            conversionRate: 0,
-            conversionRateDelta: 0,
-            abandonedCartCount: 0
-          };
-        }
-        return prev; // Keep existing data if shop hasn't changed
+      // Initialize insights with default data to prevent "failed to load" states
+      setInsights({
+        totalRevenue: 0,
+        newProducts: 0,
+        abandonedCarts: 0,
+        lowInventory: 0,
+        topProducts: [],
+        orders: [],
+        recentOrders: [],
+        timeseries: [],
+        conversionRate: 0,
+        conversionRateDelta: 0,
+        abandonedCartCount: 0
+      });
+      
+      // Set initial loading states for all cards to show proper loading experience
+      setCardLoading({
+        revenue: true,
+        products: true,
+        inventory: true,
+        newProducts: true,
+        insights: true,
+        orders: true,
+        abandonedCarts: true
+      });
+      
+      // Clear any previous errors
+      setCardErrors({
+        revenue: null,
+        products: null,
+        inventory: null,
+        newProducts: null,
+        insights: null,
+        orders: null,
+        abandonedCarts: null
       });
       
       setLoading(false);
     }
   }, [shop]);
-
-  // Auto-fetch products and orders data on initial load (for Top Products & Recent Orders sections)
-  useEffect(() => {
-    if (shop) {
-      fetchProductsData();
-      fetchOrdersData();
-    }
-  }, [shop, fetchProductsData, fetchOrdersData]);
 
   // Lazy load data for individual cards
   const handleCardLoad = useCallback((cardType: keyof CardLoadingState) => {
