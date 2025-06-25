@@ -33,7 +33,7 @@ const sparkle = keyframes`
   50% { opacity: 1; transform: scale(1); }
 `;
 
-// Styled components - Updated to match site theme
+// Styled components - Updated to match site theme with intuitive gradient
 const LoadingContainer = styled(Box)(({ theme }) => ({
   minHeight: '100vh',
   display: 'flex',
@@ -41,8 +41,9 @@ const LoadingContainer = styled(Box)(({ theme }) => ({
   alignItems: 'center',
   justifyContent: 'center',
   backgroundColor: theme.palette.background.default,
-  background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
-  color: 'white',
+  // More intuitive gradient: light gray to white, matching site theme
+  background: `linear-gradient(135deg, ${theme.palette.background.default} 0%, #ffffff 100%)`,
+  color: theme.palette.text.primary,
   position: 'relative',
   overflow: 'hidden',
   fontFamily: theme.typography.fontFamily,
@@ -58,7 +59,7 @@ const BackgroundShapes = styled(Box)(({ theme }) => ({
   zIndex: 0,
   '& .shape': {
     position: 'absolute',
-    background: 'rgba(255, 255, 255, 0.08)',
+    background: `linear-gradient(45deg, ${theme.palette.primary.main}20, ${theme.palette.primary.light}15)`,
     borderRadius: '50%',
     animation: `${float} 6s ease-in-out infinite`,
     '&:nth-of-type(1)': {
@@ -101,7 +102,7 @@ const Logo = styled(Typography)(({ theme }) => ({
   fontWeight: 700,
   marginBottom: theme.spacing(3),
   animation: `${slideUp} 0.8s ease-out 0.2s both`,
-  background: 'linear-gradient(45deg, #ffffff, rgba(255, 255, 255, 0.8))',
+  background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
   WebkitBackgroundClip: 'text',
   WebkitTextFillColor: 'transparent',
   backgroundClip: 'text',
@@ -114,6 +115,7 @@ const LoadingIcon = styled(Box)(({ theme }) => ({
   fontSize: '4rem',
   marginBottom: theme.spacing(3),
   animation: `${slideUp} 0.8s ease-out 0.4s both, ${pulse} 2s ease-in-out infinite`,
+  color: theme.palette.primary.main,
   [theme.breakpoints.down('sm')]: {
     fontSize: '3rem',
   },
@@ -124,6 +126,7 @@ const Title = styled(Typography)(({ theme }) => ({
   fontWeight: 600,
   marginBottom: theme.spacing(2),
   animation: `${slideUp} 0.8s ease-out 0.6s both`,
+  color: theme.palette.text.primary,
   [theme.breakpoints.down('sm')]: {
     fontSize: '1.5rem',
   },
@@ -132,8 +135,9 @@ const Title = styled(Typography)(({ theme }) => ({
 const Description = styled(Typography)(({ theme }) => ({
   fontSize: '1.1rem',
   marginBottom: theme.spacing(4),
-  opacity: 0.9,
+  opacity: 0.8,
   animation: `${slideUp} 0.8s ease-out 0.8s both`,
+  color: theme.palette.text.secondary,
   [theme.breakpoints.down('sm')]: {
     fontSize: '1rem',
   },
@@ -157,7 +161,7 @@ const ChartContainer = styled(Box)({
 
 const ChartBar = styled(Box)<{ height: number; delay: number }>(({ height, delay, theme }) => ({
   width: '12px',
-  backgroundColor: 'rgba(255, 255, 255, 0.9)',
+  background: `linear-gradient(to top, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
   borderRadius: theme.shape.borderRadius,
   '--target-height': `${height}%`,
   animation: `${chartGrow} 1s ease-out ${delay}s both`,
@@ -174,22 +178,27 @@ const DataPoint = styled(Box)<{ delay: number }>(({ delay, theme }) => ({
   fontSize: '1.5rem',
   padding: theme.spacing(1),
   borderRadius: '50%',
-  backgroundColor: 'rgba(255, 255, 255, 0.15)',
+  backgroundColor: `${theme.palette.primary.main}15`,
   animation: `${sparkle} 2s ease-in-out ${delay}s infinite`,
-  border: '1px solid rgba(255, 255, 255, 0.2)',
+  border: `1px solid ${theme.palette.primary.main}30`,
 }));
 
 const ProgressContainer = styled(Box)(({ theme }) => ({
   width: '100%',
   maxWidth: '400px',
   marginTop: theme.spacing(3),
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
 }));
 
 const LoadingText = styled(Typography)(({ theme }) => ({
   fontSize: '0.9rem',
   opacity: 0.9,
-  marginBottom: theme.spacing(1),
+  marginBottom: theme.spacing(2),
   fontWeight: 500,
+  color: theme.palette.text.secondary,
+  textAlign: 'center',
 }));
 
 const SpinnerContainer = styled(Box)(({ theme }) => ({
@@ -203,8 +212,8 @@ const SpinnerContainer = styled(Box)(({ theme }) => ({
 const Spinner = styled(Box)(({ theme }) => ({
   width: '24px',
   height: '24px',
-  border: '3px solid rgba(255, 255, 255, 0.2)',
-  borderTop: '3px solid white',
+  border: `3px solid ${theme.palette.primary.main}30`,
+  borderTop: `3px solid ${theme.palette.primary.main}`,
   borderRadius: '50%',
   animation: `${rotate} 1s linear infinite`,
 }));
@@ -304,19 +313,27 @@ const IntelligentLoadingScreen: React.FC<IntelligentLoadingScreenProps> = ({
             variant="determinate" 
             value={currentProgress}
             sx={{
+              width: '100%',
               height: 8,
               borderRadius: 4,
-              backgroundColor: 'rgba(255, 255, 255, 0.2)',
+              backgroundColor: (theme) => `${theme.palette.primary.main}20`,
               '& .MuiLinearProgress-bar': {
                 borderRadius: 4,
-                backgroundColor: 'white',
+                background: (theme) => `linear-gradient(90deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
                 boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
               },
             }}
           />
           <SpinnerContainer>
             <Spinner />
-            <Typography variant="body2" sx={{ opacity: 0.9, fontWeight: 500 }}>
+            <Typography 
+              variant="body2" 
+              sx={{ 
+                opacity: 0.9, 
+                fontWeight: 500,
+                color: (theme) => theme.palette.primary.main,
+              }}
+            >
               {Math.round(currentProgress)}%
             </Typography>
           </SpinnerContainer>

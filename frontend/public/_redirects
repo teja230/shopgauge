@@ -1,16 +1,25 @@
+# Shopify OAuth callback - highest priority
+/api/auth/shopify/callback*  /api/auth/shopify/callback:splat  200!
+
+# API routes - pass through to backend
+/api/*                      /api/:splat                      200!
+
 # Valid application routes - serve main app and let React Router handle them
-/dashboard              /index.html      200
-/competitors            /index.html      200
-/admin                  /index.html      200
-/profile                /index.html      200
-/privacy-policy         /index.html      200
+# These routes should never show 404.html
+/dashboard                  /index.html                      200!
+/competitors                /index.html                      200!
+/admin                      /index.html                      200!
+/profile                    /index.html                      200!
+/privacy-policy             /index.html                      200!
 
-# Test route to see loading page (remove after testing)
-/test-loading           /loading.html    200
+# Root routes - serve main app
+/                           /index.html                      200!
+/index.html                 /index.html                      200!
 
-# Root and index routes
-/                       /index.html      200
-/index.html             /index.html      200
+# Static assets - serve directly
+/assets/*                   /assets/:splat                   200
+/vite.svg                   /vite.svg                        200
+/favicon.ico                /favicon.ico                     200
 
-# All other routes - show 404 page
-/*                      /404.html        404 
+# Catch-all for unknown routes - show 404 page
+/*                          /404.html                        404 
