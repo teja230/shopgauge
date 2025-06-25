@@ -618,49 +618,7 @@ const DashboardPage = () => {
     return freshData;
   }, [cache, isCacheFresh]);
 
-  // Manual refresh function
-  const handleRefreshAll = useCallback(async () => {
-    if (isRefreshing) return;
-    
-    setIsRefreshing(true);
-    try {
-      // Clear cache from both state and sessionStorage to force fresh data
-      setCache({});
-      sessionStorage.removeItem(CACHE_KEY);
-      
-      // Set all cards to loading state
-      setCardLoading({
-        revenue: true,
-        products: true,
-        inventory: true,
-        newProducts: true,
-        insights: true,
-        orders: true,
-        abandonedCarts: true
-      });
-      
-      // Clear any previous errors
-      setCardErrors({
-        revenue: null,
-        products: null,
-        inventory: null,
-        newProducts: null,
-        insights: null,
-        orders: null,
-        abandonedCarts: null
-      });
-      
-      console.log('Dashboard refresh initiated - cache cleared');
-      
-      // Wait a moment then trigger data reload
-      setTimeout(() => {
-        setIsRefreshing(false);
-      }, 500);
-    } catch (error) {
-      console.error('Error refreshing dashboard:', error);
-      setIsRefreshing(false);
-    }
-  }, [isRefreshing]);
+
 
   // Get the most recent update time across all cache entries
   const getMostRecentUpdateTime = useCallback((): Date | null => {
@@ -1187,6 +1145,20 @@ const DashboardPage = () => {
     }
   }, [shop]);
 
+  // Auto-fetch all dashboard data on initial load
+  useEffect(() => {
+    if (shop && shop.trim() !== '') {
+      // Trigger data fetches for all cards
+      fetchRevenueData();
+      fetchProductsData();
+      fetchInventoryData();
+      fetchNewProductsData();
+      fetchInsightsData();
+      fetchOrdersData();
+      fetchAbandonedCartsData();
+    }
+  }, [shop, fetchRevenueData, fetchProductsData, fetchInventoryData, fetchNewProductsData, fetchInsightsData, fetchOrdersData, fetchAbandonedCartsData]);
+
   // Lazy load data for individual cards
   const handleCardLoad = useCallback((cardType: keyof CardLoadingState) => {
     // Add a small delay to prevent overwhelming the API
@@ -1216,6 +1188,58 @@ const DashboardPage = () => {
       }
     }, 100); // 100ms delay
   }, [fetchRevenueData, fetchProductsData, fetchInventoryData, fetchNewProductsData, fetchInsightsData, fetchOrdersData, fetchAbandonedCartsData]);
+
+  // Manual refresh function
+  const handleRefreshAll = useCallback(async () => {
+    if (isRefreshing) return;
+    
+    setIsRefreshing(true);
+    try {
+      // Clear cache from both state and sessionStorage to force fresh data
+      setCache({});
+      sessionStorage.removeItem(CACHE_KEY);
+      
+      // Set all cards to loading state
+      setCardLoading({
+        revenue: true,
+        products: true,
+        inventory: true,
+        newProducts: true,
+        insights: true,
+        orders: true,
+        abandonedCarts: true
+      });
+      
+      // Clear any previous errors
+      setCardErrors({
+        revenue: null,
+        products: null,
+        inventory: null,
+        newProducts: null,
+        insights: null,
+        orders: null,
+        abandonedCarts: null
+      });
+      
+      console.log('Dashboard refresh initiated - cache cleared');
+      
+      // Trigger fresh data fetches for all cards
+      await Promise.all([
+        fetchRevenueData(true),
+        fetchProductsData(),
+        fetchInventoryData(),
+        fetchNewProductsData(),
+        fetchInsightsData(),
+        fetchOrdersData(),
+        fetchAbandonedCartsData()
+      ]);
+      
+      setIsRefreshing(false);
+    } catch (error) {
+      console.error('Error refreshing dashboard:', error);
+      setIsRefreshing(false);
+    }
+  }, [isRefreshing, fetchRevenueData, fetchProductsData, fetchInventoryData, fetchNewProductsData, fetchInsightsData, fetchOrdersData, fetchAbandonedCartsData]);
 
   // Debug logging for orders
   useEffect(() => {
