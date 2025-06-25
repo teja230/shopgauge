@@ -25,8 +25,17 @@ public class Notification {
   @Column(name = "category", nullable = true)
   private String category;
 
+  @Column(name = "scope", nullable = false)
+  private String scope = "personal"; // Default to personal notifications
+
   @Column(name = "read", nullable = false)
   private boolean read = false;
+
+  @Column(name = "deleted", nullable = false)
+  private boolean deleted = false;
+
+  @Column(name = "deleted_at", nullable = true)
+  private LocalDateTime deletedAt;
 
   @Column(name = "created_at", nullable = false)
   private LocalDateTime createdAt;
@@ -45,6 +54,17 @@ public class Notification {
     this.message = message;
     this.type = type;
     this.category = category;
+    this.read = false;
+  }
+
+  public Notification(
+      String shop, String sessionId, String message, String type, String category, String scope) {
+    this.shop = shop;
+    this.sessionId = sessionId;
+    this.message = message;
+    this.type = type;
+    this.category = category;
+    this.scope = scope != null ? scope : "personal";
     this.read = false;
   }
 
@@ -97,12 +117,36 @@ public class Notification {
     this.category = category;
   }
 
+  public String getScope() {
+    return scope;
+  }
+
+  public void setScope(String scope) {
+    this.scope = scope;
+  }
+
   public boolean isRead() {
     return read;
   }
 
   public void setRead(boolean read) {
     this.read = read;
+  }
+
+  public boolean isDeleted() {
+    return deleted;
+  }
+
+  public void setDeleted(boolean deleted) {
+    this.deleted = deleted;
+  }
+
+  public LocalDateTime getDeletedAt() {
+    return deletedAt;
+  }
+
+  public void setDeletedAt(LocalDateTime deletedAt) {
+    this.deletedAt = deletedAt;
   }
 
   public LocalDateTime getCreatedAt() {

@@ -731,7 +731,7 @@ public class ShopifyAuthController {
     }
     String sessionId = request.getSession(false) != null ? request.getSession(false).getId() : null;
     return notificationService
-        .getNotifications(shop, sessionId)
+        .getNotificationsWithCleanup(shop, sessionId)
         .map(
             notifications -> {
               Map<String, Object> responseMap = new HashMap<>();
@@ -788,6 +788,7 @@ public class ShopifyAuthController {
     String message = body.get("message");
     String type = body.get("type");
     String category = body.get("category");
+    String scope = body.get("scope");
     String sessionId = request.getSession(false) != null ? request.getSession(false).getId() : null;
 
     if (message == null || message.trim().isEmpty()) {
@@ -798,9 +799,14 @@ public class ShopifyAuthController {
       type = "info"; // Default type
     }
 
+    if (scope == null || scope.trim().isEmpty()) {
+      scope = "personal"; // Default scope
+    }
+
     // Create session-specific notification
     return notificationService
-        .createNotification(shop, sessionId, message, type, category != null ? category : "General")
+        .createNotification(
+            shop, sessionId, message, type, category != null ? category : "General", scope)
         .map(
             notification -> {
               Map<String, Object> response = new HashMap<>();
@@ -812,6 +818,7 @@ public class ShopifyAuthController {
               response.put("category", notification.getCategory());
               response.put("shop", notification.getShop());
               response.put("sessionId", notification.getSessionId());
+              response.put("scope", notification.getScope());
               return ResponseEntity.status(HttpStatus.CREATED).body(response);
             })
         .onErrorResume(
@@ -834,7 +841,7 @@ public class ShopifyAuthController {
           ResponseEntity.status(HttpStatus.UNAUTHORIZED)
               .body(Map.of("error", "Not authenticated")));
     }
-    
+
     String sessionId = request.getSession(false) != null ? request.getSession(false).getId() : null;
     return notificationService
         .deleteNotification(shop, notificationId, sessionId)
@@ -844,6 +851,35 @@ public class ShopifyAuthController {
                 Mono.just(
                     ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                         .body(Map.of("error", "Failed to delete notification"))));
+  }
+
+  @PostMapping("/notifications/cleanup")
+  public Mono<ResponseEntity<Map<String, Object>>> triggerCleanup(
+      @CookieValue(value = "shop", required = false) String shop, HttpServletRequest request) {
+    if (shop == null) {
+      return Mono.just(
+          ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+              .body(Map.of("error", "Not authenticated")));
+    }
+
+    return notificationService
+        .cleanupOldNotifications()
+        .map(
+            deletedCount -> {
+              Map<String, Object> response = new HashMap<>();
+              response.put("status", "success");
+              response.put("deletedCount", deletedCount);
+              response.put("message", "Cleanup completed successfully");
+              return ResponseEntity.ok(response);
+            })
+        .onErrorResume(
+            e -> {
+              Map<String, Object> errorResponse = new HashMap<>();
+              errorResponse.put("error", "Failed to trigger cleanup");
+              errorResponse.put("message", e.getMessage());
+              return Mono.just(
+                  ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse));
+            });
   }
 
   @GetMapping("/me")

@@ -23,6 +23,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
+  const [scopeFilter, setScopeFilter] = useState<'all' | 'store' | 'personal'>('all');
   const dropdownRef = useRef<HTMLDivElement>(null);
   
   const {
@@ -86,9 +87,17 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   };
 
   // Filter notifications
-  const filteredNotifications = notifications.filter(n => 
-    filter === 'all' || (filter === 'unread' && !n.read)
-  );
+  const filteredNotifications = notifications.filter(n => {
+    const matchesReadFilter = filter === 'all' || (filter === 'unread' && !n.read);
+    const matchesScopeFilter = scopeFilter === 'all' || n.scope === scopeFilter;
+    return matchesReadFilter && matchesScopeFilter;
+  });
+
+  // Count notifications by scope
+  const storeNotifications = notifications.filter(n => n.scope === 'store');
+  const personalNotifications = notifications.filter(n => n.scope === 'personal');
+  const unreadStoreCount = storeNotifications.filter(n => !n.read).length;
+  const unreadPersonalCount = personalNotifications.filter(n => !n.read).length;
 
   // Handle dismiss all notifications
   const handleDismissAll = () => {
@@ -184,27 +193,38 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                   </button>
                 </div>
                 
-                {/* Action buttons */}
-                <div className="flex space-x-2">
-                  {unreadCount > 0 && (
-                    <button
-                      onClick={markAllAsRead}
-                      className="px-3 py-1 text-sm font-medium text-blue-600 hover:text-blue-700 rounded-md transition-colors"
-                      title="Mark all as read"
-                    >
-                      Mark all read
-                    </button>
-                  )}
-                  {notifications.length > 0 && (
-                    <button
-                      onClick={handleDismissAll}
-                      className="px-3 py-1 text-sm font-medium text-red-600 hover:text-red-700 rounded-md transition-colors flex items-center space-x-1"
-                      title="Dismiss all notifications"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                      <span>Dismiss All</span>
-                    </button>
-                  )}
+                {/* Scope Filter */}
+                <div className="flex space-x-1">
+                  <button
+                    onClick={() => setScopeFilter('all')}
+                    className={`px-2 py-1 text-xs font-medium rounded transition-colors ${
+                      scopeFilter === 'all' 
+                        ? 'bg-gray-100 text-gray-700' 
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    All
+                  </button>
+                  <button
+                    onClick={() => setScopeFilter('store')}
+                    className={`px-2 py-1 text-xs font-medium rounded transition-colors ${
+                      scopeFilter === 'store' 
+                        ? 'bg-orange-100 text-orange-700' 
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    Store ({unreadStoreCount})
+                  </button>
+                  <button
+                    onClick={() => setScopeFilter('personal')}
+                    className={`px-2 py-1 text-xs font-medium rounded transition-colors ${
+                      scopeFilter === 'personal' 
+                        ? 'bg-purple-100 text-purple-700' 
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    Personal ({unreadPersonalCount})
+                  </button>
                 </div>
               </div>
             </div>
@@ -277,6 +297,14 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                               {formatTimestamp(notification.createdAt)}
                             </p>
                             <div className="flex items-center space-x-2">
+                              {/* Scope indicator */}
+                              <span className={`text-xs px-2 py-1 rounded font-medium ${
+                                notification.scope === 'store' 
+                                  ? 'bg-orange-100 text-orange-700' 
+                                  : 'bg-purple-100 text-purple-700'
+                              }`}>
+                                {notification.scope === 'store' ? '🏪 Store' : '👤 Personal'}
+                              </span>
                               {notification.category && (
                                 <span className="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded">
                                   {notification.category}
@@ -321,6 +349,29 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                 </div>
               </div>
             )}
+
+            {/* Action buttons */}
+            <div className="flex space-x-2 mt-2">
+              {unreadCount > 0 && (
+                <button
+                  onClick={markAllAsRead}
+                  className="px-3 py-1 text-sm font-medium text-blue-600 hover:text-blue-700 rounded-md transition-colors"
+                  title="Mark all as read"
+                >
+                  Mark all read
+                </button>
+              )}
+              {notifications.length > 0 && (
+                <button
+                  onClick={handleDismissAll}
+                  className="px-3 py-1 text-sm font-medium text-red-600 hover:text-red-700 rounded-md transition-colors flex items-center space-x-1"
+                  title="Dismiss all notifications"
+                >
+                  <Trash2 className="w-3 h-3" />
+                  <span>Dismiss All</span>
+                </button>
+              )}
+            </div>
           </div>
         </>
       )}

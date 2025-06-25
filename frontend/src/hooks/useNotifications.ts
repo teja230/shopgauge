@@ -12,6 +12,7 @@ export interface Notification {
   category?: string;
   persistent?: boolean;
   duration?: number;
+  scope?: 'store' | 'personal';
   action?: {
     label: string;
     onClick: () => void;
@@ -23,6 +24,7 @@ export interface NotificationOptions {
   showToast?: boolean;
   duration?: number;
   category?: string;
+  scope?: 'store' | 'personal';
   action?: {
     label: string;
     onClick: () => void;
@@ -103,6 +105,7 @@ export const useNotifications = () => {
       showToast = true,
       duration,
       category,
+      scope = 'personal', // Default to personal notifications
       action
     } = options;
 
@@ -116,6 +119,7 @@ export const useNotifications = () => {
       category,
       persistent,
       duration,
+      scope,
       action,
     };
 
@@ -135,6 +139,7 @@ export const useNotifications = () => {
             message,
             type,
             category,
+            scope,
           }),
         });
 
@@ -189,6 +194,32 @@ export const useNotifications = () => {
     return addNotification(message, 'info', options);
   }, [addNotification]);
 
+  // Helper functions for different scopes
+  const showStoreNotification = useCallback((message: string, type: Notification['type'] = 'info', options?: NotificationOptions) => {
+    return addNotification(message, type, { ...options, scope: 'store' });
+  }, [addNotification]);
+
+  const showPersonalNotification = useCallback((message: string, type: Notification['type'] = 'info', options?: NotificationOptions) => {
+    return addNotification(message, type, { ...options, scope: 'personal' });
+  }, [addNotification]);
+
+  // Store-wide notification helpers
+  const showStoreSuccess = useCallback((message: string, options?: NotificationOptions) => {
+    return showStoreNotification(message, 'success', options);
+  }, [showStoreNotification]);
+
+  const showStoreError = useCallback((message: string, options?: NotificationOptions) => {
+    return showStoreNotification(message, 'error', options);
+  }, [showStoreNotification]);
+
+  const showStoreWarning = useCallback((message: string, options?: NotificationOptions) => {
+    return showStoreNotification(message, 'warning', options);
+  }, [showStoreNotification]);
+
+  const showStoreInfo = useCallback((message: string, options?: NotificationOptions) => {
+    return showStoreNotification(message, 'info', options);
+  }, [showStoreNotification]);
+
   // Session expired notification
   const showSessionExpired = useCallback((options: {
     redirect?: boolean;
@@ -212,6 +243,7 @@ export const useNotifications = () => {
       persistent: true,
       showToast: false,
       category: 'Authentication',
+      scope: 'store', // Session expiry affects the entire store
     });
 
     if (redirect && window.location.pathname !== '/') {
@@ -452,5 +484,11 @@ export const useNotifications = () => {
     deleteNotification,
     clearAll,
     cleanup,
+
+    // Store-wide notification helpers
+    showStoreSuccess,
+    showStoreError,
+    showStoreWarning,
+    showStoreInfo,
   };
 }; 

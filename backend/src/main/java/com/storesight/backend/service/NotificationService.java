@@ -4,12 +4,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.storesight.backend.model.Notification;
 import com.storesight.backend.repository.NotificationRepository;
 import jakarta.annotation.PostConstruct;
+import java.time.LocalDateTime;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
@@ -35,6 +37,22 @@ public class NotificationService {
 
   @Value("${twilio.from_number:+1234567890}")
   private String twilioFromNumber;
+
+  // Notification cleanup policy configuration
+  @Value("${notifications.cleanup.enabled:true}")
+  private boolean cleanupEnabled;
+
+  @Value("${notifications.cleanup.retention-days:30}")
+  private int retentionDays;
+
+  @Value("${notifications.cleanup.batch-size:100}")
+  private int cleanupBatchSize;
+
+  @Value("${notifications.cleanup.max-read-notifications:50}")
+  private int maxReadNotifications;
+
+  @Value("${notifications.cleanup.max-unread-notifications:100}")
+  private int maxUnreadNotifications;
 
   private boolean sendGridEnabled = false;
   private boolean twilioEnabled = false;
@@ -270,16 +288,23 @@ public class NotificationService {
 
   public Mono<Notification> createNotification(
       String shop, String sessionId, String message, String type, String category) {
+    return createNotification(shop, sessionId, message, type, category, "personal");
+  }
+
+  public Mono<Notification> createNotification(
+      String shop, String sessionId, String message, String type, String category, String scope) {
     return Mono.fromCallable(
         () -> {
-          Notification notification = new Notification(shop, sessionId, message, type, category);
+          Notification notification =
+              new Notification(shop, sessionId, message, type, category, scope);
           Notification saved = notificationRepository.save(notification);
           log.debug(
-              "Created {} notification for shop: {} and session: {} - {}",
+              "Created {} notification for shop: {} and session: {} - {} (scope: {})",
               type,
               shop,
               sessionId,
-              message);
+              message,
+              scope);
           return saved;
         });
   }
@@ -332,9 +357,10 @@ public class NotificationService {
 
                     // Check if notification belongs to this session or is shop-wide
                     if (notification.isShopWide() || notification.belongsToSession(sessionId)) {
+                      // Hard delete - permanently remove from database
                       notificationRepository.delete(notification);
                       log.debug(
-                          "Deleted notification {} for shop: {} and session: {}",
+                          "Hard deleted notification {} for shop: {} and session: {}",
                           notificationId,
                           shop,
                           sessionId);
@@ -347,6 +373,129 @@ public class NotificationService {
                     }
                   });
         });
+  }
+
+  /** Soft delete notification for cleanup policy (marks as deleted but keeps in database) */
+  public Mono<Void> softDeleteNotification(String shop, String notificationId, String sessionId) {
+    return Mono.fromRunnable(
+        () -> {
+          notificationRepository
+              .findById(notificationId)
+              .ifPresent(
+                  notification -> {
+                    // Verify the notification belongs to the shop
+                    if (!notification.getShop().equals(shop)) {
+                      log.warn(
+                          "Attempted to soft delete notification {} for wrong shop. Expected: {}, Actual: {}",
+                          notificationId,
+                          shop,
+                          notification.getShop());
+                      return;
+                    }
+
+                    // Check if notification belongs to this session or is shop-wide
+                    if (notification.isShopWide() || notification.belongsToSession(sessionId)) {
+                      // Soft delete - mark as deleted instead of hard delete
+                      notification.setDeleted(true);
+                      notification.setDeletedAt(LocalDateTime.now());
+                      notificationRepository.save(notification);
+                      log.debug(
+                          "Soft deleted notification {} for shop: {} and session: {}",
+                          notificationId,
+                          shop,
+                          sessionId);
+                    } else {
+                      log.warn(
+                          "Attempted to soft delete notification {} for wrong session. Notification session: {}, Request session: {}",
+                          notificationId,
+                          notification.getSessionId(),
+                          sessionId);
+                    }
+                  });
+        });
+  }
+
+  /**
+   * Cleanup old notifications based on retention policy This method should be called by a scheduled
+   * task
+   */
+  public Mono<Integer> cleanupOldNotifications() {
+    if (!cleanupEnabled) {
+      log.debug("Notification cleanup is disabled");
+      return Mono.just(0);
+    }
+
+    return Mono.fromCallable(
+        () -> {
+          LocalDateTime cutoffDate = LocalDateTime.now().minusDays(retentionDays);
+          int deletedCount = 0;
+
+          // Delete notifications older than retention period
+          List<Notification> oldNotifications =
+              notificationRepository.findByCreatedAtBefore(cutoffDate);
+          if (!oldNotifications.isEmpty()) {
+            notificationRepository.deleteAll(oldNotifications);
+            deletedCount += oldNotifications.size();
+            log.info(
+                "Cleaned up {} old notifications (older than {} days)",
+                oldNotifications.size(),
+                retentionDays);
+          }
+
+          // Cleanup read notifications beyond max limit per shop
+          List<String> shops = notificationRepository.findDistinctShops();
+          for (String shop : shops) {
+            List<Notification> readNotifications =
+                notificationRepository.findByShopAndReadTrueAndDeletedFalseOrderByCreatedAtDesc(
+                    shop);
+            if (readNotifications.size() > maxReadNotifications) {
+              List<Notification> toDelete =
+                  readNotifications.subList(maxReadNotifications, readNotifications.size());
+              notificationRepository.deleteAll(toDelete);
+              deletedCount += toDelete.size();
+              log.info("Cleaned up {} read notifications for shop: {}", toDelete.size(), shop);
+            }
+          }
+
+          // Cleanup unread notifications beyond max limit per shop
+          for (String shop : shops) {
+            List<Notification> unreadNotifications =
+                notificationRepository.findByShopAndReadFalseAndDeletedFalseOrderByCreatedAtDesc(
+                    shop);
+            if (unreadNotifications.size() > maxUnreadNotifications) {
+              List<Notification> toDelete =
+                  unreadNotifications.subList(maxUnreadNotifications, unreadNotifications.size());
+              notificationRepository.deleteAll(toDelete);
+              deletedCount += toDelete.size();
+              log.info("Cleaned up {} unread notifications for shop: {}", toDelete.size(), shop);
+            }
+          }
+
+          return deletedCount;
+        });
+  }
+
+  /** Scheduled cleanup task - runs daily at 2 AM */
+  @Scheduled(cron = "0 0 2 * * ?")
+  public void scheduledCleanup() {
+    log.info("Starting scheduled notification cleanup");
+    cleanupOldNotifications()
+        .subscribe(
+            count -> log.info("Scheduled cleanup completed. Deleted {} notifications", count),
+            error -> log.error("Scheduled cleanup failed", error));
+  }
+
+  /** Get notifications with cleanup policy applied */
+  public Mono<List<Notification>> getNotificationsWithCleanup(String shop, String sessionId) {
+    return getNotifications(shop, sessionId)
+        .flatMap(
+            notifications -> {
+              // Apply cleanup policy if needed
+              if (notifications.size() > maxReadNotifications + maxUnreadNotifications) {
+                return cleanupOldNotifications().then(getNotifications(shop, sessionId));
+              }
+              return Mono.just(notifications);
+            });
   }
 
   public boolean isSendGridEnabled() {
