@@ -291,13 +291,14 @@ public class DataPrivacyService {
   public List<Map<String, Object>> getActiveShops() {
     try {
       LocalDateTime twentyFourHoursAgo = LocalDateTime.now().minusDays(1);
-      
+
       // Get recent audit logs that have shop activity
-      List<AuditLog> recentLogs = auditLogRepository.findByCreatedAtAfterOrderByCreatedAtDesc(twentyFourHoursAgo);
-      
+      List<AuditLog> recentLogs =
+          auditLogRepository.findByCreatedAtAfterOrderByCreatedAtDesc(twentyFourHoursAgo);
+
       // Group by shop domain and get the most recent activity for each shop
       Map<String, Map<String, Object>> activeShopsMap = new HashMap<>();
-      
+
       for (AuditLog log : recentLogs) {
         String shopDomain = getShopDomainFromLog(log);
         if (shopDomain != null && !activeShopsMap.containsKey(shopDomain)) {
@@ -308,11 +309,11 @@ public class DataPrivacyService {
           shopInfo.put("userAgent", log.getUserAgent());
           shopInfo.put("sessionId", "session_" + log.getId()); // Mock session ID based on log ID
           shopInfo.put("isActive", true);
-          
+
           activeShopsMap.put(shopDomain, shopInfo);
         }
       }
-      
+
       // Also add shops from the database that have valid tokens (active in Redis)
       List<Shop> allShops = shopRepository.findAll();
       for (Shop shop : allShops) {
@@ -323,32 +324,35 @@ public class DataPrivacyService {
           if (token != null) {
             Map<String, Object> shopInfo = new HashMap<>();
             shopInfo.put("shopDomain", shopDomain);
-            shopInfo.put("lastActivity", shop.getUpdatedAt() != null ? shop.getUpdatedAt().toString() : null);
+            shopInfo.put(
+                "lastActivity",
+                shop.getUpdatedAt() != null ? shop.getUpdatedAt().toString() : null);
             shopInfo.put("ipAddress", "N/A");
             shopInfo.put("userAgent", "N/A");
             shopInfo.put("sessionId", "db_session_" + shop.getId());
             shopInfo.put("isActive", true);
-            
+
             activeShopsMap.put(shopDomain, shopInfo);
           }
         }
       }
-      
+
       List<Map<String, Object>> result = new ArrayList<>(activeShopsMap.values());
-      
+
       // Sort by last activity (most recent first)
-      result.sort((a, b) -> {
-        String aTime = (String) a.get("lastActivity");
-        String bTime = (String) b.get("lastActivity");
-        if (aTime == null && bTime == null) return 0;
-        if (aTime == null) return 1;
-        if (bTime == null) return -1;
-        return bTime.compareTo(aTime);
-      });
-      
+      result.sort(
+          (a, b) -> {
+            String aTime = (String) a.get("lastActivity");
+            String bTime = (String) b.get("lastActivity");
+            if (aTime == null && bTime == null) return 0;
+            if (aTime == null) return 1;
+            if (bTime == null) return -1;
+            return bTime.compareTo(aTime);
+          });
+
       logger.info("Found {} active shops", result.size());
       logDataAccess("ACTIVE_SHOPS_RETRIEVED", "Retrieved " + result.size() + " active shops");
-      
+
       return result;
     } catch (Exception e) {
       logger.error("Error retrieving active shops: {}", e.getMessage(), e);
@@ -365,21 +369,23 @@ public class DataPrivacyService {
           return shop.get().getShopifyDomain();
         }
       }
-      
+
       // Try to extract shop domain from log details if shop ID is null (deleted shop)
       String details = log.getDetails();
       if (details != null && details.contains(".myshopify.com")) {
         // Extract shop domain from details using regex
-        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("([a-zA-Z0-9-]+\\.myshopify\\.com)");
+        java.util.regex.Pattern pattern =
+            java.util.regex.Pattern.compile("([a-zA-Z0-9-]+\\.myshopify\\.com)");
         java.util.regex.Matcher matcher = pattern.matcher(details);
         if (matcher.find()) {
           return matcher.group(1);
         }
       }
-      
+
       return null;
     } catch (Exception e) {
-      logger.warn("Error extracting shop domain from audit log {}: {}", log.getId(), e.getMessage());
+      logger.warn(
+          "Error extracting shop domain from audit log {}: {}", log.getId(), e.getMessage());
       return null;
     }
   }

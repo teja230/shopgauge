@@ -1954,4 +1954,85 @@ public class AnalyticsController {
           .body(Map.of("error", "EXPORT_FAILED", "message", e.getMessage()));
     }
   }
+
+  @GetMapping("/store-stats")
+  public Mono<ResponseEntity<Map<String, Object>>> getStoreStats(
+      @CookieValue(value = "shop", required = false) String shop, HttpSession session) {
+
+    if (shop == null || shop.isBlank()) {
+      return Mono.just(
+          ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+              .body(Map.of("error", "No shop found in session")));
+    }
+
+    String token = shopService.getTokenForShop(shop, session.getId());
+    if (token == null) {
+      return Mono.just(
+          ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+              .body(Map.of("error", "No token for shop")));
+    }
+
+    dataPrivacyService.logDataAccess("STORE_STATS_REQUEST", "Store statistics accessed", shop);
+
+    return webClient
+        .get()
+        .uri("https://{shop}/admin/api/2023-10/orders.json?status=any&limit=10", shop)
+        .header("X-Shopify-Access-Token", token)
+        .retrieve()
+        .bodyToMono(Map.class)
+        .map(
+            response -> {
+              try {
+                List<Map<String, Object>> orders =
+                    (List<Map<String, Object>>) response.get("orders");
+
+                int totalOrders = orders != null ? orders.size() : 0;
+                double totalRevenue = 0.0;
+
+                if (orders != null) {
+                  for (Map<String, Object> order : orders) {
+                    try {
+                      String totalPriceStr = (String) order.get("total_price");
+                      if (totalPriceStr != null) {
+                        totalRevenue += Double.parseDouble(totalPriceStr);
+                      }
+                    } catch (NumberFormatException e) {
+                      // Skip invalid price values
+                    }
+                  }
+                }
+
+                Map<String, Object> stats = new HashMap<>();
+                stats.put("totalOrders", totalOrders);
+                stats.put(
+                    "totalRevenue",
+                    Math.round(totalRevenue * 100.0) / 100.0); // Round to 2 decimal places
+                stats.put("shop", shop);
+                stats.put("timestamp", System.currentTimeMillis());
+
+                return ResponseEntity.ok(stats);
+
+              } catch (Exception e) {
+                logger.error("Error processing store stats for shop: {}", shop, e);
+                Map<String, Object> fallbackStats = new HashMap<>();
+                fallbackStats.put("totalOrders", 0);
+                fallbackStats.put("totalRevenue", 0.0);
+                fallbackStats.put("shop", shop);
+                fallbackStats.put("error", "Unable to fetch current stats");
+                return ResponseEntity.ok(fallbackStats);
+              }
+            })
+        .onErrorReturn(
+            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(
+                    Map.of(
+                        "error",
+                        "Failed to fetch store statistics",
+                        "totalOrders",
+                        0,
+                        "totalRevenue",
+                        0.0,
+                        "shop",
+                        shop)));
+  }
 }

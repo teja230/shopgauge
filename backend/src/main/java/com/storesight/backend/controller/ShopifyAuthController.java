@@ -182,8 +182,11 @@ public class ShopifyAuthController {
   }
 
   @GetMapping("/login")
-  public ResponseEntity<?> login(@RequestParam String shop, HttpServletResponse response) {
-    logger.info("Login endpoint called with shop: {}", shop);
+  public ResponseEntity<?> login(
+      @RequestParam String shop,
+      @RequestParam(required = false) String return_url,
+      HttpServletResponse response) {
+    logger.info("Login endpoint called with shop: {} and return_url: {}", shop, return_url);
     try {
       if (shop == null || shop.trim().isEmpty()) {
         logger.warn("Shop parameter is empty");
@@ -196,9 +199,12 @@ public class ShopifyAuthController {
         return ResponseEntity.badRequest().body(Map.of("error", "Invalid shop domain format"));
       }
 
-      // Redirect to install endpoint with the full path
+      // Redirect to install endpoint with the full path and return_url if provided
       String redirectUrl =
           "/api/auth/shopify/install?shop=" + URLEncoder.encode(shop, StandardCharsets.UTF_8);
+      if (return_url != null && !return_url.isBlank()) {
+        redirectUrl += "&return_url=" + URLEncoder.encode(return_url, StandardCharsets.UTF_8);
+      }
       logger.info("Redirecting to: {}", redirectUrl);
       response.sendRedirect(redirectUrl);
       return null; // Response is already sent
@@ -445,11 +451,21 @@ public class ShopifyAuthController {
       // Mark the authorization code as successfully processed
       markCodeAsSuccessfullyProcessed(code);
 
-      // Always redirect with shop parameter as fallback
-      String redirectUrl = frontendUrl + "/?shop=" + java.net.URLEncoder.encode(shop, "UTF-8");
+      // Check for return_url parameter for custom redirects (e.g., back to profile after re-auth)
+      String returnUrl = params.get("return_url");
+      String redirectUrl;
 
-      logger.info(
-          "Cookie set successfully, redirecting to frontend with shop parameter: {}", redirectUrl);
+      if (returnUrl != null && !returnUrl.isBlank()) {
+        // Use custom return URL if provided
+        redirectUrl = java.net.URLDecoder.decode(returnUrl, "UTF-8");
+        logger.info("Using custom return URL: {}", redirectUrl);
+      } else {
+        // Default redirect with shop parameter
+        redirectUrl = frontendUrl + "/?shop=" + java.net.URLEncoder.encode(shop, "UTF-8");
+        logger.info("Using default redirect URL: {}", redirectUrl);
+      }
+
+      logger.info("Cookie set successfully, redirecting to: {}", redirectUrl);
       response.sendRedirect(redirectUrl);
     } catch (Exception e) {
       logger.error("Error in callback - Error details: {}", e.getMessage(), e);
