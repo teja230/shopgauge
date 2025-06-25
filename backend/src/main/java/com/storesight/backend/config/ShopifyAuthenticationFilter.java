@@ -35,7 +35,9 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
     try {
       // Skip auth for public endpoints
       String path = request.getRequestURI();
-      if (path.startsWith("/api/auth/") || path.startsWith("/actuator/") || path.startsWith("/error")) {
+      if (path.startsWith("/api/auth/")
+          || path.startsWith("/actuator/")
+          || path.startsWith("/error")) {
         filterChain.doFilter(request, response);
         return;
       }
@@ -77,14 +79,14 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
       if (shopDomain != null && !shopDomain.trim().isEmpty()) {
         // Validate shop domain format
         if (isValidShopDomain(shopDomain)) {
-                     // Verify shop exists in database
-           if (shopService.getTokenForShop(shopDomain, null) != null) {
+          // Verify shop exists in database
+          if (shopService.getTokenForShop(shopDomain, null) != null) {
             // Set authentication context
             UsernamePasswordAuthenticationToken authentication =
                 new UsernamePasswordAuthenticationToken(
                     shopDomain, null, AuthorityUtils.createAuthorityList("ROLE_SHOP"));
             SecurityContextHolder.getContext().setAuthentication(authentication);
-            
+
             logger.debug("Authentication set for shop: {}", shopDomain);
           } else {
             logger.warn("Shop not found in database: {}", shopDomain);
@@ -98,14 +100,19 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
         }
       } else {
         logger.debug("No shop domain found in request: {}", path);
-        handleAuthenticationFailure(response, "Authentication required. Please connect your Shopify store.");
+        handleAuthenticationFailure(
+            response, "Authentication required. Please connect your Shopify store.");
         return;
       }
 
       filterChain.doFilter(request, response);
-      
+
     } catch (Exception e) {
-      logger.error("Authentication filter error for path: {} - {}", request.getRequestURI(), e.getMessage(), e);
+      logger.error(
+          "Authentication filter error for path: {} - {}",
+          request.getRequestURI(),
+          e.getMessage(),
+          e);
       handleAuthenticationFailure(response, "Authentication error occurred. Please try again.");
     }
   }
@@ -183,11 +190,13 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
     if (shopDomain == null || shopDomain.trim().isEmpty()) {
       return false;
     }
-    
+
     // Basic validation - should end with .myshopify.com or be a custom domain
     String domain = shopDomain.toLowerCase().trim();
-    return domain.matches("^[a-zA-Z0-9][a-zA-Z0-9\\-]*[a-zA-Z0-9]*(\\.[a-zA-Z0-9][a-zA-Z0-9\\-]*[a-zA-Z0-9]*)*$") 
-           && domain.length() > 3 && domain.length() < 100;
+    return domain.matches(
+            "^[a-zA-Z0-9][a-zA-Z0-9\\-]*[a-zA-Z0-9]*(\\.[a-zA-Z0-9][a-zA-Z0-9\\-]*[a-zA-Z0-9]*)*$")
+        && domain.length() > 3
+        && domain.length() < 100;
   }
 
   private void setShopCookie(HttpServletResponse response, String shopDomain) {
@@ -212,21 +221,23 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
     }
   }
 
-  private void handleAuthenticationFailure(HttpServletResponse response, String message) throws IOException {
+  private void handleAuthenticationFailure(HttpServletResponse response, String message)
+      throws IOException {
     response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
     response.setContentType("application/json");
     response.setCharacterEncoding("UTF-8");
-    
+
     // Add CORS headers for error responses
     response.setHeader("Access-Control-Allow-Origin", "https://www.shopgaugeai.com");
     response.setHeader("Access-Control-Allow-Credentials", "true");
     response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
     response.setHeader("Access-Control-Allow-Headers", "*");
-    
-    String jsonResponse = String.format(
-        "{\"error\":\"Authentication required\",\"message\":\"%s\",\"timestamp\":%d}", 
-        message, System.currentTimeMillis());
-    
+
+    String jsonResponse =
+        String.format(
+            "{\"error\":\"Authentication required\",\"message\":\"%s\",\"timestamp\":%d}",
+            message, System.currentTimeMillis());
+
     response.getWriter().write(jsonResponse);
     response.getWriter().flush();
   }
