@@ -266,7 +266,8 @@ const NotFoundPage: React.FC = () => {
       setCountdown((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
-          navigate(redirectUrl);
+          // Navigate directly without loading screen
+          navigate(redirectUrl, { replace: true });
           return 0;
         }
         return prev - 1;
@@ -277,7 +278,7 @@ const NotFoundPage: React.FC = () => {
   }, [navigate, isAuthenticated, authLoading]);
 
   const handleGoHome = () => {
-    navigate('/');
+    navigate('/', { replace: true });
   };
 
   const handleGoBack = () => {
@@ -285,11 +286,11 @@ const NotFoundPage: React.FC = () => {
   };
 
   const handleGoDashboard = () => {
-    navigate('/dashboard');
+    navigate('/dashboard', { replace: true });
   };
 
   const handleGoCompetitors = () => {
-    navigate('/competitors');
+    navigate('/competitors', { replace: true });
   };
 
   const cancelAutoRedirect = () => {
