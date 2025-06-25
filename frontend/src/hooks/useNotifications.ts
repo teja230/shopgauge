@@ -54,8 +54,6 @@ export const useNotifications = () => {
         fontWeight: '500',
         padding: '16px',
       },
-      // Add dismiss button to toasts
-      dismissible: true,
     };
 
     const icon = {
@@ -67,14 +65,30 @@ export const useNotifications = () => {
 
     switch (type) {
       case 'success':
-        return toast.success(message, { ...toastOptions, icon, style: { ...toastOptions.style, background: '#10b981' } });
+        return toast.success(message, { 
+          ...toastOptions, 
+          icon, 
+          style: { ...toastOptions.style, background: '#10b981' },
+        });
       case 'error':
-        return toast.error(message, { ...toastOptions, icon, style: { ...toastOptions.style, background: '#ef4444' } });
+        return toast.error(message, { 
+          ...toastOptions, 
+          icon, 
+          style: { ...toastOptions.style, background: '#ef4444' },
+        });
       case 'warning':
-        return toast(message, { ...toastOptions, icon, style: { ...toastOptions.style, background: '#f59e0b' } });
+        return toast(message, { 
+          ...toastOptions, 
+          icon, 
+          style: { ...toastOptions.style, background: '#f59e0b' },
+        });
       case 'info':
       default:
-        return toast(message, { ...toastOptions, icon, style: { ...toastOptions.style, background: '#3b82f6' } });
+        return toast(message, { 
+          ...toastOptions, 
+          icon, 
+          style: { ...toastOptions.style, background: '#3b82f6' },
+        });
     }
   }, []);
   
@@ -351,6 +365,21 @@ export const useNotifications = () => {
   const deleteNotification = useCallback(async (notificationId: string) => {
     const notification = globalNotifications.find(n => n.id === notificationId);
     
+    if (notification?.persistent) {
+      try {
+        // Delete from backend
+        const response = await fetchWithAuth(`/api/auth/shopify/notifications/${notificationId}`, {
+          method: 'DELETE'
+        });
+        
+        if (!response.ok) {
+          console.error('Failed to delete notification from backend:', response.status);
+        }
+      } catch (error) {
+        console.error('Failed to delete notification from backend:', error);
+      }
+    }
+    
     // Update global state
     globalNotifications = globalNotifications.filter(n => n.id !== notificationId);
     if (notification && !notification.read) {
@@ -363,7 +392,26 @@ export const useNotifications = () => {
   }, []);
 
   // Clear all notifications
-  const clearAll = useCallback(() => {
+  const clearAll = useCallback(async () => {
+    try {
+      // Delete persistent notifications from backend
+      const persistentNotifications = globalNotifications.filter(n => n.persistent);
+      if (persistentNotifications.length > 0) {
+        await Promise.all(
+          persistentNotifications.map(n => 
+            fetchWithAuth(`/api/auth/shopify/notifications/${n.id}`, {
+              method: 'DELETE'
+            }).catch(error => {
+              console.error('Failed to delete notification from backend:', error);
+            })
+          )
+        );
+      }
+    } catch (error) {
+      console.error('Failed to clear persistent notifications:', error);
+    }
+    
+    // Clear all notifications from state
     globalNotifications = [];
     globalUnreadCount = 0;
     setNotifications([]);

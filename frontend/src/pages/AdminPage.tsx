@@ -85,6 +85,7 @@ import {
 import { fetchWithAuth } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { styled } from '@mui/material/styles';
+import { useNotifications } from '../hooks/useNotifications';
 
 interface Secret {
   key: string;
@@ -304,9 +305,7 @@ const AdminPage: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [passwordError, setPasswordError] = useState('');
   
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-  const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const { showSuccess, showError } = useNotifications();
   
   // Audit logs state
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
@@ -420,13 +419,10 @@ const AdminPage: React.FC = () => {
 
     // Session timer
     const interval = setInterval(() => {
-      if (sessionExpiry && Date.now() >= sessionExpiry) {
-        setIsAuthenticated(false);
-        setIsPasswordDialogOpen(true);
-        setPassword('');
+      if (sessionExpiry <= 0) {
         setSessionExpiry(0);
         localStorage.removeItem('admin_session_expiry');
-        setAlert({ type: 'error', message: 'Admin session expired. Please login again.' });
+        showError('Admin session expired. Please login again.');
       }
       
       if (lockoutEnd && Date.now() >= lockoutEnd) {
@@ -439,7 +435,7 @@ const AdminPage: React.FC = () => {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [sessionExpiry, lockoutEnd]);
+  }, [sessionExpiry, lockoutEnd, showError]);
 
   // Hash password with salt for security
   const hashPassword = async (password: string): Promise<string> => {
@@ -471,7 +467,7 @@ const AdminPage: React.FC = () => {
         setSessionExpiry(expiry);
         localStorage.setItem('admin_session_expiry', expiry.toString());
         
-        setAlert({ type: 'success', message: 'Admin access granted. Session valid for 2 hours.' });
+        showSuccess('Admin access granted. Session valid for 2 hours.');
       } else {
         // Failed login
         const newAttemptCount = attemptCount + 1;
@@ -851,7 +847,7 @@ const AdminPage: React.FC = () => {
                   setPassword('');
                   setSessionExpiry(0);
                   localStorage.removeItem('admin_session_expiry');
-                  setAlert({ type: 'success', message: 'Admin session ended securely' });
+                  showSuccess('Admin session ended securely');
                   
                   // Redirect based on shop authentication state
                   if (isShopAuthenticated && shop) {
@@ -1656,26 +1652,6 @@ const AdminPage: React.FC = () => {
           )}
         </Box>
       </SectionCard>
-
-      {/* Alert Snackbar - Moved to TOP */}
-      <Snackbar 
-        open={!!alert} 
-        autoHideDuration={6000} 
-        onClose={() => setAlert(null)}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      >
-        <Alert 
-          onClose={() => setAlert(null)} 
-          severity={alert?.type} 
-          sx={{ 
-            width: '100%',
-            borderRadius: 2,
-            fontWeight: 500
-          }}
-        >
-          {alert?.message}
-        </Alert>
-      </Snackbar>
     </AdminContainer>
   );
 };

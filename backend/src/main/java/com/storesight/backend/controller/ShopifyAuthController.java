@@ -824,6 +824,28 @@ public class ShopifyAuthController {
             });
   }
 
+  @DeleteMapping("/notifications/{notificationId}")
+  public Mono<ResponseEntity<Map<String, String>>> deleteNotification(
+      @CookieValue(value = "shop", required = false) String shop,
+      @PathVariable String notificationId,
+      HttpServletRequest request) {
+    if (shop == null) {
+      return Mono.just(
+          ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+              .body(Map.of("error", "Not authenticated")));
+    }
+    
+    String sessionId = request.getSession(false) != null ? request.getSession(false).getId() : null;
+    return notificationService
+        .deleteNotification(shop, notificationId, sessionId)
+        .then(Mono.just(ResponseEntity.ok(Map.of("status", "success"))))
+        .onErrorResume(
+            e ->
+                Mono.just(
+                    ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body(Map.of("error", "Failed to delete notification"))));
+  }
+
   @GetMapping("/me")
   public Mono<ResponseEntity<Map<String, Object>>> me(
       @CookieValue(value = "shop", required = false) String shop, HttpServletRequest request) {

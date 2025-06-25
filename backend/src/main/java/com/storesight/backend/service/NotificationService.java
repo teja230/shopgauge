@@ -313,6 +313,42 @@ public class NotificationService {
         });
   }
 
+  public Mono<Void> deleteNotification(String shop, String notificationId, String sessionId) {
+    return Mono.fromRunnable(
+        () -> {
+          notificationRepository
+              .findById(notificationId)
+              .ifPresent(
+                  notification -> {
+                    // Verify the notification belongs to the shop
+                    if (!notification.getShop().equals(shop)) {
+                      log.warn(
+                          "Attempted to delete notification {} for wrong shop. Expected: {}, Actual: {}",
+                          notificationId,
+                          shop,
+                          notification.getShop());
+                      return;
+                    }
+
+                    // Check if notification belongs to this session or is shop-wide
+                    if (notification.isShopWide() || notification.belongsToSession(sessionId)) {
+                      notificationRepository.delete(notification);
+                      log.debug(
+                          "Deleted notification {} for shop: {} and session: {}",
+                          notificationId,
+                          shop,
+                          sessionId);
+                    } else {
+                      log.warn(
+                          "Attempted to delete notification {} for wrong session. Notification session: {}, Request session: {}",
+                          notificationId,
+                          notification.getSessionId(),
+                          sessionId);
+                    }
+                  });
+        });
+  }
+
   public boolean isSendGridEnabled() {
     return sendGridEnabled;
   }
