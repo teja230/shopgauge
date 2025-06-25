@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../context/AuthContext';
 import { AppBar, Toolbar, Typography, Box, Button, Badge } from '@mui/material';
 import InsightsIcon from '@mui/icons-material/Insights';
 import { getSuggestionCount } from '../api';

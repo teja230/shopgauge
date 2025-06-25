@@ -68,7 +68,7 @@ import {
   Assessment as AssessmentIcon,
 } from '@mui/icons-material';
 import { fetchWithAuth } from '../api';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../context/AuthContext';
 
 interface Secret {
   key: string;

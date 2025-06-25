@@ -4,7 +4,7 @@ import type { Competitor } from '../components/ui/CompetitorTable';
 import { SuggestionDrawer } from '../components/ui/SuggestionDrawer';
 import { getCompetitors, addCompetitor, deleteCompetitor, getSuggestionCount } from '../api';
 import toast from 'react-hot-toast';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../context/AuthContext';
 import { 
   SparklesIcon, 
   PlusIcon, 

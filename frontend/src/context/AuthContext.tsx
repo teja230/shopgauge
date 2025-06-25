@@ -8,6 +8,7 @@ interface AuthContextType {
   authLoading: boolean;
   loading: boolean;
   logout: () => void;
+  setShop: (shop: string | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -16,6 +17,7 @@ const AuthContext = createContext<AuthContextType>({
   authLoading: true,
   loading: true,
   logout: () => {},
+  setShop: () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -80,7 +82,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, shop, authLoading, loading, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, shop, authLoading, loading, logout, setShop }}>
       {children}
     </AuthContext.Provider>
   );

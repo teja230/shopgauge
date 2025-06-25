@@ -4,7 +4,7 @@ import { RevenueChart } from '../components/ui/RevenueChart';
 import { MetricCard } from '../components/ui/MetricCard';
 import { InsightBanner } from '../components/ui/InsightBanner';
 import { getInsights, fetchWithAuth } from '../api';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { styled } from '@mui/material/styles';
 import { OpenInNew, Refresh, Storefront, ListAlt, Inventory2 } from '@mui/icons-material';
