@@ -840,7 +840,9 @@ public class ShopifyAuthController {
       boolean isProduction = frontendUrl != null && frontendUrl.contains("onrender.com");
       String sameSiteValue = isProduction ? "None" : "Lax";
       String clearCookieHeader =
-          String.format("shop=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Secure; SameSite=%s", sameSiteValue);
+          String.format(
+              "shop=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Secure; SameSite=%s",
+              sameSiteValue);
       response.addHeader("Set-Cookie", clearCookieHeader);
 
       logger.info("Auth: Cleared shop cookie for: {}", shop);
@@ -953,7 +955,9 @@ public class ShopifyAuthController {
     String sameSiteValue = isProduction ? "None" : "Lax";
     response.addHeader(
         "Set-Cookie",
-        String.format("shop=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Secure; SameSite=%s", sameSiteValue));
+        String.format(
+            "shop=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Secure; SameSite=%s",
+            sameSiteValue));
 
     // Also clear without domain for localhost development
     response.addHeader(

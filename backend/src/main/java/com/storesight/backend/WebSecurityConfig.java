@@ -72,7 +72,7 @@ public class WebSecurityConfig {
     serializer.setCookieName("SESSION");
     serializer.setUseHttpOnlyCookie(true);
     serializer.setSameSite("None"); // Use None for cross-origin requests
-    serializer.setUseSecureCookie(true); 
+    serializer.setUseSecureCookie(true);
     serializer.setCookiePath("/");
     // Don't set domain for now - let the browser handle it automatically
     // serializer.setDomainName(".onrender.com"); // This was causing the error

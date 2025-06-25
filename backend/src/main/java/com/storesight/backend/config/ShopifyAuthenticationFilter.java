@@ -60,7 +60,7 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
         shopCookie.setSecure(true);
         response.addCookie(shopCookie);
 
-        // Also set the SameSite attribute via header  
+        // Also set the SameSite attribute via header
         // For cross-origin requests between subdomains, we need SameSite=None
         response.addHeader(
             "Set-Cookie",
