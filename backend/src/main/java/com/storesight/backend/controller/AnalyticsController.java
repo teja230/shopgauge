@@ -479,12 +479,13 @@ public class AnalyticsController {
     }
 
     String since = LocalDate.now().minusDays(30).format(DateTimeFormatter.ISO_DATE);
+    // Use proper ISO 8601 format with Z for UTC timezone
     String url =
         "https://"
             + shop
             + "/admin/api/2023-10/products.json?created_at_min="
             + since
-            + "T00:00:00-00:00";
+            + "T00:00:00Z";
     return webClient
         .get()
         .uri(url)
@@ -566,12 +567,13 @@ public class AnalyticsController {
     String since =
         java.time.LocalDate.now().minusDays(60).format(java.time.format.DateTimeFormatter.ISO_DATE);
 
+    // Use proper ISO 8601 format with Z for UTC timezone
     String url =
         "https://"
             + shop
             + "/admin/api/2023-10/checkouts.json?created_at_min="
             + since
-            + "T00:00:00-00:00&limit=50";
+            + "T00:00:00Z&limit=50";
 
     return webClient
         .get()
@@ -720,12 +722,13 @@ public class AnalyticsController {
     String since =
         java.time.LocalDate.now().minusDays(60).format(java.time.format.DateTimeFormatter.ISO_DATE);
 
+    // Use proper ISO 8601 format with Z for UTC timezone
     String url =
         "https://"
             + shop
             + "/admin/api/2023-10/orders.json?created_at_min="
             + since
-            + "T00:00:00-00:00&limit=250";
+            + "T00:00:00Z&limit=250&status=any";
 
     return webClient
         .get()
@@ -743,6 +746,18 @@ public class AnalyticsController {
                   orders != null ? orders.size() : 0,
                   shop);
 
+              // Debug: Log raw response structure
+              if (orders != null && !orders.isEmpty()) {
+                logger.info("Sample order structure: {}", orders.get(0).keySet());
+                Map<String, Object> sampleOrder = orders.get(0);
+                logger.info(
+                    "Sample order - ID: {}, created_at: {}, total_price: {}, financial_status: {}",
+                    sampleOrder.get("id"),
+                    sampleOrder.get("created_at"),
+                    sampleOrder.get("total_price"),
+                    sampleOrder.get("financial_status"));
+              }
+
               if (orders != null) {
                 totalRevenue =
                     orders.stream()
@@ -751,11 +766,18 @@ public class AnalyticsController {
                               Object totalPrice = order.get("total_price");
                               if (totalPrice != null) {
                                 try {
-                                  return Double.parseDouble(totalPrice.toString());
+                                  double price = Double.parseDouble(totalPrice.toString());
+                                  logger.debug("Order {} - Price: ${}", order.get("id"), price);
+                                  return price;
                                 } catch (NumberFormatException e) {
+                                  logger.warn(
+                                      "Invalid price format for order {}: {}",
+                                      order.get("id"),
+                                      totalPrice);
                                   return 0.0;
                                 }
                               }
+                              logger.debug("Order {} - No total_price", order.get("id"));
                               return 0.0;
                             })
                         .sum();
@@ -782,16 +804,30 @@ public class AnalyticsController {
                       String dateOnly = createdAt.substring(0, 10);
                       double orderPrice = Double.parseDouble(totalPriceObj.toString());
                       dailyRevenue.merge(dateOnly, orderPrice, Double::sum);
+                      logger.debug(
+                          "Order {} on {} - Adding ${} to daily total",
+                          order.get("id"),
+                          dateOnly,
+                          orderPrice);
                     } catch (Exception e) {
                       logger.warn(
                           "Skipping invalid order data: createdAt={}, totalPrice={}",
                           createdAt,
                           totalPriceObj);
                     }
+                  } else {
+                    logger.warn(
+                        "Order {} missing data - createdAt: {}, totalPrice: {}",
+                        order.get("id"),
+                        createdAt,
+                        totalPriceObj);
                   }
                 }
 
                 logger.info("Aggregated revenue into {} unique days", dailyRevenue.size());
+                if (!dailyRevenue.isEmpty()) {
+                  logger.info("Daily revenue breakdown: {}", dailyRevenue);
+                }
               }
 
               // Convert to timeseries format
@@ -915,12 +951,13 @@ public class AnalyticsController {
     // Limit permission check to last 60 days
     String sincePerm =
         java.time.LocalDate.now().minusDays(60).format(java.time.format.DateTimeFormatter.ISO_DATE);
+    // Use proper ISO 8601 format with Z for UTC timezone
     String url =
         "https://"
             + shop
             + "/admin/api/2023-10/orders.json?created_at_min="
             + sincePerm
-            + "T00:00:00-00:00&limit=1";
+            + "T00:00:00Z&limit=1";
     try {
       webClient
           .get()
@@ -970,12 +1007,13 @@ public class AnalyticsController {
     }
 
     String since = LocalDate.now().minusDays(60).format(DateTimeFormatter.ISO_DATE);
+    // Use proper ISO 8601 format with Z for UTC timezone
     String url =
         "https://"
             + shop
             + "/admin/api/2023-10/orders.json?created_at_min="
             + since
-            + "T00:00:00-00:00&limit=250";
+            + "T00:00:00Z&limit=250&status=any";
     return webClient
         .get()
         .uri(url)
@@ -1084,12 +1122,13 @@ public class AnalyticsController {
         java.time.LocalDate.now().minusDays(30).format(java.time.format.DateTimeFormatter.ISO_DATE);
 
     String productsUrl = "https://" + shop + "/admin/api/2023-10/products.json?limit=50";
+    // Use proper ISO 8601 format with Z for UTC timezone
     String ordersUrl =
         "https://"
             + shop
             + "/admin/api/2023-10/orders.json?created_at_min="
             + since
-            + "T00:00:00-00:00&limit=100";
+            + "T00:00:00Z&limit=100";
 
     return webClient
         .get()
