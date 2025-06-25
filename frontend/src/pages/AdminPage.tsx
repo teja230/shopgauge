@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -107,7 +108,8 @@ const INTEGRATION_CONFIG = {
 };
 
 const AdminPage: React.FC = () => {
-  const { shop } = useAuth();
+  const { shop, isAuthenticated: isShopAuthenticated } = useAuth();
+  const navigate = useNavigate();
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(true);
   const [password, setPassword] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -515,6 +517,13 @@ const AdminPage: React.FC = () => {
               setSessionExpiry(0);
               localStorage.removeItem('admin_session_expiry');
               setAlert({ type: 'success', message: 'Admin session ended securely' });
+              
+              // Redirect based on shop authentication state
+              if (isShopAuthenticated && shop) {
+                navigate('/dashboard');
+              } else {
+                navigate('/');
+              }
             }}
             sx={{ 
               color: 'white',
