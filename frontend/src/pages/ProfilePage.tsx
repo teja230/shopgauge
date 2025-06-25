@@ -35,58 +35,26 @@ export default function ProfilePage() {
     }
   }, [shop]);
 
-  // Check for successful store connection from URL params
+  // Handle success callback from OAuth
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
-    const shopParam = urlParams.get('shop');
-    const success = urlParams.get('success');
-    const fromAuth = urlParams.get('from_auth');
+    const successParam = urlParams.get('success');
+    const fromAuthParam = urlParams.get('from_auth');
     
-    if (success === 'true' && shopParam) {
-      // Clear dashboard cache when switching stores
+    if (successParam === 'true' && shop) {
+      toast.success('🔗 Store connected successfully!', {
+        duration: 3000,
+        icon: '✅',
+      });
+      
+      // Clear cache to ensure fresh data
       sessionStorage.removeItem('dashboard_cache_v1.1');
       sessionStorage.removeItem('dashboard_cache_v2');
       
-      // Update shop in context if it's different
-      if (shopParam !== shop) {
-        setShop(shopParam);
-        
-        // Add to past stores if not already present
-        const stored = localStorage.getItem('storesight_past_stores');
-        let pastStoresList: string[] = [];
-        if (stored) {
-          try {
-            pastStoresList = JSON.parse(stored);
-          } catch (error) {
-            console.error('Failed to parse past stores:', error);
-          }
-        }
-        
-        // Add current shop to past stores if not already there
-        if (shop && !pastStoresList.includes(shop)) {
-          pastStoresList.unshift(shop);
-          localStorage.setItem('storesight_past_stores', JSON.stringify(pastStoresList.slice(0, 5))); // Keep last 5 stores
-        }
-        
-        // Show success notification for store switch
-        toast.success(`🎉 Successfully switched to ${shopParam}!`, {
-          duration: 4000,
-          icon: '✅',
-        });
-      } else {
-        // Same store - this happens when both stores belong to same account
-        toast.success(`✅ Store connection verified!`, {
-          duration: 3000,
-        });
-      }
-      
-      // Always redirect to dashboard for better UX
       setTimeout(() => {
         navigate('/dashboard', { replace: true });
-      }, 1500);
-      
-    } else if (fromAuth === 'true' && shopParam) {
-      // Re-authentication completed - redirect to dashboard with notification
+      }, 1000);
+    } else if (fromAuthParam === 'true' && shop) {
       toast.success('🔐 Re-authentication successful!', {
         duration: 3000,
         icon: '✅',
@@ -156,10 +124,10 @@ export default function ProfilePage() {
       setIsLoading(true);
       toast.loading('Re-authenticating with Shopify...', { id: 'reauth' });
       
-      // Redirect to Shopify OAuth flow for re-authentication with return path to dashboard
+      // Redirect to Shopify OAuth flow for re-authentication
       if (shop) {
-        // Add parameter to indicate this is a re-auth from profile, redirect to dashboard
-        const returnUrl = encodeURIComponent(`${window.location.origin}/profile?from_auth=true&shop=${shop}`);
+        // Use simple return URL without nested parameters to avoid Chrome phishing warnings
+        const returnUrl = encodeURIComponent(`${window.location.origin}/profile?from_auth=true`);
         window.location.href = `${API_BASE_URL}/api/auth/shopify/login?shop=${encodeURIComponent(shop)}&return_url=${returnUrl}`;
       } else {
         toast.error('No shop found. Please disconnect and reconnect.', { id: 'reauth' });
@@ -367,7 +335,7 @@ export default function ProfilePage() {
 
   const handleConnectNewStore = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newStoreDomain) {
+    if (!newStoreDomain.trim()) {
       toast.error('Please enter a store domain');
       return;
     }
@@ -390,8 +358,8 @@ export default function ProfilePage() {
         cleanDomain = `${cleanDomain}.myshopify.com`;
       }
 
-      // Add success parameters for better UX - always redirect to dashboard
-      const returnUrl = encodeURIComponent(`${window.location.origin}/profile?success=true&shop=${cleanDomain}`);
+      // Use simple return URL without nested parameters to avoid Chrome phishing warnings
+      const returnUrl = encodeURIComponent(`${window.location.origin}/profile?success=true`);
 
       // Redirect to the login endpoint with the shop parameter
       window.location.href = `${API_BASE_URL}/api/auth/shopify/login?shop=${encodeURIComponent(cleanDomain)}&return_url=${returnUrl}`;
@@ -406,8 +374,8 @@ export default function ProfilePage() {
   const handleReconnectPastStore = (pastStore: string) => {
     toast.loading(`Reconnecting to ${pastStore}...`, { id: 'reconnect' });
     
-    // Add success parameters for better UX
-    const returnUrl = encodeURIComponent(`${window.location.origin}/profile?success=true&shop=${pastStore}`);
+    // Use simple return URL without nested parameters to avoid Chrome phishing warnings
+    const returnUrl = encodeURIComponent(`${window.location.origin}/profile?success=true`);
     
     window.location.href = `${API_BASE_URL}/api/auth/shopify/login?shop=${encodeURIComponent(pastStore)}&return_url=${returnUrl}`;
   };
