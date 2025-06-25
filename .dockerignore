@@ -27,9 +27,7 @@ render.yaml
 .DS_Store
 Thumbs.db
 
-# Backend specific excludes
+# Backend specific excludes (but keep gradle wrapper files needed for build)
 backend/build/
 backend/bin/
-backend/.gradle/
-backend/gradle/
-backend/gradlew* 
+backend/.gradle/ 
