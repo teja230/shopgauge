@@ -588,6 +588,7 @@ const DashboardPage = () => {
   const [cache, setCache] = useState<DashboardCache>(() => loadCacheFromStorage());
   const [lastGlobalUpdate, setLastGlobalUpdate] = useState<Date | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   // Save cache to sessionStorage whenever it changes
   useEffect(() => {
@@ -1173,6 +1174,7 @@ const DashboardPage = () => {
     if (shop && shop.trim() !== '') {
       setLoading(true);
       setError(null);
+      setIsInitialLoad(true); // Reset initial load flag for new shop
       
       // Initialize insights with default data to prevent "failed to load" states
       setInsights({
@@ -1217,7 +1219,8 @@ const DashboardPage = () => {
 
   // Auto-fetch all dashboard data on initial load
   useEffect(() => {
-    if (shop && shop.trim() !== '') {
+    if (shop && shop.trim() !== '' && isInitialLoad) {
+      setIsInitialLoad(false);
       // Trigger data fetches for all cards
       fetchRevenueData();
       fetchProductsData();
@@ -1227,10 +1230,13 @@ const DashboardPage = () => {
       fetchOrdersData();
       fetchAbandonedCartsData();
     }
-  }, [shop, fetchRevenueData, fetchProductsData, fetchInventoryData, fetchNewProductsData, fetchInsightsData, fetchOrdersData, fetchAbandonedCartsData]);
+  }, [shop, isInitialLoad, fetchRevenueData, fetchProductsData, fetchInventoryData, fetchNewProductsData, fetchInsightsData, fetchOrdersData, fetchAbandonedCartsData]);
 
   // Lazy load data for individual cards
   const handleCardLoad = useCallback((cardType: keyof CardLoadingState) => {
+    // Don't trigger individual card loads during a full refresh
+    if (isRefreshing) return;
+    
     // Add a small delay to prevent overwhelming the API
     setTimeout(() => {
       switch (cardType) {
@@ -1257,7 +1263,7 @@ const DashboardPage = () => {
           break;
       }
     }, 100); // 100ms delay
-  }, [fetchRevenueData, fetchProductsData, fetchInventoryData, fetchNewProductsData, fetchInsightsData, fetchOrdersData, fetchAbandonedCartsData]);
+  }, [isRefreshing, fetchRevenueData, fetchProductsData, fetchInventoryData, fetchNewProductsData, fetchInsightsData, fetchOrdersData, fetchAbandonedCartsData]);
 
   // Manual refresh function
   const handleRefreshAll = useCallback(async () => {

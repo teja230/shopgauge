@@ -1,10 +1,12 @@
 import React from 'react';
 import { Box, Typography, Button } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { Home, ArrowBack } from '@mui/icons-material';
+import { Home, ArrowBack, Dashboard, Business } from '@mui/icons-material';
+import { useAuth } from '../context/AuthContext';
 
 const NotFoundPage: React.FC = () => {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
 
   const handleGoHome = () => {
     navigate('/');
@@ -12,6 +14,14 @@ const NotFoundPage: React.FC = () => {
 
   const handleGoBack = () => {
     navigate(-1);
+  };
+
+  const handleGoDashboard = () => {
+    navigate('/dashboard');
+  };
+
+  const handleGoCompetitors = () => {
+    navigate('/competitors');
   };
 
   console.log('NotFoundPage: Rendering NotFound page');
@@ -34,10 +44,11 @@ const NotFoundPage: React.FC = () => {
       <Typography variant="h4" sx={{ mb: 2, textAlign: 'center' }}>
         Page Not Found
       </Typography>
-      <Typography variant="body1" sx={{ mb: 4, textAlign: 'center', maxWidth: 600 }}>
-        The page you're looking for doesn't exist or has been moved.
+      <Typography variant="body1" sx={{ mb: 4, textAlign: 'center', maxWidth: 600, color: '#666' }}>
+        The page you're looking for doesn't exist or has been moved. 
+        {isAuthenticated ? ' Here are some options to get you back on track:' : ' Try going back to the homepage.'}
       </Typography>
-      <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', justifyContent: 'center' }}>
+      <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', justifyContent: 'center', mb: 2 }}>
         <Button
           variant="contained"
           startIcon={<Home />}
@@ -55,13 +66,28 @@ const NotFoundPage: React.FC = () => {
           Go Back
         </Button>
       </Box>
-      <Box sx={{ mt: 4, p: 2, backgroundColor: '#fff', borderRadius: 1, maxWidth: 600 }}>
-        <Typography variant="h6" sx={{ mb: 1 }}>Debug Info:</Typography>
-        <Typography variant="body2">Current URL: {window.location.href}</Typography>
-        <Typography variant="body2">Current Path: {window.location.pathname}</Typography>
-        <Typography variant="body2">Current Search: {window.location.search}</Typography>
-        <Typography variant="body2">User Agent: {navigator.userAgent}</Typography>
-      </Box>
+      {isAuthenticated && (
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', justifyContent: 'center' }}>
+          <Button
+            variant="outlined"
+            startIcon={<Dashboard />}
+            onClick={handleGoDashboard}
+            sx={{ minWidth: 140 }}
+            color="primary"
+          >
+            Dashboard
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<Business />}
+            onClick={handleGoCompetitors}
+            sx={{ minWidth: 140 }}
+            color="primary"
+          >
+            Competitors
+          </Button>
+        </Box>
+      )}
     </Box>
   );
 };
