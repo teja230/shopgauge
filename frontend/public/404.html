@@ -300,12 +300,31 @@
         
         console.log('404 Redirect: Attempting to redirect from', path);
         
-        // Add a small delay to show the loading animation
-        setTimeout(function() {
-          var redirectUrl = '/?redirect=' + encodeURIComponent(path);
-          console.log('404 Redirect: Redirecting to', redirectUrl);
-          window.location.replace(redirectUrl);
-        }, 1500);
+        // Check if this is a valid app route that should be redirected quickly
+        var validRoutes = ['/dashboard', '/competitors', '/admin', '/profile', '/privacy-policy'];
+        var isValidRoute = validRoutes.some(function(route) {
+          return path.startsWith(route);
+        });
+        
+        if (isValidRoute) {
+          // Quick redirect for valid routes (reduce 404 flash)
+          setTimeout(function() {
+            var redirectUrl = '/?redirect=' + encodeURIComponent(path);
+            console.log('404 Redirect: Quick redirecting valid route to', redirectUrl);
+            window.location.replace(redirectUrl);
+          }, 300);
+        } else {
+          // Update the page content for invalid routes
+          document.getElementById('page-title').textContent = 'Page Not Found';
+          document.getElementById('page-description').textContent = 'The page you\'re looking for doesn\'t exist. You\'ll be redirected to the homepage shortly.';
+          
+          // Longer delay for invalid routes to show 404 page
+          setTimeout(function() {
+            var redirectUrl = '/?redirect=' + encodeURIComponent(path);
+            console.log('404 Redirect: Slow redirecting invalid route to', redirectUrl);
+            window.location.replace(redirectUrl);
+          }, 3000);
+        }
         
       } catch (e) {
         console.error('404 Redirect Error:', e);
@@ -323,9 +342,9 @@
     
     <div class="error-code">404</div>
     
-    <h1 class="title">Hang tight, we're redirecting you...</h1>
+    <h1 class="title" id="page-title">Hang tight, we're redirecting you...</h1>
     
-    <p class="description">
+    <p class="description" id="page-description">
       We're taking you to the right place. This usually happens when you've bookmarked 
       or shared a direct link to a page in our app.
     </p>
