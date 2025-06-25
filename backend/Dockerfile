@@ -1,6 +1,9 @@
 # Multi-stage build for better caching and smaller final image
 FROM eclipse-temurin:17-jdk-alpine AS builder
 
+# Install dependencies for better caching
+RUN apk add --no-cache curl
+
 # Set working directory
 WORKDIR /app
 
@@ -9,22 +12,21 @@ COPY backend/gradlew ./gradlew
 COPY backend/gradle ./gradle
 COPY backend/build.gradle ./build.gradle
 COPY backend/settings.gradle ./settings.gradle
-COPY backend/pom.xml ./pom.xml
 
 # Make gradlew executable
 RUN chmod +x ./gradlew
 
 # Download dependencies first (better Docker layer caching)
-RUN ./gradlew dependencies --no-daemon || true
+# This step will be cached unless dependencies change
+RUN ./gradlew dependencies --no-daemon --refresh-dependencies || true
 
-# Copy source code
+# Copy source code (this layer changes more frequently)
 COPY backend/src ./src
 
-# Build the application (skip tests for faster container build)
-# Use --no-daemon to avoid daemon-related issues in Docker
-# Set JVM options for better memory management in Docker
-ENV GRADLE_OPTS="-Xmx1024m -Dfile.encoding=UTF-8"
-RUN ./gradlew clean build -x test --no-daemon
+# Build the application with optimizations
+# Use parallel builds and skip tests for faster container build
+ENV GRADLE_OPTS="-Xmx2048m -Dfile.encoding=UTF-8 -Dorg.gradle.parallel=true -Dorg.gradle.caching=true"
+RUN ./gradlew clean build -x test --no-daemon --build-cache --parallel
 
 # Final stage
 FROM eclipse-temurin:17-jre-alpine

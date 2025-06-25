@@ -1,0 +1,35 @@
+# Frontend files (not needed for backend build)
+frontend/
+node_modules/
+
+# Documentation
+docs/
+README.md
+CONTRIBUTING.md
+PRIVACY_POLICY.md
+SHOPIFY_PROTECTED_DATA_REQUEST.md
+ENVIRONMENT_SETUP.md
+
+# Git and IDE files
+.git/
+.github/
+.idea/
+.vscode/
+.husky/
+
+# Configuration files not needed in container
+config/
+render.yaml
+*.sh
+
+# Logs and temp files
+*.log
+.DS_Store
+Thumbs.db
+
+# Backend specific excludes
+backend/build/
+backend/bin/
+backend/.gradle/
+backend/gradle/
+backend/gradlew* 
