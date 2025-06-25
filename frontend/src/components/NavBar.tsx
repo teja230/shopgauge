@@ -92,15 +92,6 @@ const NavBar: React.FC = () => {
               >
                 Profile
               </Button>
-              <Button
-                color="inherit"
-                onClick={() => navigate('/admin')}
-                sx={{
-                  backgroundColor: location.pathname === '/admin' ? 'rgba(255, 255, 255, 0.1)' : 'transparent'
-                }}
-              >
-                Admin
-              </Button>
               <Button color="inherit" onClick={handleLogout}>
                 Logout
               </Button>

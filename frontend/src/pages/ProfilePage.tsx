@@ -440,14 +440,12 @@ export default function ProfilePage() {
           </div>
           
           <div className="space-y-3">
-            <a
-              href="/privacy-policy"
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              onClick={() => navigate('/privacy-policy')}
               className="w-full inline-flex items-center justify-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
             >
               📋 Privacy Policy
-            </a>
+            </button>
             
             <button
               onClick={handleDataDeletion}

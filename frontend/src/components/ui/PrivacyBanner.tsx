@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 interface PrivacyBannerProps {
   onAccept?: () => void;
@@ -8,6 +9,7 @@ interface PrivacyBannerProps {
 export const PrivacyBanner: React.FC<PrivacyBannerProps> = ({ onAccept, onDecline }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [hasInteracted, setHasInteracted] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     // Check if user has already interacted with privacy banner
@@ -41,7 +43,7 @@ export const PrivacyBanner: React.FC<PrivacyBannerProps> = ({ onAccept, onDeclin
   };
 
   const handleViewPrivacy = () => {
-    window.open('/privacy-policy', '_blank');
+    navigate('/privacy-policy');
   };
 
   if (!isVisible || hasInteracted) {

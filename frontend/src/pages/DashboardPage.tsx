@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Box, Typography, Grid, Card, CardContent, Alert, CircularProgress, Link as MuiLink, IconButton, Button } from '@mui/material';
+import { Box, Typography, Grid, Card, CardContent, Alert, CircularProgress, Link as MuiLink, IconButton, Button, Chip } from '@mui/material';
 import { RevenueChart } from '../components/ui/RevenueChart';
 import { MetricCard } from '../components/ui/MetricCard';
 import { InsightBanner } from '../components/ui/InsightBanner';
@@ -228,232 +228,18 @@ interface OrdersData {
   has_more: boolean;
 }
 
-const COLORS = ['#2563eb', '#16a34a', '#d97706', '#dc2626', '#7c3aed'];
-
-// Add a modern SaaS hero section at the top of the dashboard
-const HeroSection = styled(Box)(({ theme }) => ({
-  background: 'linear-gradient(90deg, #f5f7fa 0%, #c3cfe2 100%)',
-  borderRadius: theme.shape.borderRadius,
-  padding: theme.spacing(4, 4, 4, 4),
-  marginBottom: theme.spacing(5),
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  boxShadow: theme.shadows[1],
-  gap: theme.spacing(4),
-}));
-
-const HeroText = styled(Box)(({ theme }) => ({
-  flex: 1,
-}));
-
-const HeroTitle = styled(Typography)(({ theme }) => ({
-  fontSize: '2.5rem',
-  fontWeight: 800,
-  color: theme.palette.primary.main,
-  marginBottom: theme.spacing(1),
-  letterSpacing: '-1px',
-}));
-
-const HeroSubtitle = styled(Typography)(({ theme }) => ({
-  fontSize: '1.25rem',
-  color: theme.palette.text.secondary,
-  marginBottom: theme.spacing(2),
-}));
-
-const HeroImage = styled('img')(() => ({
-  width: '100%',
-  maxWidth: 400,
-  height: 'auto',
-  objectFit: 'contain',
-  borderRadius: 24,
-  boxShadow: '0 4px 24px 0 rgba(80, 112, 255, 0.10)',
-}));
-
-// const GridContainer = styled(Grid)(({ theme }) => ({
-//   marginTop: theme.spacing(2),
-//   gap: theme.spacing(3),
-// }));
-
-const ProductList = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  flexDirection: 'column',
-  gap: theme.spacing(2),
-  maxHeight: 400,
-  overflowY: 'auto'
-}));
-
-const ProductItem = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  alignItems: 'center',
-  gap: theme.spacing(2),
-  padding: theme.spacing(1.5),
-  borderRadius: theme.shape.borderRadius,
-  backgroundColor: theme.palette.background.default,
-  transition: 'all 0.2s ease',
-  '&:hover': {
-    backgroundColor: theme.palette.action.hover,
-  }
-}));
-
-const ProductInfo = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  flexDirection: 'column',
-  gap: theme.spacing(0.5),
-  flex: 1,
-  minWidth: 0
-}));
-
-const ProductName = styled(Typography)(({ theme }) => ({
-  fontWeight: 600,
-  color: theme.palette.text.primary,
-  fontSize: '0.875rem',
-  lineHeight: 1.4
-}));
-
-const ProductStats = styled(Typography)(({ theme }) => ({
-  color: theme.palette.text.secondary,
-  fontSize: '0.75rem',
-  display: 'flex',
-  alignItems: 'center',
-  gap: theme.spacing(1)
-}));
-
-const OrderList = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  flexDirection: 'column',
-  gap: theme.spacing(2),
-  maxHeight: 400,
-  overflowY: 'auto'
-}));
-
-const OrderItem = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  alignItems: 'center',
-  gap: theme.spacing(2),
-  padding: theme.spacing(1.5),
-  borderRadius: theme.shape.borderRadius,
-  backgroundColor: theme.palette.background.default,
-  transition: 'all 0.2s ease',
-  '&:hover': {
-    backgroundColor: theme.palette.action.hover,
-  }
-}));
-
-const OrderInfo = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  flexDirection: 'column',
-  gap: theme.spacing(0.5),
-  flex: 1,
-  minWidth: 0
-}));
-
-const OrderTitle = styled(Typography)(({ theme }) => ({
-  fontWeight: 600,
-  color: theme.palette.text.primary,
-  fontSize: '0.875rem',
-  lineHeight: 1.4,
-  display: 'flex',
-  alignItems: 'center',
-  gap: theme.spacing(1)
-}));
-
-const OrderDetails = styled(Typography)(({ theme }) => ({
-  color: theme.palette.text.secondary,
-  fontSize: '0.75rem',
-  display: 'flex',
-  alignItems: 'center',
-  gap: theme.spacing(1)
-}));
-
-// const ProductAvatar = styled(Avatar)(({ theme }) => ({
-//   width: 48,
-//   height: 48,
-//   backgroundColor: theme.palette.primary.light,
-//   color: theme.palette.primary.main,
-//   boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-// }));
-
-// const OrderAvatar = styled(Avatar)(({ theme }) => ({
-//   width: 48,
-//   height: 48,
-//   backgroundColor: theme.palette.warning.light,
-//   color: theme.palette.warning.dark,
-//   boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-// }));
-
-// const StatusChip = styled(Chip)(({ theme }) => ({
-//   borderRadius: theme.shape.borderRadius,
-//   fontWeight: 500,
-//   '&.MuiChip-colorSuccess': {
-//     backgroundColor: theme.palette.success.light,
-//     color: theme.palette.success.dark,
-//   },
-//   '&.MuiChip-colorWarning': {
-//     backgroundColor: theme.palette.warning.light,
-//     color: theme.palette.warning.dark,
-//   },
-// }));
-
-const SectionHeader = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  marginBottom: theme.spacing(3),
-  paddingBottom: theme.spacing(2),
-  borderBottom: `1px solid ${theme.palette.divider}`,
-}));
-
-const SectionTitle = styled(Typography)(({ theme }) => ({
-  fontSize: '1.25rem',
-  fontWeight: 600,
-  color: theme.palette.text.primary,
-  display: 'flex',
-  alignItems: 'center',
-  gap: theme.spacing(1),
-}));
-
-const GraphContainer = styled(Box)(({ theme }) => ({
-  position: 'relative',
-  padding: theme.spacing(2),
-  backgroundColor: theme.palette.background.paper,
-  borderRadius: theme.shape.borderRadius,
-  boxShadow: '0 2px 12px rgba(0, 0, 0, 0.05)',
-}));
-
-const GraphHeader = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  marginBottom: theme.spacing(3),
-}));
-
-const GraphTitle = styled(Typography)(({ theme }) => ({
-  fontSize: '1.25rem',
-  fontWeight: 600,
-  color: theme.palette.text.primary,
-  display: 'flex',
-  alignItems: 'center',
-  gap: theme.spacing(1),
-}));
-
-const GraphLink = styled(MuiLink)(({ theme }) => ({
-  color: theme.palette.primary.main,
-  textDecoration: 'none',
-  display: 'flex',
-  alignItems: 'center',
-  gap: theme.spacing(1),
-  fontSize: '0.875rem',
-  '&:hover': {
-    textDecoration: 'underline',
-  },
-}));
+// Simple cache with timestamps
+interface CacheData {
+  [key: string]: {
+    data: any;
+    timestamp: number;
+  };
+}
 
 const formatDate = (dateString: string) => {
-  return format(new Date(dateString), 'MMM d, yyyy');
+  return format(new Date(dateString), 'MMM dd, yyyy');
 };
 
-// Add loading states for individual cards
 interface CardLoadingState {
   revenue: boolean;
   products: boolean;
@@ -475,15 +261,17 @@ interface CardErrorState {
 }
 
 const DashboardPage = () => {
+  const { isAuthenticated, shop, authLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const { shop, setShop } = useAuth();
   const [insights, setInsights] = useState<DashboardInsight | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hasRateLimit, setHasRateLimit] = useState(false);
+  const [lastRefresh, setLastRefresh] = useState<number>(0);
+  const [cache, setCache] = useState<CacheData>({});
   
-  // Individual card loading states
+  // Enhanced loading state for individual cards
   const [cardLoading, setCardLoading] = useState<CardLoadingState>({
     revenue: false,
     products: false,
@@ -493,7 +281,7 @@ const DashboardPage = () => {
     orders: false,
     abandonedCarts: false
   });
-  
+
   const [cardErrors, setCardErrors] = useState<CardErrorState>({
     revenue: null,
     products: null,
@@ -504,32 +292,46 @@ const DashboardPage = () => {
     abandonedCarts: null
   });
 
+  // Cache management
+  const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+  const STALE_DURATION = 2 * 60 * 1000; // 2 minutes (show stale data indicator)
+
+  const isCacheValid = useCallback((cacheKey: string) => {
+    const cached = cache[cacheKey];
+    return cached && (Date.now() - cached.timestamp) < CACHE_DURATION;
+  }, [cache]);
+
+  const isCacheStale = useCallback((cacheKey: string) => {
+    const cached = cache[cacheKey];
+    return cached && (Date.now() - cached.timestamp) > STALE_DURATION;
+  }, [cache]);
+
+  const setCacheData = useCallback((cacheKey: string, data: any) => {
+    setCache(prev => ({
+      ...prev,
+      [cacheKey]: {
+        data,
+        timestamp: Date.now()
+      }
+    }));
+  }, []);
+
+  const getCacheData = useCallback((cacheKey: string) => {
+    return cache[cacheKey]?.data;
+  }, [cache]);
+
   // Handle URL parameters from OAuth callback
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
-    const shopParam = urlParams.get('shop');
-    const authParam = urlParams.get('auth');
-    
-    if (shopParam && authParam === 'success') {
-      console.log('Processing OAuth callback - shop:', shopParam);
-      
-      // Set the shop cookie on the frontend domain
-      const isProduction = window.location.hostname.includes('shopgaugeai.com');
-      const domainAttribute = isProduction ? '; domain=.shopgaugeai.com' : '';
-      const cookieValue = `shop=${shopParam}; Path=/; Max-Age=${30 * 24 * 60 * 60}; SameSite=Lax${domainAttribute}`;
-      document.cookie = cookieValue;
-      
-      // Update the auth context
-      if (setShop) {
-        setShop(shopParam);
-      }
-      
-      // Clean up the URL parameters
-      navigate('/dashboard', { replace: true });
-      
-      console.log('Successfully set shop cookie and updated auth context');
+    const shopFromUrl = urlParams.get('shop');
+    if (shopFromUrl) {
+      console.log('Dashboard: Setting shop from URL:', shopFromUrl);
+      // Clear the URL parameter
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('shop');
+      window.history.replaceState({}, '', newUrl.toString());
     }
-  }, [location.search, navigate, setShop]);
+  }, [location.search, navigate]);
 
   // Retry logic with exponential backoff
   const retryWithBackoff = useCallback(async (apiCall: () => Promise<any>, maxRetries = 3) => {
@@ -537,14 +339,12 @@ const DashboardPage = () => {
       try {
         return await apiCall();
       } catch (error: any) {
-        // Check if it's a rate limit error (429) or network error
         const isRateLimit = error.status === 429 || 
                            (error.message && error.message.includes('429')) ||
                            (error.response && error.response.status === 429);
         
         if (isRateLimit && attempt < maxRetries) {
-          // Rate limited - wait with exponential backoff
-          const delay = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
+          const delay = Math.pow(2, attempt) * 1000;
           console.log(`Rate limited, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries + 1})`);
           await new Promise(resolve => setTimeout(resolve, delay));
           continue;
@@ -554,14 +354,29 @@ const DashboardPage = () => {
     }
   }, []);
 
-  // Individual card data fetching functions
-  const fetchRevenueData = useCallback(async () => {
+  // Enhanced fetch function with caching
+  const fetchWithCache = useCallback(async (cacheKey: string, fetchFn: () => Promise<any>, forceRefresh = false) => {
+    if (!forceRefresh && isCacheValid(cacheKey)) {
+      console.log(`Using cached data for ${cacheKey}`);
+      return getCacheData(cacheKey);
+    }
+
+    console.log(`Fetching fresh data for ${cacheKey}`);
+    const data = await fetchFn();
+    setCacheData(cacheKey, data);
+    return data;
+  }, [isCacheValid, getCacheData, setCacheData]);
+
+  // Individual card data fetching functions with caching
+  const fetchRevenueData = useCallback(async (forceRefresh = false) => {
     setCardLoading(prev => ({ ...prev, revenue: true }));
     setCardErrors(prev => ({ ...prev, revenue: null }));
     
     try {
-      const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/revenue'));
-      const data = await response.json();
+      const data = await fetchWithCache('revenue', async () => {
+        const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/revenue'));
+        return await response.json();
+      }, forceRefresh);
       
       if ((data.error_code === 'INSUFFICIENT_PERMISSIONS' || (data.error && data.error.includes('re-authentication')))) {
         setCardErrors(prev => ({ ...prev, revenue: 'Permission denied – please re-authenticate with Shopify' }));
@@ -569,25 +384,16 @@ const DashboardPage = () => {
       }
 
       if (data.error_code === 'API_ACCESS_LIMITED') {
-        // Silently handle limited access - show 0 data without error message
-        setInsights(prev => ({
-          ...prev!,
-          totalRevenue: 0
-        }));
+        setInsights(prev => ({ ...prev!, totalRevenue: 0 }));
         return;
       }
       
       if (data.error_code === 'USING_TEST_DATA') {
-        // Handle test data - show the data without error messages
-        setInsights(prev => ({
-          ...prev!,
-          totalRevenue: data.revenue || 0
-        }));
+        setInsights(prev => ({ ...prev!, totalRevenue: data.revenue || 0 }));
         return;
       }
 
       let timeseriesData = data.timeseries || [];
-      // If API didn't return timeseries, fetch separately
       if (!timeseriesData.length) {
         try {
           const tsResp = await retryWithBackoff(() => fetchWithAuth('/api/analytics/revenue/timeseries'));
@@ -604,9 +410,7 @@ const DashboardPage = () => {
         timeseries: data.rate_limited ? [] : timeseriesData
       }));
       
-      if (data.rate_limited) {
-        setHasRateLimit(true);
-      }
+      if (data.rate_limited) setHasRateLimit(true);
     } catch (error: any) {
       if (error.message === 'PERMISSION_ERROR') {
         setCardErrors(prev => ({ ...prev, revenue: 'Permission denied – please re-authenticate with Shopify' }));
@@ -616,295 +420,20 @@ const DashboardPage = () => {
     } finally {
       setCardLoading(prev => ({ ...prev, revenue: false }));
     }
-  }, [retryWithBackoff]);
+  }, [fetchWithCache, retryWithBackoff]);
 
-  const fetchProductsData = useCallback(async () => {
-    setCardLoading(prev => ({ ...prev, products: true }));
-    setCardErrors(prev => ({ ...prev, products: null }));
-    
-    try {
-      const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/products'));
-      const data = await response.json();
-      
-      if (data.error_code === 'INSUFFICIENT_PERMISSIONS' || 
-          (data.error && data.error.includes('re-authentication'))) {
-        throw new Error('PERMISSION_ERROR');
-      }
-      
-      setInsights(prev => ({
-        ...prev!,
-        topProducts: data.rate_limited ? [] : (data.products || [])
-      }));
-      
-      if (data.rate_limited) {
-        setHasRateLimit(true);
-      }
-    } catch (error: any) {
-      if (error.message === 'PERMISSION_ERROR') {
-        navigate('/');
-        return;
-      }
-      setCardErrors(prev => ({ ...prev, products: 'Failed to load products data' }));
-    } finally {
-      setCardLoading(prev => ({ ...prev, products: false }));
-    }
-  }, [retryWithBackoff, navigate]);
-
-  const fetchInventoryData = useCallback(async () => {
-    setCardLoading(prev => ({ ...prev, inventory: true }));
-    setCardErrors(prev => ({ ...prev, inventory: null }));
-    
-    try {
-      const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/inventory/low'));
-      const data = await response.json();
-      
-      if (data.error_code === 'INSUFFICIENT_PERMISSIONS' || 
-          (data.error && data.error.includes('re-authentication'))) {
-        throw new Error('PERMISSION_ERROR');
-      }
-      
-      setInsights(prev => ({
-        ...prev!,
-        lowInventory: data.rate_limited ? 0 : (Array.isArray(data.lowInventory) ? data.lowInventory.length : (data.lowInventoryCount || 0))
-      }));
-      
-      if (data.rate_limited) {
-        setHasRateLimit(true);
-      }
-    } catch (error: any) {
-      if (error.message === 'PERMISSION_ERROR') {
-        navigate('/');
-        return;
-      }
-      setCardErrors(prev => ({ ...prev, inventory: 'Failed to load inventory data' }));
-    } finally {
-      setCardLoading(prev => ({ ...prev, inventory: false }));
-    }
-  }, [retryWithBackoff, navigate]);
-
-  const fetchNewProductsData = useCallback(async () => {
-    setCardLoading(prev => ({ ...prev, newProducts: true }));
-    setCardErrors(prev => ({ ...prev, newProducts: null }));
-    
-    try {
-      const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/new_products'));
-      const data = await response.json();
-      
-      if (data.error_code === 'INSUFFICIENT_PERMISSIONS' || 
-          (data.error && data.error.includes('re-authentication'))) {
-        throw new Error('PERMISSION_ERROR');
-      }
-      
-      setInsights(prev => ({
-        ...prev!,
-        newProducts: data.rate_limited ? 0 : (data.newProducts || 0)
-      }));
-      
-      if (data.rate_limited) {
-        setHasRateLimit(true);
-      }
-    } catch (error: any) {
-      if (error.message === 'PERMISSION_ERROR') {
-        navigate('/');
-        return;
-      }
-      setCardErrors(prev => ({ ...prev, newProducts: 'Failed to load new products data' }));
-    } finally {
-      setCardLoading(prev => ({ ...prev, newProducts: false }));
-    }
-  }, [retryWithBackoff, navigate]);
-
-  const fetchInsightsData = useCallback(async () => {
-    setCardLoading(prev => ({ ...prev, insights: true }));
-    setCardErrors(prev => ({ ...prev, insights: null }));
-    
-    try {
-      // Use the new conversion endpoint that provides better data
-      const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/conversion'));
-      const data = await response.json();
-      
-      if (data.error_code === 'INSUFFICIENT_PERMISSIONS' || 
-          (data.error && data.error.includes('re-authentication'))) {
-        throw new Error('PERMISSION_ERROR');
-      }
-      
-      // Handle test data for insights as well
-      if (data.error_code === 'USING_TEST_DATA') {
-        setInsights(prev => ({
-          ...prev!,
-          conversionRate: data.conversionRate || 2.5,
-          conversionRateDelta: data.conversionRateDelta || 0
-        }));
-        return;
-      }
-      
-      setInsights(prev => ({
-        ...prev!,
-        conversionRate: data.rate_limited ? 0 : (data.conversionRate || 0),
-        conversionRateDelta: 0 // No delta calculation for simplified approach
-      }));
-      
-      if (data.rate_limited) {
-        setHasRateLimit(true);
-      }
-    } catch (error: any) {
-      if (error.message === 'PERMISSION_ERROR') {
-        navigate('/');
-        return;
-      }
-      setCardErrors(prev => ({ ...prev, insights: 'Failed to load insights data' }));
-    } finally {
-      setCardLoading(prev => ({ ...prev, insights: false }));
-    }
-  }, [retryWithBackoff, navigate]);
-
-  const fetchAbandonedCartsData = useCallback(async () => {
-    setCardLoading(prev => ({ ...prev, abandonedCarts: true }));
-    setCardErrors(prev => ({ ...prev, abandonedCarts: null }));
-    
-    try {
-      const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/abandoned_carts'));
-      const data = await response.json();
-      
-      if (data.error_code === 'INSUFFICIENT_PERMISSIONS' || 
-          (data.error && data.error.includes('re-authentication'))) {
-        setCardErrors(prev => ({ ...prev, abandonedCarts: 'Permission denied – please re-authenticate with Shopify' }));
-        return;
-      }
-
-      if (data.error_code === 'API_ACCESS_LIMITED') {
-        // Silently handle limited access - show 0 data without error message
-        setInsights(prev => ({
-          ...prev!,
-          abandonedCarts: 0
-        }));
-        return;
-      }
-      
-      if (data.error_code === 'USING_TEST_DATA') {
-        // Handle test data - show the data without error messages
-        setInsights(prev => ({
-          ...prev!,
-          abandonedCarts: data.abandonedCarts || 0
-        }));
-        return;
-      }
-      
-      setInsights(prev => ({
-        ...prev!,
-        abandonedCarts: data.rate_limited ? 0 : (data.abandonedCarts || 0)
-      }));
-      
-      if (data.rate_limited) {
-        setHasRateLimit(true);
-      }
-    } catch (error: any) {
-      if (error.message === 'PERMISSION_ERROR') {
-        setCardErrors(prev => ({ ...prev, abandonedCarts: 'Permission denied – please re-authenticate with Shopify' }));
-        return;
-      }
-      setCardErrors(prev => ({ ...prev, abandonedCarts: 'Failed to load abandoned carts data' }));
-    } finally {
-      setCardLoading(prev => ({ ...prev, abandonedCarts: false }));
-    }
-  }, [retryWithBackoff]);
-
-  const fetchOrdersData = useCallback(async () => {
-    setCardLoading(prev => ({ ...prev, orders: true }));
-    setCardErrors(prev => ({ ...prev, orders: null }));
-    
-    try {
-      // Fetch orders sequentially to avoid overwhelming the API
-      const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/orders/timeseries?page=1&limit=50'));
-      const data = await response.json();
-      
-      console.log('Orders API response:', data);
-      
-      if (data.error_code === 'INSUFFICIENT_PERMISSIONS' || 
-          (data.error && data.error.includes('re-authentication'))) {
-        setCardErrors(prev => ({ ...prev, orders: 'Permission denied – please re-authenticate with Shopify' }));
-        return;
-      }
-      
-      if (data.error_code === 'API_ACCESS_LIMITED') {
-        // Silently handle limited access - show empty data without error message
-        setInsights(prev => ({
-          ...prev!,
-          orders: [],
-          recentOrders: []
-        }));
-        return;
-      }
-      
-      if (data.error_code === 'USING_TEST_DATA') {
-        // Handle test data - show the test orders
-        setInsights(prev => ({
-          ...prev!,
-          orders: data.timeseries || [],
-          recentOrders: (data.timeseries || []).slice(0, 5)
-        }));
-        return;
-      }
-      
-      let allOrders = data.timeseries || [];
-      console.log('Initial orders from API:', allOrders.length, allOrders);
-      
-      // Only fetch additional pages if first page worked and we have more data
-      if (!data.rate_limited && data.has_more) {
-        try {
-          // Fetch additional pages with delays to avoid rate limiting
-          for (let page = 2; page <= 5; page++) {
-            await new Promise(resolve => setTimeout(resolve, 500)); // 500ms delay between pages
-            const additionalResponse = await fetchWithAuth(`/api/analytics/orders/timeseries?page=${page}&limit=50`);
-            const additionalData = await additionalResponse.json();
-            
-            if (additionalData.timeseries) {
-              allOrders = [...allOrders, ...additionalData.timeseries];
-              console.log(`Page ${page} orders:`, additionalData.timeseries.length);
-            }
-            
-            if (!additionalData.has_more) break;
-          }
-        } catch (err) {
-          console.warn('Error fetching additional order pages:', err);
-        }
-      }
-      
-      // Sort orders by date
-      allOrders.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      console.log('Final processed orders:', allOrders.length, allOrders.slice(0, 3));
-      
-      setInsights(prev => {
-        const newState = {
-          ...prev!,
-          orders: data.rate_limited ? [] : allOrders,
-          recentOrders: data.rate_limited ? [] : allOrders.slice(0, 5)
-        };
-        console.log('Updated insights state:', newState);
-        return newState;
-      });
-      
-      if (data.rate_limited) {
-        setHasRateLimit(true);
-      }
-    } catch (error: any) {
-      if (error.message === 'PERMISSION_ERROR') {
-        // Surface permission error in UI instead of redirecting
-        setCardErrors(prev => ({ ...prev, orders: 'Permission denied – please re-authenticate with Shopify' }));
-        return;
-      }
-      setCardErrors(prev => ({ ...prev, orders: 'Failed to load orders data' }));
-    } finally {
-      setCardLoading(prev => ({ ...prev, orders: false }));
-    }
-  }, [retryWithBackoff]);
-
-  // Initialize dashboard with basic structure
+  // Initialize dashboard with basic structure - FIXED LOADING ISSUE
   useEffect(() => {
+    // Don't initialize if still authenticating
+    if (authLoading) {
+      console.log('Dashboard: Still authenticating, waiting...');
+      return;
+    }
+
     if (!shop) {
+      console.log('Dashboard: No shop, clearing data');
       setError('No shop selected');
       setLoading(false);
-      // Clear all dashboard data when shop is null (logout/disconnect)
       setInsights(null);
       setCardLoading({
         revenue: false,
@@ -929,12 +458,12 @@ const DashboardPage = () => {
     }
 
     if (shop && shop.trim() !== '') {
-      setLoading(true);
+      console.log('Dashboard: Initializing for shop:', shop);
       setError(null);
       
-      // Only initialize if insights is null (first load) or if shop changed
       setInsights(prev => {
         if (prev === null) {
+          console.log('Dashboard: Creating initial insights structure');
           return {
             totalRevenue: 0,
             newProducts: 0,
@@ -949,84 +478,38 @@ const DashboardPage = () => {
             abandonedCartCount: 0
           };
         }
-        return prev; // Keep existing data if shop hasn't changed
+        return prev;
       });
       
-      setLoading(false);
+      // Set loading to false immediately after creating structure
+      setTimeout(() => {
+        setLoading(false);
+        console.log('Dashboard: Basic structure initialized, loading set to false');
+      }, 100);
     }
-  }, [shop]);
+  }, [shop, authLoading]);
 
-  // Auto-fetch products and orders data on initial load (for Top Products & Recent Orders sections)
+  // Auto-fetch data on initial load with caching
   useEffect(() => {
-    if (shop) {
-      fetchProductsData();
-      fetchOrdersData();
+    if (shop && !authLoading && !loading) {
+      console.log('Dashboard: Auto-fetching initial data');
+      setTimeout(() => {
+        fetchRevenueData();
+      }, 200);
     }
-  }, [shop, fetchProductsData, fetchOrdersData]);
+  }, [shop, authLoading, loading, fetchRevenueData]);
 
-  // Lazy load data for individual cards
-  const handleCardLoad = useCallback((cardType: keyof CardLoadingState) => {
-    // Add a small delay to prevent overwhelming the API
-    setTimeout(() => {
-      switch (cardType) {
-        case 'revenue':
-          fetchRevenueData();
-          break;
-        case 'products':
-          fetchProductsData();
-          break;
-        case 'inventory':
-          fetchInventoryData();
-          break;
-        case 'newProducts':
-          fetchNewProductsData();
-          break;
-        case 'insights':
-          fetchInsightsData();
-          break;
-        case 'orders':
-          fetchOrdersData();
-          break;
-        case 'abandonedCarts':
-          fetchAbandonedCartsData();
-          break;
-      }
-    }, 100); // 100ms delay
-  }, [fetchRevenueData, fetchProductsData, fetchInventoryData, fetchNewProductsData, fetchInsightsData, fetchOrdersData, fetchAbandonedCartsData]);
-
-  // Debug logging for orders
-  useEffect(() => {
-    if (insights?.orders) {
-      console.log('Orders data changed:', insights.orders.length, insights.orders.slice(0, 2));
-    }
-  }, [insights?.orders]);
-
-  // Cleanup effect when component unmounts
-  useEffect(() => {
-    return () => {
-      // Clear all data when component unmounts
-      setInsights(null);
-      setCardLoading({
-        revenue: false,
-        products: false,
-        inventory: false,
-        newProducts: false,
-        insights: false,
-        orders: false,
-        abandonedCarts: false
-      });
-      setCardErrors({
-        revenue: null,
-        products: null,
-        inventory: null,
-        newProducts: null,
-        insights: null,
-        orders: null,
-        abandonedCarts: null
-      });
-      setHasRateLimit(false);
-    };
-  }, []);
+  // Refresh all data
+  const refreshAllData = useCallback(() => {
+    if (!shop) return;
+    
+    console.log('Dashboard: Refreshing all data');
+    setLastRefresh(Date.now());
+    
+    // Clear cache and force refresh
+    setCache({});
+    fetchRevenueData(true);
+  }, [shop, fetchRevenueData]);
 
   if (loading) {
     return (
@@ -1041,9 +524,6 @@ const DashboardPage = () => {
     );
   }
 
-  // Check if this is a permission error that should show the dashboard with alerts
-  console.log('Dashboard error state:', { error });
-  
   if (error) {
     return (
       <Box sx={{ 
@@ -1066,6 +546,14 @@ const DashboardPage = () => {
     );
   }
 
+  const getCacheAge = (cacheKey: string) => {
+    const cached = cache[cacheKey];
+    if (!cached) return 0;
+    return Math.floor((Date.now() - cached.timestamp) / 1000);
+  };
+
+  const hasValidCache = Object.keys(cache).some(key => isCacheValid(key));
+
   return (
     <DashboardContainer>
       <Box 
@@ -1080,14 +568,38 @@ const DashboardPage = () => {
           pt: 3
         }}
       >
-        {/* Regular error alert for non-permission errors */}
         {error && (
-          <Alert 
-            severity="info" 
-            sx={{ mb: 2 }}
-          >
+          <Alert severity="info" sx={{ mb: 2 }}>
             {error}
           </Alert>
+        )}
+
+        {/* Cache Status and Refresh Controls */}
+        {shop && !error && (
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                Last updated: {lastRefresh > 0 ? new Date(lastRefresh).toLocaleTimeString() : 'Never'}
+              </Typography>
+              {hasValidCache && (
+                <Chip 
+                  size="small" 
+                  color="success" 
+                  variant="outlined"
+                  label={`Using cached data (${Math.min(...Object.keys(cache).map(getCacheAge))}s old)`}
+                />
+              )}
+            </Box>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={refreshAllData}
+              disabled={Object.values(cardLoading).some(loading => loading)}
+              startIcon={<Refresh />}
+            >
+              Refresh Data
+            </Button>
+          </Box>
         )}
 
         {/* Metrics Overview */}
@@ -1099,287 +611,28 @@ const DashboardPage = () => {
           }}
         >
           <MetricCard
-            key="revenue"
             label="Total Revenue"
             value={`$${insights?.totalRevenue?.toLocaleString() || '0'}`}
             loading={cardLoading.revenue}
             error={cardErrors.revenue}
-            onRetry={() => handleCardLoad('revenue')}
-            onLoad={() => handleCardLoad('revenue')}
-          />
-          <MetricCard
-            key="conversion-rate"
-            label="Conversion Rate"
-            value={`${insights?.conversionRate?.toFixed(2) || '0'}%`}
-            delta={insights?.conversionRateDelta && insights.conversionRateDelta !== 0 ? insights.conversionRateDelta.toString() : undefined}
-            deltaType={insights?.conversionRateDelta && insights.conversionRateDelta > 0 ? 'up' : 'down'}
-            loading={cardLoading.insights}
-            error={cardErrors.insights}
-            onRetry={() => handleCardLoad('insights')}
-            onLoad={() => handleCardLoad('insights')}
-          />
-          <MetricCard
-            key="abandoned-carts"
-            label="Abandoned Carts"
-            value={insights?.abandonedCarts?.toString() || '0'}
-            loading={cardLoading.abandonedCarts}
-            error={cardErrors.abandonedCarts}
-            onRetry={() => handleCardLoad('abandonedCarts')}
-            onLoad={() => handleCardLoad('abandonedCarts')}
-          />
-          <MetricCard
-            key="low-inventory"
-            label="Low Inventory"
-            value={typeof insights?.lowInventory === 'number' ? insights.lowInventory.toString() : '0'}
-            loading={cardLoading.inventory}
-            error={cardErrors.inventory}
-            onRetry={() => handleCardLoad('inventory')}
-            onLoad={() => handleCardLoad('inventory')}
-          />
-          <MetricCard
-            key="new-products"
-            label="New Products"
-            value={typeof insights?.newProducts === 'number' ? insights.newProducts.toString() : '0'}
-            loading={cardLoading.newProducts}
-            error={cardErrors.newProducts}
-            onRetry={() => handleCardLoad('newProducts')}
-            onLoad={() => handleCardLoad('newProducts')}
+            onRetry={() => fetchRevenueData()}
           />
         </Box>
 
-        {/* Products and Orders */}
-        <Box 
-          sx={{ 
-            display: 'flex', 
-            gap: { xs: 2, md: 3 }, 
-            flexDirection: { xs: 'column', md: 'row' },
-            width: '100%'
-          }}
-        >
-          <Box 
-            sx={{ 
-              flex: 1,
-              minWidth: 0,
-              display: 'flex',
-              flexDirection: 'column'
-            }}
-          >
-            <StyledCard sx={{ height: '100%' }}>
-              <CardContent>
-                <SectionHeader>
-                  <SectionTitle>
-                    <Inventory2 color="primary" />
-                    Top Products
-                  </SectionTitle>
-                  {cardErrors.products && (
-                    <IconButton 
-                      size="small" 
-                      onClick={() => handleCardLoad('products')}
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      <Refresh fontSize="small" />
-                    </IconButton>
-                  )}
-                </SectionHeader>
-                {cardLoading.products ? (
-                  <Box sx={{ p: 3, textAlign: 'center' }}>
-                    <CircularProgress size={24} />
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                      Loading products...
-                    </Typography>
-                  </Box>
-                ) : cardErrors.products ? (
-                  <Box sx={{ p: 3, textAlign: 'center' }}>
-                    <Typography variant="h6" color="error" gutterBottom>
-                      Failed to load products
-                    </Typography>
-                    <Button 
-                      variant="outlined" 
-                      size="small" 
-                      onClick={() => handleCardLoad('products')}
-                      startIcon={<Refresh />}
-                    >
-                      Retry
-                    </Button>
-                  </Box>
-                ) : insights?.topProducts?.length ? (
-                  <ProductList>
-                    {insights.topProducts.map((product) => (
-                      <ProductItem key={`product-${product.id}`}>
-                        <ProductInfo>
-                          <ProductName>
-                            <ProductLink 
-                              href={`https://${shop}/admin/products/${product.id}`} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                            >
-                              {product.title}
-                              <OpenInNew fontSize="small" />
-                            </ProductLink>
-                          </ProductName>
-                          <ProductStats>
-                            {typeof product.inventory !== 'undefined' ? `${product.inventory} in stock` : 'N/A'} • {product.price || 'N/A'}
-                          </ProductStats>
-                        </ProductInfo>
-                      </ProductItem>
-                    ))}
-                  </ProductList>
-                ) : (
-                  <Box sx={{ p: 3, textAlign: 'center' }}>
-                    <Typography variant="h6" color="text.secondary" gutterBottom>
-                      No products data available yet
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" component="div">
-                      Product performance data will appear here once you start making sales
-                    </Typography>
-                    <Button 
-                      variant="outlined" 
-                      size="small" 
-                      onClick={() => handleCardLoad('products')}
-                      sx={{ mt: 1 }}
-                    >
-                      Load Products
-                    </Button>
-                  </Box>
-                )}
-              </CardContent>
-            </StyledCard>
-          </Box>
-
-          <Box 
-            sx={{ 
-              flex: 1,
-              minWidth: 0,
-              display: 'flex',
-              flexDirection: 'column'
-            }}
-          >
-            <StyledCard sx={{ height: '100%' }}>
-              <CardContent>
-                <SectionHeader>
-                  <SectionTitle>
-                    <ListAlt color="primary" />
-                    Recent Orders
-                  </SectionTitle>
-                  {cardErrors.orders && (
-                    <IconButton 
-                      size="small" 
-                      onClick={() => handleCardLoad('orders')}
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      <Refresh fontSize="small" />
-                    </IconButton>
-                  )}
-                </SectionHeader>
-                {cardLoading.orders ? (
-                  <Box sx={{ p: 3, textAlign: 'center' }}>
-                    <CircularProgress size={24} />
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                      Loading orders...
-                    </Typography>
-                  </Box>
-                ) : cardErrors.orders ? (
-                  <Box sx={{ p: 3, textAlign: 'center' }}>
-                    <Typography variant="h6" color="error" gutterBottom>
-                      Failed to load orders
-                    </Typography>
-                    <Button 
-                      variant="outlined" 
-                      size="small" 
-                      onClick={() => handleCardLoad('orders')}
-                      startIcon={<Refresh />}
-                    >
-                      Retry
-                    </Button>
-                  </Box>
-                ) : insights?.orders?.length ? (
-                  <OrderList>
-                    {insights.orders.map((order, index) => (
-                      <OrderItem key={`order-${order.id || `temp-${index}`}`}>
-                        <OrderInfo>
-                          <OrderTitle>
-                            {order.id ? (
-                              <OrderLink 
-                                href={`https://${shop}/admin/orders/${order.id}`} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                              >
-                                Order #{order.id}
-                                <OpenInNew fontSize="small" />
-                              </OrderLink>
-                            ) : (
-                              <Typography variant="body1" color="text.secondary" component="div">
-                                Order #{`Temporary-${index + 1}`}
-                              </Typography>
-                            )}
-                            {order.customer && (
-                              <Typography 
-                                component="span" 
-                                variant="body2" 
-                                color="text.secondary" 
-                                sx={{ 
-                                  ml: 1,
-                                  display: { xs: 'none', sm: 'inline' }
-                                }}
-                              >
-                                • {order.customer.first_name} {order.customer.last_name}
-                              </Typography>
-                            )}
-                          </OrderTitle>
-                          <OrderDetails>
-                            {formatDate(order.created_at)} • ${order.total_price}
-                          </OrderDetails>
-                        </OrderInfo>
-                      </OrderItem>
-                    ))}
-                  </OrderList>
-                ) : (
-                  <Box sx={{ p: 3, textAlign: 'center' }}>
-                    <Typography variant="h6" color="text.secondary" gutterBottom>
-                      No orders data available yet
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" component="div">
-                      {error 
-                        ? 'Please log in again to restore access'
-                        : 'Order data will appear here once you start receiving orders'
-                      }
-                    </Typography>
-                    <Button 
-                      variant="outlined" 
-                      size="small" 
-                      onClick={() => handleCardLoad('orders')}
-                      sx={{ mt: 1 }}
-                    >
-                      Load Orders
-                    </Button>
-                  </Box>
-                )}
-              </CardContent>
-            </StyledCard>
-          </Box>
-        </Box>
-
-        {/* Revenue Graph */}
-        <Box sx={{ width: '100%' }}>
-          <RevenueChart
-            data={insights?.timeseries || []}
-            loading={cardLoading.revenue}
-            error={cardErrors.revenue}
-            height={450}
-          />
-        </Box>
-
-        <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', mt: 2 }}>
-          {insights ? (
-            hasRateLimit ? 
-              '⚠️ Some data temporarily unavailable due to API rate limits. Refreshing automatically...' : 
-              '✅ Dashboard updated with latest available data'
-          ) : 'Loading your store analytics...'}
-        </Typography>
-
-        {/* Debug helpers removed for production */}
-
-
+        {/* Revenue Chart */}
+        {insights?.timeseries && insights.timeseries.length > 0 && (
+          <StyledCard>
+            <CardContent>
+              <CardTitle>
+                <Box sx={{ fontSize: '1.25rem' }}>📈</Box>
+                Revenue Trend (Last 30 Days)
+              </CardTitle>
+              <ChartContainer>
+                <RevenueChart data={insights.timeseries} />
+              </ChartContainer>
+            </CardContent>
+          </StyledCard>
+        )}
       </Box>
     </DashboardContainer>
   );

@@ -806,10 +806,45 @@ public class AnalyticsController {
                   orders != null ? orders.size() : 0,
                   shop);
 
+              // Also aggregate timeseries data for the chart
+              Map<String, Double> dailyRevenue = new java.util.LinkedHashMap<>();
+
+              if (orders != null) {
+                for (Map<String, Object> order : orders) {
+                  String createdAt = (String) order.get("created_at");
+                  Object totalPriceObj = order.get("total_price");
+
+                  if (createdAt != null && totalPriceObj != null) {
+                    try {
+                      String dateOnly = createdAt.substring(0, 10);
+                      double orderPrice = Double.parseDouble(totalPriceObj.toString());
+                      dailyRevenue.merge(dateOnly, orderPrice, Double::sum);
+                    } catch (Exception e) {
+                      // Skip invalid entries
+                    }
+                  }
+                }
+              }
+
+              // Convert to timeseries format
+              List<Map<String, Object>> timeseriesData = new ArrayList<>();
+              for (Map.Entry<String, Double> entry : dailyRevenue.entrySet()) {
+                Map<String, Object> dayData = new HashMap<>();
+                dayData.put("created_at", entry.getKey());
+                dayData.put("total_price", entry.getValue());
+                timeseriesData.add(dayData);
+              }
+
+              // Sort by date
+              timeseriesData.sort(
+                  (a, b) -> ((String) a.get("created_at")).compareTo((String) b.get("created_at")));
+
               Map<String, Object> result = new HashMap<>();
               result.put("revenue", totalRevenue);
+              result.put("totalRevenue", totalRevenue); // Also include this for consistency
               result.put("orders_count", orders != null ? orders.size() : 0);
               result.put("period_days", 60);
+              result.put("timeseries", timeseriesData);
 
               return ResponseEntity.ok(result);
             })
@@ -823,29 +858,34 @@ public class AnalyticsController {
                     "Revenue API access denied - providing realistic test data for development");
                 Map<String, Object> response = new HashMap<>();
 
-                // Generate realistic test revenue data
-                double[] dailyRevenue = {245.50, 189.25, 334.75, 278.00, 412.25, 198.50, 156.75};
-                List<Map<String, Object>> testData = new ArrayList<>();
+                // Generate realistic test revenue data for last 30 days
+                List<Map<String, Object>> timeseriesData = new ArrayList<>();
+                double totalTestRevenue = 0.0;
 
-                for (int i = 0; i < 7; i++) {
+                for (int i = 29; i >= 0; i--) {
+                  // Generate realistic daily revenue with some variation
+                  double baseRevenue = 200.0 + (Math.random() * 300.0); // $200-500 per day
+                  // Add weekend effects (lower on weekends)
+                  LocalDate date = LocalDate.now().minusDays(i);
+                  if (date.getDayOfWeek().getValue() >= 6) { // Weekend
+                    baseRevenue *= 0.7;
+                  }
+
                   Map<String, Object> dayData = new HashMap<>();
-                  dayData.put("date", java.time.LocalDate.now().minusDays(6 - i).toString());
-                  dayData.put("revenue", dailyRevenue[i]);
-                  dayData.put("orders", (int) (dailyRevenue[i] / 65.0)); // ~$65 avg order
-                  testData.add(dayData);
+                  dayData.put("created_at", date.toString());
+                  dayData.put(
+                      "total_price",
+                      Math.round(baseRevenue * 100.0) / 100.0); // Round to 2 decimals
+                  timeseriesData.add(dayData);
+
+                  totalTestRevenue += baseRevenue;
                 }
 
-                double totalRevenue = java.util.Arrays.stream(dailyRevenue).sum();
-
-                response.put("revenue", totalRevenue);
-                response.put("dailyData", testData);
-                response.put(
-                    "totalOrders",
-                    testData.stream().mapToInt(d -> (Integer) d.get("orders")).sum());
-                response.put(
-                    "avgOrderValue",
-                    totalRevenue
-                        / testData.stream().mapToInt(d -> (Integer) d.get("orders")).sum());
+                response.put("revenue", Math.round(totalTestRevenue * 100.0) / 100.0);
+                response.put("totalRevenue", Math.round(totalTestRevenue * 100.0) / 100.0);
+                response.put("timeseries", timeseriesData);
+                response.put("orders_count", (int) (totalTestRevenue / 65.0)); // ~$65 avg order
+                response.put("period_days", 30);
                 response.put("error_code", "USING_TEST_DATA");
                 response.put(
                     "note",
@@ -993,8 +1033,56 @@ public class AnalyticsController {
         .map(
             data -> {
               var orders = (List<Map<String, Object>>) data.get("orders");
+
+              // Aggregate orders by day for chart display
+              Map<String, Double> dailyRevenue = new java.util.LinkedHashMap<>();
+
+              if (orders != null) {
+                for (Map<String, Object> order : orders) {
+                  String createdAt = (String) order.get("created_at");
+                  Object totalPriceObj = order.get("total_price");
+
+                  if (createdAt != null && totalPriceObj != null) {
+                    try {
+                      // Extract date part only (yyyy-mm-dd)
+                      String dateOnly = createdAt.substring(0, 10);
+                      double totalPrice = Double.parseDouble(totalPriceObj.toString());
+
+                      dailyRevenue.merge(dateOnly, totalPrice, Double::sum);
+                    } catch (Exception e) {
+                      // Skip invalid entries
+                      logger.warn(
+                          "Skipping invalid order data: createdAt={}, totalPrice={}",
+                          createdAt,
+                          totalPriceObj);
+                    }
+                  }
+                }
+              }
+
+              // Convert to list format expected by frontend chart
+              List<Map<String, Object>> timeseriesData = new ArrayList<>();
+              for (Map.Entry<String, Double> entry : dailyRevenue.entrySet()) {
+                Map<String, Object> dayData = new HashMap<>();
+                dayData.put("created_at", entry.getKey());
+                dayData.put("total_price", entry.getValue());
+                timeseriesData.add(dayData);
+              }
+
+              // Sort by date
+              timeseriesData.sort(
+                  (a, b) -> ((String) a.get("created_at")).compareTo((String) b.get("created_at")));
+
               Map<String, Object> response = new HashMap<>();
-              response.put("timeseries", orders);
+              response.put("timeseries", timeseriesData);
+              response.put("total_days", timeseriesData.size());
+
+              logger.info(
+                  "Aggregated {} orders into {} days of revenue data for shop {}",
+                  orders != null ? orders.size() : 0,
+                  timeseriesData.size(),
+                  shop);
+
               return ResponseEntity.ok(response);
             })
         .onErrorResume(
