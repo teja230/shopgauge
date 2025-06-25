@@ -18,6 +18,7 @@ import theme from './theme';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, authLoading } = useAuth();
+  const location = useLocation();
   
   console.log('ProtectedRoute: Auth status', { 
     isAuthenticated, 
@@ -41,18 +42,20 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   
   if (!isAuthenticated) {
     console.log('ProtectedRoute: Not authenticated, redirecting to home from:', window.location.pathname);
-    return <Navigate to="/" replace />;
+    // Preserve the current path as a redirect parameter so user can return after login
+    const currentPath = location.pathname + location.search + location.hash;
+    return <Navigate to={`/?redirect=${encodeURIComponent(currentPath)}`} replace />;
   }
   
   console.log('ProtectedRoute: Authenticated, rendering children for:', window.location.pathname);
   return <>{children}</>;
 };
 
-// Component to handle redirects from 404.html
+// Component to handle redirects from 404.html and loading.html
 const RedirectHandler: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { authLoading } = useAuth();
+  const { authLoading, isAuthenticated } = useAuth();
 
   useEffect(() => {
     // Don't process redirects while auth is loading
@@ -68,11 +71,24 @@ const RedirectHandler: React.FC = () => {
       
       // Define valid routes that should be redirected to
       const validRoutes = ['/dashboard', '/competitors', '/admin', '/profile', '/privacy-policy'];
+      const protectedRoutes = ['/dashboard', '/competitors', '/profile'];
       
       // Check if the redirect path is a valid route
       if (validRoutes.includes(redirectPath)) {
-        // Remove the redirect parameter and navigate to the intended path
-        navigate(redirectPath, { replace: true });
+        // For protected routes, only redirect if user is authenticated
+        if (protectedRoutes.includes(redirectPath)) {
+          if (isAuthenticated) {
+            console.log('RedirectHandler: Authenticated user, redirecting to protected route:', redirectPath);
+            navigate(redirectPath, { replace: true });
+          } else {
+            console.log('RedirectHandler: Not authenticated, staying on home page with redirect param');
+            // Keep the redirect parameter for after login
+          }
+        } else {
+          // Non-protected routes (admin, privacy-policy) can be accessed directly
+          console.log('RedirectHandler: Redirecting to public route:', redirectPath);
+          navigate(redirectPath, { replace: true });
+        }
       } else {
         // Invalid route - remove redirect parameter and let the app handle it normally
         // This will cause the catch-all route (*) to show the 404 page
@@ -80,7 +96,7 @@ const RedirectHandler: React.FC = () => {
         navigate(location.pathname, { replace: true });
       }
     }
-  }, [navigate, location, authLoading]);
+  }, [navigate, location, authLoading, isAuthenticated]);
 
   return null;
 };

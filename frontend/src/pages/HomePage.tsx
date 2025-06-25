@@ -83,14 +83,21 @@ const HomePage = () => {
   // Handle navigation after authentication
   useEffect(() => {
     if (isAuthenticated && !authLoading) {
-      console.log('HomePage: User authenticated, checking for dashboard navigation');
-      // If user is authenticated and we were waiting for auth, navigate to dashboard
-      if (location.pathname === '/' && isOAuthFlow) {
+      console.log('HomePage: User authenticated, checking for redirect navigation');
+      
+      // Check for redirect parameter in URL
+      const urlParams = new URLSearchParams(location.search);
+      const redirectPath = urlParams.get('redirect');
+      
+      if (redirectPath) {
+        console.log('HomePage: Found redirect parameter, navigating to:', redirectPath);
+        navigate(redirectPath, { replace: true });
+      } else if (location.pathname === '/' && isOAuthFlow) {
         console.log('HomePage: Navigating to dashboard after OAuth completion');
         navigate('/dashboard');
       }
     }
-  }, [isAuthenticated, authLoading, navigate, location.pathname, isOAuthFlow]);
+  }, [isAuthenticated, authLoading, navigate, location.pathname, location.search, isOAuthFlow]);
 
   // Determine if user is authenticated after auth check completes
   const showAuthConnected = isAuthenticated && !authLoading && !isOAuthFlow;
