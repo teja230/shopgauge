@@ -178,6 +178,56 @@ The frontend implements a secure authentication flow with Shopify OAuth:
 4. **Protected Routes** - Secure access to dashboard and admin features
 5. **Error Handling** - Graceful handling of authentication errors
 
+## 🛣️ Routing Architecture
+
+ShopGauge implements a sophisticated routing system with clear separation between valid routes and 404 errors:
+
+```mermaid
+graph TD
+    A["User visits /dashboard"] --> B{Server Routing}
+    
+    B -->|Valid Route| C["loading.html<br/>🎨 Beautiful gradient<br/>⚡ 200ms redirect<br/>✨ Loading animation"]
+    B -->|Invalid Route| D["404.html<br/>❌ True 404 page<br/>⏱️ 2s delay<br/>🏠 Redirect to home"]
+    
+    C --> E["/?redirect=/dashboard"]
+    D --> F["/?redirect=/invalid-page"]
+    
+    E --> G["React App<br/>RedirectHandler"]
+    F --> G
+    
+    G -->|Valid Route| H["Dashboard Page<br/>✅ Authenticated"]
+    G -->|Invalid Route| I["NotFoundPage<br/>🔗 Navigation options"]
+    G -->|Not Authenticated| J["HomePage<br/>🔐 Login required"]
+    
+    style C fill:#667eea,stroke:#4c51bf,color:#fff
+    style D fill:#f56565,stroke:#c53030,color:#fff
+    style H fill:#48bb78,stroke:#38a169,color:#fff
+    style I fill:#ed8936,stroke:#dd6b20,color:#fff
+    style J fill:#4299e1,stroke:#3182ce,color:#fff
+```
+
+### Routing Components
+
+- **`_redirects`** - Netlify configuration that routes valid pages to `loading.html` and invalid pages to `404.html`
+- **`loading.html`** - Beautiful loading page for valid routes with 200ms redirect
+- **`404.html`** - True 404 page for invalid routes with 2s delay
+- **`RedirectHandler`** - React component that processes redirects and validates routes
+- **`NotFoundPage`** - Enhanced 404 page with authentication-aware navigation options
+
+### User Experience
+
+**Valid Route Refresh (`/dashboard`):**
+1. Server serves `loading.html` (beautiful gradient page)
+2. 200ms redirect to `/?redirect=/dashboard`
+3. React app loads and redirects to dashboard
+4. **Total time**: ~400ms with smooth loading experience
+
+**Invalid Route Visit (`/fake-page`):**
+1. Server serves `404.html` (proper 404 page)
+2. User sees "Page not found" for 2 seconds
+3. Redirect to React app which shows enhanced NotFoundPage
+4. **Clear messaging**: User understands the page doesn't exist
+
 ## 📱 Responsive Design
 
 ShopGauge is fully responsive and optimized for:
