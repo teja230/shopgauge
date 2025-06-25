@@ -2,13 +2,16 @@ package com.storesight.backend.service;
 
 import com.storesight.backend.model.AuditLog;
 import com.storesight.backend.model.Shop;
+import com.storesight.backend.model.ShopSession;
 import com.storesight.backend.repository.AuditLogRepository;
 import com.storesight.backend.repository.ShopRepository;
+import com.storesight.backend.repository.ShopSessionRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +20,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
+/**
+ * Enhanced service for data privacy compliance with multi-session support. Handles GDPR compliance,
+ * audit logging, and data minimization.
+ */
 @Service
 public class DataPrivacyService {
 
@@ -24,6 +31,7 @@ public class DataPrivacyService {
   private final StringRedisTemplate redisTemplate;
   private final AuditLogRepository auditLogRepository;
   private final ShopRepository shopRepository;
+  private final ShopSessionRepository shopSessionRepository;
 
   // Data retention periods (in days)
   private static final int ORDER_DATA_RETENTION_DAYS = 60; // Only last 60 days as per requirement
@@ -34,10 +42,12 @@ public class DataPrivacyService {
   public DataPrivacyService(
       StringRedisTemplate redisTemplate,
       AuditLogRepository auditLogRepository,
-      ShopRepository shopRepository) {
+      ShopRepository shopRepository,
+      ShopSessionRepository shopSessionRepository) {
     this.redisTemplate = redisTemplate;
     this.auditLogRepository = auditLogRepository;
     this.shopRepository = shopRepository;
+    this.shopSessionRepository = shopSessionRepository;
   }
 
   /** Process only minimum required data for analytics purposes */
@@ -358,7 +368,7 @@ public class DataPrivacyService {
     cleanupOldAuditLogs();
   }
 
-  /** Get active shops - shops that have recent activity (last 24 hours) */
+  /** Enhanced method to get active shops using the new multi-session architecture */
   public List<Map<String, Object>> getActiveShops() {
     try {
       LocalDateTime twentyFourHoursAgo = LocalDateTime.now().minusDays(1);
@@ -378,32 +388,66 @@ public class DataPrivacyService {
           shopInfo.put("lastActivity", log.getCreatedAt().toString());
           shopInfo.put("ipAddress", log.getIpAddress());
           shopInfo.put("userAgent", log.getUserAgent());
-          shopInfo.put("sessionId", "session_" + log.getId()); // Mock session ID based on log ID
+          shopInfo.put("sessionId", "audit_" + log.getId()); // Audit-based session reference
           shopInfo.put("isActive", true);
+          shopInfo.put("source", "audit_logs");
 
           activeShopsMap.put(shopDomain, shopInfo);
         }
       }
 
-      // Also add shops from the database that have valid tokens (active in Redis)
+      // Enhanced: Add shops from the database with their actual active sessions
       List<Shop> allShops = shopRepository.findAll();
       for (Shop shop : allShops) {
         String shopDomain = shop.getShopifyDomain();
-        if (shopDomain != null && !activeShopsMap.containsKey(shopDomain)) {
-          // Check if shop has active token in Redis
-          String token = redisTemplate.opsForValue().get("shop_token:" + shopDomain);
-          if (token != null) {
-            Map<String, Object> shopInfo = new HashMap<>();
-            shopInfo.put("shopDomain", shopDomain);
-            shopInfo.put(
-                "lastActivity",
-                shop.getUpdatedAt() != null ? shop.getUpdatedAt().toString() : null);
-            shopInfo.put("ipAddress", "N/A");
-            shopInfo.put("userAgent", "N/A");
-            shopInfo.put("sessionId", "db_session_" + shop.getId());
-            shopInfo.put("isActive", true);
+        if (shopDomain != null) {
+          // Get active sessions for this shop
+          List<ShopSession> activeSessions =
+              shopSessionRepository.findByShopAndIsActiveTrueOrderByLastAccessedAtDesc(shop);
 
-            activeShopsMap.put(shopDomain, shopInfo);
+          if (!activeSessions.isEmpty()) {
+            // Use the most recent active session as the primary representation
+            ShopSession mostRecentSession = activeSessions.get(0);
+
+            if (!activeShopsMap.containsKey(shopDomain)) {
+              Map<String, Object> shopInfo = new HashMap<>();
+              shopInfo.put("shopDomain", shopDomain);
+              shopInfo.put("lastActivity", mostRecentSession.getLastAccessedAt().toString());
+              shopInfo.put("ipAddress", mostRecentSession.getIpAddress());
+              shopInfo.put("userAgent", mostRecentSession.getUserAgent());
+              shopInfo.put("sessionId", mostRecentSession.getSessionId());
+              shopInfo.put("isActive", true);
+              shopInfo.put("source", "database_sessions");
+              shopInfo.put("activeSessionCount", activeSessions.size());
+              shopInfo.put("sessionCreatedAt", mostRecentSession.getCreatedAt().toString());
+
+              activeShopsMap.put(shopDomain, shopInfo);
+            } else {
+              // Update existing entry with session information
+              Map<String, Object> existingInfo = activeShopsMap.get(shopDomain);
+              existingInfo.put("activeSessionCount", activeSessions.size());
+              existingInfo.put("databaseSessionId", mostRecentSession.getSessionId());
+              existingInfo.put("sessionCreatedAt", mostRecentSession.getCreatedAt().toString());
+              existingInfo.put("source", "audit_and_sessions");
+            }
+          } else {
+            // Fallback: Check if shop has active token in Redis (legacy support)
+            String token = redisTemplate.opsForValue().get("shop_token:" + shopDomain);
+            if (token != null && !activeShopsMap.containsKey(shopDomain)) {
+              Map<String, Object> shopInfo = new HashMap<>();
+              shopInfo.put("shopDomain", shopDomain);
+              shopInfo.put(
+                  "lastActivity",
+                  shop.getUpdatedAt() != null ? shop.getUpdatedAt().toString() : null);
+              shopInfo.put("ipAddress", "N/A");
+              shopInfo.put("userAgent", "N/A");
+              shopInfo.put("sessionId", "legacy_" + shop.getId());
+              shopInfo.put("isActive", true);
+              shopInfo.put("source", "redis_fallback");
+              shopInfo.put("activeSessionCount", 0);
+
+              activeShopsMap.put(shopDomain, shopInfo);
+            }
           }
         }
       }
@@ -421,13 +465,158 @@ public class DataPrivacyService {
             return bTime.compareTo(aTime);
           });
 
-      logger.info("Found {} active shops", result.size());
-      logDataAccess("ACTIVE_SHOPS_RETRIEVED", "Retrieved " + result.size() + " active shops");
+      logger.info("Found {} active shops using multi-session architecture", result.size());
+      logDataAccess(
+          "ACTIVE_SHOPS_RETRIEVED",
+          "Retrieved " + result.size() + " active shops with session information");
 
       return result;
     } catch (Exception e) {
       logger.error("Error retrieving active shops: {}", e.getMessage(), e);
       return Collections.emptyList();
+    }
+  }
+
+  /** Enhanced method to get detailed shop session information for admin dashboard */
+  public List<Map<String, Object>> getDetailedActiveShops() {
+    try {
+      List<Map<String, Object>> detailedShops = new ArrayList<>();
+
+      // Get all shops with active sessions
+      List<Shop> allShops = shopRepository.findAll();
+
+      for (Shop shop : allShops) {
+        List<ShopSession> activeSessions =
+            shopSessionRepository.findByShopAndIsActiveTrueOrderByLastAccessedAtDesc(shop);
+
+        if (!activeSessions.isEmpty()) {
+          for (ShopSession session : activeSessions) {
+            Map<String, Object> sessionInfo = new HashMap<>();
+            sessionInfo.put("shopDomain", shop.getShopifyDomain());
+            sessionInfo.put("sessionId", session.getSessionId());
+            sessionInfo.put("lastActivity", session.getLastAccessedAt().toString());
+            sessionInfo.put("createdAt", session.getCreatedAt().toString());
+            sessionInfo.put("ipAddress", session.getIpAddress());
+            sessionInfo.put("userAgent", session.getUserAgent());
+            sessionInfo.put("isActive", session.getIsActive());
+            sessionInfo.put("isExpired", session.isExpired());
+            sessionInfo.put(
+                "expiresAt",
+                session.getExpiresAt() != null ? session.getExpiresAt().toString() : null);
+            sessionInfo.put("totalActiveSessions", activeSessions.size());
+            sessionInfo.put("shopId", shop.getId());
+            sessionInfo.put("shopCreatedAt", shop.getCreatedAt().toString());
+            sessionInfo.put("shopUpdatedAt", shop.getUpdatedAt().toString());
+
+            detailedShops.add(sessionInfo);
+          }
+        }
+      }
+
+      // Sort by last activity (most recent first)
+      detailedShops.sort(
+          (a, b) -> {
+            String aTime = (String) a.get("lastActivity");
+            String bTime = (String) b.get("lastActivity");
+            if (aTime == null && bTime == null) return 0;
+            if (aTime == null) return 1;
+            if (bTime == null) return -1;
+            return bTime.compareTo(aTime);
+          });
+
+      logger.info(
+          "Retrieved detailed information for {} active sessions across {} shops",
+          detailedShops.size(),
+          allShops.size());
+
+      return detailedShops;
+    } catch (Exception e) {
+      logger.error("Error retrieving detailed active shops: {}", e.getMessage(), e);
+      return Collections.emptyList();
+    }
+  }
+
+  /** Get session statistics for admin dashboard */
+  public Map<String, Object> getSessionStatistics() {
+    try {
+      Map<String, Object> stats = new HashMap<>();
+
+      // Total active sessions
+      long totalActiveSessions = shopSessionRepository.count();
+      stats.put("totalActiveSessions", totalActiveSessions);
+
+      // Active sessions (not expired)
+      List<ShopSession> activeSessions =
+          shopSessionRepository.findAll().stream()
+              .filter(session -> session.getIsActive() && !session.isExpired())
+              .collect(Collectors.toList());
+      stats.put("currentlyActiveSessions", activeSessions.size());
+
+      // Shops with multiple sessions
+      Map<Long, List<ShopSession>> sessionsByShop =
+          activeSessions.stream()
+              .collect(Collectors.groupingBy(session -> session.getShop().getId()));
+
+      long shopsWithMultipleSessions =
+          sessionsByShop.entrySet().stream()
+              .mapToLong(entry -> entry.getValue().size() > 1 ? 1 : 0)
+              .sum();
+      stats.put("shopsWithMultipleSessions", shopsWithMultipleSessions);
+
+      // Average sessions per shop
+      double avgSessionsPerShop =
+          sessionsByShop.isEmpty() ? 0 : (double) activeSessions.size() / sessionsByShop.size();
+      stats.put("averageSessionsPerShop", Math.round(avgSessionsPerShop * 100.0) / 100.0);
+
+      // Sessions by time period
+      LocalDateTime now = LocalDateTime.now();
+      LocalDateTime oneDayAgo = now.minusDays(1);
+      LocalDateTime oneWeekAgo = now.minusDays(7);
+
+      long sessionsLastDay =
+          activeSessions.stream()
+              .mapToLong(session -> session.getLastAccessedAt().isAfter(oneDayAgo) ? 1 : 0)
+              .sum();
+      stats.put("sessionsActiveLastDay", sessionsLastDay);
+
+      long sessionsLastWeek =
+          activeSessions.stream()
+              .mapToLong(session -> session.getLastAccessedAt().isAfter(oneWeekAgo) ? 1 : 0)
+              .sum();
+      stats.put("sessionsActiveLastWeek", sessionsLastWeek);
+
+      // Top IP addresses (for security monitoring)
+      Map<String, Long> ipCounts =
+          activeSessions.stream()
+              .filter(session -> session.getIpAddress() != null)
+              .collect(Collectors.groupingBy(ShopSession::getIpAddress, Collectors.counting()));
+
+      List<Map<String, Object>> topIps =
+          ipCounts.entrySet().stream()
+              .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+              .limit(10)
+              .map(
+                  entry -> {
+                    Map<String, Object> ipInfo = new HashMap<>();
+                    ipInfo.put("ipAddress", entry.getKey());
+                    ipInfo.put("sessionCount", entry.getValue());
+                    return ipInfo;
+                  })
+              .collect(Collectors.toList());
+      stats.put("topIpAddresses", topIps);
+
+      stats.put("generatedAt", LocalDateTime.now().toString());
+
+      logger.info(
+          "Generated session statistics: {} total active sessions, {} currently active",
+          totalActiveSessions,
+          activeSessions.size());
+
+      return stats;
+    } catch (Exception e) {
+      logger.error("Error generating session statistics: {}", e.getMessage(), e);
+      return Map.of(
+          "error", "Failed to generate statistics", "generatedAt", LocalDateTime.now().toString());
     }
   }
 

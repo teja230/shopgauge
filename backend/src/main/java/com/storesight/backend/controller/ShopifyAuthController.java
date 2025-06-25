@@ -408,7 +408,7 @@ public class ShopifyAuthController {
           sessionId,
           sessionCreated);
       try {
-        shopService.saveShop(shop, accessToken, sessionId);
+        shopService.saveShop(shop, accessToken, sessionId, request);
         logger.info("Shop data saved successfully");
       } catch (Exception saveError) {
         logger.error("Failed to save shop data to Redis/database: {}", saveError.getMessage());

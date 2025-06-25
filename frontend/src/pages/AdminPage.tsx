@@ -256,6 +256,11 @@ interface ActiveShop {
   action?: string;
   details?: string;
   category?: string;
+  // Enhanced multi-session fields
+  activeSessionCount?: number;
+  sessionCreatedAt?: string;
+  source?: string;
+  databaseSessionId?: string;
 }
 
 interface DeletedShop {
@@ -319,6 +324,11 @@ const AdminPage: React.FC = () => {
   const [activeShops, setActiveShops] = useState<ActiveShop[]>([]);
   const [activeShopsLoading, setActiveShopsLoading] = useState(false);
   const [activeShopsError, setActiveShopsError] = useState<string | null>(null);
+  
+  // Session statistics state
+  const [sessionStats, setSessionStats] = useState<any>(null);
+  const [sessionStatsLoading, setSessionStatsLoading] = useState(false);
+  const [sessionStatsError, setSessionStatsError] = useState<string | null>(null);
   
   const [deletedShops, setDeletedShops] = useState<DeletedShop[]>([]);
   const [deletedShopsLoading, setDeletedShopsLoading] = useState(false);
@@ -549,6 +559,36 @@ const AdminPage: React.FC = () => {
     }
   };
 
+  const fetchSessionStatistics = async () => {
+    if (!isAuthenticated) return;
+    
+    try {
+      setSessionStatsLoading(true);
+      setSessionStatsError(null);
+      
+      const response = await fetchWithAuth('/api/admin/session-statistics');
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.statistics) {
+        setSessionStats(data.statistics);
+      } else {
+        setSessionStats(null);
+      }
+    } catch (err) {
+      console.error('Error fetching session statistics:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+      setSessionStatsError(`Failed to fetch session statistics: ${errorMessage}`);
+      setSessionStats(null);
+    } finally {
+      setSessionStatsLoading(false);
+    }
+  };
+
   const fetchAuditLogs = async () => {
     if (!isAuthenticated) return;
     
@@ -641,6 +681,7 @@ const AdminPage: React.FC = () => {
   useEffect(() => {
     if (isAuthenticated) {
       fetchAuditLogs();
+      fetchSessionStatistics(); // Always fetch session stats
       if (auditLogType === 'active') {
         fetchActiveShops();
       } else if (auditLogType === 'deleted') {
@@ -874,6 +915,50 @@ const AdminPage: React.FC = () => {
             </Tabs>
           </TabsContainer>
 
+          {/* Session Statistics Card */}
+          {sessionStats && auditLogType === 'active' && (
+            <Paper sx={{ p: 3, mb: 3, borderRadius: 3, bgcolor: 'grey.50' }}>
+              <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <AssessmentIcon color="primary" />
+                Multi-Session Statistics
+              </Typography>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr 1fr' }, gap: 3 }}>
+                <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'white', borderRadius: 2 }}>
+                  <Typography variant="h4" color="primary.main" fontWeight="bold">
+                    {sessionStats.currentlyActiveSessions || 0}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Active Sessions
+                  </Typography>
+                </Paper>
+                <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'white', borderRadius: 2 }}>
+                  <Typography variant="h4" color="secondary.main" fontWeight="bold">
+                    {sessionStats.shopsWithMultipleSessions || 0}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Multi-Session Shops
+                  </Typography>
+                </Paper>
+                <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'white', borderRadius: 2 }}>
+                  <Typography variant="h4" color="success.main" fontWeight="bold">
+                    {sessionStats.averageSessionsPerShop || 0}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Avg Sessions/Shop
+                  </Typography>
+                </Paper>
+                <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'white', borderRadius: 2 }}>
+                  <Typography variant="h4" color="info.main" fontWeight="bold">
+                    {sessionStats.sessionsActiveLastDay || 0}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Active Last 24h
+                  </Typography>
+                </Paper>
+              </Box>
+            </Paper>
+          )}
+
           {/* Search and Filter Controls */}
           {auditLogType !== 'active' && (
             <FilterContainer elevation={0}>
@@ -1077,14 +1162,29 @@ const AdminPage: React.FC = () => {
                               />
                             </TableCell>
                             <TableCell sx={{ maxWidth: 350 }}>
-                              <Tooltip title={`Active session for ${shop.shopDomain} - Last activity: ${shop.lastActivity}`} arrow>
+                              <Tooltip title={`Active session for ${shop.shopDomain} - Last activity: ${shop.lastActivity}${shop.activeSessionCount ? ` - ${shop.activeSessionCount} active sessions` : ''}`} arrow>
                                 <Typography variant="body2" sx={{ 
                                   overflow: 'hidden', 
                                   textOverflow: 'ellipsis',
                                   whiteSpace: 'nowrap',
                                   maxWidth: 300
                                 }}>
-                                  Active session - {shop.sessionId || 'N/A'}
+                                  {shop.activeSessionCount && shop.activeSessionCount > 1 
+                                    ? `${shop.activeSessionCount} Active Sessions` 
+                                    : `Active session`} - {shop.sessionId || 'N/A'}
+                                  {shop.source && (
+                                    <Chip 
+                                      label={shop.source === 'database_sessions' ? 'DB' : shop.source === 'audit_and_sessions' ? 'AUD+DB' : 'AUD'}
+                                      size="small" 
+                                      sx={{ 
+                                        ml: 1, 
+                                        height: 16, 
+                                        fontSize: '0.7rem',
+                                        bgcolor: shop.source === 'database_sessions' ? '#e8f5e8' : shop.source === 'audit_and_sessions' ? '#fff3e0' : '#e3f2fd',
+                                        color: shop.source === 'database_sessions' ? '#2e7d32' : shop.source === 'audit_and_sessions' ? '#f57c00' : '#1976d2'
+                                      }}
+                                    />
+                                  )}
                                 </Typography>
                               </Tooltip>
                             </TableCell>

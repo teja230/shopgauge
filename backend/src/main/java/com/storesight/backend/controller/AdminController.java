@@ -213,12 +213,56 @@ public class AdminController {
       Map<String, Object> response = new HashMap<>();
       response.put("active_shops", activeShops);
       response.put("total_count", activeShops.size());
-      response.put("note", "Shops that are currently active or have recent activity");
+      response.put(
+          "note",
+          "Shops that are currently active or have recent activity (enhanced with multi-session support)");
 
       return ResponseEntity.ok(response);
     } catch (Exception e) {
       return ResponseEntity.status(500)
           .body(Map.of("error", "Failed to retrieve active shops", "message", e.getMessage()));
+    }
+  }
+
+  @GetMapping("/active-shops/detailed")
+  public ResponseEntity<Map<String, Object>> getDetailedActiveShops() {
+    try {
+      // Get detailed shop session information
+      List<Map<String, Object>> detailedShops = dataPrivacyService.getDetailedActiveShops();
+
+      Map<String, Object> response = new HashMap<>();
+      response.put("detailed_shops", detailedShops);
+      response.put("total_sessions", detailedShops.size());
+      response.put(
+          "unique_shops",
+          detailedShops.stream().map(shop -> shop.get("shopDomain")).distinct().count());
+      response.put("note", "Detailed information about all active sessions for each shop");
+
+      return ResponseEntity.ok(response);
+    } catch (Exception e) {
+      return ResponseEntity.status(500)
+          .body(
+              Map.of(
+                  "error", "Failed to retrieve detailed active shops", "message", e.getMessage()));
+    }
+  }
+
+  @GetMapping("/session-statistics")
+  public ResponseEntity<Map<String, Object>> getSessionStatistics() {
+    try {
+      // Get comprehensive session statistics
+      Map<String, Object> statistics = dataPrivacyService.getSessionStatistics();
+
+      Map<String, Object> response = new HashMap<>();
+      response.put("statistics", statistics);
+      response.put(
+          "note", "Comprehensive session statistics for monitoring multi-session architecture");
+
+      return ResponseEntity.ok(response);
+    } catch (Exception e) {
+      return ResponseEntity.status(500)
+          .body(
+              Map.of("error", "Failed to retrieve session statistics", "message", e.getMessage()));
     }
   }
 
