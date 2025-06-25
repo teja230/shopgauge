@@ -18,8 +18,22 @@ export default function ProfilePage() {
   const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'error'>('checking');
   const [lastSyncTime, setLastSyncTime] = useState<Date>(new Date());
   const [storeStats, setStoreStats] = useState<any>(null);
+  const [pastStores, setPastStores] = useState<string[]>([]);
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Load past stores from localStorage
+  useEffect(() => {
+    const stored = localStorage.getItem('storesight_past_stores');
+    if (stored) {
+      try {
+        const parsedStores = JSON.parse(stored);
+        setPastStores(parsedStores.filter((store: string) => store !== shop));
+      } catch (error) {
+        console.error('Failed to parse past stores:', error);
+      }
+    }
+  }, [shop]);
 
   // Check for successful store connection from URL params
   useEffect(() => {
@@ -28,27 +42,63 @@ export default function ProfilePage() {
     const success = urlParams.get('success');
     const fromAuth = urlParams.get('from_auth');
     
-    if (success === 'true' && shopParam && shopParam !== shop) {
+    if (success === 'true' && shopParam) {
       // Clear dashboard cache when switching stores
       sessionStorage.removeItem('dashboard_cache_v1.1');
       sessionStorage.removeItem('dashboard_cache_v2');
       
-      // Update shop in context
-      setShop(shopParam);
+      // Update shop in context if it's different
+      if (shopParam !== shop) {
+        setShop(shopParam);
+        
+        // Add to past stores if not already present
+        const stored = localStorage.getItem('storesight_past_stores');
+        let pastStoresList: string[] = [];
+        if (stored) {
+          try {
+            pastStoresList = JSON.parse(stored);
+          } catch (error) {
+            console.error('Failed to parse past stores:', error);
+          }
+        }
+        
+        // Add current shop to past stores if not already there
+        if (shop && !pastStoresList.includes(shop)) {
+          pastStoresList.unshift(shop);
+          localStorage.setItem('storesight_past_stores', JSON.stringify(pastStoresList.slice(0, 5))); // Keep last 5 stores
+        }
+        
+        // Show success notification for store switch
+        toast.success(`🎉 Successfully switched to ${shopParam}!`, {
+          duration: 4000,
+          icon: '✅',
+        });
+      } else {
+        // Same store - this happens when both stores belong to same account
+        toast.success(`✅ Store connection verified!`, {
+          duration: 3000,
+        });
+      }
       
-      // Show success notification
-      toast.success(`🎉 Successfully connected to ${shopParam}!`, {
-        duration: 4000,
+      // Always redirect to dashboard for better UX
+      setTimeout(() => {
+        navigate('/dashboard', { replace: true });
+      }, 1500);
+      
+    } else if (fromAuth === 'true' && shopParam) {
+      // Re-authentication completed - redirect to dashboard with notification
+      toast.success('🔐 Re-authentication successful!', {
+        duration: 3000,
         icon: '✅',
       });
       
-      // Redirect to dashboard after a short delay
+      // Clear cache to ensure fresh data
+      sessionStorage.removeItem('dashboard_cache_v1.1');
+      sessionStorage.removeItem('dashboard_cache_v2');
+      
       setTimeout(() => {
         navigate('/dashboard', { replace: true });
-      }, 2000);
-    } else if (fromAuth === 'true' && shopParam) {
-      // Re-authentication completed - redirect to dashboard instead of home
-      navigate('/dashboard', { replace: true });
+      }, 1000);
     }
     
     // Clean up URL params
@@ -104,17 +154,19 @@ export default function ProfilePage() {
   const handleReAuthenticate = async () => {
     try {
       setIsLoading(true);
-      // Redirect to Shopify OAuth flow for re-authentication with return path
+      toast.loading('Re-authenticating with Shopify...', { id: 'reauth' });
+      
+      // Redirect to Shopify OAuth flow for re-authentication with return path to dashboard
       if (shop) {
-        // Add parameter to indicate this is a re-auth from profile
+        // Add parameter to indicate this is a re-auth from profile, redirect to dashboard
         const returnUrl = encodeURIComponent(`${window.location.origin}/profile?from_auth=true&shop=${shop}`);
         window.location.href = `${API_BASE_URL}/api/auth/shopify/login?shop=${encodeURIComponent(shop)}&return_url=${returnUrl}`;
       } else {
-        toast.error('No shop found. Please disconnect and reconnect.');
+        toast.error('No shop found. Please disconnect and reconnect.', { id: 'reauth' });
       }
     } catch (error) {
       console.error('Re-authentication failed:', error);
-      toast.error('Failed to re-authenticate. Please try again.');
+      toast.error('Failed to re-authenticate. Please try again.', { id: 'reauth' });
     } finally {
       setIsLoading(false);
     }
@@ -338,9 +390,9 @@ export default function ProfilePage() {
         cleanDomain = `${cleanDomain}.myshopify.com`;
       }
 
-      // Add success parameters for better UX
+      // Add success parameters for better UX - always redirect to dashboard
       const returnUrl = encodeURIComponent(`${window.location.origin}/profile?success=true&shop=${cleanDomain}`);
-      
+
       // Redirect to the login endpoint with the shop parameter
       window.location.href = `${API_BASE_URL}/api/auth/shopify/login?shop=${encodeURIComponent(cleanDomain)}&return_url=${returnUrl}`;
     } catch (error) {
@@ -349,6 +401,15 @@ export default function ProfilePage() {
     } finally {
       setIsConnectingStore(false);
     }
+  };
+
+  const handleReconnectPastStore = (pastStore: string) => {
+    toast.loading(`Reconnecting to ${pastStore}...`, { id: 'reconnect' });
+    
+    // Add success parameters for better UX
+    const returnUrl = encodeURIComponent(`${window.location.origin}/profile?success=true&shop=${pastStore}`);
+    
+    window.location.href = `${API_BASE_URL}/api/auth/shopify/login?shop=${encodeURIComponent(pastStore)}&return_url=${returnUrl}`;
   };
 
   const clearCacheAndRefresh = () => {
@@ -394,21 +455,21 @@ export default function ProfilePage() {
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Left Column - Store Details */}
-          <div className="space-y-6">
-            <div>
+        <div className="space-y-6">
+              <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Current Store</label>
               <div className="flex items-center space-x-3">
                 <div className="flex-1 bg-gray-50 px-4 py-3 rounded-lg border border-gray-200">
-                  <span className="text-gray-900 font-mono text-sm">{shop}</span>
-                </div>
+                    <span className="text-gray-900 font-mono text-sm">{shop}</span>
+                  </div>
                 <div className={`flex items-center ${getConnectionStatusColor()}`}>
                   <span className="text-lg mr-2">{getConnectionStatusIcon()}</span>
                   <span className="text-sm font-medium capitalize">{connectionStatus}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-            
-            <div>
+              
+              <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Connection Status</label>
               <div className="flex items-center space-x-3">
                 <div className={`w-3 h-3 rounded-full ${
@@ -422,19 +483,22 @@ export default function ProfilePage() {
                 </span>
               </div>
             </div>
-
+            
             {storeStats && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Store Statistics</label>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-blue-50 p-3 rounded-lg">
                     <div className="text-2xl font-bold text-blue-600">{storeStats.totalOrders || 0}</div>
-                    <div className="text-xs text-blue-500">Total Orders</div>
+                    <div className="text-xs text-blue-500">Orders (Past 60 Days)</div>
                   </div>
                   <div className="bg-green-50 p-3 rounded-lg">
                     <div className="text-2xl font-bold text-green-600">${storeStats.totalRevenue || 0}</div>
-                    <div className="text-xs text-green-500">Total Revenue</div>
+                    <div className="text-xs text-green-500">Revenue (Past 60 Days)</div>
                   </div>
+                </div>
+                <div className="text-xs text-gray-500 mt-2 text-center">
+                  📊 Data reflects the last 60 days of activity
                 </div>
               </div>
             )}
@@ -446,22 +510,22 @@ export default function ProfilePage() {
               <label className="block text-sm font-medium text-gray-700 mb-2">Last Data Sync</label>
               <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
                 {lastSyncTime.toLocaleDateString('en-US', { 
-                  weekday: 'long', 
-                  year: 'numeric', 
-                  month: 'long', 
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })}
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </div>
               </div>
-            </div>
-            
-            <div>
+              
+              <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Data Collection</label>
               <div className="flex items-center space-x-2 bg-gray-50 p-3 rounded-lg">
-                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                 <span className="text-sm text-gray-600">Orders, Analytics, Revenue & Metrics</span>
-              </div>
+                </div>
             </div>
 
             <div className="space-y-3">
@@ -497,39 +561,39 @@ export default function ProfilePage() {
                 </svg>
                 Clear Cache & Refresh
               </button>
+              </div>
             </div>
           </div>
-        </div>
-        
+          
         {/* Re-authenticate Section */}
         <div className="border-t pt-6 mt-6">
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-gray-600">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-gray-600">
               <span className="font-medium">Having connection issues?</span>
               <p className="text-xs text-gray-500 mt-1">Re-authenticate with Shopify to refresh your connection</p>
-            </div>
-            <button
-              onClick={handleReAuthenticate}
-              disabled={isLoading}
+              </div>
+              <button
+                onClick={handleReAuthenticate}
+                disabled={isLoading}
               className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-            >
-              {isLoading ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Re-authenticating...
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  Re-authenticate
-                </>
-              )}
-            </button>
+              >
+                {isLoading ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Re-authenticating...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Re-authenticate
+                  </>
+                )}
+              </button>
           </div>
         </div>
       </div>
@@ -574,11 +638,11 @@ export default function ProfilePage() {
                     <div className="text-right">
                       <div className="flex items-center">
                         <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                        <span className="text-sm font-medium">Active</span>
+                    <span className="text-sm font-medium">Active</span>
                       </div>
                       {storeStats && (
                         <div className="text-xs text-blue-500 mt-1">
-                          {storeStats.totalOrders} orders • ${storeStats.totalRevenue} revenue
+                          {storeStats.totalOrders} orders • ${storeStats.totalRevenue} revenue (60d)
                         </div>
                       )}
                     </div>
@@ -586,6 +650,35 @@ export default function ProfilePage() {
                 </div>
               </div>
               
+              {/* Past Stores - New Section */}
+              {pastStores.length > 0 && (
+                <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-5 rounded-xl border border-purple-200">
+                  <h4 className="font-semibold text-purple-900 mb-3 flex items-center">
+                    <span className="mr-2">🕒</span>
+                    Recent Stores
+                  </h4>
+                  <div className="space-y-2">
+                    {pastStores.slice(0, 3).map((pastStore, index) => (
+                      <div key={index} className="flex items-center justify-between bg-white p-3 rounded-lg border border-purple-200">
+                        <div className="flex items-center">
+                          <div className="w-2 h-2 bg-purple-400 rounded-full mr-3"></div>
+                          <span className="text-sm font-mono text-gray-700">{pastStore}</span>
+                        </div>
+                        <button
+                          onClick={() => handleReconnectPastStore(pastStore)}
+                          className="inline-flex items-center px-3 py-1 border border-purple-300 text-xs font-medium rounded-md text-purple-700 bg-purple-50 hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors"
+                        >
+                          <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          </svg>
+                          Reconnect
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Connect New Store - Enhanced */}
               <div className="bg-gray-50 p-5 rounded-xl">
                 <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
@@ -595,47 +688,52 @@ export default function ProfilePage() {
                 <form onSubmit={handleConnectNewStore} className="space-y-4">
                   <div className="flex flex-col sm:flex-row gap-3">
                     <div className="flex-1">
-                      <input
-                        type="text"
-                        value={newStoreDomain}
-                        onChange={(e) => setNewStoreDomain(e.target.value)}
-                        placeholder="Enter store name (e.g. mystore)"
+                  <input
+                    type="text"
+                    value={newStoreDomain}
+                    onChange={(e) => setNewStoreDomain(e.target.value)}
+                    placeholder="Enter store name (e.g. mystore)"
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                        disabled={isConnectingStore}
-                      />
+                    disabled={isConnectingStore}
+                  />
                     </div>
-                    <button
-                      type="submit"
+                  <button
+                    type="submit"
                       disabled={isConnectingStore || !newStoreDomain.trim()}
                       className="inline-flex items-center px-5 py-3 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      {isConnectingStore ? (
-                        <>
-                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                          Connecting...
-                        </>
-                      ) : (
-                        <>
-                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                          </svg>
-                          Connect Store
-                        </>
-                      )}
-                    </button>
+                  >
+                    {isConnectingStore ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Connecting...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                        Connect Store
+                      </>
+                    )}
+                  </button>
                   </div>
-                  <div className="text-xs text-gray-500 flex items-start">
-                    <svg className="w-4 h-4 mr-1 mt-0.5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <div>
-                      <p className="font-medium">How to connect:</p>
-                      <p>• Enter your store name without .myshopify.com</p>
-                      <p>• You'll be redirected to Shopify for authorization</p>
-                      <p>• After approval, you'll return here with success notification</p>
+                  <div className="text-xs text-gray-500 bg-blue-50 p-3 rounded-lg border border-blue-200">
+                    <div className="flex items-start">
+                      <svg className="w-4 h-4 mr-2 mt-0.5 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <div>
+                        <p className="font-medium text-blue-800 mb-1">Quick Connect Process:</p>
+                        <p className="text-blue-700">• Enter store name (without .myshopify.com)</p>
+                        <p className="text-blue-700">• Authorize via Shopify (secure OAuth)</p>
+                        <p className="text-blue-700">• Automatically redirected to Dashboard</p>
+                        <p className="text-blue-600 mt-2 text-xs italic">
+                          ✨ Same account stores connect instantly with success notification
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </form>
@@ -709,22 +807,22 @@ export default function ProfilePage() {
               <span className="mr-2">📊</span>
               Data Access & Export
             </h3>
-            <div className="space-y-3">
-              <button
-                onClick={handlePrivacyReport}
+          <div className="space-y-3">
+            <button
+              onClick={handlePrivacyReport}
                 className="w-full inline-flex items-center justify-center px-4 py-3 border border-blue-300 text-sm font-medium rounded-lg text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-              >
+            >
                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
                 View Privacy Report
-              </button>
-              
-              <button
-                onClick={handleDataExport}
-                disabled={isExporting}
+            </button>
+            
+            <button
+              onClick={handleDataExport}
+              disabled={isExporting}
                 className="w-full inline-flex items-center justify-center px-4 py-3 border border-green-300 text-sm font-medium rounded-lg text-green-700 bg-green-50 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 transition-colors"
-              >
+            >
                 {isExporting ? (
                   <>
                     <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -741,7 +839,7 @@ export default function ProfilePage() {
                     Export My Data
                   </>
                 )}
-              </button>
+            </button>
             </div>
           </div>
           
@@ -751,22 +849,22 @@ export default function ProfilePage() {
               <span className="mr-2">⚖️</span>
               Legal & Compliance
             </h3>
-            <div className="space-y-3">
-              <button
-                onClick={() => navigate('/privacy-policy')}
+          <div className="space-y-3">
+            <button
+              onClick={() => navigate('/privacy-policy')}
                 className="w-full inline-flex items-center justify-center px-4 py-3 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-gray-50 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
-              >
+            >
                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
                 Privacy Policy
-              </button>
-              
-              <button
-                onClick={handleDataDeletion}
-                disabled={isDeletingData}
+            </button>
+            
+            <button
+              onClick={handleDataDeletion}
+              disabled={isDeletingData}
                 className="w-full inline-flex items-center justify-center px-4 py-3 border border-red-300 text-sm font-medium rounded-lg text-red-700 bg-red-50 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 transition-colors"
-              >
+            >
                 {isDeletingData ? (
                   <>
                     <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -783,7 +881,7 @@ export default function ProfilePage() {
                     Delete All My Data
                   </>
                 )}
-              </button>
+            </button>
             </div>
           </div>
         </div>
@@ -836,8 +934,8 @@ export default function ProfilePage() {
                   </svg>
                 </button>
               </div>
-            </div>
-            
+              </div>
+              
             <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
               <div className="space-y-6">
                 {/* Compliance Status */}
@@ -859,22 +957,22 @@ export default function ProfilePage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="bg-gray-50 p-4 rounded-xl">
                       <h5 className="font-medium text-gray-800 mb-2">Data Minimization</h5>
-                      <p className="text-sm text-gray-600">{privacyReport.data_minimization}</p>
-                    </div>
-                    
+                    <p className="text-sm text-gray-600">{privacyReport.data_minimization}</p>
+                  </div>
+                  
                     <div className="bg-gray-50 p-4 rounded-xl">
                       <h5 className="font-medium text-gray-800 mb-2">Purpose Limitation</h5>
-                      <p className="text-sm text-gray-600">{privacyReport.purpose_limitation}</p>
-                    </div>
-                    
+                    <p className="text-sm text-gray-600">{privacyReport.purpose_limitation}</p>
+                  </div>
+                  
                     <div className="bg-gray-50 p-4 rounded-xl">
                       <h5 className="font-medium text-gray-800 mb-2">Retention Policy</h5>
-                      <p className="text-sm text-gray-600">{privacyReport.retention_policy}</p>
-                    </div>
-                    
+                    <p className="text-sm text-gray-600">{privacyReport.retention_policy}</p>
+                  </div>
+                  
                     <div className="bg-gray-50 p-4 rounded-xl">
                       <h5 className="font-medium text-gray-800 mb-2">Data Encryption</h5>
-                      <p className="text-sm text-gray-600">{privacyReport.encryption}</p>
+                    <p className="text-sm text-gray-600">{privacyReport.encryption}</p>
                     </div>
                   </div>
                 </div>
@@ -974,15 +1072,15 @@ export default function ProfilePage() {
                   </ul>
                 </div>
               </div>
-              <button
-                onClick={handleShopDisconnect}
+            <button
+              onClick={handleShopDisconnect}
                 className="ml-4 inline-flex items-center px-4 py-3 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
-              >
+            >
                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                 </svg>
-                Disconnect Store
-              </button>
+              Disconnect Store
+            </button>
             </div>
           </div>
 
@@ -1015,11 +1113,11 @@ export default function ProfilePage() {
                   </ul>
                 </div>
               </div>
-              <button
-                onClick={handleForceDisconnect}
-                disabled={isForceDisconnecting}
+            <button
+              onClick={handleForceDisconnect}
+              disabled={isForceDisconnecting}
                 className="ml-4 inline-flex items-center px-4 py-3 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 disabled:opacity-50 transition-colors"
-              >
+            >
                 {isForceDisconnecting ? (
                   <>
                     <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -1040,38 +1138,9 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Help Section */}
-          <div className="bg-blue-50 p-4 rounded-xl border border-blue-200">
-            <h4 className="font-semibold text-blue-900 mb-2 flex items-center">
-              <span className="mr-2">💡</span>
-              Need Help?
-            </h4>
-            <p className="text-sm text-blue-700 mb-3">
-              If you're experiencing issues with your store connection or need assistance:
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={checkConnectionStatus}
-                className="inline-flex items-center px-3 py-2 border border-blue-300 text-sm font-medium rounded-lg text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-              >
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Test Connection
-              </button>
-              <button
-                onClick={clearCacheAndRefresh}
-                className="inline-flex items-center px-3 py-2 border border-green-300 text-sm font-medium rounded-lg text-green-700 bg-green-50 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
-              >
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                Clear Cache
-              </button>
-            </div>
-          </div>
+
         </div>
       </div>
     </div>
   );
-}
+} 
