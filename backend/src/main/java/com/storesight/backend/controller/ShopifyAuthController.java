@@ -39,7 +39,8 @@ public class ShopifyAuthController {
 
   // Redis key prefix for tracking used authorization codes
   private static final String USED_CODE_PREFIX = "oauth:used_code:";
-  private static final int CODE_TTL_SECONDS = 5 * 60; // 5 minutes
+  private static final int CODE_TTL_SECONDS = 60 * 60; // 1 hour - match shop token TTL
+  private static final int SHOP_TOKEN_TTL_MINUTES = 60; // 1 hour - consistent with session TTL
 
   @Value("${shopify.api.key:}")
   private String apiKey;
@@ -316,20 +317,42 @@ public class ShopifyAuthController {
 
       // Create session more carefully with Redis fallback
       String sessionId = null;
+      boolean sessionCreated = false;
+
       try {
-        var session = request.getSession(true);
-        sessionId = session.getId();
-        logger.info("Session created successfully - sessionId: {}", sessionId);
+        // Try to get existing session first
+        var existingSession = request.getSession(false);
+        if (existingSession != null) {
+          sessionId = existingSession.getId();
+          logger.info("Using existing session - sessionId: {}", sessionId);
+        } else {
+          // Create new session only if needed
+          var newSession = request.getSession(true);
+          sessionId = newSession.getId();
+          sessionCreated = true;
+          logger.info("New session created successfully - sessionId: {}", sessionId);
+        }
       } catch (Exception sessionError) {
         logger.warn(
             "Failed to create session (likely Redis issue), using fallback approach: {}",
             sessionError.getMessage());
         // Fallback: use a timestamp-based session ID that doesn't require Redis
-        sessionId = "fallback_" + System.currentTimeMillis() + "_" + shop.hashCode();
+        sessionId = "fallback_" + System.currentTimeMillis() + "_" + Math.abs(shop.hashCode());
+        sessionCreated = true;
         logger.info("Using fallback sessionId: {}", sessionId);
       }
 
-      logger.info("Saving shop data - shop: {}, sessionId: {}", shop, sessionId);
+      // Validate session ID
+      if (sessionId == null || sessionId.trim().isEmpty()) {
+        sessionId = "emergency_" + System.currentTimeMillis() + "_" + Math.abs(shop.hashCode());
+        logger.warn("Emergency sessionId created: {}", sessionId);
+      }
+
+      logger.info(
+          "Saving shop data - shop: {}, sessionId: {}, sessionCreated: {}",
+          shop,
+          sessionId,
+          sessionCreated);
       try {
         shopService.saveShop(shop, accessToken, sessionId);
         logger.info("Shop data saved successfully");
@@ -1030,5 +1053,65 @@ public class ShopifyAuthController {
     result.put("is_production", frontendUrl != null && frontendUrl.contains("shopgaugeai.com"));
 
     return ResponseEntity.ok(result);
+  }
+
+  @GetMapping("/debug-redis-keys")
+  public ResponseEntity<Map<String, Object>> debugRedisKeys(
+      @RequestParam(required = false) String shop) {
+    Map<String, Object> debug = new HashMap<>();
+
+    try {
+      // Get all OAuth used codes
+      Set<String> oauthKeys = redisTemplate.keys("oauth:used_code:*");
+      debug.put("oauth_used_codes_count", oauthKeys != null ? oauthKeys.size() : 0);
+      debug.put("oauth_used_codes", oauthKeys != null ? oauthKeys : Set.of());
+
+      // Get all shop tokens
+      Set<String> shopTokenKeys = redisTemplate.keys("shop_token:*");
+      debug.put("shop_token_keys_count", shopTokenKeys != null ? shopTokenKeys.size() : 0);
+      debug.put("shop_token_keys", shopTokenKeys != null ? shopTokenKeys : Set.of());
+
+      // Get all shop sessions
+      Set<String> shopSessionKeys = redisTemplate.keys("shop_session:*");
+      debug.put("shop_session_keys_count", shopSessionKeys != null ? shopSessionKeys.size() : 0);
+      debug.put("shop_session_keys", shopSessionKeys != null ? shopSessionKeys : Set.of());
+
+      // Get all Spring session keys
+      Set<String> springSessionKeys = redisTemplate.keys("storesight:sessions:*");
+      debug.put(
+          "spring_session_keys_count", springSessionKeys != null ? springSessionKeys.size() : 0);
+      debug.put("spring_session_keys", springSessionKeys != null ? springSessionKeys : Set.of());
+
+      // Get any other keys that might be causing issues
+      Set<String> allKeys = redisTemplate.keys("*");
+      debug.put("total_redis_keys_count", allKeys != null ? allKeys.size() : 0);
+
+      // If shop is provided, get specific information
+      if (shop != null && !shop.trim().isEmpty()) {
+        debug.put("requested_shop", shop);
+
+        String shopToken = redisTemplate.opsForValue().get("shop_token:" + shop);
+        debug.put("shop_token_exists", shopToken != null);
+
+        String shopSession = redisTemplate.opsForValue().get("shop_session:" + shop);
+        debug.put("shop_session_id", shopSession);
+
+        if (shopSession != null) {
+          String sessionSpecificToken =
+              redisTemplate.opsForValue().get("shop_token:" + shop + ":" + shopSession);
+          debug.put("session_specific_token_exists", sessionSpecificToken != null);
+        }
+      }
+
+      debug.put("timestamp", System.currentTimeMillis());
+      debug.put("status", "success");
+
+    } catch (Exception e) {
+      logger.error("Error getting Redis debug info: {}", e.getMessage(), e);
+      debug.put("error", e.getMessage());
+      debug.put("status", "error");
+    }
+
+    return ResponseEntity.ok(debug);
   }
 }

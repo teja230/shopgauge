@@ -105,12 +105,30 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
     // Get sessionId if available
     String sessionId = request.getSession(false) != null ? request.getSession().getId() : null;
 
+    // If no session ID, try to create a fallback session identifier
+    if (sessionId == null) {
+      // Use a combination of shop and request characteristics as fallback
+      String userAgent = request.getHeader("User-Agent");
+      String remoteAddr = request.getRemoteAddr();
+      sessionId = "fallback_" + Math.abs((shopDomain + userAgent + remoteAddr).hashCode());
+      logger.info("Using fallback session ID for shop {}: {}", shopDomain, sessionId);
+    }
+
     // Verify shop has a valid access token
     String accessToken = shopService.getTokenForShop(shopDomain, sessionId);
     if (accessToken == null) {
-      logger.warn("No access token found for shop: {}", shopDomain);
-      unauthorized(response);
-      return;
+      logger.warn("No access token found for shop: {} with session: {}", shopDomain, sessionId);
+
+      // Try without session ID as fallback
+      accessToken = shopService.getTokenForShop(shopDomain, null);
+      if (accessToken == null) {
+        logger.warn(
+            "No access token found for shop: {} (tried with and without session)", shopDomain);
+        unauthorized(response);
+        return;
+      } else {
+        logger.info("Found access token for shop: {} without session ID", shopDomain);
+      }
     }
 
     // Store shop in session for future requests as a fallback
