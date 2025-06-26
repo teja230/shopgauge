@@ -9,12 +9,14 @@ databases:
       - source: 0.0.0.0/0
         description: everywhere
     postgresMajorVersion: "16"
+
 services:
   - type: web
     name: storesight-backend
     runtime: docker
     repo: https://github.com/teja230/storesight
     plan: free
+    healthCheckPath: /health
     envVars:
       - key: METRICS_ENABLED
         sync: false
@@ -95,6 +97,7 @@ services:
     dockerContext: .
     dockerfilePath: backend/Dockerfile
     autoDeployTrigger: "off"
+    
   - type: web
     name: storesight
     runtime: static
@@ -111,11 +114,12 @@ services:
     #   - type: rewrite
     #     source: /*
     #     destination: /index.html
-      - type: keyvalue
-        name: storesight-redis
-        plan: free
-        region: oregon
-        maxmemoryPolicy: allkeys-lru
-        ipAllowList:
-          - source: 57.132.182.47/32
-            description: teja230@gmail.com
+
+  - type: keyvalue
+    name: storesight-redis
+    plan: free
+    region: oregon
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList:
+      - source: 57.132.182.47/32
+        description: teja230@gmail.com

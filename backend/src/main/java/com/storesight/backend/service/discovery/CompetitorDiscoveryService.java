@@ -237,11 +237,16 @@ public class CompetitorDiscoveryService {
   public void triggerDiscoveryForShop(Long shopId) {
     log.info("Manually triggering competitor discovery for shop ID: {}", shopId);
 
-    Map<String, Object> shop =
-        jdbcTemplate.queryForMap("SELECT shopify_domain FROM shops WHERE id = ?", shopId);
+    try {
+      Map<String, Object> shop =
+          jdbcTemplate.queryForMap("SELECT shopify_domain FROM shops WHERE id = ?", shopId);
 
-    String shopDomain = (String) shop.get("shopify_domain");
-    discoverCompetitorsForShop(shopId, shopDomain);
+      String shopDomain = (String) shop.get("shopify_domain");
+      discoverCompetitorsForShop(shopId, shopDomain);
+    } catch (Exception e) {
+      log.error("Error triggering discovery for shop {}: {}", shopId, e.getMessage(), e);
+      throw new RuntimeException("Failed to trigger discovery: " + e.getMessage());
+    }
   }
 
   /** Get discovery status/stats */
@@ -269,7 +274,7 @@ public class CompetitorDiscoveryService {
         searchClient.getProviderName());
   }
 
-  /** Get the search client for provider-specific operations */
+  /** Get the search client for external access */
   public SearchClient getSearchClient() {
     return searchClient;
   }

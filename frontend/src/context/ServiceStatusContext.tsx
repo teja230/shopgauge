@@ -32,11 +32,21 @@ export const ServiceStatusProvider: React.FC<ServiceStatusProviderProps> = ({ ch
   const navigate = useNavigate();
   const retryIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isRetryingRef = useRef(false);
+  const lastSuccessfulCheckRef = useRef<Date | null>(null);
+  const lastCheckTimeRef = useRef<number>(0);
 
   const checkServiceStatus = async (): Promise<boolean> => {
+    // Debounce rapid successive calls
+    const now = Date.now();
+    if (now - lastCheckTimeRef.current < 2000) { // 2 second debounce
+      console.log('ServiceStatus: Debouncing rapid health check');
+      return isServiceAvailable;
+    }
+    lastCheckTimeRef.current = now;
+
     try {
       console.log('ServiceStatus: Checking service availability...');
-      const response = await fetch('/api/health', {
+      const response = await fetch('/api/health/summary', {
         method: 'GET',
         cache: 'no-cache',
         credentials: 'include',
@@ -48,13 +58,14 @@ export const ServiceStatusProvider: React.FC<ServiceStatusProviderProps> = ({ ch
       setLastServiceCheck(new Date());
       
       if (available) {
-        // Service is back online - stop retrying
+        // Service is back online - stop retrying and record successful check
         if (retryIntervalRef.current) {
           clearInterval(retryIntervalRef.current);
           retryIntervalRef.current = null;
         }
         setRetryCount(0);
         isRetryingRef.current = false;
+        lastSuccessfulCheckRef.current = new Date();
         console.log('ServiceStatus: Service is back online, stopped retrying');
       }
       
@@ -155,6 +166,7 @@ export const ServiceStatusProvider: React.FC<ServiceStatusProviderProps> = ({ ch
     setIsServiceAvailable(true);
     setLastServiceCheck(new Date());
     setRetryCount(0);
+    lastSuccessfulCheckRef.current = new Date();
     
     // Stop retrying
     if (retryIntervalRef.current) {
@@ -164,11 +176,25 @@ export const ServiceStatusProvider: React.FC<ServiceStatusProviderProps> = ({ ch
     isRetryingRef.current = false;
   };
 
-  // Initial health check
+  // Initial health check - only if service is not available or we haven't checked recently
   useEffect(() => {
-    // Only do initial check if we haven't checked recently
-    if (!lastServiceCheck || Date.now() - lastServiceCheck.getTime() > 60000) {
+    const shouldCheck = 
+      !isServiceAvailable || 
+      !lastServiceCheck || 
+      Date.now() - lastServiceCheck.getTime() > 60000 ||
+      (lastSuccessfulCheckRef.current && Date.now() - lastSuccessfulCheckRef.current.getTime() > 300000); // 5 minutes
+
+    // Additional check: if service is available and we checked recently, don't check again
+    if (isServiceAvailable && lastServiceCheck && Date.now() - lastServiceCheck.getTime() < 300000) {
+      console.log('ServiceStatus: Skipping initial health check - service is healthy and checked recently');
+      return;
+    }
+
+    if (shouldCheck) {
+      console.log('ServiceStatus: Performing initial health check');
       checkServiceStatus();
+    } else {
+      console.log('ServiceStatus: Skipping initial health check - conditions not met');
     }
   }, []);
 

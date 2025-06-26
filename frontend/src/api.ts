@@ -146,15 +146,13 @@ export interface Insight {
 }
 
 export interface Competitor {
-  name: string;
-  website: string;
-  status: 'active' | 'inactive';
+  id: string;
+  url: string;
+  label: string;
+  price: number;
+  inStock: boolean;
+  percentDiff: number;
   lastChecked: string;
-  metrics?: {
-    revenue?: number;
-    products?: number;
-    traffic?: number;
-  };
 }
 
 async function handleResponse<T>(response: Response): Promise<T> {

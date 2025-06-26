@@ -21,7 +21,17 @@ import {
   EyeIcon, 
   ChartBarIcon,
   PlayIcon,
-  StopIcon
+  StopIcon,
+  MagnifyingGlassIcon,
+  BoltIcon,
+  ShieldCheckIcon,
+  InformationCircleIcon,
+  ArrowTrendingUpIcon,
+  ArrowTrendingDownIcon,
+  ExclamationTriangleIcon,
+  CheckCircleIcon,
+  ClockIcon,
+  FunnelIcon
 } from '@heroicons/react/24/outline';
 import type { CompetitorSuggestion } from '../api';
 import { useNotifications } from '../hooks/useNotifications';
@@ -29,48 +39,40 @@ import { useNotifications } from '../hooks/useNotifications';
 // Demo data for when SerpAPI is not configured
 const DEMO_COMPETITORS: Competitor[] = [
   {
-    name: 'Amazon - Echo Dot (4th Gen)',
-    website: 'https://amazon.com/dp/B08N5WRWNW',
-    status: 'active',
-    lastChecked: '2 hours ago',
-    metrics: {
-      revenue: 1500000,
-      products: 1250,
-      traffic: 50000
-    }
+    id: '1',
+    url: 'https://amazon.com/dp/B08N5WRWNW',
+    label: 'Amazon - Echo Dot (4th Gen)',
+    price: 49.99,
+    inStock: true,
+    percentDiff: 0,
+    lastChecked: '2 hours ago'
   },
   {
-    name: 'Amazon - Fire TV Stick 4K',
-    website: 'https://amazon.com/dp/B08C7W5L7D',
-    status: 'active',
-    lastChecked: '1 hour ago',
-    metrics: {
-      revenue: 890000,
-      products: 890,
-      traffic: 35000
-    }
+    id: '2',
+    url: 'https://amazon.com/dp/B08C7W5L7D',
+    label: 'Amazon - Fire TV Stick 4K',
+    price: 39.99,
+    inStock: true,
+    percentDiff: -15.2,
+    lastChecked: '1 hour ago'
   },
   {
-    name: 'Amazon - Echo Show 8',
-    website: 'https://amazon.com/dp/B08N5KWB9H',
-    status: 'inactive',
-    lastChecked: '30 minutes ago',
-    metrics: {
-      revenue: 0,
-      products: 0,
-      traffic: 0
-    }
+    id: '3',
+    url: 'https://amazon.com/dp/B08N5KWB9H',
+    label: 'Amazon - Echo Show 8',
+    price: 0,
+    inStock: false,
+    percentDiff: 0,
+    lastChecked: '30 minutes ago'
   },
   {
-    name: 'Amazon - Echo Plus (2nd Gen)',
-    website: 'https://amazon.com/dp/B07FZ8S74R',
-    status: 'active',
-    lastChecked: '15 minutes ago',
-    metrics: {
-      revenue: 750000,
-      products: 600,
-      traffic: 25000
-    }
+    id: '4',
+    url: 'https://amazon.com/dp/B07FZ8S74R',
+    label: 'Amazon - Echo Plus (2nd Gen)',
+    price: 149.99,
+    inStock: true,
+    percentDiff: 8.5,
+    lastChecked: '15 minutes ago'
   }
 ];
 
@@ -108,6 +110,7 @@ const DEMO_SUGGESTIONS: CompetitorSuggestion[] = [
 export default function CompetitorsPage() {
   const { shop } = useAuth();
   const [competitors, setCompetitors] = useState<Competitor[]>([]);
+  const [filteredCompetitors, setFilteredCompetitors] = useState<Competitor[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestionCount, setSuggestionCount] = useState(0);
   const [isDemoMode, setIsDemoMode] = useState(false);
@@ -115,12 +118,16 @@ export default function CompetitorsPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [url, setUrl] = useState('');
   const [productId, setProductId] = useState('');
+  const [isDiscovering, setIsDiscovering] = useState(false);
+  const [filterStatus, setFilterStatus] = useState<'all' | 'inStock' | 'outOfStock'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const notifications = useNotifications();
 
   useEffect(() => {
     // Clear data if no shop (logout/disconnect)
     if (!shop) {
       setCompetitors([]);
+      setFilteredCompetitors([]);
       setUrl('');
       setProductId('');
       setIsDemoMode(false);
@@ -156,10 +163,34 @@ export default function CompetitorsPage() {
     fetchData();
   }, [shop]);
 
+  // Filter competitors based on status and search query
+  useEffect(() => {
+    let filtered = [...competitors];
+    
+    // Apply status filter
+    if (filterStatus === 'inStock') {
+      filtered = filtered.filter(c => c.inStock);
+    } else if (filterStatus === 'outOfStock') {
+      filtered = filtered.filter(c => !c.inStock);
+    }
+    
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(c => 
+        c.label.toLowerCase().includes(query) || 
+        c.url.toLowerCase().includes(query)
+      );
+    }
+    
+    setFilteredCompetitors(filtered);
+  }, [competitors, filterStatus, searchQuery]);
+
   // Cleanup effect when component unmounts
   useEffect(() => {
     return () => {
       setCompetitors([]);
+      setFilteredCompetitors([]);
       setUrl('');
       setProductId('');
       setIsDemoMode(false);
@@ -177,8 +208,9 @@ export default function CompetitorsPage() {
       setUrl('');
       setProductId('');
       setShowAddForm(false);
-    } catch {
-      notifications.showError('Failed to add competitor', {
+    } catch (error: any) {
+      const errorMessage = error?.message || 'Failed to add competitor';
+      notifications.showError(errorMessage, {
         category: 'Competitors'
       });
     }
@@ -188,7 +220,7 @@ export default function CompetitorsPage() {
     try {
       if (isDemoMode) {
         // For demo mode, just remove from local state
-        setCompetitors((prev) => prev.filter((c) => c.name !== id));
+        setCompetitors((prev) => prev.filter((c) => c.id !== id));
         notifications.showSuccess('Demo competitor removed', {
           category: 'Competitors'
         });
@@ -196,7 +228,7 @@ export default function CompetitorsPage() {
       }
       
       await deleteCompetitor(id);
-      setCompetitors((prev) => prev.filter((c) => c.name !== id));
+      setCompetitors((prev) => prev.filter((c) => c.id !== id));
       notifications.showSuccess('Competitor deleted successfully', {
         category: 'Competitors'
       });
@@ -248,6 +280,63 @@ export default function CompetitorsPage() {
     }
   };
 
+  const triggerManualDiscovery = async () => {
+    if (isDemoMode) {
+      notifications.showInfo('Manual discovery not available in demo mode', {
+        category: 'Discovery'
+      });
+      return;
+    }
+
+    setIsDiscovering(true);
+    try {
+      // Trigger discovery for current shop
+      const response = await fetch('/api/competitors/discovery/trigger', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include'
+      });
+
+      if (response.ok) {
+        notifications.showSuccess('Competitor discovery started! Check back in a few minutes for new suggestions.', {
+          category: 'Discovery'
+        });
+        // Refresh suggestion count after a delay
+        setTimeout(refreshSuggestionCount, 30000);
+      } else {
+        throw new Error('Discovery trigger failed');
+      }
+    } catch (error) {
+      notifications.showError('Failed to trigger competitor discovery', {
+        category: 'Discovery'
+      });
+    } finally {
+      setIsDiscovering(false);
+    }
+  };
+
+  // Calculate insights
+  const insights = React.useMemo(() => {
+    const total = filteredCompetitors.length;
+    const inStock = filteredCompetitors.filter(c => c.inStock).length;
+    const outOfStock = total - inStock;
+    const priceChanges = filteredCompetitors.filter(c => c.percentDiff !== 0).length;
+    const priceIncreases = filteredCompetitors.filter(c => c.percentDiff > 0).length;
+    const priceDecreases = filteredCompetitors.filter(c => c.percentDiff < 0).length;
+    const avgPrice = filteredCompetitors.length > 0 ? 
+      filteredCompetitors.reduce((sum, c) => sum + (c.price || 0), 0) / filteredCompetitors.filter(c => c.price > 0).length : 0;
+
+    return {
+      total,
+      inStock,
+      outOfStock,
+      priceChanges,
+      priceIncreases,
+      priceDecreases,
+      avgPrice: isNaN(avgPrice) ? 0 : avgPrice
+    };
+  }, [filteredCompetitors]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 p-6">
       {/* Header */}
@@ -255,133 +344,243 @@ export default function CompetitorsPage() {
         {/* Main Content */}
         <div className="space-y-6">
           {/* Page Header */}
-          <div className="bg-white rounded-2xl shadow p-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="bg-blue-100 p-2 rounded-lg">
-                  <ChartBarIcon className="h-6 w-6 text-blue-600" />
+          <div className="bg-white rounded-2xl shadow p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-3 rounded-xl">
+                  <ChartBarIcon className="h-8 w-8 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold text-gray-900">Competitor Analysis</h1>
-                  <p className="text-gray-600 text-sm">Track competitor prices and market positioning</p>
+                  <h1 className="text-3xl font-bold text-gray-900">Market Intelligence</h1>
+                  <p className="text-gray-600 text-lg">Track competitor prices and discover market opportunities</p>
                 </div>
               </div>
               
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 {/* Demo Mode Toggle */}
                 <button
                   onClick={toggleDemoMode}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition ${
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                     isDemoMode 
-                      ? 'bg-orange-100 text-orange-700 hover:bg-orange-200' 
+                      ? 'bg-orange-100 text-orange-700 hover:bg-orange-200 shadow-md' 
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                 >
-                  {isDemoMode ? <PlayIcon className="h-3.5 w-3.5" /> : <StopIcon className="h-3.5 w-3.5" />}
-                  {isDemoMode ? 'Demo' : 'Live'}
+                  {isDemoMode ? <PlayIcon className="h-4 w-4" /> : <StopIcon className="h-4 w-4" />}
+                  {isDemoMode ? 'Demo Mode' : 'Live Mode'}
+                </button>
+
+                {/* Manual Discovery Button */}
+                <button
+                  onClick={triggerManualDiscovery}
+                  disabled={isDiscovering}
+                  className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+                >
+                  {isDiscovering ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                  ) : (
+                    <MagnifyingGlassIcon className="h-4 w-4" />
+                  )}
+                  {isDiscovering ? 'Discovering...' : 'Discover Now'}
                 </button>
 
                 {/* Suggestions Button */}
                 {suggestionCount > 0 && (
                   <button
                     onClick={() => setShowSuggestions(true)}
-                    className="bg-blue-600 text-white px-3 py-1.5 rounded-md text-sm font-medium hover:bg-blue-700 transition flex items-center gap-1.5"
+                    className="relative flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-all shadow-md"
                   >
                     <SparklesIcon className="h-4 w-4" />
-                    {suggestionCount} New
+                    <span>{suggestionCount} New Suggestions</span>
+                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
                   </button>
                 )}
 
                 {/* Add Competitor Button */}
                 <button
                   onClick={() => setShowAddForm(!showAddForm)}
-                  className="bg-blue-600 text-white px-3 py-1.5 rounded-md text-sm font-medium hover:bg-blue-700 transition flex items-center gap-1.5"
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-all shadow-md"
                 >
                   <PlusIcon className="h-4 w-4" />
-                  Add
+                  Add Competitor
                 </button>
               </div>
-        </div>
+            </div>
 
             {/* Add Form */}
             {showAddForm && (
-              <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-                <form onSubmit={handleAdd} className="flex flex-col sm:flex-row gap-2">
-            <input
-              type="text"
+              <div className="mt-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                <form onSubmit={handleAdd} className="flex flex-col sm:flex-row gap-3">
+                  <input
+                    type="text"
                     placeholder="Competitor URL (e.g., https://amazon.com/dp/...)"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-400 outline-none transition text-sm"
-              required
-            />
-            <input
-              type="text"
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                    className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent outline-none transition"
+                    required
+                  />
+                  <input
+                    type="text"
                     placeholder="Product ID (optional)"
-              value={productId}
-              onChange={(e) => setProductId(e.target.value)}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-400 outline-none transition text-sm"
-            />
+                    value={productId}
+                    onChange={(e) => setProductId(e.target.value)}
+                    className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent outline-none transition"
+                  />
                   <button 
                     type="submit" 
-                    className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition"
+                    className="bg-green-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-green-700 transition-all shadow-md"
                   >
-              Add
-            </button>
+                    Add
+                  </button>
                   <button 
                     type="button"
                     onClick={() => setShowAddForm(false)}
-                    className="bg-gray-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-600 transition"
+                    className="bg-gray-500 text-white px-6 py-3 rounded-lg font-medium hover:bg-gray-600 transition-all"
                   >
                     Cancel
                   </button>
-          </form>
-        </div>
+                </form>
+              </div>
             )}
+          </div>
+
+          {/* Market Insights Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white rounded-xl shadow p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Total Competitors</p>
+                  <p className="text-2xl font-bold text-gray-900">{insights.total}</p>
+                </div>
+                <div className="bg-blue-100 p-2 rounded-lg">
+                  <ChartBarIcon className="h-6 w-6 text-blue-600" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl shadow p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">In Stock</p>
+                  <p className="text-2xl font-bold text-green-600">{insights.inStock}</p>
+                </div>
+                <div className="bg-green-100 p-2 rounded-lg">
+                  <CheckCircleIcon className="h-6 w-6 text-green-600" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl shadow p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Price Changes</p>
+                  <p className="text-2xl font-bold text-orange-600">{insights.priceChanges}</p>
+                </div>
+                <div className="bg-orange-100 p-2 rounded-lg">
+                  <BoltIcon className="h-6 w-6 text-orange-600" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl shadow p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Avg Price</p>
+                  <p className="text-2xl font-bold text-purple-600">
+                    {insights.avgPrice > 0 ? `$${insights.avgPrice.toFixed(2)}` : 'N/A'}
+                  </p>
+                </div>
+                <div className="bg-purple-100 p-2 rounded-lg">
+                  <ArrowTrendingUpIcon className="h-6 w-6 text-purple-600" />
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Demo Mode Notice */}
           {isDemoMode && (
-            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-              <div className="flex items-center gap-2">
-                <EyeIcon className="h-4 w-4 text-orange-600" />
+            <div className="bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-xl p-4">
+              <div className="flex items-center gap-3">
+                <EyeIcon className="h-6 w-6 text-orange-600 flex-shrink-0" />
                 <div>
-                  <h3 className="font-medium text-orange-800 text-sm">Demo Mode Active</h3>
-                  <p className="text-orange-700 text-xs">
-                    Showing sample competitor data. Configure SerpAPI to enable live competitor discovery.
+                  <h3 className="font-semibold text-orange-800">Demo Mode Active</h3>
+                  <p className="text-orange-700">
+                    Showing sample competitor data. Configure your search API to enable live competitor discovery and price monitoring.
                   </p>
                 </div>
               </div>
             </div>
           )}
 
+          {/* Filters and Search */}
+          <div className="bg-white rounded-xl shadow p-4">
+            <div className="flex flex-col sm:flex-row gap-4 items-center">
+              <div className="flex items-center gap-2">
+                <FunnelIcon className="h-5 w-5 text-gray-500" />
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value as any)}
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none"
+                >
+                  <option value="all">All Competitors</option>
+                  <option value="inStock">In Stock Only</option>
+                  <option value="outOfStock">Out of Stock</option>
+                </select>
+              </div>
+              
+              <div className="flex-1 relative">
+                <MagnifyingGlassIcon className="h-5 w-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search competitors..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none text-sm"
+                />
+              </div>
+            </div>
+          </div>
+
           {/* Competitors Table */}
-          <div className="bg-white rounded-2xl shadow p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-800">Tracked Competitors</h2>
-              <div className="text-sm text-gray-500">
-                {competitors.length} competitor{competitors.length !== 1 ? 's' : ''}
+          <div className="bg-white rounded-xl shadow overflow-hidden">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-gray-800">Tracked Competitors</h2>
+                <div className="text-sm text-gray-500">
+                  {filteredCompetitors.length} of {competitors.length} competitor{competitors.length !== 1 ? 's' : ''}
+                </div>
               </div>
             </div>
             
             {isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <div className="flex items-center justify-center py-16">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
               </div>
-            ) : competitors.length === 0 ? (
-              <div className="text-center py-12">
-                <ChartBarIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No competitors yet</h3>
-                <p className="text-gray-500 mb-4">Start tracking your competitors to monitor their pricing strategies.</p>
-                <button
-                  onClick={() => setShowAddForm(true)}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition"
-                >
-                  Add Your First Competitor
-                </button>
+            ) : filteredCompetitors.length === 0 ? (
+              <div className="text-center py-16">
+                <ChartBarIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-xl font-medium text-gray-900 mb-2">
+                  {competitors.length === 0 ? 'No competitors yet' : 'No matches found'}
+                </h3>
+                <p className="text-gray-500 mb-6">
+                  {competitors.length === 0 
+                    ? 'Start tracking your competitors to monitor their pricing strategies.'
+                    : 'Try adjusting your filters or search query.'
+                  }
+                </p>
+                {competitors.length === 0 && (
+                  <button
+                    onClick={() => setShowAddForm(true)}
+                    className="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-all shadow-md"
+                  >
+                    Add Your First Competitor
+                  </button>
+                )}
               </div>
             ) : (
-          <CompetitorTable data={competitors} onDelete={handleDelete} />
+              <div className="overflow-x-auto">
+                <CompetitorTable data={filteredCompetitors} onDelete={handleDelete} />
+              </div>
             )}
           </div>
         </div>
@@ -397,18 +596,3 @@ export default function CompetitorsPage() {
     </div>
   );
 }
-
-// Inside CompetitorTable component (assuming it's a custom component), update the row rendering to include Avatar/Icon
-/*
-{competitors.map((competitor) => (
-  <TableRow key={competitor.name}>
-    <TableCell>
-      <Avatar sx={{ bgcolor: '#e0e7ff', color: '#3730a3', mr: 1 }}>
-        <GroupIcon />
-      </Avatar>
-      {competitor.name || competitor.website}
-    </TableCell>
-    ...
-  </TableRow>
-))}
-*/

@@ -56,21 +56,201 @@ public class CompetitorController {
   }
 
   @GetMapping("/competitors")
-  public List<CompetitorDto> getCompetitors() {
-    List<Map<String, Object>> rows =
-        jdbcTemplate.queryForList("SELECT * FROM competitor_urls WHERE product_id=1");
-    return rows.stream()
-        .map(
-            row ->
-                new CompetitorDto(
-                    String.valueOf(row.get("id")),
-                    String.valueOf(row.get("url")),
-                    18.99, // TODO: join with price_snapshots for real price
-                    true, // TODO: join with price_snapshots for real inStock
-                    0.0, // TODO: calculate percentDiff
-                    "2025-06-17T16:54:02.307+00:00" // TODO: use real lastChecked
-                    ))
-        .collect(Collectors.toList());
+  public ResponseEntity<?> getCompetitors(HttpServletRequest request) {
+    Long shopId = getShopIdFromRequest(request);
+    if (shopId == null) {
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+          .body(Map.of("error", "Authentication required"));
+    }
+
+    try {
+      // Get competitor URLs for this shop, joining with latest price snapshots
+      String query =
+          """
+          SELECT cu.id, cu.url, cu.label, ps.price, ps.in_stock, ps.checked_at,
+                 p.title as product_title
+          FROM competitor_urls cu
+          JOIN products p ON cu.product_id = p.id
+          LEFT JOIN price_snapshots ps ON cu.id = ps.competitor_url_id
+          WHERE p.shop_id = ?
+          ORDER BY cu.created_at DESC
+          """;
+
+      List<Map<String, Object>> rows = jdbcTemplate.queryForList(query, shopId);
+
+      List<CompetitorDto> competitors =
+          rows.stream()
+              .map(
+                  row -> {
+                    String id = String.valueOf(row.get("id"));
+                    String url = String.valueOf(row.get("url"));
+                    String label =
+                        row.get("label") != null
+                            ? String.valueOf(row.get("label"))
+                            : extractTitleFromUrl(url);
+                    Double price =
+                        row.get("price") != null ? ((Number) row.get("price")).doubleValue() : 0.0;
+                    Boolean inStock =
+                        row.get("in_stock") != null ? (Boolean) row.get("in_stock") : true;
+                    String lastChecked =
+                        row.get("checked_at") != null ? row.get("checked_at").toString() : "Never";
+
+                    return new CompetitorDto(id, url, label, price, inStock, 0.0, lastChecked);
+                  })
+              .collect(Collectors.toList());
+
+      return ResponseEntity.ok(competitors);
+    } catch (Exception e) {
+      log.error("Error getting competitors: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to load competitors"));
+    }
+  }
+
+  /** Add a new competitor manually */
+  @PostMapping("/competitors")
+  public ResponseEntity<?> addCompetitor(
+      @RequestBody AddCompetitorRequest request, HttpServletRequest httpRequest) {
+    Long shopId = getShopIdFromRequest(httpRequest);
+    if (shopId == null) {
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+          .body(Map.of("error", "Authentication required"));
+    }
+
+    if (request.url == null || request.url.trim().isEmpty()) {
+      return ResponseEntity.badRequest().body(Map.of("error", "URL is required"));
+    }
+
+    try {
+      // Get a default product for this shop if no productId specified
+      Long productId = null;
+      if (request.productId != null && !request.productId.trim().isEmpty()) {
+        try {
+          productId = Long.parseLong(request.productId);
+        } catch (NumberFormatException e) {
+          // If not a number, try to find product by title or shopify_product_id
+          List<Map<String, Object>> products =
+              jdbcTemplate.queryForList(
+                  "SELECT id FROM products WHERE shop_id = ? AND (title ILIKE ? OR shopify_product_id = ?) LIMIT 1",
+                  shopId,
+                  "%" + request.productId + "%",
+                  request.productId);
+          if (!products.isEmpty()) {
+            productId = ((Number) products.get(0).get("id")).longValue();
+          }
+        }
+      }
+
+      // If still no product ID, get the first product for this shop
+      if (productId == null) {
+        List<Map<String, Object>> products =
+            jdbcTemplate.queryForList(
+                "SELECT id FROM products WHERE shop_id = ? ORDER BY created_at DESC LIMIT 1",
+                shopId);
+        if (products.isEmpty()) {
+          return ResponseEntity.badRequest()
+              .body(Map.of("error", "No products found for this shop. Please add products first."));
+        }
+        productId = ((Number) products.get(0).get("id")).longValue();
+      }
+
+      // Check if competitor URL already exists for this product
+      List<Map<String, Object>> existing =
+          jdbcTemplate.queryForList(
+              "SELECT id FROM competitor_urls WHERE product_id = ? AND url = ?",
+              productId,
+              request.url);
+      if (!existing.isEmpty()) {
+        return ResponseEntity.badRequest()
+            .body(Map.of("error", "This competitor URL is already being tracked"));
+      }
+
+      // Extract title from URL if no label provided
+      String label =
+          request.url.contains("amazon.com")
+              ? extractAmazonTitle(request.url)
+              : request.url.contains("shopify")
+                  ? extractShopifyTitle(request.url)
+                  : extractTitleFromUrl(request.url);
+
+      // Insert new competitor URL
+      jdbcTemplate.update(
+          "INSERT INTO competitor_urls (product_id, url, label, created_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)",
+          productId,
+          request.url,
+          label);
+
+      // Get the inserted record
+      List<Map<String, Object>> newRecord =
+          jdbcTemplate.queryForList(
+              "SELECT id, url, label FROM competitor_urls WHERE product_id = ? AND url = ? ORDER BY created_at DESC LIMIT 1",
+              productId,
+              request.url);
+
+      if (newRecord.isEmpty()) {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            .body(Map.of("error", "Failed to create competitor record"));
+      }
+
+      Map<String, Object> record = newRecord.get(0);
+      CompetitorDto competitor =
+          new CompetitorDto(
+              String.valueOf(record.get("id")),
+              String.valueOf(record.get("url")),
+              String.valueOf(record.get("label")),
+              0.0, // Price will be updated by scraper
+              true, // Assume in stock initially
+              0.0, // No price difference initially
+              "Just added");
+
+      log.info("Added competitor {} for shop {}", request.url, shopId);
+      return ResponseEntity.ok(competitor);
+
+    } catch (Exception e) {
+      log.error("Error adding competitor: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to add competitor: " + e.getMessage()));
+    }
+  }
+
+  /** Delete a competitor */
+  @DeleteMapping("/competitors/{id}")
+  public ResponseEntity<?> deleteCompetitor(@PathVariable String id, HttpServletRequest request) {
+    Long shopId = getShopIdFromRequest(request);
+    if (shopId == null) {
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+          .body(Map.of("error", "Authentication required"));
+    }
+
+    try {
+      // Verify the competitor belongs to this shop
+      List<Map<String, Object>> competitors =
+          jdbcTemplate.queryForList(
+              "SELECT cu.id FROM competitor_urls cu JOIN products p ON cu.product_id = p.id WHERE cu.id = ? AND p.shop_id = ?",
+              Long.parseLong(id),
+              shopId);
+
+      if (competitors.isEmpty()) {
+        return ResponseEntity.notFound().build();
+      }
+
+      // Delete related price snapshots first
+      jdbcTemplate.update(
+          "DELETE FROM price_snapshots WHERE competitor_url_id = ?", Long.parseLong(id));
+
+      // Delete the competitor URL
+      jdbcTemplate.update("DELETE FROM competitor_urls WHERE id = ?", Long.parseLong(id));
+
+      log.info("Deleted competitor {} for shop {}", id, shopId);
+      return ResponseEntity.ok().build();
+
+    } catch (NumberFormatException e) {
+      return ResponseEntity.badRequest().body(Map.of("error", "Invalid competitor ID"));
+    } catch (Exception e) {
+      log.error("Error deleting competitor: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to delete competitor"));
+    }
   }
 
   /** Get competitor suggestions for the authenticated shop */
@@ -177,14 +357,31 @@ public class CompetitorController {
       return ResponseEntity.notFound().build();
     }
 
-    // Move to approved status
-    suggestion.setStatus(CompetitorSuggestion.Status.APPROVED);
-    suggestionRepository.save(suggestion);
+    try {
+      // Move to approved status
+      suggestion.setStatus(CompetitorSuggestion.Status.APPROVED);
+      suggestionRepository.save(suggestion);
 
-    // TODO: Create actual competitor_url entry for price tracking
-    // This would involve inserting into competitor_urls table
+      // Create actual competitor_url entry for price tracking
+      String label =
+          suggestion.getTitle() != null
+              ? suggestion.getTitle()
+              : extractTitleFromUrl(suggestion.getSuggestedUrl());
 
-    return ResponseEntity.ok(Map.of("message", "Suggestion approved and now being tracked"));
+      jdbcTemplate.update(
+          "INSERT INTO competitor_urls (product_id, url, label, created_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)",
+          suggestion.getProductId(),
+          suggestion.getSuggestedUrl(),
+          label);
+
+      log.info("Approved suggestion {} and created competitor URL for shop {}", id, shopId);
+      return ResponseEntity.ok(Map.of("message", "Suggestion approved and now being tracked"));
+
+    } catch (Exception e) {
+      log.error("Error approving suggestion {}: {}", id, e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to approve suggestion"));
+    }
   }
 
   /** Ignore a competitor suggestion */
@@ -240,8 +437,14 @@ public class CompetitorController {
   }
 
   /** Manually trigger discovery for a specific shop (for testing/admin use) */
-  @PostMapping("/competitors/discovery/trigger/{shopId}")
-  public ResponseEntity<Map<String, String>> triggerDiscovery(@PathVariable Long shopId) {
+  @PostMapping("/competitors/discovery/trigger")
+  public ResponseEntity<Map<String, String>> triggerDiscovery(HttpServletRequest request) {
+    Long shopId = getShopIdFromRequest(request);
+    if (shopId == null) {
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+          .body(Map.of("error", "Authentication required"));
+    }
+
     if (discoveryService == null) {
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
           .body(Map.of("error", "Discovery service not available"));
@@ -251,6 +454,7 @@ public class CompetitorController {
       discoveryService.triggerDiscoveryForShop(shopId);
       return ResponseEntity.ok(Map.of("message", "Discovery triggered for shop ID: " + shopId));
     } catch (Exception e) {
+      log.error("Error triggering discovery for shop {}: {}", shopId, e.getMessage(), e);
       return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
     }
   }
@@ -340,6 +544,58 @@ public class CompetitorController {
     return null;
   }
 
+  /** Helper method to extract title from URL */
+  private String extractTitleFromUrl(String url) {
+    if (url == null || url.trim().isEmpty()) {
+      return "Unknown Competitor";
+    }
+
+    try {
+      // Extract domain name as basic title
+      String domain = url.replaceAll("https?://", "").replaceAll("/.*", "");
+      if (domain.startsWith("www.")) {
+        domain = domain.substring(4);
+      }
+      return domain;
+    } catch (Exception e) {
+      return "Unknown Competitor";
+    }
+  }
+
+  /** Helper method to extract Amazon product title from URL */
+  private String extractAmazonTitle(String url) {
+    if (url.contains("/dp/")) {
+      String productId = url.split("/dp/")[1].split("/")[0];
+      return "Amazon Product " + productId;
+    }
+    return "Amazon Product";
+  }
+
+  /** Helper method to extract Shopify product title from URL */
+  private String extractShopifyTitle(String url) {
+    if (url.contains("/products/")) {
+      String[] parts = url.split("/products/");
+      if (parts.length > 1) {
+        String productSlug = parts[1].split("\\?")[0].split("/")[0];
+        return productSlug.replace("-", " ");
+      }
+    }
+    return extractTitleFromUrl(url);
+  }
+
+  /** Request class for adding competitors */
+  public static class AddCompetitorRequest {
+    public String url;
+    public String productId;
+
+    public AddCompetitorRequest() {}
+
+    public AddCompetitorRequest(String url, String productId) {
+      this.url = url;
+      this.productId = productId;
+    }
+  }
+
   /** Convert entity to DTO */
   private CompetitorSuggestionDto convertToDto(CompetitorSuggestion suggestion) {
     return new CompetitorSuggestionDto(
@@ -355,6 +611,7 @@ public class CompetitorController {
   public static class CompetitorDto {
     public String id;
     public String url;
+    public String label;
     public double price;
     public boolean inStock;
     public double percentDiff;
@@ -363,12 +620,14 @@ public class CompetitorController {
     public CompetitorDto(
         String id,
         String url,
+        String label,
         double price,
         boolean inStock,
         double percentDiff,
         String lastChecked) {
       this.id = id;
       this.url = url;
+      this.label = label;
       this.price = price;
       this.inStock = inStock;
       this.percentDiff = percentDiff;

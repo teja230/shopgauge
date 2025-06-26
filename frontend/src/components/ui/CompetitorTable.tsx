@@ -3,15 +3,13 @@ import Avatar from '@mui/material/Avatar';
 import GroupIcon from '@mui/icons-material/Group';
 
 export interface Competitor {
-  name: string;
-  website: string;
-  status: 'active' | 'inactive';
+  id: string;
+  url: string;
+  label: string;
+  price: number;
+  inStock: boolean;
+  percentDiff: number;
   lastChecked: string;
-  metrics?: {
-    revenue?: number;
-    products?: number;
-    traffic?: number;
-  };
 }
 
 interface CompetitorTableProps {
@@ -23,49 +21,54 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({ data = [], onD
   <div className="overflow-x-auto w-full">
     <table className="min-w-full bg-white rounded shadow text-sm">
       <thead>
-        <tr>
-          <th className="px-4 py-2 text-left">Competitor</th>
-          <th className="px-4 py-2 text-left">Status</th>
-          <th className="px-4 py-2 text-left">Revenue</th>
-          <th className="px-4 py-2 text-left">Products</th>
-          <th className="px-4 py-2 text-left">Traffic</th>
-          <th className="px-4 py-2 text-left">Last Checked</th>
-          <th className="px-4 py-2"></th>
+        <tr className="bg-gray-50">
+          <th className="px-4 py-3 text-left font-medium text-gray-600">Competitor</th>
+          <th className="px-4 py-3 text-left font-medium text-gray-600">Status</th>
+          <th className="px-4 py-3 text-left font-medium text-gray-600">Price</th>
+          <th className="px-4 py-3 text-left font-medium text-gray-600">Change</th>
+          <th className="px-4 py-3 text-left font-medium text-gray-600">Last Checked</th>
+          <th className="px-4 py-3"></th>
         </tr>
       </thead>
       <tbody>
         {data.map((row) => (
-          <tr key={row.name} className="border-t">
-            <td className="px-4 py-2 break-all max-w-xs flex items-center gap-2">
+          <tr key={row.id} className="border-t hover:bg-gray-50 transition-colors">
+            <td className="px-4 py-3 break-all max-w-xs flex items-center gap-3">
               <Avatar sx={{ bgcolor: '#e0e7ff', color: '#3730a3', width: 32, height: 32, fontSize: 18 }}>
                 <GroupIcon fontSize="small" />
               </Avatar>
               <div className="min-w-0 flex-1">
-                {row.name && (
-                  <div className="font-medium text-gray-900 truncate">{row.name}</div>
-                )}
-                <div className="text-gray-500 text-xs truncate">{row.website}</div>
+                <div className="font-medium text-gray-900 truncate">{row.label}</div>
+                <div className="text-gray-500 text-xs truncate">{row.url}</div>
               </div>
             </td>
-            <td className="px-4 py-2">
-              <span className={`px-2 py-1 rounded-full text-xs ${
-                row.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+            <td className="px-4 py-3">
+              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                row.inStock ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
               }`}>
-                {row.status}
+                {row.inStock ? 'In Stock' : 'Out of Stock'}
               </span>
             </td>
-            <td className="px-4 py-2">
-              {row.metrics?.revenue ? `$${row.metrics.revenue.toLocaleString()}` : 'N/A'}
+            <td className="px-4 py-3 font-medium">
+              {row.price > 0 ? `$${row.price.toFixed(2)}` : 'N/A'}
             </td>
-            <td className="px-4 py-2">
-              {row.metrics?.products ? row.metrics.products.toLocaleString() : 'N/A'}
+            <td className="px-4 py-3">
+              {row.percentDiff !== 0 && (
+                <span className={`text-xs font-medium ${
+                  row.percentDiff > 0 ? 'text-red-600' : 'text-green-600'
+                }`}>
+                  {row.percentDiff > 0 ? '+' : ''}{row.percentDiff.toFixed(1)}%
+                </span>
+              )}
             </td>
-            <td className="px-4 py-2">
-              {row.metrics?.traffic ? row.metrics.traffic.toLocaleString() : 'N/A'}
-            </td>
-            <td className="px-4 py-2">{row.lastChecked}</td>
-            <td className="px-4 py-2">
-              <button onClick={() => onDelete(row.name)} className="text-red-500 hover:underline">Delete</button>
+            <td className="px-4 py-3 text-sm text-gray-500">{row.lastChecked}</td>
+            <td className="px-4 py-3">
+              <button 
+                onClick={() => onDelete(row.id)} 
+                className="text-red-500 hover:text-red-700 text-sm font-medium transition-colors"
+              >
+                Delete
+              </button>
             </td>
           </tr>
         ))}

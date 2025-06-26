@@ -47,6 +47,17 @@ public class HealthController {
     return ResponseEntity.ok(health);
   }
 
+  @GetMapping("/api/health")
+  public ResponseEntity<Map<String, Object>> apiHealth() {
+    Map<String, Object> health = new HashMap<>();
+    health.put("status", "UP");
+    health.put("application", applicationName);
+    health.put("timestamp", System.currentTimeMillis());
+
+    logger.debug("API Health check requested");
+    return ResponseEntity.ok(health);
+  }
+
   @GetMapping("/")
   public ResponseEntity<Map<String, Object>> rootHealth() {
     Map<String, Object> health = new HashMap<>();

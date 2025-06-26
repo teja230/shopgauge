@@ -7,6 +7,7 @@ import StorageIcon from '@mui/icons-material/Storage';
 import DatabaseIcon from '@mui/icons-material/Storage';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { getHealthSummary } from '../../api/index';
+import { useServiceStatus } from '../../context/ServiceStatusContext';
 
 interface HealthMetrics {
   backendStatus: string;
@@ -50,8 +51,15 @@ const HealthSummary: React.FC = () => {
   const [metrics, setMetrics] = useState<HealthMetrics | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { isServiceAvailable } = useServiceStatus();
 
   const fetchMetrics = async () => {
+    // Don't fetch if service is not available
+    if (!isServiceAvailable) {
+      console.log('HealthSummary: Skipping health check - service not available');
+      return;
+    }
+
     setLoading(true);
     try {
       const data = await getHealthSummary();
@@ -75,10 +83,37 @@ const HealthSummary: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchMetrics();
-    const interval = setInterval(fetchMetrics, 30_000); // refresh every 30 seconds
+    // Only fetch if service is available
+    if (isServiceAvailable) {
+      fetchMetrics();
+    }
+  }, [isServiceAvailable]);
+
+  useEffect(() => {
+    // Only set up interval if service is available
+    if (!isServiceAvailable) {
+      return;
+    }
+
+    const interval = setInterval(fetchMetrics, 60_000); // refresh every 60 seconds instead of 30
     return () => clearInterval(interval);
-  }, []);
+  }, [isServiceAvailable]);
+
+  // Don't show loading state if service is not available
+  if (!isServiceAvailable) {
+    return (
+      <Paper sx={{ p: 3, mb: 3, borderRadius: 3, bgcolor: 'grey.50' }}>
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+          <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            System Health Status
+          </Typography>
+        </Box>
+        <Alert severity="warning">
+          Service temporarily unavailable - health metrics not available
+        </Alert>
+      </Paper>
+    );
+  }
 
   if (loading && !metrics) {
     return (
