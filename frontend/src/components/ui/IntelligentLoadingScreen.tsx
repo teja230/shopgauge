@@ -92,6 +92,7 @@ const ContentContainer = styled(Box)(({ theme }) => ({
   textAlign: 'center',
   maxWidth: '600px',
   padding: theme.spacing(4),
+  width: '100%',
   [theme.breakpoints.down('sm')]: {
     padding: theme.spacing(2),
   },
@@ -149,6 +150,7 @@ const AnalyticsContainer = styled(Box)(({ theme }) => ({
   alignItems: 'center',
   gap: theme.spacing(3),
   animation: `${slideUp} 0.8s ease-out 1s both`,
+  width: '100%',
 }));
 
 const ChartContainer = styled(Box)({
@@ -157,6 +159,8 @@ const ChartContainer = styled(Box)({
   gap: '8px',
   height: '80px',
   marginBottom: '1rem',
+  justifyContent: 'center',
+  width: '100%',
 });
 
 const ChartBar = styled(Box)<{ height: number; delay: number }>(({ height, delay, theme }) => ({
@@ -185,7 +189,7 @@ const DataPoint = styled(Box)<{ delay: number }>(({ delay, theme }) => ({
 
 const ProgressContainer = styled(Box)(({ theme }) => ({
   width: '100%',
-  maxWidth: '400px',
+  maxWidth: '600px',
   marginTop: theme.spacing(3),
   display: 'flex',
   flexDirection: 'column',
@@ -199,6 +203,7 @@ const LoadingText = styled(Typography)(({ theme }) => ({
   fontWeight: 500,
   color: theme.palette.text.secondary,
   textAlign: 'center',
+  width: '100%',
 }));
 
 const SpinnerContainer = styled(Box)(({ theme }) => ({
