@@ -726,15 +726,15 @@ const DashboardPage = () => {
     const reauth = searchParams.get('reauth');
     const connected = searchParams.get('connected');
     const reconnected = searchParams.get('reconnected');
-
+    
     // Create a unique key for this notification to prevent duplicates
     const notificationKey = `${reauth}-${connected}-${reconnected}-${location.search}`;
-    
+      
     // Only show notification if we haven't shown it for this specific case
     if (notificationShownRef.current.has(notificationKey)) {
       return;
     }
-
+    
     // Handle success notifications from Profile page redirects
     if (reauth === 'success') {
       notifications.showSuccess('🔐 Re-authentication successful!', {

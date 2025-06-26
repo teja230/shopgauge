@@ -56,12 +56,12 @@ class ErrorBoundary extends Component<Props, State> {
             <p className="text-gray-600 mb-4">
               We're sorry, but something unexpected happened. Please refresh the page to try again.
             </p>
-            <button
-              onClick={() => window.location.reload()}
+              <button
+                onClick={() => window.location.reload()}
               className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-md transition-colors"
-            >
-              Refresh Page
-            </button>
+              >
+                Refresh Page
+              </button>
           </div>
         </div>
       );

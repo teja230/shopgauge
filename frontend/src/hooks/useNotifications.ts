@@ -87,11 +87,14 @@ export const useNotifications = () => {
       originalAlert(message);
     };
 
-    // Cleanup on unmount
-    return () => {
-      window.confirm = originalConfirm;
-      window.alert = originalAlert;
-    };
+    // Note: We intentionally do NOT restore the original window.alert / window.confirm on unmount.
+    // Restoring them caused the notification capturing to break when components using the hook
+    // were unmounted (e.g., during client-side navigation). Since this hook can be mounted
+    // multiple times across the app, reverting the overrides would leave the app without the
+    // desired "System" notifications once the first mounting component unmounts. Keeping the
+    // overrides in place for the entire session guarantees that browser alerts and confirmations
+    // are always captured and routed into the NotificationCenter.
+    return () => {};
   }, []);
   
   // Simple, clean toast styling that matches user's preference

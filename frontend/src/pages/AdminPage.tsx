@@ -426,8 +426,8 @@ const AdminPage: React.FC = () => {
         if (!sessionExpiredShownRef.current) {
           sessionExpiredShownRef.current = true;
           showError('Admin session expired. Please login again.');
-          setIsAuthenticated(false);
-          setIsPasswordDialogOpen(true);
+        setIsAuthenticated(false);
+        setIsPasswordDialogOpen(true);
         }
         setSessionExpiry(0);
         localStorage.removeItem('admin_session_expiry');
