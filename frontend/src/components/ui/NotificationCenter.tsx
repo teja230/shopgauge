@@ -8,7 +8,6 @@ import {
   AlertTriangle,
   Check,
   Trash2,
-  Clock,
   RefreshCw
 } from 'lucide-react';
 import { format, formatDistanceToNow, parseISO, isValid } from 'date-fns';
@@ -20,7 +19,6 @@ import {
   IconButton, 
   Button, 
   Badge,
-  Divider,
   Tabs,
   Tab,
   CircularProgress,
@@ -223,7 +221,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   onNotificationCountChange
 }) => {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  useMediaQuery(theme.breakpoints.down('md')); // Used for responsive design
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   const [confirmDialog, setConfirmDialog] = useState<{
