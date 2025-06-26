@@ -32,6 +32,7 @@ const HomePage = () => {
   const [isOAuthFlow, setIsOAuthFlow] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [errorCode, setErrorCode] = useState('');
+  const [showConnectForm, setShowConnectForm] = useState(false);
   const { isAuthenticated, authLoading, logout, setShop } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -154,37 +155,6 @@ const HomePage = () => {
           Empower your team with concurrent access, comprehensive audit logging, and GDPR-compliant data management. 
           Transform your Shopify store with real-time insights and automated competitor monitoring.
         </p>
-        {showAuthConnected ? (
-          <div className="flex flex-col items-center gap-4">
-            <div className="text-center">
-              <p className="text-green-600 font-semibold mb-2">✓ You're already connected!</p>
-              <div className="flex flex-col sm:flex-row gap-3">
-                <button
-                  onClick={() => navigate('/dashboard')}
-                  className="inline-flex items-center px-6 py-3 rounded-lg font-semibold shadow transition bg-[#5A31F4] hover:bg-[#4A2FD4] text-white"
-                >
-                  <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12.5 0C5.6 0 0 5.6 0 12.5S5.6 25 12.5 25 25 19.4 25 12.5 19.4 0 12.5 0zm0 4.2c4.6 0 8.3 3.7 8.3 8.3s-3.7 8.3-8.3 8.3-8.3-3.7-8.3-8.3 3.7-8.3 8.3-8.3z"/>
-                  </svg>
-                  Go to Dashboard
-                </button>
-                <button
-                  onClick={handleSwitchStore}
-                  className="inline-flex items-center px-6 py-3 rounded-lg font-semibold shadow transition border-2 border-[#5A31F4] text-[#5A31F4] bg-white hover:bg-[#5A31F4] hover:text-white"
-                >
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                  </svg>
-                  Switch Store
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="text-center">
-            <p className="text-gray-600 text-lg">Connect your Shopify store below to get started!</p>
-          </div>
-        )}
       </header>
 
       {/* Error Display Section */}
@@ -231,49 +201,78 @@ const HomePage = () => {
             <div className="text-lg opacity-80">after 3-day free trial</div>
           </div>
           
-          {/* Connect Form or Dashboard Button */}
-          {showAuthConnected ? (
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="inline-flex items-center px-8 py-4 rounded-lg font-semibold shadow-lg transition-all duration-200 bg-white text-blue-600 hover:bg-gray-100 transform hover:scale-105"
-            >
-              <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12.5 0C5.6 0 0 5.6 0 12.5S5.6 25 12.5 25 25 19.4 25 12.5 19.4 0 12.5 0zm0 4.2c4.6 0 8.3 3.7 8.3 8.3s-3.7 8.3-8.3 8.3-8.3-3.7-8.3-8.3 3.7-8.3 8.3-8.3z"/>
-              </svg>
-              Go to Dashboard
-            </button>
-          ) : (
-            <form onSubmit={handleLogin} className="flex flex-col items-center gap-4">
-              <div className="flex flex-col sm:flex-row gap-3 w-full max-w-md">
-                <input
-                  type="text"
-                  value={shopDomain}
-                  onChange={(e) => setShopDomain(e.target.value)}
-                  placeholder="Enter your store name or full URL"
-                  className="flex-1 px-4 py-3 rounded-lg border-2 border-white/30 bg-white/20 backdrop-blur-sm text-white placeholder-white/70 focus:ring-2 focus:ring-white focus:border-white focus:bg-white/30"
-                  disabled={isLoading}
-                />
-                <button
-                  type="submit"
-                  disabled={isLoading || !normalizeShopDomain(shopDomain)}
-                  className="inline-flex items-center px-6 py-3 rounded-lg font-semibold shadow-lg transition-all duration-200 bg-white text-blue-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105"
-                >
-                  {isLoading ? (
-                    <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-blue-600"></div>
-                  ) : (
-                    <>
-                      <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
-                        <circle cx="12" cy="12" r="10"/>
-                        <circle cx="12" cy="12" r="6" fill="white"/>
-                      </svg>
-                      Start Free Trial
-                    </>
-                  )}
-                </button>
+          {/* Action section now INSIDE the banner */}
+          <div className="mt-8 flex flex-col items-center">
+            {showAuthConnected ? (
+              <div className="flex flex-col items-center gap-4">
+                <p className="text-green-200 font-semibold mb-2">✓ You're already connected!</p>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button
+                    onClick={() => navigate('/dashboard')}
+                    className="inline-flex items-center px-6 py-3 rounded-lg font-semibold shadow transition bg-white text-blue-600 hover:bg-gray-100"
+                  >
+                    <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12.5 0C5.6 0 0 5.6 0 12.5S5.6 25 12.5 25 25 19.4 25 12.5 19.4 0 12.5 0zm0 4.2c4.6 0 8.3 3.7 8.3 8.3s-3.7 8.3-8.3 8.3-8.3-3.7-8.3-8.3 3.7-8.3 8.3-8.3z"/>
+                    </svg>
+                    Dashboard
+                  </button>
+                  <button
+                    onClick={handleSwitchStore}
+                    className="inline-flex items-center px-6 py-3 rounded-lg font-semibold shadow transition border-2 border-white text-white hover:bg-white hover:text-blue-600"
+                  >
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                    </svg>
+                    Switch Store
+                  </button>
+                </div>
               </div>
-              <p className="text-sm opacity-80 mt-2">No credit card required • Cancel anytime</p>
-            </form>
-          )}
+            ) : (
+              showConnectForm ? (
+                <form onSubmit={handleLogin} className="flex flex-col items-center gap-4 w-full">
+                  <div className="flex flex-col sm:flex-row gap-3 w-full max-w-md">
+                    <input
+                      type="text"
+                      value={shopDomain}
+                      onChange={(e) => setShopDomain(e.target.value)}
+                      placeholder="Enter your store name or full URL"
+                      className="flex-1 px-4 py-3 rounded-lg border-2 border-white/60 bg-white/90 text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-white focus:border-white"
+                      disabled={isLoading}
+                    />
+                    <button
+                      type="submit"
+                      disabled={isLoading || !normalizeShopDomain(shopDomain)}
+                      className="inline-flex items-center px-6 py-3 rounded-lg font-semibold shadow-lg transition-all duration-200 bg-white text-blue-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isLoading ? (
+                        <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-blue-600"></div>
+                      ) : (
+                        <>
+                          <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                            <circle cx="12" cy="12" r="10"/>
+                            <circle cx="12" cy="12" r="6" fill="white"/>
+                          </svg>
+                          Connect Store
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  {/* Always-visible note */}
+                  <p className="text-sm opacity-90 mt-4 text-white">No credit card required • Cancel anytime</p>
+                </form>
+              ) : (
+                <button
+                  onClick={() => setShowConnectForm(true)}
+                  className="inline-flex items-center px-8 py-4 rounded-lg font-semibold shadow-lg transition-all duration-200 bg-white text-blue-600 hover:bg-gray-100 transform hover:scale-105"
+                >
+                  <svg className="w-6 h-6 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2a10 10 0 100 20 10 10 0 000-20zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
+                  </svg>
+                  Connect Store
+                </button>
+              )
+            )}
+          </div>
         </div>
       </section>
 
