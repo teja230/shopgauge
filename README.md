@@ -113,7 +113,7 @@ graph TB
     subgraph "Data Layer"
         PostgreSQL[(PostgreSQL<br/>Shops, Sessions, Metrics, Notifications, Audit Logs)]
         Redis[(Redis<br/>Sessions, Cache, Tokens, Secrets)]
-        Shopify[Shopify API<br/>Orders, Products, Customers)]
+        Shopify[(Shopify API<br/>Orders, Products, Customers)]
     end
     
     subgraph "External Services"
