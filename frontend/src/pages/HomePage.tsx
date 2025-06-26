@@ -81,14 +81,22 @@ const HomePage = () => {
       // Check for redirect parameter in URL
       const urlParams = new URLSearchParams(location.search);
       const redirectPath = urlParams.get('redirect');
+      const forceHome = urlParams.get('force') === 'true' || urlParams.get('view') === 'home';
       
       if (redirectPath) {
         console.log('HomePage: Found redirect parameter, navigating to:', redirectPath);
         navigate(redirectPath, { replace: true });
-      } else {
-        // Auto-navigate to dashboard if no specific redirect
-        console.log('HomePage: No redirect parameter, navigating to dashboard');
+      } else if (!forceHome) {
+        // Auto-navigate to dashboard if no specific redirect and not forced to stay on home
+        console.log('HomePage: No redirect parameter and not forced to stay, navigating to dashboard');
         navigate('/dashboard', { replace: true });
+      } else {
+        console.log('HomePage: Forced to stay on home page, not redirecting');
+        // Clear the force parameter from URL for cleaner appearance
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.delete('force');
+        newUrl.searchParams.delete('view');
+        window.history.replaceState({}, '', newUrl.toString());
       }
     }
   }, [isAuthenticated, authLoading, navigate, location.pathname, location.search]);

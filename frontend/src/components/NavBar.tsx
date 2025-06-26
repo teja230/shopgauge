@@ -27,7 +27,8 @@ import {
   Business as BusinessIcon,
   Person as PersonIcon,
   Logout as LogoutIcon,
-  Login as LoginIcon
+  Login as LoginIcon,
+  Home as HomeIcon
 } from '@mui/icons-material';
 import { getSuggestionCount } from '../api';
 import { NotificationCenter } from './ui/NotificationCenter';
@@ -79,6 +80,12 @@ const NavBar: React.FC = () => {
   }, [isAuthenticated]);
 
   const menuItems = isAuthenticated ? [
+    {
+      text: 'Home',
+      icon: <HomeIcon />,
+      path: '/?force=true',
+      badge: 0
+    },
     {
       text: 'Dashboard',
       icon: <DashboardIcon />,
@@ -247,6 +254,15 @@ const NavBar: React.FC = () => {
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
           {isAuthenticated ? (
             <>
+              <Button
+                color="inherit"
+                onClick={() => navigate('/?force=true')}
+                sx={{
+                  backgroundColor: location.pathname === '/' ? 'rgba(255, 255, 255, 0.1)' : 'transparent'
+                }}
+              >
+                Home
+              </Button>
               <Button
                 color="inherit"
                 onClick={() => navigate('/dashboard')}
