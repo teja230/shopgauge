@@ -19,8 +19,6 @@ import {
   IconButton, 
   Button, 
   Badge,
-  Tabs,
-  Tab,
   CircularProgress,
   Dialog,
   DialogTitle,
@@ -265,7 +263,6 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   const theme = useTheme();
   useMediaQuery(theme.breakpoints.down('md')); // Used for responsive design
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState(0);
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
     title: string;
@@ -292,11 +289,6 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     deleteNotification,
     clearAll,
   } = useNotifications();
-
-  // Filter notifications based on active tab
-  const filteredNotifications = activeTab === 0 
-    ? notifications 
-    : notifications.filter(n => !n.read);
 
   // Update parent component about count changes
   useEffect(() => {
@@ -384,11 +376,6 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     }
   };
 
-  // Handle tab change
-  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
-    setActiveTab(newValue);
-  };
-
   // Debounced refresh function
   const [refreshing, setRefreshing] = useState(false);
   const handleRefresh = async () => {
@@ -426,6 +413,19 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
             <NotificationHeader>
               <Typography variant="h6" sx={{ fontWeight: 600, color: 'text.primary' }}>
                 Notifications
+                {unreadCount > 0 && (
+                  <Typography 
+                    component="span" 
+                    variant="body2" 
+                    sx={{ 
+                      ml: 1, 
+                      color: 'text.secondary',
+                      fontWeight: 400 
+                    }}
+                  >
+                    ({unreadCount} unread)
+                  </Typography>
+                )}
               </Typography>
               <Box display="flex" alignItems="center" gap={1}>
                 <Tooltip title="Refresh">
@@ -448,30 +448,6 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
               </Box>
             </NotificationHeader>
 
-            {/* Tabs */}
-            <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-              <Tabs 
-                value={activeTab} 
-                onChange={handleTabChange}
-                sx={{
-                  '& .MuiTab-root': {
-                    textTransform: 'none',
-                    fontWeight: 500,
-                    fontSize: '0.875rem',
-                  }
-                }}
-              >
-                <Tab 
-                  label={`All (${notifications.length})`} 
-                  sx={{ flex: 1, maxWidth: 'none' }}
-                />
-                <Tab 
-                  label={`Unread (${unreadCount})`}
-                  sx={{ flex: 1, maxWidth: 'none' }}
-                />
-              </Tabs>
-            </Box>
-
             {/* Content */}
             <NotificationContent>
               {loading && (
@@ -490,19 +466,19 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                 </Box>
               )}
 
-              {!loading && !error && filteredNotifications.length === 0 && (
+              {!loading && !error && notifications.length === 0 && (
                 <Box p={4} textAlign="center" sx={{ color: 'text.secondary' }}>
                    <Bell size={48} style={{ marginBottom: 16, opacity: 0.5 }} />
                   <Typography variant="h6" sx={{ fontWeight: 500, mb: 1 }}>
                     All caught up!
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {activeTab === 0 ? "You don't have any notifications yet." : 'You have no unread notifications.'}
+                    You don't have any notifications yet.
                   </Typography>
                 </Box>
               )}
 
-              {!loading && !error && filteredNotifications.map((notification) => (
+              {!loading && !error && notifications.map((notification) => (
                 <NotificationItem key={notification.id} isUnread={!notification.read}>
                   <Box display="flex" alignItems="flex-start" gap={2}>
                     <Box mt={0.5}>
