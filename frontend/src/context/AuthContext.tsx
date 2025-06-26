@@ -32,7 +32,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     // Only show global loading on first app load
     if (!hasInitiallyLoaded) {
-      checkAuth();
+    checkAuth();
     }
   }, [hasInitiallyLoaded]);
 
@@ -66,7 +66,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!hasInitiallyLoaded) {
         // Add a small delay to show the loading animation
         setTimeout(() => {
-          setLoading(false);
+      setLoading(false);
           setHasInitiallyLoaded(true);
         }, 1500); // 1.5 second minimum loading time for better UX
       }

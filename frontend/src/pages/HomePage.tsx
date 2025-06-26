@@ -104,12 +104,13 @@ const HomePage = () => {
       if (redirectPath) {
         console.log('HomePage: Found redirect parameter, navigating to:', redirectPath);
         navigate(redirectPath, { replace: true });
-      } else if (location.pathname === '/' && isOAuthFlow) {
-        console.log('HomePage: Navigating to dashboard after OAuth completion');
-        navigate('/dashboard');
+      } else {
+        // Always redirect to dashboard after successful login, regardless of OAuth flow
+        console.log('HomePage: Navigating to dashboard after authentication');
+        navigate('/dashboard', { replace: true });
       }
     }
-  }, [isAuthenticated, authLoading, navigate, location.pathname, location.search, isOAuthFlow]);
+  }, [isAuthenticated, authLoading, navigate, location.pathname, location.search]);
 
   // Determine if user is authenticated after auth check completes
   const showAuthConnected = isAuthenticated && !authLoading && !isOAuthFlow;
@@ -233,7 +234,8 @@ const HomePage = () => {
                 className="inline-flex items-center px-6 py-3 rounded-lg font-semibold shadow transition bg-[#5A31F4] hover:bg-[#4A2FD4] text-white"
               >
                 <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12.5 0C5.6 0 0 5.6 0 12.5S5.6 25 12.5 25 25 19.4 25 12.5 19.4 0 12.5 0zm0 4.2c4.6 0 8.3 3.7 8.3 8.3s-3.7 8.3-8.3 8.3-8.3-3.7-8.3-8.3 3.7-8.3 8.3-8.3z"/>
+                  <circle cx="12" cy="12" r="10"/>
+                  <circle cx="12" cy="12" r="6" fill="white"/>
                 </svg>
                 Start 3-Day Free Trial
               </button>
@@ -258,7 +260,8 @@ const HomePage = () => {
                     ) : (
                       <>
                         <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M12.5 0C5.6 0 0 5.6 0 12.5S5.6 25 12.5 25 25 19.4 25 12.5 19.4 0 12.5 0zm0 4.2c4.6 0 8.3 3.7 8.3 8.3s-3.7 8.3-8.3 8.3-8.3-3.7-8.3-8.3 3.7-8.3 8.3-8.3z"/>
+                          <circle cx="12" cy="12" r="10"/>
+                          <circle cx="12" cy="12" r="6" fill="white"/>
                         </svg>
                         Connect Store
                       </>
@@ -300,6 +303,46 @@ const HomePage = () => {
           </div>
         </div>
       )}
+
+      {/* Pricing Section - Moved up for prominence */}
+      <section className="mb-12 w-full max-w-4xl">
+        <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl p-8 text-white text-center mb-8">
+          <h2 className="text-3xl font-bold mb-4">🚀 Limited Time Offer</h2>
+          <p className="text-xl mb-6 opacity-90">Start your 3-day free trial today and unlock enterprise-grade analytics!</p>
+          <div className="inline-block bg-white/20 backdrop-blur-sm rounded-lg px-6 py-3">
+            <span className="text-2xl font-bold">$19.99/month</span>
+            <span className="text-sm opacity-80 ml-2">after trial</span>
+          </div>
+        </div>
+        
+        <div className="flex justify-center">
+          <div className="bg-white rounded-xl shadow-xl p-8 flex flex-col items-center border-2 border-blue-200 hover:border-blue-400 hover:shadow-2xl transition-all duration-300 max-w-md w-full">
+            <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-4 py-2 rounded-full text-sm font-semibold mb-4">
+              ⭐ MOST POPULAR
+            </div>
+            <h3 className="text-2xl font-semibold mb-2 text-blue-900">{pricing[0].tier}</h3>
+            <div className="text-4xl font-bold mb-6 text-gray-800">{pricing[0].price}</div>
+            <ul className="mb-6 space-y-3 w-full">
+              {pricing[0].features.map((f) => (
+                <li key={f} className="flex items-start text-gray-700">
+                  <CheckCircleIcon className="w-5 h-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" /> 
+                  <span className="text-sm">{f}</span>
+                </li>
+              ))}
+            </ul>
+            <button
+              onClick={showAuthConnected ? () => navigate('/dashboard') : handleStartClick}
+              className="w-full inline-flex items-center justify-center px-6 py-4 rounded-lg font-semibold shadow-lg transition-all duration-200 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white transform hover:scale-105"
+            >
+              <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="12" cy="12" r="10"/>
+                <circle cx="12" cy="12" r="6" fill="white"/>
+              </svg>
+              {showAuthConnected ? 'Go to Dashboard' : 'Start 3-Day Free Trial'}
+            </button>
+          </div>
+        </div>
+      </section>
 
       {/* Advanced Features Showcase */}
       <section className="mb-12 w-full max-w-6xl">
@@ -367,32 +410,7 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* Pricing Section */}
-      <section className="w-full max-w-4xl">
-        <h2 className="text-2xl font-bold mb-4 text-blue-800 text-center">Simple, Transparent Pricing</h2>
-        <div className="flex justify-center">
-          <div className="bg-white rounded-lg shadow p-8 flex flex-col items-center border-2 border-blue-100 hover:border-blue-400 transition max-w-md w-full">
-            <h3 className="text-2xl font-semibold mb-2 text-blue-900">{pricing[0].tier}</h3>
-            <div className="text-4xl font-bold mb-6">{pricing[0].price}</div>
-            <ul className="mb-6 space-y-3 w-full">
-              {pricing[0].features.map((f) => (
-                <li key={f} className="flex items-center text-gray-700">
-                  <CheckCircleIcon className="w-5 h-5 text-green-500 mr-2" /> {f}
-                </li>
-              ))}
-            </ul>
-            <button
-              onClick={showAuthConnected ? () => navigate('/dashboard') : handleStartClick}
-              className="w-full inline-flex items-center justify-center px-6 py-3 rounded-lg font-semibold shadow transition bg-[#5A31F4] hover:bg-[#4A2FD4] text-white"
-            >
-              <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12.5 0C5.6 0 0 5.6 0 12.5S5.6 25 12.5 25 25 19.4 25 12.5 19.4 0 12.5 0zm0 4.2c4.6 0 8.3 3.7 8.3 8.3s-3.7 8.3-8.3 8.3-8.3-3.7-8.3-8.3 3.7-8.3 8.3-8.3z"/>
-              </svg>
-              {showAuthConnected ? 'Go to Dashboard' : 'Start 3-Day Free Trial'}
-            </button>
-          </div>
-        </div>
-      </section>
+
 
       {/* Testimonials Section */}
       <section className="w-full max-w-4xl my-12">

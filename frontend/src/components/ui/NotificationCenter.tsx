@@ -125,7 +125,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
           
           {/* Dropdown */}
-          <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
+          <div className="fixed right-4 top-16 w-80 bg-white rounded-xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
             {/* Header */}
             <div className="px-4 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white">
               <div className="flex items-center justify-between">

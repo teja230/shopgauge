@@ -293,11 +293,7 @@ const NavBar: React.FC = () => {
                     Logout
                   </Button>
                 </>
-              ) : (
-                <Button color="inherit" onClick={() => navigate('/')}>
-                  Login
-                </Button>
-              )}
+              ) : null}
             </Box>
           )}
 
