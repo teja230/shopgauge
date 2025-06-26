@@ -5,6 +5,7 @@ import { getInsights, fetchWithAuth } from '../api';
 import { API_BASE_URL } from '../api';
 import { useNotifications } from '../hooks/useNotifications';
 import { CheckCircleIcon } from '@heroicons/react/24/solid';
+import { normalizeShopDomain } from '../utils/normalizeShopDomain';
 
 const features = [
   'Track unlimited competitors across multiple sessions',
@@ -95,13 +96,6 @@ const HomePage = () => {
   // Determine if user is authenticated after auth check completes
   const showAuthConnected = isAuthenticated && !authLoading && !isOAuthFlow;
 
-  const handleStartClick = () => {
-    setShowForm(true);
-    // Clear any previous errors when starting fresh
-    setErrorMessage('');
-    setErrorCode('');
-  };
-
   const handleSwitchStore = async () => {
     try {
       // Clear current session first
@@ -122,8 +116,9 @@ const HomePage = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!shopDomain) {
-      notifications.showError('Please enter your store name', {
+    const cleanDomain = normalizeShopDomain(shopDomain);
+    if (!cleanDomain) {
+      notifications.showError('Please enter a valid Shopify store URL or name', {
         category: 'Validation'
       });
       return;
@@ -131,21 +126,7 @@ const HomePage = () => {
 
     setIsLoading(true);
     try {
-      // Clean up the shop domain
-      let cleanDomain = shopDomain.trim().toLowerCase();
-      
-      // Remove any protocol or www prefix
-      cleanDomain = cleanDomain.replace(/^(https?:\/\/)?(www\.)?/, '');
-      
-      // Remove any trailing slashes
-      cleanDomain = cleanDomain.replace(/\/+$/, '');
-      
-      // If it doesn't end with .myshopify.com, add it
-      if (!cleanDomain.endsWith('.myshopify.com')) {
-        cleanDomain = `${cleanDomain}.myshopify.com`;
-      }
-
-      // Redirect to the login endpoint with the shop parameter
+      // Redirect to the login endpoint with the normalized shop parameter
       window.location.href = `${API_BASE_URL}/api/auth/shopify/login?shop=${encodeURIComponent(cleanDomain)}`;
     } catch (error) {
       console.error('Login failed:', error);
@@ -208,24 +189,20 @@ const HomePage = () => {
           </div>
         ) : (
           <div className="flex flex-col items-center gap-4">
-            {!showForm ? (
-              <div className="text-center">
-                <p className="text-gray-600 mb-4">Ready to get started? Scroll down to begin your free trial.</p>
-              </div>
-            ) : (
+            {showForm ? (
               <form onSubmit={handleLogin} className="flex flex-col items-center gap-4">
                 <div className="flex flex-col sm:flex-row gap-2 w-full max-w-md">
                   <input
                     type="text"
                     value={shopDomain}
                     onChange={(e) => setShopDomain(e.target.value)}
-                    placeholder="Enter your store name (e.g. mystore)"
+                    placeholder="Enter your store name or full URL"
                     className="flex-1 px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     disabled={isLoading}
                   />
                   <button
                     type="submit"
-                    disabled={isLoading}
+                    disabled={isLoading || !normalizeShopDomain(shopDomain)}
                     className="inline-flex items-center px-6 py-2 rounded-lg font-semibold shadow transition bg-[#5A31F4] hover:bg-[#4A2FD4] text-white disabled:opacity-50"
                   >
                     {isLoading ? (
@@ -241,9 +218,9 @@ const HomePage = () => {
                     )}
                   </button>
                 </div>
-                <p className="text-sm text-gray-500">Enter your store name without .myshopify.com</p>
+                {/* Validation handled intelligently; no extra instructions needed */}
               </form>
-            )}
+            ) : null}
           </div>
         )}
       </header>
@@ -265,7 +242,11 @@ const HomePage = () => {
                 <p className="mt-2 text-red-700">{errorMessage}</p>
                 <div className="mt-4">
                   <button
-                    onClick={handleStartClick}
+                    onClick={() => {
+                      setShowForm(true);
+                      setErrorMessage('');
+                      setErrorCode('');
+                    }}
                     className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
                   >
                     Try Again
@@ -283,11 +264,13 @@ const HomePage = () => {
           <h2 className="text-3xl font-bold mb-4">🚀 Limited Time Offer</h2>
           <p className="text-xl mb-6 opacity-90">Start your 3-day free trial today and unlock enterprise-grade analytics!</p>
           <div className="inline-block bg-white/20 backdrop-blur-sm rounded-lg px-6 py-3 mb-6">
-            <span className="text-2xl font-bold">$19.99/month</span>
-            <span className="text-sm opacity-80 ml-2">after trial</span>
+            <div className="text-center">
+              <span className="text-2xl font-bold">$19.99/month</span>
+              <div className="text-sm opacity-80 mt-1">after trial</div>
+            </div>
           </div>
           <button
-            onClick={showAuthConnected ? () => navigate('/dashboard') : handleStartClick}
+            onClick={showAuthConnected ? () => navigate('/dashboard') : () => setShowForm(true)}
             className="inline-flex items-center px-8 py-4 rounded-lg font-semibold shadow-lg transition-all duration-200 bg-white text-blue-600 hover:bg-gray-100 transform hover:scale-105"
           >
             <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">

@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useNotifications } from '../hooks/useNotifications';
 import { API_BASE_URL } from '../api';
+import { normalizeShopDomain } from '../utils/normalizeShopDomain';
 
 export default function ProfilePage() {
   const { shop, logout, setShop } = useAuth();
@@ -413,8 +414,9 @@ export default function ProfilePage() {
   // FIXED: Connect new store with Dashboard redirect  
   const handleConnectNewStore = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newStoreDomain.trim()) {
-      notifications.showError('Please enter a store domain', {
+    const cleanDomain = normalizeShopDomain(newStoreDomain);
+    if (!cleanDomain) {
+      notifications.showError('Please enter a valid Shopify store URL or name', {
         category: 'Validation'
       });
       return;
@@ -427,25 +429,11 @@ export default function ProfilePage() {
     });
     
     try {
-      // Clean up the shop domain
-      let cleanDomain = newStoreDomain.trim().toLowerCase();
-      
-      // Remove any protocol or www prefix
-      cleanDomain = cleanDomain.replace(/^(https?:\/\/)?(www\.)?/, '');
-      
-      // Remove any trailing slashes
-      cleanDomain = cleanDomain.replace(/\/+$/, '');
-      
-      // If it doesn't end with .myshopify.com, add it
-      if (!cleanDomain.endsWith('.myshopify.com')) {
-        cleanDomain = `${cleanDomain}.myshopify.com`;
-      }
-
       // FIXED: Use dashboard redirect for new store connection 
       const baseUrl = `${window.location.origin}/dashboard`;
       const returnUrl = encodeURIComponent(`${baseUrl}?connected=true`);
 
-      // Redirect to the login endpoint with the shop parameter
+      // Redirect to the login endpoint with the normalized shop parameter
       window.location.href = `${API_BASE_URL}/api/auth/shopify/login?shop=${encodeURIComponent(cleanDomain)}&return_url=${returnUrl}`;
     } catch (error) {
       console.error('Failed to connect new store:', error);
@@ -760,14 +748,14 @@ export default function ProfilePage() {
                     type="text"
                     value={newStoreDomain}
                     onChange={(e) => setNewStoreDomain(e.target.value)}
-                    placeholder="Enter store name (e.g. mystore)"
+                    placeholder="Enter store name or full URL"
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                     disabled={isConnectingStore}
                   />
                     </div>
                   <button
                     type="submit"
-                      disabled={isConnectingStore || !newStoreDomain.trim()}
+                      disabled={isConnectingStore || !normalizeShopDomain(newStoreDomain)}
                       className="inline-flex items-center px-5 py-3 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     {isConnectingStore ? (
@@ -795,7 +783,7 @@ export default function ProfilePage() {
                       </svg>
                       <div>
                         <p className="font-medium text-blue-800 mb-1">Quick Connect Process:</p>
-                        <p className="text-blue-700">• Enter store name (without .myshopify.com)</p>
+                        <p className="text-blue-700">• Enter store name or .myshopify.com URL</p>
                         <p className="text-blue-700">• Authorize via Shopify (secure OAuth)</p>
                         <p className="text-blue-700">• Automatically redirected to Dashboard</p>
                         <p className="text-blue-600 mt-2 text-xs italic">
