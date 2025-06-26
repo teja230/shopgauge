@@ -86,6 +86,8 @@ import { fetchWithAuth } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { styled } from '@mui/material/styles';
 import { useNotifications } from '../hooks/useNotifications';
+import HealthSummary from '../components/ui/HealthSummary';
+import DiffViewerDialog from '../components/ui/DiffViewerDialog';
 
 interface Secret {
   key: string;
@@ -332,6 +334,11 @@ const AdminPage: React.FC = () => {
   const [deletedShops, setDeletedShops] = useState<DeletedShop[]>([]);
   const [deletedShopsLoading, setDeletedShopsLoading] = useState(false);
   const [deletedShopsError, setDeletedShopsError] = useState<string | null>(null);
+
+  // Diff viewer state (must be at top level for React rules-of-hooks)
+  const [diffOpen, setDiffOpen] = useState(false);
+  const [diffBefore, setDiffBefore] = useState('');
+  const [diffAfter, setDiffAfter] = useState('');
 
   // Action categories for audit logs with improved colors and icons
   const actionCategories = {
@@ -818,8 +825,8 @@ const AdminPage: React.FC = () => {
   }
 
   return (
-    <AdminContainer maxWidth="xl">{/* Header removed */}
-
+    <>
+    <AdminContainer>
       {/* Main Content */}
       <SectionCard elevation={0}>
         {/* Section Header */}
@@ -925,6 +932,9 @@ const AdminPage: React.FC = () => {
               />
             </Tabs>
           </TabsContainer>
+
+          {/* Health Summary */}
+          <HealthSummary />
 
           {/* Session Statistics Card */}
           {sessionStats && auditLogType === 'active' && (
@@ -1513,6 +1523,14 @@ const AdminPage: React.FC = () => {
                           <TableRow 
                             key={log.id} 
                             hover
+                            onDoubleClick={() => {
+                              if (log.details && log.details.includes('->')) {
+                                const [before, after] = log.details.split('->');
+                                setDiffBefore(before.trim());
+                                setDiffAfter(after.trim());
+                                setDiffOpen(true);
+                              }
+                            }}
                             sx={{ 
                               '&:hover': { bgcolor: 'grey.50' },
                               borderLeft: `4px solid ${getActionColor(log.action)}20`
@@ -1668,6 +1686,8 @@ const AdminPage: React.FC = () => {
         </Box>
       </SectionCard>
     </AdminContainer>
+    <DiffViewerDialog open={diffOpen} onClose={() => setDiffOpen(false)} before={diffBefore} after={diffAfter} />
+    </>
   );
 };
 

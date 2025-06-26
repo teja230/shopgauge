@@ -19,6 +19,7 @@ import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import theme from './theme';
 import IntelligentLoadingScreen from './components/ui/IntelligentLoadingScreen';
+import CommandPalette from './components/CommandPalette';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, authLoading } = useAuth();
@@ -130,6 +131,7 @@ const AppContent: React.FC = () => {
   
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col animate-fadeIn">
+      <CommandPalette />
       <RedirectHandler />
       <NavBar />
       <main className="flex-1">

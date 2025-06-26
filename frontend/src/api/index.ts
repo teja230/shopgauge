@@ -106,4 +106,23 @@ export async function getInsights(): Promise<any> {
   }
 }
 
+export async function getHealthSummary(): Promise<any> {
+  if (import.meta.env.DEV) {
+    console.log('API: Fetching health summary');
+  }
+  try {
+    const response = await fetchWithAuth('/health/summary');
+    const data = await response.json();
+    if (import.meta.env.DEV) {
+      console.log('API: Health summary response:', data);
+    }
+    return data;
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      console.error('API: Failed to fetch health summary', error);
+    }
+    throw error;
+  }
+}
+
 export { fetchWithAuth }; 

@@ -31,6 +31,9 @@ public class HealthController {
   @Value("${frontend.url:}")
   private String frontendUrl;
 
+  @Value("${app.lastDeployCommit:unknown}")
+  private String lastDeployCommit;
+
   @Autowired private StringRedisTemplate redisTemplate;
 
   @GetMapping("/health")
@@ -100,5 +103,46 @@ public class HealthController {
     }
 
     return ResponseEntity.ok(health);
+  }
+
+  @GetMapping("/api/health/summary")
+  public ResponseEntity<Map<String, Object>> healthSummary() {
+    Map<String, Object> summary = new HashMap<>();
+
+    // In a real production setup these metrics would be provided by your metrics/observability
+    // stack
+    // For now we calculate simple placeholders so that the UI has something meaningful to display.
+    // TODO Replace placeholder logic with real metrics aggregation once Prometheus / Micrometer
+    // data is wired up.
+
+    long p95LatencyMs = 0;
+    double errorRate = 0.0;
+    long queueDepth = 0;
+
+    try {
+      // Example: Attempt to fetch pre-computed metrics from Redis if they exist
+      String latency = redisTemplate.opsForValue().get("metrics:http:p95_latency_ms");
+      if (latency != null) {
+        p95LatencyMs = Long.parseLong(latency);
+      }
+      String err = redisTemplate.opsForValue().get("metrics:http:error_rate");
+      if (err != null) {
+        errorRate = Double.parseDouble(err);
+      }
+      String queue = redisTemplate.opsForValue().get("metrics:worker:queue_depth");
+      if (queue != null) {
+        queueDepth = Long.parseLong(queue);
+      }
+    } catch (Exception e) {
+      logger.debug("Unable to read metrics from redis – falling back to defaults", e);
+    }
+
+    summary.put("p95LatencyMs", p95LatencyMs);
+    summary.put("errorRate", errorRate);
+    summary.put("queueDepth", queueDepth);
+    summary.put("lastDeployCommit", lastDeployCommit);
+    summary.put("timestamp", System.currentTimeMillis());
+
+    return ResponseEntity.ok(summary);
   }
 }
