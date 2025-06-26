@@ -176,12 +176,6 @@ const NavBar: React.FC = () => {
         <>
           <Divider />
           <Box sx={{ p: 2 }}>
-                         <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
-               <NotificationCenter 
-                 position="top-center"
-                 onNotificationCountChange={(count) => setNotificationCount(count)}
-               />
-             </Box>
             <Button
               fullWidth
               variant="outlined"
@@ -309,13 +303,13 @@ const NavBar: React.FC = () => {
                 Profile
               </Button>
                 
-                {/* Notification Center positioned near Profile */}
-                <Box sx={{ ml: 1 }}>
-                  <NotificationCenter 
-                    position="top-right"
-                    onNotificationCountChange={(count) => setNotificationCount(count)}
-                  />
-                </Box>
+                              {/* Notification Center positioned near Profile */}
+              <Box sx={{ ml: 1 }}>
+                <NotificationCenter 
+                  position="dropdown"
+                  onNotificationCountChange={(count) => setNotificationCount(count)}
+                />
+              </Box>
                 
               <Button color="inherit" onClick={handleLogout}>
                 Logout
@@ -325,15 +319,15 @@ const NavBar: React.FC = () => {
             </Box>
           )}
 
-          {/* Mobile Menu Button */}
+                    {/* Mobile Menu Button */}
           {isMobile && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                             {isAuthenticated && (
-                 <NotificationCenter 
-                   position="top-right"
-                   onNotificationCountChange={(count) => setNotificationCount(count)}
-                 />
-               )}
+              {isAuthenticated && (
+                <NotificationCenter 
+                  position="dropdown"
+                  onNotificationCountChange={(count) => setNotificationCount(count)}
+                />
+              )}
               <IconButton
                 color="inherit"
                 onClick={toggleMobileMenu}
@@ -341,7 +335,7 @@ const NavBar: React.FC = () => {
               >
                 <MenuIcon />
               </IconButton>
-        </Box>
+            </Box>
           )}
       </Toolbar>
     </AppBar>

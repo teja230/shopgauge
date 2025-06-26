@@ -757,12 +757,12 @@ const DashboardPage = () => {
       const cleanUrl = window.location.pathname;
       window.history.replaceState({}, document.title, cleanUrl);
     } else if (connected === 'true') {
-      notifications.showSuccess('🔗 New store connected successfully!', {
+      notifications.showSuccess('🎉 Welcome to ShopGauge! Your store is now connected and ready for insights.', {
         persistent: true,
-        category: 'Store Connection',
+        category: 'Welcome',
         action: {
-          label: 'View Settings',
-          onClick: () => navigate('/profile')
+          label: 'Explore Dashboard',
+          onClick: () => navigate('/dashboard')
         }
       });
       // Clear cache to ensure fresh data
