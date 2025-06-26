@@ -1265,7 +1265,7 @@ export default function ProfilePage() {
         </h2>
         <div className="space-y-6">
           {/* Normal Disconnect */}
-          <div className="bg-red-50 p-5 rounded-xl border border-red-200">
+          <div className="bg-yellow-50 p-5 rounded-xl border border-red-200">
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <h3 className="font-semibold text-red-900 mb-2">Disconnect Store</h3>
@@ -1296,7 +1296,7 @@ export default function ProfilePage() {
           </div>
 
           {/* Force Disconnect */}
-          <div className="bg-yellow-50 p-5 rounded-xl border border-yellow-300">
+          <div className="bg-red-50 p-5 rounded-xl border border-yellow-300">
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <h3 className="font-semibold text-yellow-900 mb-2 flex items-center">
