@@ -1,40 +1,50 @@
 import React, { useEffect, useState } from 'react';
-import { Paper, Typography, Box, CircularProgress, Alert } from '@mui/material';
-import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import { Paper, Typography, Box, CircularProgress, Alert, Chip } from '@mui/material';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import WarningIcon from '@mui/icons-material/Warning';
 import StorageIcon from '@mui/icons-material/Storage';
-import GitCommitIcon from '@mui/icons-material/Commit';
+import DatabaseIcon from '@mui/icons-material/Storage';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { getHealthSummary } from '../../api/index';
 
 interface HealthMetrics {
-  p95LatencyMs: number;
-  errorRate: number;
-  queueDepth: number;
+  backendStatus: string;
+  redisStatus: string;
+  databaseStatus: string;
+  systemStatus: string;
+  lastUpdated: number;
   lastDeployCommit: string;
-  timestamp: number;
 }
 
-const MetricCard: React.FC<{
+const StatusChip: React.FC<{
+  status: string;
   label: string;
-  value: string | number;
-  icon: React.ReactNode;
-  color: string;
-}> = ({ label, value, icon, color }) => (
-  <Paper elevation={0} sx={{ p: 2, borderRadius: 2, bgcolor: 'white', border: '1px solid #e0e0e0' }}>
-    <Box display="flex" alignItems="center" gap={2}>
-      <Box sx={{ color, display: 'flex' }}>{icon}</Box>
-      <Box>
-        <Typography variant="h5" fontWeight="bold">
-          {value}
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {label}
-        </Typography>
-      </Box>
-    </Box>
-  </Paper>
-);
+  icon: React.ReactElement;
+}> = ({ status, label, icon }) => {
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'UP':
+        return 'success';
+      case 'DOWN':
+        return 'error';
+      case 'DEGRADED':
+        return 'warning';
+      default:
+        return 'default';
+    }
+  };
+
+  return (
+    <Chip
+      icon={icon}
+      label={`${label}: ${status}`}
+      color={getStatusColor(status) as any}
+      variant="outlined"
+      sx={{ minWidth: 120 }}
+    />
+  );
+};
 
 const HealthSummary: React.FC = () => {
   const [metrics, setMetrics] = useState<HealthMetrics | null>(null);
@@ -51,11 +61,12 @@ const HealthSummary: React.FC = () => {
       console.warn('Health metrics not available:', e.message);
       // Don't show error, just use default values
       setMetrics({
-        p95LatencyMs: 0,
-        errorRate: 0,
-        queueDepth: 0,
-        lastDeployCommit: 'unknown',
-        timestamp: Date.now()
+        backendStatus: 'UNKNOWN',
+        redisStatus: 'UNKNOWN',
+        databaseStatus: 'UNKNOWN',
+        systemStatus: 'UNKNOWN',
+        lastUpdated: Date.now(),
+        lastDeployCommit: 'unknown'
       });
       setError(null);
     } finally {
@@ -65,7 +76,7 @@ const HealthSummary: React.FC = () => {
 
   useEffect(() => {
     fetchMetrics();
-    const interval = setInterval(fetchMetrics, 60_000); // refresh every minute
+    const interval = setInterval(fetchMetrics, 30_000); // refresh every 30 seconds
     return () => clearInterval(interval);
   }, []);
 
@@ -85,43 +96,50 @@ const HealthSummary: React.FC = () => {
 
   if (!metrics) return null;
 
+  const formatTime = (timestamp: number) => {
+    return new Date(timestamp).toLocaleTimeString();
+  };
+
   return (
     <Paper sx={{ p: 3, mb: 3, borderRadius: 3, bgcolor: 'grey.50' }}>
-      <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-        System Health Summary
-      </Typography>
-      <Box display="grid" gridTemplateColumns={{ xs: '1fr', sm: '1fr 1fr', md: 'repeat(4, 1fr)' }} gap={3}>
-        <Box>
-          <MetricCard
-            label="p95 Latency (ms)"
-            value={metrics.p95LatencyMs}
-            icon={<TrendingUpIcon />}
-            color="#1e40af"
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+        <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          System Health Status
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          Last updated: {formatTime(metrics.lastUpdated)}
+        </Typography>
+      </Box>
+      
+      <Box display="flex" flexDirection="column" gap={2}>
+        <Box display="flex" flexWrap="wrap" gap={2}>
+          <StatusChip
+            status={metrics.systemStatus}
+            label="System"
+            icon={metrics.systemStatus === 'UP' ? <CheckCircleIcon /> : 
+                  metrics.systemStatus === 'DEGRADED' ? <WarningIcon /> : <ErrorOutlineIcon />}
           />
-        </Box>
-        <Box>
-          <MetricCard
-            label="5xx Error Rate (%)"
-            value={(metrics.errorRate * 100).toFixed(2)}
-            icon={<ErrorOutlineIcon />}
-            color="#dc2626"
+          <StatusChip
+            status={metrics.backendStatus}
+            label="Backend"
+            icon={metrics.backendStatus === 'UP' ? <CheckCircleIcon /> : <ErrorOutlineIcon />}
           />
-        </Box>
-        <Box>
-          <MetricCard
-            label="Queue Depth"
-            value={metrics.queueDepth}
+          <StatusChip
+            status={metrics.redisStatus}
+            label="Redis"
             icon={<StorageIcon />}
-            color="#059669"
+          />
+          <StatusChip
+            status={metrics.databaseStatus}
+            label="Database"
+            icon={<DatabaseIcon />}
           />
         </Box>
-        <Box>
-          <MetricCard
-            label="Last Deploy Commit"
-            value={metrics.lastDeployCommit?.substring(0, 7) || 'unknown'}
-            icon={<GitCommitIcon />}
-            color="#7c3aed"
-          />
+        
+        <Box display="flex" alignItems="center" gap={1}>
+          <Typography variant="caption" color="text.secondary">
+            Deploy: {metrics.lastDeployCommit?.substring(0, 7) || 'unknown'}
+          </Typography>
         </Box>
       </Box>
     </Paper>

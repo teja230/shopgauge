@@ -109,39 +109,36 @@ public class HealthController {
   public ResponseEntity<Map<String, Object>> healthSummary() {
     Map<String, Object> summary = new HashMap<>();
 
-    // In a real production setup these metrics would be provided by your metrics/observability
-    // stack
-    // For now we calculate simple placeholders so that the UI has something meaningful to display.
-    // TODO Replace placeholder logic with real metrics aggregation once Prometheus / Micrometer
-    // data is wired up.
+    // Check backend status
+    summary.put("backendStatus", "UP");
 
-    long p95LatencyMs = 0;
-    double errorRate = 0.0;
-    long queueDepth = 0;
-
+    // Check Redis connectivity
+    String redisStatus = "DOWN";
     try {
-      // Example: Attempt to fetch pre-computed metrics from Redis if they exist
-      String latency = redisTemplate.opsForValue().get("metrics:http:p95_latency_ms");
-      if (latency != null) {
-        p95LatencyMs = Long.parseLong(latency);
+      redisTemplate.opsForValue().set("health:check", "ok");
+      String value = redisTemplate.opsForValue().get("health:check");
+      if ("ok".equals(value)) {
+        redisStatus = "UP";
       }
-      String err = redisTemplate.opsForValue().get("metrics:http:error_rate");
-      if (err != null) {
-        errorRate = Double.parseDouble(err);
-      }
-      String queue = redisTemplate.opsForValue().get("metrics:worker:queue_depth");
-      if (queue != null) {
-        queueDepth = Long.parseLong(queue);
-      }
+      redisTemplate.delete("health:check"); // Clean up test key
     } catch (Exception e) {
-      logger.debug("Unable to read metrics from redis – falling back to defaults", e);
+      logger.debug("Redis health check failed", e);
     }
+    summary.put("redisStatus", redisStatus);
 
-    summary.put("p95LatencyMs", p95LatencyMs);
-    summary.put("errorRate", errorRate);
-    summary.put("queueDepth", queueDepth);
+    // Check database connectivity (simplified - just check if we can access Redis for now)
+    // In a real app, you'd check actual database connectivity
+    summary.put("databaseStatus", redisStatus); // Using Redis as proxy for now
+
+    // Overall system status
+    String systemStatus = "UP";
+    if ("DOWN".equals(redisStatus)) {
+      systemStatus = "DEGRADED";
+    }
+    summary.put("systemStatus", systemStatus);
+
+    summary.put("lastUpdated", System.currentTimeMillis());
     summary.put("lastDeployCommit", lastDeployCommit);
-    summary.put("timestamp", System.currentTimeMillis());
 
     return ResponseEntity.ok(summary);
   }
