@@ -268,7 +268,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
           className="relative p-2 text-white hover:text-gray-200 hover:bg-white/10 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white/50"
           aria-label={`Notifications ${unreadCount > 0 ? `(${unreadCount} unread)` : ''}`}
         >
-          <Bell className="w-6 h-6" />
+          {/* Change bell color when there are unread notifications */}
+          <Bell className={`w-6 h-6 ${unreadCount > 0 ? 'text-red-400' : 'text-white'}`} />
           {unreadCount > 0 && (
             <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[20px] h-5 flex items-center justify-center font-medium animate-pulse">
               {unreadCount > 99 ? '99+' : unreadCount}

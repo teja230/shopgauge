@@ -258,7 +258,10 @@ const NavBar: React.FC = () => {
                 color="inherit"
                 onClick={() => navigate('/?force=true')}
                 sx={{
-                  backgroundColor: location.pathname === '/' ? 'rgba(255, 255, 255, 0.1)' : 'transparent'
+                  backgroundColor: location.pathname === '/' ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
+                  '&:hover': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.12)'
+                  }
                 }}
               >
                 Home
@@ -267,7 +270,10 @@ const NavBar: React.FC = () => {
                 color="inherit"
                 onClick={() => navigate('/dashboard')}
                 sx={{
-                  backgroundColor: location.pathname === '/dashboard' ? 'rgba(255, 255, 255, 0.1)' : 'transparent'
+                  backgroundColor: location.pathname === '/dashboard' ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
+                  '&:hover': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.12)'
+                  }
                 }}
               >
                 Dashboard
@@ -281,7 +287,10 @@ const NavBar: React.FC = () => {
                   color="inherit"
                   onClick={() => navigate('/competitors')}
                   sx={{
-                    backgroundColor: location.pathname === '/competitors' ? 'rgba(255, 255, 255, 0.1)' : 'transparent'
+                    backgroundColor: location.pathname === '/competitors' ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
+                    '&:hover': {
+                      backgroundColor: 'rgba(255, 255, 255, 0.12)'
+                    }
                   }}
                 >
                   Competitors
@@ -291,7 +300,10 @@ const NavBar: React.FC = () => {
                 color="inherit"
                 onClick={() => navigate('/profile')}
                 sx={{
-                  backgroundColor: location.pathname === '/profile' ? 'rgba(255, 255, 255, 0.1)' : 'transparent'
+                  backgroundColor: location.pathname === '/profile' ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
+                  '&:hover': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.12)'
+                  }
                 }}
               >
                 Profile
