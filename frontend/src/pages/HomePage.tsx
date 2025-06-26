@@ -29,7 +29,6 @@ const features = [
 const HomePage = () => {
   const [shopDomain, setShopDomain] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [showForm, setShowForm] = useState(false);
   const [isOAuthFlow, setIsOAuthFlow] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [errorCode, setErrorCode] = useState('');
@@ -100,8 +99,6 @@ const HomePage = () => {
     try {
       // Clear current session first
       await logout();
-      // Show the form for connecting a new store
-      setShowForm(true);
       // Clear any previous errors
       setErrorMessage('');
       setErrorCode('');
@@ -188,39 +185,8 @@ const HomePage = () => {
             </div>
           </div>
         ) : (
-          <div className="flex flex-col items-center gap-4">
-            {showForm ? (
-              <form onSubmit={handleLogin} className="flex flex-col items-center gap-4">
-                <div className="flex flex-col sm:flex-row gap-2 w-full max-w-md">
-                  <input
-                    type="text"
-                    value={shopDomain}
-                    onChange={(e) => setShopDomain(e.target.value)}
-                    placeholder="Enter your store name or full URL"
-                    className="flex-1 px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    disabled={isLoading}
-                  />
-                  <button
-                    type="submit"
-                    disabled={isLoading || !normalizeShopDomain(shopDomain)}
-                    className="inline-flex items-center px-6 py-2 rounded-lg font-semibold shadow transition bg-[#5A31F4] hover:bg-[#4A2FD4] text-white disabled:opacity-50"
-                  >
-                    {isLoading ? (
-                      <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
-                    ) : (
-                      <>
-                        <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
-                          <circle cx="12" cy="12" r="10"/>
-                          <circle cx="12" cy="12" r="6" fill="white"/>
-                        </svg>
-                        Connect Store
-                      </>
-                    )}
-                  </button>
-                </div>
-                {/* Validation handled intelligently; no extra instructions needed */}
-              </form>
-            ) : null}
+          <div className="text-center">
+            <p className="text-gray-600 text-lg">Connect your Shopify store below to get started!</p>
           </div>
         )}
       </header>
@@ -243,7 +209,6 @@ const HomePage = () => {
                 <div className="mt-4">
                   <button
                     onClick={() => {
-                      setShowForm(true);
                       setErrorMessage('');
                       setErrorCode('');
                     }}
@@ -263,22 +228,56 @@ const HomePage = () => {
         <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl p-8 text-white text-center">
           <h2 className="text-3xl font-bold mb-4">🚀 Limited Time Offer</h2>
           <p className="text-xl mb-6 opacity-90">Start your 3-day free trial today and unlock enterprise-grade analytics!</p>
-          <div className="inline-block bg-white/20 backdrop-blur-sm rounded-lg px-6 py-3 mb-6">
-            <div className="text-center">
-              <span className="text-2xl font-bold">$19.99/month</span>
-              <div className="text-sm opacity-80 mt-1">after trial</div>
-            </div>
+          
+          {/* Pricing Display */}
+          <div className="mb-6">
+            <div className="text-3xl font-bold mb-2">$19.99/month</div>
+            <div className="text-lg opacity-80">after 3-day free trial</div>
           </div>
-          <button
-            onClick={showAuthConnected ? () => navigate('/dashboard') : () => setShowForm(true)}
-            className="inline-flex items-center px-8 py-4 rounded-lg font-semibold shadow-lg transition-all duration-200 bg-white text-blue-600 hover:bg-gray-100 transform hover:scale-105"
-          >
-            <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
-              <circle cx="12" cy="12" r="10"/>
-              <circle cx="12" cy="12" r="6" fill="white"/>
-            </svg>
-            {showAuthConnected ? 'Go to Dashboard' : 'Start 3-Day Free Trial'}
-          </button>
+          
+          {/* Connect Form or Dashboard Button */}
+          {showAuthConnected ? (
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="inline-flex items-center px-8 py-4 rounded-lg font-semibold shadow-lg transition-all duration-200 bg-white text-blue-600 hover:bg-gray-100 transform hover:scale-105"
+            >
+              <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12.5 0C5.6 0 0 5.6 0 12.5S5.6 25 12.5 25 25 19.4 25 12.5 19.4 0 12.5 0zm0 4.2c4.6 0 8.3 3.7 8.3 8.3s-3.7 8.3-8.3 8.3-8.3-3.7-8.3-8.3 3.7-8.3 8.3-8.3z"/>
+              </svg>
+              Go to Dashboard
+            </button>
+          ) : (
+            <form onSubmit={handleLogin} className="flex flex-col items-center gap-4">
+              <div className="flex flex-col sm:flex-row gap-3 w-full max-w-md">
+                <input
+                  type="text"
+                  value={shopDomain}
+                  onChange={(e) => setShopDomain(e.target.value)}
+                  placeholder="Enter your store name or full URL"
+                  className="flex-1 px-4 py-3 rounded-lg border-2 border-white/30 bg-white/20 backdrop-blur-sm text-white placeholder-white/70 focus:ring-2 focus:ring-white focus:border-white focus:bg-white/30"
+                  disabled={isLoading}
+                />
+                <button
+                  type="submit"
+                  disabled={isLoading || !normalizeShopDomain(shopDomain)}
+                  className="inline-flex items-center px-6 py-3 rounded-lg font-semibold shadow-lg transition-all duration-200 bg-white text-blue-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105"
+                >
+                  {isLoading ? (
+                    <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-blue-600"></div>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                        <circle cx="12" cy="12" r="10"/>
+                        <circle cx="12" cy="12" r="6" fill="white"/>
+                      </svg>
+                      Start Free Trial
+                    </>
+                  )}
+                </button>
+              </div>
+              <p className="text-sm opacity-80 mt-2">No credit card required • Cancel anytime</p>
+            </form>
+          )}
         </div>
       </section>
 
