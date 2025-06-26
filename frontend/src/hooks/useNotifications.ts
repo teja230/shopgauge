@@ -36,7 +36,7 @@ let globalNotifications: Notification[] = [];
 let globalUnreadCount = 0;
 let isLoadingGlobal = false;
 let lastFetchTime = 0;
-const RATE_LIMIT_MS = 2000; // 2 seconds minimum between API calls
+const RATE_LIMIT_MS = 5000; // 5 seconds minimum between API calls
 
 // Global notification tracker for browser alerts and system notifications
 let notificationId = 0;
