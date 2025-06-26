@@ -326,9 +326,9 @@ const NotFoundPage: React.FC = () => {
         <Title variant="h2">Page Not Found</Title>
         
         <Description variant="body1">
-          The page you're looking for doesn't exist or has been moved. 
-          {countdown > 0 && autoRedirectUrl && (
-            <>
+        The page you're looking for doesn't exist or has been moved. 
+        {countdown > 0 && autoRedirectUrl && (
+          <>
               {' '}We'll redirect you to the {isAuthenticated ? 'dashboard' : 'homepage'} automatically.
             </>
           )}
@@ -366,58 +366,58 @@ const NotFoundPage: React.FC = () => {
         )}
 
         <ButtonContainer>
-          {countdown > 0 && autoRedirectUrl ? (
-            <Button
-              variant="outlined"
+        {countdown > 0 && autoRedirectUrl ? (
+          <Button
+            variant="outlined"
               onClick={cancelAutoRedirect}
               sx={{ minWidth: 180 }}
+          >
+            Cancel Auto-redirect
+          </Button>
+        ) : (
+          <>
+            <Button
+              variant="contained"
+              startIcon={<Home />}
+              onClick={handleGoHome}
+              sx={{ minWidth: 120 }}
             >
-              Cancel Auto-redirect
+              Go Home
             </Button>
-          ) : (
-            <>
-              <Button
-                variant="contained"
-                startIcon={<Home />}
-                onClick={handleGoHome}
-                sx={{ minWidth: 120 }}
-              >
-                Go Home
-              </Button>
-              <Button
-                variant="outlined"
-                startIcon={<ArrowBack />}
-                onClick={handleGoBack}
-                sx={{ minWidth: 120 }}
-              >
-                Go Back
-              </Button>
-            </>
-          )}
+            <Button
+              variant="outlined"
+              startIcon={<ArrowBack />}
+              onClick={handleGoBack}
+              sx={{ minWidth: 120 }}
+            >
+              Go Back
+            </Button>
+          </>
+        )}
         </ButtonContainer>
 
-        {isAuthenticated && !(countdown > 0 && autoRedirectUrl) && (
+      {isAuthenticated && !(countdown > 0 && autoRedirectUrl) && (
           <ButtonContainer>
-            <Button
-              variant="outlined"
-              startIcon={<Dashboard />}
-              onClick={handleGoDashboard}
-              sx={{ minWidth: 140 }}
-              color="primary"
-            >
-              Dashboard
-            </Button>
-            <Button
-              variant="outlined"
-              startIcon={<Business />}
-              onClick={handleGoCompetitors}
-              sx={{ minWidth: 140 }}
-              color="primary"
-            >
-              Competitors
-            </Button>
+          <Button
+            variant="outlined"
+            startIcon={<Dashboard />}
+            onClick={handleGoDashboard}
+            sx={{ minWidth: 140 }}
+            color="primary"
+          >
+            Dashboard
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<Business />}
+            onClick={handleGoCompetitors}
+            sx={{ minWidth: 140 }}
+            color="primary"
+          >
+            Competitors
+          </Button>
           </ButtonContainer>
-        )}
+      )}
       </ContentContainer>
     </NotFoundContainer>
   );

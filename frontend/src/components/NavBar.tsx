@@ -215,84 +215,84 @@ const NavBar: React.FC = () => {
 
   return (
     <>
-      <AppBar position="static">
-        <Toolbar>
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              cursor: 'pointer',
-              mr: 2,
-              userSelect: 'none',
-            }}
-            onClick={() => {
-              // Smart navigation: go to dashboard if authenticated, home if not
-              if (isAuthenticated) {
-                navigate('/dashboard');
-              } else {
-                navigate('/');
-              }
-            }}
-          >
-            <InsightsIcon sx={{ mr: 1, fontSize: 28 }} />
-            <Typography variant="h6" component="div" sx={{ fontWeight: 600 }}>
-              ShopGauge
-            </Typography>
-          </Box>
+    <AppBar position="static">
+      <Toolbar>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            cursor: 'pointer',
+            mr: 2,
+            userSelect: 'none',
+          }}
+          onClick={() => {
+            // Smart navigation: go to dashboard if authenticated, home if not
+            if (isAuthenticated) {
+              navigate('/dashboard');
+            } else {
+              navigate('/');
+            }
+          }}
+        >
+          <InsightsIcon sx={{ mr: 1, fontSize: 28 }} />
+          <Typography variant="h6" component="div" sx={{ fontWeight: 600 }}>
+            ShopGauge
+          </Typography>
+        </Box>
           
           <Box sx={{ flexGrow: 1 }} />
 
           {/* Desktop Navigation */}
           {!isMobile && (
-            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-              {isAuthenticated ? (
-                <>
-                  <Button
-                    color="inherit"
-                    onClick={() => navigate('/dashboard')}
-                    sx={{
-                      backgroundColor: location.pathname === '/dashboard' ? 'rgba(255, 255, 255, 0.1)' : 'transparent'
-                    }}
-                  >
-                    Dashboard
-                  </Button>
-                  <Badge 
-                    badgeContent={suggestionCount} 
-                    color="error"
-                    invisible={suggestionCount === 0}
-                  >
-                    <Button
-                      color="inherit"
-                      onClick={() => navigate('/competitors')}
-                      sx={{
-                        backgroundColor: location.pathname === '/competitors' ? 'rgba(255, 255, 255, 0.1)' : 'transparent'
-                      }}
-                    >
-                      Competitors
-                    </Button>
-                  </Badge>
-                  <Button
-                    color="inherit"
-                    onClick={() => navigate('/profile')}
-                    sx={{
-                      backgroundColor: location.pathname === '/profile' ? 'rgba(255, 255, 255, 0.1)' : 'transparent'
-                    }}
-                  >
-                    Profile
-                  </Button>
-                    
-                  {/* Notification Center positioned near Profile */}
-                  <Box sx={{ ml: 1 }}>
-                    <NotificationCenter 
-                      position="top-right"
-                      onNotificationCountChange={(count) => setNotificationCount(count)}
-                    />
-                  </Box>
-                    
-                  <Button color="inherit" onClick={handleLogout}>
-                    Logout
-                  </Button>
-                </>
+          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+          {isAuthenticated ? (
+            <>
+              <Button
+                color="inherit"
+                onClick={() => navigate('/dashboard')}
+                sx={{
+                  backgroundColor: location.pathname === '/dashboard' ? 'rgba(255, 255, 255, 0.1)' : 'transparent'
+                }}
+              >
+                Dashboard
+              </Button>
+              <Badge 
+                badgeContent={suggestionCount} 
+                color="error"
+                invisible={suggestionCount === 0}
+              >
+                <Button
+                  color="inherit"
+                  onClick={() => navigate('/competitors')}
+                  sx={{
+                    backgroundColor: location.pathname === '/competitors' ? 'rgba(255, 255, 255, 0.1)' : 'transparent'
+                  }}
+                >
+                  Competitors
+                </Button>
+              </Badge>
+              <Button
+                color="inherit"
+                onClick={() => navigate('/profile')}
+                sx={{
+                  backgroundColor: location.pathname === '/profile' ? 'rgba(255, 255, 255, 0.1)' : 'transparent'
+                }}
+              >
+                Profile
+              </Button>
+                
+                {/* Notification Center positioned near Profile */}
+                <Box sx={{ ml: 1 }}>
+                  <NotificationCenter 
+                    position="top-right"
+                    onNotificationCountChange={(count) => setNotificationCount(count)}
+                  />
+                </Box>
+                
+              <Button color="inherit" onClick={handleLogout}>
+                Logout
+              </Button>
+            </>
               ) : null}
             </Box>
           )}
@@ -313,10 +313,10 @@ const NavBar: React.FC = () => {
               >
                 <MenuIcon />
               </IconButton>
-            </Box>
+        </Box>
           )}
-        </Toolbar>
-      </AppBar>
+      </Toolbar>
+    </AppBar>
 
       {/* Mobile Drawer */}
       {isMobile && <MobileDrawer />}

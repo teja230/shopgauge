@@ -233,16 +233,9 @@ const HomePage = () => {
         ) : (
           <div className="flex flex-col items-center gap-4">
             {!showForm ? (
-              <button
-                onClick={handleStartClick}
-                className="inline-flex items-center px-6 py-3 rounded-lg font-semibold shadow transition bg-[#5A31F4] hover:bg-[#4A2FD4] text-white"
-              >
-                <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
-                  <circle cx="12" cy="12" r="10"/>
-                  <circle cx="12" cy="12" r="6" fill="white"/>
-                </svg>
-                Start 3-Day Free Trial
-              </button>
+              <div className="text-center">
+                <p className="text-gray-600 mb-4">Ready to get started? Scroll down to begin your free trial.</p>
+              </div>
             ) : (
               <form onSubmit={handleLogin} className="flex flex-col items-center gap-4">
                 <div className="flex flex-col sm:flex-row gap-2 w-full max-w-md">
@@ -310,34 +303,23 @@ const HomePage = () => {
 
       {/* Pricing Section - Moved up for prominence */}
       <section className="mb-12 w-full max-w-4xl">
-        <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl p-8 text-white text-center mb-8">
+        <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl p-8 text-white text-center">
           <h2 className="text-3xl font-bold mb-4">🚀 Limited Time Offer</h2>
           <p className="text-xl mb-6 opacity-90">Start your 3-day free trial today and unlock enterprise-grade analytics!</p>
-          <div className="inline-block bg-white/20 backdrop-blur-sm rounded-lg px-6 py-3">
+          <div className="inline-block bg-white/20 backdrop-blur-sm rounded-lg px-6 py-3 mb-6">
             <span className="text-2xl font-bold">$19.99/month</span>
             <span className="text-sm opacity-80 ml-2">after trial</span>
           </div>
-        </div>
-        
-        <div className="flex justify-center">
-          <div className="bg-white rounded-xl shadow-xl p-8 flex flex-col items-center border-2 border-blue-200 hover:border-blue-400 hover:shadow-2xl transition-all duration-300 max-w-md w-full">
-            <h3 className="text-2xl font-semibold mb-2 text-blue-900">{pricing[0].tier}</h3>
-            <div className="text-4xl font-bold mb-4 text-gray-800">{pricing[0].price}</div>
-            <p className="text-gray-600 text-center mb-6 text-sm">
-              Complete enterprise-grade analytics platform with all features included. 
-              Start your 3-day free trial - no credit card required.
-            </p>
-            <button
-              onClick={showAuthConnected ? () => navigate('/dashboard') : handleStartClick}
-              className="w-full inline-flex items-center justify-center px-6 py-4 rounded-lg font-semibold shadow-lg transition-all duration-200 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white transform hover:scale-105"
-            >
-              <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
-                <circle cx="12" cy="12" r="10"/>
-                <circle cx="12" cy="12" r="6" fill="white"/>
-              </svg>
-              {showAuthConnected ? 'Go to Dashboard' : 'Start 3-Day Free Trial'}
-            </button>
-          </div>
+          <button
+            onClick={showAuthConnected ? () => navigate('/dashboard') : handleStartClick}
+            className="inline-flex items-center px-8 py-4 rounded-lg font-semibold shadow-lg transition-all duration-200 bg-white text-blue-600 hover:bg-gray-100 transform hover:scale-105"
+          >
+            <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
+              <circle cx="12" cy="12" r="10"/>
+              <circle cx="12" cy="12" r="6" fill="white"/>
+            </svg>
+            {showAuthConnected ? 'Go to Dashboard' : 'Start 3-Day Free Trial'}
+          </button>
         </div>
       </section>
 

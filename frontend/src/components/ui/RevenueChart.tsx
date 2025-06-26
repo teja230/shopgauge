@@ -68,18 +68,18 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         </Typography>
         {payload.map((entry: any, index: number) => (
           <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-            <Box
-              sx={{
-                width: 12,
-                height: 12,
-                borderRadius: '50%',
+          <Box
+            sx={{
+              width: 12,
+              height: 12,
+              borderRadius: '50%',
                 backgroundColor: entry.color,
-              }}
-            />
-            <Typography variant="body2" fontWeight={600}>
+            }}
+          />
+          <Typography variant="body2" fontWeight={600}>
               {entry.name}: ${entry.value?.toLocaleString()}
-            </Typography>
-          </Box>
+          </Typography>
+        </Box>
         ))}
       </Paper>
     );
@@ -583,7 +583,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
                   sx: { fontSize: '1rem' } 
                 })}
                 <Typography variant="caption" sx={{ fontSize: '0.65rem', lineHeight: 1 }}>
-                  {chartTypeConfig[type].label}
+                {chartTypeConfig[type].label}
                 </Typography>
               </ToggleButton>
             ))}
