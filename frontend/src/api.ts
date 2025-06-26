@@ -3,6 +3,13 @@ import axios from 'axios';
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
 console.log('API: Using API URL:', API_BASE_URL);
 
+// Global service error handler - will be set by the service status context
+let globalServiceErrorHandler: ((error: any) => boolean) | null = null;
+
+export const setGlobalServiceErrorHandler = (handler: (error: any) => boolean) => {
+  globalServiceErrorHandler = handler;
+};
+
 const defaultOptions: RequestInit = {
   credentials: 'include',
   headers: {
@@ -32,6 +39,25 @@ api.interceptors.response.use(
   },
   error => {
     console.error('API: Error:', error.response?.status, error.config?.url, error.message);
+    
+    // Check if this is a 502 or service unavailable error
+    const is502Error = 
+      error?.response?.status === 502 ||
+      error?.code === 'ECONNREFUSED' ||
+      error?.code === 'NETWORK_ERROR' ||
+      error?.message?.includes('502') ||
+      error?.message?.includes('Bad Gateway') ||
+      error?.message?.includes('Service Unavailable') ||
+      (error?.response?.status >= 500 && error?.response?.status < 600);
+
+    if (is502Error && globalServiceErrorHandler) {
+      const handled = globalServiceErrorHandler(error);
+      if (handled) {
+        // Don't reject the promise if the error was handled by redirecting to 502 page
+        return Promise.resolve({ data: null, status: 502, handled: true });
+      }
+    }
+    
     return Promise.reject(error);
   }
 );
@@ -52,6 +78,28 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
     });
     console.log('API: Response status:', response.status, fullUrl);
     
+    // Handle 502 Bad Gateway or other 5xx errors
+    if (response.status === 502 || (response.status >= 500 && response.status < 600)) {
+      console.log('API: Service unavailable response detected:', response.status);
+      const error = new Error(`Service Unavailable (${response.status})`);
+      (error as any).status = response.status;
+      (error as any).response = { status: response.status };
+      
+      // Let the global error handler deal with this
+      if (globalServiceErrorHandler) {
+        const handled = globalServiceErrorHandler(error);
+        if (handled) {
+          // Return a special response to indicate the error was handled
+          return new Response(JSON.stringify({ handled: true }), { 
+            status: response.status,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+      }
+      
+      throw error;
+    }
+    
     // Handle 401 Unauthorized
     if (response.status === 401) {
       console.log('API: Unauthorized response detected');
@@ -59,8 +107,28 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
     }
     
     return response;
-  } catch (error) {
+  } catch (error: any) {
     console.error('API: Request failed for', fullUrl, ':', error);
+    
+    // Check if it's a network error that might indicate service unavailability
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      console.log('API: Network error detected, might be service unavailable');
+      const networkError = new Error('Service Unavailable (Network Error)');
+      (networkError as any).status = 502;
+      (networkError as any).code = 'NETWORK_ERROR';
+      
+      if (globalServiceErrorHandler) {
+        const handled = globalServiceErrorHandler(networkError);
+        if (handled) {
+          // Return a special response to indicate the error was handled
+          return new Response(JSON.stringify({ handled: true }), { 
+            status: 502,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+      }
+    }
+    
     throw error;
   }
 };

@@ -2,6 +2,8 @@ import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ServiceStatusProvider, useServiceStatus } from './context/ServiceStatusContext';
+import { setGlobalServiceErrorHandler } from './api';
 import HomePage from './pages/HomePage';
 import DashboardPage from './pages/DashboardPage';
 import CompetitorsPage from './pages/CompetitorsPage';
@@ -9,6 +11,7 @@ import AdminPage from './pages/AdminPage';
 import ProfilePage from './pages/ProfilePage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import NotFoundPage from './pages/NotFoundPage';
+import ServiceUnavailablePage from './pages/ServiceUnavailablePage';
 import NavBar from './components/NavBar';
 import PrivacyBanner from './components/ui/PrivacyBanner';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -71,7 +74,7 @@ const RedirectHandler: React.FC = () => {
       console.log('RedirectHandler: Processing redirect to:', redirectPath);
       
       // Define valid routes that should be redirected to
-      const validRoutes = ['/dashboard', '/competitors', '/admin', '/profile', '/privacy-policy'];
+      const validRoutes = ['/dashboard', '/competitors', '/admin', '/profile', '/privacy-policy', '/service-unavailable'];
       const protectedRoutes = ['/dashboard', '/competitors', '/profile'];
       
       // Check if the redirect path is a valid route
@@ -104,6 +107,7 @@ const RedirectHandler: React.FC = () => {
 
 const AppContent: React.FC = () => {
   const { isAuthenticated, authLoading, loading } = useAuth();
+  const { handleServiceError } = useServiceStatus();
   
   console.log('AppContent: Current location', {
     pathname: window.location.pathname,
@@ -113,6 +117,11 @@ const AppContent: React.FC = () => {
     authLoading,
     loading
   });
+
+  // Set up global service error handler
+  useEffect(() => {
+    setGlobalServiceErrorHandler(handleServiceError);
+  }, [handleServiceError]);
 
   // Show global loading state only during initial load
   if (loading) {
@@ -161,6 +170,10 @@ const AppContent: React.FC = () => {
             path="/privacy-policy"
             element={<PrivacyPolicyPage />}
           />
+          <Route
+            path="/service-unavailable"
+            element={<ServiceUnavailablePage />}
+          />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>
@@ -181,21 +194,23 @@ const App: React.FC = () => {
         <CssBaseline />
         <Router>
           <AuthProvider>
-            <Toaster 
-              position="top-center"
-              toastOptions={{
-                duration: 4000,
-                style: {
-                  borderRadius: '8px',
-                  fontWeight: '500',
+            <ServiceStatusProvider>
+              <Toaster 
+                position="top-center"
+                toastOptions={{
+                  duration: 4000,
+                  style: {
+                    borderRadius: '8px',
+                    fontWeight: '500',
+                    zIndex: 9999,
+                  },
+                }}
+                containerStyle={{
                   zIndex: 9999,
-                },
-              }}
-              containerStyle={{
-                zIndex: 9999,
-              }}
-            />
-            <AppContent />
+                }}
+              />
+              <AppContent />
+            </ServiceStatusProvider>
           </AuthProvider>
         </Router>
       </ThemeProvider>

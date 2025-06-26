@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ShopGauge - Service Temporarily Unavailable</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: "Inter", "Helvetica", "Arial", sans-serif;
+      background: linear-gradient(135deg, #f5f5f5 0%, #ffffff 100%);
+      color: #213547;
+      line-height: 1.5;
+      font-weight: 400;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    
+    .container {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+      position: relative;
+      animation: fadeIn 0.7s ease-in;
+    }
+    
+    .background-shapes {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      z-index: 0;
+    }
+    
+    .shape {
+      position: absolute;
+      background: linear-gradient(45deg, rgba(239, 68, 68, 0.08), rgba(248, 113, 113, 0.05));
+      border-radius: 50%;
+      animation: float 6s ease-in-out infinite;
+    }
+    
+    .shape:nth-child(1) {
+      width: 100px;
+      height: 100px;
+      top: 15%;
+      left: 10%;
+      animation-delay: 0s;
+    }
+    
+    .shape:nth-child(2) {
+      width: 150px;
+      height: 150px;
+      top: 70%;
+      right: 15%;
+      animation-delay: 2s;
+    }
+    
+    .shape:nth-child(3) {
+      width: 80px;
+      height: 80px;
+      bottom: 15%;
+      left: 20%;
+      animation-delay: 4s;
+    }
+    
+    .content {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      max-width: 800px;
+      width: 100%;
+    }
+    
+    .logo {
+      font-size: 1.5rem;
+      font-weight: 700;
+      background: linear-gradient(45deg, #ef4444, #f87171);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 2rem;
+      opacity: 0;
+      animation: slideUp 0.8s ease-out 0.2s forwards;
+    }
+    
+    .error-code {
+      font-size: 8rem;
+      font-weight: 700;
+      color: #ef4444;
+      margin-bottom: 1rem;
+      opacity: 0;
+      animation: slideUp 0.8s ease-out 0.4s forwards, pulse 3s ease-in-out infinite;
+    }
+    
+    .title {
+      font-size: 2.5rem;
+      font-weight: 600;
+      color: #1f2937;
+      margin-bottom: 1rem;
+      opacity: 0;
+      animation: slideUp 0.8s ease-out 0.6s forwards;
+    }
+    
+    .description {
+      font-size: 1.2rem;
+      color: #6b7280;
+      margin-bottom: 2rem;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+      margin-bottom: 2rem;
+      opacity: 0;
+      animation: slideUp 0.8s ease-out 0.8s forwards;
+    }
+    
+    .status-info {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin: 2rem 0;
+      opacity: 0;
+      animation: slideUp 0.8s ease-out 1s forwards;
+    }
+    
+    .status-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #dc2626;
+      margin-bottom: 0.5rem;
+    }
+    
+    .status-text {
+      color: #6b7280;
+      line-height: 1.6;
+    }
+    
+    .analytics-animation {
+      margin: 2rem 0;
+      opacity: 0;
+      animation: slideUp 0.8s ease-out 1.2s forwards;
+    }
+    
+    .chart-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 3rem;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+    }
+    
+    .maintenance-chart {
+      display: flex;
+      align-items: end;
+      gap: 8px;
+      height: 80px;
+    }
+    
+    .bar {
+      width: 16px;
+      background: linear-gradient(to top, #ef4444, #f87171);
+      border-radius: 4px 4px 0 0;
+      opacity: 0;
+      animation: growBar 1.5s ease-out infinite;
+    }
+    
+    .server-icon {
+      width: 80px;
+      height: 80px;
+      border-radius: 12px;
+      background: linear-gradient(45deg, #ef4444, #f87171);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      animation: serverPulse 2s ease-in-out infinite;
+    }
+    
+    .server-icon::before {
+      content: "⚡";
+      font-size: 2rem;
+      color: white;
+      animation: flicker 1.5s ease-in-out infinite;
+    }
+    
+    .buttons {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin: 2rem 0;
+      opacity: 0;
+      animation: slideUp 0.8s ease-out 1.4s forwards;
+    }
+    
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 500;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .btn-primary {
+      background: linear-gradient(45deg, #ef4444, #f87171);
+      color: white;
+      box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+    }
+    
+    .btn-secondary {
+      background: rgba(239, 68, 68, 0.1);
+      color: #dc2626;
+      border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+    
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
+    }
+    
+    .btn:active {
+      transform: translateY(0);
+    }
+    
+    .footer-text {
+      margin-top: 3rem;
+      opacity: 0;
+      animation: slideUp 0.8s ease-out 1.6s forwards;
+      color: #9ca3af;
+      font-size: 0.9rem;
+    }
+    
+    .refresh-timer {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin: 1rem 0;
+      padding: 0.5rem 1rem;
+      background: rgba(239, 68, 68, 0.05);
+      border-radius: 6px;
+      color: #dc2626;
+      font-weight: 500;
+      opacity: 0;
+      animation: slideUp 0.8s ease-out 1.8s forwards;
+    }
+    
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(220, 38, 38, 0.3);
+      border-top: 2px solid #dc2626;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes fadeIn {
+      0% { opacity: 0; }
+      100% { opacity: 1; }
+    }
+    
+    @keyframes slideUp {
+      0% { transform: translateY(30px); opacity: 0; }
+      100% { transform: translateY(0); opacity: 1; }
+    }
+    
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-20px); }
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 0.7; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.05); }
+    }
+    
+    @keyframes growBar {
+      0% { height: 0%; opacity: 0.3; }
+      50% { height: 60%; opacity: 0.7; }
+      100% { height: 20%; opacity: 0.3; }
+    }
+    
+    @keyframes serverPulse {
+      0%, 100% { transform: scale(1); opacity: 0.8; }
+      50% { transform: scale(1.1); opacity: 1; }
+    }
+    
+    @keyframes flicker {
+      0%, 100% { opacity: 1; }
+      25% { opacity: 0.3; }
+      50% { opacity: 1; }
+      75% { opacity: 0.5; }
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    @media (max-width: 768px) {
+      .container {
+        padding: 1rem;
+      }
+      
+      .error-code {
+        font-size: 6rem;
+      }
+      
+      .title {
+        font-size: 2rem;
+      }
+      
+      .description {
+        font-size: 1rem;
+      }
+      
+      .chart-container {
+        gap: 2rem;
+      }
+      
+      .buttons {
+        flex-direction: column;
+        align-items: center;
+        gap: 0.75rem;
+      }
+      
+      .btn {
+        width: 100%;
+        max-width: 300px;
+        justify-content: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="background-shapes">
+      <div class="shape"></div>
+      <div class="shape"></div>
+      <div class="shape"></div>
+    </div>
+    
+    <div class="content">
+      <div class="logo">ShopGauge AI</div>
+      
+      <div class="error-code">502</div>
+      
+      <h1 class="title">Service Temporarily Unavailable</h1>
+      
+      <p class="description">
+        Our analytics service is currently experiencing issues. We're working to restore service as quickly as possible.
+      </p>
+      
+      <div class="status-info">
+        <div class="status-title">🔧 What's happening?</div>
+        <div class="status-text">
+          Our backend services are temporarily down for maintenance or experiencing high load. This typically resolves within a few minutes.
+        </div>
+      </div>
+      
+      <div class="analytics-animation">
+        <div class="chart-container">
+          <div class="maintenance-chart">
+            <div class="bar" style="height: 30%; animation-delay: 0s;"></div>
+            <div class="bar" style="height: 60%; animation-delay: 0.2s;"></div>
+            <div class="bar" style="height: 20%; animation-delay: 0.4s;"></div>
+            <div class="bar" style="height: 80%; animation-delay: 0.6s;"></div>
+            <div class="bar" style="height: 40%; animation-delay: 0.8s;"></div>
+            <div class="bar" style="height: 70%; animation-delay: 1s;"></div>
+          </div>
+          
+          <div class="server-icon"></div>
+        </div>
+      </div>
+      
+      <div class="refresh-timer">
+        <div class="spinner"></div>
+        <span>Auto-checking service status...</span>
+      </div>
+      
+      <div class="buttons">
+        <button class="btn btn-primary" onclick="window.location.reload()">
+          🔄 Try Again
+        </button>
+        <a href="/" class="btn btn-secondary">
+          🏠 Go Home
+        </a>
+      </div>
+      
+      <div class="footer-text">
+        If this issue persists, please contact our support team.<br>
+        We apologize for the inconvenience and appreciate your patience.
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    // Auto-refresh every 30 seconds to check if service is back
+    let refreshInterval;
+    let refreshCount = 0;
+    const maxRefreshAttempts = 10; // Stop after 5 minutes
+    
+    function startAutoRefresh() {
+      refreshInterval = setInterval(() => {
+        refreshCount++;
+        console.log(`Auto-refresh attempt ${refreshCount}/${maxRefreshAttempts}`);
+        
+        // Try to fetch a lightweight endpoint to check if service is back
+        fetch('/api/health', { 
+          method: 'GET',
+          cache: 'no-cache',
+          credentials: 'include'
+        })
+        .then(response => {
+          if (response.ok) {
+            console.log('Service is back online, redirecting...');
+            clearInterval(refreshInterval);
+            window.location.reload();
+          }
+        })
+        .catch(error => {
+          console.log('Service still unavailable:', error.message);
+          if (refreshCount >= maxRefreshAttempts) {
+            clearInterval(refreshInterval);
+            console.log('Max refresh attempts reached, stopping auto-refresh');
+            document.querySelector('.refresh-timer').innerHTML = 
+              '<span style="color: #dc2626;">⚠️ Service check stopped. Please try manually.</span>';
+          }
+        });
+      }, 30000); // Check every 30 seconds
+    }
+    
+    // Start auto-refresh when page loads
+    document.addEventListener('DOMContentLoaded', startAutoRefresh);
+    
+    // Clear interval when page unloads
+    window.addEventListener('beforeunload', () => {
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+      }
+    });
+  </script>
+</body>
+</html> 
