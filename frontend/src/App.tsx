@@ -126,6 +126,7 @@ const AppContent: React.FC = () => {
       <main className="flex-1">
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/home" element={<HomePage />} />
           {/* Handle /index.html route explicitly */}
           <Route path="/index.html" element={<Navigate to="/" replace />} />
           <Route
