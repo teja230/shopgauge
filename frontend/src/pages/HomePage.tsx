@@ -84,10 +84,6 @@ const HomePage = () => {
       if (redirectPath) {
         console.log('HomePage: Found redirect parameter, navigating to:', redirectPath);
         navigate(redirectPath, { replace: true });
-      } else {
-        // Always redirect to dashboard after successful login, regardless of OAuth flow
-        console.log('HomePage: Navigating to dashboard after authentication');
-        navigate('/dashboard', { replace: true });
       }
     }
   }, [isAuthenticated, authLoading, navigate, location.pathname, location.search]);

@@ -33,6 +33,17 @@ const sparkle = keyframes`
   50% { opacity: 1; transform: scale(1); }
 `;
 
+const bounceData = keyframes`
+  0%, 100% { 
+    opacity: 0.5; 
+    transform: translateY(0px) scale(0.9); 
+  }
+  50% { 
+    opacity: 1; 
+    transform: translateY(-10px) scale(1.1); 
+  }
+`;
+
 // Styled components - Updated to match site theme with intuitive gradient
 const LoadingContainer = styled(Box)(({ theme }) => ({
   minHeight: '100vh',
@@ -155,36 +166,67 @@ const AnalyticsContainer = styled(Box)(({ theme }) => ({
 
 const ChartContainer = styled(Box)({
   display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: '3rem',
+  marginBottom: '2rem',
+  flexWrap: 'wrap',
+});
+
+const BarChart = styled(Box)({
+  display: 'flex',
   alignItems: 'end',
   gap: '8px',
   height: '80px',
-  marginBottom: '1rem',
-  justifyContent: 'center',
-  width: '100%',
 });
 
 const ChartBar = styled(Box)<{ height: number; delay: number }>(({ height, delay, theme }) => ({
-  width: '12px',
+  width: '16px',
   background: `linear-gradient(to top, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
-  borderRadius: theme.shape.borderRadius,
+  borderRadius: '4px 4px 0 0',
   '--target-height': `${height}%`,
-  animation: `${chartGrow} 1s ease-out ${delay}s both`,
+  animation: `${chartGrow} 1.5s ease-out ${delay}s both`,
+}));
+
+const PieChart = styled(Box)(({ theme }) => ({
+  position: 'relative',
+  width: '80px',
+  height: '80px',
+  borderRadius: '50%',
+  overflow: 'hidden',
+  transform: 'rotate(-90deg)',
+  '& .segment': {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    borderRadius: '50%',
+    animation: `${rotate} 2s ease-in-out infinite`,
+  },
+  '& .segment-1': {
+    background: `conic-gradient(${theme.palette.primary.main} 0deg 120deg, transparent 120deg)`,
+    animationDelay: '0s',
+  },
+  '& .segment-2': {
+    background: `conic-gradient(transparent 0deg 120deg, ${theme.palette.primary.light} 120deg 240deg, transparent 240deg)`,
+    animationDelay: '0.7s',
+  },
+  '& .segment-3': {
+    background: `conic-gradient(transparent 0deg 240deg, ${theme.palette.secondary.light} 240deg 360deg)`,
+    animationDelay: '1.4s',
+  },
 }));
 
 const DataPoints = styled(Box)(({ theme }) => ({
   display: 'flex',
-  gap: theme.spacing(2),
   justifyContent: 'center',
+  gap: theme.spacing(3),
+  marginTop: theme.spacing(2),
   flexWrap: 'wrap',
 }));
 
-const DataPoint = styled(Box)<{ delay: number }>(({ delay, theme }) => ({
-  fontSize: '1.5rem',
-  padding: theme.spacing(1),
-  borderRadius: '50%',
-  backgroundColor: `${theme.palette.primary.main}15`,
-  animation: `${sparkle} 2s ease-in-out ${delay}s infinite`,
-  border: `1px solid ${theme.palette.primary.main}30`,
+const DataPoint = styled(Box)<{ delay: number }>(({ delay }) => ({
+  fontSize: '2rem',
+  animation: `${bounceData} 1.5s ease-in-out ${delay}s infinite`,
 }));
 
 const ProgressContainer = styled(Box)(({ theme }) => ({
@@ -291,13 +333,18 @@ const IntelligentLoadingScreen: React.FC<IntelligentLoadingScreenProps> = ({
         
         <AnalyticsContainer>
           <ChartContainer>
-            <ChartBar height={60} delay={0.2} />
-            <ChartBar height={80} delay={0.4} />
-            <ChartBar height={45} delay={0.6} />
-            <ChartBar height={90} delay={0.8} />
-            <ChartBar height={70} delay={1.0} />
-            <ChartBar height={55} delay={1.2} />
-            <ChartBar height={85} delay={1.4} />
+            <BarChart>
+              <ChartBar height={60} delay={0.1} />
+              <ChartBar height={80} delay={0.2} />
+              <ChartBar height={45} delay={0.3} />
+              <ChartBar height={90} delay={0.4} />
+              <ChartBar height={70} delay={0.5} />
+            </BarChart>
+            <PieChart>
+              <div className="segment segment-1" />
+              <div className="segment segment-2" />
+              <div className="segment segment-3" />
+            </PieChart>
           </ChartContainer>
           
           <DataPoints>
@@ -305,8 +352,6 @@ const IntelligentLoadingScreen: React.FC<IntelligentLoadingScreenProps> = ({
             <DataPoint delay={0.4}>📈</DataPoint>
             <DataPoint delay={0.6}>💡</DataPoint>
             <DataPoint delay={0.8}>🎯</DataPoint>
-            <DataPoint delay={1.0}>⚡</DataPoint>
-            <DataPoint delay={1.2}>🔍</DataPoint>
           </DataPoints>
         </AnalyticsContainer>
 
