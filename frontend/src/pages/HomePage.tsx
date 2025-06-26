@@ -266,7 +266,7 @@ const HomePage = () => {
                 </form>
               ) : (
                 <div className="flex flex-col items-center gap-4">
-                  <p className="text-green-700 font-semibold mb-2">✓ You're already connected!</p>
+                  <p className="text-white font-bold mb-2 text-lg drop-shadow-sm">✓ You're already connected!</p>
                   <div className="flex flex-col sm:flex-row gap-3">
                     <button
                       onClick={() => navigate('/dashboard')}
