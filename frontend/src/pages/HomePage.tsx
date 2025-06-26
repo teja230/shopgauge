@@ -85,6 +85,10 @@ const HomePage = () => {
       if (redirectPath) {
         console.log('HomePage: Found redirect parameter, navigating to:', redirectPath);
         navigate(redirectPath, { replace: true });
+      } else {
+        // Auto-navigate to dashboard if no specific redirect
+        console.log('HomePage: No redirect parameter, navigating to dashboard');
+        navigate('/dashboard', { replace: true });
       }
     }
   }, [isAuthenticated, authLoading, navigate, location.pathname, location.search]);
@@ -92,20 +96,10 @@ const HomePage = () => {
   // Determine if user is authenticated after auth check completes
   const showAuthConnected = isAuthenticated && !authLoading && !isOAuthFlow;
 
-  const handleSwitchStore = async () => {
-    try {
-      // Clear current session first
-      await logout();
-      // Clear any previous errors
-      setErrorMessage('');
-      setErrorCode('');
-    } catch (error) {
-      console.error('Failed to switch store:', error);
-      notifications.showError('Failed to switch store. Please try again.', {
-        persistent: true,
-        category: 'Connection'
-      });
-    }
+  const handleSwitchStore = () => {
+    // Show the connect form for switching stores
+    setShowConnectForm(true);
+    setShopDomain(''); // Clear any existing domain
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -205,16 +199,16 @@ const HomePage = () => {
           <div className="mt-8 flex flex-col items-center">
             {showAuthConnected ? (
               <div className="flex flex-col items-center gap-4">
-                <p className="text-green-200 font-semibold mb-2">✓ You're already connected!</p>
+                <p className="text-green-100 font-semibold mb-2 text-shadow-sm">✓ You're already connected!</p>
                 <div className="flex flex-col sm:flex-row gap-3">
                   <button
                     onClick={() => navigate('/dashboard')}
-                    className="inline-flex items-center px-6 py-3 rounded-lg font-semibold shadow transition bg-white text-blue-600 hover:bg-gray-100"
+                    className="inline-flex items-center px-6 py-3 rounded-xl font-semibold shadow-lg transition-all duration-300 bg-white/90 backdrop-blur-sm border border-white/20 text-blue-600 hover:bg-white hover:shadow-xl"
                   >
                     <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M12.5 0C5.6 0 0 5.6 0 12.5S5.6 25 12.5 25 25 19.4 25 12.5 19.4 0 12.5 0zm0 4.2c4.6 0 8.3 3.7 8.3 8.3s-3.7 8.3-8.3 8.3-8.3-3.7-8.3-8.3 3.7-8.3 8.3-8.3z"/>
+                      <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>
                     </svg>
-                    Dashboard
+                    Go to Dashboard
                   </button>
                   <button
                     onClick={handleSwitchStore}
@@ -242,7 +236,7 @@ const HomePage = () => {
                     <button
                       type="submit"
                       disabled={isLoading || !normalizeShopDomain(shopDomain)}
-                      className="inline-flex items-center px-6 py-3 rounded-lg font-semibold shadow-lg transition-all duration-200 bg-white text-blue-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="inline-flex items-center px-6 py-3 rounded-xl font-semibold shadow-lg transition-all duration-300 bg-white/90 backdrop-blur-sm border border-white/20 text-blue-600 hover:bg-white hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {isLoading ? (
                         <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-blue-600"></div>
@@ -263,12 +257,12 @@ const HomePage = () => {
               ) : (
                 <button
                   onClick={() => setShowConnectForm(true)}
-                  className="inline-flex items-center px-8 py-4 rounded-lg font-semibold shadow-lg transition-all duration-200 bg-white text-blue-600 hover:bg-gray-100 transform hover:scale-105"
+                  className="inline-flex items-center px-8 py-4 rounded-xl font-semibold shadow-xl transition-all duration-300 bg-white/90 backdrop-blur-sm border border-white/20 text-blue-600 hover:bg-white hover:shadow-2xl transform hover:scale-105 active:scale-95"
                 >
-                  <svg className="w-6 h-6 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                  <svg className="w-6 h-6 mr-3" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M12 2a10 10 0 100 20 10 10 0 000-20zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
                   </svg>
-                  Connect Store
+                  Start 3-Day Free Trial
                 </button>
               )
             )}
