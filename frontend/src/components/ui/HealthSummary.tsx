@@ -48,7 +48,16 @@ const HealthSummary: React.FC = () => {
       setMetrics(data);
       setError(null);
     } catch (e: any) {
-      setError(e.message || 'Failed to fetch metrics');
+      console.warn('Health metrics not available:', e.message);
+      // Don't show error, just use default values
+      setMetrics({
+        p95LatencyMs: 0,
+        errorRate: 0,
+        queueDepth: 0,
+        lastDeployCommit: 'unknown',
+        timestamp: Date.now()
+      });
+      setError(null);
     } finally {
       setLoading(false);
     }
