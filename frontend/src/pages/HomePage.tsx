@@ -251,8 +251,6 @@ const HomePage = () => {
                       )}
                     </button>
                   </div>
-                  {/* Always-visible note */}
-                  <p className="text-sm opacity-90 mt-4 text-white">No credit card required • Cancel anytime</p>
                 </form>
               ) : (
                 <button
@@ -266,6 +264,8 @@ const HomePage = () => {
                 </button>
               )
             )}
+            {/* Always-visible note in the banner */}
+            <p className="text-sm opacity-90 mt-6 text-white">No credit card required • Cancel anytime</p>
           </div>
         </div>
       </section>
