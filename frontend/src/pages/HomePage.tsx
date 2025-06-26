@@ -394,9 +394,9 @@ const HomePage = () => {
             <ul className="text-gray-700 space-y-2">
               <li>• AI-powered market discovery & analysis</li>
               <li>• Real-time price monitoring & alerts</li>
-              <li>• Track up to 10 competitors per store</li>
               <li>• Strategic positioning insights</li>
-              <li className="text-orange-600 font-medium">• Unlimited tracking coming soon!</li>
+              <li>• Track up to 10 competitors per store</li>
+              <li className="text-orange-600 font-medium">• Unlimited competitor tracking coming soon!</li>
             </ul>
           </div>
           
