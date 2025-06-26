@@ -203,10 +203,25 @@ const App: React.FC = () => {
                   borderRadius: '8px',
                   fontWeight: '500',
                   zIndex: 9999,
+                  marginTop: '60px', // Position below navbar
+                  boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                },
+                success: {
+                  style: {
+                    background: '#10b981', // Green
+                    color: '#ffffff',
+                  },
+                },
+                error: {
+                  style: {
+                    background: '#ef4444', // Red
+                    color: '#ffffff',
+                  },
                 },
               }}
               containerStyle={{
                 zIndex: 9999,
+                top: '60px', // Position below navbar
               }}
             />
             <AppContent />

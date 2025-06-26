@@ -306,7 +306,6 @@ const NavBar: React.FC = () => {
                               {/* Notification Center positioned near Profile */}
               <Box sx={{ ml: 1 }}>
                 <NotificationCenter 
-                  position="dropdown"
                   onNotificationCountChange={(count) => setNotificationCount(count)}
                 />
               </Box>
@@ -324,7 +323,6 @@ const NavBar: React.FC = () => {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               {isAuthenticated && (
                 <NotificationCenter 
-                  position="dropdown"
                   onNotificationCountChange={(count) => setNotificationCount(count)}
                 />
               )}

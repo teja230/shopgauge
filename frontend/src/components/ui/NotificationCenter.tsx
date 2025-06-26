@@ -16,7 +16,6 @@ import { useNotifications } from '../../hooks/useNotifications';
 
 interface NotificationCenterProps {
   onNotificationCountChange?: (count: number) => void;
-  position?: 'dropdown'; // Simplified to just dropdown positioning
 }
 
 interface ConfirmDialogProps {
@@ -120,8 +119,7 @@ const useIsMobile = () => {
 };
 
 export const NotificationCenter: React.FC<NotificationCenterProps> = ({ 
-  onNotificationCountChange,
-  position = 'dropdown'
+  onNotificationCountChange
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -137,6 +135,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     onConfirm: () => {},
   });
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const isMobile = useIsMobile();
   
   const {
@@ -204,7 +203,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     setConfirmDialog({
       isOpen: true,
       title: 'Delete Notification',
-              message: `Are you sure you want to delete this notification?\n\n"${message.substring(0, 100)}${message.length > 100 ? '...' : ''}"`,
+      message: `Are you sure you want to delete this notification?\n\n"${message.substring(0, 100)}${message.length > 100 ? '...' : ''}"`,
       type: 'danger',
       onConfirm: () => {
         deleteNotification(id);
@@ -242,6 +241,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
       <div className="relative" ref={dropdownRef}>
         {/* Notification Bell Button - Improved styling */}
         <button
+          ref={buttonRef}
           onClick={() => setIsOpen(!isOpen)}
           className="relative p-2 text-white bg-transparent hover:text-gray-200 hover:bg-white/10 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white/50 focus:ring-offset-0"
           aria-label={`Notifications ${unreadCount > 0 ? `(${unreadCount} unread)` : ''}`}
@@ -254,20 +254,22 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
           )}
         </button>
 
-        {/* Notification Dropdown - Positioned below navbar */}
+        {/* Notification Dropdown - Properly positioned below button */}
         {isOpen && (
           <div 
-            className={`fixed bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden z-50 ${
+            className={`absolute bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden z-50 ${
               isMobile 
-                ? 'left-4 right-4 top-16' // Full width on mobile, positioned below navbar
-                : 'w-96 right-0 top-full mt-2' // Desktop positioning
+                ? 'w-80 right-0 top-full mt-2' // Mobile: smaller width, positioned below button
+                : 'w-96 right-0 top-full mt-2' // Desktop: larger width, positioned below button
             }`}
             style={{
-              // Ensure proper positioning below navbar
-              ...(isMobile ? {
-                maxHeight: 'calc(100vh - 80px)', // Leave space for navbar
-              } : {
-                maxHeight: 'calc(100vh - 100px)', // Leave space for navbar + padding
+              // Ensure proper positioning and constraints
+              maxHeight: isMobile ? 'calc(100vh - 120px)' : 'calc(100vh - 100px)',
+              // For mobile, ensure it doesn't go off-screen
+              ...(isMobile && {
+                left: 'auto',
+                right: '0',
+                transform: window.innerWidth < 400 ? 'translateX(calc(-100% + 60px))' : 'none'
               })
             }}
           >
@@ -303,7 +305,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
             </div>
 
             {/* Content with proper scrolling */}
-            <div className={`overflow-y-auto ${isMobile ? 'max-h-[60vh]' : 'max-h-80'}`}>
+            <div className={`overflow-y-auto ${isMobile ? 'max-h-[50vh]' : 'max-h-80'}`}>
               {loading ? (
                 <div className="p-8 text-center">
                   <div className="w-8 h-8 border-2 border-slate-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
@@ -330,44 +332,38 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                 </div>
               ) : (
                 <>
-                  {notifications.map((notification, index) => (
+                  {notifications.map((notification) => (
                     <div
                       key={notification.id}
                       className={`border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors ${
                         !notification.read ? 'bg-slate-50 border-l-4 border-l-slate-600' : ''
                       }`}
                     >
-                      <div className={`${isMobile ? 'p-4' : 'p-4'}`}>
+                      <div className="p-4">
                         <div className="flex items-start gap-3">
                           {getNotificationIcon(notification.type)}
                           
                           <div className="flex-1 min-w-0">
                             <div className="flex items-start justify-between gap-2 mb-2">
-                              <p className={`${isMobile ? 'text-sm' : 'text-sm'} leading-5 ${
+                              <p className={`text-sm leading-5 ${
                                 !notification.read ? 'font-medium text-gray-900' : 'text-gray-700'
                               }`}>
                                 {notification.message}
                               </p>
                               {!notification.read && (
-                                <span className={`bg-slate-600 rounded-full mt-1 flex-shrink-0 ${
-                                  isMobile ? 'w-2.5 h-2.5' : 'w-2 h-2'
-                                }`}></span>
+                                <span className="bg-slate-600 rounded-full mt-1 flex-shrink-0 w-2 h-2"></span>
                               )}
                             </div>
                             
                             {notification.category && (
-                              <span className={`inline-block px-2 py-1 bg-gray-100 text-gray-600 rounded-full mb-2 ${
-                                isMobile ? 'text-xs' : 'text-xs'
-                              }`}>
+                              <span className="inline-block px-2 py-1 bg-gray-100 text-gray-600 rounded-full mb-2 text-xs">
                                 {notification.category}
                               </span>
                             )}
                             
                             <div className="flex items-center justify-between">
-                              <span className={`text-gray-500 flex items-center gap-1 ${
-                                isMobile ? 'text-xs' : 'text-xs'
-                              }`}>
-                                <Clock className={`${isMobile ? 'w-3 h-3' : 'w-3 h-3'}`} />
+                              <span className="text-gray-500 flex items-center gap-1 text-xs">
+                                <Clock className="w-3 h-3" />
                                 {formatTimestamp(notification.createdAt)}
                               </span>
                               
@@ -375,25 +371,17 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                                 {!notification.read && (
                                   <button
                                     onClick={() => markAsRead(notification.id)}
-                                    className={`text-slate-600 hover:text-slate-700 font-medium rounded hover:bg-slate-100 transition-colors ${
-                                      isMobile 
-                                        ? 'text-xs px-2 py-1.5 min-h-[36px]' 
-                                        : 'text-xs px-2 py-1'
-                                    }`}
+                                    className="text-slate-600 hover:text-slate-700 font-medium rounded hover:bg-slate-100 transition-colors text-xs px-2 py-1"
                                   >
                                     Mark read
                                   </button>
                                 )}
                                 <button
                                   onClick={() => handleDeleteNotification(notification.id, notification.message)}
-                                  className={`text-gray-400 hover:text-red-500 transition-colors rounded hover:bg-red-50 ${
-                                    isMobile 
-                                      ? 'p-1.5 min-h-[36px] min-w-[36px]' 
-                                      : 'p-1'
-                                  }`}
+                                  className="text-gray-400 hover:text-red-500 transition-colors rounded hover:bg-red-50 p-1"
                                   title="Delete notification"
                                 >
-                                  <X className={`${isMobile ? 'w-3.5 h-3.5' : 'w-3 h-3'}`} />
+                                  <X className="w-3 h-3" />
                                 </button>
                               </div>
                             </div>
