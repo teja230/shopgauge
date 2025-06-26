@@ -36,7 +36,7 @@ let globalNotifications: Notification[] = [];
 let globalUnreadCount = 0;
 let isLoadingGlobal = false;
 let lastFetchTime = 0;
-const RATE_LIMIT_MS = 3000; // 3 seconds minimum between API calls
+const RATE_LIMIT_MS = 2000; // 2 seconds minimum between API calls
 
 // Global notification tracker for browser alerts and system notifications
 let notificationId = 0;
@@ -336,13 +336,24 @@ export const useNotifications = () => {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       
-      const backendNotifications = await response.json();
+      const data = await response.json();
+      
+      // Ensure we have an array of notifications
+      const backendNotifications = Array.isArray(data) ? data : [];
+      
+      // Validate notification structure
+      const validNotifications = backendNotifications.filter((n: any) => {
+        return n && typeof n === 'object' && 
+               typeof n.id === 'string' && 
+               typeof n.message === 'string' &&
+               typeof n.type === 'string';
+      });
       
       // Merge backend notifications with local ones, avoiding duplicates
-      const backendIds = new Set(backendNotifications.map((n: Notification) => n.id));
+      const backendIds = new Set(validNotifications.map((n: Notification) => n.id));
       const localOnlyNotifications = globalNotifications.filter(n => !n.persistent || !backendIds.has(n.id));
       
-      globalNotifications = [...localOnlyNotifications, ...backendNotifications];
+      globalNotifications = [...localOnlyNotifications, ...validNotifications];
       globalUnreadCount = globalNotifications.filter(n => !n.read).length;
       
       setNotifications([...globalNotifications]);
@@ -350,6 +361,10 @@ export const useNotifications = () => {
     } catch (error) {
       console.error('Failed to fetch notifications:', error);
       setError(error instanceof Error ? error.message : 'Unknown error occurred');
+      
+      // Don't clear existing notifications on error, just keep what we have
+      setNotifications([...globalNotifications]);
+      setUnreadCount(globalUnreadCount);
     } finally {
       isLoadingGlobal = false;
       setLoading(false);

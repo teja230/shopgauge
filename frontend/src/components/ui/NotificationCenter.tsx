@@ -152,20 +152,6 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     }
   }, [isOpen]);
 
-  // Close dropdown when scrolling to prevent floating over content
-  useEffect(() => {
-    const handleScroll = () => {
-      if (isOpen) {
-        setIsOpen(false);
-      }
-    };
-
-    if (isOpen) {
-      window.addEventListener('scroll', handleScroll, true);
-      return () => window.removeEventListener('scroll', handleScroll, true);
-    }
-  }, [isOpen]);
-
   // Get icon for notification type with theme colors
   const getNotificationIcon = (type: string) => {
     switch (type) {
@@ -253,23 +239,22 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
 
   // Calculate proper positioning based on navbar
   const getDropdownPosition = () => {
-    const navHeight = 64; // Standard MUI AppBar height
-    const gap = 8; // 8px gap from navbar
-    
     if (position === 'top-center') {
       return {
-        position: 'fixed' as const,
-        top: `${navHeight + gap}px`,
+        position: 'absolute' as const,
+        top: '100%',
         left: '50%',
         transform: 'translateX(-50%)',
-        zIndex: 50
+        zIndex: 50,
+        marginTop: '8px'
       };
     } else {
       return {
-        position: 'fixed' as const,
-        top: `${navHeight + gap}px`,
-        right: '16px',
-        zIndex: 50
+        position: 'absolute' as const,
+        top: '100%',
+        right: '0',
+        zIndex: 50,
+        marginTop: '8px'
       };
     }
   };
@@ -293,13 +278,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
 
         {/* Notification Dropdown */}
         {isOpen && (
-          <>
-            {/* Backdrop */}
-            <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
-            
-            {/* Dropdown with proper positioning */}
             <div 
-              className="w-96 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden"
+              className="absolute w-96 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden"
               style={getDropdownPosition()}
             >
               {/* Header with theme colors */}
@@ -447,7 +427,6 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                 </div>
               )}
             </div>
-          </>
         )}
       </div>
 
