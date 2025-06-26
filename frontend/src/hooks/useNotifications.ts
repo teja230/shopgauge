@@ -38,12 +38,61 @@ let isLoadingGlobal = false;
 let lastFetchTime = 0;
 const RATE_LIMIT_MS = 3000; // 3 seconds minimum between API calls
 
+// Global notification tracker for browser alerts and system notifications
+let notificationId = 0;
+
 export const useNotifications = () => {
   const [notifications, setNotifications] = useState<Notification[]>(globalNotifications);
   const [unreadCount, setUnreadCount] = useState(globalUnreadCount);
   const [loading, setLoading] = useState(isLoadingGlobal);
   const [error, setError] = useState<string | null>(null);
   const redirectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Override window.confirm to capture confirmations as notifications
+  useEffect(() => {
+    const originalConfirm = window.confirm;
+    const originalAlert = window.alert;
+
+    window.confirm = (message?: string): boolean => {
+      const msg = message || 'Confirmation required';
+      // Add confirmation request to notifications
+      addNotification(
+        `System confirmation: ${msg}`,
+        'warning',
+        {
+          persistent: true,
+          showToast: false,
+          category: 'System',
+          scope: 'personal'
+        }
+      );
+      
+      return originalConfirm(message);
+    };
+
+    window.alert = (message?: string): void => {
+      const msg = message || 'Alert';
+      // Add alert to notifications
+      addNotification(
+        `System alert: ${msg}`,
+        'error',
+        {
+          persistent: true,
+          showToast: false,
+          category: 'System',
+          scope: 'personal'
+        }
+      );
+      
+      originalAlert(message);
+    };
+
+    // Cleanup on unmount
+    return () => {
+      window.confirm = originalConfirm;
+      window.alert = originalAlert;
+    };
+  }, []);
   
   // Simple, clean toast styling that matches user's preference
   const createToast = useCallback((message: string, type: 'success' | 'error' | 'warning' | 'info') => {
@@ -70,31 +119,31 @@ export const useNotifications = () => {
         return toast.success(message, { 
           ...toastOptions, 
           icon, 
-          style: { ...toastOptions.style, background: '#10b981' },
+          style: { ...toastOptions.style, background: '#059669' }, // Use theme colors
         });
       case 'error':
         return toast.error(message, { 
           ...toastOptions, 
           icon, 
-          style: { ...toastOptions.style, background: '#ef4444' },
+          style: { ...toastOptions.style, background: '#dc2626' }, // Use theme colors
         });
       case 'warning':
         return toast(message, { 
           ...toastOptions, 
           icon, 
-          style: { ...toastOptions.style, background: '#f59e0b' },
+          style: { ...toastOptions.style, background: '#d97706' }, // Use theme colors
         });
       case 'info':
       default:
         return toast(message, { 
           ...toastOptions, 
           icon, 
-          style: { ...toastOptions.style, background: '#3b82f6' },
+          style: { ...toastOptions.style, background: '#2563eb' }, // Use theme colors
         });
     }
   }, []);
   
-  // Simplified notification function - ALL notifications now show in notification center
+  // Enhanced notification function with better ID generation and timezone handling
   const addNotification = useCallback(async (
     message: string,
     type: Notification['type'] = 'info',
@@ -105,16 +154,19 @@ export const useNotifications = () => {
       showToast = true,
       duration,
       category,
-      scope = 'personal', // Default to personal notifications
+      scope = 'personal',
       action
     } = options;
 
+    // Generate unique ID with timestamp
+    const id = `notif_${Date.now()}_${++notificationId}_${Math.random().toString(36).substr(2, 9)}`;
+
     const notification: Notification = {
-      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id,
       message,
       type,
       read: false,
-      createdAt: new Date().toISOString(), // Use proper ISO string format
+      createdAt: new Date().toISOString(), // Proper ISO 8601 format with timezone
       shop: 'current',
       category,
       persistent,
@@ -123,14 +175,21 @@ export const useNotifications = () => {
       action,
     };
 
-    // Always show toast for immediate feedback
+    // Always show toast for immediate feedback (unless explicitly disabled)
     if (showToast) {
       createToast(message, type);
     }
 
-    // ALL notifications now go to notification center (both persistent and UI)
+    // Add to global notifications first (immediate UI update)
+    globalNotifications = [notification, ...globalNotifications.slice(0, 49)]; // Keep max 50 notifications
+    globalUnreadCount += 1;
+    
+    // Update local state immediately
+    setNotifications([...globalNotifications]);
+    setUnreadCount(globalUnreadCount);
+
+    // Store persistent notifications in backend
     if (persistent) {
-      // Store persistent notifications in backend
       try {
         const response = await fetchWithAuth('/api/auth/shopify/notifications', {
           method: 'POST',
@@ -145,36 +204,20 @@ export const useNotifications = () => {
 
         if (response.ok) {
           const savedNotification = await response.json();
-          // Update global state with backend notification
-          globalNotifications = [savedNotification, ...globalNotifications];
-          globalUnreadCount += 1;
-          // Update local state
-          setNotifications([...globalNotifications]);
-          setUnreadCount(globalUnreadCount);
-        } else {
-          // If backend fails, still add to local notifications
-          globalNotifications = [notification, ...globalNotifications];
-          globalUnreadCount += 1;
-          setNotifications([...globalNotifications]);
-          setUnreadCount(globalUnreadCount);
+          // Update the local notification with backend data
+          const index = globalNotifications.findIndex(n => n.id === id);
+          if (index !== -1) {
+            globalNotifications[index] = { ...savedNotification, ...notification };
+            setNotifications([...globalNotifications]);
+          }
         }
       } catch (error) {
         console.error('Failed to save persistent notification:', error);
-        // If backend fails, still add to local notifications
-        globalNotifications = [notification, ...globalNotifications];
-        globalUnreadCount += 1;
-        setNotifications([...globalNotifications]);
-        setUnreadCount(globalUnreadCount);
+        // Local notification already added, so continue
       }
-    } else {
-      // Non-persistent notifications also go to notification center now
-      globalNotifications = [notification, ...globalNotifications];
-      globalUnreadCount += 1;
-      setNotifications([...globalNotifications]);
-      setUnreadCount(globalUnreadCount);
     }
 
-    return notification.id;
+    return id;
   }, [createToast]);
 
   // Specific notification functions
@@ -271,43 +314,42 @@ export const useNotifications = () => {
     );
   }, [addNotification]);
 
-  // Simplified fetch function with better rate limiting
+  // Enhanced fetchNotifications with better error handling
   const fetchNotifications = useCallback(async () => {
     const now = Date.now();
     
-    // Rate limiting - prevent too frequent API calls
-    if (isLoadingGlobal || (now - lastFetchTime < RATE_LIMIT_MS)) {
-      console.log('Notification fetch skipped - rate limited');
+    // Rate limiting
+    if (now - lastFetchTime < RATE_LIMIT_MS) {
+      console.log('Rate limiting: skipping fetch');
       return;
     }
     
-    isLoadingGlobal = true;
     lastFetchTime = now;
+    isLoadingGlobal = true;
     setLoading(true);
     setError(null);
-    
+
     try {
       const response = await fetchWithAuth('/api/auth/shopify/notifications');
-      if (response.ok) {
-        const data = await response.json();
-        const persistentNotifications = data.notifications || [];
-        
-        // Merge persistent notifications with local non-persistent ones
-        const localNotifications = globalNotifications.filter(n => !n.persistent);
-        
-        // Update global state
-        globalNotifications = [...persistentNotifications, ...localNotifications];
-        globalUnreadCount = globalNotifications.filter(n => !n.read).length;
-        
-        // Update local state
-        setNotifications([...globalNotifications]);
-        setUnreadCount(globalUnreadCount);
-      } else {
-        setError(`Failed to fetch notifications: ${response.status}`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
+      
+      const backendNotifications = await response.json();
+      
+      // Merge backend notifications with local ones, avoiding duplicates
+      const backendIds = new Set(backendNotifications.map((n: Notification) => n.id));
+      const localOnlyNotifications = globalNotifications.filter(n => !n.persistent || !backendIds.has(n.id));
+      
+      globalNotifications = [...localOnlyNotifications, ...backendNotifications];
+      globalUnreadCount = globalNotifications.filter(n => !n.read).length;
+      
+      setNotifications([...globalNotifications]);
+      setUnreadCount(globalUnreadCount);
     } catch (error) {
       console.error('Failed to fetch notifications:', error);
-      setError('Network error while fetching notifications');
+      setError(error instanceof Error ? error.message : 'Unknown error occurred');
     } finally {
       isLoadingGlobal = false;
       setLoading(false);

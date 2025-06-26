@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useNotifications } from '../hooks/useNotifications';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { API_BASE_URL } from '../api';
 import { normalizeShopDomain } from '../utils/normalizeShopDomain';
 
@@ -20,6 +21,22 @@ export default function ProfilePage() {
   const [lastSyncTime, setLastSyncTime] = useState<Date>(new Date());
   const [storeStats, setStoreStats] = useState<any>(null);
   const [pastStores, setPastStores] = useState<string[]>([]);
+  
+  // Confirmation dialog state
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    type?: 'danger' | 'warning' | 'info';
+    size?: 'sm' | 'md' | 'lg';
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
+  
   const navigate = useNavigate();
   const location = useLocation();
   const notifications = useNotifications();
@@ -161,109 +178,117 @@ export default function ProfilePage() {
   };
 
   const handleShopDisconnect = async () => {
-    try {
-      // Show confirmation dialog
-      const confirmed = window.confirm(
-        '⚠️ Are you sure you want to disconnect your store?\n\nThis will:\n• Log you out of the current session\n• Require re-authentication to access your data\n• Not delete any stored data\n\nYou can reconnect anytime.'
-      );
-      
-      if (!confirmed) return;
-
-      notifications.showInfo('Disconnecting store...', {
-        category: 'Store Connection',
-        duration: 3000
-      });
-      
-      // Use the AuthContext logout function which properly handles state clearing
-      await logout();
-      
-      notifications.showSuccess('Store disconnected successfully!', {
-        persistent: true,
-        category: 'Store Connection'
-      });
-      
-      // Redirect to home page after disconnect
-      setTimeout(() => {
-        navigate('/');
-      }, 1500);
-    } catch (error) {
-      console.error('Error disconnecting shop:', error);
-      notifications.showError('Failed to disconnect store', {
-        persistent: true,
-        category: 'Store Connection'
-      });
-    }
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Disconnect Store',
+      message: '⚠️ Are you sure you want to disconnect your store?\n\nThis will:\n• Log you out of the current session\n• Require re-authentication to access your data\n• Not delete any stored data\n\nYou can reconnect anytime.',
+      type: 'warning',
+      onConfirm: async () => {
+        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+        
+        try {
+          notifications.showInfo('Disconnecting store...', {
+            category: 'Store Connection',
+            duration: 3000
+          });
+          
+          // Use the AuthContext logout function which properly handles state clearing
+          await logout();
+          
+          notifications.showSuccess('Store disconnected successfully!', {
+            persistent: true,
+            category: 'Store Connection'
+          });
+          
+          // Redirect to home page after disconnect
+          setTimeout(() => {
+            navigate('/');
+          }, 1500);
+        } catch (error) {
+          console.error('Error disconnecting shop:', error);
+          notifications.showError('Failed to disconnect store', {
+            persistent: true,
+            category: 'Store Connection'
+          });
+        }
+      }
+    });
   };
 
   const handleForceDisconnect = async () => {
-    const confirmed = window.confirm(
-      '🚨 FORCE DISCONNECT - Use only if normal disconnect fails\n\nThis will:\n• Clear ALL authentication tokens and cookies\n• Force logout from all sessions\n• Remove all cached data\n• Require fresh authentication\n\nUse this only if you\'re experiencing authentication issues.\n\nProceed with force disconnect?'
-    );
-    
-    if (!confirmed) return;
-
-    setIsForceDisconnecting(true);
-    console.log('Force disconnect: Starting with shop:', shop);
-    
-    if (!shop) {
-      notifications.showError('No shop found to disconnect', {
-        category: 'Store Connection'
-      });
-      setIsForceDisconnecting(false);
-      return;
-    }
-    
-    try {
-      notifications.showInfo('Force disconnecting...', {
-        category: 'Store Connection',
-        duration: 5000
-      });
-      
-      console.log('Force disconnect: Calling API with shop:', shop);
-      const res = await fetch(`${API_BASE_URL}/api/auth/shopify/profile/force-disconnect`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shop }),
-      });
-      
-      console.log('Force disconnect: Response status:', res.status);
-      const data = await res.json();
-      console.log('Force disconnect: Response data:', data);
-      
-      if (res.ok) {
-        // Clear all caches
-        sessionStorage.clear();
-        localStorage.clear();
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Force Disconnect',
+      message: '🚨 FORCE DISCONNECT - Use only if normal disconnect fails\n\nThis will:\n• Clear ALL authentication tokens and cookies\n• Force logout from all sessions\n• Remove all cached data\n• Require fresh authentication\n\nUse this only if you\'re experiencing authentication issues.\n\nProceed with force disconnect?',
+      type: 'danger',
+      size: 'lg',
+      onConfirm: async () => {
+        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
         
-        notifications.showSuccess('Force disconnect successful! All tokens and cookies cleared.', {
-          persistent: true,
-          category: 'Store Connection',
-          duration: 8000
-        });
-        console.log('Force disconnect: Success, redirecting to home');
+        setIsForceDisconnecting(true);
+        console.log('Force disconnect: Starting with shop:', shop);
         
-        // Redirect after a delay
-        setTimeout(() => {
-          navigate('/');
-          window.location.reload(); // Force full page reload to clear any remaining state
-        }, 2000);
-      } else {
-        console.error('Force disconnect: API error:', data);
-        notifications.showError('Force disconnect failed: ' + (data?.message || 'Unknown error'), {
-          persistent: true,
-          category: 'Store Connection'
-        });
+        if (!shop) {
+          notifications.showError('No shop found to disconnect', {
+            category: 'Store Connection'
+          });
+          setIsForceDisconnecting(false);
+          return;
+        }
+        
+        try {
+          notifications.showInfo('Force disconnecting...', {
+            category: 'Store Connection',
+            duration: 5000
+          });
+          
+          console.log('Force disconnect: Calling API with shop:', shop);
+          const res = await fetch(`${API_BASE_URL}/api/auth/shopify/profile/force-disconnect`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ shop }),
+          });
+          
+          console.log('Force disconnect: Response status:', res.status);
+          const data = await res.json();
+          console.log('Force disconnect: Response data:', data);
+          
+          if (res.ok) {
+            // Clear all caches
+            sessionStorage.clear();
+            localStorage.clear();
+            
+            notifications.showSuccess('Force disconnect successful! All tokens and cookies cleared.', {
+              persistent: true,
+              category: 'Store Connection',
+              duration: 8000
+            });
+            console.log('Force disconnect: Success, redirecting to home');
+            
+            // Redirect after a delay
+            setTimeout(() => {
+              navigate('/');
+              window.location.reload(); // Force full page reload to clear any remaining state
+            }, 2000);
+          } else {
+            console.error('Force disconnect: API error:', data);
+            notifications.showError('Force disconnect failed: ' + (data?.message || 'Unknown error'), {
+              persistent: true,
+              category: 'Store Connection'
+            });
+          }
+        } catch (error) {
+          console.error('Force disconnect: Network error:', error);
+          notifications.showError('Force disconnect failed: Network error', {
+            persistent: true,
+            category: 'Store Connection'
+          });
+        } finally {
+          setIsForceDisconnecting(false);
+        }
       }
-    } catch (error) {
-      console.error('Force disconnect: Network error:', error);
-      notifications.showError('Force disconnect failed: Network error', {
-        persistent: true,
-        category: 'Store Connection'
-      });
-    } finally {
-      setIsForceDisconnecting(false);
-    }
+    });
   };
 
   const handleDataExport = async () => {
@@ -315,17 +340,35 @@ export default function ProfilePage() {
   };
 
   const handleDataDeletion = async () => {
-    const firstConfirm = window.confirm(
-      '⚠️ PERMANENT DATA DELETION\n\nThis will permanently delete ALL your data from our systems including:\n• Order history and analytics\n• Revenue data and metrics\n• Store configuration and settings\n• Audit logs and access history\n\nThis action CANNOT be undone!\n\nAre you absolutely sure you want to proceed?'
-    );
-    
-    if (!firstConfirm) return;
+    // First confirmation
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Permanent Data Deletion',
+      message: '⚠️ PERMANENT DATA DELETION\n\nThis will permanently delete ALL your data from our systems including:\n• Order history and analytics\n• Revenue data and metrics\n• Store configuration and settings\n• Audit logs and access history\n\nThis action CANNOT be undone!\n\nAre you absolutely sure you want to proceed?',
+      type: 'danger',
+      size: 'lg',
+      onConfirm: () => {
+        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+        
+        // Second confirmation
+        setTimeout(() => {
+          setConfirmDialog({
+            isOpen: true,
+            title: 'Final Confirmation',
+            message: `🚨 FINAL CONFIRMATION\n\nYou are about to PERMANENTLY DELETE all your data.\n\nStore domain: ${shop}\n\nThis is your LAST CHANCE to cancel.\n\nProceed with permanent deletion?`,
+            type: 'danger',
+            size: 'lg',
+            onConfirm: async () => {
+              setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+              await performDataDeletion();
+            }
+          });
+        }, 100);
+      }
+    });
+  };
 
-    const secondConfirm = window.confirm(
-      '🚨 FINAL CONFIRMATION\n\nYou are about to PERMANENTLY DELETE all your data.\n\nType your store domain to confirm:\nExpected: ' + shop + '\n\nThis is your LAST CHANCE to cancel.\n\nProceed with permanent deletion?'
-    );
-    
-    if (!secondConfirm) return;
+  const performDataDeletion = async () => {
 
     setIsDeletingData(true);
     notifications.showInfo('Permanently deleting all data...', {
@@ -1309,6 +1352,19 @@ export default function ProfilePage() {
 
         </div>
       </div>
+
+      {/* Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        type={confirmDialog.type}
+        size={confirmDialog.size}
+        onConfirm={confirmDialog.onConfirm}
+        onCancel={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
+        confirmText="Confirm"
+        cancelText="Cancel"
+      />
     </div>
   );
 } 
