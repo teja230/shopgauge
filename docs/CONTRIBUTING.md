@@ -12,7 +12,7 @@ our project. Please read the following guidelines to help us maintain a high sta
     - Clone your forked repository to your local machine:
 
       ```bash
-      git clone https://github.com/your-username/storesight.git
+      git clone https://github.com/your-username/shopgauge.git
       ```
 
 3. **Create a Branch**
@@ -80,4 +80,4 @@ environment for everyone.
 
 If you have any questions, feel free to open an issue or contact the maintainers.
 
-Thank you for contributing to StoreSight!
+Thank you for contributing to ShopGauge!

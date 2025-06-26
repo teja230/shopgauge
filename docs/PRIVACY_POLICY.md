@@ -1,8 +1,8 @@
-# StoreSignt Privacy Policy & Data Protection
+# ShopGauge Privacy Policy & Data Protection
 
 ## Overview
 
-StoreSignt is committed to protecting merchant and customer privacy while providing valuable business analytics. This
+ShopGauge is committed to protecting merchant and customer privacy while providing valuable business analytics. This
 document outlines our data handling practices in compliance with Shopify's Protected Customer Data requirements.
 
 ## 🔒 Data Collection & Processing
@@ -74,7 +74,7 @@ document outlines our data handling practices in compliance with Shopify's Prote
 
 Contact the merchant who installed our app, or reach out to us directly:
 
-- **Email**: privacy@storesight.com
+- **Email**: privacy@shopgauge.com
 - **Response Time**: Within 48 hours
 - **Completion Time**: Within 30 days
 
@@ -82,7 +82,7 @@ Contact the merchant who installed our app, or reach out to us directly:
 
 ### Transparency Requirements
 
-Merchants using StoreSignt must:
+Merchants using ShopGauge must:
 
 - ✅ Include our data practices in their privacy policy
 - ✅ Inform customers about analytics data usage
@@ -91,7 +91,7 @@ Merchants using StoreSignt must:
 
 ### Data Protection Agreement
 
-By installing StoreSignt, merchants agree to:
+By installing ShopGauge, merchants agree to:
 
 - Process customer data only for stated analytics purposes
 - Implement appropriate security measures
@@ -150,15 +150,15 @@ We process only the minimum data necessary:
 
 ### Data Protection Officer
 
-- **Email**: dpo@storesight.com
+- **Email**: dpo@shopgauge.com
 - **Phone**: +1-555-PRIVACY
 - **Address**: 123 Analytics Ave, Data City, DC 12345
 
 ### Privacy Inquiries
 
-- **General Questions**: privacy@storesight.com
-- **Data Requests**: requests@storesight.com
-- **Security Issues**: security@storesight.com
+- **General Questions**: privacy@shopgauge.com
+- **Data Requests**: requests@shopgauge.com
+- **Security Issues**: security@shopgauge.com
 
 ## 📅 Policy Updates
 

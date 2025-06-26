@@ -371,7 +371,7 @@ Try the live application without any setup:
 
 ### Environment Variables for Local Development
 
-Required environment variables for local development (see `ENVIRONMENT_SETUP.md` for details):
+Required environment variables for local development (see `docs/ENVIRONMENT_SETUP.md` for details):
 
 ```bash
 # Database (Local Development)
@@ -483,7 +483,7 @@ The application is production-ready with comprehensive cloud deployment support:
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details on:
+We welcome contributions! Please see our [Contributing Guide](docs/CONTRIBUTING.md) for details on:
 
 - Development setup and workflow
 - Code style and standards
@@ -498,8 +498,10 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 - **[Multi-Session Architecture](docs/MULTI_SESSION_ARCHITECTURE.md)** - Detailed architecture documentation
 - **[Session-Based Notifications](docs/SESSION_BASED_NOTIFICATIONS.md)** - Notification system design
 - **[Notifications System](docs/NOTIFICATIONS_SYSTEM.md)** - Comprehensive notification system documentation
-- **[Environment Setup](ENVIRONMENT_SETUP.md)** - Complete setup guide
-- **[Contributing Guide](CONTRIBUTING.md)** - Development guidelines
+- **[Environment Setup](docs/ENVIRONMENT_SETUP.md)** - Complete setup guide
+- **[Contributing Guide](docs/CONTRIBUTING.md)** - Development guidelines
+- **[Privacy Policy](docs/PRIVACY_POLICY.md)** - Data handling and privacy compliance
+- **[Shopify Protected Data Request](docs/SHOPIFY_PROTECTED_DATA_REQUEST.md)** - Shopify compliance documentation
 
 ### Enhancement Documentation
 
