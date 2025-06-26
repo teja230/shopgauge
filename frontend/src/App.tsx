@@ -91,8 +91,8 @@ const RedirectHandler: React.FC = () => {
         } else {
           // Non-protected routes (admin, privacy-policy) can be accessed directly
           console.log('RedirectHandler: Redirecting to public route:', redirectPath);
-          navigate(redirectPath, { replace: true });
-        }
+      navigate(redirectPath, { replace: true });
+    }
       } else {
         // Invalid route - remove redirect parameter and let the app handle it normally
         // This will cause the catch-all route (*) to show the 404 page
@@ -195,21 +195,21 @@ const App: React.FC = () => {
         <Router>
           <AuthProvider>
             <ServiceStatusProvider>
-              <Toaster 
-                position="top-center"
-                toastOptions={{
-                  duration: 4000,
-                  style: {
-                    borderRadius: '8px',
-                    fontWeight: '500',
-                    zIndex: 9999,
-                  },
-                }}
-                containerStyle={{
+            <Toaster 
+              position="top-center"
+              toastOptions={{
+                duration: 4000,
+                style: {
+                  borderRadius: '8px',
+                  fontWeight: '500',
                   zIndex: 9999,
-                }}
-              />
-              <AppContent />
+                },
+              }}
+              containerStyle={{
+                zIndex: 9999,
+              }}
+            />
+            <AppContent />
             </ServiceStatusProvider>
           </AuthProvider>
         </Router>

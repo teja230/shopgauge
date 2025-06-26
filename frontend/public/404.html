@@ -387,21 +387,21 @@
         console.log('404: Invalid route, showing 404 page');
         
         // Simple auth check for redirect destination
-            var isAuthenticated = false;
-            var dashboardCache = sessionStorage.getItem('dashboard_cache_v1.1') || sessionStorage.getItem('dashboard_cache_v2');
-            if (dashboardCache) {
-              try {
-                var cache = JSON.parse(dashboardCache);
-                if (cache.timestamp && (Date.now() - new Date(cache.timestamp).getTime()) < 6 * 60 * 60 * 1000) {
-                  isAuthenticated = true;
+        var isAuthenticated = false;
+        var dashboardCache = sessionStorage.getItem('dashboard_cache_v1.1') || sessionStorage.getItem('dashboard_cache_v2');
+        if (dashboardCache) {
+          try {
+            var cache = JSON.parse(dashboardCache);
+            if (cache.timestamp && (Date.now() - new Date(cache.timestamp).getTime()) < 6 * 60 * 60 * 1000) {
+              isAuthenticated = true;
             }
           } catch (e) {
             // Ignore cache parsing errors
-              }
-            }
+          }
+        }
             
-            var redirectUrl = isAuthenticated ? '/dashboard' : '/';
-            var destination = isAuthenticated ? 'dashboard' : 'homepage';
+        var redirectUrl = isAuthenticated ? '/dashboard' : '/';
+        var destination = isAuthenticated ? 'dashboard' : 'homepage';
             
         // Update UI
         var descriptionEl = document.getElementById('page-description');
@@ -412,7 +412,7 @@
         }
         
         // Start countdown
-        var countdown = 8;
+        var countdown = 10;
         function updateCountdown() {
           if (countdownEl) {
             countdownEl.textContent = 'Redirecting to ' + destination + ' in ' + countdown + ' seconds...';
@@ -427,6 +427,7 @@
           }
         }
         
+        // Start the countdown immediately
         updateCountdown();
         
       } catch (e) {

@@ -3,6 +3,7 @@ import { Box, Typography, Button } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { Home, Refresh, Build, Warning } from '@mui/icons-material';
 import { styled, keyframes } from '@mui/material/styles';
+import { useServiceStatus } from '../context/ServiceStatusContext';
 
 // Animations for service unavailable theme
 const float = keyframes`
@@ -282,55 +283,23 @@ const FooterText = styled(Typography)(({ theme }) => ({
 
 const ServiceUnavailablePage: React.FC = () => {
   const navigate = useNavigate();
+  const { checkServiceStatus, retryCount, isServiceAvailable } = useServiceStatus();
   const [isChecking, setIsChecking] = useState(false);
-  const [checkCount, setCheckCount] = useState(0);
-  const maxChecks = 10; // Stop after 5 minutes
 
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    
-    const checkService = async () => {
-      if (checkCount >= maxChecks) {
-        setIsChecking(false);
-        return;
-      }
+    // If service becomes available, navigate away
+    if (isServiceAvailable) {
+      navigate('/', { replace: true });
+    }
+  }, [isServiceAvailable, navigate]);
 
-      setIsChecking(true);
-      setCheckCount(prev => prev + 1);
-
-      try {
-        const response = await fetch('/api/health', {
-          method: 'GET',
-          cache: 'no-cache',
-          credentials: 'include',
-        });
-
-        if (response.ok) {
-          console.log('Service is back online');
-          setIsChecking(false);
-          // Service is back - navigate to home page
-          navigate('/', { replace: true });
-          return;
-        }
-      } catch (error) {
-        console.log('Service still unavailable:', error);
-      }
-
+  const handleRefresh = async () => {
+    setIsChecking(true);
+    try {
+      await checkServiceStatus();
+    } finally {
       setIsChecking(false);
-    };
-
-    // Start checking after 30 seconds
-    interval = setInterval(checkService, 30000);
-
-    return () => {
-      if (interval) {
-        clearInterval(interval);
-      }
-    };
-  }, [navigate, checkCount, maxChecks]);
-
-  const handleRefresh = () => {
-    window.location.reload();
+    }
   };
 
   const handleGoHome = () => {
@@ -380,21 +349,21 @@ const ServiceUnavailablePage: React.FC = () => {
           </ChartContainer>
         </AnalyticsContainer>
         
-        {checkCount < maxChecks && (
-          <RefreshTimer>
-            <Spinner />
-            <span>
-              {isChecking ? 'Checking service status...' : 'Auto-checking service status...'}
-            </span>
-          </RefreshTimer>
-        )}
-        
-        {checkCount >= maxChecks && (
-          <RefreshTimer>
-            <Warning />
-            <span>Service check stopped. Please try manually.</span>
-          </RefreshTimer>
-        )}
+        <RefreshTimer>
+          {isChecking ? (
+            <>
+              <Spinner />
+              <span>Checking service status...</span>
+            </>
+          ) : (
+            <>
+              <Spinner />
+              <span>
+                Auto-checking service status... (Attempt {retryCount})
+              </span>
+            </>
+          )}
+        </RefreshTimer>
         
         <ButtonContainer>
           <StyledButton
@@ -402,8 +371,9 @@ const ServiceUnavailablePage: React.FC = () => {
             color="error"
             startIcon={<Refresh />}
             onClick={handleRefresh}
+            disabled={isChecking}
           >
-            Try Again
+            {isChecking ? 'Checking...' : 'Try Again'}
           </StyledButton>
           <StyledButton
             variant="outlined"

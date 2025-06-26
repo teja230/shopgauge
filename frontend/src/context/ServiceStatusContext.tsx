@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 interface ServiceStatusContextType {
@@ -8,6 +8,7 @@ interface ServiceStatusContextType {
   handleServiceError: (error: any) => boolean;
   forceServiceUnavailable: () => void;
   resetServiceStatus: () => void;
+  retryCount: number;
 }
 
 const ServiceStatusContext = createContext<ServiceStatusContextType | undefined>(undefined);
@@ -27,7 +28,10 @@ interface ServiceStatusProviderProps {
 export const ServiceStatusProvider: React.FC<ServiceStatusProviderProps> = ({ children }) => {
   const [isServiceAvailable, setIsServiceAvailable] = useState(true);
   const [lastServiceCheck, setLastServiceCheck] = useState<Date | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
   const navigate = useNavigate();
+  const retryIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isRetryingRef = useRef(false);
 
   const checkServiceStatus = async (): Promise<boolean> => {
     try {
@@ -43,6 +47,17 @@ export const ServiceStatusProvider: React.FC<ServiceStatusProviderProps> = ({ ch
       setIsServiceAvailable(available);
       setLastServiceCheck(new Date());
       
+      if (available) {
+        // Service is back online - stop retrying
+        if (retryIntervalRef.current) {
+          clearInterval(retryIntervalRef.current);
+          retryIntervalRef.current = null;
+        }
+        setRetryCount(0);
+        isRetryingRef.current = false;
+        console.log('ServiceStatus: Service is back online, stopped retrying');
+      }
+      
       console.log('ServiceStatus: Service check result:', available);
       return available;
     } catch (error: any) {
@@ -56,6 +71,12 @@ export const ServiceStatusProvider: React.FC<ServiceStatusProviderProps> = ({ ch
           error.message.includes('Bad Gateway')) {
         setIsServiceAvailable(false);
         setLastServiceCheck(new Date());
+        
+        // Start retrying if not already retrying
+        if (!isRetryingRef.current) {
+          startRetryLoop();
+        }
+        
         return false;
       }
       
@@ -64,6 +85,26 @@ export const ServiceStatusProvider: React.FC<ServiceStatusProviderProps> = ({ ch
       setLastServiceCheck(new Date());
       return true;
     }
+  };
+
+  const startRetryLoop = () => {
+    if (isRetryingRef.current) {
+      return; // Already retrying
+    }
+
+    isRetryingRef.current = true;
+    console.log('ServiceStatus: Starting retry loop - checking every 5 seconds');
+
+    // Clear any existing interval
+    if (retryIntervalRef.current) {
+      clearInterval(retryIntervalRef.current);
+    }
+
+    // Start retrying every 5 seconds
+    retryIntervalRef.current = setInterval(() => {
+      setRetryCount(prev => prev + 1);
+      checkServiceStatus();
+    }, 5000); // Check every 5 seconds
   };
 
   const handleServiceError = (error: any) => {
@@ -85,6 +126,12 @@ export const ServiceStatusProvider: React.FC<ServiceStatusProviderProps> = ({ ch
       setIsServiceAvailable(false);
       setLastServiceCheck(new Date());
       navigate('/service-unavailable', { replace: true });
+      
+      // Start retrying
+      if (!isRetryingRef.current) {
+        startRetryLoop();
+      }
+      
       return true; // Indicates we handled the error
     }
 
@@ -96,26 +143,26 @@ export const ServiceStatusProvider: React.FC<ServiceStatusProviderProps> = ({ ch
     setIsServiceAvailable(false);
     setLastServiceCheck(new Date());
     navigate('/service-unavailable', { replace: true });
+    
+    // Start retrying
+    if (!isRetryingRef.current) {
+      startRetryLoop();
+    }
   };
 
   const resetServiceStatus = () => {
     console.log('ServiceStatus: Resetting service status to available');
     setIsServiceAvailable(true);
     setLastServiceCheck(new Date());
-  };
-
-  // Periodic health check (every 2 minutes when service is available)
-  useEffect(() => {
-    if (!isServiceAvailable) {
-      return; // Don't check if we already know it's unavailable
+    setRetryCount(0);
+    
+    // Stop retrying
+    if (retryIntervalRef.current) {
+      clearInterval(retryIntervalRef.current);
+      retryIntervalRef.current = null;
     }
-
-    const interval = setInterval(() => {
-      checkServiceStatus();
-    }, 120000); // Check every 2 minutes
-
-    return () => clearInterval(interval);
-  }, [isServiceAvailable]);
+    isRetryingRef.current = false;
+  };
 
   // Initial health check
   useEffect(() => {
@@ -123,6 +170,15 @@ export const ServiceStatusProvider: React.FC<ServiceStatusProviderProps> = ({ ch
     if (!lastServiceCheck || Date.now() - lastServiceCheck.getTime() > 60000) {
       checkServiceStatus();
     }
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (retryIntervalRef.current) {
+        clearInterval(retryIntervalRef.current);
+      }
+    };
   }, []);
 
   return (
@@ -134,6 +190,7 @@ export const ServiceStatusProvider: React.FC<ServiceStatusProviderProps> = ({ ch
         handleServiceError,
         forceServiceUnavailable,
         resetServiceStatus,
+        retryCount,
       }}
     >
       {children}
