@@ -24,6 +24,12 @@
       -moz-osx-font-smoothing: grayscale;
       min-height: 100vh;
       overflow-x: hidden;
+      /* Initially hide content until JS processes the route */
+      visibility: hidden;
+    }
+    
+    body.show-content {
+      visibility: visible;
     }
     
     .container {
@@ -375,16 +381,20 @@
         var cleanPath = path.split('?')[0].split('#')[0];
         
         if (validRoutes.includes(cleanPath)) {
-          // Valid route ended up here - redirect immediately
+          // Valid route ended up here - redirect immediately without showing 404
           console.log('404: Valid route detected, redirecting immediately');
-          setTimeout(function() {
-            window.location.href = '/?redirect=' + encodeURIComponent(path);
-          }, 100);
+          // Hide the 404 content immediately
+          document.body.style.display = 'none';
+          // Redirect immediately
+          window.location.replace('/?redirect=' + encodeURIComponent(path));
           return;
         }
         
         // Invalid route - show 404 and redirect after delay
         console.log('404: Invalid route, showing 404 page');
+        
+        // Show the 404 content for invalid routes
+        document.body.classList.add('show-content');
         
         // Simple auth check for redirect destination
         var isAuthenticated = false;
@@ -432,7 +442,8 @@
         
       } catch (e) {
         console.error('404 Error:', e);
-        // Fallback redirect
+        // Show content and fallback redirect
+        document.body.classList.add('show-content');
         setTimeout(function() {
           window.location.replace('/');
         }, 2000);
@@ -493,6 +504,9 @@
     </div>
     
     <noscript>
+      <style>
+        body { visibility: visible !important; }
+      </style>
       <div style="text-align: center; margin-top: 2rem; padding: 2rem; background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
         <h2 style="color: #dc2626; margin-bottom: 1rem;">JavaScript Required</h2>
         <p style="margin-bottom: 1rem;">This application requires JavaScript to function properly.</p>

@@ -62,11 +62,6 @@ const RedirectHandler: React.FC = () => {
   const { authLoading, isAuthenticated } = useAuth();
 
   useEffect(() => {
-    // Don't process redirects while auth is loading
-    if (authLoading) {
-      return;
-    }
-
     const params = new URLSearchParams(location.search);
     const redirectPath = params.get('redirect');
     
@@ -79,8 +74,13 @@ const RedirectHandler: React.FC = () => {
       
       // Check if the redirect path is a valid route
       if (validRoutes.includes(redirectPath)) {
-        // For protected routes, only redirect if user is authenticated
+        // For protected routes, wait for auth loading to complete
         if (protectedRoutes.includes(redirectPath)) {
+          if (authLoading) {
+            // Still loading auth, don't redirect yet
+            return;
+          }
+          
           if (isAuthenticated) {
             console.log('RedirectHandler: Authenticated user, redirecting to protected route:', redirectPath);
             navigate(redirectPath, { replace: true });
@@ -91,8 +91,8 @@ const RedirectHandler: React.FC = () => {
         } else {
           // Non-protected routes (admin, privacy-policy) can be accessed directly
           console.log('RedirectHandler: Redirecting to public route:', redirectPath);
-      navigate(redirectPath, { replace: true });
-    }
+          navigate(redirectPath, { replace: true });
+        }
       } else {
         // Invalid route - remove redirect parameter and let the app handle it normally
         // This will cause the catch-all route (*) to show the 404 page
@@ -123,8 +123,8 @@ const AppContent: React.FC = () => {
     setGlobalServiceErrorHandler(handleServiceError);
   }, [handleServiceError]);
 
-  // Show global loading state only during initial load
-  if (loading) {
+  // Show global loading state during initial load or auth loading
+  if (loading || (authLoading && window.location.search.includes('redirect='))) {
     return <IntelligentLoadingScreen />;
   }
   
