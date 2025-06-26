@@ -8,14 +8,14 @@ import { CheckCircleIcon } from '@heroicons/react/24/solid';
 import { normalizeShopDomain } from '../utils/normalizeShopDomain';
 
 const features = [
-  'Track unlimited competitors across multiple sessions',
-  'Real-time price monitoring with instant alerts',
+  'Track market trends across unlimited competitors',
+  'Real-time price monitoring with intelligent alerts',
   '7 advanced chart types (Area, Bar, Candlestick, Waterfall, etc.)',
   'Multi-session concurrent access from any device',
   'Session-based notification system with privacy controls',
   'Automated alerts via Email & SMS with smart delivery',
   'Advanced analytics dashboard with intelligent caching',
-  'AI-powered competitor discovery tools',
+  'AI-powered market intelligence and discovery tools',
   'Comprehensive admin dashboard with audit logging',
   'Enhanced security with session isolation',
   'Full Shopify integration with real-time sync',
@@ -183,7 +183,7 @@ const HomePage = () => {
         <p className="text-lg text-blue-700 mb-4 max-w-4xl mx-auto">
           Enterprise-grade analytics platform with multi-session support, 7 advanced chart types, and intelligent notifications. 
           Empower your team with concurrent access, comprehensive audit logging, and GDPR-compliant data management. 
-          Transform your Shopify store with real-time insights and automated competitor monitoring.
+          Transform your Shopify store with real-time insights and automated market intelligence.
         </p>
       </header>
 
@@ -353,7 +353,7 @@ const HomePage = () => {
         <h2 className="text-3xl font-bold mb-8 text-blue-800 text-center">Enterprise-Grade Analytics Platform</h2>
         
         {/* Feature Categories */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
           <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-6 border border-blue-200">
             <div className="text-blue-600 mb-4">
               <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
@@ -381,6 +381,21 @@ const HomePage = () => {
               <li>• Session-based notification privacy</li>
               <li>• Team collaboration without conflicts</li>
               <li>• Secure session isolation & management</li>
+            </ul>
+          </div>
+          
+          <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl p-6 border border-orange-200">
+            <div className="text-orange-600 mb-4">
+              <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+              </svg>
+            </div>
+            <h3 className="text-xl font-bold text-orange-900 mb-3">Market Intelligence</h3>
+            <ul className="text-gray-700 space-y-2">
+              <li>• AI-powered market discovery & analysis</li>
+              <li>• Real-time price monitoring & alerts</li>
+              <li>• Automated trend identification</li>
+              <li>• Strategic positioning insights</li>
             </ul>
           </div>
           

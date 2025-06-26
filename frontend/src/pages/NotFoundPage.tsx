@@ -411,10 +411,9 @@ const NotFoundPage: React.FC = () => {
             variant="outlined"
             startIcon={<Business />}
             onClick={handleGoCompetitors}
-            sx={{ minWidth: 140 }}
-            color="primary"
+            sx={{ mr: 1, mb: 1 }}
           >
-            Competitors
+            Market Intelligence
           </Button>
           </ButtonContainer>
       )}

@@ -93,7 +93,7 @@ const NavBar: React.FC = () => {
       badge: 0
     },
     {
-      text: 'Competitors',
+      text: 'Market Intelligence',
       icon: <BusinessIcon />,
       path: '/competitors',
       badge: suggestionCount
@@ -293,7 +293,7 @@ const NavBar: React.FC = () => {
                     }
                   }}
                 >
-                  Competitors
+                  Market Intelligence
                 </Button>
               </Badge>
               <Button
