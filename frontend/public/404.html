@@ -409,6 +409,7 @@
       
       <div class="button-container">
         <a href="/" class="btn btn-primary">Go Home</a>
+        <a href="/dashboard" class="btn btn-outline">Dashboard</a>
         <a href="javascript:history.back()" class="btn btn-outline">Go Back</a>
       </div>
     </div>
@@ -458,7 +459,7 @@
           console.log('404: Processing path:', path);
           
           // Check if this is a known valid route (shouldn't happen with proper _redirects)
-          var validRoutes = ['/dashboard', '/competitors', '/profile', '/privacy-policy'];
+          var validRoutes = ['/dashboard', '/competitors', '/admin', '/profile', '/privacy-policy'];
           var cleanPath = path.split('?')[0].split('#')[0];
           
           if (validRoutes.includes(cleanPath)) {
