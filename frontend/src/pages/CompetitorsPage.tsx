@@ -2,7 +2,17 @@ import React, { useEffect, useState } from 'react';
 import { CompetitorTable } from '../components/ui/CompetitorTable';
 import type { Competitor } from '../components/ui/CompetitorTable';
 import { SuggestionDrawer } from '../components/ui/SuggestionDrawer';
-import { getCompetitors, addCompetitor, deleteCompetitor, getDebouncedSuggestionCount, refreshSuggestionCount } from '../api';
+import { 
+  getCompetitors, 
+  addCompetitor, 
+  deleteCompetitor, 
+  getCompetitorSuggestions, 
+  getSuggestionCount, 
+  refreshSuggestionCount as refreshSuggestionCountAPI,
+  getDebouncedSuggestionCount,
+  approveSuggestion, 
+  ignoreSuggestion 
+} from '../api';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import { 
@@ -206,7 +216,7 @@ export default function CompetitorsPage() {
       }
       
       // Use manual refresh endpoint for immediate update
-      const response = await refreshSuggestionCount();
+      const response = await refreshSuggestionCountAPI();
       setSuggestionCount(response.newSuggestions);
     } catch (error) {
       console.error('Error refreshing suggestion count:', error);
