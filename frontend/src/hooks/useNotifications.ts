@@ -31,7 +31,7 @@ export interface NotificationOptions {
   };
 }
 
-// Shared state to prevent multiple API calls
+// Shared state across all hook instances
 let globalNotifications: Notification[] = [];
 let globalUnreadCount = 0;
 let isLoadingGlobal = false;
@@ -40,6 +40,16 @@ const RATE_LIMIT_MS = 5000; // 5 seconds minimum between API calls
 
 // Global notification tracker for browser alerts and system notifications
 let notificationId = 0;
+
+// Subscribers (setters from hook instances) to propagate updates in real-time
+type Subscriber = (notifications: Notification[], unread: number) => void;
+const subscribers: Subscriber[] = [];
+
+const broadcast = () => {
+  const snapshot = [...globalNotifications];
+  const unread = globalUnreadCount;
+  subscribers.forEach((cb) => cb(snapshot, unread));
+};
 
 export const useNotifications = () => {
   const [notifications, setNotifications] = useState<Notification[]>(globalNotifications);
@@ -190,6 +200,8 @@ export const useNotifications = () => {
     // Update local state immediately
     setNotifications([...globalNotifications]);
     setUnreadCount(globalUnreadCount);
+    // Notify other subscribers
+    broadcast();
 
     // Store persistent notifications in backend
     if (persistent) {
@@ -361,6 +373,7 @@ export const useNotifications = () => {
       
       setNotifications([...globalNotifications]);
       setUnreadCount(globalUnreadCount);
+      broadcast();
     } catch (error) {
       console.error('Failed to fetch notifications:', error);
       setError(error instanceof Error ? error.message : 'Unknown error occurred');
@@ -368,6 +381,7 @@ export const useNotifications = () => {
       // Don't clear existing notifications on error, just keep what we have
       setNotifications([...globalNotifications]);
       setUnreadCount(globalUnreadCount);
+      broadcast();
     } finally {
       isLoadingGlobal = false;
       setLoading(false);
@@ -384,6 +398,21 @@ export const useNotifications = () => {
       setNotifications([...globalNotifications]);
       setUnreadCount(globalUnreadCount);
     }
+  }, []);
+
+  // Register this hook instance for broadcasts
+  useEffect(() => {
+    const subscriber: Subscriber = (notifs, count) => {
+      setNotifications(notifs);
+      setUnreadCount(count);
+    };
+    subscribers.push(subscriber);
+    // Initial sync in case globals changed before mount
+    subscriber([...globalNotifications], globalUnreadCount);
+    return () => {
+      const idx = subscribers.indexOf(subscriber);
+      if (idx !== -1) subscribers.splice(idx, 1);
+    };
   }, []);
 
   // Mark notification as read
@@ -410,6 +439,7 @@ export const useNotifications = () => {
           // Update local state
           setNotifications([...globalNotifications]);
           setUnreadCount(globalUnreadCount);
+          broadcast();
         }
       } catch (error) {
         console.error('Failed to mark notification as read:', error);
@@ -426,6 +456,7 @@ export const useNotifications = () => {
       // Update local state
       setNotifications([...globalNotifications]);
       setUnreadCount(globalUnreadCount);
+      broadcast();
     }
   }, []);
 
@@ -447,6 +478,7 @@ export const useNotifications = () => {
         globalUnreadCount = 0;
         setNotifications([...globalNotifications]);
         setUnreadCount(globalUnreadCount);
+        broadcast();
       }
     } catch (error) {
       console.error('Failed to mark all notifications as read:', error);
@@ -481,6 +513,7 @@ export const useNotifications = () => {
     // Update local state
     setNotifications([...globalNotifications]);
     setUnreadCount(globalUnreadCount);
+    broadcast();
   }, []);
 
   // Clear all notifications
@@ -509,6 +542,7 @@ export const useNotifications = () => {
     setNotifications([]);
     setUnreadCount(0);
     toast.dismiss(); // Clear all toasts
+    broadcast();
   }, []);
 
   // Cleanup function

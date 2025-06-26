@@ -110,6 +110,21 @@ const HomePage = () => {
     setShopDomain(''); // Clear any existing domain
   };
 
+  // Utility: comprehensive dashboard cache clearing (same logic as in AuthContext)
+  const clearAllDashboardCache = () => {
+    sessionStorage.removeItem('dashboard_cache_v1.1');
+    sessionStorage.removeItem('dashboard_cache_v2');
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key && key.includes('dashboard_cache')) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach((k) => sessionStorage.removeItem(k));
+    console.log('HomePage: Cleared all dashboard cache keys');
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanDomain = normalizeShopDomain(shopDomain);
@@ -122,8 +137,21 @@ const HomePage = () => {
 
     setIsLoading(true);
     try {
-      // Redirect to the login endpoint with the normalized shop parameter
-      window.location.href = `${API_BASE_URL}/api/auth/shopify/login?shop=${encodeURIComponent(cleanDomain)}`;
+      // Clear any existing dashboard cache before switching stores
+      clearAllDashboardCache();
+
+      // Inform the user
+      notifications.showInfo('Cache cleared for fresh data from new store', {
+        category: 'Store Connection',
+        duration: 3000
+      });
+
+      // Build return URL so Dashboard can invalidate cache again after OAuth
+      const baseUrl = `${window.location.origin}/dashboard`;
+      const returnUrl = encodeURIComponent(`${baseUrl}?connected=true`);
+
+      // Redirect to the login endpoint with the normalized shop parameter and return URL
+      window.location.href = `${API_BASE_URL}/api/auth/shopify/login?shop=${encodeURIComponent(cleanDomain)}&return_url=${returnUrl}`;
     } catch (error) {
       console.error('Login failed:', error);
       notifications.showError('Failed to connect to Shopify. Please try again.', {

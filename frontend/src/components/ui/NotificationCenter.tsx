@@ -265,7 +265,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
         {/* Notification Bell Button */}
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="relative p-2 text-white hover:text-gray-200 hover:bg-white/10 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white/50"
+          className="relative p-2 text-white bg-transparent hover:text-gray-200 hover:bg-white/10 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white/50 focus:ring-offset-0"
           aria-label={`Notifications ${unreadCount > 0 ? `(${unreadCount} unread)` : ''}`}
         >
           {/* Change bell color when there are unread notifications */}
