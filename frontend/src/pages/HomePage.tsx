@@ -8,7 +8,7 @@ import { CheckCircleIcon } from '@heroicons/react/24/solid';
 import { normalizeShopDomain } from '../utils/normalizeShopDomain';
 
 const features = [
-  'Track market trends across unlimited competitors',
+  'Track up to 50 competitors with intelligent monitoring',
   'Real-time price monitoring with intelligent alerts',
   '7 advanced chart types (Area, Bar, Candlestick, Waterfall, etc.)',
   'Multi-session concurrent access from any device',
@@ -394,7 +394,7 @@ const HomePage = () => {
             <ul className="text-gray-700 space-y-2">
               <li>• AI-powered market discovery & analysis</li>
               <li>• Real-time price monitoring & alerts</li>
-              <li>• Automated trend identification</li>
+              <li>• Track up to 50 competitors per store</li>
               <li>• Strategic positioning insights</li>
             </ul>
           </div>
