@@ -32,7 +32,7 @@ import {
   Tooltip,
   Alert
 } from '@mui/material';
-import { styled } from '@mui/material/styles';
+import { styled, keyframes } from '@mui/material/styles';
 
 interface NotificationCenterProps {
   onNotificationCountChange?: (count: number) => void;
@@ -49,22 +49,39 @@ interface ConfirmDialogProps {
   type?: 'danger' | 'warning' | 'info';
 }
 
+// Keyframes for animations
+const pulse = keyframes`
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.9;
+  }
+`;
+
 // Styled components matching the site's design system
 const NotificationDropdown = styled(Paper)(({ theme }) => ({
   position: 'absolute',
-  top: '100%',
+  top: 'calc(100% + 8px)',
   right: 0,
-  width: 400,
-  maxHeight: 500,
-  backgroundColor: theme.palette.background.paper,
-  borderRadius: 12,
-  boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -2px rgb(0 0 0 / 0.1)',
+  width: 420,
+  maxHeight: 'calc(100vh - 100px)',
+  backgroundColor: 'rgba(255, 255, 255, 0.85)',
+  backdropFilter: 'blur(12px)',
+  WebkitBackdropFilter: 'blur(12px)', // For Safari
+  borderRadius: 16,
+  boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.2)',
   border: `1px solid ${theme.palette.divider}`,
-  zIndex: 50,
+  zIndex: 1400, // Ensure it's above other elements
   overflow: 'hidden',
+  display: 'flex',
+  flexDirection: 'column',
   [theme.breakpoints.down('sm')]: {
-    width: 320,
-    maxHeight: 400,
+    width: '95vw',
+    maxHeight: '80vh',
+    right: '2.5vw',
   },
 }));
 
@@ -78,11 +95,13 @@ const NotificationHeader = styled(Box)(({ theme }) => ({
   position: 'sticky',
   top: 0,
   zIndex: 1,
+  flexShrink: 0,
 }));
 
 const NotificationContent = styled(Box)(({ theme }) => ({
-  maxHeight: 350,
+  flexGrow: 1,
   overflowY: 'auto',
+  padding: theme.spacing(0, 1),
   '&::-webkit-scrollbar': {
     width: 8,
   },
@@ -100,19 +119,35 @@ const NotificationContent = styled(Box)(({ theme }) => ({
   },
 }));
 
+const NotificationItemActions = styled(Box)({
+  display: 'flex',
+  alignItems: 'center',
+  gap: '4px',
+  position: 'absolute',
+  top: '50%',
+  right: '16px',
+  transform: 'translateY(-50%)',
+  opacity: 0,
+  transition: 'opacity 0.2s ease-in-out',
+  '&.notification-item-actions': {},
+});
+
 const NotificationItem = styled(Box, {
   shouldForwardProp: (prop) => prop !== 'isUnread',
 })<{ isUnread?: boolean }>(({ theme, isUnread }) => ({
-  padding: theme.spacing(2, 3),
-  borderBottom: `1px solid ${theme.palette.divider}`,
-  backgroundColor: isUnread ? theme.palette.action.hover : 'transparent',
+  padding: theme.spacing(1.5, 2),
+  margin: theme.spacing(1),
+  borderRadius: 12,
+  border: `1px solid transparent`,
+  backgroundColor: isUnread ? theme.palette.primary.main + '15' : 'transparent',
   transition: 'all 0.2s ease',
   position: 'relative',
   '&:hover': {
-    backgroundColor: theme.palette.action.selected,
-  },
-  '&:last-child': {
-    borderBottom: 'none',
+    backgroundColor: theme.palette.action.hover,
+    borderColor: theme.palette.divider,
+    '& .notification-item-actions': {
+      opacity: 1,
+    }
   },
 }));
 
@@ -124,15 +159,19 @@ const NotificationActions = styled(Box)(({ theme }) => ({
   gap: theme.spacing(1),
   justifyContent: 'space-between',
   alignItems: 'center',
+  flexShrink: 0,
 }));
 
-const BellButton = styled(IconButton)(({ theme }) => ({
-  padding: theme.spacing(1),
+const BellButton = styled(IconButton, {
+  shouldForwardProp: (prop) => prop !== 'isPulsing',
+})<{ isPulsing?: boolean }>(({ theme, isPulsing }) => ({
+  padding: theme.spacing(1.5),
   color: 'white',
   '&:hover': {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     color: theme.palette.grey[200],
   },
+  animation: isPulsing ? `${pulse} 1.5s infinite` : 'none',
 }));
 
 const StyledDialog = styled(Dialog)(({ theme }) => ({
@@ -214,8 +253,6 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
     </StyledDialog>
   );
 };
-
-
 
 export const NotificationCenter: React.FC<NotificationCenterProps> = ({ 
   onNotificationCountChange
@@ -369,6 +406,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
             ref={buttonRef}
             onClick={() => setIsOpen(!isOpen)}
             aria-label={`Notifications ${unreadCount > 0 ? `(${unreadCount} unread)` : ''}`}
+            isPulsing={unreadCount > 0}
           >
             <Badge badgeContent={unreadCount} color="error" max={99}>
               <Bell size={24} />
@@ -448,9 +486,13 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
               )}
 
               {!loading && !error && filteredNotifications.length === 0 && (
-                <Box p={4} textAlign="center">
+                <Box p={4} textAlign="center" sx={{ color: 'text.secondary' }}>
+                   <Bell size={48} style={{ marginBottom: 16, opacity: 0.5 }} />
+                  <Typography variant="h6" sx={{ fontWeight: 500, mb: 1 }}>
+                    All caught up!
+                  </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {activeTab === 0 ? 'No notifications yet' : 'No unread notifications'}
+                    {activeTab === 0 ? "You don't have any notifications yet." : 'You have no unread notifications.'}
                   </Typography>
                 </Box>
               )}
@@ -475,38 +517,31 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                         {notification.message}
                       </Typography>
                       
-                                             <Box display="flex" alignItems="center" gap={1} mb={1}>
-                         <Typography variant="caption" color="text.secondary">
-                           {formatTimestamp(notification.createdAt)}
-                         </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {formatTimestamp(notification.createdAt)}
                         {notification.category && (
-                          <Typography 
-                            variant="caption" 
-                            sx={{ 
-                              px: 1, 
-                              py: 0.25, 
-                              backgroundColor: theme.palette.primary.main + '20',
-                              color: theme.palette.primary.main,
-                              borderRadius: 1,
-                              fontSize: '0.65rem',
-                              fontWeight: 500,
-                            }}
-                          >
+                          <>
+                            <Box component="span" sx={{ mx: 0.5 }}>•</Box>
                             {notification.category}
-                          </Typography>
+                          </>
                         )}
-                      </Box>
+                      </Typography>
                     </Box>
+                  </Box>
 
-                    <Box display="flex" alignItems="center" gap={0.5}>
+                  <NotificationItemActions className="notification-item-actions">
+                      {/* Actions appear on hover */}
                       {!notification.read && (
                         <Tooltip title="Mark as read">
                           <IconButton
                             size="small"
                             onClick={() => markAsRead(notification.id)}
-                            sx={{ color: 'success.main' }}
+                            sx={{ 
+                              color: 'text.secondary',
+                              '&:hover': { color: 'success.main', backgroundColor: 'success.light' + '25' } 
+                            }}
                           >
-                            <Check size={14} />
+                            <Check size={16} />
                           </IconButton>
                         </Tooltip>
                       )}
@@ -515,13 +550,15 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                         <IconButton
                           size="small"
                           onClick={() => handleDeleteNotification(notification.id, notification.message)}
-                          sx={{ color: 'error.main' }}
+                           sx={{ 
+                             color: 'text.secondary',
+                             '&:hover': { color: 'error.main', backgroundColor: 'error.light' + '25' } 
+                           }}
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={16} />
                         </IconButton>
                       </Tooltip>
-                    </Box>
-                  </Box>
+                  </NotificationItemActions>
                 </NotificationItem>
               ))}
             </NotificationContent>

@@ -234,8 +234,8 @@ public class NotificationService {
                   notification -> {
                     // Verify the notification belongs to the shop for security
                     if (notification.getShop().equals(shop)) {
-                      notification.setRead(true);
-                      notificationRepository.save(notification);
+                    notification.setRead(true);
+                    notificationRepository.save(notification);
                       log.debug(
                           "Marked notification {} as read for shop: {}", notificationId, shop);
                     } else {

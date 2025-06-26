@@ -333,7 +333,7 @@ const NavBar: React.FC = () => {
               >
                 <MenuIcon />
               </IconButton>
-            </Box>
+        </Box>
           )}
       </Toolbar>
     </AppBar>
