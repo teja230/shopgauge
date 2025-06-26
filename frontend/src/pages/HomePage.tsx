@@ -25,30 +25,6 @@ const features = [
   'Debounced refresh controls for optimal performance'
 ];
 
-const pricing = [
-  {
-    tier: 'Pro',
-    price: '$19.99/month',
-    features: [
-      'Track unlimited competitors across multiple sessions',
-      'Real-time price monitoring with instant alerts',
-      '7 advanced chart types (Area, Bar, Candlestick, Waterfall, etc.)',
-      'Multi-session concurrent access from any device',
-      'Session-based notification system with privacy controls',
-      'Automated alerts via Email & SMS with smart delivery',
-      'Advanced analytics dashboard with intelligent caching',
-      'AI-powered competitor discovery tools',
-      'Comprehensive admin dashboard with audit logging',
-      'Enhanced security with session isolation',
-      'Full Shopify integration with real-time sync',
-      'Data export capabilities with GDPR/CCPA compliance',
-      'Priority support with dedicated assistance',
-      'Enterprise-grade session management',
-      'Advanced debugging and monitoring tools'
-    ]
-  }
-];
-
 const HomePage = () => {
   const [shopDomain, setShopDomain] = useState('');
   const [isLoading, setIsLoading] = useState(false);
