@@ -1,11 +1,12 @@
 package com.storesight.backend.service;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
 
 /**
  * Service for managing secrets using environment variables in production. Redis is still used for
@@ -69,7 +70,9 @@ public class SecretService {
       "sendgrid.api.key",
       "twilio.account.sid",
       "twilio.auth.token",
-      "serpapi.api.key"
+      "serpapi.api.key",
+      "scrapingdog.api.key",
+      "serper.api.key"
     };
 
     for (String key : secretKeys) {
@@ -95,7 +98,11 @@ public class SecretService {
       case "twilio.auth.token":
         return "TWILIO_AUTH_TOKEN";
       case "serpapi.api.key":
-        return "SERPAPI_API_KEY";
+        return "SERPAPI_KEY";
+      case "scrapingdog.api.key":
+        return "SCRAPINGDOG_KEY";
+      case "serper.api.key":
+        return "SERPER_KEY";
       default:
         // Convert dot notation to uppercase with underscores
         return secretKey.toUpperCase().replace(".", "_");

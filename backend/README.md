@@ -119,7 +119,7 @@ src/main/java/com/storesight/backend/
 cd backend
 
 # Set up environment variables (see Environment Variables section)
-cp .env.example .env
+cp config/.env.example .env
 # Edit .env with your configuration
 
 # Start PostgreSQL and Redis (using Docker)

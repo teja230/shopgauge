@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { CompetitorTable } from '../components/ui/CompetitorTable';
 import type { Competitor } from '../components/ui/CompetitorTable';
 import { SuggestionDrawer } from '../components/ui/SuggestionDrawer';
-import { getCompetitors, addCompetitor, deleteCompetitor, getSuggestionCount } from '../api';
+import { getCompetitors, addCompetitor, deleteCompetitor, getDebouncedSuggestionCount, refreshSuggestionCount } from '../api';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import { 
@@ -122,7 +122,7 @@ export default function CompetitorsPage() {
         setIsLoading(true);
         const [competitorsData, suggestionCountData] = await Promise.all([
           getCompetitors(),
-          getSuggestionCount()
+          getDebouncedSuggestionCount()
         ]);
         
         // If no competitors and no suggestions, enable demo mode
@@ -131,7 +131,7 @@ export default function CompetitorsPage() {
           setCompetitors(DEMO_COMPETITORS);
           setSuggestionCount(DEMO_SUGGESTIONS.length); // Show demo suggestions count
         } else {
-          setCompetitors(competitorsData);
+        setCompetitors(competitorsData);
           setSuggestionCount(suggestionCountData.newSuggestions);
         }
       } catch (e) {
@@ -205,10 +205,18 @@ export default function CompetitorsPage() {
         return;
       }
       
-      const response = await getSuggestionCount();
+      // Use manual refresh endpoint for immediate update
+      const response = await refreshSuggestionCount();
       setSuggestionCount(response.newSuggestions);
     } catch (error) {
       console.error('Error refreshing suggestion count:', error);
+      // Fallback to regular debounced call
+      try {
+        const response = await getDebouncedSuggestionCount();
+        setSuggestionCount(response.newSuggestions);
+      } catch (fallbackError) {
+        console.error('Fallback suggestion count also failed:', fallbackError);
+      }
     }
   };
 
@@ -283,33 +291,33 @@ export default function CompetitorsPage() {
                   Add
                 </button>
               </div>
-            </div>
+        </div>
 
             {/* Add Form */}
             {showAddForm && (
               <div className="mt-4 p-3 bg-gray-50 rounded-lg">
                 <form onSubmit={handleAdd} className="flex flex-col sm:flex-row gap-2">
-                  <input
-                    type="text"
+            <input
+              type="text"
                     placeholder="Competitor URL (e.g., https://amazon.com/dp/...)"
-                    value={url}
-                    onChange={(e) => setUrl(e.target.value)}
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
                     className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-400 outline-none transition text-sm"
-                    required
-                  />
-                  <input
-                    type="text"
+              required
+            />
+            <input
+              type="text"
                     placeholder="Product ID (optional)"
-                    value={productId}
-                    onChange={(e) => setProductId(e.target.value)}
+              value={productId}
+              onChange={(e) => setProductId(e.target.value)}
                     className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-400 outline-none transition text-sm"
-                  />
+            />
                   <button 
                     type="submit" 
                     className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition"
                   >
-                    Add
-                  </button>
+              Add
+            </button>
                   <button 
                     type="button"
                     onClick={() => setShowAddForm(false)}
@@ -317,8 +325,8 @@ export default function CompetitorsPage() {
                   >
                     Cancel
                   </button>
-                </form>
-              </div>
+          </form>
+        </div>
             )}
           </div>
 
@@ -363,7 +371,7 @@ export default function CompetitorsPage() {
                 </button>
               </div>
             ) : (
-              <CompetitorTable data={competitors} onDelete={handleDelete} />
+          <CompetitorTable data={competitors} onDelete={handleDelete} />
             )}
           </div>
         </div>

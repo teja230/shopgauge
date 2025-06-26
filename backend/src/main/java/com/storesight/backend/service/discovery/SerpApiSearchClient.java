@@ -4,19 +4,24 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.storesight.backend.service.SecretService;
 import jakarta.annotation.PostConstruct;
-import java.net.URI;
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
+import java.net.URI;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 /** SerpAPI implementation for Google Shopping search */
-@Component
+@Service
+@ConditionalOnProperty(name = "discovery.enabled", havingValue = "true", matchIfMissing = true)
 public class SerpApiSearchClient implements SearchClient {
 
   private static final Logger log = LoggerFactory.getLogger(SerpApiSearchClient.class);
@@ -34,6 +39,9 @@ public class SerpApiSearchClient implements SearchClient {
 
   @Value("${discovery.max.results:10}")
   private int defaultMaxResults;
+
+  @Value("${discovery.serpapi.max-results:3}")
+  private int serpapiMaxResults;
 
   private boolean enabled;
 
@@ -79,8 +87,9 @@ public class SerpApiSearchClient implements SearchClient {
       return List.of();
     }
 
-    // Use configured default if maxResults is not specified (0 or negative)
-    int actualMaxResults = maxResults > 0 ? maxResults : defaultMaxResults;
+    // Use SerpAPI-specific max results (more restrictive)
+    int actualMaxResults =
+        Math.min(maxResults > 0 ? maxResults : serpapiMaxResults, serpapiMaxResults);
 
     try {
       log.info(
@@ -124,7 +133,7 @@ public class SerpApiSearchClient implements SearchClient {
               .timeout(REQUEST_TIMEOUT)
               .block();
 
-      return parseSearchResults(response);
+      return parseResponse(response);
 
     } catch (Exception e) {
       log.error("Error searching with SerpAPI for keywords '{}': {}", keywords, e.getMessage(), e);
@@ -132,63 +141,45 @@ public class SerpApiSearchClient implements SearchClient {
     }
   }
 
-  private List<SearchResult> parseSearchResults(String response) {
+  private List<SearchResult> parseResponse(String response) {
     List<SearchResult> results = new ArrayList<>();
 
     try {
       JsonNode root = objectMapper.readTree(response);
-      JsonNode shoppingResults = root.get("shopping_results");
+      JsonNode shoppingResults = root.path("shopping_results");
 
-      if (shoppingResults != null && shoppingResults.isArray()) {
+      if (shoppingResults.isArray()) {
         for (JsonNode result : shoppingResults) {
-          String title = getTextValue(result, "title");
-          String link = getTextValue(result, "link");
-          Double price = parsePriceValue(result);
+          String url = result.path("link").asText();
+          String title = result.path("title").asText();
+          String priceStr = result.path("price").asText();
+          String description = result.path("snippet").asText();
 
-          if (title != null && link != null) {
-            results.add(new SearchResult(title, link, price, "GOOGLE_SHOPPING"));
+          // Parse price from string like "$19.99"
+          Double price = null;
+          if (!priceStr.isEmpty()) {
+            try {
+              price = Double.parseDouble(priceStr.replaceAll("[^0-9.]", ""));
+            } catch (NumberFormatException e) {
+              log.debug("Could not parse price: {}", priceStr);
+            }
+          }
+
+          if (!url.isEmpty() && !title.isEmpty()) {
+            SearchResult searchResult = new SearchResult(url, title, price, description);
+            searchResult.setProvider("SerpAPI");
+            results.add(searchResult);
           }
         }
       }
 
-      log.info("Parsed {} search results from SerpAPI response", results.size());
+      log.info("Parsed {} results from SerpAPI", results.size());
 
     } catch (Exception e) {
       log.error("Error parsing SerpAPI response: {}", e.getMessage(), e);
     }
 
     return results;
-  }
-
-  private String getTextValue(JsonNode node, String fieldName) {
-    JsonNode field = node.get(fieldName);
-    return field != null && !field.isNull() ? field.asText() : null;
-  }
-
-  private Double parsePriceValue(JsonNode result) {
-    try {
-      // Try different price fields that SerpAPI might return
-      JsonNode priceNode = result.get("price");
-      if (priceNode != null && !priceNode.isNull()) {
-        String priceText = priceNode.asText();
-        // Remove currency symbols and parse
-        String numericPrice = priceText.replaceAll("[^0-9.]", "");
-        if (!numericPrice.isEmpty()) {
-          return Double.parseDouble(numericPrice);
-        }
-      }
-
-      // Try extracted_price field
-      JsonNode extractedPrice = result.get("extracted_price");
-      if (extractedPrice != null && !extractedPrice.isNull()) {
-        return extractedPrice.asDouble();
-      }
-
-    } catch (NumberFormatException e) {
-      log.debug("Could not parse price from result: {}", result);
-    }
-
-    return null;
   }
 
   @Override
@@ -199,5 +190,32 @@ public class SerpApiSearchClient implements SearchClient {
   @Override
   public String getProviderName() {
     return "SerpAPI (Google Shopping)";
+  }
+
+  @Override
+  public double getCostPerSearch() {
+    return 0.015; // $0.015 per search (expensive)
+  }
+
+  @Override
+  public int getPriority() {
+    return 3; // Lower priority due to high cost
+  }
+
+  @Override
+  public boolean supportsVolume(int requestsPerDay) {
+    return true; // SerpAPI supports high volume but expensive
+  }
+
+  @Override
+  public Map<String, Object> getProviderConfig() {
+    Map<String, Object> config = new HashMap<>();
+    config.put("provider", "serpapi");
+    config.put("baseUrl", baseUrl);
+    config.put("costPerSearch", getCostPerSearch());
+    config.put("maxResults", serpapiMaxResults);
+    config.put("globalMaxResults", defaultMaxResults);
+    config.put("enabled", isEnabled());
+    return config;
   }
 }

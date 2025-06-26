@@ -726,7 +726,7 @@ const AdminPage: React.FC = () => {
 
   // Show password dialog if not authenticated
   if (!isAuthenticated) {
-    return (
+  return (
       <Dialog 
         open={isPasswordDialogOpen} 
         onClose={() => {}} 
@@ -756,13 +756,13 @@ const AdminPage: React.FC = () => {
         <DialogContent sx={{ pt: 2 }}>
           <Typography variant="body1" sx={{ mb: 3, color: 'text.secondary' }}>
             This is the admin panel for ShopGauge. Please enter the admin password to continue.
-          </Typography>
-          
+      </Typography>
+
           {isLocked && (
             <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>
               <Typography variant="body2" fontWeight="500" sx={{ mb: 0.5 }}>
                 Account Temporarily Locked
-              </Typography>
+        </Typography>
               <Typography variant="body2">
                 Too many failed attempts. Try again in {Math.ceil((lockoutEnd - Date.now()) / 1000 / 60)} minutes.
               </Typography>
@@ -804,7 +804,7 @@ const AdminPage: React.FC = () => {
           </Paper>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3 }}>
-          <Button 
+          <Button
             onClick={handlePasswordSubmit}
             variant="contained"
             disabled={!password || isLocked || password.length < 8}
@@ -841,7 +841,7 @@ const AdminPage: React.FC = () => {
                 <Typography variant="body2" color="text.secondary">
                   Monitor system access and compliance activities
                 </Typography>
-              </Box>
+        </Box>
             </Box>
             <Stack direction="row" spacing={2}>
               <Button
@@ -951,7 +951,7 @@ const AdminPage: React.FC = () => {
                   <Typography variant="body2" color="text.secondary">
                     Active Sessions
                   </Typography>
-                </Paper>
+      </Paper>
                 <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'white', borderRadius: 2 }}>
                   <Typography variant="h4" color="secondary.main" fontWeight="bold">
                     {sessionStats.shopsWithMultipleSessions || 0}
@@ -1118,8 +1118,8 @@ const AdminPage: React.FC = () => {
                   
                   <TableContainer sx={{ borderRadius: 2, border: '1px solid #e0e0e0' }}>
                     <StyledTable size="small">
-                      <TableHead>
-                        <TableRow>
+          <TableHead>
+            <TableRow>
                           <TableCell>Timestamp</TableCell>
                           <TableCell>Shop Domain</TableCell>
                           <TableCell>Category</TableCell>
@@ -1127,9 +1127,9 @@ const AdminPage: React.FC = () => {
                           <TableCell>IP Address</TableCell>
                           <TableCell>Device Info</TableCell>
                           <TableCell>Status</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
+            </TableRow>
+          </TableHead>
+          <TableBody>
                         {activeShops.map((shop, index) => (
                           <TableRow 
                             key={`${shop.shopDomain}-${index}`}
@@ -1139,7 +1139,7 @@ const AdminPage: React.FC = () => {
                               borderLeft: `4px solid #16a34a20`
                             }}
                           >
-                            <TableCell>
+                <TableCell>
                               <Box display="flex" alignItems="center" gap={1}>
                                 <AccessTimeIcon fontSize="small" sx={{ color: 'text.secondary' }} />
                                 <Typography variant="body2" sx={{ 
@@ -1208,8 +1208,8 @@ const AdminPage: React.FC = () => {
                                   )}
                                 </Typography>
                               </Tooltip>
-                            </TableCell>
-                            <TableCell>
+                </TableCell>
+                <TableCell>
                               <Typography variant="body2" sx={{ 
                                 fontFamily: 'monospace', 
                                 fontSize: '0.8rem',
@@ -1314,8 +1314,8 @@ const AdminPage: React.FC = () => {
                   </Typography>
                   {deletedShopsError}
                 </Alert>
-              ) : (
-                <>
+                  ) : (
+                    <>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                     Showing {deletedShops.length} deleted shops
                   </Typography>
@@ -1440,9 +1440,9 @@ const AdminPage: React.FC = () => {
                                   {shop.action || 'DELETED'}
                                 </Typography>
                               </Box>
-                            </TableCell>
-                          </TableRow>
-                        ))}
+                </TableCell>
+              </TableRow>
+            ))}
                         {deletedShops.length === 0 && (
                           <TableRow>
                             <TableCell colSpan={7} sx={{ textAlign: 'center', py: 8 }}>
@@ -1458,9 +1458,9 @@ const AdminPage: React.FC = () => {
                             </TableCell>
                           </TableRow>
                         )}
-                      </TableBody>
+          </TableBody>
                     </StyledTable>
-                  </TableContainer>
+      </TableContainer>
                 </>
               )}
             </>
@@ -1502,7 +1502,7 @@ const AdminPage: React.FC = () => {
                     Unable to Load Audit Logs
                   </Typography>
                   {auditError}
-                </Alert>
+        </Alert>
               ) : (
                 <>
                   <TableContainer sx={{ borderRadius: 2, border: '1px solid #e0e0e0' }}>
@@ -1553,7 +1553,7 @@ const AdminPage: React.FC = () => {
                                     second: '2-digit'
                                   })}
                                 </Typography>
-                              </Box>
+    </Box>
                             </TableCell>
                             <TableCell>
                               <Box display="flex" alignItems="center" gap={1}>

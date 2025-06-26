@@ -67,16 +67,16 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
   console.log('API: Fetching:', fullUrl);
   
   try {
-    const response = await fetch(fullUrl, {
-      ...options,
-      credentials: 'include',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
-    });
-    console.log('API: Response status:', response.status, fullUrl);
+  const response = await fetch(fullUrl, {
+    ...options,
+    credentials: 'include',
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+  console.log('API: Response status:', response.status, fullUrl);
     
     // Handle 502 Bad Gateway or other 5xx errors
     if (response.status === 502 || (response.status >= 500 && response.status < 600)) {
@@ -106,7 +106,7 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
       throw new Error('Authentication required');
     }
     
-    return response;
+  return response;
   } catch (error: any) {
     console.error('API: Request failed for', fullUrl, ':', error);
     
@@ -230,6 +230,34 @@ export async function getCompetitorSuggestions(page: number = 0, size: number = 
 export async function getSuggestionCount(): Promise<{ newSuggestions: number }> {
   const res = await fetch(`${API_BASE_URL}/api/competitors/suggestions/count`, defaultOptions);
   return handleResponse<{ newSuggestions: number }>(res);
+}
+
+// Manual refresh endpoint for forcing fresh data
+export async function refreshSuggestionCount(): Promise<{ newSuggestions: number }> {
+  const res = await fetch(`${API_BASE_URL}/api/competitors/suggestions/refresh-count`, {
+    ...defaultOptions,
+    method: 'POST',
+  });
+  return handleResponse<{ newSuggestions: number }>(res);
+}
+
+// Debounced version of getSuggestionCount
+let countDebounceTimer: NodeJS.Timeout | null = null;
+export function getDebouncedSuggestionCount(): Promise<{ newSuggestions: number }> {
+  return new Promise((resolve, reject) => {
+    if (countDebounceTimer) {
+      clearTimeout(countDebounceTimer);
+    }
+    
+    countDebounceTimer = setTimeout(async () => {
+      try {
+        const result = await getSuggestionCount();
+        resolve(result);
+      } catch (error) {
+        reject(error);
+      }
+    }, 300); // 300ms debounce
+  });
 }
 
 export async function approveSuggestion(id: number): Promise<{ message: string }> {

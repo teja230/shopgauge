@@ -3,13 +3,13 @@ package com.storesight.backend.controller;
 import com.storesight.backend.model.CompetitorSuggestion;
 import com.storesight.backend.repository.CompetitorSuggestionRepository;
 import com.storesight.backend.service.discovery.CompetitorDiscoveryService;
+import com.storesight.backend.service.discovery.MultiSourceSearchClient;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -19,12 +19,42 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
+
 @RestController
 @RequestMapping("/api")
 public class CompetitorController {
+
+  private static final Logger log = LoggerFactory.getLogger(CompetitorController.class);
+
   @Autowired private JdbcTemplate jdbcTemplate;
   @Autowired private CompetitorSuggestionRepository suggestionRepository;
-  @Autowired private CompetitorDiscoveryService discoveryService;
+
+  @Autowired(required = false)
+  private CompetitorDiscoveryService discoveryService;
+
+  // Cache for debouncing frequent count requests
+  private final Map<Long, CachedCount> countCache = new ConcurrentHashMap<>();
+
+  private static class CachedCount {
+    final long count;
+    final LocalDateTime timestamp;
+
+    CachedCount(long count) {
+      this.count = count;
+      this.timestamp = LocalDateTime.now();
+    }
+
+    boolean isExpired(int cacheMinutes) {
+      return ChronoUnit.MINUTES.between(timestamp, LocalDateTime.now()) > cacheMinutes;
+    }
+  }
 
   @GetMapping("/competitors")
   public List<CompetitorDto> getCompetitors() {
@@ -75,35 +105,62 @@ public class CompetitorController {
     }
   }
 
-  /** Get count of NEW suggestions for badge display */
+  /** Get count of NEW suggestions for badge display - with caching and debounce */
   @GetMapping("/competitors/suggestions/count")
+  @Cacheable(
+      value = "suggestionCounts",
+      key = "#request.remoteAddr + '_' + #request.getHeader('Cookie')",
+      unless = "#result.body.get('error') != null")
   public ResponseEntity<Map<String, Object>> getSuggestionCount(HttpServletRequest request) {
-    System.out.println("getSuggestionCount called");
-
     Long shopId = getShopIdFromRequest(request);
-    System.out.println("Shop ID from request: " + shopId);
 
     if (shopId == null) {
-      System.out.println("No shop ID found, returning 401");
       return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
           .body(Map.of("error", "Authentication required", "newSuggestions", 0L));
     }
 
     try {
-      System.out.println("Querying suggestion count for shop ID: " + shopId);
+      // Check cache for this shop (30-minute cache to reduce DB hits significantly)
+      CachedCount cached = countCache.get(shopId);
+      if (cached != null && !cached.isExpired(30)) {
+        log.debug("Returning cached suggestion count for shop {}: {}", shopId, cached.count);
+        return ResponseEntity.ok(Map.of("newSuggestions", cached.count));
+      }
+
+      // Fetch fresh count
       long newCount =
           suggestionRepository.countByShopIdAndStatus(shopId, CompetitorSuggestion.Status.NEW);
-      System.out.println("Found " + newCount + " new suggestions");
-      return ResponseEntity.ok(Map.of("newSuggestions", newCount));
-    } catch (Exception e) {
-      // Log error but return 0 count to prevent frontend errors
-      System.err.println("Error getting suggestion count: " + e.getMessage());
-      e.printStackTrace();
 
-      // Return 500 instead of 200 so we can see the actual error
+      // Update cache
+      countCache.put(shopId, new CachedCount(newCount));
+
+      // Clean up old cache entries (optional, prevents memory leaks)
+      countCache.entrySet().removeIf(entry -> entry.getValue().isExpired(60));
+
+      log.debug("Fresh suggestion count for shop {}: {}", shopId, newCount);
+      return ResponseEntity.ok(Map.of("newSuggestions", newCount));
+
+    } catch (Exception e) {
+      log.error("Error getting suggestion count for shop {}: {}", shopId, e.getMessage());
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-          .body(Map.of("error", "Database error: " + e.getMessage(), "newSuggestions", 0L));
+          .body(Map.of("error", "Database error", "newSuggestions", 0L));
     }
+  }
+
+  /** Manual refresh endpoint for forcing cache invalidation */
+  @PostMapping("/competitors/suggestions/refresh-count")
+  public ResponseEntity<Map<String, Object>> refreshSuggestionCount(HttpServletRequest request) {
+    Long shopId = getShopIdFromRequest(request);
+
+    if (shopId == null) {
+      return ResponseEntity.badRequest().body(Map.of("error", "Authentication required"));
+    }
+
+    // Clear cache for this shop
+    countCache.remove(shopId);
+
+    // Return fresh count
+    return getSuggestionCount(request);
   }
 
   /** Approve a competitor suggestion */
@@ -153,21 +210,44 @@ public class CompetitorController {
     return ResponseEntity.ok(Map.of("message", "Suggestion ignored"));
   }
 
-  /** Get discovery stats (for admin/debugging) */
+  /** Get discovery stats with provider information */
   @GetMapping("/competitors/discovery/stats")
   public ResponseEntity<Map<String, Object>> getDiscoveryStats() {
-    return ResponseEntity.ok(discoveryService.getDiscoveryStats());
+    if (discoveryService == null) {
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Discovery service not available"));
+    }
+
+    Map<String, Object> stats = discoveryService.getDiscoveryStats();
+
+    // Add provider-specific stats
+    if (discoveryService.getSearchClient() instanceof MultiSourceSearchClient) {
+      MultiSourceSearchClient multiClient =
+          (MultiSourceSearchClient) discoveryService.getSearchClient();
+      stats.put("providerStats", multiClient.getProviderStats());
+    }
+
+    return ResponseEntity.ok(stats);
   }
 
   /** Get discovery configuration */
   @GetMapping("/competitors/discovery/config")
   public ResponseEntity<Map<String, Object>> getDiscoveryConfig() {
+    if (discoveryService == null) {
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Discovery service not available"));
+    }
     return ResponseEntity.ok(discoveryService.getDiscoveryConfig());
   }
 
   /** Manually trigger discovery for a specific shop (for testing/admin use) */
   @PostMapping("/competitors/discovery/trigger/{shopId}")
   public ResponseEntity<Map<String, String>> triggerDiscovery(@PathVariable Long shopId) {
+    if (discoveryService == null) {
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Discovery service not available"));
+    }
+
     try {
       discoveryService.triggerDiscoveryForShop(shopId);
       return ResponseEntity.ok(Map.of("message", "Discovery triggered for shop ID: " + shopId));

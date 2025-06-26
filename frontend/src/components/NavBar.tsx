@@ -42,6 +42,7 @@ const NavBar: React.FC = () => {
   const [suggestionCount, setSuggestionCount] = useState(0);
   const [notificationCount, setNotificationCount] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [lastFetchTime, setLastFetchTime] = useState<number>(0);
 
   const handleLogout = () => {
     logout();
@@ -57,27 +58,39 @@ const NavBar: React.FC = () => {
     setMobileMenuOpen(!mobileMenuOpen);
   };
 
-  // Fetch suggestion count when authenticated
+  // Fetch suggestion count when authenticated - with caching and reduced frequency
   useEffect(() => {
     if (isAuthenticated) {
       const fetchSuggestionCount = async () => {
         try {
+          // Only fetch if cache is expired (30 minutes)
+          const now = Date.now();
+          const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
+          
+          if (now - lastFetchTime < CACHE_DURATION && suggestionCount > 0) {
+            return; // Use cached value
+          }
+
           const response = await getSuggestionCount();
           setSuggestionCount(response.newSuggestions);
+          setLastFetchTime(now);
         } catch (error) {
           console.error('Error fetching suggestion count:', error);
-          setSuggestionCount(0);
+          // Don't reset to 0 on error, keep last known value
         }
       };
 
+      // Initial fetch
       fetchSuggestionCount();
-      // Poll for updates every 30 seconds
-      const interval = setInterval(fetchSuggestionCount, 30000);
+      
+      // Reduced polling: every 10 minutes instead of 2 minutes for maximum cost optimization
+      const interval = setInterval(fetchSuggestionCount, 10 * 60 * 1000);
       return () => clearInterval(interval);
     } else {
       setSuggestionCount(0);
+      setLastFetchTime(0);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, lastFetchTime, suggestionCount]);
 
   const menuItems = isAuthenticated ? [
     {
@@ -238,7 +251,7 @@ const NavBar: React.FC = () => {
           <InsightsIcon sx={{ mr: 1, fontSize: 28 }} />
           <Typography variant="h6" component="div" sx={{ fontWeight: 600 }}>
             ShopGauge
-          </Typography>
+        </Typography>
         </Box>
           
           <Box sx={{ flexGrow: 1 }} />
@@ -277,18 +290,18 @@ const NavBar: React.FC = () => {
                 color="error"
                 invisible={suggestionCount === 0}
               >
-                <Button
-                  color="inherit"
+              <Button
+                color="inherit"
                   onClick={() => navigate('/competitors')}
-                  sx={{
+                sx={{
                     backgroundColor: location.pathname === '/competitors' ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
                     '&:hover': {
                       backgroundColor: 'rgba(255, 255, 255, 0.12)'
                     }
-                  }}
-                >
+                }}
+              >
                   Market Intelligence
-                </Button>
+              </Button>
               </Badge>
               <Button
                 color="inherit"

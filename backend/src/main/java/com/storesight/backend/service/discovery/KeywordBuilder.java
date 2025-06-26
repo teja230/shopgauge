@@ -1,13 +1,19 @@
 package com.storesight.backend.service.discovery;
 
-import java.util.*;
-import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
+
+import java.util.Arrays;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /** Service to build search keywords from product information */
 @Component
+@ConditionalOnProperty(name = "discovery.enabled", havingValue = "true", matchIfMissing = true)
 public class KeywordBuilder {
 
   private static final Logger log = LoggerFactory.getLogger(KeywordBuilder.class);

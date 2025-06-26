@@ -2,25 +2,29 @@ package com.storesight.backend.service.discovery;
 
 import com.storesight.backend.model.CompetitorSuggestion;
 import com.storesight.backend.repository.CompetitorSuggestionRepository;
-import java.math.BigDecimal;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+
 /** Service for automatic competitor discovery */
 @Service
+@ConditionalOnProperty(name = "discovery.enabled", havingValue = "true", matchIfMissing = true)
 public class CompetitorDiscoveryService {
 
   private static final Logger log = LoggerFactory.getLogger(CompetitorDiscoveryService.class);
@@ -243,29 +247,13 @@ public class CompetitorDiscoveryService {
 
   /** Get discovery status/stats */
   public Map<String, Object> getDiscoveryStats() {
-    long totalSuggestions = suggestionRepository.count();
-
-    // Count all NEW suggestions across all shops
-    long newSuggestions =
-        jdbcTemplate.queryForObject(
-            "SELECT COUNT(*) FROM competitor_suggestions WHERE status = 'NEW'", Long.class);
-
-    // Count all APPROVED suggestions across all shops
-    long approvedSuggestions =
-        jdbcTemplate.queryForObject(
-            "SELECT COUNT(*) FROM competitor_suggestions WHERE status = 'APPROVED'", Long.class);
-
-    Map<String, Object> stats =
-        Map.of(
-            "searchClientEnabled", searchClient.isEnabled(),
-            "searchClientProvider", searchClient.getProviderName(),
-            "discoveryIntervalHours", discoveryIntervalHours,
-            "maxResultsPerProduct", maxResultsPerProduct,
-            "totalSuggestions", totalSuggestions,
-            "newSuggestions", newSuggestions,
-            "approvedSuggestions", approvedSuggestions);
-
-    log.debug("Discovery stats: {}", stats);
+    Map<String, Object> stats = new HashMap<>();
+    stats.put("enabled", searchClient.isEnabled());
+    stats.put("totalShops", jdbcTemplate.queryForObject("SELECT COUNT(*) FROM shops", Long.class));
+    stats.put("intervalHours", discoveryIntervalHours);
+    stats.put("maxResults", maxResultsPerProduct);
+    stats.put("searchProvider", searchClient.getProviderName());
+    stats.put("searchEnabled", searchClient.isEnabled());
     return stats;
   }
 
@@ -280,5 +268,10 @@ public class CompetitorDiscoveryService {
         searchClient.isEnabled(),
         "searchClientProvider",
         searchClient.getProviderName());
+  }
+
+  /** Get the search client for provider-specific operations */
+  public SearchClient getSearchClient() {
+    return searchClient;
   }
 }

@@ -147,7 +147,7 @@ graph TB
     style Shopify fill:#fff3e0
     style Discovery fill:#ffebee
     style Sessions fill:#f1f8e9
-```
+``` 
 
 ## 🔄 Multi-Session Architecture
 
@@ -188,7 +188,7 @@ sequenceDiagram
     Backend->>User2: Analytics Data
     
     Note over Database: No data conflicts or loss
-```
+``` 
 
 ## 🔌 API Architecture
 
@@ -321,14 +321,14 @@ CREATE TABLE audit_logs (
 ### Local Development Setup
 
 1. **Clone the repository**
-   ```bash
+```bash
    git clone https://github.com/your-username/storesight.git
-   cd storesight
-   ```
+cd storesight
+```
 
 2. **Set up environment variables**
    ```bash
-   cp .env.example .env
+   cp config/.env.example .env
    # Edit .env with your actual values
    ```
 
@@ -340,23 +340,23 @@ CREATE TABLE audit_logs (
    ```
 
 4. **Run database migrations**
-   ```bash
-   cd backend
+```bash
+cd backend
    ./gradlew flywayMigrate
    ```
 
 5. **Start the backend**
    ```bash
    cd backend
-   ./gradlew bootRun
-   ```
+./gradlew bootRun
+```
 
 6. **Start the frontend**
-   ```bash
-   cd frontend
-   npm install
-   npm run dev
-   ```
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
 7. **Access the local development environment**
    - Frontend: http://localhost:5173

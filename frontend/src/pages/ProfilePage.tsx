@@ -192,8 +192,8 @@ export default function ProfilePage() {
             duration: 3000
           });
           
-          // Use the AuthContext logout function which properly handles state clearing
-          await logout();
+      // Use the AuthContext logout function which properly handles state clearing
+      await logout();
           
           notifications.showSuccess('Store disconnected successfully!', {
             persistent: true,
@@ -204,13 +204,13 @@ export default function ProfilePage() {
           setTimeout(() => {
             navigate('/');
           }, 1500);
-        } catch (error) {
-          console.error('Error disconnecting shop:', error);
+    } catch (error) {
+      console.error('Error disconnecting shop:', error);
           notifications.showError('Failed to disconnect store', {
             persistent: true,
             category: 'Store Connection'
           });
-        }
+    }
       }
     });
   };
@@ -225,36 +225,36 @@ export default function ProfilePage() {
       onConfirm: async () => {
         setConfirmDialog(prev => ({ ...prev, isOpen: false }));
         
-        setIsForceDisconnecting(true);
-        console.log('Force disconnect: Starting with shop:', shop);
-        
-        if (!shop) {
+    setIsForceDisconnecting(true);
+    console.log('Force disconnect: Starting with shop:', shop);
+    
+    if (!shop) {
           notifications.showError('No shop found to disconnect', {
             category: 'Store Connection'
           });
-          setIsForceDisconnecting(false);
-          return;
-        }
-        
-        try {
+      setIsForceDisconnecting(false);
+      return;
+    }
+    
+    try {
           notifications.showInfo('Force disconnecting...', {
             category: 'Store Connection',
             duration: 5000
           });
           
-          console.log('Force disconnect: Calling API with shop:', shop);
+      console.log('Force disconnect: Calling API with shop:', shop);
           const res = await fetch(`${API_BASE_URL}/api/auth/shopify/profile/force-disconnect`, {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ shop }),
-          });
-          
-          console.log('Force disconnect: Response status:', res.status);
-          const data = await res.json();
-          console.log('Force disconnect: Response data:', data);
-          
-          if (res.ok) {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shop }),
+      });
+      
+      console.log('Force disconnect: Response status:', res.status);
+      const data = await res.json();
+      console.log('Force disconnect: Response data:', data);
+      
+      if (res.ok) {
             // Clear all caches
             sessionStorage.clear();
             localStorage.clear();
@@ -264,29 +264,29 @@ export default function ProfilePage() {
               category: 'Store Connection',
               duration: 8000
             });
-            console.log('Force disconnect: Success, redirecting to home');
+        console.log('Force disconnect: Success, redirecting to home');
             
             // Redirect after a delay
-            setTimeout(() => {
+        setTimeout(() => {
               navigate('/');
               window.location.reload(); // Force full page reload to clear any remaining state
             }, 2000);
-          } else {
-            console.error('Force disconnect: API error:', data);
+      } else {
+        console.error('Force disconnect: API error:', data);
             notifications.showError('Force disconnect failed: ' + (data?.message || 'Unknown error'), {
               persistent: true,
               category: 'Store Connection'
             });
-          }
-        } catch (error) {
-          console.error('Force disconnect: Network error:', error);
+      }
+    } catch (error) {
+      console.error('Force disconnect: Network error:', error);
           notifications.showError('Force disconnect failed: Network error', {
             persistent: true,
             category: 'Store Connection'
           });
-        } finally {
-          setIsForceDisconnecting(false);
-        }
+    } finally {
+      setIsForceDisconnecting(false);
+    }
       }
     });
   };
@@ -580,7 +580,7 @@ export default function ProfilePage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Left Column - Store Details */}
         <div className="space-y-6">
-              <div>
+          <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Current Store</label>
               <div className="flex items-center space-x-3">
                 <div className="flex-1 bg-gray-50 px-4 py-3 rounded-lg border border-gray-200">
@@ -589,10 +589,10 @@ export default function ProfilePage() {
                 <div className={`flex items-center ${getConnectionStatusColor()}`}>
                   <span className="text-lg mr-2">{getConnectionStatusIcon()}</span>
                   <span className="text-sm font-medium capitalize">{connectionStatus}</span>
-                  </div>
-                </div>
-              </div>
-              
+          </div>
+        </div>
+      </div>
+
               <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Connection Status</label>
               <div className="flex items-center space-x-3">
@@ -1076,8 +1076,8 @@ export default function ProfilePage() {
                       <circle cx="50" cy="50" r="40" fill="currentColor" />
                       <path d="M30 50l10 10 30-30" stroke="white" strokeWidth="4" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
-                  </div>
-                  
+                </div>
+                
                   <div className="relative z-10">
                     <div className="flex items-center justify-between mb-4">
                       <h4 className="text-xl font-bold text-green-800 flex items-center">
@@ -1163,8 +1163,8 @@ export default function ProfilePage() {
                     <div className="bg-gray-50 p-4 rounded-xl">
                       <h5 className="font-medium text-gray-800 mb-2">Data Encryption</h5>
                     <p className="text-sm text-gray-600">{privacyReport.encryption}</p>
-                    </div>
                   </div>
+                </div>
                 </div>
                 
                 {/* Access Statistics */}
@@ -1178,17 +1178,17 @@ export default function ProfilePage() {
                       <div className="text-3xl font-bold text-blue-600">{privacyReport.audit_logs_today || 0}</div>
                       <div className="text-sm text-blue-500">Today's Events</div>
                       <div className="text-xs text-blue-400 mt-1">Data access logs</div>
-                    </div>
+                </div>
                     <div className="text-center">
                       <div className="text-3xl font-bold text-indigo-600">{privacyReport.total_weekly_access_events || 0}</div>
                       <div className="text-sm text-indigo-500">7-Day Total</div>
                       <div className="text-xs text-indigo-400 mt-1">Weekly activity</div>
-                    </div>
+              </div>
                     <div className="text-center">
                       <div className="text-3xl font-bold text-purple-600">{privacyReport.recent_audit_activity || 0}</div>
                       <div className="text-sm text-purple-500">30-Day Total</div>
                       <div className="text-xs text-purple-400 mt-1">Monthly activity</div>
-                    </div>
+            </div>
                     <div className="text-center">
                       <div className="text-3xl font-bold text-green-600">100%</div>
                       <div className="text-sm text-green-500">Compliance Rate</div>
@@ -1207,10 +1207,10 @@ export default function ProfilePage() {
                             <span className="text-blue-600 font-bold">{count}</span>
                           </div>
                         ))}
-                      </div>
-                    </div>
-                  )}
-                  
+          </div>
+        </div>
+      )}
+
                   <div className="mt-3 text-xs text-blue-600">
                     <strong>Note:</strong> Access events include revenue queries, order data requests, exports, and analytics operations. 
                     All data access is automatically logged for transparency and compliance monitoring.
@@ -1224,7 +1224,7 @@ export default function ProfilePage() {
                     Additional Information
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                    <div>
+          <div>
                       <p className="font-medium text-gray-700 mb-2">Data Categories Processed:</p>
                       <ul className="text-gray-600 space-y-1">
                         <li>• Order and transaction data</li>
@@ -1241,10 +1241,10 @@ export default function ProfilePage() {
                         <li>• Automated data retention cleanup</li>
                         <li>• Comprehensive audit logging</li>
                       </ul>
-                    </div>
-                  </div>
-                </div>
-                
+          </div>
+        </div>
+      </div>
+
                 <div className="border-t pt-4">
                   <div className="text-xs text-gray-500 flex justify-between items-center">
                     <span>Report generated: {new Date(privacyReport.last_updated).toLocaleString()}</span>
@@ -1292,7 +1292,7 @@ export default function ProfilePage() {
                 </svg>
               Disconnect Store
             </button>
-            </div>
+          </div>
           </div>
 
           {/* Force Disconnect */}
@@ -1345,12 +1345,12 @@ export default function ProfilePage() {
                     Force Disconnect
                   </>
                 )}
-              </button>
-            </div>
+            </button>
           </div>
-
-
         </div>
+
+
+      </div>
       </div>
 
       {/* Confirmation Dialog */}
