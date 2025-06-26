@@ -360,96 +360,6 @@
        }
      }
   </style>
-  <script type="text/javascript">
-    (function() {
-      try {
-        var path = window.location.pathname + window.location.search + window.location.hash;
-        
-        // Avoid infinite redirect loops
-        if (path === '/' || path.startsWith('/?redirect=') || path === '/index.html') {
-          if (path === '/index.html') {
-            console.log('404: Redirecting from index.html to root');
-            window.location.replace('/');
-          }
-          return;
-        }
-        
-        console.log('404: Processing path:', path);
-        
-        // Check if this is a known valid route (shouldn't happen with proper _redirects)
-        var validRoutes = ['/dashboard', '/competitors', '/admin', '/profile', '/privacy-policy'];
-        var cleanPath = path.split('?')[0].split('#')[0];
-        
-        if (validRoutes.includes(cleanPath)) {
-          // Valid route ended up here - redirect immediately without showing 404
-          console.log('404: Valid route detected, redirecting immediately');
-          // Hide the 404 content immediately
-          document.body.style.display = 'none';
-          // Redirect immediately
-          window.location.replace('/?redirect=' + encodeURIComponent(path));
-          return;
-        }
-        
-        // Invalid route - show 404 and redirect after delay
-        console.log('404: Invalid route, showing 404 page');
-        
-        // Show the 404 content for invalid routes
-        document.body.classList.add('show-content');
-        
-        // Simple auth check for redirect destination
-        var isAuthenticated = false;
-        var dashboardCache = sessionStorage.getItem('dashboard_cache_v1.1') || sessionStorage.getItem('dashboard_cache_v2');
-        if (dashboardCache) {
-          try {
-            var cache = JSON.parse(dashboardCache);
-            if (cache.timestamp && (Date.now() - new Date(cache.timestamp).getTime()) < 6 * 60 * 60 * 1000) {
-              isAuthenticated = true;
-            }
-          } catch (e) {
-            // Ignore cache parsing errors
-          }
-        }
-            
-        var redirectUrl = isAuthenticated ? '/dashboard' : '/';
-        var destination = isAuthenticated ? 'dashboard' : 'homepage';
-            
-        // Update UI
-        var descriptionEl = document.getElementById('page-description');
-        var countdownEl = document.getElementById('countdown-text');
-        
-        if (descriptionEl) {
-          descriptionEl.textContent = "The page you're looking for doesn't exist or has been moved. We'll redirect you to the " + destination + " automatically.";
-        }
-        
-        // Start countdown
-        var countdown = 10;
-        function updateCountdown() {
-          if (countdownEl) {
-            countdownEl.textContent = 'Redirecting to ' + destination + ' in ' + countdown + ' seconds...';
-          }
-          
-          countdown--;
-          if (countdown < 0) {
-            console.log('404: Redirecting to', redirectUrl);
-            window.location.href = redirectUrl;
-          } else {
-            setTimeout(updateCountdown, 1000);
-          }
-        }
-        
-        // Start the countdown immediately
-        updateCountdown();
-        
-      } catch (e) {
-        console.error('404 Error:', e);
-        // Show content and fallback redirect
-        document.body.classList.add('show-content');
-        setTimeout(function() {
-          window.location.replace('/');
-        }, 2000);
-      }
-    })();
-  </script>
 </head>
 <body>
   <div class="container">
@@ -514,5 +424,119 @@
       </div>
     </noscript>
   </div>
+
+  <script type="text/javascript">
+    (function() {
+      // Wait for DOM to be ready
+      function domReady(fn) {
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', fn);
+        } else {
+          fn();
+        }
+      }
+      
+      domReady(function() {
+        try {
+          // Ensure document.body exists
+          if (!document.body) {
+            console.error('404: Document body not available');
+            return;
+          }
+          
+          var path = window.location.pathname + window.location.search + window.location.hash;
+          
+          // Avoid infinite redirect loops
+          if (path === '/' || path.startsWith('/?redirect=') || path === '/index.html') {
+            if (path === '/index.html') {
+              console.log('404: Redirecting from index.html to root');
+              window.location.replace('/');
+            }
+            return;
+          }
+          
+          console.log('404: Processing path:', path);
+          
+          // Check if this is a known valid route (shouldn't happen with proper _redirects)
+          var validRoutes = ['/dashboard', '/competitors', '/admin', '/profile', '/privacy-policy'];
+          var cleanPath = path.split('?')[0].split('#')[0];
+          
+          if (validRoutes.includes(cleanPath)) {
+            // Valid route ended up here - redirect immediately without showing 404
+            console.log('404: Valid route detected, redirecting immediately');
+            // Hide the 404 content immediately
+            if (document.body && document.body.style) {
+              document.body.style.display = 'none';
+            }
+            // Redirect immediately
+            window.location.replace('/?redirect=' + encodeURIComponent(path));
+            return;
+          }
+          
+          // Invalid route - show 404 and redirect after delay
+          console.log('404: Invalid route, showing 404 page');
+          
+          // Show the 404 content for invalid routes
+          if (document.body && document.body.classList) {
+            document.body.classList.add('show-content');
+          }
+          
+          // Simple auth check for redirect destination
+          var isAuthenticated = false;
+          var dashboardCache = sessionStorage.getItem('dashboard_cache_v1.1') || sessionStorage.getItem('dashboard_cache_v2');
+          if (dashboardCache) {
+            try {
+              var cache = JSON.parse(dashboardCache);
+              if (cache.timestamp && (Date.now() - new Date(cache.timestamp).getTime()) < 6 * 60 * 60 * 1000) {
+                isAuthenticated = true;
+              }
+            } catch (e) {
+              // Ignore cache parsing errors
+            }
+          }
+              
+          var redirectUrl = isAuthenticated ? '/dashboard' : '/';
+          var destination = isAuthenticated ? 'dashboard' : 'homepage';
+              
+          // Update UI
+          var descriptionEl = document.getElementById('page-description');
+          var countdownEl = document.getElementById('countdown-text');
+          
+          if (descriptionEl) {
+            descriptionEl.textContent = "The page you're looking for doesn't exist or has been moved. We'll redirect you to the " + destination + " automatically.";
+          }
+          
+          // Start countdown
+          var countdown = 10;
+          function updateCountdown() {
+            if (countdownEl) {
+              countdownEl.textContent = 'Redirecting to ' + destination + ' in ' + countdown + ' seconds...';
+            }
+            
+            countdown--;
+            if (countdown < 0) {
+              console.log('404: Redirecting to', redirectUrl);
+              window.location.href = redirectUrl;
+            } else {
+              setTimeout(updateCountdown, 1000);
+            }
+          }
+          
+          // Start the countdown immediately
+          updateCountdown();
+          
+        } catch (e) {
+          console.error('404 Error:', e);
+          // Show content and fallback redirect
+          if (document.body && document.body.classList) {
+            document.body.classList.add('show-content');
+          }
+          setTimeout(function() {
+            window.location.replace('/');
+          }, 2000);
+        }
+      });
+    })();
+  </script>
 </body>
 </html> 
