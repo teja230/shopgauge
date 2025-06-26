@@ -102,6 +102,23 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   );
 };
 
+// Custom hook for responsive design
+const useIsMobile = () => {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkIsMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    checkIsMobile();
+    window.addEventListener('resize', checkIsMobile);
+    return () => window.removeEventListener('resize', checkIsMobile);
+  }, []);
+
+  return isMobile;
+};
+
 export const NotificationCenter: React.FC<NotificationCenterProps> = ({ 
   onNotificationCountChange,
   position = 'top-right'
@@ -120,6 +137,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     onConfirm: () => {},
   });
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
   
   const {
     notifications,
@@ -175,7 +193,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
       message: 'Are you sure you want to clear all notifications? This action cannot be undone.',
       type: 'warning',
       onConfirm: () => {
-        clearAll();
+      clearAll();
         setConfirmDialog(prev => ({ ...prev, isOpen: false }));
       }
     });
@@ -216,7 +234,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
 
       // For very recent notifications (< 1 hour), show relative time
       if (diffInHours < 1) {
-        return formatDistanceToNow(date, { addSuffix: true });
+      return formatDistanceToNow(date, { addSuffix: true });
       }
       
       // For notifications from today, show time
@@ -261,187 +279,227 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
 
   return (
     <>
-      <div className="relative" ref={dropdownRef}>
-        {/* Notification Bell Button */}
-        <button
-          onClick={() => setIsOpen(!isOpen)}
+    <div className="relative" ref={dropdownRef}>
+      {/* Notification Bell Button */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
           className="relative p-2 text-white bg-transparent hover:text-gray-200 hover:bg-white/10 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white/50 focus:ring-offset-0"
-          aria-label={`Notifications ${unreadCount > 0 ? `(${unreadCount} unread)` : ''}`}
-        >
+        aria-label={`Notifications ${unreadCount > 0 ? `(${unreadCount} unread)` : ''}`}
+      >
           {/* Change bell color when there are unread notifications */}
           <Bell className={`w-6 h-6 ${unreadCount > 0 ? 'text-red-400' : 'text-white'}`} />
-          {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[20px] h-5 flex items-center justify-center font-medium animate-pulse">
-              {unreadCount > 99 ? '99+' : unreadCount}
-            </span>
-          )}
-        </button>
+        {unreadCount > 0 && (
+          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[20px] h-5 flex items-center justify-center font-medium animate-pulse">
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </span>
+        )}
+      </button>
 
-        {/* Notification Dropdown */}
-        {isOpen && (
-            <div 
-              className="absolute w-96 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden"
-              style={getDropdownPosition()}
-            >
-              {/* Header with theme colors */}
-              <div className="px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Bell className="w-5 h-5" />
-                    <h3 className="font-semibold">Notifications</h3>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={fetchNotifications}
-                      className="p-1 hover:bg-white/20 rounded-lg transition-colors"
-                      title="Refresh notifications"
-                    >
-                      <RefreshCw className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => setIsOpen(false)}
-                      className="p-1 hover:bg-white/20 rounded-lg transition-colors"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-                {unreadCount > 0 && (
-                  <p className="text-xs text-blue-100 mt-1 flex items-center gap-1">
-                    <span className="w-2 h-2 bg-red-400 rounded-full animate-pulse"></span>
-                    {unreadCount} unread message{unreadCount !== 1 ? 's' : ''}
-                  </p>
-                )}
+      {/* Notification Dropdown */}
+      {isOpen && (
+        <div 
+          className={`absolute bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden ${
+            // Mobile responsive width and positioning
+            isMobile 
+              ? 'w-[calc(100vw-2rem)] max-w-sm left-1/2 transform -translate-x-1/2' 
+              : 'w-96'
+          }`}
+          style={{
+            ...getDropdownPosition(),
+            // Ensure proper mobile positioning
+            ...(isMobile && position === 'top-right' ? {
+              right: 'auto',
+              left: '50%',
+              transform: 'translateX(-50%)'
+            } : {})
+          }}
+        >
+          {/* Header with theme colors */}
+          <div className="px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white">
+          <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Bell className="w-5 h-5" />
+            <h3 className="font-semibold">Notifications</h3>
               </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={fetchNotifications}
+                  className="p-1 hover:bg-white/20 rounded-lg transition-colors"
+                  title="Refresh notifications"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </button>
+            <button
+              onClick={() => setIsOpen(false)}
+              className="p-1 hover:bg-white/20 rounded-lg transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+              </div>
+          </div>
+          {unreadCount > 0 && (
+              <p className="text-xs text-blue-100 mt-1 flex items-center gap-1">
+                <span className="w-2 h-2 bg-red-400 rounded-full animate-pulse"></span>
+              {unreadCount} unread message{unreadCount !== 1 ? 's' : ''}
+            </p>
+          )}
+        </div>
 
-              {/* Content with proper scrolling */}
-              <div className="max-h-96 overflow-y-auto notification-center-content">
-                {loading ? (
-                  <div className="p-8 text-center">
-                    <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-                    <p className="mt-3 text-gray-500 text-sm">Loading notifications...</p>
-                  </div>
-                ) : error ? (
-                  <div className="p-6 text-center">
-                    <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-3" />
-                    <p className="text-red-600 font-medium text-sm mb-2">Failed to load notifications</p>
-                    <p className="text-gray-500 text-xs mb-4">{error}</p>
-                    <button
-                      onClick={fetchNotifications}
-                      className="px-4 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2 mx-auto"
-                    >
-                      <RefreshCw className="w-4 h-4" />
-                      Try Again
-                    </button>
-                  </div>
-                ) : notifications.length === 0 ? (
-                  <div className="p-8 text-center">
-                    <Bell className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500 font-medium text-sm">All clear!</p>
-                    <p className="text-gray-400 text-xs mt-1">No notifications to show</p>
-                  </div>
-                ) : (
-                  <>
-                    {notifications.map((notification, index) => (
-                      <div
-                        key={notification.id}
-                        className={`border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors ${
-                          !notification.read ? 'bg-blue-50/30 border-l-4 border-l-blue-500' : ''
-                        }`}
-                      >
-                        <div className="p-4">
-                          <div className="flex items-start gap-3">
-                            {getNotificationIcon(notification.type)}
-                            
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-start justify-between gap-2 mb-2">
-                                <p className={`text-sm leading-5 ${
-                                  !notification.read ? 'font-medium text-gray-900' : 'text-gray-700'
-                                }`}>
-                                  {notification.message}
-                                </p>
-                                {!notification.read && (
-                                  <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></span>
-                                )}
-                              </div>
-                              
-                              {notification.category && (
-                                <span className="inline-block px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-full mb-2">
-                                  {notification.category}
-                                </span>
-                              )}
-                              
-                              <div className="flex items-center justify-between">
-                                <span className="text-xs text-gray-500 flex items-center gap-1">
-                                  <Clock className="w-3 h-3" />
-                                  {formatTimestamp(notification.createdAt)}
-                                </span>
-                                
-                                <div className="flex items-center gap-2">
-                                  {!notification.read && (
-                                    <button
-                                      onClick={() => markAsRead(notification.id)}
-                                      className="text-xs text-blue-600 hover:text-blue-700 font-medium px-2 py-1 rounded hover:bg-blue-50 transition-colors"
-                                    >
-                                      Mark read
-                                    </button>
-                                  )}
-                                  <button
-                                    onClick={() => handleDeleteNotification(notification.id, notification.message)}
-                                    className="text-gray-400 hover:text-red-500 transition-colors p-1 rounded hover:bg-red-50"
-                                    title="Delete notification"
-                                  >
-                                    <X className="w-3 h-3" />
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
+          {/* Content with proper scrolling */}
+          <div className={`overflow-y-auto notification-center-content ${
+            // Mobile responsive height
+            isMobile ? 'max-h-[60vh]' : 'max-h-96'
+          }`}>
+          {loading ? (
+            <div className="p-8 text-center">
+                <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                <p className="mt-3 text-gray-500 text-sm">Loading notifications...</p>
+            </div>
+          ) : error ? (
+            <div className="p-6 text-center">
+              <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-3" />
+                <p className="text-red-600 font-medium text-sm mb-2">Failed to load notifications</p>
+                <p className="text-gray-500 text-xs mb-4">{error}</p>
+              <button
+                onClick={fetchNotifications}
+                  className="px-4 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2 mx-auto"
+              >
+                  <RefreshCw className="w-4 h-4" />
+                  Try Again
+              </button>
+            </div>
+          ) : notifications.length === 0 ? (
+            <div className="p-8 text-center">
+                <Bell className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500 font-medium text-sm">All clear!</p>
+              <p className="text-gray-400 text-xs mt-1">No notifications to show</p>
+            </div>
+          ) : (
+            <>
+                {notifications.map((notification, index) => (
+                <div
+                  key={notification.id}
+                    className={`border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors ${
+                      !notification.read ? 'bg-blue-50/30 border-l-4 border-l-blue-500' : ''
+                  }`}
+                >
+                  <div className={`${isMobile ? 'p-5' : 'p-4'}`}>
+                    <div className="flex items-start gap-3">
+                      {getNotificationIcon(notification.type)}
+                      
+                      <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                        <p className={`${isMobile ? 'text-base' : 'text-sm'} leading-5 ${
+                          !notification.read ? 'font-medium text-gray-900' : 'text-gray-700'
+                        }`}>
+                          {notification.message}
+                        </p>
+                            {!notification.read && (
+                              <span className={`bg-blue-500 rounded-full mt-2 flex-shrink-0 ${
+                                isMobile ? 'w-3 h-3' : 'w-2 h-2'
+                              }`}></span>
+                            )}
+                          </div>
+                          
+                          {notification.category && (
+                            <span className={`inline-block px-2 py-1 bg-gray-100 text-gray-600 rounded-full mb-2 ${
+                              isMobile ? 'text-sm' : 'text-xs'
+                            }`}>
+                              {notification.category}
+                            </span>
+                          )}
+                          
+                          <div className="flex items-center justify-between">
+                            <span className={`text-gray-500 flex items-center gap-1 ${
+                              isMobile ? 'text-sm' : 'text-xs'
+                            }`}>
+                              <Clock className={`${isMobile ? 'w-4 h-4' : 'w-3 h-3'}`} />
+                            {formatTimestamp(notification.createdAt)}
+                          </span>
+                          
+                          <div className="flex items-center gap-2">
+                            {!notification.read && (
+                              <button
+                                onClick={() => markAsRead(notification.id)}
+                                  className={`text-blue-600 hover:text-blue-700 font-medium rounded hover:bg-blue-50 transition-colors ${
+                                    isMobile 
+                                      ? 'text-sm px-3 py-2 min-h-[44px]' 
+                                      : 'text-xs px-2 py-1'
+                                  }`}
+                              >
+                                Mark read
+                              </button>
+                            )}
+                            <button
+                                onClick={() => handleDeleteNotification(notification.id, notification.message)}
+                                className={`text-gray-400 hover:text-red-500 transition-colors rounded hover:bg-red-50 ${
+                                  isMobile 
+                                    ? 'p-2 min-h-[44px] min-w-[44px]' 
+                                    : 'p-1'
+                                }`}
+                                title="Delete notification"
+                            >
+                              <X className={`${isMobile ? 'w-4 h-4' : 'w-3 h-3'}`} />
+                            </button>
                           </div>
                         </div>
                       </div>
-                    ))}
-                  </>
-                )}
-              </div>
-
-              {/* Footer with enhanced controls */}
-              {notifications.length > 0 && (
-                <div className="px-4 py-3 bg-gray-50 border-t border-gray-200">
-                  <div className="flex justify-between items-center gap-2">
-                    {unreadCount > 0 && (
-                      <button
-                        onClick={markAllAsRead}
-                        className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 px-2 py-1 rounded hover:bg-blue-50 transition-colors"
-                      >
-                        <Check className="w-3 h-3" />
-                        Mark all read ({unreadCount})
-                      </button>
-                    )}
-                    <button
-                      onClick={handleDismissAll}
-                      className="text-xs text-gray-500 hover:text-red-600 font-medium flex items-center gap-1 ml-auto px-2 py-1 rounded hover:bg-red-50 transition-colors"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                      Clear all ({notifications.length})
-                    </button>
+                    </div>
                   </div>
                 </div>
+              ))}
+            </>
+          )}
+        </div>
+
+          {/* Footer with enhanced controls */}
+        {notifications.length > 0 && (
+            <div className={`bg-gray-50 border-t border-gray-200 ${
+              isMobile ? 'px-5 py-4' : 'px-4 py-3'
+            }`}>
+              <div className="flex justify-between items-center gap-2">
+              {unreadCount > 0 && (
+                <button
+                  onClick={markAllAsRead}
+                    className={`text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 rounded hover:bg-blue-50 transition-colors ${
+                      isMobile 
+                        ? 'text-sm px-3 py-2 min-h-[44px]' 
+                        : 'text-xs px-2 py-1'
+                    }`}
+                >
+                  <Check className={`${isMobile ? 'w-4 h-4' : 'w-3 h-3'}`} />
+                    Mark all read ({unreadCount})
+                </button>
               )}
+              <button
+                onClick={handleDismissAll}
+                  className={`text-gray-500 hover:text-red-600 font-medium flex items-center gap-1 ml-auto rounded hover:bg-red-50 transition-colors ${
+                    isMobile 
+                      ? 'text-sm px-3 py-2 min-h-[44px]' 
+                      : 'text-xs px-2 py-1'
+                  }`}
+              >
+                <Trash2 className={`${isMobile ? 'w-4 h-4' : 'w-3 h-3'}`} />
+                  Clear all ({notifications.length})
+              </button>
             </div>
+          </div>
         )}
       </div>
+    )}
+  </div>
 
-      {/* Custom Confirmation Dialog */}
-      <ConfirmDialog
-        isOpen={confirmDialog.isOpen}
-        title={confirmDialog.title}
-        message={confirmDialog.message}
-        type={confirmDialog.type}
-        onConfirm={confirmDialog.onConfirm}
-        onCancel={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
-        confirmText="Delete"
-        cancelText="Cancel"
-      />
-    </>
-  );
+    {/* Custom Confirmation Dialog */}
+    <ConfirmDialog
+      isOpen={confirmDialog.isOpen}
+      title={confirmDialog.title}
+      message={confirmDialog.message}
+      type={confirmDialog.type}
+      onConfirm={confirmDialog.onConfirm}
+      onCancel={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
+      confirmText="Delete"
+      cancelText="Cancel"
+    />
+  </>
+);
 }; 

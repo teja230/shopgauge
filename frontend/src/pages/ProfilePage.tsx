@@ -492,7 +492,7 @@ export default function ProfilePage() {
     try {
       // Clear all dashboard caches before switching stores
       clearAllDashboardCache();
-      notifications.showInfo('Cache cleared for fresh data from new store', {
+      notifications.showInfo('Preparing fresh data from new store...', {
         category: 'Store Connection',
         duration: 3000
       });
@@ -523,7 +523,7 @@ export default function ProfilePage() {
     
     // Clear all dashboard caches before switching stores
     clearAllDashboardCache();
-    notifications.showInfo('Cache cleared for fresh data from reconnected store', {
+    notifications.showInfo('Preparing fresh data from reconnected store...', {
       category: 'Store Connection',
       duration: 3000
     });
@@ -539,7 +539,7 @@ export default function ProfilePage() {
     // Clear all dashboard caches
     clearAllDashboardCache();
     
-    notifications.showSuccess('Cache cleared! Dashboard will refresh with latest data.', {
+    notifications.showSuccess('Data refreshed! Dashboard will show the latest information.', {
       category: 'Operations'
     });
     

@@ -140,11 +140,11 @@ const HomePage = () => {
       // Clear any existing dashboard cache before switching stores
       clearAllDashboardCache();
 
-      // Inform the user
-      notifications.showInfo('Cache cleared for fresh data from new store', {
-        category: 'Store Connection',
-        duration: 3000
-      });
+      // Don't show cache clearing notification for initial Connect Store - only for Switch Store
+      // notifications.showInfo('Cache cleared for fresh data from new store', {
+      //   category: 'Store Connection',
+      //   duration: 3000
+      // });
 
       // Build return URL so Dashboard can invalidate cache again after OAuth
       const baseUrl = `${window.location.origin}/dashboard`;
@@ -266,15 +266,15 @@ const HomePage = () => {
                 </form>
               ) : (
                 <div className="flex flex-col items-center gap-4">
-                  <div className="flex items-center gap-3 bg-green-500/20 backdrop-blur-sm border border-green-400/30 rounded-xl px-6 py-3 shadow-lg">
-                    <div className="flex items-center justify-center w-8 h-8 bg-green-500 rounded-full shadow-md">
-                      <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <div className="flex items-center gap-3 bg-white/95 backdrop-blur-sm border-2 border-green-500 rounded-xl px-8 py-4 shadow-xl">
+                    <div className="flex items-center justify-center w-10 h-10 bg-green-500 rounded-full shadow-lg">
+                      <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
                       </svg>
                     </div>
                     <div className="text-center">
-                      <p className="text-green-800 font-bold text-lg drop-shadow-sm">Successfully Connected!</p>
-                      <p className="text-green-700 text-sm font-medium">Your store is ready for analytics</p>
+                      <p className="text-green-800 font-bold text-xl drop-shadow-sm">Successfully Connected!</p>
+                      <p className="text-green-700 text-base font-semibold">Your store is ready for analytics</p>
                     </div>
                   </div>
                   <div className="flex flex-col sm:flex-row gap-3">
