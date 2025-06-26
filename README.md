@@ -497,6 +497,7 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 - **[Multi-Session Architecture](docs/MULTI_SESSION_ARCHITECTURE.md)** - Detailed architecture documentation
 - **[Session-Based Notifications](docs/SESSION_BASED_NOTIFICATIONS.md)** - Notification system design
+- **[Notifications System](docs/NOTIFICATIONS_SYSTEM.md)** - Comprehensive notification system documentation
 - **[Environment Setup](ENVIRONMENT_SETUP.md)** - Complete setup guide
 - **[Contributing Guide](CONTRIBUTING.md)** - Development guidelines
 
