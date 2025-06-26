@@ -299,9 +299,9 @@ public class CompetitorController {
     }
 
     try {
-      // Check cache for this shop (60-minute cache for costly discovery APIs)
+      // Check cache for this shop (24-hour cache for costly discovery APIs)
       CachedCount cached = countCache.get(shopId);
-      if (cached != null && !cached.isExpired(60)) {
+      if (cached != null && !cached.isExpired(1440)) { // 24 hours = 1440 minutes
         log.debug("Returning cached suggestion count for shop {}: {}", shopId, cached.count);
         return ResponseEntity.ok(Map.of("newSuggestions", cached.count));
       }
@@ -314,7 +314,7 @@ public class CompetitorController {
       countCache.put(shopId, new CachedCount(newCount));
 
       // Clean up old cache entries (optional, prevents memory leaks)
-      countCache.entrySet().removeIf(entry -> entry.getValue().isExpired(120));
+      countCache.entrySet().removeIf(entry -> entry.getValue().isExpired(2880)); // 48 hours cleanup
 
       log.debug("Fresh suggestion count for shop {}: {}", shopId, newCount);
       return ResponseEntity.ok(Map.of("newSuggestions", newCount));

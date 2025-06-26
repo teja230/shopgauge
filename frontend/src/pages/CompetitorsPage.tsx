@@ -97,9 +97,9 @@ const DEMO_SUGGESTIONS: CompetitorSuggestion[] = [
   }
 ];
 
-// Cache configuration - Optimized for costly API operations
-const CACHE_DURATION = 60 * 60 * 1000; // 60 minutes - competitor data changes slowly
-const SUGGESTION_COUNT_CACHE_DURATION = 30 * 60 * 1000; // 30 minutes - reduce expensive discovery API calls
+// Cache configuration - 24hr cache for costly APIs (SerpAPI, etc.)
+const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours - competitor data changes very slowly
+const SUGGESTION_COUNT_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours - minimize expensive discovery API calls
 
 interface CacheEntry<T> {
   data: T;
@@ -141,11 +141,15 @@ export default function CompetitorsPage() {
   const [isDiscovering, setIsDiscovering] = useState(false);
   const [filterStatus, setFilterStatus] = useState<'all' | 'inStock' | 'outOfStock'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [lastDiscoveryTime, setLastDiscoveryTime] = useState<number>(0);
   const notifications = useNotifications();
   
   // Refs to prevent unnecessary re-renders and API calls
   const lastFetchTimeRef = useRef<number>(0);
   const isInitialLoadRef = useRef<boolean>(true);
+  
+  // Discovery cooldown (24 hours per store)
+  const DISCOVERY_COOLDOWN = 24 * 60 * 60 * 1000; // 24 hours
 
   // Optimized data fetching with caching and debouncing
   const fetchData = useCallback(async (forceRefresh = false) => {
@@ -154,8 +158,8 @@ export default function CompetitorsPage() {
     const now = Date.now();
     const timeSinceLastFetch = now - lastFetchTimeRef.current;
     
-    // Prevent rapid successive calls (debounce) - longer for costly APIs
-    if (!forceRefresh && !isInitialLoadRef.current && timeSinceLastFetch < 120000) { // 2 minutes
+    // Prevent rapid successive calls (debounce) - 24hr cooldown for costly APIs
+    if (!forceRefresh && !isInitialLoadRef.current && timeSinceLastFetch < 24 * 60 * 60 * 1000) { // 24 hours
       return;
     }
     
@@ -194,7 +198,17 @@ export default function CompetitorsPage() {
     }
   }, [shop, fetchWithCache]);
 
-  // Initial data load
+  // Initialize discovery cooldown from localStorage
+  useEffect(() => {
+    if (shop) {
+      const lastDiscovery = localStorage.getItem(`lastDiscovery_${shop}`);
+      if (lastDiscovery) {
+        setLastDiscoveryTime(parseInt(lastDiscovery));
+      }
+    }
+  }, [shop]);
+
+  // Initial data load - ON-DEMAND ONLY (no polling)
   useEffect(() => {
     if (!shop) {
       setCompetitors([]);
@@ -206,6 +220,7 @@ export default function CompetitorsPage() {
       return;
     }
 
+    // Only fetch on initial page load - no background polling
     fetchData();
   }, [shop, fetchData]);
 
@@ -350,6 +365,18 @@ export default function CompetitorsPage() {
       return;
     }
 
+    // Check 24-hour cooldown to prevent expensive API abuse
+    const now = Date.now();
+    const timeSinceLastDiscovery = now - lastDiscoveryTime;
+    
+    if (timeSinceLastDiscovery < DISCOVERY_COOLDOWN) {
+      const hoursRemaining = Math.ceil((DISCOVERY_COOLDOWN - timeSinceLastDiscovery) / (60 * 60 * 1000));
+      notifications.showInfo(`Discovery available in ${hoursRemaining} hours. This prevents expensive API overuse.`, {
+        category: 'Discovery'
+      });
+      return;
+    }
+
     setIsDiscovering(true);
     try {
       const response = await fetch('/api/competitors/discovery/trigger', {
@@ -359,11 +386,16 @@ export default function CompetitorsPage() {
       });
 
       if (response.ok) {
-        notifications.showSuccess('Competitor discovery started! Check back in a few minutes for new suggestions.', {
+        setLastDiscoveryTime(now);
+        // Store in localStorage to persist across sessions
+        localStorage.setItem(`lastDiscovery_${shop}`, now.toString());
+        
+        notifications.showSuccess('Competitor discovery started! This will run in the background. Check back tomorrow for new suggestions.', {
           category: 'Discovery'
         });
-        // Refresh suggestion count after a delay (longer for costly discovery APIs)
-        setTimeout(refreshSuggestionCount, 120000); // 2 minutes
+        
+        // Only refresh suggestion count once after 24 hours (not polling)
+        // Users can manually refresh the page if they want to check sooner
       } else {
         throw new Error('Discovery trigger failed');
       }
@@ -374,7 +406,18 @@ export default function CompetitorsPage() {
     } finally {
       setIsDiscovering(false);
     }
-  }, [isDemoMode, notifications, refreshSuggestionCount]);
+  }, [isDemoMode, notifications, lastDiscoveryTime, shop, DISCOVERY_COOLDOWN]);
+
+  // Calculate discovery cooldown status
+  const discoveryStatus = useMemo(() => {
+    const now = Date.now();
+    const timeSinceLastDiscovery = now - lastDiscoveryTime;
+    const isOnCooldown = timeSinceLastDiscovery < DISCOVERY_COOLDOWN;
+    const hoursRemaining = isOnCooldown ? 
+      Math.ceil((DISCOVERY_COOLDOWN - timeSinceLastDiscovery) / (60 * 60 * 1000)) : 0;
+    
+    return { isOnCooldown, hoursRemaining };
+  }, [lastDiscoveryTime, DISCOVERY_COOLDOWN]);
 
   // Calculate insights with useMemo for performance
   const insights = useMemo(() => {
@@ -515,18 +558,31 @@ export default function CompetitorsPage() {
                 {isDemoMode ? 'Demo' : 'Live'}
               </button>
 
-              {/* Manual Discovery Button */}
+              {/* Manual Discovery Button with 24hr Cooldown */}
               <button
                 onClick={triggerManualDiscovery}
-                disabled={isDiscovering}
-                className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+                disabled={isDiscovering || discoveryStatus.isOnCooldown}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-md ${
+                  discoveryStatus.isOnCooldown 
+                    ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                    : 'bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed'
+                }`}
+                title={discoveryStatus.isOnCooldown 
+                  ? `Discovery available in ${discoveryStatus.hoursRemaining} hours (cost optimization)`
+                  : 'Trigger competitor discovery (once per 24 hours)'
+                }
               >
                 {isDiscovering ? (
                   <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
                 ) : (
                   <MagnifyingGlassIcon className="h-4 w-4" />
                 )}
-                {isDiscovering ? 'Discovering...' : 'Discover'}
+                {isDiscovering 
+                  ? 'Discovering...' 
+                  : discoveryStatus.isOnCooldown
+                    ? `${discoveryStatus.hoursRemaining}h`
+                    : 'Discover'
+                }
               </button>
 
               {/* Suggestions Button */}

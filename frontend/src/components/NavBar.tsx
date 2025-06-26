@@ -58,14 +58,14 @@ const NavBar: React.FC = () => {
     setMobileMenuOpen(!mobileMenuOpen);
   };
 
-  // Fetch suggestion count when authenticated - with caching and reduced frequency
+  // Fetch suggestion count ONLY on initial load - NO POLLING (on-demand only)
   useEffect(() => {
     if (isAuthenticated) {
       const fetchSuggestionCount = async () => {
         try {
-          // Only fetch if cache is expired (30 minutes)
+          // Only fetch if cache is expired (24 hours) or no data
           const now = Date.now();
-          const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
+          const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours for costly APIs
           
           if (now - lastFetchTime < CACHE_DURATION && suggestionCount > 0) {
             return; // Use cached value
@@ -80,17 +80,14 @@ const NavBar: React.FC = () => {
         }
       };
 
-      // Initial fetch
+      // ONLY initial fetch - NO BACKGROUND POLLING to prevent costly API calls
+      // Users must navigate to competitors page or refresh manually for updates
       fetchSuggestionCount();
-      
-      // Reduced polling: every 10 minutes instead of 2 minutes for maximum cost optimization
-      const interval = setInterval(fetchSuggestionCount, 10 * 60 * 1000);
-      return () => clearInterval(interval);
     } else {
       setSuggestionCount(0);
       setLastFetchTime(0);
     }
-  }, [isAuthenticated, lastFetchTime, suggestionCount]);
+  }, [isAuthenticated]); // Removed polling dependencies
 
   const menuItems = isAuthenticated ? [
     {
