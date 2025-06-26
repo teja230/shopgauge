@@ -54,10 +54,12 @@ const pulse = keyframes`
   0%, 100% {
     transform: scale(1);
     opacity: 1;
+    color: white;
   }
   50% {
     transform: scale(1.1);
     opacity: 0.9;
+    color: #fbbf24;
   }
 `;
 
@@ -172,6 +174,9 @@ const BellButton = styled(IconButton, {
     color: theme.palette.grey[200],
   },
   animation: isPulsing ? `${pulse} 1.5s infinite` : 'none',
+  '& svg': {
+    animation: isPulsing ? `${pulse} 1.5s infinite` : 'none',
+  },
 }));
 
 const StyledDialog = styled(Dialog)(({ theme }) => ({
