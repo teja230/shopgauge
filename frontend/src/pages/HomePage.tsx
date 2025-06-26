@@ -7,17 +7,21 @@ import { useNotifications } from '../hooks/useNotifications';
 import { CheckCircleIcon } from '@heroicons/react/24/solid';
 
 const features = [
-  'Real-time competitor price monitoring & alerts',
-  'Advanced revenue analytics with 7 chart types',
-  'Multi-session support for concurrent access',
-  'Session-based notification system',
-  'Automated price change notifications (Email & SMS)',
-  'Shopify integration with comprehensive analytics',
-  'Intelligent competitor discovery & tracking',
-  'Admin dashboard with audit logging',
-  'Enhanced security with session management',
-  'Data export & privacy controls (GDPR/CCPA)',
-  'Real-time dashboard with smart caching',
+  'Track unlimited competitors across multiple sessions',
+  'Real-time price monitoring with instant alerts',
+  '7 advanced chart types (Area, Bar, Candlestick, Waterfall, etc.)',
+  'Multi-session concurrent access from any device',
+  'Session-based notification system with privacy controls',
+  'Automated alerts via Email & SMS with smart delivery',
+  'Advanced analytics dashboard with intelligent caching',
+  'AI-powered competitor discovery tools',
+  'Comprehensive admin dashboard with audit logging',
+  'Enhanced security with session isolation',
+  'Full Shopify integration with real-time sync',
+  'Data export capabilities with GDPR/CCPA compliance',
+  'Priority support with dedicated assistance',
+  'Enterprise-grade session management',
+  'Advanced debugging and monitoring tools',
   'Debounced refresh controls for optimal performance'
 ];
 
@@ -317,19 +321,12 @@ const HomePage = () => {
         
         <div className="flex justify-center">
           <div className="bg-white rounded-xl shadow-xl p-8 flex flex-col items-center border-2 border-blue-200 hover:border-blue-400 hover:shadow-2xl transition-all duration-300 max-w-md w-full">
-            <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-4 py-2 rounded-full text-sm font-semibold mb-4">
-              ⭐ MOST POPULAR
-            </div>
             <h3 className="text-2xl font-semibold mb-2 text-blue-900">{pricing[0].tier}</h3>
-            <div className="text-4xl font-bold mb-6 text-gray-800">{pricing[0].price}</div>
-            <ul className="mb-6 space-y-3 w-full">
-              {pricing[0].features.map((f) => (
-                <li key={f} className="flex items-start text-gray-700">
-                  <CheckCircleIcon className="w-5 h-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" /> 
-                  <span className="text-sm">{f}</span>
-                </li>
-              ))}
-            </ul>
+            <div className="text-4xl font-bold mb-4 text-gray-800">{pricing[0].price}</div>
+            <p className="text-gray-600 text-center mb-6 text-sm">
+              Complete enterprise-grade analytics platform with all features included. 
+              Start your 3-day free trial - no credit card required.
+            </p>
             <button
               onClick={showAuthConnected ? () => navigate('/dashboard') : handleStartClick}
               className="w-full inline-flex items-center justify-center px-6 py-4 rounded-lg font-semibold shadow-lg transition-all duration-200 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white transform hover:scale-105"
@@ -410,8 +407,6 @@ const HomePage = () => {
         </div>
       </section>
 
-
-
       {/* Testimonials Section */}
       <section className="w-full max-w-4xl my-12">
         <h2 className="text-2xl font-bold mb-6 text-blue-800 text-center">What Merchants Say</h2>
@@ -455,8 +450,8 @@ const HomePage = () => {
             <p className="text-gray-700">Yes! We provide enterprise-grade security with audit logging, GDPR/CCPA compliance, session isolation, and comprehensive admin controls for complete data protection.</p>
           </div>
           <div className="bg-white rounded-lg shadow-lg p-6 border-t-4 border-red-500">
-            <h3 className="text-lg font-semibold mb-3 text-blue-900">Can I change plans later?</h3>
-            <p className="text-gray-700">Absolutely! Upgrade or downgrade anytime. Changes take effect immediately with prorated billing. All your data, sessions, and configurations are preserved.</p>
+            <h3 className="text-lg font-semibold mb-3 text-blue-900">What happens after my free trial?</h3>
+            <p className="text-gray-700">After your 3-day free trial, you'll be automatically enrolled in our Pro plan at $19.99/month. You can cancel anytime with no commitment. All your data, sessions, and configurations are preserved.</p>
           </div>
           <div className="bg-white rounded-lg shadow-lg p-6 border-t-4 border-indigo-500">
             <h3 className="text-lg font-semibold mb-3 text-blue-900">What payment methods do you accept?</h3>
