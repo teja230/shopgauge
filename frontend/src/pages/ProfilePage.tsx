@@ -288,7 +288,6 @@ export default function ProfilePage() {
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
         notifications.showSuccess('📥 Data export completed successfully!', {
           persistent: true,
           category: 'Data Privacy',
@@ -411,6 +410,25 @@ export default function ProfilePage() {
     }
   };
 
+  // Comprehensive cache clearing function
+  const clearAllDashboardCache = () => {
+    // Clear all known dashboard cache keys
+    sessionStorage.removeItem('dashboard_cache_v1.1');
+    sessionStorage.removeItem('dashboard_cache_v2');
+    
+    // Also clear any other potential cache keys
+    const keysToRemove = [];
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key && key.includes('dashboard_cache')) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach(key => sessionStorage.removeItem(key));
+    
+    console.log('Cleared all dashboard cache keys');
+  };
+
   // FIXED: Connect new store with Dashboard redirect  
   const handleConnectNewStore = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -429,6 +447,13 @@ export default function ProfilePage() {
     });
     
     try {
+      // Clear all dashboard caches before switching stores
+      clearAllDashboardCache();
+      notifications.showInfo('Cache cleared for fresh data from new store', {
+        category: 'Store Connection',
+        duration: 3000
+      });
+      
       // FIXED: Use dashboard redirect for new store connection 
       const baseUrl = `${window.location.origin}/dashboard`;
       const returnUrl = encodeURIComponent(`${baseUrl}?connected=true`);
@@ -453,6 +478,13 @@ export default function ProfilePage() {
       duration: 5000
     });
     
+    // Clear all dashboard caches before switching stores
+    clearAllDashboardCache();
+    notifications.showInfo('Cache cleared for fresh data from reconnected store', {
+      category: 'Store Connection',
+      duration: 3000
+    });
+    
     // FIXED: Use dashboard redirect for past store reconnection
     const baseUrl = `${window.location.origin}/dashboard`;
     const returnUrl = encodeURIComponent(`${baseUrl}?reconnected=true`);
@@ -462,8 +494,7 @@ export default function ProfilePage() {
 
   const clearCacheAndRefresh = () => {
     // Clear all dashboard caches
-    sessionStorage.removeItem('dashboard_cache_v1.1');
-    sessionStorage.removeItem('dashboard_cache_v2');
+    clearAllDashboardCache();
     
     notifications.showSuccess('Cache cleared! Dashboard will refresh with latest data.', {
       category: 'Operations'

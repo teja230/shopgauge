@@ -29,6 +29,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
 
+  // Comprehensive cache clearing function
+  const clearAllDashboardCache = () => {
+    // Clear all known dashboard cache keys
+    sessionStorage.removeItem('dashboard_cache_v1.1');
+    sessionStorage.removeItem('dashboard_cache_v2');
+    
+    // Also clear any other potential cache keys
+    const keysToRemove = [];
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key && key.includes('dashboard_cache')) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach(key => sessionStorage.removeItem(key));
+    
+    console.log('AuthContext: Cleared all dashboard cache keys');
+  };
+
   useEffect(() => {
     // Only show global loading on first app load
     if (!hasInitiallyLoaded) {
@@ -44,8 +63,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (response.data.shop) {
         // If shop has changed, clear the cache
         if (shop && shop !== response.data.shop) {
-          sessionStorage.removeItem('dashboard_cache_v1.1');
-          sessionStorage.removeItem('dashboard_cache_v2');
+          clearAllDashboardCache();
         }
         setShop(response.data.shop);
         setIsAuthenticated(true);
@@ -58,8 +76,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsAuthenticated(false);
       setShop(null);
       // Clear cache on auth failure
-      sessionStorage.removeItem('dashboard_cache_v1.1');
-      sessionStorage.removeItem('dashboard_cache_v2');
+      clearAllDashboardCache();
     } finally {
       setAuthLoading(false);
       // Only set loading to false after initial load
@@ -80,8 +97,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       
       // Clear dashboard cache on logout
-      sessionStorage.removeItem('dashboard_cache_v1.1');
-      sessionStorage.removeItem('dashboard_cache_v2');
+      clearAllDashboardCache();
       
       setIsAuthenticated(false);
       setShop(null);
@@ -89,8 +105,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Logout failed:', error);
       
       // Clear cache even if logout API fails
-      sessionStorage.removeItem('dashboard_cache_v1.1');
-      sessionStorage.removeItem('dashboard_cache_v2');
+      clearAllDashboardCache();
       setIsAuthenticated(false);
       setShop(null);
     }
