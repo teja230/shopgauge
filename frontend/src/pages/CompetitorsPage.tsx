@@ -97,9 +97,9 @@ const DEMO_SUGGESTIONS: CompetitorSuggestion[] = [
   }
 ];
 
-// Cache configuration
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-const SUGGESTION_COUNT_CACHE_DURATION = 2 * 60 * 1000; // 2 minutes
+// Cache configuration - Optimized for costly API operations
+const CACHE_DURATION = 60 * 60 * 1000; // 60 minutes - competitor data changes slowly
+const SUGGESTION_COUNT_CACHE_DURATION = 30 * 60 * 1000; // 30 minutes - reduce expensive discovery API calls
 
 interface CacheEntry<T> {
   data: T;
@@ -154,8 +154,8 @@ export default function CompetitorsPage() {
     const now = Date.now();
     const timeSinceLastFetch = now - lastFetchTimeRef.current;
     
-    // Prevent rapid successive calls (debounce)
-    if (!forceRefresh && !isInitialLoadRef.current && timeSinceLastFetch < 30000) {
+    // Prevent rapid successive calls (debounce) - longer for costly APIs
+    if (!forceRefresh && !isInitialLoadRef.current && timeSinceLastFetch < 120000) { // 2 minutes
       return;
     }
     
@@ -362,8 +362,8 @@ export default function CompetitorsPage() {
         notifications.showSuccess('Competitor discovery started! Check back in a few minutes for new suggestions.', {
           category: 'Discovery'
         });
-        // Refresh suggestion count after a delay
-        setTimeout(refreshSuggestionCount, 30000);
+        // Refresh suggestion count after a delay (longer for costly discovery APIs)
+        setTimeout(refreshSuggestionCount, 120000); // 2 minutes
       } else {
         throw new Error('Discovery trigger failed');
       }
