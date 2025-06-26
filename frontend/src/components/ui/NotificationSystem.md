@@ -286,4 +286,108 @@ Planned improvements include:
 
 ## Support
 
-For questions or issues with the notification system, please refer to the main project documentation or create an issue in the repository. 
+For questions or issues with the notification system, please refer to the main project documentation or create an issue in the repository.
+
+# Notification System Documentation
+
+## Overview
+The NotificationCenter component provides a unified notification system that integrates seamlessly with the site's Material-UI theme and design system.
+
+## Theme Integration
+
+### Design System Compliance
+- **Material-UI Integration**: Fully styled using Material-UI components and theme
+- **Color Palette**: Uses theme colors (`primary`, `error`, `warning`, `success`)
+- **Typography**: Follows site's Inter font family and typography hierarchy
+- **Spacing**: Uses theme spacing system for consistency
+- **Shadows**: Matches site's elevation and shadow patterns
+- **Border Radius**: 12px consistent with site's card styling
+
+### Styled Components
+- `NotificationDropdown`: Main container with proper Material-UI Paper styling
+- `NotificationHeader`: Sticky header with theme-consistent styling
+- `NotificationContent`: Scrollable content area with custom scrollbar styling
+- `NotificationItem`: Individual notification with hover states and unread indicators
+- `NotificationActions`: Footer actions with proper spacing and theming
+- `BellButton`: Notification bell icon with Material-UI IconButton styling
+- `StyledDialog`: Confirmation dialogs with enhanced Material-UI styling
+
+## Key Features
+
+### Visual Hierarchy
+- **Unread Notifications**: Highlighted with `theme.palette.action.hover` background
+- **Category Chips**: Color-coded with primary theme colors
+- **Type Icons**: Uses theme-appropriate colors for success, error, warning, info
+- **Interactive Elements**: Proper hover states and focus indicators
+
+### Responsive Design
+- Uses Material-UI's `useMediaQuery` for responsive breakpoints
+- Smaller width (320px) on mobile devices
+- Proper touch target sizes for mobile interaction
+
+### Accessibility
+- Proper ARIA labels and descriptions
+- Tooltip support for all interactive elements
+- Keyboard navigation support
+- Screen reader friendly structure
+
+## Components Used
+
+### Material-UI Components
+- `Box`, `Paper`, `Typography` for layout and text
+- `IconButton`, `Button` for interactions
+- `Badge` for unread count display
+- `Tabs`, `Tab` for filtering interface
+- `CircularProgress` for loading states
+- `Dialog`, `Alert` for confirmations and errors
+- `Tooltip`, `Fade` for enhanced UX
+
+### Custom Styling
+- Styled components using `styled()` from Material-UI
+- Theme-aware color schemes
+- Consistent spacing and typography
+- Custom scrollbar styling that matches the theme
+
+## Integration Points
+
+### Toast Integration
+- Works seamlessly with react-hot-toast
+- Theme-consistent colors and styling
+- Proper timing and positioning
+
+### Database Integration
+- Persistent notifications stored in backend
+- Session-based notification management
+- Real-time updates and synchronization
+
+### Error Handling
+- Graceful error states with Material-UI Alert components
+- Rate limiting and retry mechanisms
+- User-friendly error messages
+
+## Usage Examples
+
+```tsx
+// Basic usage with theme integration
+<NotificationCenter onNotificationCountChange={(count) => console.log(count)} />
+
+// The component automatically uses the site's theme
+// No additional styling or configuration needed
+```
+
+## Theme Customization
+
+The NotificationCenter automatically inherits all theme customizations:
+- Color changes in `theme.ts` are automatically applied
+- Typography changes are reflected in all text
+- Spacing and border radius follow theme configuration
+- Dark mode support (if theme supports it)
+
+## Performance Optimizations
+
+- Uses Material-UI's `useMediaQuery` for efficient responsive queries
+- Styled components are memoized for performance
+- Efficient re-rendering with proper React patterns
+- Optimized scrolling with custom scrollbar styling
+
+This integration ensures the NotificationCenter feels like a natural part of the application's design system while maintaining excellent functionality and user experience. 

@@ -13,6 +13,28 @@ import {
 } from 'lucide-react';
 import { format, formatDistanceToNow, parseISO, isValid } from 'date-fns';
 import { useNotifications } from '../../hooks/useNotifications';
+import { 
+  Box, 
+  Paper, 
+  Typography, 
+  IconButton, 
+  Button, 
+  Badge,
+  Divider,
+  Tabs,
+  Tab,
+  CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  useTheme,
+  useMediaQuery,
+  Fade,
+  Tooltip,
+  Alert
+} from '@mui/material';
+import { styled } from '@mui/material/styles';
 
 interface NotificationCenterProps {
   onNotificationCountChange?: (count: number) => void;
@@ -29,6 +51,99 @@ interface ConfirmDialogProps {
   type?: 'danger' | 'warning' | 'info';
 }
 
+// Styled components matching the site's design system
+const NotificationDropdown = styled(Paper)(({ theme }) => ({
+  position: 'absolute',
+  top: '100%',
+  right: 0,
+  width: 400,
+  maxHeight: 500,
+  backgroundColor: theme.palette.background.paper,
+  borderRadius: 12,
+  boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -2px rgb(0 0 0 / 0.1)',
+  border: `1px solid ${theme.palette.divider}`,
+  zIndex: 50,
+  overflow: 'hidden',
+  [theme.breakpoints.down('sm')]: {
+    width: 320,
+    maxHeight: 400,
+  },
+}));
+
+const NotificationHeader = styled(Box)(({ theme }) => ({
+  padding: theme.spacing(2, 3),
+  backgroundColor: theme.palette.background.paper,
+  borderBottom: `1px solid ${theme.palette.divider}`,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  position: 'sticky',
+  top: 0,
+  zIndex: 1,
+}));
+
+const NotificationContent = styled(Box)(({ theme }) => ({
+  maxHeight: 350,
+  overflowY: 'auto',
+  '&::-webkit-scrollbar': {
+    width: 8,
+  },
+  '&::-webkit-scrollbar-track': {
+    background: theme.palette.background.default,
+    borderRadius: 4,
+  },
+  '&::-webkit-scrollbar-thumb': {
+    background: theme.palette.grey[300],
+    borderRadius: 4,
+    border: `1px solid ${theme.palette.background.default}`,
+  },
+  '&::-webkit-scrollbar-thumb:hover': {
+    background: theme.palette.grey[400],
+  },
+}));
+
+const NotificationItem = styled(Box, {
+  shouldForwardProp: (prop) => prop !== 'isUnread',
+})<{ isUnread?: boolean }>(({ theme, isUnread }) => ({
+  padding: theme.spacing(2, 3),
+  borderBottom: `1px solid ${theme.palette.divider}`,
+  backgroundColor: isUnread ? theme.palette.action.hover : 'transparent',
+  transition: 'all 0.2s ease',
+  position: 'relative',
+  '&:hover': {
+    backgroundColor: theme.palette.action.selected,
+  },
+  '&:last-child': {
+    borderBottom: 'none',
+  },
+}));
+
+const NotificationActions = styled(Box)(({ theme }) => ({
+  padding: theme.spacing(2, 3),
+  backgroundColor: theme.palette.background.default,
+  borderTop: `1px solid ${theme.palette.divider}`,
+  display: 'flex',
+  gap: theme.spacing(1),
+  justifyContent: 'space-between',
+  alignItems: 'center',
+}));
+
+const BellButton = styled(IconButton)(({ theme }) => ({
+  padding: theme.spacing(1),
+  color: 'white',
+  '&:hover': {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    color: theme.palette.grey[200],
+  },
+}));
+
+const StyledDialog = styled(Dialog)(({ theme }) => ({
+  '& .MuiDialog-paper': {
+    borderRadius: 12,
+    boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 10px 10px -5px rgb(0 0 0 / 0.04)',
+  },
+}));
+
 const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   isOpen,
   title,
@@ -39,89 +154,78 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   cancelText = 'Cancel',
   type = 'warning'
 }) => {
-  if (!isOpen) return null;
+  const theme = useTheme();
 
-  const typeColors = {
-    danger: {
-      bg: 'bg-red-50',
-      border: 'border-red-200',
-      icon: 'text-red-500',
-      button: 'bg-red-600 hover:bg-red-700'
-    },
-    warning: {
-      bg: 'bg-amber-50',
-      border: 'border-amber-200',
-      icon: 'text-amber-500',
-      button: 'bg-amber-600 hover:bg-amber-700'
-    },
-    info: {
-      bg: 'bg-blue-50',
-      border: 'border-blue-200',
-      icon: 'text-blue-500',
-      button: 'bg-blue-600 hover:bg-blue-700'
+  const getAlertSeverity = () => {
+    switch (type) {
+      case 'danger': return 'error';
+      case 'warning': return 'warning';
+      case 'info': return 'info';
+      default: return 'warning';
     }
   };
 
-  const colors = typeColors[type];
+  const getButtonColor = () => {
+    switch (type) {
+      case 'danger': return 'error';
+      case 'warning': return 'warning';
+      case 'info': return 'primary';
+      default: return 'warning';
+    }
+  };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onCancel} />
-      <div className="relative bg-white rounded-xl shadow-2xl border border-gray-200 p-6 mx-4 max-w-md w-full">
-        <div className={`${colors.bg} ${colors.border} border rounded-lg p-4 mb-4`}>
-          <div className="flex items-start gap-3">
-            <div className={`${colors.icon} mt-0.5`}>
-              {type === 'danger' && <AlertCircle className="w-5 h-5" />}
-              {type === 'warning' && <AlertTriangle className="w-5 h-5" />}
-              {type === 'info' && <Info className="w-5 h-5" />}
-            </div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-gray-900 mb-2">{title}</h3>
-              <p className="text-sm text-gray-700">{message}</p>
-            </div>
-          </div>
-        </div>
-        
-        <div className="flex gap-3 justify-end">
-          <button
-            onClick={onCancel}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
-          >
-            {cancelText}
-          </button>
-          <button
-            onClick={onConfirm}
-            className={`px-4 py-2 text-sm font-medium text-white ${colors.button} rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-opacity-50 transition-colors`}
-          >
-            {confirmText}
-          </button>
-        </div>
-      </div>
-    </div>
+    <StyledDialog open={isOpen} onClose={onCancel} maxWidth="sm" fullWidth>
+      <DialogTitle sx={{ pb: 1 }}>
+        <Typography variant="h6" component="div" sx={{ fontWeight: 600 }}>
+          {title}
+        </Typography>
+      </DialogTitle>
+      <DialogContent>
+        <Alert severity={getAlertSeverity()} sx={{ mb: 2 }}>
+          <Typography variant="body2">
+            {message}
+          </Typography>
+        </Alert>
+      </DialogContent>
+      <DialogActions sx={{ p: 3, pt: 1 }}>
+        <Button 
+          onClick={onCancel}
+          variant="outlined"
+          sx={{ 
+            borderRadius: 2,
+            textTransform: 'none',
+            fontWeight: 500,
+          }}
+        >
+          {cancelText}
+        </Button>
+        <Button 
+          onClick={onConfirm}
+          variant="contained"
+          color={getButtonColor()}
+          sx={{ 
+            borderRadius: 2,
+            textTransform: 'none',
+            fontWeight: 500,
+          }}
+        >
+          {confirmText}
+        </Button>
+      </DialogActions>
+    </StyledDialog>
   );
 };
 
-// Custom hook for responsive design
-const useIsMobile = () => {
-  const [isMobile, setIsMobile] = useState(false);
 
-  useEffect(() => {
-    const checkIsMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-
-    checkIsMobile();
-    window.addEventListener('resize', checkIsMobile);
-    return () => window.removeEventListener('resize', checkIsMobile);
-  }, []);
-
-  return isMobile;
-};
 
 export const NotificationCenter: React.FC<NotificationCenterProps> = ({ 
   onNotificationCountChange
 }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [isOpen, setIsOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState(0);
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
     title: string;
@@ -136,7 +240,6 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   });
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const isMobile = useIsMobile();
   
   const {
     notifications,
@@ -149,6 +252,11 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     deleteNotification,
     clearAll,
   } = useNotifications();
+
+  // Filter notifications based on active tab
+  const filteredNotifications = activeTab === 0 
+    ? notifications 
+    : notifications.filter(n => !n.read);
 
   // Update parent component about count changes
   useEffect(() => {
@@ -169,18 +277,20 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     }
   }, [isOpen]);
 
-  // Get icon for notification type with improved colors
+  // Get icon for notification type with theme colors
   const getNotificationIcon = (type: string) => {
+    const iconProps = { size: 16 };
+    
     switch (type) {
       case 'success':
-        return <CheckCircle className="w-4 h-4 text-green-600" />;
+        return <CheckCircle {...iconProps} style={{ color: theme.palette.success.main }} />;
       case 'error':
-        return <AlertCircle className="w-4 h-4 text-red-600" />;
+        return <AlertCircle {...iconProps} style={{ color: theme.palette.error.main }} />;
       case 'warning':
-        return <AlertTriangle className="w-4 h-4 text-orange-600" />;
+        return <AlertTriangle {...iconProps} style={{ color: theme.palette.warning.main }} />;
       case 'info':
       default:
-        return <Info className="w-4 h-4 text-blue-600" />;
+        return <Info {...iconProps} style={{ color: theme.palette.primary.main }} />;
     }
   };
 
@@ -224,11 +334,9 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
       const diffInHours = Math.abs(now.getTime() - date.getTime()) / (1000 * 60 * 60);
       
       if (diffInHours < 24) {
-        // For recent notifications, show relative time
         return formatDistanceToNow(date, { addSuffix: true });
       }
       
-      // For older notifications, show full date
       return format(date, 'MMM d, yyyy h:mm a');
     } catch (error) {
       console.error('Error formatting timestamp:', error);
@@ -236,190 +344,224 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     }
   };
 
+  // Handle tab change
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
+    setActiveTab(newValue);
+  };
+
+  // Debounced refresh function
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = async () => {
+    if (refreshing) return;
+    
+    setRefreshing(true);
+    try {
+      await fetchNotifications();
+    } finally {
+      setTimeout(() => setRefreshing(false), 500);
+    }
+  };
+
   return (
     <>
-      <div className="relative" ref={dropdownRef}>
-        {/* Notification Bell Button - Improved styling */}
-        <button
-          ref={buttonRef}
-          onClick={() => setIsOpen(!isOpen)}
-          className="relative p-2 text-white bg-transparent hover:text-gray-200 hover:bg-white/10 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white/50 focus:ring-offset-0"
-          aria-label={`Notifications ${unreadCount > 0 ? `(${unreadCount} unread)` : ''}`}
-        >
-          <Bell className={`w-6 h-6 ${unreadCount > 0 ? 'text-yellow-400 animate-pulse' : 'text-white'}`} />
-          {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[20px] h-5 flex items-center justify-center font-medium animate-pulse">
-              {unreadCount > 99 ? '99+' : unreadCount}
-            </span>
-          )}
-        </button>
-
-        {/* Notification Dropdown - Properly positioned below button */}
-        {isOpen && (
-          <div 
-            className={`absolute bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden z-50 ${
-              isMobile 
-                ? 'w-80 right-0 top-full mt-2' // Mobile: smaller width, positioned below button
-                : 'w-96 right-0 top-full mt-2' // Desktop: larger width, positioned below button
-            }`}
-            style={{
-              // Ensure proper positioning and constraints
-              maxHeight: isMobile ? 'calc(100vh - 120px)' : 'calc(100vh - 100px)',
-              // For mobile, ensure it doesn't go off-screen
-              ...(isMobile && {
-                left: 'auto',
-                right: '0',
-                transform: window.innerWidth < 400 ? 'translateX(calc(-100% + 60px))' : 'none'
-              })
-            }}
+      <Box position="relative" ref={dropdownRef}>
+        {/* Notification Bell Button */}
+        <Tooltip title={`Notifications ${unreadCount > 0 ? `(${unreadCount} unread)` : ''}`}>
+          <BellButton
+            ref={buttonRef}
+            onClick={() => setIsOpen(!isOpen)}
+            aria-label={`Notifications ${unreadCount > 0 ? `(${unreadCount} unread)` : ''}`}
           >
-            {/* Header with improved theme colors */}
-            <div className="px-4 py-3 bg-slate-800 text-white">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Bell className="w-5 h-5" />
-                  <h3 className="font-semibold">Notifications</h3>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={fetchNotifications}
-                    className="p-1 hover:bg-white/20 rounded-lg transition-colors"
-                    title="Refresh notifications"
-                  >
-                    <RefreshCw className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => setIsOpen(false)}
-                    className="p-1 hover:bg-white/20 rounded-lg transition-colors"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-              {unreadCount > 0 && (
-                <p className="text-xs text-slate-200 mt-1 flex items-center gap-1">
-                  <span className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></span>
-                  {unreadCount} unread message{unreadCount !== 1 ? 's' : ''}
-                </p>
-              )}
-            </div>
+            <Badge badgeContent={unreadCount} color="error" max={99}>
+              <Bell size={24} />
+            </Badge>
+          </BellButton>
+        </Tooltip>
 
-            {/* Content with proper scrolling */}
-            <div className={`overflow-y-auto ${isMobile ? 'max-h-[50vh]' : 'max-h-80'}`}>
-              {loading ? (
-                <div className="p-8 text-center">
-                  <div className="w-8 h-8 border-2 border-slate-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-                  <p className="mt-3 text-gray-500 text-sm">Loading notifications...</p>
-                </div>
-              ) : error ? (
-                <div className="p-6 text-center">
-                  <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-3" />
-                  <p className="text-red-600 font-medium text-sm mb-2">Failed to load notifications</p>
-                  <p className="text-gray-500 text-xs mb-4">{error}</p>
-                  <button
-                    onClick={fetchNotifications}
-                    className="px-4 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2 mx-auto"
+        {/* Notification Dropdown */}
+        <Fade in={isOpen}>
+          <NotificationDropdown>
+            {/* Header */}
+            <NotificationHeader>
+              <Typography variant="h6" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                Notifications
+              </Typography>
+              <Box display="flex" alignItems="center" gap={1}>
+                <Tooltip title="Refresh">
+                  <IconButton 
+                    size="small" 
+                    onClick={handleRefresh}
+                    disabled={refreshing || loading}
                   >
-                    <RefreshCw className="w-4 h-4" />
-                    Try Again
-                  </button>
-                </div>
-              ) : notifications.length === 0 ? (
-                <div className="p-8 text-center">
-                  <Bell className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500 font-medium text-sm">All clear!</p>
-                  <p className="text-gray-400 text-xs mt-1">No notifications to show</p>
-                </div>
-              ) : (
-                <>
-                  {notifications.map((notification) => (
-                    <div
-                      key={notification.id}
-                      className={`border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors ${
-                        !notification.read ? 'bg-slate-50 border-l-4 border-l-slate-600' : ''
-                      }`}
-                    >
-                      <div className="p-4">
-                        <div className="flex items-start gap-3">
-                          {getNotificationIcon(notification.type)}
-                          
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between gap-2 mb-2">
-                              <p className={`text-sm leading-5 ${
-                                !notification.read ? 'font-medium text-gray-900' : 'text-gray-700'
-                              }`}>
-                                {notification.message}
-                              </p>
-                              {!notification.read && (
-                                <span className="bg-slate-600 rounded-full mt-1 flex-shrink-0 w-2 h-2"></span>
-                              )}
-                            </div>
-                            
-                            {notification.category && (
-                              <span className="inline-block px-2 py-1 bg-gray-100 text-gray-600 rounded-full mb-2 text-xs">
-                                {notification.category}
-                              </span>
-                            )}
-                            
-                            <div className="flex items-center justify-between">
-                              <span className="text-gray-500 flex items-center gap-1 text-xs">
-                                <Clock className="w-3 h-3" />
-                                {formatTimestamp(notification.createdAt)}
-                              </span>
-                              
-                              <div className="flex items-center gap-2">
-                                {!notification.read && (
-                                  <button
-                                    onClick={() => markAsRead(notification.id)}
-                                    className="text-slate-600 hover:text-slate-700 font-medium rounded hover:bg-slate-100 transition-colors text-xs px-2 py-1"
-                                  >
-                                    Mark read
-                                  </button>
-                                )}
-                                <button
-                                  onClick={() => handleDeleteNotification(notification.id, notification.message)}
-                                  className="text-gray-400 hover:text-red-500 transition-colors rounded hover:bg-red-50 p-1"
-                                  title="Delete notification"
-                                >
-                                  <X className="w-3 h-3" />
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  
-                  {/* Footer with actions */}
-                  {notifications.length > 0 && (
-                    <div className="px-4 py-3 bg-gray-50 border-t border-gray-100">
-                      <div className="flex items-center justify-between gap-3">
-                        {unreadCount > 0 && (
-                          <button
-                            onClick={markAllAsRead}
-                            className="text-sm text-slate-600 hover:text-slate-700 font-medium transition-colors flex items-center gap-1"
-                          >
-                            <Check className="w-4 h-4" />
-                            Mark all read
-                          </button>
-                        )}
-                        <button
-                          onClick={handleDismissAll}
-                          className="text-sm text-red-600 hover:text-red-700 font-medium transition-colors flex items-center gap-1 ml-auto"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          Clear all
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </>
+                    <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Close">
+                  <IconButton 
+                    size="small" 
+                    onClick={() => setIsOpen(false)}
+                  >
+                    <X size={16} />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+            </NotificationHeader>
+
+            {/* Tabs */}
+            <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+              <Tabs 
+                value={activeTab} 
+                onChange={handleTabChange}
+                sx={{
+                  '& .MuiTab-root': {
+                    textTransform: 'none',
+                    fontWeight: 500,
+                    fontSize: '0.875rem',
+                  }
+                }}
+              >
+                <Tab 
+                  label={`All (${notifications.length})`} 
+                  sx={{ flex: 1, maxWidth: 'none' }}
+                />
+                <Tab 
+                  label={`Unread (${unreadCount})`}
+                  sx={{ flex: 1, maxWidth: 'none' }}
+                />
+              </Tabs>
+            </Box>
+
+            {/* Content */}
+            <NotificationContent>
+              {loading && (
+                <Box display="flex" justifyContent="center" p={4}>
+                  <CircularProgress size={24} />
+                </Box>
               )}
-            </div>
-          </div>
-        )}
-      </div>
+
+              {error && (
+                <Box p={3}>
+                  <Alert severity="error" sx={{ borderRadius: 2 }}>
+                    <Typography variant="body2">
+                      Failed to load notifications: {error}
+                    </Typography>
+                  </Alert>
+                </Box>
+              )}
+
+              {!loading && !error && filteredNotifications.length === 0 && (
+                <Box p={4} textAlign="center">
+                  <Typography variant="body2" color="text.secondary">
+                    {activeTab === 0 ? 'No notifications yet' : 'No unread notifications'}
+                  </Typography>
+                </Box>
+              )}
+
+              {!loading && !error && filteredNotifications.map((notification) => (
+                <NotificationItem key={notification.id} isUnread={!notification.read}>
+                  <Box display="flex" alignItems="flex-start" gap={2}>
+                    <Box mt={0.5}>
+                      {getNotificationIcon(notification.type)}
+                    </Box>
+                    
+                    <Box flex={1} minWidth={0}>
+                      <Typography 
+                        variant="body2" 
+                        sx={{ 
+                          fontWeight: notification.read ? 400 : 600,
+                          color: 'text.primary',
+                          mb: 0.5,
+                          wordBreak: 'break-word'
+                        }}
+                      >
+                        {notification.message}
+                      </Typography>
+                      
+                                             <Box display="flex" alignItems="center" gap={1} mb={1}>
+                         <Typography variant="caption" color="text.secondary">
+                           {formatTimestamp(notification.createdAt)}
+                         </Typography>
+                        {notification.category && (
+                          <Typography 
+                            variant="caption" 
+                            sx={{ 
+                              px: 1, 
+                              py: 0.25, 
+                              backgroundColor: theme.palette.primary.main + '20',
+                              color: theme.palette.primary.main,
+                              borderRadius: 1,
+                              fontSize: '0.65rem',
+                              fontWeight: 500,
+                            }}
+                          >
+                            {notification.category}
+                          </Typography>
+                        )}
+                      </Box>
+                    </Box>
+
+                    <Box display="flex" alignItems="center" gap={0.5}>
+                      {!notification.read && (
+                        <Tooltip title="Mark as read">
+                          <IconButton
+                            size="small"
+                            onClick={() => markAsRead(notification.id)}
+                            sx={{ color: 'success.main' }}
+                          >
+                            <Check size={14} />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      
+                      <Tooltip title="Delete">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleDeleteNotification(notification.id, notification.message)}
+                          sx={{ color: 'error.main' }}
+                        >
+                          <Trash2 size={14} />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                  </Box>
+                </NotificationItem>
+              ))}
+            </NotificationContent>
+
+            {/* Actions */}
+            {notifications.length > 0 && (
+              <NotificationActions>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={markAllAsRead}
+                  disabled={unreadCount === 0}
+                  sx={{ 
+                    textTransform: 'none',
+                    borderRadius: 2,
+                    fontSize: '0.75rem',
+                  }}
+                >
+                  Mark all read
+                </Button>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="error"
+                  onClick={handleDismissAll}
+                  sx={{ 
+                    textTransform: 'none',
+                    borderRadius: 2,
+                    fontSize: '0.75rem',
+                  }}
+                >
+                  Clear all
+                </Button>
+              </NotificationActions>
+            )}
+          </NotificationDropdown>
+        </Fade>
+      </Box>
 
       {/* Confirmation Dialog */}
       <ConfirmDialog
@@ -429,7 +571,6 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
         onConfirm={confirmDialog.onConfirm}
         onCancel={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
         type={confirmDialog.type}
-        confirmText={confirmDialog.type === 'danger' ? 'Delete' : 'Confirm'}
       />
     </>
   );
