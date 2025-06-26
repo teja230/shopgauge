@@ -538,4 +538,4 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 
 ---
 
-**ShopGauge** - Intelligent Analytics for Smart Merchants 🚀
+**ShopGauge** - Built with ❤️ for Shopify merchants who want intelligent analytics and competitor insights. 🚀
