@@ -429,14 +429,15 @@
         console.log(`Auto-refresh attempt ${refreshCount}/${maxRefreshAttempts}`);
         
         // Try to fetch a lightweight endpoint to check if service is back
-        // Try both health endpoints for better reliability
+        // Use the correct backend API URL instead of relative paths
+        const API_BASE_URL = 'https://api.shopgaugeai.com';
         Promise.race([
-          fetch('/api/health', { 
+          fetch(`${API_BASE_URL}/api/health`, { 
             method: 'GET',
             cache: 'no-cache',
             credentials: 'include'
           }),
-          fetch('/api/health/summary', { 
+          fetch(`${API_BASE_URL}/api/health/summary`, { 
             method: 'GET',
             cache: 'no-cache',
             credentials: 'include'
