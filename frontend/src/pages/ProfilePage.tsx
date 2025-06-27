@@ -1,10 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate, useLocation } from 'react-router-dom';
 import { useNotifications } from '../hooks/useNotifications';
-import { ConfirmDialog } from '../components/ui/ConfirmDialog';
-import { API_BASE_URL } from '../api';
+import { useNavigate } from 'react-router-dom';
+import { 
+  getAuthShop, 
+  getStoreStats, 
+  forceDisconnectShop, 
+  exportData, 
+  deleteData, 
+  getPrivacyReport,
+  API_BASE_URL
+} from '../api';
 import { normalizeShopDomain } from '../utils/normalizeShopDomain';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 
 // Cache configuration for store stats
 const STORE_STATS_CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
@@ -86,7 +94,6 @@ export default function ProfilePage() {
   });
   
   const navigate = useNavigate();
-  const location = useLocation();
   const notifications = useNotifications();
 
   // Save current store to past stores when shop changes
@@ -162,15 +169,12 @@ export default function ProfilePage() {
   const checkConnectionStatus = async () => {
     try {
       setConnectionStatus('checking');
-      const response = await fetch(`${API_BASE_URL}/api/auth/shopify/me`, {
-        credentials: 'include',
-      });
+      const shopData = await getAuthShop();
       
-      if (response.ok) {
-        const data = await response.json();
-        setConnectionStatus(data.shop ? 'connected' : 'error');
+      if (shopData) {
+        setConnectionStatus('connected');
         setLastSyncTime(new Date());
-        return { connected: !!data.shop, error: null };
+        return { connected: true, error: null };
       } else {
         setConnectionStatus('error');
         return { connected: false, error: 'Connection check failed' };
@@ -199,17 +203,11 @@ export default function ProfilePage() {
         }
       }
       
-      const response = await fetch(`${API_BASE_URL}/api/analytics/store-stats`, {
-        credentials: 'include',
-      });
-      
-      if (response.ok) {
-        const stats = await response.json();
-        setStoreStats(stats);
-        const now = new Date();
-        setStoreStatsLastUpdated(now);
-        saveStoreStatsToCache(stats, shop);
-      }
+      const stats = await getStoreStats();
+      setStoreStats(stats);
+      const now = new Date();
+      setStoreStatsLastUpdated(now);
+      saveStoreStatsToCache(stats, shop);
     } catch (error) {
       console.error('Failed to load store stats:', error);
     } finally {
@@ -277,10 +275,10 @@ export default function ProfilePage() {
           }, 1500);
     } catch (error) {
       console.error('Error disconnecting shop:', error);
-          notifications.showError('Failed to disconnect store', {
-            persistent: true,
-            category: 'Store Connection'
-          });
+      notifications.showError('Unable to disconnect store at this time. Please try again later.', {
+        persistent: true,
+        category: 'Store Connection'
+      });
     }
       },
       onCancel: () => {
@@ -303,9 +301,9 @@ export default function ProfilePage() {
     console.log('Force disconnect: Starting with shop:', shop);
     
     if (!shop) {
-          notifications.showError('No shop found to disconnect', {
-            category: 'Store Connection'
-          });
+      notifications.showError('No store information available for disconnection.', {
+        category: 'Store Connection'
+      });
       setIsForceDisconnecting(false);
       return;
     }
@@ -317,47 +315,34 @@ export default function ProfilePage() {
           });
           
       console.log('Force disconnect: Calling API with shop:', shop);
-          const res = await fetch(`${API_BASE_URL}/api/auth/shopify/profile/force-disconnect`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shop }),
-      });
+      const data = await forceDisconnectShop(shop);
       
-      console.log('Force disconnect: Response status:', res.status);
-      const data = await res.json();
       console.log('Force disconnect: Response data:', data);
       
-      if (res.ok) {
-            // Clear all caches
-            sessionStorage.clear();
-            localStorage.clear();
-            
-            notifications.showSuccess('Force disconnect successful! All tokens and cookies cleared.', {
-              persistent: true,
-              category: 'Store Connection',
-              duration: 8000
-            });
-        console.log('Force disconnect: Success, redirecting to home');
-            
-            // Redirect after a delay
-        setTimeout(() => {
-              navigate('/');
-              window.location.reload(); // Force full page reload to clear any remaining state
-            }, 2000);
-      } else {
-        console.error('Force disconnect: API error:', data);
-            notifications.showError('Force disconnect failed: ' + (data?.message || 'Unknown error'), {
-              persistent: true,
-              category: 'Store Connection'
-            });
-      }
-    } catch (error) {
+      // Clear all caches
+      sessionStorage.clear();
+      localStorage.clear();
+      
+      notifications.showSuccess('Force disconnect successful! All tokens and cookies cleared.', {
+        persistent: true,
+        category: 'Store Connection',
+        duration: 8000
+      });
+      console.log('Force disconnect: Success, redirecting to home');
+      
+      // Redirect after a delay
+      setTimeout(() => {
+        navigate('/');
+        window.location.reload(); // Force full page reload to clear any remaining state
+      }, 2000);
+    } catch (error: any) {
       console.error('Force disconnect: Network error:', error);
-          notifications.showError('Force disconnect failed: Network error', {
-            persistent: true,
-            category: 'Store Connection'
-          });
+      // Show the actual server error message if available
+      const errorMessage = error?.response?.data?.message || error?.message || 'Network error';
+      notifications.showError('Unable to complete force disconnect. Please try again or contact support if the issue persists.', {
+        persistent: true,
+        category: 'Store Connection'
+      });
     } finally {
       setIsForceDisconnecting(false);
     }
@@ -376,10 +361,7 @@ export default function ProfilePage() {
     });
     
     try {
-      const response = await fetch(`${API_BASE_URL}/api/analytics/privacy/data-export`, {
-        method: 'GET',
-        credentials: 'include',
-      });
+      const response = await exportData();
       
       if (response.ok) {
         const blob = await response.blob();
@@ -400,14 +382,16 @@ export default function ProfilePage() {
         });
       } else {
         const error = await response.json();
-        notifications.showError('Data export failed: ' + (error.message || 'Unknown error'), {
+        notifications.showError('Unable to export data at this time. Please try again later.', {
           persistent: true,
           category: 'Data Privacy'
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Data export failed:', error);
-      notifications.showError('Data export failed: Network error', {
+      // Show the actual server error message if available
+      const errorMessage = error?.response?.data?.message || error?.message || 'Network error';
+      notifications.showError('Unable to export data at this time. Please try again later.', {
         persistent: true,
         category: 'Data Privacy'
       });
@@ -460,40 +444,27 @@ export default function ProfilePage() {
     });
     
     try {
-      const response = await fetch(`${API_BASE_URL}/api/analytics/privacy/data-deletion`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ customer_id: 'ALL_SHOP_DATA' }),
+      const result = await deleteData('ALL_SHOP_DATA');
+      notifications.showSuccess('🗑️ All data has been permanently deleted from our systems!', {
+        persistent: true,
+        category: 'Data Privacy',
+        duration: 8000
       });
+      console.log('Data deletion completed:', result);
       
-      if (response.ok) {
-        const result = await response.json();
-        notifications.showSuccess('🗑️ All data has been permanently deleted from our systems!', {
-          persistent: true,
-          category: 'Data Privacy',
-          duration: 8000
-        });
-        console.log('Data deletion completed:', result);
-        
-        // Clear all local data and logout
-        sessionStorage.clear();
-        localStorage.clear();
-        
-        // Logout after successful deletion
-        setTimeout(() => {
-          logout();
-        }, 3000);
-      } else {
-        const error = await response.json();
-        notifications.showError('Data deletion failed: ' + (error.message || 'Unknown error'), {
-          persistent: true,
-          category: 'Data Privacy'
-        });
-      }
-    } catch (error) {
+      // Clear all local data and logout
+      sessionStorage.clear();
+      localStorage.clear();
+      
+      // Logout after successful deletion
+      setTimeout(() => {
+        logout();
+      }, 3000);
+    } catch (error: any) {
       console.error('Data deletion failed:', error);
-      notifications.showError('Data deletion failed: Network error', {
+      // Show the actual server error message if available
+      const errorMessage = error?.response?.data?.message || error?.message || 'Network error';
+      notifications.showError('Unable to delete data at this time. Please try again later.', {
         persistent: true,
         category: 'Data Privacy'
       });
@@ -503,33 +474,18 @@ export default function ProfilePage() {
   };
 
   const handlePrivacyReport = async () => {
-    notifications.showInfo('Generating privacy compliance report...', {
-      category: 'Data Privacy',
-      duration: 5000
-    });
-    
     try {
-      const response = await fetch(`${API_BASE_URL}/api/analytics/privacy/compliance-report`, {
-        method: 'GET',
-        credentials: 'include',
+      const report = await getPrivacyReport();
+      setPrivacyReport(report);
+      setShowPrivacyReport(true);
+      notifications.showSuccess('Privacy report generated successfully!', {
+        category: 'Data Privacy'
       });
-      
-      if (response.ok) {
-        const report = await response.json();
-        setPrivacyReport(report);
-        setShowPrivacyReport(true);
-        notifications.showSuccess('Privacy report generated successfully!', {
-          category: 'Data Privacy'
-        });
-      } else {
-        notifications.showError('Failed to load privacy report', {
-          persistent: true,
-          category: 'Data Privacy'
-        });
-      }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Privacy report failed:', error);
-      notifications.showError('Privacy report failed: Network error', {
+      // Show the actual server error message if available
+      const errorMessage = error?.response?.data?.message || error?.message || 'Network error';
+      notifications.showError('Unable to generate privacy report at this time. Please try again later.', {
         persistent: true,
         category: 'Data Privacy'
       });
@@ -560,7 +516,7 @@ export default function ProfilePage() {
     e.preventDefault();
     const cleanDomain = normalizeShopDomain(newStoreDomain);
     if (!cleanDomain) {
-      notifications.showError('Please enter a valid Shopify store URL or name', {
+      notifications.showError('Please enter a valid Shopify store domain or URL.', {
         category: 'Validation'
       });
       return;
@@ -588,7 +544,7 @@ export default function ProfilePage() {
       window.location.href = `${API_BASE_URL}/api/auth/shopify/login?shop=${encodeURIComponent(cleanDomain)}&return_url=${returnUrl}`;
     } catch (error) {
       console.error('Failed to connect new store:', error);
-      notifications.showError('Failed to connect store. Please try again.', {
+      notifications.showError('Unable to connect store at this time. Please try again later.', {
         persistent: true,
         category: 'Store Connection'
       });

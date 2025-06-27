@@ -411,4 +411,36 @@ export const logoutShop = async () => {
   }
 };
 
+// Profile and privacy-related API functions
+export const getStoreStats = async () => {
+  const response = await fetchWithAuth('/analytics/store-stats');
+  return handleResponse<any>(response);
+};
+
+export const forceDisconnectShop = async (shop: string) => {
+  const response = await fetchWithAuth('/auth/shopify/profile/force-disconnect', {
+    method: 'POST',
+    body: JSON.stringify({ shop }),
+  });
+  return handleResponse<any>(response);
+};
+
+export const exportData = async () => {
+  const response = await fetchWithAuth('/analytics/privacy/data-export');
+  return response; // Return raw response for blob handling
+};
+
+export const deleteData = async (customerId: string) => {
+  const response = await fetchWithAuth('/analytics/privacy/data-deletion', {
+    method: 'POST',
+    body: JSON.stringify({ customer_id: customerId }),
+  });
+  return handleResponse<any>(response);
+};
+
+export const getPrivacyReport = async () => {
+  const response = await fetchWithAuth('/analytics/privacy/compliance-report');
+  return handleResponse<any>(response);
+};
+
 export default api; 
