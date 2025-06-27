@@ -32,21 +32,23 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
       HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
       throws ServletException, IOException {
 
-    try {
-      // Skip auth for public endpoints
-      String path = request.getRequestURI();
-      if (path.startsWith("/api/auth/")
-          || path.startsWith("/actuator/")
-          || path.startsWith("/health/")
-          || path.startsWith("/api/health/")
-          || path.equals("/")
-          || path.equals("/health")
-          || path.equals("/api/health")
-          || path.startsWith("/error")) {
-        filterChain.doFilter(request, response);
-        return;
-      }
+    String path = request.getRequestURI();
+    
+    // Skip auth for public endpoints - be more explicit about auth endpoints
+    if (path.startsWith("/api/auth/shopify/") 
+        || path.startsWith("/actuator/")
+        || path.startsWith("/health/")
+        || path.startsWith("/api/health/")
+        || path.equals("/")
+        || path.equals("/health")
+        || path.equals("/api/health")
+        || path.startsWith("/error")) {
+      logger.debug("Skipping authentication for public endpoint: {}", path);
+      filterChain.doFilter(request, response);
+      return;
+    }
 
+    try {
       // Log request details for debugging (only in debug mode)
       if (logger.isDebugEnabled()) {
         logRequestDetails(request);
@@ -84,18 +86,22 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
       if (shopDomain != null && !shopDomain.trim().isEmpty()) {
         // Validate shop domain format
         if (isValidShopDomain(shopDomain)) {
-          // Verify shop exists in database
-          if (shopService.getTokenForShop(shopDomain, null) != null) {
+          // Get session ID for multi-session support
+          String sessionId = request.getSession(false) != null ? request.getSession(false).getId() : null;
+          
+          // Verify shop exists and has valid token
+          String token = shopService.getTokenForShop(shopDomain, sessionId);
+          if (token != null) {
             // Set authentication context
             UsernamePasswordAuthenticationToken authentication =
                 new UsernamePasswordAuthenticationToken(
                     shopDomain, null, AuthorityUtils.createAuthorityList("ROLE_SHOP"));
             SecurityContextHolder.getContext().setAuthentication(authentication);
 
-            logger.debug("Authentication set for shop: {}", shopDomain);
+            logger.debug("Authentication set for shop: {} with session: {}", shopDomain, sessionId);
           } else {
-            logger.warn("Shop not found in database: {}", shopDomain);
-            handleAuthenticationFailure(response, "Shop not found. Please re-authenticate.");
+            logger.warn("No valid token found for shop: {} and session: {}", shopDomain, sessionId);
+            handleAuthenticationFailure(response, "Session expired. Please re-authenticate.");
             return;
           }
         } else {

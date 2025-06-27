@@ -462,11 +462,22 @@ public class ShopifyAuthController {
               sameSiteValue,
               isProduction ? "Secure;" : ""));
 
+      // CRITICAL: Also set a session cookie for immediate authentication
+      // This ensures that the /me endpoint works immediately after OAuth
+      if (isProduction) {
+        response.addHeader(
+            "Set-Cookie",
+            String.format(
+                "JSESSIONID=%s; Path=/; Max-Age=%d; Domain=shopgaugeai.com; SameSite=Lax; Secure; HttpOnly",
+                sessionId, 60 * 60 * 24)); // 24 hours for session
+      }
+
       logger.info(
-          "Cookie configuration: secure={}, path={}, SameSite={}",
+          "Cookie configuration: secure={}, path={}, SameSite={}, sessionId={}",
           isProduction,
           shopCookie.getPath(),
-          sameSiteValue);
+          sameSiteValue,
+          sessionId);
 
       // Mark the authorization code as successfully processed
       markCodeAsSuccessfullyProcessed(code);
@@ -898,6 +909,8 @@ public class ShopifyAuthController {
     }
 
     String sessionId = request.getSession(false) != null ? request.getSession(false).getId() : null;
+    logger.info("Auth: Current session ID: {}", sessionId);
+    
     String token =
         (sessionId != null && shop != null) ? shopService.getTokenForShop(shop, sessionId) : null;
 
@@ -908,13 +921,26 @@ public class ShopifyAuthController {
       token = shopService.getTokenForShop(shop, "fallback");
 
       // If we found a token in database, refresh it in Redis with current session
-      if (token != null && sessionId != null) {
+      if (token != null) {
+        // Create new session if needed for recovery
+        if (sessionId == null) {
+          try {
+            sessionId = request.getSession(true).getId();
+            logger.info("Auth: Created new session for recovery: {}", sessionId);
+          } catch (Exception e) {
+            logger.warn("Auth: Failed to create new session: {}", e.getMessage());
+            // Use fallback session ID
+            sessionId = "recovery_" + System.currentTimeMillis() + "_" + Math.abs(shop.hashCode());
+          }
+        }
+        
         logger.info("Auth: Found token in database, refreshing session for shop: {}", shop);
         try {
-          shopService.saveShop(shop, token, sessionId);
+          shopService.saveShop(shop, token, sessionId, request);
           logger.info("Auth: Session refreshed successfully for shop: {}", shop);
         } catch (Exception e) {
           logger.error("Auth: Failed to refresh session: {}", e.getMessage());
+          // Continue anyway since we have a valid token
         }
       }
     }
@@ -929,6 +955,8 @@ public class ShopifyAuthController {
 
     logger.info("Auth: Found token for shop: {} and session: {}", shop, sessionId);
     response.put("shop", shop);
+    response.put("authenticated", true);
+    response.put("sessionId", sessionId);
     return Mono.just(ResponseEntity.ok(response));
   }
 

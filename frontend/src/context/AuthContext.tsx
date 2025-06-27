@@ -58,8 +58,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const checkAuth = async () => {
     try {
       const response = await axios.get(`${API_BASE_URL}/api/auth/shopify/me`, {
-        withCredentials: true
+        withCredentials: true,
+        timeout: 10000 // 10 second timeout
       });
+      
       if (response.data.shop) {
         // If shop has changed, clear the cache
         if (shop && shop !== response.data.shop) {
@@ -67,12 +69,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         setShop(response.data.shop);
         setIsAuthenticated(true);
+        
+        // Log successful authentication for debugging
+        if (import.meta.env.DEV) {
+          console.log('Auth: Successfully authenticated as shop:', response.data.shop);
+        }
       } else {
         setIsAuthenticated(false);
         setShop(null);
       }
     } catch (error) {
       console.error('Auth check failed:', error);
+      
+      // Check if it's a 401 error that might be recoverable
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        const errorData = error.response.data;
+        
+        // If there's a reauth URL, we might be able to recover
+        if (errorData?.reauth_url && errorData?.shop) {
+          console.log('Auth: Session expired but shop known, attempting recovery...');
+          
+          // Try to refresh authentication
+          try {
+            const refreshResponse = await axios.post(`${API_BASE_URL}/api/auth/shopify/refresh`, {}, {
+              withCredentials: true,
+              timeout: 5000
+            });
+            
+            if (refreshResponse.data.success && refreshResponse.data.shop) {
+              console.log('Auth: Successfully recovered authentication');
+              setShop(refreshResponse.data.shop);
+              setIsAuthenticated(true);
+              return; // Successfully recovered
+            }
+          } catch (refreshError) {
+            console.warn('Auth: Failed to refresh authentication:', refreshError);
+          }
+        }
+      }
+      
       setIsAuthenticated(false);
       setShop(null);
       // Clear cache on auth failure
