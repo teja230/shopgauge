@@ -186,14 +186,14 @@ export const ServiceStatusProvider: React.FC<ServiceStatusProviderProps> = ({ ch
         );
         recentFailureTimestampsRef.current = []; // reset counter after tripping
 
-        setIsServiceAvailable(false);
-        setLastServiceCheck(new Date());
-        navigate('/service-unavailable', { replace: true });
-
-        if (!isRetryingRef.current) {
-          startRetryLoop();
-        }
-
+      setIsServiceAvailable(false);
+      setLastServiceCheck(new Date());
+      navigate('/service-unavailable', { replace: true });
+      
+      if (!isRetryingRef.current) {
+        startRetryLoop();
+      }
+      
         return true; // handled – stop normal error propagation
       }
 

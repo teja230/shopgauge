@@ -120,7 +120,7 @@ const RouteErrorCleaner: React.FC = () => {
     
     console.log('RouteErrorCleaner: Cleared error states for route:', location.pathname);
   }, [location.pathname]);
-  
+
   return null;
 };
 
@@ -157,37 +157,37 @@ const AppContent: React.FC = () => {
       <main className="flex-1">
         <Routes>
           <Route path="/" element={<HomePage />} />
-          <Route 
-            path="/dashboard" 
+          <Route
+            path="/dashboard"
             element={
               isAuthenticated ? (
                 <DashboardPage />
               ) : (
                 <Navigate to="/" replace />
               )
-            } 
+            }
           />
-          <Route 
-            path="/competitors" 
+          <Route
+            path="/competitors"
             element={
               isAuthenticated ? (
                 <CompetitorsPage />
               ) : (
                 <Navigate to="/" replace />
               )
-            } 
+            }
           />
-          <Route 
-            path="/profile" 
+          <Route
+            path="/profile"
             element={
               isAuthenticated ? (
                 <ProfilePage />
               ) : (
                 <Navigate to="/" replace />
               )
-            } 
+            }
           />
-          <Route 
+          <Route
             path="/admin" 
             element={
               isAuthenticated ? (

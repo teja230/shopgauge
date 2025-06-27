@@ -163,19 +163,19 @@ export default function CompetitorsPage() {
     
     try {
       const response = await fetchWithAuth('/api/competitors/discovery/status');
-      const status = await response.json();
-      
-      // Handle improved response format (no cache details exposed)
-      if (status.last_discovery) {
-        const lastDiscoveryTime = new Date(status.last_discovery).getTime();
-        setLastDiscoveryTime(lastDiscoveryTime);
-      }
-      
-      // Enhanced logging for transparency without exposing technical details
-      const canDiscover = status.can_discover || !status.is_on_cooldown;
-      const statusText = status.status || (canDiscover ? 'ready' : 'cooldown');
-      
-      console.log(`Discovery status for ${shop}: ${statusText} (${canDiscover ? 'available now' : `available in ${status.hours_remaining || 0}h`})`);
+        const status = await response.json();
+        
+        // Handle improved response format (no cache details exposed)
+        if (status.last_discovery) {
+          const lastDiscoveryTime = new Date(status.last_discovery).getTime();
+          setLastDiscoveryTime(lastDiscoveryTime);
+        }
+        
+        // Enhanced logging for transparency without exposing technical details
+        const canDiscover = status.can_discover || !status.is_on_cooldown;
+        const statusText = status.status || (canDiscover ? 'ready' : 'cooldown');
+        
+        console.log(`Discovery status for ${shop}: ${statusText} (${canDiscover ? 'available now' : `available in ${status.hours_remaining || 0}h`})`);
     } catch (error) {
       console.log('Could not fetch discovery status from server - discovery status unavailable');
       // No fallback - server-side is the source of truth for cross-device consistency
@@ -217,7 +217,7 @@ export default function CompetitorsPage() {
         console.log('fetchData: User explicitly disabled demo, staying in Live Mode');
         // Only update mode if we're not already in live mode to prevent unnecessary renders
         if (isDemoMode) {
-          setIsDemoMode(false);
+        setIsDemoMode(false);
         }
       } else if (!forceRefresh && !isDemoMode && (competitorsData.length === 0 && suggestionCountData.newSuggestions === 0)) {
         // Only auto-enable demo if:
@@ -232,7 +232,7 @@ export default function CompetitorsPage() {
         // Has data and user hasn't explicitly chosen demo - use live mode
         if (isDemoMode) {
           console.log('fetchData: Data available, switching to Live Mode');
-          setIsDemoMode(false);
+        setIsDemoMode(false);
         } else {
           console.log('fetchData: Data available, already in Live Mode');
         }
@@ -415,7 +415,7 @@ export default function CompetitorsPage() {
                 }
               } else {
                 console.log('Products API returned status:', response.status);
-              }
+      }
             } catch (error) {
               console.error('Failed to fetch products:', error);
             }
@@ -425,11 +425,11 @@ export default function CompetitorsPage() {
         // Add competitor with intelligent product handling
         newCompetitor = await addCompetitor(url.trim(), finalProductId || '');
         setCompetitors((prev) => [...prev, newCompetitor]);
-        
+      
         // Clear cache to ensure fresh data on next load
-        const cacheKey = `competitors_${shop}`;
-        cache.delete(cacheKey);
-        
+      const cacheKey = `competitors_${shop}`;
+      cache.delete(cacheKey);
+      
         notifications.showSuccess('Competitor added successfully', {
           category: 'Competitors'
         });
@@ -465,7 +465,7 @@ export default function CompetitorsPage() {
       if (needsProductSync) {
         // Trigger product sync in background with better feedback
         notifications.showInfo('Syncing your product catalog in the background...', {
-          category: 'Competitors',
+            category: 'Competitors',
           persistent: false
         });
         
@@ -489,7 +489,7 @@ export default function CompetitorsPage() {
             };
             sessionStorage.setItem('dashboard_cache_v2', JSON.stringify(cacheData));
             console.log('Updated dashboard cache with fresh product data');
-          }
+        }
         })
         .catch(error => {
           console.error('Background product sync failed:', error);
@@ -503,7 +503,7 @@ export default function CompetitorsPage() {
         notifications.showError(userMessage, {
           category: 'Competitors',
           persistent: false
-        });
+      });
       }
     } finally {
       setIsAdding(false);

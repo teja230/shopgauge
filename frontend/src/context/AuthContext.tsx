@@ -117,8 +117,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Only set loading to false after initial load
       if (!hasInitiallyLoaded) {
         // Remove artificial delay - show loading screen only as long as needed
-        setLoading(false);
-        setHasInitiallyLoaded(true);
+      setLoading(false);
+          setHasInitiallyLoaded(true);
       }
     }
   };

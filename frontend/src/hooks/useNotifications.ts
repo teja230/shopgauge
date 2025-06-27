@@ -545,18 +545,18 @@ export const useNotifications = () => {
   const clearAll = useCallback(async () => {
     try {
       if (isAuthenticated) {
-        // Delete persistent notifications from backend
-        const persistentNotifications = globalNotifications.filter(n => n.persistent);
-        if (persistentNotifications.length > 0) {
-          await Promise.all(
-            persistentNotifications.map(n => 
-              fetchWithAuth(`/api/auth/shopify/notifications/${n.id}`, {
-                method: 'DELETE'
-              }).catch(error => {
-                console.error('Failed to delete notification from backend:', error);
-              })
-            )
-          );
+      // Delete persistent notifications from backend
+      const persistentNotifications = globalNotifications.filter(n => n.persistent);
+      if (persistentNotifications.length > 0) {
+        await Promise.all(
+          persistentNotifications.map(n => 
+            fetchWithAuth(`/api/auth/shopify/notifications/${n.id}`, {
+              method: 'DELETE'
+            }).catch(error => {
+              console.error('Failed to delete notification from backend:', error);
+            })
+          )
+        );
         }
       }
     } catch (error) {

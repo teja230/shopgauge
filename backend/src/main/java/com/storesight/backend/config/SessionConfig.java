@@ -1,42 +1,46 @@
 package com.storesight.backend.config;
 
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Primary;
-import org.springframework.data.redis.connection.RedisConnectionFactory;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
-import org.springframework.data.redis.serializer.StringRedisSerializer;
+import org.springframework.session.data.redis.config.annotation.web.http.EnableRedisHttpSession;
+import org.springframework.session.web.http.CookieSerializer;
+import org.springframework.session.web.http.DefaultCookieSerializer;
 
 @Configuration
+@EnableRedisHttpSession(
+    maxInactiveIntervalInSeconds = 3600, // 1 hour
+    redisNamespace = "storesight:sessions")
 public class SessionConfig {
 
+  private static final Logger logger = LoggerFactory.getLogger(SessionConfig.class);
+
+  @Value("${spring.profiles.active:dev}")
+  private String activeProfile;
+
   @Bean
-  @Primary
-  public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory) {
-    RedisTemplate<String, Object> template = new RedisTemplate<>();
-    template.setConnectionFactory(connectionFactory);
+  public CookieSerializer cookieSerializer() {
+    DefaultCookieSerializer serializer = new DefaultCookieSerializer();
+    serializer.setCookieName("SESSION");
+    serializer.setUseHttpOnlyCookie(true);
+    serializer.setSameSite("Lax");
+    serializer.setUseSecureCookie(isProduction());
+    serializer.setCookiePath("/");
 
-    // Use String serializer for keys
-    template.setKeySerializer(new StringRedisSerializer());
-    template.setHashKeySerializer(new StringRedisSerializer());
+    // Set domain for production to work across subdomains
+    if (isProduction()) {
+      serializer.setDomainName("shopgaugeai.com");
+      logger.info("Session cookie configured for production domain: shopgaugeai.com");
+    } else {
+      logger.info("Session cookie configured for development");
+    }
 
-    // Use JSON serializer for values with type information
-    ObjectMapper objectMapper = new ObjectMapper();
-    objectMapper.activateDefaultTyping(
-        LaissezFaireSubTypeValidator.instance,
-        ObjectMapper.DefaultTyping.NON_FINAL,
-        JsonTypeInfo.As.PROPERTY);
+    return serializer;
+  }
 
-    GenericJackson2JsonRedisSerializer jsonSerializer =
-        new GenericJackson2JsonRedisSerializer(objectMapper);
-    template.setValueSerializer(jsonSerializer);
-    template.setHashValueSerializer(jsonSerializer);
-
-    template.afterPropertiesSet();
-    return template;
+  private boolean isProduction() {
+    return "prod".equals(activeProfile) || "production".equals(activeProfile);
   }
 }

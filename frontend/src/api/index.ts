@@ -73,7 +73,7 @@ export async function getAuthShop(): Promise<string> {
   }
   
   try {
-    const response = await fetchWithAuth('/auth/shopify/me');
+    const response = await fetchWithAuth('/api/auth/shopify/me');
     const data = await response.json();
     
     // Only log in development

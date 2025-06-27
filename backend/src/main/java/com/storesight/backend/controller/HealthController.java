@@ -1,156 +1,187 @@
 package com.storesight.backend.controller;
 
+import com.storesight.backend.service.ShopService;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import javax.sql.DataSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
+@RequestMapping("/api/health")
 public class HealthController {
 
   private static final Logger logger = LoggerFactory.getLogger(HealthController.class);
 
-  @Value("${spring.application.name:storesight-backend}")
-  private String applicationName;
+  @Autowired private DataSource dataSource;
 
-  @Value("${shopify.api.key:}")
-  private String apiKey;
-
-  @Value("${shopify.api.secret:}")
-  private String apiSecret;
-
-  @Value("${shopify.redirect_uri:}")
-  private String redirectUri;
-
-  @Value("${frontend.url:}")
-  private String frontendUrl;
-
-  @Value("${app.lastDeployCommit:unknown}")
-  private String lastDeployCommit;
+  @Autowired private JdbcTemplate jdbcTemplate;
 
   @Autowired private StringRedisTemplate redisTemplate;
 
-  @GetMapping("/health")
-  public ResponseEntity<Map<String, Object>> health() {
-    Map<String, Object> health = new HashMap<>();
-    health.put("status", "UP");
-    health.put("application", applicationName);
-    health.put("timestamp", System.currentTimeMillis());
+  @Autowired private ShopService shopService;
 
-    logger.debug("Health check requested");
+  @Value("${spring.application.name:storesight-backend}")
+  private String applicationName;
+
+  @GetMapping("/summary")
+  public ResponseEntity<Map<String, Object>> getHealthSummary() {
+    Map<String, Object> health = new HashMap<>();
+    health.put("application", applicationName);
+    health.put("timestamp", LocalDateTime.now().toString());
+    health.put("status", "healthy");
+
+    // Database health check
+    Map<String, Object> databaseHealth = checkDatabaseHealth();
+    health.put("database", databaseHealth);
+
+    // Redis health check
+    Map<String, Object> redisHealth = checkRedisHealth();
+    health.put("redis", redisHealth);
+
+    // Overall status
+    boolean isHealthy =
+        "healthy".equals(databaseHealth.get("status"))
+            && "healthy".equals(redisHealth.get("status"));
+
+    health.put("status", isHealthy ? "healthy" : "degraded");
+
     return ResponseEntity.ok(health);
   }
 
-  @GetMapping("/api/health")
-  public ResponseEntity<Map<String, Object>> apiHealth() {
-    Map<String, Object> health = new HashMap<>();
-    health.put("status", "UP");
-    health.put("application", applicationName);
-    health.put("timestamp", System.currentTimeMillis());
-
-    logger.debug("API Health check requested");
+  @GetMapping("/database")
+  public ResponseEntity<Map<String, Object>> getDatabaseHealth() {
+    Map<String, Object> health = checkDatabaseHealth();
     return ResponseEntity.ok(health);
   }
 
-  @GetMapping("/")
-  public ResponseEntity<Map<String, Object>> rootHealth() {
-    Map<String, Object> health = new HashMap<>();
-    health.put("status", "UP");
-    health.put("application", applicationName);
-    health.put("message", "ShopGauge Backend is running");
-    health.put("timestamp", System.currentTimeMillis());
-
-    logger.debug("Root health check requested");
+  @GetMapping("/redis")
+  public ResponseEntity<Map<String, Object>> getRedisHealth() {
+    Map<String, Object> health = checkRedisHealth();
     return ResponseEntity.ok(health);
   }
 
-  @GetMapping("/health/detailed")
-  public ResponseEntity<Map<String, Object>> detailedHealth() {
+  private Map<String, Object> checkDatabaseHealth() {
     Map<String, Object> health = new HashMap<>();
-    health.put("status", "UP");
-    health.put("application", applicationName);
-    health.put("timestamp", System.currentTimeMillis());
 
-    // Check configuration
-    Map<String, Object> config = new HashMap<>();
-    config.put("api_key_configured", apiKey != null && !apiKey.isBlank());
-    config.put("api_secret_configured", apiSecret != null && !apiSecret.isBlank());
-    config.put("redirect_uri_configured", redirectUri != null && !redirectUri.isBlank());
-    config.put("frontend_url_configured", frontendUrl != null && !frontendUrl.isBlank());
-
-    health.put("configuration", config);
-
-    Map<String, Object> checks = new HashMap<>();
-    // Redis connectivity check
     try {
-      redisTemplate.opsForValue().set("health:check", "ok");
-      String value = redisTemplate.opsForValue().get("health:check");
-      if ("ok".equals(value)) {
-        checks.put("redis", Map.of("status", "UP", "message", "Redis connection successful"));
-      } else {
-        checks.put("redis", Map.of("status", "DOWN", "message", "Redis connection failed"));
+      // Test connection
+      try (Connection connection = dataSource.getConnection()) {
+        health.put("connection", "healthy");
+        health.put("connection_timeout", connection.getNetworkTimeout());
       }
-      redisTemplate.delete("health:check"); // Clean up test key
+
+      // Test query execution
+      long startTime = System.currentTimeMillis();
+      Integer result = jdbcTemplate.queryForObject("SELECT 1", Integer.class);
+      long queryTime = System.currentTimeMillis() - startTime;
+
+      health.put("query_execution", "healthy");
+      health.put("query_time_ms", queryTime);
+      health.put("test_result", result);
+
+      // Check connection pool stats if using HikariCP
+      if (dataSource instanceof com.zaxxer.hikari.HikariDataSource) {
+        com.zaxxer.hikari.HikariDataSource hikariDS =
+            (com.zaxxer.hikari.HikariDataSource) dataSource;
+        health.put(
+            "pool_active_connections", hikariDS.getHikariPoolMXBean().getActiveConnections());
+        health.put("pool_idle_connections", hikariDS.getHikariPoolMXBean().getIdleConnections());
+        health.put("pool_total_connections", hikariDS.getHikariPoolMXBean().getTotalConnections());
+      }
+
+      health.put("status", "healthy");
+
+    } catch (SQLException e) {
+      logger.error("Database health check failed: {}", e.getMessage(), e);
+      health.put("status", "unhealthy");
+      health.put("error", e.getMessage());
+      health.put("error_type", e.getClass().getSimpleName());
     } catch (Exception e) {
-      checks.put("redis", Map.of("status", "DOWN", "message", "Redis error: " + e.getMessage()));
+      logger.error("Database health check failed with unexpected error: {}", e.getMessage(), e);
+      health.put("status", "unhealthy");
+      health.put("error", e.getMessage());
+      health.put("error_type", e.getClass().getSimpleName());
     }
 
-    health.put("checks", checks);
+    return health;
+  }
 
-    // Overall status based on checks
-    boolean allHealthy =
-        checks.values().stream()
-            .allMatch(check -> "UP".equals(((Map<String, Object>) check).get("status")));
+  private Map<String, Object> checkRedisHealth() {
+    Map<String, Object> health = new HashMap<>();
 
-    if (!allHealthy) {
-      health.put("status", "DOWN");
-      return ResponseEntity.status(503).body(health);
+    try {
+      // Test Redis connection with timeout
+      CompletableFuture<String> future =
+          CompletableFuture.supplyAsync(
+              () -> {
+                try {
+                  return redisTemplate.opsForValue().get("health_check");
+                } catch (Exception e) {
+                  throw new RuntimeException(e);
+                }
+              });
+
+      String result = future.get(5, TimeUnit.SECONDS);
+      health.put("connection", "healthy");
+      health.put("test_result", result);
+      health.put("status", "healthy");
+
+    } catch (Exception e) {
+      logger.error("Redis health check failed: {}", e.getMessage(), e);
+      health.put("status", "unhealthy");
+      health.put("error", e.getMessage());
+      health.put("error_type", e.getClass().getSimpleName());
+    }
+
+    return health;
+  }
+
+  @GetMapping("/detailed")
+  public ResponseEntity<Map<String, Object>> getDetailedHealth() {
+    Map<String, Object> health = new HashMap<>();
+    health.put("application", applicationName);
+    health.put("timestamp", LocalDateTime.now().toString());
+
+    // Run all health checks in parallel
+    CompletableFuture<Map<String, Object>> dbHealth =
+        CompletableFuture.supplyAsync(this::checkDatabaseHealth);
+    CompletableFuture<Map<String, Object>> redisHealth =
+        CompletableFuture.supplyAsync(this::checkRedisHealth);
+
+    try {
+      Map<String, Object> databaseHealth = dbHealth.get(10, TimeUnit.SECONDS);
+      Map<String, Object> redisHealthResult = redisHealth.get(10, TimeUnit.SECONDS);
+
+      health.put("database", databaseHealth);
+      health.put("redis", redisHealthResult);
+
+      // Overall status
+      boolean isHealthy =
+          "healthy".equals(databaseHealth.get("status"))
+              && "healthy".equals(redisHealthResult.get("status"));
+
+      health.put("status", isHealthy ? "healthy" : "degraded");
+
+    } catch (Exception e) {
+      logger.error("Detailed health check failed: {}", e.getMessage(), e);
+      health.put("status", "unhealthy");
+      health.put("error", e.getMessage());
     }
 
     return ResponseEntity.ok(health);
-  }
-
-  @GetMapping("/api/health/summary")
-  public ResponseEntity<Map<String, Object>> healthSummary() {
-    Map<String, Object> summary = new HashMap<>();
-
-    // Check backend status
-    summary.put("backendStatus", "UP");
-
-    // Check Redis connectivity
-    String redisStatus = "DOWN";
-    try {
-      redisTemplate.opsForValue().set("health:check", "ok");
-      String value = redisTemplate.opsForValue().get("health:check");
-      if ("ok".equals(value)) {
-        redisStatus = "UP";
-      }
-      redisTemplate.delete("health:check"); // Clean up test key
-    } catch (Exception e) {
-      logger.debug("Redis health check failed", e);
-    }
-    summary.put("redisStatus", redisStatus);
-
-    // Check database connectivity (simplified - just check if we can access Redis for now)
-    // In a real app, you'd check actual database connectivity
-    summary.put("databaseStatus", redisStatus); // Using Redis as proxy for now
-
-    // Overall system status
-    String systemStatus = "UP";
-    if ("DOWN".equals(redisStatus)) {
-      systemStatus = "DEGRADED";
-    }
-    summary.put("systemStatus", systemStatus);
-
-    summary.put("lastUpdated", System.currentTimeMillis());
-    summary.put("lastDeployCommit", lastDeployCommit);
-
-    return ResponseEntity.ok(summary);
   }
 }

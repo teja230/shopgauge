@@ -2,6 +2,7 @@ package com.storesight.backend.controller;
 
 import com.storesight.backend.repository.ShopRepository;
 import com.storesight.backend.service.NotificationService;
+import com.storesight.backend.service.OAuthRecoveryService;
 import com.storesight.backend.service.SecretService;
 import com.storesight.backend.service.ShopService;
 import jakarta.annotation.PostConstruct;
@@ -36,6 +37,7 @@ public class ShopifyAuthController {
   private final StringRedisTemplate redisTemplate;
   private final ShopRepository shopRepository;
   private final SecretService secretService;
+  private final OAuthRecoveryService oAuthRecoveryService;
 
   // Redis key prefix for tracking used authorization codes
   private static final String USED_CODE_PREFIX = "oauth:used_code:";
@@ -64,7 +66,8 @@ public class ShopifyAuthController {
       NotificationService notificationService,
       StringRedisTemplate redisTemplate,
       ShopRepository shopRepository,
-      SecretService secretService) {
+      SecretService secretService,
+      OAuthRecoveryService oAuthRecoveryService) {
 
     // Use the globally configured WebClient.Builder
     this.webClient = webClientBuilder.build();
@@ -74,6 +77,7 @@ public class ShopifyAuthController {
     this.redisTemplate = redisTemplate;
     this.shopRepository = shopRepository;
     this.secretService = secretService;
+    this.oAuthRecoveryService = oAuthRecoveryService;
   }
 
   @PostConstruct
@@ -918,7 +922,15 @@ public class ShopifyAuthController {
     if (token == null && shop != null) {
       logger.warn(
           "Auth: No token with session ID, attempting recovery from database for shop: {}", shop);
-      token = shopService.getTokenForShop(shop, "fallback");
+
+      // Try OAuth recovery service first
+      if (oAuthRecoveryService.handleAuthFailure(shop, sessionId, "session_expired")) {
+        logger.info("Auth: OAuth recovery successful for shop: {}", shop);
+        token = shopService.getTokenForShop(shop, sessionId);
+      } else {
+        // Fallback to direct database lookup
+        token = shopService.getTokenForShop(shop, "fallback");
+      }
 
       // If we found a token in database, refresh it in Redis with current session
       if (token != null) {
@@ -947,6 +959,11 @@ public class ShopifyAuthController {
 
     if (token == null) {
       logger.warn("Auth: No token found for shop: {} and session: {}", shop, sessionId);
+
+      // Check recovery status
+      Map<String, Object> recoveryStatus = oAuthRecoveryService.getRecoveryStatus(shop);
+      response.put("recovery_status", recoveryStatus);
+
       response.put("error", "Session expired - please re-authenticate");
       response.put("shop", null);
       response.put("reauth_url", "/api/auth/shopify/login?shop=" + shop);
@@ -957,6 +974,10 @@ public class ShopifyAuthController {
     response.put("shop", shop);
     response.put("authenticated", true);
     response.put("sessionId", sessionId);
+
+    // Reset any failure tracking on successful authentication
+    oAuthRecoveryService.resetFailureTracking(shop);
+
     return Mono.just(ResponseEntity.ok(response));
   }
 

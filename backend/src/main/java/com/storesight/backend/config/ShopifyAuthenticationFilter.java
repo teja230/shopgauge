@@ -34,7 +34,7 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
 
     String path = request.getRequestURI();
 
-    // Skip auth for public endpoints - be more explicit about auth endpoints
+    // Skip auth for public endpoints - comprehensive list
     if (path.startsWith("/api/auth/shopify/")
         || path.startsWith("/actuator/")
         || path.startsWith("/health/")
@@ -42,7 +42,12 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
         || path.equals("/")
         || path.equals("/health")
         || path.equals("/api/health")
-        || path.startsWith("/error")) {
+        || path.startsWith("/error")
+        || path.contains("/auth/shopify/me") // Explicitly allow /me endpoint
+        || path.contains("/auth/shopify/login")
+        || path.contains("/auth/shopify/install")
+        || path.contains("/auth/shopify/callback")
+        || path.contains("/auth/shopify/refresh")) {
       logger.debug("Skipping authentication for public endpoint: {}", path);
       filterChain.doFilter(request, response);
       return;
