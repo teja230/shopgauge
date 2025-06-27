@@ -485,6 +485,28 @@ export const useNotifications = () => {
     }
   }, [markAsRead]);
 
+  // Mark all as unread
+  const markAllAsUnread = useCallback(async () => {
+    const readNotifications = globalNotifications.filter(n => n.read);
+    
+    try {
+      // Mark persistent notifications as unread via API (if supported by backend)
+      const persistentRead = readNotifications.filter(n => n.persistent);
+      // Note: Backend doesn't support marking as unread, so we'll handle locally only
+      
+      // Mark all notifications as unread locally
+      globalNotifications = globalNotifications.map(n => ({ ...n, read: false }));
+      globalUnreadCount = globalNotifications.length;
+      setNotifications([...globalNotifications]);
+      setUnreadCount(globalUnreadCount);
+      broadcast();
+      
+      console.log('Marked all notifications as unread (local only)');
+    } catch (error) {
+      console.error('Failed to mark all notifications as unread:', error);
+    }
+  }, []);
+
   // Delete notification
   const deleteNotification = useCallback(async (notificationId: string) => {
     const notification = globalNotifications.find(n => n.id === notificationId);
@@ -575,6 +597,7 @@ export const useNotifications = () => {
     fetchNotifications,
     markAsRead,
     markAllAsRead,
+    markAllAsUnread,
     deleteNotification,
     clearAll,
     cleanup,
@@ -599,6 +622,7 @@ export const useNotifications = () => {
     fetchNotifications,
     markAsRead,
     markAllAsRead,
+    markAllAsUnread,
     deleteNotification,
     clearAll,
     cleanup,

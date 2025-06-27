@@ -256,8 +256,8 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             {getIconByType()}
           </Box>
           <Typography variant="h6" sx={{ fontWeight: 600, color: 'text.primary', flex: 1 }}>
-            {title}
-          </Typography>
+          {title}
+        </Typography>
         </Box>
 
         {/* Message with enhanced styling */}
@@ -288,13 +288,13 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 
         {/* Action buttons */}
         <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
-          <Button 
-            onClick={onCancel}
-            variant="outlined"
-            sx={{ 
+        <Button 
+          onClick={onCancel}
+          variant="outlined"
+          sx={{ 
               borderRadius: 3,
-              textTransform: 'none',
-              fontWeight: 500,
+            textTransform: 'none',
+            fontWeight: 500,
               px: 3,
               py: 1.5,
               borderColor: theme.palette.divider,
@@ -303,17 +303,17 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                 borderColor: theme.palette.text.secondary,
                 backgroundColor: 'rgba(0, 0, 0, 0.04)',
               }
-            }}
-          >
-            {cancelText}
-          </Button>
-          <Button 
-            onClick={onConfirm}
-            variant="contained"
-            color={getButtonColor()}
-            sx={{ 
+          }}
+        >
+          {cancelText}
+        </Button>
+        <Button 
+          onClick={onConfirm}
+          variant="contained"
+          color={getButtonColor()}
+          sx={{ 
               borderRadius: 3,
-              textTransform: 'none',
+            textTransform: 'none',
               fontWeight: 600,
               px: 3,
               py: 1.5,
@@ -323,10 +323,10 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                 transform: 'translateY(-1px)',
               },
               transition: 'all 0.2s ease',
-            }}
-          >
-            {confirmText}
-          </Button>
+          }}
+        >
+          {confirmText}
+        </Button>
         </Box>
       </Box>
     </StyledDialog>
@@ -337,8 +337,10 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   onNotificationCountChange
 }) => {
   const theme = useTheme();
-  useMediaQuery(theme.breakpoints.down('md')); // Used for responsive design
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
     title: string;
@@ -350,9 +352,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     title: '',
     message: '',
     onConfirm: () => {},
+    type: 'warning'
   });
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
   
   const {
     notifications,
@@ -362,6 +363,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     fetchNotifications,
     markAsRead,
     markAllAsRead,
+    markAllAsUnread,
     deleteNotification,
     clearAll,
   } = useNotifications();
@@ -418,7 +420,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
 
   // Handle individual notification deletion - Direct deletion without confirmation
   const handleDeleteNotification = (id: string, message: string) => {
-    deleteNotification(id);
+        deleteNotification(id);
   };
 
   // Format timestamp helper
@@ -614,19 +616,37 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
             {/* Actions */}
             {notifications.length > 0 && (
               <NotificationActions>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  onClick={markAllAsRead}
-                  disabled={unreadCount === 0}
-                  sx={{ 
-                    textTransform: 'none',
-                    borderRadius: 2,
-                    fontSize: '0.75rem',
-                  }}
-                >
-                  Mark all read
-                </Button>
+                <Box display="flex" gap={1} flexWrap="wrap">
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={markAllAsRead}
+                    disabled={unreadCount === 0}
+                    sx={{ 
+                      textTransform: 'none',
+                      borderRadius: 2,
+                      fontSize: '0.75rem',
+                      minWidth: 'auto',
+                    }}
+                  >
+                    Mark all read
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color="warning"
+                    onClick={markAllAsUnread}
+                    disabled={notifications.filter(n => n.read).length === 0}
+                    sx={{ 
+                      textTransform: 'none',
+                      borderRadius: 2,
+                      fontSize: '0.75rem',
+                      minWidth: 'auto',
+                    }}
+                  >
+                    Mark all unread
+                  </Button>
+                </Box>
                 <Button
                   size="small"
                   variant="outlined"
@@ -636,6 +656,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                     textTransform: 'none',
                     borderRadius: 2,
                     fontSize: '0.75rem',
+                    minWidth: 'auto',
                   }}
                 >
                   Clear all

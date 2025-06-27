@@ -85,20 +85,20 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                 ${config.iconColor} ${config.bgColor} ${config.borderColor} border
                 shadow-sm
               `}>
-                <IconComponent className="w-5 h-5" />
-              </div>
+              <IconComponent className="w-5 h-5" />
+            </div>
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 leading-6">{title}</h3>
               </div>
-            </div>
-            <button
-              onClick={onCancel}
+          </div>
+          <button
+            onClick={onCancel}
               className="text-gray-400 hover:text-gray-600 transition-colors p-2 rounded-full hover:bg-gray-100/80"
               aria-label="Close dialog"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
 
           {/* Enhanced content area */}
           <div className="px-6 pb-6">
@@ -106,23 +106,23 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
               ${config.bgColor} ${config.borderColor} border rounded-xl p-4
               backdrop-blur-sm shadow-sm
             `}>
-              <div className="flex items-start gap-3">
+            <div className="flex items-start gap-3">
                 <div className={`${config.iconColor} mt-0.5 flex-shrink-0`}>
-                  <IconComponent className="w-5 h-5" />
-                </div>
+                <IconComponent className="w-5 h-5" />
+              </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm text-gray-700 whitespace-pre-line leading-relaxed font-medium">
-                    {message}
-                  </div>
+                  {message}
                 </div>
               </div>
             </div>
           </div>
-          
+        </div>
+        
           {/* Modern action buttons */}
           <div className="flex gap-3 justify-end px-6 pb-6 pt-2">
-            <button
-              onClick={onCancel}
+          <button
+            onClick={onCancel}
               className="
                 px-6 py-2.5 text-sm font-medium text-gray-700 
                 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-xl 
@@ -131,11 +131,11 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                 transition-all duration-200 shadow-sm
                 hover:shadow-md hover:-translate-y-0.5
               "
-            >
-              {cancelText}
-            </button>
-            <button
-              onClick={onConfirm}
+          >
+            {cancelText}
+          </button>
+          <button
+            onClick={onConfirm}
               className={`
                 px-6 py-2.5 text-sm font-semibold text-white 
                 ${config.buttonBg} rounded-xl shadow-lg
@@ -144,9 +144,9 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                 hover:shadow-xl hover:-translate-y-0.5
                 backdrop-blur-sm
               `}
-            >
-              {confirmText}
-            </button>
+          >
+            {confirmText}
+          </button>
           </div>
         </div>
       </div>

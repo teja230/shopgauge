@@ -259,13 +259,13 @@ export async function addCompetitorIntelligent(url: string, productId?: string):
     }
     
     // Attempt to add competitor
-    const res = await fetch(`${API_BASE_URL}/api/competitors`, {
-      ...defaultOptions,
-      method: 'POST',
+  const res = await fetch(`${API_BASE_URL}/api/competitors`, {
+    ...defaultOptions,
+    method: 'POST',
       body: JSON.stringify({ url, productId: finalProductId }),
-    });
+  });
     
-    return handleResponse<Competitor>(res);
+  return handleResponse<Competitor>(res);
   } catch (error: any) {
     // Enhanced error handling to prevent raw JSON display
     console.error('addCompetitorIntelligent error:', error);

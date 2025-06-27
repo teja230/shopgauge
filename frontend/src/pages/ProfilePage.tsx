@@ -238,12 +238,12 @@ export default function ProfilePage() {
         setConfirmDialog(prev => ({ ...prev, isOpen: false }));
         notifications.showInfo('Redirecting to dashboard for re-authentication...', {
           category: 'Store Connection',
-        });
+      });
         window.location.href = '/dashboard?re-auth=true';
       },
       onCancel: () => {
         setConfirmDialog(prev => ({ ...prev, isOpen: false }));
-      }
+    }
     });
   };
 

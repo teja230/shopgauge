@@ -502,30 +502,44 @@ public class CompetitorController {
     status.put("discovery_available", true);
     status.put("hours_remaining", 0);
     status.put("last_discovery", null);
+    status.put("is_on_cooldown", false);
 
-    // Check last discovery time from database
-    List<Map<String, Object>> lastDiscovery =
-        jdbcTemplate.queryForList("SELECT last_discovery_at FROM shops WHERE id = ?", shopId);
+    try {
+      // Check last discovery time from database
+      // First check if the column exists to avoid SQL errors
+      List<Map<String, Object>> lastDiscovery = null;
+      try {
+        lastDiscovery = jdbcTemplate.queryForList("SELECT last_discovery_at FROM shops WHERE id = ?", shopId);
+      } catch (Exception columnError) {
+        // Column might not exist yet, log and continue with default values
+        log.warn("last_discovery_at column not found for shop {}: {}. Using default discovery status.", shopId, columnError.getMessage());
+        return status; // Return default status without discovery tracking
+      }
 
-    if (!lastDiscovery.isEmpty()) {
-      Object lastDiscoveryObj = lastDiscovery.get(0).get("last_discovery_at");
-      if (lastDiscoveryObj != null) {
-        java.time.LocalDateTime lastDiscoveryTime = (java.time.LocalDateTime) lastDiscoveryObj;
-        java.time.LocalDateTime now = java.time.LocalDateTime.now();
-        long hoursSinceLastDiscovery = java.time.Duration.between(lastDiscoveryTime, now).toHours();
+      if (!lastDiscovery.isEmpty()) {
+        Object lastDiscoveryObj = lastDiscovery.get(0).get("last_discovery_at");
+        if (lastDiscoveryObj != null) {
+          java.time.LocalDateTime lastDiscoveryTime = (java.time.LocalDateTime) lastDiscoveryObj;
+          java.time.LocalDateTime now = java.time.LocalDateTime.now();
+          long hoursSinceLastDiscovery = java.time.Duration.between(lastDiscoveryTime, now).toHours();
 
-        status.put("last_discovery", lastDiscoveryTime.toString());
-        status.put("hours_since_last", hoursSinceLastDiscovery);
+          status.put("last_discovery", lastDiscoveryTime.toString());
+          status.put("hours_since_last", hoursSinceLastDiscovery);
 
-        if (hoursSinceLastDiscovery < 24) {
-          long hoursRemaining = 24 - hoursSinceLastDiscovery;
-          status.put("discovery_available", false);
-          status.put("hours_remaining", hoursRemaining);
-          status.put("is_on_cooldown", true);
-        } else {
-          status.put("is_on_cooldown", false);
+          if (hoursSinceLastDiscovery < 24) {
+            long hoursRemaining = 24 - hoursSinceLastDiscovery;
+            status.put("discovery_available", false);
+            status.put("hours_remaining", hoursRemaining);
+            status.put("is_on_cooldown", true);
+          } else {
+            status.put("is_on_cooldown", false);
+          }
         }
       }
+    } catch (Exception e) {
+      log.error("Error building discovery status for shop {}: {}", shopId, e.getMessage(), e);
+      // Return safe default values instead of throwing
+      status.put("error_details", "Unable to check discovery status: " + e.getMessage());
     }
 
     return status;
@@ -722,10 +736,10 @@ public class CompetitorController {
   private String extractAmazonTitle(String url) {
     try {
       // Handle different Amazon URL patterns
-      if (url.contains("/dp/")) {
+    if (url.contains("/dp/")) {
         // Product page
-        String productId = url.split("/dp/")[1].split("/")[0];
-        return "Amazon Product " + productId;
+      String productId = url.split("/dp/")[1].split("/")[0];
+      return "Amazon Product " + productId;
       } else if (url.contains("/gp/buyagain/")) {
         // Buy Again page
         return "Amazon Buy Again";
