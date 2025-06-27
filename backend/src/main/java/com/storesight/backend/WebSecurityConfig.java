@@ -60,6 +60,10 @@ public class WebSecurityConfig implements WebMvcConfigurer {
   @Value("${security.debug-endpoints.enabled:false}")
   private boolean debugEndpointsEnabled;
 
+  @Value(
+      "${cors.allowed-origins:http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173}")
+  private String corsAllowedOrigins;
+
   // Simple rate limiting with request counters
   private final Map<String, RateLimitInfo> rateLimitMap = new ConcurrentHashMap<>();
 
@@ -311,15 +315,13 @@ public class WebSecurityConfig implements WebMvcConfigurer {
   public CorsConfigurationSource corsConfigurationSource() {
     CorsConfiguration configuration = new CorsConfiguration();
 
+    // Use profile-specific CORS origins from properties
+    String[] allowedOrigins = corsAllowedOrigins.split(",");
+    configuration.setAllowedOrigins(Arrays.asList(allowedOrigins));
+
+    // Add origin patterns for subdomains if in production
     if (isProductionProfile()) {
-      // Production: Strict CORS policy
-      configuration.setAllowedOrigins(
-          Arrays.asList("https://www.shopgaugeai.com", "https://shopgaugeai.com"));
       configuration.setAllowedOriginPatterns(Arrays.asList("https://*.shopgaugeai.com"));
-    } else {
-      // Development: Allow localhost
-      configuration.setAllowedOrigins(
-          Arrays.asList("http://localhost:5173", "http://localhost:5174", "http://127.0.0.1:5173"));
     }
 
     configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
