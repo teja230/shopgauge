@@ -509,10 +509,14 @@ public class CompetitorController {
       // First check if the column exists to avoid SQL errors
       List<Map<String, Object>> lastDiscovery = null;
       try {
-        lastDiscovery = jdbcTemplate.queryForList("SELECT last_discovery_at FROM shops WHERE id = ?", shopId);
+        lastDiscovery =
+            jdbcTemplate.queryForList("SELECT last_discovery_at FROM shops WHERE id = ?", shopId);
       } catch (Exception columnError) {
         // Column might not exist yet, log and continue with default values
-        log.warn("last_discovery_at column not found for shop {}: {}. Using default discovery status.", shopId, columnError.getMessage());
+        log.warn(
+            "last_discovery_at column not found for shop {}: {}. Using default discovery status.",
+            shopId,
+            columnError.getMessage());
         return status; // Return default status without discovery tracking
       }
 
@@ -521,7 +525,8 @@ public class CompetitorController {
         if (lastDiscoveryObj != null) {
           java.time.LocalDateTime lastDiscoveryTime = (java.time.LocalDateTime) lastDiscoveryObj;
           java.time.LocalDateTime now = java.time.LocalDateTime.now();
-          long hoursSinceLastDiscovery = java.time.Duration.between(lastDiscoveryTime, now).toHours();
+          long hoursSinceLastDiscovery =
+              java.time.Duration.between(lastDiscoveryTime, now).toHours();
 
           status.put("last_discovery", lastDiscoveryTime.toString());
           status.put("hours_since_last", hoursSinceLastDiscovery);
@@ -736,10 +741,10 @@ public class CompetitorController {
   private String extractAmazonTitle(String url) {
     try {
       // Handle different Amazon URL patterns
-    if (url.contains("/dp/")) {
+      if (url.contains("/dp/")) {
         // Product page
-      String productId = url.split("/dp/")[1].split("/")[0];
-      return "Amazon Product " + productId;
+        String productId = url.split("/dp/")[1].split("/")[0];
+        return "Amazon Product " + productId;
       } else if (url.contains("/gp/buyagain/")) {
         // Buy Again page
         return "Amazon Buy Again";

@@ -419,7 +419,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   };
 
   // Handle individual notification deletion - Direct deletion without confirmation
-  const handleDeleteNotification = (id: string, message: string) => {
+  const handleDeleteNotification = (id: string) => {
         deleteNotification(id);
   };
 
@@ -599,7 +599,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                       <Tooltip title="Delete">
                         <IconButton
                           size="small"
-                          onClick={() => handleDeleteNotification(notification.id, notification.message)}
+                          onClick={() => handleDeleteNotification(notification.id)}
                            sx={{ 
                              color: 'text.secondary',
                              '&:hover': { color: 'error.main', backgroundColor: 'error.light' + '25' } 
