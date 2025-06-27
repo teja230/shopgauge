@@ -216,22 +216,29 @@ export default function CompetitorsPage() {
       if (userDisabledDemo) {
         // User explicitly disabled demo - stay in live mode regardless of data
         console.log('fetchData: User explicitly disabled demo, staying in Live Mode');
-        setIsDemoMode(false);
-      } else if (!forceRefresh && (competitorsData.length === 0 && suggestionCountData.newSuggestions === 0)) {
-        // Only auto-enable demo if this is not a forced refresh and we have no data
-        // This prevents overriding user's explicit toggle actions
+        // Only update mode if we're not already in live mode to prevent unnecessary renders
+        if (isDemoMode) {
+          setIsDemoMode(false);
+        }
+      } else if (!forceRefresh && !isDemoMode && (competitorsData.length === 0 && suggestionCountData.newSuggestions === 0)) {
+        // Only auto-enable demo if:
+        // 1. This is not a forced refresh (prevents overriding user toggle actions)
+        // 2. We're not already in demo mode (prevents unnecessary state changes)
+        // 3. We have no data
         console.log('fetchData: No data available, auto-enabling Demo Mode');
         setIsDemoMode(true);
         setCompetitors(DEMO_COMPETITORS);
         setSuggestionCount(DEMO_SUGGESTIONS.length);
-      } else if (competitorsData.length > 0 || suggestionCountData.newSuggestions > 0) {
-        // Has data - use live mode (but only if user hasn't explicitly chosen demo)
-        if (!isDemoMode || userDisabledDemo) {
+      } else if ((competitorsData.length > 0 || suggestionCountData.newSuggestions > 0) && !userDisabledDemo) {
+        // Has data and user hasn't explicitly chosen demo - use live mode
+        if (isDemoMode) {
           console.log('fetchData: Data available, switching to Live Mode');
           setIsDemoMode(false);
         } else {
-          console.log('fetchData: Data available but user prefers Demo Mode, staying in Demo');
+          console.log('fetchData: Data available, already in Live Mode');
         }
+      } else {
+        console.log('fetchData: Maintaining current mode based on user preference');
       }
       
       lastFetchTimeRef.current = now;
@@ -555,10 +562,14 @@ export default function CompetitorsPage() {
     console.log(`Demo Mode Toggle: Current state: ${isDemoMode ? 'Demo' : 'Live'}, switching to: ${isDemoMode ? 'Live' : 'Demo'}`);
     
     if (isDemoMode) {
-      // User explicitly disabled demo mode - immediate state change
+      // User explicitly switching from Demo to Live mode
       console.log('User explicitly switching to Live Mode');
+      
+      // Set all state changes together to prevent flickering
       setUserDisabledDemo(true);
       setIsDemoMode(false);
+      setCompetitors([]);
+      setSuggestionCount(0);
       
       // Persist user preference immediately
       if (shop) {
@@ -570,19 +581,17 @@ export default function CompetitorsPage() {
         category: 'Mode'
       });
       
-      // Set empty state immediately to show live mode is active
-      setCompetitors([]);
-      setSuggestionCount(0);
-      
-      // Load real data after state is stable - with explicit flag to prevent demo mode override
+      // Load real data after a brief delay to ensure state is stable
       setTimeout(() => {
         console.log('Loading real data after Live Mode toggle');
         fetchData(true);
-      }, 100);
+      }, 50);
       
     } else {
-      // User explicitly enabled demo mode
+      // User explicitly switching from Live to Demo mode
       console.log('User explicitly switching to Demo Mode');
+      
+      // Set all state changes together immediately - no API calls needed
       setUserDisabledDemo(false);
       setIsDemoMode(true);
       setCompetitors(DEMO_COMPETITORS);
@@ -597,6 +606,8 @@ export default function CompetitorsPage() {
       notifications.showSuccess('Switched to Demo Mode', {
         category: 'Mode'
       });
+      
+      // No fetchData call needed for demo mode - everything is already set
     }
   }, [isDemoMode, notifications, fetchData, shop]);
 

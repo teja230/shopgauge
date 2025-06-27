@@ -31,7 +31,8 @@ public class WebSecurityConfig {
         .cors(cors -> cors.configurationSource(corsConfigurationSource()))
         .authorizeHttpRequests(
             auth ->
-                auth.requestMatchers("/api/auth/shopify/**", "/actuator/**")
+                auth.requestMatchers(
+                        "/api/auth/shopify/**", "/actuator/**", "/health/**", "/api/health/**", "/")
                     .permitAll()
                     .anyRequest()
                     .authenticated())
