@@ -8,7 +8,8 @@ import {
   AlertTriangle,
   Check,
   Trash2,
-  RefreshCw
+  RefreshCw,
+  EyeOff
 } from 'lucide-react';
 import { format, formatDistanceToNow, parseISO, isValid } from 'date-fns';
 import { useNotifications } from '../../hooks/useNotifications';
@@ -627,40 +628,56 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                       borderRadius: 2,
                       fontSize: '0.75rem',
                       minWidth: 'auto',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1
                     }}
+                    startIcon={<CheckCircle size={16} />}
                   >
                     Mark all read
                   </Button>
+                  <Tooltip title="Mark all unread">
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      color="warning"
+                      onClick={markAllAsUnread}
+                      disabled={notifications.filter(n => n.read).length === 0}
+                      sx={{ 
+                        textTransform: 'none',
+                        borderRadius: 2,
+                        fontSize: '0.75rem',
+                        minWidth: 'auto',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1
+                      }}
+                      startIcon={<EyeOff size={16} />}
+                    >
+                      Mark all unread
+                    </Button>
+                  </Tooltip>
+                </Box>
+                <Tooltip title="Clear all notifications">
                   <Button
                     size="small"
                     variant="outlined"
-                    color="warning"
-                    onClick={markAllAsUnread}
-                    disabled={notifications.filter(n => n.read).length === 0}
+                    color="error"
+                    onClick={handleDismissAll}
                     sx={{ 
                       textTransform: 'none',
                       borderRadius: 2,
                       fontSize: '0.75rem',
                       minWidth: 'auto',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1
                     }}
+                    startIcon={<Trash2 size={16} />}
                   >
-                    Mark all unread
+                    Clear all
                   </Button>
-                </Box>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  color="error"
-                  onClick={handleDismissAll}
-                  sx={{ 
-                    textTransform: 'none',
-                    borderRadius: 2,
-                    fontSize: '0.75rem',
-                    minWidth: 'auto',
-                  }}
-                >
-                  Clear all
-                </Button>
+                </Tooltip>
               </NotificationActions>
             )}
           </NotificationDropdown>
