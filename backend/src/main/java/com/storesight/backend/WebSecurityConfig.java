@@ -22,8 +22,6 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.session.web.http.CookieSerializer;
-import org.springframework.session.web.http.DefaultCookieSerializer;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.context.request.WebRequest;
@@ -289,19 +287,6 @@ public class WebSecurityConfig implements WebMvcConfigurer {
         new org.springframework.web.cors.UrlBasedCorsConfigurationSource();
     source.registerCorsConfiguration("/**", configuration);
     return source;
-  }
-
-  @Bean
-  public CookieSerializer cookieSerializer() {
-    DefaultCookieSerializer serializer = new DefaultCookieSerializer();
-    serializer.setCookieName("SESSION");
-    serializer.setUseHttpOnlyCookie(true);
-    serializer.setSameSite("Lax"); // Use Lax for same-site requests (both on shopgaugeai.com)
-    serializer.setUseSecureCookie(true);
-    serializer.setCookiePath("/");
-    serializer.setDomainName(
-        "shopgaugeai.com"); // Set domain for both www and api subdomains (RFC 6265 compliant)
-    return serializer;
   }
 
   /** Global Exception Handler for Security */
