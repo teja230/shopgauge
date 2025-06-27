@@ -36,7 +36,15 @@ export const ServiceStatusProvider: React.FC<ServiceStatusProviderProps> = ({ ch
   const isRetryingRef = useRef(false);
   const lastSuccessfulCheckRef = useRef<Date | null>(null);
   const lastCheckTimeRef = useRef<number>(0);
-  const last502TimeRef = useRef<number>(0);
+  /*
+   * Track recent 5xx failures so we only declare the service truly unavailable
+   * after we see multiple errors in a short window (circuit-breaker style).
+   * This avoids false positives on first page-load while still reacting quickly
+   * when the backend is genuinely down.
+   */
+  const recentFailureTimestampsRef = useRef<number[]>([]);
+  const FAILURE_WINDOW_MS = 30_000; // look at last 30 s of traffic
+  const FAILURE_THRESHOLD = 3;      // need 3 failures to trip
   const userNavigatedAwayRef = useRef(false);
 
   const checkServiceStatus = async (): Promise<boolean> => {
@@ -157,22 +165,38 @@ export const ServiceStatusProvider: React.FC<ServiceStatusProviderProps> = ({ ch
 
     if (is502Error) {
       const now = Date.now();
-      // Ignore the first transient 502 (within 10 s window) to prevent premature redirect
-      if (now - last502TimeRef.current > 10_000) {
-        // Record this 502 and allow one retry opportunity
-        last502TimeRef.current = now;
-      } else {
-        console.log('ServiceStatus: Detected 502/service unavailable error, navigating to service unavailable page');
+
+      // Purge old entries outside the sliding window
+      recentFailureTimestampsRef.current = recentFailureTimestampsRef.current.filter(
+        (ts) => now - ts < FAILURE_WINDOW_MS
+      );
+
+      // Record this failure
+      recentFailureTimestampsRef.current.push(now);
+
+      console.warn(
+        `ServiceStatus: 5xx error detected. Count in last ${FAILURE_WINDOW_MS / 1000}s = ${recentFailureTimestampsRef.current.length}`
+      );
+
+      if (recentFailureTimestampsRef.current.length >= FAILURE_THRESHOLD) {
+        console.log(
+          'ServiceStatus: Failure threshold reached, navigating to service unavailable page'
+        );
+        recentFailureTimestampsRef.current = []; // reset counter after tripping
+
         setIsServiceAvailable(false);
         setLastServiceCheck(new Date());
         navigate('/service-unavailable', { replace: true });
-        
-        // Start retrying
+
         if (!isRetryingRef.current) {
           startRetryLoop();
         }
-        return true; // handled
+
+        return true; // handled – stop normal error propagation
       }
+
+      // We handled logging but did not trigger redirect; allow caller to proceed
+      return true; // indicates handled so original promise can resolve gracefully
     }
 
     return false; // Indicates we didn't handle the error
