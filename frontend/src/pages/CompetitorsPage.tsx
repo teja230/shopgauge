@@ -913,7 +913,7 @@ export default function CompetitorsPage() {
                   onClick={() => setShowAddForm(true)}
                   className="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-all shadow-md"
                 >
-                  Add Competitor
+                  Add Your First Competitor
                 </button>
               )}
             </div>
