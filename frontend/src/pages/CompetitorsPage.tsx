@@ -7,8 +7,7 @@ import {
   addCompetitor, 
   deleteCompetitor,
   getDebouncedSuggestionCount,
-  refreshSuggestionCount as refreshSuggestionCountAPI,
-  API_BASE_URL
+  refreshSuggestionCount as refreshSuggestionCountAPI
 } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { 
@@ -389,9 +388,7 @@ export default function CompetitorsPage() {
           if (!finalProductId) {
             try {
               console.log('Fetching products from API for competitor addition');
-              const response = await fetch(`${API_BASE_URL}/api/analytics/products`, {
-                credentials: 'include',
-              });
+              const response = await fetchWithAuth('/analytics/products');
               
               if (response.ok) {
                 const data = await response.json();
@@ -466,9 +463,7 @@ export default function CompetitorsPage() {
           persistent: false
         });
         
-        fetch(`${API_BASE_URL}/api/analytics/products`, {
-          credentials: 'include',
-        })
+        fetchWithAuth('/analytics/products')
         .then(response => {
           if (response.ok) {
             console.log('Background product sync completed successfully');
@@ -636,11 +631,7 @@ export default function CompetitorsPage() {
     setIsDiscovering(true);
     try {
       // First check if discovery service is available
-      const statusResponse = await fetch(`${API_BASE_URL}/api/competitors/discovery/status`, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include'
-      });
+      const statusResponse = await fetchWithAuth('/competitors/discovery/status');
 
       if (!statusResponse.ok) {
         throw new Error('Discovery service is not available');
@@ -665,10 +656,8 @@ export default function CompetitorsPage() {
       }
 
       // Trigger discovery
-      const response = await fetch(`${API_BASE_URL}/api/competitors/discovery/trigger`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include'
+      const response = await fetchWithAuth('/competitors/discovery/trigger', {
+        method: 'POST'
       });
 
       if (response.ok) {
@@ -682,11 +671,7 @@ export default function CompetitorsPage() {
         
         // Refresh discovery status to show updated cooldown
         try {
-          const updatedStatusResponse = await fetch(`${API_BASE_URL}/api/competitors/discovery/status`, {
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include'
-          });
+          const updatedStatusResponse = await fetchWithAuth('/competitors/discovery/status');
           
           if (updatedStatusResponse.ok) {
             const updatedStatus = await updatedStatusResponse.json();
