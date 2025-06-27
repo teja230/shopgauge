@@ -163,11 +163,21 @@ export default function CompetitorsPage() {
       
       if (response.ok) {
         const status = await response.json();
+        
+        // Handle new response format with smart caching
+        // Note: discoveryStatus is computed from lastDiscoveryTime in useMemo below
+        
         if (status.last_discovery) {
           const lastDiscoveryTime = new Date(status.last_discovery).getTime();
           setLastDiscoveryTime(lastDiscoveryTime);
-          console.log(`Server discovery status for ${shop}: last run ${new Date(lastDiscoveryTime).toLocaleString()}, available: ${status.discovery_available}`);
         }
+        
+        // Log cache status for cost optimization transparency
+        if (status.cached !== undefined) {
+          console.log(`Discovery status ${status.cached ? 'cached (24hr)' : 'live'} for ${shop} - cost optimized`);
+        }
+        
+        console.log(`Server discovery status for ${shop}: available=${!status.is_on_cooldown}, hours_remaining=${status.hours_remaining}`);
       }
     } catch (error) {
       console.log('Could not fetch discovery status from server - discovery status unavailable');

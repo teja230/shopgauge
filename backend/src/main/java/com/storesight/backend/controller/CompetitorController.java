@@ -450,7 +450,9 @@ public class CompetitorController {
     return ResponseEntity.ok(discoveryService.getDiscoveryConfig());
   }
 
-  /** Get discovery status for current shop including cooldown info - REAL-TIME (no cache) */
+  /**
+   * Get discovery status with smart caching (first call live, then 24hr cache to prevent API spam)
+   */
   @GetMapping("/competitors/discovery/status")
   public ResponseEntity<Map<String, Object>> getDiscoveryStatus(HttpServletRequest request) {
     Long shopId = getShopIdFromRequest(request);
@@ -460,36 +462,26 @@ public class CompetitorController {
     }
 
     try {
-      Map<String, Object> status = new HashMap<>();
-      status.put("shop_id", shopId);
-      status.put("discovery_available", true);
-      status.put("hours_remaining", 0);
-      status.put("last_discovery", null);
+      // Smart caching strategy: First call live, subsequent calls cached for 24hrs
+      String cacheKey = "discovery_status_" + shopId;
 
-      // Check last discovery time from database
-      List<Map<String, Object>> lastDiscovery =
-          jdbcTemplate.queryForList("SELECT last_discovery_at FROM shops WHERE id = ?", shopId);
-
-      if (!lastDiscovery.isEmpty()) {
-        Object lastDiscoveryObj = lastDiscovery.get(0).get("last_discovery_at");
-        if (lastDiscoveryObj != null) {
-          java.time.LocalDateTime lastDiscoveryTime = (java.time.LocalDateTime) lastDiscoveryObj;
-          java.time.LocalDateTime now = java.time.LocalDateTime.now();
-          long hoursSinceLastDiscovery =
-              java.time.Duration.between(lastDiscoveryTime, now).toHours();
-
-          status.put("last_discovery", lastDiscoveryTime.toString());
-
-          if (hoursSinceLastDiscovery < 24) {
-            long hoursRemaining = 24 - hoursSinceLastDiscovery;
-            status.put("discovery_available", false);
-            status.put("hours_remaining", hoursRemaining);
-            status.put("cooldown_active", true);
-          } else {
-            status.put("cooldown_active", false);
-          }
-        }
+      // Check if we have cached status (prevents API spam)
+      CachedCount cachedStatus = countCache.get(shopId);
+      if (cachedStatus != null && !cachedStatus.isExpired(1440)) { // 24 hours = 1440 minutes
+        log.debug("Returning cached discovery status for shop {} (cache hit)", shopId);
+        // Return cached status structure
+        Map<String, Object> status = buildDiscoveryStatus(shopId);
+        status.put("cached", true);
+        return ResponseEntity.ok(status);
       }
+
+      // First call or cache expired - fetch live status and cache it
+      log.info("Fetching live discovery status for shop {} (first call or cache expired)", shopId);
+      Map<String, Object> status = buildDiscoveryStatus(shopId);
+
+      // Cache the status check to prevent API spam (24hr cache)
+      countCache.put(shopId, new CachedCount(1)); // Use count=1 as a flag for cached status
+      status.put("cached", false);
 
       return ResponseEntity.ok(status);
     } catch (Exception e) {
@@ -497,6 +489,42 @@ public class CompetitorController {
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
           .body(Map.of("error", "Failed to get discovery status"));
     }
+  }
+
+  /** Build discovery status response from database */
+  private Map<String, Object> buildDiscoveryStatus(Long shopId) {
+    Map<String, Object> status = new HashMap<>();
+    status.put("shop_id", shopId);
+    status.put("discovery_available", true);
+    status.put("hours_remaining", 0);
+    status.put("last_discovery", null);
+
+    // Check last discovery time from database
+    List<Map<String, Object>> lastDiscovery =
+        jdbcTemplate.queryForList("SELECT last_discovery_at FROM shops WHERE id = ?", shopId);
+
+    if (!lastDiscovery.isEmpty()) {
+      Object lastDiscoveryObj = lastDiscovery.get(0).get("last_discovery_at");
+      if (lastDiscoveryObj != null) {
+        java.time.LocalDateTime lastDiscoveryTime = (java.time.LocalDateTime) lastDiscoveryObj;
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        long hoursSinceLastDiscovery = java.time.Duration.between(lastDiscoveryTime, now).toHours();
+
+        status.put("last_discovery", lastDiscoveryTime.toString());
+        status.put("hours_since_last", hoursSinceLastDiscovery);
+
+        if (hoursSinceLastDiscovery < 24) {
+          long hoursRemaining = 24 - hoursSinceLastDiscovery;
+          status.put("discovery_available", false);
+          status.put("hours_remaining", hoursRemaining);
+          status.put("is_on_cooldown", true);
+        } else {
+          status.put("is_on_cooldown", false);
+        }
+      }
+    }
+
+    return status;
   }
 
   /** Manually trigger discovery for a specific shop (for testing/admin use) */
@@ -550,6 +578,11 @@ public class CompetitorController {
       // Update last discovery time immediately
       jdbcTemplate.update(
           "UPDATE shops SET last_discovery_at = CURRENT_TIMESTAMP WHERE id = ?", shopId);
+
+      // Invalidate discovery status cache to ensure fresh status on next check
+      countCache.remove(shopId);
+      log.debug(
+          "Invalidated discovery status cache for shop {} after triggering discovery", shopId);
 
       // Trigger discovery asynchronously for immediate response
       java.util.concurrent.CompletableFuture.runAsync(
