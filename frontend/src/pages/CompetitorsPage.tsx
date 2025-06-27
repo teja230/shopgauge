@@ -426,10 +426,12 @@ export default function CompetitorsPage() {
       
       notifications.showError(userMessage, {
         category: 'Competitors',
-        persistent: showDashboardAction,
+        persistent: true,
         action: showDashboardAction ? {
           label: 'Go to Dashboard',
-          onClick: () => window.location.href = '/dashboard'
+          onClick: () => {
+            window.location.href = '/dashboard';
+          }
         } : undefined
       });
     } finally {

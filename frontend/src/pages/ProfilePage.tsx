@@ -65,27 +65,24 @@ export default function ProfilePage() {
   const [showStoreSwitcher, setShowStoreSwitcher] = useState(false);
   const [newStoreDomain, setNewStoreDomain] = useState('');
   const [isConnectingStore, setIsConnectingStore] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'error'>('checking');
-  const [lastSyncTime, setLastSyncTime] = useState<Date>(new Date());
+  const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'error' | 'idle'>('idle');
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [storeStats, setStoreStats] = useState<any>(null);
   const [storeStatsLoading, setStoreStatsLoading] = useState(false);
   const [storeStatsLastUpdated, setStoreStatsLastUpdated] = useState<Date | null>(null);
+  const [isCheckingConnection, setIsCheckingConnection] = useState(false);
   const [refreshDebounce, setRefreshDebounce] = useState(false);
   const [pastStores, setPastStores] = useState<string[]>([]);
   
   // Confirmation dialog state
-  const [confirmDialog, setConfirmDialog] = useState<{
-    isOpen: boolean;
-    title: string;
-    message: string;
-    onConfirm: () => void;
-    type?: 'danger' | 'warning' | 'info';
-    size?: 'sm' | 'md' | 'lg';
-  }>({
+  const [confirmDialog, setConfirmDialog] = useState({
     isOpen: false,
     title: '',
     message: '',
     onConfirm: () => {},
+    onCancel: () => {},
+    type: 'info' as 'danger' | 'warning' | 'info',
+    size: 'md' as 'sm' | 'md' | 'lg'
   });
   
   const navigate = useNavigate();
@@ -173,12 +170,15 @@ export default function ProfilePage() {
         const data = await response.json();
         setConnectionStatus(data.shop ? 'connected' : 'error');
         setLastSyncTime(new Date());
+        return { connected: !!data.shop, error: null };
       } else {
         setConnectionStatus('error');
+        return { connected: false, error: 'Connection check failed' };
       }
     } catch (error) {
       console.error('Connection check failed:', error);
       setConnectionStatus('error');
+      return { connected: false, error: 'Network error' };
     }
   };
 
@@ -227,42 +227,33 @@ export default function ProfilePage() {
   };
 
   // FIXED: Use simple return URL format to avoid Chrome phishing warnings
-  const handleReAuthenticate = async () => {
-    try {
-      setIsLoading(true);
-      notifications.showInfo('Re-authenticating with Shopify...', {
-        category: 'Authentication',
-        duration: 3000
-      });
-      
-      if (shop) {
-        // FIXED: Use dashboard redirect instead of profile for re-auth
-        const baseUrl = `${window.location.origin}/dashboard`;
-        const returnUrl = encodeURIComponent(`${baseUrl}?reauth=success`);
-        window.location.href = `${API_BASE_URL}/api/auth/shopify/login?shop=${encodeURIComponent(shop)}&return_url=${returnUrl}`;
-      } else {
-        notifications.showError('No shop found. Please disconnect and reconnect.', {
-          persistent: true,
-          category: 'Authentication'
+  const handleReAuthenticate = () => {
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Re-authenticate Session',
+      message: 'You will be redirected to the Dashboard to re-authenticate your Shopify connection. This will ensure your data is up-to-date. Do you want to proceed?',
+      type: 'info',
+      size: 'md',
+      onConfirm: () => {
+        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+        notifications.showInfo('Redirecting to dashboard for re-authentication...', {
+          category: 'Store Connection',
         });
+        window.location.href = '/dashboard?re-auth=true';
+      },
+      onCancel: () => {
+        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
       }
-    } catch (error) {
-      console.error('Re-authentication failed:', error);
-      notifications.showError('Failed to re-authenticate. Please try again.', {
-        persistent: true,
-        category: 'Authentication'
-      });
-    } finally {
-      setIsLoading(false);
-    }
+    });
   };
 
   const handleShopDisconnect = async () => {
     setConfirmDialog({
       isOpen: true,
       title: 'Disconnect Store',
-      message: '⚠️ Are you sure you want to disconnect your store?\n\nThis will:\n• Log you out of the current session\n• Require re-authentication to access your data\n• Not delete any stored data\n\nYou can reconnect anytime.',
+      message: 'Are you sure you want to disconnect your store? You will need to re-authenticate to see your data again.',
       type: 'warning',
+      size: 'md',
       onConfirm: async () => {
         setConfirmDialog(prev => ({ ...prev, isOpen: false }));
         
@@ -291,6 +282,9 @@ export default function ProfilePage() {
             category: 'Store Connection'
           });
     }
+      },
+      onCancel: () => {
+        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
       }
     });
   };
@@ -367,6 +361,9 @@ export default function ProfilePage() {
     } finally {
       setIsForceDisconnecting(false);
     }
+      },
+      onCancel: () => {
+        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
       }
     });
   };
@@ -441,9 +438,15 @@ export default function ProfilePage() {
             onConfirm: async () => {
               setConfirmDialog(prev => ({ ...prev, isOpen: false }));
               await performDataDeletion();
+            },
+            onCancel: () => {
+              setConfirmDialog(prev => ({ ...prev, isOpen: false }));
             }
           });
         }, 100);
+      },
+      onCancel: () => {
+        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
       }
     });
   };
@@ -643,6 +646,25 @@ export default function ProfilePage() {
     }
   };
 
+  const handleCheckConnection = async () => {
+    setIsCheckingConnection(true);
+    notifications.showInfo('Checking store connection...', { category: 'Store Connection' });
+    const status = await checkConnectionStatus();
+    setIsCheckingConnection(false);
+    
+    if (status.connected) {
+      notifications.showSuccess('Connection successful!', {
+        category: 'Store Connection',
+        duration: 3000
+      });
+    } else {
+      notifications.showError(`Connection failed: ${status.error}`, {
+        category: 'Store Connection',
+        persistent: true
+      });
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
       <div className="mb-8">
@@ -741,7 +763,7 @@ export default function ProfilePage() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Last Data Sync</label>
               <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
-                {lastSyncTime.toLocaleDateString('en-US', { 
+                {lastSyncTime?.toLocaleDateString('en-US', { 
                     weekday: 'long', 
                     year: 'numeric', 
                     month: 'long', 
@@ -762,7 +784,7 @@ export default function ProfilePage() {
 
             <div className="space-y-3">
               <button
-                onClick={checkConnectionStatus}
+                onClick={handleCheckConnection}
                 disabled={connectionStatus === 'checking'}
                 className="w-full inline-flex items-center justify-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
               >
@@ -868,7 +890,7 @@ export default function ProfilePage() {
                     <h4 className="font-semibold text-blue-900 mb-1">Current Store</h4>
                     <p className="text-blue-700 font-mono text-sm">{shop}</p>
                     <p className="text-xs text-blue-600 mt-1">
-                      Connected • Last sync: {lastSyncTime.toLocaleTimeString()}
+                      Connected • Last sync: {lastSyncTime?.toLocaleTimeString()}
                     </p>
                   </div>
                   <div className="flex items-center text-blue-600">
@@ -1469,7 +1491,7 @@ export default function ProfilePage() {
         type={confirmDialog.type}
         size={confirmDialog.size}
         onConfirm={confirmDialog.onConfirm}
-        onCancel={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
+        onCancel={confirmDialog.onCancel}
         confirmText="Confirm"
         cancelText="Cancel"
       />
