@@ -19,7 +19,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Profile;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
@@ -1142,28 +1141,36 @@ public class ShopifyAuthController {
 
   @PostMapping("/profile/force-disconnect")
   public ResponseEntity<Map<String, String>> forceDisconnect(
-      @CookieValue(value = "shop", required = false) String shopCookie,
+      @CookieValue(value = "shop", required = false) String shopCookieValue,
       @RequestParam(value = "shop", required = false) String shopParam,
       @RequestBody(required = false) Map<String, Object> body,
       HttpServletResponse response,
       HttpServletRequest request) {
-    String shop = shopParam != null ? shopParam : shopCookie;
+    logger.info("Auth: Force disconnect requested");
 
-    // Clear cookie with the correct domain setting for shopgaugeai.com
-    // Use SameSite=Lax for production same-site requests
-    boolean isProduction = frontendUrl != null && frontendUrl.contains("shopgaugeai.com");
-    String sameSiteValue = isProduction ? "Lax" : "Lax";
-    String domainAttribute = isProduction ? "Domain=shopgaugeai.com; " : "";
-    response.addHeader(
-        "Set-Cookie",
-        String.format(
-            "shop=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; %sSecure; SameSite=%s",
-            domainAttribute, sameSiteValue));
+    // Clear all cookies
+    Cookie[] cookies = request.getCookies();
+    if (cookies != null) {
+      for (Cookie cookie : cookies) {
+        Cookie clearCookie = new Cookie(cookie.getName(), "");
+        clearCookie.setPath("/");
+        clearCookie.setMaxAge(0);
+        clearCookie.setHttpOnly(false);
+        clearCookie.setSecure(true);
+        response.addCookie(clearCookie);
+      }
+    }
 
-    // Also clear without domain for localhost development
-    response.addHeader(
-        "Set-Cookie",
-        "shop=; Domain=localhost; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT");
+    // Clear shop cookie specifically
+    Cookie shopCookie = new Cookie("shop", "");
+    shopCookie.setPath("/");
+    shopCookie.setMaxAge(0);
+    shopCookie.setHttpOnly(false);
+    shopCookie.setSecure(true);
+    response.addCookie(shopCookie);
+
+    // Clear shop parameter if provided
+    String shop = shopParam != null ? shopParam : shopCookieValue;
 
     if (shop != null && !shop.isBlank()) {
       // Clear the access token from Redis and database
@@ -1189,150 +1196,5 @@ public class ShopifyAuthController {
     logger.info("Auth: Force disconnect completed");
     return ResponseEntity.ok(
         Map.of("status", "force_disconnected", "message", "All cookies and tokens cleared"));
-  }
-
-  @GetMapping("/debug-config")
-  @Profile("!prod") // Only available in non-production environments
-  public ResponseEntity<Map<String, Object>> debugConfig() {
-    Map<String, Object> config = new HashMap<>();
-    config.put(
-        "apiKey",
-        apiKey != null ? apiKey.substring(0, Math.min(8, apiKey.length())) + "..." : "null");
-    config.put(
-        "apiSecret",
-        apiSecret != null
-            ? apiSecret.substring(0, Math.min(8, apiSecret.length())) + "..."
-            : "null");
-    config.put("scopes", scopes);
-    config.put("redirectUri", redirectUri);
-    config.put("frontendUrl", frontendUrl);
-    config.put("timestamp", System.currentTimeMillis());
-
-    logger.info("Debug config requested: {}", config);
-    return ResponseEntity.ok(config);
-  }
-
-  @GetMapping("/debug-callback-test")
-  @Profile("!prod") // Only available in non-production environments
-  public ResponseEntity<Map<String, Object>> debugCallbackTest() {
-    Map<String, Object> result = new HashMap<>();
-    result.put("used_codes_count", getUsedCodesCount());
-    result.put("used_codes_details", getUsedCodesDetails());
-    result.put("current_time", System.currentTimeMillis());
-    return ResponseEntity.ok(result);
-  }
-
-  @GetMapping("/debug-oauth-state")
-  @Profile("!prod") // Only available in non-production environments
-  public ResponseEntity<Map<String, Object>> debugOauthState() {
-    Map<String, Object> result = new HashMap<>();
-    result.put("used_codes_count", getUsedCodesCount());
-    result.put("used_codes_details", getUsedCodesDetails());
-    result.put("current_time", System.currentTimeMillis());
-    result.put("api_key_configured", apiKey != null && !apiKey.isBlank());
-    result.put("api_secret_configured", apiSecret != null && !apiSecret.isBlank());
-    result.put("redirect_uri", redirectUri);
-    result.put("frontend_url", frontendUrl);
-
-    // Add environment variable debugging
-    result.put("env_frontend_url", System.getenv("FRONTEND_URL"));
-    result.put(
-        "env_shopify_api_key",
-        System.getenv("SHOPIFY_API_KEY") != null ? "configured" : "not_configured");
-    result.put(
-        "env_shopify_api_secret",
-        System.getenv("SHOPIFY_API_SECRET") != null ? "configured" : "not_configured");
-    result.put("env_shopify_redirect_uri", System.getenv("SHOPIFY_REDIRECT_URI"));
-
-    return ResponseEntity.ok(result);
-  }
-
-  @GetMapping("/debug-environment")
-  @Profile("!prod") // Only available in non-production environments
-  public ResponseEntity<Map<String, Object>> debugEnvironment() {
-    Map<String, Object> result = new HashMap<>();
-
-    // Safe environment variables to expose (no secrets)
-    result.put("FRONTEND_URL", System.getenv("FRONTEND_URL"));
-    result.put("SHOPIFY_REDIRECT_URI", System.getenv("SHOPIFY_REDIRECT_URI"));
-    result.put(
-        "SHOPIFY_API_KEY_SET",
-        System.getenv("SHOPIFY_API_KEY") != null && !System.getenv("SHOPIFY_API_KEY").isEmpty());
-    result.put(
-        "SHOPIFY_API_SECRET_SET",
-        System.getenv("SHOPIFY_API_SECRET") != null
-            && !System.getenv("SHOPIFY_API_SECRET").isEmpty());
-
-    // Configuration values from application.properties
-    result.put("config_frontend_url", frontendUrl);
-    result.put("config_redirect_uri", redirectUri);
-    result.put("config_api_key_set", apiKey != null && !apiKey.isEmpty());
-    result.put("config_api_secret_set", apiSecret != null && !apiSecret.isEmpty());
-
-    // Environment detection
-    result.put("is_production", frontendUrl != null && frontendUrl.contains("shopgaugeai.com"));
-
-    return ResponseEntity.ok(result);
-  }
-
-  @GetMapping("/debug-redis-keys")
-  @Profile("!prod") // Only available in non-production environments
-  public ResponseEntity<Map<String, Object>> debugRedisKeys(
-      @RequestParam(required = false) String shop) {
-    Map<String, Object> debug = new HashMap<>();
-
-    try {
-      // Get all OAuth used codes
-      Set<String> oauthKeys = redisTemplate.keys("oauth:used_code:*");
-      debug.put("oauth_used_codes_count", oauthKeys != null ? oauthKeys.size() : 0);
-      debug.put("oauth_used_codes", oauthKeys != null ? oauthKeys : Set.of());
-
-      // Get all shop tokens
-      Set<String> shopTokenKeys = redisTemplate.keys("shop_token:*");
-      debug.put("shop_token_keys_count", shopTokenKeys != null ? shopTokenKeys.size() : 0);
-      debug.put("shop_token_keys", shopTokenKeys != null ? shopTokenKeys : Set.of());
-
-      // Get all shop sessions
-      Set<String> shopSessionKeys = redisTemplate.keys("shop_session:*");
-      debug.put("shop_session_keys_count", shopSessionKeys != null ? shopSessionKeys.size() : 0);
-      debug.put("shop_session_keys", shopSessionKeys != null ? shopSessionKeys : Set.of());
-
-      // Get all Spring session keys
-      Set<String> springSessionKeys = redisTemplate.keys("storesight:sessions:*");
-      debug.put(
-          "spring_session_keys_count", springSessionKeys != null ? springSessionKeys.size() : 0);
-      debug.put("spring_session_keys", springSessionKeys != null ? springSessionKeys : Set.of());
-
-      // Get any other keys that might be causing issues
-      Set<String> allKeys = redisTemplate.keys("*");
-      debug.put("total_redis_keys_count", allKeys != null ? allKeys.size() : 0);
-
-      // If shop is provided, get specific information
-      if (shop != null && !shop.trim().isEmpty()) {
-        debug.put("requested_shop", shop);
-
-        String shopToken = redisTemplate.opsForValue().get("shop_token:" + shop);
-        debug.put("shop_token_exists", shopToken != null);
-
-        String shopSession = redisTemplate.opsForValue().get("shop_session:" + shop);
-        debug.put("shop_session_id", shopSession);
-
-        if (shopSession != null) {
-          String sessionSpecificToken =
-              redisTemplate.opsForValue().get("shop_token:" + shop + ":" + shopSession);
-          debug.put("session_specific_token_exists", sessionSpecificToken != null);
-        }
-      }
-
-      debug.put("timestamp", System.currentTimeMillis());
-      debug.put("status", "success");
-
-    } catch (Exception e) {
-      logger.error("Error getting Redis debug info: {}", e.getMessage(), e);
-      debug.put("error", e.getMessage());
-      debug.put("status", "error");
-    }
-
-    return ResponseEntity.ok(debug);
   }
 }

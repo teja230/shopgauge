@@ -57,9 +57,6 @@ public class WebSecurityConfig implements WebMvcConfigurer {
   @Value("${security.rate-limit.requests-per-minute:60}")
   private int requestsPerMinute;
 
-  @Value("${security.debug-endpoints.enabled:false}")
-  private boolean debugEndpointsEnabled;
-
   @Value(
       "${cors.allowed-origins:http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173}")
   private String corsAllowedOrigins;
@@ -129,38 +126,6 @@ public class WebSecurityConfig implements WebMvcConfigurer {
                   "{\"error\":\"Rate limit exceeded\",\"message\":\"Too many requests. Please try again later.\"}");
           return false;
         }
-      }
-    };
-  }
-
-  /** Debug Endpoint Protection Interceptor */
-  @Bean
-  public HandlerInterceptor debugEndpointInterceptor() {
-    return new HandlerInterceptor() {
-      @Override
-      public boolean preHandle(
-          HttpServletRequest request, HttpServletResponse response, Object handler)
-          throws Exception {
-        String uri = request.getRequestURI();
-
-        // Block debug endpoints in production
-        if (isProductionProfile() && isDebugEndpoint(uri)) {
-          if (!debugEndpointsEnabled) {
-            logger.warn(
-                "Debug endpoint access blocked in production: {} from IP: {}",
-                uri,
-                getClientIpAddress(request));
-            response.setStatus(HttpStatus.NOT_FOUND.value());
-            response.setContentType("application/json");
-            response
-                .getWriter()
-                .write(
-                    "{\"error\":\"Not found\",\"message\":\"The requested resource was not found.\"}");
-            return false;
-          }
-        }
-
-        return true;
       }
     };
   }
@@ -248,9 +213,6 @@ public class WebSecurityConfig implements WebMvcConfigurer {
         .addPathPatterns("/api/**")
         .excludePathPatterns("/api/health/**", "/health/**");
 
-    // Apply debug endpoint protection
-    registry.addInterceptor(debugEndpointInterceptor()).addPathPatterns("/**");
-
     // Apply input validation to all endpoints
     registry.addInterceptor(inputValidationInterceptor()).addPathPatterns("/**");
   }
@@ -271,13 +233,6 @@ public class WebSecurityConfig implements WebMvcConfigurer {
               auth.requestMatchers(
                       "/api/auth/shopify/**", "/actuator/**", "/health/**", "/api/health/**", "/")
                   .permitAll();
-
-              // Block debug endpoints in production unless explicitly enabled
-              if (isProductionProfile() && !debugEndpointsEnabled) {
-                auth.requestMatchers(
-                        "/api/**/debug/**", "**/debug/**", "/api/**/test/**", "**/test/**")
-                    .denyAll();
-              }
 
               auth.anyRequest().authenticated();
             })
@@ -402,15 +357,5 @@ public class WebSecurityConfig implements WebMvcConfigurer {
 
   private boolean isProductionProfile() {
     return "prod".equals(activeProfile) || "production".equals(activeProfile);
-  }
-
-  private boolean isDebugEndpoint(String uri) {
-    return uri.contains("/debug")
-        || uri.contains("/test")
-        || uri.endsWith("/debug-config")
-        || uri.endsWith("/debug-callback-test")
-        || uri.endsWith("/debug-oauth-state")
-        || uri.endsWith("/debug-environment")
-        || uri.endsWith("/debug-redis-keys");
   }
 }
