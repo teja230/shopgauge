@@ -634,7 +634,6 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                     }}
                     startIcon={<CheckCircle size={16} />}
                   >
-                    Mark all read
                   </Button>
                   <Tooltip title="Mark all unread">
                     <Button
@@ -654,7 +653,6 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                       }}
                       startIcon={<EyeOff size={16} />}
                     >
-                      Mark all unread
                     </Button>
                   </Tooltip>
                 </Box>
@@ -675,7 +673,6 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                     }}
                     startIcon={<Trash2 size={16} />}
                   >
-                    Clear all
                   </Button>
                 </Tooltip>
               </NotificationActions>
