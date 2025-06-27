@@ -140,17 +140,17 @@ const HomePage = () => {
       // Clear any existing dashboard cache before switching stores
       clearAllDashboardCache();
 
-      // Don't show cache clearing notification for initial Connect Store - only for Switch Store
-      // notifications.showInfo('Cache cleared for fresh data from new store', {
-      //   category: 'Store Connection',
-      //   duration: 3000
-      // });
-
-      // Build return URL so Dashboard can invalidate cache again after OAuth
+      // Optimized: Build return URL for faster post-OAuth loading
       const baseUrl = `${window.location.origin}/dashboard`;
-      const returnUrl = encodeURIComponent(`${baseUrl}?connected=true`);
+      const returnUrl = encodeURIComponent(`${baseUrl}?connected=true&skip_loading=true`);
 
-      // Redirect to the login endpoint with the normalized shop parameter and return URL
+      // Show immediate feedback before redirect
+      notifications.showInfo('Connecting to Shopify...', {
+        category: 'Store Connection',
+        duration: 2000
+      });
+
+      // Redirect to the login endpoint with optimized parameters
       window.location.href = `${API_BASE_URL}/api/auth/shopify/login?shop=${encodeURIComponent(cleanDomain)}&return_url=${returnUrl}`;
     } catch (error) {
       console.error('Login failed:', error);

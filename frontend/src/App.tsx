@@ -144,7 +144,7 @@ const AppContent: React.FC = () => {
 
   // Show global loading state during initial load or auth loading
   if (loading || (authLoading && window.location.search.includes('redirect='))) {
-    return <IntelligentLoadingScreen />;
+    return <IntelligentLoadingScreen fastMode={true} message="Loading ShopGauge..." />;
   }
   
   return (

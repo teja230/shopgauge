@@ -41,10 +41,12 @@ export const ServiceStatusProvider: React.FC<ServiceStatusProviderProps> = ({ ch
    * after we see multiple errors in a short window (circuit-breaker style).
    * This avoids false positives on first page-load while still reacting quickly
    * when the backend is genuinely down.
+   * 
+   * OPTIMIZED: More lenient thresholds for better initial loading experience
    */
   const recentFailureTimestampsRef = useRef<number[]>([]);
-  const FAILURE_WINDOW_MS = 30_000; // look at last 30 s of traffic
-  const FAILURE_THRESHOLD = 3;      // need 3 failures to trip
+  const FAILURE_WINDOW_MS = 60_000; // Increased to 60 seconds for more stability
+  const FAILURE_THRESHOLD = 5;      // Increased to 5 failures to reduce false positives
   const userNavigatedAwayRef = useRef(false);
 
   const checkServiceStatus = async (): Promise<boolean> => {
@@ -255,7 +257,17 @@ export const ServiceStatusProvider: React.FC<ServiceStatusProviderProps> = ({ ch
   }, [location.pathname, isServiceAvailable]);
 
   // Initial health check - only if service is not available or we haven't checked recently
+  // OPTIMIZED: Skip health checks during normal app loading to prevent false 502s
   useEffect(() => {
+    // Skip initial checks if we're in a normal loading state
+    const currentPath = location.pathname;
+    const isNormalPage = ['/', '/dashboard', '/competitors', '/profile'].includes(currentPath);
+    
+    if (isNormalPage && isServiceAvailable) {
+      console.log('ServiceStatus: Skipping initial health check - normal page loading');
+      return;
+    }
+    
     const shouldCheck = 
       !isServiceAvailable || 
       !lastServiceCheck || 
@@ -280,7 +292,7 @@ export const ServiceStatusProvider: React.FC<ServiceStatusProviderProps> = ({ ch
     } else {
       console.log('ServiceStatus: Skipping initial health check - conditions not met');
     }
-  }, []);
+  }, [location.pathname]); // Added location.pathname dependency
 
   // Cleanup on unmount
   useEffect(() => {

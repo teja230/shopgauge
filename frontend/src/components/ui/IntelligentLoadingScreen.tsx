@@ -268,11 +268,13 @@ const Spinner = styled(Box)(({ theme }) => ({
 interface IntelligentLoadingScreenProps {
   message?: string;
   progress?: number;
+  fastMode?: boolean;
 }
 
 const IntelligentLoadingScreen: React.FC<IntelligentLoadingScreenProps> = ({ 
   message = "Setting up your analytics dashboard...",
-  progress 
+  progress,
+  fastMode = false
 }) => {
   const [currentMessage, setCurrentMessage] = useState(message);
   const [currentProgress, setCurrentProgress] = useState(progress || 0);
@@ -291,7 +293,9 @@ const IntelligentLoadingScreen: React.FC<IntelligentLoadingScreenProps> = ({
       let progressValue = 0;
 
       const interval = setInterval(() => {
-        progressValue += Math.random() * 20 + 10;
+        const increment = fastMode ? Math.random() * 30 + 20 : Math.random() * 20 + 10;
+        progressValue += increment;
+        
         if (progressValue >= 100) {
           progressValue = 100;
           clearInterval(interval);
@@ -303,14 +307,14 @@ const IntelligentLoadingScreen: React.FC<IntelligentLoadingScreenProps> = ({
           messageIndex++;
           setCurrentMessage(loadingMessages[messageIndex]);
         }
-      }, 800);
+      }, fastMode ? 400 : 800);
 
       return () => clearInterval(interval);
     } else {
       setCurrentProgress(progress);
       setCurrentMessage(message);
     }
-  }, [message, progress]);
+  }, [message, progress, fastMode]);
 
   return (
     <LoadingContainer>

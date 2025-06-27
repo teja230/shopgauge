@@ -720,81 +720,6 @@ const DashboardPage = () => {
     }
   }, []);
 
-  useEffect(() => {
-    // Check for success notifications from URL params
-    const searchParams = new URLSearchParams(location.search);
-    const reauth = searchParams.get('reauth');
-    const connected = searchParams.get('connected');
-    const reconnected = searchParams.get('reconnected');
-    
-    // Create a unique key for this notification to prevent duplicates
-    const notificationKey = `${reauth}-${connected}-${reconnected}-${location.search}`;
-      
-    // Only show notification if we haven't shown it for this specific case
-    if (notificationShownRef.current.has(notificationKey)) {
-      return;
-    }
-    
-    // Handle success notifications from Profile page redirects
-    if (reauth === 'success') {
-      notifications.showSuccess('🔐 Re-authentication successful!', {
-        persistent: true,
-        category: 'Authentication',
-        action: {
-          label: 'View Profile',
-          onClick: () => navigate('/profile')
-        }
-      });
-      // Clear cache to ensure fresh data
-      sessionStorage.removeItem('dashboard_cache_v1.1');
-      sessionStorage.removeItem('dashboard_cache_v2');
-      setCache(invalidateCache());
-      
-      // Mark this notification as shown
-      markNotificationShown(notificationKey);
-      
-      // Clean up URL params
-      const cleanUrl = window.location.pathname;
-      window.history.replaceState({}, document.title, cleanUrl);
-    } else if (connected === 'true') {
-      notifications.showSuccess('🎉 Welcome to ShopGauge! Your store is now connected and ready for insights.', {
-        persistent: true,
-        category: 'Welcome',
-        action: {
-          label: 'Explore Dashboard',
-          onClick: () => navigate('/dashboard')
-        }
-      });
-      // Clear cache to ensure fresh data
-      sessionStorage.removeItem('dashboard_cache_v1.1');
-      sessionStorage.removeItem('dashboard_cache_v2');
-      setCache(invalidateCache());
-      
-      // Mark this notification as shown
-      markNotificationShown(notificationKey);
-      
-      // Clean up URL params
-      const cleanUrl = window.location.pathname;
-      window.history.replaceState({}, document.title, cleanUrl);
-    } else if (reconnected === 'true') {
-      notifications.showSuccess('🔄 Store reconnected successfully!', {
-        persistent: false, // Don't persist reconnection notifications
-        category: 'Store Connection',
-      });
-      // Clear cache to ensure fresh data
-      sessionStorage.removeItem('dashboard_cache_v1.1');
-      sessionStorage.removeItem('dashboard_cache_v2');
-      setCache(invalidateCache());
-      
-      // Mark this notification as shown
-      markNotificationShown(notificationKey);
-      
-      // Clean up URL params
-      const cleanUrl = window.location.pathname;
-      window.history.replaceState({}, document.title, cleanUrl);
-    }
-  }, [location.search, navigate]);
-
   // Retry logic with exponential backoff
   const retryWithBackoff = useCallback(async (apiCall: () => Promise<any>, maxRetries = 3) => {
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -1329,18 +1254,39 @@ const DashboardPage = () => {
     }
   }, [shop]);
 
-  // Auto-fetch all dashboard data on initial load
+  // Auto-fetch all dashboard data on initial load with parallel requests for better performance
   useEffect(() => {
     if (shop && shop.trim() !== '' && isInitialLoad) {
       setIsInitialLoad(false);
-      // Trigger data fetches for all cards
-      fetchRevenueData();
-      fetchProductsData();
-      fetchInventoryData();
-      fetchNewProductsData();
-      fetchInsightsData();
-      fetchOrdersData();
-      fetchAbandonedCartsData();
+      
+      // Parallel loading for dramatically better performance
+      const loadAllData = async () => {
+        try {
+          // Start all API calls in parallel instead of sequential
+          const promises = [
+            fetchRevenueData(),
+            fetchProductsData(),
+            fetchInventoryData(),
+            fetchNewProductsData(),
+            fetchInsightsData(),
+            fetchAbandonedCartsData()
+          ];
+          
+          // Orders data can be loaded slightly delayed to reduce initial load
+          setTimeout(() => {
+            fetchOrdersData();
+          }, 100);
+          
+          // Wait for critical data to load in parallel
+          await Promise.allSettled(promises);
+          
+          console.log('Dashboard: Parallel data loading completed');
+        } catch (error) {
+          console.error('Dashboard: Error in parallel data loading:', error);
+        }
+      };
+      
+      loadAllData();
     }
   }, [shop, isInitialLoad, fetchRevenueData, fetchProductsData, fetchInventoryData, fetchNewProductsData, fetchInsightsData, fetchOrdersData, fetchAbandonedCartsData]);
 
@@ -1436,6 +1382,111 @@ const DashboardPage = () => {
       setIsRefreshing(false);
     }
   }, [isRefreshing, lastRefreshTime, fetchRevenueData, fetchProductsData, fetchInventoryData, fetchNewProductsData, fetchInsightsData, fetchOrdersData, fetchAbandonedCartsData]);
+
+  // Handle URL parameters and optimize post-OAuth loading experience
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const connected = searchParams.get('connected');
+    const skipLoading = searchParams.get('skip_loading');
+    const reauth = searchParams.get('reauth');
+    const forceRefresh = searchParams.get('force_refresh');
+    const clearCache = searchParams.get('clear_cache');
+
+    // Optimized: Skip heavy loading animations if coming from OAuth
+    if (skipLoading === 'true') {
+      console.log('Dashboard: Skipping loading animations for faster post-OAuth experience');
+      setIsInitialLoad(false);
+    }
+
+    // Handle OAuth success callback
+    if (connected === 'true') {
+      const notificationKey = `connected-${Date.now()}`;
+      if (!notificationShownRef.current.has(notificationKey)) {
+        markNotificationShown(notificationKey);
+        
+        notifications.showSuccess('🔗 Store connected successfully! Loading your analytics...', {
+          category: 'Store Connection',
+          duration: 3000
+        });
+      }
+      
+      // Clean up URL parameters
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('connected');
+      newUrl.searchParams.delete('skip_loading');
+      window.history.replaceState({}, document.title, newUrl.toString());
+    }
+
+    // Handle re-authentication success
+    if (reauth === 'success') {
+      const notificationKey = `reauth-${Date.now()}`;
+      if (!notificationShownRef.current.has(notificationKey)) {
+        markNotificationShown(notificationKey);
+        
+        notifications.showSuccess('🔐 Re-authentication successful! Refreshing data...', {
+          category: 'Authentication',
+          duration: 3000
+        });
+        
+        // Force refresh all data after re-authentication
+        setTimeout(() => {
+          handleRefreshAll();
+        }, 500);
+      }
+      
+      // Clean up URL
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('reauth');
+      window.history.replaceState({}, document.title, newUrl.toString());
+    }
+
+    // Handle cache clearing request
+    if (clearCache === 'true') {
+      const notificationKey = `cache-cleared-${Date.now()}`;
+      if (!notificationShownRef.current.has(notificationKey)) {
+        markNotificationShown(notificationKey);
+        
+        console.log('Dashboard: Cache clearing requested via URL parameter');
+        const freshCache = invalidateCache();
+        setCache(freshCache);
+        
+        notifications.showInfo('Cache cleared! Loading fresh data...', {
+          category: 'Cache Management',
+          duration: 2000
+        });
+        
+        // Trigger fresh data load
+        setTimeout(() => {
+          handleRefreshAll();
+        }, 500);
+      }
+      
+      // Clean up URL
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('clear_cache');
+      window.history.replaceState({}, document.title, newUrl.toString());
+    }
+
+    // Handle force refresh request
+    if (forceRefresh === 'true') {
+      const notificationKey = `force-refresh-${Date.now()}`;
+      if (!notificationShownRef.current.has(notificationKey)) {
+        markNotificationShown(notificationKey);
+        
+        console.log('Dashboard: Force refresh requested via URL parameter');
+        
+        // Trigger immediate refresh
+        setTimeout(() => {
+          handleRefreshAll();
+        }, 500);
+      }
+      
+      // Clean up URL
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('force_refresh');
+      window.history.replaceState({}, document.title, newUrl.toString());
+    }
+  }, [location.search, notifications, markNotificationShown, handleRefreshAll]);
 
   // Debug logging for orders
   useEffect(() => {

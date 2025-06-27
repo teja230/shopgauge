@@ -81,11 +81,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setAuthLoading(false);
       // Only set loading to false after initial load
       if (!hasInitiallyLoaded) {
-        // Add a small delay to show the loading animation
-        setTimeout(() => {
-      setLoading(false);
-          setHasInitiallyLoaded(true);
-        }, 1500); // 1.5 second minimum loading time for better UX
+        // Remove artificial delay - show loading screen only as long as needed
+        setLoading(false);
+        setHasInitiallyLoaded(true);
       }
     }
   };
