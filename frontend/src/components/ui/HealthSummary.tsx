@@ -90,14 +90,15 @@ const HealthSummary: React.FC = () => {
   }, [isServiceAvailable]);
 
   useEffect(() => {
-    // Only set up interval if service is available
-    if (!isServiceAvailable) {
+    // Only set up interval if service is available and we have metrics
+    if (!isServiceAvailable || !metrics) {
       return;
     }
 
-    const interval = setInterval(fetchMetrics, 60_000); // refresh every 60 seconds instead of 30
+    // Use longer interval to reduce health check frequency
+    const interval = setInterval(fetchMetrics, 120_000); // refresh every 2 minutes instead of 1
     return () => clearInterval(interval);
-  }, [isServiceAvailable]);
+  }, [isServiceAvailable, metrics]);
 
   // Don't show loading state if service is not available
   if (!isServiceAvailable) {

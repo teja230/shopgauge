@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { API_BASE_URL } from '../api';
 
 interface ServiceStatusContextType {
@@ -31,10 +31,12 @@ export const ServiceStatusProvider: React.FC<ServiceStatusProviderProps> = ({ ch
   const [lastServiceCheck, setLastServiceCheck] = useState<Date | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const navigate = useNavigate();
+  const location = useLocation();
   const retryIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isRetryingRef = useRef(false);
   const lastSuccessfulCheckRef = useRef<Date | null>(null);
   const lastCheckTimeRef = useRef<number>(0);
+  const userNavigatedAwayRef = useRef(false);
 
   const checkServiceStatus = async (): Promise<boolean> => {
     // Debounce rapid successive calls
@@ -106,19 +108,36 @@ export const ServiceStatusProvider: React.FC<ServiceStatusProviderProps> = ({ ch
       return; // Already retrying
     }
 
+    // Don't start retrying if user has manually navigated away
+    if (userNavigatedAwayRef.current) {
+      console.log('ServiceStatus: Not starting retry loop - user has manually navigated away');
+      return;
+    }
+
     isRetryingRef.current = true;
-    console.log('ServiceStatus: Starting retry loop - checking every 5 seconds');
+    console.log('ServiceStatus: Starting retry loop - checking every 10 seconds');
 
     // Clear any existing interval
     if (retryIntervalRef.current) {
       clearInterval(retryIntervalRef.current);
     }
 
-    // Start retrying every 5 seconds
+    // Start retrying every 10 seconds (increased from 5 to reduce frequency)
     retryIntervalRef.current = setInterval(() => {
+      // Double check if user has navigated away
+      if (userNavigatedAwayRef.current) {
+        console.log('ServiceStatus: Stopping retry loop - user has navigated away');
+        if (retryIntervalRef.current) {
+          clearInterval(retryIntervalRef.current);
+          retryIntervalRef.current = null;
+        }
+        isRetryingRef.current = false;
+        return;
+      }
+      
       setRetryCount(prev => prev + 1);
       checkServiceStatus();
-    }, 5000); // Check every 5 seconds
+    }, 10000); // Check every 10 seconds instead of 5
   };
 
   const handleServiceError = (error: any) => {
@@ -170,6 +189,7 @@ export const ServiceStatusProvider: React.FC<ServiceStatusProviderProps> = ({ ch
     setLastServiceCheck(new Date());
     setRetryCount(0);
     lastSuccessfulCheckRef.current = new Date();
+    userNavigatedAwayRef.current = true; // Mark that user manually reset
     
     // Stop retrying
     if (retryIntervalRef.current) {
@@ -178,6 +198,30 @@ export const ServiceStatusProvider: React.FC<ServiceStatusProviderProps> = ({ ch
     }
     isRetryingRef.current = false;
   };
+
+  // Monitor location changes to detect when user navigates away from error pages
+  useEffect(() => {
+    const currentPath = location.pathname;
+    
+    // If user navigates away from service-unavailable page, assume they found a working page
+    if (currentPath !== '/service-unavailable' && !isServiceAvailable && isRetryingRef.current) {
+      console.log('ServiceStatus: User navigated away from error page, assuming service is back online');
+      userNavigatedAwayRef.current = true;
+      
+      // Reset service status to available and stop retrying
+      setIsServiceAvailable(true);
+      setLastServiceCheck(new Date());
+      setRetryCount(0);
+      lastSuccessfulCheckRef.current = new Date();
+      
+      // Stop retrying
+      if (retryIntervalRef.current) {
+        clearInterval(retryIntervalRef.current);
+        retryIntervalRef.current = null;
+      }
+      isRetryingRef.current = false;
+    }
+  }, [location.pathname, isServiceAvailable]);
 
   // Initial health check - only if service is not available or we haven't checked recently
   useEffect(() => {
@@ -190,6 +234,12 @@ export const ServiceStatusProvider: React.FC<ServiceStatusProviderProps> = ({ ch
     // Additional check: if service is available and we checked recently, don't check again
     if (isServiceAvailable && lastServiceCheck && Date.now() - lastServiceCheck.getTime() < 300000) {
       console.log('ServiceStatus: Skipping initial health check - service is healthy and checked recently');
+      return;
+    }
+
+    // Don't perform initial check if user has manually navigated away
+    if (userNavigatedAwayRef.current) {
+      console.log('ServiceStatus: Skipping initial health check - user manually navigated away');
       return;
     }
 
