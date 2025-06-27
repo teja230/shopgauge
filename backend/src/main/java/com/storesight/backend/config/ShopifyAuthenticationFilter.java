@@ -37,6 +37,11 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
       String path = request.getRequestURI();
       if (path.startsWith("/api/auth/")
           || path.startsWith("/actuator/")
+          || path.startsWith("/health/")
+          || path.startsWith("/api/health/")
+          || path.equals("/")
+          || path.equals("/health")
+          || path.equals("/api/health")
           || path.startsWith("/error")) {
         filterChain.doFilter(request, response);
         return;
