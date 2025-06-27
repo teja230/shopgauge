@@ -7,7 +7,8 @@ import {
   addCompetitor, 
   deleteCompetitor,
   getDebouncedSuggestionCount,
-  refreshSuggestionCount as refreshSuggestionCountAPI
+  refreshSuggestionCount as refreshSuggestionCountAPI,
+  API_BASE_URL
 } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { 
@@ -26,6 +27,7 @@ import {
 import type { CompetitorSuggestion } from '../api';
 import { useNotifications } from '../hooks/useNotifications';
 import { fetchWithAuth } from '../api/index';
+import { getSuggestionCount } from '../api';
 
 // Demo data for when SerpAPI is not configured
 const DEMO_COMPETITORS: Competitor[] = [
@@ -136,6 +138,7 @@ export default function CompetitorsPage() {
   const [suggestionCount, setSuggestionCount] = useState(0);
   const [isDemoMode, setIsDemoMode] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAdding, setIsAdding] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [url, setUrl] = useState('');
   const [productId, setProductId] = useState('');
@@ -307,34 +310,88 @@ export default function CompetitorsPage() {
     };
   }, []);
 
-  const handleAdd = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Show immediate feedback for first competitor
-    const isFirstCompetitor = competitors.length === 0;
-    if (isFirstCompetitor && isDemoMode) {
-      // Switch to live mode immediately when adding first competitor
-      setUserDisabledDemo(true);
-      setIsDemoMode(false);
-      if (shop) {
-        localStorage.setItem(`demoDisabled_${shop}`, 'true');
-      }
+  const handleAdd = useCallback(async () => {
+    if (!url.trim()) {
+      notifications.showError('Please enter a competitor URL', {
+        category: 'Competitors'
+      });
+      return;
     }
-    
+
+    setIsAdding(true);
     try {
-      const newComp = await addCompetitor(url, productId);
-      setCompetitors((prev) => [...prev, newComp]);
+      let newCompetitor: Competitor;
       
-      // Clear cache to force refresh
-      const cacheKey = `competitors_${shop}`;
-      cache.delete(cacheKey);
-      
-      if (isFirstCompetitor) {
-        notifications.showSuccess('🎉 First competitor added! Market intelligence is now active.', {
-          category: 'Competitors',
-          persistent: true
+      if (isDemoMode) {
+        // Demo mode logic
+        const demoId = `demo-${Date.now()}`;
+        newCompetitor = {
+          id: demoId,
+          url: url.trim(),
+          label: new URL(url.trim()).hostname,
+          price: Math.floor(Math.random() * 100) + 20,
+          inStock: Math.random() > 0.2,
+          percentDiff: Math.floor(Math.random() * 40) - 20,
+          lastChecked: new Date().toISOString()
+        };
+        setCompetitors((prev) => [...prev, newCompetitor]);
+        notifications.showSuccess('Demo competitor added', {
+          category: 'Competitors'
         });
       } else {
+        // Intelligent competitor addition with automatic product syncing
+        let finalProductId = productId;
+        
+        // If no productId provided, try to get products intelligently
+        if (!finalProductId) {
+          console.log('No productId provided, attempting to get products intelligently...');
+          
+          // First, try dashboard cache
+          const dashboardCache = sessionStorage.getItem('dashboard_cache_v2');
+          if (dashboardCache) {
+            try {
+              const cache = JSON.parse(dashboardCache);
+              if (cache.products?.data?.products?.length > 0) {
+                const age = Date.now() - cache.products.timestamp;
+                if (age < 30 * 60 * 1000) { // 30 minutes
+                  finalProductId = cache.products.data.products[0].id?.toString();
+                  console.log('Using product from dashboard cache:', finalProductId);
+                }
+              }
+            } catch (error) {
+              console.warn('Failed to parse dashboard cache:', error);
+            }
+          }
+          
+          // If still no product, try to fetch from API
+          if (!finalProductId) {
+            try {
+              console.log('Fetching products from API for competitor addition');
+              const response = await fetch(`${API_BASE_URL}/api/analytics/products`, {
+                credentials: 'include',
+              });
+              
+              if (response.ok) {
+                const data = await response.json();
+                if (data.products?.length > 0) {
+                  finalProductId = data.products[0].id?.toString();
+                  console.log('Using product from API:', finalProductId);
+                }
+              }
+            } catch (error) {
+              console.error('Failed to fetch products:', error);
+            }
+          }
+        }
+        
+        // Add competitor with intelligent product handling
+        newCompetitor = await addCompetitor(url.trim(), finalProductId || '');
+        setCompetitors((prev) => [...prev, newCompetitor]);
+        
+        // Clear cache to ensure fresh data on next load
+        const cacheKey = `competitors_${shop}`;
+        cache.delete(cacheKey);
+        
         notifications.showSuccess('Competitor added successfully', {
           category: 'Competitors'
         });
@@ -344,26 +401,39 @@ export default function CompetitorsPage() {
       setProductId('');
       setShowAddForm(false);
     } catch (error: any) {
-      // Handle specific error types with user-friendly messages
-      if (error?.response?.status === 412) { // PRECONDITION_REQUIRED
-        const errorData = error.response.data;
-        if (errorData.error === 'PRODUCTS_SYNC_NEEDED') {
-          notifications.showError('Please visit your Dashboard first to sync products from Shopify, then try adding competitors.', {
-            category: 'Competitors',
-            persistent: true,
-            action: {
-              label: 'Go to Dashboard',
-              onClick: () => window.location.href = '/dashboard'
-            }
-          });
-          return;
-        }
+      console.error('handleAdd error:', error);
+      
+      // Enhanced error handling with user-friendly messages
+      let userMessage = 'Failed to add competitor. Please try again.';
+      let showDashboardAction = false;
+      
+      // Check for specific error conditions
+      if (error?.response?.status === 412 || 
+          (error?.response?.data && 
+           (error.response.data.error === 'PRODUCTS_SYNC_NEEDED' || 
+            JSON.stringify(error.response.data).includes('PRODUCTS_SYNC_NEEDED')))) {
+        userMessage = 'Please visit your Dashboard first to sync your product catalog, then try adding competitors.';
+        showDashboardAction = true;
+      } else if (error.message) {
+        userMessage = error.message;
       }
       
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to add competitor';
-      notifications.showError(errorMessage, {
-        category: 'Competitors'
+      // Never show raw JSON to users - additional safeguard
+      if (userMessage.includes('{') && userMessage.includes('}')) {
+        userMessage = 'Unable to add competitor at this time. Please visit your Dashboard first to sync products, then try again.';
+        showDashboardAction = true;
+      }
+      
+      notifications.showError(userMessage, {
+        category: 'Competitors',
+        persistent: showDashboardAction,
+        action: showDashboardAction ? {
+          label: 'Go to Dashboard',
+          onClick: () => window.location.href = '/dashboard'
+        } : undefined
       });
+    } finally {
+      setIsAdding(false);
     }
   }, [url, productId, shop, notifications, competitors.length, isDemoMode]);
 

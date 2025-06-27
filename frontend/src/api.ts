@@ -155,6 +155,7 @@ export interface Competitor {
   lastChecked: string;
 }
 
+// Enhanced error handling to prevent raw JSON errors
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     if (response.status === 401) {
@@ -165,10 +166,35 @@ async function handleResponse<T>(response: Response): Promise<T> {
       document.cookie = `shop=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT${domainAttribute};`;
       throw new Error('Authentication required');
     }
-    const error = await response.text();
-    console.error('API: Error response:', response.status, error);
-    throw new Error(error || 'Request failed');
+    
+    // Try to parse as JSON first, fallback to text
+    let errorData: any;
+    const contentType = response.headers.get('content-type');
+    
+    try {
+      if (contentType && contentType.includes('application/json')) {
+        errorData = await response.json();
+      } else {
+        const textError = await response.text();
+        errorData = { message: textError };
+      }
+    } catch (parseError) {
+      // If parsing fails, create a generic error
+      errorData = { message: `Server error (${response.status})` };
+    }
+    
+    // Enhanced error object with proper structure
+    const apiError = new Error(errorData.message || `Request failed with status ${response.status}`);
+    (apiError as any).response = {
+      status: response.status,
+      data: errorData
+    };
+    (apiError as any).status = response.status;
+    
+    console.error('API: Error response:', response.status, errorData);
+    throw apiError;
   }
+  
   const data = await response.json();
   console.log('API: Success response:', response.status, data);
   return data;
@@ -184,13 +210,99 @@ export async function getCompetitors(): Promise<Competitor[]> {
   return handleResponse<Competitor[]>(res);
 }
 
+// Get products from dashboard cache or API
+async function getProductsIntelligently(): Promise<any[]> {
+  // First, try to get products from dashboard cache
+  const dashboardCache = sessionStorage.getItem('dashboard_cache_v2');
+  if (dashboardCache) {
+    try {
+      const cache = JSON.parse(dashboardCache);
+      if (cache.products && cache.products.data && Array.isArray(cache.products.data.products)) {
+        const age = Date.now() - cache.products.timestamp;
+        // Use cache if less than 30 minutes old
+        if (age < 30 * 60 * 1000) {
+          console.log('Using products from dashboard cache');
+          return cache.products.data.products;
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to parse dashboard cache:', error);
+    }
+  }
+  
+  // If no cache, try to fetch products directly
+  try {
+    console.log('Fetching products from API for competitor addition');
+    const response = await fetch(`${API_BASE_URL}/api/analytics/products`, defaultOptions);
+    const data = await handleResponse<{ products: any[] }>(response);
+    return data.products || [];
+  } catch (error) {
+    console.error('Failed to fetch products:', error);
+    return [];
+  }
+}
+
+// Intelligent competitor addition with automatic product syncing
+export async function addCompetitorIntelligent(url: string, productId?: string): Promise<Competitor> {
+  try {
+    // If no productId provided, try to get products and use the first one
+    let finalProductId = productId;
+    
+    if (!finalProductId) {
+      console.log('No productId provided, attempting to get products intelligently...');
+      const products = await getProductsIntelligently();
+      
+      if (products.length > 0) {
+        finalProductId = products[0].id?.toString();
+        console.log('Using first available product:', finalProductId);
+      }
+    }
+    
+    // Attempt to add competitor
+    const res = await fetch(`${API_BASE_URL}/api/competitors`, {
+      ...defaultOptions,
+      method: 'POST',
+      body: JSON.stringify({ url, productId: finalProductId }),
+    });
+    
+    return handleResponse<Competitor>(res);
+  } catch (error: any) {
+    // Enhanced error handling to prevent raw JSON display
+    console.error('addCompetitorIntelligent error:', error);
+    
+    // Check for specific error types and provide user-friendly messages
+    if (error.response?.status === 412 || error.response?.data?.error === 'PRODUCTS_SYNC_NEEDED') {
+      const userError = new Error('Unable to add competitor. Please visit your Dashboard first to sync your product catalog, then try again.');
+      (userError as any).userFriendly = true;
+      (userError as any).action = 'dashboard';
+      throw userError;
+    }
+    
+    if (error.response?.status === 400) {
+      const errorMessage = error.response?.data?.message || error.message;
+      if (errorMessage.includes('already being tracked')) {
+        throw new Error('This competitor is already being tracked for your products.');
+      }
+      throw new Error(errorMessage || 'Invalid competitor URL. Please check the URL and try again.');
+    }
+    
+    if (error.response?.status === 401) {
+      throw new Error('Authentication required. Please log in again.');
+    }
+    
+    if (error.response?.status >= 500) {
+      throw new Error('Service temporarily unavailable. Please try again in a few moments.');
+    }
+    
+    // Generic fallback for any other errors
+    const fallbackMessage = error.response?.data?.message || error.message || 'Failed to add competitor. Please try again.';
+    throw new Error(fallbackMessage);
+  }
+}
+
+// Keep the original function for backward compatibility
 export async function addCompetitor(url: string, productId: string): Promise<Competitor> {
-  const res = await fetch(`${API_BASE_URL}/api/competitors`, {
-    ...defaultOptions,
-    method: 'POST',
-    body: JSON.stringify({ url, productId }),
-  });
-  return handleResponse<Competitor>(res);
+  return addCompetitorIntelligent(url, productId);
 }
 
 export async function deleteCompetitor(id: string): Promise<void> {
