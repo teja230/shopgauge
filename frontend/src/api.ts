@@ -272,9 +272,10 @@ export async function addCompetitorIntelligent(url: string, productId?: string):
     
     // Check for specific error types and provide user-friendly messages
     if (error.response?.status === 412 || error.response?.data?.error === 'PRODUCTS_SYNC_NEEDED') {
-      const userError = new Error('Unable to add competitor. Please visit your Dashboard first to sync your product catalog, then try again.');
+      // Don't throw an error that would trigger redirects - just return a user-friendly error
+      const userError = new Error('Please visit your Dashboard first to sync your product catalog, then try adding competitors again.');
       (userError as any).userFriendly = true;
-      (userError as any).action = 'dashboard';
+      (userError as any).needsProductSync = true;
       throw userError;
     }
     

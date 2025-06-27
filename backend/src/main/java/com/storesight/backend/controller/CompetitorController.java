@@ -720,11 +720,35 @@ public class CompetitorController {
 
   /** Helper method to extract Amazon product title from URL */
   private String extractAmazonTitle(String url) {
-    if (url.contains("/dp/")) {
-      String productId = url.split("/dp/")[1].split("/")[0];
-      return "Amazon Product " + productId;
+    try {
+      // Handle different Amazon URL patterns
+      if (url.contains("/dp/")) {
+        // Product page
+        String productId = url.split("/dp/")[1].split("/")[0];
+        return "Amazon Product " + productId;
+      } else if (url.contains("/gp/buyagain/")) {
+        // Buy Again page
+        return "Amazon Buy Again";
+      } else if (url.contains("/s?")) {
+        // Search results page
+        return "Amazon Search Results";
+      } else if (url.contains("/b/")) {
+        // Brand page
+        return "Amazon Brand Page";
+      } else if (url.contains("/gp/product/")) {
+        // Product page (alternative format)
+        String productId = url.split("/gp/product/")[1].split("/")[0];
+        return "Amazon Product " + productId;
+      } else if (url.contains("/gp/offer-listing/")) {
+        // Offer listing page
+        return "Amazon Offers";
+      } else {
+        // Generic Amazon page
+        return "Amazon Page";
+      }
+    } catch (Exception e) {
+      return "Amazon Product";
     }
-    return "Amazon Product";
   }
 
   /** Helper method to extract Shopify product title from URL */

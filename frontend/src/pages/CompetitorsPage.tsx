@@ -424,9 +424,8 @@ export default function CompetitorsPage() {
       
       // Check for specific error conditions
       if (error?.response?.status === 412 || 
-          (error?.response?.data && 
-           (error.response.data.error === 'PRODUCTS_SYNC_NEEDED' || 
-            JSON.stringify(error.response.data).includes('PRODUCTS_SYNC_NEEDED')))) {
+          error?.response?.data?.error === 'PRODUCTS_SYNC_NEEDED' ||
+          error?.needsProductSync) {
         userMessage = 'Syncing your product catalog... Please try adding the competitor again in a moment.';
         needsProductSync = true;
       } else if (error.message) {
@@ -601,13 +600,43 @@ export default function CompetitorsPage() {
       const lastDiscoveryDate = new Date(lastDiscoveryTime).toLocaleString();
       notifications.showInfo(`Discovery is available again in ${hoursRemaining} hours. This helps us find the best competitors while managing costs efficiently.`, {
         category: 'Discovery',
-        persistent: true
+        persistent: false
       });
       return;
     }
 
     setIsDiscovering(true);
     try {
+      // First check if discovery service is available
+      const statusResponse = await fetch(`${API_BASE_URL}/api/competitors/discovery/status`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include'
+      });
+
+      if (!statusResponse.ok) {
+        throw new Error('Discovery service is not available');
+      }
+
+      const statusData = await statusResponse.json();
+      
+      // Check if discovery is enabled
+      if (!statusData.enabled) {
+        notifications.showError('Competitor discovery is currently disabled. Please contact support.', {
+          category: 'Discovery'
+        });
+        return;
+      }
+
+      // Check if we have the required configuration
+      if (!statusData.configured) {
+        notifications.showError('Competitor discovery is not configured. Please set up your search API credentials.', {
+          category: 'Discovery'
+        });
+        return;
+      }
+
+      // Trigger discovery
       const response = await fetch(`${API_BASE_URL}/api/competitors/discovery/trigger`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -623,13 +652,48 @@ export default function CompetitorsPage() {
           category: 'Discovery'
         });
         
-        // Only refresh suggestion count once after 24 hours (not polling)
-        // Users can manually refresh the page if they want to check sooner
+        // Refresh discovery status to show updated cooldown
+        try {
+          const updatedStatusResponse = await fetch(`${API_BASE_URL}/api/competitors/discovery/status`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include'
+          });
+          
+          if (updatedStatusResponse.ok) {
+            const updatedStatus = await updatedStatusResponse.json();
+            if (updatedStatus.lastDiscoveryTime) {
+              setLastDiscoveryTime(new Date(updatedStatus.lastDiscoveryTime).getTime());
+            }
+          }
+        } catch (statusError) {
+          console.warn('Failed to refresh discovery status:', statusError);
+        }
+        
       } else {
-        throw new Error('Discovery trigger failed');
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.message || 'Discovery trigger failed';
+        throw new Error(errorMessage);
       }
-    } catch (error) {
-      notifications.showError('Failed to trigger competitor discovery', {
+    } catch (error: any) {
+      console.error('Discovery error:', error);
+      
+      // Provide specific error messages based on error type
+      let userMessage = 'Failed to trigger competitor discovery';
+      
+      if (error.message.includes('not available')) {
+        userMessage = 'Discovery service is temporarily unavailable. Please try again later.';
+      } else if (error.message.includes('not configured')) {
+        userMessage = 'Discovery is not configured. Please set up your search API credentials.';
+      } else if (error.message.includes('disabled')) {
+        userMessage = 'Competitor discovery is currently disabled. Please contact support.';
+      } else if (error.message.includes('network') || error.message.includes('fetch')) {
+        userMessage = 'Network error. Please check your connection and try again.';
+      } else if (error.message.includes('timeout')) {
+        userMessage = 'Request timed out. Please try again.';
+      }
+      
+      notifications.showError(userMessage, {
         category: 'Discovery'
       });
     } finally {
