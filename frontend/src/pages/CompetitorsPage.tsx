@@ -211,29 +211,42 @@ export default function CompetitorsPage() {
       setSuggestionCount(suggestionCountData.newSuggestions);
       
       // Handle demo mode logic - respect user preference above all
+      console.log(`fetchData: userDisabledDemo=${userDisabledDemo}, forceRefresh=${forceRefresh}, competitorsData.length=${competitorsData.length}, suggestionCountData.newSuggestions=${suggestionCountData.newSuggestions}, currentDemoMode=${isDemoMode}`);
+      
       if (userDisabledDemo) {
         // User explicitly disabled demo - stay in live mode regardless of data
+        console.log('fetchData: User explicitly disabled demo, staying in Live Mode');
         setIsDemoMode(false);
-      } else if (competitorsData.length === 0 && suggestionCountData.newSuggestions === 0) {
-        // No data and user hasn't disabled demo - show demo mode
+      } else if (!forceRefresh && (competitorsData.length === 0 && suggestionCountData.newSuggestions === 0)) {
+        // Only auto-enable demo if this is not a forced refresh and we have no data
+        // This prevents overriding user's explicit toggle actions
+        console.log('fetchData: No data available, auto-enabling Demo Mode');
         setIsDemoMode(true);
         setCompetitors(DEMO_COMPETITORS);
         setSuggestionCount(DEMO_SUGGESTIONS.length);
-      } else {
-        // Has data - use live mode
-        setIsDemoMode(false);
+      } else if (competitorsData.length > 0 || suggestionCountData.newSuggestions > 0) {
+        // Has data - use live mode (but only if user hasn't explicitly chosen demo)
+        if (!isDemoMode || userDisabledDemo) {
+          console.log('fetchData: Data available, switching to Live Mode');
+          setIsDemoMode(false);
+        } else {
+          console.log('fetchData: Data available but user prefers Demo Mode, staying in Demo');
+        }
       }
       
       lastFetchTimeRef.current = now;
       isInitialLoadRef.current = false;
       
     } catch (e) {
-      console.log('API not available, using demo mode if not disabled by user');
+      console.log('fetchData: API not available, checking demo mode preference');
       // Only auto-enable demo mode on API failure if user hasn't explicitly disabled it
       if (!userDisabledDemo) {
+        console.log('fetchData: API failed, auto-enabling Demo Mode');
         setIsDemoMode(true);
         setCompetitors(DEMO_COMPETITORS);
         setSuggestionCount(DEMO_SUGGESTIONS.length);
+      } else {
+        console.log('fetchData: API failed but user disabled demo, staying in Live Mode');
       }
     } finally {
       setIsLoading(false);
@@ -539,34 +552,37 @@ export default function CompetitorsPage() {
   }, [isDemoMode, shop]);
 
   const toggleDemoMode = useCallback(() => {
+    console.log(`Demo Mode Toggle: Current state: ${isDemoMode ? 'Demo' : 'Live'}, switching to: ${isDemoMode ? 'Live' : 'Demo'}`);
+    
     if (isDemoMode) {
       // User explicitly disabled demo mode - immediate state change
+      console.log('User explicitly switching to Live Mode');
       setUserDisabledDemo(true);
       setIsDemoMode(false);
       
       // Persist user preference immediately
       if (shop) {
         localStorage.setItem(`demoDisabled_${shop}`, 'true');
+        console.log(`Persisted demoDisabled preference for shop: ${shop}`);
       }
       
       notifications.showSuccess('Switched to Live Mode', {
         category: 'Mode'
       });
       
-      // Load real data without conflicting with mode state
-      fetchData(true).then(() => {
-        // Ensure we stay in live mode even if no data
-        if (userDisabledDemo) {
-          setIsDemoMode(false);
-        }
-      });
-      
       // Set empty state immediately to show live mode is active
       setCompetitors([]);
       setSuggestionCount(0);
       
+      // Load real data after state is stable - with explicit flag to prevent demo mode override
+      setTimeout(() => {
+        console.log('Loading real data after Live Mode toggle');
+        fetchData(true);
+      }, 100);
+      
     } else {
       // User explicitly enabled demo mode
+      console.log('User explicitly switching to Demo Mode');
       setUserDisabledDemo(false);
       setIsDemoMode(true);
       setCompetitors(DEMO_COMPETITORS);
@@ -575,13 +591,14 @@ export default function CompetitorsPage() {
       // Clear user preference
       if (shop) {
         localStorage.removeItem(`demoDisabled_${shop}`);
+        console.log(`Removed demoDisabled preference for shop: ${shop}`);
       }
       
       notifications.showSuccess('Switched to Demo Mode', {
         category: 'Mode'
       });
     }
-  }, [isDemoMode, notifications, fetchData, shop, userDisabledDemo]);
+  }, [isDemoMode, notifications, fetchData, shop]);
 
   const triggerManualDiscovery = useCallback(async () => {
     if (isDemoMode) {
