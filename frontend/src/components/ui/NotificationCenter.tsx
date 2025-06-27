@@ -64,24 +64,22 @@ const pulse = keyframes`
 // Styled components matching the site's design system
 const NotificationDropdown = styled(Paper)(({ theme }) => ({
   position: 'absolute',
-  top: 'calc(100% + 8px)',
+  top: '100%',
   right: 0,
-  width: 420,
-  maxHeight: 'calc(100vh - 100px)',
-  backgroundColor: 'rgba(255, 255, 255, 0.85)',
-  backdropFilter: 'blur(12px)',
-  WebkitBackdropFilter: 'blur(12px)', // For Safari
+  width: '380px',
+  maxHeight: '500px',
+  marginTop: theme.spacing(1),
+  backgroundColor: 'rgba(255, 255, 255, 0.95)',
+  backdropFilter: 'blur(20px) saturate(180%)',
+  WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+  border: '1px solid rgba(255, 255, 255, 0.18)',
   borderRadius: 16,
-  boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.2)',
-  border: `1px solid ${theme.palette.divider}`,
-  zIndex: 1400, // Ensure it's above other elements
+  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.05)',
+  zIndex: 1300, // Below confirmation dialogs
   overflow: 'hidden',
-  display: 'flex',
-  flexDirection: 'column',
   [theme.breakpoints.down('sm')]: {
-    width: '95vw',
-    maxHeight: '80vh',
-    right: '2.5vw',
+    width: '320px',
+    right: '-20px',
   },
 }));
 
@@ -178,9 +176,20 @@ const BellButton = styled(IconButton, {
 }));
 
 const StyledDialog = styled(Dialog)(({ theme }) => ({
+  zIndex: 1400, // Above notification center (1300)
   '& .MuiDialog-paper': {
-    borderRadius: 12,
-    boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 10px 10px -5px rgb(0 0 0 / 0.04)',
+    borderRadius: 16,
+    background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.95) 100%)',
+    backdropFilter: 'blur(20px) saturate(180%)',
+    WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.1)',
+    overflow: 'hidden',
+  },
+  '& .MuiBackdrop-root': {
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backdropFilter: 'blur(8px)',
+    WebkitBackdropFilter: 'blur(8px)',
   },
 }));
 
@@ -214,45 +223,112 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
     }
   };
 
+  const getIconByType = () => {
+    switch (type) {
+      case 'danger': return <AlertCircle size={20} />;
+      case 'warning': return <AlertTriangle size={20} />;
+      case 'info': return <Info size={20} />;
+      default: return <AlertTriangle size={20} />;
+    }
+  };
+
   return (
     <StyledDialog open={isOpen} onClose={onCancel} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ pb: 1 }}>
-        <Typography variant="h6" component="div" sx={{ fontWeight: 600 }}>
-          {title}
-        </Typography>
-      </DialogTitle>
-      <DialogContent>
-        <Alert severity={getAlertSeverity()} sx={{ mb: 2 }}>
-          <Typography variant="body2">
+      <Box sx={{ p: 3 }}>
+        {/* Header with icon */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 44,
+              height: 44,
+              borderRadius: '12px',
+              backgroundColor: `${type === 'danger' ? theme.palette.error.main : 
+                              type === 'warning' ? theme.palette.warning.main :
+                              theme.palette.primary.main}20`,
+              color: type === 'danger' ? theme.palette.error.main : 
+                     type === 'warning' ? theme.palette.warning.main :
+                     theme.palette.primary.main,
+            }}
+          >
+            {getIconByType()}
+          </Box>
+          <Typography variant="h6" sx={{ fontWeight: 600, color: 'text.primary', flex: 1 }}>
+            {title}
+          </Typography>
+        </Box>
+
+        {/* Message with enhanced styling */}
+        <Box
+          sx={{
+            p: 3,
+            mb: 3,
+            borderRadius: 2,
+            backgroundColor: `${type === 'danger' ? theme.palette.error.main : 
+                            type === 'warning' ? theme.palette.warning.main :
+                            theme.palette.primary.main}08`,
+            border: `1px solid ${type === 'danger' ? theme.palette.error.main : 
+                                 type === 'warning' ? theme.palette.warning.main :
+                                 theme.palette.primary.main}20`,
+          }}
+        >
+          <Typography 
+            variant="body2" 
+            sx={{ 
+              color: 'text.primary',
+              lineHeight: 1.6,
+              whiteSpace: 'pre-line'
+            }}
+          >
             {message}
           </Typography>
-        </Alert>
-      </DialogContent>
-      <DialogActions sx={{ p: 3, pt: 1 }}>
-        <Button 
-          onClick={onCancel}
-          variant="outlined"
-          sx={{ 
-            borderRadius: 2,
-            textTransform: 'none',
-            fontWeight: 500,
-          }}
-        >
-          {cancelText}
-        </Button>
-        <Button 
-          onClick={onConfirm}
-          variant="contained"
-          color={getButtonColor()}
-          sx={{ 
-            borderRadius: 2,
-            textTransform: 'none',
-            fontWeight: 500,
-          }}
-        >
-          {confirmText}
-        </Button>
-      </DialogActions>
+        </Box>
+
+        {/* Action buttons */}
+        <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+          <Button 
+            onClick={onCancel}
+            variant="outlined"
+            sx={{ 
+              borderRadius: 3,
+              textTransform: 'none',
+              fontWeight: 500,
+              px: 3,
+              py: 1.5,
+              borderColor: theme.palette.divider,
+              color: 'text.secondary',
+              '&:hover': {
+                borderColor: theme.palette.text.secondary,
+                backgroundColor: 'rgba(0, 0, 0, 0.04)',
+              }
+            }}
+          >
+            {cancelText}
+          </Button>
+          <Button 
+            onClick={onConfirm}
+            variant="contained"
+            color={getButtonColor()}
+            sx={{ 
+              borderRadius: 3,
+              textTransform: 'none',
+              fontWeight: 600,
+              px: 3,
+              py: 1.5,
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+              '&:hover': {
+                boxShadow: '0 6px 20px rgba(0, 0, 0, 0.2)',
+                transform: 'translateY(-1px)',
+              },
+              transition: 'all 0.2s ease',
+            }}
+          >
+            {confirmText}
+          </Button>
+        </Box>
+      </Box>
     </StyledDialog>
   );
 };
@@ -340,18 +416,9 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     });
   };
 
-  // Handle individual notification deletion
+  // Handle individual notification deletion - Direct deletion without confirmation
   const handleDeleteNotification = (id: string, message: string) => {
-    setConfirmDialog({
-      isOpen: true,
-      title: 'Delete Notification',
-      message: `Are you sure you want to delete this notification?\n\n"${message.substring(0, 100)}${message.length > 100 ? '...' : ''}"`,
-      type: 'danger',
-      onConfirm: () => {
-        deleteNotification(id);
-        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
-      }
-    });
+    deleteNotification(id);
   };
 
   // Format timestamp helper
