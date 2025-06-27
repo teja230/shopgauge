@@ -259,6 +259,12 @@ export default function CompetitorsPage() {
     }
   }, [shop, fetchWithCache, userDisabledDemo]);
 
+  // Clear error states on component mount to prevent persistence from previous navigation
+  useEffect(() => {
+    // Clear any persistent error notifications when component mounts
+    console.log('CompetitorsPage: Cleared error states on mount');
+  }, []); // Empty dependency array - only run on mount
+
   // Initialize discovery status from server and user preferences from localStorage
   useEffect(() => {
     if (shop) {

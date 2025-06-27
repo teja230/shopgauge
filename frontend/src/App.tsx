@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { Toaster } from 'react-hot-toast';
+import { Toaster, toast } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ServiceStatusProvider, useServiceStatus } from './context/ServiceStatusContext';
 import { setGlobalServiceErrorHandler } from './api';
@@ -106,6 +106,24 @@ const RedirectHandler: React.FC = () => {
   return null;
 };
 
+// Component to handle global error clearing on route changes
+const RouteErrorCleaner: React.FC = () => {
+  const location = useLocation();
+  
+  useEffect(() => {
+    // Clear all toast notifications when navigating to a new route
+    // This prevents error messages from persisting across pages
+    toast.dismiss();
+    
+    // Dispatch a custom event that components can listen to for clearing their error states
+    window.dispatchEvent(new CustomEvent('clearComponentErrors'));
+    
+    console.log('RouteErrorCleaner: Cleared error states for route:', location.pathname);
+  }, [location.pathname]);
+  
+  return null;
+};
+
 const AppContent: React.FC = () => {
   const { isAuthenticated, authLoading, loading } = useAuth();
   const { handleServiceError } = useServiceStatus();
@@ -132,55 +150,58 @@ const AppContent: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col animate-fadeIn">
       <CommandPalette />
+      <RouteErrorCleaner />
       <RedirectHandler />
       <NavBar />
+      <PrivacyBanner />
       <main className="flex-1">
         <Routes>
           <Route path="/" element={<HomePage />} />
-          <Route path="/home" element={<HomePage />} />
-          {/* Handle /index.html route explicitly */}
-          <Route path="/index.html" element={<Navigate to="/" replace />} />
-          <Route
-            path="/dashboard"
+          <Route 
+            path="/dashboard" 
             element={
-              <ProtectedRoute>
+              isAuthenticated ? (
                 <DashboardPage />
-              </ProtectedRoute>
-            }
+              ) : (
+                <Navigate to="/" replace />
+              )
+            } 
           />
-          <Route
-            path="/competitors"
+          <Route 
+            path="/competitors" 
             element={
-              <ProtectedRoute>
+              isAuthenticated ? (
                 <CompetitorsPage />
-              </ProtectedRoute>
-            }
+              ) : (
+                <Navigate to="/" replace />
+              )
+            } 
           />
-          <Route
-            path="/admin"
-            element={<AdminPage />}
-          />
-          <Route
-            path="/profile"
+          <Route 
+            path="/profile" 
             element={
-              <ProtectedRoute>
+              isAuthenticated ? (
                 <ProfilePage />
-              </ProtectedRoute>
-            }
+              ) : (
+                <Navigate to="/" replace />
+              )
+            } 
           />
-          <Route
-            path="/privacy-policy"
-            element={<PrivacyPolicyPage />}
+          <Route 
+            path="/admin" 
+            element={
+              isAuthenticated ? (
+                <AdminPage />
+              ) : (
+                <Navigate to="/" replace />
+              )
+            } 
           />
-          <Route
-            path="/service-unavailable"
-            element={<ServiceUnavailablePage />}
-          />
+          <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+          <Route path="/service-unavailable" element={<ServiceUnavailablePage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>
-      {/* Show privacy banner only for authenticated users */}
-      {isAuthenticated && <PrivacyBanner />}
     </div>
   );
 };

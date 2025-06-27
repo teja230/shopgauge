@@ -1220,6 +1220,40 @@ const DashboardPage = () => {
     }
   }, [retryWithBackoff, getCachedOrFetch]);
 
+  // Clear error states on component mount and route changes
+  useEffect(() => {
+    const clearErrors = () => {
+      // Clear all error states
+      setError(null);
+      setCardErrors({
+        revenue: null,
+        products: null,
+        inventory: null,
+        newProducts: null,
+        insights: null,
+        orders: null,
+        abandonedCarts: null
+      });
+      
+      console.log('DashboardPage: Cleared error states');
+    };
+
+    // Clear errors on mount
+    clearErrors();
+
+    // Listen for global error clearing events
+    const handleClearErrors = () => {
+      clearErrors();
+    };
+
+    window.addEventListener('clearComponentErrors', handleClearErrors);
+
+    // Cleanup event listener
+    return () => {
+      window.removeEventListener('clearComponentErrors', handleClearErrors);
+    };
+  }, []); // Empty dependency array - only run on mount
+
   // Initialize dashboard with basic structure
   useEffect(() => {
     if (!shop) {

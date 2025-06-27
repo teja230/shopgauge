@@ -582,8 +582,8 @@ export default function ProfilePage() {
       category: 'Operations'
     });
     
-    // Redirect to dashboard to see fresh data
-    navigate('/dashboard');
+    // Refresh store stats to show updated data
+    loadStoreStats(true);
   };
 
   const getConnectionStatusColor = () => {
