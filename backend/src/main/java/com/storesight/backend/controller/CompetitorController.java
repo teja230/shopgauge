@@ -451,8 +451,22 @@ public class CompetitorController {
     }
 
     try {
-      discoveryService.triggerDiscoveryForShop(shopId);
-      return ResponseEntity.ok(Map.of("message", "Discovery triggered for shop ID: " + shopId));
+      // Trigger discovery asynchronously for immediate response
+      java.util.concurrent.CompletableFuture.runAsync(
+          () -> {
+            try {
+              discoveryService.triggerDiscoveryForShop(shopId);
+              log.info("Discovery completed for shop ID: {}", shopId);
+            } catch (Exception e) {
+              log.error("Async discovery failed for shop {}: {}", shopId, e.getMessage(), e);
+            }
+          });
+
+      return ResponseEntity.ok(
+          Map.of(
+              "message", "Discovery started for shop ID: " + shopId,
+              "status", "processing",
+              "estimated_completion", "1-6 hours"));
     } catch (Exception e) {
       log.error("Error triggering discovery for shop {}: {}", shopId, e.getMessage(), e);
       return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));

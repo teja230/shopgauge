@@ -175,17 +175,22 @@ export default function CompetitorsPage() {
         fetchWithCache(suggestionCacheKey, getDebouncedSuggestionCount, forceRefresh ? 0 : SUGGESTION_COUNT_CACHE_DURATION)
       ]);
       
-      // Only auto-enable demo mode if user hasn't explicitly disabled it
-      if (competitorsData.length === 0 && suggestionCountData.newSuggestions === 0 && !userDisabledDemo) {
+      // Set data first
+      setCompetitors(competitorsData);
+      setSuggestionCount(suggestionCountData.newSuggestions);
+      
+      // Handle demo mode logic - respect user preference above all
+      if (userDisabledDemo) {
+        // User explicitly disabled demo - stay in live mode regardless of data
+        setIsDemoMode(false);
+      } else if (competitorsData.length === 0 && suggestionCountData.newSuggestions === 0) {
+        // No data and user hasn't disabled demo - show demo mode
         setIsDemoMode(true);
         setCompetitors(DEMO_COMPETITORS);
         setSuggestionCount(DEMO_SUGGESTIONS.length);
       } else {
-        setCompetitors(competitorsData);
-        setSuggestionCount(suggestionCountData.newSuggestions);
-        if (!userDisabledDemo || competitorsData.length > 0 || suggestionCountData.newSuggestions > 0) {
-          setIsDemoMode(false);
-        }
+        // Has data - use live mode
+        setIsDemoMode(false);
       }
       
       lastFetchTimeRef.current = now;
@@ -207,15 +212,21 @@ export default function CompetitorsPage() {
   // Initialize discovery cooldown and user preferences from localStorage
   useEffect(() => {
     if (shop) {
-      const lastDiscovery = localStorage.getItem(`lastDiscovery_${shop}`);
-      if (lastDiscovery) {
-        setLastDiscoveryTime(parseInt(lastDiscovery));
+      // Initialize discovery cooldown with validation
+      const lastDiscoveryStr = localStorage.getItem(`lastDiscovery_${shop}`);
+      if (lastDiscoveryStr) {
+        const lastDiscoveryNum = parseInt(lastDiscoveryStr);
+        if (!isNaN(lastDiscoveryNum) && lastDiscoveryNum > 0) {
+          setLastDiscoveryTime(lastDiscoveryNum);
+          console.log(`Discovery cooldown loaded for ${shop}: ${new Date(lastDiscoveryNum).toLocaleString()}`);
+        }
       }
       
       // Check if user explicitly disabled demo mode for this shop
       const demoDisabled = localStorage.getItem(`demoDisabled_${shop}`);
       if (demoDisabled === 'true') {
         setUserDisabledDemo(true);
+        console.log(`Demo mode disabled by user for shop: ${shop}`);
       }
     }
   }, [shop]);
@@ -352,28 +363,36 @@ export default function CompetitorsPage() {
 
   const toggleDemoMode = useCallback(() => {
     if (isDemoMode) {
-      // User explicitly disabled demo mode
+      // User explicitly disabled demo mode - immediate state change
       setUserDisabledDemo(true);
-      setCompetitors([]);
       setIsDemoMode(false);
-      setSuggestionCount(0);
       
-      // Persist user preference
+      // Persist user preference immediately
       if (shop) {
         localStorage.setItem(`demoDisabled_${shop}`, 'true');
       }
       
-      notifications.showSuccess('Demo mode disabled - showing live data only', {
-        category: 'Demo'
+      notifications.showSuccess('Switched to Live Mode', {
+        category: 'Mode'
       });
       
-      // Refresh real data
-      fetchData(true);
+      // Load real data without conflicting with mode state
+      fetchData(true).then(() => {
+        // Ensure we stay in live mode even if no data
+        if (userDisabledDemo) {
+          setIsDemoMode(false);
+        }
+      });
+      
+      // Set empty state immediately to show live mode is active
+      setCompetitors([]);
+      setSuggestionCount(0);
+      
     } else {
       // User explicitly enabled demo mode
       setUserDisabledDemo(false);
-      setCompetitors(DEMO_COMPETITORS);
       setIsDemoMode(true);
+      setCompetitors(DEMO_COMPETITORS);
       setSuggestionCount(DEMO_SUGGESTIONS.length);
       
       // Clear user preference
@@ -381,15 +400,15 @@ export default function CompetitorsPage() {
         localStorage.removeItem(`demoDisabled_${shop}`);
       }
       
-      notifications.showSuccess('Demo mode enabled - showing sample data', {
-        category: 'Demo'
+      notifications.showSuccess('Switched to Demo Mode', {
+        category: 'Mode'
       });
     }
-  }, [isDemoMode, notifications, fetchData, shop]);
+  }, [isDemoMode, notifications, fetchData, shop, userDisabledDemo]);
 
   const triggerManualDiscovery = useCallback(async () => {
     if (isDemoMode) {
-      notifications.showInfo('Manual discovery not available in demo mode', {
+      notifications.showInfo('Switch to Live Mode to run competitor discovery', {
         category: 'Discovery'
       });
       return;
@@ -401,7 +420,8 @@ export default function CompetitorsPage() {
     
     if (timeSinceLastDiscovery < DISCOVERY_COOLDOWN) {
       const hoursRemaining = Math.ceil((DISCOVERY_COOLDOWN - timeSinceLastDiscovery) / (60 * 60 * 1000));
-      notifications.showInfo(`Discovery available in ${hoursRemaining} hours. This prevents expensive API overuse.`, {
+      const lastDiscoveryDate = new Date(lastDiscoveryTime).toLocaleString();
+      notifications.showInfo(`Discovery was last run on ${lastDiscoveryDate}. Next available in ${hoursRemaining} hours to optimize API costs.`, {
         category: 'Discovery'
       });
       return;
@@ -417,10 +437,11 @@ export default function CompetitorsPage() {
 
       if (response.ok) {
         setLastDiscoveryTime(now);
-        // Store in localStorage to persist across sessions
+        // Store in localStorage to persist across sessions and browser instances
         localStorage.setItem(`lastDiscovery_${shop}`, now.toString());
+        console.log(`Discovery triggered for ${shop} at ${new Date(now).toLocaleString()}`);
         
-        notifications.showSuccess('Competitor discovery started! This will run in the background. Check back tomorrow for new suggestions.', {
+        notifications.showSuccess('Discovery started! Initial results may appear within hours, full analysis completes overnight.', {
           category: 'Discovery'
         });
         
