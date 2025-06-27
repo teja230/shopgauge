@@ -33,9 +33,9 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
       throws ServletException, IOException {
 
     String path = request.getRequestURI();
-    
+
     // Skip auth for public endpoints - be more explicit about auth endpoints
-    if (path.startsWith("/api/auth/shopify/") 
+    if (path.startsWith("/api/auth/shopify/")
         || path.startsWith("/actuator/")
         || path.startsWith("/health/")
         || path.startsWith("/api/health/")
@@ -87,8 +87,9 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
         // Validate shop domain format
         if (isValidShopDomain(shopDomain)) {
           // Get session ID for multi-session support
-          String sessionId = request.getSession(false) != null ? request.getSession(false).getId() : null;
-          
+          String sessionId =
+              request.getSession(false) != null ? request.getSession(false).getId() : null;
+
           // Verify shop exists and has valid token
           String token = shopService.getTokenForShop(shopDomain, sessionId);
           if (token != null) {

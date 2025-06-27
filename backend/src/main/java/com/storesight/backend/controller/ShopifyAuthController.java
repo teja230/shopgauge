@@ -910,7 +910,7 @@ public class ShopifyAuthController {
 
     String sessionId = request.getSession(false) != null ? request.getSession(false).getId() : null;
     logger.info("Auth: Current session ID: {}", sessionId);
-    
+
     String token =
         (sessionId != null && shop != null) ? shopService.getTokenForShop(shop, sessionId) : null;
 
@@ -933,7 +933,7 @@ public class ShopifyAuthController {
             sessionId = "recovery_" + System.currentTimeMillis() + "_" + Math.abs(shop.hashCode());
           }
         }
-        
+
         logger.info("Auth: Found token in database, refreshing session for shop: {}", shop);
         try {
           shopService.saveShop(shop, token, sessionId, request);
