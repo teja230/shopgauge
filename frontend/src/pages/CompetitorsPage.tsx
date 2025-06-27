@@ -28,6 +28,7 @@ import type { CompetitorSuggestion } from '../api';
 import { useNotifications } from '../hooks/useNotifications';
 import { fetchWithAuth } from '../api/index';
 import { getSuggestionCount } from '../api';
+import { useNavigate } from 'react-router-dom';
 
 // Demo data for when SerpAPI is not configured
 const DEMO_COMPETITORS: Competitor[] = [
@@ -132,6 +133,7 @@ const fetchWithCache = async <T,>(
 
 export default function CompetitorsPage() {
   const { shop } = useAuth();
+  const navigate = useNavigate();
   const [competitors, setCompetitors] = useState<Competitor[]>([]);
   const [filteredCompetitors, setFilteredCompetitors] = useState<Competitor[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -363,7 +365,7 @@ export default function CompetitorsPage() {
             }
           }
           
-          // If still no product, try to fetch from API
+          // If still no product, try to fetch from API with better error handling
           if (!finalProductId) {
             try {
               console.log('Fetching products from API for competitor addition');
@@ -376,7 +378,20 @@ export default function CompetitorsPage() {
                 if (data.products?.length > 0) {
                   finalProductId = data.products[0].id?.toString();
                   console.log('Using product from API:', finalProductId);
+                  
+                  // Update dashboard cache with fresh data
+                  const cacheData = {
+                    products: {
+                      data: data,
+                      timestamp: Date.now()
+                    }
+                  };
+                  sessionStorage.setItem('dashboard_cache_v2', JSON.stringify(cacheData));
+                } else {
+                  console.log('No products found in API response');
                 }
+              } else {
+                console.log('Products API returned status:', response.status);
               }
             } catch (error) {
               console.error('Failed to fetch products:', error);
@@ -405,39 +420,75 @@ export default function CompetitorsPage() {
       
       // Enhanced error handling with user-friendly messages
       let userMessage = 'Failed to add competitor. Please try again.';
-      let showDashboardAction = false;
+      let needsProductSync = false;
       
       // Check for specific error conditions
       if (error?.response?.status === 412 || 
           (error?.response?.data && 
            (error.response.data.error === 'PRODUCTS_SYNC_NEEDED' || 
             JSON.stringify(error.response.data).includes('PRODUCTS_SYNC_NEEDED')))) {
-        userMessage = 'Please visit your Dashboard first to sync your product catalog, then try adding competitors.';
-        showDashboardAction = true;
+        userMessage = 'Syncing your product catalog... Please try adding the competitor again in a moment.';
+        needsProductSync = true;
       } else if (error.message) {
         userMessage = error.message;
       }
       
       // Never show raw JSON to users - additional safeguard
       if (userMessage.includes('{') && userMessage.includes('}')) {
-        userMessage = 'Unable to add competitor at this time. Please visit your Dashboard first to sync products, then try again.';
-        showDashboardAction = true;
+        userMessage = 'Unable to add competitor at this time. Please try again in a moment.';
+        needsProductSync = true;
       }
       
-      notifications.showError(userMessage, {
-        category: 'Competitors',
-        persistent: true,
-        action: showDashboardAction ? {
-          label: 'Go to Dashboard',
-          onClick: () => {
-            window.location.href = '/dashboard';
+      // If product sync is needed, trigger it automatically
+      if (needsProductSync) {
+        // Trigger product sync in background with better feedback
+        notifications.showInfo('Syncing your product catalog in the background...', {
+          category: 'Competitors',
+          persistent: false
+        });
+        
+        fetch(`${API_BASE_URL}/api/analytics/products`, {
+          credentials: 'include',
+        })
+        .then(response => {
+          if (response.ok) {
+            console.log('Background product sync completed successfully');
+            // Update cache with fresh data
+            return response.json();
+          } else {
+            console.log('Background product sync failed with status:', response.status);
           }
-        } : undefined
-      });
+        })
+        .then(data => {
+          if (data?.products?.length > 0) {
+            const cacheData = {
+              products: {
+                data: data,
+                timestamp: Date.now()
+              }
+            };
+            sessionStorage.setItem('dashboard_cache_v2', JSON.stringify(cacheData));
+            console.log('Updated dashboard cache with fresh product data');
+          }
+        })
+        .catch(error => {
+          console.error('Background product sync failed:', error);
+        });
+        
+        notifications.showInfo(userMessage, {
+          category: 'Competitors',
+          persistent: false
+        });
+      } else {
+        notifications.showError(userMessage, {
+          category: 'Competitors',
+          persistent: false
+        });
+      }
     } finally {
       setIsAdding(false);
     }
-  }, [url, productId, shop, notifications, competitors.length, isDemoMode]);
+  }, [url, productId, shop, notifications, competitors.length, isDemoMode, navigate]);
 
   const handleDelete = useCallback(async (id: string) => {
     try {
@@ -557,7 +608,7 @@ export default function CompetitorsPage() {
 
     setIsDiscovering(true);
     try {
-      const response = await fetch('/api/competitors/discovery/trigger', {
+      const response = await fetch(`${API_BASE_URL}/api/competitors/discovery/trigger`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include'
@@ -862,7 +913,7 @@ export default function CompetitorsPage() {
                   onClick={() => setShowAddForm(true)}
                   className="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-all shadow-md"
                 >
-                  Add Your First Competitor
+                  Add Competitor
                 </button>
               )}
             </div>
