@@ -36,6 +36,7 @@ export const ServiceStatusProvider: React.FC<ServiceStatusProviderProps> = ({ ch
   const isRetryingRef = useRef(false);
   const lastSuccessfulCheckRef = useRef<Date | null>(null);
   const lastCheckTimeRef = useRef<number>(0);
+  const last502TimeRef = useRef<number>(0);
   const userNavigatedAwayRef = useRef(false);
 
   const checkServiceStatus = async (): Promise<boolean> => {
@@ -155,17 +156,23 @@ export const ServiceStatusProvider: React.FC<ServiceStatusProviderProps> = ({ ch
       (error?.response?.status >= 500 && error?.response?.status < 600);
 
     if (is502Error) {
-      console.log('ServiceStatus: Detected 502/service unavailable error, navigating to service unavailable page');
-      setIsServiceAvailable(false);
-      setLastServiceCheck(new Date());
-      navigate('/service-unavailable', { replace: true });
-      
-      // Start retrying
-      if (!isRetryingRef.current) {
-        startRetryLoop();
+      const now = Date.now();
+      // Ignore the first transient 502 (within 10 s window) to prevent premature redirect
+      if (now - last502TimeRef.current > 10_000) {
+        // Record this 502 and allow one retry opportunity
+        last502TimeRef.current = now;
+      } else {
+        console.log('ServiceStatus: Detected 502/service unavailable error, navigating to service unavailable page');
+        setIsServiceAvailable(false);
+        setLastServiceCheck(new Date());
+        navigate('/service-unavailable', { replace: true });
+        
+        // Start retrying
+        if (!isRetryingRef.current) {
+          startRetryLoop();
+        }
+        return true; // handled
       }
-      
-      return true; // Indicates we handled the error
     }
 
     return false; // Indicates we didn't handle the error
