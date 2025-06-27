@@ -13,7 +13,8 @@ export const api = axios.create({
 const API_BASE = '/api';
 
 async function fetchWithAuth(url: string, options: RequestInit = {}) {
-  const fullUrl = url.startsWith('http') ? url : `${API_BASE}${url}`;
+  // Route all requests through dedicated API host
+  const fullUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
   // Only log in development or for non-auth endpoints
   if (import.meta.env.DEV && !url.includes('/auth/shopify/me')) {
     console.log('API: Making request to', fullUrl);
