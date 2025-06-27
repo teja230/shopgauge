@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '../api';
 
 interface ServiceStatusContextType {
   isServiceAvailable: boolean;
@@ -46,10 +47,12 @@ export const ServiceStatusProvider: React.FC<ServiceStatusProviderProps> = ({ ch
 
     try {
       console.log('ServiceStatus: Checking service availability...');
-      const response = await fetch('/api/health/summary', {
+      const healthCheckUrl = `${API_BASE_URL}/api/health/summary`;
+      console.log(`ServiceStatus: Pinging ${healthCheckUrl}`);
+      const response = await fetch(healthCheckUrl, {
         method: 'GET',
         cache: 'no-cache',
-        credentials: 'include',
+        // credentials: 'include', // Health check should not require credentials
         signal: AbortSignal.timeout(10000), // 10 second timeout
       });
 
