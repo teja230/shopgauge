@@ -451,7 +451,8 @@ public class CompetitorController {
   }
 
   /**
-   * Get discovery status with smart caching (first call live, then 24hr cache to prevent API spam)
+   * Get discovery status with transparent smart caching for cost optimization Users always get
+   * real-time feeling responses regardless of cache status
    */
   @GetMapping("/competitors/discovery/status")
   public ResponseEntity<Map<String, Object>> getDiscoveryStatus(HttpServletRequest request) {
@@ -462,26 +463,29 @@ public class CompetitorController {
     }
 
     try {
-      // Smart caching strategy: First call live, subsequent calls cached for 24hrs
+      // Smart caching strategy: Transparent to users, optimized for cost
       String cacheKey = "discovery_status_" + shopId;
 
-      // Check if we have cached status (prevents API spam)
+      // Check if we have cached status (prevents expensive API calls)
       CachedCount cachedStatus = countCache.get(shopId);
-      if (cachedStatus != null && !cachedStatus.isExpired(1440)) { // 24 hours = 1440 minutes
-        log.debug("Returning cached discovery status for shop {} (cache hit)", shopId);
-        // Return cached status structure
-        Map<String, Object> status = buildDiscoveryStatus(shopId);
-        status.put("cached", true);
-        return ResponseEntity.ok(status);
+      boolean isFromCache = cachedStatus != null && !cachedStatus.isExpired(1440); // 24 hours
+
+      if (isFromCache) {
+        // Cache hit - but user gets same real-time experience
+        log.debug("Discovery status cache hit for shop {} (cost optimization)", shopId);
+      } else {
+        // Cache miss or expired - fetch fresh data and cache it
+        log.info("Discovery status cache miss for shop {} - fetching fresh data", shopId);
+        countCache.put(shopId, new CachedCount(1)); // Cache for 24 hours
       }
 
-      // First call or cache expired - fetch live status and cache it
-      log.info("Fetching live discovery status for shop {} (first call or cache expired)", shopId);
+      // Always fetch current status from database for real-time accuracy
+      // (Database queries are fast, API calls are expensive)
       Map<String, Object> status = buildDiscoveryStatus(shopId);
 
-      // Cache the status check to prevent API spam (24hr cache)
-      countCache.put(shopId, new CachedCount(1)); // Use count=1 as a flag for cached status
-      status.put("cached", false);
+      // Add user-friendly fields without exposing cache implementation
+      status.put("can_discover", !((Boolean) status.getOrDefault("is_on_cooldown", false)));
+      status.put("status", status.get("is_on_cooldown").equals(true) ? "cooldown" : "ready");
 
       return ResponseEntity.ok(status);
     } catch (Exception e) {

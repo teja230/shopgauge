@@ -164,20 +164,17 @@ export default function CompetitorsPage() {
       if (response.ok) {
         const status = await response.json();
         
-        // Handle new response format with smart caching
-        // Note: discoveryStatus is computed from lastDiscoveryTime in useMemo below
-        
+        // Handle improved response format (no cache details exposed)
         if (status.last_discovery) {
           const lastDiscoveryTime = new Date(status.last_discovery).getTime();
           setLastDiscoveryTime(lastDiscoveryTime);
         }
         
-        // Log cache status for cost optimization transparency
-        if (status.cached !== undefined) {
-          console.log(`Discovery status ${status.cached ? 'cached (24hr)' : 'live'} for ${shop} - cost optimized`);
-        }
+        // Enhanced logging for transparency without exposing technical details
+        const canDiscover = status.can_discover || !status.is_on_cooldown;
+        const statusText = status.status || (canDiscover ? 'ready' : 'cooldown');
         
-        console.log(`Server discovery status for ${shop}: available=${!status.is_on_cooldown}, hours_remaining=${status.hours_remaining}`);
+        console.log(`Discovery status for ${shop}: ${statusText} (${canDiscover ? 'available now' : `available in ${status.hours_remaining || 0}h`})`);
       }
     } catch (error) {
       console.log('Could not fetch discovery status from server - discovery status unavailable');
@@ -483,8 +480,9 @@ export default function CompetitorsPage() {
     if (timeSinceLastDiscovery < DISCOVERY_COOLDOWN) {
       const hoursRemaining = Math.ceil((DISCOVERY_COOLDOWN - timeSinceLastDiscovery) / (60 * 60 * 1000));
       const lastDiscoveryDate = new Date(lastDiscoveryTime).toLocaleString();
-      notifications.showInfo(`Discovery was last run on ${lastDiscoveryDate}. Next available in ${hoursRemaining} hours to optimize API costs.`, {
-        category: 'Discovery'
+      notifications.showInfo(`Discovery is available again in ${hoursRemaining} hours. This helps us find the best competitors while managing costs efficiently.`, {
+        category: 'Discovery',
+        persistent: true
       });
       return;
     }
@@ -680,8 +678,8 @@ export default function CompetitorsPage() {
                     : 'bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed'
                 }`}
                 title={discoveryStatus.isOnCooldown 
-                  ? `Discovery available in ${discoveryStatus.hoursRemaining} hours (cost optimization)`
-                  : 'Trigger competitor discovery (once per 24 hours)'
+                  ? `Discovery available in ${discoveryStatus.hoursRemaining} hours. This helps us manage costs while finding the best competitors for you.`
+                  : 'Find new competitors automatically using AI-powered market research'
                 }
               >
                 {isDiscovering ? (
