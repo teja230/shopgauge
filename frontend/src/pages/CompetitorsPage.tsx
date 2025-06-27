@@ -149,8 +149,31 @@ export default function CompetitorsPage() {
   const lastFetchTimeRef = useRef<number>(0);
   const isInitialLoadRef = useRef<boolean>(true);
   
-  // Discovery cooldown (24 hours per store)
+  // Discovery cooldown (24 hours per store) - now managed server-side
   const DISCOVERY_COOLDOWN = 24 * 60 * 60 * 1000; // 24 hours
+
+  // Fetch discovery status from server for cross-device consistency
+  const fetchDiscoveryStatus = useCallback(async () => {
+    if (!shop) return;
+    
+    try {
+      const response = await fetch('/api/competitors/discovery/status', {
+        credentials: 'include'
+      });
+      
+      if (response.ok) {
+        const status = await response.json();
+        if (status.last_discovery) {
+          const lastDiscoveryTime = new Date(status.last_discovery).getTime();
+          setLastDiscoveryTime(lastDiscoveryTime);
+          console.log(`Server discovery status for ${shop}: last run ${new Date(lastDiscoveryTime).toLocaleString()}, available: ${status.discovery_available}`);
+        }
+      }
+    } catch (error) {
+      console.log('Could not fetch discovery status from server - discovery status unavailable');
+      // No fallback - server-side is the source of truth for cross-device consistency
+    }
+  }, [shop]);
 
   // Optimized data fetching with caching and debouncing
   const fetchData = useCallback(async (forceRefresh = false) => {
@@ -209,18 +232,11 @@ export default function CompetitorsPage() {
     }
   }, [shop, fetchWithCache, userDisabledDemo]);
 
-  // Initialize discovery cooldown and user preferences from localStorage
+  // Initialize discovery status from server and user preferences from localStorage
   useEffect(() => {
     if (shop) {
-      // Initialize discovery cooldown with validation
-      const lastDiscoveryStr = localStorage.getItem(`lastDiscovery_${shop}`);
-      if (lastDiscoveryStr) {
-        const lastDiscoveryNum = parseInt(lastDiscoveryStr);
-        if (!isNaN(lastDiscoveryNum) && lastDiscoveryNum > 0) {
-          setLastDiscoveryTime(lastDiscoveryNum);
-          console.log(`Discovery cooldown loaded for ${shop}: ${new Date(lastDiscoveryNum).toLocaleString()}`);
-        }
-      }
+      // Fetch discovery status from server (cross-device consistency)
+      fetchDiscoveryStatus();
       
       // Check if user explicitly disabled demo mode for this shop
       const demoDisabled = localStorage.getItem(`demoDisabled_${shop}`);
@@ -290,6 +306,18 @@ export default function CompetitorsPage() {
 
   const handleAdd = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Show immediate feedback for first competitor
+    const isFirstCompetitor = competitors.length === 0;
+    if (isFirstCompetitor && isDemoMode) {
+      // Switch to live mode immediately when adding first competitor
+      setUserDisabledDemo(true);
+      setIsDemoMode(false);
+      if (shop) {
+        localStorage.setItem(`demoDisabled_${shop}`, 'true');
+      }
+    }
+    
     try {
       const newComp = await addCompetitor(url, productId);
       setCompetitors((prev) => [...prev, newComp]);
@@ -298,19 +326,43 @@ export default function CompetitorsPage() {
       const cacheKey = `competitors_${shop}`;
       cache.delete(cacheKey);
       
-      notifications.showSuccess('Competitor added successfully', {
-        category: 'Competitors'
-      });
+      if (isFirstCompetitor) {
+        notifications.showSuccess('🎉 First competitor added! Market intelligence is now active.', {
+          category: 'Competitors',
+          persistent: true
+        });
+      } else {
+        notifications.showSuccess('Competitor added successfully', {
+          category: 'Competitors'
+        });
+      }
+      
       setUrl('');
       setProductId('');
       setShowAddForm(false);
     } catch (error: any) {
-      const errorMessage = error?.message || 'Failed to add competitor';
+      // Handle specific error types with user-friendly messages
+      if (error?.response?.status === 412) { // PRECONDITION_REQUIRED
+        const errorData = error.response.data;
+        if (errorData.error === 'PRODUCTS_SYNC_NEEDED') {
+          notifications.showError('Please visit your Dashboard first to sync products from Shopify, then try adding competitors.', {
+            category: 'Competitors',
+            persistent: true,
+            action: {
+              label: 'Go to Dashboard',
+              onClick: () => window.location.href = '/dashboard'
+            }
+          });
+          return;
+        }
+      }
+      
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to add competitor';
       notifications.showError(errorMessage, {
         category: 'Competitors'
       });
     }
-  }, [url, productId, shop, notifications]);
+  }, [url, productId, shop, notifications, competitors.length, isDemoMode]);
 
   const handleDelete = useCallback(async (id: string) => {
     try {
@@ -414,7 +466,7 @@ export default function CompetitorsPage() {
       return;
     }
 
-    // Check 24-hour cooldown to prevent expensive API abuse
+    // Check server-side cooldown for cross-device consistency
     const now = Date.now();
     const timeSinceLastDiscovery = now - lastDiscoveryTime;
     
@@ -437,8 +489,7 @@ export default function CompetitorsPage() {
 
       if (response.ok) {
         setLastDiscoveryTime(now);
-        // Store in localStorage to persist across sessions and browser instances
-        localStorage.setItem(`lastDiscovery_${shop}`, now.toString());
+        // Server-side tracking handles persistence across devices
         console.log(`Discovery triggered for ${shop} at ${new Date(now).toLocaleString()}`);
         
         notifications.showSuccess('Discovery started! Initial results may appear within hours, full analysis completes overnight.', {
@@ -717,12 +768,19 @@ export default function CompetitorsPage() {
               <h3 className="text-xl font-medium text-gray-900 mb-2">
                 {competitors.length === 0 ? 'No competitors yet' : 'No matches found'}
               </h3>
-              <p className="text-gray-500 mb-6">
+              <p className="text-gray-500 mb-4">
                 {competitors.length === 0 
                   ? 'Start tracking your competitors to monitor their pricing strategies.'
                   : 'Try adjusting your filters or search query.'
                 }
               </p>
+              {competitors.length === 0 && !isDemoMode && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 max-w-md mx-auto">
+                  <p className="text-sm text-amber-800">
+                    💡 <strong>Tip:</strong> If you get a "sync products" message, visit your Dashboard first to load your Shopify products.
+                  </p>
+                </div>
+              )}
               {competitors.length === 0 && (
                 <button
                   onClick={() => setShowAddForm(true)}

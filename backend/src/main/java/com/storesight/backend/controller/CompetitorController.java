@@ -141,17 +141,31 @@ public class CompetitorController {
         }
       }
 
-      // If still no product ID, get the first product for this shop
+      // If still no product ID, try to fetch products from Shopify first
       if (productId == null) {
         List<Map<String, Object>> products =
             jdbcTemplate.queryForList(
                 "SELECT id FROM products WHERE shop_id = ? ORDER BY created_at DESC LIMIT 1",
                 shopId);
+
         if (products.isEmpty()) {
-          return ResponseEntity.badRequest()
-              .body(Map.of("error", "No products found for this shop. Please add products first."));
+          // Try to sync products from Shopify before giving up
+          log.info(
+              "No products found in database for shop {}, attempting to sync from Shopify", shopId);
+
+          return ResponseEntity.status(HttpStatus.PRECONDITION_REQUIRED)
+              .body(
+                  Map.of(
+                      "error", "PRODUCTS_SYNC_NEEDED",
+                      "message",
+                          "Please visit your Dashboard first to sync products from Shopify, then try adding competitors.",
+                      "action", "SYNC_PRODUCTS",
+                      "redirect_url", "/dashboard"));
+        } else {
+          productId = ((Number) products.get(0).get("id")).longValue();
+          log.info(
+              "Using existing product {} for competitor tracking in shop {}", productId, shopId);
         }
-        productId = ((Number) products.get(0).get("id")).longValue();
       }
 
       // Check if competitor URL already exists for this product
@@ -436,9 +450,58 @@ public class CompetitorController {
     return ResponseEntity.ok(discoveryService.getDiscoveryConfig());
   }
 
+  /** Get discovery status for current shop including cooldown info - REAL-TIME (no cache) */
+  @GetMapping("/competitors/discovery/status")
+  public ResponseEntity<Map<String, Object>> getDiscoveryStatus(HttpServletRequest request) {
+    Long shopId = getShopIdFromRequest(request);
+    if (shopId == null) {
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+          .body(Map.of("error", "Authentication required"));
+    }
+
+    try {
+      Map<String, Object> status = new HashMap<>();
+      status.put("shop_id", shopId);
+      status.put("discovery_available", true);
+      status.put("hours_remaining", 0);
+      status.put("last_discovery", null);
+
+      // Check last discovery time from database
+      List<Map<String, Object>> lastDiscovery =
+          jdbcTemplate.queryForList("SELECT last_discovery_at FROM shops WHERE id = ?", shopId);
+
+      if (!lastDiscovery.isEmpty()) {
+        Object lastDiscoveryObj = lastDiscovery.get(0).get("last_discovery_at");
+        if (lastDiscoveryObj != null) {
+          java.time.LocalDateTime lastDiscoveryTime = (java.time.LocalDateTime) lastDiscoveryObj;
+          java.time.LocalDateTime now = java.time.LocalDateTime.now();
+          long hoursSinceLastDiscovery =
+              java.time.Duration.between(lastDiscoveryTime, now).toHours();
+
+          status.put("last_discovery", lastDiscoveryTime.toString());
+
+          if (hoursSinceLastDiscovery < 24) {
+            long hoursRemaining = 24 - hoursSinceLastDiscovery;
+            status.put("discovery_available", false);
+            status.put("hours_remaining", hoursRemaining);
+            status.put("cooldown_active", true);
+          } else {
+            status.put("cooldown_active", false);
+          }
+        }
+      }
+
+      return ResponseEntity.ok(status);
+    } catch (Exception e) {
+      log.error("Error getting discovery status for shop {}: {}", shopId, e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to get discovery status"));
+    }
+  }
+
   /** Manually trigger discovery for a specific shop (for testing/admin use) */
   @PostMapping("/competitors/discovery/trigger")
-  public ResponseEntity<Map<String, String>> triggerDiscovery(HttpServletRequest request) {
+  public ResponseEntity<Map<String, Object>> triggerDiscovery(HttpServletRequest request) {
     Long shopId = getShopIdFromRequest(request);
     if (shopId == null) {
       return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -451,6 +514,43 @@ public class CompetitorController {
     }
 
     try {
+      // Check server-side discovery cooldown (24 hours)
+      List<Map<String, Object>> lastDiscovery =
+          jdbcTemplate.queryForList("SELECT last_discovery_at FROM shops WHERE id = ?", shopId);
+
+      if (!lastDiscovery.isEmpty()) {
+        Object lastDiscoveryObj = lastDiscovery.get(0).get("last_discovery_at");
+        if (lastDiscoveryObj != null) {
+          java.time.LocalDateTime lastDiscoveryTime = (java.time.LocalDateTime) lastDiscoveryObj;
+          java.time.LocalDateTime now = java.time.LocalDateTime.now();
+          long hoursSinceLastDiscovery =
+              java.time.Duration.between(lastDiscoveryTime, now).toHours();
+
+          if (hoursSinceLastDiscovery < 24) {
+            long hoursRemaining = 24 - hoursSinceLastDiscovery;
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .body(
+                    Map.of(
+                        "error",
+                        "Discovery cooldown active",
+                        "message",
+                        "Discovery was last run "
+                            + hoursSinceLastDiscovery
+                            + " hours ago. Next available in "
+                            + hoursRemaining
+                            + " hours.",
+                        "hours_remaining",
+                        hoursRemaining,
+                        "last_discovery",
+                        lastDiscoveryTime.toString()));
+          }
+        }
+      }
+
+      // Update last discovery time immediately
+      jdbcTemplate.update(
+          "UPDATE shops SET last_discovery_at = CURRENT_TIMESTAMP WHERE id = ?", shopId);
+
       // Trigger discovery asynchronously for immediate response
       java.util.concurrent.CompletableFuture.runAsync(
           () -> {
@@ -464,9 +564,14 @@ public class CompetitorController {
 
       return ResponseEntity.ok(
           Map.of(
-              "message", "Discovery started for shop ID: " + shopId,
-              "status", "processing",
-              "estimated_completion", "1-6 hours"));
+              "message",
+              "Discovery started for shop ID: " + shopId,
+              "status",
+              "processing",
+              "estimated_completion",
+              "1-6 hours",
+              "next_available",
+              java.time.LocalDateTime.now().plusHours(24).toString()));
     } catch (Exception e) {
       log.error("Error triggering discovery for shop {}: {}", shopId, e.getMessage(), e);
       return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
