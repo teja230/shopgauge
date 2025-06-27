@@ -17,6 +17,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.annotation.Profile;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -30,7 +31,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api")
 public class CompetitorController {
 
-  private static final Logger log = LoggerFactory.getLogger(CompetitorController.class);
+  private static final Logger logger = LoggerFactory.getLogger(CompetitorController.class);
 
   @Autowired private JdbcTemplate jdbcTemplate;
   @Autowired private CompetitorSuggestionRepository suggestionRepository;
@@ -101,7 +102,7 @@ public class CompetitorController {
 
       return ResponseEntity.ok(competitors);
     } catch (Exception e) {
-      log.error("Error getting competitors: {}", e.getMessage(), e);
+      logger.error("Error getting competitors: {}", e.getMessage(), e);
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
           .body(Map.of("error", "Failed to load competitors"));
     }
@@ -150,7 +151,7 @@ public class CompetitorController {
 
         if (products.isEmpty()) {
           // Try to sync products from Shopify before giving up
-          log.info(
+          logger.info(
               "No products found in database for shop {}, attempting to sync from Shopify", shopId);
 
           return ResponseEntity.status(HttpStatus.PRECONDITION_REQUIRED)
@@ -163,7 +164,7 @@ public class CompetitorController {
                       "redirect_url", "/dashboard"));
         } else {
           productId = ((Number) products.get(0).get("id")).longValue();
-          log.info(
+          logger.info(
               "Using existing product {} for competitor tracking in shop {}", productId, shopId);
         }
       }
@@ -217,11 +218,11 @@ public class CompetitorController {
               0.0, // No price difference initially
               "Just added");
 
-      log.info("Added competitor {} for shop {}", request.url, shopId);
+      logger.info("Added competitor {} for shop {}", request.url, shopId);
       return ResponseEntity.ok(competitor);
 
     } catch (Exception e) {
-      log.error("Error adding competitor: {}", e.getMessage(), e);
+      logger.error("Error adding competitor: {}", e.getMessage(), e);
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
           .body(Map.of("error", "Failed to add competitor: " + e.getMessage()));
     }
@@ -255,13 +256,13 @@ public class CompetitorController {
       // Delete the competitor URL
       jdbcTemplate.update("DELETE FROM competitor_urls WHERE id = ?", Long.parseLong(id));
 
-      log.info("Deleted competitor {} for shop {}", id, shopId);
+      logger.info("Deleted competitor {} for shop {}", id, shopId);
       return ResponseEntity.ok().build();
 
     } catch (NumberFormatException e) {
       return ResponseEntity.badRequest().body(Map.of("error", "Invalid competitor ID"));
     } catch (Exception e) {
-      log.error("Error deleting competitor: {}", e.getMessage(), e);
+      logger.error("Error deleting competitor: {}", e.getMessage(), e);
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
           .body(Map.of("error", "Failed to delete competitor"));
     }
@@ -316,7 +317,7 @@ public class CompetitorController {
       // Check cache for this shop (24-hour cache for costly discovery APIs)
       CachedCount cached = countCache.get(shopId);
       if (cached != null && !cached.isExpired(1440)) { // 24 hours = 1440 minutes
-        log.debug("Returning cached suggestion count for shop {}: {}", shopId, cached.count);
+        logger.debug("Returning cached suggestion count for shop {}: {}", shopId, cached.count);
         return ResponseEntity.ok(Map.of("newSuggestions", cached.count));
       }
 
@@ -330,11 +331,11 @@ public class CompetitorController {
       // Clean up old cache entries (optional, prevents memory leaks)
       countCache.entrySet().removeIf(entry -> entry.getValue().isExpired(2880)); // 48 hours cleanup
 
-      log.debug("Fresh suggestion count for shop {}: {}", shopId, newCount);
+      logger.debug("Fresh suggestion count for shop {}: {}", shopId, newCount);
       return ResponseEntity.ok(Map.of("newSuggestions", newCount));
 
     } catch (Exception e) {
-      log.error("Error getting suggestion count for shop {}: {}", shopId, e.getMessage());
+      logger.error("Error getting suggestion count for shop {}: {}", shopId, e.getMessage());
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
           .body(Map.of("error", "Database error", "newSuggestions", 0L));
     }
@@ -388,11 +389,11 @@ public class CompetitorController {
           suggestion.getSuggestedUrl(),
           label);
 
-      log.info("Approved suggestion {} and created competitor URL for shop {}", id, shopId);
+      logger.info("Approved suggestion {} and created competitor URL for shop {}", id, shopId);
       return ResponseEntity.ok(Map.of("message", "Suggestion approved and now being tracked"));
 
     } catch (Exception e) {
-      log.error("Error approving suggestion {}: {}", id, e.getMessage(), e);
+      logger.error("Error approving suggestion {}: {}", id, e.getMessage(), e);
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
           .body(Map.of("error", "Failed to approve suggestion"));
     }
@@ -472,10 +473,10 @@ public class CompetitorController {
 
       if (isFromCache) {
         // Cache hit - but user gets same real-time experience
-        log.debug("Discovery status cache hit for shop {} (cost optimization)", shopId);
+        logger.debug("Discovery status cache hit for shop {} (cost optimization)", shopId);
       } else {
         // Cache miss or expired - fetch fresh data and cache it
-        log.info("Discovery status cache miss for shop {} - fetching fresh data", shopId);
+        logger.info("Discovery status cache miss for shop {} - fetching fresh data", shopId);
         countCache.put(shopId, new CachedCount(1)); // Cache for 24 hours
       }
 
@@ -489,7 +490,7 @@ public class CompetitorController {
 
       return ResponseEntity.ok(status);
     } catch (Exception e) {
-      log.error("Error getting discovery status for shop {}: {}", shopId, e.getMessage(), e);
+      logger.error("Error getting discovery status for shop {}: {}", shopId, e.getMessage(), e);
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
           .body(Map.of("error", "Failed to get discovery status"));
     }
@@ -513,7 +514,7 @@ public class CompetitorController {
             jdbcTemplate.queryForList("SELECT last_discovery_at FROM shops WHERE id = ?", shopId);
       } catch (Exception columnError) {
         // Column might not exist yet, log and continue with default values
-        log.warn(
+        logger.warn(
             "last_discovery_at column not found for shop {}: {}. Using default discovery status.",
             shopId,
             columnError.getMessage());
@@ -542,7 +543,7 @@ public class CompetitorController {
         }
       }
     } catch (Exception e) {
-      log.error("Error building discovery status for shop {}: {}", shopId, e.getMessage(), e);
+      logger.error("Error building discovery status for shop {}: {}", shopId, e.getMessage(), e);
       // Return safe default values instead of throwing
       status.put("error_details", "Unable to check discovery status: " + e.getMessage());
     }
@@ -604,7 +605,7 @@ public class CompetitorController {
 
       // Invalidate discovery status cache to ensure fresh status on next check
       countCache.remove(shopId);
-      log.debug(
+      logger.debug(
           "Invalidated discovery status cache for shop {} after triggering discovery", shopId);
 
       // Trigger discovery asynchronously for immediate response
@@ -612,9 +613,9 @@ public class CompetitorController {
           () -> {
             try {
               discoveryService.triggerDiscoveryForShop(shopId);
-              log.info("Discovery completed for shop ID: {}", shopId);
+              logger.info("Discovery completed for shop ID: {}", shopId);
             } catch (Exception e) {
-              log.error("Async discovery failed for shop {}: {}", shopId, e.getMessage(), e);
+              logger.error("Async discovery failed for shop {}: {}", shopId, e.getMessage(), e);
             }
           });
 
@@ -629,58 +630,71 @@ public class CompetitorController {
               "next_available",
               java.time.LocalDateTime.now().plusHours(24).toString()));
     } catch (Exception e) {
-      log.error("Error triggering discovery for shop {}: {}", shopId, e.getMessage(), e);
+      logger.error("Error triggering discovery for shop {}: {}", shopId, e.getMessage(), e);
       return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
     }
   }
 
   /** Debug endpoint to check authentication status */
   @GetMapping("/competitors/debug/auth")
+  @Profile("!prod") // Only available in non-production environments
   public ResponseEntity<Map<String, Object>> debugAuth(HttpServletRequest request) {
+
     Map<String, Object> debug = new HashMap<>();
 
-    // Check cookies
-    Map<String, String> cookies = new HashMap<>();
-    if (request.getCookies() != null) {
-      for (Cookie cookie : request.getCookies()) {
-        cookies.put(cookie.getName(), cookie.getValue());
-      }
-    }
-    debug.put("cookies", cookies);
-
-    // Check shop ID extraction
-    Long shopId = getShopIdFromRequest(request);
-    debug.put("shopId", shopId);
-    debug.put("shopIdFound", shopId != null);
-
-    // Check database connection for shops table
     try {
-      long shopCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM shops", Long.class);
-      debug.put("totalShopsInDb", shopCount);
-      debug.put("databaseConnected", true);
-    } catch (Exception e) {
-      debug.put("databaseError", e.getMessage());
-      debug.put("databaseConnected", false);
-    }
+      Long shopId = getShopIdFromRequest(request);
+      debug.put("shopId", shopId);
+      debug.put("authenticated", shopId != null);
 
-    // If shop cookie exists, check if shop exists in database
-    String shopCookie = cookies.get("shop");
-    if (shopCookie != null) {
-      try {
-        List<Map<String, Object>> shops =
-            jdbcTemplate.queryForList(
-                "SELECT id, shopify_domain, created_at FROM shops WHERE shopify_domain = ?",
-                shopCookie);
-        debug.put("shopInDatabase", !shops.isEmpty());
-        if (!shops.isEmpty()) {
-          debug.put("shopRecord", shops.get(0));
+      if (shopId != null) {
+        // Check if shop exists in database
+        try {
+          Map<String, Object> shop =
+              jdbcTemplate.queryForMap(
+                  "SELECT id, shopify_domain, created_at FROM shops WHERE id = ?", shopId);
+          debug.put("shopExists", true);
+          debug.put("shopDomain", shop.get("shopify_domain"));
+          debug.put("shopCreatedAt", shop.get("created_at"));
+        } catch (Exception e) {
+          debug.put("shopExists", false);
+          debug.put("shopError", e.getMessage());
         }
-      } catch (Exception e) {
-        debug.put("shopQueryError", e.getMessage());
-      }
-    }
 
-    return ResponseEntity.ok(debug);
+        // Check competitor URLs count
+        try {
+          Integer competitorCount =
+              jdbcTemplate.queryForObject(
+                  "SELECT COUNT(*) FROM competitor_urls WHERE product_id IN (SELECT id FROM products WHERE shop_id = ?)",
+                  Integer.class,
+                  shopId);
+          debug.put("competitorUrlsCount", competitorCount);
+        } catch (Exception e) {
+          debug.put("competitorUrlsError", e.getMessage());
+        }
+
+        // Check products count
+        try {
+          Integer productsCount =
+              jdbcTemplate.queryForObject(
+                  "SELECT COUNT(*) FROM products WHERE shop_id = ?", Integer.class, shopId);
+          debug.put("productsCount", productsCount);
+        } catch (Exception e) {
+          debug.put("productsError", e.getMessage());
+        }
+      }
+
+      debug.put("timestamp", System.currentTimeMillis());
+      debug.put("success", true);
+
+      return ResponseEntity.ok(debug);
+
+    } catch (Exception e) {
+      logger.error("Debug auth error: {}", e.getMessage(), e);
+      debug.put("error", e.getMessage());
+      debug.put("success", false);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(debug);
+    }
   }
 
   /** Extract shop ID from session cookie */

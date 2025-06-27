@@ -19,6 +19,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Profile;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
@@ -1191,6 +1192,7 @@ public class ShopifyAuthController {
   }
 
   @GetMapping("/debug-config")
+  @Profile("!prod") // Only available in non-production environments
   public ResponseEntity<Map<String, Object>> debugConfig() {
     Map<String, Object> config = new HashMap<>();
     config.put(
@@ -1211,6 +1213,7 @@ public class ShopifyAuthController {
   }
 
   @GetMapping("/debug-callback-test")
+  @Profile("!prod") // Only available in non-production environments
   public ResponseEntity<Map<String, Object>> debugCallbackTest() {
     Map<String, Object> result = new HashMap<>();
     result.put("used_codes_count", getUsedCodesCount());
@@ -1220,6 +1223,7 @@ public class ShopifyAuthController {
   }
 
   @GetMapping("/debug-oauth-state")
+  @Profile("!prod") // Only available in non-production environments
   public ResponseEntity<Map<String, Object>> debugOauthState() {
     Map<String, Object> result = new HashMap<>();
     result.put("used_codes_count", getUsedCodesCount());
@@ -1244,6 +1248,7 @@ public class ShopifyAuthController {
   }
 
   @GetMapping("/debug-environment")
+  @Profile("!prod") // Only available in non-production environments
   public ResponseEntity<Map<String, Object>> debugEnvironment() {
     Map<String, Object> result = new HashMap<>();
 
@@ -1271,6 +1276,7 @@ public class ShopifyAuthController {
   }
 
   @GetMapping("/debug-redis-keys")
+  @Profile("!prod") // Only available in non-production environments
   public ResponseEntity<Map<String, Object>> debugRedisKeys(
       @RequestParam(required = false) String shop) {
     Map<String, Object> debug = new HashMap<>();

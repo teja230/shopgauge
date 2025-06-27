@@ -12,6 +12,8 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Profile;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -22,10 +24,13 @@ public class SessionManagementController {
 
   private static final Logger logger = LoggerFactory.getLogger(SessionManagementController.class);
   private final ShopService shopService;
+  private final RedisTemplate<String, String> redisTemplate;
 
   @Autowired
-  public SessionManagementController(ShopService shopService) {
+  public SessionManagementController(
+      ShopService shopService, RedisTemplate<String, String> redisTemplate) {
     this.shopService = shopService;
+    this.redisTemplate = redisTemplate;
   }
 
   /** Get active sessions for the current shop */
@@ -292,8 +297,17 @@ public class SessionManagementController {
 
   /** Debug endpoint for session troubleshooting */
   @GetMapping("/debug")
+  @Profile("!prod") // Only available in non-production environments
   public ResponseEntity<Map<String, Object>> debugSessions(
       @CookieValue(value = "shop", required = false) String shop, HttpServletRequest request) {
+
+    // Enhanced input validation
+    if (shop != null && !isValidShopDomain(shop)) {
+      Map<String, Object> errorResponse = new HashMap<>();
+      errorResponse.put("error", "Invalid shop parameter");
+      errorResponse.put("success", false);
+      return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+    }
 
     Map<String, Object> response = new HashMap<>();
 
@@ -314,38 +328,42 @@ public class SessionManagementController {
       response.put("authenticated", shop != null);
 
       if (shop != null) {
-        // Token check
+        // Token information
         String token = shopService.getTokenForShop(shop, sessionId);
         response.put("hasToken", token != null);
-        if (token != null) {
-          response.put("tokenPreview", token.substring(0, Math.min(10, token.length())) + "...");
+
+        // Session information
+        List<ShopSession> activeSessions = shopService.getActiveSessionsForShop(shop);
+        response.put("activeSessionsCount", activeSessions.size());
+
+        // Current session details
+        Optional<ShopSession> currentSessionOpt = shopService.getSessionInfo(sessionId);
+        response.put("sessionInDatabase", currentSessionOpt.isPresent());
+
+        if (currentSessionOpt.isPresent()) {
+          ShopSession currentSession = currentSessionOpt.get();
+          response.put("sessionActive", currentSession.getIsActive());
+          response.put("sessionExpired", currentSession.isExpired());
+          response.put("sessionCreatedAt", currentSession.getCreatedAt());
+          response.put("sessionLastAccessedAt", currentSession.getLastAccessedAt());
         }
 
-        // All active sessions for shop
-        List<ShopSession> activeSessions = shopService.getActiveSessionsForShop(shop);
-        response.put("totalActiveSessions", activeSessions.size());
+        // Redis information
+        try {
+          String redisToken = redisTemplate.opsForValue().get("shop_token:" + shop);
+          response.put("redisTokenExists", redisToken != null);
 
-        List<Map<String, Object>> sessionSummaries =
-            activeSessions.stream()
-                .map(
-                    session -> {
-                      Map<String, Object> summary = new HashMap<>();
-                      summary.put("sessionId", session.getSessionId());
-                      summary.put("isCurrentSession", session.getSessionId().equals(sessionId));
-                      summary.put(
-                          "createdAt",
-                          session.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
-                      summary.put(
-                          "lastAccessedAt",
-                          session
-                              .getLastAccessedAt()
-                              .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
-                      summary.put("ipAddress", session.getIpAddress());
-                      summary.put("isExpired", session.isExpired());
-                      return summary;
-                    })
-                .collect(Collectors.toList());
-        response.put("activeSessions", sessionSummaries);
+          String redisSessionId = redisTemplate.opsForValue().get("shop_session:" + shop);
+          response.put("redisSessionId", redisSessionId);
+
+          if (redisSessionId != null) {
+            String sessionSpecificToken =
+                redisTemplate.opsForValue().get("shop_token:" + shop + ":" + redisSessionId);
+            response.put("sessionSpecificTokenExists", sessionSpecificToken != null);
+          }
+        } catch (Exception redisError) {
+          response.put("redisError", redisError.getMessage());
+        }
       }
 
       response.put("timestamp", System.currentTimeMillis());
@@ -356,9 +374,30 @@ public class SessionManagementController {
     } catch (Exception e) {
       logger.error("Error in session debug: {}", e.getMessage(), e);
       response.put("error", "Session debug failed");
-      response.put("details", e.getMessage());
       response.put("success", false);
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
     }
+  }
+
+  // Helper method for input validation
+  private boolean isValidShopDomain(String shop) {
+    if (shop == null || shop.trim().isEmpty()) {
+      return false;
+    }
+
+    // Basic Shopify domain validation
+    String trimmedShop = shop.trim();
+
+    // Check length
+    if (trimmedShop.length() > 100) {
+      return false;
+    }
+
+    // Check for valid characters and format
+    java.util.regex.Pattern shopPattern =
+        java.util.regex.Pattern.compile(
+            "^[a-zA-Z0-9][a-zA-Z0-9\\-]*[a-zA-Z0-9](\\.myshopify\\.com)?$");
+
+    return shopPattern.matcher(trimmedShop).matches();
   }
 }

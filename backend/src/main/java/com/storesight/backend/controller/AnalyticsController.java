@@ -17,6 +17,7 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Profile;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -1207,8 +1208,18 @@ public class AnalyticsController {
   }
 
   @GetMapping("/debug/access")
+  @Profile("!prod") // Only available in non-production environments
   public Mono<ResponseEntity<Map<String, Object>>> debugAccess(
       @CookieValue(value = "shop", required = false) String shop, HttpSession session) {
+
+    // Enhanced input validation
+    if (shop != null && !isValidShopDomain(shop)) {
+      Map<String, Object> errorResponse = new HashMap<>();
+      errorResponse.put("error", "Invalid shop parameter");
+      errorResponse.put("debug_info", Map.of());
+      return Mono.just(ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse));
+    }
+
     if (shop == null) {
       Map<String, Object> data = new HashMap<>();
       data.put("debug_info", Map.of());
@@ -1257,18 +1268,6 @@ public class AnalyticsController {
             .map(response -> Map.of("orders_test", (Object) "SUCCESS"))
             .onErrorReturn(Map.of("orders_test", "FAILED")));
 
-    // Test 3: Shop info (should work)
-    String shopUrl = "https://" + shop + "/admin/api/2023-10/shop.json";
-    tests.add(
-        webClient
-            .get()
-            .uri(shopUrl)
-            .header("X-Shopify-Access-Token", token)
-            .retrieve()
-            .bodyToMono(String.class)
-            .map(response -> Map.of("shop_test", (Object) "SUCCESS"))
-            .onErrorReturn(Map.of("shop_test", "FAILED")));
-
     return Mono.zip(
         tests,
         results -> {
@@ -1302,8 +1301,18 @@ public class AnalyticsController {
   }
 
   @GetMapping("/debug/orders")
+  @Profile("!prod") // Only available in non-production environments
   public Mono<ResponseEntity<Map<String, Object>>> debugOrders(
       @CookieValue(value = "shop", required = false) String shop, HttpSession session) {
+
+    // Enhanced input validation
+    if (shop != null && !isValidShopDomain(shop)) {
+      Map<String, Object> errorResponse = new HashMap<>();
+      errorResponse.put("error", "Invalid shop parameter");
+      errorResponse.put("debug_info", Map.of());
+      return Mono.just(ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse));
+    }
+
     if (shop == null) {
       Map<String, Object> data = new HashMap<>();
       data.put("debug_info", Map.of());
@@ -1329,80 +1338,62 @@ public class AnalyticsController {
         .uri(ordersUrl)
         .header("X-Shopify-Access-Token", token)
         .retrieve()
-        .bodyToMono(Map.class)
+        .bodyToMono(String.class)
         .map(
-            data -> {
-              var orders = (List<Map<String, Object>>) data.get("orders");
-
+            response -> {
               Map<String, Object> result = new HashMap<>();
               result.put("success", true);
-              result.put("orders_count", orders != null ? orders.size() : 0);
-              result.put("orders", orders);
-              result.put("url_tested", ordersUrl);
-              result.put("message", "Orders API access successful!");
-
-              if (orders != null && !orders.isEmpty()) {
-                result.put("sample_order", orders.get(0));
-              }
-
-              logger.info(
-                  "Debug: Successfully fetched {} orders", orders != null ? orders.size() : 0);
-
+              result.put("orders_url", ordersUrl);
+              result.put(
+                  "response_preview", response.substring(0, Math.min(200, response.length())));
+              result.put("full_response_length", response.length());
               return ResponseEntity.ok(result);
             })
         .onErrorResume(
             e -> {
-              logger.error("Debug: Failed to fetch orders - {}", e.getMessage());
-
+              logger.error("Debug orders failed: {}", e.getMessage());
               Map<String, Object> errorResult = new HashMap<>();
               errorResult.put("success", false);
               errorResult.put("error", e.getMessage());
-              errorResult.put("url_tested", ordersUrl);
+              errorResult.put("orders_url", ordersUrl);
 
               if (e.getMessage().contains("403")) {
                 errorResult.put("error_type", "PERMISSION_DENIED");
                 errorResult.put(
-                    "explanation",
-                    "The app doesn't have permission to access orders. This usually means:");
-                errorResult.put(
-                    "reasons",
-                    List.of(
-                        "1. App needs to request 'Protected Customer Data' access from Shopify",
-                        "2. App needs to be re-installed with updated permissions",
-                        "3. Store owner needs to approve additional permissions"));
-                // Use environment variable for backend URL, fallback to localhost for development
-                String backendUrl = System.getenv("BACKEND_URL");
-                if (backendUrl == null || backendUrl.isEmpty()) {
-                  backendUrl = "http://localhost:8080";
-                }
-                errorResult.put(
-                    "next_steps",
-                    List.of(
-                        "1. Visit https://" + shop + "/admin/apps to check app permissions",
-                        "2. Try re-installing the app: "
-                            + backendUrl
-                            + "/api/auth/shopify/login?shop="
-                            + shop,
-                        "3. Contact Shopify support for Protected Customer Data approval"));
+                    "solution",
+                    "The app needs re-authentication with Protected Customer Data access");
+                errorResult.put("reauth_url", "/api/auth/shopify/login?shop=" + shop);
               } else if (e.getMessage().contains("401")) {
-                errorResult.put("error_type", "AUTHENTICATION_FAILED");
-                errorResult.put("explanation", "The access token is invalid or expired");
-                // Use environment variable for backend URL, fallback to localhost for development
-                String backendUrl = System.getenv("BACKEND_URL");
-                if (backendUrl == null || backendUrl.isEmpty()) {
-                  backendUrl = "http://localhost:8080";
-                }
-                errorResult.put(
-                    "next_steps",
-                    List.of(
-                        "Re-authenticate: " + backendUrl + "/api/auth/shopify/login?shop=" + shop));
+                errorResult.put("error_type", "UNAUTHORIZED");
+                errorResult.put("solution", "Token may be expired or invalid");
               } else {
-                errorResult.put("error_type", "UNKNOWN_ERROR");
-                errorResult.put("explanation", "An unexpected error occurred");
+                errorResult.put("error_type", "UNKNOWN");
               }
 
               return Mono.just(ResponseEntity.ok(errorResult));
             });
+  }
+
+  // Helper method for input validation
+  private boolean isValidShopDomain(String shop) {
+    if (shop == null || shop.trim().isEmpty()) {
+      return false;
+    }
+
+    // Basic Shopify domain validation
+    String trimmedShop = shop.trim();
+
+    // Check length
+    if (trimmedShop.length() > 100) {
+      return false;
+    }
+
+    // Check for valid characters and format
+    java.util.regex.Pattern shopPattern =
+        java.util.regex.Pattern.compile(
+            "^[a-zA-Z0-9][a-zA-Z0-9\\-]*[a-zA-Z0-9](\\.myshopify\\.com)?$");
+
+    return shopPattern.matcher(trimmedShop).matches();
   }
 
   @GetMapping("/permissions/comprehensive-check")
