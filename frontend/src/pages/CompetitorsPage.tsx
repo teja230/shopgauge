@@ -142,6 +142,7 @@ export default function CompetitorsPage() {
   const [filterStatus, setFilterStatus] = useState<'all' | 'inStock' | 'outOfStock'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [lastDiscoveryTime, setLastDiscoveryTime] = useState<number>(0);
+  const [userDisabledDemo, setUserDisabledDemo] = useState<boolean>(false);
   const notifications = useNotifications();
   
   // Refs to prevent unnecessary re-renders and API calls
@@ -174,36 +175,47 @@ export default function CompetitorsPage() {
         fetchWithCache(suggestionCacheKey, getDebouncedSuggestionCount, forceRefresh ? 0 : SUGGESTION_COUNT_CACHE_DURATION)
       ]);
       
-      // If no competitors and no suggestions, enable demo mode
-      if (competitorsData.length === 0 && suggestionCountData.newSuggestions === 0) {
+      // Only auto-enable demo mode if user hasn't explicitly disabled it
+      if (competitorsData.length === 0 && suggestionCountData.newSuggestions === 0 && !userDisabledDemo) {
         setIsDemoMode(true);
         setCompetitors(DEMO_COMPETITORS);
         setSuggestionCount(DEMO_SUGGESTIONS.length);
       } else {
         setCompetitors(competitorsData);
         setSuggestionCount(suggestionCountData.newSuggestions);
-        setIsDemoMode(false);
+        if (!userDisabledDemo || competitorsData.length > 0 || suggestionCountData.newSuggestions > 0) {
+          setIsDemoMode(false);
+        }
       }
       
       lastFetchTimeRef.current = now;
       isInitialLoadRef.current = false;
       
     } catch (e) {
-      console.log('API not available, using demo mode');
-      setIsDemoMode(true);
-      setCompetitors(DEMO_COMPETITORS);
-      setSuggestionCount(DEMO_SUGGESTIONS.length);
+      console.log('API not available, using demo mode if not disabled by user');
+      // Only auto-enable demo mode on API failure if user hasn't explicitly disabled it
+      if (!userDisabledDemo) {
+        setIsDemoMode(true);
+        setCompetitors(DEMO_COMPETITORS);
+        setSuggestionCount(DEMO_SUGGESTIONS.length);
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [shop, fetchWithCache]);
+  }, [shop, fetchWithCache, userDisabledDemo]);
 
-  // Initialize discovery cooldown from localStorage
+  // Initialize discovery cooldown and user preferences from localStorage
   useEffect(() => {
     if (shop) {
       const lastDiscovery = localStorage.getItem(`lastDiscovery_${shop}`);
       if (lastDiscovery) {
         setLastDiscoveryTime(parseInt(lastDiscovery));
+      }
+      
+      // Check if user explicitly disabled demo mode for this shop
+      const demoDisabled = localStorage.getItem(`demoDisabled_${shop}`);
+      if (demoDisabled === 'true') {
+        setUserDisabledDemo(true);
       }
     }
   }, [shop]);
@@ -261,6 +273,7 @@ export default function CompetitorsPage() {
       setProductId('');
       setIsDemoMode(false);
       setSuggestionCount(0);
+      setUserDisabledDemo(false);
     };
   }, []);
 
@@ -339,23 +352,40 @@ export default function CompetitorsPage() {
 
   const toggleDemoMode = useCallback(() => {
     if (isDemoMode) {
+      // User explicitly disabled demo mode
+      setUserDisabledDemo(true);
       setCompetitors([]);
       setIsDemoMode(false);
       setSuggestionCount(0);
-      notifications.showSuccess('Demo mode disabled', {
+      
+      // Persist user preference
+      if (shop) {
+        localStorage.setItem(`demoDisabled_${shop}`, 'true');
+      }
+      
+      notifications.showSuccess('Demo mode disabled - showing live data only', {
         category: 'Demo'
       });
+      
       // Refresh real data
       fetchData(true);
     } else {
+      // User explicitly enabled demo mode
+      setUserDisabledDemo(false);
       setCompetitors(DEMO_COMPETITORS);
       setIsDemoMode(true);
       setSuggestionCount(DEMO_SUGGESTIONS.length);
-      notifications.showSuccess('Demo mode enabled', {
+      
+      // Clear user preference
+      if (shop) {
+        localStorage.removeItem(`demoDisabled_${shop}`);
+      }
+      
+      notifications.showSuccess('Demo mode enabled - showing sample data', {
         category: 'Demo'
       });
     }
-  }, [isDemoMode, notifications, fetchData]);
+  }, [isDemoMode, notifications, fetchData, shop]);
 
   const triggerManualDiscovery = useCallback(async () => {
     if (isDemoMode) {
