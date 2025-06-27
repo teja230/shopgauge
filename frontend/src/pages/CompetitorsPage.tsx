@@ -161,7 +161,7 @@ export default function CompetitorsPage() {
     if (!shop) return;
     
     try {
-      const response = await fetchWithAuth('/api/competitors/discovery/status');
+      const response = await fetchWithAuth('/competitors/discovery/status');
       const status = await response.json();
       
       // Handle improved response format (no cache details exposed)
