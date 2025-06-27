@@ -28,7 +28,13 @@ public class SecretService {
     // Map secret keys to environment variable names
     String envVarName = mapSecretKeyToEnvVar(key);
     String value = System.getenv(envVarName);
-    return Optional.ofNullable(value);
+
+    if (value != null && !value.trim().isEmpty()) {
+      return Optional.of(value);
+    }
+
+    // No fallback - secrets should only come from environment variables
+    return Optional.empty();
   }
 
   /**
@@ -36,26 +42,59 @@ public class SecretService {
    * This method is kept for backward compatibility but logs a warning.
    */
   public void storeSecret(String key, String value) {
-    System.out.println(
-        "[WARN] storeSecret() called - secrets should be managed through Render environment variables in production");
-    System.out.println(
-        "[INFO] To set secret '"
-            + key
-            + "', add environment variable: "
-            + mapSecretKeyToEnvVar(key));
+    // Check if we're in production environment
+    String activeProfile = System.getenv("SPRING_PROFILES_ACTIVE");
+    boolean isProduction = "prod".equals(activeProfile) || "production".equals(activeProfile);
+
+    if (isProduction) {
+      System.out.println(
+          "[WARN] storeSecret() called - secrets should be managed through Render environment variables in production");
+      System.out.println(
+          "[INFO] To set secret '"
+              + key
+              + "', add environment variable: "
+              + mapSecretKeyToEnvVar(key));
+    } else {
+      // In development, just log that environment variables should be used
+      String envVarName = mapSecretKeyToEnvVar(key);
+      String envValue = System.getenv(envVarName);
+
+      if (envValue != null) {
+        System.out.println("[INFO] Using environment variable for secret: " + key);
+      } else {
+        System.out.println(
+            "[INFO] Secret not found in environment. To set secret '"
+                + key
+                + "', add environment variable: "
+                + envVarName);
+      }
+    }
   }
 
   /**
    * Delete secret - in production, this should be done through Render's environment variables UI.
    */
   public void deleteSecret(String key) {
-    System.out.println(
-        "[WARN] deleteSecret() called - secrets should be managed through Render environment variables in production");
-    System.out.println(
-        "[INFO] To delete secret '"
-            + key
-            + "', remove environment variable: "
-            + mapSecretKeyToEnvVar(key));
+    // Check if we're in production environment
+    String activeProfile = System.getenv("SPRING_PROFILES_ACTIVE");
+    boolean isProduction = "prod".equals(activeProfile) || "production".equals(activeProfile);
+
+    if (isProduction) {
+      System.out.println(
+          "[WARN] deleteSecret() called - secrets should be managed through Render environment variables in production");
+      System.out.println(
+          "[INFO] To delete secret '"
+              + key
+              + "', remove environment variable: "
+              + mapSecretKeyToEnvVar(key));
+    } else {
+      // In development, just log that environment variables should be used
+      System.out.println(
+          "[INFO] To delete secret '"
+              + key
+              + "', remove environment variable: "
+              + mapSecretKeyToEnvVar(key));
+    }
   }
 
   /** List all configured secrets (returns keys only for security). */
