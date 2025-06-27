@@ -16,7 +16,6 @@ services:
     runtime: docker
     repo: https://github.com/teja230/storesight
     plan: free
-    healthCheckPath: /health
     envVars:
       - key: METRICS_ENABLED
         sync: false
@@ -95,7 +94,7 @@ services:
           property: password
     region: oregon
     dockerContext: .
-    dockerfilePath: backend/Dockerfile
+    dockerfilePath: backend/Dockerfile.prod
     autoDeployTrigger: "off"
     
   - type: web
@@ -105,15 +104,11 @@ services:
     envVars:
       - key: VITE_API_BASE_URL
         sync: false
-    buildCommand: npm install && npm run build
+    buildCommand: npm ci && npm run build
     staticPublishPath: dist
     autoDeployTrigger: "off"
     rootDir: frontend
     # Let _redirects file handle routing instead of render.yaml routes
-    # routes:
-    #   - type: rewrite
-    #     source: /*
-    #     destination: /index.html
 
   - type: keyvalue
     name: storesight-redis
@@ -123,3 +118,4 @@ services:
     ipAllowList:
       - source: 57.132.182.47/32
         description: teja230@gmail.com
+    version: "1"

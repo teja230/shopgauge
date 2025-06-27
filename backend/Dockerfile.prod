@@ -1,0 +1,60 @@
+# Optimized production build for Render
+FROM eclipse-temurin:17-jdk-alpine AS builder
+
+# Install only essential dependencies
+RUN apk add --no-cache curl
+
+# Set working directory
+WORKDIR /app
+
+# Copy Gradle files first for better layer caching
+COPY backend/gradlew ./gradlew
+COPY backend/gradle ./gradle
+COPY backend/build.gradle ./build.gradle
+COPY backend/settings.gradle ./settings.gradle
+COPY backend/gradle.properties ./gradle.properties
+
+# Make gradlew executable
+RUN chmod +x ./gradlew
+
+# Pre-download dependencies (cached layer)
+RUN ./gradlew dependencies --no-daemon --offline || true
+
+# Copy source code
+COPY backend/src ./src
+
+# Build with production optimizations
+ENV CI=true
+ENV GRADLE_OPTS="-Xmx3072m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8 -Dorg.gradle.parallel=true -Dorg.gradle.caching=true -Dorg.gradle.configureondemand=true -XX:+UseG1GC"
+RUN ./gradlew clean build -x test -x spotlessCheck -x spotlessApply --no-daemon --build-cache --parallel --max-workers=4 --stacktrace
+
+# Production stage
+FROM eclipse-temurin:17-jre-alpine
+
+# Install only runtime dependencies
+RUN apk add --no-cache curl
+
+WORKDIR /app
+
+# Copy the built jar
+COPY --from=builder /app/build/libs/*-SNAPSHOT.jar app.jar
+
+# Create non-root user for security
+RUN addgroup -g 1001 -S appgroup && \
+    adduser -u 1001 -S appuser -G appgroup
+
+# Change ownership of the app directory
+RUN chown -R appuser:appgroup /app
+
+# Switch to non-root user
+USER appuser
+
+# Expose port
+EXPOSE 8080
+
+# Health check using the existing /health endpoint
+HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
+  CMD curl -f http://localhost:8080/health || exit 1
+
+# Run the application with optimized JVM settings
+CMD ["java", "-Xmx1024m", "-XX:+UseG1GC", "-XX:MaxGCPauseMillis=200", "-jar", "app.jar"] 

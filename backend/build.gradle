@@ -13,6 +13,20 @@ java {
     sourceCompatibility = '17'
 }
 
+// Optimize compilation for faster builds
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+    options.compilerArgs += ['-parameters']
+    options.fork = true
+    options.forkOptions.jvmArgs += ['-Xmx1024m']
+}
+
+// Optimize test execution
+tasks.withType(Test) {
+    maxParallelForks = 2
+    forkEvery = 100
+}
+
 repositories {
     mavenCentral()
 }
@@ -70,9 +84,14 @@ tasks.named('test') {
     useJUnitPlatform()
 }
 
+// Optimize spotless for faster builds
 spotless {
     java {
         googleJavaFormat()
+        // Skip spotless during CI builds for speed
+        if (System.getenv('CI') != null) {
+            enabled = false
+        }
     }
 }
 

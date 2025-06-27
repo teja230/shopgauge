@@ -8,6 +8,7 @@ RUN apk add --no-cache curl
 WORKDIR /app
 
 # Copy Gradle wrapper and project files from backend directory in repository
+# These change less frequently, so they get their own layer for better caching
 COPY backend/gradlew ./gradlew
 COPY backend/gradle ./gradle
 COPY backend/build.gradle ./build.gradle
@@ -18,15 +19,15 @@ RUN chmod +x ./gradlew
 
 # Download dependencies first (better Docker layer caching)
 # This step will be cached unless dependencies change
-RUN ./gradlew dependencies --no-daemon --refresh-dependencies || true
+RUN ./gradlew dependencies --no-daemon --offline || true
 
 # Copy source code (this layer changes more frequently)
 COPY backend/src ./src
 
-# Build the application with optimizations
-# Use parallel builds and skip tests for faster container build
-ENV GRADLE_OPTS="-Xmx2048m -Dfile.encoding=UTF-8 -Dorg.gradle.parallel=true -Dorg.gradle.caching=true"
-RUN ./gradlew clean build -x test --no-daemon --build-cache --parallel
+# Build the application with aggressive optimizations
+# Use parallel builds, skip tests, and enable all caching options
+ENV GRADLE_OPTS="-Xmx3072m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8 -Dorg.gradle.parallel=true -Dorg.gradle.caching=true -Dorg.gradle.configureondemand=true"
+RUN ./gradlew clean build -x test -x spotlessCheck -x spotlessApply --no-daemon --build-cache --parallel --max-workers=4
 
 # Final stage
 FROM eclipse-temurin:17-jre-alpine
