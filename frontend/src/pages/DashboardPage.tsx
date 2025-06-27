@@ -700,23 +700,32 @@ const DashboardPage = () => {
   // Track if we've already shown the notification for this session
   const notificationShownRef = useRef<Set<string>>(new Set());
   
-  // Cleanup notification tracking when component unmounts
+  // Cleanup notification tracking when component unmounts or shop changes
   useEffect(() => {
     return () => {
       notificationShownRef.current.clear();
     };
   }, []);
 
+  // Clear notification tracking when shop changes to prevent cross-shop notifications
+  useEffect(() => {
+    if (shop) {
+      notificationShownRef.current.clear();
+      console.log('Dashboard: Cleared notification tracking for new shop:', shop);
+    }
+  }, [shop]);
+
   // Helper function to mark notification as shown and manage memory
   const markNotificationShown = useCallback((key: string) => {
     notificationShownRef.current.add(key);
     
     // Limit the size of tracking set to prevent memory issues
-    if (notificationShownRef.current.size > 50) {
+    if (notificationShownRef.current.size > 20) {
       const entries = Array.from(notificationShownRef.current);
       notificationShownRef.current.clear();
-      // Keep only the most recent 25 entries
-      entries.slice(-25).forEach(entry => notificationShownRef.current.add(entry));
+      // Keep only the most recent 10 entries
+      entries.slice(-10).forEach(entry => notificationShownRef.current.add(entry));
+      console.log('Dashboard: Cleaned up notification tracking to prevent memory leaks');
     }
   }, []);
 
@@ -1261,24 +1270,36 @@ const DashboardPage = () => {
       
       // Parallel loading for dramatically better performance
       const loadAllData = async () => {
+        console.log('Dashboard: Starting parallel data loading for shop:', shop);
+        
         try {
           // Start all API calls in parallel instead of sequential
           const promises = [
-            fetchRevenueData(),
-            fetchProductsData(),
-            fetchInventoryData(),
-            fetchNewProductsData(),
-            fetchInsightsData(),
-            fetchAbandonedCartsData()
+            fetchRevenueData().catch(err => console.error('Revenue fetch failed:', err)),
+            fetchProductsData().catch(err => console.error('Products fetch failed:', err)),
+            fetchInventoryData().catch(err => console.error('Inventory fetch failed:', err)),
+            fetchNewProductsData().catch(err => console.error('New products fetch failed:', err)),
+            fetchInsightsData().catch(err => console.error('Insights fetch failed:', err)),
+            fetchAbandonedCartsData().catch(err => console.error('Abandoned carts fetch failed:', err))
           ];
+          
+          // Wait for critical data to load in parallel
+          const results = await Promise.allSettled(promises);
+          
+          // Log results for debugging
+          results.forEach((result, index) => {
+            const dataTypes = ['revenue', 'products', 'inventory', 'newProducts', 'insights', 'abandonedCarts'];
+            if (result.status === 'rejected') {
+              console.error(`Dashboard: ${dataTypes[index]} loading failed:`, result.reason);
+            } else {
+              console.log(`Dashboard: ${dataTypes[index]} loading completed successfully`);
+            }
+          });
           
           // Orders data can be loaded slightly delayed to reduce initial load
           setTimeout(() => {
-            fetchOrdersData();
+            fetchOrdersData().catch(err => console.error('Orders fetch failed:', err));
           }, 100);
-          
-          // Wait for critical data to load in parallel
-          await Promise.allSettled(promises);
           
           console.log('Dashboard: Parallel data loading completed');
         } catch (error) {
@@ -1400,7 +1421,7 @@ const DashboardPage = () => {
 
     // Handle OAuth success callback
     if (connected === 'true') {
-      const notificationKey = `connected-${Date.now()}`;
+      const notificationKey = `connected-${shop || 'oauth'}`;
       if (!notificationShownRef.current.has(notificationKey)) {
         markNotificationShown(notificationKey);
         
@@ -1419,7 +1440,7 @@ const DashboardPage = () => {
 
     // Handle re-authentication success
     if (reauth === 'success') {
-      const notificationKey = `reauth-${Date.now()}`;
+      const notificationKey = `reauth-${shop || 'reauth'}`;
       if (!notificationShownRef.current.has(notificationKey)) {
         markNotificationShown(notificationKey);
         
@@ -1442,7 +1463,7 @@ const DashboardPage = () => {
 
     // Handle cache clearing request
     if (clearCache === 'true') {
-      const notificationKey = `cache-cleared-${Date.now()}`;
+      const notificationKey = `cache-cleared-${shop || 'cache'}`;
       if (!notificationShownRef.current.has(notificationKey)) {
         markNotificationShown(notificationKey);
         
@@ -1469,7 +1490,7 @@ const DashboardPage = () => {
 
     // Handle force refresh request
     if (forceRefresh === 'true') {
-      const notificationKey = `force-refresh-${Date.now()}`;
+      const notificationKey = `force-refresh-${shop || 'refresh'}`;
       if (!notificationShownRef.current.has(notificationKey)) {
         markNotificationShown(notificationKey);
         

@@ -162,7 +162,7 @@ export default function CompetitorsPage() {
     if (!shop) return;
     
     try {
-      const response = await fetchWithAuth('/competitors/discovery/status');
+      const response = await fetchWithAuth('/api/competitors/discovery/status');
       const status = await response.json();
       
       // Handle improved response format (no cache details exposed)
@@ -637,7 +637,7 @@ export default function CompetitorsPage() {
     setIsDiscovering(true);
     try {
       // First check if discovery service is available
-      const statusResponse = await fetchWithAuth('/competitors/discovery/status');
+      const statusResponse = await fetchWithAuth('/api/competitors/discovery/status');
 
       if (!statusResponse.ok) {
         throw new Error('Discovery service is not available');
@@ -662,7 +662,7 @@ export default function CompetitorsPage() {
       }
 
       // Trigger discovery
-      const response = await fetchWithAuth('/competitors/discovery/trigger', {
+      const response = await fetchWithAuth('/api/competitors/discovery/trigger', {
         method: 'POST'
       });
 
@@ -677,7 +677,7 @@ export default function CompetitorsPage() {
         
         // Refresh discovery status to show updated cooldown
         try {
-          const updatedStatusResponse = await fetchWithAuth('/competitors/discovery/status');
+          const updatedStatusResponse = await fetchWithAuth('/api/competitors/discovery/status');
           
           if (updatedStatusResponse.ok) {
             const updatedStatus = await updatedStatusResponse.json();
