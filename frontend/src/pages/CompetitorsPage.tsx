@@ -394,7 +394,7 @@ export default function CompetitorsPage() {
           if (!finalProductId) {
             try {
               console.log('Fetching products from API for competitor addition');
-              const response = await fetchWithAuth('/analytics/products');
+              const response = await fetchWithAuth('/api/analytics/products');
               
               if (response.ok) {
                 const data = await response.json();
@@ -469,7 +469,7 @@ export default function CompetitorsPage() {
           persistent: false
         });
         
-        fetchWithAuth('/analytics/products')
+        fetchWithAuth('/api/analytics/products')
         .then(response => {
           if (response.ok) {
             console.log('Background product sync completed successfully');
