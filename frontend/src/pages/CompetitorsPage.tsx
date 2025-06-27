@@ -25,6 +25,7 @@ import {
 } from '@heroicons/react/24/outline';
 import type { CompetitorSuggestion } from '../api';
 import { useNotifications } from '../hooks/useNotifications';
+import { fetchWithAuth } from '../api/index';
 
 // Demo data for when SerpAPI is not configured
 const DEMO_COMPETITORS: Competitor[] = [
@@ -133,7 +134,7 @@ export default function CompetitorsPage() {
   const [filteredCompetitors, setFilteredCompetitors] = useState<Competitor[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestionCount, setSuggestionCount] = useState(0);
-  const [isDemoMode, setIsDemoMode] = useState(false);
+  const [isDemoMode, setIsDemoMode] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [url, setUrl] = useState('');
@@ -157,25 +158,20 @@ export default function CompetitorsPage() {
     if (!shop) return;
     
     try {
-      const response = await fetch('/api/competitors/discovery/status', {
-        credentials: 'include'
-      });
+      const response = await fetchWithAuth('/api/competitors/discovery/status');
+      const status = await response.json();
       
-      if (response.ok) {
-        const status = await response.json();
-        
-        // Handle improved response format (no cache details exposed)
-        if (status.last_discovery) {
-          const lastDiscoveryTime = new Date(status.last_discovery).getTime();
-          setLastDiscoveryTime(lastDiscoveryTime);
-        }
-        
-        // Enhanced logging for transparency without exposing technical details
-        const canDiscover = status.can_discover || !status.is_on_cooldown;
-        const statusText = status.status || (canDiscover ? 'ready' : 'cooldown');
-        
-        console.log(`Discovery status for ${shop}: ${statusText} (${canDiscover ? 'available now' : `available in ${status.hours_remaining || 0}h`})`);
+      // Handle improved response format (no cache details exposed)
+      if (status.last_discovery) {
+        const lastDiscoveryTime = new Date(status.last_discovery).getTime();
+        setLastDiscoveryTime(lastDiscoveryTime);
       }
+      
+      // Enhanced logging for transparency without exposing technical details
+      const canDiscover = status.can_discover || !status.is_on_cooldown;
+      const statusText = status.status || (canDiscover ? 'ready' : 'cooldown');
+      
+      console.log(`Discovery status for ${shop}: ${statusText} (${canDiscover ? 'available now' : `available in ${status.hours_remaining || 0}h`})`);
     } catch (error) {
       console.log('Could not fetch discovery status from server - discovery status unavailable');
       // No fallback - server-side is the source of truth for cross-device consistency

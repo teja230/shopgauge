@@ -684,6 +684,24 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
         <ResponsiveContainer width="100%" height={height}>
           {renderChart()}
         </ResponsiveContainer>
+        
+        {/* Data Activity Period Indicator */}
+        <Box
+          sx={{
+            position: 'absolute',
+            bottom: 8,
+            right: 12,
+            fontSize: '0.7rem',
+            color: 'text.secondary',
+            backgroundColor: 'rgba(255, 255, 255, 0.9)',
+            px: 1,
+            py: 0.5,
+            borderRadius: 1,
+            border: '1px solid rgba(0, 0, 0, 0.08)',
+          }}
+        >
+          📊 Data reflects the last 60 days of activity
+        </Box>
       </Paper>
     </Box>
   );

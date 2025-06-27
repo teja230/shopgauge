@@ -111,7 +111,7 @@ export async function getHealthSummary(): Promise<any> {
     console.log('API: Fetching health summary');
   }
   try {
-    const response = await fetchWithAuth('/health/summary');
+    const response = await fetchWithAuth('/api/health/summary');
     const data = await response.json();
     if (import.meta.env.DEV) {
       console.log('API: Health summary response:', data);

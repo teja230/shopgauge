@@ -6,6 +6,54 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { API_BASE_URL } from '../api';
 import { normalizeShopDomain } from '../utils/normalizeShopDomain';
 
+// Cache configuration for store stats
+const STORE_STATS_CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
+const STORE_STATS_CACHE_KEY = 'store_stats_cache_v1';
+const REFRESH_DEBOUNCE_MS = 2000; // 2 seconds debounce
+
+interface StoreStatsCache {
+  data: any;
+  timestamp: number;
+  lastUpdated: Date;
+  shop: string;
+}
+
+// Cache management functions
+const loadStoreStatsFromCache = (shop: string): StoreStatsCache | null => {
+  try {
+    const stored = sessionStorage.getItem(STORE_STATS_CACHE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (parsed.shop === shop && parsed.lastUpdated) {
+        parsed.lastUpdated = new Date(parsed.lastUpdated);
+        const age = Date.now() - parsed.timestamp;
+        if (age < STORE_STATS_CACHE_DURATION) {
+          console.log('Loaded store stats from cache, age:', Math.round(age / 1000), 'seconds');
+          return parsed;
+        }
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to load store stats cache:', error);
+  }
+  return null;
+};
+
+const saveStoreStatsToCache = (data: any, shop: string) => {
+  try {
+    const cacheEntry: StoreStatsCache = {
+      data,
+      timestamp: Date.now(),
+      lastUpdated: new Date(),
+      shop
+    };
+    sessionStorage.setItem(STORE_STATS_CACHE_KEY, JSON.stringify(cacheEntry));
+    console.log('Saved store stats to cache');
+  } catch (error) {
+    console.warn('Failed to save store stats to cache:', error);
+  }
+};
+
 export default function ProfilePage() {
   const { shop, logout, setShop } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
@@ -20,6 +68,9 @@ export default function ProfilePage() {
   const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'error'>('checking');
   const [lastSyncTime, setLastSyncTime] = useState<Date>(new Date());
   const [storeStats, setStoreStats] = useState<any>(null);
+  const [storeStatsLoading, setStoreStatsLoading] = useState(false);
+  const [storeStatsLastUpdated, setStoreStatsLastUpdated] = useState<Date | null>(null);
+  const [refreshDebounce, setRefreshDebounce] = useState(false);
   const [pastStores, setPastStores] = useState<string[]>([]);
   
   // Confirmation dialog state
@@ -131,8 +182,23 @@ export default function ProfilePage() {
     }
   };
 
-  const loadStoreStats = async () => {
+  const loadStoreStats = async (forceRefresh = false) => {
+    if (!shop) return;
+    
     try {
+      setStoreStatsLoading(true);
+      
+      // Check cache first unless force refresh
+      if (!forceRefresh) {
+        const cache = loadStoreStatsFromCache(shop);
+        if (cache) {
+          setStoreStats(cache.data);
+          setStoreStatsLastUpdated(cache.lastUpdated);
+          setStoreStatsLoading(false);
+          return;
+        }
+      }
+      
       const response = await fetch(`${API_BASE_URL}/api/analytics/store-stats`, {
         credentials: 'include',
       });
@@ -140,10 +206,24 @@ export default function ProfilePage() {
       if (response.ok) {
         const stats = await response.json();
         setStoreStats(stats);
+        const now = new Date();
+        setStoreStatsLastUpdated(now);
+        saveStoreStatsToCache(stats, shop);
       }
     } catch (error) {
       console.error('Failed to load store stats:', error);
+    } finally {
+      setStoreStatsLoading(false);
     }
+  };
+
+  const handleRefreshStoreStats = async () => {
+    if (refreshDebounce) return;
+    
+    setRefreshDebounce(true);
+    setTimeout(() => setRefreshDebounce(false), REFRESH_DEBOUNCE_MS);
+    
+    await loadStoreStats(true);
   };
 
   // FIXED: Use simple return URL format to avoid Chrome phishing warnings
@@ -610,7 +690,25 @@ export default function ProfilePage() {
             
             {storeStats && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Store Statistics</label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700">Store Statistics</label>
+                  <button
+                    onClick={handleRefreshStoreStats}
+                    disabled={storeStatsLoading || refreshDebounce}
+                    className="text-xs text-blue-600 hover:text-blue-800 disabled:text-gray-400 flex items-center gap-1"
+                  >
+                    {storeStatsLoading ? (
+                      <>
+                        <div className="w-3 h-3 border border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                        Updating...
+                      </>
+                    ) : (
+                      <>
+                        🔄 Update Stats
+                      </>
+                    )}
+                  </button>
+                </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-blue-50 p-3 rounded-lg">
                     <div className="text-2xl font-bold text-blue-600">{storeStats.totalOrders || 0}</div>
@@ -621,8 +719,18 @@ export default function ProfilePage() {
                     <div className="text-xs text-green-500">Revenue</div>
                   </div>
                 </div>
-                <div className="text-xs text-gray-500 mt-2 text-center">
-                  📊 Data reflects the last 60 days of activity
+                <div className="text-xs text-gray-500 mt-2 space-y-1">
+                  <div className="text-center">📊 Data reflects the last 60 days of activity</div>
+                  {storeStatsLastUpdated && (
+                    <div className="text-center">
+                      Last updated: {storeStatsLastUpdated.toLocaleString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
