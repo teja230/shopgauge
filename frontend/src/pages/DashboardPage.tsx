@@ -15,7 +15,7 @@ import { useNotifications } from '../hooks/useNotifications';
 // Cache configuration - Enterprise-grade settings
 const CACHE_DURATION = 120 * 60 * 1000; // 120 minutes in milliseconds (increased from 5 minutes)
 const CACHE_KEY = 'dashboard_cache_v2'; // Version to force cache refresh if needed
-const CACHE_VERSION = '1.0.0';
+const CACHE_VERSION = '1.1.0'; // Incrementing version to invalidate existing cache
 const REFRESH_DEBOUNCE_MS = 2000; // 2 seconds debounce for refresh button
 
 interface CacheEntry<T> {
@@ -1265,7 +1265,7 @@ const DashboardPage = () => {
 
   // Auto-fetch all dashboard data on initial load with parallel requests for better performance
   useEffect(() => {
-    if (shop && shop.trim() !== '' && isInitialLoad) {
+    if (isAuthenticated && shop && shop.trim() !== '' && isInitialLoad) {
       setIsInitialLoad(false);
       
       // Parallel loading for dramatically better performance
@@ -1561,6 +1561,19 @@ const DashboardPage = () => {
 
     return () => clearInterval(interval);
   }, [lastRefreshTime]);
+
+  // Add proper authentication state handling
+  useEffect(() => {
+    if (isAuthenticated && shop) {
+      console.log('Dashboard: Authentication confirmed, shop:', shop);
+      setLoading(false);
+      setError(null);
+    } else if (!isAuthenticated && !loading && shop === null) {
+      console.log('Dashboard: Not authenticated, redirecting to home');
+      setLoading(false);
+      navigate('/');
+    }
+  }, [isAuthenticated, shop, navigate, loading]);
 
   if (loading) {
     return (
