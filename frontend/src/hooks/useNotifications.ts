@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState, useEffect, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import { fetchWithAuth } from '../api';
+import { useAuth } from '../context/AuthContext';
 
 export interface Notification {
   id: string;
@@ -57,6 +58,8 @@ export const useNotifications = () => {
   const [loading, setLoading] = useState(isLoadingGlobal);
   const [error, setError] = useState<string | null>(null);
   const redirectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  const { isAuthenticated } = useAuth();
   
   // Override window.confirm to capture confirmations as notifications
   useEffect(() => {
@@ -204,7 +207,7 @@ export const useNotifications = () => {
     broadcast();
 
     // Store persistent notifications in backend
-    if (persistent) {
+    if (persistent && isAuthenticated) {
       try {
         const response = await fetchWithAuth('/api/auth/shopify/notifications', {
           method: 'POST',
@@ -233,7 +236,7 @@ export const useNotifications = () => {
     }
 
     return id;
-  }, [createToast]);
+  }, [createToast, isAuthenticated]);
 
   // Specific notification functions
   const showSuccess = useCallback((message: string, options?: NotificationOptions) => {
@@ -541,18 +544,20 @@ export const useNotifications = () => {
   // Clear all notifications
   const clearAll = useCallback(async () => {
     try {
-      // Delete persistent notifications from backend
-      const persistentNotifications = globalNotifications.filter(n => n.persistent);
-      if (persistentNotifications.length > 0) {
-        await Promise.all(
-          persistentNotifications.map(n => 
-            fetchWithAuth(`/api/auth/shopify/notifications/${n.id}`, {
-              method: 'DELETE'
-            }).catch(error => {
-              console.error('Failed to delete notification from backend:', error);
-            })
-          )
-        );
+      if (isAuthenticated) {
+        // Delete persistent notifications from backend
+        const persistentNotifications = globalNotifications.filter(n => n.persistent);
+        if (persistentNotifications.length > 0) {
+          await Promise.all(
+            persistentNotifications.map(n => 
+              fetchWithAuth(`/api/auth/shopify/notifications/${n.id}`, {
+                method: 'DELETE'
+              }).catch(error => {
+                console.error('Failed to delete notification from backend:', error);
+              })
+            )
+          );
+        }
       }
     } catch (error) {
       console.error('Failed to clear persistent notifications:', error);
@@ -565,7 +570,7 @@ export const useNotifications = () => {
     setUnreadCount(0);
     toast.dismiss(); // Clear all toasts
     broadcast();
-  }, []);
+  }, [isAuthenticated]);
 
   // Cleanup function
   const cleanup = useCallback(() => {
