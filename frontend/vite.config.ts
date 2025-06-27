@@ -61,6 +61,18 @@ export default defineConfig({
           ui: ['@mui/material', '@mui/icons-material'],
           utils: ['axios', 'date-fns'],
         },
+        // Add cache busting with timestamp
+        assetFileNames: (assetInfo) => {
+          if (!assetInfo.name) return 'assets/[name]-[hash].[ext]';
+          const info = assetInfo.name.split('.');
+          const ext = info[info.length - 1];
+          if (/\.(css|js)$/.test(assetInfo.name)) {
+            return `assets/[name]-[hash].${ext}`;
+          }
+          return `assets/[name]-[hash].${ext}`;
+        },
+        chunkFileNames: 'assets/[name]-[hash].js',
+        entryFileNames: 'assets/[name]-[hash].js',
       },
     },
     // Reduce build size
