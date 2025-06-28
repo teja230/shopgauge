@@ -84,13 +84,24 @@ tasks.named('test') {
     useJUnitPlatform()
 }
 
-// Optimize spotless for faster builds
+// Optimize spotless for faster builds with proper cache management
 spotless {
     java {
         googleJavaFormat()
         // Skip spotless during CI builds for speed
         if (System.getenv('CI') != null) {
             enabled = false
+        }
+        // Add explicit cache configuration to prevent issues
+        targetExclude 'build/**'
+    }
+    
+    // Add a task to clean spotless cache if needed
+    tasks.register('spotlessCleanCache') {
+        doLast {
+            delete fileTree(dir: '.gradle', include: '**/spotless*')
+            delete fileTree(dir: 'build', include: '**/spotless*')
+            println 'Spotless cache cleaned'
         }
     }
 }

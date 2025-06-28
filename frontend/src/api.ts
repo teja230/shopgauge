@@ -510,7 +510,7 @@ const checkAuthWithRetry = async (retries = 3): Promise<{ shop: string | null; a
   
   try {
     // Use GET method explicitly to prevent HEAD requests
-    const response = await fetch('/api/auth/shopify/me', {
+    const response = await fetch(`${API_BASE_URL}/api/auth/shopify/me`, {
       method: 'GET',
       headers: {
         'Accept': 'application/json',

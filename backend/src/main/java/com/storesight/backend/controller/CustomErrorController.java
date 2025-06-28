@@ -56,20 +56,20 @@ public class CustomErrorController implements ErrorController {
     String acceptHeader = request.getHeader("Accept");
     String userAgent = request.getHeader("User-Agent");
     String referer = request.getHeader("Referer");
-    
-    boolean isHtmlRequest = 
-        (acceptHeader != null && acceptHeader.contains("text/html")) ||
-        (userAgent != null && (
-            userAgent.contains("Mozilla") || 
-            userAgent.contains("Chrome") || 
-            userAgent.contains("Safari") || 
-            userAgent.contains("Firefox") || 
-            userAgent.contains("Edge") ||
-            userAgent.contains("Opera")
-        )) ||
-        (referer != null && referer.contains("shopgaugeai.com")) ||
-        // If it's the root path and no specific Accept header, assume it's a browser
-        (requestPath != null && (requestPath.equals("/") || requestPath.equals("")));
+
+    boolean isHtmlRequest =
+        (acceptHeader != null && acceptHeader.contains("text/html"))
+            || (userAgent != null
+                && (userAgent.contains("Mozilla")
+                    || userAgent.contains("Chrome")
+                    || userAgent.contains("Safari")
+                    || userAgent.contains("Firefox")
+                    || userAgent.contains("Edge")
+                    || userAgent.contains("Opera")))
+            || (referer != null && referer.contains("shopgaugeai.com"))
+            ||
+            // If it's the root path and no specific Accept header, assume it's a browser
+            (requestPath != null && (requestPath.equals("/") || requestPath.equals("")));
 
     if (isHtmlRequest) {
       // Return HTML error page for browser requests
@@ -82,7 +82,7 @@ public class CustomErrorController implements ErrorController {
       errorResponse.put("timestamp", System.currentTimeMillis());
       errorResponse.put("status", statusCode);
       errorResponse.put("error", getErrorTitle(statusCode));
-      
+
       // Sanitize error message for production
       if (statusCode == 404) {
         errorResponse.put("message", "Resource not found");
@@ -91,7 +91,7 @@ public class CustomErrorController implements ErrorController {
       } else {
         errorResponse.put("message", "Request failed");
       }
-      
+
       // Don't expose internal paths in production
       if (requestPath != null && !requestPath.equals("/")) {
         errorResponse.put("path", requestPath);
