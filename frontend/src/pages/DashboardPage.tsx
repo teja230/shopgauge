@@ -637,14 +637,22 @@ const DashboardPage = () => {
     }
   }, [cache, shop]);
 
+  // Track previous shop to detect actual changes
+  const prevShopRef = useRef<string>('');
+  
   // Effect to handle shop changes and cache invalidation
   useEffect(() => {
     if (shop && isAuthReady) {
-      // Clear cache when shop changes to prevent cross-shop data leakage
-      console.log(`🔄 Shop changed to: ${shop} - Invalidating cache to prevent data leakage`);
-      const freshCache = invalidateCache(shop);
-      setCache(freshCache);
-      setIsInitialLoad(true);
+      // Only invalidate cache if shop actually changed (not just re-render)
+      if (prevShopRef.current !== shop) {
+        console.log(`🔄 Shop changed from "${prevShopRef.current}" to "${shop}" - Invalidating cache`);
+        const freshCache = invalidateCache(shop);
+        setCache(freshCache);
+        setIsInitialLoad(true);
+        prevShopRef.current = shop;
+      } else {
+        console.log(`🔍 Shop "${shop}" unchanged - keeping cache`);
+      }
     }
   }, [shop, isAuthReady]);
   
@@ -670,9 +678,9 @@ const DashboardPage = () => {
   });
 
   // Helper function to check if cache entry is fresh (< 120 minutes old)
-  const isCacheFresh = useCallback((cacheEntry: CacheEntry<any> | undefined): boolean => {
+  const isCacheFresh = useCallback((cacheEntry: CacheEntry<any> | undefined, cacheKey?: string): boolean => {
     if (!cacheEntry) {
-      console.log('Cache check: No cache entry found');
+      console.log(`🔍 ${cacheKey || 'CACHE'}: No cache entry found`);
       return false;
     }
     
@@ -681,7 +689,7 @@ const DashboardPage = () => {
     const ageMinutes = Math.round(age / (1000 * 60));
     const maxMinutes = Math.round(CACHE_DURATION / (1000 * 60));
     
-    console.log(`Cache check: ${ageMinutes}min old (max: ${maxMinutes}min) - ${isFresh ? 'FRESH ✅' : 'EXPIRED ❌'}`);
+    console.log(`🔍 ${cacheKey || 'CACHE'}: ${ageMinutes}min old (max: ${maxMinutes}min) - ${isFresh ? 'FRESH ✅' : 'EXPIRED ❌'}`);
     
     return isFresh;
   }, []);
@@ -701,7 +709,7 @@ const DashboardPage = () => {
     console.log(`📊 ${cacheKey.toUpperCase()}: ${cachedEntry ? 'Has cache' : 'No cache'}, Force: ${forceRefresh}`);
     
     // Use cached data if available, fresh, and not forcing refresh
-    if (!forceRefresh && isCacheFresh(cachedEntry)) {
+    if (!forceRefresh && isCacheFresh(cachedEntry, cacheKey.toUpperCase())) {
       console.log(`✅ ${cacheKey.toUpperCase()}: Using cached data (no API call)`);
       return cachedEntry!.data;
     }
@@ -726,6 +734,32 @@ const DashboardPage = () => {
     console.log(`💾 ${cacheKey.toUpperCase()}: Cached fresh data`);
     return freshData;
   }, [cache, isCacheFresh, shop]);
+
+  // Debug function to show cache status (helpful for testing)
+  const debugCacheStatus = useCallback(() => {
+    console.log('🧪 CACHE DEBUG STATUS:');
+    console.log('Shop:', shop);
+    console.log('Cache keys:', Object.keys(cache).filter(k => k !== 'version' && k !== 'shop'));
+    
+    Object.entries(cache).forEach(([key, entry]) => {
+      if (key === 'version' || key === 'shop') return;
+      if (entry) {
+        const age = Date.now() - (entry as CacheEntry<any>).timestamp;
+        const ageMinutes = Math.round(age / (1000 * 60));
+        const isFresh = age < CACHE_DURATION;
+        console.log(`  ${key}: ${isFresh ? '✅ FRESH' : '❌ EXPIRED'} (${ageMinutes}min old)`);
+      } else {
+        console.log(`  ${key}: ❌ NO CACHE`);
+      }
+    });
+  }, [cache, shop]);
+
+  // Add debug function to window for testing purposes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).debugCache = debugCacheStatus;
+    }
+  }, [debugCacheStatus]);
 
 
 
@@ -1357,8 +1391,15 @@ const DashboardPage = () => {
     console.log('Dashboard: Initializing for authenticated shop:', shop);
     setLoading(false);
     setError(null);
-    setIsInitialLoad(true); // Reset initial load flag for new shop
-    initialLoadTriggeredRef.current = false; // Reset the ref for new shop
+    
+    // Only set initial load if this is a genuinely new shop or first load
+    if (prevShopRef.current !== shop || !initialLoadTriggeredRef.current) {
+      console.log('🚀 Setting isInitialLoad=true for new shop or first load');
+      setIsInitialLoad(true); // Reset initial load flag for new shop
+      initialLoadTriggeredRef.current = false; // Reset the ref for new shop
+    } else {
+      console.log('🔍 Shop unchanged, keeping current load state');
+    }
     
     // Initialize insights with default data to prevent "failed to load" states
     setInsights({
@@ -1429,7 +1470,8 @@ const DashboardPage = () => {
     
     // Parallel loading for dramatically better performance
     const loadAllData = async () => {
-      console.log('Dashboard: Starting parallel data loading for shop:', shop);
+      console.log('🚀 LOAD ALL DATA: Starting parallel data loading for shop:', shop);
+      console.log('🧪 CACHE DEBUG: Current cache keys:', Object.keys(cache).filter(k => k !== 'version' && k !== 'shop'));
       
       try {
         // Start all API calls in parallel instead of sequential
@@ -1485,8 +1527,10 @@ const DashboardPage = () => {
       }
     };
     
+    // Trigger the data loading
+    console.log('🚀 INITIAL LOAD: Triggering loadAllData');
     loadAllData();
-  }, [isAuthReady, authLoading, isAuthenticated, shop, isInitialLoad]); // Removed fetch functions from dependencies
+  }, [isAuthReady, authLoading, isAuthenticated, shop, isInitialLoad]); // Include isInitialLoad back in dependencies
 
   // Lazy load data for individual cards
   const handleCardLoad = useCallback((cardType: keyof CardLoadingState) => {
@@ -2180,7 +2224,7 @@ const DashboardPage = () => {
           fontSize: '0.7rem',
           opacity: 0.7 
         }}>
-          Cache Duration: {Math.round(CACHE_DURATION / (1000 * 60))} minutes
+          Cache Duration: {Math.round(CACHE_DURATION / (1000 * 60))} minutes | Type `debugCache()` in console
         </Typography>
             <Button
               variant="text"
