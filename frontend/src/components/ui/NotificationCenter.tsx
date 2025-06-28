@@ -642,7 +642,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                       color="warning"
                       onClick={markAllAsUnread}
                       disabled={notifications.filter(n => n.read).length === 0}
-                      sx={{ 
+                      sx={{
                         textTransform: 'none',
                         borderRadius: 2,
                         fontSize: '0.75rem',
@@ -662,7 +662,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                     variant="outlined"
                     color="error"
                     onClick={handleDismissAll}
-                    sx={{ 
+                    sx={{
                       textTransform: 'none',
                       borderRadius: 2,
                       fontSize: '0.75rem',
@@ -692,4 +692,4 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
       />
     </>
   );
-}; 
+};
