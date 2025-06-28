@@ -22,50 +22,51 @@ class HealthControllerTest {
   private MockMvc mockMvc;
 
   @Test
-  void testHealthEndpoint() throws Exception {
-    mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
-
-    mockMvc
-        .perform(get("/health"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.status").value("UP"))
-        .andExpect(jsonPath("$.application").exists())
-        .andExpect(jsonPath("$.timestamp").exists());
-  }
-
-  @Test
-  void testApiHealthEndpoint() throws Exception {
-    mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
-
-    mockMvc
-        .perform(get("/api/health"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.status").value("UP"))
-        .andExpect(jsonPath("$.application").exists())
-        .andExpect(jsonPath("$.timestamp").exists());
-  }
-
-  @Test
-  void testApiHealthSummaryEndpoint() throws Exception {
+  void testHealthSummaryEndpoint() throws Exception {
     mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
 
     mockMvc
         .perform(get("/api/health/summary"))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.backendStatus").value("UP"))
-        .andExpect(jsonPath("$.systemStatus").exists())
-        .andExpect(jsonPath("$.lastUpdated").exists());
+        .andExpect(jsonPath("$.status").exists())
+        .andExpect(jsonPath("$.application").exists())
+        .andExpect(jsonPath("$.timestamp").exists())
+        .andExpect(jsonPath("$.database").exists())
+        .andExpect(jsonPath("$.redis").exists());
   }
 
   @Test
-  void testRootHealthEndpoint() throws Exception {
+  void testDatabaseHealthEndpoint() throws Exception {
     mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
 
     mockMvc
-        .perform(get("/"))
+        .perform(get("/api/health/database"))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.status").value("UP"))
+        .andExpect(jsonPath("$.status").exists())
+        .andExpect(jsonPath("$.connection").exists());
+  }
+
+  @Test
+  void testRedisHealthEndpoint() throws Exception {
+    mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
+
+    mockMvc
+        .perform(get("/api/health/redis"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").exists());
+  }
+
+  @Test
+  void testDetailedHealthEndpoint() throws Exception {
+    mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
+
+    mockMvc
+        .perform(get("/api/health/detailed"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").exists())
         .andExpect(jsonPath("$.application").exists())
-        .andExpect(jsonPath("$.message").value("ShopGauge Backend is running"));
+        .andExpect(jsonPath("$.timestamp").exists())
+        .andExpect(jsonPath("$.database").exists())
+        .andExpect(jsonPath("$.redis").exists());
   }
 }

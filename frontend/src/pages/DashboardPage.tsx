@@ -3,7 +3,7 @@ import { Box, Typography, Grid, Card, CardContent, Alert, CircularProgress, Link
 import { RevenueChart } from '../components/ui/RevenueChart';
 import { MetricCard } from '../components/ui/MetricCard';
 import { InsightBanner } from '../components/ui/InsightBanner';
-import { getInsights, fetchWithAuth } from '../api';
+import { getInsights, fetchWithAuth, retryWithBackoff } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { styled } from '@mui/material/styles';
@@ -579,7 +579,7 @@ interface CardErrorState {
 }
 
 const DashboardPage = () => {
-  const { isAuthenticated, shop, setShop } = useAuth();
+  const { isAuthenticated, shop, setShop, authLoading, isAuthReady } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const notifications = useNotifications();
@@ -600,6 +600,28 @@ const DashboardPage = () => {
   useEffect(() => {
     saveCacheToStorage(cache);
   }, [cache]);
+
+  // Clear cache when shop changes to prevent cross-shop data mixing
+  useEffect(() => {
+    if (shop && isAuthenticated) {
+      console.log('Dashboard: Shop detected, checking cache validity for:', shop);
+      
+      // Check if cached data belongs to a different shop
+      const currentCache = loadCacheFromStorage();
+      const cacheShop = sessionStorage.getItem('dashboard_cache_shop');
+      
+      if (cacheShop && cacheShop !== shop) {
+        console.log('Dashboard: Shop changed from', cacheShop, 'to', shop, '- clearing cache');
+        const freshCache = invalidateCache();
+        setCache(freshCache);
+        setLastGlobalUpdate(null);
+        setIsInitialLoad(true);
+      }
+      
+      // Store current shop for future cache validation
+      sessionStorage.setItem('dashboard_cache_shop', shop);
+    }
+  }, [shop, isAuthenticated]);
   
   // Individual card loading states
   const [cardLoading, setCardLoading] = useState<CardLoadingState>({
@@ -729,31 +751,18 @@ const DashboardPage = () => {
     }
   }, []);
 
-  // Retry logic with exponential backoff
-  const retryWithBackoff = useCallback(async (apiCall: () => Promise<any>, maxRetries = 3) => {
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      try {
-        return await apiCall();
-      } catch (error: any) {
-        // Check if it's a rate limit error (429) or network error
-        const isRateLimit = error.status === 429 || 
-                           (error.message && error.message.includes('429')) ||
-                           (error.response && error.response.status === 429);
-        
-        if (isRateLimit && attempt < maxRetries) {
-          // Rate limited - wait with exponential backoff
-          const delay = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
-          console.log(`Rate limited, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries + 1})`);
-          await new Promise(resolve => setTimeout(resolve, delay));
-          continue;
-        }
-        throw error;
-      }
-    }
-  }, []);
+  // Using enhanced retryWithBackoff from API utilities
 
-  // Individual card data fetching functions
+  // Individual card data fetching functions with enhanced authentication checks
   const fetchRevenueData = useCallback(async (forceRefresh = false) => {
+    // Pre-flight authentication check
+    if (!isAuthenticated || !shop) {
+      console.log('Dashboard: Skipping revenue fetch - not authenticated or no shop');
+      setCardErrors(prev => ({ ...prev, revenue: 'Authentication required' }));
+      setCardLoading(prev => ({ ...prev, revenue: false }));
+      return;
+    }
+
     setCardLoading(prev => ({ ...prev, revenue: true }));
     setCardErrors(prev => ({ ...prev, revenue: null }));
     
@@ -838,9 +847,17 @@ const DashboardPage = () => {
     } finally {
       setCardLoading(prev => ({ ...prev, revenue: false }));
     }
-  }, [retryWithBackoff, getCachedOrFetch]);
+  }, [isAuthenticated, shop, getCachedOrFetch]);
 
   const fetchProductsData = useCallback(async (forceRefresh = false) => {
+    // Pre-flight authentication check
+    if (!isAuthenticated || !shop) {
+      console.log('Dashboard: Skipping products fetch - not authenticated or no shop');
+      setCardErrors(prev => ({ ...prev, products: 'Authentication required' }));
+      setCardLoading(prev => ({ ...prev, products: false }));
+      return;
+    }
+
     setCardLoading(prev => ({ ...prev, products: true }));
     setCardErrors(prev => ({ ...prev, products: null }));
     
@@ -872,9 +889,17 @@ const DashboardPage = () => {
     } finally {
       setCardLoading(prev => ({ ...prev, products: false }));
     }
-  }, [retryWithBackoff, navigate, getCachedOrFetch]);
+  }, [isAuthenticated, shop, navigate, getCachedOrFetch]);
 
   const fetchInventoryData = useCallback(async (forceRefresh = false) => {
+    // Pre-flight authentication check
+    if (!isAuthenticated || !shop) {
+      console.log('Dashboard: Skipping inventory fetch - not authenticated or no shop');
+      setCardErrors(prev => ({ ...prev, inventory: 'Authentication required' }));
+      setCardLoading(prev => ({ ...prev, inventory: false }));
+      return;
+    }
+
     setCardLoading(prev => ({ ...prev, inventory: true }));
     setCardErrors(prev => ({ ...prev, inventory: null }));
     
@@ -906,9 +931,17 @@ const DashboardPage = () => {
     } finally {
       setCardLoading(prev => ({ ...prev, inventory: false }));
     }
-  }, [retryWithBackoff, navigate, getCachedOrFetch]);
+  }, [isAuthenticated, shop, navigate, getCachedOrFetch]);
 
   const fetchNewProductsData = useCallback(async (forceRefresh = false) => {
+    // Pre-flight authentication check
+    if (!isAuthenticated || !shop) {
+      console.log('Dashboard: Skipping new products fetch - not authenticated or no shop');
+      setCardErrors(prev => ({ ...prev, newProducts: 'Authentication required' }));
+      setCardLoading(prev => ({ ...prev, newProducts: false }));
+      return;
+    }
+
     setCardLoading(prev => ({ ...prev, newProducts: true }));
     setCardErrors(prev => ({ ...prev, newProducts: null }));
     
@@ -940,9 +973,17 @@ const DashboardPage = () => {
     } finally {
       setCardLoading(prev => ({ ...prev, newProducts: false }));
     }
-  }, [retryWithBackoff, navigate, getCachedOrFetch]);
+  }, [isAuthenticated, shop, navigate, getCachedOrFetch]);
 
   const fetchInsightsData = useCallback(async (forceRefresh = false) => {
+    // Pre-flight authentication check
+    if (!isAuthenticated || !shop) {
+      console.log('Dashboard: Skipping insights fetch - not authenticated or no shop');
+      setCardErrors(prev => ({ ...prev, insights: 'Authentication required' }));
+      setCardLoading(prev => ({ ...prev, insights: false }));
+      return;
+    }
+
     setCardLoading(prev => ({ ...prev, insights: true }));
     setCardErrors(prev => ({ ...prev, insights: null }));
     
@@ -987,7 +1028,7 @@ const DashboardPage = () => {
     } finally {
       setCardLoading(prev => ({ ...prev, insights: false }));
     }
-  }, [retryWithBackoff, navigate, getCachedOrFetch]);
+  }, [isAuthenticated, shop, navigate, getCachedOrFetch]);
 
   const fetchAbandonedCartsData = useCallback(async (forceRefresh = false) => {
     setCardLoading(prev => ({ ...prev, abandonedCarts: true }));
@@ -1041,7 +1082,7 @@ const DashboardPage = () => {
     } finally {
       setCardLoading(prev => ({ ...prev, abandonedCarts: false }));
     }
-  }, [retryWithBackoff, getCachedOrFetch]);
+  }, [getCachedOrFetch]);
 
   const fetchOrdersData = useCallback(async (forceRefresh = false) => {
     setCardLoading(prev => ({ ...prev, orders: true }));
@@ -1152,7 +1193,7 @@ const DashboardPage = () => {
     } finally {
       setCardLoading(prev => ({ ...prev, orders: false }));
     }
-  }, [retryWithBackoff, getCachedOrFetch]);
+  }, [getCachedOrFetch]);
 
   // Clear error states on component mount and route changes
   useEffect(() => {
@@ -1188,9 +1229,50 @@ const DashboardPage = () => {
     };
   }, []); // Empty dependency array - only run on mount
 
-  // Initialize dashboard with basic structure
+  // Initialize dashboard with basic structure and handle authentication state
   useEffect(() => {
-    if (!shop) {
+    // Don't proceed until authentication system is ready
+    if (!isAuthReady) {
+      console.log('Dashboard: Waiting for auth system to be ready');
+      return;
+    }
+
+    // Handle unauthenticated state
+    if (!isAuthenticated) {
+      console.log('Dashboard: User not authenticated, clearing data and redirecting');
+      setError('Authentication required');
+      setLoading(false);
+      setInsights(null);
+      setCardLoading({
+        revenue: false,
+        products: false,
+        inventory: false,
+        newProducts: false,
+        insights: false,
+        orders: false,
+        abandonedCarts: false
+      });
+      setCardErrors({
+        revenue: null,
+        products: null,
+        inventory: null,
+        newProducts: null,
+        insights: null,
+        orders: null,
+        abandonedCarts: null
+      });
+      setHasRateLimit(false);
+      
+      // Redirect to home page after a short delay
+      setTimeout(() => {
+        navigate('/');
+      }, 1000);
+      return;
+    }
+
+    // Handle missing shop
+    if (!shop || shop.trim() === '') {
+      console.log('Dashboard: No shop available');
       setError('No shop selected');
       setLoading(false);
       // Clear all dashboard data when shop is null (logout/disconnect)
@@ -1217,99 +1299,132 @@ const DashboardPage = () => {
       return;
     }
 
-    if (shop && shop.trim() !== '') {
-      setLoading(true);
-      setError(null);
-      setIsInitialLoad(true); // Reset initial load flag for new shop
-      
-      // Initialize insights with default data to prevent "failed to load" states
-      setInsights({
-        totalRevenue: 0,
-        newProducts: 0,
-        abandonedCarts: 0,
-        lowInventory: 0,
-        topProducts: [],
-        orders: [],
-        recentOrders: [],
-        timeseries: [],
-        conversionRate: 0,
-        conversionRateDelta: 0,
-        abandonedCartCount: 0
-      });
-      
-      // Set initial loading states for all cards to show proper loading experience
-      setCardLoading({
-        revenue: true,
-        products: true,
-        inventory: true,
-        newProducts: true,
-        insights: true,
-        orders: true,
-        abandonedCarts: true
-      });
-      
-      // Clear any previous errors
-      setCardErrors({
-        revenue: null,
-        products: null,
-        inventory: null,
-        newProducts: null,
-        insights: null,
-        orders: null,
-        abandonedCarts: null
-      });
-      
-      setLoading(false);
-    }
-  }, [shop]);
+    // Authentication and shop are valid - initialize dashboard
+    console.log('Dashboard: Initializing for authenticated shop:', shop);
+    setLoading(false);
+    setError(null);
+    setIsInitialLoad(true); // Reset initial load flag for new shop
+    
+    // Initialize insights with default data to prevent "failed to load" states
+    setInsights({
+      totalRevenue: 0,
+      newProducts: 0,
+      abandonedCarts: 0,
+      lowInventory: 0,
+      topProducts: [],
+      orders: [],
+      recentOrders: [],
+      timeseries: [],
+      conversionRate: 0,
+      conversionRateDelta: 0,
+      abandonedCartCount: 0
+    });
+    
+    // Set initial loading states for all cards to show proper loading experience
+    setCardLoading({
+      revenue: true,
+      products: true,
+      inventory: true,
+      newProducts: true,
+      insights: true,
+      orders: true,
+      abandonedCarts: true
+    });
+    
+    // Clear any previous errors
+    setCardErrors({
+      revenue: null,
+      products: null,
+      inventory: null,
+      newProducts: null,
+      insights: null,
+      orders: null,
+      abandonedCarts: null
+    });
+  }, [isAuthReady, isAuthenticated, shop, navigate]);
 
-  // Auto-fetch all dashboard data on initial load with parallel requests for better performance
+  // Auto-fetch all dashboard data on initial load with proper authentication checks
   useEffect(() => {
-    if (isAuthenticated && shop && shop.trim() !== '' && isInitialLoad) {
-      setIsInitialLoad(false);
-      
-      // Parallel loading for dramatically better performance
-      const loadAllData = async () => {
-        console.log('Dashboard: Starting parallel data loading for shop:', shop);
-        
-        try {
-          // Start all API calls in parallel instead of sequential
-          const promises = [
-            fetchRevenueData().catch(err => console.error('Revenue fetch failed:', err)),
-            fetchProductsData().catch(err => console.error('Products fetch failed:', err)),
-            fetchInventoryData().catch(err => console.error('Inventory fetch failed:', err)),
-            fetchNewProductsData().catch(err => console.error('New products fetch failed:', err)),
-            fetchInsightsData().catch(err => console.error('Insights fetch failed:', err)),
-            fetchAbandonedCartsData().catch(err => console.error('Abandoned carts fetch failed:', err))
-          ];
-          
-          // Wait for critical data to load in parallel
-          const results = await Promise.allSettled(promises);
-          
-          // Log results for debugging
-          results.forEach((result, index) => {
-            const dataTypes = ['revenue', 'products', 'inventory', 'newProducts', 'insights', 'abandonedCarts'];
-            if (result.status === 'rejected') {
-              console.error(`Dashboard: ${dataTypes[index]} loading failed:`, result.reason);
-            } else {
-              console.log(`Dashboard: ${dataTypes[index]} loading completed successfully`);
-            }
-          });
-          
-          // Orders data can be loaded slightly delayed to reduce initial load
-          setTimeout(() => {
-            fetchOrdersData().catch(err => console.error('Orders fetch failed:', err));
-          }, 100);
-          
-          console.log('Dashboard: Parallel data loading completed');
-        } catch (error) {
-          console.error('Dashboard: Error in parallel data loading:', error);
-        }
-      };
-      
-      loadAllData();
+    // Only proceed if authentication is ready and we have all required states
+    if (!isAuthReady || authLoading) {
+      console.log('Dashboard: Waiting for authentication to complete');
+      return;
     }
-  }, [shop, isInitialLoad, fetchRevenueData, fetchProductsData, fetchInventoryData, fetchNewProductsData, fetchInsightsData, fetchOrdersData, fetchAbandonedCartsData]);
+
+    // Ensure user is authenticated and has a shop before loading data
+    if (!isAuthenticated || !shop || shop.trim() === '') {
+      console.log('Dashboard: Cannot load data - authentication or shop missing');
+      return;
+    }
+
+    // Only load data on initial load to prevent unnecessary API calls
+    if (!isInitialLoad) {
+      console.log('Dashboard: Skipping data load - not initial load');
+      return;
+    }
+
+    setIsInitialLoad(false);
+    
+    // Parallel loading for dramatically better performance
+    const loadAllData = async () => {
+      console.log('Dashboard: Starting parallel data loading for shop:', shop);
+      
+      try {
+        // Start all API calls in parallel instead of sequential
+        const promises = [
+          fetchRevenueData().catch(err => {
+            console.error('Revenue fetch failed:', err);
+            return null; // Don't fail the entire load for one error
+          }),
+          fetchProductsData().catch(err => {
+            console.error('Products fetch failed:', err);
+            return null;
+          }),
+          fetchInventoryData().catch(err => {
+            console.error('Inventory fetch failed:', err);
+            return null;
+          }),
+          fetchNewProductsData().catch(err => {
+            console.error('New products fetch failed:', err);
+            return null;
+          }),
+          fetchInsightsData().catch(err => {
+            console.error('Insights fetch failed:', err);
+            return null;
+          }),
+          fetchAbandonedCartsData().catch(err => {
+            console.error('Abandoned carts fetch failed:', err);
+            return null;
+          })
+        ];
+        
+        // Wait for critical data to load in parallel
+        const results = await Promise.allSettled(promises);
+        
+        // Log results for debugging
+        results.forEach((result, index) => {
+          const dataTypes = ['revenue', 'products', 'inventory', 'newProducts', 'insights', 'abandonedCarts'];
+          if (result.status === 'rejected') {
+            console.error(`Dashboard: ${dataTypes[index]} loading failed:`, result.reason);
+          } else {
+            console.log(`Dashboard: ${dataTypes[index]} loading completed successfully`);
+          }
+        });
+        
+        // Orders data can be loaded slightly delayed to reduce initial load
+        setTimeout(() => {
+          fetchOrdersData().catch(err => console.error('Orders fetch failed:', err));
+        }, 100);
+        
+        console.log('Dashboard: Parallel data loading completed');
+      } catch (error) {
+        console.error('Dashboard: Error in parallel data loading:', error);
+        // Don't show error to user for individual API failures
+      }
+    };
+    
+    loadAllData();
+  }, [isAuthReady, authLoading, isAuthenticated, shop, isInitialLoad, fetchRevenueData, fetchProductsData, fetchInventoryData, fetchNewProductsData, fetchInsightsData, fetchOrdersData, fetchAbandonedCartsData]);
 
   // Lazy load data for individual cards
   const handleCardLoad = useCallback((cardType: keyof CardLoadingState) => {
@@ -1562,18 +1677,53 @@ const DashboardPage = () => {
     return () => clearInterval(interval);
   }, [lastRefreshTime]);
 
-  // Add proper authentication state handling
+  // Enhanced authentication state handling with proper loading management
   useEffect(() => {
+    // Don't process until auth system is ready
+    if (!isAuthReady) {
+      console.log('Dashboard: Auth system not ready yet');
+      return;
+    }
+
+    // Show loading state while auth is being determined
+    if (authLoading) {
+      console.log('Dashboard: Authentication in progress');
+      setLoading(true);
+      return;
+    }
+
+    // Handle successful authentication
     if (isAuthenticated && shop) {
       console.log('Dashboard: Authentication confirmed, shop:', shop);
       setLoading(false);
       setError(null);
-    } else if (!isAuthenticated && !loading && shop === null) {
-      console.log('Dashboard: Not authenticated, redirecting to home');
-      setLoading(false);
-      navigate('/');
+      return;
     }
-  }, [isAuthenticated, shop, navigate, loading]);
+
+    // Handle authentication failure or missing shop
+    if (!isAuthenticated || !shop) {
+      console.log('Dashboard: Authentication failed or no shop - redirecting to home');
+      setError('Authentication required');
+      setLoading(false);
+      
+      // Clear any existing dashboard data
+      setInsights(null);
+      setCardLoading({
+        revenue: false,
+        products: false,
+        inventory: false,
+        newProducts: false,
+        insights: false,
+        orders: false,
+        abandonedCarts: false
+      });
+      
+      // Redirect after clearing state
+      setTimeout(() => {
+        navigate('/');
+      }, 500);
+    }
+  }, [isAuthReady, authLoading, isAuthenticated, shop, navigate]);
 
   if (loading) {
     return (

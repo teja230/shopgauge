@@ -10,6 +10,21 @@ export const setGlobalServiceErrorHandler = (handler: (error: any) => boolean) =
   globalServiceErrorHandler = handler;
 };
 
+// Authentication state for API calls
+let isApiAuthenticated = false;
+let currentShop: string | null = null;
+
+export const setApiAuthState = (authenticated: boolean, shop: string | null) => {
+  isApiAuthenticated = authenticated;
+  currentShop = shop;
+  console.log('API: Updated auth state - authenticated:', authenticated, 'shop:', shop);
+};
+
+export const getApiAuthState = () => ({
+  isAuthenticated: isApiAuthenticated,
+  shop: currentShop
+});
+
 const defaultOptions: RequestInit = {
   credentials: 'include',
   headers: {
@@ -62,9 +77,16 @@ api.interceptors.response.use(
   }
 );
 
+// Enhanced fetchWithAuth with authentication pre-checks
 export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
   const fullUrl = `${API_BASE_URL}${url}`;
   console.log('API: Fetching:', fullUrl);
+  
+  // Pre-flight authentication check
+  if (!isApiAuthenticated || !currentShop) {
+    console.warn('API: Attempting request without authentication - url:', url);
+    // Don't throw immediately, let the server respond with 401 if needed
+  }
   
   try {
   const response = await fetch(fullUrl, {
@@ -102,7 +124,8 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
     
     // Handle 401 Unauthorized
     if (response.status === 401) {
-      console.log('API: Unauthorized response detected');
+      console.log('API: Unauthorized response detected - updating auth state');
+      setApiAuthState(false, null);
       throw new Error('Authentication required');
     }
     
@@ -133,6 +156,46 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
   }
 };
 
+// Retry utility with exponential backoff
+export const retryWithBackoff = async <T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3,
+  baseDelay: number = 1000
+): Promise<T> => {
+  let lastError: any;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const result = await fn();
+      if (attempt > 0) {
+        console.log(`API: Retry succeeded on attempt ${attempt + 1}`);
+      }
+      return result;
+    } catch (error: any) {
+      lastError = error;
+      
+      // Don't retry authentication errors or handled service errors
+      if (error.message === 'Authentication required' || 
+          error.status === 401 ||
+          (error as any).handled) {
+        throw error;
+      }
+      
+      // Don't retry on the last attempt
+      if (attempt === maxRetries) {
+        break;
+      }
+      
+      const delay = baseDelay * Math.pow(2, attempt);
+      console.log(`API: Retry attempt ${attempt + 1} failed, retrying in ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  console.error(`API: All ${maxRetries + 1} attempts failed`);
+  throw lastError;
+};
+
 export interface Insight {
   conversionRate: number;
   conversionRateDelta: number;
@@ -159,7 +222,8 @@ export interface Competitor {
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     if (response.status === 401) {
-      console.log('API: Unauthorized, clearing auth state');
+      console.log('API: Unauthorized, updating auth state and clearing cookies');
+      setApiAuthState(false, null);
       // Clear any stale auth state with proper domain
       const isProduction = window.location.hostname.includes('shopgaugeai.com');
       const domainAttribute = isProduction ? '; domain=.shopgaugeai.com' : '';

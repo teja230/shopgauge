@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
-import { API_BASE_URL } from '../api';
+import { API_BASE_URL, setApiAuthState } from '../api';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -9,6 +9,8 @@ interface AuthContextType {
   loading: boolean;
   logout: () => void;
   setShop: (shop: string | null) => void;
+  checkAuth: () => Promise<void>;
+  isAuthReady: boolean; // New flag to indicate auth system is ready
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -18,6 +20,8 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   logout: () => {},
   setShop: () => {},
+  checkAuth: async () => {},
+  isAuthReady: false,
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -28,6 +32,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [authLoading, setAuthLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
+  const [isAuthReady, setIsAuthReady] = useState(false);
 
   // Comprehensive cache clearing function
   const clearAllDashboardCache = () => {
@@ -49,13 +54,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
-    // Only show global loading on first app load
+    // Only run initial auth check on mount
     if (!hasInitiallyLoaded) {
-    checkAuth();
+      checkAuth();
     }
-  }, [hasInitiallyLoaded]);
+  }, []);
 
   const checkAuth = async () => {
+    console.log('AuthContext: Starting authentication check');
+    setAuthLoading(true);
+    
     try {
       const response = await axios.get(`${API_BASE_URL}/api/auth/shopify/me`, {
         withCredentials: true,
@@ -65,21 +73,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (response.data.shop) {
         // If shop has changed, clear the cache
         if (shop && shop !== response.data.shop) {
+          console.log('AuthContext: Shop changed from', shop, 'to', response.data.shop, '- clearing cache');
           clearAllDashboardCache();
         }
+        
         setShop(response.data.shop);
         setIsAuthenticated(true);
         
-        // Log successful authentication for debugging
-        if (import.meta.env.DEV) {
-          console.log('Auth: Successfully authenticated as shop:', response.data.shop);
-        }
+        // Update API auth state
+        setApiAuthState(true, response.data.shop);
+        
+        console.log('AuthContext: Authentication successful for shop:', response.data.shop);
       } else {
+        console.log('AuthContext: No shop in response, user not authenticated');
         setIsAuthenticated(false);
         setShop(null);
+        
+        // Update API auth state
+        setApiAuthState(false, null);
       }
     } catch (error) {
-      console.error('Auth check failed:', error);
+      console.error('AuthContext: Auth check failed:', error);
       
       // Check if it's a 401 error that might be recoverable
       if (axios.isAxiosError(error) && error.response?.status === 401) {
@@ -87,7 +101,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         // If there's a reauth URL, we might be able to recover
         if (errorData?.reauth_url && errorData?.shop) {
-          console.log('Auth: Session expired but shop known, attempting recovery...');
+          console.log('AuthContext: Session expired but shop known, attempting recovery...');
           
           // Try to refresh authentication
           try {
@@ -97,55 +111,86 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             });
             
             if (refreshResponse.data.success && refreshResponse.data.shop) {
-              console.log('Auth: Successfully recovered authentication');
+              console.log('AuthContext: Successfully recovered authentication');
               setShop(refreshResponse.data.shop);
               setIsAuthenticated(true);
+              
+              // Update API auth state
+              setApiAuthState(true, refreshResponse.data.shop);
+              
+              setAuthLoading(false);
+              setIsAuthReady(true);
+              if (!hasInitiallyLoaded) {
+                setLoading(false);
+                setHasInitiallyLoaded(true);
+              }
               return; // Successfully recovered
             }
           } catch (refreshError) {
-            console.warn('Auth: Failed to refresh authentication:', refreshError);
+            console.warn('AuthContext: Failed to refresh authentication:', refreshError);
           }
         }
       }
       
       setIsAuthenticated(false);
       setShop(null);
+      
+      // Update API auth state
+      setApiAuthState(false, null);
+      
       // Clear cache on auth failure
       clearAllDashboardCache();
     } finally {
       setAuthLoading(false);
+      setIsAuthReady(true);
+      
       // Only set loading to false after initial load
       if (!hasInitiallyLoaded) {
-        // Remove artificial delay - show loading screen only as long as needed
-      setLoading(false);
-          setHasInitiallyLoaded(true);
+        setLoading(false);
+        setHasInitiallyLoaded(true);
       }
+      
+      console.log('AuthContext: Authentication check completed');
     }
   };
 
   const logout = async () => {
+    console.log('AuthContext: Starting logout');
     try {
       await axios.post(`${API_BASE_URL}/api/auth/shopify/profile/disconnect`, {}, {
         withCredentials: true
       });
       
-      // Clear dashboard cache on logout
-      clearAllDashboardCache();
-      
-      setIsAuthenticated(false);
-      setShop(null);
+      console.log('AuthContext: Logout API call successful');
     } catch (error) {
-      console.error('Logout failed:', error);
-      
-      // Clear cache even if logout API fails
+      console.error('AuthContext: Logout API failed:', error);
+    } finally {
+      // Clear dashboard cache on logout regardless of API result
       clearAllDashboardCache();
+      
       setIsAuthenticated(false);
       setShop(null);
+      
+      // Update API auth state
+      setApiAuthState(false, null);
+      
+      setIsAuthReady(true); // Keep auth system ready
+      
+      console.log('AuthContext: Logout completed');
     }
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, shop, authLoading, loading, logout, setShop }}>
+    <AuthContext.Provider value={{ 
+      isAuthenticated, 
+      shop, 
+      authLoading, 
+      loading, 
+      logout, 
+      setShop,
+      checkAuth,
+      isAuthReady
+    }}>
       {children}
     </AuthContext.Provider>
   );
