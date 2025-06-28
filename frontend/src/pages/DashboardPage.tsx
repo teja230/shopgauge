@@ -1723,10 +1723,13 @@ const DashboardPage = () => {
     // Check if we're already refreshing or if debounce period hasn't passed
     if (isRefreshing || (now - lastRefreshTime) < REFRESH_DEBOUNCE_MS) {
       console.log('🔄 Refresh blocked - already refreshing or debounce period active');
+      const remaining = REFRESH_DEBOUNCE_MS - (now - lastRefreshTime);
+      notifications.showInfo(`Please wait ${Math.ceil(remaining / 1000)}s before refreshing again.`, { duration: 3000 });
       return;
     }
     
     console.log('🔄 MANUAL REFRESH: Forcing fresh API calls for all data');
+    notifications.showInfo('🔄 Refreshing dashboard data...', { duration: 2000, category: 'Dashboard' });
     setLastRefreshTime(now);
     setIsRefreshing(true);
     
@@ -1775,12 +1778,26 @@ const DashboardPage = () => {
         fetchAbandonedCartsData(true)
       ]);
       
+      notifications.showSuccess('✅ Dashboard data has been updated.', { duration: 3000, category: 'Dashboard' });
       setIsRefreshing(false);
     } catch (error) {
       console.error('Error refreshing dashboard:', error);
+      notifications.showError('❌ Failed to refresh dashboard data.', { persistent: true, category: 'Dashboard' });
       setIsRefreshing(false);
     }
-  }, [isRefreshing, lastRefreshTime, fetchRevenueData, fetchProductsData, fetchInventoryData, fetchNewProductsData, fetchInsightsData, fetchOrdersData, fetchAbandonedCartsData]);
+  }, [
+    shop, 
+    isRefreshing, 
+    lastRefreshTime, 
+    fetchRevenueData, 
+    fetchProductsData, 
+    fetchInventoryData, 
+    fetchNewProductsData, 
+    fetchInsightsData, 
+    fetchOrdersData,
+    fetchAbandonedCartsData,
+    notifications
+  ]);
 
   // Handle URL parameters and optimize post-OAuth loading experience
   useEffect(() => {

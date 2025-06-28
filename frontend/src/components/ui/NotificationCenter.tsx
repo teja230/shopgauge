@@ -616,11 +616,13 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
       case 'profile':
         return { icon: <User {...iconProps} />, name: 'Profile' };
       case 'discovery':
+      case 'competitors':
+      case 'mode':
         return { icon: <Compass {...iconProps} />, name: 'Market Intelligence' };
       case 'analytics':
+      case 'dashboard':
         return { icon: <BarChart3 {...iconProps} />, name: 'Analytics' };
       case 'system':
-      case 'mode':
         return { icon: <Settings2 {...iconProps} />, name: 'System' };
       default:
         return { icon: <Tag {...iconProps} />, name: category };
