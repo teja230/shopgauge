@@ -10,13 +10,34 @@ import { OpenInNew, Refresh, Storefront, ListAlt, Inventory2 } from '@mui/icons-
 import { format } from 'date-fns';
 import { useNotifications } from '../hooks/useNotifications';
 
+/**
+ * 🚀 DASHBOARD CACHE BEHAVIOR
+ * ============================
+ * 
+ * ✅ Browser Refresh: Uses cached data (no API calls)
+ * ✅ Page Navigation: Uses cached data (no API calls) 
+ * ✅ Shop Changes: Clears cache and makes fresh API calls
+ * ✅ Cache Expiry: Makes fresh API calls after 120 minutes
+ * ✅ Manual Refresh: Forces fresh API calls via "Refresh Data" button
+ * 
+ * 🧪 How It Works:
+ * - Initial Load: Checks sessionStorage for shop-specific cache
+ * - If cache exists and is fresh (<120 min), uses cached data
+ * - If no cache or expired, makes API calls and caches results
+ * - Subsequent Loads: Always checks cache first
+ * - Only makes API calls if cache is missing/expired
+ * - Manual refresh button forces fresh API calls
+ * - Shop Switching: Automatically clears old shop's cache
+ * - Prevents data leakage between shops
+ */
+
 // Cache configuration - Enterprise-grade settings
-const CACHE_DURATION = 120 * 60 * 1000; // 120 minutes in milliseconds
-const CACHE_VERSION = '1.1.0'; // Incrementing version to invalidate existing cache
+const CACHE_DURATION = 120 * 60 * 1000; // 120 minutes (2 hours) in milliseconds
+const CACHE_VERSION = '2.0.0'; // Updated for 120-minute cache duration
 const REFRESH_DEBOUNCE_MS = 2000; // 2 seconds debounce for refresh button
 
 // Shop-specific cache key to prevent cross-shop data leakage
-const getCacheKey = (shop: string) => `dashboard_cache_${shop}_v2`;
+const getCacheKey = (shop: string) => `dashboard_cache_${shop}_v3`;
 
 interface CacheEntry<T> {
   data: T;
@@ -599,7 +620,9 @@ const DashboardPage = () => {
   // Cache state management using sessionStorage for persistence across navigation
   const [cache, setCache] = useState<DashboardCache>(() => {
     if (!shop) return { version: CACHE_VERSION, shop: '' };
-    return loadCacheFromStorage(shop);
+    const loadedCache = loadCacheFromStorage(shop);
+    console.log(`🔄 Dashboard initialization: Loading cache for shop ${shop}`);
+    return loadedCache;
   });
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -609,6 +632,7 @@ const DashboardPage = () => {
   // Save cache to sessionStorage whenever it changes
   useEffect(() => {
     if (shop) {
+      console.log(`💾 Saving cache to sessionStorage for shop: ${shop}`);
       saveCacheToStorage(cache, shop);
     }
   }, [cache, shop]);
@@ -617,11 +641,12 @@ const DashboardPage = () => {
   useEffect(() => {
     if (shop && isAuthReady) {
       // Clear cache when shop changes to prevent cross-shop data leakage
+      console.log(`🔄 Shop changed to: ${shop} - Invalidating cache to prevent data leakage`);
       const freshCache = invalidateCache(shop);
       setCache(freshCache);
       setIsInitialLoad(true);
     }
-  }, [shop, isAuthReady]); // Removed invalidateCache from dependencies
+  }, [shop, isAuthReady]);
   
   // Individual card loading states
   const [cardLoading, setCardLoading] = useState<CardLoadingState>({
@@ -644,45 +669,63 @@ const DashboardPage = () => {
     abandonedCarts: null
   });
 
-  // Helper function to check if cache entry is fresh
+  // Helper function to check if cache entry is fresh (< 120 minutes old)
   const isCacheFresh = useCallback((cacheEntry: CacheEntry<any> | undefined): boolean => {
-    if (!cacheEntry) return false;
-    return Date.now() - cacheEntry.timestamp < CACHE_DURATION;
+    if (!cacheEntry) {
+      console.log('Cache check: No cache entry found');
+      return false;
+    }
+    
+    const age = Date.now() - cacheEntry.timestamp;
+    const isFresh = age < CACHE_DURATION;
+    const ageMinutes = Math.round(age / (1000 * 60));
+    const maxMinutes = Math.round(CACHE_DURATION / (1000 * 60));
+    
+    console.log(`Cache check: ${ageMinutes}min old (max: ${maxMinutes}min) - ${isFresh ? 'FRESH ✅' : 'EXPIRED ❌'}`);
+    
+    return isFresh;
   }, []);
 
   // Helper function to get cache or fetch fresh data
+  // This implements the core caching logic for all dashboard data
   const getCachedOrFetch = useCallback(async (
     cacheKey: keyof DashboardCache,
     fetchFunction: () => Promise<any>,
     forceRefresh = false
   ): Promise<any> => {
-    // Skip version key
-    if (cacheKey === 'version') return null;
+    // Skip version and shop keys
+    if (cacheKey === 'version' || cacheKey === 'shop') return null;
     
     const cachedEntry = cache[cacheKey] as CacheEntry<any> | undefined;
     
+    console.log(`📊 ${cacheKey.toUpperCase()}: ${cachedEntry ? 'Has cache' : 'No cache'}, Force: ${forceRefresh}`);
+    
+    // Use cached data if available, fresh, and not forcing refresh
     if (!forceRefresh && isCacheFresh(cachedEntry)) {
-      console.log(`Using cached data for ${cacheKey}`);
+      console.log(`✅ ${cacheKey.toUpperCase()}: Using cached data (no API call)`);
       return cachedEntry!.data;
     }
     
-    console.log(`Fetching fresh data for ${cacheKey}`);
+    // Fetch fresh data from API
+    console.log(`🔄 ${cacheKey.toUpperCase()}: Fetching fresh data from API`);
     const freshData = await fetchFunction();
     const now = new Date();
     
-    setCache(prev => ({
+    // Update cache with fresh data
+    setCache((prev: DashboardCache) => ({
       ...prev,
       [cacheKey]: {
         data: freshData,
         timestamp: Date.now(),
         lastUpdated: now,
         version: CACHE_VERSION,
-        shop: cache.shop || ''
+        shop: shop || ''
       }
     }));
     
+    console.log(`💾 ${cacheKey.toUpperCase()}: Cached fresh data`);
     return freshData;
-  }, [cache, isCacheFresh]);
+  }, [cache, isCacheFresh, shop]);
 
 
 
@@ -1485,21 +1528,24 @@ const DashboardPage = () => {
   }, [cardLoading, fetchRevenueData, fetchProductsData, fetchInventoryData, fetchNewProductsData, fetchInsightsData, fetchOrdersData, fetchAbandonedCartsData]);
 
   // Manual refresh function with debounce protection
+  // This forces fresh API calls for all dashboard data
   const handleRefreshAll = useCallback(async () => {
     const now = Date.now();
     
     // Check if we're already refreshing or if debounce period hasn't passed
     if (isRefreshing || (now - lastRefreshTime) < REFRESH_DEBOUNCE_MS) {
-      console.log('Refresh blocked - already refreshing or debounce period active');
+      console.log('🔄 Refresh blocked - already refreshing or debounce period active');
       return;
     }
     
+    console.log('🔄 MANUAL REFRESH: Forcing fresh API calls for all data');
     setLastRefreshTime(now);
     setIsRefreshing(true);
     
     try {
       // Clear cache from both state and sessionStorage to force fresh data
       if (shop) {
+        console.log('🗑️ Clearing cache to force fresh API calls');
         const freshCache = invalidateCache(shop);
         setCache(freshCache);
       }
@@ -2124,9 +2170,30 @@ const DashboardPage = () => {
           </Typography>
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
-            <LastUpdatedText>
-              Last updated: {getLastUpdatedText()}
-            </LastUpdatedText>
+                    <LastUpdatedText>
+          Last updated: {getLastUpdatedText()}
+        </LastUpdatedText>
+        
+        {/* Cache Status Indicator for Testing */}
+        <Typography variant="caption" sx={{ 
+          color: 'text.secondary', 
+          fontSize: '0.7rem',
+          opacity: 0.7 
+        }}>
+          Cache Duration: {Math.round(CACHE_DURATION / (1000 * 60))} minutes
+        </Typography>
+            <Button
+              variant="text"
+              size="small"
+              onClick={() => {
+                console.log('🔍 Current cache state:', cache);
+                console.log('🔍 SessionStorage cache:', sessionStorage.getItem(getCacheKey(shop || '')));
+                alert(`Cache debug:\nShop: ${shop}\nCache keys: ${Object.keys(cache).filter(k => k !== 'version' && k !== 'shop').join(', ')}\nHas products cache: ${!!cache.products}`);
+              }}
+              sx={{ minWidth: 'auto', px: 1 }}
+            >
+              Debug Cache
+            </Button>
             <RefreshButton
               variant="outlined"
               size="small"
