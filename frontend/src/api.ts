@@ -451,19 +451,81 @@ export async function ignoreSuggestion(id: number): Promise<{ message: string }>
   return handleResponse<{ message: string }>(res);
 }
 
+// Helper function to check if error is an abort error
+const isAbortError = (error: any): boolean => {
+  return error?.name === 'AbortError' || error?.code === 'ABORT_ERR';
+};
+
+// Enhanced authentication state management with better error handling
+let authCheckInProgress = false;
+let lastAuthCheck = 0;
+const AUTH_CHECK_COOLDOWN = 5000; // 5 seconds between auth checks
+
+const checkAuthWithRetry = async (retries = 3): Promise<{ shop: string | null; authenticated: boolean }> => {
+  const now = Date.now();
+  
+  // Prevent multiple simultaneous auth checks
+  if (authCheckInProgress || (now - lastAuthCheck) < AUTH_CHECK_COOLDOWN) {
+    console.log('Auth check already in progress or on cooldown, skipping');
+    return { shop: null, authenticated: false };
+  }
+  
+  authCheckInProgress = true;
+  lastAuthCheck = now;
+  
+  try {
+    // Use GET method explicitly to prevent HEAD requests
+    const response = await fetch('/api/auth/shopify/me', {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      cache: 'no-cache', // Ensure fresh auth checks
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data.shop && data.authenticated) {
+        console.log('Authentication check successful:', data.shop);
+        return { shop: data.shop, authenticated: true };
+      }
+    }
+    
+    if (response.status === 401) {
+      console.log('Authentication required - user not logged in');
+      return { shop: null, authenticated: false };
+    }
+    
+    if (response.status === 404) {
+      console.warn('Auth endpoint not found - possible deployment issue');
+      return { shop: null, authenticated: false };
+    }
+    
+    throw new Error(`Auth check failed with status: ${response.status}`);
+    
+  } catch (error) {
+    console.warn(`Auth check attempt failed:`, error);
+    
+    if (retries > 0 && !isAbortError(error)) {
+      console.log(`Retrying auth check, ${retries} attempts remaining`);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      return checkAuthWithRetry(retries - 1);
+    }
+    
+    return { shop: null, authenticated: false };
+  } finally {
+    authCheckInProgress = false;
+  }
+};
+
 export const getAuthShop = async () => {
   try {
-    console.log('API: Fetching auth shop');
-    const response = await fetchWithAuth('/api/auth/shopify/me');
-    const data = await handleResponse<{ shop: string }>(response);
-    console.log('API: Got auth shop:', data.shop);
-    return data.shop;
+    return await checkAuthWithRetry();
   } catch (error) {
-    console.error('API: Error getting auth shop:', error);
-    if (error instanceof Error && error.message === 'Authentication required') {
-      return null;
-    }
-    throw error;
+    console.error('Failed to get auth shop:', error);
+    return { shop: null, authenticated: false };
   }
 };
 

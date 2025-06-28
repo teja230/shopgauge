@@ -1015,6 +1015,14 @@ const DashboardPage = () => {
   }, [isAuthenticated, shop, navigate, getCachedOrFetch]);
 
   const fetchAbandonedCartsData = useCallback(async (forceRefresh = false) => {
+    // Pre-flight authentication check
+    if (!isAuthenticated || !shop) {
+      console.log('Dashboard: Skipping abandoned carts fetch - not authenticated or no shop');
+      setCardErrors(prev => ({ ...prev, abandonedCarts: 'Authentication required' }));
+      setCardLoading(prev => ({ ...prev, abandonedCarts: false }));
+      return;
+    }
+
     setCardLoading(prev => ({ ...prev, abandonedCarts: true }));
     setCardErrors(prev => ({ ...prev, abandonedCarts: null }));
     

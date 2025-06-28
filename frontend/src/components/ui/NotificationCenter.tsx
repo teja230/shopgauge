@@ -121,11 +121,9 @@ const NotificationContent = styled(Box)(({ theme }) => ({
 const NotificationItemActions = styled(Box)({
   display: 'flex',
   alignItems: 'center',
-  gap: '4px',
-  position: 'absolute',
-  top: '50%',
-  right: '16px',
-  transform: 'translateY(-50%)',
+  gap: '8px',
+  marginLeft: 'auto',
+  paddingLeft: '12px',
   opacity: 0,
   transition: 'opacity 0.2s ease-in-out',
   '&.notification-item-actions': {},
@@ -141,6 +139,9 @@ const NotificationItem = styled(Box, {
   backgroundColor: isUnread ? theme.palette.primary.main + '15' : 'transparent',
   transition: 'all 0.2s ease',
   position: 'relative',
+  display: 'flex',
+  alignItems: 'flex-start',
+  gap: theme.spacing(1.5),
   '&:hover': {
     backgroundColor: theme.palette.action.hover,
     borderColor: theme.palette.divider,
@@ -550,65 +551,63 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
 
               {!loading && !error && notifications.map((notification) => (
                 <NotificationItem key={notification.id} isUnread={!notification.read}>
-                  <Box display="flex" alignItems="flex-start" gap={2}>
-                    <Box mt={0.5}>
-                      {getNotificationIcon(notification.type)}
-                    </Box>
+                  <Box mt={0.5}>
+                    {getNotificationIcon(notification.type)}
+                  </Box>
+                  
+                  <Box flex={1} minWidth={0}>
+                    <Typography 
+                      variant="body2" 
+                      sx={{ 
+                        fontWeight: notification.read ? 400 : 600,
+                        color: 'text.primary',
+                        mb: 0.5,
+                        wordBreak: 'break-word'
+                      }}
+                    >
+                      {notification.message}
+                    </Typography>
                     
-                    <Box flex={1} minWidth={0}>
-                      <Typography 
-                        variant="body2" 
-                        sx={{ 
-                          fontWeight: notification.read ? 400 : 600,
-                          color: 'text.primary',
-                          mb: 0.5,
-                          wordBreak: 'break-word'
-                        }}
-                      >
-                        {notification.message}
-                      </Typography>
-                      
-                      <Typography variant="caption" color="text.secondary">
-                        {formatTimestamp(notification.createdAt)}
-                        {notification.category && (
-                          <>
-                            <Box component="span" sx={{ mx: 0.5 }}>•</Box>
-                            {notification.category}
-                          </>
-                        )}
-                      </Typography>
-                    </Box>
+                    <Typography variant="caption" color="text.secondary">
+                      {formatTimestamp(notification.createdAt)}
+                      {notification.category && (
+                        <>
+                          <Box component="span" sx={{ mx: 0.5 }}>•</Box>
+                          {notification.category}
+                        </>
+                      )}
+                    </Typography>
                   </Box>
 
                   <NotificationItemActions className="notification-item-actions">
-                      {/* Actions appear on hover */}
-                      {!notification.read && (
-                        <Tooltip title="Mark as read">
-                          <IconButton
-                            size="small"
-                            onClick={() => markAsRead(notification.id)}
-                            sx={{ 
-                              color: 'text.secondary',
-                              '&:hover': { color: 'success.main', backgroundColor: 'success.light' + '25' } 
-                            }}
-                          >
-                            <Check size={16} />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      
-                      <Tooltip title="Delete">
+                    {/* Actions appear on hover */}
+                    {!notification.read && (
+                      <Tooltip title="Mark as read">
                         <IconButton
                           size="small"
-                          onClick={() => handleDeleteNotification(notification.id)}
-                           sx={{ 
-                             color: 'text.secondary',
-                             '&:hover': { color: 'error.main', backgroundColor: 'error.light' + '25' } 
-                           }}
+                          onClick={() => markAsRead(notification.id)}
+                          sx={{ 
+                            color: 'text.secondary',
+                            '&:hover': { color: 'success.main', backgroundColor: 'success.light' + '25' } 
+                          }}
                         >
-                          <Trash2 size={16} />
+                          <Check size={16} />
                         </IconButton>
                       </Tooltip>
+                    )}
+                    
+                    <Tooltip title="Delete">
+                      <IconButton
+                        size="small"
+                        onClick={() => handleDeleteNotification(notification.id)}
+                         sx={{ 
+                           color: 'text.secondary',
+                           '&:hover': { color: 'error.main', backgroundColor: 'error.light' + '25' } 
+                         }}
+                      >
+                        <Trash2 size={16} />
+                      </IconButton>
+                    </Tooltip>
                   </NotificationItemActions>
                 </NotificationItem>
               ))}

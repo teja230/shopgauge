@@ -1,16 +1,22 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import axios from 'axios';
-import { API_BASE_URL, setApiAuthState } from '../api';
+import { getAuthShop, setApiAuthState, API_BASE_URL } from '../api';
+
+// Types
+interface Shop {
+  name: string;
+  url: string;
+}
 
 interface AuthContextType {
   isAuthenticated: boolean;
   shop: string | null;
-  authLoading: boolean;
-  loading: boolean;
-  logout: () => void;
   setShop: (shop: string | null) => void;
-  checkAuth: () => Promise<void>;
-  isAuthReady: boolean; // New flag to indicate auth system is ready
+  authLoading: boolean;
+  isAuthReady: boolean;
+  loading: boolean;
+  hasInitiallyLoaded: boolean;
+  logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -20,8 +26,8 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   logout: () => {},
   setShop: () => {},
-  checkAuth: async () => {},
   isAuthReady: false,
+  hasInitiallyLoaded: false,
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -62,95 +68,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const checkAuth = async () => {
     console.log('AuthContext: Starting authentication check');
-    setAuthLoading(true);
     
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/auth/shopify/me`, {
-        withCredentials: true,
-        timeout: 10000 // 10 second timeout
-      });
+      setAuthLoading(true);
       
-      if (response.data.shop) {
-        // If shop has changed, clear the cache
-        if (shop && shop !== response.data.shop) {
-          console.log('AuthContext: Shop changed from', shop, 'to', response.data.shop, '- clearing cache');
-          clearAllDashboardCache();
-        }
-        
-        setShop(response.data.shop);
+      // Use enhanced auth check that handles race conditions
+      const authResult = await getAuthShop();
+      
+      if (authResult.authenticated && authResult.shop) {
+        console.log('AuthContext: Authentication successful, shop:', authResult.shop);
+        setShop(authResult.shop);
         setIsAuthenticated(true);
+        setIsAuthReady(true);
         
-        // Update API auth state
-        setApiAuthState(true, response.data.shop);
-        
-        console.log('AuthContext: Authentication successful for shop:', response.data.shop);
+        // Sync API authentication state
+        setApiAuthState(true, authResult.shop);
       } else {
-        console.log('AuthContext: No shop in response, user not authenticated');
-        setIsAuthenticated(false);
+        console.log('AuthContext: Not authenticated or no shop found');
         setShop(null);
+        setIsAuthenticated(false);
+        setIsAuthReady(true);
         
-        // Update API auth state
+        // Sync API authentication state
         setApiAuthState(false, null);
       }
+      
+      setHasInitiallyLoaded(true);
+      
     } catch (error) {
-      console.error('AuthContext: Auth check failed:', error);
-      
-      // Check if it's a 401 error that might be recoverable
-      if (axios.isAxiosError(error) && error.response?.status === 401) {
-        const errorData = error.response.data;
-        
-        // If there's a reauth URL, we might be able to recover
-        if (errorData?.reauth_url && errorData?.shop) {
-          console.log('AuthContext: Session expired but shop known, attempting recovery...');
-          
-          // Try to refresh authentication
-          try {
-            const refreshResponse = await axios.post(`${API_BASE_URL}/api/auth/shopify/refresh`, {}, {
-              withCredentials: true,
-              timeout: 5000
-            });
-            
-            if (refreshResponse.data.success && refreshResponse.data.shop) {
-              console.log('AuthContext: Successfully recovered authentication');
-              setShop(refreshResponse.data.shop);
-              setIsAuthenticated(true);
-              
-              // Update API auth state
-              setApiAuthState(true, refreshResponse.data.shop);
-              
-              setAuthLoading(false);
-              setIsAuthReady(true);
-              if (!hasInitiallyLoaded) {
-                setLoading(false);
-                setHasInitiallyLoaded(true);
-              }
-              return; // Successfully recovered
-            }
-          } catch (refreshError) {
-            console.warn('AuthContext: Failed to refresh authentication:', refreshError);
-          }
-        }
-      }
-      
-      setIsAuthenticated(false);
+      console.error('AuthContext: Error during authentication check:', error);
       setShop(null);
+      setIsAuthenticated(false);
+      setIsAuthReady(true);
+      setHasInitiallyLoaded(true);
       
-      // Update API auth state
+      // Sync API authentication state
       setApiAuthState(false, null);
-      
-      // Clear cache on auth failure
-      clearAllDashboardCache();
     } finally {
       setAuthLoading(false);
-      setIsAuthReady(true);
-      
-      // Only set loading to false after initial load
-      if (!hasInitiallyLoaded) {
-        setLoading(false);
-        setHasInitiallyLoaded(true);
-      }
-      
-      console.log('AuthContext: Authentication check completed');
     }
   };
 
@@ -188,8 +143,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       loading, 
       logout, 
       setShop,
-      checkAuth,
-      isAuthReady
+      isAuthReady,
+      hasInitiallyLoaded
     }}>
       {children}
     </AuthContext.Provider>

@@ -131,13 +131,13 @@ const fetchWithCache = async <T,>(
 };
 
 export default function CompetitorsPage() {
-  const { shop } = useAuth();
+  const { shop, isAuthenticated, authLoading, isAuthReady } = useAuth();
   const navigate = useNavigate();
   const [competitors, setCompetitors] = useState<Competitor[]>([]);
   const [filteredCompetitors, setFilteredCompetitors] = useState<Competitor[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestionCount, setSuggestionCount] = useState(0);
-  const [isDemoMode, setIsDemoMode] = useState(true);
+  const [isDemoMode, setIsDemoMode] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -182,9 +182,26 @@ export default function CompetitorsPage() {
     }
   }, [shop]);
 
-  // Optimized data fetching with caching and debouncing
+  // Optimized data fetching with authentication checks
   const fetchData = useCallback(async (forceRefresh = false) => {
-    if (!shop) return;
+    if (!shop || !isAuthenticated || !isAuthReady) {
+      console.log('CompetitorsPage: Skipping fetch - no shop, not authenticated, or auth not ready', {
+        shop: !!shop,
+        isAuthenticated,
+        isAuthReady
+      });
+      
+      // Only use demo mode if explicitly not authenticated (not just loading)
+      if (isAuthReady && !isAuthenticated && !userDisabledDemo) {
+        console.log('CompetitorsPage: Not authenticated, enabling demo mode');
+        setIsDemoMode(true);
+        setCompetitors(DEMO_COMPETITORS);
+        setSuggestionCount(DEMO_SUGGESTIONS.length);
+      }
+      
+      setIsLoading(false);
+      return;
+    }
     
     const now = Date.now();
     const timeSinceLastFetch = now - lastFetchTimeRef.current;
@@ -210,54 +227,47 @@ export default function CompetitorsPage() {
       setSuggestionCount(suggestionCountData.newSuggestions);
       
       // Handle demo mode logic - respect user preference above all
-      console.log(`fetchData: userDisabledDemo=${userDisabledDemo}, forceRefresh=${forceRefresh}, competitorsData.length=${competitorsData.length}, suggestionCountData.newSuggestions=${suggestionCountData.newSuggestions}, currentDemoMode=${isDemoMode}`);
+      console.log(`fetchData: authenticated=${isAuthenticated}, userDisabledDemo=${userDisabledDemo}, competitorsData.length=${competitorsData.length}, suggestionCountData.newSuggestions=${suggestionCountData.newSuggestions}`);
       
       if (userDisabledDemo) {
         // User explicitly disabled demo - stay in live mode regardless of data
         console.log('fetchData: User explicitly disabled demo, staying in Live Mode');
-        // Only update mode if we're not already in live mode to prevent unnecessary renders
         if (isDemoMode) {
-        setIsDemoMode(false);
+          setIsDemoMode(false);
         }
-      } else if (!forceRefresh && !isDemoMode && (competitorsData.length === 0 && suggestionCountData.newSuggestions === 0)) {
-        // Only auto-enable demo if:
-        // 1. This is not a forced refresh (prevents overriding user toggle actions)
-        // 2. We're not already in demo mode (prevents unnecessary state changes)
-        // 3. We have no data
-        console.log('fetchData: No data available, auto-enabling Demo Mode');
-        setIsDemoMode(true);
-        setCompetitors(DEMO_COMPETITORS);
-        setSuggestionCount(DEMO_SUGGESTIONS.length);
-      } else if ((competitorsData.length > 0 || suggestionCountData.newSuggestions > 0) && !userDisabledDemo) {
-        // Has data and user hasn't explicitly chosen demo - use live mode
+      } else if (isAuthenticated && (competitorsData.length > 0 || suggestionCountData.newSuggestions > 0)) {
+        // Has data and authenticated - use live mode
         if (isDemoMode) {
-          console.log('fetchData: Data available, switching to Live Mode');
-        setIsDemoMode(false);
-        } else {
-          console.log('fetchData: Data available, already in Live Mode');
+          console.log('fetchData: Authenticated with data, switching to Live Mode');
+          setIsDemoMode(false);
         }
-      } else {
-        console.log('fetchData: Maintaining current mode based on user preference');
+      } else if (isAuthenticated && competitorsData.length === 0 && suggestionCountData.newSuggestions === 0) {
+        // Authenticated but no data - stay in live mode to show empty state
+        console.log('fetchData: Authenticated but no data available, staying in Live Mode (empty state)');
+        if (isDemoMode) {
+          setIsDemoMode(false);
+        }
       }
       
       lastFetchTimeRef.current = now;
       isInitialLoadRef.current = false;
       
     } catch (e) {
-      console.log('fetchData: API not available, checking demo mode preference');
-      // Only auto-enable demo mode on API failure if user hasn't explicitly disabled it
-      if (!userDisabledDemo) {
-        console.log('fetchData: API failed, auto-enabling Demo Mode');
+      console.error('fetchData: API error:', e);
+      
+      // Only auto-enable demo mode on API failure if user hasn't explicitly disabled it AND not authenticated
+      if (!userDisabledDemo && !isAuthenticated) {
+        console.log('fetchData: API failed and not authenticated, enabling Demo Mode');
         setIsDemoMode(true);
         setCompetitors(DEMO_COMPETITORS);
         setSuggestionCount(DEMO_SUGGESTIONS.length);
       } else {
-        console.log('fetchData: API failed but user disabled demo, staying in Live Mode');
+        console.log('fetchData: API failed but authenticated or demo disabled, showing error state');
       }
     } finally {
       setIsLoading(false);
     }
-  }, [shop, fetchWithCache, userDisabledDemo]);
+  }, [shop, isAuthenticated, isAuthReady, fetchWithCache, userDisabledDemo, isDemoMode]);
 
   // Clear error states on component mount to prevent persistence from previous navigation
   useEffect(() => {
