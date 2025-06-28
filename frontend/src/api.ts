@@ -111,8 +111,16 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
       if (globalServiceErrorHandler) {
         const handled = globalServiceErrorHandler(error);
         if (handled) {
-          // Return a special response to indicate the error was handled
-          return new Response(JSON.stringify({ handled: true }), { 
+          // Mark the error as handled to prevent notifications
+          (error as any).handled = true;
+          (error as any).preventNotification = true;
+          
+          // Don't throw the error - return a special response instead
+          console.log('API: Service error handled by global handler, not throwing');
+          return new Response(JSON.stringify({ 
+            handled: true,
+            message: 'Service temporarily unavailable'
+          }), { 
             status: response.status,
             headers: { 'Content-Type': 'application/json' }
           });
@@ -143,8 +151,16 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
       if (globalServiceErrorHandler) {
         const handled = globalServiceErrorHandler(networkError);
         if (handled) {
-          // Return a special response to indicate the error was handled
-          return new Response(JSON.stringify({ handled: true }), { 
+          // Mark the error as handled to prevent notifications
+          (networkError as any).handled = true;
+          (networkError as any).preventNotification = true;
+          
+          // Don't throw the error - return a special response instead
+          console.log('API: Network error handled by global handler, not throwing');
+          return new Response(JSON.stringify({ 
+            handled: true,
+            message: 'Service temporarily unavailable'
+          }), { 
             status: 502,
             headers: { 'Content-Type': 'application/json' }
           });
@@ -177,7 +193,8 @@ export const retryWithBackoff = async <T>(
       // Don't retry authentication errors or handled service errors
       if (error.message === 'Authentication required' || 
           error.status === 401 ||
-          (error as any).handled) {
+          (error as any).handled ||
+          (error as any).preventNotification) {
         throw error;
       }
       
@@ -221,6 +238,18 @@ export interface Competitor {
 // Enhanced error handling to prevent raw JSON errors
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
+    // Check if this is a special response indicating the error was handled
+    try {
+      const responseData = await response.json();
+      if (responseData.handled) {
+        console.log('API: Error was handled by global service error handler, not showing notification');
+        // Return a default/empty response instead of throwing
+        return {} as T;
+      }
+    } catch (parseError) {
+      // If we can't parse the response, continue with normal error handling
+    }
+    
     if (response.status === 401) {
       console.log('API: Unauthorized, updating auth state and clearing cookies');
       setApiAuthState(false, null);

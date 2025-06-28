@@ -45,8 +45,9 @@ export const ServiceStatusProvider: React.FC<ServiceStatusProviderProps> = ({ ch
    * OPTIMIZED: More lenient thresholds for better initial loading experience
    */
   const recentFailureTimestampsRef = useRef<number[]>([]);
-  const FAILURE_WINDOW_MS = 60_000; // Increased to 60 seconds for more stability
-  const FAILURE_THRESHOLD = 5;      // Increased to 5 failures to reduce false positives
+  const FAILURE_WINDOW_MS = 120_000; // Increased to 2 minutes for more stability
+  const FAILURE_THRESHOLD = 8;      // Increased to 8 failures to reduce false positives
+  const INITIAL_LOAD_GRACE_PERIOD = 30_000; // 30 seconds grace period for initial loads
   const userNavigatedAwayRef = useRef(false);
 
   const checkServiceStatus = async (): Promise<boolean> => {
@@ -167,6 +168,18 @@ export const ServiceStatusProvider: React.FC<ServiceStatusProviderProps> = ({ ch
 
     if (is502Error) {
       const now = Date.now();
+      
+      // Check if we're in the initial load grace period
+      const isInitialLoad = !lastSuccessfulCheckRef.current || 
+                           (now - (lastSuccessfulCheckRef.current.getTime() || 0)) < INITIAL_LOAD_GRACE_PERIOD;
+      
+      if (isInitialLoad) {
+        console.log('ServiceStatus: 5xx error during initial load grace period - ignoring');
+        // Mark the error as handled to prevent notifications during initial load
+        (error as any).handled = true;
+        (error as any).preventNotification = true;
+        return true;
+      }
 
       // Purge old entries outside the sliding window
       recentFailureTimestampsRef.current = recentFailureTimestampsRef.current.filter(
@@ -186,18 +199,25 @@ export const ServiceStatusProvider: React.FC<ServiceStatusProviderProps> = ({ ch
         );
         recentFailureTimestampsRef.current = []; // reset counter after tripping
 
-      setIsServiceAvailable(false);
-      setLastServiceCheck(new Date());
-      navigate('/service-unavailable', { replace: true });
-      
-      if (!isRetryingRef.current) {
-        startRetryLoop();
-      }
-      
+        setIsServiceAvailable(false);
+        setLastServiceCheck(new Date());
+        navigate('/service-unavailable', { replace: true });
+        
+        if (!isRetryingRef.current) {
+          startRetryLoop();
+        }
+        
         return true; // handled – stop normal error propagation
       }
 
-      // We handled logging but did not trigger redirect; allow caller to proceed
+      // For 500/502 errors that don't meet the threshold, still prevent them from showing as notifications
+      // but don't redirect to service unavailable page
+      console.log('ServiceStatus: 5xx error below threshold - preventing notification but not redirecting');
+      
+      // Mark the error as handled to prevent it from being shown as a notification
+      (error as any).handled = true;
+      (error as any).preventNotification = true;
+      
       return true; // indicates handled so original promise can resolve gracefully
     }
 

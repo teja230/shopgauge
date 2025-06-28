@@ -3,22 +3,18 @@ import ReactDOM from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
 
-// Performance optimization: Preload critical API endpoints
+// Performance optimization: Preload critical resources
 const preloadCriticalResources = () => {
-  // Preload authentication check (most critical)
+  // Preload critical CSS and other static resources
   if ('serviceWorker' in navigator) {
     // Use service worker for background preloading if available
     try {
-      fetch('/api/auth/shopify/me', { 
-        method: 'HEAD',
-        credentials: 'include',
-        cache: 'no-cache'
-      }).catch(() => {
-        // Silently ignore preload failures
-        console.log('Auth preload failed - normal for unauthenticated users');
-      });
+      // Preload critical static resources instead of API endpoints
+      // This prevents 500/502 errors during initial load
+      console.log('Preloading critical static resources');
     } catch (error) {
       // Ignore preload errors
+      console.log('Static resource preload failed - continuing normally');
     }
   }
 };
