@@ -451,12 +451,64 @@ public class CompetitorController {
 
   /** Get discovery configuration */
   @GetMapping("/competitors/discovery/config")
-  public ResponseEntity<Map<String, Object>> getDiscoveryConfig() {
-    if (discoveryService == null) {
-      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-          .body(Map.of("error", "Discovery service not available"));
+  public ResponseEntity<Map<String, Object>> getDiscoveryConfig(HttpServletRequest request) {
+    // For consistency with other discovery endpoints, check authentication
+    Long shopId = getShopIdFromRequest(request);
+    if (shopId == null) {
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+          .body(Map.of("error", "Authentication required"));
     }
-    return ResponseEntity.ok(discoveryService.getDiscoveryConfig());
+
+    try {
+      Map<String, Object> config = new HashMap<>();
+      
+      if (discoveryService == null) {
+        // Discovery service not available - return safe defaults
+        logger.warn("Discovery service not available for shop {}", shopId);
+        config.put("enabled", false);
+        config.put("configured", false);
+        config.put("error", "Discovery service not available");
+        config.put("message", "Discovery service is not properly configured on this server");
+        return ResponseEntity.ok(config);
+      }
+
+      // Get configuration from discovery service
+      Map<String, Object> serviceConfig = discoveryService.getDiscoveryConfig();
+      
+      // Validate and enhance the configuration
+      boolean searchClientEnabled = (Boolean) serviceConfig.getOrDefault("searchClientEnabled", false);
+      String searchProvider = (String) serviceConfig.getOrDefault("searchClientProvider", "none");
+      
+      config.put("enabled", searchClientEnabled);
+      config.put("configured", searchClientEnabled);
+      config.put("intervalHours", serviceConfig.getOrDefault("intervalHours", 24));
+      config.put("maxResultsPerProduct", serviceConfig.getOrDefault("maxResultsPerProduct", 10));
+      config.put("searchProvider", searchProvider);
+      config.put("searchClientEnabled", searchClientEnabled);
+      
+      // Add diagnostic information for troubleshooting
+      if (!searchClientEnabled) {
+        config.put("message", "Search API credentials not configured. Please set SCRAPINGDOG_KEY, SERPER_KEY, or SERPAPI_KEY environment variables.");
+        config.put("availableProviders", List.of("Scrapingdog", "Serper", "SerpAPI"));
+      } else {
+        config.put("message", "Discovery service ready");
+      }
+      
+      logger.debug("Discovery config for shop {}: enabled={}, provider={}", 
+          shopId, searchClientEnabled, searchProvider);
+      
+      return ResponseEntity.ok(config);
+      
+    } catch (Exception e) {
+      logger.error("Error getting discovery config for shop {}: {}", shopId, e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of(
+              "error", "Failed to get discovery configuration",
+              "enabled", false,
+              "configured", false,
+              "message", "Internal server error: " + e.getMessage()
+          ));
+    }
   }
 
   /**
