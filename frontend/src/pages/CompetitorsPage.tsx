@@ -662,19 +662,48 @@ export default function CompetitorsPage() {
       console.log(`[Discovery] Checking configuration...`);
       const cfgRes = await fetchWithAuth('/api/competitors/discovery/config');
       
+      let cfg;
+      let cfgErrorText = '';
+      
       if (!cfgRes.ok) {
         console.error(`[Discovery] Config check failed: ${cfgRes.status} ${cfgRes.statusText}`);
-        const errorText = await cfgRes.text().catch(() => 'Unknown error');
-        console.error(`[Discovery] Config error response:`, errorText);
         
-        notifications.showError(`Discovery configuration unavailable (${cfgRes.status}). Please contact support.`, {
-          category: 'Discovery'
-        });
-        return;
+        // Try to get error details from response
+        try {
+          const responseText = await cfgRes.text();
+          cfgErrorText = responseText || 'Unknown error';
+          console.error(`[Discovery] Config error response:`, cfgErrorText);
+          
+          // Try to parse as JSON if possible
+          try {
+            cfg = JSON.parse(responseText);
+          } catch {
+            // Not JSON, use text error
+          }
+        } catch (readError) {
+          console.error(`[Discovery] Failed to read error response:`, readError);
+          cfgErrorText = 'Failed to read error response';
+        }
+        
+        if (!cfg) {
+          notifications.showError(`Discovery configuration unavailable (${cfgRes.status}). ${cfgErrorText}`, {
+            category: 'Discovery'
+          });
+          return;
+        }
+      } else {
+        // Response is OK, read as JSON
+        try {
+          cfg = await cfgRes.json();
+          console.log(`[Discovery] Configuration received:`, cfg);
+        } catch (parseError) {
+          console.error(`[Discovery] Failed to parse config response:`, parseError);
+          notifications.showError('Failed to parse discovery configuration response', {
+            category: 'Discovery'
+          });
+          return;
+        }
       }
-      
-      const cfg = await cfgRes.json();
-      console.log(`[Discovery] Configuration received:`, cfg);
       
       if (cfg.error) {
         console.error(`[Discovery] Configuration error:`, cfg.error);
@@ -707,34 +736,59 @@ export default function CompetitorsPage() {
         method: 'POST'
       });
 
+      let result;
+      let errorData;
+      
       if (response.ok) {
-        const result = await response.json();
-        console.log(`[Discovery] Successfully triggered:`, result);
-        
-        setLastDiscoveryTime(now);
-        
-        notifications.showSuccess('Discovery started! Initial results may appear within hours, full analysis completes overnight.', {
-          category: 'Discovery'
-        });
-        
-        // Refresh discovery status to show updated cooldown
         try {
-          const updatedStatusResponse = await fetchWithAuth('/api/competitors/discovery/status');
+          result = await response.json();
+          console.log(`[Discovery] Successfully triggered:`, result);
           
-          if (updatedStatusResponse.ok) {
-            const updatedStatus = await updatedStatusResponse.json();
-            console.log(`[Discovery] Updated status:`, updatedStatus);
-            if (updatedStatus.last_discovery) {
-              setLastDiscoveryTime(new Date(updatedStatus.last_discovery).getTime());
+          setLastDiscoveryTime(now);
+          
+          notifications.showSuccess('Discovery started! Initial results may appear within hours, full analysis completes overnight.', {
+            category: 'Discovery'
+          });
+          
+          // Refresh discovery status to show updated cooldown
+          try {
+            const updatedStatusResponse = await fetchWithAuth('/api/competitors/discovery/status');
+            
+            if (updatedStatusResponse.ok) {
+              const updatedStatus = await updatedStatusResponse.json();
+              console.log(`[Discovery] Updated status:`, updatedStatus);
+              if (updatedStatus.last_discovery) {
+                setLastDiscoveryTime(new Date(updatedStatus.last_discovery).getTime());
+              }
             }
+          } catch (statusError) {
+            console.warn('[Discovery] Failed to refresh discovery status:', statusError);
           }
-        } catch (statusError) {
-          console.warn('[Discovery] Failed to refresh discovery status:', statusError);
+        } catch (parseError) {
+          console.error(`[Discovery] Failed to parse success response:`, parseError);
+          // Still treat as success if we got 200 OK
+          setLastDiscoveryTime(now);
+          notifications.showSuccess('Discovery started! Initial results may appear within hours, full analysis completes overnight.', {
+            category: 'Discovery'
+          });
         }
-        
       } else {
-        const errorData = await response.json().catch(() => ({}));
-        console.error(`[Discovery] Trigger failed: ${response.status} ${response.statusText}`, errorData);
+        // Handle error response
+        try {
+          const responseText = await response.text();
+          console.error(`[Discovery] Trigger failed: ${response.status} ${response.statusText}`, responseText);
+          
+          // Try to parse as JSON
+          try {
+            errorData = JSON.parse(responseText);
+          } catch {
+            // Not JSON, create error object with text
+            errorData = { message: responseText || 'Discovery trigger failed' };
+          }
+        } catch (readError) {
+          console.error(`[Discovery] Failed to read error response:`, readError);
+          errorData = { message: 'Failed to read error response' };
+        }
         
         const errorMessage = errorData.message || errorData.error || 'Discovery trigger failed';
         throw new Error(errorMessage);
@@ -759,6 +813,8 @@ export default function CompetitorsPage() {
         userMessage = 'Authentication error. Please refresh the page and try again.';
       } else if (error.message.includes('429') || error.message.includes('cooldown')) {
         userMessage = 'Discovery is on cooldown. Please wait before trying again.';
+      } else if (error.message.includes('body stream already read')) {
+        userMessage = 'Request processing error. Please try again.';
       } else {
         // Include the actual error message for debugging
         userMessage = `Discovery failed: ${error.message}`;
