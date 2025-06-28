@@ -213,20 +213,6 @@ const ButtonContainer = styled(Box)(({ theme }) => ({
   },
 }));
 
-const ActionButton = styled(Button)(({ theme }) => ({
-  borderRadius: theme.shape.borderRadius,
-  textTransform: 'none',
-  fontWeight: 500,
-  padding: theme.spacing(1.5, 3),
-  gap: theme.spacing(1),
-  minWidth: '140px',
-  '&:hover': {
-    transform: 'translateY(-2px)',
-    boxShadow: theme.shadows[4],
-  },
-  transition: 'all 0.3s ease',
-}));
-
 const ErrorCode = styled(Typography)(({ theme }) => ({
   fontSize: '1rem',
   color: theme.palette.error.main,
@@ -261,30 +247,33 @@ const ErrorNavigation: React.FC<{ onRefresh: () => void }> = ({ onRefresh }) => 
 
   return (
     <ButtonContainer>
-      <ActionButton
+      <Button
         variant="contained"
         color="primary"
         onClick={onRefresh}
         startIcon={<Refresh />}
+        sx={{ minWidth: 120 }}
       >
         Try Again
-      </ActionButton>
-      <ActionButton
+      </Button>
+      <Button
         variant="outlined"
         color="primary"
         onClick={handleGoHome}
         startIcon={<Home />}
+        sx={{ minWidth: 120 }}
       >
         Go Home
-      </ActionButton>
-      <ActionButton
+      </Button>
+      <Button
         variant="outlined"
         color="primary"
         onClick={handleGoBack}
         startIcon={<ArrowBack />}
+        sx={{ minWidth: 120 }}
       >
         Go Back
-      </ActionButton>
+      </Button>
     </ButtonContainer>
   );
 };
