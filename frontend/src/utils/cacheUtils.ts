@@ -27,7 +27,7 @@ export const getCacheKey = (shop: string): string => `${CACHE_KEY_PREFIX}_${shop
 export const invalidateCache = (shop: string) => {
   if (!shop) {
     console.warn('Attempted to invalidate cache without a shop name.');
-    return;
+    return { version: CACHE_VERSION, shop: '' };
   }
   console.log(`🗑️ Invalidating cache for shop: ${shop}`);
   sessionStorage.removeItem(getCacheKey(shop));

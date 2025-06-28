@@ -816,7 +816,9 @@ const DashboardPage = () => {
         if (shop) {
           console.log('🗑️ MANUAL CACHE CLEAR: Clearing all cache');
           const freshCache = invalidateCache(shop);
-          setCache(freshCache);
+          if (freshCache) {
+            setCache(freshCache);
+          }
           console.log('✅ Cache cleared successfully');
         }
       };
@@ -1663,7 +1665,9 @@ const DashboardPage = () => {
       if (shop) {
         console.log('🗑️ Clearing cache to force fresh API calls');
         const freshCache = invalidateCache(shop);
-        setCache(freshCache);
+        if (freshCache) {
+          setCache(freshCache);
+        }
       }
       
       // Set all cards to loading state
@@ -1774,7 +1778,9 @@ const DashboardPage = () => {
         console.log('Dashboard: Cache clearing requested via URL parameter');
         if (shop) {
           const freshCache = invalidateCache(shop);
-          setCache(freshCache);
+          if (freshCache) {
+            setCache(freshCache);
+          }
         }
         
         notifications.showInfo('Cache cleared! Loading fresh data...', {
