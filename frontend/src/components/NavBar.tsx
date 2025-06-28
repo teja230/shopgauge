@@ -27,7 +27,6 @@ import {
   Business as BusinessIcon,
   Person as PersonIcon,
   Logout as LogoutIcon,
-  Login as LoginIcon,
   Home as HomeIcon
 } from '@mui/icons-material';
 import { getSuggestionCount } from '../api';
@@ -205,22 +204,6 @@ const NavBar: React.FC = () => {
           </Box>
         </>
       )}
-
-      {!isAuthenticated && (
-        <>
-          <Divider />
-          <Box sx={{ p: 2 }}>
-            <Button
-              fullWidth
-              variant="contained"
-              startIcon={<LoginIcon />}
-              onClick={() => handleNavigation('/')}
-            >
-              Login
-            </Button>
-          </Box>
-        </>
-      )}
     </Drawer>
   );
 
@@ -328,14 +311,12 @@ const NavBar: React.FC = () => {
             </Box>
           )}
 
-                    {/* Mobile Menu Button */}
-          {isMobile && (
+                    {/* Mobile Menu Button - Only show when authenticated */}
+          {isMobile && isAuthenticated && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              {isAuthenticated && (
-                <NotificationCenter 
-                  onNotificationCountChange={(count) => setNotificationCount(count)}
-                />
-              )}
+              <NotificationCenter 
+                onNotificationCountChange={(count) => setNotificationCount(count)}
+              />
               <IconButton
                 color="inherit"
                 onClick={toggleMobileMenu}
@@ -348,8 +329,8 @@ const NavBar: React.FC = () => {
       </Toolbar>
     </AppBar>
 
-      {/* Mobile Drawer */}
-      {isMobile && <MobileDrawer />}
+      {/* Mobile Drawer - Only render when authenticated */}
+      {isMobile && isAuthenticated && <MobileDrawer />}
     </>
   );
 };
