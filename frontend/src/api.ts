@@ -190,11 +190,12 @@ export const retryWithBackoff = async <T>(
     } catch (error: any) {
       lastError = error;
       
-      // Don't retry authentication errors or handled service errors
+      // Don't retry authentication errors, handled service errors, or errors that shouldn't show notifications
       if (error.message === 'Authentication required' || 
           error.status === 401 ||
           (error as any).handled ||
           (error as any).preventNotification) {
+        console.log('API: Not retrying - error is authentication, handled, or should not show notifications');
         throw error;
       }
       
@@ -242,12 +243,17 @@ async function handleResponse<T>(response: Response): Promise<T> {
     try {
       const responseData = await response.json();
       if (responseData.handled) {
-        console.log('API: Error was handled by global service error handler, not showing notification');
-        // Return a default/empty response instead of throwing
-        return {} as T;
+        console.log('API: Error was handled by global service error handler, throwing appropriate error');
+        // Don't return empty objects - throw an appropriate error that components can handle
+        const error = new Error(responseData.message || 'Service temporarily unavailable');
+        (error as any).handled = true;
+        (error as any).preventNotification = true;
+        (error as any).status = response.status;
+        throw error;
       }
     } catch (parseError) {
       // If we can't parse the response, continue with normal error handling
+      console.log('API: Could not parse special response, continuing with normal error handling');
     }
     
     if (response.status === 401) {

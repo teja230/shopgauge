@@ -169,12 +169,17 @@ export const ServiceStatusProvider: React.FC<ServiceStatusProviderProps> = ({ ch
     if (is502Error) {
       const now = Date.now();
       
-      // Check if we're in the initial load grace period
+      // Apply grace period only to general network errors during initial load, not specific API failures
       const isInitialLoad = !lastSuccessfulCheckRef.current || 
                            (now - (lastSuccessfulCheckRef.current.getTime() || 0)) < INITIAL_LOAD_GRACE_PERIOD;
       
-      if (isInitialLoad) {
-        console.log('ServiceStatus: 5xx error during initial load grace period - ignoring');
+      // Only ignore general network errors during initial load, not specific 500/502 responses from API
+      const isGeneralNetworkError = error?.message?.includes('Network Error') || 
+                                   error?.code === 'NETWORK_ERROR' ||
+                                   error?.name === 'TypeError';
+      
+      if (isInitialLoad && isGeneralNetworkError) {
+        console.log('ServiceStatus: General network error during initial load grace period - ignoring');
         // Mark the error as handled to prevent notifications during initial load
         (error as any).handled = true;
         (error as any).preventNotification = true;
