@@ -11,20 +11,24 @@ import { format } from 'date-fns';
 import { useNotifications } from '../hooks/useNotifications';
 
 // Cache configuration - Enterprise-grade settings
-const CACHE_DURATION = 120 * 60 * 1000; // 120 minutes in milliseconds (increased from 5 minutes)
-const CACHE_KEY = 'dashboard_cache_v2'; // Version to force cache refresh if needed
+const CACHE_DURATION = 120 * 60 * 1000; // 120 minutes in milliseconds
 const CACHE_VERSION = '1.1.0'; // Incrementing version to invalidate existing cache
 const REFRESH_DEBOUNCE_MS = 2000; // 2 seconds debounce for refresh button
+
+// Shop-specific cache key to prevent cross-shop data leakage
+const getCacheKey = (shop: string) => `dashboard_cache_${shop}_v2`;
 
 interface CacheEntry<T> {
   data: T;
   timestamp: number;
   lastUpdated: Date;
   version: string;
+  shop: string; // Add shop to cache entry for validation
 }
 
 interface DashboardCache {
   version?: string;
+  shop?: string; // Add shop to cache for validation
   revenue?: CacheEntry<{ totalRevenue: number; timeseries: any[] }>;
   products?: CacheEntry<{ products: any[] }>;
   inventory?: CacheEntry<{ lowInventory: number }>;
@@ -34,18 +38,20 @@ interface DashboardCache {
   insights?: CacheEntry<{ conversionRate?: number; conversionRateDelta?: number }>;
 }
 
-// Enterprise-grade cache management with versioning and validation
-const loadCacheFromStorage = (): DashboardCache => {
+// Enterprise-grade cache management with shop-specific keys and validation
+const loadCacheFromStorage = (shop: string): DashboardCache => {
   try {
-    const stored = sessionStorage.getItem(CACHE_KEY);
+    const cacheKey = getCacheKey(shop);
+    const stored = sessionStorage.getItem(cacheKey);
+    
     if (stored) {
       const parsed = JSON.parse(stored);
       
-      // Version check - invalidate if version mismatch
-      if (parsed.version !== CACHE_VERSION) {
-        console.log('Cache version mismatch, clearing cache');
-        sessionStorage.removeItem(CACHE_KEY);
-        return { version: CACHE_VERSION };
+      // Version and shop check - invalidate if version mismatch or shop mismatch
+      if (parsed.version !== CACHE_VERSION || parsed.shop !== shop) {
+        console.log('Cache version/shop mismatch, clearing cache');
+        sessionStorage.removeItem(cacheKey);
+        return { version: CACHE_VERSION, shop };
       }
       
       // Convert date strings back to Date objects
@@ -55,29 +61,33 @@ const loadCacheFromStorage = (): DashboardCache => {
         }
       });
       
-      console.log('Loaded cache from storage with', Object.keys(parsed).length - 1, 'entries');
+      console.log('Loaded cache from storage with', Object.keys(parsed).length - 2, 'entries for shop:', shop);
       return parsed;
     }
   } catch (error) {
     console.warn('Failed to load cache from storage:', error);
-    sessionStorage.removeItem(CACHE_KEY); // Clear corrupted cache
+    sessionStorage.removeItem(getCacheKey(shop)); // Clear corrupted cache
   }
-  return { version: CACHE_VERSION };
+  return { version: CACHE_VERSION, shop };
 };
 
-const saveCacheToStorage = (cache: DashboardCache) => {
+const saveCacheToStorage = (cache: DashboardCache, shop: string) => {
   try {
-    // Ensure version is set
+    // Ensure version and shop are set
     cache.version = CACHE_VERSION;
-    sessionStorage.setItem(CACHE_KEY, JSON.stringify(cache));
-    console.log('Saved cache to storage with', Object.keys(cache).length - 1, 'entries');
+    cache.shop = shop;
+    const cacheKey = getCacheKey(shop);
+    sessionStorage.setItem(cacheKey, JSON.stringify(cache));
+    console.log('Saved cache to storage with', Object.keys(cache).length - 2, 'entries for shop:', shop);
   } catch (error) {
     console.warn('Failed to save cache to storage:', error);
     // If storage is full, try to clear old cache and retry
     try {
       sessionStorage.clear();
       cache.version = CACHE_VERSION;
-      sessionStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+      cache.shop = shop;
+      const cacheKey = getCacheKey(shop);
+      sessionStorage.setItem(cacheKey, JSON.stringify(cache));
       console.log('Cleared storage and saved cache successfully');
     } catch (retryError) {
       console.error('Failed to save cache even after clearing storage:', retryError);
@@ -85,11 +95,11 @@ const saveCacheToStorage = (cache: DashboardCache) => {
   }
 };
 
-// Cache invalidation helper - clears both memory and storage
-const invalidateCache = () => {
-  console.log('Invalidating all cache');
-  sessionStorage.removeItem(CACHE_KEY);
-  return { version: CACHE_VERSION };
+// Cache invalidation helper - clears both memory and storage for specific shop
+const invalidateCache = (shop: string) => {
+  console.log('Invalidating cache for shop:', shop);
+  sessionStorage.removeItem(getCacheKey(shop));
+  return { version: CACHE_VERSION, shop };
 };
 
 // Modern, elegant, and professional dashboard UI improvements
@@ -587,7 +597,10 @@ const DashboardPage = () => {
   const [hasRateLimit, setHasRateLimit] = useState(false);
   
   // Cache state management using sessionStorage for persistence across navigation
-  const [cache, setCache] = useState<DashboardCache>(() => loadCacheFromStorage());
+  const [cache, setCache] = useState<DashboardCache>(() => {
+    if (!shop) return { version: CACHE_VERSION, shop: '' };
+    return loadCacheFromStorage(shop);
+  });
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [lastRefreshTime, setLastRefreshTime] = useState<number>(0); // Track last refresh time for debouncing
@@ -595,18 +608,20 @@ const DashboardPage = () => {
 
   // Save cache to sessionStorage whenever it changes
   useEffect(() => {
-    saveCacheToStorage(cache);
-  }, [cache]);
+    if (shop) {
+      saveCacheToStorage(cache, shop);
+    }
+  }, [cache, shop]);
 
   // Effect to handle shop changes and cache invalidation
   useEffect(() => {
     if (shop && isAuthReady) {
       // Clear cache when shop changes to prevent cross-shop data leakage
-      const freshCache = invalidateCache();
+      const freshCache = invalidateCache(shop);
       setCache(freshCache);
       setIsInitialLoad(true);
     }
-  }, [shop, isAuthReady, invalidateCache]);
+  }, [shop, isAuthReady]); // Removed invalidateCache from dependencies
   
   // Individual card loading states
   const [cardLoading, setCardLoading] = useState<CardLoadingState>({
@@ -661,7 +676,8 @@ const DashboardPage = () => {
         data: freshData,
         timestamp: Date.now(),
         lastUpdated: now,
-        version: CACHE_VERSION
+        version: CACHE_VERSION,
+        shop: cache.shop || ''
       }
     }));
     
@@ -1483,8 +1499,10 @@ const DashboardPage = () => {
     
     try {
       // Clear cache from both state and sessionStorage to force fresh data
-      const freshCache = invalidateCache();
-      setCache(freshCache);
+      if (shop) {
+        const freshCache = invalidateCache(shop);
+        setCache(freshCache);
+      }
       
       // Set all cards to loading state
       setCardLoading({
@@ -1592,8 +1610,10 @@ const DashboardPage = () => {
         markNotificationShown(notificationKey);
         
         console.log('Dashboard: Cache clearing requested via URL parameter');
-        const freshCache = invalidateCache();
-        setCache(freshCache);
+        if (shop) {
+          const freshCache = invalidateCache(shop);
+          setCache(freshCache);
+        }
         
         notifications.showInfo('Cache cleared! Loading fresh data...', {
           category: 'Cache Management',
