@@ -157,27 +157,34 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
     },
   };
 
-  // Debug data structure
-  console.log('Revenue Chart Data:', data);
-  if (data?.length > 0) {
-    console.log('First item:', data[0]);
-    console.log('total_price type:', typeof data[0].total_price);
-  }
+  // Validate and sanitize input data to prevent runtime errors
+  const sanitizedData = React.useMemo(() => {
+    if (!Array.isArray(data)) return [];
+    return data.filter(item => {
+      // Ensure dates are valid and total_price is a finite number
+      const dateValid = item && typeof item.created_at === 'string' && !isNaN(Date.parse(item.created_at));
+      const priceValid = item && (typeof item.total_price === 'number' || !isNaN(Number(item.total_price)));
+      return dateValid && priceValid;
+    }).map(item => ({
+      ...item,
+      total_price: Number(item.total_price) || 0,
+    }));
+  }, [data]);
 
-  const totalRevenue = data?.reduce((sum, item) => sum + (Number(item.total_price) || 0), 0) || 0;
-  const averageRevenue = data?.length && totalRevenue > 0 ? totalRevenue / data.length : 0;
-  const maxRevenue = data?.length ? Math.max(...data.map(item => Number(item.total_price) || 0)) : 0;
-  const minRevenue = data?.length ? Math.min(...data.map(item => Number(item.total_price) || 0)) : 0;
+  // Replace all subsequent uses of `data` with `sanitizedData`
+  const totalRevenue = sanitizedData.reduce((sum, item) => sum + (Number(item.total_price) || 0), 0);
+  const averageRevenue = sanitizedData.length && totalRevenue > 0 ? totalRevenue / sanitizedData.length : 0;
+  const maxRevenue = sanitizedData.length ? Math.max(...sanitizedData.map(item => Number(item.total_price) || 0)) : 0;
+  const minRevenue = sanitizedData.length ? Math.min(...sanitizedData.map(item => Number(item.total_price) || 0)) : 0;
 
-  // Enhanced data processing for different chart types
   const processedData = React.useMemo(() => {
-    if (!data || data.length === 0) return [];
+    if (!sanitizedData || sanitizedData.length === 0) return [];
 
-    return data.map((item, index) => {
+    return sanitizedData.map((item, index) => {
       const revenue = Number(item.total_price) || 0;
-      const prevRevenue = index > 0 ? Number(data[index - 1].total_price) || 0 : 0;
+      const prevRevenue = index > 0 ? Number(sanitizedData[index - 1].total_price) || 0 : 0;
       const change = revenue - prevRevenue;
-      const cumulative = index === 0 ? revenue : data.slice(0, index + 1).reduce((sum, d) => sum + (Number(d.total_price) || 0), 0);
+      const cumulative = index === 0 ? revenue : sanitizedData.slice(0, index + 1).reduce((sum, d) => sum + (Number(d.total_price) || 0), 0);
       
       return {
         ...item,
@@ -192,7 +199,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
         negative: change < 0,
       };
     });
-  }, [data]);
+  }, [sanitizedData]);
 
   const renderChart = () => {
     const commonProps = {
@@ -476,7 +483,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
     );
   }
 
-  if (!data || data.length === 0) {
+  if (processedData.length === 0) {
     return (
       <Box
         sx={{
@@ -520,7 +527,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
             Revenue Overview
           </Typography>
           <Chip
-            label={`${data.length} ${data.length === 1 ? 'day' : 'days'}`}
+            label={`${sanitizedData.length} ${sanitizedData.length === 1 ? 'day' : 'days'}`}
             size="small"
             variant="outlined"
             color="primary"
