@@ -1191,7 +1191,7 @@ const DashboardPage = () => {
     try {
       const data = await checkCacheAndFetch('orders', async () => {
         // Fetch orders sequentially to avoid overwhelming the API
-        const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/orders/timeseries?page=1&limit=50&days=365'));
+        const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/orders/timeseries?page=1&limit=50&days=60'));
         const initialData = await response.json();
         
         console.log('Orders API response:', initialData);
@@ -1215,7 +1215,7 @@ const DashboardPage = () => {
             // Fetch additional pages with delays to avoid rate limiting
             for (let page = 2; page <= 5; page++) {
               await new Promise(resolve => setTimeout(resolve, 500)); // 500ms delay between pages
-              const additionalResponse = await fetchWithAuth(`/api/analytics/orders/timeseries?page=${page}&limit=50&days=365`);
+              const additionalResponse = await fetchWithAuth(`/api/analytics/orders/timeseries?page=${page}&limit=50&days=60`);
               const additionalData = await additionalResponse.json();
               
               if (additionalData.timeseries) {
@@ -2292,35 +2292,6 @@ const DashboardPage = () => {
           Last updated: {getLastUpdatedText()}
         </LastUpdatedText>
         
-        {/* Cache Status Indicator for Testing */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-          <Typography variant="caption" sx={{ 
-            color: 'text.secondary', 
-            fontSize: '0.7rem',
-            opacity: 0.7 
-          }}>
-            🔧 Cache: {Math.round(CACHE_DURATION / (1000 * 60))}min | Console: debugCache(), clearCache(), testCacheBehavior()
-          </Typography>
-          <Typography variant="caption" sx={{ 
-            color: Object.keys(cache).filter(k => k !== 'version' && k !== 'shop').length > 0 ? 'success.main' : 'warning.main',
-            fontSize: '0.65rem',
-            fontWeight: 500
-          }}>
-            📊 Cache Status: {Object.keys(cache).filter(k => k !== 'version' && k !== 'shop').length} entries loaded
-          </Typography>
-        </Box>
-            <Button
-              variant="text"
-              size="small"
-              onClick={() => {
-                console.log('🔍 Current cache state:', cache);
-                console.log('🔍 SessionStorage cache:', sessionStorage.getItem(getCacheKey(shop || '')));
-                alert(`Cache debug:\nShop: ${shop}\nCache keys: ${Object.keys(cache).filter(k => k !== 'version' && k !== 'shop').join(', ')}\nHas products cache: ${!!cache.products}`);
-              }}
-              sx={{ minWidth: 'auto', px: 1 }}
-            >
-              Debug Cache
-            </Button>
             <RefreshButton
               variant="outlined"
               size="small"
