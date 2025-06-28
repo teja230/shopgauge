@@ -1444,9 +1444,16 @@ const DashboardPage = () => {
     });
   }, [isAuthReady, isAuthenticated, shop, navigate]);
 
-  // Main data loading effect - runs once when ready
+  // Main data loading effect - triggers on authentication and shop changes
   useEffect(() => {
-    // Only proceed if authentication is ready and we have all required states
+    console.log('🔄 Dashboard useEffect triggered with:', {
+      isAuthReady,
+      authLoading,
+      isAuthenticated,
+      shop,
+      isInitialLoad
+    });
+
     if (!isAuthReady || authLoading) {
       console.log('🔄 Dashboard: Waiting for authentication to complete');
       return;
@@ -1535,8 +1542,55 @@ const DashboardPage = () => {
       }
     };
     
-    // Trigger the data loading
-    loadAllData();
+    // Wrap the entire data loading in error handling
+    try {
+      console.log('🚀 Starting dashboard data loading process...');
+      loadAllData().catch((error: unknown) => {
+        console.error('🚨 CRITICAL ERROR in dashboard data loading:', error);
+        if (error instanceof Error) {
+          console.error('🚨 Error stack:', error.stack);
+          console.error('🚨 Error message:', error.message);
+        }
+        
+        // Log to localStorage for persistence
+        try {
+          const errorLog = {
+            timestamp: new Date().toISOString(),
+            location: 'Dashboard useEffect - loadAllData',
+            error: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined,
+            shop,
+            isAuthenticated,
+            isAuthReady
+          };
+          localStorage.setItem('dashboard-critical-error', JSON.stringify(errorLog));
+        } catch (e) {
+          console.error('Failed to save critical error to localStorage:', e);
+        }
+      });
+    } catch (error: unknown) {
+      console.error('🚨 CRITICAL ERROR in dashboard useEffect:', error);
+      if (error instanceof Error) {
+        console.error('🚨 Error stack:', error.stack);
+        console.error('🚨 Error message:', error.message);
+      }
+      
+      // Log to localStorage for persistence
+      try {
+        const errorLog = {
+          timestamp: new Date().toISOString(),
+          location: 'Dashboard useEffect - main',
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+          shop,
+          isAuthenticated,
+          isAuthReady
+        };
+        localStorage.setItem('dashboard-critical-error', JSON.stringify(errorLog));
+      } catch (e) {
+        console.error('Failed to save critical error to localStorage:', e);
+      }
+    }
   }, [isAuthReady, authLoading, isAuthenticated, shop, fetchRevenueData, fetchProductsData, fetchInventoryData, fetchNewProductsData, fetchInsightsData, fetchOrdersData, fetchAbandonedCartsData]); // Added fetch functions back since they're now stable
 
   // Lazy load data for individual cards

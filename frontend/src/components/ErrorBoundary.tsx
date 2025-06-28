@@ -8,6 +8,7 @@ interface Props {
 
 interface State {
   hasError: boolean;
+  error?: Error;
 }
 
 class ErrorBoundary extends Component<Props, State> {
@@ -19,29 +20,28 @@ class ErrorBoundary extends Component<Props, State> {
     return { hasError: true };
   }
 
-  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
+  public componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    // Log the error details to console
+    console.error('🚨 ERROR BOUNDARY CAUGHT ERROR:', error);
+    console.error('🚨 Error Stack:', error.stack);
+    console.error('🚨 Component Stack:', errorInfo.componentStack);
+    console.error('🚨 Error Info:', errorInfo);
     
-    // Only show generic error notifications
-    // Let AuthContext handle session-related errors
-    if (!error.message.includes('Authentication required') && 
-        !error.message.includes('session') && 
-        !error.message.includes('expired')) {
-      
-      // For ErrorBoundary, we'll keep using toast since it's a class component
-      // and we can't use hooks here. Consider converting to function component if needed.
-      toast.error('Something went wrong. Please refresh the page.', {
-        duration: 4000,
-        position: 'top-center',
-        style: {
-          background: '#ef4444',
-          color: '#ffffff',
-          fontWeight: '500',
-          borderRadius: '8px',
-        },
-        icon: '⚠️',
-      });
+    // Also log to localStorage for persistence
+    const errorLog = {
+      timestamp: new Date().toISOString(),
+      error: error.message,
+      stack: error.stack,
+      componentStack: errorInfo.componentStack
+    };
+    
+    try {
+      localStorage.setItem('dashboard-error-log', JSON.stringify(errorLog));
+    } catch (e) {
+      console.error('Failed to save error to localStorage:', e);
     }
+    
+    this.setState({ hasError: true, error });
   }
 
   public render() {
