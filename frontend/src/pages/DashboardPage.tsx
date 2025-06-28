@@ -1221,6 +1221,9 @@ const DashboardPage = () => {
     };
   }, []); // Empty dependency array - only run on mount
 
+  // Track if initial load has been triggered to prevent duplicate calls
+  const initialLoadTriggeredRef = useRef(false);
+
   // Initialize dashboard with basic structure and handle authentication state
   useEffect(() => {
     // Don't proceed until authentication system is ready
@@ -1296,6 +1299,7 @@ const DashboardPage = () => {
     setLoading(false);
     setError(null);
     setIsInitialLoad(true); // Reset initial load flag for new shop
+    initialLoadTriggeredRef.current = false; // Reset the ref for new shop
     
     // Initialize insights with default data to prevent "failed to load" states
     setInsights({
@@ -1335,7 +1339,7 @@ const DashboardPage = () => {
     });
   }, [isAuthReady, isAuthenticated, shop, navigate]);
 
-  // Auto-fetch all dashboard data on initial load with proper authentication checks
+  // Main data loading effect - only runs once on initial load
   useEffect(() => {
     // Only proceed if authentication is ready and we have all required states
     if (!isAuthReady || authLoading) {
@@ -1355,6 +1359,13 @@ const DashboardPage = () => {
       return;
     }
 
+    // Prevent duplicate calls
+    if (initialLoadTriggeredRef.current) {
+      console.log('Dashboard: Initial load already triggered, skipping');
+      return;
+    }
+
+    initialLoadTriggeredRef.current = true;
     setIsInitialLoad(false);
     
     // Parallel loading for dramatically better performance
@@ -1416,7 +1427,7 @@ const DashboardPage = () => {
     };
     
     loadAllData();
-  }, [isAuthReady, authLoading, isAuthenticated, shop, isInitialLoad, fetchRevenueData, fetchProductsData, fetchInventoryData, fetchNewProductsData, fetchInsightsData, fetchOrdersData, fetchAbandonedCartsData]);
+  }, [isAuthReady, authLoading, isAuthenticated, shop, isInitialLoad]); // Removed fetch functions from dependencies
 
   // Lazy load data for individual cards
   const handleCardLoad = useCallback((cardType: keyof CardLoadingState) => {
