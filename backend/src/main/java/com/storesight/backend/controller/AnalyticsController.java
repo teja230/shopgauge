@@ -98,6 +98,7 @@ public class AnalyticsController {
       @CookieValue(value = "shop", required = false) String shop,
       @RequestParam(defaultValue = "1") int page,
       @RequestParam(defaultValue = "10") int limit,
+      @RequestParam(value = "days", defaultValue = "60") int days,
       HttpSession session) {
 
     if (shop == null) {
@@ -120,9 +121,13 @@ public class AnalyticsController {
       return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response));
     }
 
-    // Get orders from last 60 days - use proper date format for Shopify API
+    // Get orders from the last `days` days (default 60)
+    // Clamp the value to the range [1, 365] to protect the API and avoid huge payloads
+    int clampedDays = Math.max(1, Math.min(days, 365));
     String since =
-        java.time.LocalDate.now().minusDays(60).format(java.time.format.DateTimeFormatter.ISO_DATE);
+        java.time.LocalDate.now()
+            .minusDays(clampedDays)
+            .format(java.time.format.DateTimeFormatter.ISO_DATE);
 
     String url =
         getShopifyUrl(shop, "orders.json")
@@ -132,6 +137,13 @@ public class AnalyticsController {
             + since
             + "T00:00:00Z&page="
             + page;
+
+    logger.info(
+        "Fetching orders for the last {} days (page {}, limit {}) for shop {}",
+        clampedDays,
+        page,
+        limit,
+        shop);
 
     return webClient
         .get()

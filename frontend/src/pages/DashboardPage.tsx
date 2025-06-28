@@ -1191,7 +1191,7 @@ const DashboardPage = () => {
     try {
       const data = await checkCacheAndFetch('orders', async () => {
         // Fetch orders sequentially to avoid overwhelming the API
-        const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/orders/timeseries?page=1&limit=50'));
+        const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/orders/timeseries?page=1&limit=50&days=365'));
         const initialData = await response.json();
         
         console.log('Orders API response:', initialData);
@@ -1215,7 +1215,7 @@ const DashboardPage = () => {
             // Fetch additional pages with delays to avoid rate limiting
             for (let page = 2; page <= 5; page++) {
               await new Promise(resolve => setTimeout(resolve, 500)); // 500ms delay between pages
-              const additionalResponse = await fetchWithAuth(`/api/analytics/orders/timeseries?page=${page}&limit=50`);
+              const additionalResponse = await fetchWithAuth(`/api/analytics/orders/timeseries?page=${page}&limit=50&days=365`);
               const additionalData = await additionalResponse.json();
               
               if (additionalData.timeseries) {
