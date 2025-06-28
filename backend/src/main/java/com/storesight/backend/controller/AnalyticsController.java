@@ -99,6 +99,7 @@ public class AnalyticsController {
       @RequestParam(defaultValue = "1") int page,
       @RequestParam(defaultValue = "10") int limit,
       @RequestParam(value = "days", defaultValue = "60") int days,
+      @RequestParam(value = "page_info", required = false) String pageInfo,
       HttpSession session) {
 
     if (shop == null) {
@@ -129,21 +130,33 @@ public class AnalyticsController {
             .minusDays(clampedDays)
             .format(java.time.format.DateTimeFormatter.ISO_DATE);
 
-    String url =
-        getShopifyUrl(shop, "orders.json")
-            + "?limit="
-            + limit
-            + "&status=any&created_at_min="
-            + since
-            + "T00:00:00Z&page="
-            + page;
+    // Build URL with modern pagination approach
+    StringBuilder urlBuilder = new StringBuilder();
+    urlBuilder
+        .append(getShopifyUrl(shop, "orders.json"))
+        .append("?limit=")
+        .append(limit)
+        .append("&status=any&created_at_min=")
+        .append(since)
+        .append("T00:00:00Z");
+
+    // Use cursor-based pagination if page_info is provided, otherwise fall back to page-based
+    if (pageInfo != null && !pageInfo.trim().isEmpty()) {
+      urlBuilder.append("&page_info=").append(pageInfo);
+    } else if (page > 1) {
+      // For backwards compatibility, still support page parameter for first few pages
+      urlBuilder.append("&page=").append(page);
+    }
+
+    String url = urlBuilder.toString();
 
     logger.info(
-        "Fetching orders for the last {} days (page {}, limit {}) for shop {}",
+        "Fetching orders for the last {} days (page {}, limit {}) for shop {} - URL: {}",
         clampedDays,
         page,
         limit,
-        shop);
+        shop,
+        url.replaceAll("([?&])([^=]+=[^&]*)", "$1$2")); // Log URL without sensitive data
 
     return webClient
         .get()
@@ -151,16 +164,52 @@ public class AnalyticsController {
         .header("X-Shopify-Access-Token", token)
         .exchangeToMono(
             response -> {
-              // Process the response body
+              // Log response status for debugging
+              logger.info(
+                  "Shopify API response status: {} for shop {}", response.statusCode(), shop);
+
+              // Handle different response codes
+              if (response.statusCode().is4xxClientError()) {
+                logger.warn(
+                    "Shopify API client error: {} for shop {}", response.statusCode(), shop);
+
+                if (response.statusCode().value() == 403) {
+                  Map<String, Object> errorResponse = new HashMap<>();
+                  errorResponse.put("timeseries", java.util.List.of());
+                  errorResponse.put("page", page);
+                  errorResponse.put("limit", limit);
+                  errorResponse.put("has_more", false);
+                  errorResponse.put("total_orders", 0);
+                  errorResponse.put("error_code", "INSUFFICIENT_PERMISSIONS");
+                  errorResponse.put(
+                      "error",
+                      "Orders API access denied - please re-authenticate with updated permissions");
+                  return Mono.just(ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse));
+                } else if (response.statusCode().value() == 429) {
+                  Map<String, Object> errorResponse = new HashMap<>();
+                  errorResponse.put("timeseries", java.util.List.of());
+                  errorResponse.put("page", page);
+                  errorResponse.put("limit", limit);
+                  errorResponse.put("has_more", false);
+                  errorResponse.put("rate_limited", true);
+                  errorResponse.put("note", "Data temporarily unavailable due to API rate limits");
+                  return Mono.just(ResponseEntity.ok().body(errorResponse));
+                }
+              }
+
+              // Process successful response
               return response
                   .bodyToMono(Map.class)
                   .map(
                       data -> {
                         var orders = (List<Map<String, Object>>) data.get("orders");
                         logger.info(
-                            "Fetched {} orders from Shopify for shop {}",
+                            "Fetched {} orders from Shopify for shop {} (days: {}, page: {})",
                             orders != null ? orders.size() : 0,
-                            shop);
+                            shop,
+                            clampedDays,
+                            page);
+
                         if (orders == null) {
                           orders = new ArrayList<>();
                         }
@@ -204,56 +253,100 @@ public class AnalyticsController {
                         result.put("page", page);
                         result.put("limit", limit);
 
-                        // Check for pagination link header
+                        // Check for pagination link header (modern approach)
                         String linkHeader =
                             response.headers().header("Link").stream().findFirst().orElse(null);
                         boolean hasMore = linkHeader != null && linkHeader.contains("rel=\"next\"");
                         result.put("has_more", hasMore);
+
+                        // Extract next page info for cursor-based pagination
+                        if (hasMore && linkHeader != null) {
+                          try {
+                            // Parse Link header to extract page_info
+                            String[] links = linkHeader.split(",");
+                            for (String link : links) {
+                              if (link.contains("rel=\"next\"")) {
+                                // Extract page_info from the next link
+                                String nextUrl =
+                                    link.substring(link.indexOf('<') + 1, link.indexOf('>'));
+                                if (nextUrl.contains("page_info=")) {
+                                  String nextPageInfo =
+                                      nextUrl.substring(nextUrl.indexOf("page_info=") + 10);
+                                  if (nextPageInfo.contains("&")) {
+                                    nextPageInfo =
+                                        nextPageInfo.substring(0, nextPageInfo.indexOf("&"));
+                                  }
+                                  result.put("next_page_info", nextPageInfo);
+                                  logger.debug(
+                                      "Next page_info extracted: {} for shop {}",
+                                      nextPageInfo,
+                                      shop);
+                                }
+                                break;
+                              }
+                            }
+                          } catch (Exception e) {
+                            logger.warn(
+                                "Failed to parse Link header for pagination: {}", e.getMessage());
+                          }
+                        }
+
+                        // Add debug information
+                        result.put("api_version", "2023-10");
+                        result.put("pagination_method", pageInfo != null ? "cursor" : "page");
+                        result.put("days_requested", clampedDays);
 
                         return ResponseEntity.ok(result);
                       });
             })
         .onErrorResume(
             e -> {
-              logger.error("Failed to fetch orders timeseries: {}", e.getMessage());
+              logger.error(
+                  "Failed to fetch orders timeseries for shop {}: {}", shop, e.getMessage(), e);
 
-              // Check if it's a 403 error (permission issue)
-              if (e.getMessage().contains("403")) {
-                logger.warn("Orders API access denied - insufficient permissions");
-                Map<String, Object> response = new HashMap<>();
-                response.put("timeseries", java.util.List.of());
-                response.put("page", page);
-                response.put("limit", limit);
-                response.put("has_more", false);
-                response.put("total_orders", 0);
-                response.put("error_code", "INSUFFICIENT_PERMISSIONS");
-                response.put(
-                    "error",
-                    "Orders API access denied - please re-authenticate with updated permissions");
-                return Mono.just(ResponseEntity.status(HttpStatus.FORBIDDEN).body(response));
-              }
-
-              // Check if it's a 429 error (rate limit)
-              if (e.getMessage().contains("429")) {
-                logger.warn("Shopify API rate limit hit - returning empty data");
-                Map<String, Object> emptyResponse = new HashMap<>();
-                emptyResponse.put("timeseries", java.util.List.of());
-                emptyResponse.put("page", page);
-                emptyResponse.put("limit", limit);
-                emptyResponse.put("has_more", false);
-                emptyResponse.put("rate_limited", true);
-                emptyResponse.put("note", "Data temporarily unavailable due to API rate limits");
-                return Mono.just(ResponseEntity.ok().body(emptyResponse));
-              }
-
-              // Generic error
+              // Enhanced error handling with specific error codes
+              String errorMessage = e.getMessage();
               Map<String, Object> errorResponse = new HashMap<>();
               errorResponse.put("timeseries", java.util.List.of());
               errorResponse.put("page", page);
               errorResponse.put("limit", limit);
               errorResponse.put("has_more", false);
-              errorResponse.put("error", "Failed to fetch orders data");
-              return Mono.just(ResponseEntity.ok().body(errorResponse));
+
+              if (errorMessage.contains("403") || errorMessage.contains("Forbidden")) {
+                logger.warn(
+                    "Orders API access denied - insufficient permissions for shop {}", shop);
+                errorResponse.put("total_orders", 0);
+                errorResponse.put("error_code", "INSUFFICIENT_PERMISSIONS");
+                errorResponse.put(
+                    "error",
+                    "Orders API access denied - please re-authenticate with updated permissions");
+                return Mono.just(ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse));
+              } else if (errorMessage.contains("429") || errorMessage.contains("rate")) {
+                logger.warn("Shopify API rate limit hit for shop {}", shop);
+                errorResponse.put("rate_limited", true);
+                errorResponse.put("note", "Data temporarily unavailable due to API rate limits");
+                return Mono.just(ResponseEntity.ok().body(errorResponse));
+              } else if (errorMessage.contains("401") || errorMessage.contains("Unauthorized")) {
+                logger.warn("Authentication failed for shop {}", shop);
+                errorResponse.put("error_code", "AUTHENTICATION_FAILED");
+                errorResponse.put("error", "Authentication failed - please re-authenticate");
+                return Mono.just(
+                    ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse));
+              } else {
+                // Generic error with more debugging info
+                logger.error("Generic error fetching orders for shop {}: {}", shop, errorMessage);
+                errorResponse.put("error", "Failed to fetch orders data");
+                errorResponse.put("error_details", errorMessage);
+                errorResponse.put(
+                    "debug_info",
+                    Map.of(
+                        "shop", shop,
+                        "days", clampedDays,
+                        "page", page,
+                        "limit", limit,
+                        "api_version", "2023-10"));
+                return Mono.just(ResponseEntity.ok().body(errorResponse));
+              }
             });
   }
 

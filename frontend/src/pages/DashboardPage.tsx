@@ -1185,54 +1185,107 @@ const DashboardPage = () => {
   }, [checkCacheAndFetch]);
 
   const fetchOrdersData = useCallback(async (forceRefresh = false) => {
+
+    // Pre-flight authentication check
+    if (!isAuthenticated || !shop) {
+      console.log('Dashboard: Skipping orders fetch - not authenticated or no shop');
+      setCardErrors(prev => ({ ...prev, orders: 'Authentication required' }));
+      setCardLoading(prev => ({ ...prev, orders: false }));
+      return;
+    }
+
     setCardLoading(prev => ({ ...prev, orders: true }));
     setCardErrors(prev => ({ ...prev, orders: null }));
     
     try {
       const data = await checkCacheAndFetch('orders', async () => {
+        console.log(`[Orders] Starting fetch for shop: ${shop}`);
+        
         // Fetch orders sequentially to avoid overwhelming the API
         const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/orders/timeseries?page=1&limit=50&days=60'));
         const initialData = await response.json();
         
-        console.log('Orders API response:', initialData);
+        console.log('[Orders] Initial API response:', {
+          status: response.status,
+          hasTimeseries: !!initialData.timeseries,
+          timeseriesLength: initialData.timeseries?.length || 0,
+          hasMore: initialData.has_more,
+          errorCode: initialData.error_code,
+          error: initialData.error,
+          apiVersion: initialData.api_version,
+          paginationMethod: initialData.pagination_method,
+          daysRequested: initialData.days_requested,
+          debugInfo: initialData.debug_info
+        });
         
         if (initialData.error_code === 'INSUFFICIENT_PERMISSIONS' || 
             (initialData.error && initialData.error.includes('re-authentication'))) {
+          console.warn('[Orders] Permission error detected:', initialData.error);
+          return initialData; // Return error data to be handled outside
+        }
+        
+        if (initialData.error_code === 'AUTHENTICATION_FAILED') {
+          console.warn('[Orders] Authentication failed:', initialData.error);
           return initialData; // Return error data to be handled outside
         }
         
         if (initialData.error_code === 'API_ACCESS_LIMITED' || 
             initialData.error_code === 'INSUFFICIENT_PERMISSIONS') {
+          console.warn('[Orders] API access limited:', initialData.error_code);
           return initialData; // Return error data to be handled outside
         }
         
         let allOrders = initialData.timeseries || [];
-        console.log('Initial orders from API:', allOrders.length, allOrders);
+        console.log('[Orders] Initial orders from API:', allOrders.length, 'orders');
         
         // Only fetch additional pages if first page worked and we have more data
         if (!initialData.rate_limited && initialData.has_more) {
           try {
+            console.log('[Orders] Fetching additional pages...');
             // Fetch additional pages with delays to avoid rate limiting
             for (let page = 2; page <= 5; page++) {
               await new Promise(resolve => setTimeout(resolve, 500)); // 500ms delay between pages
+              
               const additionalResponse = await fetchWithAuth(`/api/analytics/orders/timeseries?page=${page}&limit=50&days=60`);
               const additionalData = await additionalResponse.json();
               
+              console.log(`[Orders] Page ${page} response:`, {
+                status: additionalResponse.status,
+                timeseriesLength: additionalData.timeseries?.length || 0,
+                hasMore: additionalData.has_more,
+                errorCode: additionalData.error_code
+              });
+              
               if (additionalData.timeseries) {
                 allOrders = [...allOrders, ...additionalData.timeseries];
-                console.log(`Page ${page} orders:`, additionalData.timeseries.length);
+                console.log(`[Orders] Page ${page} added ${additionalData.timeseries.length} orders, total: ${allOrders.length}`);
               }
               
-              if (!additionalData.has_more) break;
+              if (!additionalData.has_more) {
+                console.log(`[Orders] No more pages after page ${page}`);
+                break;
+              }
             }
           } catch (err) {
-            console.warn('Error fetching additional order pages:', err);
+            console.warn('[Orders] Error fetching additional order pages:', err);
           }
+        } else if (initialData.rate_limited) {
+          console.warn('[Orders] Rate limited on first page');
+        } else {
+          console.log('[Orders] No additional pages to fetch');
         }
         
         // Sort orders by date
         allOrders.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-        console.log('Final processed orders:', allOrders.length, allOrders.slice(0, 3));
+        console.log('[Orders] Final processed orders:', {
+          totalCount: allOrders.length,
+                     sampleOrders: allOrders.slice(0, 3).map((o: any) => ({
+             id: o.id,
+             name: o.name,
+             created_at: o.created_at,
+             total_price: o.total_price
+           }))
+        });
         
         return {
           ...initialData,
@@ -1242,14 +1295,22 @@ const DashboardPage = () => {
         };
       }, forceRefresh);
       
-      // Handle error cases
+      // Handle error cases with enhanced logging
       if (data.error_code === 'INSUFFICIENT_PERMISSIONS' || 
           (data.error && data.error.includes('re-authentication'))) {
+        console.error('[Orders] Permission denied error:', data);
         setCardErrors(prev => ({ ...prev, orders: 'Permission denied – please re-authenticate with Shopify' }));
         return;
       }
       
+      if (data.error_code === 'AUTHENTICATION_FAILED') {
+        console.error('[Orders] Authentication failed:', data);
+        setCardErrors(prev => ({ ...prev, orders: 'Authentication failed – please re-authenticate with Shopify' }));
+        return;
+      }
+      
       if (data.error_code === 'API_ACCESS_LIMITED') {
+        console.warn('[Orders] API access limited - showing empty data');
         // Silently handle limited access - show empty data without error message
         setInsights(prev => ({
           ...prev!,
@@ -1260,7 +1321,7 @@ const DashboardPage = () => {
       }
       
       if (data.error_code === 'INSUFFICIENT_PERMISSIONS') {
-        console.log('Orders API access denied - insufficient permissions');
+        console.error('[Orders] Orders API access denied - insufficient permissions');
         setCardErrors(prev => ({ ...prev, orders: 'Permission denied – please re-authenticate with Shopify' }));
         setInsights(prev => ({
           ...prev!,
@@ -1270,21 +1331,34 @@ const DashboardPage = () => {
         return;
       }
       
+      // Handle generic errors with debug info
+      if (data.error && data.debug_info) {
+        console.error('[Orders] Generic error with debug info:', data);
+        setCardErrors(prev => ({ ...prev, orders: `Failed to load orders: ${data.error}` }));
+        return;
+      }
+      
+      // Handle successful data
+      console.log('[Orders] Successfully processed data, updating insights');
       setInsights(prev => {
         const newState = {
           ...prev!,
           orders: data.rate_limited ? [] : (data.orders || data.timeseries || []),
           recentOrders: data.rate_limited ? [] : (data.recentOrders || (data.timeseries || []).slice(0, 5))
         };
-        console.log('Updated insights state:', newState);
+        console.log('[Orders] Updated insights state:', {
+          ordersCount: newState.orders.length,
+          recentOrdersCount: newState.recentOrders.length
+        });
         return newState;
       });
       
       if (data.rate_limited) {
+        console.warn('[Orders] Rate limited - setting rate limit flag');
         setHasRateLimit(true);
       }
     } catch (error: any) {
-      console.error('Orders data fetch error:', error);
+      console.error('[Orders] Orders data fetch error:', error);
       const errorMessage = error.message === 'PERMISSION_ERROR'
         ? 'Permission denied – please re-authenticate with Shopify'
         : 'Failed to load orders data';
@@ -1292,7 +1366,7 @@ const DashboardPage = () => {
     } finally {
       setCardLoading(prev => ({ ...prev, orders: false }));
     }
-  }, [checkCacheAndFetch]);
+  }, [isAuthenticated, shop, checkCacheAndFetch]);
 
   // Clear error states on component mount and route changes
   useEffect(() => {
