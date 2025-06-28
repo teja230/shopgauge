@@ -716,10 +716,8 @@ const DashboardPage = () => {
     const fetchKey = `${shop}_${cacheKey}`;
     let debugLog = [`🔍 CACHE DEBUG - ${cacheKey.toUpperCase()}`];
     
-    // If there's already an active fetch for this key, wait for it
+    // If there's already an active fetch for this key, wait for it (no extra toasts)
     if (activeFetches.current.has(fetchKey)) {
-      debugLog.push(`⏳ Waiting for active fetch to complete`);
-      notifications.addNotification(debugLog.join('\n'), 'info', { duration: 3000 });
       return await activeFetches.current.get(fetchKey);
     }
     
@@ -751,7 +749,7 @@ const DashboardPage = () => {
     if (!forceRefresh && isFresh) {
       const ageMinutes = Math.round((Date.now() - cachedEntry.timestamp) / (1000 * 60));
       debugLog.push(`🚀 RESULT: Using cached data (${ageMinutes}min old) - NO API CALL`);
-      notifications.addNotification(debugLog.join('\n'), 'success', { duration: 5000 });
+      notifications.addNotification(debugLog.join('\n'), 'success', { duration: 4000 });
       return cachedEntry.data;
     }
     
@@ -759,7 +757,6 @@ const DashboardPage = () => {
     const fetchPromise = (async () => {
       try {
         debugLog.push(`🌐 RESULT: Making API call - fetching fresh data`);
-        notifications.addNotification(debugLog.join('\n'), 'warning', { duration: 5000 });
         
         const freshData = await fetchFunction();
         const now = new Date();
@@ -777,17 +774,11 @@ const DashboardPage = () => {
           [cacheKey]: newCacheEntry
         }));
         
-        // Also update sessionStorage directly for immediate availability
-        const updatedSessionCache = {
-          ...sessionCache,
-          version: CACHE_VERSION,
-          shop: shop || '',
-          [cacheKey]: newCacheEntry
-        };
-        sessionStorage.setItem(getCacheKey(shop || ''), JSON.stringify(updatedSessionCache));
+        // No direct sessionStorage write here; rely on global save effect to persist without race conditions
         
         // Show final success notification
-        notifications.addNotification(`💾 ${cacheKey.toUpperCase()}: Fresh data fetched and cached successfully`, 'success', { duration: 2000 });
+        debugLog.push(`💾 RESULT: Fresh data fetched and cached successfully`);
+        notifications.addNotification(debugLog.join('\n'), 'success', { duration: 4000 });
         
         return freshData;
       } finally {
