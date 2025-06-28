@@ -1627,25 +1627,25 @@ const DashboardPage = () => {
     setTimeout(() => {
       switch (cardType) {
         case 'revenue':
-          fetchRevenueData(true); // Force refresh
+          fetchRevenueData(false); // Use cache if available; retry handlers can pass true if needed
           break;
         case 'products':
-          fetchProductsData(true); // Force refresh
+          fetchProductsData(false);
           break;
         case 'inventory':
-          fetchInventoryData(true); // Force refresh
+          fetchInventoryData(false);
           break;
         case 'newProducts':
-          fetchNewProductsData(true); // Force refresh
+          fetchNewProductsData(false);
           break;
         case 'insights':
-          fetchInsightsData(true); // Force refresh
+          fetchInsightsData(false);
           break;
         case 'orders':
-          fetchOrdersData(true); // Force refresh
+          fetchOrdersData(false);
           break;
         case 'abandonedCarts':
-          fetchAbandonedCartsData(true); // Force refresh
+          fetchAbandonedCartsData(false);
           break;
       }
     }, 100); // 100ms delay
