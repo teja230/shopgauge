@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import axios from 'axios';
 import { getAuthShop, setApiAuthState, API_BASE_URL } from '../api';
+import { invalidateCache } from '../utils/cacheUtils';
 
 // Types
 interface Shop {
@@ -113,7 +114,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
-    console.log('AuthContext: Starting logout');
+    console.log(`AuthContext: Starting logout for shop: ${shop}`);
+    const shopToClear = shop; // Capture shop name before it's cleared
+
     try {
       await axios.post(`${API_BASE_URL}/api/auth/shopify/profile/disconnect`, {}, {
         withCredentials: true
@@ -123,8 +126,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error('AuthContext: Logout API failed:', error);
     } finally {
-      // Clear dashboard cache on logout regardless of API result
-      clearAllDashboardCache();
+      // Clear dashboard cache for the specific shop on logout
+      if (shopToClear) {
+        invalidateCache(shopToClear);
+      }
       
       setIsAuthenticated(false);
       setShop(null);

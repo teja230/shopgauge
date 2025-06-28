@@ -9,6 +9,12 @@ import { styled } from '@mui/material/styles';
 import { OpenInNew, Refresh, Storefront, ListAlt, Inventory2 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { useNotifications } from '../hooks/useNotifications';
+import { useSessionNotification } from '../hooks/useSessionNotification';
+import {
+  getCacheKey,
+  invalidateCache,
+  CACHE_VERSION,
+} from '../utils/cacheUtils'; // Import from shared utils
 
 /**
  * 🚀 DASHBOARD CACHE BEHAVIOR
@@ -33,18 +39,14 @@ import { useNotifications } from '../hooks/useNotifications';
 
 // Cache configuration - Enterprise-grade settings
 const CACHE_DURATION = 120 * 60 * 1000; // 120 minutes (2 hours) in milliseconds
-const CACHE_VERSION = '2.0.0'; // Updated for 120-minute cache duration
-const REFRESH_DEBOUNCE_MS = 2000; // 2 seconds debounce for refresh button
-
-// Shop-specific cache key to prevent cross-shop data leakage
-const getCacheKey = (shop: string) => `dashboard_cache_${shop}_v3`;
+const REFRESH_DEBOUNCE_MS = 30000; // 30 seconds
 
 interface CacheEntry<T> {
   data: T;
   timestamp: number;
   lastUpdated: Date;
   version: string;
-  shop: string; // Add shop to cache entry for validation
+  shop?: string; // Add shop to cache for validation
 }
 
 interface DashboardCache {
@@ -114,13 +116,6 @@ const saveCacheToStorage = (cache: DashboardCache, shop: string) => {
       console.error('Failed to save cache even after clearing storage:', retryError);
     }
   }
-};
-
-// Cache invalidation helper - clears both memory and storage for specific shop
-const invalidateCache = (shop: string) => {
-  console.log('Invalidating cache for shop:', shop);
-  sessionStorage.removeItem(getCacheKey(shop));
-  return { version: CACHE_VERSION, shop };
 };
 
 // Modern, elegant, and professional dashboard UI improvements
@@ -631,28 +626,29 @@ const DashboardPage = () => {
 
   // Save cache to sessionStorage whenever it changes
   useEffect(() => {
-    if (shop) {
+    if (shop && Object.keys(cache).length > 2) { // Only save if cache is not empty
       console.log(`💾 Saving cache to sessionStorage for shop: ${shop}`);
       saveCacheToStorage(cache, shop);
     }
   }, [cache, shop]);
 
   // Track previous shop to detect actual changes
-  const prevShopRef = useRef<string>('');
+  const prevShopRef = useRef<string | null>(null);
   
   // Effect to handle shop changes and cache invalidation
   useEffect(() => {
     if (shop && isAuthReady) {
-      // Only invalidate cache if shop actually changed (not just re-render)
-      if (prevShopRef.current !== shop) {
+      // Only invalidate cache if shop actually changed from one valid shop to another
+      if (prevShopRef.current && prevShopRef.current !== shop) {
         console.log(`🔄 Shop changed from "${prevShopRef.current}" to "${shop}" - Invalidating cache`);
         const freshCache = invalidateCache(shop);
-        setCache(freshCache);
-        setIsInitialLoad(true);
-        prevShopRef.current = shop;
-      } else {
-        console.log(`🔍 Shop "${shop}" unchanged - keeping cache`);
+        if (freshCache) {
+          setCache(freshCache);
+        }
+        setIsInitialLoad(true); // This will trigger a full data reload for the new shop
       }
+      // Update the ref for the next render
+      prevShopRef.current = shop;
     }
   }, [shop, isAuthReady]);
   
