@@ -1,6 +1,7 @@
 package com.storesight.backend.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.storesight.backend.config.BackendConfig;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,6 +24,7 @@ public class AlertService implements StreamListener<String, MapRecord<String, St
   private final ObjectMapper objectMapper = new ObjectMapper();
   private final SecretService secretService;
   private final WebClient webClient;
+  private final BackendConfig backendConfig;
 
   @Value("${sendgrid.api_key:}")
   private String sendGridApiKey;
@@ -43,11 +45,13 @@ public class AlertService implements StreamListener<String, MapRecord<String, St
       RedisTemplate<String, Object> redisTemplate,
       StringRedisTemplate stringRedisTemplate,
       SecretService secretService,
-      WebClient.Builder webClientBuilder) {
+      WebClient.Builder webClientBuilder,
+      BackendConfig backendConfig) {
     this.redisTemplate = redisTemplate;
     this.stringRedisTemplate = stringRedisTemplate;
     this.secretService = secretService;
     this.webClient = webClientBuilder.build();
+    this.backendConfig = backendConfig;
   }
 
   @PostConstruct
@@ -248,11 +252,8 @@ public class AlertService implements StreamListener<String, MapRecord<String, St
         if (email == null) continue;
         // Fetch CSV from export endpoint
         java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
-        // Use environment variable for backend URL, fallback to localhost for development
-        String backendUrl = System.getenv("BACKEND_URL");
-        if (backendUrl == null || backendUrl.isEmpty()) {
-          backendUrl = "http://localhost:8080";
-        }
+        // Use configuration for backend URL
+        String backendUrl = backendConfig.getBackendUrl();
         var req =
             java.net.http.HttpRequest.newBuilder()
                 .uri(new java.net.URI(backendUrl + "/api/analytics/export/csv"))

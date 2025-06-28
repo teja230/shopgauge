@@ -2,6 +2,7 @@ package com.storesight.backend.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.storesight.backend.config.BackendConfig;
 import com.storesight.backend.config.ShopifyConfig;
 import com.storesight.backend.model.AuditLog;
 import com.storesight.backend.service.DataPrivacyService;
@@ -34,6 +35,7 @@ public class AnalyticsController {
   private final StringRedisTemplate redisTemplate;
   private final DataPrivacyService dataPrivacyService;
   private final ShopifyConfig shopifyConfig;
+  private final BackendConfig backendConfig;
   private static final Logger logger = LoggerFactory.getLogger(AnalyticsController.class);
 
   @Autowired
@@ -42,12 +44,14 @@ public class AnalyticsController {
       ShopService shopService,
       StringRedisTemplate redisTemplate,
       DataPrivacyService dataPrivacyService,
-      ShopifyConfig shopifyConfig) {
+      ShopifyConfig shopifyConfig,
+      BackendConfig backendConfig) {
     this.webClient = webClientBuilder.build();
     this.shopService = shopService;
     this.redisTemplate = redisTemplate;
     this.dataPrivacyService = dataPrivacyService;
     this.shopifyConfig = shopifyConfig;
+    this.backendConfig = backendConfig;
   }
 
   private String getShopifyUrl(String shop, String endpoint) {
@@ -1295,11 +1299,8 @@ public class AnalyticsController {
           }
 
           debugInfo.put("recommendations", recommendations);
-          // Use environment variable for backend URL, fallback to localhost for development
-          String backendUrl = System.getenv("BACKEND_URL");
-          if (backendUrl == null || backendUrl.isEmpty()) {
-            backendUrl = "http://localhost:8080";
-          }
+          // Use configuration for backend URL
+          String backendUrl = backendConfig.getBackendUrl();
           debugInfo.put("reauth_url", backendUrl + "/api/auth/shopify/login?shop=" + shop);
 
           return ResponseEntity.ok(debugInfo);
@@ -1565,11 +1566,8 @@ public class AnalyticsController {
           helpfulLinks.put(
               "Protected Customer Data Guide",
               "https://shopify.dev/docs/apps/launch/protected-customer-data");
-          // Use environment variable for backend URL, fallback to localhost for development
-          String backendUrl = System.getenv("BACKEND_URL");
-          if (backendUrl == null || backendUrl.isEmpty()) {
-            backendUrl = "http://localhost:8080";
-          }
+          // Use configuration for backend URL
+          String backendUrl = backendConfig.getBackendUrl();
           helpfulLinks.put(
               "Re-authenticate App", backendUrl + "/api/auth/shopify/login?shop=" + shop);
           permissionsReport.put("helpful_links", helpfulLinks);
