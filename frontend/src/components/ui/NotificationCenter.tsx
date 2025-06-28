@@ -791,26 +791,6 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                       </Tooltip>
                     )}
                     
-                    <Tooltip title="Archive">
-                      <IconButton
-                        size="small"
-                        onClick={() => markAsRead(notification.id)}
-                        sx={{ 
-                          color: 'text.secondary',
-                          width: 32,
-                          height: 32,
-                          borderRadius: '50%',
-                          '&:hover': { 
-                            color: 'info.main', 
-                            backgroundColor: 'info.light' + '12',
-                            transition: 'all 0.2s ease'
-                          } 
-                        }}
-                      >
-                        <Archive size={16} strokeWidth={2} />
-                      </IconButton>
-                    </Tooltip>
-                    
                     <Tooltip title="Delete">
                       <IconButton
                         size="small"
@@ -848,12 +828,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                       sx={{ 
                         textTransform: 'none',
                         borderRadius: 1,
-                        fontSize: '0.75rem',
                         minWidth: 'auto',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 1,
-                        px: 2,
+                        px: 1,
                         py: 1,
                         borderColor: 'success.main',
                         color: 'success.main',
@@ -863,9 +839,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                           transition: 'all 0.2s ease'
                         }
                       }}
-                      startIcon={<BookmarkCheck size={16} strokeWidth={2} />}
                     >
-                      Read All
+                      <BookmarkCheck size={16} strokeWidth={2} />
                     </Button>
                   </Tooltip>
                   <Tooltip title="Mark all unread">
@@ -878,12 +853,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                       sx={{
                         textTransform: 'none',
                         borderRadius: 1,
-                        fontSize: '0.75rem',
                         minWidth: 'auto',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 1,
-                        px: 2,
+                        px: 1,
                         py: 1,
                         borderColor: 'warning.main',
                         color: 'warning.main',
@@ -893,37 +864,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                           transition: 'all 0.2s ease'
                         }
                       }}
-                      startIcon={<ArchiveRestore size={16} strokeWidth={2} />}
                     >
-                      Unread All
-                    </Button>
-                  </Tooltip>
-                  <Tooltip title="Filter notifications">
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      color="info"
-                      sx={{
-                        textTransform: 'none',
-                        borderRadius: 1,
-                        fontSize: '0.75rem',
-                        minWidth: 'auto',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 1,
-                        px: 2,
-                        py: 1,
-                        borderColor: 'info.main',
-                        color: 'info.main',
-                        '&:hover': {
-                          backgroundColor: 'info.light' + '12',
-                          borderColor: 'info.dark',
-                          transition: 'all 0.2s ease'
-                        }
-                      }}
-                      startIcon={<Filter size={16} strokeWidth={2} />}
-                    >
-                      Filter
+                      <ArchiveRestore size={16} strokeWidth={2} />
                     </Button>
                   </Tooltip>
                 </Box>
@@ -936,12 +878,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                     sx={{
                       textTransform: 'none',
                       borderRadius: 1,
-                      fontSize: '0.75rem',
                       minWidth: 'auto',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 1,
-                      px: 2,
+                      px: 1,
                       py: 1,
                       borderColor: 'error.main',
                       color: 'error.main',
@@ -951,9 +889,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                         transition: 'all 0.2s ease'
                       }
                     }}
-                    startIcon={<Trash2 size={16} strokeWidth={2} />}
                   >
-                    Clear All
+                    <Trash2 size={16} strokeWidth={2} />
                   </Button>
                 </Tooltip>
               </NotificationActions>
