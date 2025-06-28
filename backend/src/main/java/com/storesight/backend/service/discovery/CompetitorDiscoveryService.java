@@ -263,15 +263,14 @@ public class CompetitorDiscoveryService {
 
   /** Get discovery configuration */
   public Map<String, Object> getDiscoveryConfig() {
+    boolean searchClientEnabled = searchClient.isEnabled();
     return Map.of(
-        "intervalHours",
-        discoveryIntervalHours,
-        "maxResultsPerProduct",
-        maxResultsPerProduct,
-        "searchClientEnabled",
-        searchClient.isEnabled(),
-        "searchClientProvider",
-        searchClient.getProviderName());
+        "enabled", searchClientEnabled,
+        "configured", searchClientEnabled,
+        "intervalHours", discoveryIntervalHours,
+        "maxResultsPerProduct", maxResultsPerProduct,
+        "searchClientEnabled", searchClientEnabled,
+        "searchClientProvider", searchClient.getProviderName());
   }
 
   /** Get the search client for external access */

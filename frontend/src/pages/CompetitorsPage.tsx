@@ -655,16 +655,24 @@ export default function CompetitorsPage() {
 
       const statusData = await statusResponse.json();
       
-      // Check if discovery is enabled
-      if (!statusData.enabled) {
+      // Check configuration via dedicated config endpoint
+      const cfgRes = await fetchWithAuth('/api/competitors/discovery/config');
+      if (!cfgRes.ok) {
+        notifications.showError('Discovery configuration unavailable. Please contact support.', {
+          category: 'Discovery'
+        });
+        return;
+      }
+      
+      const cfg = await cfgRes.json();
+      if (!cfg.enabled) {
         notifications.showError('Competitor discovery is currently disabled. Please contact support.', {
           category: 'Discovery'
         });
         return;
       }
-
-      // Check if we have the required configuration
-      if (!statusData.configured) {
+      
+      if (!cfg.configured) {
         notifications.showError('Competitor discovery is not configured. Please set up your search API credentials.', {
           category: 'Discovery'
         });

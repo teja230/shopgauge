@@ -377,6 +377,10 @@ public class CompetitorController {
       suggestion.setStatus(CompetitorSuggestion.Status.APPROVED);
       suggestionRepository.save(suggestion);
 
+      // Invalidate suggestion count cache to ensure badge updates immediately
+      countCache.remove(shopId);
+      logger.debug("Invalidated suggestion count cache for shop {} after approval", shopId);
+
       // Create actual competitor_url entry for price tracking
       String label =
           suggestion.getTitle() != null
@@ -417,6 +421,10 @@ public class CompetitorController {
     // Move to ignored status
     suggestion.setStatus(CompetitorSuggestion.Status.IGNORED);
     suggestionRepository.save(suggestion);
+
+    // Invalidate suggestion count cache to ensure badge updates immediately
+    countCache.remove(shopId);
+    logger.debug("Invalidated suggestion count cache for shop {} after ignore", shopId);
 
     return ResponseEntity.ok(Map.of("message", "Suggestion ignored"));
   }
