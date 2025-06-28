@@ -922,11 +922,10 @@ const DashboardPage = () => {
       
     } catch (error: any) {
       console.error('Revenue data fetch error:', error);
-      if (error.message === 'PERMISSION_ERROR') {
-        setCardErrors(prev => ({ ...prev, revenue: 'Permission denied – please re-authenticate with Shopify' }));
-        return;
-      }
-      setCardErrors(prev => ({ ...prev, revenue: 'Failed to load revenue data' }));
+      const errorMessage = error.message === 'PERMISSION_ERROR' 
+        ? 'Permission denied – please re-authenticate with Shopify'
+        : 'Failed to load revenue data';
+      setCardErrors(prev => ({ ...prev, revenue: errorMessage }));
     } finally {
       setCardLoading(prev => ({ ...prev, revenue: false }));
     }
@@ -964,11 +963,11 @@ const DashboardPage = () => {
         setHasRateLimit(true);
       }
     } catch (error: any) {
-      if (error.message === 'PERMISSION_ERROR') {
-        setCardErrors(prev => ({ ...prev, products: 'Permission denied – please re-authenticate with Shopify' }));
-        return;
-      }
-      setCardErrors(prev => ({ ...prev, products: 'Failed to load products data' }));
+      console.error('Products data fetch error:', error);
+      const errorMessage = error.message === 'PERMISSION_ERROR' 
+        ? 'Permission denied – please re-authenticate with Shopify'
+        : 'Failed to load products data';
+      setCardErrors(prev => ({ ...prev, products: errorMessage }));
     } finally {
       setCardLoading(prev => ({ ...prev, products: false }));
     }
@@ -1006,11 +1005,11 @@ const DashboardPage = () => {
         setHasRateLimit(true);
       }
     } catch (error: any) {
-      if (error.message === 'PERMISSION_ERROR') {
-        setCardErrors(prev => ({ ...prev, inventory: 'Permission denied – please re-authenticate with Shopify' }));
-        return;
-      }
-      setCardErrors(prev => ({ ...prev, inventory: 'Failed to load inventory data' }));
+      console.error('Inventory data fetch error:', error);
+      const errorMessage = error.message === 'PERMISSION_ERROR'
+        ? 'Permission denied – please re-authenticate with Shopify'
+        : 'Failed to load inventory data';
+      setCardErrors(prev => ({ ...prev, inventory: errorMessage }));
     } finally {
       setCardLoading(prev => ({ ...prev, inventory: false }));
     }
@@ -1048,11 +1047,11 @@ const DashboardPage = () => {
         setHasRateLimit(true);
       }
     } catch (error: any) {
-      if (error.message === 'PERMISSION_ERROR') {
-        setCardErrors(prev => ({ ...prev, newProducts: 'Permission denied – please re-authenticate with Shopify' }));
-        return;
-      }
-      setCardErrors(prev => ({ ...prev, newProducts: 'Failed to load new products data' }));
+      console.error('New products data fetch error:', error);
+      const errorMessage = error.message === 'PERMISSION_ERROR'
+        ? 'Permission denied – please re-authenticate with Shopify'
+        : 'Failed to load new products data';
+      setCardErrors(prev => ({ ...prev, newProducts: errorMessage }));
     } finally {
       setCardLoading(prev => ({ ...prev, newProducts: false }));
     }
@@ -1103,8 +1102,9 @@ const DashboardPage = () => {
         setHasRateLimit(true);
       }
     } catch (error: any) {
+      console.error('Insights data fetch error:', error);
       if (error.message === 'PERMISSION_ERROR') {
-        navigate('/');
+        navigate('/'); // Redirect on critical insight failure
         return;
       }
       setCardErrors(prev => ({ ...prev, insights: 'Failed to load insights data' }));
@@ -1165,11 +1165,11 @@ const DashboardPage = () => {
         setHasRateLimit(true);
       }
     } catch (error: any) {
-      if (error.message === 'PERMISSION_ERROR') {
-        setCardErrors(prev => ({ ...prev, abandonedCarts: 'Permission denied – please re-authenticate with Shopify' }));
-        return;
-      }
-      setCardErrors(prev => ({ ...prev, abandonedCarts: 'Failed to load abandoned carts data' }));
+      console.error('Abandoned carts data fetch error:', error);
+      const errorMessage = error.message === 'PERMISSION_ERROR'
+        ? 'Permission denied – please re-authenticate with Shopify'
+        : 'Failed to load abandoned carts data';
+      setCardErrors(prev => ({ ...prev, abandonedCarts: errorMessage }));
     } finally {
       setCardLoading(prev => ({ ...prev, abandonedCarts: false }));
     }
@@ -1275,12 +1275,11 @@ const DashboardPage = () => {
         setHasRateLimit(true);
       }
     } catch (error: any) {
-      if (error.message === 'PERMISSION_ERROR') {
-        // Surface permission error in UI instead of redirecting
-        setCardErrors(prev => ({ ...prev, orders: 'Permission denied – please re-authenticate with Shopify' }));
-        return;
-      }
-      setCardErrors(prev => ({ ...prev, orders: 'Failed to load orders data' }));
+      console.error('Orders data fetch error:', error);
+      const errorMessage = error.message === 'PERMISSION_ERROR'
+        ? 'Permission denied – please re-authenticate with Shopify'
+        : 'Failed to load orders data';
+      setCardErrors(prev => ({ ...prev, orders: errorMessage }));
     } finally {
       setCardLoading(prev => ({ ...prev, orders: false }));
     }

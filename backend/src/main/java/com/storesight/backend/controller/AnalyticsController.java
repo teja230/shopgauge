@@ -130,63 +130,76 @@ public class AnalyticsController {
             + limit
             + "&status=any&created_at_min="
             + since
-            + "T00:00:00Z";
+            + "T00:00:00Z&page="
+            + page;
 
     return webClient
         .get()
         .uri(url)
         .header("X-Shopify-Access-Token", token)
-        .retrieve()
-        .bodyToMono(Map.class)
-        .map(
-            data -> {
-              var orders = (List<Map<String, Object>>) data.get("orders");
+        .exchangeToMono(
+            response -> {
+              // Process the response body
+              return response
+                  .bodyToMono(Map.class)
+                  .map(
+                      data -> {
+                        var orders = (List<Map<String, Object>>) data.get("orders");
+                        logger.info(
+                            "Fetched {} orders from Shopify for shop {}",
+                            orders != null ? orders.size() : 0,
+                            shop);
+                        if (orders == null) {
+                          orders = new ArrayList<>();
+                        }
 
-              logger.info(
-                  "Fetched {} orders from Shopify for shop {}",
-                  orders != null ? orders.size() : 0,
-                  shop);
+                        List<Map<String, Object>> timeseries =
+                            orders.stream()
+                                .map(
+                                    order -> {
+                                      Map<String, Object> orderData = new HashMap<>();
+                                      orderData.put("id", order.get("id"));
+                                      orderData.put("name", order.get("name"));
+                                      orderData.put("created_at", order.get("created_at"));
+                                      orderData.put("total_price", order.get("total_price"));
+                                      orderData.put("customer", order.get("customer"));
+                                      orderData.put(
+                                          "financial_status", order.get("financial_status"));
+                                      orderData.put(
+                                          "fulfillment_status", order.get("fulfillment_status"));
+                                      orderData.put(
+                                          "order_status_url", order.get("order_status_url"));
 
-              if (orders == null) {
-                orders = new ArrayList<>();
-              }
+                                      Object orderId = order.get("id");
+                                      if (orderId != null) {
+                                        orderData.put(
+                                            "shopify_order_url",
+                                            getShopifyAdminUrl(
+                                                shop, "orders/" + orderId.toString()));
+                                      }
 
-              List<Map<String, Object>> timeseries =
-                  orders.stream()
-                      .map(
-                          order -> {
-                            Map<String, Object> orderData = new HashMap<>();
-                            orderData.put("id", order.get("id"));
-                            orderData.put("name", order.get("name"));
-                            orderData.put("created_at", order.get("created_at"));
-                            orderData.put("total_price", order.get("total_price"));
-                            orderData.put("customer", order.get("customer"));
-                            orderData.put("financial_status", order.get("financial_status"));
-                            orderData.put("fulfillment_status", order.get("fulfillment_status"));
-                            orderData.put("order_status_url", order.get("order_status_url"));
+                                      return orderData;
+                                    })
+                                .collect(Collectors.toList());
 
-                            // Add Shopify admin URL for the order
-                            Object orderId = order.get("id");
-                            if (orderId != null) {
-                              orderData.put(
-                                  "shopify_order_url",
-                                  getShopifyAdminUrl(shop, "orders/" + orderId.toString()));
-                            }
+                        logger.info(
+                            "Processed {} orders into timeseries for shop {}",
+                            timeseries.size(),
+                            shop);
 
-                            return orderData;
-                          })
-                      .collect(Collectors.toList());
+                        Map<String, Object> result = new HashMap<>();
+                        result.put("timeseries", timeseries);
+                        result.put("page", page);
+                        result.put("limit", limit);
 
-              logger.info(
-                  "Processed {} orders into timeseries for shop {}", timeseries.size(), shop);
+                        // Check for pagination link header
+                        String linkHeader =
+                            response.headers().header("Link").stream().findFirst().orElse(null);
+                        boolean hasMore = linkHeader != null && linkHeader.contains("rel=\"next\"");
+                        result.put("has_more", hasMore);
 
-              Map<String, Object> result = new HashMap<>();
-              result.put("timeseries", timeseries);
-              result.put("page", page);
-              result.put("limit", limit);
-              result.put("has_more", orders.size() == limit);
-
-              return ResponseEntity.ok(result);
+                        return ResponseEntity.ok(result);
+                      });
             })
         .onErrorResume(
             e -> {
