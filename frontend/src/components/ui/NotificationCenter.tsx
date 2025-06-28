@@ -9,7 +9,33 @@ import {
   Check,
   Trash2,
   RefreshCw,
-  EyeOff
+  EyeOff,
+  MoreHorizontal,
+  Archive,
+  ArchiveRestore,
+  Filter,
+  Settings,
+  Download,
+  Share2,
+  Bookmark,
+  BookmarkCheck,
+  Clock,
+  Star,
+  StarOff,
+  MessageSquare,
+  MessageCircle,
+  Shield,
+  ShieldCheck,
+  ShieldAlert,
+  TrendingUp,
+  TrendingDown,
+  Activity,
+  Zap,
+  Target,
+  Award,
+  BadgeCheck,
+  Circle,
+  CircleDot
 } from 'lucide-react';
 import { format, formatDistanceToNow, parseISO, isValid } from 'date-fns';
 import { useNotifications } from '../../hooks/useNotifications';
@@ -393,18 +419,135 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
 
   // Get icon for notification type with theme colors
   const getNotificationIcon = (type: string) => {
-    const iconProps = { size: 16 };
+    const iconProps = { size: 18, strokeWidth: 2 };
     
     switch (type) {
       case 'success':
-        return <CheckCircle {...iconProps} style={{ color: theme.palette.success.main }} />;
+        return (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 32,
+              height: 32,
+              borderRadius: '50%',
+              backgroundColor: `${theme.palette.success.main}15`,
+              color: theme.palette.success.main,
+              border: `1px solid ${theme.palette.success.main}30`,
+            }}
+          >
+            <BadgeCheck {...iconProps} />
+          </Box>
+        );
       case 'error':
-        return <AlertCircle {...iconProps} style={{ color: theme.palette.error.main }} />;
+        return (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 32,
+              height: 32,
+              borderRadius: '50%',
+              backgroundColor: `${theme.palette.error.main}15`,
+              color: theme.palette.error.main,
+              border: `1px solid ${theme.palette.error.main}30`,
+            }}
+          >
+            <ShieldAlert {...iconProps} />
+          </Box>
+        );
       case 'warning':
-        return <AlertTriangle {...iconProps} style={{ color: theme.palette.warning.main }} />;
+        return (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 32,
+              height: 32,
+              borderRadius: '50%',
+              backgroundColor: `${theme.palette.warning.main}15`,
+              color: theme.palette.warning.main,
+              border: `1px solid ${theme.palette.warning.main}30`,
+            }}
+          >
+            <AlertTriangle {...iconProps} />
+          </Box>
+        );
       case 'info':
+        return (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 32,
+              height: 32,
+              borderRadius: '50%',
+              backgroundColor: `${theme.palette.primary.main}15`,
+              color: theme.palette.primary.main,
+              border: `1px solid ${theme.palette.primary.main}30`,
+            }}
+          >
+            <MessageCircle {...iconProps} />
+          </Box>
+        );
+      case 'trending':
+        return (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 32,
+              height: 32,
+              borderRadius: '50%',
+              backgroundColor: `${theme.palette.info.main}15`,
+              color: theme.palette.info.main,
+              border: `1px solid ${theme.palette.info.main}30`,
+            }}
+          >
+            <TrendingUp {...iconProps} />
+          </Box>
+        );
+      case 'activity':
+        return (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 32,
+              height: 32,
+              borderRadius: '50%',
+              backgroundColor: `${theme.palette.secondary.main}15`,
+              color: theme.palette.secondary.main,
+              border: `1px solid ${theme.palette.secondary.main}30`,
+            }}
+          >
+            <Activity {...iconProps} />
+          </Box>
+        );
       default:
-        return <Info {...iconProps} style={{ color: theme.palette.primary.main }} />;
+        return (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 32,
+              height: 32,
+              borderRadius: '50%',
+              backgroundColor: `${theme.palette.grey[500]}15`,
+              color: theme.palette.grey[600],
+              border: `1px solid ${theme.palette.grey[400]}30`,
+            }}
+          >
+            <Circle {...iconProps} />
+          </Box>
+        );
     }
   };
 
@@ -501,21 +644,59 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                 )}
               </Typography>
               <Box display="flex" alignItems="center" gap={1}>
+                <Tooltip title="Notification settings">
+                  <IconButton 
+                    size="small" 
+                    sx={{
+                      color: 'text.secondary',
+                      '&:hover': {
+                        color: 'primary.main',
+                        backgroundColor: 'primary.light' + '15',
+                        transform: 'scale(1.05)',
+                        transition: 'all 0.2s ease'
+                      }
+                    }}
+                  >
+                    <Settings size={16} strokeWidth={2} />
+                  </IconButton>
+                </Tooltip>
                 <Tooltip title="Refresh">
                   <IconButton 
                     size="small" 
                     onClick={handleRefresh}
                     disabled={refreshing || loading}
+                    sx={{
+                      color: 'text.secondary',
+                      '&:hover': {
+                        color: 'info.main',
+                        backgroundColor: 'info.light' + '15',
+                        transform: 'scale(1.05)',
+                        transition: 'all 0.2s ease'
+                      },
+                      '&:disabled': {
+                        color: 'text.disabled',
+                        transform: 'none'
+                      }
+                    }}
                   >
-                    <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+                    <RefreshCw size={16} strokeWidth={2} className={refreshing ? 'animate-spin' : ''} />
                   </IconButton>
                 </Tooltip>
                 <Tooltip title="Close">
                   <IconButton 
                     size="small" 
                     onClick={() => setIsOpen(false)}
+                    sx={{
+                      color: 'text.secondary',
+                      '&:hover': {
+                        color: 'error.main',
+                        backgroundColor: 'error.light' + '15',
+                        transform: 'scale(1.05)',
+                        transition: 'all 0.2s ease'
+                      }
+                    }}
                   >
-                    <X size={16} />
+                    <X size={16} strokeWidth={2} />
                   </IconButton>
                 </Tooltip>
               </Box>
@@ -541,7 +722,22 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
 
               {!loading && !error && notifications.length === 0 && (
                 <Box p={4} textAlign="center" sx={{ color: 'text.secondary' }}>
-                   <Bell size={48} style={{ marginBottom: 16, opacity: 0.5 }} />
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: 80,
+                      height: 80,
+                      borderRadius: '50%',
+                      backgroundColor: 'grey.100',
+                      margin: '0 auto 16px',
+                      border: '2px dashed',
+                      borderColor: 'grey.300',
+                    }}
+                  >
+                    <Bell size={32} style={{ opacity: 0.6 }} strokeWidth={1.5} />
+                  </Box>
                   <Typography variant="h6" sx={{ fontWeight: 500, mb: 1 }}>
                     All caught up!
                   </Typography>
@@ -590,13 +786,42 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                           onClick={() => markAsRead(notification.id)}
                           sx={{ 
                             color: 'text.secondary',
-                            '&:hover': { color: 'success.main', backgroundColor: 'success.light' + '25' } 
+                            width: 32,
+                            height: 32,
+                            borderRadius: '50%',
+                            '&:hover': { 
+                              color: 'success.main', 
+                              backgroundColor: 'success.light' + '25',
+                              transform: 'scale(1.05)',
+                              transition: 'all 0.2s ease'
+                            } 
                           }}
                         >
-                          <Check size={16} />
+                          <BookmarkCheck size={16} strokeWidth={2} />
                         </IconButton>
                       </Tooltip>
                     )}
+                    
+                    <Tooltip title="Archive">
+                      <IconButton
+                        size="small"
+                        onClick={() => markAsRead(notification.id)}
+                        sx={{ 
+                          color: 'text.secondary',
+                          width: 32,
+                          height: 32,
+                          borderRadius: '50%',
+                          '&:hover': { 
+                            color: 'info.main', 
+                            backgroundColor: 'info.light' + '25',
+                            transform: 'scale(1.05)',
+                            transition: 'all 0.2s ease'
+                          } 
+                        }}
+                      >
+                        <Archive size={16} strokeWidth={2} />
+                      </IconButton>
+                    </Tooltip>
                     
                     <Tooltip title="Delete">
                       <IconButton
@@ -604,10 +829,18 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                         onClick={() => handleDeleteNotification(notification.id)}
                          sx={{ 
                            color: 'text.secondary',
-                           '&:hover': { color: 'error.main', backgroundColor: 'error.light' + '25' } 
+                           width: 32,
+                           height: 32,
+                           borderRadius: '50%',
+                           '&:hover': { 
+                             color: 'error.main', 
+                             backgroundColor: 'error.light' + '25',
+                             transform: 'scale(1.05)',
+                             transition: 'all 0.2s ease'
+                           } 
                          }}
                       >
-                        <Trash2 size={16} />
+                        <Trash2 size={16} strokeWidth={2} />
                       </IconButton>
                     </Tooltip>
                   </NotificationItemActions>
@@ -632,10 +865,22 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                         minWidth: 'auto',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: 1
+                        gap: 1,
+                        px: 2,
+                        py: 1,
+                        borderColor: 'success.main',
+                        color: 'success.main',
+                        '&:hover': {
+                          backgroundColor: 'success.light' + '15',
+                          borderColor: 'success.dark',
+                          transform: 'translateY(-1px)',
+                          boxShadow: '0 2px 8px rgba(76, 175, 80, 0.2)',
+                          transition: 'all 0.2s ease'
+                        }
                       }}
-                      startIcon={<CheckCircle size={16} />}
+                      startIcon={<BookmarkCheck size={16} strokeWidth={2} />}
                     >
+                      Read All
                     </Button>
                   </Tooltip>
                   <Tooltip title="Mark all unread">
@@ -652,10 +897,52 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                         minWidth: 'auto',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: 1
+                        gap: 1,
+                        px: 2,
+                        py: 1,
+                        borderColor: 'warning.main',
+                        color: 'warning.main',
+                        '&:hover': {
+                          backgroundColor: 'warning.light' + '15',
+                          borderColor: 'warning.dark',
+                          transform: 'translateY(-1px)',
+                          boxShadow: '0 2px 8px rgba(255, 152, 0, 0.2)',
+                          transition: 'all 0.2s ease'
+                        }
                       }}
-                      startIcon={<EyeOff size={16} />}
+                      startIcon={<ArchiveRestore size={16} strokeWidth={2} />}
                     >
+                      Unread All
+                    </Button>
+                  </Tooltip>
+                  <Tooltip title="Filter notifications">
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      color="info"
+                      sx={{
+                        textTransform: 'none',
+                        borderRadius: 2,
+                        fontSize: '0.75rem',
+                        minWidth: 'auto',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
+                        px: 2,
+                        py: 1,
+                        borderColor: 'info.main',
+                        color: 'info.main',
+                        '&:hover': {
+                          backgroundColor: 'info.light' + '15',
+                          borderColor: 'info.dark',
+                          transform: 'translateY(-1px)',
+                          boxShadow: '0 2px 8px rgba(33, 150, 243, 0.2)',
+                          transition: 'all 0.2s ease'
+                        }
+                      }}
+                      startIcon={<Filter size={16} strokeWidth={2} />}
+                    >
+                      Filter
                     </Button>
                   </Tooltip>
                 </Box>
@@ -672,10 +959,22 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                       minWidth: 'auto',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: 1
+                      gap: 1,
+                      px: 2,
+                      py: 1,
+                      borderColor: 'error.main',
+                      color: 'error.main',
+                      '&:hover': {
+                        backgroundColor: 'error.light' + '15',
+                        borderColor: 'error.dark',
+                        transform: 'translateY(-1px)',
+                        boxShadow: '0 2px 8px rgba(244, 67, 54, 0.2)',
+                        transition: 'all 0.2s ease'
+                      }
                     }}
-                    startIcon={<Trash2 size={16} />}
+                    startIcon={<Trash2 size={16} strokeWidth={2} />}
                   >
+                    Clear All
                   </Button>
                 </Tooltip>
               </NotificationActions>
