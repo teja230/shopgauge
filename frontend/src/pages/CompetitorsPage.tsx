@@ -791,26 +791,47 @@ export default function CompetitorsPage() {
 
       console.log(`[Discovery] Configuration valid, triggering discovery...`);
 
-      // Step 3: Trigger discovery with retry
+      // Step 3: Trigger discovery with retry and direct response handling
       let response;
       let responseText;
+      let usedDirectFetch = false;
       
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
           console.log(`[Discovery] Trigger attempt ${attempt}/3`);
           
-          // Add timeout for mobile networks
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-          
-          response = await fetchWithAuth('/api/competitors/discovery/trigger', {
-            method: 'POST'
-          });
-          clearTimeout(timeoutId);
+          // Try direct fetch first to avoid global error handler interference
+          if (!usedDirectFetch) {
+            try {
+              const fullUrl = `${import.meta.env.VITE_API_BASE_URL || ''}/api/competitors/discovery/trigger`;
+              
+              response = await fetch(fullUrl, {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                  'Accept': 'application/json',
+                  'Content-Type': 'application/json',
+                },
+                signal: AbortSignal.timeout(30000) // 30 second timeout
+              });
+              usedDirectFetch = true;
+            } catch (directFetchError) {
+              console.warn(`[Discovery] Direct fetch failed, falling back to fetchWithAuth:`, directFetchError);
+              // Fallback to original fetchWithAuth
+              response = await fetchWithAuth('/api/competitors/discovery/trigger', {
+                method: 'POST'
+              });
+            }
+          } else {
+            // Use fetchWithAuth as fallback
+            response = await fetchWithAuth('/api/competitors/discovery/trigger', {
+              method: 'POST'
+            });
+          }
 
           // Read response body once and handle both success and error cases
           responseText = await response.text();
-          console.log(`[Discovery] Raw response:`, responseText);
+          console.log(`[Discovery] Raw response (${usedDirectFetch ? 'direct' : 'fetchWithAuth'}):`, responseText);
           
           if (response.ok) {
             try {
@@ -874,9 +895,18 @@ export default function CompetitorsPage() {
             
             await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error(`[Discovery] Trigger attempt ${attempt} failed:`, error);
-          if (attempt === 3) throw error;
+          
+          // Handle timeout specifically
+          if (error.name === 'TimeoutError' || error.name === 'AbortError') {
+            if (attempt === 3) {
+              throw new Error('Request timed out. Please check your connection and try again.');
+            }
+          } else if (attempt === 3) {
+            throw error;
+          }
+          
           await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
         }
       }
