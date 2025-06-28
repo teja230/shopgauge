@@ -95,7 +95,7 @@ services:
     region: oregon
     dockerContext: .
     dockerfilePath: backend/Dockerfile.prod
-    autoDeployTrigger: "off"
+    autoDeployTrigger: "on"
     
   - type: web
     name: storesight
@@ -106,7 +106,7 @@ services:
         sync: false
     buildCommand: npm ci && npm run build
     staticPublishPath: dist
-    autoDeployTrigger: "off"
+    autoDeployTrigger: "on"
     rootDir: frontend
     # Let _redirects file handle routing instead of render.yaml routes
 
