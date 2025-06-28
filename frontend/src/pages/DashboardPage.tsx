@@ -754,12 +754,28 @@ const DashboardPage = () => {
     });
   }, [cache, shop]);
 
-  // Add debug function to window for testing purposes
+  // Add debug functions to window for testing purposes
   useEffect(() => {
     if (typeof window !== 'undefined') {
       (window as any).debugCache = debugCacheStatus;
+      (window as any).clearCache = () => {
+        if (shop) {
+          console.log('🗑️ MANUAL CACHE CLEAR: Clearing all cache');
+          const freshCache = invalidateCache(shop);
+          setCache(freshCache);
+          console.log('✅ Cache cleared successfully');
+        }
+      };
+      (window as any).testCacheBehavior = () => {
+        console.log('🧪 CACHE TEST: Running cache behavior test...');
+        console.log('1. Current cache status:');
+        debugCacheStatus();
+        console.log('2. Testing individual fetch (should use cache if available):');
+        fetchRevenueData(false); // Don't force refresh
+        console.log('3. Check network tab for API calls');
+      };
     }
-  }, [debugCacheStatus]);
+  }, [debugCacheStatus, shop]);
 
 
 
@@ -1439,65 +1455,68 @@ const DashboardPage = () => {
     });
   }, [isAuthReady, isAuthenticated, shop, navigate]);
 
-  // Main data loading effect - only runs once on initial load
+  // Main data loading effect - runs once when ready
   useEffect(() => {
     // Only proceed if authentication is ready and we have all required states
     if (!isAuthReady || authLoading) {
-      console.log('Dashboard: Waiting for authentication to complete');
+      console.log('🔄 Dashboard: Waiting for authentication to complete');
       return;
     }
 
     // Ensure user is authenticated and has a shop before loading data
     if (!isAuthenticated || !shop || shop.trim() === '') {
-      console.log('Dashboard: Cannot load data - authentication or shop missing');
+      console.log('❌ Dashboard: Cannot load data - authentication or shop missing');
       return;
     }
 
     // Only load data on initial load to prevent unnecessary API calls
     if (!isInitialLoad) {
-      console.log('Dashboard: Skipping data load - not initial load');
+      console.log('⏭️ Dashboard: Skipping data load - not initial load');
       return;
     }
 
-    // Prevent duplicate calls
+    // Prevent duplicate calls using ref
     if (initialLoadTriggeredRef.current) {
-      console.log('Dashboard: Initial load already triggered, skipping');
+      console.log('🔒 Dashboard: Initial load already triggered, skipping');
       return;
     }
 
+    console.log('🚀 DASHBOARD: Starting initial data load for shop:', shop);
     initialLoadTriggeredRef.current = true;
-    setIsInitialLoad(false);
+    
+    // Set initial load to false in next tick to prevent infinite loop
+    setTimeout(() => setIsInitialLoad(false), 0);
     
     // Parallel loading for dramatically better performance
     const loadAllData = async () => {
-      console.log('🚀 LOAD ALL DATA: Starting parallel data loading for shop:', shop);
+      console.log('🔄 LOAD ALL DATA: Starting parallel data loading');
       console.log('🧪 CACHE DEBUG: Current cache keys:', Object.keys(cache).filter(k => k !== 'version' && k !== 'shop'));
       
       try {
         // Start all API calls in parallel instead of sequential
         const promises = [
           fetchRevenueData().catch(err => {
-            console.error('Revenue fetch failed:', err);
+            console.error('❌ Revenue fetch failed:', err);
             return null; // Don't fail the entire load for one error
           }),
           fetchProductsData().catch(err => {
-            console.error('Products fetch failed:', err);
+            console.error('❌ Products fetch failed:', err);
             return null;
           }),
           fetchInventoryData().catch(err => {
-            console.error('Inventory fetch failed:', err);
+            console.error('❌ Inventory fetch failed:', err);
             return null;
           }),
           fetchNewProductsData().catch(err => {
-            console.error('New products fetch failed:', err);
+            console.error('❌ New products fetch failed:', err);
             return null;
           }),
           fetchInsightsData().catch(err => {
-            console.error('Insights fetch failed:', err);
+            console.error('❌ Insights fetch failed:', err);
             return null;
           }),
           fetchAbandonedCartsData().catch(err => {
-            console.error('Abandoned carts fetch failed:', err);
+            console.error('❌ Abandoned carts fetch failed:', err);
             return null;
           })
         ];
@@ -1509,28 +1528,27 @@ const DashboardPage = () => {
         results.forEach((result, index) => {
           const dataTypes = ['revenue', 'products', 'inventory', 'newProducts', 'insights', 'abandonedCarts'];
           if (result.status === 'rejected') {
-            console.error(`Dashboard: ${dataTypes[index]} loading failed:`, result.reason);
+            console.error(`❌ Dashboard: ${dataTypes[index]} loading failed:`, result.reason);
           } else {
-            console.log(`Dashboard: ${dataTypes[index]} loading completed successfully`);
+            console.log(`✅ Dashboard: ${dataTypes[index]} loading completed successfully`);
           }
         });
         
         // Orders data can be loaded slightly delayed to reduce initial load
         setTimeout(() => {
-          fetchOrdersData().catch(err => console.error('Orders fetch failed:', err));
+          fetchOrdersData().catch(err => console.error('❌ Orders fetch failed:', err));
         }, 100);
         
-        console.log('Dashboard: Parallel data loading completed');
+        console.log('✅ Dashboard: Parallel data loading completed');
       } catch (error) {
-        console.error('Dashboard: Error in parallel data loading:', error);
+        console.error('❌ Dashboard: Error in parallel data loading:', error);
         // Don't show error to user for individual API failures
       }
     };
     
     // Trigger the data loading
-    console.log('🚀 INITIAL LOAD: Triggering loadAllData');
     loadAllData();
-  }, [isAuthReady, authLoading, isAuthenticated, shop, isInitialLoad]); // Include isInitialLoad back in dependencies
+  }, [isAuthReady, authLoading, isAuthenticated, shop]); // REMOVED isInitialLoad from dependencies to prevent infinite loop
 
   // Lazy load data for individual cards
   const handleCardLoad = useCallback((cardType: keyof CardLoadingState) => {
@@ -2219,13 +2237,22 @@ const DashboardPage = () => {
         </LastUpdatedText>
         
         {/* Cache Status Indicator for Testing */}
-        <Typography variant="caption" sx={{ 
-          color: 'text.secondary', 
-          fontSize: '0.7rem',
-          opacity: 0.7 
-        }}>
-          Cache Duration: {Math.round(CACHE_DURATION / (1000 * 60))} minutes | Type `debugCache()` in console
-        </Typography>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          <Typography variant="caption" sx={{ 
+            color: 'text.secondary', 
+            fontSize: '0.7rem',
+            opacity: 0.7 
+          }}>
+            🔧 Cache: {Math.round(CACHE_DURATION / (1000 * 60))}min | Console: debugCache(), clearCache(), testCacheBehavior()
+          </Typography>
+          <Typography variant="caption" sx={{ 
+            color: Object.keys(cache).filter(k => k !== 'version' && k !== 'shop').length > 0 ? 'success.main' : 'warning.main',
+            fontSize: '0.65rem',
+            fontWeight: 500
+          }}>
+            📊 Cache Status: {Object.keys(cache).filter(k => k !== 'version' && k !== 'shop').length} entries loaded
+          </Typography>
+        </Box>
             <Button
               variant="text"
               size="small"
