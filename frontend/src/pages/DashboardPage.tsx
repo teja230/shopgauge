@@ -681,6 +681,7 @@ const DashboardPage = () => {
   const isCacheFresh = useCallback((cacheEntry: CacheEntry<any> | undefined, cacheKey?: string): boolean => {
     if (!cacheEntry) {
       console.log(`🔍 ${cacheKey || 'CACHE'}: No cache entry found`);
+      notifications.addNotification(`❌ ${cacheKey || 'Cache'}: No cache found`, 'warning', { duration: 3000 });
       return false;
     }
     
@@ -691,12 +692,17 @@ const DashboardPage = () => {
     
     console.log(`🔍 ${cacheKey || 'CACHE'}: ${ageMinutes}min old (max: ${maxMinutes}min) - ${isFresh ? 'FRESH ✅' : 'EXPIRED ❌'}`);
     
+    if (isFresh) {
+      notifications.addNotification(`✅ ${cacheKey || 'Cache'}: Using cached data (${ageMinutes}min old)`, 'success', { duration: 2000 });
+    } else {
+      notifications.addNotification(`⏰ ${cacheKey || 'Cache'}: Cache expired (${ageMinutes}min old)`, 'info', { duration: 2000 });
+    }
+    
     return isFresh;
-  }, []);
+  }, [notifications]);
 
-  // Helper function to get cache or fetch fresh data
-  // This implements the core caching logic for all dashboard data
-  const getCachedOrFetch = useCallback(async (
+  // Stable cache check function that doesn't cause fetch function recreation
+  const checkCacheAndFetch = useCallback(async (
     cacheKey: keyof DashboardCache,
     fetchFunction: () => Promise<any>,
     forceRefresh = false
@@ -704,18 +710,29 @@ const DashboardPage = () => {
     // Skip version and shop keys
     if (cacheKey === 'version' || cacheKey === 'shop') return null;
     
-    const cachedEntry = cache[cacheKey] as CacheEntry<any> | undefined;
+    // Get current cache state directly to avoid stale closures
+    const currentCache = JSON.parse(sessionStorage.getItem(getCacheKey(shop || '')) || '{}');
+    const cachedEntry = currentCache[cacheKey] as CacheEntry<any> | undefined;
     
     console.log(`📊 ${cacheKey.toUpperCase()}: ${cachedEntry ? 'Has cache' : 'No cache'}, Force: ${forceRefresh}`);
     
+    // Check if cache is fresh
+    const isFresh = cachedEntry && 
+      (Date.now() - cachedEntry.timestamp) < CACHE_DURATION && 
+      cachedEntry.version === CACHE_VERSION &&
+      cachedEntry.shop === shop;
+    
     // Use cached data if available, fresh, and not forcing refresh
-    if (!forceRefresh && isCacheFresh(cachedEntry, cacheKey.toUpperCase())) {
-      console.log(`✅ ${cacheKey.toUpperCase()}: Using cached data (no API call)`);
-      return cachedEntry!.data;
+    if (!forceRefresh && isFresh) {
+      const ageMinutes = Math.round((Date.now() - cachedEntry.timestamp) / (1000 * 60));
+      console.log(`✅ ${cacheKey.toUpperCase()}: Using cached data (${ageMinutes}min old, no API call)`);
+      notifications.addNotification(`🚀 Cache Hit: ${cacheKey.toUpperCase()} (${ageMinutes}min old)`, 'success', { duration: 2000 });
+      return cachedEntry.data;
     }
     
     // Fetch fresh data from API
     console.log(`🔄 ${cacheKey.toUpperCase()}: Fetching fresh data from API`);
+    notifications.addNotification(`🌐 API Call: Fetching fresh ${cacheKey.toUpperCase()} data`, 'info', { duration: 2000 });
     const freshData = await fetchFunction();
     const now = new Date();
     
@@ -732,8 +749,9 @@ const DashboardPage = () => {
     }));
     
     console.log(`💾 ${cacheKey.toUpperCase()}: Cached fresh data`);
+    notifications.addNotification(`💾 Cached: ${cacheKey.toUpperCase()} data saved to cache`, 'success', { duration: 1500 });
     return freshData;
-  }, [cache, isCacheFresh, shop]);
+  }, [shop, notifications]); // Removed cache dependency to prevent recreation
 
   // Debug function to show cache status (helpful for testing)
   const debugCacheStatus = useCallback(() => {
@@ -860,7 +878,7 @@ const DashboardPage = () => {
     setCardErrors(prev => ({ ...prev, revenue: null }));
     
     try {
-      const data = await getCachedOrFetch('revenue', async () => {
+      const data = await checkCacheAndFetch('revenue', async () => {
         const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/revenue'));
         return await response.json();
       }, forceRefresh);
@@ -940,7 +958,7 @@ const DashboardPage = () => {
     } finally {
       setCardLoading(prev => ({ ...prev, revenue: false }));
     }
-  }, [isAuthenticated, shop, getCachedOrFetch]);
+  }, [isAuthenticated, shop, checkCacheAndFetch]);
 
   const fetchProductsData = useCallback(async (forceRefresh = false) => {
     // Pre-flight authentication check
@@ -955,7 +973,7 @@ const DashboardPage = () => {
     setCardErrors(prev => ({ ...prev, products: null }));
     
     try {
-      const data = await getCachedOrFetch('products', async () => {
+      const data = await checkCacheAndFetch('products', async () => {
         const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/products'));
         return await response.json();
       }, forceRefresh);
@@ -982,7 +1000,7 @@ const DashboardPage = () => {
     } finally {
       setCardLoading(prev => ({ ...prev, products: false }));
     }
-  }, [isAuthenticated, shop, getCachedOrFetch]);
+  }, [isAuthenticated, shop, checkCacheAndFetch]);
 
   const fetchInventoryData = useCallback(async (forceRefresh = false) => {
     // Pre-flight authentication check
@@ -997,7 +1015,7 @@ const DashboardPage = () => {
     setCardErrors(prev => ({ ...prev, inventory: null }));
     
     try {
-      const data = await getCachedOrFetch('inventory', async () => {
+      const data = await checkCacheAndFetch('inventory', async () => {
         const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/inventory/low'));
         return await response.json();
       }, forceRefresh);
@@ -1024,7 +1042,7 @@ const DashboardPage = () => {
     } finally {
       setCardLoading(prev => ({ ...prev, inventory: false }));
     }
-  }, [isAuthenticated, shop, getCachedOrFetch]);
+  }, [isAuthenticated, shop, checkCacheAndFetch]);
 
   const fetchNewProductsData = useCallback(async (forceRefresh = false) => {
     // Pre-flight authentication check
@@ -1039,7 +1057,7 @@ const DashboardPage = () => {
     setCardErrors(prev => ({ ...prev, newProducts: null }));
     
     try {
-      const data = await getCachedOrFetch('newProducts', async () => {
+      const data = await checkCacheAndFetch('newProducts', async () => {
         const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/new_products'));
         return await response.json();
       }, forceRefresh);
@@ -1066,7 +1084,7 @@ const DashboardPage = () => {
     } finally {
       setCardLoading(prev => ({ ...prev, newProducts: false }));
     }
-  }, [isAuthenticated, shop, getCachedOrFetch]);
+  }, [isAuthenticated, shop, checkCacheAndFetch]);
 
   const fetchInsightsData = useCallback(async (forceRefresh = false) => {
     // Pre-flight authentication check
@@ -1081,7 +1099,7 @@ const DashboardPage = () => {
     setCardErrors(prev => ({ ...prev, insights: null }));
     
     try {
-      const data = await getCachedOrFetch('insights', async () => {
+      const data = await checkCacheAndFetch('insights', async () => {
         const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/conversion'));
         return await response.json();
       }, forceRefresh);
@@ -1121,7 +1139,7 @@ const DashboardPage = () => {
     } finally {
       setCardLoading(prev => ({ ...prev, insights: false }));
     }
-  }, [isAuthenticated, shop, navigate, getCachedOrFetch]);
+  }, [isAuthenticated, shop, navigate, checkCacheAndFetch]);
 
   const fetchAbandonedCartsData = useCallback(async (forceRefresh = false) => {
     // Pre-flight authentication check
@@ -1136,7 +1154,7 @@ const DashboardPage = () => {
     setCardErrors(prev => ({ ...prev, abandonedCarts: null }));
     
     try {
-      const data = await getCachedOrFetch('abandonedCarts', async () => {
+      const data = await checkCacheAndFetch('abandonedCarts', async () => {
         const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/abandoned_carts'));
         return await response.json();
       }, forceRefresh);
@@ -1183,14 +1201,14 @@ const DashboardPage = () => {
     } finally {
       setCardLoading(prev => ({ ...prev, abandonedCarts: false }));
     }
-  }, [getCachedOrFetch]);
+  }, [checkCacheAndFetch]);
 
   const fetchOrdersData = useCallback(async (forceRefresh = false) => {
     setCardLoading(prev => ({ ...prev, orders: true }));
     setCardErrors(prev => ({ ...prev, orders: null }));
     
     try {
-      const data = await getCachedOrFetch('orders', async () => {
+      const data = await checkCacheAndFetch('orders', async () => {
         // Fetch orders sequentially to avoid overwhelming the API
         const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/orders/timeseries?page=1&limit=50'));
         const initialData = await response.json();
@@ -1294,7 +1312,7 @@ const DashboardPage = () => {
     } finally {
       setCardLoading(prev => ({ ...prev, orders: false }));
     }
-  }, [getCachedOrFetch]);
+  }, [checkCacheAndFetch]);
 
   // Clear error states on component mount and route changes
   useEffect(() => {
@@ -1548,7 +1566,7 @@ const DashboardPage = () => {
     
     // Trigger the data loading
     loadAllData();
-  }, [isAuthReady, authLoading, isAuthenticated, shop]); // REMOVED isInitialLoad from dependencies to prevent infinite loop
+  }, [isAuthReady, authLoading, isAuthenticated, shop, fetchRevenueData, fetchProductsData, fetchInventoryData, fetchNewProductsData, fetchInsightsData, fetchOrdersData, fetchAbandonedCartsData]); // Added fetch functions back since they're now stable
 
   // Lazy load data for individual cards
   const handleCardLoad = useCallback((cardType: keyof CardLoadingState) => {
