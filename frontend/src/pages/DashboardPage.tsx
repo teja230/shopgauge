@@ -123,7 +123,7 @@ const DashboardContainer = styled(Box)(({ theme }) => ({
   minHeight: '100vh',
   backgroundColor: theme.palette.background.default,
   display: 'flex',
-  flexDirection: 'column'
+  flexDirection: 'column',
 }));
 
 const DashboardHeader = styled(Box)(({ theme }) => ({
@@ -137,31 +137,31 @@ const DashboardHeader = styled(Box)(({ theme }) => ({
     flexDirection: 'column',
     alignItems: 'flex-start',
     gap: theme.spacing(2),
-    padding: theme.spacing(2)
-  }
+    padding: theme.spacing(2),
+  },
 }));
 
 const HeaderContent = styled(Box)(({ theme }) => ({
   display: 'flex',
   alignItems: 'center',
-  gap: theme.spacing(2)
+  gap: theme.spacing(2),
 }));
 
 const HeaderIcon = styled(Storefront)(({ theme }) => ({
   fontSize: 32,
-  color: theme.palette.primary.main
+  color: theme.palette.primary.main,
 }));
 
 const HeaderTitle = styled(Typography)(({ theme }) => ({
   fontSize: '1.5rem',
   fontWeight: 600,
   color: theme.palette.text.primary,
-  marginBottom: theme.spacing(0.5)
+  marginBottom: theme.spacing(0.5),
 }));
 
 const HeaderSubtitle = styled(Typography)(({ theme }) => ({
   fontSize: '0.875rem',
-  color: theme.palette.text.secondary
+  color: theme.palette.text.secondary,
 }));
 
 const ShopLink = styled('a')(({ theme }) => ({
@@ -171,8 +171,8 @@ const ShopLink = styled('a')(({ theme }) => ({
   alignItems: 'center',
   gap: theme.spacing(0.5),
   '&:hover': {
-    textDecoration: 'underline'
-  }
+    textDecoration: 'underline',
+  },
 }));
 
 const HeaderActions = styled(Box)(({ theme }) => ({
@@ -181,8 +181,8 @@ const HeaderActions = styled(Box)(({ theme }) => ({
   gap: theme.spacing(2),
   [theme.breakpoints.down('sm')]: {
     width: '100%',
-    justifyContent: 'space-between'
-  }
+    justifyContent: 'space-between',
+  },
 }));
 
 const RefreshButton = styled(Button)(({ theme }) => ({
@@ -192,7 +192,7 @@ const RefreshButton = styled(Button)(({ theme }) => ({
   gap: theme.spacing(1),
   '&:disabled': {
     backgroundColor: theme.palette.action.disabledBackground,
-  }
+  },
 }));
 
 const LastUpdatedText = styled(Typography)(({ theme }) => ({
@@ -228,7 +228,7 @@ const LoadingContainer = styled(Box)(({ theme }) => ({
   display: 'flex',
   justifyContent: 'center',
   alignItems: 'center',
-  minHeight: '200px'
+  minHeight: '200px',
 }));
 
 const ErrorContainer = styled(Box)(({ theme }) => ({
@@ -787,8 +787,17 @@ const DashboardPage = () => {
     const lastUpdate = getMostRecentUpdateTime();
     if (!lastUpdate) return 'Never updated';
     
+    // Ensure lastUpdate is a valid Date instance
+    const lastDate = (lastUpdate instanceof Date)
+      ? lastUpdate
+      : new Date(lastUpdate as any);
+
+    if (isNaN(lastDate.getTime())) {
+      return 'Never updated';
+    }
+
     const now = new Date();
-    const diffMinutes = Math.floor((now.getTime() - lastUpdate.getTime()) / (1000 * 60));
+    const diffMinutes = Math.floor((now.getTime() - lastDate.getTime()) / (1000 * 60));
     
     if (diffMinutes < 1) return 'Just updated';
     if (diffMinutes === 1) return '1 minute ago';
