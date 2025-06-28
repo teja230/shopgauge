@@ -1427,31 +1427,31 @@ const DashboardPage = () => {
       return;
     }
     
-    console.log(`Loading individual card: ${cardType}`);
+    console.log(`Loading individual card: ${cardType} (forcing refresh)`);
     
     // Add a small delay to prevent overwhelming the API
     setTimeout(() => {
       switch (cardType) {
         case 'revenue':
-          fetchRevenueData();
+          fetchRevenueData(true); // Force refresh
           break;
         case 'products':
-          fetchProductsData();
+          fetchProductsData(true); // Force refresh
           break;
         case 'inventory':
-          fetchInventoryData();
+          fetchInventoryData(true); // Force refresh
           break;
         case 'newProducts':
-          fetchNewProductsData();
+          fetchNewProductsData(true); // Force refresh
           break;
         case 'insights':
-          fetchInsightsData();
+          fetchInsightsData(true); // Force refresh
           break;
         case 'orders':
-          fetchOrdersData();
+          fetchOrdersData(true); // Force refresh
           break;
         case 'abandonedCarts':
-          fetchAbandonedCartsData();
+          fetchAbandonedCartsData(true); // Force refresh
           break;
       }
     }, 100); // 100ms delay
