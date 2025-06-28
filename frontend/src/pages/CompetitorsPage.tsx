@@ -687,10 +687,10 @@ export default function CompetitorsPage() {
         
         if (!cfg) {
           notifications.showError(`Discovery configuration unavailable (${cfgRes.status}). ${cfgErrorText}`, {
-            category: 'Discovery'
-          });
-          return;
-        }
+          category: 'Discovery'
+        });
+        return;
+      }
       } else {
         // Response is OK, read as JSON
         try {
@@ -730,7 +730,7 @@ export default function CompetitorsPage() {
       }
 
       console.log(`[Discovery] Configuration valid, triggering discovery...`);
-      
+
       // Trigger discovery
       const response = await fetchWithAuth('/api/competitors/discovery/trigger', {
         method: 'POST'
@@ -738,10 +738,14 @@ export default function CompetitorsPage() {
 
       let result;
       let errorData;
+
+      // Read response body once and handle both success and error cases
+      const responseText = await response.text();
       
       if (response.ok) {
         try {
-          result = await response.json();
+          // Try to parse as JSON
+          result = JSON.parse(responseText);
           console.log(`[Discovery] Successfully triggered:`, result);
           
           setLastDiscoveryTime(now);
@@ -774,20 +778,14 @@ export default function CompetitorsPage() {
         }
       } else {
         // Handle error response
+        console.error(`[Discovery] Trigger failed: ${response.status} ${response.statusText}`, responseText);
+        
+        // Try to parse as JSON
         try {
-          const responseText = await response.text();
-          console.error(`[Discovery] Trigger failed: ${response.status} ${response.statusText}`, responseText);
-          
-          // Try to parse as JSON
-          try {
-            errorData = JSON.parse(responseText);
-          } catch {
-            // Not JSON, create error object with text
-            errorData = { message: responseText || 'Discovery trigger failed' };
-          }
-        } catch (readError) {
-          console.error(`[Discovery] Failed to read error response:`, readError);
-          errorData = { message: 'Failed to read error response' };
+          errorData = JSON.parse(responseText);
+        } catch {
+          // Not JSON, create error object with text
+          errorData = { message: responseText || 'Discovery trigger failed' };
         }
         
         const errorMessage = errorData.message || errorData.error || 'Discovery trigger failed';

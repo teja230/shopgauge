@@ -639,14 +639,12 @@ public class CompetitorController {
       // Check server-side discovery cooldown (24 hours)
       try {
         List<Map<String, Object>> lastDiscovery =
-            jdbcTemplate.queryForList(
-                "SELECT last_discovery_at FROM shops WHERE id = ?", shopId);
+            jdbcTemplate.queryForList("SELECT last_discovery_at FROM shops WHERE id = ?", shopId);
 
         if (!lastDiscovery.isEmpty()) {
           Object lastDiscoveryObj = lastDiscovery.get(0).get("last_discovery_at");
           if (lastDiscoveryObj != null) {
-            java.time.LocalDateTime lastDiscoveryTime =
-                (java.time.LocalDateTime) lastDiscoveryObj;
+            java.time.LocalDateTime lastDiscoveryTime = (java.time.LocalDateTime) lastDiscoveryObj;
             java.time.LocalDateTime now = java.time.LocalDateTime.now();
             long hoursSinceLastDiscovery =
                 java.time.Duration.between(lastDiscoveryTime, now).toHours();
