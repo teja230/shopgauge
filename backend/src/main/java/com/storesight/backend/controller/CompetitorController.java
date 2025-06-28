@@ -637,36 +637,46 @@ public class CompetitorController {
 
     try {
       // Check server-side discovery cooldown (24 hours)
-      List<Map<String, Object>> lastDiscovery =
-          jdbcTemplate.queryForList("SELECT last_discovery_at FROM shops WHERE id = ?", shopId);
+      try {
+        List<Map<String, Object>> lastDiscovery =
+            jdbcTemplate.queryForList(
+                "SELECT last_discovery_at FROM shops WHERE id = ?", shopId);
 
-      if (!lastDiscovery.isEmpty()) {
-        Object lastDiscoveryObj = lastDiscovery.get(0).get("last_discovery_at");
-        if (lastDiscoveryObj != null) {
-          java.time.LocalDateTime lastDiscoveryTime = (java.time.LocalDateTime) lastDiscoveryObj;
-          java.time.LocalDateTime now = java.time.LocalDateTime.now();
-          long hoursSinceLastDiscovery =
-              java.time.Duration.between(lastDiscoveryTime, now).toHours();
+        if (!lastDiscovery.isEmpty()) {
+          Object lastDiscoveryObj = lastDiscovery.get(0).get("last_discovery_at");
+          if (lastDiscoveryObj != null) {
+            java.time.LocalDateTime lastDiscoveryTime =
+                (java.time.LocalDateTime) lastDiscoveryObj;
+            java.time.LocalDateTime now = java.time.LocalDateTime.now();
+            long hoursSinceLastDiscovery =
+                java.time.Duration.between(lastDiscoveryTime, now).toHours();
 
-          if (hoursSinceLastDiscovery < 24) {
-            long hoursRemaining = 24 - hoursSinceLastDiscovery;
-            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                .body(
-                    Map.of(
-                        "error",
-                        "Discovery cooldown active",
-                        "message",
-                        "Discovery was last run "
-                            + hoursSinceLastDiscovery
-                            + " hours ago. Next available in "
-                            + hoursRemaining
-                            + " hours.",
-                        "hours_remaining",
-                        hoursRemaining,
-                        "last_discovery",
-                        lastDiscoveryTime.toString()));
+            if (hoursSinceLastDiscovery < 24) {
+              long hoursRemaining = 24 - hoursSinceLastDiscovery;
+              return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                  .body(
+                      Map.of(
+                          "error",
+                          "Discovery cooldown active",
+                          "message",
+                          "Discovery was last run "
+                              + hoursSinceLastDiscovery
+                              + " hours ago. Next available in "
+                              + hoursRemaining
+                              + " hours.",
+                          "hours_remaining",
+                          hoursRemaining,
+                          "last_discovery",
+                          lastDiscoveryTime.toString()));
+            }
           }
         }
+      } catch (Exception columnErr) {
+        // Column might not exist yet in some environments – skip cooldown enforcement and log
+        logger.warn(
+            "last_discovery_at column not found when triggering discovery for shop {}: {}. Skipping cooldown check.",
+            shopId,
+            columnErr.getMessage());
       }
 
       // Update last discovery time immediately
