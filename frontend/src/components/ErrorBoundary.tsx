@@ -2,7 +2,6 @@ import React, { Component } from 'react';
 import type { ReactNode } from 'react';
 import { Box, Typography, Button } from '@mui/material';
 import { Refresh, Home, ArrowBack, BugReport } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
 import { styled, keyframes } from '@mui/material/styles';
 
 // Animations for intelligent analytics theme
@@ -246,16 +245,18 @@ interface Props {
   children: ReactNode;
 }
 
-// Navigation component for buttons
+// Navigation component for buttons (no React Router hooks → works even without Router context)
 const ErrorNavigation: React.FC<{ onRefresh: () => void }> = ({ onRefresh }) => {
-  const navigate = useNavigate();
-
   const handleGoHome = () => {
-    navigate('/');
+    window.location.href = '/';
   };
 
   const handleGoBack = () => {
-    navigate(-1);
+    if (window.history.length > 1) {
+      window.history.back();
+    } else {
+      window.location.href = '/';
+    }
   };
 
   return (
