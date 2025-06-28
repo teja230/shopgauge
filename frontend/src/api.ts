@@ -150,6 +150,13 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
       setApiAuthState(false, null);
       throw new Error('Authentication required');
     }
+
+    // Generic non-OK status handler (after specific cases above)
+    if (!response.ok) {
+      const err = new Error(`HTTP ${response.status}`);
+      (err as any).status = response.status;
+      throw err;
+    }
     
   return response;
   } catch (error: any) {
