@@ -1,5 +1,6 @@
 package com.storesight.backend.controller;
 
+import com.storesight.backend.config.ShopifyConfig;
 import com.storesight.backend.repository.ShopRepository;
 import com.storesight.backend.service.NotificationService;
 import com.storesight.backend.service.OAuthRecoveryService;
@@ -38,6 +39,7 @@ public class ShopifyAuthController {
   private final ShopRepository shopRepository;
   private final SecretService secretService;
   private final OAuthRecoveryService oAuthRecoveryService;
+  private final ShopifyConfig shopifyConfig;
 
   // Redis key prefix for tracking used authorization codes
   private static final String USED_CODE_PREFIX = "oauth:used_code:";
@@ -67,7 +69,8 @@ public class ShopifyAuthController {
       StringRedisTemplate redisTemplate,
       ShopRepository shopRepository,
       SecretService secretService,
-      OAuthRecoveryService oAuthRecoveryService) {
+      OAuthRecoveryService oAuthRecoveryService,
+      ShopifyConfig shopifyConfig) {
 
     // Use the globally configured WebClient.Builder
     this.webClient = webClientBuilder.build();
@@ -78,6 +81,7 @@ public class ShopifyAuthController {
     this.shopRepository = shopRepository;
     this.secretService = secretService;
     this.oAuthRecoveryService = oAuthRecoveryService;
+    this.shopifyConfig = shopifyConfig;
   }
 
   @PostConstruct
@@ -708,7 +712,7 @@ public class ShopifyAuthController {
       return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).build());
     }
 
-    String url = "https://" + shop + "/admin/api/2023-10/";
+    String url = shopifyConfig.buildApiUrl(shop, "");
     if ("products".equals(type)) {
       url += "products.json";
     } else if ("orders".equals(type)) {

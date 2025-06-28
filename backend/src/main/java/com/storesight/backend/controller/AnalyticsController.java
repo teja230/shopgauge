@@ -2,6 +2,7 @@ package com.storesight.backend.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.storesight.backend.config.ShopifyConfig;
 import com.storesight.backend.model.AuditLog;
 import com.storesight.backend.service.DataPrivacyService;
 import com.storesight.backend.service.ShopService;
@@ -32,7 +33,7 @@ public class AnalyticsController {
   private final ShopService shopService;
   private final StringRedisTemplate redisTemplate;
   private final DataPrivacyService dataPrivacyService;
-  private static final String SHOPIFY_API_VERSION = "2023-10";
+  private final ShopifyConfig shopifyConfig;
   private static final Logger logger = LoggerFactory.getLogger(AnalyticsController.class);
 
   @Autowired
@@ -40,15 +41,21 @@ public class AnalyticsController {
       WebClient.Builder webClientBuilder,
       ShopService shopService,
       StringRedisTemplate redisTemplate,
-      DataPrivacyService dataPrivacyService) {
+      DataPrivacyService dataPrivacyService,
+      ShopifyConfig shopifyConfig) {
     this.webClient = webClientBuilder.build();
     this.shopService = shopService;
     this.redisTemplate = redisTemplate;
     this.dataPrivacyService = dataPrivacyService;
+    this.shopifyConfig = shopifyConfig;
   }
 
   private String getShopifyUrl(String shop, String endpoint) {
-    return String.format("https://%s/admin/api/%s/%s", shop, SHOPIFY_API_VERSION, endpoint);
+    return shopifyConfig.buildApiUrl(shop, endpoint);
+  }
+
+  private String getShopifyAdminUrl(String shop, String path) {
+    return shopifyConfig.buildAdminUrl(shop, path);
   }
 
   private static class AnalyticsResponse {
@@ -114,9 +121,8 @@ public class AnalyticsController {
         java.time.LocalDate.now().minusDays(60).format(java.time.format.DateTimeFormatter.ISO_DATE);
 
     String url =
-        "https://"
-            + shop
-            + "/admin/api/2023-10/orders.json?limit="
+        getShopifyUrl(shop, "orders.json")
+            + "?limit="
             + limit
             + "&status=any&created_at_min="
             + since
@@ -160,7 +166,7 @@ public class AnalyticsController {
                             if (orderId != null) {
                               orderData.put(
                                   "shopify_order_url",
-                                  "https://" + shop + "/admin/orders/" + orderId.toString());
+                                  getShopifyAdminUrl(shop, "orders/" + orderId.toString()));
                             }
 
                             return orderData;
@@ -246,7 +252,7 @@ public class AnalyticsController {
       return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response));
     }
 
-    String url = "https://" + shop + "/admin/api/2023-10/products.json?limit=50";
+    String url = getShopifyUrl(shop, "products.json") + "?limit=50";
     return webClient
         .get()
         .uri(url)
@@ -306,7 +312,7 @@ public class AnalyticsController {
                     productData.put("inventory", totalInventory);
                     productData.put("status", inventoryStatus);
                     productData.put(
-                        "shopify_url", "https://" + shop + "/admin/products/" + productId);
+                        "shopify_url", getShopifyAdminUrl(shop, "products/" + productId));
 
                     // Note: Sales and revenue data would require orders API access
                     productData.put("sales", "N/A - Orders access restricted");
@@ -321,7 +327,7 @@ public class AnalyticsController {
               response.put("products", productAnalytics);
               response.put("total_products", productAnalytics.size());
               response.put("total_revenue", "N/A - Orders access restricted");
-              response.put("shopify_products_url", "https://" + shop + "/admin/products");
+              response.put("shopify_products_url", getShopifyAdminUrl(shop, "products"));
               response.put("note", "Sales and revenue data requires orders API access approval");
 
               logger.info("Returning real product data for {} products", productAnalytics.size());
@@ -367,7 +373,7 @@ public class AnalyticsController {
       response.put("products", List.of());
       return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response));
     }
-    String url = "https://" + shop + "/admin/api/2023-10/products.json";
+    String url = getShopifyUrl(shop, "products.json");
     return webClient
         .get()
         .uri(url)
@@ -417,7 +423,7 @@ public class AnalyticsController {
                                   "product_id",
                                   productId,
                                   "shopify_url",
-                                  "https://" + shop + "/admin/products/" + productId));
+                                  getShopifyAdminUrl(shop, "products/" + productId)));
                         }
                       }
                     }
@@ -433,8 +439,8 @@ public class AnalyticsController {
               response.put("lowInventoryCount", lowStock.size());
               response.put(
                   "shopify_inventory_url",
-                  "https://" + shop + "/admin/products?inventory_status=low");
-              response.put("shopify_products_url", "https://" + shop + "/admin/products");
+                  getShopifyAdminUrl(shop, "products?inventory_status=low"));
+              response.put("shopify_products_url", getShopifyAdminUrl(shop, "products"));
               return ResponseEntity.ok(response);
             })
         .onErrorResume(

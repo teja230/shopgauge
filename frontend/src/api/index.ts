@@ -1,6 +1,15 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+const API_BASE_URL: string = (
+  import.meta.env.VITE_API_BASE_URL as string | undefined
+) || '' /* Relative path handled by dev proxy */;
+
+if (!import.meta.env.VITE_API_BASE_URL) {
+  // eslint-disable-next-line no-console
+  console.warn(
+    'VITE_API_BASE_URL is not defined – defaulting to relative URLs. Set this variable in production.'
+  );
+}
 
 export const api = axios.create({
   baseURL: API_BASE_URL,

@@ -1,6 +1,20 @@
 import axios from 'axios';
 
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+// Enterprise-grade: never hard-code hostnames. Prefer environment config and, in dev, fallback to relative API proxy.
+export const API_BASE_URL: string = (
+  import.meta.env.VITE_API_BASE_URL as string | undefined
+) || '' /* Relative to current origin – vite devServer proxy handles /api */;
+
+if (!import.meta.env.VITE_API_BASE_URL) {
+  // Warn during development so engineers remember to configure the variable in production builds
+  // but avoid leaking details or crashing the app.
+  // eslint-disable-next-line no-console
+  console.warn(
+    'VITE_API_BASE_URL is not defined – using relative URLs for API calls. ' +
+    'Ensure this variable is set in production (e.g., https://api.shopgaugeai.com)'
+  );
+}
+
 console.log('API: Using API URL:', API_BASE_URL);
 
 // Global service error handler - will be set by the service status context
