@@ -778,7 +778,12 @@ const DashboardPage = () => {
         }));
         
         // Also update sessionStorage directly for immediate availability
-        const updatedSessionCache = { ...sessionCache, [cacheKey]: newCacheEntry };
+        const updatedSessionCache = {
+          ...sessionCache,
+          version: CACHE_VERSION,
+          shop: shop || '',
+          [cacheKey]: newCacheEntry
+        };
         sessionStorage.setItem(getCacheKey(shop || ''), JSON.stringify(updatedSessionCache));
         
         // Show final success notification
