@@ -22,4 +22,4 @@
 /favicon.ico                /favicon.ico                     200
 
 # Catch-all for unknown routes - show 404 page
-/*                          /404.html                        404 
+/*                          /index.html                     200 
