@@ -77,6 +77,8 @@ const NotificationDropdown = styled(Paper)(({ theme }) => ({
   borderRadius: 16,
   boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.05)',
   zIndex: 1300, // Below confirmation dialogs
+  display: 'flex',
+  flexDirection: 'column',
   overflow: 'hidden',
   [theme.breakpoints.down('sm')]: {
     width: '320px',
@@ -133,7 +135,7 @@ const NotificationItem = styled(Box, {
   shouldForwardProp: (prop) => prop !== 'isUnread',
 })<{ isUnread?: boolean }>(({ theme, isUnread }) => ({
   padding: theme.spacing(1.5, 2),
-  margin: theme.spacing(1),
+  margin: theme.spacing(0.75, 1),
   borderRadius: 12,
   border: `1px solid transparent`,
   backgroundColor: isUnread ? theme.palette.primary.main + '15' : 'transparent',
@@ -617,23 +619,25 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
             {notifications.length > 0 && (
               <NotificationActions>
                 <Box display="flex" gap={1} flexWrap="wrap">
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    onClick={markAllAsRead}
-                    disabled={unreadCount === 0}
-                    sx={{ 
-                      textTransform: 'none',
-                      borderRadius: 2,
-                      fontSize: '0.75rem',
-                      minWidth: 'auto',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 1
-                    }}
-                    startIcon={<CheckCircle size={16} />}
-                  >
-                  </Button>
+                  <Tooltip title="Mark all read">
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={markAllAsRead}
+                      disabled={unreadCount === 0}
+                      sx={{ 
+                        textTransform: 'none',
+                        borderRadius: 2,
+                        fontSize: '0.75rem',
+                        minWidth: 'auto',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1
+                      }}
+                      startIcon={<CheckCircle size={16} />}
+                    >
+                    </Button>
+                  </Tooltip>
                   <Tooltip title="Mark all unread">
                     <Button
                       size="small"
