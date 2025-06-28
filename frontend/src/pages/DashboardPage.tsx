@@ -701,6 +701,9 @@ const DashboardPage = () => {
     return isFresh;
   }, [notifications]);
 
+  // Create a cache instance that prevents concurrent fetches for the same key
+  const activeFetches = useRef<Map<string, Promise<any>>>(new Map());
+  
   // Stable cache check function that doesn't cause fetch function recreation
   const checkCacheAndFetch = useCallback(async (
     cacheKey: keyof DashboardCache,
@@ -710,11 +713,23 @@ const DashboardPage = () => {
     // Skip version and shop keys
     if (cacheKey === 'version' || cacheKey === 'shop') return null;
     
-    // Get current cache state directly to avoid stale closures
-    const currentCache = JSON.parse(sessionStorage.getItem(getCacheKey(shop || '')) || '{}');
-    const cachedEntry = currentCache[cacheKey] as CacheEntry<any> | undefined;
+    const fetchKey = `${shop}_${cacheKey}`;
+    let debugLog = [`🔍 CACHE DEBUG - ${cacheKey.toUpperCase()}`];
     
-    console.log(`📊 ${cacheKey.toUpperCase()}: ${cachedEntry ? 'Has cache' : 'No cache'}, Force: ${forceRefresh}`);
+    // If there's already an active fetch for this key, wait for it
+    if (activeFetches.current.has(fetchKey)) {
+      debugLog.push(`⏳ Waiting for active fetch to complete`);
+      notifications.addNotification(debugLog.join('\n'), 'info', { duration: 3000 });
+      return await activeFetches.current.get(fetchKey);
+    }
+    
+    // Get current cache state from both React state and sessionStorage for consistency
+    const sessionCache = JSON.parse(sessionStorage.getItem(getCacheKey(shop || '')) || '{}');
+    const reactCacheEntry = cache[cacheKey];
+    const sessionCacheEntry = sessionCache[cacheKey];
+    const cachedEntry = reactCacheEntry || sessionCacheEntry as CacheEntry<any> | undefined;
+    
+    debugLog.push(`📊 React=${!!reactCacheEntry}, Session=${!!sessionCacheEntry}, Using=${!!cachedEntry}, Force=${forceRefresh}`);
     
     // Check if cache is fresh
     const isFresh = cachedEntry && 
@@ -722,36 +737,65 @@ const DashboardPage = () => {
       cachedEntry.version === CACHE_VERSION &&
       cachedEntry.shop === shop;
     
+    if (cachedEntry) {
+      const ageMinutes = Math.round((Date.now() - cachedEntry.timestamp) / (1000 * 60));
+      const ageDuration = Date.now() - cachedEntry.timestamp;
+      debugLog.push(`⏰ Cache age: ${ageMinutes}min (${ageDuration}ms)`);
+      debugLog.push(`🔧 Fresh check: age<${CACHE_DURATION/60000}min=${ageDuration < CACHE_DURATION}, version=${cachedEntry.version}==${CACHE_VERSION}, shop=${cachedEntry.shop}==${shop}`);
+      debugLog.push(`✅ isFresh=${isFresh}`);
+    } else {
+      debugLog.push(`❌ No cache found`);
+    }
+    
     // Use cached data if available, fresh, and not forcing refresh
     if (!forceRefresh && isFresh) {
       const ageMinutes = Math.round((Date.now() - cachedEntry.timestamp) / (1000 * 60));
-      console.log(`✅ ${cacheKey.toUpperCase()}: Using cached data (${ageMinutes}min old, no API call)`);
-      notifications.addNotification(`🚀 Cache Hit: ${cacheKey.toUpperCase()} (${ageMinutes}min old)`, 'success', { duration: 2000 });
+      debugLog.push(`🚀 RESULT: Using cached data (${ageMinutes}min old) - NO API CALL`);
+      notifications.addNotification(debugLog.join('\n'), 'success', { duration: 5000 });
       return cachedEntry.data;
     }
     
-    // Fetch fresh data from API
-    console.log(`🔄 ${cacheKey.toUpperCase()}: Fetching fresh data from API`);
-    notifications.addNotification(`🌐 API Call: Fetching fresh ${cacheKey.toUpperCase()} data`, 'info', { duration: 2000 });
-    const freshData = await fetchFunction();
-    const now = new Date();
-    
-    // Update cache with fresh data
-    setCache((prev: DashboardCache) => ({
-      ...prev,
-      [cacheKey]: {
-        data: freshData,
-        timestamp: Date.now(),
-        lastUpdated: now,
-        version: CACHE_VERSION,
-        shop: shop || ''
+    // Create and track the fetch promise to prevent concurrent fetches
+    const fetchPromise = (async () => {
+      try {
+        debugLog.push(`🌐 RESULT: Making API call - fetching fresh data`);
+        notifications.addNotification(debugLog.join('\n'), 'warning', { duration: 5000 });
+        
+        const freshData = await fetchFunction();
+        const now = new Date();
+        const newCacheEntry = {
+          data: freshData,
+          timestamp: Date.now(),
+          lastUpdated: now,
+          version: CACHE_VERSION,
+          shop: shop || ''
+        };
+        
+        // Update both React state and sessionStorage immediately
+        setCache((prev: DashboardCache) => ({
+          ...prev,
+          [cacheKey]: newCacheEntry
+        }));
+        
+        // Also update sessionStorage directly for immediate availability
+        const updatedSessionCache = { ...sessionCache, [cacheKey]: newCacheEntry };
+        sessionStorage.setItem(getCacheKey(shop || ''), JSON.stringify(updatedSessionCache));
+        
+        // Show final success notification
+        notifications.addNotification(`💾 ${cacheKey.toUpperCase()}: Fresh data fetched and cached successfully`, 'success', { duration: 2000 });
+        
+        return freshData;
+      } finally {
+        // Clean up the active fetch tracking
+        activeFetches.current.delete(fetchKey);
       }
-    }));
+    })();
     
-    console.log(`💾 ${cacheKey.toUpperCase()}: Cached fresh data`);
-    notifications.addNotification(`💾 Cached: ${cacheKey.toUpperCase()} data saved to cache`, 'success', { duration: 1500 });
-    return freshData;
-  }, [shop, notifications]); // Removed cache dependency to prevent recreation
+    // Track this fetch to prevent concurrent calls
+    activeFetches.current.set(fetchKey, fetchPromise);
+    
+    return await fetchPromise;
+  }, [shop, notifications, cache]); // Added cache back to ensure consistency
 
   // Debug function to show cache status (helpful for testing)
   const debugCacheStatus = useCallback(() => {
