@@ -272,14 +272,31 @@ public class WebSecurityConfig implements WebMvcConfigurer {
     String[] allowedOrigins = corsAllowedOrigins.split(",");
     configuration.setAllowedOrigins(Arrays.asList(allowedOrigins));
 
-    // Add origin patterns for subdomains if in production
+    // Add production domains for shopgaugeai.com
     if (isProductionProfile()) {
+      configuration.addAllowedOrigin("https://www.shopgaugeai.com");
+      configuration.addAllowedOrigin("https://shopgaugeai.com");
       configuration.setAllowedOriginPatterns(Arrays.asList("https://*.shopgaugeai.com"));
+
+      // Shopify domains for webhooks and app installation
+      configuration.addAllowedOriginPattern("https://*.myshopify.com");
+      configuration.addAllowedOriginPattern("https://admin.shopify.com");
+      configuration.addAllowedOriginPattern("https://*.shopify.com");
     }
 
-    configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+    configuration.setAllowedMethods(
+        Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"));
     configuration.setAllowedHeaders(Arrays.asList("*"));
-    configuration.setExposedHeaders(Arrays.asList("*"));
+    configuration.setExposedHeaders(
+        Arrays.asList(
+            "Access-Control-Allow-Origin",
+            "Access-Control-Allow-Credentials",
+            "Access-Control-Allow-Headers",
+            "Access-Control-Allow-Methods",
+            "Access-Control-Max-Age",
+            "X-Total-Count",
+            "X-Rate-Limit-Remaining",
+            "X-Rate-Limit-Reset"));
     configuration.setAllowCredentials(true);
     configuration.setMaxAge(3600L);
 
