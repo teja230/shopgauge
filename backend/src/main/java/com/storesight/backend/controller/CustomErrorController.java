@@ -52,9 +52,24 @@ public class CustomErrorController implements ErrorController {
         requestPath,
         exception);
 
-    // Check if the request expects HTML (browser request)
+    // Enhanced browser detection - check multiple indicators
     String acceptHeader = request.getHeader("Accept");
-    boolean isHtmlRequest = acceptHeader != null && acceptHeader.contains("text/html");
+    String userAgent = request.getHeader("User-Agent");
+    String referer = request.getHeader("Referer");
+    
+    boolean isHtmlRequest = 
+        (acceptHeader != null && acceptHeader.contains("text/html")) ||
+        (userAgent != null && (
+            userAgent.contains("Mozilla") || 
+            userAgent.contains("Chrome") || 
+            userAgent.contains("Safari") || 
+            userAgent.contains("Firefox") || 
+            userAgent.contains("Edge") ||
+            userAgent.contains("Opera")
+        )) ||
+        (referer != null && referer.contains("shopgaugeai.com")) ||
+        // If it's the root path and no specific Accept header, assume it's a browser
+        (requestPath != null && (requestPath.equals("/") || requestPath.equals("")));
 
     if (isHtmlRequest) {
       // Return HTML error page for browser requests
@@ -62,13 +77,25 @@ public class CustomErrorController implements ErrorController {
           .header("Content-Type", "text/html;charset=UTF-8")
           .body(Map.of("html", generateErrorHtml(statusCode, errorMessage, requestPath)));
     } else {
-      // Return JSON error response for API requests
+      // Return sanitized JSON error response for API requests
       Map<String, Object> errorResponse = new HashMap<>();
       errorResponse.put("timestamp", System.currentTimeMillis());
       errorResponse.put("status", statusCode);
       errorResponse.put("error", getErrorTitle(statusCode));
-      errorResponse.put("message", errorMessage);
-      errorResponse.put("path", requestPath);
+      
+      // Sanitize error message for production
+      if (statusCode == 404) {
+        errorResponse.put("message", "Resource not found");
+      } else if (statusCode >= 500) {
+        errorResponse.put("message", "Internal server error");
+      } else {
+        errorResponse.put("message", "Request failed");
+      }
+      
+      // Don't expose internal paths in production
+      if (requestPath != null && !requestPath.equals("/")) {
+        errorResponse.put("path", requestPath);
+      }
 
       return ResponseEntity.status(HttpStatus.valueOf(statusCode)).body(errorResponse);
     }
@@ -117,11 +144,18 @@ public class CustomErrorController implements ErrorController {
                     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
                     body { font-family: 'Inter', system-ui, sans-serif; }
                     .gradient-bg { background: linear-gradient(135deg, #667eea 0%%, #764ba2 100%%); }
+                    .logo-text { background: linear-gradient(135deg, #667eea 0%%, #764ba2 100%%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
                 </style>
             </head>
             <body class="min-h-screen gradient-bg flex items-center justify-center px-4">
                 <div class="max-w-md w-full">
                     <div class="bg-white rounded-2xl shadow-2xl p-8 text-center transform hover:scale-105 transition-transform duration-300">
+                        <!-- Logo -->
+                        <div class="mb-6">
+                            <h1 class="text-2xl font-bold logo-text">ShopGauge</h1>
+                            <p class="text-sm text-gray-500 mt-1">Enterprise Analytics Platform</p>
+                        </div>
+
                         <!-- Error Icon -->
                         <div class="mx-auto w-20 h-20 rounded-full bg-red-100 flex items-center justify-center mb-6">
                             <svg class="w-10 h-10 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -133,7 +167,7 @@ public class CustomErrorController implements ErrorController {
                         <div class="text-7xl font-bold text-gray-300 mb-4">%d</div>
 
                         <!-- Error Title -->
-                        <h1 class="text-3xl font-bold text-gray-900 mb-3">%s</h1>
+                        <h2 class="text-3xl font-bold text-gray-900 mb-3">%s</h2>
 
                         <!-- Error Message -->
                         <p class="text-gray-600 mb-6 text-lg">%s</p>
@@ -153,8 +187,10 @@ public class CustomErrorController implements ErrorController {
 
                         <!-- Footer -->
                         <div class="mt-8 pt-6 border-t border-gray-200">
+                            <p class="text-sm text-gray-500 mb-2">
+                                Need help? Contact our support team
+                            </p>
                             <p class="text-sm text-gray-500">
-                                Need help? Contact us at
                                 <a href="mailto:support@shopgaugeai.com" class="text-blue-600 hover:underline font-medium">support@shopgaugeai.com</a>
                             </p>
                         </div>
