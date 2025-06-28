@@ -35,7 +35,12 @@ import {
   Award,
   BadgeCheck,
   Circle,
-  CircleDot
+  CircleDot,
+  User,
+  Compass,
+  BarChart3,
+  Settings2,
+  Tag,
 } from 'lucide-react';
 import { format, formatDistanceToNow, parseISO, isValid } from 'date-fns';
 import { useNotifications } from '../../hooks/useNotifications';
@@ -599,6 +604,29 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     }
   };
 
+  const getCategoryInfo = (category?: string | null) => {
+    if (!category) {
+      return null;
+    }
+    
+    const iconProps = { size: 14, strokeWidth: 1.5, style: { verticalAlign: 'middle' } };
+
+    switch (category.toLowerCase()) {
+      case 'store connection':
+      case 'profile':
+        return { icon: <User {...iconProps} />, name: 'Profile' };
+      case 'discovery':
+        return { icon: <Compass {...iconProps} />, name: 'Market Intelligence' };
+      case 'analytics':
+        return { icon: <BarChart3 {...iconProps} />, name: 'Analytics' };
+      case 'system':
+      case 'mode':
+        return { icon: <Settings2 {...iconProps} />, name: 'System' };
+      default:
+        return { icon: <Tag {...iconProps} />, name: category };
+    }
+  };
+
   return (
     <>
       <Box position="relative" ref={dropdownRef}>
@@ -756,14 +784,23 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                       {notification.message}
                     </Typography>
                     
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center' }}>
                       {formatTimestamp(notification.createdAt)}
-                      {notification.category && (
-                        <>
-                          <Box component="span" sx={{ mx: 0.5 }}>•</Box>
-                          {notification.category}
-                        </>
-                      )}
+                      {(() => {
+                        const categoryInfo = getCategoryInfo(notification.category);
+                        if (!categoryInfo) return null;
+                        
+                        return (
+                          <>
+                            <Box component="span" sx={{ mx: 0.5 }}>•</Box>
+                            <Tooltip title={categoryInfo.name} placement="top">
+                              <Box sx={{ display: 'inline-flex', alignItems: 'center' }}>
+                                {categoryInfo.icon}
+                              </Box>
+                            </Tooltip>
+                          </>
+                        );
+                      })()}
                     </Typography>
                   </Box>
 
