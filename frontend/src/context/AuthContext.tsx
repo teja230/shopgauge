@@ -71,6 +71,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     try {
       setAuthLoading(true);
+      setLoading(true); // Ensure loading state is active during auth check
       
       // Use enhanced auth check that handles race conditions
       const authResult = await getAuthShop();
@@ -106,6 +107,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setApiAuthState(false, null);
     } finally {
       setAuthLoading(false);
+      setLoading(false); // CRITICAL: Set loading to false when auth check completes
+      console.log('AuthContext: Authentication check completed, loading state cleared');
     }
   };
 
