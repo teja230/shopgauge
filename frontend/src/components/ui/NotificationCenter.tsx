@@ -96,12 +96,10 @@ const NotificationDropdown = styled(Paper)(({ theme }) => ({
   width: '380px',
   maxHeight: '500px',
   marginTop: theme.spacing(1),
-  backgroundColor: 'rgba(255, 255, 255, 0.95)',
-  backdropFilter: 'blur(20px) saturate(180%)',
-  WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-  border: '1px solid rgba(255, 255, 255, 0.18)',
-  borderRadius: 16,
-  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.05)',
+  backgroundColor: theme.palette.background.paper,
+  border: `1px solid ${theme.palette.divider}`,
+  borderRadius: 12,
+  boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
   zIndex: 1300, // Below confirmation dialogs
   display: 'flex',
   flexDirection: 'column',
@@ -133,16 +131,16 @@ const NotificationContent = styled(Box)(({ theme }) => ({
     width: 8,
   },
   '&::-webkit-scrollbar-track': {
-    background: theme.palette.background.default,
+    background: theme.palette.grey[100],
     borderRadius: 4,
   },
   '&::-webkit-scrollbar-thumb': {
-    background: theme.palette.grey[300],
+    background: theme.palette.grey[400],
     borderRadius: 4,
-    border: `1px solid ${theme.palette.background.default}`,
+    border: `1px solid ${theme.palette.grey[100]}`,
   },
   '&::-webkit-scrollbar-thumb:hover': {
-    background: theme.palette.grey[400],
+    background: theme.palette.grey[500],
   },
 }));
 
@@ -162,16 +160,16 @@ const NotificationItem = styled(Box, {
 })<{ isUnread?: boolean }>(({ theme, isUnread }) => ({
   padding: theme.spacing(1.5, 2),
   margin: theme.spacing(0.75, 1),
-  borderRadius: 12,
+  borderRadius: 8,
   border: `1px solid transparent`,
-  backgroundColor: isUnread ? theme.palette.primary.main + '15' : 'transparent',
+  backgroundColor: isUnread ? `${theme.palette.primary.main}08` : 'transparent',
   transition: 'all 0.2s ease',
   position: 'relative',
   display: 'flex',
   alignItems: 'flex-start',
   gap: theme.spacing(1.5),
   '&:hover': {
-    backgroundColor: theme.palette.action.hover,
+    backgroundColor: theme.palette.grey[50],
     borderColor: theme.palette.divider,
     '& .notification-item-actions': {
       opacity: 1,
@@ -181,7 +179,7 @@ const NotificationItem = styled(Box, {
 
 const NotificationActions = styled(Box)(({ theme }) => ({
   padding: theme.spacing(2, 3),
-  backgroundColor: theme.palette.background.default,
+  backgroundColor: theme.palette.grey[50],
   borderTop: `1px solid ${theme.palette.divider}`,
   display: 'flex',
   gap: theme.spacing(1),
@@ -196,8 +194,8 @@ const BellButton = styled(IconButton, {
   padding: theme.spacing(1.5),
   color: 'white',
   '&:hover': {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    color: theme.palette.grey[200],
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    color: theme.palette.grey[100],
   },
   animation: isPulsing ? `${pulse} 1.5s infinite` : 'none',
   '& svg': {
@@ -208,18 +206,14 @@ const BellButton = styled(IconButton, {
 const StyledDialog = styled(Dialog)(({ theme }) => ({
   zIndex: 1400, // Above notification center (1300)
   '& .MuiDialog-paper': {
-    borderRadius: 16,
-    background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.95) 100%)',
-    backdropFilter: 'blur(20px) saturate(180%)',
-    WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-    border: '1px solid rgba(255, 255, 255, 0.2)',
-    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.1)',
+    borderRadius: 12,
+    background: theme.palette.background.paper,
+    border: `1px solid ${theme.palette.divider}`,
+    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
     overflow: 'hidden',
   },
   '& .MuiBackdrop-root': {
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    backdropFilter: 'blur(8px)',
-    WebkitBackdropFilter: 'blur(8px)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
 }));
 
@@ -432,9 +426,9 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
               width: 32,
               height: 32,
               borderRadius: '50%',
-              backgroundColor: `${theme.palette.success.main}15`,
+              backgroundColor: `${theme.palette.success.main}12`,
               color: theme.palette.success.main,
-              border: `1px solid ${theme.palette.success.main}30`,
+              border: `1px solid ${theme.palette.success.main}25`,
             }}
           >
             <BadgeCheck {...iconProps} />
@@ -450,9 +444,9 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
               width: 32,
               height: 32,
               borderRadius: '50%',
-              backgroundColor: `${theme.palette.error.main}15`,
+              backgroundColor: `${theme.palette.error.main}12`,
               color: theme.palette.error.main,
-              border: `1px solid ${theme.palette.error.main}30`,
+              border: `1px solid ${theme.palette.error.main}25`,
             }}
           >
             <ShieldAlert {...iconProps} />
@@ -468,9 +462,9 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
               width: 32,
               height: 32,
               borderRadius: '50%',
-              backgroundColor: `${theme.palette.warning.main}15`,
+              backgroundColor: `${theme.palette.warning.main}12`,
               color: theme.palette.warning.main,
-              border: `1px solid ${theme.palette.warning.main}30`,
+              border: `1px solid ${theme.palette.warning.main}25`,
             }}
           >
             <AlertTriangle {...iconProps} />
@@ -486,9 +480,9 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
               width: 32,
               height: 32,
               borderRadius: '50%',
-              backgroundColor: `${theme.palette.primary.main}15`,
+              backgroundColor: `${theme.palette.primary.main}12`,
               color: theme.palette.primary.main,
-              border: `1px solid ${theme.palette.primary.main}30`,
+              border: `1px solid ${theme.palette.primary.main}25`,
             }}
           >
             <MessageCircle {...iconProps} />
@@ -504,9 +498,9 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
               width: 32,
               height: 32,
               borderRadius: '50%',
-              backgroundColor: `${theme.palette.info.main}15`,
-              color: theme.palette.info.main,
-              border: `1px solid ${theme.palette.info.main}30`,
+              backgroundColor: `${theme.palette.secondary.main}12`,
+              color: theme.palette.secondary.main,
+              border: `1px solid ${theme.palette.secondary.main}25`,
             }}
           >
             <TrendingUp {...iconProps} />
@@ -522,9 +516,9 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
               width: 32,
               height: 32,
               borderRadius: '50%',
-              backgroundColor: `${theme.palette.secondary.main}15`,
-              color: theme.palette.secondary.main,
-              border: `1px solid ${theme.palette.secondary.main}30`,
+              backgroundColor: `${theme.palette.primary.main}12`,
+              color: theme.palette.primary.main,
+              border: `1px solid ${theme.palette.primary.main}25`,
             }}
           >
             <Activity {...iconProps} />
@@ -540,9 +534,9 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
               width: 32,
               height: 32,
               borderRadius: '50%',
-              backgroundColor: `${theme.palette.grey[500]}15`,
+              backgroundColor: `${theme.palette.grey[400]}12`,
               color: theme.palette.grey[600],
-              border: `1px solid ${theme.palette.grey[400]}30`,
+              border: `1px solid ${theme.palette.grey[400]}25`,
             }}
           >
             <Circle {...iconProps} />
@@ -651,8 +645,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                       color: 'text.secondary',
                       '&:hover': {
                         color: 'primary.main',
-                        backgroundColor: 'primary.light' + '15',
-                        transform: 'scale(1.05)',
+                        backgroundColor: 'primary.light' + '12',
                         transition: 'all 0.2s ease'
                       }
                     }}
@@ -669,13 +662,11 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                       color: 'text.secondary',
                       '&:hover': {
                         color: 'info.main',
-                        backgroundColor: 'info.light' + '15',
-                        transform: 'scale(1.05)',
+                        backgroundColor: 'info.light' + '12',
                         transition: 'all 0.2s ease'
                       },
                       '&:disabled': {
                         color: 'text.disabled',
-                        transform: 'none'
                       }
                     }}
                   >
@@ -690,8 +681,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                       color: 'text.secondary',
                       '&:hover': {
                         color: 'error.main',
-                        backgroundColor: 'error.light' + '15',
-                        transform: 'scale(1.05)',
+                        backgroundColor: 'error.light' + '12',
                         transition: 'all 0.2s ease'
                       }
                     }}
@@ -730,13 +720,13 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                       width: 80,
                       height: 80,
                       borderRadius: '50%',
-                      backgroundColor: 'grey.100',
+                      backgroundColor: 'grey.50',
                       margin: '0 auto 16px',
                       border: '2px dashed',
-                      borderColor: 'grey.300',
+                      borderColor: 'grey.200',
                     }}
                   >
-                    <Bell size={32} style={{ opacity: 0.6 }} strokeWidth={1.5} />
+                    <Bell size={32} style={{ opacity: 0.5 }} strokeWidth={1.5} />
                   </Box>
                   <Typography variant="h6" sx={{ fontWeight: 500, mb: 1 }}>
                     All caught up!
@@ -791,8 +781,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                             borderRadius: '50%',
                             '&:hover': { 
                               color: 'success.main', 
-                              backgroundColor: 'success.light' + '25',
-                              transform: 'scale(1.05)',
+                              backgroundColor: 'success.light' + '12',
                               transition: 'all 0.2s ease'
                             } 
                           }}
@@ -813,8 +802,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                           borderRadius: '50%',
                           '&:hover': { 
                             color: 'info.main', 
-                            backgroundColor: 'info.light' + '25',
-                            transform: 'scale(1.05)',
+                            backgroundColor: 'info.light' + '12',
                             transition: 'all 0.2s ease'
                           } 
                         }}
@@ -834,8 +822,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                            borderRadius: '50%',
                            '&:hover': { 
                              color: 'error.main', 
-                             backgroundColor: 'error.light' + '25',
-                             transform: 'scale(1.05)',
+                             backgroundColor: 'error.light' + '12',
                              transition: 'all 0.2s ease'
                            } 
                          }}
@@ -860,7 +847,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                       disabled={unreadCount === 0}
                       sx={{ 
                         textTransform: 'none',
-                        borderRadius: 2,
+                        borderRadius: 1,
                         fontSize: '0.75rem',
                         minWidth: 'auto',
                         display: 'flex',
@@ -871,10 +858,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                         borderColor: 'success.main',
                         color: 'success.main',
                         '&:hover': {
-                          backgroundColor: 'success.light' + '15',
+                          backgroundColor: 'success.light' + '12',
                           borderColor: 'success.dark',
-                          transform: 'translateY(-1px)',
-                          boxShadow: '0 2px 8px rgba(76, 175, 80, 0.2)',
                           transition: 'all 0.2s ease'
                         }
                       }}
@@ -892,7 +877,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                       disabled={notifications.filter(n => n.read).length === 0}
                       sx={{
                         textTransform: 'none',
-                        borderRadius: 2,
+                        borderRadius: 1,
                         fontSize: '0.75rem',
                         minWidth: 'auto',
                         display: 'flex',
@@ -903,10 +888,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                         borderColor: 'warning.main',
                         color: 'warning.main',
                         '&:hover': {
-                          backgroundColor: 'warning.light' + '15',
+                          backgroundColor: 'warning.light' + '12',
                           borderColor: 'warning.dark',
-                          transform: 'translateY(-1px)',
-                          boxShadow: '0 2px 8px rgba(255, 152, 0, 0.2)',
                           transition: 'all 0.2s ease'
                         }
                       }}
@@ -922,7 +905,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                       color="info"
                       sx={{
                         textTransform: 'none',
-                        borderRadius: 2,
+                        borderRadius: 1,
                         fontSize: '0.75rem',
                         minWidth: 'auto',
                         display: 'flex',
@@ -933,10 +916,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                         borderColor: 'info.main',
                         color: 'info.main',
                         '&:hover': {
-                          backgroundColor: 'info.light' + '15',
+                          backgroundColor: 'info.light' + '12',
                           borderColor: 'info.dark',
-                          transform: 'translateY(-1px)',
-                          boxShadow: '0 2px 8px rgba(33, 150, 243, 0.2)',
                           transition: 'all 0.2s ease'
                         }
                       }}
@@ -954,7 +935,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                     onClick={handleDismissAll}
                     sx={{
                       textTransform: 'none',
-                      borderRadius: 2,
+                      borderRadius: 1,
                       fontSize: '0.75rem',
                       minWidth: 'auto',
                       display: 'flex',
@@ -965,10 +946,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                       borderColor: 'error.main',
                       color: 'error.main',
                       '&:hover': {
-                        backgroundColor: 'error.light' + '15',
+                        backgroundColor: 'error.light' + '12',
                         borderColor: 'error.dark',
-                        transform: 'translateY(-1px)',
-                        boxShadow: '0 2px 8px rgba(244, 67, 54, 0.2)',
                         transition: 'all 0.2s ease'
                       }
                     }}
