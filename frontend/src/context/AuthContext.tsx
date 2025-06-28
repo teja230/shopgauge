@@ -58,7 +58,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!hasInitiallyLoaded) {
       checkAuth();
     }
-  }, []);
+  }, [hasInitiallyLoaded]);
 
   const checkAuth = async () => {
     console.log('AuthContext: Starting authentication check');

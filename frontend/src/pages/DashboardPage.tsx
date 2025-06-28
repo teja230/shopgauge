@@ -1,15 +1,13 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Box, Typography, Grid, Card, CardContent, Alert, CircularProgress, Link as MuiLink, IconButton, Button } from '@mui/material';
+import { Box, Typography, Card, CardContent, Alert, CircularProgress, Link as MuiLink, IconButton, Button } from '@mui/material';
 import { RevenueChart } from '../components/ui/RevenueChart';
 import { MetricCard } from '../components/ui/MetricCard';
-import { InsightBanner } from '../components/ui/InsightBanner';
-import { getInsights, fetchWithAuth, retryWithBackoff } from '../api';
+import { fetchWithAuth, retryWithBackoff } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { styled } from '@mui/material/styles';
 import { OpenInNew, Refresh, Storefront, ListAlt, Inventory2 } from '@mui/icons-material';
 import { format } from 'date-fns';
-import toast from 'react-hot-toast';
 import { useNotifications } from '../hooks/useNotifications';
 
 // Cache configuration - Enterprise-grade settings
@@ -579,7 +577,7 @@ interface CardErrorState {
 }
 
 const DashboardPage = () => {
-  const { isAuthenticated, shop, setShop, authLoading, isAuthReady } = useAuth();
+  const { isAuthenticated, shop, authLoading, isAuthReady } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const notifications = useNotifications();
@@ -590,7 +588,6 @@ const DashboardPage = () => {
   
   // Cache state management using sessionStorage for persistence across navigation
   const [cache, setCache] = useState<DashboardCache>(() => loadCacheFromStorage());
-  const [lastGlobalUpdate, setLastGlobalUpdate] = useState<Date | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [lastRefreshTime, setLastRefreshTime] = useState<number>(0); // Track last refresh time for debouncing
@@ -601,27 +598,15 @@ const DashboardPage = () => {
     saveCacheToStorage(cache);
   }, [cache]);
 
-  // Clear cache when shop changes to prevent cross-shop data mixing
+  // Effect to handle shop changes and cache invalidation
   useEffect(() => {
-    if (shop && isAuthenticated) {
-      console.log('Dashboard: Shop detected, checking cache validity for:', shop);
-      
-      // Check if cached data belongs to a different shop
-      const currentCache = loadCacheFromStorage();
-      const cacheShop = sessionStorage.getItem('dashboard_cache_shop');
-      
-      if (cacheShop && cacheShop !== shop) {
-        console.log('Dashboard: Shop changed from', cacheShop, 'to', shop, '- clearing cache');
-        const freshCache = invalidateCache();
-        setCache(freshCache);
-        setLastGlobalUpdate(null);
-        setIsInitialLoad(true);
-      }
-      
-      // Store current shop for future cache validation
-      sessionStorage.setItem('dashboard_cache_shop', shop);
+    if (shop && isAuthReady) {
+      // Clear cache when shop changes to prevent cross-shop data leakage
+      const freshCache = invalidateCache();
+      setCache(freshCache);
+      setIsInitialLoad(true);
     }
-  }, [shop, isAuthenticated]);
+  }, [shop, isAuthReady, invalidateCache]);
   
   // Individual card loading states
   const [cardLoading, setCardLoading] = useState<CardLoadingState>({
@@ -680,7 +665,6 @@ const DashboardPage = () => {
       }
     }));
     
-    setLastGlobalUpdate(now);
     return freshData;
   }, [cache, isCacheFresh]);
 
@@ -889,7 +873,7 @@ const DashboardPage = () => {
     } finally {
       setCardLoading(prev => ({ ...prev, products: false }));
     }
-  }, [isAuthenticated, shop, navigate, getCachedOrFetch]);
+  }, [isAuthenticated, shop, getCachedOrFetch]);
 
   const fetchInventoryData = useCallback(async (forceRefresh = false) => {
     // Pre-flight authentication check
@@ -931,7 +915,7 @@ const DashboardPage = () => {
     } finally {
       setCardLoading(prev => ({ ...prev, inventory: false }));
     }
-  }, [isAuthenticated, shop, navigate, getCachedOrFetch]);
+  }, [isAuthenticated, shop, getCachedOrFetch]);
 
   const fetchNewProductsData = useCallback(async (forceRefresh = false) => {
     // Pre-flight authentication check
@@ -973,7 +957,7 @@ const DashboardPage = () => {
     } finally {
       setCardLoading(prev => ({ ...prev, newProducts: false }));
     }
-  }, [isAuthenticated, shop, navigate, getCachedOrFetch]);
+  }, [isAuthenticated, shop, getCachedOrFetch]);
 
   const fetchInsightsData = useCallback(async (forceRefresh = false) => {
     // Pre-flight authentication check
