@@ -1420,8 +1420,14 @@ const DashboardPage = () => {
 
   // Lazy load data for individual cards
   const handleCardLoad = useCallback((cardType: keyof CardLoadingState) => {
-    // Don't trigger individual card loads during a full refresh
-    if (isRefreshing) return;
+    // Allow individual card loads even during full refresh
+    // Only prevent if we're actively loading this specific card
+    if (cardLoading[cardType]) {
+      console.log(`Card ${cardType} is already loading, skipping request`);
+      return;
+    }
+    
+    console.log(`Loading individual card: ${cardType}`);
     
     // Add a small delay to prevent overwhelming the API
     setTimeout(() => {
@@ -1449,7 +1455,7 @@ const DashboardPage = () => {
           break;
       }
     }, 100); // 100ms delay
-  }, [isRefreshing, fetchRevenueData, fetchProductsData, fetchInventoryData, fetchNewProductsData, fetchInsightsData, fetchOrdersData, fetchAbandonedCartsData]);
+  }, [cardLoading, fetchRevenueData, fetchProductsData, fetchInventoryData, fetchNewProductsData, fetchInsightsData, fetchOrdersData, fetchAbandonedCartsData]);
 
   // Manual refresh function with debounce protection
   const handleRefreshAll = useCallback(async () => {
@@ -1885,8 +1891,11 @@ const DashboardPage = () => {
                     <Button 
                       variant="outlined" 
                       size="small" 
-                      onClick={() => handleCardLoad('products')}
-                      startIcon={<Refresh />}
+                      onClick={() => {
+                        console.log('Load Products button clicked');
+                        handleCardLoad('products');
+                      }}
+                      sx={{ mt: 1 }}
                     >
                       Retry
                     </Button>
@@ -1924,7 +1933,10 @@ const DashboardPage = () => {
                     <Button 
                       variant="outlined" 
                       size="small" 
-                      onClick={() => handleCardLoad('products')}
+                      onClick={() => {
+                        console.log('Load Products button clicked');
+                        handleCardLoad('products');
+                      }}
                       sx={{ mt: 1 }}
                     >
                       Load Products
