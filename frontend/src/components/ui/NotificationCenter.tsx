@@ -145,22 +145,23 @@ const NotificationItemActions = styled(Box)({
 const NotificationItem = styled(Box, {
   shouldForwardProp: (prop) => prop !== 'isUnread',
 })<{ isUnread?: boolean }>(({ theme, isUnread }) => ({
-  padding: theme.spacing(2, 2.5),
-  margin: theme.spacing(0.5, 1.5),
-  borderRadius: 12,
-  border: `1px solid ${isUnread ? theme.palette.primary.main + '20' : theme.palette.divider + '40'}`,
-  backgroundColor: isUnread ? `${theme.palette.primary.main}06` : theme.palette.background.paper,
-  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+  padding: theme.spacing(1.5, 2),
+  margin: theme.spacing(0.75, 1),
+  borderRadius: 12, // Consistent with theme
+  border: `1px solid ${isUnread ? theme.palette.primary.main + '20' : 'transparent'}`,
+  backgroundColor: isUnread ? `${theme.palette.primary.main}08` : 'transparent',
+  transition: 'all 0.2s ease',
   position: 'relative',
   display: 'flex',
   alignItems: 'flex-start',
   gap: theme.spacing(1.5),
-  boxShadow: isUnread ? `0 2px 8px ${theme.palette.primary.main}10` : '0 1px 3px rgba(0,0,0,0.08)',
+  // Use standard theme shadow pattern
+  boxShadow: 'none',
   '&:hover': {
     backgroundColor: theme.palette.grey[50],
-    borderColor: theme.palette.primary.main + '40',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
-    transform: 'translateY(-1px)',
+    borderColor: theme.palette.divider,
+    // Standard theme shadow on hover
+    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
     '& .notification-item-actions': {
       opacity: 1,
     }
@@ -909,162 +910,99 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                 </Box>
               )}
 
-              {!loading && !error && (() => {
-                // Group notifications by time period for better organization
-                const now = new Date();
-                const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
-                
-                const groupedNotifications = notifications.reduce((groups: any, notification) => {
-                  const notificationDate = new Date(notification.createdAt);
-                  let group = 'Older';
+              {!loading && !error && notifications.map((notification) => (
+                <NotificationItem key={notification.id} isUnread={!notification.read}>
+                  <Box mt={0.5}>
+                    {getNotificationIcon(notification.type)}
+                  </Box>
                   
-                  if (notificationDate >= today) {
-                    group = 'Today';
-                  } else if (notificationDate >= yesterday) {
-                    group = 'Yesterday';
-                  } else if (notificationDate >= new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)) {
-                    group = 'This Week';
-                  }
-                  
-                  if (!groups[group]) groups[group] = [];
-                  groups[group].push(notification);
-                  return groups;
-                }, {});
-
-                const groupOrder = ['Today', 'Yesterday', 'This Week', 'Older'];
-                
-                return groupOrder.map(groupName => {
-                  const groupNotifications = groupedNotifications[groupName];
-                  if (!groupNotifications || groupNotifications.length === 0) return null;
-                  
-                  return (
-                    <Box key={groupName}>
-                      {notifications.length > 3 && (
-                        <Typography 
-                          variant="caption" 
-                          sx={{ 
-                            px: 2.5, 
-                            py: 1, 
-                            color: 'text.secondary', 
-                            fontWeight: 600,
-                            textTransform: 'uppercase',
-                            letterSpacing: 0.5,
-                            fontSize: '0.7rem'
-                          }}
-                        >
-                          {groupName}
-                        </Typography>
-                      )}
-                      
-                      {groupNotifications.map((notification: any) => (
-                        <NotificationItem key={notification.id} isUnread={!notification.read}>
-                          <Box mt={0.25} flexShrink={0}>
-                            {getNotificationIcon(notification.type)}
-                          </Box>
-                          
-                          <Box flex={1} minWidth={0}>
-                            <Typography 
-                              variant="body2" 
-                              sx={{ 
-                                fontWeight: notification.read ? 400 : 600,
-                                color: 'text.primary',
-                                mb: 0.75,
-                                wordBreak: 'break-word',
-                                lineHeight: 1.4
-                              }}
-                            >
-                              {notification.message}
-                            </Typography>
-                            
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                              {(() => {
-                                const categoryInfo = getCategoryInfo(notification.category);
-                                const timestamp = formatTimestamp(notification.createdAt);
-                                
-                                return (
-                                  <>
-                                    {categoryInfo && (
-                                      <Tooltip title={categoryInfo.name} placement="top">
-                                        <Box sx={{ 
-                                          display: 'inline-flex', 
-                                          alignItems: 'center',
-                                          px: 1,
-                                          py: 0.25,
-                                          backgroundColor: 'primary.main',
-                                          color: 'primary.contrastText',
-                                          borderRadius: 1,
-                                          fontSize: '0.65rem'
-                                        }}>
-                                          {categoryInfo.icon}
-                                        </Box>
-                                      </Tooltip>
-                                    )}
-                                    {timestamp && (
-                                      <Box sx={{ 
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        color: 'text.secondary',
-                                        fontSize: '0.7rem'
-                                      }}>
-                                        {timestamp}
-                                      </Box>
-                                    )}
-                                  </>
-                                );
-                              })()}
-                            </Typography>
-                          </Box>
-
-                          <NotificationItemActions className="notification-item-actions">
-                            {!notification.read && (
-                              <Tooltip title="Mark as read">
-                                <IconButton
-                                  size="small"
-                                  onClick={() => markAsRead(notification.id)}
-                                  sx={{ 
-                                    color: 'text.secondary',
-                                    width: 28,
-                                    height: 28,
-                                    borderRadius: '50%',
-                                    '&:hover': { 
-                                      color: 'success.main', 
-                                      backgroundColor: 'success.light' + '20',
-                                      transition: 'all 0.2s ease'
-                                    } 
-                                  }}
-                                >
-                                  <BookmarkCheck size={14} strokeWidth={2.5} />
-                                </IconButton>
+                  <Box flex={1} minWidth={0}>
+                    <Typography 
+                      variant="body2" 
+                      sx={{ 
+                        fontWeight: notification.read ? 400 : 600,
+                        color: 'text.primary',
+                        mb: 0.5,
+                        wordBreak: 'break-word'
+                      }}
+                    >
+                      {notification.message}
+                    </Typography>
+                    
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      {(() => {
+                        const categoryInfo = getCategoryInfo(notification.category);
+                        const timestamp = formatTimestamp(notification.createdAt);
+                        
+                        if (!categoryInfo && !timestamp) return null;
+                        
+                        return (
+                          <>
+                            {categoryInfo && (
+                              <Tooltip title={categoryInfo.name} placement="top">
+                                <Box sx={{ 
+                                  display: 'inline-flex', 
+                                  alignItems: 'center',
+                                  gap: 0.5
+                                }}>
+                                  {categoryInfo.icon}
+                                </Box>
                               </Tooltip>
                             )}
-                            
-                            <Tooltip title="Delete">
-                              <IconButton
-                                size="small"
-                                onClick={() => handleDeleteNotification(notification.id)}
-                                sx={{ 
-                                  color: 'text.secondary',
-                                  width: 28,
-                                  height: 28,
-                                  borderRadius: '50%',
-                                  '&:hover': { 
-                                    color: 'error.main', 
-                                    backgroundColor: 'error.light' + '20',
-                                    transition: 'all 0.2s ease'
-                                  } 
-                                }}
-                              >
-                                <Trash2 size={14} strokeWidth={2.5} />
-                              </IconButton>
-                            </Tooltip>
-                          </NotificationItemActions>
-                        </NotificationItem>
-                      ))}
-                    </Box>
-                  );
-                });
-              })()}
+                            {categoryInfo && timestamp && <Box component="span">•</Box>}
+                            {timestamp && <span>{timestamp}</span>}
+                          </>
+                        );
+                      })()}
+                    </Typography>
+                  </Box>
+
+                  <NotificationItemActions className="notification-item-actions">
+                    {/* Actions appear on hover */}
+                    {!notification.read && (
+                      <Tooltip title="Mark as read">
+                        <IconButton
+                          size="small"
+                          onClick={() => markAsRead(notification.id)}
+                          sx={{ 
+                            color: 'text.secondary',
+                            width: 32,
+                            height: 32,
+                            borderRadius: '50%',
+                            '&:hover': { 
+                              color: 'success.main', 
+                              backgroundColor: 'success.light' + '12',
+                              transition: 'all 0.2s ease'
+                            } 
+                          }}
+                        >
+                          <BookmarkCheck size={16} strokeWidth={2} />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                    
+                    <Tooltip title="Delete">
+                      <IconButton
+                        size="small"
+                        onClick={() => handleDeleteNotification(notification.id)}
+                         sx={{ 
+                           color: 'text.secondary',
+                           width: 32,
+                           height: 32,
+                           borderRadius: '50%',
+                           '&:hover': { 
+                             color: 'error.main', 
+                             backgroundColor: 'error.light' + '12',
+                             transition: 'all 0.2s ease'
+                           } 
+                         }}
+                      >
+                        <Trash2 size={16} strokeWidth={2} />
+                      </IconButton>
+                    </Tooltip>
+                  </NotificationItemActions>
+                </NotificationItem>
+              ))}
             </NotificationContent>
 
             {/* Actions */}
