@@ -831,9 +831,11 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                             mt: 0.5
                           }}
                         >
-                          <Typography variant="caption">
-                            {getCategoryInfo(notification.category).label}
-                          </Typography>
+                          <Tooltip title={getCategoryInfo(notification.category).name} placement="top">
+                            <Box sx={{ display: 'inline-flex', alignItems: 'center' }}>
+                              {getCategoryInfo(notification.category).icon}
+                            </Box>
+                          </Tooltip>
                           <Typography variant="caption">·</Typography>
                           <Tooltip title={format(parseISO(notification.createdAt), "PPP p")}>
                             <Typography variant="caption">
