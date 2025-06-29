@@ -126,13 +126,33 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
   const redirectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   const { isAuthenticated } = useAuth();
-  const notificationSettings = options?.notificationSettings || {
-    showToasts: true,
-    soundEnabled: false,
-    systemNotifications: true,
-    emailNotifications: true,
-    marketingNotifications: false,
-  };
+  
+  // Load notification settings from localStorage if not provided
+  const notificationSettings = useMemo(() => {
+    if (options?.notificationSettings) {
+      return options.notificationSettings;
+    }
+    
+    // Try to load from localStorage
+    try {
+      const saved = localStorage.getItem('storesight_notification_settings');
+      return saved ? JSON.parse(saved) : {
+        showToasts: true,
+        soundEnabled: false,
+        systemNotifications: true,
+        emailNotifications: true,
+        marketingNotifications: false,
+      };
+    } catch (error) {
+      return {
+        showToasts: true,
+        soundEnabled: false,
+        systemNotifications: true,
+        emailNotifications: true,
+        marketingNotifications: false,
+      };
+    }
+  }, [options?.notificationSettings]);
   
   // Override window.confirm to capture confirmations as notifications
   useEffect(() => {
@@ -416,14 +436,10 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
 
     const message = 'Your session has expired. Please sign in again.';
 
-    if (showToast) {
-      createToast(message, 'error');
-    }
-
-    // Add as persistent notification
+    // Use addNotification instead of direct createToast to respect settings
     addNotification(message, 'error', {
       persistent: true,
-      showToast: false,
+      showToast: showToast, // This will be checked against notificationSettings.showToasts
       category: 'Authentication',
       scope: 'store', // Session expiry affects the entire store
     });
@@ -437,7 +453,7 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
         window.location.href = '/';
       }, redirectDelay);
     }
-  }, [createToast, addNotification]);
+  }, [addNotification]);
 
   // Connection error notification
   const showConnectionError = useCallback(() => {
