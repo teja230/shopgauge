@@ -60,9 +60,11 @@ import {
   useMediaQuery,
   Fade,
   Tooltip,
-  Alert
+  Alert,
+  AlertTitle
 } from '@mui/material';
 import { styled, keyframes } from '@mui/material/styles';
+import { toast } from 'react-hot-toast';
 
 interface NotificationCenterProps {
   onNotificationCountChange?: (count: number) => void;
@@ -171,7 +173,7 @@ const NotificationItem = styled(Box, {
   transition: 'all 0.2s ease',
   position: 'relative',
   display: 'flex',
-  alignItems: 'flex-start',
+  alignItems: 'center',
   gap: theme.spacing(1.5),
   '&:hover': {
     backgroundColor: theme.palette.grey[50],
@@ -365,25 +367,6 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 export const NotificationCenter: React.FC<NotificationCenterProps> = ({ 
   onNotificationCountChange
 }) => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const [confirmDialog, setConfirmDialog] = useState<{
-    isOpen: boolean;
-    title: string;
-    message: string;
-    onConfirm: () => void;
-    type?: 'danger' | 'warning' | 'info';
-  }>({
-    isOpen: false,
-    title: '',
-    message: '',
-    onConfirm: () => {},
-    type: 'warning'
-  });
-  
   const {
     notifications,
     unreadCount,
@@ -396,13 +379,30 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     deleteNotification,
     clearAll,
   } = useNotifications();
-
-  // Update parent component about count changes
+  
+  const [isOpen, setIsOpen] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [confirmDialogProps, setConfirmDialogProps] = useState<Omit<ConfirmDialogProps, 'isOpen'>>({
+    title: '',
+    message: '',
+    onConfirm: () => {},
+    onCancel: () => {},
+  });
+  
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  
   useEffect(() => {
-    onNotificationCountChange?.(unreadCount);
+    fetchNotifications();
+  }, [fetchNotifications]);
+
+  useEffect(() => {
+    if (onNotificationCountChange) {
+      onNotificationCountChange(unreadCount);
+    }
   }, [unreadCount, onNotificationCountChange]);
 
-  // Handle click outside to close dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -410,15 +410,14 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
       }
     };
 
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [isOpen]);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
-  // Get icon for notification type with theme colors
   const getNotificationIcon = (type: string) => {
-    const iconProps = { size: 18, strokeWidth: 2 };
+    const iconProps = { size: 22, strokeWidth: 1.5 };
     
     switch (type) {
       case 'success':
@@ -550,83 +549,90 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     }
   };
 
-  // Handle dismiss all notifications with proper confirmation
+  const handleToggle = () => {
+    setIsOpen(prev => !prev);
+  };
+
+  const handleMarkAsRead = (id: string) => {
+    markAsRead(id);
+  };
+
   const handleDismissAll = () => {
-    setConfirmDialog({
-      isOpen: true,
-      title: 'Clear All Notifications',
-      message: 'Are you sure you want to clear all notifications? This action cannot be undone.',
-      type: 'warning',
+    setShowConfirmDialog(true);
+    setConfirmDialogProps({
+      title: 'Dismiss All Notifications?',
+      message: 'Are you sure you want to dismiss all notifications? This action cannot be undone.',
       onConfirm: () => {
-        clearAll();
-        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
-      }
+        markAllAsRead();
+        setShowConfirmDialog(false);
+        toast.success('All notifications dismissed');
+      },
+      onCancel: () => setShowConfirmDialog(false),
+      type: 'warning',
     });
   };
 
-  // Handle individual notification deletion - Direct deletion without confirmation
   const handleDeleteNotification = (id: string) => {
-        deleteNotification(id);
+    deleteNotification(id);
+    toast.success('Notification deleted');
   };
 
-  // Format timestamp helper
   const formatTimestamp = (timestamp: string) => {
     try {
       const date = parseISO(timestamp);
-      if (!isValid(date)) {
-        return 'Invalid date';
-      }
-      
-      const now = new Date();
-      const diffInHours = Math.abs(now.getTime() - date.getTime()) / (1000 * 60 * 60);
-      
-      if (diffInHours < 24) {
-        return formatDistanceToNow(date, { addSuffix: true });
-      }
-      
-      return format(date, 'MMM d, yyyy h:mm a');
+      if (!isValid(date)) return 'Invalid date';
+
+      const distance = formatDistanceToNow(date, { addSuffix: true });
+
+      if (distance.includes('less than a minute')) return 'just now';
+      return distance
+        .replace('about ', '')
+        .replace(' minutes', 'm')
+        .replace(' minute', 'm')
+        .replace(' hours', 'h')
+        .replace(' hour', 'h')
+        .replace(' days', 'd')
+        .replace(' day', 'd')
+        .replace(' months', 'mo')
+        .replace(' month', 'mo')
+        .replace(' years', 'y')
+        .replace(' year', 'y');
     } catch (error) {
       console.error('Error formatting timestamp:', error);
-      return 'Unknown time';
+      return 'Invalid time';
     }
   };
 
-  // Debounced refresh function
-  const [refreshing, setRefreshing] = useState(false);
   const handleRefresh = async () => {
-    if (refreshing) return;
-    
-    setRefreshing(true);
-    try {
-      await fetchNotifications();
-    } finally {
-      setTimeout(() => setRefreshing(false), 500);
-    }
+    await fetchNotifications(true); // force fetch
   };
 
   const getCategoryInfo = (category?: string | null) => {
-    if (!category) {
-      return null;
-    }
-    
-    const iconProps = { size: 14, strokeWidth: 1.5, style: { verticalAlign: 'middle' } };
+    const defaultCategory = { name: category || 'General', icon: <Info size={14} />, color: theme.palette.text.secondary, label: category || 'General' };
 
-    switch (category.toLowerCase()) {
-      case 'store connection':
-      case 'profile':
-        return { icon: <User {...iconProps} />, name: 'Profile' };
-      case 'discovery':
-      case 'competitors':
-      case 'mode':
-        return { icon: <Compass {...iconProps} />, name: 'Market Intelligence' };
-      case 'analytics':
-      case 'dashboard':
-        return { icon: <BarChart3 {...iconProps} />, name: 'Analytics' };
-      case 'system':
-        return { icon: <Settings2 {...iconProps} />, name: 'System' };
-      default:
-        return { icon: <Tag {...iconProps} />, name: category };
+    if (!category) {
+      return defaultCategory;
     }
+
+    const lowerCaseCategory = category.toLowerCase();
+    const iconProps = { size: 14, strokeWidth: 1.5 };
+
+    const categoryMap: { [key: string]: { name: string, icon: React.ReactElement, color: string, label: string } } = {
+      'store connection': { name: 'Profile', icon: <User {...iconProps} />, color: theme.palette.info.main, label: 'Profile' },
+      profile: { name: 'Profile', icon: <User {...iconProps} />, color: theme.palette.info.main, label: 'Profile' },
+      discovery: { name: 'Market Intelligence', icon: <Compass {...iconProps} />, color: theme.palette.primary.main, label: 'Market Intelligence' },
+      competitors: { name: 'Market Intelligence', icon: <Compass {...iconProps} />, color: theme.palette.primary.main, label: 'Market Intelligence' },
+      mode: { name: 'Market Intelligence', icon: <Compass {...iconProps} />, color: theme.palette.primary.main, label: 'Market Intelligence' },
+      analytics: { name: 'Analytics', icon: <BarChart3 {...iconProps} />, color: theme.palette.success.main, label: 'Analytics' },
+      dashboard: { name: 'Analytics', icon: <BarChart3 {...iconProps} />, color: theme.palette.success.main, label: 'Analytics' },
+      system: { name: 'System', icon: <Settings2 {...iconProps} />, color: theme.palette.warning.main, label: 'System' },
+      setup: { name: 'Setup', icon: <CheckCircle {...iconProps} />, color: theme.palette.success.main, label: 'Setup' },
+      alerts: { name: 'Alerts', icon: <AlertTriangle {...iconProps} />, color: theme.palette.error.main, label: 'Alerts' },
+      security: { name: 'Security', icon: <Shield {...iconProps} />, color: theme.palette.warning.main, label: 'Security' },
+      insights: { name: 'Insights', icon: <TrendingUp {...iconProps} />, color: theme.palette.primary.main, label: 'Insights' },
+    };
+
+    return categoryMap[lowerCaseCategory] || { name: category, icon: <Tag {...iconProps} />, color: theme.palette.text.secondary, label: category };
   };
 
   return (
@@ -635,8 +641,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
         {/* Notification Bell Button */}
         <Tooltip title={`Notifications ${unreadCount > 0 ? `(${unreadCount} unread)` : ''}`}>
           <BellButton
-            ref={buttonRef}
-            onClick={() => setIsOpen(!isOpen)}
+            onClick={handleToggle}
             aria-label={`Notifications ${unreadCount > 0 ? `(${unreadCount} unread)` : ''}`}
             isPulsing={unreadCount > 0}
           >
@@ -683,11 +688,11 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                     <Settings size={16} strokeWidth={2} />
                   </IconButton>
                 </Tooltip>
-                <Tooltip title="Refresh">
+                <Tooltip title="Refresh Notifications">
                   <IconButton 
                     size="small" 
                     onClick={handleRefresh}
-                    disabled={refreshing || loading}
+                    disabled={loading}
                     sx={{
                       color: 'text.secondary',
                       '&:hover': {
@@ -700,13 +705,13 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                       }
                     }}
                   >
-                    <RefreshCw size={16} strokeWidth={2} className={refreshing ? 'animate-spin' : ''} />
+                    <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
                   </IconButton>
                 </Tooltip>
                 <Tooltip title="Close">
                   <IconButton 
                     size="small" 
-                    onClick={() => setIsOpen(false)}
+                    onClick={handleToggle}
                     sx={{
                       color: 'text.secondary',
                       '&:hover': {
@@ -716,7 +721,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                       }
                     }}
                   >
-                    <X size={16} strokeWidth={2} />
+                    <X size={16} />
                   </IconButton>
                 </Tooltip>
               </Box>
@@ -724,24 +729,33 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
 
             {/* Content */}
             <NotificationContent>
-              {loading && (
-                <Box display="flex" justifyContent="center" p={4}>
-                  <CircularProgress size={24} />
+              {loading && notifications.length === 0 ? (
+                <Box display="flex" justifyContent="center" alignItems="center" height="100%" p={3}>
+                  <CircularProgress size={32} />
+                  <Typography variant="body2" color="text.secondary" ml={2}>
+                    Loading notifications...
+                  </Typography>
                 </Box>
-              )}
-
-              {error && (
-                <Box p={3}>
-                  <Alert severity="error" sx={{ borderRadius: 2 }}>
-                    <Typography variant="body2">
-                      Failed to load notifications: {error}
+              ) : error ? (
+                <Box p={2}>
+                  <Alert severity="error" variant="outlined" sx={{ borderRadius: 2, '& .MuiAlert-icon': { alignItems: 'center' } }}>
+                    <AlertTitle sx={{ mb: 0.5 }}>Failed to load notifications</AlertTitle>
+                    <Typography variant="body2" sx={{ mb: 1.5 }}>
+                      {error}
                     </Typography>
+                    <Button
+                      variant="outlined"
+                      color="error"
+                      size="small"
+                      onClick={() => handleRefresh()}
+                      startIcon={<RefreshCw size={14} />}
+                    >
+                      Try again
+                    </Button>
                   </Alert>
                 </Box>
-              )}
-
-              {!loading && !error && notifications.length === 0 && (
-                <Box p={4} textAlign="center" sx={{ color: 'text.secondary' }}>
+              ) : notifications.length === 0 ? (
+                <Box textAlign="center" p={4}>
                   <Box
                     sx={{
                       display: 'flex',
@@ -765,93 +779,115 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                     You don't have any notifications yet.
                   </Typography>
                 </Box>
-              )}
-
-              {!loading && !error && notifications.map((notification) => (
-                <NotificationItem key={notification.id} isUnread={!notification.read}>
-                  <Box mt={0.5}>
-                    {getNotificationIcon(notification.type)}
-                  </Box>
-                  
-                  <Box flex={1} minWidth={0}>
-                    <Typography 
-                      variant="body2" 
-                      sx={{ 
-                        fontWeight: notification.read ? 400 : 600,
-                        color: 'text.primary',
-                        mb: 0.5,
-                        wordBreak: 'break-word'
-                      }}
+              ) : (
+                notifications.map((notification) => (
+                  <Fade in={true} timeout={300} key={notification.id}>
+                    <NotificationItem
+                      key={notification.id}
+                      isUnread={!notification.read}
+                      sx={{ cursor: 'pointer' }}
                     >
-                      {notification.message}
-                    </Typography>
-                    
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center' }}>
-                      {formatTimestamp(notification.createdAt)}
-                      {(() => {
-                        const categoryInfo = getCategoryInfo(notification.category);
-                        if (!categoryInfo) return null;
-                        
-                        return (
-                          <>
-                            <Box component="span" sx={{ mx: 0.5 }}>•</Box>
-                            <Tooltip title={categoryInfo.name} placement="top">
-                              <Box sx={{ display: 'inline-flex', alignItems: 'center' }}>
-                                {categoryInfo.icon}
-                              </Box>
-                            </Tooltip>
-                          </>
-                        );
-                      })()}
-                    </Typography>
-                  </Box>
+                      <Box 
+                        sx={{ 
+                          flexShrink: 0, 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          color: getCategoryInfo(notification.category).color,
+                          pr: 1.5 
+                        }}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            // Potentially handle icon click for filtering by category
+                        }}
+                      >
+                        {getNotificationIcon(notification.type)}
+                      </Box>
 
-                  <NotificationItemActions className="notification-item-actions">
-                    {/* Actions appear on hover */}
-                    {!notification.read && (
-                      <Tooltip title="Mark as read">
-                        <IconButton
-                          size="small"
-                          onClick={() => markAsRead(notification.id)}
+                      <Box 
+                        sx={{ 
+                          flexGrow: 1, 
+                          display: 'flex', 
+                          flexDirection: 'column',
+                          minWidth: 0, // Prevent text overflow issues
+                        }}
+                        onClick={() => handleMarkAsRead(notification.id)}
+                      >
+                        <Typography 
+                          variant="body2" 
                           sx={{ 
-                            color: 'text.secondary',
-                            width: 32,
-                            height: 32,
-                            borderRadius: '50%',
-                            '&:hover': { 
-                              color: 'success.main', 
-                              backgroundColor: 'success.light' + '12',
-                              transition: 'all 0.2s ease'
-                            } 
+                            fontWeight: notification.read ? 'normal' : '600',
+                            whiteSpace: 'normal',
+                            wordBreak: 'break-word',
                           }}
                         >
-                          <BookmarkCheck size={16} strokeWidth={2} />
-                        </IconButton>
-                      </Tooltip>
-                    )}
-                    
-                    <Tooltip title="Delete">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleDeleteNotification(notification.id)}
-                         sx={{ 
-                           color: 'text.secondary',
-                           width: 32,
-                           height: 32,
-                           borderRadius: '50%',
-                           '&:hover': { 
-                             color: 'error.main', 
-                             backgroundColor: 'error.light' + '12',
-                             transition: 'all 0.2s ease'
-                           } 
-                         }}
-                      >
-                        <Trash2 size={16} strokeWidth={2} />
-                      </IconButton>
-                    </Tooltip>
-                  </NotificationItemActions>
-                </NotificationItem>
-              ))}
+                          {notification.message}
+                        </Typography>
+                        <Box 
+                          sx={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: 1, 
+                            color: 'text.secondary',
+                            mt: 0.5
+                          }}
+                        >
+                          <Typography variant="caption">
+                            {getCategoryInfo(notification.category).label}
+                          </Typography>
+                          <Typography variant="caption">·</Typography>
+                          <Tooltip title={format(parseISO(notification.createdAt), "PPP p")}>
+                            <Typography variant="caption">
+                              {formatTimestamp(notification.createdAt)}
+                            </Typography>
+                          </Tooltip>
+                        </Box>
+                      </Box>
+                      
+                      <NotificationItemActions className="notification-item-actions">
+                        <Tooltip title={notification.read ? 'Mark as Unread' : 'Mark as Read'}>
+                          <IconButton 
+                            size="small"
+                            onClick={(e) => { e.stopPropagation(); markAsRead(notification.id); }}
+                            sx={{ 
+                              color: 'text.secondary',
+                              width: 32,
+                              height: 32,
+                              borderRadius: '50%',
+                              '&:hover': { 
+                                color: 'success.main', 
+                                backgroundColor: 'success.light' + '12',
+                                transition: 'all 0.2s ease'
+                              } 
+                            }}
+                          >
+                            {notification.read ? <Bookmark size={16} strokeWidth={2} /> : <BookmarkCheck size={16} strokeWidth={2} />}
+                          </IconButton>
+                        </Tooltip>
+                        
+                        <Tooltip title="Delete">
+                          <IconButton
+                            size="small"
+                            onClick={(e) => { e.stopPropagation(); handleDeleteNotification(notification.id); }}
+                             sx={{ 
+                               color: 'text.secondary',
+                               width: 32,
+                               height: 32,
+                               borderRadius: '50%',
+                               '&:hover': { 
+                                 color: 'error.main', 
+                                 backgroundColor: 'error.light' + '12',
+                                 transition: 'all 0.2s ease'
+                               } 
+                             }}
+                          >
+                            <Trash2 size={16} strokeWidth={2} />
+                          </IconButton>
+                        </Tooltip>
+                      </NotificationItemActions>
+                    </NotificationItem>
+                  </Fade>
+                ))
+              )}
             </NotificationContent>
 
             {/* Actions */}
@@ -940,13 +976,15 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
 
       {/* Confirmation Dialog */}
       <ConfirmDialog
-        isOpen={confirmDialog.isOpen}
-        title={confirmDialog.title}
-        message={confirmDialog.message}
-        onConfirm={confirmDialog.onConfirm}
-        onCancel={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
-        type={confirmDialog.type}
+        isOpen={showConfirmDialog}
+        title={confirmDialogProps.title}
+        message={confirmDialogProps.message}
+        onConfirm={confirmDialogProps.onConfirm}
+        onCancel={confirmDialogProps.onCancel}
+        type={confirmDialogProps.type}
       />
     </>
   );
 };
+
+export default NotificationCenter;
