@@ -21,6 +21,9 @@ import {
   BarChart3,
   Settings2,
   Tag,
+  Shield,
+  Wifi,
+  Megaphone,
 } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import { useNotifications } from '../../hooks/useNotifications';
@@ -777,24 +780,151 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
       return null;
     }
     
-    const iconProps = { size: 14, strokeWidth: 1.5, style: { verticalAlign: 'middle' } };
+    const iconProps = { size: 14, strokeWidth: 1.5 };
 
-    switch (category.toLowerCase()) {
-      case 'store connection':
-      case 'profile':
-        return { icon: <User {...iconProps} />, name: 'Profile' };
-      case 'discovery':
-      case 'competitors':
-      case 'mode':
-        return { icon: <Compass {...iconProps} />, name: 'Market Intelligence' };
-      case 'analytics':
-      case 'dashboard':
-        return { icon: <BarChart3 {...iconProps} />, name: 'Analytics' };
-      case 'system':
-        return { icon: <Settings2 {...iconProps} />, name: 'System' };
-      default:
-        return { icon: <Tag {...iconProps} />, name: category };
-    }
+    // Enhanced category mapping with theme colors
+    const categoryMap: Record<string, { 
+      icon: React.ReactNode; 
+      name: string; 
+      color: string; 
+      bgColor: string;
+      borderColor: string;
+    }> = {
+      // Profile & Store Connection - Blue (Primary)
+      'store connection': {
+        icon: <User {...iconProps} />,
+        name: 'Profile',
+        color: theme.palette.primary.main,
+        bgColor: `${theme.palette.primary.main}12`,
+        borderColor: `${theme.palette.primary.main}25`
+      },
+      'profile': {
+        icon: <User {...iconProps} />,
+        name: 'Profile',
+        color: theme.palette.primary.main,
+        bgColor: `${theme.palette.primary.main}12`,
+        borderColor: `${theme.palette.primary.main}25`
+      },
+      
+      // Market Intelligence - Green (Secondary)
+      'discovery': {
+        icon: <Compass {...iconProps} />,
+        name: 'Market Intelligence',
+        color: theme.palette.secondary.main,
+        bgColor: `${theme.palette.secondary.main}12`,
+        borderColor: `${theme.palette.secondary.main}25`
+      },
+      'competitors': {
+        icon: <Compass {...iconProps} />,
+        name: 'Market Intelligence',
+        color: theme.palette.secondary.main,
+        bgColor: `${theme.palette.secondary.main}12`,
+        borderColor: `${theme.palette.secondary.main}25`
+      },
+      'mode': {
+        icon: <Compass {...iconProps} />,
+        name: 'Market Intelligence',
+        color: theme.palette.secondary.main,
+        bgColor: `${theme.palette.secondary.main}12`,
+        borderColor: `${theme.palette.secondary.main}25`
+      },
+      
+      // Analytics & Dashboard - Purple (Info-like)
+      'analytics': {
+        icon: <BarChart3 {...iconProps} />,
+        name: 'Analytics',
+        color: '#7c3aed', // Purple
+        bgColor: '#7c3aed12',
+        borderColor: '#7c3aed25'
+      },
+      'dashboard': {
+        icon: <BarChart3 {...iconProps} />,
+        name: 'Analytics',
+        color: '#7c3aed', // Purple
+        bgColor: '#7c3aed12',
+        borderColor: '#7c3aed25'
+      },
+      
+      // System - Gray
+      'system': {
+        icon: <Settings2 {...iconProps} />,
+        name: 'System',
+        color: theme.palette.grey[600],
+        bgColor: `${theme.palette.grey[400]}12`,
+        borderColor: `${theme.palette.grey[400]}25`
+      },
+      
+      // Authentication - Orange (Warning)
+      'authentication': {
+        icon: <Shield {...iconProps} />,
+        name: 'Security',
+        color: theme.palette.warning.main,
+        bgColor: `${theme.palette.warning.main}12`,
+        borderColor: `${theme.palette.warning.main}25`
+      },
+      
+      // Connection - Red (Error)
+      'connection': {
+        icon: <Wifi {...iconProps} />,
+        name: 'Connection',
+        color: theme.palette.error.main,
+        bgColor: `${theme.palette.error.main}12`,
+        borderColor: `${theme.palette.error.main}25`
+      },
+      
+      // Marketing - Pink
+      'marketing': {
+        icon: <Megaphone {...iconProps} />,
+        name: 'Marketing',
+        color: '#ec4899', // Pink
+        bgColor: '#ec489912',
+        borderColor: '#ec489925'
+      },
+      
+      // Default - Gray
+      'default': {
+        icon: <Tag {...iconProps} />,
+        name: category,
+        color: theme.palette.grey[600],
+        bgColor: `${theme.palette.grey[400]}12`,
+        borderColor: `${theme.palette.grey[400]}25`
+      }
+    };
+
+    const categoryKey = category.toLowerCase();
+    const categoryInfo = categoryMap[categoryKey] || categoryMap['default'];
+    
+    // Create styled icon with theme colors
+    const styledIcon = (
+      <Box
+        sx={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: 20,
+          height: 20,
+          borderRadius: '4px',
+          backgroundColor: categoryInfo.bgColor,
+          border: `1px solid ${categoryInfo.borderColor}`,
+          color: categoryInfo.color,
+          transition: 'all 0.2s ease',
+          '&:hover': {
+            backgroundColor: categoryInfo.bgColor.replace('12', '20'),
+            transform: 'scale(1.05)',
+          }
+        }}
+      >
+        {categoryInfo.icon}
+      </Box>
+    );
+
+    return {
+      icon: styledIcon,
+      name: categoryInfo.name,
+      color: categoryInfo.color,
+      bgColor: categoryInfo.bgColor,
+      borderColor: categoryInfo.borderColor
+    };
   };
 
   return (
