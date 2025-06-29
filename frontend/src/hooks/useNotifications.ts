@@ -42,6 +42,10 @@ const RATE_LIMIT_MS = 5000; // 5 seconds minimum between API calls
 // Global notification tracker for browser alerts and system notifications
 let notificationId = 0;
 
+// Local storage key for notifications
+const NOTIFICATIONS_STORAGE_KEY = 'storesight_notifications';
+const NOTIFICATIONS_STORAGE_VERSION = '1.0';
+
 // Subscribers (setters from hook instances) to propagate updates in real-time
 type Subscriber = (notifications: Notification[], unread: number) => void;
 const subscribers: Subscriber[] = [];
@@ -52,9 +56,61 @@ const broadcast = () => {
   subscribers.forEach((cb) => cb(snapshot, unread));
 };
 
+// Notification persistence functions
+const saveNotificationsToStorage = () => {
+  try {
+    const data = {
+      version: NOTIFICATIONS_STORAGE_VERSION,
+      notifications: globalNotifications.slice(0, 20), // Keep only 20 most recent
+      timestamp: Date.now()
+    };
+    localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(data));
+  } catch (error) {
+    console.warn('Failed to save notifications to localStorage:', error);
+  }
+};
+
+const loadNotificationsFromStorage = () => {
+  try {
+    const stored = localStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
+    if (!stored) return;
+
+    const data = JSON.parse(stored);
+    
+    // Check version compatibility
+    if (data.version !== NOTIFICATIONS_STORAGE_VERSION) {
+      localStorage.removeItem(NOTIFICATIONS_STORAGE_KEY);
+      return;
+    }
+
+    // Check if data is too old (24 hours)
+    const dayInMs = 24 * 60 * 60 * 1000;
+    if (Date.now() - data.timestamp > dayInMs) {
+      localStorage.removeItem(NOTIFICATIONS_STORAGE_KEY);
+      return;
+    }
+
+    if (Array.isArray(data.notifications) && data.notifications.length > 0) {
+      globalNotifications = data.notifications;
+      globalUnreadCount = globalNotifications.filter(n => !n.read).length;
+    }
+  } catch (error) {
+    console.warn('Failed to load notifications from localStorage:', error);
+    localStorage.removeItem(NOTIFICATIONS_STORAGE_KEY);
+  }
+};
+
 export const useNotifications = () => {
-  const [notifications, setNotifications] = useState<Notification[]>(globalNotifications);
-  const [unreadCount, setUnreadCount] = useState(globalUnreadCount);
+  const [notifications, setNotifications] = useState<Notification[]>(() => {
+    // Load from localStorage on first initialization
+    if (globalNotifications.length === 0) {
+      loadNotificationsFromStorage();
+    }
+    return globalNotifications;
+  });
+  const [unreadCount, setUnreadCount] = useState(() => {
+    return globalNotifications.filter(n => !n.read).length;
+  });
   const [loading, setLoading] = useState(isLoadingGlobal);
   const [error, setError] = useState<string | null>(null);
   const redirectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -203,6 +259,8 @@ export const useNotifications = () => {
     // Update local state immediately
     setNotifications([...globalNotifications]);
     setUnreadCount(globalUnreadCount);
+    // Save to localStorage
+    saveNotificationsToStorage();
     // Notify other subscribers
     broadcast();
 
@@ -442,6 +500,7 @@ export const useNotifications = () => {
           // Update local state
           setNotifications([...globalNotifications]);
           setUnreadCount(globalUnreadCount);
+          saveNotificationsToStorage();
           broadcast();
         }
       } catch (error) {
@@ -459,6 +518,7 @@ export const useNotifications = () => {
       // Update local state
       setNotifications([...globalNotifications]);
       setUnreadCount(globalUnreadCount);
+      saveNotificationsToStorage();
       broadcast();
     }
   }, []);
@@ -538,6 +598,7 @@ export const useNotifications = () => {
     // Update local state
     setNotifications([...globalNotifications]);
     setUnreadCount(globalUnreadCount);
+    saveNotificationsToStorage();
     broadcast();
   }, []);
 
@@ -568,6 +629,7 @@ export const useNotifications = () => {
     globalUnreadCount = 0;
     setNotifications([]);
     setUnreadCount(0);
+    saveNotificationsToStorage();
     toast.dismiss(); // Clear all toasts
     broadcast();
   }, [isAuthenticated]);

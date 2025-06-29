@@ -1820,7 +1820,7 @@ const DashboardPage = () => {
       if (!notificationShownRef.current.has(notificationKey)) {
         markNotificationShown(notificationKey);
         
-        notifications.showSuccess(`🎉 Welcome back${shop ? ` to ${shop.replace('.myshopify.com', '')}` : ''}! Your dashboard is ready.`, {
+        notifications.showSuccess(`✨ Successfully connected${shop ? ` to ${shop.replace('.myshopify.com', '')}` : ''}! Your insights are loading.`, {
           category: 'Store Connection',
           duration: 4000
         });
