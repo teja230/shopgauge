@@ -1820,9 +1820,9 @@ const DashboardPage = () => {
       if (!notificationShownRef.current.has(notificationKey)) {
         markNotificationShown(notificationKey);
         
-        notifications.showSuccess('🔗 Store connected successfully! Loading your analytics...', {
+        notifications.showSuccess(`🎉 Welcome back${shop ? ` to ${shop.replace('.myshopify.com', '')}` : ''}! Your dashboard is ready.`, {
           category: 'Store Connection',
-          duration: 3000
+          duration: 4000
         });
       }
       
@@ -2009,6 +2009,19 @@ const DashboardPage = () => {
     }
   }, [isAuthReady, authLoading, isAuthenticated, shop, navigate]);
 
+  if (loading) {
+    return (
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        minHeight: '60vh' 
+      }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
   // Check if this is a permission error that should show the dashboard with alerts
   console.log('Dashboard error state:', { error });
   
@@ -2034,27 +2047,368 @@ const DashboardPage = () => {
     );
   }
 
-  const hasShownSuccess = useRef(false);
-  
-  useEffect(() => {
-    if (location.search.includes('connect_success=true') && !hasShownSuccess.current) {
-      hasShownSuccess.current = true;
-      if (shop) {
-        notifications.showSuccess(`🎉 ${shop} is now connected!`, { category: 'Setup', persistent: true });
-        notifications.showInfo('We are preparing your dashboard.', { category: 'Setup', persistent: true });
-      } else {
-        notifications.showSuccess('Store connected successfully!', { category: 'Setup', persistent: true });
-        notifications.showInfo('Loading your analytics...', { category: 'Setup', persistent: true });
-      }
-    }
-  }, [location.search, notifications, shop]);
-
-  // Handle multi-session UI warnings
-  useSessionNotification();
-
   return (
     <DashboardContainer>
-      {/* ... existing code ... */}
+      <Box 
+        sx={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          gap: { xs: 2, md: 3 },
+          width: '100%',
+          maxWidth: '1400px',
+          margin: '0 auto',
+          px: { xs: 2, md: 3 },
+          pt: 3
+        }}
+      >
+        {/* Regular error alert for non-permission errors */}
+        {error && (
+          <Alert 
+            severity="info" 
+            sx={{ mb: 2 }}
+          >
+            {error}
+          </Alert>
+        )}
+
+        {/* Metrics Overview */}
+        <Box 
+          sx={{ 
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr 1fr 1fr' },
+            gap: 2
+          }}
+        >
+          <MetricCard
+            key="revenue"
+            label="Total Revenue"
+            value={`$${insights?.totalRevenue?.toLocaleString() || '0'}`}
+            loading={cardLoading.revenue}
+            error={cardErrors.revenue}
+            onRetry={() => handleCardLoad('revenue')}
+            onLoad={() => handleCardLoad('revenue')}
+          />
+          <MetricCard
+            key="conversion-rate"
+            label="Conversion Rate"
+            value={`${insights?.conversionRate?.toFixed(2) || '0'}%`}
+            delta={insights?.conversionRateDelta && insights.conversionRateDelta !== 0 ? insights.conversionRateDelta.toString() : undefined}
+            deltaType={insights?.conversionRateDelta && insights.conversionRateDelta > 0 ? 'up' : 'down'}
+            loading={cardLoading.insights}
+            error={cardErrors.insights}
+            onRetry={() => handleCardLoad('insights')}
+            onLoad={() => handleCardLoad('insights')}
+          />
+          <MetricCard
+            key="abandoned-carts"
+            label="Abandoned Carts"
+            value={insights?.abandonedCarts?.toString() || '0'}
+            loading={cardLoading.abandonedCarts}
+            error={cardErrors.abandonedCarts}
+            onRetry={() => handleCardLoad('abandonedCarts')}
+            onLoad={() => handleCardLoad('abandonedCarts')}
+          />
+          <MetricCard
+            key="low-inventory"
+            label="Low Inventory"
+            value={typeof insights?.lowInventory === 'number' ? insights.lowInventory.toString() : '0'}
+            loading={cardLoading.inventory}
+            error={cardErrors.inventory}
+            onRetry={() => handleCardLoad('inventory')}
+            onLoad={() => handleCardLoad('inventory')}
+          />
+          <MetricCard
+            key="new-products"
+            label="New Products"
+            value={typeof insights?.newProducts === 'number' ? insights.newProducts.toString() : '0'}
+            loading={cardLoading.newProducts}
+            error={cardErrors.newProducts}
+            onRetry={() => handleCardLoad('newProducts')}
+            onLoad={() => handleCardLoad('newProducts')}
+          />
+        </Box>
+
+        {/* Products and Orders */}
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            gap: { xs: 2, md: 3 }, 
+            flexDirection: { xs: 'column', md: 'row' },
+            width: '100%'
+          }}
+        >
+          <Box 
+            sx={{ 
+              flex: 1,
+              minWidth: 0,
+              display: 'flex',
+              flexDirection: 'column'
+            }}
+          >
+            <StyledCard sx={{ height: '100%' }}>
+              <CardContent>
+                <SectionHeader>
+                  <SectionTitle>
+                    <Inventory2 color="primary" />
+                    Top Products
+                  </SectionTitle>
+                  {cardErrors.products && (
+                    <IconButton 
+                      size="small" 
+                      onClick={() => handleCardLoad('products')}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      <Refresh fontSize="small" />
+                    </IconButton>
+                  )}
+                </SectionHeader>
+                {cardLoading.products ? (
+                  <Box sx={{ p: 3, textAlign: 'center' }}>
+                    <CircularProgress size={24} />
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                      Loading products...
+                    </Typography>
+                  </Box>
+                ) : cardErrors.products ? (
+                  <Box sx={{ p: 3, textAlign: 'center' }}>
+                    <Typography variant="h6" color="error" gutterBottom>
+                      Failed to load products
+                    </Typography>
+                    <Button 
+                      variant="outlined" 
+                      size="small" 
+                      onClick={() => {
+                        console.log('Load Products button clicked');
+                        handleCardLoad('products');
+                      }}
+                      sx={{ mt: 1 }}
+                    >
+                      Retry
+                    </Button>
+                  </Box>
+                ) : insights?.topProducts?.length ? (
+                  <ProductList>
+                    {insights.topProducts.map((product) => (
+                      <ProductItem key={`product-${product.id}`}>
+                        <ProductInfo>
+                          <ProductName>
+                            <ProductLink 
+                              href={`https://${shop}/admin/products/${product.id}`} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                            >
+                              {product.title}
+                              <OpenInNew fontSize="small" />
+                            </ProductLink>
+                          </ProductName>
+                          <ProductStats>
+                            {typeof product.inventory !== 'undefined' ? `${product.inventory} in stock` : 'N/A'} • {product.price || 'N/A'}
+                          </ProductStats>
+                        </ProductInfo>
+                      </ProductItem>
+                    ))}
+                  </ProductList>
+                ) : (
+                  <Box sx={{ p: 3, textAlign: 'center' }}>
+                    <Typography variant="h6" color="text.secondary" gutterBottom>
+                      No products data available yet
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" component="div">
+                      Product performance data will appear here once you start making sales
+                    </Typography>
+                    <Button 
+                      variant="outlined" 
+                      size="small" 
+                      onClick={() => {
+                        console.log('Load Products button clicked');
+                        handleCardLoad('products');
+                      }}
+                      sx={{ mt: 1 }}
+                    >
+                      Load Products
+                    </Button>
+                  </Box>
+                )}
+              </CardContent>
+            </StyledCard>
+          </Box>
+
+          <Box 
+            sx={{ 
+              flex: 1,
+              minWidth: 0,
+              display: 'flex',
+              flexDirection: 'column'
+            }}
+          >
+            <StyledCard sx={{ height: '100%' }}>
+              <CardContent>
+                <SectionHeader>
+                  <SectionTitle>
+                    <ListAlt color="primary" />
+                    Recent Orders
+                  </SectionTitle>
+                  {cardErrors.orders && (
+                    <IconButton 
+                      size="small" 
+                      onClick={() => handleCardLoad('orders')}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      <Refresh fontSize="small" />
+                    </IconButton>
+                  )}
+                </SectionHeader>
+                {cardLoading.orders ? (
+                  <Box sx={{ p: 3, textAlign: 'center' }}>
+                    <CircularProgress size={24} />
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                      Loading orders...
+                    </Typography>
+                  </Box>
+                ) : cardErrors.orders ? (
+                  <Box sx={{ p: 3, textAlign: 'center' }}>
+                    <Typography variant="h6" color="error" gutterBottom>
+                      Failed to load orders
+                    </Typography>
+                    <Button 
+                      variant="outlined" 
+                      size="small" 
+                      onClick={() => handleCardLoad('orders')}
+                      startIcon={<Refresh />}
+                    >
+                      Retry
+                    </Button>
+                  </Box>
+                ) : insights?.orders?.length ? (
+                  <OrderList>
+                    {insights.orders.map((order, index) => (
+                      <OrderItem key={`order-${order.id || `temp-${index}`}`}>
+                        <OrderInfo>
+                          <OrderTitle>
+                            {order.id ? (
+                              <OrderLink 
+                                href={`https://${shop}/admin/orders/${order.id}`} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                              >
+                                Order #{order.id}
+                                <OpenInNew fontSize="small" />
+                              </OrderLink>
+                            ) : (
+                              <Typography variant="body1" color="text.secondary" component="div">
+                                Order #{`Temporary-${index + 1}`}
+                              </Typography>
+                            )}
+                            {order.customer && (
+                              <Typography 
+                                component="span" 
+                                variant="body2" 
+                                color="text.secondary" 
+                                sx={{ 
+                                  ml: 1,
+                                  display: { xs: 'none', sm: 'inline' }
+                                }}
+                              >
+                                • {order.customer.first_name} {order.customer.last_name}
+                              </Typography>
+                            )}
+                          </OrderTitle>
+                          <OrderDetails>
+                            {formatDate(order.created_at)} • ${order.total_price}
+                          </OrderDetails>
+                        </OrderInfo>
+                      </OrderItem>
+                    ))}
+                  </OrderList>
+                ) : (
+                  <Box sx={{ p: 3, textAlign: 'center' }}>
+                    <Typography variant="h6" color="text.secondary" gutterBottom>
+                      No orders data available yet
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" component="div">
+                      {error 
+                        ? 'Please log in again to restore access'
+                        : 'Order data will appear here once you start receiving orders'
+                      }
+                    </Typography>
+                    <Button 
+                      variant="outlined" 
+                      size="small" 
+                      onClick={() => handleCardLoad('orders')}
+                      sx={{ mt: 1 }}
+                    >
+                      Load Orders
+                    </Button>
+                  </Box>
+                )}
+              </CardContent>
+            </StyledCard>
+          </Box>
+        </Box>
+
+        {/* Revenue Graph */}
+        <Box sx={{ width: '100%' }}>
+          <RevenueChart
+            data={insights?.timeseries || []}
+            loading={cardLoading.revenue}
+            error={cardErrors.revenue}
+            height={450}
+          />
+        </Box>
+
+        {/* Dashboard Status and Refresh Controls */}
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            flexDirection: { xs: 'column', sm: 'row' },
+            justifyContent: 'space-between',
+            alignItems: { xs: 'center', sm: 'center' },
+            mt: 3,
+            pt: 2,
+            borderTop: '1px solid',
+            borderColor: 'divider',
+            gap: 2
+          }}
+        >
+          <Typography variant="body2" color="text.secondary" sx={{ textAlign: { xs: 'center', sm: 'left' } }}>
+            {insights ? (
+              hasRateLimit ? 
+                '⚠️ Some data temporarily unavailable due to API rate limits. Refreshing automatically...' : 
+                '✅ Dashboard updated with latest available data'
+            ) : 'Loading your store analytics...'}
+          </Typography>
+
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
+                    <LastUpdatedText>
+          Last updated: {getLastUpdatedText()}
+        </LastUpdatedText>
+        
+            <RefreshButton
+              variant="outlined"
+              size="small"
+              disabled={isRefreshing || debounceCountdown > 0}
+              onClick={handleRefreshAll}
+              startIcon={isRefreshing ? <CircularProgress size={16} /> : <Refresh />}
+              title={
+                isRefreshing 
+                  ? 'Updating dashboard data...' 
+                  : debounceCountdown > 0
+                    ? `Please wait ${Math.ceil(debounceCountdown / 1000)}s before refreshing again`
+                    : 'Refresh all dashboard data'
+              }
+            >
+              {isRefreshing 
+                ? 'Updating...' 
+                : debounceCountdown > 0
+                  ? `Wait ${Math.ceil(debounceCountdown / 1000)}s`
+                  : 'Refresh Data'
+              }
+            </RefreshButton>
+          </Box>
+        </Box>
+
+
+      </Box>
     </DashboardContainer>
   );
 };
