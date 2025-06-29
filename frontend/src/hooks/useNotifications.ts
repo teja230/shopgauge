@@ -357,7 +357,7 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
     }
 
     return id;
-  }, [createToast, isAuthenticated]);
+  }, [createToast, isAuthenticated, notificationSettings]);
 
   // Specific notification functions
   const showSuccess = useCallback((message: string, options?: NotificationOptions) => {
@@ -586,6 +586,48 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
     }
   }, []);
 
+  // Mark notification as unread
+  const markAsUnread = useCallback(async (notificationId: string) => {
+    const notification = globalNotifications.find(n => n.id === notificationId);
+    
+    if (notification?.persistent) {
+      try {
+        // Note: Backend doesn't support marking as unread, so we'll handle locally
+        // In a real implementation, you might want to add a backend endpoint for this
+        
+        // Update global state
+        globalNotifications = globalNotifications.map(n => 
+          n.id === notificationId ? { ...n, read: false } : n
+        );
+        if (notification.read) {
+          globalUnreadCount += 1;
+        }
+        
+        // Update local state
+        setNotifications([...globalNotifications]);
+        setUnreadCount(globalUnreadCount);
+        saveNotificationsToStorage();
+        broadcast();
+      } catch (error) {
+        console.error('Failed to mark notification as unread:', error);
+      }
+    } else {
+      // Local notification - mark as unread locally
+      globalNotifications = globalNotifications.map(n => 
+        n.id === notificationId ? { ...n, read: false } : n
+      );
+      if (notification?.read) {
+        globalUnreadCount += 1;
+      }
+      
+      // Update local state
+      setNotifications([...globalNotifications]);
+      setUnreadCount(globalUnreadCount);
+      saveNotificationsToStorage();
+      broadcast();
+    }
+  }, []);
+
   // Mark all as read
   const markAllAsRead = useCallback(async () => {
     const unreadNotifications = globalNotifications.filter(n => !n.read);
@@ -726,6 +768,7 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
     // Management functions
     fetchNotifications,
     markAsRead,
+    markAsUnread,
     markAllAsRead,
     markAllAsUnread,
     deleteNotification,
@@ -751,6 +794,7 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
     showConnectionError,
     fetchNotifications,
     markAsRead,
+    markAsUnread,
     markAllAsRead,
     markAllAsUnread,
     deleteNotification,

@@ -262,7 +262,7 @@ const NotificationSettingsDialog: React.FC<{
                     color="primary"
                   />
                 }
-                label="Show toast notifications"
+                label="Show Notifications"
               />
               <FormControlLabel
                 control={
@@ -537,6 +537,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     error,
     fetchNotifications,
     markAsRead,
+    markAsUnread,
     markAllAsRead,
     markAllAsUnread,
     deleteNotification,
@@ -1152,6 +1153,28 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                           }}
                         >
                           <BookmarkCheck size={16} strokeWidth={2} />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                    
+                    {notification.read && (
+                      <Tooltip title="Mark as unread">
+                        <IconButton
+                          size="small"
+                          onClick={() => markAsUnread(notification.id)}
+                          sx={{ 
+                            color: 'text.secondary',
+                            width: 32,
+                            height: 32,
+                            borderRadius: '50%',
+                            '&:hover': { 
+                              color: 'warning.main', 
+                              backgroundColor: 'warning.light' + '12',
+                              transition: 'all 0.2s ease'
+                            } 
+                          }}
+                        >
+                          <ArchiveRestore size={16} strokeWidth={2} />
                         </IconButton>
                       </Tooltip>
                     )}
