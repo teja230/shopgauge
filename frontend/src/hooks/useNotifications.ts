@@ -100,7 +100,17 @@ const loadNotificationsFromStorage = () => {
   }
 };
 
-export const useNotifications = () => {
+interface UseNotificationsOptions {
+  notificationSettings?: {
+    showToasts?: boolean;
+    soundEnabled?: boolean;
+    systemNotifications?: boolean;
+    emailNotifications?: boolean;
+    marketingNotifications?: boolean;
+  };
+}
+
+export const useNotifications = (options?: UseNotificationsOptions) => {
   const [notifications, setNotifications] = useState<Notification[]>(() => {
     // Load from localStorage on first initialization
     if (globalNotifications.length === 0) {
@@ -116,6 +126,13 @@ export const useNotifications = () => {
   const redirectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   const { isAuthenticated } = useAuth();
+  const notificationSettings = options?.notificationSettings || {
+    showToasts: true,
+    soundEnabled: false,
+    systemNotifications: true,
+    emailNotifications: true,
+    marketingNotifications: false,
+  };
   
   // Override window.confirm to capture confirmations as notifications
   useEffect(() => {
@@ -247,9 +264,47 @@ export const useNotifications = () => {
       action,
     };
 
-    // Always show toast for immediate feedback (unless explicitly disabled)
-    if (showToast) {
+    // Check notification settings before showing toast
+    const shouldShowToast = showToast && notificationSettings.showToasts;
+    
+    if (shouldShowToast) {
       createToast(message, type);
+      
+      // Play notification sound if enabled
+      if (notificationSettings.soundEnabled) {
+        try {
+          // Create a subtle notification sound
+          const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+          const oscillator = audioContext.createOscillator();
+          const gainNode = audioContext.createGain();
+          
+          oscillator.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+          
+          // Different tones for different notification types
+          const frequencies = {
+            success: 800,
+            error: 300,
+            warning: 600,
+            info: 500
+          };
+          
+          oscillator.frequency.setValueAtTime(
+            frequencies[type] || 500, 
+            audioContext.currentTime
+          );
+          oscillator.type = 'sine';
+          
+          // Gentle volume and duration
+          gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+          
+          oscillator.start(audioContext.currentTime);
+          oscillator.stop(audioContext.currentTime + 0.2);
+        } catch (error) {
+          console.warn('Failed to play notification sound:', error);
+        }
+      }
     }
 
     // Add to global notifications first (immediate UI update)
@@ -264,8 +319,16 @@ export const useNotifications = () => {
     // Notify other subscribers
     broadcast();
 
+    // Check notification category settings before storing
+    const shouldStore = persistent && isAuthenticated && (() => {
+      if (category === 'System' && !notificationSettings.systemNotifications) return false;
+      if (category === 'Analytics' && !notificationSettings.emailNotifications) return false;
+      if (category === 'Marketing' && !notificationSettings.marketingNotifications) return false;
+      return true;
+    })();
+
     // Store persistent notifications in backend
-    if (persistent && isAuthenticated) {
+    if (shouldStore) {
       try {
         const response = await fetchWithAuth('/api/auth/shopify/notifications', {
           method: 'POST',

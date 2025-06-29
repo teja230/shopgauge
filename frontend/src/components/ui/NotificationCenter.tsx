@@ -325,7 +325,13 @@ const NotificationSettingsDialog: React.FC<{
           Close
         </Button>
         <Button 
-          onClick={onClose}
+          onClick={() => {
+            // Show confirmation that settings were saved
+            if ((window as any).showNotificationSettingsSaved) {
+              (window as any).showNotificationSettingsSaved();
+            }
+            onClose();
+          }}
           variant="contained"
           sx={{ textTransform: 'none' }}
         >
@@ -489,14 +495,37 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     type: 'warning'
   });
 
-  // Notification settings state
-  const [settings, setSettings] = useState({
-    showToasts: true,
-    soundEnabled: false,
-    emailNotifications: true,
-    systemNotifications: true,
-    marketingNotifications: false,
+  // Notification settings state with persistence
+  const [settings, setSettings] = useState(() => {
+    // Load settings from localStorage
+    try {
+      const saved = localStorage.getItem('storesight_notification_settings');
+      return saved ? JSON.parse(saved) : {
+        showToasts: true,
+        soundEnabled: false,
+        systemNotifications: true,
+        emailNotifications: true,
+        marketingNotifications: false,
+      };
+    } catch (error) {
+      return {
+        showToasts: true,
+        soundEnabled: false,
+        systemNotifications: true,
+        emailNotifications: true,
+        marketingNotifications: false,
+      };
+    }
   });
+
+  // Save settings to localStorage whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem('storesight_notification_settings', JSON.stringify(settings));
+    } catch (error) {
+      console.warn('Failed to save notification settings:', error);
+    }
+  }, [settings]);
   
   const {
     notifications,
@@ -509,7 +538,23 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     markAllAsUnread,
     deleteNotification,
     clearAll,
-  } = useNotifications();
+  } = useNotifications({ 
+    notificationSettings: settings 
+  });
+
+  // Expose settings saved callback for confirmation
+  useEffect(() => {
+    (window as any).showNotificationSettingsSaved = () => {
+      // Show a brief confirmation toast
+      const toastId = 'settings-saved';
+      if (!(window as any).settingsToastShown) {
+        (window as any).settingsToastShown = true;
+        setTimeout(() => {
+          (window as any).settingsToastShown = false;
+        }, 3000);
+      }
+    };
+  }, []);
 
   // Update parent component about count changes
   useEffect(() => {
