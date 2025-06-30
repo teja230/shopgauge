@@ -53,6 +53,15 @@ public class ShopService {
       String shopifyDomain, String accessToken, String sessionId, HttpServletRequest request) {
     logger.info("Saving shop: {} for session: {}", shopifyDomain, sessionId);
 
+    // Validate and ensure we have a valid sessionId
+    String validSessionId = sessionId;
+    if (validSessionId == null || validSessionId.trim().isEmpty()) {
+      validSessionId =
+          "fallback_" + System.currentTimeMillis() + "_" + Math.abs(shopifyDomain.hashCode());
+      logger.warn(
+          "Generated fallback sessionId for shop: {} - original was null/empty", shopifyDomain);
+    }
+
     // Find or create shop
     Shop shop =
         shopRepository
@@ -68,22 +77,31 @@ public class ShopService {
     shop = shopRepository.save(shop);
 
     // Create or update session
-    ShopSession session = createOrUpdateSession(shop, sessionId, accessToken, request);
+    ShopSession session = createOrUpdateSession(shop, validSessionId, accessToken, request);
 
     // Cache in Redis for performance
-    cacheShopSession(shopifyDomain, sessionId, accessToken);
+    cacheShopSession(shopifyDomain, validSessionId, accessToken);
 
     // Update active sessions list
     updateActiveSessionsList(shopifyDomain);
 
     logger.info(
-        "Shop and session saved successfully: {} with session: {}", shopifyDomain, sessionId);
+        "Shop and session saved successfully: {} with session: {}", shopifyDomain, validSessionId);
     return session;
   }
 
   /** Backward compatibility method */
   public void saveShop(String shopifyDomain, String accessToken, String sessionId) {
-    saveShop(shopifyDomain, accessToken, sessionId, null);
+    // Validate and ensure we have a valid sessionId
+    String validSessionId = sessionId;
+    if (validSessionId == null || validSessionId.trim().isEmpty()) {
+      validSessionId =
+          "fallback_" + System.currentTimeMillis() + "_" + Math.abs(shopifyDomain.hashCode());
+      logger.warn(
+          "Generated fallback sessionId for shop: {} - original was null/empty", shopifyDomain);
+    }
+
+    saveShop(shopifyDomain, accessToken, validSessionId, null);
   }
 
   /** Get access token for a specific shop and session */
@@ -252,6 +270,19 @@ public class ShopService {
 
   private ShopSession createOrUpdateSession(
       Shop shop, String sessionId, String accessToken, HttpServletRequest request) {
+
+    // Final validation to ensure sessionId is never null
+    if (sessionId == null || sessionId.trim().isEmpty()) {
+      sessionId =
+          "emergency_"
+              + System.currentTimeMillis()
+              + "_"
+              + Math.abs(shop.getShopifyDomain().hashCode());
+      logger.error(
+          "Emergency sessionId generation in createOrUpdateSession for shop: {}",
+          shop.getShopifyDomain());
+    }
+
     Optional<ShopSession> existingOpt =
         shopSessionRepository.findByShopAndSessionIdAndIsActiveTrue(shop, sessionId);
 

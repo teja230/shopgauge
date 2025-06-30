@@ -73,8 +73,16 @@ public class OAuthRecoveryService {
       String token = shopService.getTokenForShop(shop, "recovery");
 
       if (token != null) {
+        // Ensure we have a valid sessionId for recovery
+        String validSessionId = sessionId;
+        if (validSessionId == null || validSessionId.trim().isEmpty()) {
+          validSessionId =
+              "recovery_" + System.currentTimeMillis() + "_" + Math.abs(shop.hashCode());
+          logger.info("Generated fallback sessionId for recovery: {}", validSessionId);
+        }
+
         // Refresh session with recovered token
-        shopService.saveShop(shop, token, sessionId);
+        shopService.saveShop(shop, token, validSessionId);
         logger.info("OAuth recovery successful for shop: {}", shop);
 
         // Clear failure tracking
