@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Box, Typography, Card, CardContent, Alert, CircularProgress, Link as MuiLink, IconButton, Button } from '@mui/material';
+import { Box, Typography, Card, CardContent, Alert, CircularProgress, Link as MuiLink, IconButton, Button, ToggleButtonGroup, ToggleButton } from '@mui/material';
 import { RevenueChart } from '../components/ui/RevenueChart';
+import UnifiedAnalyticsChart from '../components/ui/UnifiedAnalyticsChart';
+import useUnifiedAnalytics from '../hooks/useUnifiedAnalytics';
 import { MetricCard } from '../components/ui/MetricCard';
 import { fetchWithAuth, retryWithBackoff } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { styled } from '@mui/material/styles';
-import { OpenInNew, Refresh, Storefront, ListAlt, Inventory2 } from '@mui/icons-material';
+import { OpenInNew, Refresh, Storefront, ListAlt, Inventory2, Analytics, ShowChart } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { useNotifications } from '../hooks/useNotifications';
 import { useSessionNotification } from '../hooks/useSessionNotification';
@@ -702,6 +704,21 @@ const DashboardPage = () => {
     }
   }, [shop, isAuthReady]);
   
+  // Chart toggle state
+  const [chartMode, setChartMode] = useState<'unified' | 'classic'>('unified');
+
+  // Use the new unified analytics hook
+  const {
+    data: unifiedAnalyticsData,
+    loading: unifiedAnalyticsLoading,
+    error: unifiedAnalyticsError,
+    refetch: refetchUnifiedAnalytics,
+  } = useUnifiedAnalytics({
+    days: 60,
+    includePredictions: true,
+    autoRefresh: false,
+  });
+
   // Individual card loading states
   const [cardLoading, setCardLoading] = useState<CardLoadingState>({
     revenue: false,
@@ -1825,7 +1842,8 @@ const DashboardPage = () => {
         fetchNewProductsData(true),
         fetchInsightsData(true),
         fetchOrdersData(true),
-        fetchAbandonedCartsData(true)
+        fetchAbandonedCartsData(true),
+        refetchUnifiedAnalytics() // Add unified analytics refetch
       ]);
       
       notifications.showSuccess('✅ Dashboard data has been updated.', { duration: 3000, category: 'Dashboard' });
@@ -1846,6 +1864,7 @@ const DashboardPage = () => {
     fetchInsightsData, 
     fetchOrdersData,
     fetchAbandonedCartsData,
+    refetchUnifiedAnalytics,
     notifications
   ]);
 
@@ -2387,29 +2406,97 @@ const DashboardPage = () => {
           </Box>
         </Box>
 
-        {/* Revenue Graph */}
+        {/* Analytics Charts with Toggle */}
         <Box sx={{ width: '100%' }}>
-          <RevenueChart
-            data={insights?.timeseries || []}
-            loading={cardLoading.revenue}
-            error={cardErrors.revenue}
-            height={450}
-          />
-          {/* Legend chips for graph types */}
-          <LegendContainer>
-            <LegendChip>
-              <LegendDot color="#2563eb" />
-              Revenue
-            </LegendChip>
-            <LegendChip>
-              <LegendDot color="#16a34a" />
-              Orders
-            </LegendChip>
-            <LegendChip>
-              <LegendDot color="#d97706" />
-              Conversion Rate
-            </LegendChip>
-          </LegendContainer>
+          {/* Chart Mode Toggle */}
+          <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
+            <ToggleButtonGroup
+              value={chartMode}
+              exclusive
+              onChange={(_, newMode) => newMode && setChartMode(newMode)}
+              size="large"
+              sx={{
+                backgroundColor: 'white',
+                border: '2px solid rgba(37, 99, 235, 0.2)',
+                borderRadius: 3,
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                '& .MuiToggleButton-root': {
+                  px: 4,
+                  py: 1.5,
+                  fontSize: '1rem',
+                  fontWeight: 600,
+                  textTransform: 'none',
+                  border: 'none',
+                  borderRadius: 2.5,
+                  margin: 0.5,
+                  minWidth: 180,
+                  color: 'text.secondary',
+                  backgroundColor: 'transparent',
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    backgroundColor: 'rgba(37, 99, 235, 0.08)',
+                    color: 'primary.main',
+                    transform: 'translateY(-1px)',
+                  },
+                  '&.Mui-selected': {
+                    backgroundColor: 'primary.main',
+                    color: 'white',
+                    boxShadow: '0 2px 8px rgba(37, 99, 235, 0.3)',
+                    '&:hover': {
+                      backgroundColor: 'primary.dark',
+                      transform: 'translateY(-1px)',
+                    },
+                  },
+                },
+              }}
+            >
+              <ToggleButton
+                value="unified"
+                sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}
+              >
+                <Analytics sx={{ fontSize: '1.5rem' }} />
+                <Box>
+                  <Typography variant="body1" fontWeight="inherit">
+                    Unified Analytics
+                  </Typography>
+                  <Typography variant="caption" sx={{ opacity: 0.8, fontSize: '0.7rem' }}>
+                    AI-Powered with Predictions
+                  </Typography>
+                </Box>
+              </ToggleButton>
+              <ToggleButton
+                value="classic"
+                sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}
+              >
+                <ShowChart sx={{ fontSize: '1.5rem' }} />
+                <Box>
+                  <Typography variant="body1" fontWeight="inherit">
+                    Classic Charts
+                  </Typography>
+                  <Typography variant="caption" sx={{ opacity: 0.8, fontSize: '0.7rem' }}>
+                    Traditional Revenue View
+                  </Typography>
+                </Box>
+              </ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
+
+          {/* Render Charts Based on Mode */}
+          {chartMode === 'unified' ? (
+            <UnifiedAnalyticsChart
+              data={unifiedAnalyticsData}
+              loading={unifiedAnalyticsLoading}
+              error={unifiedAnalyticsError}
+              height={500}
+            />
+          ) : (
+            <RevenueChart
+              data={insights?.timeseries || []}
+              loading={cardLoading.revenue}
+              error={cardErrors.revenue}
+              height={500}
+            />
+          )}
         </Box>
 
         {/* Dashboard Status and Refresh Controls */}

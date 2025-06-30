@@ -12,7 +12,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -2147,5 +2149,362 @@ public class AnalyticsController {
                         0.0,
                         "shop",
                         shop)));
+  }
+
+  @GetMapping("/unified-analytics")
+  @SuppressWarnings("unchecked")
+  public Mono<ResponseEntity<Map<String, Object>>> getUnifiedAnalytics(
+      @CookieValue(value = "shop", required = false) String shop,
+      @RequestParam(value = "days", defaultValue = "60") int days,
+      @RequestParam(value = "includePredictions", defaultValue = "true") boolean includePredictions,
+      HttpSession session) {
+
+    if (shop == null) {
+      Map<String, Object> errorResponse = new HashMap<>();
+      errorResponse.put("error", "Not authenticated");
+      errorResponse.put("historical", List.of());
+      errorResponse.put("predictions", List.of());
+      return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse));
+    }
+
+    String token = shopService.getTokenForShop(shop, session.getId());
+    if (token == null) {
+      Map<String, Object> errorResponse = new HashMap<>();
+      errorResponse.put("error", "No token for shop");
+      errorResponse.put("historical", List.of());
+      errorResponse.put("predictions", List.of());
+      return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse));
+    }
+
+    // Log the analytics data access
+    dataPrivacyService.logDataAccess(
+        "UNIFIED_ANALYTICS_REQUEST", "Unified analytics data accessed", shop);
+
+    // Clamp days to reasonable range
+    int clampedDays = Math.max(7, Math.min(days, 365));
+    String since = LocalDate.now().minusDays(clampedDays).format(DateTimeFormatter.ISO_DATE);
+
+    String ordersUrl =
+        "https://"
+            + shop
+            + "/admin/api/2023-10/orders.json?created_at_min="
+            + since
+            + "T00:00:00Z&limit=250&status=any";
+    String productsUrl = "https://" + shop + "/admin/api/2023-10/products.json?limit=250";
+
+    return webClient
+        .get()
+        .uri(ordersUrl)
+        .header("X-Shopify-Access-Token", token)
+        .retrieve()
+        .bodyToMono(Map.class)
+        .zipWith(
+            webClient
+                .get()
+                .uri(productsUrl)
+                .header("X-Shopify-Access-Token", token)
+                .retrieve()
+                .bodyToMono(Map.class))
+        .map(
+            tuple -> {
+              Map<String, Object> ordersData = tuple.getT1();
+              Map<String, Object> productsData = tuple.getT2();
+
+              var orders = (List<Map<String, Object>>) ordersData.get("orders");
+              var products = (List<Map<String, Object>>) productsData.get("products");
+
+              logger.info(
+                  "Fetched {} orders and {} products for unified analytics for shop {}",
+                  orders != null ? orders.size() : 0,
+                  products != null ? products.size() : 0,
+                  shop);
+
+              // Aggregate data by day
+              Map<String, DailyMetrics> dailyMetrics = new LinkedHashMap<>();
+
+              if (orders != null) {
+                for (Map<String, Object> order : orders) {
+                  String createdAt = (String) order.get("created_at");
+                  Object totalPriceObj = order.get("total_price");
+
+                  if (createdAt != null && totalPriceObj != null) {
+                    try {
+                      String dateOnly = createdAt.substring(0, 10);
+                      double orderPrice = Double.parseDouble(totalPriceObj.toString());
+
+                      dailyMetrics
+                          .computeIfAbsent(dateOnly, k -> new DailyMetrics(k))
+                          .addOrder(orderPrice);
+
+                    } catch (Exception e) {
+                      logger.warn(
+                          "Skipping invalid order data: createdAt={}, totalPrice={}",
+                          createdAt,
+                          totalPriceObj);
+                    }
+                  }
+                }
+              }
+
+              // Fill in missing days with zero values
+              LocalDate startDate = LocalDate.now().minusDays(clampedDays);
+              LocalDate endDate = LocalDate.now();
+
+              for (LocalDate date = startDate; !date.isAfter(endDate); date = date.plusDays(1)) {
+                String dateStr = date.format(DateTimeFormatter.ISO_DATE);
+                dailyMetrics.computeIfAbsent(dateStr, k -> new DailyMetrics(k));
+              }
+
+              // Calculate conversion rates (simplified calculation)
+              int totalProducts = products != null ? products.size() : 1;
+              for (DailyMetrics metrics : dailyMetrics.values()) {
+                metrics.calculateConversionRate(totalProducts);
+              }
+
+              // Convert to timeseries format
+              List<Map<String, Object>> historical =
+                  dailyMetrics.entrySet().stream()
+                      .sorted(Map.Entry.comparingByKey())
+                      .map(
+                          entry -> {
+                            DailyMetrics metrics = entry.getValue();
+                            Map<String, Object> dayData = new HashMap<>();
+                            dayData.put("date", entry.getKey());
+                            dayData.put("revenue", metrics.revenue);
+                            dayData.put("orders_count", metrics.ordersCount);
+                            dayData.put("conversion_rate", metrics.conversionRate);
+                            dayData.put("avg_order_value", metrics.getAvgOrderValue());
+                            return dayData;
+                          })
+                      .collect(Collectors.toList());
+
+              Map<String, Object> result = new HashMap<>();
+              result.put("historical", historical);
+              result.put("period_days", clampedDays);
+              result.put(
+                  "total_revenue",
+                  historical.stream().mapToDouble(h -> (Double) h.get("revenue")).sum());
+              result.put(
+                  "total_orders",
+                  historical.stream().mapToInt(h -> (Integer) h.get("orders_count")).sum());
+
+              // Add predictions if requested
+              if (includePredictions && historical.size() >= 7) {
+                List<Map<String, Object>> predictions = generatePredictions(historical, 60);
+                result.put("predictions", predictions);
+              } else {
+                result.put("predictions", List.of());
+              }
+
+              logger.info(
+                  "Generated unified analytics with {} historical points and {} predictions for shop {}",
+                  historical.size(),
+                  includePredictions
+                      ? result.get("predictions") != null
+                          ? ((List<?>) result.get("predictions")).size()
+                          : 0
+                      : 0,
+                  shop);
+
+              return ResponseEntity.ok(result);
+            })
+        .onErrorResume(
+            e -> {
+              logger.error(
+                  "Failed to fetch unified analytics for shop {}: {}", shop, e.getMessage(), e);
+
+              Map<String, Object> errorResponse = new HashMap<>();
+              errorResponse.put("error", "Failed to fetch analytics data");
+              errorResponse.put("historical", List.of());
+              errorResponse.put("predictions", List.of());
+
+              if (e.getMessage().contains("403")) {
+                errorResponse.put("error_code", "INSUFFICIENT_PERMISSIONS");
+                errorResponse.put("error", "Analytics access denied - please re-authenticate");
+                return Mono.just(ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse));
+              }
+
+              return Mono.just(ResponseEntity.ok(errorResponse));
+            });
+  }
+
+  // Helper class for daily metrics aggregation
+  private static class DailyMetrics {
+    private final String date;
+    private double revenue = 0.0;
+    private int ordersCount = 0;
+    private double conversionRate = 0.0;
+
+    public DailyMetrics(String date) {
+      this.date = date;
+    }
+
+    public void addOrder(double orderValue) {
+      this.revenue += orderValue;
+      this.ordersCount++;
+    }
+
+    public void calculateConversionRate(int totalProducts) {
+      if (totalProducts > 0 && ordersCount > 0) {
+        // Simplified conversion rate calculation
+        double ordersPerProduct = (double) ordersCount / totalProducts;
+        this.conversionRate = Math.min(ordersPerProduct * 2.0, 15.0); // Cap at 15%
+      } else {
+        this.conversionRate = 0.0;
+      }
+    }
+
+    public double getAvgOrderValue() {
+      return ordersCount > 0 ? revenue / ordersCount : 0.0;
+    }
+  }
+
+  // Advanced prediction algorithms
+  private List<Map<String, Object>> generatePredictions(
+      List<Map<String, Object>> historical, int futureDays) {
+    if (historical.size() < 7) {
+      return List.of();
+    }
+
+    List<Map<String, Object>> predictions = new ArrayList<>();
+    LocalDate lastDate =
+        LocalDate.parse((String) historical.get(historical.size() - 1).get("date"));
+
+    // Extract time series data
+    double[] revenueData =
+        historical.stream().mapToDouble(h -> (Double) h.get("revenue")).toArray();
+    double[] ordersData =
+        historical.stream()
+            .mapToDouble(h -> ((Integer) h.get("orders_count")).doubleValue())
+            .toArray();
+    double[] conversionData =
+        historical.stream().mapToDouble(h -> (Double) h.get("conversion_rate")).toArray();
+
+    // Generate predictions using multiple algorithms
+    for (int i = 1; i <= futureDays; i++) {
+      LocalDate predictionDate = lastDate.plusDays(i);
+
+      // Linear regression predictions
+      double revenuePrediction = predictLinearRegression(revenueData, historical.size() + i);
+      double ordersPrediction = predictLinearRegression(ordersData, historical.size() + i);
+      double conversionPrediction = predictLinearRegression(conversionData, historical.size() + i);
+
+      // Moving average predictions (for smoothing)
+      double revenueMA = calculateMovingAverage(revenueData, 7);
+      double ordersMA = calculateMovingAverage(ordersData, 7);
+      double conversionMA = calculateMovingAverage(conversionData, 7);
+
+      // Seasonal pattern detection (weekly seasonality)
+      double seasonalFactor =
+          calculateSeasonalFactor(revenueData, predictionDate.getDayOfWeek().getValue());
+
+      // Combine predictions with confidence intervals
+      double finalRevenue =
+          Math.max(0, (revenuePrediction * 0.6 + revenueMA * 0.4) * seasonalFactor);
+      double finalOrders = Math.max(0, Math.round(ordersPrediction * 0.6 + ordersMA * 0.4));
+      double finalConversion =
+          Math.max(0, Math.min(15.0, conversionPrediction * 0.6 + conversionMA * 0.4));
+
+      // Generate confidence bands
+      double revenueConfidence = calculateConfidenceInterval(revenueData, 0.8);
+      double ordersConfidence = calculateConfidenceInterval(ordersData, 0.8);
+
+      Map<String, Object> prediction = new HashMap<>();
+      prediction.put("date", predictionDate.format(DateTimeFormatter.ISO_DATE));
+      prediction.put("revenue", Math.round(finalRevenue * 100.0) / 100.0);
+      prediction.put("orders_count", (int) finalOrders);
+      prediction.put("conversion_rate", Math.round(finalConversion * 100.0) / 100.0);
+      prediction.put(
+          "avg_order_value",
+          finalOrders > 0 ? Math.round((finalRevenue / finalOrders) * 100.0) / 100.0 : 0.0);
+      prediction.put(
+          "confidence_interval",
+          Map.of(
+              "revenue_min",
+              Math.max(0, Math.round((finalRevenue - revenueConfidence) * 100.0) / 100.0),
+              "revenue_max",
+              Math.round((finalRevenue + revenueConfidence) * 100.0) / 100.0,
+              "orders_min",
+              Math.max(0, (int) (finalOrders - ordersConfidence)),
+              "orders_max",
+              (int) (finalOrders + ordersConfidence)));
+      prediction.put("prediction_type", "forecast");
+      prediction.put(
+          "confidence_score",
+          Math.max(0.3, 1.0 - (i / (double) futureDays) * 0.7)); // Decreasing confidence over time
+
+      predictions.add(prediction);
+    }
+
+    return predictions;
+  }
+
+  private double predictLinearRegression(double[] data, int futureIndex) {
+    if (data.length < 2) return data.length > 0 ? data[0] : 0.0;
+
+    double n = data.length;
+    double sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+
+    for (int i = 0; i < data.length; i++) {
+      sumX += i;
+      sumY += data[i];
+      sumXY += i * data[i];
+      sumX2 += i * i;
+    }
+
+    double slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+    double intercept = (sumY - slope * sumX) / n;
+
+    return slope * futureIndex + intercept;
+  }
+
+  private double calculateMovingAverage(double[] data, int windowSize) {
+    if (data.length == 0) return 0.0;
+
+    int startIndex = Math.max(0, data.length - windowSize);
+    double sum = 0;
+    int count = 0;
+
+    for (int i = startIndex; i < data.length; i++) {
+      sum += data[i];
+      count++;
+    }
+
+    return count > 0 ? sum / count : 0.0;
+  }
+
+  private double calculateSeasonalFactor(double[] data, int dayOfWeek) {
+    if (data.length < 14) return 1.0; // Need at least 2 weeks of data
+
+    // Calculate average for this day of week vs overall average
+    double daySum = 0;
+    int dayCount = 0;
+    double totalSum = 0;
+
+    for (int i = 0; i < data.length; i++) {
+      totalSum += data[i];
+      if ((i % 7) == (dayOfWeek - 1)) { // Assuming data starts on Monday
+        daySum += data[i];
+        dayCount++;
+      }
+    }
+
+    if (dayCount == 0 || totalSum == 0) return 1.0;
+
+    double dayAverage = daySum / dayCount;
+    double overallAverage = totalSum / data.length;
+
+    return overallAverage > 0 ? Math.max(0.3, Math.min(2.0, dayAverage / overallAverage)) : 1.0;
+  }
+
+  private double calculateConfidenceInterval(double[] data, double confidence) {
+    if (data.length < 2) return 0.0;
+
+    double mean = Arrays.stream(data).average().orElse(0.0);
+    double variance = Arrays.stream(data).map(x -> Math.pow(x - mean, 2)).average().orElse(0.0);
+    double standardDeviation = Math.sqrt(variance);
+
+    // Simplified confidence interval (should use t-distribution for small samples)
+    return standardDeviation * 1.96 * confidence;
   }
 }
