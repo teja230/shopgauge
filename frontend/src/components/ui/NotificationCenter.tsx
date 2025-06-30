@@ -1221,6 +1221,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                         minWidth: 'auto',
                         px: 1,
                         py: 1,
+                        minHeight: 'auto',
+                        height: 'auto',
                         borderColor: 'success.main',
                         color: 'success.main',
                         '&:hover': {
@@ -1246,6 +1248,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                         minWidth: 'auto',
                         px: 1,
                         py: 1,
+                        minHeight: 'auto',
+                        height: 'auto',
                         borderColor: 'warning.main',
                         color: 'warning.main',
                         '&:hover': {
@@ -1271,6 +1275,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                       minWidth: 'auto',
                       px: 1,
                       py: 1,
+                      minHeight: 'auto',
+                      height: 'auto',
                       borderColor: 'error.main',
                       color: 'error.main',
                       '&:hover': {

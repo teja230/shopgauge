@@ -191,6 +191,9 @@ const RefreshButton = styled(Button)(({ theme }) => ({
   textTransform: 'none',
   fontWeight: 500,
   gap: theme.spacing(1),
+  minHeight: 'auto',
+  height: 'auto',
+  padding: theme.spacing(1, 2),
   '&:disabled': {
     backgroundColor: theme.palette.action.disabledBackground,
   },
