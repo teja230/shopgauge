@@ -15,6 +15,7 @@ import {
   invalidateCache,
   CACHE_VERSION,
 } from '../utils/cacheUtils'; // Import from shared utils
+import IntelligentLoadingScreen from '../components/ui/IntelligentLoadingScreen';
 
 /**
  * 🚀 DASHBOARD CACHE BEHAVIOR
@@ -2056,16 +2057,7 @@ const DashboardPage = () => {
   }, [isAuthReady, authLoading, isAuthenticated, shop, navigate]);
 
   if (loading) {
-    return (
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        minHeight: '60vh' 
-      }}>
-        <CircularProgress />
-      </Box>
-    );
+    return <IntelligentLoadingScreen fastMode={true} message="Loading your dashboard..." />;
   }
 
   // Check if this is a permission error that should show the dashboard with alerts
