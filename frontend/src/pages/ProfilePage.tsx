@@ -13,6 +13,7 @@ import {
 } from '../api';
 import { normalizeShopDomain } from '../utils/normalizeShopDomain';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
+import IntelligentLoadingScreen from '../components/ui/IntelligentLoadingScreen';
 
 // Cache configuration for store stats
 const STORE_STATS_CACHE_DURATION = 30 * 60 * 1000; // 30 minutes

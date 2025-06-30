@@ -142,7 +142,7 @@ const AppContent: React.FC = () => {
   }, [handleServiceError]);
 
   // Show global loading state during initial load or auth loading
-  if (loading || (authLoading && window.location.search.includes('redirect='))) {
+  if (loading || authLoading) {
     return <IntelligentLoadingScreen fastMode={true} message="Loading ShopGauge..." />;
   }
   

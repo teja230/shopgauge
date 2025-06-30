@@ -281,7 +281,7 @@ const IntelligentLoadingScreen: React.FC<IntelligentLoadingScreenProps> = ({
 
   const loadingMessages = [
     "Initializing ShopGauge...",
-    "Connecting to your store...",
+    "Connecting to your Shopify store...",
     "Loading analytics engine...",
     "Preparing your dashboard...",
     "Almost ready!"
@@ -327,12 +327,16 @@ const IntelligentLoadingScreen: React.FC<IntelligentLoadingScreenProps> = ({
       <ContentContainer>
         <Logo variant="h1">ShopGauge</Logo>
         
-        <LoadingIcon>⚡</LoadingIcon>
+        <LoadingIcon>
+          <svg className="w-16 h-16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+          </svg>
+        </LoadingIcon>
         
-        <Title variant="h2">Intelligent Analytics Loading</Title>
+        <Title variant="h2">Connecting to Shopify</Title>
         
         <Description variant="body1">
-          Preparing your personalized analytics dashboard with AI-powered insights
+          Securely connecting to your store and preparing your personalized analytics dashboard
         </Description>
         
         <AnalyticsContainer>

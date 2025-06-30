@@ -1,261 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { fetchWithAuth } from '../api';
 import { API_BASE_URL } from '../api';
 import { useNotifications } from '../hooks/useNotifications';
+import { CheckCircleIcon } from '@heroicons/react/24/solid';
 import { normalizeShopDomain } from '../utils/normalizeShopDomain';
 import IntelligentLoadingScreen from '../components/ui/IntelligentLoadingScreen';
-import { 
-  Button, 
-  TextField, 
-  Typography, 
-  Box, 
-  Container, 
-  Alert,
-  Card,
-  CardContent,
-  Chip,
-  Avatar,
-  useTheme,
-  useMediaQuery,
-  CircularProgress,
-  Fade,
-  Stack,
-  Paper,
-  Divider,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails
-} from '@mui/material';
-import { styled } from '@mui/material/styles';
-import {
-  CheckCircle as CheckCircleIcon,
-  TrendingUp as TrendingUpIcon,
-  Security as SecurityIcon,
-  Analytics as AnalyticsIcon,
-  Notifications as NotificationsIcon,
-  Business as BusinessIcon,
-  CloudSync as CloudSyncIcon,
-  Speed as SpeedIcon,
-  ArrowForward as ArrowForwardIcon,
-  Storefront as StorefrontIcon,
-  Dashboard as DashboardIcon,
-  SwapHoriz as SwapHorizIcon,
-  ExpandMore as ExpandMoreIcon,
-  Star as StarIcon,
-  Group as GroupIcon,
-  Shield as ShieldIcon,
-  Psychology as PsychologyIcon
-} from '@mui/icons-material';
 
-const HeroSection = styled(Box)(({ theme }) => ({
-  textAlign: 'center',
-  padding: theme.spacing(8, 2),
-  background: 'linear-gradient(135deg, #eff6ff 0%, #ffffff 100%)',
-  color: theme.palette.text.primary,
-  [theme.breakpoints.down('md')]: {
-    padding: theme.spacing(6, 2),
-  },
-}));
-
-const PricingBanner = styled(Paper)(({ theme }) => ({
-  background: 'linear-gradient(135deg, #3b82f6 0%, #9333ea 100%)',
-  color: theme.palette.common.white,
-  padding: theme.spacing(6),
-  textAlign: 'center',
-  borderRadius: theme.spacing(2),
-  margin: theme.spacing(4, 0),
-  position: 'relative',
-  overflow: 'hidden',
-  boxShadow: theme.shadows[6],
-}));
-
-const FeatureGrid = styled(Box)(({ theme }) => ({
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-  gap: theme.spacing(3),
-  margin: theme.spacing(6, 0),
-  [theme.breakpoints.down('sm')]: {
-    gridTemplateColumns: '1fr',
-  },
-}));
-
-const FeatureCard = styled(Card)(({ theme }) => ({
-  height: '100%',
-  background: `linear-gradient(135deg, ${theme.palette.background.paper} 0%, ${theme.palette.grey[50]} 100%)`,
-  border: `1px solid ${theme.palette.divider}`,
-  transition: 'all 0.3s ease',
-  '&:hover': {
-    transform: 'translateY(-4px)',
-    boxShadow: theme.shadows[8],
-    borderColor: theme.palette.primary.main,
-  },
-}));
-
-const EnterpriseGrid = styled(Box)(({ theme }) => ({
-  display: 'grid',
-  gridTemplateColumns: 'repeat(2, 1fr)',
-  gap: theme.spacing(3),
-  margin: theme.spacing(6, 0),
-  [theme.breakpoints.down('md')]: {
-    gridTemplateColumns: '1fr',
-  },
-}));
-
-const TestimonialCard = styled(Card)(({ theme }) => ({
-  padding: theme.spacing(4),
-  background: `linear-gradient(135deg, ${theme.palette.background.paper} 0%, ${theme.palette.grey[50]} 100%)`,
-  border: `1px solid ${theme.palette.divider}`,
-  borderRadius: theme.spacing(2),
-  transition: 'all 0.3s ease',
-  '&:hover': {
-    transform: 'translateY(-2px)',
-    boxShadow: theme.shadows[4],
-  },
-}));
-
-const ConnectStoreButton = styled(Button)(({ theme }) => ({
-  background: 'rgba(255,255,255,0.9)',
-  color: '#1d4ed8',
-  padding: theme.spacing(1.5, 4),
-  borderRadius: theme.spacing(2),
-  fontWeight: 600,
-  textTransform: 'none',
-  border: '1px solid rgba(255,255,255,0.2)',
-  boxShadow: theme.shadows[3],
-  backdropFilter: 'blur(4px)',
-  transition: 'all 0.3s ease',
-  '&:hover': {
-    background: '#ffffff',
-    boxShadow: theme.shadows[6],
-    transform: 'translateY(-2px)',
-  },
-  '&:disabled': {
-    opacity: 0.6,
-    color: '#9ca3af',
-  },
-}));
-
-// Updated feature categories based on actual backend capabilities
-const featureCategories = [
-  {
-    icon: <AnalyticsIcon />,
-    title: 'Real-Time Analytics',
-    color: 'primary' as const,
-    features: [
-      'Track revenue trends with 60-day historical data',
-      'Monitor orders, products, and inventory in real-time',
-      'View conversion rates and customer behavior insights',
-      'Get automated alerts for important business events'
-    ]
-  },
-  {
-    icon: <GroupIcon />,
-    title: 'Team Collaboration',
-    color: 'secondary' as const,
-    features: [
-      'Multiple team members can access simultaneously',
-      'Private notifications for each team member',
-      'No conflicts when working from different devices',
-      'Secure session management for team privacy'
-    ]
-  },
-  {
-    icon: <PsychologyIcon />,
-    title: 'Competitor Intelligence',
-    color: 'info' as const,
-    features: [
-      'Automatically discover your competitors',
-      'Track competitor pricing changes in real-time',
-      'Get notified when competitors adjust prices',
-      'Monitor competitor inventory and stock levels'
-    ]
-  },
-  {
-    icon: <ShieldIcon />,
-    title: 'Enterprise Security',
-    color: 'warning' as const,
-    features: [
-      'GDPR and CCPA compliance built-in',
-      'Complete audit trail of all data access',
-      'Customer data privacy controls',
-      'Secure data export and deletion options'
-    ]
-  }
-];
-
-// Updated feature list based on actual backend endpoints and capabilities
 const features = [
-  'Real-time revenue tracking with 60-day historical trends',
-  'Multi-user access with private session management',
-  'Automated competitor discovery and price monitoring',
-  'Advanced order analytics with filtering and search',
-  'Conversion rate tracking with industry benchmarks',
-  'Low inventory alerts and stock level monitoring',
-  'New product analytics and performance tracking',
-  'Comprehensive audit logging for compliance',
-  'Customer data privacy controls and consent management',
-  'Session-based notification system for team privacy',
-  'Automated price change alerts from competitors',
-  'Background competitor monitoring and discovery',
-  'Smart competitor suggestion and approval workflow',
-  'Data export capabilities for business reporting',
-  'Enterprise-grade security and encryption',
-  'Mobile-responsive dashboard for on-the-go access'
-];
-
-// More realistic testimonials based on actual features
-const testimonials = [
-  {
-    text: "ShopGauge's team collaboration features let my marketing and sales teams work together without stepping on each other. The real-time revenue tracking shows us exactly where our growth is coming from.",
-    author: "Sarah Chen, E-commerce Manager",
-    metric: "Team productivity increased 35%",
-    color: 'primary' as const
-  },
-  {
-    text: "The competitor monitoring is incredible! I discovered 12 competitors I didn't know existed, and now I get alerts whenever they change prices. It's like having a market research team working 24/7.",
-    author: "Mike Rodriguez, Store Owner",
-    metric: "Discovered 12 new competitors automatically",
-    color: 'secondary' as const
-  },
-  {
-    text: "GDPR compliance was a nightmare until ShopGauge. The audit logging and privacy controls give me peace of mind when selling to European customers. Everything is documented and compliant.",
-    author: "Emma Thompson, Compliance Officer",
-    metric: "100% GDPR compliance achieved",
-    color: 'info' as const
-  }
-];
-
-const faqs = [
-  {
-    question: "How does the competitor discovery work?",
-    answer: "Our system automatically finds your competitors by analyzing your product catalog and searching for similar businesses. It runs daily scans and notifies you of new competitors, price changes, and inventory updates."
-  },
-  {
-    question: "What analytics data can I access?",
-    answer: "You get comprehensive business insights including 60-day revenue trends, order analytics, conversion rates, inventory tracking, new product performance, and detailed competitor pricing data. All data is updated in real-time."
-  },
-  {
-    question: "How does team collaboration work?",
-    answer: "Multiple team members can access your dashboard simultaneously from different devices. Each person gets their own private session with personalized notifications, so there's no interference between team members."
-  },
-  {
-    question: "Is my data secure and compliant?",
-    answer: "Yes, we're fully GDPR/CCPA compliant with comprehensive audit logging, data privacy controls, TLS encryption, and customer consent tracking. You can export or delete customer data anytime."
-  },
-  {
-    question: "How much does competitor monitoring cost?",
-    answer: "Our intelligent system optimizes costs while maintaining accuracy. We use multiple data sources and smart caching to provide comprehensive competitor monitoring at a fraction of the cost of premium solutions."
-  },
-  {
-    question: "Can I track inventory and new products?",
-    answer: "Absolutely! We track low inventory items, monitor new products added in the last 30 days, and provide intelligent notifications for inventory management and product performance."
-  }
+  'Track up to 10 competitors with intelligent monitoring',
+  'Real-time price monitoring with intelligent alerts',
+  '7 advanced chart types (Area, Bar, Candlestick, Waterfall, etc.)',
+  'Multi-session concurrent access from any device',
+  'Session-based notification system with privacy controls',
+  'Automated alerts via Email & SMS with smart delivery',
+  'Advanced analytics dashboard with intelligent caching',
+  'AI-powered market intelligence and discovery tools',
+  'Comprehensive admin dashboard with audit logging',
+  'Enhanced security with session isolation',
+  'Full Shopify integration with real-time sync',
+  'Data export capabilities with GDPR/CCPA compliance',
+  'Priority support with dedicated assistance',
+  'Enterprise-grade session management',
+  'Advanced debugging and monitoring tools',
+  'Debounced refresh controls for optimal performance'
 ];
 
 const HomePage = () => {
@@ -265,12 +33,10 @@ const HomePage = () => {
   const [errorMessage, setErrorMessage] = useState('');
   const [errorCode, setErrorCode] = useState('');
   const [showConnectForm, setShowConnectForm] = useState(false);
-  const { isAuthenticated, authLoading, shop, logout, setShop } = useAuth();
+  const { isAuthenticated, authLoading, logout, setShop } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const notifications = useNotifications();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   // Check if we're in an OAuth flow from Shopify or if there's an error
   useEffect(() => {
@@ -281,309 +47,432 @@ const HomePage = () => {
     
     if (shopFromUrl && !authLoading) {
       console.log('HomePage: Detected OAuth callback, shop will be processed by AuthContext');
-      setIsOAuthFlow(true);
-    }
-    
-    if (errorFromUrl) {
-      console.log('HomePage: OAuth error detected:', errorFromUrl, errorMsgFromUrl);
-      setErrorCode(errorFromUrl);
-      setErrorMessage(errorMsgFromUrl || `Authentication error: ${errorFromUrl}`);
-      setIsOAuthFlow(false);
-    }
-  }, [location.search, authLoading]);
-
-  // Handle redirect after successful authentication
-  useEffect(() => {
-    if (isAuthenticated && !authLoading) {
-      const urlParams = new URLSearchParams(location.search);
-      const redirectPath = urlParams.get('redirect');
-      
-      if (redirectPath) {
-        console.log('HomePage: Redirecting authenticated user to:', redirectPath);
-        navigate(redirectPath, { replace: true });
-      } else if (isOAuthFlow) {
-        console.log('HomePage: OAuth flow complete, redirecting to dashboard');
-        navigate('/dashboard', { replace: true });
-      }
-    }
-  }, [isAuthenticated, authLoading, navigate, location.search, isOAuthFlow]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!shopDomain.trim()) {
-      setErrorMessage('Please enter your store domain');
+      // Don't set isOAuthFlow here as AuthContext will handle the redirect
+      // Just wait for the auth context to process the shop parameter
       return;
     }
+    
+    if (errorFromUrl && errorMsgFromUrl) {
+      setErrorCode(errorFromUrl);
+      setErrorMessage(decodeURIComponent(errorMsgFromUrl));
+      console.log('HomePage: Detected error from OAuth callback:', errorFromUrl, errorMsgFromUrl);
+      
+      // Show error toast
+      notifications.showError(decodeURIComponent(errorMsgFromUrl), {
+        persistent: true,
+        category: 'Connection',
+        duration: 8000
+      });
+      
+      // Clear URL parameters after showing error
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, '', newUrl);
+      
+      // Reset OAuth flow if there was an error
+      setIsOAuthFlow(false);
+    }
+  }, [location.search, authLoading, notifications]);
 
-    const normalizedDomain = normalizeShopDomain(shopDomain);
-    if (!normalizedDomain) {
-      setErrorMessage('Please enter a valid Shopify store domain');
+  // Handle navigation after authentication
+  useEffect(() => {
+    if (isAuthenticated && !authLoading) {
+      console.log('HomePage: User authenticated, checking for redirect navigation');
+      
+      // Check for redirect parameter in URL
+      const urlParams = new URLSearchParams(location.search);
+      const redirectPath = urlParams.get('redirect');
+      const forceHome = urlParams.get('force') === 'true' || urlParams.get('view') === 'home';
+      
+      if (redirectPath) {
+        console.log('HomePage: Found redirect parameter, navigating to:', redirectPath);
+        navigate(redirectPath, { replace: true });
+      } else if (!forceHome) {
+        // Auto-navigate to dashboard if no specific redirect and not forced to stay on home
+        console.log('HomePage: No redirect parameter and not forced to stay, navigating to dashboard');
+        navigate('/dashboard', { replace: true });
+      } else {
+        console.log('HomePage: Forced to stay on home page, not redirecting');
+        // Clear the force parameter from URL for cleaner appearance
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.delete('force');
+        newUrl.searchParams.delete('view');
+        window.history.replaceState({}, '', newUrl.toString());
+      }
+    }
+  }, [isAuthenticated, authLoading, navigate, location.pathname, location.search]);
+
+  // Determine if user is authenticated after auth check completes
+  const showAuthConnected = isAuthenticated && !authLoading && !isOAuthFlow;
+
+  const handleSwitchStore = () => {
+    // Show the connect form for switching stores
+    setShowConnectForm(true);
+    setShopDomain(''); // Clear any existing domain
+  };
+
+  // Utility: comprehensive dashboard cache clearing (same logic as in AuthContext)
+  const clearAllDashboardCache = () => {
+    sessionStorage.removeItem('dashboard_cache_v1.1');
+    sessionStorage.removeItem('dashboard_cache_v2');
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key && key.includes('dashboard_cache')) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach((k) => sessionStorage.removeItem(k));
+    console.log('HomePage: Cleared all dashboard cache keys');
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanDomain = normalizeShopDomain(shopDomain);
+    if (!cleanDomain) {
+      notifications.showError('Please enter a valid Shopify store URL or name', {
+        category: 'Validation'
+      });
       return;
     }
 
     setIsLoading(true);
-    setErrorMessage('');
-    setErrorCode('');
-
     try {
-      console.log('HomePage: Starting OAuth flow for shop:', normalizedDomain);
-      
-      const authUrl = `${API_BASE_URL}/api/auth/shopify/install?shop=${encodeURIComponent(normalizedDomain)}`;
-      console.log('HomePage: Redirecting to:', authUrl);
-      
-      window.location.href = authUrl;
+      // Clear any existing dashboard cache before switching stores
+      clearAllDashboardCache();
+
+      // Optimized: Build return URL for faster post-OAuth loading
+      const baseUrl = `${window.location.origin}/dashboard`;
+      const returnUrl = encodeURIComponent(`${baseUrl}?connected=true&skip_loading=true`);
+
+      // Show immediate feedback before redirect
+      notifications.showInfo('Connecting to Shopify...', {
+        category: 'Store Connection',
+        duration: 2000
+      });
+
+      // Redirect to the login endpoint with optimized parameters
+      window.location.href = `${API_BASE_URL}/api/auth/shopify/login?shop=${encodeURIComponent(cleanDomain)}&return_url=${returnUrl}`;
     } catch (error) {
-      console.error('HomePage: Failed to initiate OAuth:', error);
-      setErrorMessage('Failed to connect to Shopify. Please try again.');
+      console.error('Login failed:', error);
+      notifications.showError('Failed to connect to Shopify. Please try again.', {
+        persistent: true,
+        category: 'Connection'
+      });
+    } finally {
       setIsLoading(false);
     }
   };
 
-  // Show intelligent loading screen for OAuth flow instead of basic loading
-  if (isLoading || isOAuthFlow) {
-    return <IntelligentLoadingScreen />;
+  // Show loading state for form submission only, not OAuth flow
+  if (isLoading) {
+    return <IntelligentLoadingScreen message="Connecting to Shopify..." fastMode={true} />;
   }
 
-  const showAuthConnected = isAuthenticated && !authLoading;
-
   return (
-    <Box>
-      <HeroSection>
-        <Container maxWidth="md">
-          <Fade in={true} timeout={1000}>
-            <Typography variant={isMobile ? 'h3' : 'h2'} component="h1" gutterBottom sx={{ fontWeight: 'bold' }}>
-              ShopGauge
-            </Typography>
-          </Fade>
-          <Fade in={true} timeout={1500}>
-            <Typography variant={isMobile ? 'body1' : 'h6'} sx={{ mb: 4, maxWidth: '800px', mx: 'auto' }}>
-              Transform your Shopify store with real-time analytics, automated competitor monitoring, and team collaboration tools. 
-              Make data-driven decisions with comprehensive insights that help you stay ahead of the competition.
-            </Typography>
-          </Fade>
-        </Container>
-      </HeroSection>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex flex-col items-center px-4 py-8">
+      <header className="mb-10 text-center">
+        <h1 className="text-4xl font-extrabold text-blue-900 mb-2">ShopGauge</h1>
+        <p className="text-lg text-blue-700 mb-4 max-w-4xl mx-auto">
+          Enterprise-grade analytics platform with multi-session support, 7 advanced chart types, and intelligent notifications. 
+          Empower your team with concurrent access, comprehensive audit logging, and GDPR-compliant data management. 
+          Transform your Shopify store with real-time insights and automated market intelligence.
+        </p>
+      </header>
 
-      <Container maxWidth="lg" sx={{ py: 4 }}>
-        {/* Pricing Banner */}
-        <PricingBanner elevation={8}>
-          <Typography variant="h4" component="h2" gutterBottom sx={{ fontWeight: 'bold' }}>
-            🚀 Limited Time Offer
-          </Typography>
-          <Typography variant="h6" gutterBottom sx={{ opacity: 0.9 }}>
-            Start your 3-day free trial today and unlock enterprise-grade analytics!
-          </Typography>
-          {/* Price */}
-          <Box sx={{ my: 3 }}>
-            <Typography
-              variant="h3"
-              component="div"
-              sx={{
-                fontWeight: 'bold',
-                background: 'linear-gradient(90deg,#fff 0%, #d1d5db 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-              }}
-            >
-              $19.99/month
-            </Typography>
-            <Typography variant="body1" sx={{ opacity: 0.9 }}>
-              after 3-day free trial
-            </Typography>
-          </Box>
-          {/* Connection states inside banner */}
-          {showAuthConnected && (
-            <Box sx={{ mt: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, bgcolor: 'rgba(255,255,255,0.15)', px: 3, py: 1.5, borderRadius: 4 }}>
-                <CheckCircleIcon sx={{ color: '#22c55e' }} />
-                <Typography variant="h6" component="span" sx={{ fontWeight: 600 }}>
-                  Connected to {shop || 'your store'}
-                </Typography>
-              </Box>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                <ConnectStoreButton onClick={() => navigate('/dashboard')} startIcon={<DashboardIcon />}>
-                  Go to Dashboard
-                </ConnectStoreButton>
-                <ConnectStoreButton onClick={() => {
-                  setShowConnectForm(true);
-                }} startIcon={<SwapHorizIcon />} sx={{ bgcolor: 'rgba(255,255,255,0.8)', color: '#ef4444' }}>
-                  Switch Store
-                </ConnectStoreButton>
-              </Stack>
-            </Box>
-          )}
-          {/* CTA inside banner for unauthenticated */}
-          {!showAuthConnected && !showConnectForm && (
-            <ConnectStoreButton
-              onClick={() => setShowConnectForm(true)}
-              startIcon={<StorefrontIcon />}
-              size="large"
-            >
-                          Connect Store
-            </ConnectStoreButton>
-          )}
-          {showConnectForm && (
-            <Card sx={{ maxWidth: 500, mx: 'auto', p: 3, mt: 4 }}>
-              <form onSubmit={handleSubmit}>
-                <Stack spacing={3}>
-                  <TextField
-                    variant="outlined"
-                    InputLabelProps={{ shrink: true }}
-                    fullWidth
-                    label="Your Shopify Store"
-                    placeholder="Enter your store name (e.g., mystore or mystore.myshopify.com)"
+      {/* Error Display Section */}
+      {errorMessage && (
+        <div className="mb-8 w-full max-w-2xl mx-auto">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <svg className="h-6 w-6 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-lg font-medium text-red-800">
+                  {errorCode === 'code_used' ? 'Authorization Link Expired' : 'Connection Error'}
+                </h3>
+                <p className="mt-2 text-red-700">{errorMessage}</p>
+                <div className="mt-4">
+                  <button
+                    onClick={() => {
+                      setErrorMessage('');
+                      setErrorCode('');
+                    }}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                  >
+                    Try Again
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pricing Section - Moved up for prominence */}
+      <section className="mb-12 w-full max-w-4xl">
+        <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl p-8 text-white text-center">
+          <h2 className="text-3xl font-bold mb-4">🚀 Limited Time Offer</h2>
+          <p className="text-xl mb-6 opacity-90">Start your 3-day free trial today and unlock enterprise-grade analytics!</p>
+          
+          {/* Pricing Display */}
+          <div className="mb-6">
+            <div className="text-3xl font-bold mb-2">$19.99/month</div>
+            <div className="text-lg opacity-80">after 3-day free trial</div>
+          </div>
+          
+          {/* Action section now INSIDE the banner */}
+          <div className="mt-8 flex flex-col items-center">
+            {showAuthConnected ? (
+              showConnectForm ? (
+                <form onSubmit={handleLogin} className="flex flex-col items-center gap-4 w-full">
+                  <div className="flex flex-col sm:flex-row gap-3 w-full max-w-md">
+                    <input
+                      type="text"
                       value={shopDomain}
                       onChange={(e) => setShopDomain(e.target.value)}
+                      placeholder="Enter your store name or full URL"
+                      className="flex-1 px-4 py-3 rounded-lg border border-gray-300 bg-white/95 text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
                       disabled={isLoading}
                     />
-                  <ConnectStoreButton type="submit" disabled={isLoading || !normalizeShopDomain(shopDomain)}>
-                    {isLoading ? <CircularProgress size={20} color="inherit" /> : 'Connect Shopify Store'}
-                  </ConnectStoreButton>
-                </Stack>
+                    <button
+                      type="submit"
+                      disabled={isLoading || !normalizeShopDomain(shopDomain)}
+                      className="inline-flex items-center px-6 py-3 rounded-xl font-semibold shadow-lg transition-all duration-300 bg-white/90 backdrop-blur-sm border border-white/20 text-blue-600 hover:bg-white hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isLoading ? (
+                        <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-blue-600"></div>
+                      ) : (
+                        <>
+                          <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                          </svg>
+                          Connect Store
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </form>
-            </Card>
-          )}
-        </PricingBanner>
+              ) : (
+                <div className="flex flex-col items-center gap-4">
+                  <div className="flex items-center gap-3 bg-white/95 backdrop-blur-sm border-2 border-green-500 rounded-xl px-8 py-4 shadow-xl">
+                    <div className="flex items-center justify-center w-10 h-10 bg-green-500 rounded-full shadow-lg">
+                      <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                      </svg>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-green-800 font-bold text-xl drop-shadow-sm">Successfully Connected!</p>
+                      <p className="text-green-700 text-base font-semibold">Your store is ready for analytics</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <button
+                      onClick={() => navigate('/dashboard')}
+                      className="inline-flex items-center px-6 py-3 rounded-xl font-semibold shadow-lg transition-all duration-300 bg-white/90 backdrop-blur-sm border border-white/20 text-blue-600 hover:bg-white hover:shadow-xl"
+                    >
+                      <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>
+                      </svg>
+                      Go to Dashboard
+                    </button>
+                    <button
+                      onClick={handleSwitchStore}
+                      className="inline-flex items-center px-6 py-3 rounded-xl font-semibold shadow-lg transition-all duration-300 bg-white/90 backdrop-blur-sm border border-white/20 text-blue-600 hover:bg-white hover:shadow-xl"
+                    >
+                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                      </svg>
+                      Switch Store
+                    </button>
+                  </div>
+                </div>
+              )
+            ) : (
+              showConnectForm ? (
+                <form onSubmit={handleLogin} className="flex flex-col items-center gap-4 w-full">
+                  <div className="flex flex-col sm:flex-row gap-3 w-full max-w-md">
+                    <input
+                      type="text"
+                      value={shopDomain}
+                      onChange={(e) => setShopDomain(e.target.value)}
+                      placeholder="Enter your store name or full URL"
+                      className="flex-1 px-4 py-3 rounded-lg border border-gray-300 bg-white/95 text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
+                      disabled={isLoading}
+                    />
+                    <button
+                      type="submit"
+                      disabled={isLoading || !normalizeShopDomain(shopDomain)}
+                      className="inline-flex items-center px-6 py-3 rounded-xl font-semibold shadow-lg transition-all duration-300 bg-white/90 backdrop-blur-sm border border-white/20 text-blue-600 hover:bg-white hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isLoading ? (
+                        <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-blue-600"></div>
+                      ) : (
+                        <>
+                          <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                          </svg>
+                          Connect Store
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <button
+                  onClick={() => setShowConnectForm(true)}
+                  className="inline-flex items-center px-8 py-4 rounded-xl font-semibold shadow-xl transition-all duration-300 bg-white/90 backdrop-blur-sm border border-white/20 text-blue-600 hover:bg-white hover:shadow-2xl transform hover:scale-105 active:scale-95"
+                >
+                  <svg className="w-6 h-6 mr-3" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                  </svg>
+                  Connect Store
+                </button>
+              )
+            )}
+            {/* Always-visible note in the banner */}
+            <p className="text-sm opacity-90 mt-6 text-white">No credit card required • Cancel anytime</p>
+          </div>
+        </div>
+      </section>
 
-        {/* Enterprise-Grade Analytics Platform */}
-        <Box sx={{ textAlign: 'center', my: 8 }}>
-          <Typography variant="h4" component="h2" gutterBottom>
-            Enterprise-Grade Analytics Platform
-          </Typography>
-          <Typography variant="body1" color="text.secondary" sx={{ mb: 4, maxWidth: 800, mx: 'auto' }}>
-            Built for modern e-commerce teams with advanced analytics, AI-powered insights, and enterprise security.
-          </Typography>
+      {/* Advanced Features Showcase */}
+      <section className="mb-12 w-full max-w-6xl">
+        <h2 className="text-3xl font-bold mb-8 text-blue-800 text-center">Enterprise-Grade Analytics Platform</h2>
+        
+        {/* Feature Categories */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+          <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-6 border border-blue-200">
+            <div className="text-blue-600 mb-4">
+              <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>
+              </svg>
+            </div>
+            <h3 className="text-xl font-bold text-blue-900 mb-3">Advanced Analytics</h3>
+            <ul className="text-gray-700 space-y-2">
+              <li>• 7 chart types (Area, Bar, Candlestick, Waterfall)</li>
+              <li>• Real-time data with intelligent caching</li>
+              <li>• Revenue trend analysis & forecasting</li>
+              <li>• Performance metrics dashboard</li>
+            </ul>
+          </div>
           
-          <EnterpriseGrid>
-            {featureCategories.map((category, index) => (
-              <FeatureCard key={index} elevation={2}>
-                <CardContent sx={{ p: 4 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-                    <Avatar sx={{ bgcolor: (theme) => theme.palette[category.color].main, mr: 2, width: 48, height: 48 }}>
-                      {category.icon}
-                    </Avatar>
-                    <Typography variant="h6" component="h3" sx={{ fontWeight: 'bold' }}>
-                      {category.title}
-                    </Typography>
-                  </Box>
-                  <List dense>
-                    {category.features.map((feature, idx) => (
-                      <ListItem key={idx} sx={{ px: 0 }}>
-                        <ListItemIcon sx={{ minWidth: 32 }}>
-                          <CheckCircleIcon color={category.color} fontSize="small" />
-                        </ListItemIcon>
-                        <ListItemText 
-                          primary={feature} 
-                          primaryTypographyProps={{ variant: 'body2' }}
-                        />
-                      </ListItem>
-                    ))}
-                  </List>
-                </CardContent>
-              </FeatureCard>
+          <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-6 border border-green-200">
+            <div className="text-green-600 mb-4">
+              <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+            </div>
+            <h3 className="text-xl font-bold text-green-900 mb-3">Multi-Session Support</h3>
+            <ul className="text-gray-700 space-y-2">
+              <li>• Concurrent access from multiple devices</li>
+              <li>• Session-based notification privacy</li>
+              <li>• Team collaboration without conflicts</li>
+              <li>• Secure session isolation & management</li>
+            </ul>
+          </div>
+          
+          <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl p-6 border border-orange-200">
+            <div className="text-orange-600 mb-4">
+              <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+              </svg>
+            </div>
+            <h3 className="text-xl font-bold text-orange-900 mb-3">Market Intelligence</h3>
+            <ul className="text-gray-700 space-y-2">
+              <li>• AI-powered market discovery & analysis</li>
+              <li>• Real-time price monitoring & alerts</li>
+              <li>• Strategic positioning insights</li>
+              <li>• Track up to 10 competitors per store</li>
+              <li className="text-orange-600 font-medium">• Unlimited competitor tracking coming soon!</li>
+            </ul>
+          </div>
+          
+          <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-6 border border-purple-200">
+            <div className="text-purple-600 mb-4">
+              <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
+              </svg>
+            </div>
+            <h3 className="text-xl font-bold text-purple-900 mb-3">Enterprise Security</h3>
+            <ul className="text-gray-700 space-y-2">
+              <li>• Comprehensive audit logging</li>
+              <li>• GDPR/CCPA compliance built-in</li>
+              <li>• Admin dashboard with full control</li>
+              <li>• Advanced debugging & monitoring</li>
+            </ul>
+          </div>
+        </div>
+
+        {/* Core Features List */}
+        <div className="bg-white rounded-xl shadow-lg p-8 border border-gray-100">
+          <h3 className="text-2xl font-bold mb-6 text-blue-900 text-center">Complete Feature Set</h3>
+          <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {features.map((f) => (
+              <li key={f} className="flex items-start p-3 rounded-lg hover:bg-blue-50 transition-colors">
+                <CheckCircleIcon className="w-5 h-5 text-blue-500 mr-3 mt-0.5 flex-shrink-0" />
+                <span className="text-gray-800 font-medium">{f}</span>
+              </li>
             ))}
-          </EnterpriseGrid>
-        </Box>
+          </ul>
+        </div>
+      </section>
 
-        {/* Complete Feature List */}
-        <Box sx={{ textAlign: 'center', my: 8 }}>
-          <Typography variant="h4" component="h2" gutterBottom>
-            Everything You Need to Succeed
-          </Typography>
-          <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-            Comprehensive feature set designed for modern e-commerce success
-          </Typography>
-          
-          <FeatureGrid>
-            <Card elevation={2} sx={{ p: 3 }}>
-              <List>
-                {features.slice(0, 8).map((feature, index) => (
-                  <ListItem key={index} sx={{ px: 0 }}>
-                    <ListItemIcon>
-                      <CheckCircleIcon color="primary" />
-                    </ListItemIcon>
-                    <ListItemText primary={feature} />
-                  </ListItem>
-                ))}
-              </List>
-            </Card>
-            <Card elevation={2} sx={{ p: 3 }}>
-              <List>
-                {features.slice(8).map((feature, index) => (
-                  <ListItem key={index} sx={{ px: 0 }}>
-                    <ListItemIcon>
-                      <CheckCircleIcon color="secondary" />
-                    </ListItemIcon>
-                    <ListItemText primary={feature} />
-                  </ListItem>
-                ))}
-              </List>
-            </Card>
-          </FeatureGrid>
-        </Box>
-
-        {/* Customer Testimonials */}
-        <Box sx={{ textAlign: 'center', my: 8 }}>
-          <Typography variant="h4" component="h2" gutterBottom>
-            Trusted by E-commerce Professionals
-          </Typography>
-          <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-            See how ShopGauge is helping businesses make data-driven decisions
-          </Typography>
-          
-          <FeatureGrid>
-            {testimonials.map((testimonial, index) => (
-              <TestimonialCard key={index} elevation={2}>
-                <Typography variant="body1" sx={{ mb: 3, fontStyle: 'italic' }}>
-                  "{testimonial.text}"
-                </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <Avatar sx={{ bgcolor: `${testimonial.color}.main`, mr: 2 }}>
-                    {testimonial.author.split(' ').map(n => n[0]).join('')}
-                  </Avatar>
-                  <Box sx={{ textAlign: 'left' }}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-                      {testimonial.author}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {testimonial.metric}
-                    </Typography>
-                  </Box>
-                </Box>
-                <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-                  {[...Array(5)].map((_, i) => (
-                    <StarIcon key={i} sx={{ color: 'gold', fontSize: 20 }} />
-                  ))}
-                </Box>
-              </TestimonialCard>
-            ))}
-          </FeatureGrid>
-        </Box>
+      {/* Testimonials Section */}
+      <section className="w-full max-w-4xl my-12">
+        <h2 className="text-2xl font-bold mb-6 text-blue-800 text-center">What Merchants Say</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white rounded-lg shadow-lg p-6 border-l-4 border-blue-500">
+            <p className="text-gray-700 italic mb-3">"ShopGauge's multi-session support lets my team work simultaneously from different locations. The advanced charts show trends we never saw before!"</p>
+            <div className="font-semibold text-blue-900">— Alex, DTC Brand Owner</div>
+            <div className="text-sm text-gray-500 mt-1">Revenue increased 25% in 3 months</div>
+          </div>
+          <div className="bg-white rounded-lg shadow-lg p-6 border-l-4 border-green-500">
+            <p className="text-gray-700 italic mb-3">"The session-based notifications are brilliant! No more mixed alerts between team members. The waterfall charts reveal our growth patterns perfectly."</p>
+            <div className="font-semibold text-blue-900">— Priya, Shopify Merchant</div>
+            <div className="text-sm text-gray-500 mt-1">Improved team efficiency by 40%</div>
+          </div>
+          <div className="bg-white rounded-lg shadow-lg p-6 border-l-4 border-purple-500">
+            <p className="text-gray-700 italic mb-3">"The admin dashboard with audit logging gives us complete visibility. GDPR compliance made easy with comprehensive session management."</p>
+            <div className="font-semibold text-blue-900">— Marcus, E-commerce Director</div>
+            <div className="text-sm text-gray-500 mt-1">Enterprise-grade security & compliance</div>
+          </div>
+        </div>
+      </section>
 
       {/* FAQ Section */}
-        <Box sx={{ my: 8 }}>
-          <Typography variant="h4" component="h2" gutterBottom sx={{ textAlign: 'center', mb: 4 }}>
-            Frequently Asked Questions
-          </Typography>
-          
-          {faqs.map((faq, index) => (
-            <Accordion key={index} elevation={1} sx={{ mb: 1 }}>
-              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Typography variant="h6" sx={{ fontWeight: 'medium' }}>
-                  {faq.question}
-                </Typography>
-              </AccordionSummary>
-              <AccordionDetails>
-                <Typography variant="body1" color="text.secondary">
-                  {faq.answer}
-                </Typography>
-              </AccordionDetails>
-            </Accordion>
-          ))}
-        </Box>
-      </Container>
-    </Box>
+      <section className="w-full max-w-5xl mt-12">
+        <h2 className="text-2xl font-bold mb-6 text-blue-800 text-center">Frequently Asked Questions</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-white rounded-lg shadow-lg p-6 border-t-4 border-blue-500">
+            <h3 className="text-lg font-semibold mb-3 text-blue-900">How does the 3-day free trial work?</h3>
+            <p className="text-gray-700">Start with our 3-day free trial to explore all features including multi-session support, advanced charts, and notification system. No credit card required. Full access to enterprise-grade features.</p>
+          </div>
+          <div className="bg-white rounded-lg shadow-lg p-6 border-t-4 border-green-500">
+            <h3 className="text-lg font-semibold mb-3 text-blue-900">What makes your analytics different?</h3>
+            <p className="text-gray-700">We offer 7 advanced chart types (Area, Bar, Candlestick, Waterfall, etc.) with intelligent caching, real-time updates, and session-based data isolation for team collaboration.</p>
+          </div>
+          <div className="bg-white rounded-lg shadow-lg p-6 border-t-4 border-purple-500">
+            <h3 className="text-lg font-semibold mb-3 text-blue-900">How does multi-session support work?</h3>
+            <p className="text-gray-700">Multiple team members can access your shop simultaneously from different devices/browsers. Each session is isolated with private notifications and secure session management.</p>
+          </div>
+          <div className="bg-white rounded-lg shadow-lg p-6 border-t-4 border-orange-500">
+            <h3 className="text-lg font-semibold mb-3 text-blue-900">Is my data secure and compliant?</h3>
+            <p className="text-gray-700">Yes! We provide enterprise-grade security with audit logging, GDPR/CCPA compliance, session isolation, and comprehensive admin controls for complete data protection.</p>
+          </div>
+          <div className="bg-white rounded-lg shadow-lg p-6 border-t-4 border-red-500">
+            <h3 className="text-lg font-semibold mb-3 text-blue-900">What happens after my free trial?</h3>
+            <p className="text-gray-700">After your 3-day free trial, you'll be automatically enrolled in our Pro plan at $19.99/month. You can cancel anytime with no commitment. All your data, sessions, and configurations are preserved.</p>
+          </div>
+          <div className="bg-white rounded-lg shadow-lg p-6 border-t-4 border-indigo-500">
+            <h3 className="text-lg font-semibold mb-3 text-blue-900">What payment methods do you accept?</h3>
+            <p className="text-gray-700">We accept all major credit cards, PayPal, and enterprise billing options. All transactions are processed securely with industry-standard encryption and audit trails.</p>
+          </div>
+        </div>
+      </section>
+    </div>
   );
 };
 
