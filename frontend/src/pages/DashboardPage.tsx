@@ -707,16 +707,19 @@ const DashboardPage = () => {
   // Chart toggle state
   const [chartMode, setChartMode] = useState<'unified' | 'classic'>('unified');
 
-  // Use the new unified analytics hook
+  // Use the new unified analytics hook with enterprise caching
   const {
     data: unifiedAnalyticsData,
     loading: unifiedAnalyticsLoading,
     error: unifiedAnalyticsError,
     refetch: refetchUnifiedAnalytics,
+    isCached: unifiedAnalyticsIsCached,
+    cacheAge: unifiedAnalyticsCacheAge,
   } = useUnifiedAnalytics({
     days: 60,
     includePredictions: true,
     autoRefresh: false,
+    shop: shop || undefined,
   });
 
   // Individual card loading states
@@ -2480,6 +2483,34 @@ const DashboardPage = () => {
               </ToggleButton>
             </ToggleButtonGroup>
           </Box>
+
+          {/* Cache Status Indicator for Unified Analytics */}
+          {chartMode === 'unified' && unifiedAnalyticsIsCached && (
+            <Alert 
+              severity="info" 
+              sx={{ 
+                mb: 2, 
+                backgroundColor: 'rgba(37, 99, 235, 0.05)',
+                border: '1px solid rgba(37, 99, 235, 0.2)',
+                borderRadius: 2,
+                '& .MuiAlert-icon': {
+                  color: 'primary.main'
+                }
+              }}
+            >
+              <Typography variant="body2">
+                📊 <strong>Using cached data</strong> ({unifiedAnalyticsCacheAge} min old) • 
+                Enterprise-grade caching active • 
+                <Button 
+                  size="small" 
+                  onClick={refetchUnifiedAnalytics}
+                  sx={{ ml: 1, textTransform: 'none', fontSize: '0.8rem' }}
+                >
+                  Refresh Now
+                </Button>
+              </Typography>
+            </Alert>
+          )}
 
           {/* Render Charts Based on Mode */}
           {chartMode === 'unified' ? (

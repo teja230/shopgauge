@@ -30,6 +30,7 @@ import {
   Divider,
   Alert,
   IconButton,
+  Button,
   Tooltip as MuiTooltip,
 } from '@mui/material';
 import {
@@ -46,6 +47,10 @@ import {
   CandlestickChart,
   WaterfallChart,
   StackedLineChart,
+  AutoFixHigh,
+  Insights,
+  PlayArrow,
+  Stop,
 } from '@mui/icons-material';
 
 interface HistoricalData {
@@ -104,6 +109,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
     orders: true,
     conversion: true,
   });
+  const [predictionLoading, setPredictionLoading] = useState(false);
 
   // Process and combine historical and prediction data
   const chartData = useMemo(() => {
@@ -862,25 +868,126 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
             </ToggleButton>
           </ToggleButtonGroup>
 
-          {/* Controls */}
-          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={showPredictions}
-                  onChange={(e) => setShowPredictions(e.target.checked)}
-                  size="small"
-                />
-              }
-              label="Predictions"
-            />
-            
+          {/* Modern Prediction Controls */}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'flex-end' }}>
+            {/* AI Prediction Button */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Button
+                variant={showPredictions ? "contained" : "outlined"}
+                size="large"
+                onClick={() => {
+                  if (!showPredictions) {
+                    setPredictionLoading(true);
+                    // Simulate loading for better UX
+                    setTimeout(() => {
+                      setShowPredictions(true);
+                      setPredictionLoading(false);
+                    }, 800);
+                  } else {
+                    setShowPredictions(false);
+                  }
+                }}
+                disabled={predictionLoading}
+                startIcon={
+                  predictionLoading ? (
+                    <AutoGraph sx={{ animation: 'spin 1s linear infinite', '@keyframes spin': { from: { transform: 'rotate(0deg)' }, to: { transform: 'rotate(360deg)' } } }} />
+                  ) : (
+                    showPredictions ? <Stop /> : <AutoFixHigh />
+                  )
+                }
+                sx={{
+                  minWidth: 200,
+                  background: showPredictions ? 
+                    'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : 
+                    'transparent',
+                  border: showPredictions ? 'none' : '2px solid rgba(102, 126, 234, 0.3)',
+                  color: showPredictions ? 'white' : 'primary.main',
+                  fontWeight: 600,
+                  borderRadius: 3,
+                  py: 1.5,
+                  px: 3,
+                  transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                  transform: showPredictions ? 'scale(1.02)' : 'scale(1)',
+                  boxShadow: showPredictions ? 
+                    '0 8px 25px rgba(102, 126, 234, 0.3)' : 
+                    '0 2px 8px rgba(0, 0, 0, 0.1)',
+                  '&:hover': {
+                    transform: 'scale(1.05)',
+                    boxShadow: showPredictions ? 
+                      '0 12px 35px rgba(102, 126, 234, 0.4)' : 
+                      '0 4px 15px rgba(102, 126, 234, 0.2)',
+                    background: showPredictions ? 
+                      'linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%)' : 
+                      'rgba(102, 126, 234, 0.05)',
+                  },
+                }}
+              >
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                  <Typography variant="button" fontWeight="inherit">
+                    {predictionLoading ? 'Analyzing...' : (showPredictions ? 'Stop Predictions' : 'Predict Future')}
+                  </Typography>
+                  <Typography variant="caption" sx={{ opacity: 0.8, fontSize: '0.7rem' }}>
+                    {predictionLoading ? 'AI models processing...' : (showPredictions ? 'Hide AI forecasting' : 'AI-powered 60-day forecast')}
+                  </Typography>
+                </Box>
+              </Button>
+
+              {/* Prediction Confidence Indicator */}
+              {showPredictions && data?.predictions?.length > 0 && (
+                <MuiTooltip title={`Prediction confidence: ${Math.round((data.predictions[0]?.confidence_score || 0) * 100)}%`}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.5,
+                      px: 2,
+                      py: 1,
+                      borderRadius: 2,
+                      background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(34, 197, 94, 0.1) 100%)',
+                      border: '1px solid rgba(16, 185, 129, 0.2)',
+                      animation: 'pulse 2s infinite',
+                      '@keyframes pulse': {
+                        '0%, 100%': { opacity: 1 },
+                        '50%': { opacity: 0.7 },
+                      },
+                    }}
+                  >
+                    <Insights color="success" fontSize="small" />
+                    <Typography variant="caption" fontWeight={600} color="success.main">
+                      {Math.round((data.predictions[0]?.confidence_score || 0) * 100)}% Confidence
+                    </Typography>
+                  </Box>
+                </MuiTooltip>
+              )}
+            </Box>
+
             {/* Time Range Selector */}
             <ToggleButtonGroup
               value={timeRange}
               exclusive
               onChange={(_, newRange) => newRange && setTimeRange(newRange)}
               size="small"
+              sx={{
+                backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                border: '1px solid rgba(0, 0, 0, 0.1)',
+                borderRadius: 2,
+                '& .MuiToggleButton-root': {
+                  border: 'none',
+                  borderRadius: 1.5,
+                  px: 2,
+                  py: 0.5,
+                  fontSize: '0.8rem',
+                  fontWeight: 500,
+                  transition: 'all 0.2s ease',
+                  '&.Mui-selected': {
+                    backgroundColor: 'primary.main',
+                    color: 'white',
+                    '&:hover': {
+                      backgroundColor: 'primary.dark',
+                    },
+                  },
+                },
+              }}
             >
               <ToggleButton value="last7">7D</ToggleButton>
               <ToggleButton value="last30">30D</ToggleButton>
@@ -1023,13 +1130,41 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         </Box>
       </Paper>
 
-      {/* Predictions Info */}
+      {/* Enhanced Predictions Info Panel */}
       {showPredictions && data.predictions && data.predictions.length > 0 && (
-        <Alert severity="info" sx={{ mt: 2, borderRadius: 2 }}>
-          <Typography variant="body2">
-            <strong>Predictions:</strong> Showing {data.predictions.length}-day forecast using advanced algorithms including 
-            linear regression, moving averages, and seasonal patterns. Confidence decreases over time.
-          </Typography>
+        <Alert 
+          severity="success" 
+          sx={{ 
+            mt: 2, 
+            borderRadius: 3,
+            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(34, 197, 94, 0.05) 100%)',
+            border: '1px solid rgba(16, 185, 129, 0.2)',
+            '& .MuiAlert-icon': {
+              color: 'success.main'
+            }
+          }}
+        >
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <Box>
+              <Typography variant="body2" fontWeight={600} gutterBottom>
+                🔮 AI Predictions Active
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                Showing <strong>{data.predictions.length}-day forecast</strong> using advanced algorithms including 
+                linear regression, moving averages, and seasonal patterns.
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                ⚡ Algorithms: Linear Regression • Moving Averages • Seasonal Decomposition
+              </Typography>
+            </Box>
+            <Chip
+              icon={<Insights />}
+              label={`${Math.round((data.predictions[0]?.confidence_score || 0) * 100)}% Confidence`}
+              size="small"
+              color="success"
+              variant="outlined"
+            />
+          </Box>
         </Alert>
       )}
     </Box>
