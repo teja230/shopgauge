@@ -119,6 +119,16 @@ const AppContent: React.FC = () => {
   const { isAuthenticated, authLoading, loading } = useAuth();
   const { handleServiceError } = useServiceStatus();
   
+  // Escalating loader: render the branded IntelligentLoadingScreen only
+  // if the critical boot-up takes longer than a short threshold.
+  const MIN_BRAND_LOADER_TIME = 400; // ms – tweak if needed
+  const [showBrandLoader, setShowBrandLoader] = React.useState(false);
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => setShowBrandLoader(true), MIN_BRAND_LOADER_TIME);
+    return () => clearTimeout(timer);
+  }, []);
+  
   console.log('AppContent: Current location', {
     pathname: window.location.pathname,
     search: window.location.search,
@@ -135,7 +145,9 @@ const AppContent: React.FC = () => {
 
   // Show global loading state during initial load or auth loading
   if (loading || authLoading) {
-    return <IntelligentLoadingScreen fastMode={true} message="Loading ShopGauge..." />;
+    return showBrandLoader ? (
+      <IntelligentLoadingScreen fastMode={true} message="Loading ShopGauge..." />
+    ) : null;
   }
   
   return (
