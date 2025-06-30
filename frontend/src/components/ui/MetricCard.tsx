@@ -370,18 +370,6 @@ export const MetricCard: React.FC<MetricCardProps> = ({
           <Typography variant="body2" color="error" sx={{ mt: 1 }}>
             {error}
           </Typography>
-          
-          {onRetry && (
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<RefreshIcon />}
-              onClick={handleRetry}
-              sx={{ mt: 2, alignSelf: 'flex-start' }}
-            >
-              Retry
-            </Button>
-          )}
         </StyledCardContent>
       </StyledMetricCard>
     );
@@ -416,14 +404,6 @@ export const MetricCard: React.FC<MetricCardProps> = ({
                     }}
                   >
                     <ExpandMoreIcon />
-                  </ActionButton>
-                </Tooltip>
-              )}
-              
-              {onLoad && (
-                <Tooltip title="Refresh">
-                  <ActionButton onClick={onLoad} size="small">
-                    <RefreshIcon />
                   </ActionButton>
                 </Tooltip>
               )}
