@@ -2411,8 +2411,25 @@ const DashboardPage = () => {
 
         {/* Analytics Charts with Toggle */}
         <Box sx={{ width: '100%' }}>
-          {/* Chart Mode Toggle */}
-          <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
+          {/* Chart Container (Charts render above) */}
+          {chartMode === 'unified' ? (
+            <UnifiedAnalyticsChart
+              data={unifiedAnalyticsData}
+              loading={unifiedAnalyticsLoading}
+              error={unifiedAnalyticsError}
+              height={500}
+            />
+          ) : (
+            <RevenueChart
+              data={insights?.timeseries || []}
+              loading={cardLoading.revenue}
+              error={cardErrors.revenue}
+              height={500}
+            />
+          )}
+
+          {/* Move Chart Mode Toggle BELOW charts */}
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
             <ToggleButtonGroup
               value={chartMode}
               exclusive
@@ -2510,23 +2527,6 @@ const DashboardPage = () => {
                 </Button>
               </Typography>
             </Alert>
-          )}
-
-          {/* Render Charts Based on Mode */}
-          {chartMode === 'unified' ? (
-            <UnifiedAnalyticsChart
-              data={unifiedAnalyticsData}
-              loading={unifiedAnalyticsLoading}
-              error={unifiedAnalyticsError}
-              height={500}
-            />
-          ) : (
-            <RevenueChart
-              data={insights?.timeseries || []}
-              loading={cardLoading.revenue}
-              error={cardErrors.revenue}
-              height={500}
-            />
           )}
         </Box>
 
