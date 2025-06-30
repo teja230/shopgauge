@@ -146,7 +146,7 @@ StoreSight now supports multiple search providers for cost-effective competitor 
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/your-username/shopgauge.git
+   git clone https://github.com/teja230/shopgauge.git
    cd shopgauge
    ```
 

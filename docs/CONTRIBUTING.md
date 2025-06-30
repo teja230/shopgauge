@@ -12,7 +12,7 @@ our project. Please read the following guidelines to help us maintain a high sta
     - Clone your forked repository to your local machine:
 
       ```bash
-      git clone https://github.com/your-username/shopgauge.git
+      git clone https://github.com/teja230/shopgauge.git
       ```
 
 3. **Create a Branch**

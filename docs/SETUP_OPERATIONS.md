@@ -8,7 +8,7 @@ This document covers all operational aspects of running ShopGauge – from local
 
 ```bash
 # 1) Clone
-git clone https://github.com/your-username/shopgauge.git && cd shopgauge
+git clone https://github.com/teja230/shopgauge.git && cd shopgauge
 
 # 2) Environment variables
 cp config/.env.example .env   # edit values

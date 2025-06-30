@@ -321,10 +321,10 @@ CREATE TABLE audit_logs (
 ### Local Development Setup
 
 1. **Clone the repository**
-```bash
-   git clone https://github.com/your-username/storesight.git
-cd storesight
-```
+   ```bash
+   git clone https://github.com/teja230/shopgauge.git
+   cd shopgauge
+   ```
 
 2. **Set up environment variables**
    ```bash
@@ -504,10 +504,10 @@ We welcome contributions! Please see our [Contributing Guide](docs/CONTRIBUTING.
 
 ### Enhancement Documentation
 
-- **[404 Page & Homepage Enhancements](docs/404_PAGE_AND_HOMEPAGE_ENHANCEMENTS.md)** - UI/UX improvements
-- **[Comprehensive UI Fixes](docs/COMPREHENSIVE_UI_FIXES.md)** - Mobile and responsive design fixes
-- **[Intelligent Loading Enhancements](docs/INTELLIGENT_LOADING_ENHANCEMENTS.md)** - Loading screen improvements
-- **[Revenue Chart Enhancements](docs/REVENUE_CHART_ENHANCEMENTS.md)** - Analytics visualization improvements
+- **[Authentication UI Fixes](docs/AUTHENTICATION_UI_FIXES.md)** - Authentication and UI improvements
+- **[Dashboard Loading Fixes](docs/DASHBOARD_LOADING_FIXES.md)** - Dashboard performance and loading optimizations
+- **[OAuth Database Fixes](docs/OAUTH_DATABASE_FIXES.md)** - OAuth and database improvements
+- **[Market Intelligence](docs/MARKET_INTELLIGENCE.md)** - Competitor discovery and market analysis features
 
 ## 🔮 Roadmap
 
@@ -533,8 +533,8 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 
 ## 🆘 Support
 
-- **Issues**: [GitHub Issues](https://github.com/your-username/storesight/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/your-username/storesight/discussions)
+- **Issues**: [GitHub Issues](https://github.com/teja230/shopgauge/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/teja230/shopgauge/discussions)
 - **Email**: support@shopgaugeai.com
 - **Documentation**: [Technical Docs](docs/)
 

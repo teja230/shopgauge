@@ -85,10 +85,12 @@ graph TB
 | Area | Documentation |
 |------|---------------|
 | **Environment & Deployment** | 🔗 [Environment Setup](ENVIRONMENT_SETUP.md) |
-| **Analytics Engine** | 🔗 [Analytics Enhancements](ANALYTICS_ENHANCEMENTS.md) |
+| **Market Intelligence** | 🔗 [Market Intelligence](MARKET_INTELLIGENCE.md) |
 | **AI Market Intelligence** | 🔗 [Competitor Discovery System](MULTI_SESSION_ARCHITECTURE.md#competitor-discovery) |
 | **Notification Centre** | 🔗 [Notification System](NOTIFICATIONS_SYSTEM.md) |
-| **UI / UX Enhancements** | 🔗 [UI & UX Enhancements](UI_UX_ENHANCEMENTS.md) |
+| **Authentication & UI** | 🔗 [Authentication UI Fixes](AUTHENTICATION_UI_FIXES.md) |
+| **Dashboard Performance** | 🔗 [Dashboard Loading Fixes](DASHBOARD_LOADING_FIXES.md) |
+| **OAuth & Database** | 🔗 [OAuth Database Fixes](OAUTH_DATABASE_FIXES.md) |
 | **Security & Compliance** | 🔗 [Privacy Policy](PRIVACY_POLICY.md) <br/> 🔗 [Shopify Protected Data Request](SHOPIFY_PROTECTED_DATA_REQUEST.md) |
 | **Contribution Guide** | 🔗 [CONTRIBUTING](CONTRIBUTING.md) |
 | **Architecture & Security** | 🔗 [Architecture & Security](ARCHITECTURE_SECURITY.md) |
@@ -105,7 +107,7 @@ graph TB
 
 • **Production Demo** – <https://www.shopgaugeai.com>  
 • **Public API Docs** – `/api/docs` (Swagger) once the backend is running  
-• **GitHub Repository** – <https://github.com/your-username/shopgauge>
+• **GitHub Repository** – <https://github.com/teja230/shopgauge>
 
 ---
 
