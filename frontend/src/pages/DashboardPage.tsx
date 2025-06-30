@@ -39,7 +39,7 @@ import {
 
 // Cache configuration - Enterprise-grade settings
 const CACHE_DURATION = 120 * 60 * 1000; // 120 minutes (2 hours) in milliseconds
-const REFRESH_DEBOUNCE_MS = 30000; // 30 seconds
+const REFRESH_DEBOUNCE_MS = 120000; // 120 seconds
 
 interface CacheEntry<T> {
   data: T;
@@ -408,7 +408,27 @@ const ProductList = styled(Box)(({ theme }) => ({
   flexDirection: 'column',
   gap: theme.spacing(2),
   maxHeight: 400,
-  overflowY: 'auto'
+  overflowY: 'auto',
+  // Enhanced scrollbar styles for better mobile UX
+  '&::-webkit-scrollbar': {
+    width: '6px',
+  },
+  '&::-webkit-scrollbar-track': {
+    background: theme.palette.grey[100],
+    borderRadius: '3px',
+  },
+  '&::-webkit-scrollbar-thumb': {
+    background: theme.palette.grey[400],
+    borderRadius: '3px',
+    '&:hover': {
+      background: theme.palette.grey[500],
+    },
+  },
+  // Firefox scrollbar
+  scrollbarWidth: 'thin',
+  scrollbarColor: `${theme.palette.grey[400]} ${theme.palette.grey[100]}`,
+  // Ensure scrollable on mobile
+  WebkitOverflowScrolling: 'touch',
 }));
 
 const ProductItem = styled(Box)(({ theme }) => ({
@@ -452,7 +472,27 @@ const OrderList = styled(Box)(({ theme }) => ({
   flexDirection: 'column',
   gap: theme.spacing(2),
   maxHeight: 400,
-  overflowY: 'auto'
+  overflowY: 'auto',
+  // Enhanced scrollbar styles for better mobile UX
+  '&::-webkit-scrollbar': {
+    width: '6px',
+  },
+  '&::-webkit-scrollbar-track': {
+    background: theme.palette.grey[100],
+    borderRadius: '3px',
+  },
+  '&::-webkit-scrollbar-thumb': {
+    background: theme.palette.grey[400],
+    borderRadius: '3px',
+    '&:hover': {
+      background: theme.palette.grey[500],
+    },
+  },
+  // Firefox scrollbar
+  scrollbarWidth: 'thin',
+  scrollbarColor: `${theme.palette.grey[400]} ${theme.palette.grey[100]}`,
+  // Ensure scrollable on mobile
+  WebkitOverflowScrolling: 'touch',
 }));
 
 const OrderItem = styled(Box)(({ theme }) => ({
@@ -494,34 +534,40 @@ const OrderDetails = styled(Typography)(({ theme }) => ({
   gap: theme.spacing(1)
 }));
 
-// const ProductAvatar = styled(Avatar)(({ theme }) => ({
-//   width: 48,
-//   height: 48,
-//   backgroundColor: theme.palette.primary.light,
-//   color: theme.palette.primary.main,
-//   boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-// }));
+// Add legend chips for graph types
+const LegendContainer = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: theme.spacing(1),
+  marginTop: theme.spacing(2),
+  padding: theme.spacing(1),
+  backgroundColor: theme.palette.background.default,
+  borderRadius: theme.shape.borderRadius,
+  [theme.breakpoints.down('sm')]: {
+    justifyContent: 'center',
+  },
+}));
 
-// const OrderAvatar = styled(Avatar)(({ theme }) => ({
-//   width: 48,
-//   height: 48,
-//   backgroundColor: theme.palette.warning.light,
-//   color: theme.palette.warning.dark,
-//   boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-// }));
+const LegendChip = styled(Box)(({ theme }) => ({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: theme.spacing(0.5),
+  padding: theme.spacing(0.5, 1),
+  borderRadius: theme.shape.borderRadius,
+  backgroundColor: theme.palette.primary.light,
+  color: theme.palette.primary.dark,
+  fontSize: '0.75rem',
+  fontWeight: 500,
+  border: `1px solid ${theme.palette.primary.main}20`,
+}));
 
-// const StatusChip = styled(Chip)(({ theme }) => ({
-//   borderRadius: theme.shape.borderRadius,
-//   fontWeight: 500,
-//   '&.MuiChip-colorSuccess': {
-//     backgroundColor: theme.palette.success.light,
-//     color: theme.palette.success.dark,
-//   },
-//   '&.MuiChip-colorWarning': {
-//     backgroundColor: theme.palette.warning.light,
-//     color: theme.palette.warning.dark,
-//   },
-// }));
+const LegendDot = styled(Box)<{ color: string }>(({ theme, color }) => ({
+  width: '8px',
+  height: '8px',
+  borderRadius: '50%',
+  backgroundColor: color,
+  flexShrink: 0,
+}));
 
 const SectionHeader = styled(Box)(({ theme }) => ({
   display: 'flex',
@@ -2354,6 +2400,21 @@ const DashboardPage = () => {
             error={cardErrors.revenue}
             height={450}
           />
+          {/* Legend chips for graph types */}
+          <LegendContainer>
+            <LegendChip>
+              <LegendDot color="#2563eb" />
+              Revenue
+            </LegendChip>
+            <LegendChip>
+              <LegendDot color="#16a34a" />
+              Orders
+            </LegendChip>
+            <LegendChip>
+              <LegendDot color="#d97706" />
+              Conversion Rate
+            </LegendChip>
+          </LegendContainer>
         </Box>
 
         {/* Dashboard Status and Refresh Controls */}

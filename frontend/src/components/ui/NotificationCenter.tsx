@@ -957,6 +957,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                     onClick={() => setIsSettingsOpen(true)}
                     sx={{
                       color: 'text.secondary',
+                      width: 28,
+                      height: 28,
                       '&:hover': {
                         color: 'primary.main',
                         backgroundColor: 'primary.light' + '12',
@@ -964,7 +966,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                       }
                     }}
                   >
-                    <Settings size={16} strokeWidth={2} />
+                    <Settings size={14} strokeWidth={2} />
                   </IconButton>
                 </Tooltip>
                 <Tooltip title="Refresh">
@@ -974,6 +976,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                     disabled={refreshing || loading}
                     sx={{
                       color: 'text.secondary',
+                      width: 28,
+                      height: 28,
                       '&:hover': {
                         color: 'info.main',
                         backgroundColor: 'info.light' + '12',
@@ -984,7 +988,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                       }
                     }}
                   >
-                    <RefreshCw size={16} strokeWidth={2} className={refreshing ? 'animate-spin' : ''} />
+                    <RefreshCw size={14} strokeWidth={2} className={refreshing ? 'animate-spin' : ''} />
                   </IconButton>
                 </Tooltip>
                 <Tooltip title="Close">
@@ -993,6 +997,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                     onClick={() => setIsOpen(false)}
                     sx={{
                       color: 'text.secondary',
+                      width: 28,
+                      height: 28,
                       '&:hover': {
                         color: 'error.main',
                         backgroundColor: 'error.light' + '12',
@@ -1000,7 +1006,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                       }
                     }}
                   >
-                    <X size={16} strokeWidth={2} />
+                    <X size={14} strokeWidth={2} />
                   </IconButton>
                 </Tooltip>
               </Box>
@@ -1137,8 +1143,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                             onClick={() => markAsRead(notification.id)}
                             sx={{ 
                               color: 'text.secondary',
-                              width: 32,
-                              height: 32,
+                              width: 28,
+                              height: 28,
                               borderRadius: '50%',
                               '&:hover': { 
                                 color: 'success.main', 
@@ -1147,7 +1153,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                               } 
                             }}
                           >
-                            <BookmarkCheck size={16} strokeWidth={2} />
+                            <BookmarkCheck size={14} strokeWidth={2} />
                           </IconButton>
                         </Tooltip>
                       )}
@@ -1159,8 +1165,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                             onClick={() => markAsUnread(notification.id)}
                             sx={{ 
                               color: 'text.secondary',
-                              width: 32,
-                              height: 32,
+                              width: 28,
+                              height: 28,
                               borderRadius: '50%',
                               '&:hover': { 
                                 color: 'warning.main', 
@@ -1169,7 +1175,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                               } 
                             }}
                           >
-                            <ArchiveRestore size={16} strokeWidth={2} />
+                            <ArchiveRestore size={14} strokeWidth={2} />
                           </IconButton>
                         </Tooltip>
                       )}
@@ -1180,8 +1186,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                           onClick={() => handleDeleteNotification(notification.id)}
                            sx={{ 
                              color: 'text.secondary',
-                             width: 32,
-                             height: 32,
+                             width: 28,
+                             height: 28,
                              borderRadius: '50%',
                              '&:hover': { 
                                color: 'error.main', 
@@ -1190,7 +1196,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                              } 
                            }}
                         >
-                          <Trash2 size={16} strokeWidth={2} />
+                          <Trash2 size={14} strokeWidth={2} />
                         </IconButton>
                       </Tooltip>
                     </NotificationItemActions>

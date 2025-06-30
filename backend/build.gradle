@@ -88,10 +88,6 @@ tasks.named('test') {
 spotless {
     java {
         googleJavaFormat()
-        // Skip spotless during CI builds for speed
-        if (System.getenv('CI') != null) {
-            enabled = false
-        }
         // Add explicit cache configuration to prevent issues
         targetExclude 'build/**'
     }
