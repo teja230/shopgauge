@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getCacheKey, CACHE_VERSION } from '../utils/cacheUtils';
+import { API_BASE_URL } from '../api';
 
 interface HistoricalData {
   date: string;
@@ -200,7 +201,7 @@ const useUnifiedAnalytics = (
           includePredictions: includePredictions.toString(),
         });
 
-        const response = await fetch(`/api/analytics/unified-analytics?${params}`, {
+        const response = await fetch(`${API_BASE_URL}/api/analytics/unified-analytics?${params}`, {
           method: 'GET',
           credentials: 'include',
           headers: {
