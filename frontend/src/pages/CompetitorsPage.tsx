@@ -31,6 +31,7 @@ import { useNotifications } from '../hooks/useNotifications';
 import { fetchWithAuth } from '../api/index';
 import { getSuggestionCount } from '../api';
 import { useNavigate } from 'react-router-dom';
+import IntelligentLoadingScreen from '../components/ui/IntelligentLoadingScreen';
 
 // Tutorial step types
 interface TutorialStep {
@@ -1639,9 +1640,7 @@ export default function CompetitorsPage() {
           </div>
           
           {isLoading ? (
-            <div className="flex items-center justify-center py-16">
-              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
-            </div>
+            <IntelligentLoadingScreen fastMode={true} message="Loading market intelligence..." />
           ) : filteredCompetitors.length === 0 ? (
             <div className="text-center py-16">
               <ChartBarIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
