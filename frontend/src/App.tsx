@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { Toaster, toast } from 'react-hot-toast';
+import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ServiceStatusProvider, useServiceStatus } from './context/ServiceStatusContext';
 import { NotificationSettingsProvider } from './context/NotificationSettingsContext';
@@ -21,6 +21,7 @@ import { CssBaseline } from '@mui/material';
 import theme from './theme';
 import IntelligentLoadingScreen from './components/ui/IntelligentLoadingScreen';
 import CommandPalette from './components/CommandPalette';
+import './index.css';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, authLoading } = useAuth();

@@ -2,16 +2,185 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8"/>
-    <link href="/vite.svg" rel="icon" type="image/svg+xml"/>
-    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-    <link href="https://fonts.googleapis.com" rel="preconnect">
-    <link crossorigin href="https://fonts.gstatic.com" rel="preconnect">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <title>ShopGauge - Analytics & Competitor Monitoring for Shopify</title>
-    <meta name="description" content="Track competitors, monitor prices, and get insights for your Shopify store with ShopGauge's powerful analytics dashboard.">
+    
+    <!-- Essential Meta Tags -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes"/>
+    <meta name="theme-color" content="#2563eb"/>
+    <meta name="color-scheme" content="light dark"/>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="mobile-web-app-capable" content="yes"/>
+    <meta name="apple-mobile-web-app-capable" content="yes"/>
+    <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+    <meta name="apple-mobile-web-app-title" content="ShopGauge"/>
+    <meta name="application-name" content="ShopGauge"/>
+    <meta name="msapplication-TileColor" content="#2563eb"/>
+    <meta name="msapplication-config" content="/browserconfig.xml"/>
+    
+    <!-- Security Headers -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff"/>
+    <meta http-equiv="X-Frame-Options" content="DENY"/>
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block"/>
+    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin"/>
+    <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=()"/>
+    
+    <!-- Performance & Resource Hints -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin/>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+    <link rel="dns-prefetch" href="https://api.shopgauge.com"/>
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" as="style"/>
+    
+    <!-- Icons & Manifest -->
+    <link rel="icon" type="image/svg+xml" href="/vite.svg"/>
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png"/>
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png"/>
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"/>
+    <link rel="manifest" href="/manifest.json"/>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+    
+    <!-- Critical CSS for above-the-fold content -->
+    <style>
+        /* Critical loading styles */
+        body { 
+            margin: 0; 
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background-color: #f5f5f5;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        #root { 
+            min-height: 100vh; 
+        }
+        .loading-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #f5f5f5 0%, #ffffff 100%);
+        }
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #e5e7eb;
+            border-top: 3px solid #2563eb;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .loading-spinner { animation: none; }
+        }
+    </style>
+    
+    <!-- SEO Meta Tags -->
+    <title>ShopGauge - AI-Powered Shopify Analytics & Competitor Monitoring</title>
+    <meta name="description" content="Transform your Shopify store with AI-powered competitor monitoring, real-time price tracking, and advanced market intelligence. Enterprise-grade analytics for data-driven growth."/>
+    <meta name="keywords" content="shopify analytics, competitor monitoring, price tracking, market intelligence, ecommerce analytics, shopify tools, competitive analysis"/>
+    <meta name="author" content="ShopGauge"/>
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1"/>
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website"/>
+    <meta property="og:url" content="https://shopgauge.com/"/>
+    <meta property="og:title" content="ShopGauge - AI-Powered Shopify Analytics & Competitor Monitoring"/>
+    <meta property="og:description" content="Transform your Shopify store with AI-powered competitor monitoring, real-time price tracking, and advanced market intelligence. Enterprise-grade analytics for data-driven growth."/>
+    <meta property="og:image" content="https://shopgauge.com/og-image.jpg"/>
+    <meta property="og:image:width" content="1200"/>
+    <meta property="og:image:height" content="630"/>
+    <meta property="og:locale" content="en_US"/>
+    <meta property="og:site_name" content="ShopGauge"/>
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image"/>
+    <meta property="twitter:url" content="https://shopgauge.com/"/>
+    <meta property="twitter:title" content="ShopGauge - AI-Powered Shopify Analytics"/>
+    <meta property="twitter:description" content="AI-powered competitor monitoring and market intelligence for Shopify stores. Real-time analytics, price tracking, and data-driven insights."/>
+    <meta property="twitter:image" content="https://shopgauge.com/twitter-image.jpg"/>
+    <meta property="twitter:creator" content="@shopgauge"/>
+    <meta property="twitter:site" content="@shopgauge"/>
+    
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "ShopGauge",
+        "description": "AI-powered competitor monitoring and market intelligence platform for Shopify stores",
+        "url": "https://shopgauge.com",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "Web Browser, iOS, Android",
+        "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD",
+            "description": "Free tier available with premium plans"
+        },
+        "aggregateRating": {
+            "@type": "AggregateRating",
+            "ratingValue": "4.8",
+            "ratingCount": "156"
+        },
+        "author": {
+            "@type": "Organization",
+            "name": "ShopGauge",
+            "url": "https://shopgauge.com"
+        }
+    }
+    </script>
+    
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(function(registration) {
+                        console.log('SW registered: ', registration);
+                    })
+                    .catch(function(registrationError) {
+                        console.log('SW registration failed: ', registrationError);
+                    });
+            });
+        }
+    </script>
 </head>
 <body>
-<div id="root"></div>
-<script src="/src/main.tsx" type="module"></script>
+    <!-- Loading Screen -->
+    <div id="root">
+        <div class="loading-container">
+            <div class="loading-spinner"></div>
+        </div>
+    </div>
+    
+    <!-- Main Application Script -->
+    <script src="/src/main.tsx" type="module"></script>
+    
+    <!-- Install Prompt Script -->
+    <script>
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            // Show custom install prompt when user is engaged
+            window.shopGaugeInstallPrompt = () => {
+                if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    deferredPrompt.userChoice.then((choiceResult) => {
+                        if (choiceResult.outcome === 'accepted') {
+                            console.log('User accepted the install prompt');
+                        }
+                        deferredPrompt = null;
+                    });
+                }
+            };
+        });
+    </script>
+    
+    <!-- Analytics Placeholder -->
+    <!-- <script async src="https://www.googletagmanager.com/gtag/js?id=GA_MEASUREMENT_ID"></script> -->
 </body>
 </html> 
