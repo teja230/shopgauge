@@ -342,12 +342,7 @@ const HomePage = () => {
 
   // Show intelligent loading screen for OAuth flow instead of basic loading
   if (isLoading || isOAuthFlow) {
-    return (
-      <IntelligentLoadingScreen 
-        message={isOAuthFlow ? "Connecting you to Shopify..." : "Redirecting to Shopify authentication..."}
-        fastMode={true}
-      />
-    );
+    return <IntelligentLoadingScreen />;
   }
 
   const showAuthConnected = isAuthenticated && !authLoading;
@@ -425,7 +420,7 @@ const HomePage = () => {
               startIcon={<StorefrontIcon />}
               size="large"
             >
-              Connect Store
+                          Connect Store
             </ConnectStoreButton>
           )}
           {showConnectForm && (
@@ -433,18 +428,20 @@ const HomePage = () => {
               <form onSubmit={handleSubmit}>
                 <Stack spacing={3}>
                   <TextField
+                    variant="outlined"
+                    InputLabelProps={{ shrink: true }}
                     fullWidth
                     label="Your Shopify Store"
                     placeholder="Enter your store name (e.g., mystore or mystore.myshopify.com)"
-                    value={shopDomain}
-                    onChange={(e) => setShopDomain(e.target.value)}
-                    disabled={isLoading}
-                  />
+                      value={shopDomain}
+                      onChange={(e) => setShopDomain(e.target.value)}
+                      disabled={isLoading}
+                    />
                   <ConnectStoreButton type="submit" disabled={isLoading || !normalizeShopDomain(shopDomain)}>
-                    {isLoading ? <CircularProgress size={20} color="inherit" /> : 'Connect'}
+                    {isLoading ? <CircularProgress size={20} color="inherit" /> : 'Connect Shopify Store'}
                   </ConnectStoreButton>
                 </Stack>
-              </form>
+                </form>
             </Card>
           )}
         </PricingBanner>

@@ -32,6 +32,7 @@ import { useNotifications } from '../hooks/useNotifications';
 import { fetchWithAuth } from '../api/index';
 import { getSuggestionCount } from '../api';
 import { useNavigate } from 'react-router-dom';
+import { Alert, Box, Button, Typography } from '@mui/material';
 
 // Tutorial step types
 interface TutorialStep {
@@ -1413,66 +1414,118 @@ export default function CompetitorsPage() {
 
         {/* Demo Mode Notice */}
         {isDemoMode && (
-          <div className="bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-xl p-4">
-            <div className="flex items-center gap-3">
-              <EyeIcon className="h-6 w-6 text-orange-600 flex-shrink-0" />
-              <div className="flex-1">
-                <h3 className="font-semibold text-orange-800">Demo Mode Active</h3>
-                <p className="text-orange-700 mb-2">
-                  {isAuthenticated 
-                    ? "Showing sample competitor data because no competitors have been added yet. Add your first competitor to start monitoring real market data."
-                    : "Showing sample competitor data. Configure your search API to enable live competitor discovery and price monitoring."
-                  }
-                </p>
+          <Alert 
+            severity="info" 
+            sx={{ 
+              mb: 3, 
+              borderRadius: 2,
+              background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+              border: '1px solid #f59e0b',
+              '& .MuiAlert-icon': {
+                color: '#d97706'
+              },
+              '& .MuiAlert-message': {
+                color: '#92400e'
+              }
+            }}
+            action={
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                 {isAuthenticated && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    <button
+                  <>
+                    <Button
+                      size="small"
+                      variant="contained"
                       onClick={() => {
                         setShowAddForm(true);
                         trackDemoInteraction('add_competitor_button');
                       }}
-                      className="bg-orange-600 text-white px-3 py-1 rounded-lg text-sm font-medium hover:bg-orange-700 transition-all"
+                      sx={{ 
+                        bgcolor: '#d97706', 
+                        color: 'white',
+                        '&:hover': { bgcolor: '#b45309' },
+                        textTransform: 'none',
+                        fontSize: '0.75rem'
+                      }}
                     >
-                      Add Your First Competitor
-                    </button>
-                    <button
+                      Add First Competitor
+                    </Button>
+                    <Button
+                      size="small"
+                      variant="outlined"
                       onClick={() => {
                         toggleDemoMode();
                         trackDemoInteraction('switch_to_live_mode');
                       }}
-                      className="bg-orange-100 text-orange-700 px-3 py-1 rounded-lg text-sm font-medium hover:bg-orange-200 transition-all"
-                    >
-                      Switch to Live Mode
-                    </button>
-                  </div>
-                )}
-                <div className="flex flex-wrap gap-2 mt-2">
-                  <button
-                    onClick={() => {
-                      setShowDemoSettings(true);
-                      trackDemoInteraction('demo_settings');
-                    }}
-                    className="bg-blue-100 text-blue-700 px-3 py-1 rounded-lg text-sm font-medium hover:bg-blue-200 transition-all flex items-center gap-1"
-                  >
-                    <CogIcon className="h-4 w-4" />
-                    Customize Demo
-                  </button>
-                  {!demoAnalytics.tutorialCompleted && (
-                    <button
-                      onClick={() => {
-                        startTutorial();
-                        trackDemoInteraction('start_tutorial');
+                      sx={{ 
+                        borderColor: '#d97706',
+                        color: '#d97706',
+                        '&:hover': { 
+                          borderColor: '#b45309',
+                          bgcolor: '#fef3c7'
+                        },
+                        textTransform: 'none',
+                        fontSize: '0.75rem'
                       }}
-                      className="bg-green-100 text-green-700 px-3 py-1 rounded-lg text-sm font-medium hover:bg-green-200 transition-all flex items-center gap-1"
                     >
-                      <AcademicCapIcon className="h-4 w-4" />
-                      Start Tutorial
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
+                      Switch to Live
+                    </Button>
+                  </>
+                )}
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => {
+                    setShowDemoSettings(true);
+                    trackDemoInteraction('demo_settings');
+                  }}
+                  sx={{ 
+                    borderColor: '#3b82f6',
+                    color: '#3b82f6',
+                    '&:hover': { 
+                      borderColor: '#2563eb',
+                      bgcolor: '#eff6ff'
+                    },
+                    textTransform: 'none',
+                    fontSize: '0.75rem'
+                  }}
+                >
+                  Customize Demo
+                </Button>
+                {!demoAnalytics.tutorialCompleted && (
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={() => {
+                      startTutorial();
+                      trackDemoInteraction('start_tutorial');
+                    }}
+                    sx={{ 
+                      borderColor: '#10b981',
+                      color: '#10b981',
+                      '&:hover': { 
+                        borderColor: '#059669',
+                        bgcolor: '#ecfdf5'
+                      },
+                      textTransform: 'none',
+                      fontSize: '0.75rem'
+                    }}
+                  >
+                    Start Tutorial
+                  </Button>
+                )}
+              </Box>
+            }
+          >
+            <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
+              Demo Mode Active
+            </Typography>
+            <Typography variant="body2" sx={{ color: 'inherit' }}>
+              {isAuthenticated 
+                ? "Showing sample competitor data because no competitors have been added yet. Add your first competitor to start monitoring real market data."
+                : "Showing sample competitor data. Configure your search API to enable live competitor discovery and price monitoring."
+              }
+            </Typography>
+          </Alert>
         )}
 
         {/* Control Panel */}
