@@ -30,11 +30,7 @@ export const NotificationSettingsProvider: React.FC<{ children: ReactNode }> = (
     // Load settings from localStorage on initialization
     try {
       const saved = localStorage.getItem('storesight_notification_settings');
-      console.log('🔧 NotificationSettingsProvider: Raw localStorage value:', saved);
-      
       const loadedSettings = saved ? JSON.parse(saved) : defaultSettings;
-      console.log('🔧 NotificationSettingsProvider: Loaded settings:', loadedSettings);
-      console.log('🔧 NotificationSettingsProvider: Default settings:', defaultSettings);
       
       // Validate the loaded settings
       const validatedSettings = {
@@ -45,7 +41,6 @@ export const NotificationSettingsProvider: React.FC<{ children: ReactNode }> = (
         marketingNotifications: typeof loadedSettings.marketingNotifications === 'boolean' ? loadedSettings.marketingNotifications : defaultSettings.marketingNotifications,
       };
       
-      console.log('🔧 NotificationSettingsProvider: Validated settings:', validatedSettings);
       return validatedSettings;
     } catch (error) {
       console.warn('Failed to load notification settings, using defaults:', error);
@@ -57,19 +52,16 @@ export const NotificationSettingsProvider: React.FC<{ children: ReactNode }> = (
   useEffect(() => {
     try {
       localStorage.setItem('storesight_notification_settings', JSON.stringify(settings));
-      console.log('🔧 NotificationSettingsProvider: Saved settings:', settings);
     } catch (error) {
       console.warn('Failed to save notification settings:', error);
     }
   }, [settings]);
 
   const updateSettings = (newSettings: Partial<NotificationSettings>) => {
-    console.log('🔧 NotificationSettingsProvider: Updating settings:', newSettings);
     setSettings(prev => ({ ...prev, ...newSettings }));
   };
 
   const updateSetting = (key: keyof NotificationSettings, value: boolean) => {
-    console.log('🔧 NotificationSettingsProvider: Updating setting:', key, value);
     setSettings(prev => ({ ...prev, [key]: value }));
   };
 

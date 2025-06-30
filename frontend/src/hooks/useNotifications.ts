@@ -145,7 +145,6 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
       marketingNotifications: false,
     };
     
-    console.log('🔔 useNotifications: Resolved settings:', settings);
     return settings;
   }, [options?.notificationSettings, contextNotificationSettings]);
   
@@ -200,8 +199,6 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
   
   // Simple, clean toast styling that matches user's preference
   const createToast = useCallback((message: string, type: 'success' | 'error' | 'warning' | 'info') => {
-    console.log('🔔 createToast called:', { message, type });
-    
     const toastOptions = {
       duration: type === 'error' ? 6000 : 4000,
       style: {
@@ -253,7 +250,6 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
         break;
     }
     
-    console.log('🔔 createToast result:', toastResult);
     return toastResult;
   }, []);
   
@@ -271,16 +267,6 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
       scope = 'personal',
       action
     } = options;
-
-    // Debug logging
-    console.log('🔔 addNotification called:', {
-      message,
-      type,
-      options,
-      notificationSettings,
-      showToast,
-      shouldShowToast: showToast && notificationSettings.showToasts
-    });
 
     // Generate unique ID with timestamp
     const id = `notif_${Date.now()}_${++notificationId}_${Math.random().toString(36).substr(2, 9)}`;
@@ -302,15 +288,7 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
     // Check notification settings before showing toast
     const shouldShowToast = showToast && notificationSettings.showToasts;
     
-    console.log('🔔 Toast decision:', {
-      shouldShowToast,
-      showToast,
-      notificationSettingsShowToasts: notificationSettings.showToasts,
-      notificationSettings
-    });
-    
     if (shouldShowToast) {
-      console.log('🔔 Creating toast for:', message);
       createToast(message, type);
       
       // Play notification sound if enabled
@@ -348,11 +326,6 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
           console.warn('Failed to play notification sound:', error);
         }
       }
-    } else {
-      console.log('🔔 Skipping toast due to settings:', {
-        showToast,
-        notificationSettingsShowToasts: notificationSettings.showToasts
-      });
     }
 
     // Add to global notifications first (immediate UI update)
