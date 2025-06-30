@@ -2,7 +2,7 @@
 
 ## Mobile-First & Enterprise-Grade Enhancements
 
-This document summarizes the key improvements made to Storesight's frontend for a best-in-class mobile and enterprise experience.
+This document summarizes the key improvements made to ShopGauge's frontend for a best-in-class mobile and enterprise experience.
 
 ---
 
