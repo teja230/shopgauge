@@ -87,7 +87,7 @@ graph TB
 | **Environment & Deployment** | 🔗 [Environment Setup](ENVIRONMENT_SETUP.md) |
 | **Analytics Engine** | 🔗 [Analytics Enhancements](ANALYTICS_ENHANCEMENTS.md) |
 | **AI Market Intelligence** | 🔗 [Competitor Discovery System](MULTI_SESSION_ARCHITECTURE.md#competitor-discovery) |
-| **Notification Centre** | 🔗 [Session-Based Notifications](SESSION_BASED_NOTIFICATIONS.md) |
+| **Notification Centre** | 🔗 [Notification System](NOTIFICATIONS_SYSTEM.md) |
 | **UI / UX Enhancements** | 🔗 [UI & UX Enhancements](UI_UX_ENHANCEMENTS.md) |
 | **Security & Compliance** | 🔗 [Privacy Policy](PRIVACY_POLICY.md) <br/> 🔗 [Shopify Protected Data Request](SHOPIFY_PROTECTED_DATA_REQUEST.md) |
 | **Contribution Guide** | 🔗 [CONTRIBUTING](CONTRIBUTING.md) |

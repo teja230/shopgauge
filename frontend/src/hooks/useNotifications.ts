@@ -2,6 +2,7 @@ import { useCallback, useRef, useState, useEffect, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import { fetchWithAuth } from '../api';
 import { useAuth } from '../context/AuthContext';
+import { useNotificationSettings } from '../context/NotificationSettingsContext';
 
 export interface Notification {
   id: string;
@@ -126,33 +127,17 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
   const redirectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   const { isAuthenticated } = useAuth();
+  const { settings: contextNotificationSettings } = useNotificationSettings();
   
-  // Load notification settings from localStorage if not provided
+  // Load notification settings from context or localStorage fallback
   const notificationSettings = useMemo(() => {
     if (options?.notificationSettings) {
       return options.notificationSettings;
     }
     
-    // Try to load from localStorage
-    try {
-      const saved = localStorage.getItem('storesight_notification_settings');
-      return saved ? JSON.parse(saved) : {
-        showToasts: true,
-        soundEnabled: false,
-        systemNotifications: true,
-        emailNotifications: true,
-        marketingNotifications: false,
-      };
-    } catch (error) {
-      return {
-        showToasts: true,
-        soundEnabled: false,
-        systemNotifications: true,
-        emailNotifications: true,
-        marketingNotifications: false,
-      };
-    }
-  }, [options?.notificationSettings]);
+    // Use context settings (which are already loaded from localStorage)
+    return contextNotificationSettings;
+  }, [options?.notificationSettings, contextNotificationSettings]);
   
   // Override window.confirm to capture confirmations as notifications
   useEffect(() => {

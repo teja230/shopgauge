@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocat
 import { Toaster, toast } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ServiceStatusProvider, useServiceStatus } from './context/ServiceStatusContext';
+import { NotificationSettingsProvider } from './context/NotificationSettingsContext';
 import { setGlobalServiceErrorHandler } from './api';
 import HomePage from './pages/HomePage';
 import DashboardPage from './pages/DashboardPage';
@@ -218,6 +219,7 @@ const App: React.FC = () => {
         <Router>
           <AuthProvider>
             <ServiceStatusProvider>
+            <NotificationSettingsProvider>
             <Toaster 
               position="top-center"
               toastOptions={{
@@ -248,6 +250,7 @@ const App: React.FC = () => {
               }}
             />
             <AppContent />
+            </NotificationSettingsProvider>
             </ServiceStatusProvider>
           </AuthProvider>
         </Router>

@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import { useNotifications } from '../../hooks/useNotifications';
+import { useNotificationSettings } from '../../context/NotificationSettingsContext';
 import { 
   Box, 
   Paper, 
@@ -62,6 +63,14 @@ interface ConfirmDialogProps {
   confirmText?: string;
   cancelText?: string;
   type?: 'danger' | 'warning' | 'info';
+}
+
+interface NotificationSettings {
+  showToasts: boolean;
+  soundEnabled: boolean;
+  systemNotifications: boolean;
+  emailNotifications: boolean;
+  marketingNotifications: boolean;
 }
 
 // Keyframes for animations
@@ -225,13 +234,13 @@ const StyledDialog = styled(Dialog)(({ theme }) => ({
 const NotificationSettingsDialog: React.FC<{
   isOpen: boolean;
   onClose: () => void;
-  settings: any;
-  onSettingsChange: (settings: any) => void;
+  settings: NotificationSettings;
+  onSettingsChange: (key: keyof NotificationSettings, value: boolean) => void;
 }> = ({ isOpen, onClose, settings, onSettingsChange }) => {
   const theme = useTheme();
 
   const handleSettingChange = (key: string, value: boolean) => {
-    onSettingsChange({ ...settings, [key]: value });
+    onSettingsChange(key as keyof NotificationSettings, value);
   };
 
   return (
@@ -498,38 +507,6 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     type: 'warning'
   });
 
-  // Notification settings state with persistence
-  const [settings, setSettings] = useState(() => {
-    // Load settings from localStorage
-    try {
-      const saved = localStorage.getItem('storesight_notification_settings');
-      return saved ? JSON.parse(saved) : {
-        showToasts: true,
-        soundEnabled: false,
-        systemNotifications: true,
-        emailNotifications: true,
-        marketingNotifications: false,
-      };
-    } catch (error) {
-      return {
-        showToasts: true,
-        soundEnabled: false,
-        systemNotifications: true,
-        emailNotifications: true,
-        marketingNotifications: false,
-      };
-    }
-  });
-
-  // Save settings to localStorage whenever they change
-  useEffect(() => {
-    try {
-      localStorage.setItem('storesight_notification_settings', JSON.stringify(settings));
-    } catch (error) {
-      console.warn('Failed to save notification settings:', error);
-    }
-  }, [settings]);
-  
   const {
     notifications,
     unreadCount,
@@ -542,9 +519,9 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     markAllAsUnread,
     deleteNotification,
     clearAll,
-  } = useNotifications({ 
-    notificationSettings: settings 
-  });
+  } = useNotifications();
+
+  const { settings, updateSetting } = useNotificationSettings();
 
   // Expose settings saved callback for confirmation
   useEffect(() => {
@@ -1292,7 +1269,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         settings={settings}
-        onSettingsChange={setSettings}
+        onSettingsChange={updateSetting}
       />
 
       {/* Confirmation Dialog */}

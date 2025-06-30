@@ -496,8 +496,7 @@ We welcome contributions! Please see our [Contributing Guide](docs/CONTRIBUTING.
 ### Technical Documentation
 
 - **[Multi-Session Architecture](docs/MULTI_SESSION_ARCHITECTURE.md)** - Detailed architecture documentation
-- **[Session-Based Notifications](docs/SESSION_BASED_NOTIFICATIONS.md)** - Notification system design
-- **[Notifications System](docs/NOTIFICATIONS_SYSTEM.md)** - Comprehensive notification system documentation
+- **[Notification System](docs/NOTIFICATIONS_SYSTEM.md)** - Comprehensive notification system documentation (session-based, global settings, frontend/backend integration)
 - **[Environment Setup](docs/ENVIRONMENT_SETUP.md)** - Complete setup guide
 - **[Contributing Guide](docs/CONTRIBUTING.md)** - Development guidelines
 - **[Privacy Policy](docs/PRIVACY_POLICY.md)** - Data handling and privacy compliance
