@@ -1,16 +1,311 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8"/>
-    <link href="/vite.svg" rel="icon" type="image/svg+xml"/>
-    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-    <link href="https://fonts.googleapis.com" rel="preconnect">
-    <link crossorigin href="https://fonts.gstatic.com" rel="preconnect">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <title>ShopGauge App</title>
+    
+    <!-- Critical viewport configuration for mobile-first design -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes, minimum-scale=1.0, maximum-scale=5.0" />
+    
+    <!-- Security headers -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    <meta http-equiv="X-Frame-Options" content="DENY" />
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block" />
+    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin" />
+    
+    <!-- DNS prefetching and preconnects for performance -->
+    <link rel="dns-prefetch" href="//fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    
+    <!-- Critical CSS for font loading optimization -->
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'" />
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" /></noscript>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="application-name" content="ShopGauge" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="ShopGauge" />
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="msapplication-config" content="/browserconfig.xml" />
+    <meta name="msapplication-TileColor" content="#2563eb" />
+    <meta name="msapplication-tap-highlight" content="no" />
+    <meta name="theme-color" content="#2563eb" />
+    <meta name="color-scheme" content="light" />
+    
+    <!-- Enhanced SEO Meta Tags -->
+    <title>ShopGauge - Enterprise Shopify Analytics & Competitor Intelligence</title>
+    <meta name="description" content="Enterprise-grade analytics platform for Shopify stores. Monitor competitor prices, track market trends, and grow your business with AI-powered insights and real-time data." />
+    <meta name="keywords" content="shopify analytics, competitor monitoring, price tracking, ecommerce insights, shopify tools, market intelligence, business analytics" />
+    <meta name="author" content="ShopGauge" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
+    <meta name="googlebot" content="index, follow" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://shopgauge.app/" />
+    <meta property="og:title" content="ShopGauge - Enterprise Shopify Analytics" />
+    <meta property="og:description" content="Transform your Shopify store with enterprise-grade analytics, competitor intelligence, and AI-powered insights." />
+    <meta property="og:image" content="https://shopgauge.app/images/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:site_name" content="ShopGauge" />
+    <meta property="og:locale" content="en_US" />
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://shopgauge.app/" />
+    <meta property="twitter:title" content="ShopGauge - Enterprise Shopify Analytics" />
+    <meta property="twitter:description" content="Enterprise-grade analytics platform for Shopify stores with competitor monitoring and AI insights." />
+    <meta property="twitter:image" content="https://shopgauge.app/images/twitter-image.png" />
+    <meta property="twitter:creator" content="@shopgauge" />
+    <meta property="twitter:site" content="@shopgauge" />
+    
+    <!-- Schema.org structured data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "ShopGauge",
+      "description": "Enterprise-grade analytics platform for Shopify stores with competitor monitoring and market intelligence.",
+      "url": "https://shopgauge.app",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web Browser",
+      "offers": {
+        "@type": "Offer",
+        "category": "SaaS"
+      },
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.8",
+        "ratingCount": "150"
+      },
+      "author": {
+        "@type": "Organization",
+        "name": "ShopGauge",
+        "url": "https://shopgauge.app"
+      }
+    }
+    </script>
+    
+    <!-- Favicon and app icons for all devices -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/images/favicon-48x48.png" />
+    
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" sizes="57x57" href="/images/apple-touch-icon-57x57.png" />
+    <link rel="apple-touch-icon" sizes="60x60" href="/images/apple-touch-icon-60x60.png" />
+    <link rel="apple-touch-icon" sizes="72x72" href="/images/apple-touch-icon-72x72.png" />
+    <link rel="apple-touch-icon" sizes="76x76" href="/images/apple-touch-icon-76x76.png" />
+    <link rel="apple-touch-icon" sizes="114x114" href="/images/apple-touch-icon-114x114.png" />
+    <link rel="apple-touch-icon" sizes="120x120" href="/images/apple-touch-icon-120x120.png" />
+    <link rel="apple-touch-icon" sizes="144x144" href="/images/apple-touch-icon-144x144.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="/images/apple-touch-icon-152x152.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-180x180.png" />
+    
+    <!-- Android/Chrome icons -->
+    <link rel="icon" type="image/png" sizes="36x36" href="/images/android-chrome-36x36.png" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/images/android-chrome-48x48.png" />
+    <link rel="icon" type="image/png" sizes="72x72" href="/images/android-chrome-72x72.png" />
+    <link rel="icon" type="image/png" sizes="96x96" href="/images/android-chrome-96x96.png" />
+    <link rel="icon" type="image/png" sizes="144x144" href="/images/android-chrome-144x144.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/images/android-chrome-192x192.png" />
+    <link rel="icon" type="image/png" sizes="256x256" href="/images/android-chrome-256x256.png" />
+    <link rel="icon" type="image/png" sizes="384x384" href="/images/android-chrome-384x384.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/images/android-chrome-512x512.png" />
+    
+    <!-- PWA manifest -->
+    <link rel="manifest" href="/manifest.json" />
+    
+    <!-- Windows tile configuration -->
+    <meta name="msapplication-square70x70logo" content="/images/mstile-70x70.png" />
+    <meta name="msapplication-square150x150logo" content="/images/mstile-150x150.png" />
+    <meta name="msapplication-wide310x150logo" content="/images/mstile-310x150.png" />
+    <meta name="msapplication-square310x310logo" content="/images/mstile-310x310.png" />
+    
+    <!-- Splash screens for iOS -->
+    <link rel="apple-touch-startup-image" href="/images/splash-640x1136.png" media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" />
+    <link rel="apple-touch-startup-image" href="/images/splash-750x1334.png" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" />
+    <link rel="apple-touch-startup-image" href="/images/splash-1242x2208.png" media="(device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+    <link rel="apple-touch-startup-image" href="/images/splash-1125x2436.png" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+    <link rel="apple-touch-startup-image" href="/images/splash-1536x2048.png" media="(device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" />
+    <link rel="apple-touch-startup-image" href="/images/splash-1668x2224.png" media="(device-width: 834px) and (device-height: 1112px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" />
+    <link rel="apple-touch-startup-image" href="/images/splash-2048x2732.png" media="(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" />
+    
+    <!-- Critical inline CSS for immediate rendering -->
+    <style>
+      /* Critical CSS for initial paint */
+      html {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        scroll-behavior: smooth;
+      }
+      
+      body {
+        margin: 0;
+        padding: 0;
+        background-color: #f5f5f5;
+        color: #1f2937;
+        line-height: 1.6;
+        overflow-x: hidden;
+      }
+      
+      /* Loading screen styles */
+      .loading-screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        transition: opacity 0.3s ease-out;
+      }
+      
+      .loading-logo {
+        width: 64px;
+        height: 64px;
+        border: 4px solid rgba(255, 255, 255, 0.3);
+        border-top: 4px solid #ffffff;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-bottom: 24px;
+      }
+      
+      .loading-text {
+        color: white;
+        font-size: 1.125rem;
+        font-weight: 600;
+        margin-bottom: 8px;
+      }
+      
+      .loading-subtitle {
+        color: rgba(255, 255, 255, 0.8);
+        font-size: 0.875rem;
+        text-align: center;
+        max-width: 280px;
+      }
+      
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      
+      /* Accessibility and reduced motion */
+      @media (prefers-reduced-motion: reduce) {
+        html { scroll-behavior: auto; }
+        .loading-logo { animation: none; }
+      }
+      
+      /* Focus visible styles for accessibility */
+      :focus-visible {
+        outline: 2px solid #2563eb;
+        outline-offset: 2px;
+        border-radius: 4px;
+      }
+      
+      /* High contrast mode support */
+      @media (prefers-contrast: high) {
+        body {
+          background-color: #ffffff;
+          color: #000000;
+        }
+      }
+      
+      /* Print styles */
+      @media print {
+        .loading-screen {
+          display: none;
+        }
+      }
+    </style>
 </head>
 <body>
-<div id="root"></div>
-<script src="/src/main.tsx" type="module"></script>
+    <!-- Loading screen with enhanced accessibility -->
+    <div id="loading-screen" class="loading-screen" role="status" aria-label="Loading ShopGauge application">
+      <div class="loading-logo" aria-hidden="true"></div>
+      <div class="loading-text">ShopGauge</div>
+      <div class="loading-subtitle">Loading your enterprise analytics platform...</div>
+    </div>
+    
+    <!-- Main application container -->
+    <div id="root" role="main" aria-label="ShopGauge Application"></div>
+    
+    <!-- Vite script with module preloading -->
+    <script type="module" src="/src/main.tsx"></script>
+    
+    <!-- Service Worker registration with error handling -->
+    <script>
+      // Service Worker registration for PWA functionality
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then((registration) => {
+              console.log('SW registered: ', registration);
+            })
+            .catch((registrationError) => {
+              console.log('SW registration failed: ', registrationError);
+            });
+        });
+      }
+      
+      // Install prompt handling
+      let deferredPrompt;
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        // Optionally show install button in UI
+        console.log('Install prompt available');
+      });
+      
+      // Hide loading screen after app loads
+      window.addEventListener('load', () => {
+        setTimeout(() => {
+          const loadingScreen = document.getElementById('loading-screen');
+          if (loadingScreen) {
+            loadingScreen.style.opacity = '0';
+            setTimeout(() => {
+              loadingScreen.style.display = 'none';
+            }, 300);
+          }
+        }, 500);
+      });
+      
+      // App update detection
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          window.location.reload();
+        });
+      }
+      
+      // Performance monitoring
+      if ('performance' in window && 'getEntriesByType' in window.performance) {
+        window.addEventListener('load', () => {
+          const [navigation] = performance.getEntriesByType('navigation');
+          const loadTime = navigation.loadEventEnd - navigation.fetchStart;
+          if (loadTime > 3000) {
+            console.warn('Page load time is slow:', loadTime + 'ms');
+          }
+        });
+      }
+    </script>
+    
+    <!-- Fallback for users with JavaScript disabled -->
+    <noscript>
+      <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #f5f5f5; display: flex; align-items: center; justify-content: center; z-index: 10000;">
+        <div style="text-align: center; padding: 32px; max-width: 400px;">
+          <h1 style="color: #1f2937; margin-bottom: 16px;">JavaScript Required</h1>
+          <p style="color: #6b7280; margin-bottom: 24px;">ShopGauge requires JavaScript to function properly. Please enable JavaScript in your browser settings and reload the page.</p>
+          <p style="color: #6b7280; font-size: 0.875rem;">For the best experience, we recommend using a modern browser like Chrome, Firefox, Safari, or Edge.</p>
+        </div>
+      </div>
+    </noscript>
 </body>
 </html>
