@@ -13,7 +13,6 @@ import { useAuth } from '../context/AuthContext';
 import { 
   SparklesIcon, 
   PlusIcon, 
-  EyeIcon, 
   ChartBarIcon,
   PlayIcon,
   StopIcon,
@@ -1413,31 +1412,28 @@ export default function CompetitorsPage() {
 
         {/* Demo Mode Notice */}
         {isDemoMode && (
-          <div
-            className="relative rounded-xl p-6 border-l-4 border-orange-500 bg-gradient-to-r from-orange-100 via-amber-50 to-yellow-50 shadow-lg"
-            role="alert"
-            aria-live="polite"
-          >
+          <div className="relative overflow-hidden rounded-xl border-l-4 border-amber-500 bg-amber-50 p-6 shadow-md">
+            <span className="absolute top-0 right-0 mt-2 mr-2 px-2 py-0.5 text-xs font-semibold bg-amber-600 text-white rounded-full shadow">DEMO</span>
             <div className="flex items-start gap-4">
-              <div className="flex items-center justify-center w-10 h-10 bg-orange-500 rounded-full shadow-md">
-                <EyeIcon className="h-6 w-6 text-white" />
+              <div className="flex-shrink-0">
+                <InformationCircleIcon className="h-6 w-6 text-amber-600" aria-hidden="true" />
               </div>
-              <div className="flex-1">
-                <h3 className="font-bold text-orange-900 text-lg drop-shadow-sm">Demo Mode Active</h3>
-                <p className="text-orange-800 mb-3 text-sm md:text-base leading-relaxed">
+              <div className="flex-1 min-w-0">
+                <h3 className="text-base font-semibold text-amber-800 leading-6">Demo Mode Active</h3>
+                <p className="mt-1 text-sm text-amber-700">
                   {isAuthenticated 
                     ? "Showing sample competitor data because no competitors have been added yet. Add your first competitor to start monitoring real market data."
                     : "Showing sample competitor data. Configure your search API to enable live competitor discovery and price monitoring."
                   }
                 </p>
                 {isAuthenticated && (
-                  <div className="flex flex-wrap gap-3 mt-3">
+                  <div className="flex flex-wrap gap-2 mt-4">
                     <button
                       onClick={() => {
                         setShowAddForm(true);
                         trackDemoInteraction('add_competitor_button');
                       }}
-                      className="inline-flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-semibold shadow transition bg-orange-600 text-white hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-400"
+                      className="inline-flex items-center gap-1 rounded-lg bg-amber-600 px-3 py-1 text-sm font-medium text-white shadow hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2"
                     >
                       Add Your First Competitor
                     </button>
@@ -1446,38 +1442,12 @@ export default function CompetitorsPage() {
                         toggleDemoMode();
                         trackDemoInteraction('switch_to_live_mode');
                       }}
-                      className="inline-flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-semibold shadow transition bg-white/80 text-orange-700 hover:bg-white focus:outline-none focus:ring-2 focus:ring-orange-300 border border-orange-200"
+                      className="inline-flex items-center gap-1 rounded-lg bg-white px-3 py-1 text-sm font-medium text-amber-700 shadow hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2"
                     >
                       Switch to Live Mode
                     </button>
                   </div>
                 )}
-
-                {/* Demo utilities always available */}
-                <div className="flex flex-wrap gap-3 mt-4">
-                  <button
-                    onClick={() => {
-                      setShowDemoSettings(true);
-                      trackDemoInteraction('demo_settings');
-                    }}
-                    className="inline-flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-semibold shadow transition bg-blue-100 text-blue-700 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                  >
-                    <CogIcon className="h-4 w-4" />
-                    Customize Demo
-                  </button>
-                  {!demoAnalytics.tutorialCompleted && (
-                    <button
-                      onClick={() => {
-                        startTutorial();
-                        trackDemoInteraction('start_tutorial');
-                      }}
-                      className="inline-flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-semibold shadow transition bg-green-100 text-green-700 hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-green-300"
-                    >
-                      <AcademicCapIcon className="h-4 w-4" />
-                      Start Tutorial
-                    </button>
-                  )}
-                </div>
               </div>
             </div>
           </div>

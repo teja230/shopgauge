@@ -234,7 +234,7 @@ const HomePage = () => {
                       value={shopDomain}
                       onChange={(e) => setShopDomain(e.target.value)}
                       placeholder="Enter your store name or full URL"
-                      className="flex-1 px-4 py-3 rounded-lg border border-gray-300 bg-white/95 text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
+                      className="flex-1 px-4 py-3 rounded-lg border border-gray-300 bg-white/90 text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                       disabled={isLoading}
                     />
                     <button
@@ -299,7 +299,7 @@ const HomePage = () => {
                       value={shopDomain}
                       onChange={(e) => setShopDomain(e.target.value)}
                       placeholder="Enter your store name or full URL"
-                      className="flex-1 px-4 py-3 rounded-lg border border-gray-300 bg-white/95 text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
+                      className="flex-1 px-4 py-3 rounded-lg border border-gray-300 bg-white/90 text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                       disabled={isLoading}
                     />
                     <button
