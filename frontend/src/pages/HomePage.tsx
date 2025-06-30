@@ -6,6 +6,9 @@ import { API_BASE_URL } from '../api';
 import { useNotifications } from '../hooks/useNotifications';
 import { CheckCircleIcon } from '@heroicons/react/24/solid';
 import { normalizeShopDomain } from '../utils/normalizeShopDomain';
+import { Button, TextField, Typography, Box, Paper, Container, Alert } from '@mui/material';
+import { ThemeProvider } from '@mui/material/styles';
+import theme from '../theme';
 
 const features = [
   'Track up to 10 competitors with intelligent monitoring',
@@ -163,6 +166,31 @@ const HomePage = () => {
     }
   };
 
+  // Test notification function
+  const testNotification = () => {
+    console.log('🧪 Testing notification...');
+    notifications.showSuccess('Test notification - this should show!', {
+      showToast: true,
+      category: 'Test'
+    });
+  };
+
+  // Test notification with toast disabled
+  const testNotificationNoToast = () => {
+    console.log('🧪 Testing notification without toast...');
+    notifications.showError('Test notification - toast should be disabled!', {
+      showToast: false,
+      category: 'Test'
+    });
+  };
+
+  // Reset notification settings
+  const resetNotificationSettings = () => {
+    console.log('🧪 Resetting notification settings...');
+    localStorage.removeItem('storesight_notification_settings');
+    window.location.reload();
+  };
+
   // Show loading state for form submission only, not OAuth flow
   if (isLoading) {
     return (
@@ -186,6 +214,35 @@ const HomePage = () => {
           Transform your Shopify store with real-time insights and automated market intelligence.
         </p>
       </header>
+
+      {/* Test Notification Buttons - Development Only */}
+      {import.meta.env.DEV && (
+        <div className="mb-8 w-full max-w-2xl mx-auto">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <h3 className="text-lg font-medium text-yellow-800 mb-3">🧪 Debug: Test Notifications</h3>
+            <div className="flex gap-3">
+              <button
+                onClick={testNotification}
+                className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600"
+              >
+                Test Success Toast
+              </button>
+              <button
+                onClick={testNotificationNoToast}
+                className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600"
+              >
+                Test Error (No Toast)
+              </button>
+              <button
+                onClick={resetNotificationSettings}
+                className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+              >
+                Reset Settings
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Error Display Section */}
       {errorMessage && (

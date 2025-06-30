@@ -136,7 +136,17 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
     }
     
     // Use context settings (which are already loaded from localStorage)
-    return contextNotificationSettings;
+    // Ensure we always have a valid settings object
+    const settings = contextNotificationSettings || {
+      showToasts: true,
+      soundEnabled: false,
+      systemNotifications: true,
+      emailNotifications: true,
+      marketingNotifications: false,
+    };
+    
+    console.log('🔔 useNotifications: Resolved settings:', settings);
+    return settings;
   }, [options?.notificationSettings, contextNotificationSettings]);
   
   // Override window.confirm to capture confirmations as notifications
@@ -190,6 +200,8 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
   
   // Simple, clean toast styling that matches user's preference
   const createToast = useCallback((message: string, type: 'success' | 'error' | 'warning' | 'info') => {
+    console.log('🔔 createToast called:', { message, type });
+    
     const toastOptions = {
       duration: type === 'error' ? 6000 : 4000,
       style: {
@@ -208,33 +220,41 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
       info: 'ℹ️'
     }[type];
 
+    let toastResult;
     switch (type) {
       case 'success':
-        return toast.success(message, { 
+        toastResult = toast.success(message, { 
           ...toastOptions, 
           icon, 
           style: { ...toastOptions.style, background: '#059669' }, // Use theme colors
         });
+        break;
       case 'error':
-        return toast.error(message, { 
+        toastResult = toast.error(message, { 
           ...toastOptions, 
           icon, 
           style: { ...toastOptions.style, background: '#dc2626' }, // Use theme colors
         });
+        break;
       case 'warning':
-        return toast(message, { 
+        toastResult = toast(message, { 
           ...toastOptions, 
           icon, 
           style: { ...toastOptions.style, background: '#d97706' }, // Use theme colors
         });
+        break;
       case 'info':
       default:
-        return toast(message, { 
+        toastResult = toast(message, { 
           ...toastOptions, 
           icon, 
           style: { ...toastOptions.style, background: '#2563eb' }, // Use theme colors
         });
+        break;
     }
+    
+    console.log('🔔 createToast result:', toastResult);
+    return toastResult;
   }, []);
   
   // Enhanced notification function with better ID generation and timezone handling
@@ -251,6 +271,16 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
       scope = 'personal',
       action
     } = options;
+
+    // Debug logging
+    console.log('🔔 addNotification called:', {
+      message,
+      type,
+      options,
+      notificationSettings,
+      showToast,
+      shouldShowToast: showToast && notificationSettings.showToasts
+    });
 
     // Generate unique ID with timestamp
     const id = `notif_${Date.now()}_${++notificationId}_${Math.random().toString(36).substr(2, 9)}`;
@@ -272,7 +302,15 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
     // Check notification settings before showing toast
     const shouldShowToast = showToast && notificationSettings.showToasts;
     
+    console.log('🔔 Toast decision:', {
+      shouldShowToast,
+      showToast,
+      notificationSettingsShowToasts: notificationSettings.showToasts,
+      notificationSettings
+    });
+    
     if (shouldShowToast) {
+      console.log('🔔 Creating toast for:', message);
       createToast(message, type);
       
       // Play notification sound if enabled
@@ -310,6 +348,11 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
           console.warn('Failed to play notification sound:', error);
         }
       }
+    } else {
+      console.log('🔔 Skipping toast due to settings:', {
+        showToast,
+        notificationSettingsShowToasts: notificationSettings.showToasts
+      });
     }
 
     // Add to global notifications first (immediate UI update)

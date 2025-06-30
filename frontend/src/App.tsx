@@ -112,14 +112,12 @@ const RouteErrorCleaner: React.FC = () => {
   const location = useLocation();
   
   useEffect(() => {
-    // Clear all toast notifications when navigating to a new route
-    // This prevents error messages from persisting across pages
-    toast.dismiss();
+    // Only clear error toasts, not all toasts
+    // This prevents success/info notifications from being dismissed
+    console.log('RouteErrorCleaner: Route changed to:', location.pathname);
     
     // Dispatch a custom event that components can listen to for clearing their error states
     window.dispatchEvent(new CustomEvent('clearComponentErrors'));
-    
-    console.log('RouteErrorCleaner: Cleared error states for route:', location.pathname);
   }, [location.pathname]);
 
   return null;
@@ -228,7 +226,6 @@ const App: React.FC = () => {
                   borderRadius: '8px',
                   fontWeight: '500',
                   zIndex: 9999,
-                  marginTop: '60px', // Position below navbar
                   boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
                 },
                 success: {
@@ -246,7 +243,7 @@ const App: React.FC = () => {
               }}
               containerStyle={{
                 zIndex: 9999,
-                top: '60px', // Position below navbar
+                top: '20px', // Reduced from 60px to ensure visibility
               }}
             />
             <AppContent />
