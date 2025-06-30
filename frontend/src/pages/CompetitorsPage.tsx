@@ -21,7 +21,11 @@ import {
   BoltIcon,
   ArrowTrendingUpIcon,
   CheckCircleIcon,
-  FunnelIcon
+  FunnelIcon,
+  AcademicCapIcon,
+  CogIcon,
+  InformationCircleIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline';
 import type { CompetitorSuggestion } from '../api';
 import { useNotifications } from '../hooks/useNotifications';
@@ -29,76 +33,404 @@ import { fetchWithAuth } from '../api/index';
 import { getSuggestionCount } from '../api';
 import { useNavigate } from 'react-router-dom';
 
-// Demo data for when SerpAPI is not configured
-const DEMO_COMPETITORS: Competitor[] = [
+// Tutorial step types
+interface TutorialStep {
+  id: string;
+  title: string;
+  description: string;
+  target: string; // CSS selector for highlighting
+  position: 'top' | 'bottom' | 'left' | 'right';
+  action?: () => void;
+}
+
+// Demo customization types
+interface DemoPreferences {
+  category: 'electronics' | 'fashion' | 'home' | 'books' | 'random';
+  priceRange: 'low' | 'medium' | 'high' | 'mixed';
+  competitors: number;
+  includeOutOfStock: boolean;
+}
+
+// Demo analytics types
+interface DemoAnalytics {
+  timeSpent: number;
+  interactions: number;
+  featuresUsed: string[];
+  tutorialCompleted: boolean;
+  lastUsed: Date;
+}
+
+// Tutorial steps for guided tour
+const TUTORIAL_STEPS: TutorialStep[] = [
   {
-    id: '1',
-    url: 'https://amazon.com/dp/B08N5WRWNW',
-    label: 'Amazon - Echo Dot (4th Gen)',
-    price: 49.99,
-    inStock: true,
-    percentDiff: 0,
-    lastChecked: '2 hours ago'
+    id: 'welcome',
+    title: 'Welcome to Market Intelligence!',
+    description: 'This feature helps you monitor your competitors\' pricing and discover new market opportunities.',
+    target: '.market-insights-cards',
+    position: 'bottom'
   },
   {
-    id: '2',
-    url: 'https://amazon.com/dp/B08C7W5L7D',
-    label: 'Amazon - Fire TV Stick 4K',
-    price: 39.99,
-    inStock: true,
-    percentDiff: -15.2,
-    lastChecked: '1 hour ago'
+    id: 'insights',
+    title: 'Market Insights',
+    description: 'Get a quick overview of your competitive landscape with these key metrics.',
+    target: '.market-insights-cards',
+    position: 'bottom'
   },
   {
-    id: '3',
-    url: 'https://amazon.com/dp/B08N5KWB9H',
-    label: 'Amazon - Echo Show 8',
-    price: 0,
-    inStock: false,
-    percentDiff: 0,
-    lastChecked: '30 minutes ago'
+    id: 'filters',
+    title: 'Filter & Search',
+    description: 'Use filters to focus on specific competitors or search for particular products.',
+    target: '.filter-controls',
+    position: 'bottom'
   },
   {
-    id: '4',
-    url: 'https://amazon.com/dp/B07FZ8S74R',
-    label: 'Amazon - Echo Plus (2nd Gen)',
-    price: 149.99,
-    inStock: true,
-    percentDiff: 8.5,
-    lastChecked: '15 minutes ago'
+    id: 'discovery',
+    title: 'AI-Powered Discovery',
+    description: 'Automatically find new competitors using our AI-powered market research.',
+    target: '.discovery-button',
+    position: 'bottom'
+  },
+  {
+    id: 'suggestions',
+    title: 'Competitor Suggestions',
+    description: 'Review AI-suggested competitors and add them to your monitoring list.',
+    target: '.suggestions-button',
+    position: 'bottom'
+  },
+  {
+    id: 'add-competitor',
+    title: 'Add Competitors',
+    description: 'Manually add competitors by entering their product URLs.',
+    target: '.add-competitor-button',
+    position: 'bottom'
+  },
+  {
+    id: 'table',
+    title: 'Competitor Table',
+    description: 'View detailed pricing information, stock status, and price changes for all your competitors.',
+    target: '.competitor-table',
+    position: 'top'
+  },
+  {
+    id: 'demo-toggle',
+    title: 'Demo Mode',
+    description: 'Switch between demo and live modes. Demo mode shows sample data for exploration.',
+    target: '.demo-toggle-button',
+    position: 'bottom'
   }
 ];
 
-// Demo suggestions for when SerpAPI is not configured
-const DEMO_SUGGESTIONS: CompetitorSuggestion[] = [
-  {
-    id: 1,
-    suggestedUrl: 'https://amazon.com/dp/B09B9Y6Y7H',
-    title: 'Amazon - Echo Dot (5th Gen) - Smart Speaker',
-    price: 49.99,
-    source: 'GOOGLE_SHOPPING',
-    discoveredAt: '2024-01-15T10:30:00Z',
-    status: 'NEW'
+// Default demo preferences
+const DEFAULT_DEMO_PREFERENCES: DemoPreferences = {
+  category: 'electronics',
+  priceRange: 'mixed',
+  competitors: 8,
+  includeOutOfStock: true
+};
+
+// Demo data by category
+const DEMO_DATA_BY_CATEGORY = {
+  electronics: {
+    competitors: [
+      {
+        id: '1',
+        url: 'https://amazon.com/dp/B08N5WRWNW',
+        label: 'Amazon - Echo Dot (4th Gen) Smart Speaker',
+        price: 49.99,
+        inStock: true,
+        percentDiff: 0,
+        lastChecked: '2 hours ago'
+      },
+      {
+        id: '2',
+        url: 'https://amazon.com/dp/B08C7W5L7D',
+        label: 'Amazon - Fire TV Stick 4K Max',
+        price: 39.99,
+        inStock: true,
+        percentDiff: -15.2,
+        lastChecked: '1 hour ago'
+      },
+      {
+        id: '3',
+        url: 'https://bestbuy.com/site/apple-airpods-pro-2nd-generation-white/6509650.p',
+        label: 'Best Buy - Apple AirPods Pro (2nd Gen)',
+        price: 249.99,
+        inStock: true,
+        percentDiff: -5.0,
+        lastChecked: '45 minutes ago'
+      },
+      {
+        id: '4',
+        url: 'https://walmart.com/ip/Samsung-65-Class-4K-UHD-QLED-Tizen-Smart-TV/123456789',
+        label: 'Walmart - Samsung 65" 4K QLED Smart TV',
+        price: 899.99,
+        inStock: true,
+        percentDiff: 12.3,
+        lastChecked: '1 hour ago'
+      }
+    ],
+    suggestions: [
+      {
+        id: 1,
+        suggestedUrl: 'https://amazon.com/dp/B09B9Y6Y7H',
+        title: 'Amazon - Echo Dot (5th Gen) Smart Speaker with Alexa',
+        price: 49.99,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-15T10:30:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 2,
+        suggestedUrl: 'https://bestbuy.com/site/apple-airpods-3rd-generation-white/6478578.p',
+        title: 'Best Buy - Apple AirPods (3rd Generation)',
+        price: 179.99,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-15T07:30:00Z',
+        status: 'NEW'
+      }
+    ]
   },
-  {
-    id: 2,
-    suggestedUrl: 'https://amazon.com/dp/B08N5WRWNW',
-    title: 'Amazon - Echo Dot (4th Gen) - Smart Speaker with Alexa',
-    price: 39.99,
-    source: 'GOOGLE_SHOPPING',
-    discoveredAt: '2024-01-15T09:15:00Z',
-    status: 'NEW'
+  fashion: {
+    competitors: [
+      {
+        id: '1',
+        url: 'https://nike.com/t/air-force-1-07-shoe-GjGXSP',
+        label: 'Nike - Air Force 1 07 Sneaker',
+        price: 100.00,
+        inStock: true,
+        percentDiff: 0,
+        lastChecked: '2 hours ago'
+      },
+      {
+        id: '2',
+        url: 'https://adidas.com/us/ultraboost-22-shoes/GZ0127.html',
+        label: 'Adidas - Ultraboost 22 Running Shoes',
+        price: 190.00,
+        inStock: true,
+        percentDiff: -10.5,
+        lastChecked: '1 hour ago'
+      },
+      {
+        id: '3',
+        url: 'https://zara.com/us/en/oversized-blazer-p01234567.html',
+        label: 'Zara - Oversized Blazer',
+        price: 89.90,
+        inStock: false,
+        percentDiff: 0,
+        lastChecked: '30 minutes ago'
+      },
+      {
+        id: '4',
+        url: 'https://h&m.com/us/en/product/relaxed-fit-t-shirt-12345678',
+        label: 'H&M - Relaxed Fit T-Shirt',
+        price: 19.99,
+        inStock: true,
+        percentDiff: 5.2,
+        lastChecked: '15 minutes ago'
+      }
+    ],
+    suggestions: [
+      {
+        id: 1,
+        suggestedUrl: 'https://nike.com/t/air-max-270-shoe-KkLcGR',
+        title: 'Nike - Air Max 270 Sneaker',
+        price: 150.00,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-15T10:30:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 2,
+        suggestedUrl: 'https://adidas.com/us/stan-smith-shoes/FV3968.html',
+        title: 'Adidas - Stan Smith Sneakers',
+        price: 100.00,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-15T09:15:00Z',
+        status: 'NEW'
+      }
+    ]
   },
-  {
-    id: 3,
-    suggestedUrl: 'https://amazon.com/dp/B07FZ8S74R',
-    title: 'Amazon - Echo Plus (2nd Gen) - Premium Smart Speaker',
-    price: 149.99,
-    source: 'GOOGLE_SHOPPING',
-    discoveredAt: '2024-01-15T08:45:00Z',
-    status: 'NEW'
+  home: {
+    competitors: [
+      {
+        id: '1',
+        url: 'https://ikea.com/us/en/p/hemnes-bed-frame-white-stain-80263875/',
+        label: 'IKEA - HEMNES Bed Frame',
+        price: 299.00,
+        inStock: true,
+        percentDiff: 0,
+        lastChecked: '2 hours ago'
+      },
+      {
+        id: '2',
+        url: 'https://wayfair.com/furniture/pdp/mercury-row-ayden-72-bookcase-w000123456.html',
+        label: 'Wayfair - Ayden 72" Bookcase',
+        price: 449.99,
+        inStock: true,
+        percentDiff: -8.3,
+        lastChecked: '1 hour ago'
+      },
+      {
+        id: '3',
+        url: 'https://westelm.com/products/modern-leather-sofa-H1234567/',
+        label: 'West Elm - Modern Leather Sofa',
+        price: 1299.00,
+        inStock: false,
+        percentDiff: 0,
+        lastChecked: '30 minutes ago'
+      },
+      {
+        id: '4',
+        url: 'https://cb2.com/furniture/sofas-sectionals/sofas/c-scape-sofa/s1234567.html',
+        label: 'CB2 - C-Scape Sofa',
+        price: 899.00,
+        inStock: true,
+        percentDiff: 12.1,
+        lastChecked: '15 minutes ago'
+      }
+    ],
+    suggestions: [
+      {
+        id: 1,
+        suggestedUrl: 'https://ikea.com/us/en/p/malm-bed-frame-high-white-stain-80263875/',
+        title: 'IKEA - MALM Bed Frame High',
+        price: 199.00,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-15T10:30:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 2,
+        suggestedUrl: 'https://wayfair.com/furniture/pdp/mercury-row-ayden-48-bookcase-w000123457.html',
+        title: 'Wayfair - Ayden 48" Bookcase',
+        price: 299.99,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-15T09:15:00Z',
+        status: 'NEW'
+      }
+    ]
+  },
+  books: {
+    competitors: [
+      {
+        id: '1',
+        url: 'https://amazon.com/dp/014312755X',
+        label: 'Amazon - The Great Gatsby (Paperback)',
+        price: 12.99,
+        inStock: true,
+        percentDiff: 0,
+        lastChecked: '2 hours ago'
+      },
+      {
+        id: '2',
+        url: 'https://barnesandnoble.com/w/to-kill-a-mockingbird-harper-lee/1100170896',
+        label: 'Barnes & Noble - To Kill a Mockingbird',
+        price: 14.99,
+        inStock: true,
+        percentDiff: -5.2,
+        lastChecked: '1 hour ago'
+      },
+      {
+        id: '3',
+        url: 'https://booksamillion.com/p/1984/George-Orwell/9780451524935',
+        label: 'Books-A-Million - 1984 (Paperback)',
+        price: 9.99,
+        inStock: false,
+        percentDiff: 0,
+        lastChecked: '30 minutes ago'
+      },
+      {
+        id: '4',
+        url: 'https://target.com/p/the-hobbit-j-r-r-tolkien-paperback/-/A-123456',
+        label: 'Target - The Hobbit (Paperback)',
+        price: 11.99,
+        inStock: true,
+        percentDiff: 8.7,
+        lastChecked: '15 minutes ago'
+      }
+    ],
+    suggestions: [
+      {
+        id: 1,
+        suggestedUrl: 'https://amazon.com/dp/0743273567',
+        title: 'Amazon - The Catcher in the Rye (Paperback)',
+        price: 13.99,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-15T10:30:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 2,
+        suggestedUrl: 'https://barnesandnoble.com/w/lord-of-the-flies-william-golding/1100170897',
+        title: 'Barnes & Noble - Lord of the Flies',
+        price: 12.99,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-15T09:15:00Z',
+        status: 'NEW'
+      }
+    ]
+  },
+  random: {
+    competitors: [
+      {
+        id: '1',
+        url: 'https://amazon.com/dp/B08N5WRWNW',
+        label: 'Amazon - Echo Dot (4th Gen) Smart Speaker',
+        price: 49.99,
+        inStock: true,
+        percentDiff: 0,
+        lastChecked: '2 hours ago'
+      },
+      {
+        id: '2',
+        url: 'https://nike.com/t/air-force-1-07-shoe-GjGXSP',
+        label: 'Nike - Air Force 1 07 Sneaker',
+        price: 100.00,
+        inStock: true,
+        percentDiff: -10.5,
+        lastChecked: '1 hour ago'
+      },
+      {
+        id: '3',
+        url: 'https://ikea.com/us/en/p/hemnes-bed-frame-white-stain-80263875/',
+        label: 'IKEA - HEMNES Bed Frame',
+        price: 299.00,
+        inStock: false,
+        percentDiff: 0,
+        lastChecked: '30 minutes ago'
+      },
+      {
+        id: '4',
+        url: 'https://amazon.com/dp/014312755X',
+        label: 'Amazon - The Great Gatsby (Paperback)',
+        price: 12.99,
+        inStock: true,
+        percentDiff: 8.7,
+        lastChecked: '15 minutes ago'
+      }
+    ],
+    suggestions: [
+      {
+        id: 1,
+        suggestedUrl: 'https://amazon.com/dp/B09B9Y6Y7H',
+        title: 'Amazon - Echo Dot (5th Gen) Smart Speaker with Alexa',
+        price: 49.99,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-15T10:30:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 2,
+        suggestedUrl: 'https://nike.com/t/air-max-270-shoe-KkLcGR',
+        title: 'Nike - Air Max 270 Sneaker',
+        price: 150.00,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-15T09:15:00Z',
+        status: 'NEW'
+      }
+    ]
   }
-];
+};
 
 // Cache configuration - 24hr cache for costly APIs (SerpAPI, etc.)
 const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours - competitor data changes very slowly
@@ -130,6 +462,11 @@ const fetchWithCache = async <T,>(
   return data;
 };
 
+// Helper function to get demo data safely
+const getDemoData = (category: DemoPreferences['category']) => {
+  return DEMO_DATA_BY_CATEGORY[category] || DEMO_DATA_BY_CATEGORY.electronics;
+};
+
 export default function CompetitorsPage() {
   const { shop, isAuthenticated, authLoading, isAuthReady } = useAuth();
   const navigate = useNavigate();
@@ -149,6 +486,21 @@ export default function CompetitorsPage() {
   const [lastDiscoveryTime, setLastDiscoveryTime] = useState<number>(0);
   const [userDisabledDemo, setUserDisabledDemo] = useState<boolean>(false);
   const notifications = useNotifications();
+  
+  // New state for enhanced demo features
+  const [showTutorial, setShowTutorial] = useState(false);
+  const [tutorialStep, setTutorialStep] = useState(0);
+  const [showDemoSettings, setShowDemoSettings] = useState(false);
+  const [demoPreferences, setDemoPreferences] = useState<DemoPreferences>(DEFAULT_DEMO_PREFERENCES);
+  const [demoAnalytics, setDemoAnalytics] = useState<DemoAnalytics>({
+    timeSpent: 0,
+    interactions: 0,
+    featuresUsed: [],
+    tutorialCompleted: false,
+    lastUsed: new Date()
+  });
+  const [interactiveDemoActive, setInteractiveDemoActive] = useState(false);
+  const [demoStartTime, setDemoStartTime] = useState<number>(0);
   
   // Refs to prevent unnecessary re-renders and API calls
   const lastFetchTimeRef = useRef<number>(0);
@@ -195,8 +547,8 @@ export default function CompetitorsPage() {
       if (isAuthReady && !isAuthenticated && !userDisabledDemo) {
         console.log('CompetitorsPage: Not authenticated, enabling demo mode');
         setIsDemoMode(true);
-        setCompetitors(DEMO_COMPETITORS);
-        setSuggestionCount(DEMO_SUGGESTIONS.length);
+        setCompetitors(getDemoData(DEFAULT_DEMO_PREFERENCES.category).competitors);
+        setSuggestionCount(getDemoData(DEFAULT_DEMO_PREFERENCES.category).suggestions.length);
       }
       
       setIsLoading(false);
@@ -246,8 +598,8 @@ export default function CompetitorsPage() {
         console.log('fetchData: Authenticated but no data available, defaulting to Demo Mode');
         if (!isDemoMode) {
           setIsDemoMode(true);
-          setCompetitors(DEMO_COMPETITORS);
-          setSuggestionCount(DEMO_SUGGESTIONS.length);
+          setCompetitors(getDemoData(DEFAULT_DEMO_PREFERENCES.category).competitors);
+          setSuggestionCount(getDemoData(DEFAULT_DEMO_PREFERENCES.category).suggestions.length);
         }
       }
       
@@ -261,8 +613,8 @@ export default function CompetitorsPage() {
       if (!userDisabledDemo && !isAuthenticated) {
         console.log('fetchData: API failed and not authenticated, enabling Demo Mode');
         setIsDemoMode(true);
-        setCompetitors(DEMO_COMPETITORS);
-        setSuggestionCount(DEMO_SUGGESTIONS.length);
+        setCompetitors(getDemoData(DEFAULT_DEMO_PREFERENCES.category).competitors);
+        setSuggestionCount(getDemoData(DEFAULT_DEMO_PREFERENCES.category).suggestions.length);
       } else {
         console.log('fetchData: API failed but authenticated or demo disabled, showing error state');
       }
@@ -565,7 +917,7 @@ export default function CompetitorsPage() {
   const refreshSuggestionCount = useCallback(async () => {
     try {
       if (isDemoMode) {
-        setSuggestionCount(DEMO_SUGGESTIONS.length);
+        setSuggestionCount(getDemoData(DEFAULT_DEMO_PREFERENCES.category).suggestions.length);
         return;
       }
       
@@ -579,7 +931,7 @@ export default function CompetitorsPage() {
       console.error('Error refreshing suggestion count:', error);
       // Fallback to cached or demo data
       if (isDemoMode) {
-        setSuggestionCount(DEMO_SUGGESTIONS.length);
+        setSuggestionCount(getDemoData(DEFAULT_DEMO_PREFERENCES.category).suggestions.length);
       }
     }
   }, [isDemoMode, shop]);
@@ -594,8 +946,8 @@ export default function CompetitorsPage() {
       // Set all state changes together to prevent flickering
       setUserDisabledDemo(true);
       setIsDemoMode(false);
-      setCompetitors([]);
-      setSuggestionCount(0);
+      setCompetitors(getDemoData(DEFAULT_DEMO_PREFERENCES.category).competitors);
+      setSuggestionCount(getDemoData(DEFAULT_DEMO_PREFERENCES.category).suggestions.length);
       
       // Persist user preference immediately
       if (shop) {
@@ -620,8 +972,8 @@ export default function CompetitorsPage() {
       // Set all state changes together immediately - no API calls needed
       setUserDisabledDemo(false);
       setIsDemoMode(true);
-      setCompetitors(DEMO_COMPETITORS);
-      setSuggestionCount(DEMO_SUGGESTIONS.length);
+      setCompetitors(getDemoData(DEFAULT_DEMO_PREFERENCES.category).competitors);
+      setSuggestionCount(getDemoData(DEFAULT_DEMO_PREFERENCES.category).suggestions.length);
       
       // Clear user preference
       if (shop) {
@@ -858,11 +1210,156 @@ export default function CompetitorsPage() {
     };
   }, [filteredCompetitors]);
 
+  // Tutorial management functions
+  const startTutorial = useCallback(() => {
+    setShowTutorial(true);
+    setTutorialStep(0);
+    setDemoAnalytics(prev => ({
+      ...prev,
+      tutorialCompleted: false
+    }));
+  }, []);
+
+  const nextTutorialStep = useCallback(() => {
+    if (tutorialStep < TUTORIAL_STEPS.length - 1) {
+      setTutorialStep(prev => prev + 1);
+    } else {
+      completeTutorial();
+    }
+  }, [tutorialStep]);
+
+  const previousTutorialStep = useCallback(() => {
+    if (tutorialStep > 0) {
+      setTutorialStep(prev => prev - 1);
+    }
+  }, [tutorialStep]);
+
+  const completeTutorial = useCallback(() => {
+    setShowTutorial(false);
+    setTutorialStep(0);
+    setDemoAnalytics(prev => ({
+      ...prev,
+      tutorialCompleted: true
+    }));
+    
+    // Save tutorial completion to localStorage
+    if (shop) {
+      localStorage.setItem(`tutorialCompleted_${shop}`, 'true');
+    }
+    
+    notifications.showSuccess('Tutorial completed! You\'re ready to explore Market Intelligence.', {
+      category: 'Tutorial'
+    });
+  }, [shop, notifications]);
+
+  const skipTutorial = useCallback(() => {
+    setShowTutorial(false);
+    setTutorialStep(0);
+    notifications.showInfo('Tutorial skipped. You can restart it anytime from the demo settings.', {
+      category: 'Tutorial'
+    });
+  }, [notifications]);
+
+  // Demo analytics tracking
+  const trackDemoInteraction = useCallback((feature: string) => {
+    setDemoAnalytics(prev => ({
+      ...prev,
+      interactions: prev.interactions + 1,
+      featuresUsed: prev.featuresUsed.includes(feature) 
+        ? prev.featuresUsed 
+        : [...prev.featuresUsed, feature]
+    }));
+  }, []);
+
+  const startDemoSession = useCallback(() => {
+    setDemoStartTime(Date.now());
+    setInteractiveDemoActive(true);
+    setDemoAnalytics(prev => ({
+      ...prev,
+      lastUsed: new Date()
+    }));
+  }, []);
+
+  const endDemoSession = useCallback(() => {
+    if (demoStartTime > 0) {
+      const sessionTime = Date.now() - demoStartTime;
+      setDemoAnalytics(prev => ({
+        ...prev,
+        timeSpent: prev.timeSpent + sessionTime
+      }));
+      setDemoStartTime(0);
+      setInteractiveDemoActive(false);
+    }
+  }, [demoStartTime]);
+
+  // Demo preferences management
+  const updateDemoPreferences = useCallback((newPreferences: Partial<DemoPreferences>) => {
+    const updatedPreferences = { ...demoPreferences, ...newPreferences };
+    setDemoPreferences(updatedPreferences);
+    
+    // Save to localStorage
+    if (shop) {
+      localStorage.setItem(`demoPreferences_${shop}`, JSON.stringify(updatedPreferences));
+    }
+    
+    // Update demo data if in demo mode
+    if (isDemoMode) {
+      const newDemoData = getDemoData(updatedPreferences.category);
+      setCompetitors(newDemoData.competitors);
+      setSuggestionCount(newDemoData.suggestions.length);
+    }
+    
+    trackDemoInteraction('preferences_updated');
+  }, [demoPreferences, shop, isDemoMode, trackDemoInteraction]);
+
+  // Load saved preferences on component mount
+  useEffect(() => {
+    if (shop) {
+      // Load demo preferences
+      const savedPreferences = localStorage.getItem(`demoPreferences_${shop}`);
+      if (savedPreferences) {
+        try {
+          const parsed = JSON.parse(savedPreferences);
+          setDemoPreferences(parsed);
+        } catch (error) {
+          console.warn('Failed to parse saved demo preferences:', error);
+        }
+      }
+      
+      // Load tutorial completion status
+      const tutorialCompleted = localStorage.getItem(`tutorialCompleted_${shop}`);
+      if (tutorialCompleted === 'true') {
+        setDemoAnalytics(prev => ({
+          ...prev,
+          tutorialCompleted: true
+        }));
+      }
+    }
+  }, [shop]);
+
+  // Track demo session time
+  useEffect(() => {
+    if (isDemoMode && !demoStartTime) {
+      startDemoSession();
+    } else if (!isDemoMode && demoStartTime) {
+      endDemoSession();
+    }
+  }, [isDemoMode, demoStartTime, startDemoSession, endDemoSession]);
+
+  // Cleanup demo session on unmount
+  useEffect(() => {
+    return () => {
+      if (demoStartTime > 0) {
+        endDemoSession();
+      }
+    };
+  }, [demoStartTime, endDemoSession]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Market Insights Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 market-insights-cards">
           <div className="bg-white rounded-xl shadow p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -930,19 +1427,49 @@ export default function CompetitorsPage() {
                 {isAuthenticated && (
                   <div className="flex flex-wrap gap-2 mt-2">
                     <button
-                      onClick={() => setShowAddForm(true)}
+                      onClick={() => {
+                        setShowAddForm(true);
+                        trackDemoInteraction('add_competitor_button');
+                      }}
                       className="bg-orange-600 text-white px-3 py-1 rounded-lg text-sm font-medium hover:bg-orange-700 transition-all"
                     >
                       Add Your First Competitor
                     </button>
                     <button
-                      onClick={toggleDemoMode}
+                      onClick={() => {
+                        toggleDemoMode();
+                        trackDemoInteraction('switch_to_live_mode');
+                      }}
                       className="bg-orange-100 text-orange-700 px-3 py-1 rounded-lg text-sm font-medium hover:bg-orange-200 transition-all"
                     >
                       Switch to Live Mode
                     </button>
                   </div>
                 )}
+                <div className="flex flex-wrap gap-2 mt-2">
+                  <button
+                    onClick={() => {
+                      setShowDemoSettings(true);
+                      trackDemoInteraction('demo_settings');
+                    }}
+                    className="bg-blue-100 text-blue-700 px-3 py-1 rounded-lg text-sm font-medium hover:bg-blue-200 transition-all flex items-center gap-1"
+                  >
+                    <CogIcon className="h-4 w-4" />
+                    Customize Demo
+                  </button>
+                  {!demoAnalytics.tutorialCompleted && (
+                    <button
+                      onClick={() => {
+                        startTutorial();
+                        trackDemoInteraction('start_tutorial');
+                      }}
+                      className="bg-green-100 text-green-700 px-3 py-1 rounded-lg text-sm font-medium hover:bg-green-200 transition-all flex items-center gap-1"
+                    >
+                      <AcademicCapIcon className="h-4 w-4" />
+                      Start Tutorial
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -952,12 +1479,15 @@ export default function CompetitorsPage() {
         <div className="bg-white rounded-xl shadow p-4">
           <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
             {/* Left side - Filters and Search */}
-            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center flex-1">
+            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center flex-1 filter-controls">
               <div className="flex items-center gap-2">
                 <FunnelIcon className="h-5 w-5 text-gray-500" />
                 <select
                   value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value as any)}
+                  onChange={(e) => {
+                    setFilterStatus(e.target.value as any);
+                    trackDemoInteraction('filter_status');
+                  }}
                   className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none"
                 >
                   <option value="all">All Competitors</option>
@@ -972,7 +1502,10 @@ export default function CompetitorsPage() {
                   type="text"
                   placeholder="Search competitors..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    if (e.target.value) trackDemoInteraction('search_competitors');
+                  }}
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none text-sm"
                 />
               </div>
@@ -982,8 +1515,11 @@ export default function CompetitorsPage() {
             <div className="flex items-center gap-3 flex-wrap">
               {/* Demo Mode Toggle */}
               <button
-                onClick={toggleDemoMode}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                onClick={() => {
+                  toggleDemoMode();
+                  trackDemoInteraction('demo_toggle');
+                }}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all demo-toggle-button ${
                   isDemoMode 
                     ? 'bg-orange-100 text-orange-700 hover:bg-orange-200 shadow-md' 
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -999,9 +1535,12 @@ export default function CompetitorsPage() {
 
               {/* Manual Discovery Button with 24hr Cooldown */}
               <button
-                onClick={triggerManualDiscovery}
+                onClick={() => {
+                  triggerManualDiscovery();
+                  trackDemoInteraction('discovery_button');
+                }}
                 disabled={isDiscovering || discoveryStatus.isOnCooldown}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-md ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-md discovery-button ${
                   discoveryStatus.isOnCooldown 
                     ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
                     : 'bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed'
@@ -1142,8 +1681,175 @@ export default function CompetitorsPage() {
         onClose={() => setShowSuggestions(false)}
         onSuggestionUpdate={refreshSuggestionCount}
         isDemoMode={isDemoMode}
-        demoSuggestions={DEMO_SUGGESTIONS}
+        demoSuggestions={getDemoData(demoPreferences.category).suggestions}
       />
+
+      {/* Tutorial Overlay */}
+      {showTutorial && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-xl p-6 max-w-md mx-4 relative">
+            <button
+              onClick={skipTutorial}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+            >
+              <XMarkIcon className="h-6 w-6" />
+            </button>
+            
+            <div className="text-center mb-6">
+              <AcademicCapIcon className="h-12 w-12 text-blue-600 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                {TUTORIAL_STEPS[tutorialStep].title}
+              </h3>
+              <p className="text-gray-600">
+                {TUTORIAL_STEPS[tutorialStep].description}
+              </p>
+            </div>
+            
+            <div className="flex justify-between items-center">
+              <button
+                onClick={previousTutorialStep}
+                disabled={tutorialStep === 0}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+              
+              <div className="flex space-x-2">
+                {TUTORIAL_STEPS.map((_, index) => (
+                  <div
+                    key={index}
+                    className={`w-2 h-2 rounded-full ${
+                      index === tutorialStep ? 'bg-blue-600' : 'bg-gray-300'
+                    }`}
+                  />
+                ))}
+              </div>
+              
+              <button
+                onClick={nextTutorialStep}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                {tutorialStep === TUTORIAL_STEPS.length - 1 ? 'Finish' : 'Next'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Demo Settings Modal */}
+      {showDemoSettings && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-xl p-6 max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-semibold text-gray-900">Demo Settings</h3>
+              <button
+                onClick={() => setShowDemoSettings(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <XMarkIcon className="h-6 w-6" />
+              </button>
+            </div>
+            
+            <div className="space-y-6">
+              {/* Category Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Product Category
+                </label>
+                <select
+                  value={demoPreferences.category}
+                  onChange={(e) => updateDemoPreferences({ category: e.target.value as DemoPreferences['category'] })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400 outline-none"
+                >
+                  <option value="electronics">Electronics</option>
+                  <option value="fashion">Fashion & Apparel</option>
+                  <option value="home">Home & Furniture</option>
+                  <option value="books">Books & Media</option>
+                  <option value="random">Mixed Categories</option>
+                </select>
+              </div>
+              
+              {/* Price Range */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Price Range
+                </label>
+                <select
+                  value={demoPreferences.priceRange}
+                  onChange={(e) => updateDemoPreferences({ priceRange: e.target.value as DemoPreferences['priceRange'] })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400 outline-none"
+                >
+                  <option value="low">Low ($10 - $50)</option>
+                  <option value="medium">Medium ($50 - $200)</option>
+                  <option value="high">High ($200+)</option>
+                  <option value="mixed">Mixed Range</option>
+                </select>
+              </div>
+              
+              {/* Number of Competitors */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Number of Competitors
+                </label>
+                <select
+                  value={demoPreferences.competitors}
+                  onChange={(e) => updateDemoPreferences({ competitors: parseInt(e.target.value) })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400 outline-none"
+                >
+                  <option value={4}>4 Competitors</option>
+                  <option value={6}>6 Competitors</option>
+                  <option value={8}>8 Competitors</option>
+                  <option value={10}>10 Competitors</option>
+                </select>
+              </div>
+              
+              {/* Include Out of Stock */}
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="includeOutOfStock"
+                  checked={demoPreferences.includeOutOfStock}
+                  onChange={(e) => updateDemoPreferences({ includeOutOfStock: e.target.checked })}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <label htmlFor="includeOutOfStock" className="ml-2 block text-sm text-gray-700">
+                  Include out-of-stock items
+                </label>
+              </div>
+              
+              {/* Demo Analytics */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h4 className="font-medium text-gray-900 mb-3">Demo Usage Analytics</h4>
+                <div className="space-y-2 text-sm text-gray-600">
+                  <div>Time spent in demo: {Math.round(demoAnalytics.timeSpent / 1000 / 60)} minutes</div>
+                  <div>Interactions: {demoAnalytics.interactions}</div>
+                  <div>Features used: {demoAnalytics.featuresUsed.length}</div>
+                  <div>Tutorial completed: {demoAnalytics.tutorialCompleted ? 'Yes' : 'No'}</div>
+                </div>
+              </div>
+              
+              {/* Tutorial Button */}
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => {
+                    setShowDemoSettings(false);
+                    startTutorial();
+                  }}
+                  className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Start Tutorial
+                </button>
+                <button
+                  onClick={() => setShowDemoSettings(false)}
+                  className="flex-1 bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
