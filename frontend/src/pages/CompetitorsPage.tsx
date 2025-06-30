@@ -1444,7 +1444,7 @@ export default function CompetitorsPage() {
                         toggleDemoMode();
                         trackDemoInteraction('switch_to_live_mode');
                       }}
-                      className="inline-flex items-center gap-1 rounded-lg border border-green-600 px-3 py-1 text-sm font-medium text-green-700 bg-white hover:bg-green-50 shadow focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                      className="inline-flex items-center gap-1 rounded-lg bg-white px-3 py-1 text-sm font-medium text-amber-700 shadow hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2"
                     >
                       Switch to Live Mode
                     </button>
@@ -1455,7 +1455,7 @@ export default function CompetitorsPage() {
                         setShowDemoSettings(true);
                         trackDemoInteraction('demo_settings');
                       }}
-                      className="inline-flex items-center gap-1 rounded-lg border border-green-600 px-3 py-1 text-sm font-medium text-green-700 bg-white hover:bg-green-50 shadow focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                      className="inline-flex items-center gap-1 rounded-lg bg-blue-100 px-3 py-1 text-sm font-medium text-blue-700 shadow hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
                     >
                       <CogIcon className="h-4 w-4" />
                       Customize Demo
@@ -1466,7 +1466,7 @@ export default function CompetitorsPage() {
                           startTutorial();
                           trackDemoInteraction('start_tutorial');
                         }}
-                        className="inline-flex items-center gap-1 rounded-lg border border-green-600 px-3 py-1 text-sm font-medium text-green-700 bg-white hover:bg-green-50 shadow focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                        className="inline-flex items-center gap-1 rounded-lg bg-green-100 px-3 py-1 text-sm font-medium text-green-700 shadow hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-2"
                       >
                         <AcademicCapIcon className="h-4 w-4" />
                         Start Tutorial
