@@ -1428,6 +1428,7 @@ export default function CompetitorsPage() {
                 </p>
                 {isAuthenticated && (
                   <div className="flex flex-wrap gap-2 mt-4">
+                    {/* Primary CTAs */}
                     <button
                       onClick={() => {
                         setShowAddForm(true);
@@ -1435,7 +1436,8 @@ export default function CompetitorsPage() {
                       }}
                       className="inline-flex items-center gap-1 rounded-lg bg-amber-600 px-3 py-1 text-sm font-medium text-white shadow hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2"
                     >
-                      Add Your First Competitor
+                      <PlusIcon className="h-4 w-4" />
+                      Add First Competitor
                     </button>
                     <button
                       onClick={() => {
@@ -1446,6 +1448,30 @@ export default function CompetitorsPage() {
                     >
                       Switch to Live Mode
                     </button>
+
+                    {/* Secondary options */}
+                    <button
+                      onClick={() => {
+                        setShowDemoSettings(true);
+                        trackDemoInteraction('demo_settings');
+                      }}
+                      className="inline-flex items-center gap-1 rounded-lg bg-blue-100 px-3 py-1 text-sm font-medium text-blue-700 shadow hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
+                    >
+                      <CogIcon className="h-4 w-4" />
+                      Customize Demo
+                    </button>
+                    {!demoAnalytics.tutorialCompleted && (
+                      <button
+                        onClick={() => {
+                          startTutorial();
+                          trackDemoInteraction('start_tutorial');
+                        }}
+                        className="inline-flex items-center gap-1 rounded-lg bg-green-100 px-3 py-1 text-sm font-medium text-green-700 shadow hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-2"
+                      >
+                        <AcademicCapIcon className="h-4 w-4" />
+                        Start Tutorial
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
