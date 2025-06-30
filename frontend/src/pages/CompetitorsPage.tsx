@@ -242,10 +242,12 @@ export default function CompetitorsPage() {
           setIsDemoMode(false);
         }
       } else if (isAuthenticated && competitorsData.length === 0 && suggestionCountData.newSuggestions === 0) {
-        // Authenticated but no data - stay in live mode to show empty state
-        console.log('fetchData: Authenticated but no data available, staying in Live Mode (empty state)');
-        if (isDemoMode) {
-          setIsDemoMode(false);
+        // Authenticated but no data - default to demo mode unless user explicitly disabled it
+        console.log('fetchData: Authenticated but no data available, defaulting to Demo Mode');
+        if (!isDemoMode) {
+          setIsDemoMode(true);
+          setCompetitors(DEMO_COMPETITORS);
+          setSuggestionCount(DEMO_SUGGESTIONS.length);
         }
       }
       
@@ -437,12 +439,25 @@ export default function CompetitorsPage() {
         setCompetitors((prev) => [...prev, newCompetitor]);
       
         // Clear cache to ensure fresh data on next load
-      const cacheKey = `competitors_${shop}`;
-      cache.delete(cacheKey);
-      
-        notifications.showSuccess('Competitor added successfully', {
-          category: 'Competitors'
-        });
+        const cacheKey = `competitors_${shop}`;
+        cache.delete(cacheKey);
+        
+        // If we were in demo mode and successfully added a real competitor, switch to live mode
+        if (isDemoMode) {
+          console.log('Successfully added real competitor, switching from Demo to Live Mode');
+          setIsDemoMode(false);
+          setUserDisabledDemo(true);
+          if (shop) {
+            localStorage.setItem(`demoDisabled_${shop}`, 'true');
+          }
+          notifications.showSuccess('Competitor added successfully! Switched to Live Mode.', {
+            category: 'Competitors'
+          });
+        } else {
+          notifications.showSuccess('Competitor added successfully', {
+            category: 'Competitors'
+          });
+        }
       }
       
       setUrl('');
@@ -904,11 +919,30 @@ export default function CompetitorsPage() {
           <div className="bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-xl p-4">
             <div className="flex items-center gap-3">
               <EyeIcon className="h-6 w-6 text-orange-600 flex-shrink-0" />
-              <div>
+              <div className="flex-1">
                 <h3 className="font-semibold text-orange-800">Demo Mode Active</h3>
-                <p className="text-orange-700">
-                  Showing sample competitor data. Configure your search API to enable live competitor discovery and price monitoring.
+                <p className="text-orange-700 mb-2">
+                  {isAuthenticated 
+                    ? "Showing sample competitor data because no competitors have been added yet. Add your first competitor to start monitoring real market data."
+                    : "Showing sample competitor data. Configure your search API to enable live competitor discovery and price monitoring."
+                  }
                 </p>
+                {isAuthenticated && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    <button
+                      onClick={() => setShowAddForm(true)}
+                      className="bg-orange-600 text-white px-3 py-1 rounded-lg text-sm font-medium hover:bg-orange-700 transition-all"
+                    >
+                      Add Your First Competitor
+                    </button>
+                    <button
+                      onClick={toggleDemoMode}
+                      className="bg-orange-100 text-orange-700 px-3 py-1 rounded-lg text-sm font-medium hover:bg-orange-200 transition-all"
+                    >
+                      Switch to Live Mode
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -954,6 +988,10 @@ export default function CompetitorsPage() {
                     ? 'bg-orange-100 text-orange-700 hover:bg-orange-200 shadow-md' 
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
+                title={isDemoMode 
+                  ? 'Switch to Live Mode to monitor real competitor data'
+                  : 'Switch to Demo Mode to see sample data'
+                }
               >
                 {isDemoMode ? <PlayIcon className="h-4 w-4" /> : <StopIcon className="h-4 w-4" />}
                 {isDemoMode ? 'Demo' : 'Live'}
@@ -1069,7 +1107,9 @@ export default function CompetitorsPage() {
               </h3>
               <p className="text-gray-500 mb-4">
                 {competitors.length === 0 
-                  ? 'Start tracking your competitors to monitor their pricing strategies.'
+                  ? isDemoMode 
+                    ? 'Demo mode is active. Add your first competitor to start monitoring real market data.'
+                    : 'Start tracking your competitors to monitor their pricing strategies.'
                   : 'Try adjusting your filters or search query.'
                 }
               </p>
