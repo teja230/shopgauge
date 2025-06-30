@@ -23,7 +23,7 @@ Shopify merchants. It provides real-time business insights, AI-powered competito
 
 ### 📊 **Advanced Analytics Dashboard**
 
-- **Real-time Revenue Tracking**: Live sales data with 7 chart types (Area, Bar, Candlestick, Waterfall, Stacked, Composed, Line)
+- **Unified Analytics & Real-Time Revenue Tracking**: Live sales data with 9 chart types (Area, Bar, Candlestick, Waterfall, Stacked, Composed, Line, Combined, Revenue-Focus) plus AI-powered 60-day forecasts with confidence bands
 - **Conversion Rate Optimization**: Detailed conversion funnel analysis with industry benchmarks
 - **Inventory Intelligence**: Low stock alerts, product performance metrics, and demand forecasting
 - **Abandoned Cart Recovery**: Automated detection and recovery strategies for abandoned carts

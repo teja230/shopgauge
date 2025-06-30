@@ -924,10 +924,10 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
               >
                 <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
                   <Typography variant="button" fontWeight="inherit">
-                    {predictionLoading ? 'Analyzing...' : (showPredictions ? 'Stop Predictions' : 'Predict Future')}
+                    {predictionLoading ? 'Analyzing your data…' : (showPredictions ? 'Stop Predictions' : 'Predict Future')}
                   </Typography>
                   <Typography variant="caption" sx={{ opacity: 0.8, fontSize: '0.7rem' }}>
-                    {predictionLoading ? 'AI models processing...' : (showPredictions ? 'Hide AI forecasting' : 'AI-powered 60-day forecast')}
+                    {predictionLoading ? 'Our AI models are processing your forecast…' : (showPredictions ? 'Hide AI forecasting' : 'AI-powered 60-day forecast')}
                   </Typography>
                 </Box>
               </Button>

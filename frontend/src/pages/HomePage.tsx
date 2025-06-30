@@ -10,7 +10,7 @@ import IntelligentLoadingScreen from '../components/ui/IntelligentLoadingScreen'
 const features = [
   'Track up to 10 competitors with intelligent monitoring',
   'Real-time price monitoring with intelligent alerts',
-  '7 advanced chart types (Area, Bar, Candlestick, Waterfall, etc.)',
+  'Unified Analytics with AI-powered 60-day forecasts and 9 advanced chart types',
   'Multi-session concurrent access from any device',
   'Session-based notification system with privacy controls',
   'Automated alerts via Email & SMS with smart delivery',
@@ -173,7 +173,7 @@ const HomePage = () => {
       <header className="mb-10 text-center">
         <h1 className="text-4xl font-extrabold text-blue-900 mb-2">ShopGauge</h1>
         <p className="text-lg text-blue-700 mb-4 max-w-4xl mx-auto">
-          Enterprise-grade analytics platform with multi-session support, 7 advanced chart types, and intelligent notifications. 
+          Enterprise-grade analytics platform with multi-session support, 9 advanced chart types, AI-powered forecasts, and intelligent notifications. 
           Empower your team with concurrent access, comprehensive audit logging, and GDPR-compliant data management. 
           Transform your Shopify store with real-time insights and automated market intelligence.
         </p>
