@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { fetchWithAuth } from '../api';
+import { API_BASE_URL } from '../api';
 import { useNotifications } from '../hooks/useNotifications';
 import { normalizeShopDomain } from '../utils/normalizeShopDomain';
+import IntelligentLoadingScreen from '../components/ui/IntelligentLoadingScreen';
 import { 
   Button, 
   TextField, 
@@ -338,69 +340,46 @@ const HomePage = () => {
   
   const [shopDomain, setShopDomain] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isOAuthFlow, setIsOAuthFlow] = useState(false);
   const [error, setError] = useState('');
+  const [errorCode, setErrorCode] = useState('');
   const [formErrors, setFormErrors] = useState<{ shopDomain?: string }>({});
 
-  // Handle OAuth callback
+  // Check if we're in an OAuth flow from Shopify or if there's an error
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    const code = params.get('code');
     const shopParam = params.get('shop');
-    const error = params.get('error');
-    const redirectPath = params.get('redirect');
-
-    if (error) {
-      console.error('OAuth error:', error);
-      setError('Authentication failed. Please try again.');
-      return;
+    const errorFromUrl = params.get('error');
+    const errorMsgFromUrl = params.get('error_message');
+    
+    if (shopParam && !authLoading) {
+      console.log('HomePage: Detected OAuth callback, shop will be processed by AuthContext');
+      setIsOAuthFlow(true);
     }
     
-    if (code && shopParam) {
-      console.log('Processing OAuth callback with code:', code, 'shop:', shopParam);
-      handleOAuthCallback(code, shopParam);
-    } else if (redirectPath && isAuthenticated) {
-      console.log('Redirecting authenticated user to:', redirectPath);
-      navigate(redirectPath, { replace: true });
+    if (errorFromUrl) {
+      console.log('HomePage: OAuth error detected:', errorFromUrl, errorMsgFromUrl);
+      setErrorCode(errorFromUrl);
+      setError(errorMsgFromUrl || `Authentication error: ${errorFromUrl}`);
+      setIsOAuthFlow(false);
     }
-  }, [location.search, isAuthenticated, navigate]);
+  }, [location.search, authLoading]);
 
-  const handleOAuthCallback = async (code: string, shop: string) => {
-    setLoading(true);
-    setError('');
-    
-    try {
-      const response = await fetchWithAuth('/api/auth/callback', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, shop }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Authentication failed');
-      }
-
-      const data = await response.json();
+  // Handle redirect after successful authentication
+  useEffect(() => {
+    if (isAuthenticated && !authLoading) {
+      const urlParams = new URLSearchParams(location.search);
+      const redirectPath = urlParams.get('redirect');
       
-      if (data.success) {
-        setShop(shop);
-        addNotification('Successfully connected to Shopify!', 'success');
-        
-        // Redirect based on query parameter or default to dashboard
-        const params = new URLSearchParams(location.search);
-        const redirectPath = params.get('redirect');
-        navigate(redirectPath || '/dashboard', { replace: true });
-      } else {
-        throw new Error('Authentication failed');
+      if (redirectPath) {
+        console.log('HomePage: Redirecting authenticated user to:', redirectPath);
+        navigate(redirectPath, { replace: true });
+      } else if (isOAuthFlow) {
+        console.log('HomePage: OAuth flow complete, redirecting to dashboard');
+        navigate('/dashboard', { replace: true });
       }
-    } catch (error) {
-      console.error('OAuth callback error:', error);
-      setError(error instanceof Error ? error.message : 'Authentication failed');
-      addNotification('Authentication failed. Please try again.', 'error');
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [isAuthenticated, authLoading, navigate, location.search, isOAuthFlow]);
 
   const handleSwitchStore = () => {
     setShopDomain('');
@@ -445,38 +424,27 @@ const HomePage = () => {
 
     setLoading(true);
     setError('');
+    setErrorCode('');
     
     try {
       // Clear any existing cache when switching stores
       clearAllDashboardCache();
 
       const normalizedDomain = normalizeShopDomain(shopDomain.trim());
-      console.log('Initiating Shopify OAuth for shop:', normalizedDomain);
+      if (!normalizedDomain) {
+        setError('Please enter a valid Shopify store domain');
+        return;
+      }
       
-      // Build OAuth URL with proper scopes and redirect handling
-      const scopes = 'read_orders,read_products,read_customers,read_analytics,read_reports,read_inventory';
-      const redirectUri = encodeURIComponent(`${window.location.origin}/`);
+      console.log('HomePage: Starting OAuth flow for shop:', normalizedDomain);
       
-      // Check if there's a redirect parameter to preserve after login
-      const params = new URLSearchParams(location.search);
-      const redirectPath = params.get('redirect');
+      const authUrl = `${API_BASE_URL}/api/auth/shopify/install?shop=${encodeURIComponent(normalizedDomain)}`;
+      console.log('HomePage: Redirecting to:', authUrl);
       
-      const state = redirectPath ? encodeURIComponent(JSON.stringify({ redirect: redirectPath })) : '';
-      
-      const authUrl = `https://${normalizedDomain}/admin/oauth/authorize?` +
-        `client_id=${encodeURIComponent(import.meta.env.VITE_SHOPIFY_API_KEY || '')}&` +
-        `scope=${encodeURIComponent(scopes)}&` +
-        `redirect_uri=${redirectUri}&` +
-        `state=${state}&` +
-        `response_type=code`;
-      
-      console.log('Redirecting to Shopify OAuth:', authUrl);
       window.location.href = authUrl;
     } catch (error) {
-      console.error('Login error:', error);
-      setError(error instanceof Error ? error.message : 'An unexpected error occurred');
-      addNotification('Failed to connect to Shopify. Please try again.', 'error');
-    } finally {
+      console.error('HomePage: Failed to initiate OAuth:', error);
+      setError('Failed to connect to Shopify. Please try again.');
       setLoading(false);
     }
   };
@@ -604,6 +572,16 @@ const HomePage = () => {
     );
   }
 
+  // Show intelligent loading screen for OAuth flow instead of basic loading
+  if (loading || isOAuthFlow) {
+    return (
+      <IntelligentLoadingScreen 
+        message={isOAuthFlow ? "Connecting you to Shopify..." : "Redirecting to Shopify authentication..."}
+        fastMode={true}
+      />
+    );
+  }
+
   // Show loading state during authentication
   if (authLoading) {
     return (
@@ -679,8 +657,8 @@ const HomePage = () => {
                       setFormErrors({ ...formErrors, shopDomain: undefined });
                     }
                   }}
-                  error={!!formErrors.shopDomain}
-                  helperText={formErrors.shopDomain}
+                  error={Boolean(shopDomain) && !normalizeShopDomain(shopDomain)}
+                  helperText={Boolean(shopDomain) && !normalizeShopDomain(shopDomain) ? 'Please enter a valid Shopify store domain.' : formErrors.shopDomain}
                   disabled={loading}
                   autoComplete="url"
                   inputProps={{
@@ -699,10 +677,10 @@ const HomePage = () => {
                       type="submit"
                 variant="contained"
                 size="large"
-                disabled={loading}
+                disabled={loading || !normalizeShopDomain(shopDomain)}
                 fullWidth
               >
-                {loading ? 'Connecting...' : 'Connect to Shopify'}
+                {loading ? 'Connecting...' : 'Connect Shopify Store'}
               </ConnectButton>
               
               <Typography 
