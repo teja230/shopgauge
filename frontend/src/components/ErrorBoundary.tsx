@@ -309,7 +309,7 @@ const ErrorNavigation: React.FC<{ onRefresh: () => void }> = ({ onRefresh }) => 
           variant="outlined"
           color="primary"
           onClick={handleGoHome}
-          startIcon={<Refresh />}
+          startIcon={<Home />}
           sx={{ minWidth: 120, borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
         >
           Go Home
