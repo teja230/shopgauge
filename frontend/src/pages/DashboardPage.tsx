@@ -726,6 +726,17 @@ const DashboardPage = () => {
     dashboardOrdersData: insights?.orders || [],
   });
 
+  // Debug logging for unified analytics data
+  useEffect(() => {
+    if (insights) {
+      console.log('Dashboard: Insights data for unified analytics:', {
+        timeseriesLength: insights.timeseries?.length || 0,
+        ordersLength: insights.orders?.length || 0,
+        shop: shop,
+      });
+    }
+  }, [insights, shop]);
+
   // Individual card loading states
   const [cardLoading, setCardLoading] = useState<CardLoadingState>({
     revenue: false,

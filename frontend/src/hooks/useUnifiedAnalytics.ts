@@ -177,21 +177,45 @@ const useUnifiedAnalytics = (
   // Convert dashboard data to unified analytics format
   const convertDashboardDataToUnified = useCallback((revenueData: any[], ordersData: any[]): UnifiedAnalyticsData => {
     try {
+      // Safety check: ensure inputs are arrays
+      if (!Array.isArray(revenueData) || !Array.isArray(ordersData)) {
+        console.warn('UNIFIED_ANALYTICS: Invalid input data - not arrays:', { revenueData, ordersData });
+        return {
+          historical: [],
+          predictions: [],
+          period_days: days,
+          total_revenue: 0,
+          total_orders: 0,
+        };
+      }
+
       // Group revenue data by date
       const revenueByDate = new Map<string, number>();
       revenueData.forEach(item => {
-        if (item.created_at && item.total_price) {
-          const date = new Date(item.created_at).toISOString().split('T')[0];
-          revenueByDate.set(date, (revenueByDate.get(date) || 0) + Number(item.total_price));
+        if (item && typeof item === 'object' && item.created_at && item.total_price) {
+          try {
+            const date = new Date(item.created_at).toISOString().split('T')[0];
+            if (date && date.length === 10) { // Valid date string should be 10 characters (YYYY-MM-DD)
+              revenueByDate.set(date, (revenueByDate.get(date) || 0) + Number(item.total_price) || 0);
+            }
+          } catch (dateError) {
+            console.warn('UNIFIED_ANALYTICS: Invalid date in revenue data:', item.created_at);
+          }
         }
       });
 
       // Group orders data by date
       const ordersByDate = new Map<string, number>();
       ordersData.forEach(item => {
-        if (item.created_at) {
-          const date = new Date(item.created_at).toISOString().split('T')[0];
-          ordersByDate.set(date, (ordersByDate.get(date) || 0) + 1);
+        if (item && typeof item === 'object' && item.created_at) {
+          try {
+            const date = new Date(item.created_at).toISOString().split('T')[0];
+            if (date && date.length === 10) { // Valid date string should be 10 characters (YYYY-MM-DD)
+              ordersByDate.set(date, (ordersByDate.get(date) || 0) + 1);
+            }
+          } catch (dateError) {
+            console.warn('UNIFIED_ANALYTICS: Invalid date in orders data:', item.created_at);
+          }
         }
       });
 
@@ -221,8 +245,8 @@ const useUnifiedAnalytics = (
       const predictions: PredictionData[] = [];
       if (includePredictions && historical.length > 0) {
         const recentData = historical.slice(-7); // Last 7 days
-        const avgRevenue = recentData.reduce((sum, item) => sum + item.revenue, 0) / recentData.length;
-        const avgOrders = recentData.reduce((sum, item) => sum + item.orders_count, 0) / recentData.length;
+        const avgRevenue = recentData.reduce((sum, item) => sum + (item.revenue || 0), 0) / recentData.length;
+        const avgOrders = recentData.reduce((sum, item) => sum + (item.orders_count || 0), 0) / recentData.length;
 
         // Generate 30 days of predictions
         for (let i = 1; i <= 30; i++) {
@@ -253,8 +277,8 @@ const useUnifiedAnalytics = (
         }
       }
 
-      const totalRevenue = historical.reduce((sum, item) => sum + item.revenue, 0);
-      const totalOrders = historical.reduce((sum, item) => sum + item.orders_count, 0);
+      const totalRevenue = historical.reduce((sum, item) => sum + (item.revenue || 0), 0);
+      const totalOrders = historical.reduce((sum, item) => sum + (item.orders_count || 0), 0);
 
       return {
         historical,
@@ -470,7 +494,12 @@ const useUnifiedAnalytics = (
   // Initial fetch
   useEffect(() => {
     if (shop && shop.trim()) {
-      fetchData();
+      // Add a small delay to ensure dashboard data is ready
+      const timer = setTimeout(() => {
+        fetchData();
+      }, 100);
+      
+      return () => clearTimeout(timer);
     } else {
       // Clear data if no valid shop
       setData(null);

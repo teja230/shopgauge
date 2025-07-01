@@ -2166,9 +2166,9 @@ public class AnalyticsController {
   }
 
   /**
-   * @deprecated This endpoint is deprecated. Use dashboard data conversion instead.
-   * The frontend now uses dashboard revenue/orders data and converts it to unified format.
-   * This endpoint will be removed in a future version.
+   * @deprecated This endpoint is deprecated. Use dashboard data conversion instead. The frontend
+   *     now uses dashboard revenue/orders data and converts it to unified format. This endpoint
+   *     will be removed in a future version.
    */
   @Deprecated
   @GetMapping("/unified-analytics")
@@ -2180,7 +2180,9 @@ public class AnalyticsController {
       HttpSession session) {
 
     // Log deprecation warning
-    logger.warn("DEPRECATED: Unified analytics API called for shop: {}. This endpoint will be removed in a future version.", shop);
+    logger.warn(
+        "DEPRECATED: Unified analytics API called for shop: {}. This endpoint will be removed in a future version.",
+        shop);
 
     // Early service readiness check
     if (!isServiceReady()) {
