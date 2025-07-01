@@ -376,9 +376,9 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                 dot={{ fill: '#10b981', strokeWidth: 2, r: 3 }}
               />
                          )}
-            {shouldShowPredictionLine && (
+            {shouldShowPredictionLine && data?.predictions?.[0]?.date && (
               <ReferenceLine
-                x={data!.predictions[0].date}
+                x={data.predictions[0].date}
                 stroke="rgba(0, 0, 0, 0.3)"
                 strokeDasharray="2,2"
                 label="Predictions"
@@ -413,9 +413,9 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                 dot={{ fill: '#2563eb', strokeWidth: 2, r: 4 }}
               />
             )}
-            {shouldShowPredictionLine && (
+            {shouldShowPredictionLine && data?.predictions?.[0]?.date && (
               <ReferenceLine
-                x={data!.predictions[0].date}
+                x={data.predictions[0].date}
                 stroke="rgba(0, 0, 0, 0.3)"
                 strokeDasharray="2,2"
                 label="Predictions"
@@ -442,9 +442,9 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                 opacity={0.8}
               />
             )}
-            {shouldShowPredictionLine && (
+            {shouldShowPredictionLine && data?.predictions?.[0]?.date && (
               <ReferenceLine
-                x={data!.predictions[0].date}
+                x={data.predictions[0].date}
                 stroke="rgba(0, 0, 0, 0.3)"
                 strokeDasharray="2,2"
                 label="Predictions"
@@ -482,9 +482,9 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                 dot={false}
               />
             )}
-            {shouldShowPredictionLine && (
+            {shouldShowPredictionLine && data?.predictions?.[0]?.date && (
               <ReferenceLine
-                x={data!.predictions[0].date}
+                x={data.predictions[0].date}
                 stroke="rgba(0, 0, 0, 0.3)"
                 strokeDasharray="2,2"
                 label="Predictions"
@@ -522,9 +522,9 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                 dot={{ fill: '#f59e0b', strokeWidth: 2, r: 3 }}
               />
             )}
-            {shouldShowPredictionLine && (
+            {shouldShowPredictionLine && data?.predictions?.[0]?.date && (
               <ReferenceLine
-                x={data!.predictions[0].date}
+                x={data.predictions[0].date}
                 stroke="rgba(0, 0, 0, 0.3)"
                 strokeDasharray="2,2"
                 label="Predictions"
@@ -575,9 +575,9 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                 stackId="2"
               />
             )}
-            {shouldShowPredictionLine && (
+            {shouldShowPredictionLine && data?.predictions?.[0]?.date && (
               <ReferenceLine
-                x={data!.predictions[0].date}
+                x={data.predictions[0].date}
                 stroke="rgba(0, 0, 0, 0.3)"
                 strokeDasharray="2,2"
                 label="Predictions"
@@ -634,9 +634,9 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
               />
             )}
             
-            {shouldShowPredictionLine && (
+            {shouldShowPredictionLine && data?.predictions?.[0]?.date && (
               <ReferenceLine
-                x={data!.predictions[0].date}
+                x={data.predictions[0].date}
                 stroke="rgba(0, 0, 0, 0.3)"
                 strokeDasharray="2,2"
                 label="Predictions"
@@ -669,9 +669,9 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
               name="Revenue"
               dot={{ fill: '#2563eb', strokeWidth: 3, r: 5 }}
             />
-            {shouldShowPredictionLine && (
+            {shouldShowPredictionLine && data?.predictions?.[0]?.date && (
               <ReferenceLine
-                x={data!.predictions[0].date}
+                x={data.predictions[0].date}
                 stroke="rgba(0, 0, 0, 0.3)"
                 strokeDasharray="2,2"
                 label="Predictions"
@@ -727,9 +727,9 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
               />
             )}
             
-            {shouldShowPredictionLine && (
+            {shouldShowPredictionLine && data?.predictions?.[0]?.date && (
               <ReferenceLine
-                x={data!.predictions[0].date}
+                x={data.predictions[0].date}
                 stroke="rgba(0, 0, 0, 0.3)"
                 strokeDasharray="2,2"
                 label="Predictions"

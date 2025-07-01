@@ -260,9 +260,7 @@ const useUnifiedAnalytics = (
         console.error('Unified analytics fetch error:', err);
         
         // Don't clear existing data on error to provide a better UX
-        if (!data) {
-          setData(null);
-        }
+        // Note: We don't reference 'data' here to avoid dependency issues
         
         throw err;
       } finally {

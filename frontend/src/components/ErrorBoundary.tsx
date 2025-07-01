@@ -255,14 +255,8 @@ const ErrorNavigation: React.FC<{ onRefresh: () => void }> = ({ onRefresh }) => 
   // Utility to safely navigate while preserving redirect path when the session might be invalid.
   const safeNavigate = (targetPath: string) => {
     if (isAuthenticated) {
-      // Use SPA-style navigation when possible to avoid full refresh
-      if (window.history?.pushState) {
-        window.history.pushState({}, '', targetPath);
-        // Dispatch a popstate event so React Router picks up the change
-        window.dispatchEvent(new PopStateEvent('popstate'));
-      } else {
-        window.location.href = targetPath;
-      }
+      // Use direct navigation to ensure proper page loading
+      window.location.href = targetPath;
     } else {
       // If not authenticated, route via home with redirect parameter so login flow can resume
       window.location.href = `/?redirect=${encodeURIComponent(targetPath)}`;
