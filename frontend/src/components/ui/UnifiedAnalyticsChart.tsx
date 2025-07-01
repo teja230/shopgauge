@@ -451,7 +451,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
           return (
             <AreaChart {...commonProps}>
               <defs>
-                <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+                <linearGradient id="unified-revenueGradient" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3} />
                   <stop offset="95%" stopColor="#2563eb" stopOpacity={0.05} />
                 </linearGradient>
@@ -468,7 +468,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                   dataKey="revenue"
                   stroke="#2563eb"
                   strokeWidth={3}
-                  fill="url(#revenueGradient)"
+                  fill="url(#unified-revenueGradient)"
                   name="Revenue"
                   dot={{ fill: '#2563eb', strokeWidth: 2, r: 4 }}
                 />
@@ -597,11 +597,11 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
           return (
             <AreaChart {...commonProps}>
               <defs>
-                <linearGradient id="stackedRevenueGradient" x1="0" y1="0" x2="0" y2="1">
+                <linearGradient id="unified-stackedRevenueGradient" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
                   <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.05} />
                 </linearGradient>
-                <linearGradient id="ordersGradient" x1="0" y1="0" x2="0" y2="1">
+                <linearGradient id="unified-ordersGradient" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
                   <stop offset="95%" stopColor="#10b981" stopOpacity={0.05} />
                 </linearGradient>
@@ -618,7 +618,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                   dataKey="revenue"
                   stroke="#8b5cf6"
                   strokeWidth={2}
-                  fill="url(#stackedRevenueGradient)"
+                  fill="url(#unified-stackedRevenueGradient)"
                   name="Revenue"
                   stackId="1"
                 />
@@ -630,7 +630,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                   dataKey="orders_count"
                   stroke="#10b981"
                   strokeWidth={1}
-                  fill="url(#ordersGradient)"
+                  fill="url(#unified-ordersGradient)"
                   name="Orders"
                   stackId="2"
                 />
@@ -709,7 +709,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
           return (
             <AreaChart {...commonProps}>
               <defs>
-                <linearGradient id="revenueFocusGradient" x1="0" y1="0" x2="0" y2="1">
+                <linearGradient id="unified-revenueFocusGradient" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#2563eb" stopOpacity={0.4} />
                   <stop offset="95%" stopColor="#2563eb" stopOpacity={0.1} />
                 </linearGradient>
@@ -725,7 +725,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                 dataKey="revenue"
                 stroke="#2563eb"
                 strokeWidth={4}
-                fill="url(#revenueFocusGradient)"
+                fill="url(#unified-revenueFocusGradient)"
                 name="Revenue"
                 dot={{ fill: '#2563eb', strokeWidth: 3, r: 5 }}
               />

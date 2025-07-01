@@ -369,7 +369,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
         return (
           <AreaChart {...commonProps}>
             <defs>
-              <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+              <linearGradient id="stackedRevenueGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor={chartTypeConfig.stacked.color} stopOpacity={0.3} />
                 <stop offset="95%" stopColor={chartTypeConfig.stacked.color} stopOpacity={0.05} />
               </linearGradient>
@@ -387,7 +387,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
               dataKey="total_price"
               stroke={chartTypeConfig.stacked.color}
               strokeWidth={2}
-              fill="url(#revenueGradient)"
+              fill="url(#stackedRevenueGradient)"
               stackId="1"
             />
             <Area
