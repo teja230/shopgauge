@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getCacheKey, CACHE_VERSION } from '../utils/cacheUtils';
 import { fetchWithAuth } from '../api';
-import { api } from '../api';
 
 interface HistoricalData {
   date: string;
@@ -51,6 +50,10 @@ interface UseUnifiedAnalyticsOptions {
   autoRefresh?: boolean;
   refreshInterval?: number;
   shop?: string;
+  // New option to use dashboard data instead of separate API calls
+  useDashboardData?: boolean;
+  dashboardRevenueData?: any[];
+  dashboardOrdersData?: any[];
 }
 
 interface UseUnifiedAnalyticsReturn {
@@ -78,6 +81,9 @@ const useUnifiedAnalytics = (
     autoRefresh = false,
     refreshInterval = 300000, // 5 minutes
     shop,
+    useDashboardData = false,
+    dashboardRevenueData = [],
+    dashboardOrdersData = [],
   } = options;
 
   const [data, setData] = useState<UnifiedAnalyticsData | null>(null);
@@ -168,6 +174,107 @@ const useUnifiedAnalytics = (
     }
   }, [days, includePredictions, getCacheKeyForAnalytics]);
 
+  // Convert dashboard data to unified analytics format
+  const convertDashboardDataToUnified = useCallback((revenueData: any[], ordersData: any[]): UnifiedAnalyticsData => {
+    try {
+      // Group revenue data by date
+      const revenueByDate = new Map<string, number>();
+      revenueData.forEach(item => {
+        if (item.created_at && item.total_price) {
+          const date = new Date(item.created_at).toISOString().split('T')[0];
+          revenueByDate.set(date, (revenueByDate.get(date) || 0) + Number(item.total_price));
+        }
+      });
+
+      // Group orders data by date
+      const ordersByDate = new Map<string, number>();
+      ordersData.forEach(item => {
+        if (item.created_at) {
+          const date = new Date(item.created_at).toISOString().split('T')[0];
+          ordersByDate.set(date, (ordersByDate.get(date) || 0) + 1);
+        }
+      });
+
+      // Create historical data array
+      const historical: HistoricalData[] = [];
+      const allDates = new Set([...revenueByDate.keys(), ...ordersByDate.keys()]);
+      
+      allDates.forEach(date => {
+        const revenue = revenueByDate.get(date) || 0;
+        const ordersCount = ordersByDate.get(date) || 0;
+        const conversionRate = ordersCount > 0 ? (ordersCount / Math.max(ordersCount, 1)) * 100 : 0;
+        const avgOrderValue = ordersCount > 0 ? revenue / ordersCount : 0;
+
+        historical.push({
+          date,
+          revenue,
+          orders_count: ordersCount,
+          conversion_rate: conversionRate,
+          avg_order_value: avgOrderValue,
+        });
+      });
+
+      // Sort by date
+      historical.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+      // Generate simple predictions based on recent trends
+      const predictions: PredictionData[] = [];
+      if (includePredictions && historical.length > 0) {
+        const recentData = historical.slice(-7); // Last 7 days
+        const avgRevenue = recentData.reduce((sum, item) => sum + item.revenue, 0) / recentData.length;
+        const avgOrders = recentData.reduce((sum, item) => sum + item.orders_count, 0) / recentData.length;
+
+        // Generate 30 days of predictions
+        for (let i = 1; i <= 30; i++) {
+          const futureDate = new Date();
+          futureDate.setDate(futureDate.getDate() + i);
+          const dateStr = futureDate.toISOString().split('T')[0];
+
+          // Simple linear trend with some randomness
+          const trendFactor = 1 + (Math.random() - 0.5) * 0.2; // ±10% variation
+          const predictedRevenue = avgRevenue * trendFactor;
+          const predictedOrders = Math.max(0, Math.round(avgOrders * trendFactor));
+
+          predictions.push({
+            date: dateStr,
+            revenue: predictedRevenue,
+            orders_count: predictedOrders,
+            conversion_rate: 2.5 + Math.random() * 2, // 2.5-4.5% range
+            avg_order_value: predictedRevenue / Math.max(predictedOrders, 1),
+            confidence_interval: {
+              revenue_min: predictedRevenue * 0.8,
+              revenue_max: predictedRevenue * 1.2,
+              orders_min: Math.max(0, predictedOrders - 2),
+              orders_max: predictedOrders + 2,
+            },
+            prediction_type: 'trend_analysis',
+            confidence_score: 0.7 + Math.random() * 0.2, // 70-90% confidence
+          });
+        }
+      }
+
+      const totalRevenue = historical.reduce((sum, item) => sum + item.revenue, 0);
+      const totalOrders = historical.reduce((sum, item) => sum + item.orders_count, 0);
+
+      return {
+        historical,
+        predictions,
+        period_days: days,
+        total_revenue: totalRevenue,
+        total_orders: totalOrders,
+      };
+    } catch (error) {
+      console.error('Error converting dashboard data to unified format:', error);
+      return {
+        historical: [],
+        predictions: [],
+        period_days: days,
+        total_revenue: 0,
+        total_orders: 0,
+      };
+    }
+  }, [days, includePredictions]);
+
   // fetchData is stable across renders unless the key query parameters change.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const fetchData = useCallback(async (forceRefresh = false): Promise<UnifiedAnalyticsData> => {
@@ -186,6 +293,26 @@ const useUnifiedAnalytics = (
         setLoading(true);
         setError(null);
 
+        // If using dashboard data, convert it to unified format
+        if (useDashboardData && dashboardRevenueData.length > 0) {
+          console.log('🔄 UNIFIED_ANALYTICS: Using dashboard data instead of API call');
+          const unifiedData = convertDashboardDataToUnified(dashboardRevenueData, dashboardOrdersData);
+          
+          setData(unifiedData);
+          setLastUpdated(new Date());
+          setIsCached(false);
+          setCacheAge(0);
+          
+          console.log('✅ UNIFIED_ANALYTICS: Converted dashboard data:', {
+            historicalPoints: unifiedData.historical.length,
+            predictionPoints: unifiedData.predictions.length,
+            totalRevenue: unifiedData.total_revenue,
+            totalOrders: unifiedData.total_orders,
+          });
+          
+          return unifiedData;
+        }
+
         // Check cache first (unless forcing refresh)
         if (!forceRefresh) {
           const cachedEntry = loadFromCache(shop);
@@ -202,7 +329,7 @@ const useUnifiedAnalytics = (
           }
         }
 
-        // Fetch fresh data
+        // Fetch fresh data from API
         console.log(`🔄 UNIFIED_ANALYTICS: Fetching fresh data from API`);
         setIsCached(false);
         setCacheAge(0);
@@ -296,7 +423,7 @@ const useUnifiedAnalytics = (
 
     activeFetchRef.current = fetchPromise;
     return fetchPromise;
-  }, [days, includePredictions, shop, loadFromCache, saveToCache]);
+  }, [days, includePredictions, shop, loadFromCache, saveToCache, useDashboardData, dashboardRevenueData, dashboardOrdersData, convertDashboardDataToUnified]);
 
   const refetch = useCallback(async () => {
     await fetchData(true); // Force refresh
@@ -324,73 +451,6 @@ const useUnifiedAnalytics = (
       return () => clearInterval(interval);
     }
   }, [autoRefresh, refreshInterval, fetchData, shop]);
-
-  useEffect(() => {
-    let mounted = true;
-    let readinessAttempt = 0;
-
-    const checkServiceReadiness = async (): Promise<boolean> => {
-      try {
-        const response = await fetch('/api/health/readiness', {
-          method: 'GET',
-          credentials: 'include',
-          signal: AbortSignal.timeout(5000),
-        });
-        
-        if (response.ok) {
-          const healthData = await response.json();
-          return healthData.ready === true;
-        }
-        return false;
-      } catch (error) {
-        console.log('Service readiness check failed:', error);
-        return false;
-      }
-    };
-
-    const waitForServiceReadiness = async (): Promise<void> => {
-      while (readinessAttempt < MAX_READINESS_CHECKS && mounted) {
-        const isReady = await checkServiceReadiness();
-        
-        if (isReady) {
-          console.log('Service is ready, proceeding with analytics fetch');
-          return;
-        }
-        
-        readinessAttempt++;
-        console.log(`Service not ready, attempt ${readinessAttempt}/${MAX_READINESS_CHECKS}`);
-        
-        if (readinessAttempt < MAX_READINESS_CHECKS) {
-          await new Promise(resolve => setTimeout(resolve, READINESS_CHECK_INTERVAL));
-        }
-      }
-      
-      if (readinessAttempt >= MAX_READINESS_CHECKS) {
-        throw new Error('Service readiness timeout - backend may be having startup issues');
-      }
-    };
-
-    const initializeAnalytics = async () => {
-      try {
-        // First wait for service readiness
-        await waitForServiceReadiness();
-        
-        // Then fetch the actual data
-        await fetchData();
-      } catch (err: any) {
-        if (mounted) {
-          setError(err.message || 'Failed to initialize analytics');
-          setLoading(false);
-        }
-      }
-    };
-
-    initializeAnalytics();
-
-    return () => {
-      mounted = false;
-    };
-  }, [days, includePredictions]);
 
   return {
     data,

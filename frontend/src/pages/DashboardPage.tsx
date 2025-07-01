@@ -721,6 +721,9 @@ const DashboardPage = () => {
     includePredictions: true,
     autoRefresh: false,
     shop: shop && shop.trim() ? shop : undefined,
+    useDashboardData: true, // Use dashboard data instead of separate API calls
+    dashboardRevenueData: insights?.timeseries || [],
+    dashboardOrdersData: insights?.orders || [],
   });
 
   // Individual card loading states
@@ -1020,14 +1023,20 @@ const DashboardPage = () => {
       return;
     }
 
+    console.log('🔄 Dashboard: Starting products fetch, forceRefresh:', forceRefresh);
     setCardLoading(prev => ({ ...prev, products: true }));
     setCardErrors(prev => ({ ...prev, products: null }));
     
     try {
       const data = await checkCacheAndFetch('products', async () => {
+        console.log('🔄 Dashboard: Making API call to /api/analytics/products');
         const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/products'));
-        return await response.json();
+        const jsonData = await response.json();
+        console.log('📊 Dashboard: Products API response:', jsonData);
+        return jsonData;
       }, forceRefresh);
+      
+      console.log('📊 Dashboard: Processed products data:', data);
       
       if (data.error_code === 'INSUFFICIENT_PERMISSIONS' || 
           (data.error && data.error.includes('re-authentication'))) {
@@ -1748,7 +1757,7 @@ const DashboardPage = () => {
   }, [isAuthReady, authLoading, isAuthenticated, shop, fetchRevenueData, fetchProductsData, fetchInventoryData, fetchNewProductsData, fetchInsightsData, fetchOrdersData, fetchAbandonedCartsData]); // Added fetch functions back since they're now stable
 
   // Lazy load data for individual cards
-  const handleCardLoad = useCallback((cardType: keyof CardLoadingState) => {
+  const handleCardLoad = useCallback((cardType: keyof CardLoadingState, force: boolean = false) => {
     // Allow individual card loads even during full refresh
     // Only prevent if we're actively loading this specific card
     if (cardLoading[cardType]) {
@@ -1762,25 +1771,25 @@ const DashboardPage = () => {
     setTimeout(() => {
       switch (cardType) {
         case 'revenue':
-          fetchRevenueData(false); // Use cache if available; retry handlers can pass true if needed
+          fetchRevenueData(force); // Use cache if available; retry handlers can pass true if needed
           break;
         case 'products':
-          fetchProductsData(false);
+          fetchProductsData(force);
           break;
         case 'inventory':
-          fetchInventoryData(false);
+          fetchInventoryData(force);
           break;
         case 'newProducts':
-          fetchNewProductsData(false);
+          fetchNewProductsData(force);
           break;
         case 'insights':
-          fetchInsightsData(false);
+          fetchInsightsData(force);
           break;
         case 'orders':
-          fetchOrdersData(false);
+          fetchOrdersData(force);
           break;
         case 'abandonedCarts':
-          fetchAbandonedCartsData(false);
+          fetchAbandonedCartsData(force);
           break;
       }
     }, 100); // 100ms delay
@@ -2219,7 +2228,7 @@ const DashboardPage = () => {
                   {cardErrors.products && (
                     <IconButton 
                       size="small" 
-                      onClick={() => handleCardLoad('products')}
+                      onClick={() => handleCardLoad('products', true)}
                       className="text-red-500 hover:text-red-700"
                     >
                       <Refresh fontSize="small" />
@@ -2241,10 +2250,7 @@ const DashboardPage = () => {
                     <Button 
                       variant="outlined" 
                       size="small" 
-                      onClick={() => {
-                        console.log('Load Products button clicked');
-                        handleCardLoad('products');
-                      }}
+                      onClick={() => handleCardLoad('products', true)}
                       sx={{ mt: 1 }}
                     >
                       Retry
@@ -2283,10 +2289,7 @@ const DashboardPage = () => {
                     <Button 
                       variant="outlined" 
                       size="small" 
-                      onClick={() => {
-                        console.log('Load Products button clicked');
-                        handleCardLoad('products');
-                      }}
+                      onClick={() => handleCardLoad('products', true)}
                       sx={{ mt: 1 }}
                     >
                       Load Products
@@ -2414,7 +2417,12 @@ const DashboardPage = () => {
         <Box sx={{ width: '100%' }}>
           {/* Chart Container (Charts render above) */}
           {chartMode === 'unified' ? (
-            <ErrorBoundary fallbackMessage="The Unified Analytics chart failed to load. Please try refreshing this component.">
+            <ErrorBoundary 
+              fallbackMessage="The Unified Analytics chart failed to load. Please try refreshing."
+              onRetry={() => {
+                refetchUnifiedAnalytics();
+              }}
+            >
               <UnifiedAnalyticsChart
                 data={unifiedAnalyticsData}
                 loading={unifiedAnalyticsLoading}
@@ -2423,7 +2431,10 @@ const DashboardPage = () => {
               />
             </ErrorBoundary>
           ) : (
-            <ErrorBoundary fallbackMessage="The Revenue chart failed to load. Please try refreshing this component.">
+            <ErrorBoundary 
+              fallbackMessage="The Revenue chart failed to load. Please try refreshing."
+              onRetry={() => fetchRevenueData(true)}
+            >
               <RevenueChart
                 data={insights?.timeseries || []}
                 loading={cardLoading.revenue}
@@ -2506,33 +2517,7 @@ const DashboardPage = () => {
             </ToggleButtonGroup>
           </Box>
 
-          {/* Cache Status Indicator for Unified Analytics */}
-          {chartMode === 'unified' && unifiedAnalyticsIsCached && (
-            <Alert 
-              severity="info" 
-              sx={{ 
-                mb: 2, 
-                backgroundColor: 'rgba(37, 99, 235, 0.05)',
-                border: '1px solid rgba(37, 99, 235, 0.2)',
-                borderRadius: 2,
-                '& .MuiAlert-icon': {
-                  color: 'primary.main'
-                }
-              }}
-            >
-              <Typography variant="body2">
-                📊 <strong>Using cached data</strong> ({unifiedAnalyticsCacheAge} min old) • 
-                Enterprise-grade caching active • 
-                <Button 
-                  size="small" 
-                  onClick={refetchUnifiedAnalytics}
-                  sx={{ ml: 1, textTransform: 'none', fontSize: '0.8rem' }}
-                >
-                  Refresh Now
-                </Button>
-              </Typography>
-            </Alert>
-          )}
+
         </Box>
 
         {/* Dashboard Status and Refresh Controls */}

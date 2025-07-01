@@ -486,7 +486,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
     );
   }
 
-  if (processedData.length === 0) {
+  if (sanitizedData.length === 0) {
     return (
       <Box
         sx={{

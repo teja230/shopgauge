@@ -47,14 +47,18 @@ class ErrorBoundary extends Component<Props, State> {
           variant="outlined"
           sx={(theme) => ({
             mt: 2,
-            p: 3,
-            borderRadius: theme.shape.borderRadius,
-            borderWidth: 2,
+            p: 2,
+            borderRadius: 1,
+            borderWidth: 1,
             borderColor: theme.palette.error.light,
             backgroundColor: theme.palette.mode === 'dark'
-              ? theme.palette.error.dark + '14'
-              : theme.palette.error.light + '14', // subtle tint
+              ? theme.palette.error.dark + '08'
+              : theme.palette.error.light + '08',
             color: theme.palette.text.primary,
+            [theme.breakpoints.down('sm')]: {
+              p: 1.5,
+              borderRadius: 0.5,
+            },
           })}
         >
           <AlertTitle sx={{ fontWeight: 700 }}>Component Error</AlertTitle>
