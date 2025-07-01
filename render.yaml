@@ -108,6 +108,10 @@ services:
     staticPublishPath: dist
     autoDeployTrigger: "on"
     rootDir: frontend
+    routes:
+      - type: rewrite
+        source: /.*
+        destination: /index.html
     # Let _redirects file handle routing instead of render.yaml routes
 
   - type: keyvalue
