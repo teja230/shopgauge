@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 import type { ReactNode } from 'react';
 import { Box, Typography, Button } from '@mui/material';
-import { Refresh, Home, ArrowBack, BugReport, Dashboard } from '@mui/icons-material';
+import { Refresh, ArrowBack, BugReport, Dashboard, Analytics, Person } from '@mui/icons-material';
 import { styled, keyframes } from '@mui/material/styles';
 
 // Animations for intelligent analytics theme
@@ -237,7 +237,7 @@ const ErrorNavigation: React.FC<{ onRefresh: () => void }> = ({ onRefresh }) => 
   const isAuthenticated = document.cookie.includes('shop=');
 
   const handleGoHome = () => {
-    window.location.href = '/';
+    window.location.href = '/?force=true';
   };
 
   const handleGoBack = () => {
@@ -250,6 +250,14 @@ const ErrorNavigation: React.FC<{ onRefresh: () => void }> = ({ onRefresh }) => 
 
   const handleGoDashboard = () => {
     window.location.href = '/dashboard';
+  };
+
+  const handleGoMarketIntelligence = () => {
+    window.location.href = '/competitors';
+  };
+
+  const handleGoProfile = () => {
+    window.location.href = '/profile';
   };
 
   return (
@@ -274,15 +282,39 @@ const ErrorNavigation: React.FC<{ onRefresh: () => void }> = ({ onRefresh }) => 
           Go to Dashboard
         </Button>
       )}
-      <Button
-        variant="outlined"
-        color="primary"
-        onClick={handleGoHome}
-        startIcon={<Home />}
-        sx={{ minWidth: 120, borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
-      >
-        Go Home
-      </Button>
+      {isAuthenticated && (
+        <Button
+          variant="outlined"
+          color="primary"
+          onClick={handleGoMarketIntelligence}
+          startIcon={<Analytics />}
+          sx={{ minWidth: 120, borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
+        >
+          Market Intelligence
+        </Button>
+      )}
+      {isAuthenticated && (
+        <Button
+          variant="outlined"
+          color="primary"
+          onClick={handleGoProfile}
+          startIcon={<Person />}
+          sx={{ minWidth: 120, borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
+        >
+          Profile
+        </Button>
+      )}
+      {!isAuthenticated && (
+        <Button
+          variant="outlined"
+          color="primary"
+          onClick={handleGoHome}
+          startIcon={<Refresh />}
+          sx={{ minWidth: 120, borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
+        >
+          Go Home
+        </Button>
+      )}
       <Button
         variant="outlined"
         color="primary"

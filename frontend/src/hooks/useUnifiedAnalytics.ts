@@ -93,7 +93,7 @@ const useUnifiedAnalytics = (
 
   // Load from cache
   const loadFromCache = useCallback((shopName: string): CacheEntry<UnifiedAnalyticsData> | null => {
-    if (!shopName) return null;
+    if (!shopName || !shopName.trim()) return null;
     
     try {
       const cacheKey = getCacheKey(shopName);
@@ -131,7 +131,7 @@ const useUnifiedAnalytics = (
 
   // Save to cache
   const saveToCache = useCallback((shopName: string, analyticsData: UnifiedAnalyticsData) => {
-    if (!shopName) return;
+    if (!shopName || !shopName.trim()) return;
 
     try {
       const cacheKey = getCacheKey(shopName);
@@ -165,6 +165,11 @@ const useUnifiedAnalytics = (
   }, [days, includePredictions, getCacheKeyForAnalytics]);
 
   const fetchData = useCallback(async (forceRefresh = false): Promise<UnifiedAnalyticsData> => {
+    // Validate shop before proceeding
+    if (!shop || !shop.trim()) {
+      throw new Error('Invalid shop name provided');
+    }
+
     // Return existing promise if already fetching
     if (activeFetchRef.current && !forceRefresh) {
       return activeFetchRef.current;
@@ -176,7 +181,7 @@ const useUnifiedAnalytics = (
         setError(null);
 
         // Check cache first (unless forcing refresh)
-        if (!forceRefresh && shop) {
+        if (!forceRefresh) {
           const cachedEntry = loadFromCache(shop);
           if (cachedEntry) {
             const ageMinutes = Math.round((Date.now() - cachedEntry.timestamp) / (1000 * 60));
@@ -232,9 +237,7 @@ const useUnifiedAnalytics = (
         }
 
         // Save to cache
-        if (shop) {
-          saveToCache(shop, result);
-        }
+        saveToCache(shop, result);
 
         setData(result);
         setLastUpdated(new Date());
@@ -268,7 +271,7 @@ const useUnifiedAnalytics = (
 
     activeFetchRef.current = fetchPromise;
     return fetchPromise;
-  }, [days, includePredictions, data, shop, loadFromCache, saveToCache]);
+  }, [days, includePredictions, data, shop, loadFromCache, saveToCache, fetchWithAuth]);
 
   const refetch = useCallback(async () => {
     await fetchData(true); // Force refresh
@@ -276,14 +279,19 @@ const useUnifiedAnalytics = (
 
   // Initial fetch
   useEffect(() => {
-    if (shop) {
+    if (shop && shop.trim()) {
       fetchData();
+    } else {
+      // Clear data if no valid shop
+      setData(null);
+      setError(null);
+      setLoading(false);
     }
   }, [fetchData, shop]);
 
   // Auto-refresh if enabled
   useEffect(() => {
-    if (autoRefresh && refreshInterval > 0 && shop) {
+    if (autoRefresh && refreshInterval > 0 && shop && shop.trim()) {
       const interval = setInterval(() => {
         fetchData();
       }, refreshInterval);

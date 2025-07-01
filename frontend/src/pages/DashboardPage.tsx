@@ -719,7 +719,7 @@ const DashboardPage = () => {
     days: 60,
     includePredictions: true,
     autoRefresh: false,
-    shop: shop || undefined,
+    shop: shop && shop.trim() ? shop : undefined,
   });
 
   // Individual card loading states
