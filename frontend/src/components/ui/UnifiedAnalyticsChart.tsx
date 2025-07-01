@@ -143,18 +143,20 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         historical = historical.slice(-days);
       }
 
-      const combinedData = historical.map(item => ({
+      const combinedData = historical.map((item, index) => ({
         ...item,
+        key: `historical-${item.date}-${index}`,
         type: 'historical',
         isPrediction: false,
       }));
 
       // Add predictions if enabled
       if (showPredictions && data.predictions && Array.isArray(data.predictions)) {
-        const predictions = data.predictions.map((item) => {
+        const predictions = data.predictions.map((item, index) => {
           const ci = item.confidence_interval || {};
           return {
             date: item.date || '',
+            key: `prediction-${item.date}-${index}`,
             revenue: safeNumber(item.revenue),
             orders_count: safeNumber(item.orders_count),
             conversion_rate: safeNumber(item.conversion_rate),

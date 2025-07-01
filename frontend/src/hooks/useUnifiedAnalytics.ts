@@ -208,51 +208,72 @@ const useUnifiedAnalytics = (
           includePredictions: includePredictions.toString(),
         });
 
-        const response = await fetchWithAuth(`/api/analytics/unified-analytics?${params}`);
+        const MAX_RETRIES = 3;
+        let attempt = 0;
+        
+        while (attempt < MAX_RETRIES) {
+          try {
+            const response = await fetchWithAuth(`/api/analytics/unified-analytics?${params}`);
 
-        if (!response.ok) {
-          if (response.status === 401) {
-            throw new Error('Authentication required');
-          } else if (response.status === 403) {
-            throw new Error('Permission denied – please re-authenticate with Shopify');
-          } else if (response.status === 429) {
-            throw new Error('Rate limited – please try again later');
-          } else {
-            throw new Error(`HTTP ${response.status}: Failed to fetch analytics data`);
+            if (!response.ok) {
+              // For 5xx errors, we should retry
+              if (response.status >= 500 && response.status < 600) {
+                throw new Error(`HTTP ${response.status}: Server error, retrying...`);
+              }
+              // For other errors, fail immediately
+              else if (response.status === 401) {
+                throw new Error('Authentication required');
+              } else if (response.status === 403) {
+                throw new Error('Permission denied – please re-authenticate with Shopify');
+              } else if (response.status === 429) {
+                throw new Error('Rate limited – please try again later');
+              } else {
+                throw new Error(`HTTP ${response.status}: Failed to fetch analytics data`);
+              }
+            }
+            
+            const result = await response.json();
+            
+            if (result.error) {
+              throw new Error(result.error);
+            }
+
+            // Validate the response structure
+            if (!result.historical || !Array.isArray(result.historical)) {
+              throw new Error('Invalid analytics data format');
+            }
+
+            // Ensure predictions is always an array
+            if (!result.predictions || !Array.isArray(result.predictions)) {
+              result.predictions = [];
+            }
+
+            // Save to cache
+            saveToCache(shop, result);
+
+            setData(result);
+            setLastUpdated(new Date());
+            
+            console.log('✅ UNIFIED_ANALYTICS: Fresh data loaded and cached:', {
+              historicalPoints: result.historical.length,
+              predictionPoints: result.predictions.length,
+              totalRevenue: result.total_revenue,
+              totalOrders: result.total_orders,
+              periodDays: result.period_days,
+            });
+
+            return result;
+
+          } catch (err) {
+            attempt++;
+            if (attempt >= MAX_RETRIES) {
+              // If all retries fail, throw the last error
+              throw err;
+            }
+            console.warn(`Attempt ${attempt} failed. Retrying in ${attempt * 2} seconds...`);
+            await new Promise(res => setTimeout(res, attempt * 2000)); // Exponential backoff
           }
         }
-
-        const result = await response.json();
-
-        if (result.error) {
-          throw new Error(result.error);
-        }
-
-        // Validate the response structure
-        if (!result.historical || !Array.isArray(result.historical)) {
-          throw new Error('Invalid analytics data format');
-        }
-
-        // Ensure predictions is always an array
-        if (!result.predictions || !Array.isArray(result.predictions)) {
-          result.predictions = [];
-        }
-
-        // Save to cache
-        saveToCache(shop, result);
-
-        setData(result);
-        setLastUpdated(new Date());
-        
-        console.log('✅ UNIFIED_ANALYTICS: Fresh data loaded and cached:', {
-          historicalPoints: result.historical.length,
-          predictionPoints: result.predictions.length,
-          totalRevenue: result.total_revenue,
-          totalOrders: result.total_orders,
-          periodDays: result.period_days,
-        });
-
-        return result;
 
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to fetch analytics data';

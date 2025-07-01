@@ -18,6 +18,7 @@ import {
   CACHE_VERSION,
 } from '../utils/cacheUtils'; // Import from shared utils
 import IntelligentLoadingScreen from '../components/ui/IntelligentLoadingScreen';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 /**
  * 🚀 DASHBOARD CACHE BEHAVIOR
@@ -2413,19 +2414,23 @@ const DashboardPage = () => {
         <Box sx={{ width: '100%' }}>
           {/* Chart Container (Charts render above) */}
           {chartMode === 'unified' ? (
-            <UnifiedAnalyticsChart
-              data={unifiedAnalyticsData}
-              loading={unifiedAnalyticsLoading}
-              error={unifiedAnalyticsError}
-              height={500}
-            />
+            <ErrorBoundary fallbackMessage="The Unified Analytics chart failed to load. Please try refreshing this component.">
+              <UnifiedAnalyticsChart
+                data={unifiedAnalyticsData}
+                loading={unifiedAnalyticsLoading}
+                error={unifiedAnalyticsError}
+                height={500}
+              />
+            </ErrorBoundary>
           ) : (
-            <RevenueChart
-              data={insights?.timeseries || []}
-              loading={cardLoading.revenue}
-              error={cardErrors.revenue}
-              height={500}
-            />
+            <ErrorBoundary fallbackMessage="The Revenue chart failed to load. Please try refreshing this component.">
+              <RevenueChart
+                data={insights?.timeseries || []}
+                loading={cardLoading.revenue}
+                error={cardErrors.revenue}
+                height={500}
+              />
+            </ErrorBoundary>
           )}
 
           {/* Move Chart Mode Toggle BELOW charts */}

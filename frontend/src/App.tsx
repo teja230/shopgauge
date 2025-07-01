@@ -15,7 +15,7 @@ import NotFoundPage from './pages/NotFoundPage';
 import ServiceUnavailablePage from './pages/ServiceUnavailablePage';
 import NavBar from './components/NavBar';
 import PrivacyBanner from './components/ui/PrivacyBanner';
-import { ErrorBoundary } from './components/ErrorBoundary';
+import ErrorBoundary from './components/ErrorBoundary';
 import { ThemeProvider } from '@mui/material/styles';
 import { CssBaseline } from '@mui/material';
 import theme from './theme';
