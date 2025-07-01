@@ -367,7 +367,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
             )}
             {visibleMetrics.orders && (
               <Line
-                yAxisId="revenue"
+                yAxisId="orders"
                 type="monotone"
                 dataKey="orders_count"
                 stroke="#10b981"
