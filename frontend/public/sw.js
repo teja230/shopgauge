@@ -136,7 +136,14 @@ async function networkFirstForDocuments(request) {
       return networkResponse;
     }
     console.warn('Service Worker: Document fetch returned non-OK status, serving index.html instead');
-    const fallbackResponse = await caches.match('/index.html');
+    let fallbackResponse = await caches.match('/index.html');
+    if (!fallbackResponse) {
+      try {
+        fallbackResponse = await fetch('/index.html');
+      } catch (err) {
+        console.warn('Service Worker: Failed to fetch index.html as fallback', err);
+      }
+    }
     return fallbackResponse || networkResponse;
   } catch (error) {
     console.log('Service Worker: Network failed for document, serving cached index.html');
