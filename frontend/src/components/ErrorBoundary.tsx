@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 import type { ReactNode } from 'react';
 import { Box, Typography, Button } from '@mui/material';
-import { Refresh, Home, ArrowBack, BugReport } from '@mui/icons-material';
+import { Refresh, Home, ArrowBack, BugReport, Dashboard } from '@mui/icons-material';
 import { styled, keyframes } from '@mui/material/styles';
 
 // Animations for intelligent analytics theme
@@ -233,6 +233,9 @@ interface Props {
 
 // Navigation component for buttons (no React Router hooks → works even without Router context)
 const ErrorNavigation: React.FC<{ onRefresh: () => void }> = ({ onRefresh }) => {
+  // Check if user is likely authenticated by looking for shop cookie
+  const isAuthenticated = document.cookie.includes('shop=');
+
   const handleGoHome = () => {
     window.location.href = '/';
   };
@@ -243,6 +246,10 @@ const ErrorNavigation: React.FC<{ onRefresh: () => void }> = ({ onRefresh }) => 
     } else {
       window.location.href = '/';
     }
+  };
+
+  const handleGoDashboard = () => {
+    window.location.href = '/dashboard';
   };
 
   return (
@@ -256,6 +263,17 @@ const ErrorNavigation: React.FC<{ onRefresh: () => void }> = ({ onRefresh }) => 
       >
         Try Again
       </Button>
+      {isAuthenticated && (
+        <Button
+          variant="contained"
+          color="secondary"
+          onClick={handleGoDashboard}
+          startIcon={<Dashboard />}
+          sx={{ minWidth: 120, borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
+        >
+          Go to Dashboard
+        </Button>
+      )}
       <Button
         variant="outlined"
         color="primary"

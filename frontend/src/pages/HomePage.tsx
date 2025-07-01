@@ -166,6 +166,10 @@ const HomePage = () => {
     }
   };
 
+  const handleGoHome = () => {
+    window.location.href = '/?force=true';
+  };
+
   // Show loading state for form submission only, not OAuth flow
   if (isLoading) {
     return <IntelligentLoadingScreen message="Connecting to Shopify..." fastMode={true} />;
