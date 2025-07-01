@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getCacheKey, CACHE_VERSION } from '../utils/cacheUtils';
 import { fetchWithAuth } from '../api';
+import { api } from '../api';
 
 interface HistoricalData {
   date: string;
@@ -65,6 +66,9 @@ interface UseUnifiedAnalyticsReturn {
 // Cache configuration - same as dashboard
 const CACHE_DURATION = 120 * 60 * 1000; // 120 minutes (2 hours) in milliseconds
 
+const MAX_READINESS_CHECKS = 12; // Check for up to 60 seconds (12 * 5s)
+const READINESS_CHECK_INTERVAL = 5000; // 5 seconds
+
 const useUnifiedAnalytics = (
   options: UseUnifiedAnalyticsOptions = {}
 ): UseUnifiedAnalyticsReturn => {
@@ -77,7 +81,7 @@ const useUnifiedAnalytics = (
   } = options;
 
   const [data, setData] = useState<UnifiedAnalyticsData | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [isCached, setIsCached] = useState(false);
@@ -320,6 +324,73 @@ const useUnifiedAnalytics = (
       return () => clearInterval(interval);
     }
   }, [autoRefresh, refreshInterval, fetchData, shop]);
+
+  useEffect(() => {
+    let mounted = true;
+    let readinessAttempt = 0;
+
+    const checkServiceReadiness = async (): Promise<boolean> => {
+      try {
+        const response = await fetch('/api/health/readiness', {
+          method: 'GET',
+          credentials: 'include',
+          signal: AbortSignal.timeout(5000),
+        });
+        
+        if (response.ok) {
+          const healthData = await response.json();
+          return healthData.ready === true;
+        }
+        return false;
+      } catch (error) {
+        console.log('Service readiness check failed:', error);
+        return false;
+      }
+    };
+
+    const waitForServiceReadiness = async (): Promise<void> => {
+      while (readinessAttempt < MAX_READINESS_CHECKS && mounted) {
+        const isReady = await checkServiceReadiness();
+        
+        if (isReady) {
+          console.log('Service is ready, proceeding with analytics fetch');
+          return;
+        }
+        
+        readinessAttempt++;
+        console.log(`Service not ready, attempt ${readinessAttempt}/${MAX_READINESS_CHECKS}`);
+        
+        if (readinessAttempt < MAX_READINESS_CHECKS) {
+          await new Promise(resolve => setTimeout(resolve, READINESS_CHECK_INTERVAL));
+        }
+      }
+      
+      if (readinessAttempt >= MAX_READINESS_CHECKS) {
+        throw new Error('Service readiness timeout - backend may be having startup issues');
+      }
+    };
+
+    const initializeAnalytics = async () => {
+      try {
+        // First wait for service readiness
+        await waitForServiceReadiness();
+        
+        // Then fetch the actual data
+        await fetchData();
+      } catch (err: any) {
+        if (mounted) {
+          setError(err.message || 'Failed to initialize analytics');
+          setLoading(false);
+        }
+      }
+    };
+
+    initializeAnalytics();
+
+    return () => {
+      mounted = false;
+    };
+  }, [days, includePredictions]);
 
   return {
     data,

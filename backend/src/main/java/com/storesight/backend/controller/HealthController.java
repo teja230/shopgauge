@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -183,5 +184,56 @@ public class HealthController {
     }
 
     return ResponseEntity.ok(health);
+  }
+
+  @GetMapping("/readiness")
+  public ResponseEntity<Map<String, Object>> getReadinessProbe() {
+    Map<String, Object> readiness = new HashMap<>();
+    readiness.put("application", applicationName);
+    readiness.put("timestamp", LocalDateTime.now().toString());
+
+    boolean isReady = true;
+    Map<String, String> checks = new HashMap<>();
+
+    try {
+      // Check database readiness
+      jdbcTemplate.queryForObject("SELECT 1", Integer.class);
+      checks.put("database", "ready");
+    } catch (Exception e) {
+      logger.warn("Database not ready: {}", e.getMessage());
+      checks.put("database", "not_ready");
+      isReady = false;
+    }
+
+    try {
+      // Check Redis readiness
+      redisTemplate.opsForValue().get("readiness_check");
+      checks.put("redis", "ready");
+    } catch (Exception e) {
+      logger.warn("Redis not ready: {}", e.getMessage());
+      checks.put("redis", "not_ready");
+      isReady = false;
+    }
+
+    try {
+      // Check if ShopService is initialized
+      if (shopService != null) {
+        checks.put("shopService", "ready");
+      } else {
+        checks.put("shopService", "not_ready");
+        isReady = false;
+      }
+    } catch (Exception e) {
+      logger.warn("ShopService not ready: {}", e.getMessage());
+      checks.put("shopService", "not_ready");
+      isReady = false;
+    }
+
+    readiness.put("status", isReady ? "ready" : "not_ready");
+    readiness.put("ready", isReady);
+    readiness.put("checks", checks);
+
+    HttpStatus status = isReady ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE;
+    return ResponseEntity.status(status).body(readiness);
   }
 }

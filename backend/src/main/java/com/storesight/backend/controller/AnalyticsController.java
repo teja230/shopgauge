@@ -2173,6 +2173,17 @@ public class AnalyticsController {
       @RequestParam(value = "includePredictions", defaultValue = "true") boolean includePredictions,
       HttpSession session) {
 
+    // Early service readiness check
+    if (!isServiceReady()) {
+      logger.warn("Service not ready for unified analytics request from shop: {}", shop);
+      Map<String, Object> errorResponse = new HashMap<>();
+      errorResponse.put("error", "Service is starting up, please try again in a moment");
+      errorResponse.put("historical", List.of());
+      errorResponse.put("predictions", List.of());
+      errorResponse.put("retry_after", 5); // Suggest retry after 5 seconds
+      return Mono.just(ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(errorResponse));
+    }
+
     if (shop == null) {
       Map<String, Object> errorResponse = new HashMap<>();
       errorResponse.put("error", "Not authenticated");
@@ -2212,13 +2223,15 @@ public class AnalyticsController {
         .header("X-Shopify-Access-Token", token)
         .retrieve()
         .bodyToMono(Map.class)
+        .timeout(java.time.Duration.ofSeconds(45)) // Slightly longer timeout for startup
         .zipWith(
             webClient
                 .get()
                 .uri(productsUrl)
                 .header("X-Shopify-Access-Token", token)
                 .retrieve()
-                .bodyToMono(Map.class))
+                .bodyToMono(Map.class)
+                .timeout(java.time.Duration.ofSeconds(45)))
         .map(
             tuple -> {
               Map<String, Object> ordersData = tuple.getT1();
@@ -2328,6 +2341,19 @@ public class AnalyticsController {
                   "Failed to fetch unified analytics for shop {}: {}", shop, e.getMessage(), e);
 
               Map<String, Object> errorResponse = new HashMap<>();
+
+              // Check for timeout or connection issues that suggest service unavailability
+              if (e.getMessage().contains("timeout")
+                  || e.getMessage().contains("connection")
+                  || e.getMessage().contains("ConnectException")) {
+                errorResponse.put("error", "Service temporarily unavailable");
+                errorResponse.put("retry_after", 10);
+                errorResponse.put("historical", List.of());
+                errorResponse.put("predictions", List.of());
+                return Mono.just(
+                    ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(errorResponse));
+              }
+
               errorResponse.put("error", "Failed to fetch analytics data");
               errorResponse.put("historical", List.of());
               errorResponse.put("predictions", List.of());
@@ -2340,6 +2366,25 @@ public class AnalyticsController {
 
               return Mono.just(ResponseEntity.ok(errorResponse));
             });
+  }
+
+  /** Check if critical services are ready to handle requests */
+  private boolean isServiceReady() {
+    try {
+      // Check if ShopService is ready
+      if (shopService == null) {
+        return false;
+      }
+
+      // Check if database is accessible
+      // This is a lightweight check - just see if we can get a connection
+      String testResult = redisTemplate.opsForValue().get("shop_service_init");
+
+      return true; // If we got here without exceptions, services are ready
+    } catch (Exception e) {
+      logger.debug("Service readiness check failed: {}", e.getMessage());
+      return false;
+    }
   }
 
   // Helper class for daily metrics aggregation

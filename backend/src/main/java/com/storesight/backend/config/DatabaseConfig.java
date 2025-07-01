@@ -76,6 +76,24 @@ public class DatabaseConfig {
       throw new RuntimeException("Database connection failed", e);
     }
 
+    // Warm up the connection pool
+    warmupConnectionPool(dataSource);
+
     return dataSource;
+  }
+
+  private void warmupConnectionPool(HikariDataSource dataSource) {
+    logger.info("Warming up database connection pool...");
+    try {
+      // Create and close a few connections to warm up the pool
+      for (int i = 0; i < 3; i++) {
+        try (Connection conn = dataSource.getConnection()) {
+          conn.prepareStatement("SELECT 1").execute();
+        }
+      }
+      logger.info("Database connection pool warmed up successfully");
+    } catch (Exception e) {
+      logger.warn("Failed to warm up connection pool: {}", e.getMessage());
+    }
   }
 }

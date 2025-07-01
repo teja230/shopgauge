@@ -4,6 +4,7 @@ import com.storesight.backend.model.Shop;
 import com.storesight.backend.model.ShopSession;
 import com.storesight.backend.repository.ShopRepository;
 import com.storesight.backend.repository.ShopSessionRepository;
+import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -45,6 +46,38 @@ public class ShopService {
     this.shopRepository = shopRepository;
     this.shopSessionRepository = shopSessionRepository;
     this.redisTemplate = redisTemplate;
+  }
+
+  @PostConstruct
+  public void initializeService() {
+    logger.info("Initializing ShopService...");
+
+    // Warm up Redis connection
+    try {
+      redisTemplate
+          .opsForValue()
+          .set("shop_service_init", "initialized", java.time.Duration.ofSeconds(60));
+      String testValue = redisTemplate.opsForValue().get("shop_service_init");
+      if ("initialized".equals(testValue)) {
+        logger.info("Redis connection verified successfully");
+      } else {
+        logger.warn("Redis connection test failed - got: {}", testValue);
+      }
+    } catch (Exception e) {
+      logger.error("Failed to initialize Redis connection: {}", e.getMessage());
+      // Don't throw exception to allow startup to continue
+    }
+
+    // Warm up database connection
+    try {
+      long shopCount = shopRepository.count();
+      logger.info("Database connection verified - found {} shops", shopCount);
+    } catch (Exception e) {
+      logger.error("Failed to initialize database connection: {}", e.getMessage());
+      // Don't throw exception to allow startup to continue
+    }
+
+    logger.info("ShopService initialization completed");
   }
 
   /**
