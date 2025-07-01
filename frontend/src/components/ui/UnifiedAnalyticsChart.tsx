@@ -95,6 +95,25 @@ interface UnifiedAnalyticsChartProps {
 type ChartType = 'combined' | 'revenue_focus' | 'line' | 'area' | 'bar' | 'candlestick' | 'waterfall' | 'stacked' | 'composed';
 type TimeRange = 'all' | 'last30' | 'last7';
 
+// Helper function to safely get numeric value
+const safeNumber = (value: any, defaultValue: number = 0): number => {
+  if (value === null || value === undefined || isNaN(Number(value))) {
+    return defaultValue;
+  }
+  return Number(value);
+};
+
+// Helper function to safely process historical data item
+const processHistoricalItem = (item: any) => {
+  return {
+    date: item.date || '',
+    revenue: safeNumber(item.revenue),
+    orders_count: safeNumber(item.orders_count),
+    conversion_rate: safeNumber(item.conversion_rate),
+    avg_order_value: safeNumber(item.avg_order_value),
+  };
+};
+
 const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
   data,
   loading = false,
@@ -111,199 +130,232 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
   });
   const [predictionLoading, setPredictionLoading] = useState(false);
 
-  // Process and combine historical and prediction data
+  // Process and combine historical and prediction data with error handling
   const chartData = useMemo(() => {
-    if (!data || !data.historical) return [];
+    try {
+      if (!data || !data.historical || !Array.isArray(data.historical)) return [];
 
-    let historical = [...data.historical];
-    
-    // Apply time range filter
-    if (timeRange !== 'all') {
-      const days = timeRange === 'last30' ? 30 : 7;
-      historical = historical.slice(-days);
+      let historical = data.historical.map(processHistoricalItem);
+      
+      // Apply time range filter
+      if (timeRange !== 'all') {
+        const days = timeRange === 'last30' ? 30 : 7;
+        historical = historical.slice(-days);
+      }
+
+      const combinedData = historical.map(item => ({
+        ...item,
+        type: 'historical',
+        isPrediction: false,
+      }));
+
+      // Add predictions if enabled
+      if (showPredictions && data.predictions && Array.isArray(data.predictions)) {
+        const predictions = data.predictions.map((item) => {
+          const ci = item.confidence_interval || {};
+          return {
+            date: item.date || '',
+            revenue: safeNumber(item.revenue),
+            orders_count: safeNumber(item.orders_count),
+            conversion_rate: safeNumber(item.conversion_rate),
+            avg_order_value: safeNumber(item.avg_order_value),
+            type: 'prediction',
+            isPrediction: true,
+            confidence_score: safeNumber(item.confidence_score, 0),
+            revenue_min: safeNumber(ci.revenue_min),
+            revenue_max: safeNumber(ci.revenue_max),
+            orders_min: safeNumber(ci.orders_min),
+            orders_max: safeNumber(ci.orders_max),
+          };
+        });
+        combinedData.push(...predictions);
+      }
+
+      return combinedData;
+    } catch (err) {
+      console.error('Error processing chart data:', err);
+      return [];
     }
-
-    const combinedData = historical.map(item => ({
-      ...item,
-      type: 'historical',
-      isPrediction: false,
-    }));
-
-    // Add predictions if enabled
-    if (showPredictions && data.predictions) {
-      const predictions = data.predictions.map((item) => {
-        const ci = item.confidence_interval || {} as any;
-        return {
-          date: item.date,
-          revenue: item.revenue,
-          orders_count: item.orders_count,
-          conversion_rate: item.conversion_rate,
-          avg_order_value: item.avg_order_value,
-          type: 'prediction',
-          isPrediction: true,
-          confidence_score: item.confidence_score ?? 0,
-          revenue_min: ci.revenue_min ?? null,
-          revenue_max: ci.revenue_max ?? null,
-          orders_min: ci.orders_min ?? null,
-          orders_max: ci.orders_max ?? null,
-        };
-      });
-      combinedData.push(...predictions);
-    }
-
-    return combinedData;
   }, [data, timeRange, showPredictions]);
 
-  // Calculate summary statistics
+  // Calculate summary statistics with error handling
   const stats = useMemo(() => {
-    if (!data || !data.historical.length) return null;
+    try {
+      if (!data || !data.historical || !Array.isArray(data.historical) || data.historical.length === 0) return null;
 
-    const historical = data.historical;
-    const recent7Days = historical.slice(-7);
-    const previous7Days = historical.slice(-14, -7);
+      const historical = data.historical.map(processHistoricalItem);
+      const recent7Days = historical.slice(-7);
+      const previous7Days = historical.slice(-14, -7);
 
-    const recentRevenue = recent7Days.reduce((sum, item) => sum + item.revenue, 0);
-    const previousRevenue = previous7Days.reduce((sum, item) => sum + item.revenue, 0);
-    const revenueChange = previousRevenue > 0 ? ((recentRevenue - previousRevenue) / previousRevenue) * 100 : 0;
+      const recentRevenue = recent7Days.reduce((sum, item) => sum + safeNumber(item.revenue), 0);
+      const previousRevenue = previous7Days.reduce((sum, item) => sum + safeNumber(item.revenue), 0);
+      const revenueChange = previousRevenue > 0 ? ((recentRevenue - previousRevenue) / previousRevenue) * 100 : 0;
 
-    const recentOrders = recent7Days.reduce((sum, item) => sum + item.orders_count, 0);
-    const previousOrders = previous7Days.reduce((sum, item) => sum + item.orders_count, 0);
-    const ordersChange = previousOrders > 0 ? ((recentOrders - previousOrders) / previousOrders) * 100 : 0;
+      const recentOrders = recent7Days.reduce((sum, item) => sum + safeNumber(item.orders_count), 0);
+      const previousOrders = previous7Days.reduce((sum, item) => sum + safeNumber(item.orders_count), 0);
+      const ordersChange = previousOrders > 0 ? ((recentOrders - previousOrders) / previousOrders) * 100 : 0;
 
-    const avgConversion = recent7Days.reduce((sum, item) => sum + item.conversion_rate, 0) / recent7Days.length;
-    const prevAvgConversion = previous7Days.length > 0 ? previous7Days.reduce((sum, item) => sum + item.conversion_rate, 0) / previous7Days.length : 0;
-    const conversionChange = prevAvgConversion > 0 ? ((avgConversion - prevAvgConversion) / prevAvgConversion) * 100 : 0;
+      const avgConversion = recent7Days.length > 0 ? 
+        recent7Days.reduce((sum, item) => sum + safeNumber(item.conversion_rate), 0) / recent7Days.length : 0;
+      const prevAvgConversion = previous7Days.length > 0 ? 
+        previous7Days.reduce((sum, item) => sum + safeNumber(item.conversion_rate), 0) / previous7Days.length : 0;
+      const conversionChange = prevAvgConversion > 0 ? ((avgConversion - prevAvgConversion) / prevAvgConversion) * 100 : 0;
 
-    // Future predictions summary
-    const futurePredictions = data.predictions ? data.predictions.slice(0, 30) : [];
-    const predictedRevenue = futurePredictions.reduce((sum, item) => sum + item.revenue, 0);
+      // Future predictions summary
+      const futurePredictions = (data.predictions && Array.isArray(data.predictions)) ? data.predictions.slice(0, 30) : [];
+      const predictedRevenue = futurePredictions.reduce((sum, item) => sum + safeNumber(item.revenue), 0);
 
-    return {
-      current: {
-        revenue: recentRevenue,
-        orders: recentOrders,
-        conversion: avgConversion,
-      },
-      changes: {
-        revenue: revenueChange,
-        orders: ordersChange,
-        conversion: conversionChange,
-      },
-      predictions: {
-        revenue: predictedRevenue,
-        period: futurePredictions.length,
-      },
-    };
+      return {
+        current: {
+          revenue: recentRevenue,
+          orders: recentOrders,
+          conversion: avgConversion,
+        },
+        changes: {
+          revenue: revenueChange,
+          orders: ordersChange,
+          conversion: conversionChange,
+        },
+        predictions: {
+          revenue: predictedRevenue,
+          period: futurePredictions.length,
+        },
+      };
+    } catch (err) {
+      console.error('Error calculating stats:', err);
+      return null;
+    }
   }, [data]);
 
   const formatXAxisTick = (tickItem: string) => {
-    const date = new Date(tickItem);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-    });
+    try {
+      const date = new Date(tickItem);
+      if (isNaN(date.getTime())) return tickItem;
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+      });
+    } catch {
+      return tickItem;
+    }
   };
 
   const formatYAxisTick = (value: number, axis: 'revenue' | 'orders' | 'conversion') => {
-    switch (axis) {
-      case 'revenue':
-        if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
-        if (value >= 1000) return `$${(value / 1000).toFixed(1)}K`;
-        return `$${value}`;
-      case 'orders':
-        return Math.round(value).toString();
-      case 'conversion':
-        return `${value.toFixed(1)}%`;
-      default:
-        return value.toString();
+    try {
+      const numValue = safeNumber(value);
+      switch (axis) {
+        case 'revenue':
+          if (numValue >= 1000000) return `$${(numValue / 1000000).toFixed(1)}M`;
+          if (numValue >= 1000) return `$${(numValue / 1000).toFixed(1)}K`;
+          return `$${numValue.toFixed(0)}`;
+        case 'orders':
+          return Math.round(numValue).toString();
+        case 'conversion':
+          return `${numValue.toFixed(1)}%`;
+        default:
+          return numValue.toString();
+      }
+    } catch {
+      return value.toString();
     }
   };
 
   const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload;
-      const isPrediction = data.isPrediction;
+    try {
+      if (active && payload && payload.length) {
+        const data = payload[0].payload;
+        const isPrediction = data.isPrediction;
 
-      return (
-        <Paper
-          elevation={12}
-          sx={{
-            p: 2.5,
-            backgroundColor: 'rgba(255, 255, 255, 0.98)',
-            border: isPrediction ? '2px solid #e3f2fd' : '1px solid rgba(0, 0, 0, 0.1)',
-            borderRadius: 3,
-            minWidth: 280,
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-            {isPrediction && <AutoGraph color="primary" fontSize="small" />}
-            <Typography variant="body2" color="text.secondary" fontWeight={600}>
-              {new Date(label).toLocaleDateString('en-US', {
-                weekday: 'long',
-                month: 'short',
-                day: 'numeric',
-              })}
-            </Typography>
-            {isPrediction && (
-              <Chip
-                size="small"
-                label={
-                  data.confidence_score !== undefined && data.confidence_score !== null
-                    ? `${Math.round(data.confidence_score * 100)}% confidence`
-                    : 'Prediction'
-                }
-                color="primary"
-                variant="outlined"
-              />
-            )}
-          </Box>
-          
-          <Divider sx={{ mb: 1.5 }} />
-          
-          {payload.map((entry: any, index: number) => (
-            <Box key={index} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box
-                  sx={{
-                    width: 12,
-                    height: 12,
-                    borderRadius: '50%',
-                    backgroundColor: entry.color,
-                  }}
+        return (
+          <Paper
+            elevation={12}
+            sx={{
+              p: 2.5,
+              backgroundColor: 'rgba(255, 255, 255, 0.98)',
+              border: isPrediction ? '2px solid #e3f2fd' : '1px solid rgba(0, 0, 0, 0.1)',
+              borderRadius: 3,
+              minWidth: 280,
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+              {isPrediction && <AutoGraph color="primary" fontSize="small" />}
+              <Typography variant="body2" color="text.secondary" fontWeight={600}>
+                {(() => {
+                  try {
+                    return new Date(label).toLocaleDateString('en-US', {
+                      weekday: 'long',
+                      month: 'short',
+                      day: 'numeric',
+                    });
+                  } catch {
+                    return label;
+                  }
+                })()}
+              </Typography>
+              {isPrediction && (
+                <Chip
+                  size="small"
+                  label={
+                    data.confidence_score !== undefined && data.confidence_score !== null
+                      ? `${Math.round(safeNumber(data.confidence_score) * 100)}% confidence`
+                      : 'Prediction'
+                  }
+                  color="primary"
+                  variant="outlined"
                 />
-                <Typography variant="body2" fontWeight={500}>
-                  {entry.dataKey === 'revenue' && 'Revenue'}
-                  {entry.dataKey === 'orders_count' && 'Orders'}
-                  {entry.dataKey === 'conversion_rate' && 'Conversion'}
-                  {entry.dataKey === 'avg_order_value' && 'AOV'}
+              )}
+            </Box>
+            
+            <Divider sx={{ mb: 1.5 }} />
+            
+            {payload.map((entry: any, index: number) => (
+              <Box key={index} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box
+                    sx={{
+                      width: 12,
+                      height: 12,
+                      borderRadius: '50%',
+                      backgroundColor: entry.color,
+                    }}
+                  />
+                  <Typography variant="body2" fontWeight={500}>
+                    {entry.dataKey === 'revenue' && 'Revenue'}
+                    {entry.dataKey === 'orders_count' && 'Orders'}
+                    {entry.dataKey === 'conversion_rate' && 'Conversion'}
+                    {entry.dataKey === 'avg_order_value' && 'AOV'}
+                  </Typography>
+                </Box>
+                <Typography variant="body2" fontWeight={600}>
+                  {entry.dataKey === 'revenue' && `$${safeNumber(entry.value).toLocaleString()}`}
+                  {entry.dataKey === 'orders_count' && safeNumber(entry.value)}
+                  {entry.dataKey === 'conversion_rate' && `${safeNumber(entry.value).toFixed(1)}%`}
+                  {entry.dataKey === 'avg_order_value' && `$${safeNumber(entry.value).toFixed(2)}`}
                 </Typography>
               </Box>
-              <Typography variant="body2" fontWeight={600}>
-                {entry.dataKey === 'revenue' && `$${entry.value?.toLocaleString()}`}
-                {entry.dataKey === 'orders_count' && entry.value}
-                {entry.dataKey === 'conversion_rate' && `${entry.value?.toFixed(1)}%`}
-                {entry.dataKey === 'avg_order_value' && `$${entry.value?.toFixed(2)}`}
-              </Typography>
-            </Box>
-          ))}
-          
-          {isPrediction && data.revenue_min !== undefined && (
-            <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid rgba(0, 0, 0, 0.1)' }}>
-              <Typography variant="caption" color="text.secondary" gutterBottom>
-                Confidence Range
-              </Typography>
-              <Typography variant="body2" fontSize="0.8rem">
-                Revenue: ${data.revenue_min?.toLocaleString()} - ${data.revenue_max?.toLocaleString()}
-              </Typography>
-              <Typography variant="body2" fontSize="0.8rem">
-                Orders: {data.orders_min} - {data.orders_max}
-              </Typography>
-            </Box>
-          )}
-        </Paper>
-      );
+            ))}
+            
+            {isPrediction && data.revenue_min !== undefined && (
+              <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid rgba(0, 0, 0, 0.1)' }}>
+                <Typography variant="caption" color="text.secondary" gutterBottom>
+                  Confidence Range
+                </Typography>
+                <Typography variant="body2" fontSize="0.8rem">
+                  Revenue: ${safeNumber(data.revenue_min).toLocaleString()} - ${safeNumber(data.revenue_max).toLocaleString()}
+                </Typography>
+                <Typography variant="body2" fontSize="0.8rem">
+                  Orders: {safeNumber(data.orders_min)} - {safeNumber(data.orders_max)}
+                </Typography>
+              </Box>
+            )}
+          </Paper>
+        );
+      }
+      return null;
+    } catch (err) {
+      console.error('Error rendering tooltip:', err);
+      return null;
     }
-    return null;
   };
 
   // Render different chart types based on selection
@@ -806,9 +858,27 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
     );
   }
 
+  // Add error boundary wrapper component
+  const ErrorBoundary: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    try {
+      return <>{children}</>;
+    } catch (error) {
+      console.error('UnifiedAnalyticsChart render error:', error);
+      return (
+        <Alert severity="error" sx={{ borderRadius: 3 }}>
+          <Typography variant="h6">Chart Rendering Error</Typography>
+          <Typography variant="body2">
+            There was an error rendering the analytics chart. Please refresh the page or try again later.
+          </Typography>
+        </Alert>
+      );
+    }
+  };
+
   return (
-    <Box sx={{ width: '100%' }}>
-      {/* Header with Controls */}
+    <ErrorBoundary>
+      <Box sx={{ width: '100%' }}>
+        {/* Header with Controls */}
       <Box
         sx={{
           display: 'flex',
@@ -1175,6 +1245,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         </Alert>
       )}
     </Box>
+    </ErrorBoundary>
   );
 };
 
