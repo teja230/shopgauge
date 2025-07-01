@@ -2430,13 +2430,13 @@ const DashboardPage = () => {
 
           {/* Move Chart Mode Toggle BELOW charts */}
           <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
-            <StyledToggleButtonGroup
+            <ToggleButtonGroup
               value={chartMode}
               exclusive
               onChange={(_, newMode) => newMode && setChartMode(newMode)}
               size="large"
             >
-              <StyledToggleButton value="unified">
+              <ToggleButton value="unified">
                 <Analytics sx={{ fontSize: '1.5rem' }} />
                 <Box>
                   <Typography variant="body1" fontWeight="inherit">

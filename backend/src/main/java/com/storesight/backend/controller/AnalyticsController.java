@@ -2371,9 +2371,10 @@ public class AnalyticsController {
         LocalDate.parse((String) historical.get(historical.size() - 1).get("date"));
 
     // Extract time series data with corresponding dates
-    List<LocalDate> dates = historical.stream()
-        .map(h -> LocalDate.parse((String) h.get("date")))
-        .collect(Collectors.toList());
+    List<LocalDate> dates =
+        historical.stream()
+            .map(h -> LocalDate.parse((String) h.get("date")))
+            .collect(Collectors.toList());
     double[] revenueData =
         historical.stream().mapToDouble(h -> (Double) h.get("revenue")).toArray();
     double[] ordersData =
@@ -2477,7 +2478,8 @@ public class AnalyticsController {
   }
 
   private double calculateSeasonalFactor(double[] data, List<LocalDate> dates, int dayOfWeek) {
-    if (data.length < 14 || dates.size() != data.length) return 1.0; // Need at least 2 weeks of data and matching dates
+    if (data.length < 14 || dates.size() != data.length)
+      return 1.0; // Need at least 2 weeks of data and matching dates
 
     // Calculate average for this day of week vs overall average using actual dates
     double daySum = 0;
