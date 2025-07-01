@@ -665,6 +665,9 @@ const DashboardPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [hasRateLimit, setHasRateLimit] = useState(false);
   
+  // Add a new state to track if dashboard data has been initialized
+  const [dashboardDataInitialized, setDashboardDataInitialized] = useState(false);
+  
   // Cache state management using sessionStorage for persistence across navigation
   const [cache, setCache] = useState<DashboardCache>(() => {
     if (!shop) return { version: CACHE_VERSION, shop: '' };
@@ -722,8 +725,8 @@ const DashboardPage = () => {
     autoRefresh: false,
     shop: shop && shop.trim() ? shop : undefined,
     useDashboardData: true, // Use dashboard data instead of separate API calls
-    dashboardRevenueData: insights?.timeseries || [],
-    dashboardOrdersData: insights?.orders || [],
+    dashboardRevenueData: insights?.timeseries && Array.isArray(insights.timeseries) ? insights.timeseries : [],
+    dashboardOrdersData: insights?.orders && Array.isArray(insights.orders) ? insights.orders : [],
   });
 
   // Debug logging for unified analytics data
@@ -1004,6 +1007,9 @@ const DashboardPage = () => {
         totalRevenue: data.rate_limited ? 0 : totalRevenue,
         timeseries: data.rate_limited ? [] : timeseriesData
       }));
+      
+      // Mark dashboard as initialized once we have revenue data
+      setDashboardDataInitialized(true);
       
       if (data.rate_limited) {
         setHasRateLimit(true);
@@ -1493,159 +1499,15 @@ const DashboardPage = () => {
     };
   }, []); // Empty dependency array - only run on mount
 
-  // Track if initial load has been triggered to prevent duplicate calls
+  // Initial data loading when auth is ready and we have a shop
   const initialLoadTriggeredRef = useRef(false);
 
-  // Initialize dashboard with basic structure and handle authentication state
   useEffect(() => {
-    // Don't proceed until authentication system is ready
-    if (!isAuthReady) {
-      console.log('Dashboard: Waiting for auth system to be ready');
+    if (!isAuthReady || authLoading || !isAuthenticated || !shop || !isInitialLoad) {
       return;
     }
 
-    // Handle unauthenticated state
-    if (!isAuthenticated) {
-      console.log('Dashboard: User not authenticated, clearing data and redirecting');
-      setError('Authentication required');
-      setLoading(false);
-      setInsights(null);
-      setCardLoading({
-        revenue: false,
-        products: false,
-        inventory: false,
-        newProducts: false,
-        insights: false,
-        orders: false,
-        abandonedCarts: false
-      });
-      setCardErrors({
-        revenue: null,
-        products: null,
-        inventory: null,
-        newProducts: null,
-        insights: null,
-        orders: null,
-        abandonedCarts: null
-      });
-      setHasRateLimit(false);
-      
-      // Redirect to home page after a short delay
-      setTimeout(() => {
-        navigate('/');
-      }, 1000);
-      return;
-    }
-
-    // Handle missing shop
-    if (!shop || shop.trim() === '') {
-      console.log('Dashboard: No shop available');
-      setError('No shop selected');
-      setLoading(false);
-      // Clear all dashboard data when shop is null (logout/disconnect)
-      setInsights(null);
-      setCardLoading({
-        revenue: false,
-        products: false,
-        inventory: false,
-        newProducts: false,
-        insights: false,
-        orders: false,
-        abandonedCarts: false
-      });
-      setCardErrors({
-        revenue: null,
-        products: null,
-        inventory: null,
-        newProducts: null,
-        insights: null,
-        orders: null,
-        abandonedCarts: null
-      });
-      setHasRateLimit(false);
-      return;
-    }
-
-    // Authentication and shop are valid - initialize dashboard
-    console.log('Dashboard: Initializing for authenticated shop:', shop);
-    setLoading(false);
-    setError(null);
-    
-    // Only set initial load if this is a genuinely new shop or first load
-    if (prevShopRef.current !== shop || !initialLoadTriggeredRef.current) {
-      console.log('🚀 Setting isInitialLoad=true for new shop or first load');
-      setIsInitialLoad(true); // Reset initial load flag for new shop
-      initialLoadTriggeredRef.current = false; // Reset the ref for new shop
-    } else {
-      console.log('🔍 Shop unchanged, keeping current load state');
-    }
-    
-    // Initialize insights with default data to prevent "failed to load" states
-    setInsights({
-      totalRevenue: 0,
-      newProducts: 0,
-      abandonedCarts: 0,
-      lowInventory: 0,
-      topProducts: [],
-      orders: [],
-      recentOrders: [],
-      timeseries: [],
-      conversionRate: 0,
-      conversionRateDelta: 0,
-      abandonedCartCount: 0
-    });
-    
-    // Set initial loading states for all cards to show proper loading experience
-    setCardLoading({
-      revenue: true,
-      products: true,
-      inventory: true,
-      newProducts: true,
-      insights: true,
-      orders: true,
-      abandonedCarts: true
-    });
-    
-    // Clear any previous errors
-    setCardErrors({
-      revenue: null,
-      products: null,
-      inventory: null,
-      newProducts: null,
-      insights: null,
-      orders: null,
-      abandonedCarts: null
-    });
-  }, [isAuthReady, isAuthenticated, shop, navigate]);
-
-  // Main data loading effect - triggers on authentication and shop changes
-  useEffect(() => {
-    console.log('🔄 Dashboard useEffect triggered with:', {
-      isAuthReady,
-      authLoading,
-      isAuthenticated,
-      shop,
-      isInitialLoad
-    });
-
-    if (!isAuthReady || authLoading) {
-      console.log('🔄 Dashboard: Waiting for authentication to complete');
-      return;
-    }
-
-    // Ensure user is authenticated and has a shop before loading data
-    if (!isAuthenticated || !shop || shop.trim() === '') {
-      console.log('❌ Dashboard: Cannot load data - authentication or shop missing');
-      return;
-    }
-
-    // Only load data on initial load to prevent unnecessary API calls
-    if (!isInitialLoad) {
-      console.log('⏭️ Dashboard: Skipping data load - not initial load');
-      return;
-    }
-
-    // Prevent duplicate calls using ref
+    // Prevent multiple triggers
     if (initialLoadTriggeredRef.current) {
       console.log('🔒 Dashboard: Initial load already triggered, skipping');
       return;
@@ -1653,6 +1515,23 @@ const DashboardPage = () => {
 
     console.log('🚀 DASHBOARD: Starting initial data load for shop:', shop);
     initialLoadTriggeredRef.current = true;
+    
+    // Initialize insights with empty structure to prevent null issues
+    if (!insights) {
+      setInsights({
+        totalRevenue: 0,
+        revenue: 0,
+        newProducts: 0,
+        abandonedCarts: 0,
+        lowInventory: 0,
+        topProducts: [],
+        orders: [],
+        recentOrders: [],
+        timeseries: [],
+        conversionRate: 0,
+        conversionRateDelta: 0,
+      });
+    }
     
     // Set initial load to false in next tick to prevent infinite loop
     setTimeout(() => setIsInitialLoad(false), 0);
@@ -2434,24 +2313,66 @@ const DashboardPage = () => {
                 refetchUnifiedAnalytics();
               }}
             >
-              <UnifiedAnalyticsChart
-                data={unifiedAnalyticsData}
-                loading={unifiedAnalyticsLoading}
-                error={unifiedAnalyticsError}
-                height={500}
-              />
+              {/* Only render UnifiedAnalyticsChart when we have valid data or are still loading */}
+              {(unifiedAnalyticsLoading || unifiedAnalyticsData || dashboardDataInitialized) ? (
+                <UnifiedAnalyticsChart
+                  data={unifiedAnalyticsData}
+                  loading={unifiedAnalyticsLoading || !dashboardDataInitialized}
+                  error={unifiedAnalyticsError}
+                  height={500}
+                />
+              ) : (
+                <Box
+                  sx={{
+                    height: 500,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexDirection: 'column',
+                    gap: 2,
+                    backgroundColor: 'rgba(0, 0, 0, 0.02)',
+                    borderRadius: 3,
+                  }}
+                >
+                  <CircularProgress size={48} />
+                  <Typography variant="body2" color="text.secondary">
+                    Initializing analytics...
+                  </Typography>
+                </Box>
+              )}
             </ErrorBoundary>
           ) : (
             <ErrorBoundary 
               fallbackMessage="The Revenue chart failed to load. Please try refreshing."
               onRetry={() => fetchRevenueData(true)}
             >
-              <RevenueChart
-                data={insights?.timeseries || []}
-                loading={cardLoading.revenue}
-                error={cardErrors.revenue}
-                height={500}
-              />
+              {/* Only render RevenueChart when we have initialized the dashboard */}
+              {dashboardDataInitialized ? (
+                <RevenueChart
+                  data={insights?.timeseries || []}
+                  loading={cardLoading.revenue}
+                  error={cardErrors.revenue}
+                  height={500}
+                />
+              ) : (
+                <Box
+                  sx={{
+                    height: 500,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexDirection: 'column',
+                    gap: 2,
+                    backgroundColor: 'rgba(0, 0, 0, 0.02)',
+                    borderRadius: 3,
+                  }}
+                >
+                  <CircularProgress size={48} />
+                  <Typography variant="body2" color="text.secondary">
+                    Loading revenue data...
+                  </Typography>
+                </Box>
+              )}
             </ErrorBoundary>
           )}
 

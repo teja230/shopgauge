@@ -153,6 +153,11 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         key: `historical-${item.date}-${index}`,
         type: 'historical',
         isPrediction: false,
+        // Ensure all numeric values are valid
+        revenue: safeNumber(item.revenue),
+        orders_count: safeNumber(item.orders_count),
+        conversion_rate: safeNumber(item.conversion_rate),
+        avg_order_value: safeNumber(item.avg_order_value),
       }));
 
       // Add predictions if enabled
@@ -178,7 +183,16 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         combinedData.push(...predictions);
       }
 
-      return combinedData;
+      // Filter out any invalid entries
+      const validData = combinedData.filter(item => 
+        item.date && 
+        typeof item.revenue === 'number' && 
+        !isNaN(item.revenue) &&
+        typeof item.orders_count === 'number' &&
+        !isNaN(item.orders_count)
+      );
+
+      return validData;
     } catch (err) {
       console.error('Error processing chart data:', err);
       return [];
