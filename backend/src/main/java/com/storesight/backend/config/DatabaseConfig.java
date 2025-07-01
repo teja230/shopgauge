@@ -48,7 +48,7 @@ public class DatabaseConfig {
     config.setConnectionTimeout(30000);
     config.setIdleTimeout(300000);
     config.setMaxLifetime(1200000);
-    config.setLeakDetectionThreshold(60000);
+    config.setLeakDetectionThreshold(120000);
     config.setValidationTimeout(5000);
     config.setConnectionTestQuery("SELECT 1");
     config.setAutoCommit(true);

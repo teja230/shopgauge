@@ -16,6 +16,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 @Service
 @Transactional
@@ -104,7 +105,61 @@ public class ShopService {
     saveShop(shopifyDomain, accessToken, validSessionId, null);
   }
 
-  /** Get access token for a specific shop and session */
+  /** Get access token for a specific shop and session - Reactive version */
+  public Mono<String> getTokenForShopReactive(String shopifyDomain, String sessionId) {
+    logger.debug("Getting token for shop: {} and session: {}", shopifyDomain, sessionId);
+
+    if (sessionId == null) {
+      return getTokenForShopFallbackReactive(shopifyDomain);
+    }
+
+    // Try Redis cache first
+    String cachedToken =
+        redisTemplate.opsForValue().get(SHOP_TOKEN_PREFIX + shopifyDomain + ":" + sessionId);
+    if (cachedToken != null) {
+      logger.debug(
+          "Found token in Redis cache for shop: {} and session: {}", shopifyDomain, sessionId);
+      updateSessionLastAccessed(sessionId);
+      return Mono.just(cachedToken);
+    }
+
+    // Try database using reactive pattern
+    return Mono.fromCallable(
+            () ->
+                shopSessionRepository.findActiveSessionByShopDomainAndSessionId(
+                    shopifyDomain, sessionId))
+        .publishOn(Schedulers.boundedElastic())
+        .flatMap(
+            sessionOpt -> {
+              if (sessionOpt.isPresent()) {
+                ShopSession session = sessionOpt.get();
+                String token = session.getAccessToken();
+
+                // Update last accessed time
+                session.markAsAccessed();
+                return Mono.fromCallable(() -> shopSessionRepository.save(session))
+                    .publishOn(Schedulers.boundedElastic())
+                    .then(
+                        Mono.fromCallable(
+                            () -> {
+                              // Cache for future requests
+                              cacheShopSession(shopifyDomain, sessionId, token);
+                              return token;
+                            }));
+              }
+
+              // Fallback to most recent active session for this shop
+              logger.warn(
+                  "No specific session found, trying fallback for shop: {} and session: {}",
+                  shopifyDomain,
+                  sessionId);
+              return getTokenForShopFallbackReactive(shopifyDomain);
+            });
+  }
+
+  /**
+   * Get access token for a specific shop and session - Blocking version for backward compatibility
+   */
   public String getTokenForShop(String shopifyDomain, String sessionId) {
     logger.debug("Getting token for shop: {} and session: {}", shopifyDomain, sessionId);
 
@@ -150,7 +205,73 @@ public class ShopService {
     return getTokenForShopFallback(shopifyDomain);
   }
 
-  /** Get token for shop without specific session (fallback method) */
+  /** Get token for shop without specific session (fallback method) - Reactive version */
+  private Mono<String> getTokenForShopFallbackReactive(String shopifyDomain) {
+    logger.debug("Getting fallback token for shop: {}", shopifyDomain);
+
+    // Try Redis cache (shop-only key)
+    String cachedToken = redisTemplate.opsForValue().get(SHOP_TOKEN_PREFIX + shopifyDomain);
+    if (cachedToken != null) {
+      logger.debug("Found fallback token in Redis for shop: {}", shopifyDomain);
+      return Mono.just(cachedToken);
+    }
+
+    // Try most recent active session from database
+    return Mono.fromCallable(
+            () -> shopSessionRepository.findMostRecentActiveSessionByDomain(shopifyDomain))
+        .publishOn(Schedulers.boundedElastic())
+        .flatMap(
+            recentSessionOpt -> {
+              if (recentSessionOpt.isPresent()) {
+                ShopSession session = recentSessionOpt.get();
+                String token = session.getAccessToken();
+
+                // Update last accessed time
+                session.markAsAccessed();
+                return Mono.fromCallable(() -> shopSessionRepository.save(session))
+                    .publishOn(Schedulers.boundedElastic())
+                    .then(
+                        Mono.fromCallable(
+                            () -> {
+                              // Cache for future requests
+                              redisTemplate
+                                  .opsForValue()
+                                  .set(
+                                      SHOP_TOKEN_PREFIX + shopifyDomain,
+                                      token,
+                                      java.time.Duration.ofMinutes(REDIS_CACHE_TTL_MINUTES));
+                              return token;
+                            }));
+              }
+
+              // Fallback to shop's main token
+              return Mono.fromCallable(() -> shopRepository.findByShopifyDomain(shopifyDomain))
+                  .publishOn(Schedulers.boundedElastic())
+                  .map(
+                      shopOpt -> {
+                        if (shopOpt.isPresent()) {
+                          String token = shopOpt.get().getAccessToken();
+                          if (token != null) {
+                            // Cache for future requests
+                            redisTemplate
+                                .opsForValue()
+                                .set(
+                                    SHOP_TOKEN_PREFIX + shopifyDomain,
+                                    token,
+                                    java.time.Duration.ofMinutes(REDIS_CACHE_TTL_MINUTES));
+
+                            logger.debug(
+                                "Found fallback token from shop for shop: {}", shopifyDomain);
+                            return token;
+                          }
+                        }
+                        logger.warn("No token found for shop: {}", shopifyDomain);
+                        return null;
+                      });
+            });
+  }
+
+  /** Get token for shop without specific session (fallback method) - Blocking version */
   private String getTokenForShopFallback(String shopifyDomain) {
     logger.debug("Getting fallback token for shop: {}", shopifyDomain);
 
@@ -198,7 +319,7 @@ public class ShopService {
                 token,
                 java.time.Duration.ofMinutes(REDIS_CACHE_TTL_MINUTES));
 
-        logger.debug("Found fallback token from shop record for shop: {}", shopifyDomain);
+        logger.debug("Found fallback token from shop for shop: {}", shopifyDomain);
         return token;
       }
     }
