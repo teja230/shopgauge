@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getCacheKey, CACHE_VERSION } from '../utils/cacheUtils';
-import { API_BASE_URL } from '../api';
+import { fetchWithAuth } from '../api';
 
 interface HistoricalData {
   date: string;
@@ -201,13 +201,7 @@ const useUnifiedAnalytics = (
           includePredictions: includePredictions.toString(),
         });
 
-        const response = await fetch(`${API_BASE_URL}/api/analytics/unified-analytics?${params}`, {
-          method: 'GET',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
+        const response = await fetchWithAuth(`/api/analytics/unified-analytics?${params}`);
 
         if (!response.ok) {
           if (response.status === 401) {
