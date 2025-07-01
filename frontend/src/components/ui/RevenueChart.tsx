@@ -205,235 +205,240 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
   }, [sanitizedData]);
 
   const renderChart = () => {
-    const commonProps = {
-      data: processedData,
-      margin: { top: 20, right: 30, left: 20, bottom: 20 },
-    };
+    try {
+      const commonProps = {
+        data: processedData,
+        margin: { top: 20, right: 30, left: 20, bottom: 20 },
+      };
 
-    const commonXAxis = (
-      <XAxis
-        dataKey="created_at"
-        tickFormatter={formatXAxisTick}
-        stroke="rgba(0, 0, 0, 0.4)"
-        tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: 12 }}
-        axisLine={{ stroke: 'rgba(0, 0, 0, 0.1)' }}
-      />
-    );
+      const commonXAxis = (
+        <XAxis
+          dataKey="created_at"
+          tickFormatter={formatXAxisTick}
+          stroke="rgba(0, 0, 0, 0.4)"
+          tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: 12 }}
+          axisLine={{ stroke: 'rgba(0, 0, 0, 0.1)' }}
+        />
+      );
 
-    const commonYAxis = (
-      <YAxis
-        tickFormatter={formatYAxisTick}
-        stroke="rgba(0, 0, 0, 0.4)"
-        tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: 12 }}
-        axisLine={{ stroke: 'rgba(0, 0, 0, 0.1)' }}
-      />
-    );
+      const commonYAxis = (
+        <YAxis
+          tickFormatter={formatYAxisTick}
+          stroke="rgba(0, 0, 0, 0.4)"
+          tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: 12 }}
+          axisLine={{ stroke: 'rgba(0, 0, 0, 0.1)' }}
+        />
+      );
 
-    const commonGrid = (
-      <CartesianGrid
-        strokeDasharray="3 3"
-        stroke="rgba(0, 0, 0, 0.05)"
-        horizontal={true}
-        vertical={false}
-      />
-    );
+      const commonGrid = (
+        <CartesianGrid
+          strokeDasharray="3 3"
+          stroke="rgba(0, 0, 0, 0.05)"
+          horizontal={true}
+          vertical={false}
+        />
+      );
 
-    const commonTooltip = <Tooltip content={<CustomTooltip />} />;
+      const commonTooltip = <Tooltip content={<CustomTooltip />} />;
 
-    switch (chartType) {
-      case 'line':
-        return (
-          <LineChart {...commonProps}>
-            {commonGrid}
-            {commonXAxis}
-            {commonYAxis}
-            {commonTooltip}
-            <Line
-              type="monotone"
-              dataKey="total_price"
-              stroke={chartTypeConfig.line.color}
-              strokeWidth={3}
-              dot={{
-                fill: chartTypeConfig.line.color,
-                strokeWidth: 2,
-                r: 4,
-              }}
-              activeDot={{
-                r: 6,
-                fill: chartTypeConfig.line.color,
-                stroke: '#fff',
-                strokeWidth: 2,
-              }}
-            />
-          </LineChart>
-        );
+      switch (chartType) {
+        case 'line':
+          return (
+            <LineChart {...commonProps}>
+              {commonGrid}
+              {commonXAxis}
+              {commonYAxis}
+              {commonTooltip}
+              <Line
+                type="monotone"
+                dataKey="total_price"
+                stroke={chartTypeConfig.line.color}
+                strokeWidth={3}
+                dot={{
+                  fill: chartTypeConfig.line.color,
+                  strokeWidth: 2,
+                  r: 4,
+                }}
+                activeDot={{
+                  r: 6,
+                  fill: chartTypeConfig.line.color,
+                  stroke: '#fff',
+                  strokeWidth: 2,
+                }}
+              />
+            </LineChart>
+          );
 
-      case 'area':
-        return (
-          <AreaChart {...commonProps}>
-            <defs>
-              <linearGradient id={`${gradientIdPrefix}-revenueGradient`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={chartTypeConfig.area.color} stopOpacity={0.3} />
-                <stop offset="95%" stopColor={chartTypeConfig.area.color} stopOpacity={0.05} />
-              </linearGradient>
-            </defs>
-            {commonGrid}
-            {commonXAxis}
-            {commonYAxis}
-            {commonTooltip}
-            <Area
-              type="monotone"
-              dataKey="total_price"
-              stroke={chartTypeConfig.area.color}
-              strokeWidth={3}
-              fill={`url(#${gradientIdPrefix}-revenueGradient)`}
-              dot={{
-                fill: chartTypeConfig.area.color,
-                strokeWidth: 2,
-                r: 4,
-              }}
-              activeDot={{
-                r: 6,
-                fill: chartTypeConfig.area.color,
-                stroke: '#fff',
-                strokeWidth: 2,
-              }}
-            />
-          </AreaChart>
-        );
+        case 'area':
+          return (
+            <AreaChart {...commonProps}>
+              <defs>
+                <linearGradient id={`${gradientIdPrefix}-revenueGradient`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={chartTypeConfig.area.color} stopOpacity={0.3} />
+                  <stop offset="95%" stopColor={chartTypeConfig.area.color} stopOpacity={0.05} />
+                </linearGradient>
+              </defs>
+              {commonGrid}
+              {commonXAxis}
+              {commonYAxis}
+              {commonTooltip}
+              <Area
+                type="monotone"
+                dataKey="total_price"
+                stroke={chartTypeConfig.area.color}
+                strokeWidth={3}
+                fill={`url(#${gradientIdPrefix}-revenueGradient)`}
+                dot={{
+                  fill: chartTypeConfig.area.color,
+                  strokeWidth: 2,
+                  r: 4,
+                }}
+                activeDot={{
+                  r: 6,
+                  fill: chartTypeConfig.area.color,
+                  stroke: '#fff',
+                  strokeWidth: 2,
+                }}
+              />
+            </AreaChart>
+          );
 
-      case 'bar':
-        return (
-          <BarChart {...commonProps}>
-            {commonGrid}
-            {commonXAxis}
-            {commonYAxis}
-            {commonTooltip}
-            <Bar
-              dataKey="total_price"
-              fill={chartTypeConfig.bar.color}
-              radius={[4, 4, 0, 0]}
-              opacity={0.8}
-            />
-          </BarChart>
-        );
+        case 'bar':
+          return (
+            <BarChart {...commonProps}>
+              {commonGrid}
+              {commonXAxis}
+              {commonYAxis}
+              {commonTooltip}
+              <Bar
+                dataKey="total_price"
+                fill={chartTypeConfig.bar.color}
+                radius={[4, 4, 0, 0]}
+                opacity={0.8}
+              />
+            </BarChart>
+          );
 
-      case 'candlestick':
-        return (
-          <ComposedChart {...commonProps}>
-            {commonGrid}
-            {commonXAxis}
-            {commonYAxis}
-            {commonTooltip}
-            <Bar
-              dataKey="total_price"
-              fill="#10b981"
-              radius={[2, 2, 0, 0]}
-              opacity={0.8}
-            />
-            <Line
-              type="monotone"
-              dataKey="total_price"
-              stroke="#6b7280"
-              strokeWidth={1}
-              dot={false}
-            />
-          </ComposedChart>
-        );
+        case 'candlestick':
+          return (
+            <ComposedChart {...commonProps}>
+              {commonGrid}
+              {commonXAxis}
+              {commonYAxis}
+              {commonTooltip}
+              <Bar
+                dataKey="total_price"
+                fill="#10b981"
+                radius={[2, 2, 0, 0]}
+                opacity={0.8}
+              />
+              <Line
+                type="monotone"
+                dataKey="total_price"
+                stroke="#6b7280"
+                strokeWidth={1}
+                dot={false}
+              />
+            </ComposedChart>
+          );
 
-      case 'waterfall':
-        return (
-          <ComposedChart {...commonProps}>
-            {commonGrid}
-            {commonXAxis}
-            {commonYAxis}
-            {commonTooltip}
-            <Bar
-              dataKey="change"
-              fill="#10b981"
-              radius={[2, 2, 0, 0]}
-              opacity={0.8}
-            />
-            <Line
-              type="monotone"
-              dataKey="cumulative"
-              stroke="#f59e0b"
-              strokeWidth={2}
-              dot={{
-                fill: '#f59e0b',
-                strokeWidth: 2,
-                r: 3,
-              }}
-            />
-          </ComposedChart>
-        );
+        case 'waterfall':
+          return (
+            <ComposedChart {...commonProps}>
+              {commonGrid}
+              {commonXAxis}
+              {commonYAxis}
+              {commonTooltip}
+              <Bar
+                dataKey="change"
+                fill="#10b981"
+                radius={[2, 2, 0, 0]}
+                opacity={0.8}
+              />
+              <Line
+                type="monotone"
+                dataKey="cumulative"
+                stroke="#f59e0b"
+                strokeWidth={2}
+                dot={{
+                  fill: '#f59e0b',
+                  strokeWidth: 2,
+                  r: 3,
+                }}
+              />
+            </ComposedChart>
+          );
 
-      case 'stacked':
-        return (
-          <AreaChart {...commonProps}>
-            <defs>
-              <linearGradient id={`${gradientIdPrefix}-stackedRevenueGradient`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={chartTypeConfig.stacked.color} stopOpacity={0.3} />
-                <stop offset="95%" stopColor={chartTypeConfig.stacked.color} stopOpacity={0.05} />
-              </linearGradient>
-              <linearGradient id={`${gradientIdPrefix}-changeGradient`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
-                <stop offset="95%" stopColor="#10b981" stopOpacity={0.05} />
-              </linearGradient>
-            </defs>
-            {commonGrid}
-            {commonXAxis}
-            {commonYAxis}
-            {commonTooltip}
-            <Area
-              type="monotone"
-              dataKey="total_price"
-              stroke={chartTypeConfig.stacked.color}
-              strokeWidth={2}
-              fill={`url(#${gradientIdPrefix}-stackedRevenueGradient)`}
-              stackId="1"
-            />
-            <Area
-              type="monotone"
-              dataKey="change"
-              stroke="#10b981"
-              strokeWidth={1}
-              fill={`url(#${gradientIdPrefix}-changeGradient)`}
-              stackId="2"
-            />
-          </AreaChart>
-        );
+        case 'stacked':
+          return (
+            <AreaChart {...commonProps}>
+              <defs>
+                <linearGradient id={`${gradientIdPrefix}-stackedRevenueGradient`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={chartTypeConfig.stacked.color} stopOpacity={0.3} />
+                  <stop offset="95%" stopColor={chartTypeConfig.stacked.color} stopOpacity={0.05} />
+                </linearGradient>
+                <linearGradient id={`${gradientIdPrefix}-changeGradient`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
+                  <stop offset="95%" stopColor="#10b981" stopOpacity={0.05} />
+                </linearGradient>
+              </defs>
+              {commonGrid}
+              {commonXAxis}
+              {commonYAxis}
+              {commonTooltip}
+              <Area
+                type="monotone"
+                dataKey="total_price"
+                stroke={chartTypeConfig.stacked.color}
+                strokeWidth={2}
+                fill={`url(#${gradientIdPrefix}-stackedRevenueGradient)`}
+                stackId="1"
+              />
+              <Area
+                type="monotone"
+                dataKey="change"
+                stroke="#10b981"
+                strokeWidth={1}
+                fill={`url(#${gradientIdPrefix}-changeGradient)`}
+                stackId="2"
+              />
+            </AreaChart>
+          );
 
-      case 'composed':
-        return (
-          <ComposedChart {...commonProps}>
-            {commonGrid}
-            {commonXAxis}
-            {commonYAxis}
-            {commonTooltip}
-            <Bar
-              dataKey="total_price"
-              fill={chartTypeConfig.composed.color}
-              radius={[2, 2, 0, 0]}
-              opacity={0.6}
-            />
-            <Line
-              type="monotone"
-              dataKey="total_price"
-              stroke="#2563eb"
-              strokeWidth={2}
-              dot={{
-                fill: '#2563eb',
-                strokeWidth: 2,
-                r: 3,
-              }}
-            />
-            <ReferenceLine y={averageRevenue} stroke="#6b7280" strokeDasharray="3 3" />
-          </ComposedChart>
-        );
+        case 'composed':
+          return (
+            <ComposedChart {...commonProps}>
+              {commonGrid}
+              {commonXAxis}
+              {commonYAxis}
+              {commonTooltip}
+              <Bar
+                dataKey="total_price"
+                fill={chartTypeConfig.composed.color}
+                radius={[2, 2, 0, 0]}
+                opacity={0.6}
+              />
+              <Line
+                type="monotone"
+                dataKey="total_price"
+                stroke="#2563eb"
+                strokeWidth={2}
+                dot={{
+                  fill: '#2563eb',
+                  strokeWidth: 2,
+                  r: 3,
+                }}
+              />
+              <ReferenceLine y={averageRevenue} stroke="#6b7280" strokeDasharray="3 3" />
+            </ComposedChart>
+          );
 
-      default:
-        return <div />;
+        default:
+          return <div />;
+      }
+    } catch (error) {
+      console.error('Error rendering chart:', error);
+      return <div />;
     }
   };
 

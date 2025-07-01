@@ -95,6 +95,9 @@ const useUnifiedAnalytics = (
 
   // Track active fetches to prevent concurrent calls
   const activeFetchRef = useRef<Promise<UnifiedAnalyticsData> | null>(null);
+  
+  // Track if we've done the initial load
+  const initialLoadRef = useRef(false);
 
   // Generate cache key for unified analytics
   const getCacheKeyForAnalytics = useCallback((shopName: string, paramDays: number, predictions: boolean) => {
@@ -318,27 +321,30 @@ const useUnifiedAnalytics = (
         setError(null);
 
         // If using dashboard data, convert it to unified format
-        if (useDashboardData && dashboardRevenueData.length > 0) {
-          console.log('🔄 UNIFIED_ANALYTICS: Using dashboard data instead of API call');
-          const unifiedData = convertDashboardDataToUnified(dashboardRevenueData, dashboardOrdersData);
-          
-          setData(unifiedData);
-          setLastUpdated(new Date());
-          setIsCached(false);
-          setCacheAge(0);
-          
-          console.log('✅ UNIFIED_ANALYTICS: Converted dashboard data:', {
-            historicalPoints: unifiedData.historical.length,
-            predictionPoints: unifiedData.predictions.length,
-            totalRevenue: unifiedData.total_revenue,
-            totalOrders: unifiedData.total_orders,
-          });
-          
-          return unifiedData;
-        }
-
-        // If using dashboard data but no data available, try cache first
         if (useDashboardData) {
+          // Check if we have valid dashboard data
+          const hasValidData = Array.isArray(dashboardRevenueData) && dashboardRevenueData.length > 0;
+          
+          if (hasValidData) {
+            console.log('🔄 UNIFIED_ANALYTICS: Using dashboard data instead of API call');
+            const unifiedData = convertDashboardDataToUnified(dashboardRevenueData, dashboardOrdersData);
+            
+            setData(unifiedData);
+            setLastUpdated(new Date());
+            setIsCached(false);
+            setCacheAge(0);
+            
+            console.log('✅ UNIFIED_ANALYTICS: Converted dashboard data:', {
+              historicalPoints: unifiedData.historical.length,
+              predictionPoints: unifiedData.predictions.length,
+              totalRevenue: unifiedData.total_revenue,
+              totalOrders: unifiedData.total_orders,
+            });
+            
+            return unifiedData;
+          }
+          
+          // If using dashboard data but no data available, try cache first
           console.log('🔄 UNIFIED_ANALYTICS: Dashboard data not available, checking cache');
           const cachedEntry = loadFromCache(shop);
           if (cachedEntry) {
@@ -353,8 +359,8 @@ const useUnifiedAnalytics = (
             return cachedEntry.data;
           }
           
-          // If no cache and dashboard data is empty, show empty state instead of API call
-          console.log('🔄 UNIFIED_ANALYTICS: No dashboard data or cache available, showing empty state');
+          // If no cache and dashboard data is empty, return empty state without error
+          console.log('🔄 UNIFIED_ANALYTICS: No dashboard data or cache available, returning empty state');
           const emptyData: UnifiedAnalyticsData = {
             historical: [],
             predictions: [],
@@ -367,6 +373,7 @@ const useUnifiedAnalytics = (
           setLastUpdated(new Date());
           setIsCached(false);
           setCacheAge(0);
+          setLoading(false); // Important: Set loading to false here
           
           return emptyData;
         }
@@ -494,19 +501,45 @@ const useUnifiedAnalytics = (
   // Initial fetch
   useEffect(() => {
     if (shop && shop.trim()) {
-      // Add a small delay to ensure dashboard data is ready
-      const timer = setTimeout(() => {
+      // If using dashboard data mode, we need to handle the initial state differently
+      if (useDashboardData) {
+        // Check if we have dashboard data available
+        const hasData = Array.isArray(dashboardRevenueData) && dashboardRevenueData.length > 0;
+        
+        if (!hasData && !initialLoadRef.current) {
+          // No dashboard data yet, but set loading to false after a short delay
+          // to prevent indefinite loading state
+          const timer = setTimeout(() => {
+            if (!data) {
+              console.log('🔄 UNIFIED_ANALYTICS: No dashboard data received, setting empty state');
+              setData({
+                historical: [],
+                predictions: [],
+                period_days: days,
+                total_revenue: 0,
+                total_orders: 0,
+              });
+              setLoading(false);
+              setError(null);
+            }
+          }, 1000); // Wait 1 second for dashboard data
+          
+          return () => clearTimeout(timer);
+        } else if (hasData && !initialLoadRef.current) {
+          // We have dashboard data, process it immediately
+          initialLoadRef.current = true;
+          fetchData();
+        }
+      } else {
+        // Legacy API mode
         fetchData();
-      }, 100);
-      
-      return () => clearTimeout(timer);
+      }
     } else {
-      // Clear data if no valid shop
-      setData(null);
-      setError(null);
+      // No shop, set empty state
       setLoading(false);
+      setError('No shop selected');
     }
-  }, [fetchData, shop]);
+  }, [shop, fetchData, useDashboardData, dashboardRevenueData, data, days]);
 
   // Auto-refresh if enabled
   useEffect(() => {
@@ -524,31 +557,47 @@ const useUnifiedAnalytics = (
     if (
       useDashboardData &&
       shop &&
-      shop.trim() &&
-      Array.isArray(dashboardRevenueData) &&
-      dashboardRevenueData.length > 0
+      shop.trim()
     ) {
-      // If current data is empty or underlying dashboard arrays changed in size, regenerate
-      const needsUpdate =
-        !data ||
-        data.historical.length === 0 ||
-        data.historical.length !== dashboardRevenueData.length;
+      // Only process if we have valid data and it's different from current state
+      const hasValidData = Array.isArray(dashboardRevenueData) && dashboardRevenueData.length > 0;
+      
+      if (hasValidData) {
+        // Check if we need to update based on data changes
+        const needsUpdate =
+          !data ||
+          data.historical.length === 0 ||
+          (data.historical.length > 0 && data.historical.length !== dashboardRevenueData.length);
 
-      if (needsUpdate) {
-        console.log(
-          '🔄 UNIFIED_ANALYTICS: Detected updated dashboard data, regenerating unified dataset'
-        );
-        const updated = convertDashboardDataToUnified(
-          dashboardRevenueData,
-          dashboardOrdersData
-        );
-        setData(updated);
-        setLastUpdated(new Date());
-        setIsCached(false);
-        setCacheAge(0);
+        if (needsUpdate) {
+          console.log(
+            '🔄 UNIFIED_ANALYTICS: Detected updated dashboard data, regenerating unified dataset'
+          );
+          const updated = convertDashboardDataToUnified(
+            dashboardRevenueData,
+            dashboardOrdersData
+          );
+          setData(updated);
+          setLastUpdated(new Date());
+          setIsCached(false);
+          setCacheAge(0);
+          setLoading(false); // Ensure loading is false after data update
+          setError(null); // Clear any existing errors
+        }
+      } else if (!loading && !data) {
+        // If no valid data and not loading, ensure we're in a proper empty state
+        setData({
+          historical: [],
+          predictions: [],
+          period_days: days,
+          total_revenue: 0,
+          total_orders: 0,
+        });
+        setLoading(false);
+        setError(null);
       }
     }
-  }, [dashboardRevenueData, dashboardOrdersData, useDashboardData, shop, data, convertDashboardDataToUnified]);
+  }, [dashboardRevenueData, dashboardOrdersData, useDashboardData, shop, data, convertDashboardDataToUnified, loading, days]);
 
   return {
     data,

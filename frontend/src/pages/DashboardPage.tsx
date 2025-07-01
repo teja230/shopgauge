@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Box, Typography, Card, CardContent, Alert, CircularProgress, Link as MuiLink, IconButton, Button, ToggleButtonGroup, ToggleButton } from '@mui/material';
 import { RevenueChart } from '../components/ui/RevenueChart';
 import UnifiedAnalyticsChart from '../components/ui/UnifiedAnalyticsChart';
@@ -757,7 +757,7 @@ const DashboardPage = () => {
     orders: null,
     abandonedCarts: null
   });
-
+  
   // Helper function to check if cache entry is fresh (< 120 minutes old)
   const isCacheFresh = useCallback((cacheEntry: CacheEntry<any> | undefined, cacheKey?: string): boolean => {
     if (!cacheEntry) {
