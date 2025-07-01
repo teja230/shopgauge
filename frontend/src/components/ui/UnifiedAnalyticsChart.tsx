@@ -409,6 +409,14 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
           tickFormatter={formatXAxisTick}
           stroke="rgba(0, 0, 0, 0.4)"
           tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: 12 }}
+          axisLine={{ stroke: 'rgba(0, 0, 0, 0.1)' }}
+          label={{
+            value: 'Date',
+            position: 'insideBottomRight',
+            offset: -6,
+            fill: 'rgba(0, 0, 0, 0.54)',
+            fontSize: 12,
+          }}
         />
       );
 
@@ -419,6 +427,14 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
           tickFormatter={(value) => formatYAxisTick(value, 'revenue')}
           stroke="rgba(0, 0, 0, 0.4)"
           tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: 11 }}
+          label={{
+            value: 'Revenue (USD)',
+            angle: -90,
+            position: 'insideLeft',
+            offset: -10,
+            fill: 'rgba(0, 0, 0, 0.54)',
+            fontSize: 12,
+          }}
         />
       );
 
@@ -429,6 +445,14 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
           tickFormatter={(value) => formatYAxisTick(value, 'orders')}
           stroke="rgba(0, 0, 0, 0.4)"
           tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: 11 }}
+          label={{
+            value: 'Orders',
+            angle: 90,
+            position: 'insideRight',
+            offset: 10,
+            fill: 'rgba(0, 0, 0, 0.54)',
+            fontSize: 12,
+          }}
         />
       );
 
@@ -934,7 +958,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         <Box>
           <Typography variant="h5" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
             <Analytics color="primary" />
-            Unified Analytics & Predictions
+            Advanced Analytics & Forecasts
           </Typography>
           <Typography variant="body2" color="text.secondary">
             Revenue, orders, and conversion rate with 60-day forecasting
@@ -1260,7 +1284,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
             border: '1px solid rgba(0, 0, 0, 0.08)',
           }}
         >
-          🚀 AI-Powered Analytics & Forecasting
+          🚀 AI-Powered Advanced Analytics
         </Box>
       </Paper>
 

@@ -2369,7 +2369,7 @@ const DashboardPage = () => {
           {/* Chart Container (Charts render above) */}
           {chartMode === 'unified' ? (
             <ErrorBoundary 
-              fallbackMessage="The Unified Analytics chart failed to load. Please try refreshing."
+              fallbackMessage="The Advanced Analytics chart failed to load. Please try refreshing."
               onRetry={() => {
                 refetchUnifiedAnalytics();
               }}
@@ -2486,10 +2486,10 @@ const DashboardPage = () => {
                 <Analytics sx={{ fontSize: '1.5rem' }} />
                 <Box>
                   <Typography variant="body1" fontWeight="inherit">
-                    Unified Analytics
+                    Advanced Analytics
                   </Typography>
                   <Typography variant="caption" sx={{ opacity: 0.8, fontSize: '0.7rem' }}>
-                    AI-Powered with Predictions
+                    AI-Powered Forecasts
                   </Typography>
                 </Box>
               </ToggleButton>

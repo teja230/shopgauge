@@ -245,6 +245,13 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
           stroke="rgba(0, 0, 0, 0.4)"
           tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: 12 }}
           axisLine={{ stroke: 'rgba(0, 0, 0, 0.1)' }}
+          label={{
+            value: 'Date',
+            position: 'insideBottomRight',
+            offset: -6,
+            fill: 'rgba(0, 0, 0, 0.54)',
+            fontSize: 12,
+          }}
         />
       );
 
@@ -254,6 +261,14 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
           stroke="rgba(0, 0, 0, 0.4)"
           tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: 12 }}
           axisLine={{ stroke: 'rgba(0, 0, 0, 0.1)' }}
+          label={{
+            value: 'Revenue (USD)',
+            angle: -90,
+            position: 'insideLeft',
+            offset: -10,
+            fill: 'rgba(0, 0, 0, 0.54)',
+            fontSize: 12,
+          }}
         />
       );
 

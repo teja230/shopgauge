@@ -12,15 +12,19 @@ interface Props {
 interface State {
   hasError: boolean;
   error?: Error;
+  componentKey: number;
 }
 
 class ErrorBoundary extends Component<Props, State> {
   public state: State = {
     hasError: false,
+    componentKey: 0,
   };
 
   public static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error };
+    // Preserve the existing componentKey to avoid unnecessary remounts when the
+    // error is first captured. It will be incremented on reset.
+    return { hasError: true, error, componentKey: 0 };
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
@@ -28,7 +32,7 @@ class ErrorBoundary extends Component<Props, State> {
   }
 
   private handleReset = () => {
-    this.setState({ hasError: false, error: undefined });
+    this.setState((prev) => ({ hasError: false, error: undefined, componentKey: prev.componentKey + 1 }));
 
     if (this.props.onRetry) {
       try {
@@ -48,21 +52,35 @@ class ErrorBoundary extends Component<Props, State> {
           sx={(theme) => ({
             mt: 2,
             p: 2,
-            borderRadius: 1,
+            borderRadius: 2,
             borderWidth: 1,
             borderColor: theme.palette.error.light,
             backgroundColor: theme.palette.mode === 'dark'
               ? theme.palette.error.dark + '08'
               : theme.palette.error.light + '08',
             color: theme.palette.text.primary,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'flex-start',
+            gap: 1.5,
             [theme.breakpoints.down('sm')]: {
               p: 1.5,
-              borderRadius: 0.5,
+              borderRadius: 1,
             },
           })}
         >
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            {this.props.fallbackMessage || 'This part of the application has encountered an error.'}
+          {this.props.fallbackMessage && (
+            <AlertTitle sx={{ fontWeight: 700 }}>
+              {this.props.fallbackMessage}
+            </AlertTitle>
+          )}
+          {!this.props.fallbackMessage && (
+            <AlertTitle sx={{ fontWeight: 700 }}>
+              Something went wrong
+            </AlertTitle>
+          )}
+          <Typography variant="body2" color="text.secondary">
+            Our team has been notified. You can try reloading this section, and if the problem persists please contact support.
           </Typography>
           <Button
             variant="contained"
@@ -78,7 +96,7 @@ class ErrorBoundary extends Component<Props, State> {
       );
     }
 
-    return this.props.children;
+    return <React.Fragment key={this.state.componentKey}>{this.props.children}</React.Fragment>;
   }
 }
 
