@@ -22,7 +22,9 @@
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,
     "types": [
-      "node"
+      "node",
+      "react",
+      "vite/client"
     ]
   },
   "include": [

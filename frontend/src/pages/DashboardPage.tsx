@@ -700,6 +700,17 @@ const DashboardPage = () => {
   const [lastRefreshTime, setLastRefreshTime] = useState<number>(0); // Track last refresh time for debouncing
   const [debounceCountdown, setDebounceCountdown] = useState<number>(0); // Real-time countdown for debounce
 
+  // =====================================
+  // Polling management refs (typed)
+  // =====================================
+  const pollingTimersRef = useRef<NodeJS.Timeout[]>([]);
+  const rateLimitRef = useRef<boolean>(hasRateLimit);
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    rateLimitRef.current = hasRateLimit;
+  }, [hasRateLimit]);
+
   // Save cache to sessionStorage whenever it changes
   useEffect(() => {
     if (shop && Object.keys(cache).length > 2) { // Only save if cache is not empty
@@ -1932,27 +1943,54 @@ const DashboardPage = () => {
       handleRefreshAll();
     };
 
-    const handleRateLimitPolling = () => {
-      if (hasRateLimit) {
-        console.log('⏰ Rate limit detected - starting 60-second polling');
-        const pollInterval = setInterval(() => {
-          console.log('🔄 Polling for rate limit recovery...');
-          handleRefreshAll();
-        }, 60000); // 60 seconds
+    /**
+     * Starts an exponential-backoff timer that attempts to refresh the dashboard
+     * while the Shopify API is rate-limited.  Polling intervals grow 1 → 2 → 4 → 5 minutes
+     * (max) to minimise cost.  Returns a cleanup function to clear all timers.
+     */
+    const handleRateLimitPolling = (): (() => void) | undefined => {
+      if (!hasRateLimit) return undefined;
 
-        return () => clearInterval(pollInterval);
-      }
+      let attempt = 0;
+      const MAX_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+
+      const scheduleNext = (): void => {
+        const delay = Math.min(60_000 * Math.pow(2, attempt), MAX_INTERVAL_MS);
+        console.log(`⏰ Rate-limit polling (attempt ${attempt + 1}) in ${Math.round(delay / 1000)}s`);
+
+        const timerId: NodeJS.Timeout = setTimeout(async () => {
+          try {
+            await handleRefreshAll();
+          } finally {
+            // schedule another round only if rate-limit still active
+            if (rateLimitRef.current) {
+              attempt++;
+              scheduleNext();
+            }
+          }
+        }, delay);
+
+        pollingTimersRef.current.push(timerId);
+      };
+
+      scheduleNext();
+
+      // Return cleanup function
+      return (): void => {
+        pollingTimersRef.current.forEach(clearTimeout);
+        pollingTimersRef.current = [];
+      };
     };
 
+    // Start / restart rate-limit polling whenever rate-limit state flips to true.
+    const stopPolling = handleRateLimitPolling();
+ 
     // Listen for dashboard retry events from ErrorBoundary
     window.addEventListener('dashboardRetry', handleDashboardRetry);
-    
-    // Start polling if rate limited
-    const cleanupPolling = handleRateLimitPolling();
-
+ 
     return () => {
       window.removeEventListener('dashboardRetry', handleDashboardRetry);
-      if (cleanupPolling) cleanupPolling();
+      if (stopPolling) stopPolling();
     };
   }, [hasRateLimit, handleRefreshAll]);
 

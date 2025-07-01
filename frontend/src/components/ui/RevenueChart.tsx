@@ -32,11 +32,10 @@ import {
   StackedLineChart,
   Analytics,
 } from '@mui/icons-material';
+import LoadingIndicator from './LoadingIndicator';
+import type { RevenuePoint, TooltipProps, ChartPayload } from '../../types/charts';
 
-interface RevenueData {
-  created_at: string;
-  total_price: number;
-}
+type RevenueData = RevenuePoint;
 
 interface RevenueChartProps {
   data: RevenueData[];
@@ -47,7 +46,7 @@ interface RevenueChartProps {
 
 type ChartType = 'line' | 'area' | 'bar' | 'candlestick' | 'waterfall' | 'stacked' | 'composed';
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+const CustomTooltip: React.FC<TooltipProps<RevenuePoint>> = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
       <Paper
@@ -60,26 +59,26 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         }}
       >
         <Typography variant="body2" color="text.secondary" gutterBottom>
-          {new Date(label).toLocaleDateString('en-US', {
+          {new Date(label as string).toLocaleDateString('en-US', {
             weekday: 'short',
             month: 'short',
             day: 'numeric',
           })}
         </Typography>
-        {payload.map((entry: any, index: number) => (
+        {(payload as ChartPayload<RevenuePoint>[]).map((entry, index) => (
           <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-          <Box
-            sx={{
-              width: 12,
-              height: 12,
-              borderRadius: '50%',
+            <Box
+              sx={{
+                width: 12,
+                height: 12,
+                borderRadius: '50%',
                 backgroundColor: entry.color,
-            }}
-          />
-          <Typography variant="body2" fontWeight={600}>
-              {entry.name}: ${entry.value?.toLocaleString()}
-          </Typography>
-        </Box>
+              }}
+            />
+            <Typography variant="body2" fontWeight={600}>
+              {entry.name as string}: ${entry.value?.toLocaleString()}
+            </Typography>
+          </Box>
         ))}
       </Paper>
     );
@@ -157,8 +156,30 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
     },
   };
 
-  // Unique id prefix to avoid duplicate gradient IDs across multiple charts
   const gradientIdPrefix = React.useMemo(() => `rev-${Math.random().toString(36).substring(2,8)}`, []);
+
+  // Layout-aware container hooks declared early to satisfy rules-of-hooks
+  const [containerReady, setContainerReady] = React.useState(false);
+  const containerRef = React.useRef<HTMLDivElement | null>(null);
+
+  React.useLayoutEffect(() => {
+    if (!containerRef.current) return;
+    if (containerRef.current.offsetWidth > 0) {
+      setContainerReady(true);
+      return;
+    }
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.contentRect.width > 0) {
+          setContainerReady(true);
+          ro.disconnect();
+          break;
+        }
+      }
+    });
+    ro.observe(containerRef.current);
+    return () => ro.disconnect();
+  }, []);
 
   // Validate and sanitize input data to prevent runtime errors
   const sanitizedData = React.useMemo(() => {
@@ -444,25 +465,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
 
   if (loading) {
     return (
-      <Box
-        sx={{
-          height,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexDirection: 'column',
-          gap: 2,
-          backgroundColor: 'rgba(0, 0, 0, 0.02)',
-          borderRadius: 2,
-        }}
-      >
-        <div className="animate-pulse">
-          <TrendingUp sx={{ fontSize: 48, color: 'rgba(0, 0, 0, 0.2)' }} />
-        </div>
-        <Typography variant="body2" color="text.secondary">
-          Loading revenue data...
-        </Typography>
-      </Box>
+      <LoadingIndicator height={height} message="Loading revenue data…" />
     );
   }
 
@@ -506,218 +509,22 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
         }}
       >
         <TrendingUp sx={{ fontSize: 48, color: 'rgba(0, 0, 0, 0.2)' }} />
-        <Typography variant="h6" color="text.secondary">
-          No revenue data available
-        </Typography>
         <Typography variant="body2" color="text.secondary">
-          Revenue data will appear here once you start making sales
+          No revenue data available
         </Typography>
       </Box>
     );
   }
 
   return (
-    <Box sx={{ width: '100%' }}>
-      {/* Chart Header with Controls */}
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          mb: 3,
-          flexWrap: 'wrap',
-          gap: 2,
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <TrendingUp color="primary" />
-            Revenue Overview
-          </Typography>
-          <Chip
-            label={`${sanitizedData.length} ${sanitizedData.length === 1 ? 'day' : 'days'}`}
-            size="small"
-            variant="outlined"
-            color="primary"
-          />
-        </Box>
-
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          {/* Enhanced Chart Type Selector */}
-          <ToggleButtonGroup
-            value={chartType}
-            exclusive
-            onChange={(_, newType) => newType && setChartType(newType)}
-            size="small"
-            sx={{
-              backgroundColor: 'white',
-              border: '1px solid rgba(0, 0, 0, 0.1)',
-              borderRadius: 2,
-              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)',
-              '& .MuiToggleButton-root': {
-                px: 1.5,
-                py: 1,
-                fontSize: '0.75rem',
-                textTransform: 'none',
-                fontWeight: 500,
-                border: 'none',
-                borderRadius: 1.5,
-                margin: 0.25,
-                minWidth: 'auto',
-                color: 'text.secondary',
-                backgroundColor: 'transparent',
-                transition: 'all 0.2s ease',
-                '&:hover': {
-                  backgroundColor: 'rgba(37, 99, 235, 0.08)',
-                  color: 'primary.main',
-                },
-                '&.Mui-selected': {
-                  backgroundColor: 'primary.main',
-                  color: 'white',
-                  '&:hover': {
-                    backgroundColor: 'primary.dark',
-                  },
-                },
-              },
-            }}
-          >
-            {(Object.keys(chartTypeConfig) as ChartType[]).map((type) => (
-              <ToggleButton
-                key={type}
-                value={type}
-                sx={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: 0.25,
-                  minWidth: 'auto',
-                }}
-                title={chartTypeConfig[type].description}
-              >
-                {React.cloneElement(chartTypeConfig[type].icon, { 
-                  sx: { fontSize: '1rem' } 
-                })}
-                <Typography variant="caption" sx={{ fontSize: '0.65rem', lineHeight: 1 }}>
-                {chartTypeConfig[type].label}
-                </Typography>
-              </ToggleButton>
-            ))}
-          </ToggleButtonGroup>
-        </Box>
-      </Box>
-
-      {/* Enhanced Revenue Summary Stats */}
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr 1fr' },
-          gap: 2,
-          mb: 3,
-        }}
-      >
-        <Paper
-          elevation={0}
-          sx={{
-            p: 2,
-            backgroundColor: 'rgba(37, 99, 235, 0.05)',
-            border: '1px solid rgba(37, 99, 235, 0.1)',
-            borderRadius: 2,
-          }}
-        >
-          <Typography variant="body2" color="text.secondary" gutterBottom>
-            Total Revenue
-          </Typography>
-          <Typography variant="h6" color="primary" fontWeight={600}>
-            ${isNaN(totalRevenue) ? '0' : totalRevenue.toLocaleString()}
-          </Typography>
-        </Paper>
-
-        <Paper
-          elevation={0}
-          sx={{
-            p: 2,
-            backgroundColor: 'rgba(16, 185, 129, 0.05)',
-            border: '1px solid rgba(16, 185, 129, 0.1)',
-            borderRadius: 2,
-          }}
-        >
-          <Typography variant="body2" color="text.secondary" gutterBottom>
-            Average Daily
-          </Typography>
-          <Typography variant="h6" sx={{ color: 'rgb(16, 185, 129)' }} fontWeight={600}>
-            ${isNaN(averageRevenue) ? '0' : Math.round(averageRevenue).toLocaleString()}
-          </Typography>
-        </Paper>
-
-        <Paper
-          elevation={0}
-          sx={{
-            p: 2,
-            backgroundColor: 'rgba(245, 158, 11, 0.05)',
-            border: '1px solid rgba(245, 158, 11, 0.1)',
-            borderRadius: 2,
-          }}
-        >
-          <Typography variant="body2" color="text.secondary" gutterBottom>
-            Peak Day
-          </Typography>
-          <Typography variant="h6" sx={{ color: 'rgb(245, 158, 11)' }} fontWeight={600}>
-            ${isNaN(maxRevenue) ? '0' : maxRevenue.toLocaleString()}
-          </Typography>
-        </Paper>
-
-        <Paper
-          elevation={0}
-          sx={{
-            p: 2,
-            backgroundColor: 'rgba(139, 92, 246, 0.05)',
-            border: '1px solid rgba(139, 92, 246, 0.1)',
-            borderRadius: 2,
-          }}
-        >
-          <Typography variant="body2" color="text.secondary" gutterBottom>
-            Range
-          </Typography>
-          <Typography variant="h6" sx={{ color: 'rgb(139, 92, 246)' }} fontWeight={600}>
-            ${isNaN(maxRevenue - minRevenue) ? '0' : (maxRevenue - minRevenue).toLocaleString()}
-          </Typography>
-        </Paper>
-      </Box>
-
-      {/* Chart Container */}
-      <Paper
-        elevation={0}
-        sx={{
-          p: 3,
-          backgroundColor: '#fff',
-          border: '1px solid rgba(0, 0, 0, 0.05)',
-          borderRadius: 3,
-          position: 'relative',
-          overflow: 'hidden',
-        }}
-      >
+    <Box ref={containerRef} sx={{ width: '100%' }}>
+      {containerReady && (
         <ResponsiveContainer width="100%" height={height}>
           {renderChart()}
         </ResponsiveContainer>
-        
-        {/* Data Activity Period Indicator */}
-        <Box
-          sx={{
-            position: 'absolute',
-            bottom: 8,
-            right: 12,
-            fontSize: '0.7rem',
-            color: 'text.secondary',
-            backgroundColor: 'rgba(255, 255, 255, 0.9)',
-            px: 1,
-            py: 0.5,
-            borderRadius: 1,
-            border: '1px solid rgba(0, 0, 0, 0.08)',
-          }}
-        >
-          📊 Data reflects the last 60 days of activity
-        </Box>
-      </Paper>
+      )}
     </Box>
   );
-}; 
+};
+
+export default RevenueChart; 

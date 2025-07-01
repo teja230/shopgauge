@@ -3,14 +3,17 @@ import { getCacheKey, CACHE_VERSION } from '../utils/cacheUtils';
 import { fetchWithAuth } from '../api';
 
 interface HistoricalData {
+  kind: 'historical';
   date: string;
   revenue: number;
   orders_count: number;
   conversion_rate: number;
   avg_order_value: number;
+  isPrediction: false;
 }
 
 interface PredictionData {
+  kind: 'prediction';
   date: string;
   revenue: number;
   orders_count: number;
@@ -24,6 +27,7 @@ interface PredictionData {
   };
   prediction_type: string;
   confidence_score: number;
+  isPrediction: true;
 }
 
 interface UnifiedAnalyticsData {
@@ -234,11 +238,13 @@ const useUnifiedAnalytics = (
         const avgOrderValue = ordersCount > 0 ? revenue / ordersCount : 0;
 
         historical.push({
+          kind: 'historical',
           date,
           revenue,
           orders_count: ordersCount,
           conversion_rate: conversionRate,
           avg_order_value: avgOrderValue,
+          isPrediction: false,
         });
       });
 
@@ -264,6 +270,7 @@ const useUnifiedAnalytics = (
           const predictedOrders = Math.max(0, Math.round(avgOrders * trendFactor));
 
           predictions.push({
+            kind: 'prediction',
             date: dateStr,
             revenue: predictedRevenue,
             orders_count: predictedOrders,
@@ -277,6 +284,7 @@ const useUnifiedAnalytics = (
             },
             prediction_type: 'trend_analysis',
             confidence_score: 0.7 + Math.random() * 0.2, // 70-90% confidence
+            isPrediction: true,
           });
         }
       }

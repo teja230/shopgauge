@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useLayoutEffect, useRef } from 'react';
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -52,6 +52,8 @@ import {
   PlayArrow,
   Stop,
 } from '@mui/icons-material';
+import LoadingIndicator from './LoadingIndicator';
+import type { TooltipProps, ChartPayload, UnifiedDatum, PredictionPoint } from '../../types/charts';
 
 interface HistoricalData {
   date: string;
@@ -281,11 +283,12 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
     }
   };
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const CustomTooltip: React.FC<TooltipProps<UnifiedDatum>> = ({ active, payload, label }) => {
     try {
       if (active && payload && payload.length) {
-        const data = payload[0].payload;
-        const isPrediction = data.isPrediction;
+        const entry = payload[0] as ChartPayload<UnifiedDatum>;
+        const data = entry.payload;
+        const isPrediction = data.kind === 'prediction';
 
         return (
           <Paper
@@ -302,15 +305,17 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
               {isPrediction && <AutoGraph color="primary" fontSize="small" />}
               <Typography variant="body2" color="text.secondary" fontWeight={600}>
                 {(() => {
-                  try {
-                    return new Date(label).toLocaleDateString('en-US', {
-                      weekday: 'long',
-                      month: 'short',
-                      day: 'numeric',
-                    });
-                  } catch {
-                    return label;
+                  if (typeof label === 'string' || typeof label === 'number') {
+                    const d = new Date(label);
+                    if (!Number.isNaN(d.getTime())) {
+                      return d.toLocaleDateString('en-US', {
+                        weekday: 'long',
+                        month: 'short',
+                        day: 'numeric',
+                      });
+                    }
                   }
+                  return String(label);
                 })()}
               </Typography>
               {isPrediction && (
@@ -329,7 +334,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
             
             <Divider sx={{ mb: 1.5 }} />
             
-            {payload.map((entry: any, index: number) => (
+            {(payload as ChartPayload<UnifiedDatum>[]).map((entry, index) => (
               <Box key={index} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Box
@@ -356,16 +361,16 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
               </Box>
             ))}
             
-            {isPrediction && data.revenue_min !== undefined && (
+            {isPrediction && (data as PredictionPoint).revenue_min !== undefined && (
               <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid rgba(0, 0, 0, 0.1)' }}>
                 <Typography variant="caption" color="text.secondary" gutterBottom>
                   Confidence Range
                 </Typography>
                 <Typography variant="body2" fontSize="0.8rem">
-                  Revenue: ${safeNumber(data.revenue_min).toLocaleString()} - ${safeNumber(data.revenue_max).toLocaleString()}
+                  Revenue: ${safeNumber((data as PredictionPoint).revenue_min).toLocaleString()} - ${safeNumber((data as PredictionPoint).revenue_max).toLocaleString()}
                 </Typography>
                 <Typography variant="body2" fontSize="0.8rem">
-                  Orders: {safeNumber(data.orders_min)} - {safeNumber(data.orders_max)}
+                  Orders: {safeNumber((data as PredictionPoint).orders_min)} - {safeNumber((data as PredictionPoint).orders_max)}
                 </Typography>
               </Box>
             )}
@@ -830,28 +835,41 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
     }
   };
 
+  // ============================================
+  // ResizeObserver gate – only render the chart
+  // once the container has a measurable width.
+  // This prevents Recharts from throwing errors
+  // when mounted inside hidden or zero-width
+  // containers (e.g. before layout is ready).
+  // ============================================
+
+  const [containerReady, setContainerReady] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useLayoutEffect(() => {
+    if (!containerRef.current) return;
+
+    if (containerRef.current.offsetWidth > 0) {
+      setContainerReady(true);
+      return;
+    }
+
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.contentRect.width > 0) {
+          setContainerReady(true);
+          ro.disconnect();
+          break;
+        }
+      }
+    });
+
+    ro.observe(containerRef.current);
+    return () => ro.disconnect();
+  }, []);
+
   if (loading) {
-    return (
-      <Box
-        sx={{
-          height,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexDirection: 'column',
-          gap: 2,
-          backgroundColor: 'rgba(0, 0, 0, 0.02)',
-          borderRadius: 3,
-        }}
-      >
-        <div className="animate-pulse">
-          <Analytics sx={{ fontSize: 48, color: 'rgba(0, 0, 0, 0.2)' }} />
-        </div>
-        <Typography variant="body2" color="text.secondary">
-          Loading analytics data...
-        </Typography>
-      </Box>
-    );
+    return <LoadingIndicator height={height} message="Loading analytics data…" />;
   }
 
   if (error) {
@@ -890,7 +908,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
   }
 
   return (
-    <Box sx={{ width: '100%' }}>
+    <Box ref={containerRef} sx={{ width: '100%' }}>
       {/* Header with Controls */}
       <Box
         sx={{
@@ -1197,9 +1215,11 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
           overflow: 'hidden',
         }}
       >
-        <ResponsiveContainer width="100%" height={height}>
-          {renderChart()}
-        </ResponsiveContainer>
+        {containerReady && (
+          <ResponsiveContainer width="100%" height={height}>
+            {renderChart()}
+          </ResponsiveContainer>
+        )}
         
         {/* Watermark */}
         <Box
