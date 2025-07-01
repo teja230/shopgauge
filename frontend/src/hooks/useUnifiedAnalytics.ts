@@ -349,6 +349,7 @@ const useUnifiedAnalytics = (
 
         // Only make API calls if NOT using dashboard data (legacy mode)
         console.log('🔄 UNIFIED_ANALYTICS: Using legacy API mode (not using dashboard data)');
+        console.warn('⚠️ DEPRECATED: Using legacy unified analytics API. This will be removed in a future version. Use dashboard data instead.');
         
         // Check cache first (unless forcing refresh)
         if (!forceRefresh) {

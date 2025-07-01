@@ -2165,6 +2165,12 @@ public class AnalyticsController {
                         shop)));
   }
 
+  /**
+   * @deprecated This endpoint is deprecated. Use dashboard data conversion instead.
+   * The frontend now uses dashboard revenue/orders data and converts it to unified format.
+   * This endpoint will be removed in a future version.
+   */
+  @Deprecated
   @GetMapping("/unified-analytics")
   @SuppressWarnings("unchecked")
   public Mono<ResponseEntity<Map<String, Object>>> getUnifiedAnalytics(
@@ -2172,6 +2178,9 @@ public class AnalyticsController {
       @RequestParam(value = "days", defaultValue = "60") int days,
       @RequestParam(value = "includePredictions", defaultValue = "true") boolean includePredictions,
       HttpSession session) {
+
+    // Log deprecation warning
+    logger.warn("DEPRECATED: Unified analytics API called for shop: {}. This endpoint will be removed in a future version.", shop);
 
     // Early service readiness check
     if (!isServiceReady()) {
