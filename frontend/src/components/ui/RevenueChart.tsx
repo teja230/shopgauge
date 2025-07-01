@@ -21,6 +21,8 @@ import {
   Chip,
   ToggleButton,
   ToggleButtonGroup,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import {
   TrendingUp,
@@ -110,6 +112,10 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
   height = 400,
 }) => {
   const [chartType, setChartType] = useState<ChartType>('area');
+
+  // Responsive helper
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   const chartTypeConfig = {
     line: {
@@ -518,6 +524,53 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
 
   return (
     <Box ref={containerRef} sx={{ width: '100%' }}>
+      {/* Chart type selector */}
+      <Box sx={{ mb: 2, maxWidth: '100%', overflowX: 'auto' }}>
+        <ToggleButtonGroup
+          value={chartType}
+          exclusive
+          onChange={(_, newType) => newType && setChartType(newType)}
+          size="small"
+          sx={{
+            flexWrap: isMobile ? 'nowrap' : 'wrap',
+            '& .MuiToggleButton-root': {
+              flex: '0 0 auto',
+              px: isMobile ? 1.2 : 2,
+            },
+          }}
+        >
+          <ToggleButton value="line"> 
+            <ShowChart />
+            {!isMobile && 'Line'}
+          </ToggleButton>
+          <ToggleButton value="area">
+            <Timeline />
+            {!isMobile && 'Area'}
+          </ToggleButton>
+          <ToggleButton value="bar">
+            <BarChartIcon />
+            {!isMobile && 'Bar'}
+          </ToggleButton>
+          <ToggleButton value="candlestick">
+            <CandlestickChart />
+            {!isMobile && 'Candle'}
+          </ToggleButton>
+          <ToggleButton value="waterfall">
+            <WaterfallChart />
+            {!isMobile && 'Waterfall'}
+          </ToggleButton>
+          <ToggleButton value="stacked">
+            <StackedLineChart />
+            {!isMobile && 'Stacked'}
+          </ToggleButton>
+          <ToggleButton value="composed">
+            <Analytics />
+            {!isMobile && 'Composed'}
+          </ToggleButton>
+        </ToggleButtonGroup>
+      </Box>
+
+      {/* Chart */}
       {containerReady && (
         <ResponsiveContainer width="100%" height={height}>
           {renderChart()}

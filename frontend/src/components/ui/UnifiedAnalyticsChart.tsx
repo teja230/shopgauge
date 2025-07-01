@@ -54,6 +54,7 @@ import {
 } from '@mui/icons-material';
 import LoadingIndicator from './LoadingIndicator';
 import type { TooltipProps, ChartPayload, UnifiedDatum, PredictionPoint } from '../../types/charts';
+import { useMediaQuery, useTheme } from '@mui/material';
 
 interface HistoricalData {
   date: string;
@@ -288,7 +289,8 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
       if (active && payload && payload.length) {
         const entry = payload[0] as ChartPayload<UnifiedDatum>;
         const data = entry.payload;
-        const isPrediction = data.kind === 'prediction';
+        // Better detection that works with latest dataset structure
+        const isPrediction = (data as any).isPrediction === true || data.kind === 'prediction';
 
         return (
           <Paper
@@ -322,8 +324,8 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                 <Chip
                   size="small"
                   label={
-                    data.confidence_score !== undefined && data.confidence_score !== null
-                      ? `${Math.round(safeNumber(data.confidence_score) * 100)}% confidence`
+                    (data as PredictionPoint).confidence_score !== undefined && (data as PredictionPoint).confidence_score !== null
+                      ? `${Math.round(safeNumber((data as PredictionPoint).confidence_score) * 100)}% confidence`
                       : 'Prediction'
                   }
                   color="primary"
@@ -383,6 +385,15 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
       return null;
     }
   };
+
+  // ------------------------------------------------------------------
+  // Responsive helpers – detect small/mobile screens so we can adjust
+  // toggle button layout (icons-only on very small screens, scrollbar
+  // for overflow, etc.).
+  // ------------------------------------------------------------------
+
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   // Render different chart types based on selection
   const renderChart = () => {
@@ -931,48 +942,61 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         </Box>
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'flex-end' }}>
-          {/* Chart Type Selector */}
+          {/*
+            Chart-type selector – on mobile we switch to a horizontally
+            scrollable, icons-only (to save space) list. On larger
+            screens we render the existing label + icon combination.
+          */}
           <ToggleButtonGroup
             value={chartType}
             exclusive
             onChange={(_, newType) => newType && setChartType(newType)}
             size="small"
+            sx={{
+              overflowX: 'auto',
+              flexWrap: isMobile ? 'nowrap' : 'wrap',
+              maxWidth: '100%',
+              '& .MuiToggleButton-root': {
+                flex: '0 0 auto',
+                px: isMobile ? 1.2 : 2,
+              },
+            }}
           >
             <ToggleButton value="combined">
-              <Analytics sx={{ mr: 0.5 }} fontSize="small" />
-              Combined
+              <Analytics fontSize="small" />
+              {!isMobile && 'Combined'}
             </ToggleButton>
             <ToggleButton value="revenue_focus">
-              <ShowChart sx={{ mr: 0.5 }} fontSize="small" />
-              Revenue Focus
+              <ShowChart fontSize="small" />
+              {!isMobile && 'Revenue Focus'}
             </ToggleButton>
             <ToggleButton value="line">
-              <ShowChart sx={{ mr: 0.5 }} fontSize="small" />
-              Line
+              <ShowChart fontSize="small" />
+              {!isMobile && 'Line'}
             </ToggleButton>
             <ToggleButton value="area">
-              <Timeline sx={{ mr: 0.5 }} fontSize="small" />
-              Area
+              <Timeline fontSize="small" />
+              {!isMobile && 'Area'}
             </ToggleButton>
             <ToggleButton value="bar">
-              <BarChartIcon sx={{ mr: 0.5 }} fontSize="small" />
-              Bar
+              <BarChartIcon fontSize="small" />
+              {!isMobile && 'Bar'}
             </ToggleButton>
             <ToggleButton value="candlestick">
-              <CandlestickChart sx={{ mr: 0.5 }} fontSize="small" />
-              Candlestick
+              <CandlestickChart fontSize="small" />
+              {!isMobile && 'Candle'}
             </ToggleButton>
             <ToggleButton value="waterfall">
-              <WaterfallChart sx={{ mr: 0.5 }} fontSize="small" />
-              Waterfall
+              <WaterfallChart fontSize="small" />
+              {!isMobile && 'Waterfall'}
             </ToggleButton>
             <ToggleButton value="stacked">
-              <StackedLineChart sx={{ mr: 0.5 }} fontSize="small" />
-              Stacked
+              <StackedLineChart fontSize="small" />
+              {!isMobile && 'Stacked'}
             </ToggleButton>
             <ToggleButton value="composed">
-              <Analytics sx={{ mr: 0.5 }} fontSize="small" />
-              Composed
+              <Analytics fontSize="small" />
+              {!isMobile && 'Composed'}
             </ToggleButton>
           </ToggleButtonGroup>
 
