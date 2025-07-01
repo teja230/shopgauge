@@ -61,7 +61,6 @@ class ErrorBoundary extends Component<Props, State> {
             },
           })}
         >
-          <AlertTitle sx={{ fontWeight: 700 }}>Component Error</AlertTitle>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             {this.props.fallbackMessage || 'This part of the application has encountered an error.'}
           </Typography>
