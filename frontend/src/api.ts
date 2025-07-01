@@ -3,7 +3,7 @@ import axios from 'axios';
 // Enterprise-grade: never hard-code hostnames. Prefer environment config and, in dev, fallback to relative API proxy.
 export const API_BASE_URL: string = (
   import.meta.env.VITE_API_BASE_URL as string | undefined
-) || 'https://api.shopgaugeai.com'; // Production fallback
+) || '/'; // Relative URL fallback for non-production environments
 
 if (!import.meta.env.VITE_API_BASE_URL) {
   // Warn during development so engineers remember to configure the variable in production builds
