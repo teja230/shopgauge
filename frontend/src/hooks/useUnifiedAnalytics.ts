@@ -164,6 +164,8 @@ const useUnifiedAnalytics = (
     }
   }, [days, includePredictions, getCacheKeyForAnalytics]);
 
+  // fetchData is stable across renders unless the key query parameters change.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const fetchData = useCallback(async (forceRefresh = false): Promise<UnifiedAnalyticsData> => {
     // Validate shop before proceeding
     if (!shop || !shop.trim()) {

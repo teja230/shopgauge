@@ -234,29 +234,7 @@ interface Props {
 // Navigation component for buttons (no React Router hooks → works even without Router context)
 const ErrorNavigation: React.FC<{ onRefresh: () => void }> = ({ onRefresh }) => {
   // Check if user is likely authenticated by looking for shop cookie
-  const isAuthenticated = (() => {
-    try {
-      // Parse cookies properly to avoid false matches
-      const cookies = document.cookie.split(';').map(cookie => cookie.trim());
-      const shopCookie = cookies.find(cookie => cookie.startsWith('shop='));
-      
-      if (!shopCookie) {
-        return false;
-      }
-      
-      // Extract the value after 'shop='
-      const shopValue = shopCookie.substring(5); // 'shop=' is 5 characters
-      
-      // Check if the shop value is not empty and looks like a valid domain
-      return shopValue.length > 0 && 
-             shopValue !== 'undefined' && 
-             shopValue !== 'null' &&
-             (shopValue.includes('.') || shopValue.includes('myshopify.com'));
-    } catch (error) {
-      console.warn('Error parsing authentication cookie:', error);
-      return false;
-    }
-  })();
+  const isAuthenticated = document.cookie.includes('shop=');
 
   const handleGoHome = () => {
     window.location.href = '/?force=true';
@@ -274,13 +252,26 @@ const ErrorNavigation: React.FC<{ onRefresh: () => void }> = ({ onRefresh }) => 
     window.location.href = '/dashboard';
   };
 
-  const handleGoMarketIntelligence = () => {
-    window.location.href = '/competitors';
+  // Utility to safely navigate while preserving redirect path when the session might be invalid.
+  const safeNavigate = (targetPath: string) => {
+    if (isAuthenticated) {
+      // Use SPA-style navigation when possible to avoid full refresh
+      if (window.history?.pushState) {
+        window.history.pushState({}, '', targetPath);
+        // Dispatch a popstate event so React Router picks up the change
+        window.dispatchEvent(new PopStateEvent('popstate'));
+      } else {
+        window.location.href = targetPath;
+      }
+    } else {
+      // If not authenticated, route via home with redirect parameter so login flow can resume
+      window.location.href = `/?redirect=${encodeURIComponent(targetPath)}`;
+    }
   };
 
-  const handleGoProfile = () => {
-    window.location.href = '/profile';
-  };
+  const handleGoMarketIntelligence = () => safeNavigate('/competitors');
+
+  const handleGoProfile = () => safeNavigate('/profile');
 
   return (
     <ButtonContainer>

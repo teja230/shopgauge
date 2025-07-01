@@ -2435,8 +2435,45 @@ const DashboardPage = () => {
               exclusive
               onChange={(_, newMode) => newMode && setChartMode(newMode)}
               size="large"
+              sx={{
+                backgroundColor: 'white',
+                border: '2px solid rgba(37, 99, 235, 0.2)',
+                borderRadius: 3,
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                '& .MuiToggleButton-root': {
+                  px: 4,
+                  py: 1.5,
+                  fontSize: '1rem',
+                  fontWeight: 600,
+                  textTransform: 'none',
+                  border: 'none',
+                  borderRadius: 2.5,
+                  margin: 0.5,
+                  minWidth: 180,
+                  color: 'text.secondary',
+                  backgroundColor: 'transparent',
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    backgroundColor: 'rgba(37, 99, 235, 0.08)',
+                    color: 'primary.main',
+                    transform: 'translateY(-1px)',
+                  },
+                  '&.Mui-selected': {
+                    backgroundColor: 'primary.main',
+                    color: 'white',
+                    boxShadow: '0 2px 8px rgba(37, 99, 235, 0.3)',
+                    '&:hover': {
+                      backgroundColor: 'primary.dark',
+                      transform: 'translateY(-1px)',
+                    },
+                  },
+                },
+              }}
             >
-              <ToggleButton value="unified">
+              <ToggleButton
+                value="unified"
+                sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}
+              >
                 <Analytics sx={{ fontSize: '1.5rem' }} />
                 <Box>
                   <Typography variant="body1" fontWeight="inherit">
