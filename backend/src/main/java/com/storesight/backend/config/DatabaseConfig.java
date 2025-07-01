@@ -51,7 +51,7 @@ public class DatabaseConfig {
 
     // Check if we're in production environment
     boolean isProduction = isProductionEnvironment();
-    
+
     // Connection pool settings (pool size can also be overridden via ENV var `DB_POOL_SIZE`)
     int maxPoolSize = isProduction ? 10 : 50; // Reduced for production
     String poolSizeProp = System.getenv("DB_POOL_SIZE");
@@ -59,13 +59,14 @@ public class DatabaseConfig {
       try {
         maxPoolSize = Integer.parseInt(poolSizeProp);
       } catch (NumberFormatException ignore) {
-        logger.warn("Invalid DB_POOL_SIZE env value '{}', using default {}", poolSizeProp, maxPoolSize);
+        logger.warn(
+            "Invalid DB_POOL_SIZE env value '{}', using default {}", poolSizeProp, maxPoolSize);
       }
     }
 
     config.setMaximumPoolSize(maxPoolSize);
     config.setMinimumIdle(isProduction ? 2 : Math.min(10, maxPoolSize / 5));
-    
+
     // Production-optimized timeouts
     if (isProduction) {
       config.setConnectionTimeout(60000); // 60 seconds for production
@@ -80,7 +81,7 @@ public class DatabaseConfig {
       config.setLeakDetectionThreshold(120000);
       config.setValidationTimeout(5000);
     }
-    
+
     config.setConnectionTestQuery("SELECT 1");
     config.setAutoCommit(true);
     config.setPoolName("StoresightHikariCP" + (isProduction ? "-Prod" : ""));
@@ -96,7 +97,7 @@ public class DatabaseConfig {
     config.addDataSourceProperty("cacheServerConfiguration", "true");
     config.addDataSourceProperty("elideSetAutoCommits", "true");
     config.addDataSourceProperty("maintainTimeStats", "false");
-    
+
     // Production-specific connection properties for better reliability
     if (isProduction) {
       config.addDataSourceProperty("autoReconnect", "true");
@@ -131,15 +132,18 @@ public class DatabaseConfig {
   private void testDatabaseConnection(HikariDataSource dataSource, boolean isProduction) {
     int maxRetries = isProduction ? 3 : 1;
     int retryDelayMs = isProduction ? 5000 : 1000;
-    
+
     for (int attempt = 1; attempt <= maxRetries; attempt++) {
       try (Connection connection = dataSource.getConnection()) {
         logger.info("Database connection test successful (attempt {}/{})", attempt, maxRetries);
         return;
       } catch (SQLException e) {
-        logger.warn("Database connection test failed (attempt {}/{}): {}", 
-                   attempt, maxRetries, e.getMessage());
-        
+        logger.warn(
+            "Database connection test failed (attempt {}/{}): {}",
+            attempt,
+            maxRetries,
+            e.getMessage());
+
         if (attempt < maxRetries) {
           try {
             Thread.sleep(retryDelayMs);
@@ -152,7 +156,8 @@ public class DatabaseConfig {
           logger.error("Failed to establish database connection after {} attempts", maxRetries, e);
           if (isProduction) {
             // In production, we might want to continue startup and let health checks handle it
-            logger.warn("Continuing startup despite database connection failure - health checks will monitor connection");
+            logger.warn(
+                "Continuing startup despite database connection failure - health checks will monitor connection");
           } else {
             throw new RuntimeException("Database connection failed", e);
           }
