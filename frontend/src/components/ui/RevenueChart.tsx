@@ -105,7 +105,7 @@ const formatYAxisTick = (value: number) => {
 };
 
 export const RevenueChart: React.FC<RevenueChartProps> = ({
-  data,
+  data = [],
   loading = false,
   error = null,
   height = 400,
@@ -156,6 +156,9 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
       description: 'Combined metrics',
     },
   };
+
+  // Unique id prefix to avoid duplicate gradient IDs across multiple charts
+  const gradientIdPrefix = React.useMemo(() => `rev-${Math.random().toString(36).substring(2,8)}`, []);
 
   // Validate and sanitize input data to prevent runtime errors
   const sanitizedData = React.useMemo(() => {
@@ -269,7 +272,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
         return (
           <AreaChart {...commonProps}>
             <defs>
-              <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+              <linearGradient id={`${gradientIdPrefix}-revenueGradient`} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor={chartTypeConfig.area.color} stopOpacity={0.3} />
                 <stop offset="95%" stopColor={chartTypeConfig.area.color} stopOpacity={0.05} />
               </linearGradient>
@@ -283,7 +286,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
               dataKey="total_price"
               stroke={chartTypeConfig.area.color}
               strokeWidth={3}
-              fill="url(#revenueGradient)"
+              fill={`url(#${gradientIdPrefix}-revenueGradient)`}
               dot={{
                 fill: chartTypeConfig.area.color,
                 strokeWidth: 2,
@@ -369,11 +372,11 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
         return (
           <AreaChart {...commonProps}>
             <defs>
-              <linearGradient id="stackedRevenueGradient" x1="0" y1="0" x2="0" y2="1">
+              <linearGradient id={`${gradientIdPrefix}-stackedRevenueGradient`} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor={chartTypeConfig.stacked.color} stopOpacity={0.3} />
                 <stop offset="95%" stopColor={chartTypeConfig.stacked.color} stopOpacity={0.05} />
               </linearGradient>
-              <linearGradient id="changeGradient" x1="0" y1="0" x2="0" y2="1">
+              <linearGradient id={`${gradientIdPrefix}-changeGradient`} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
                 <stop offset="95%" stopColor="#10b981" stopOpacity={0.05} />
               </linearGradient>
@@ -387,7 +390,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
               dataKey="total_price"
               stroke={chartTypeConfig.stacked.color}
               strokeWidth={2}
-              fill="url(#stackedRevenueGradient)"
+              fill={`url(#${gradientIdPrefix}-stackedRevenueGradient)`}
               stackId="1"
             />
             <Area
@@ -395,7 +398,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
               dataKey="change"
               stroke="#10b981"
               strokeWidth={1}
-              fill="url(#changeGradient)"
+              fill={`url(#${gradientIdPrefix}-changeGradient)`}
               stackId="2"
             />
           </AreaChart>
