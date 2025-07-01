@@ -163,6 +163,17 @@ const App: React.FC = () => {
   if (import.meta.env.DEV) {
     console.log('App: Rendering');
   }
+
+  React.useEffect(() => {
+    // Normalize URLs that accidentally include /index.html (e.g., from old redirects)
+    if (window.location.pathname.startsWith('/index.html')) {
+      const cleanPath = window.location.pathname.replace('/index.html', '/') || '/';
+      const newUrl = cleanPath + window.location.search + window.location.hash;
+      console.log('App: Stripping /index.html from URL →', newUrl);
+      window.history.replaceState({}, '', newUrl);
+    }
+  }, []);
+
   return (
     <ErrorBoundary>
       <ThemeProvider theme={theme}>
