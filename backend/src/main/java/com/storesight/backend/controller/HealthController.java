@@ -1,6 +1,7 @@
 package com.storesight.backend.controller;
 
 import com.storesight.backend.service.ShopService;
+import com.storesight.backend.service.DatabaseMonitoringService;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
@@ -34,6 +35,8 @@ public class HealthController {
   @Autowired private StringRedisTemplate redisTemplate;
 
   @Autowired private ShopService shopService;
+
+  @Autowired private DatabaseMonitoringService databaseMonitoringService;
 
   @Value("${spring.application.name:storesight-backend}")
   private String applicationName;
@@ -235,5 +238,10 @@ public class HealthController {
 
     HttpStatus status = isReady ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE;
     return ResponseEntity.status(status).body(readiness);
+  }
+
+  @GetMapping("/database-metrics")
+  public Map<String, Object> getDatabaseMetrics() {
+    return databaseMonitoringService.getDatabaseMetrics();
   }
 }
