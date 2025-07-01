@@ -252,7 +252,7 @@ const ErrorNavigation: React.FC<{ onRefresh: () => void }> = ({ onRefresh }) => 
         color="primary"
         onClick={onRefresh}
         startIcon={<Refresh />}
-        sx={{ minWidth: 120 }}
+        sx={{ minWidth: 120, borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
       >
         Try Again
       </Button>
@@ -261,7 +261,7 @@ const ErrorNavigation: React.FC<{ onRefresh: () => void }> = ({ onRefresh }) => 
         color="primary"
         onClick={handleGoHome}
         startIcon={<Home />}
-        sx={{ minWidth: 120 }}
+        sx={{ minWidth: 120, borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
       >
         Go Home
       </Button>
@@ -270,7 +270,7 @@ const ErrorNavigation: React.FC<{ onRefresh: () => void }> = ({ onRefresh }) => 
         color="primary"
         onClick={handleGoBack}
         startIcon={<ArrowBack />}
-        sx={{ minWidth: 120 }}
+        sx={{ minWidth: 120, borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
       >
         Go Back
       </Button>

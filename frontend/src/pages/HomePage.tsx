@@ -98,6 +98,9 @@ const HomePage = () => {
         newUrl.searchParams.delete('view');
         window.history.replaceState({}, '', newUrl.toString());
       }
+    } else if (!isAuthenticated && !authLoading) {
+      // User is not authenticated, stay on home page
+      console.log('HomePage: User not authenticated, staying on home page');
     }
   }, [isAuthenticated, authLoading, navigate, location.pathname, location.search]);
 
