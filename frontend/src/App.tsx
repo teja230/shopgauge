@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster, toast } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ServiceStatusProvider, useServiceStatus } from './context/ServiceStatusContext';
@@ -51,7 +51,6 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
 // Component to handle redirects from 404.html and loading.html
 const RedirectHandler: React.FC = () => {
-  const navigate = useNavigate();
   const location = useLocation();
   const { authLoading, isAuthenticated } = useAuth();
 
@@ -77,7 +76,7 @@ const RedirectHandler: React.FC = () => {
           
           if (isAuthenticated) {
             console.log('RedirectHandler: Authenticated user, redirecting to protected route:', redirectPath);
-            navigate(redirectPath, { replace: true });
+            // Keep the redirect parameter for after login - no action needed
           } else {
             console.log('RedirectHandler: Not authenticated, staying on home page with redirect param');
             // Keep the redirect parameter for after login - no action needed
@@ -85,16 +84,16 @@ const RedirectHandler: React.FC = () => {
         } else {
           // Non-protected routes (admin, privacy-policy) can be accessed directly
           console.log('RedirectHandler: Redirecting to public route:', redirectPath);
-          navigate(redirectPath, { replace: true });
+          // Keep the redirect parameter for after login - no action needed
         }
       } else {
         // Invalid route - remove redirect parameter and let the app handle it normally
         // This will cause the catch-all route (*) to show the 404 page
         console.log('RedirectHandler: Invalid route, removing redirect parameter:', redirectPath);
-        navigate(location.pathname, { replace: true });
+        // Keep the redirect parameter for after login - no action needed
       }
     }
-  }, [navigate, location, authLoading, isAuthenticated]);
+  }, [location, authLoading, isAuthenticated]);
 
   return null;
 };
@@ -154,7 +153,6 @@ const AppContent: React.FC = () => {
     <div className="min-h-screen bg-gray-50 flex flex-col animate-fadeIn">
       <CommandPalette />
       <RouteErrorCleaner />
-      <RedirectHandler />
       <NavBar />
       <PrivacyBanner />
       <main className="flex-1">
