@@ -97,8 +97,10 @@ async function networkFirstStrategy(request) {
     
     // Cache successful API responses
     if (networkResponse.ok && CACHEABLE_API_ROUTES.some(route => request.url.includes(route))) {
+      // Clone the response immediately to avoid the body being locked later
+      const responseClone = networkResponse.clone();
       const cache = await caches.open(DYNAMIC_CACHE_NAME);
-      cache.put(request, networkResponse.clone());
+      await cache.put(request, responseClone);
     }
     
     return networkResponse;
@@ -129,7 +131,13 @@ async function networkFirstStrategy(request) {
 async function networkFirstForDocuments(request) {
   try {
     const networkResponse = await fetch(request);
-    return networkResponse;
+    // If the response is OK, serve it. Otherwise (e.g., 404) fall back to index.html for SPA routing
+    if (networkResponse.ok) {
+      return networkResponse;
+    }
+    console.warn('Service Worker: Document fetch returned non-OK status, serving index.html instead');
+    const fallbackResponse = await caches.match('/index.html');
+    return fallbackResponse || networkResponse;
   } catch (error) {
     console.log('Service Worker: Network failed for document, serving cached index.html');
     
@@ -164,8 +172,10 @@ async function cacheFirstStrategy(request) {
   
   try {
     const networkResponse = await fetch(request);
+    // Clone immediately so body is still readable when we later put it in the cache
+    const responseClone = networkResponse.clone();
     const cache = await caches.open(STATIC_CACHE_NAME);
-    cache.put(request, networkResponse.clone());
+    await cache.put(request, responseClone);
     return networkResponse;
   } catch (error) {
     console.log('Service Worker: Failed to fetch static asset', error);
@@ -179,8 +189,9 @@ async function staleWhileRevalidateStrategy(request) {
   
   const networkResponsePromise = fetch(request)
     .then((networkResponse) => {
+      const responseClone = networkResponse.clone();
       const cache = caches.open(DYNAMIC_CACHE_NAME);
-      cache.then((c) => c.put(request, networkResponse.clone()));
+      cache.then((c) => c.put(request, responseClone));
       return networkResponse;
     })
     .catch(() => cachedResponse);

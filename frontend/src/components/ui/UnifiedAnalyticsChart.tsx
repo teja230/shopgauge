@@ -131,20 +131,23 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
 
     // Add predictions if enabled
     if (showPredictions && data.predictions) {
-      const predictions = data.predictions.map(item => ({
-        date: item.date,
-        revenue: item.revenue,
-        orders_count: item.orders_count,
-        conversion_rate: item.conversion_rate,
-        avg_order_value: item.avg_order_value,
-        type: 'prediction',
-        isPrediction: true,
-        confidence_score: item.confidence_score,
-        revenue_min: item.confidence_interval.revenue_min,
-        revenue_max: item.confidence_interval.revenue_max,
-        orders_min: item.confidence_interval.orders_min,
-        orders_max: item.confidence_interval.orders_max,
-      }));
+      const predictions = data.predictions.map((item) => {
+        const ci = item.confidence_interval || {} as any;
+        return {
+          date: item.date,
+          revenue: item.revenue,
+          orders_count: item.orders_count,
+          conversion_rate: item.conversion_rate,
+          avg_order_value: item.avg_order_value,
+          type: 'prediction',
+          isPrediction: true,
+          confidence_score: item.confidence_score ?? 0,
+          revenue_min: ci.revenue_min ?? null,
+          revenue_max: ci.revenue_max ?? null,
+          orders_min: ci.orders_min ?? null,
+          orders_max: ci.orders_max ?? null,
+        };
+      });
       combinedData.push(...predictions);
     }
 
@@ -244,7 +247,11 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
             {isPrediction && (
               <Chip
                 size="small"
-                label={`${Math.round(data.confidence_score * 100)}% confidence`}
+                label={
+                  data.confidence_score !== undefined && data.confidence_score !== null
+                    ? `${Math.round(data.confidence_score * 100)}% confidence`
+                    : 'Prediction'
+                }
                 color="primary"
                 variant="outlined"
               />
