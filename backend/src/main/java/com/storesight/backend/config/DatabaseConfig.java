@@ -42,9 +42,19 @@ public class DatabaseConfig {
     config.setPassword(dataSourcePassword);
     config.setDriverClassName(driverClassName);
 
-    // Connection pool settings
-    config.setMaximumPoolSize(20);
-    config.setMinimumIdle(5);
+    // Connection pool settings (pool size can also be overridden via ENV var `DB_POOL_SIZE`)
+    int maxPoolSize = 50; // default
+    String poolSizeProp = System.getenv("DB_POOL_SIZE");
+    if (poolSizeProp != null) {
+      try {
+        maxPoolSize = Integer.parseInt(poolSizeProp);
+      } catch (NumberFormatException ignore) {
+        logger.warn("Invalid DB_POOL_SIZE env value '{}', using default {}", poolSizeProp, maxPoolSize);
+      }
+    }
+
+    config.setMaximumPoolSize(maxPoolSize);
+    config.setMinimumIdle(Math.min(10, maxPoolSize / 5));
     config.setConnectionTimeout(30000);
     config.setIdleTimeout(300000);
     config.setMaxLifetime(1200000);

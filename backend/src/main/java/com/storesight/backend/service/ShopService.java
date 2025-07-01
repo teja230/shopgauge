@@ -20,7 +20,6 @@ import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 @Service
-@Transactional
 public class ShopService {
   private static final Logger logger = LoggerFactory.getLogger(ShopService.class);
 
@@ -83,6 +82,7 @@ public class ShopService {
   /**
    * Save shop and create/update session. This method handles multiple concurrent sessions properly.
    */
+  @Transactional
   public ShopSession saveShop(
       String shopifyDomain, String accessToken, String sessionId, HttpServletRequest request) {
     logger.info("Saving shop: {} for session: {}", shopifyDomain, sessionId);
@@ -125,6 +125,7 @@ public class ShopService {
   }
 
   /** Backward compatibility method */
+  @Transactional
   public void saveShop(String shopifyDomain, String accessToken, String sessionId) {
     // Validate and ensure we have a valid sessionId
     String validSessionId = sessionId;
@@ -139,6 +140,7 @@ public class ShopService {
   }
 
   /** Get access token for a specific shop and session - Reactive version */
+  @Transactional
   public Mono<String> getTokenForShopReactive(String shopifyDomain, String sessionId) {
     logger.debug("Getting token for shop: {} and session: {}", shopifyDomain, sessionId);
 
@@ -193,6 +195,7 @@ public class ShopService {
   /**
    * Get access token for a specific shop and session - Blocking version for backward compatibility
    */
+  @Transactional
   public String getTokenForShop(String shopifyDomain, String sessionId) {
     logger.debug("Getting token for shop: {} and session: {}", shopifyDomain, sessionId);
 
@@ -362,6 +365,7 @@ public class ShopService {
   }
 
   /** Remove/deactivate a specific session */
+  @Transactional
   public void removeSession(String shopifyDomain, String sessionId) {
     logger.info("Deactivating session for shop: {} and session: {}", shopifyDomain, sessionId);
 
@@ -378,6 +382,7 @@ public class ShopService {
   }
 
   /** Remove/deactivate all sessions for a shop (complete logout) */
+  @Transactional
   public void removeAllSessionsForShop(String shopifyDomain) {
     logger.info("Deactivating all sessions for shop: {}", shopifyDomain);
 
@@ -396,6 +401,7 @@ public class ShopService {
   }
 
   /** Get all active sessions for a shop */
+  @Transactional(readOnly = true)
   public List<ShopSession> getActiveSessionsForShop(String shopifyDomain) {
     Optional<Shop> shopOpt = shopRepository.findByShopifyDomain(shopifyDomain);
     if (shopOpt.isPresent()) {
@@ -406,11 +412,13 @@ public class ShopService {
   }
 
   /** Get session information for debugging */
+  @Transactional(readOnly = true)
   public Optional<ShopSession> getSessionInfo(String sessionId) {
     return shopSessionRepository.findBySessionId(sessionId);
   }
 
   /** Backward compatibility method */
+  @Transactional(readOnly = true)
   public Mono<String> getShopAccessToken(String shopDomain) {
     String token = getTokenForShop(shopDomain, null);
     if (token == null) {
@@ -558,6 +566,7 @@ public class ShopService {
   // Scheduled cleanup methods
 
   /** Clean up expired sessions - runs every hour */
+  @Transactional
   @Scheduled(fixedRate = 3600000) // 1 hour
   public void cleanupExpiredSessions() {
     try {
@@ -585,6 +594,7 @@ public class ShopService {
   }
 
   /** Clean up old inactive sessions - runs daily at 2 AM */
+  @Transactional
   @Scheduled(cron = "0 0 2 * * *")
   public void cleanupOldInactiveSessions() {
     try {
