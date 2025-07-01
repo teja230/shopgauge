@@ -519,6 +519,37 @@ const useUnifiedAnalytics = (
     }
   }, [autoRefresh, refreshInterval, fetchData, shop]);
 
+  // Recompute analytics when fresh dashboard data arrives
+  useEffect(() => {
+    if (
+      useDashboardData &&
+      shop &&
+      shop.trim() &&
+      Array.isArray(dashboardRevenueData) &&
+      dashboardRevenueData.length > 0
+    ) {
+      // If current data is empty or underlying dashboard arrays changed in size, regenerate
+      const needsUpdate =
+        !data ||
+        data.historical.length === 0 ||
+        data.historical.length !== dashboardRevenueData.length;
+
+      if (needsUpdate) {
+        console.log(
+          '🔄 UNIFIED_ANALYTICS: Detected updated dashboard data, regenerating unified dataset'
+        );
+        const updated = convertDashboardDataToUnified(
+          dashboardRevenueData,
+          dashboardOrdersData
+        );
+        setData(updated);
+        setLastUpdated(new Date());
+        setIsCached(false);
+        setCacheAge(0);
+      }
+    }
+  }, [dashboardRevenueData, dashboardOrdersData, useDashboardData, shop, data, convertDashboardDataToUnified]);
+
   return {
     data,
     loading,
