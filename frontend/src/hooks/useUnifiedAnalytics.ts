@@ -313,6 +313,43 @@ const useUnifiedAnalytics = (
           return unifiedData;
         }
 
+        // If using dashboard data but no data available, try cache first
+        if (useDashboardData) {
+          console.log('🔄 UNIFIED_ANALYTICS: Dashboard data not available, checking cache');
+          const cachedEntry = loadFromCache(shop);
+          if (cachedEntry) {
+            const ageMinutes = Math.round((Date.now() - cachedEntry.timestamp) / (1000 * 60));
+            console.log(`✅ UNIFIED_ANALYTICS: Using cached data (${ageMinutes}min old)`);
+            
+            setData(cachedEntry.data);
+            setLastUpdated(cachedEntry.lastUpdated);
+            setIsCached(true);
+            setCacheAge(ageMinutes);
+            
+            return cachedEntry.data;
+          }
+          
+          // If no cache and dashboard data is empty, show empty state instead of API call
+          console.log('🔄 UNIFIED_ANALYTICS: No dashboard data or cache available, showing empty state');
+          const emptyData: UnifiedAnalyticsData = {
+            historical: [],
+            predictions: [],
+            period_days: days,
+            total_revenue: 0,
+            total_orders: 0,
+          };
+          
+          setData(emptyData);
+          setLastUpdated(new Date());
+          setIsCached(false);
+          setCacheAge(0);
+          
+          return emptyData;
+        }
+
+        // Only make API calls if NOT using dashboard data (legacy mode)
+        console.log('🔄 UNIFIED_ANALYTICS: Using legacy API mode (not using dashboard data)');
+        
         // Check cache first (unless forcing refresh)
         if (!forceRefresh) {
           const cachedEntry = loadFromCache(shop);
