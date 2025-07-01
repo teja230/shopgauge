@@ -3,16 +3,20 @@ import axios from 'axios';
 // Enterprise-grade: never hard-code hostnames. Prefer environment config and, in dev, fallback to relative API proxy.
 export const API_BASE_URL: string = (
   import.meta.env.VITE_API_BASE_URL as string | undefined
-) || '/'; // Relative URL fallback for non-production environments
+) || ''; // Relative URLs for development (uses Vite dev server proxy)
 
 if (!import.meta.env.VITE_API_BASE_URL) {
-  // Warn during development so engineers remember to configure the variable in production builds
-  // but avoid leaking details or crashing the app.
-  // eslint-disable-next-line no-console
-  console.warn(
-    'VITE_API_BASE_URL is not defined – using relative URLs for API calls. ' +
-    'Ensure this variable is set in production (e.g., https://api.shopgaugeai.com)'
-  );
+  // In development, this is expected behavior - using relative URLs with Vite dev server proxy
+  // In production, this should be set to the actual API URL
+  if (import.meta.env.DEV) {
+    console.log('VITE_API_BASE_URL not set - using relative URLs for development (Vite dev server proxy)');
+  } else {
+    // eslint-disable-next-line no-console
+    console.warn(
+      'VITE_API_BASE_URL is not defined in production – using relative URLs. ' +
+      'Ensure this variable is set in production builds (e.g., https://api.shopgaugeai.com)'
+    );
+  }
 }
 
 console.log('API: Using API URL:', API_BASE_URL);

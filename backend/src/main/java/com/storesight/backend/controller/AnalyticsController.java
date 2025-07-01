@@ -2370,7 +2370,10 @@ public class AnalyticsController {
     LocalDate lastDate =
         LocalDate.parse((String) historical.get(historical.size() - 1).get("date"));
 
-    // Extract time series data
+    // Extract time series data with corresponding dates
+    List<LocalDate> dates = historical.stream()
+        .map(h -> LocalDate.parse((String) h.get("date")))
+        .collect(Collectors.toList());
     double[] revenueData =
         historical.stream().mapToDouble(h -> (Double) h.get("revenue")).toArray();
     double[] ordersData =
@@ -2394,9 +2397,9 @@ public class AnalyticsController {
       double ordersMA = calculateMovingAverage(ordersData, 7);
       double conversionMA = calculateMovingAverage(conversionData, 7);
 
-      // Seasonal pattern detection (weekly seasonality)
+      // Seasonal pattern detection (weekly seasonality) - now using actual dates
       double seasonalFactor =
-          calculateSeasonalFactor(revenueData, predictionDate.getDayOfWeek().getValue());
+          calculateSeasonalFactor(revenueData, dates, predictionDate.getDayOfWeek().getValue());
 
       // Combine predictions with confidence intervals
       double finalRevenue =
@@ -2473,17 +2476,18 @@ public class AnalyticsController {
     return count > 0 ? sum / count : 0.0;
   }
 
-  private double calculateSeasonalFactor(double[] data, int dayOfWeek) {
-    if (data.length < 14) return 1.0; // Need at least 2 weeks of data
+  private double calculateSeasonalFactor(double[] data, List<LocalDate> dates, int dayOfWeek) {
+    if (data.length < 14 || dates.size() != data.length) return 1.0; // Need at least 2 weeks of data and matching dates
 
-    // Calculate average for this day of week vs overall average
+    // Calculate average for this day of week vs overall average using actual dates
     double daySum = 0;
     int dayCount = 0;
     double totalSum = 0;
 
     for (int i = 0; i < data.length; i++) {
       totalSum += data[i];
-      if ((i % 7) == (dayOfWeek - 1)) { // Assuming data starts on Monday
+      // Use the actual day of week from the date instead of assuming Monday start
+      if (dates.get(i).getDayOfWeek().getValue() == dayOfWeek) {
         daySum += data[i];
         dayCount++;
       }

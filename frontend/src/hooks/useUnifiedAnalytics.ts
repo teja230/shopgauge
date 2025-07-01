@@ -271,7 +271,7 @@ const useUnifiedAnalytics = (
 
     activeFetchRef.current = fetchPromise;
     return fetchPromise;
-  }, [days, includePredictions, data, shop, loadFromCache, saveToCache, fetchWithAuth]);
+  }, [days, includePredictions, shop, loadFromCache, saveToCache]);
 
   const refetch = useCallback(async () => {
     await fetchData(true); // Force refresh

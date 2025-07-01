@@ -234,7 +234,29 @@ interface Props {
 // Navigation component for buttons (no React Router hooks → works even without Router context)
 const ErrorNavigation: React.FC<{ onRefresh: () => void }> = ({ onRefresh }) => {
   // Check if user is likely authenticated by looking for shop cookie
-  const isAuthenticated = document.cookie.includes('shop=');
+  const isAuthenticated = (() => {
+    try {
+      // Parse cookies properly to avoid false matches
+      const cookies = document.cookie.split(';').map(cookie => cookie.trim());
+      const shopCookie = cookies.find(cookie => cookie.startsWith('shop='));
+      
+      if (!shopCookie) {
+        return false;
+      }
+      
+      // Extract the value after 'shop='
+      const shopValue = shopCookie.substring(5); // 'shop=' is 5 characters
+      
+      // Check if the shop value is not empty and looks like a valid domain
+      return shopValue.length > 0 && 
+             shopValue !== 'undefined' && 
+             shopValue !== 'null' &&
+             (shopValue.includes('.') || shopValue.includes('myshopify.com'));
+    } catch (error) {
+      console.warn('Error parsing authentication cookie:', error);
+      return false;
+    }
+  })();
 
   const handleGoHome = () => {
     window.location.href = '/?force=true';
@@ -309,7 +331,7 @@ const ErrorNavigation: React.FC<{ onRefresh: () => void }> = ({ onRefresh }) => 
           variant="outlined"
           color="primary"
           onClick={handleGoHome}
-          startIcon={<Home />}
+          startIcon={<Refresh />}
           sx={{ minWidth: 120, borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
         >
           Go Home
