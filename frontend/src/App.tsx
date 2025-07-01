@@ -49,55 +49,6 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   return <>{children}</>;
 };
 
-// Component to handle redirects from 404.html and loading.html
-const RedirectHandler: React.FC = () => {
-  const location = useLocation();
-  const { authLoading, isAuthenticated } = useAuth();
-
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const redirectPath = params.get('redirect');
-    
-    if (redirectPath && redirectPath !== '/index.html') {
-      console.log('RedirectHandler: Processing redirect to:', redirectPath);
-      
-      // Define valid routes that should be redirected to
-      const validRoutes = ['/dashboard', '/competitors', '/admin', '/profile', '/privacy-policy', '/service-unavailable'];
-      const protectedRoutes = ['/dashboard', '/competitors', '/profile'];
-      
-      // Check if the redirect path is a valid route
-      if (validRoutes.includes(redirectPath)) {
-        // For protected routes, wait for auth loading to complete
-        if (protectedRoutes.includes(redirectPath)) {
-          if (authLoading) {
-            // Still loading auth, don't redirect yet
-            return;
-          }
-          
-          if (isAuthenticated) {
-            console.log('RedirectHandler: Authenticated user, redirecting to protected route:', redirectPath);
-            // Keep the redirect parameter for after login - no action needed
-          } else {
-            console.log('RedirectHandler: Not authenticated, staying on home page with redirect param');
-            // Keep the redirect parameter for after login - no action needed
-          }
-        } else {
-          // Non-protected routes (admin, privacy-policy) can be accessed directly
-          console.log('RedirectHandler: Redirecting to public route:', redirectPath);
-          // Keep the redirect parameter for after login - no action needed
-        }
-      } else {
-        // Invalid route - remove redirect parameter and let the app handle it normally
-        // This will cause the catch-all route (*) to show the 404 page
-        console.log('RedirectHandler: Invalid route, removing redirect parameter:', redirectPath);
-        // Keep the redirect parameter for after login - no action needed
-      }
-    }
-  }, [location, authLoading, isAuthenticated]);
-
-  return null;
-};
-
 // Component to handle global error clearing on route changes
 const RouteErrorCleaner: React.FC = () => {
   const location = useLocation();
