@@ -148,6 +148,27 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
     if (response.status === 401) {
       console.log('API: Unauthorized response detected - updating auth state');
       setApiAuthState(false, null);
+      
+      // Trigger a global authentication state reset
+      if (globalServiceErrorHandler) {
+        const authError = new Error('Authentication required');
+        (authError as any).status = 401;
+        (authError as any).response = { status: 401 };
+        (authError as any).authenticationError = true;
+        
+        const handled = globalServiceErrorHandler(authError);
+        if (handled) {
+          return new Response(JSON.stringify({ 
+            error: 'Authentication required',
+            authenticationError: true,
+            redirectToLogin: true
+          }), { 
+            status: 401,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+      }
+      
       throw new Error('Authentication required');
     }
 

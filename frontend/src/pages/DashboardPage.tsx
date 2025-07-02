@@ -974,6 +974,8 @@ const DashboardPage = () => {
       return;
     }
 
+    console.log('Dashboard: Fetching revenue data for shop:', shop, 'authenticated:', isAuthenticated);
+
     setCardLoading(prev => ({ ...prev, revenue: true }));
     setCardErrors(prev => ({ ...prev, revenue: null }));
     
@@ -1250,6 +1252,8 @@ const DashboardPage = () => {
       setCardLoading(prev => ({ ...prev, abandonedCarts: false }));
       return;
     }
+
+    console.log('Dashboard: Fetching abandoned carts data for shop:', shop, 'authenticated:', isAuthenticated);
 
     setCardLoading(prev => ({ ...prev, abandonedCarts: true }));
     setCardErrors(prev => ({ ...prev, abandonedCarts: null }));

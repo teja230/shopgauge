@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import axios from 'axios';
-import { getAuthShop, setApiAuthState, API_BASE_URL } from '../api';
+import { getAuthShop, setApiAuthState, setGlobalServiceErrorHandler, API_BASE_URL } from '../api';
 import { invalidateCache } from '../utils/cacheUtils';
 
 // Types
@@ -40,6 +40,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
   const [isAuthReady, setIsAuthReady] = useState(false);
+
+  // Handle authentication errors globally
+  const handleAuthError = (error: any) => {
+    if (error?.authenticationError || error?.status === 401) {
+      console.log('AuthContext: Handling authentication error, redirecting to login');
+      setIsAuthenticated(false);
+      setShop(null);
+      setApiAuthState(false, null);
+      
+      // Redirect to home page for re-authentication
+      window.location.href = '/';
+      return true; // Indicate that the error was handled
+    }
+    return false; // Let other errors be handled elsewhere
+  };
+
+  // Set the global error handler
+  useEffect(() => {
+    setGlobalServiceErrorHandler(handleAuthError);
+  }, []);
 
   // Comprehensive cache clearing function
   const clearAllDashboardCache = () => {

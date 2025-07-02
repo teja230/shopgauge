@@ -94,6 +94,28 @@ async function networkFirstStrategy(request) {
   try {
     const networkResponse = await fetch(request);
     
+    // Handle authentication errors specifically
+    if (networkResponse.status === 401) {
+      console.log('Service Worker: Authentication error detected for', request.url);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Authentication required',
+          authenticationError: true,
+          message: 'Please log in to access this resource.',
+          redirectToLogin: true
+        }),
+        {
+          status: 401,
+          statusText: 'Unauthorized',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Credentials': 'true'
+          }
+        }
+      );
+    }
+    
     // Cache successful API responses
     if (networkResponse.ok && CACHEABLE_API_ROUTES.some(route => request.url.includes(route))) {
       // Clone the response immediately to avoid the body being locked later
