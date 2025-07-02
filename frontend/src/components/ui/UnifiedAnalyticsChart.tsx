@@ -28,9 +28,7 @@ import {
   Card,
   CardContent,
   Divider,
-  Alert,
   IconButton,
-  Button,
   Tooltip as MuiTooltip,
 } from '@mui/material';
 import {
@@ -897,10 +895,21 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
     } catch (error) {
       console.error('Error rendering chart:', error);
       return (
-        <Alert severity="error" sx={{ borderRadius: 3 }}>
-          <Typography variant="h6">Chart Rendering Error</Typography>
-          <Typography variant="body2">Unable to render the selected chart type. Please try a different chart type.</Typography>
-        </Alert>
+        <Box sx={{ 
+          height: '100%', 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          flexDirection: 'column',
+          gap: 2
+        }}>
+          <Typography variant="h6" color="text.secondary">
+            Chart Rendering Error
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Unable to render the selected chart type. Please try a different chart type.
+          </Typography>
+        </Box>
       );
     }
   };
@@ -944,18 +953,26 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
 
   if (error) {
     return (
-      <Alert severity="error" sx={{ borderRadius: 3, mb: 2 }}>
-        <Typography variant="h6">Failed to load analytics data</Typography>
-        <Typography variant="body2">{error}</Typography>
-        <Button 
-          variant="outlined" 
-          size="small" 
-          onClick={() => window.location.reload()}
-          sx={{ mt: 1 }}
-        >
-          Refresh Page
-        </Button>
-      </Alert>
+      <Box
+        sx={{
+          height,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexDirection: 'column',
+          gap: 2,
+          backgroundColor: 'rgba(255, 0, 0, 0.02)',
+          borderRadius: 2,
+          border: '1px solid rgba(255, 0, 0, 0.1)',
+        }}
+      >
+        <Typography variant="h6" color="error">
+          Failed to load analytics data
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {error}
+        </Typography>
+      </Box>
     );
   }
 
@@ -978,25 +995,13 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
           flexDirection: 'column',
           gap: 2,
           backgroundColor: 'rgba(0, 0, 0, 0.02)',
-          borderRadius: 3,
-          border: '2px dashed rgba(0, 0, 0, 0.1)',
+          borderRadius: 2,
         }}
       >
         <Analytics sx={{ fontSize: 48, color: 'rgba(0, 0, 0, 0.2)' }} />
-        <Typography variant="h6" color="text.secondary">
+        <Typography variant="body2" color="text.secondary">
           No analytics data available
         </Typography>
-        <Typography variant="body2" color="text.secondary" textAlign="center">
-          Analytics data will appear here once you start receiving orders and generating revenue
-        </Typography>
-        <Button 
-          variant="outlined" 
-          size="small" 
-          onClick={() => window.location.reload()}
-          sx={{ mt: 1 }}
-        >
-          Refresh Data
-        </Button>
       </Box>
     );
   }
@@ -1085,12 +1090,12 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
 
           {/* Modern Prediction Controls */}
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'flex-end' }}>
-            {/* AI Prediction Button */}
+            {/* AI Prediction Toggle */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Button
-                variant={showPredictions ? "contained" : "outlined"}
-                size="large"
-                onClick={() => {
+              <ToggleButton
+                value={showPredictions ? "on" : "off"}
+                selected={showPredictions}
+                onChange={() => {
                   if (!showPredictions) {
                     setPredictionLoading(true);
                     // Simulate loading for better UX
@@ -1103,13 +1108,6 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                   }
                 }}
                 disabled={predictionLoading}
-                startIcon={
-                  predictionLoading ? (
-                    <AutoGraph sx={{ animation: 'spin 1s linear infinite', '@keyframes spin': { from: { transform: 'rotate(0deg)' }, to: { transform: 'rotate(360deg)' } } }} />
-                  ) : (
-                    showPredictions ? <Stop /> : <AutoFixHigh />
-                  )
-                }
                 sx={{
                   minWidth: 200,
                   background: showPredictions ? 
@@ -1135,9 +1133,18 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                       'linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%)' : 
                       'rgba(102, 126, 234, 0.05)',
                   },
+                  '&.Mui-selected': {
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    color: 'white',
+                  },
                 }}
               >
-                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                {predictionLoading ? (
+                  <AutoGraph sx={{ animation: 'spin 1s linear infinite', '@keyframes spin': { from: { transform: 'rotate(0deg)' }, to: { transform: 'rotate(360deg)' } } }} />
+                ) : (
+                  showPredictions ? <Stop /> : <AutoFixHigh />
+                )}
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', ml: 1 }}>
                   <Typography variant="button" fontWeight="inherit">
                     {predictionLoading ? 'Analyzing your data…' : (showPredictions ? 'Stop Predictions' : 'Predict Future')}
                   </Typography>
@@ -1145,7 +1152,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                     {predictionLoading ? 'Our AI models are processing your forecast…' : (showPredictions ? 'Hide AI forecasting' : 'AI-powered 60-day forecast')}
                   </Typography>
                 </Box>
-              </Button>
+              </ToggleButton>
 
               {/* Prediction Confidence Indicator */}
               {showPredictions && data?.predictions?.length > 0 && (
@@ -1350,16 +1357,13 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
 
       {/* Enhanced Predictions Info Panel */}
       {showPredictions && data.predictions && data.predictions.length > 0 && (
-        <Alert 
-          severity="success" 
+        <Box 
           sx={{ 
             mt: 2, 
+            p: 2,
             borderRadius: 3,
             background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(34, 197, 94, 0.05) 100%)',
             border: '1px solid rgba(16, 185, 129, 0.2)',
-            '& .MuiAlert-icon': {
-              color: 'success.main'
-            }
           }}
         >
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -1383,7 +1387,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
               variant="outlined"
             />
           </Box>
-        </Alert>
+        </Box>
       )}
     </Box>
   );
