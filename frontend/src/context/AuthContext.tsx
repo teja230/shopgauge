@@ -80,13 +80,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const keysToRemove = [];
     for (let i = 0; i < sessionStorage.length; i++) {
       const key = sessionStorage.key(i);
-      if (key && key.includes('dashboard_cache')) {
+      if (key && (key.includes('dashboard_cache') || key.includes('unified_analytics_'))) {
         keysToRemove.push(key);
       }
     }
     keysToRemove.forEach(key => sessionStorage.removeItem(key));
     
-    console.log('AuthContext: Cleared all dashboard cache keys');
+    console.log('AuthContext: Cleared all dashboard and unified analytics cache keys');
   };
 
   useEffect(() => {
@@ -172,6 +172,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Clear dashboard cache for the specific shop on logout
       if (shopToClear) {
         invalidateCache(shopToClear);
+        
+        // Clear unified analytics storage on logout
+        try {
+          const unifiedAnalyticsKeys = [
+            `unified_analytics_${shopToClear}_60d_with_predictions`,
+            `unified_analytics_${shopToClear}_60d_no_predictions`,
+            `unified_analytics_${shopToClear}_30d_with_predictions`,
+            `unified_analytics_${shopToClear}_30d_no_predictions`,
+            `unified_analytics_${shopToClear}_90d_with_predictions`,
+            `unified_analytics_${shopToClear}_90d_no_predictions`,
+          ];
+          
+          unifiedAnalyticsKeys.forEach(key => {
+            sessionStorage.removeItem(key);
+          });
+          
+          console.log('AuthContext: Cleared unified analytics storage on logout');
+        } catch (error) {
+          console.warn('AuthContext: Error clearing unified analytics storage:', error);
+        }
       }
       
       setIsAuthenticated(false);

@@ -120,12 +120,12 @@ const HomePage = () => {
     const keysToRemove: string[] = [];
     for (let i = 0; i < sessionStorage.length; i++) {
       const key = sessionStorage.key(i);
-      if (key && key.includes('dashboard_cache')) {
+      if (key && (key.includes('dashboard_cache') || key.includes('unified_analytics_'))) {
         keysToRemove.push(key);
       }
     }
     keysToRemove.forEach((k) => sessionStorage.removeItem(k));
-    console.log('HomePage: Cleared all dashboard cache keys');
+    console.log('HomePage: Cleared all dashboard and unified analytics cache keys');
   };
 
   const handleLogin = async (e: React.FormEvent) => {

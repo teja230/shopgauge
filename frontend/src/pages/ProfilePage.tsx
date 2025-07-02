@@ -503,13 +503,13 @@ export default function ProfilePage() {
     const keysToRemove = [];
     for (let i = 0; i < sessionStorage.length; i++) {
       const key = sessionStorage.key(i);
-      if (key && key.includes('dashboard_cache')) {
+      if (key && (key.includes('dashboard_cache') || key.includes('unified_analytics_'))) {
         keysToRemove.push(key);
       }
     }
     keysToRemove.forEach(key => sessionStorage.removeItem(key));
     
-    console.log('Cleared all dashboard cache keys');
+    console.log('Cleared all dashboard and unified analytics cache keys');
   };
 
   // FIXED: Connect new store with Dashboard redirect  
