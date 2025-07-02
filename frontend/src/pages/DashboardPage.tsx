@@ -2375,10 +2375,10 @@ const DashboardPage = () => {
               }}
             >
               {/* Only render UnifiedAnalyticsChart when we have valid data or are still loading */}
-              {(unifiedAnalyticsLoading || unifiedAnalyticsData || dashboardDataInitialized) ? (
+              {(unifiedAnalyticsData || unifiedAnalyticsLoading || (dashboardDataInitialized && insights?.timeseries)) ? (
                 <UnifiedAnalyticsChart
                   data={unifiedAnalyticsData}
-                  loading={unifiedAnalyticsLoading || !dashboardDataInitialized}
+                  loading={unifiedAnalyticsLoading || (!unifiedAnalyticsData && !insights?.timeseries)}
                   error={unifiedAnalyticsError}
                   height={500}
                 />
@@ -2408,7 +2408,7 @@ const DashboardPage = () => {
               onRetry={() => fetchRevenueData(true)}
             >
               {/* Only render RevenueChart when we have initialized the dashboard */}
-              {dashboardDataInitialized ? (
+              {dashboardDataInitialized || insights?.timeseries ? (
                 <RevenueChart
                   data={insights?.timeseries || []}
                   loading={cardLoading.revenue}

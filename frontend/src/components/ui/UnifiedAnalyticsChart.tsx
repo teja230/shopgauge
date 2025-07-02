@@ -141,7 +141,10 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
   // Process and combine historical and prediction data with error handling
   const chartData = useMemo(() => {
     try {
-      if (!data || !data.historical || !Array.isArray(data.historical)) return [];
+      if (!data || !data.historical || !Array.isArray(data.historical)) {
+        console.log('UnifiedAnalyticsChart: No data available');
+        return [];
+      }
 
       let historical = data.historical.map(processHistoricalItem);
       
@@ -194,6 +197,12 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         typeof item.orders_count === 'number' &&
         !isNaN(item.orders_count)
       );
+
+      console.log('UnifiedAnalyticsChart: Processed chart data:', {
+        totalPoints: validData.length,
+        historicalPoints: validData.filter(d => !d.isPrediction).length,
+        predictionPoints: validData.filter(d => d.isPrediction).length,
+      });
 
       return validData;
     } catch (err) {
