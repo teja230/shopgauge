@@ -773,12 +773,17 @@ const useUnifiedAnalytics = (
       return false;
     }
 
-    console.log('🔄 UNIFIED_ANALYTICS: Attempting to load from session storage');
+    console.log('🔄 UNIFIED_ANALYTICS: Attempting to load from session storage for shop:', shop);
     
     const storedData = loadUnifiedAnalyticsFromStorage(shop);
     
     if (storedData) {
-      console.log('✅ UNIFIED_ANALYTICS: Successfully loaded from session storage');
+      console.log('✅ UNIFIED_ANALYTICS: Successfully loaded from session storage', {
+        historicalLength: storedData.historical.length,
+        predictionLength: storedData.predictions.length,
+        totalRevenue: storedData.total_revenue,
+        totalOrders: storedData.total_orders
+      });
       setData(storedData);
       setLastUpdated(new Date());
       setIsCached(true);
@@ -787,7 +792,13 @@ const useUnifiedAnalytics = (
       setError(null);
       return true;
     } else {
-      console.log('🔄 UNIFIED_ANALYTICS: No data found in session storage');
+      console.log('🔄 UNIFIED_ANALYTICS: No data found in session storage for shop:', shop);
+      
+      // Debug: Check what keys exist in session storage
+      const allKeys = Object.keys(sessionStorage);
+      const unifiedKeys = allKeys.filter(key => key.includes('unified_analytics'));
+      console.log('🔄 UNIFIED_ANALYTICS: Available unified analytics keys in session storage:', unifiedKeys);
+      
       return false;
     }
   }, [shop, loadUnifiedAnalyticsFromStorage]);
@@ -1044,9 +1055,10 @@ const useUnifiedAnalytics = (
     }
 
     try {
-      const storageKey = `unified_analytics_${shop}`;
+      // Use the same key generation logic as save/load functions to ensure consistency
+      const storageKey = getUnifiedAnalyticsStorageKey(shop);
       sessionStorage.removeItem(storageKey);
-      console.log('🗑️ UNIFIED_ANALYTICS: Cleared session storage for shop:', shop);
+      console.log('🗑️ UNIFIED_ANALYTICS: Cleared session storage for shop:', shop, 'key:', storageKey);
       
       // Reset state to prevent cross-shop data mixing
       setData(null);
@@ -1068,7 +1080,7 @@ const useUnifiedAnalytics = (
     } catch (error) {
       console.error('🔄 UNIFIED_ANALYTICS: Error clearing session storage:', error);
     }
-  }, [shop]);
+  }, [shop, getUnifiedAnalyticsStorageKey]);
 
   return {
     data,
