@@ -437,12 +437,26 @@ const useUnifiedAnalytics = (
         totalOrders: parsed?.total_orders
       });
       
-      // Basic validation
+      // Enhanced validation with better error handling
       if (parsed && 
           Array.isArray(parsed.historical) && 
           Array.isArray(parsed.predictions) &&
           typeof parsed.total_revenue === 'number' &&
           typeof parsed.total_orders === 'number') {
+        
+        // Additional validation: check if historical data items have required fields
+        const hasValidHistoricalData = parsed.historical.length === 0 || parsed.historical.every((item: any) => 
+          item && 
+          typeof item.date === 'string' && 
+          typeof item.revenue === 'number' && 
+          typeof item.orders_count === 'number'
+        );
+        
+        if (!hasValidHistoricalData) {
+          console.warn('🔄 UNIFIED_ANALYTICS: Historical data validation failed - missing required fields');
+          sessionStorage.removeItem(storageKey);
+          return null;
+        }
         
         console.log('✅ UNIFIED_ANALYTICS: Validation passed, returning data', {
           historicalLength: parsed.historical.length,
@@ -453,7 +467,7 @@ const useUnifiedAnalytics = (
         
         return parsed;
       } else {
-        console.warn('🔄 UNIFIED_ANALYTICS: Validation failed, details:', {
+        console.warn('🔄 UNIFIED_ANALYTICS: Basic validation failed, details:', {
           hasParsed: !!parsed,
           historicalIsArray: Array.isArray(parsed?.historical),
           predictionsIsArray: Array.isArray(parsed?.predictions),
@@ -493,7 +507,10 @@ const useUnifiedAnalytics = (
   const fetchData = useCallback(async (forceRefresh = false): Promise<UnifiedAnalyticsData> => {
     // Validate shop before proceeding
     if (!shop || !shop.trim()) {
-      throw new Error('Invalid shop name provided');
+      console.error('🔄 UNIFIED_ANALYTICS: Invalid shop name provided');
+      setError('Invalid shop name provided');
+      setLoading(false);
+      return Promise.reject(new Error('Invalid shop name provided'));
     }
 
     // Return existing promise if already fetching
@@ -590,7 +607,9 @@ const useUnifiedAnalytics = (
         console.error('🚫 UNIFIED_ANALYTICS: Legacy API mode is not supported. The unified-analytics endpoint has been removed.');
         console.error('🚫 UNIFIED_ANALYTICS: Please use dashboard data mode by setting useDashboardData: true');
         
-        throw new Error('Legacy unified analytics API has been removed. Use dashboard data mode instead.');
+        setError('Legacy unified analytics API has been removed. Use dashboard data mode instead.');
+        setLoading(false);
+        return Promise.reject(new Error('Legacy unified analytics API has been removed. Use dashboard data mode instead.'));
 
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to fetch analytics data';
@@ -699,13 +718,64 @@ const useUnifiedAnalytics = (
         return true;
       } else {
         console.log('🔄 UNIFIED_ANALYTICS: No data found in session storage');
+        
+        // If we have dashboard data available, try to fall back to processing it
+        const hasValidDashboardData = (Array.isArray(dashboardRevenueData) && dashboardRevenueData.length > 0) ||
+                                     (Array.isArray(dashboardOrdersData) && dashboardOrdersData.length > 0);
+        
+        if (hasValidDashboardData && useDashboardData) {
+          console.log('🔄 UNIFIED_ANALYTICS: Falling back to processing dashboard data since no storage data found');
+          try {
+            setLoading(true);
+            setError(null);
+            
+            const processedData = convertDashboardDataToUnified(dashboardRevenueData, dashboardOrdersData);
+            
+            if (processedData && Array.isArray(processedData.historical)) {
+              setData(processedData);
+              setLastUpdated(new Date());
+              setIsCached(false);
+              setCacheAge(0);
+              setLoading(false);
+              setError(null);
+              hasProcessedDataRef.current = true;
+              saveUnifiedAnalyticsToStorage(shop, processedData);
+              
+              console.log('✅ UNIFIED_ANALYTICS: Successfully processed dashboard data as fallback');
+              return true;
+            } else {
+              console.error('🔄 UNIFIED_ANALYTICS: Fallback processing failed - invalid data structure');
+              setError('Failed to process analytics data');
+              setLoading(false);
+              return false;
+            }
+          } catch (fallbackError) {
+            console.error('🔄 UNIFIED_ANALYTICS: Fallback processing failed:', fallbackError);
+            setError('Failed to process analytics data');
+            setLoading(false);
+            return false;
+          }
+        }
+        
         return false;
       }
     } catch (error) {
       console.error('🔄 UNIFIED_ANALYTICS: Error loading from session storage:', error);
+      
+      // Clear potentially corrupted storage and set error state
+      try {
+        const storageKey = getUnifiedAnalyticsStorageKey(shop);
+        sessionStorage.removeItem(storageKey);
+        console.log('🗑️ UNIFIED_ANALYTICS: Cleared potentially corrupted session storage');
+      } catch (clearError) {
+        console.error('🔄 UNIFIED_ANALYTICS: Failed to clear corrupted storage:', clearError);
+      }
+      
+      setError('Failed to load cached analytics data');
+      setLoading(false);
       return false;
     }
-  }, [shop, loadUnifiedAnalyticsFromStorage]);
+  }, [shop, loadUnifiedAnalyticsFromStorage, dashboardRevenueData, dashboardOrdersData, useDashboardData, convertDashboardDataToUnified, saveUnifiedAnalyticsToStorage, getUnifiedAnalyticsStorageKey]);
 
   // Initialize data when shop changes or first load
   useEffect(() => {
@@ -907,7 +977,9 @@ const useUnifiedAnalytics = (
             totalRevenue: processedData.total_revenue
           });
         } else {
-          throw new Error('Invalid data structure returned from conversion');
+          console.error('🔄 UNIFIED_ANALYTICS: Invalid data structure returned from conversion');
+          setError('Invalid data structure returned from conversion');
+          setLoading(false);
         }
       } catch (error) {
         console.error('🔄 UNIFIED_ANALYTICS: Error processing dashboard data:', error);
@@ -979,7 +1051,9 @@ const useUnifiedAnalytics = (
           totalRevenue: processedData.total_revenue
         });
       } else {
-        throw new Error('Invalid data structure returned from conversion');
+        console.error('🔄 UNIFIED_ANALYTICS: Invalid data structure returned from force compute');
+        setError('Invalid data structure returned from conversion');
+        setLoading(false);
       }
     } catch (error) {
       console.error('🔄 UNIFIED_ANALYTICS: Force compute failed:', error);

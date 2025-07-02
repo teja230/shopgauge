@@ -106,13 +106,28 @@ const safeNumber = (value: any, defaultValue: number = 0): number => {
 
 // Helper function to safely process historical data item
 const processHistoricalItem = (item: any) => {
-  return {
-    date: item.date || '',
-    revenue: safeNumber(item.revenue),
-    orders_count: safeNumber(item.orders_count),
-    conversion_rate: safeNumber(item.conversion_rate),
-    avg_order_value: safeNumber(item.avg_order_value),
-  };
+  try {
+    // Handle both new format (with kind) and legacy format
+    return {
+      date: item.date || '',
+      revenue: safeNumber(item.revenue),
+      orders_count: safeNumber(item.orders_count),
+      conversion_rate: safeNumber(item.conversion_rate),
+      avg_order_value: safeNumber(item.avg_order_value),
+      // Preserve any additional properties like 'kind' for debugging
+      ...(item.kind && { kind: item.kind }),
+    };
+  } catch (error) {
+    console.error('Error processing historical item:', error, item);
+    // Return a safe default structure
+    return {
+      date: '',
+      revenue: 0,
+      orders_count: 0,
+      conversion_rate: 0,
+      avg_order_value: 0,
+    };
+  }
 };
 
 const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
@@ -140,11 +155,29 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
   const chartData = useMemo(() => {
     try {
       if (!data || !data.historical || !Array.isArray(data.historical)) {
-        console.log('UnifiedAnalyticsChart: No valid data available');
+        console.log('UnifiedAnalyticsChart: No valid data available', {
+          hasData: !!data,
+          hasHistorical: !!(data && data.historical),
+          isHistoricalArray: !!(data && Array.isArray(data.historical)),
+          dataKeys: data ? Object.keys(data) : [],
+        });
         return [];
       }
 
-      let historical = data.historical.map(processHistoricalItem);
+      console.log('UnifiedAnalyticsChart: Processing historical data', {
+        historicalLength: data.historical.length,
+        sampleItem: data.historical[0],
+        dataStructure: {
+          hasPredictions: !!(data.predictions),
+          predictionsLength: Array.isArray(data.predictions) ? data.predictions.length : 0,
+          totalRevenue: data.total_revenue,
+          totalOrders: data.total_orders,
+        }
+      });
+
+      let historical = data.historical.map(processHistoricalItem).filter(item => 
+        item && item.date && typeof item.revenue === 'number' && !isNaN(item.revenue)
+      );
       
       // Apply time range filter
       if (timeRange !== 'all') {
