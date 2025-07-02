@@ -763,6 +763,7 @@ const DashboardPage = () => {
     refetch: refetchUnifiedAnalytics,
     loadFromStorage: loadUnifiedAnalyticsFromStorage,
     forceCompute: forceComputeUnifiedAnalytics,
+    clearUnifiedAnalyticsStorage: clearUnifiedAnalyticsStorage,
     isCached: unifiedAnalyticsIsCached,
     cacheAge: unifiedAnalyticsCacheAge,
   } = useUnifiedAnalytics({
@@ -774,6 +775,14 @@ const DashboardPage = () => {
     dashboardRevenueData: stableTimeseriesData, // Use stable reference
     dashboardOrdersData: stableTimeseriesData, // Use stable reference
   });
+
+  // Clear unified analytics storage when shop changes (following dashboard pattern)
+  useEffect(() => {
+    if (shop && shop.trim()) {
+      console.log('🔄 Dashboard: Shop changed, clearing unified analytics storage');
+      clearUnifiedAnalyticsStorage();
+    }
+  }, [shop, clearUnifiedAnalyticsStorage]);
 
   // Enhanced chart mode toggle handler to prevent state corruption
   const handleChartModeChange = useCallback((event: React.MouseEvent<HTMLElement>, newMode: 'unified' | 'classic' | null) => {
@@ -1808,6 +1817,10 @@ const DashboardPage = () => {
         if (freshCache) {
           setCache(freshCache);
         }
+        
+        // Clear unified analytics storage to prevent stale data (following dashboard pattern)
+        console.log('🗑️ Clearing unified analytics storage for fresh data');
+        clearUnifiedAnalyticsStorage();
       }
       
       // Set all cards to loading state
@@ -1868,6 +1881,7 @@ const DashboardPage = () => {
     fetchOrdersData,
     fetchAbandonedCartsData,
     forceComputeUnifiedAnalytics,
+    clearUnifiedAnalyticsStorage,
     notifications
   ]);
 

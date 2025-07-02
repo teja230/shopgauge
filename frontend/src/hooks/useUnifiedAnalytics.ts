@@ -69,6 +69,7 @@ interface UseUnifiedAnalyticsReturn {
   cacheAge: number; // in minutes
   loadFromStorage: () => boolean;
   forceCompute: () => void;
+  clearUnifiedAnalyticsStorage: () => void;
 }
 
 // Cache configuration - same as dashboard
@@ -964,8 +965,14 @@ const useUnifiedAnalytics = (
 
   // Force compute unified analytics (called when main dashboard data is refreshed)
   const forceCompute = useCallback(() => {
-    if (!shop || !shop.trim() || !useDashboardData) {
-      console.log('🔄 UNIFIED_ANALYTICS: Cannot force compute - missing shop or not in dashboard mode');
+    // Pre-flight authentication check (following dashboard pattern)
+    if (!shop || !shop.trim()) {
+      console.log('🔄 UNIFIED_ANALYTICS: Cannot force compute - missing shop');
+      return;
+    }
+
+    if (!useDashboardData) {
+      console.log('🔄 UNIFIED_ANALYTICS: Cannot force compute - not in dashboard mode');
       return;
     }
 
@@ -977,7 +984,7 @@ const useUnifiedAnalytics = (
       return;
     }
 
-    console.log('🔄 UNIFIED_ANALYTICS: Force computing unified analytics');
+    console.log('🔄 UNIFIED_ANALYTICS: Force computing unified analytics after dashboard refresh');
     
     try {
       setLoading(true);
@@ -1005,23 +1012,63 @@ const useUnifiedAnalytics = (
         setLoading(false);
         setError(null);
         
-        // Save to session storage for future toggles
+        // Save to session storage for future toggles (following dashboard cache pattern)
         saveUnifiedAnalyticsToStorage(shop, updated);
         
-        console.log('✅ UNIFIED_ANALYTICS: Force computed and saved to storage', {
+        console.log('✅ UNIFIED_ANALYTICS: Force computed and saved to storage after dashboard refresh', {
           historicalPoints: updated.historical.length,
           predictionPoints: updated.predictions.length,
-          totalRevenue: updated.total_revenue
+          totalRevenue: updated.total_revenue,
+          shop: shop
         });
       } else {
         throw new Error('Invalid data structure returned from conversion');
       }
     } catch (error) {
-      console.error('🔄 UNIFIED_ANALYTICS: Error force computing:', error);
+      console.error('🔄 UNIFIED_ANALYTICS: Error force computing after dashboard refresh:', error);
       setError('Failed to compute unified analytics');
       setLoading(false);
+      
+      // Keep existing data if available to prevent complete failure (following dashboard pattern)
+      if (data && data.historical.length > 0) {
+        console.log('🔄 UNIFIED_ANALYTICS: Keeping existing data after force compute error');
+      }
     }
-  }, [shop, useDashboardData, dashboardRevenueData, dashboardOrdersData, convertDashboardDataToUnified, saveUnifiedAnalyticsToStorage]);
+  }, [shop, useDashboardData, dashboardRevenueData, dashboardOrdersData, convertDashboardDataToUnified, saveUnifiedAnalyticsToStorage, data]);
+
+  // Clear unified analytics session storage (called when shop changes)
+  const clearUnifiedAnalyticsStorage = useCallback(() => {
+    if (!shop || !shop.trim()) {
+      console.log('🔄 UNIFIED_ANALYTICS: Cannot clear storage - missing shop');
+      return;
+    }
+
+    try {
+      const storageKey = `unified_analytics_${shop}`;
+      sessionStorage.removeItem(storageKey);
+      console.log('🗑️ UNIFIED_ANALYTICS: Cleared session storage for shop:', shop);
+      
+      // Reset state to prevent cross-shop data mixing
+      setData(null);
+      setLastUpdated(null);
+      setIsCached(false);
+      setCacheAge(0);
+      setError(null);
+      setLoading(false);
+      
+      // Reset tracking refs
+      lastProcessedDataRef.current = {
+        revenueLength: 0,
+        ordersLength: 0,
+        revenueData: [],
+        ordersData: []
+      };
+      
+      console.log('🔄 UNIFIED_ANALYTICS: Reset state after shop change');
+    } catch (error) {
+      console.error('🔄 UNIFIED_ANALYTICS: Error clearing session storage:', error);
+    }
+  }, [shop]);
 
   return {
     data,
@@ -1033,6 +1080,7 @@ const useUnifiedAnalytics = (
     cacheAge,
     loadFromStorage,
     forceCompute,
+    clearUnifiedAnalyticsStorage,
   };
 };
 
