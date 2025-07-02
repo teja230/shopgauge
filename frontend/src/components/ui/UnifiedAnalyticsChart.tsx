@@ -1290,6 +1290,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
 
       {/* Chart Container */}
       <Paper
+        ref={containerRef}
         elevation={0}
         sx={{
           p: 3,
