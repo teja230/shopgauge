@@ -2374,33 +2374,13 @@ const DashboardPage = () => {
                 refetchUnifiedAnalytics();
               }}
             >
-              {/* Only render UnifiedAnalyticsChart when we have valid data or are still loading */}
-              {(unifiedAnalyticsData || unifiedAnalyticsLoading || (dashboardDataInitialized && insights?.timeseries)) ? (
-                <UnifiedAnalyticsChart
-                  data={unifiedAnalyticsData}
-                  loading={unifiedAnalyticsLoading || (!unifiedAnalyticsData && !insights?.timeseries)}
-                  error={unifiedAnalyticsError}
-                  height={500}
-                />
-              ) : (
-                <Box
-                  sx={{
-                    height: 500,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexDirection: 'column',
-                    gap: 2,
-                    backgroundColor: 'rgba(0, 0, 0, 0.02)',
-                    borderRadius: 3,
-                  }}
-                >
-                  <CircularProgress size={48} />
-                  <Typography variant="body2" color="text.secondary">
-                    Initializing analytics...
-                  </Typography>
-                </Box>
-              )}
+              {/* Unified Analytics Chart always renders; it handles loading and fallback internally */}
+              <UnifiedAnalyticsChart
+                data={unifiedAnalyticsData}
+                loading={unifiedAnalyticsLoading}
+                error={unifiedAnalyticsError}
+                height={500}
+              />
             </ErrorBoundary>
           ) : (
             <ErrorBoundary 
