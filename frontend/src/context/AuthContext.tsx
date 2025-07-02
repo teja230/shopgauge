@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import axios from 'axios';
-import { getAuthShop, setApiAuthState, setGlobalServiceErrorHandler, API_BASE_URL } from '../api';
+import { setApiAuthState, setGlobalServiceErrorHandler, API_BASE_URL } from '../api';
 import { invalidateCache } from '../utils/cacheUtils';
 
 // Types
@@ -44,13 +44,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Handle authentication errors globally
   const handleAuthError = (error: any) => {
     if (error?.authenticationError || error?.status === 401) {
-      console.log('AuthContext: Handling authentication error, redirecting to login');
+      console.log('AuthContext: Handling authentication error');
       setIsAuthenticated(false);
       setShop(null);
       setApiAuthState(false, null);
       
-      // Redirect to home page for re-authentication
-      window.location.href = '/';
+      // Only redirect if we're not already on the home page to prevent infinite loops
+      if (window.location.pathname !== '/') {
+        console.log('AuthContext: Redirecting to home page for re-authentication');
+        // Use React Router navigation instead of window.location.href to prevent full page reload
+        window.history.pushState({}, '', '/');
+        // Dispatch a popstate event to trigger React Router navigation
+        window.dispatchEvent(new PopStateEvent('popstate'));
+      } else {
+        console.log('AuthContext: Already on home page, not redirecting');
+      }
+      
       return true; // Indicate that the error was handled
     }
     return false; // Let other errors be handled elsewhere
@@ -94,27 +103,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setAuthLoading(true);
       setLoading(true); // Ensure loading state is active during auth check
       
-      // Use enhanced auth check that handles race conditions
-      const authResult = await getAuthShop();
-      
-      if (authResult.authenticated && authResult.shop) {
-        console.log('AuthContext: Authentication successful, shop:', authResult.shop);
-        setShop(authResult.shop);
-        setIsAuthenticated(true);
-        setIsAuthReady(true);
-        
-        // Sync API authentication state
-        setApiAuthState(true, authResult.shop);
-      } else {
-        console.log('AuthContext: Not authenticated or no shop found');
-        setShop(null);
-        setIsAuthenticated(false);
-        setIsAuthReady(true);
-        
-        // Sync API authentication state
-        setApiAuthState(false, null);
+      // Use direct fetch for initial auth check to avoid triggering global error handler
+      // This prevents infinite loops when user is not authenticated
+      const response = await fetch(`${API_BASE_URL}/api/auth/shopify/me`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        cache: 'no-cache',
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.shop && data.authenticated) {
+          console.log('AuthContext: Authentication successful, shop:', data.shop);
+          setShop(data.shop);
+          setIsAuthenticated(true);
+          setIsAuthReady(true);
+          
+          // Sync API authentication state
+          setApiAuthState(true, data.shop);
+          setHasInitiallyLoaded(true);
+          return;
+        }
       }
       
+      // Handle non-authenticated state (401 or other responses)
+      console.log('AuthContext: Not authenticated or no shop found, response status:', response.status);
+      setShop(null);
+      setIsAuthenticated(false);
+      setIsAuthReady(true);
+      
+      // Sync API authentication state
+      setApiAuthState(false, null);
       setHasInitiallyLoaded(true);
       
     } catch (error) {
