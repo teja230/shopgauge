@@ -164,20 +164,27 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
     }, 'UnifiedAnalyticsChart');
     
     try {
-      if (!data || !data.historical || !Array.isArray(data.historical)) {
-        debugLog.warn('No valid data available for chart', {
-          hasData: !!data,
-          hasHistorical: !!(data && data.historical),
-          isHistoricalArray: !!(data && Array.isArray(data.historical)),
-          dataKeys: data ? Object.keys(data) : [],
+      // Enhanced validation to prevent React invariant errors
+      if (!data) {
+        debugLog.warn('No data object provided', {}, 'UnifiedAnalyticsChart');
+        return [];
+      }
+      
+      if (!data.historical) {
+        debugLog.warn('No historical data in data object', { dataKeys: Object.keys(data) }, 'UnifiedAnalyticsChart');
+        return [];
+      }
+      
+      if (!Array.isArray(data.historical)) {
+        debugLog.warn('Historical data is not an array', { 
+          historicalType: typeof data.historical,
+          historicalValue: data.historical 
         }, 'UnifiedAnalyticsChart');
-        
-        console.log('UnifiedAnalyticsChart: No valid data available', {
-          hasData: !!data,
-          hasHistorical: !!(data && data.historical),
-          isHistoricalArray: !!(data && Array.isArray(data.historical)),
-          dataKeys: data ? Object.keys(data) : [],
-        });
+        return [];
+      }
+      
+      if (data.historical.length === 0) {
+        debugLog.warn('Historical data array is empty', {}, 'UnifiedAnalyticsChart');
         return [];
       }
 
@@ -481,16 +488,28 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
     }, 'UnifiedAnalyticsChart');
     
     try {
-      // Validate chart data before rendering
-      if (!chartData || chartData.length === 0) {
+      // Enhanced validation to prevent React invariant errors
+      if (!chartData) {
+        debugLog.error('Chart data is null/undefined', {}, 'UnifiedAnalyticsChart');
+        throw new Error('Chart data is null/undefined');
+      }
+      
+      if (!Array.isArray(chartData)) {
+        debugLog.error('Chart data is not an array', { 
+          chartDataType: typeof chartData,
+          chartDataValue: chartData 
+        }, 'UnifiedAnalyticsChart');
+        throw new Error('Chart data is not an array');
+      }
+      
+      if (chartData.length === 0) {
         debugLog.warn('No chart data available for rendering', {
-          chartDataLength: chartData?.length || 0,
+          chartDataLength: 0,
           hasData: !!data,
           loading,
           error
         }, 'UnifiedAnalyticsChart');
         
-        console.warn('UnifiedAnalyticsChart: No chart data available for rendering');
         return (
           <Box sx={{ 
             height: '100%', 
@@ -508,6 +527,23 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
             </Typography>
           </Box>
         );
+      }
+      
+      // Validate that each data point has required properties
+      const invalidDataPoints = chartData.filter(item => 
+        !item || 
+        typeof item.date !== 'string' || 
+        typeof item.revenue !== 'number' || 
+        isNaN(item.revenue)
+      );
+      
+      if (invalidDataPoints.length > 0) {
+        debugLog.error('Invalid data points found', {
+          totalPoints: chartData.length,
+          invalidPoints: invalidDataPoints.length,
+          sampleInvalidPoint: invalidDataPoints[0]
+        }, 'UnifiedAnalyticsChart');
+        throw new Error(`Found ${invalidDataPoints.length} invalid data points`);
       }
 
       const commonProps = {
