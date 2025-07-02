@@ -5,8 +5,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
-import org.springframework.data.redis.serializer.RedisSerializer;
 import org.springframework.session.data.redis.config.annotation.web.http.EnableRedisHttpSession;
 import org.springframework.session.web.http.CookieSerializer;
 import org.springframework.session.web.http.DefaultCookieSerializer;
@@ -40,16 +38,6 @@ public class SessionConfig {
     }
 
     return serializer;
-  }
-
-  /**
-   * Configure Redis serialization to use JSON instead of Java serialization This makes session data
-   * human-readable in Redis
-   */
-  @Bean
-  public RedisSerializer<Object> springSessionDefaultRedisSerializer() {
-    logger.info("Configuring Spring Session to use JSON serialization");
-    return new GenericJackson2JsonRedisSerializer();
   }
 
   private boolean isProduction() {
