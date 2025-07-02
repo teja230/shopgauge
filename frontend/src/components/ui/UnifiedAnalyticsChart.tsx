@@ -1170,6 +1170,23 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
     );
   }
 
+  // Enhanced debug logging for main render
+  debugLog.info('UnifiedAnalyticsChart: Rendering main chart', {
+    hasValidData,
+    chartDataLength: chartData.length,
+    chartType,
+    showPredictions,
+    timeRange,
+    visibleMetrics,
+    stats: stats ? {
+      hasStats: true,
+      revenueChange: stats.changes.revenue,
+      ordersChange: stats.changes.orders,
+    } : { hasStats: false },
+    containerReady,
+    height,
+  }, 'UnifiedAnalyticsChart');
+
   return (
     <Box ref={containerRef} sx={{ width: '100%' }}>
       {/* Header with Controls */}

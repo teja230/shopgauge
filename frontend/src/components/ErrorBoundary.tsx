@@ -2,6 +2,7 @@ import React, { Component } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
 import { Box, Typography, Button, Alert, AlertTitle } from '@mui/material';
 import { Replay } from '@mui/icons-material';
+import { debugLog } from './ui/DebugPanel';
 
 interface Props {
   children: ReactNode;
@@ -22,33 +23,122 @@ class ErrorBoundary extends Component<Props, State> {
   };
 
   public static getDerivedStateFromError(error: Error): State {
+    // Enhanced debug logging for error capture
+    debugLog.error('ErrorBoundary: getDerivedStateFromError called', {
+      error: {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+      },
+      componentInfo: {
+        // Note: props not available in static method
+        errorCaptured: true,
+      }
+    }, 'ErrorBoundary');
+
     // Preserve the existing componentKey to avoid unnecessary remounts when the
     // error is first captured. It will be incremented on reset.
     return { hasError: true, error, componentKey: 0 };
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
+    // Enhanced debug logging with detailed error information
+    debugLog.error('ErrorBoundary: componentDidCatch triggered', {
+      error: {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+      },
+      errorInfo: {
+        componentStack: errorInfo.componentStack,
+      },
+      componentInfo: {
+        fallbackMessage: this.props.fallbackMessage,
+        hasOnRetry: !!this.props.onRetry,
+        componentKey: this.state.componentKey,
+      },
+      timestamp: new Date().toISOString(),
+    }, 'ErrorBoundary');
+
+    // Also log to console for immediate visibility
+    console.error('ErrorBoundary caught an error:', {
+      error,
+      errorInfo,
+      componentInfo: {
+        fallbackMessage: this.props.fallbackMessage,
+        hasOnRetry: !!this.props.onRetry,
+        componentKey: this.state.componentKey,
+      }
+    });
   }
 
   private handleReset = () => {
-    this.setState((prev) => ({ hasError: false, error: undefined, componentKey: prev.componentKey + 1 }));
+    debugLog.info('ErrorBoundary: handleReset called', {
+      previousState: {
+        hasError: this.state.hasError,
+        componentKey: this.state.componentKey,
+      },
+      props: {
+        fallbackMessage: this.props.fallbackMessage,
+        hasOnRetry: !!this.props.onRetry,
+      }
+    }, 'ErrorBoundary');
+
+    this.setState((prev) => ({ 
+      hasError: false, 
+      error: undefined, 
+      componentKey: prev.componentKey + 1 
+    }));
 
     if (this.props.onRetry) {
       try {
+        debugLog.info('ErrorBoundary: Calling onRetry callback', {
+          componentKey: this.state.componentKey + 1,
+        }, 'ErrorBoundary');
+        
         this.props.onRetry();
       } catch (e) {
+        debugLog.error('ErrorBoundary: onRetry callback failed', {
+          error: e,
+          componentKey: this.state.componentKey,
+        }, 'ErrorBoundary');
+        
         console.error('ErrorBoundary onRetry callback failed', e);
       }
     }
   };
 
   public render() {
+    // Log render state for debugging
+    if (this.state.hasError) {
+      debugLog.warn('ErrorBoundary: Rendering error state', {
+        error: this.state.error ? {
+          name: this.state.error.name,
+          message: this.state.error.message,
+        } : null,
+        fallbackMessage: this.props.fallbackMessage,
+        componentKey: this.state.componentKey,
+      }, 'ErrorBoundary');
+    } else {
+      debugLog.debug('ErrorBoundary: Rendering normal state', {
+        componentKey: this.state.componentKey,
+        childrenCount: React.Children.count(this.props.children),
+      }, 'ErrorBoundary');
+    }
+
     if (this.state.hasError) {
       // Check if this is an Advanced Analytics error and show a regular page instead
       const isAdvancedAnalyticsError = this.props.fallbackMessage?.includes('Advanced Analytics');
       
       if (isAdvancedAnalyticsError) {
+        debugLog.warn('ErrorBoundary: Rendering Advanced Analytics error fallback', {
+          error: this.state.error ? {
+            name: this.state.error.name,
+            message: this.state.error.message,
+          } : null,
+          componentKey: this.state.componentKey,
+        }, 'ErrorBoundary');
+
         return (
           <Box
             sx={{
@@ -73,6 +163,15 @@ class ErrorBoundary extends Component<Props, State> {
         );
       }
       
+      debugLog.warn('ErrorBoundary: Rendering generic error fallback', {
+        error: this.state.error ? {
+          name: this.state.error.name,
+          message: this.state.error.message,
+        } : null,
+        fallbackMessage: this.props.fallbackMessage,
+        componentKey: this.state.componentKey,
+      }, 'ErrorBoundary');
+
       return (
         <Alert
           severity="error"

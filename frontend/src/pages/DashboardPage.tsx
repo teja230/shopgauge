@@ -2462,6 +2462,23 @@ const DashboardPage = () => {
               fallbackMessage="The Advanced Analytics chart failed to load. Please try refreshing."
               onRetry={handleUnifiedAnalyticsRetry}
             >
+              {/* Debug logging for Unified Analytics data */}
+              {(() => {
+                console.log('DashboardPage: Rendering UnifiedAnalyticsChart', {
+                  chartMode,
+                  errorBoundaryKey,
+                  hasUnifiedData: !!unifiedAnalyticsData,
+                  unifiedDataKeys: unifiedAnalyticsData ? Object.keys(unifiedAnalyticsData) : [],
+                  unifiedLoading: unifiedAnalyticsLoading,
+                  unifiedError: unifiedAnalyticsError,
+                  hasHistorical: !!(unifiedAnalyticsData && unifiedAnalyticsData.historical),
+                  historicalLength: unifiedAnalyticsData?.historical?.length || 0,
+                  hasPredictions: !!(unifiedAnalyticsData && unifiedAnalyticsData.predictions),
+                  predictionsLength: unifiedAnalyticsData?.predictions?.length || 0,
+                });
+                return null;
+              })()}
+              
               {/* Unified Analytics Chart handles errors internally like RevenueChart */}
               <UnifiedAnalyticsChart
                 data={unifiedAnalyticsData}

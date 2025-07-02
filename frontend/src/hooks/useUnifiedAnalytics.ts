@@ -1062,14 +1062,27 @@ const useUnifiedAnalytics = (
 
   // Force compute unified analytics (called when main dashboard data is refreshed)
   const forceCompute = useCallback(() => {
+    // Enhanced debug logging for force compute
+    debugLog.info('UNIFIED_ANALYTICS: Force compute called', {
+      shop: shop || 'undefined',
+      useDashboardData,
+      dashboardRevenueDataLength: dashboardRevenueData?.length || 0,
+      dashboardOrdersDataLength: dashboardOrdersData?.length || 0,
+      hasShop: !!(shop && shop.trim()),
+      hasValidData: (Array.isArray(dashboardRevenueData) && dashboardRevenueData.length > 0) ||
+                   (Array.isArray(dashboardOrdersData) && dashboardOrdersData.length > 0)
+    }, 'useUnifiedAnalytics');
+
     // Validate inputs
     if (!shop || !shop.trim()) {
       console.log('🔄 UNIFIED_ANALYTICS: Cannot force compute - missing shop');
+      debugLog.warn('UNIFIED_ANALYTICS: Cannot force compute - missing shop', { shop }, 'useUnifiedAnalytics');
       return;
     }
 
     if (!useDashboardData) {
       console.log('🔄 UNIFIED_ANALYTICS: Cannot force compute - not in dashboard mode');
+      debugLog.warn('UNIFIED_ANALYTICS: Cannot force compute - not in dashboard mode', { useDashboardData }, 'useUnifiedAnalytics');
       return;
     }
 
@@ -1078,10 +1091,19 @@ const useUnifiedAnalytics = (
 
     if (!hasValidData) {
       console.log('🔄 UNIFIED_ANALYTICS: Cannot force compute - no valid dashboard data');
+      debugLog.warn('UNIFIED_ANALYTICS: Cannot force compute - no valid dashboard data', {
+        dashboardRevenueDataLength: dashboardRevenueData?.length || 0,
+        dashboardOrdersDataLength: dashboardOrdersData?.length || 0
+      }, 'useUnifiedAnalytics');
       return;
     }
 
     console.log('🔄 UNIFIED_ANALYTICS: Force computing unified analytics');
+    debugLog.info('UNIFIED_ANALYTICS: Force computing unified analytics', {
+      shop,
+      revenueDataLength: dashboardRevenueData?.length || 0,
+      ordersDataLength: dashboardOrdersData?.length || 0
+    }, 'useUnifiedAnalytics');
     
     try {
       setLoading(true);
