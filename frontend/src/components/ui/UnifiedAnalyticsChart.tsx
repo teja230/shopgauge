@@ -972,6 +972,13 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
           );
       }
     } catch (error) {
+      debugLog.error('Error rendering chart', { 
+        error: error instanceof Error ? error.message : String(error),
+        chartType,
+        chartDataLength: chartData.length,
+        hasData: !!data
+      }, 'UnifiedAnalyticsChart');
+      
       console.error('Error rendering chart:', error);
       return (
         <Box sx={{ 
@@ -987,6 +994,9 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
           </Typography>
           <Typography variant="body2" color="text.secondary">
             Unable to render the selected chart type. Please try a different chart type.
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Error: {error instanceof Error ? error.message : String(error)}
           </Typography>
         </Box>
       );
@@ -1045,6 +1055,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
 
   if (error) {
     debugLog.error('Rendering error state', { error, height }, 'UnifiedAnalyticsChart');
+    console.error('UnifiedAnalyticsChart: Error state triggered with error:', error);
     return (
       <Box
         sx={{
