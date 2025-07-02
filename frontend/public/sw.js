@@ -18,7 +18,6 @@ const STATIC_ASSETS = [
 const CACHEABLE_API_ROUTES = [
   '/api/health',
   '/api/shop/current',
-  '/api/analytics/unified-analytics',
 ];
 
 // Install event - cache static assets
@@ -131,11 +130,10 @@ async function networkFirstStrategy(request) {
 async function networkFirstForDocuments(request) {
   try {
     const networkResponse = await fetch(request);
-    // If the response is OK, serve it. Otherwise (e.g., 404) fall back to index.html for SPA routing
     if (networkResponse.ok) {
       return networkResponse;
     }
-    console.warn('Service Worker: Document fetch returned non-OK status, serving index.html instead');
+    // Non-OK document fetch, serve index.html fallback for SPA routing
     let fallbackResponse = await caches.match('/index.html');
     if (!fallbackResponse) {
       try {
