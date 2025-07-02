@@ -2438,13 +2438,19 @@ const DashboardPage = () => {
         <Box sx={{ width: '100%' }}>
           {/* Chart Container (Charts render above) */}
           {chartMode === 'unified' ? (
-            // Unified Analytics Chart handles errors internally like RevenueChart
-            <UnifiedAnalyticsChart
-              data={unifiedAnalyticsData}
-              loading={unifiedAnalyticsLoading}
-              error={unifiedAnalyticsError}
-              height={500}
-            />
+            <ErrorBoundary 
+              key={`unified-${errorBoundaryKey}`}
+              fallbackMessage="The Advanced Analytics chart failed to load. Please try refreshing."
+              onRetry={handleUnifiedAnalyticsRetry}
+            >
+              {/* Unified Analytics Chart handles errors internally like RevenueChart */}
+              <UnifiedAnalyticsChart
+                data={unifiedAnalyticsData}
+                loading={unifiedAnalyticsLoading}
+                error={unifiedAnalyticsError}
+                height={500}
+              />
+            </ErrorBoundary>
           ) : (
             <ErrorBoundary 
               key={`classic-${errorBoundaryKey}`}

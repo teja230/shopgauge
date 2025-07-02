@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
-import { Box, Typography, Button, Paper, Alert, AlertTitle } from '@mui/material';
+import { Box, Typography, Button, Alert, AlertTitle } from '@mui/material';
 import { Replay } from '@mui/icons-material';
 
 interface Props {
@@ -45,6 +45,34 @@ class ErrorBoundary extends Component<Props, State> {
 
   public render() {
     if (this.state.hasError) {
+      // Check if this is an Advanced Analytics error and show a regular page instead
+      const isAdvancedAnalyticsError = this.props.fallbackMessage?.includes('Advanced Analytics');
+      
+      if (isAdvancedAnalyticsError) {
+        return (
+          <Box
+            sx={{
+              height: 500,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexDirection: 'column',
+              gap: 2,
+              backgroundColor: 'rgba(255, 0, 0, 0.02)',
+              borderRadius: 2,
+              border: '1px solid rgba(255, 0, 0, 0.1)',
+            }}
+          >
+            <Typography variant="h6" color="error">
+              Failed to load analytics data
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              The Advanced Analytics chart encountered an error. Please try refreshing the page.
+            </Typography>
+          </Box>
+        );
+      }
+      
       return (
         <Alert
           severity="error"
