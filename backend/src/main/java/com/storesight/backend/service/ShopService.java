@@ -63,8 +63,10 @@ public class ShopService {
         logger.warn("Redis connection test failed - got: {}", testValue);
       }
     } catch (Exception e) {
-      logger.error("Failed to initialize Redis connection: {}", e.getMessage());
+      logger.error(
+          "Redis connection not available at startup - will retry on demand: {}", e.getMessage());
       // Don't throw exception to allow startup to continue
+      // Redis is optional - the app can work without it
     }
 
     // Warm up database connection
@@ -148,14 +150,22 @@ public class ShopService {
       return getTokenForShopFallbackReactive(shopifyDomain);
     }
 
-    // Try Redis cache first
-    String cachedToken =
-        redisTemplate.opsForValue().get(SHOP_TOKEN_PREFIX + shopifyDomain + ":" + sessionId);
-    if (cachedToken != null) {
-      logger.debug(
-          "Found token in Redis cache for shop: {} and session: {}", shopifyDomain, sessionId);
-      updateSessionLastAccessed(sessionId);
-      return Mono.just(cachedToken);
+    // Try Redis cache first with proper error handling
+    String cachedToken = null;
+    try {
+      cachedToken =
+          redisTemplate.opsForValue().get(SHOP_TOKEN_PREFIX + shopifyDomain + ":" + sessionId);
+      if (cachedToken != null) {
+        logger.debug(
+            "Found token in Redis cache for shop: {} and session: {}", shopifyDomain, sessionId);
+        updateSessionLastAccessed(sessionId);
+        return Mono.just(cachedToken);
+      }
+    } catch (Exception e) {
+      logger.warn(
+          "Redis unavailable for reactive token lookup - falling back to database: {}",
+          e.getMessage());
+      // Continue to database lookup
     }
 
     // Try database using reactive pattern
@@ -203,14 +213,21 @@ public class ShopService {
       return getTokenForShopFallback(shopifyDomain);
     }
 
-    // Try Redis cache first
-    String cachedToken =
-        redisTemplate.opsForValue().get(SHOP_TOKEN_PREFIX + shopifyDomain + ":" + sessionId);
-    if (cachedToken != null) {
-      logger.debug(
-          "Found token in Redis cache for shop: {} and session: {}", shopifyDomain, sessionId);
-      updateSessionLastAccessed(sessionId);
-      return cachedToken;
+    // Try Redis cache first with proper error handling
+    String cachedToken = null;
+    try {
+      cachedToken =
+          redisTemplate.opsForValue().get(SHOP_TOKEN_PREFIX + shopifyDomain + ":" + sessionId);
+      if (cachedToken != null) {
+        logger.debug(
+            "Found token in Redis cache for shop: {} and session: {}", shopifyDomain, sessionId);
+        updateSessionLastAccessed(sessionId);
+        return cachedToken;
+      }
+    } catch (Exception e) {
+      logger.warn(
+          "Redis unavailable for token lookup - falling back to database: {}", e.getMessage());
+      // Continue to database lookup
     }
 
     // Try database
@@ -245,11 +262,18 @@ public class ShopService {
   private Mono<String> getTokenForShopFallbackReactive(String shopifyDomain) {
     logger.debug("Getting fallback token for shop: {}", shopifyDomain);
 
-    // Try Redis cache (shop-only key)
-    String cachedToken = redisTemplate.opsForValue().get(SHOP_TOKEN_PREFIX + shopifyDomain);
-    if (cachedToken != null) {
-      logger.debug("Found fallback token in Redis for shop: {}", shopifyDomain);
-      return Mono.just(cachedToken);
+    // Try Redis cache (shop-only key) with proper error handling
+    try {
+      String cachedToken = redisTemplate.opsForValue().get(SHOP_TOKEN_PREFIX + shopifyDomain);
+      if (cachedToken != null) {
+        logger.debug("Found fallback token in Redis for shop: {}", shopifyDomain);
+        return Mono.just(cachedToken);
+      }
+    } catch (Exception e) {
+      logger.warn(
+          "Redis unavailable for reactive fallback token lookup - continuing to database: {}",
+          e.getMessage());
+      // Continue to database lookup
     }
 
     // Try most recent active session from database
@@ -311,11 +335,18 @@ public class ShopService {
   private String getTokenForShopFallback(String shopifyDomain) {
     logger.debug("Getting fallback token for shop: {}", shopifyDomain);
 
-    // Try Redis cache (shop-only key)
-    String cachedToken = redisTemplate.opsForValue().get(SHOP_TOKEN_PREFIX + shopifyDomain);
-    if (cachedToken != null) {
-      logger.debug("Found fallback token in Redis for shop: {}", shopifyDomain);
-      return cachedToken;
+    // Try Redis cache (shop-only key) with proper error handling
+    try {
+      String cachedToken = redisTemplate.opsForValue().get(SHOP_TOKEN_PREFIX + shopifyDomain);
+      if (cachedToken != null) {
+        logger.debug("Found fallback token in Redis for shop: {}", shopifyDomain);
+        return cachedToken;
+      }
+    } catch (Exception e) {
+      logger.warn(
+          "Redis unavailable for fallback token lookup - continuing to database: {}",
+          e.getMessage());
+      // Continue to database lookup
     }
 
     // Try most recent active session from database
@@ -491,7 +522,11 @@ public class ShopService {
 
       logger.debug("Cached tokens for shop: {} and session: {}", shopifyDomain, sessionId);
     } catch (Exception e) {
-      logger.warn("Failed to cache tokens for shop {}: {}", shopifyDomain, e.getMessage());
+      logger.warn(
+          "Failed to cache tokens for shop {} - Redis may be unavailable: {}",
+          shopifyDomain,
+          e.getMessage());
+      // Don't propagate the exception - caching is optional
     }
   }
 
