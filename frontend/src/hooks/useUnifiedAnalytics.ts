@@ -103,6 +103,20 @@ const useUnifiedAnalytics = (
   // Track if we've done the initial load
   const initialLoadRef = useRef(false);
 
+  // Keep a stable reference to the last valid data
+  const lastValidDataRef = useRef<UnifiedAnalyticsData | null>(null);
+
+  // Track the last processed data lengths to avoid unnecessary updates
+  const lastProcessedRevenueLength = useRef(0);
+  const lastProcessedOrdersLength = useRef(0);
+
+  // Update the ref whenever we get new valid data
+  useEffect(() => {
+    if (data && data.historical && data.historical.length > 0) {
+      lastValidDataRef.current = data;
+    }
+  }, [data]);
+
   // Generate cache key for unified analytics
   const getCacheKeyForAnalytics = useCallback((shopName: string, paramDays: number, predictions: boolean) => {
     return `unified_analytics_${shopName}_${paramDays}d_${predictions ? 'with' : 'no'}_predictions`;
@@ -442,10 +456,15 @@ const useUnifiedAnalytics = (
           }
           
           // If no cache and dashboard data is empty, keep existing data if available
-          if (data) {
+          if (data || lastValidDataRef.current) {
             console.log('🔄 UNIFIED_ANALYTICS: No new data available, keeping existing data');
-            setLoading(false);
-            return data;
+            // Use the last valid data if current data is empty
+            const dataToUse = data || lastValidDataRef.current;
+            if (dataToUse) {
+              setData(dataToUse);
+              setLoading(false);
+              return dataToUse;
+            }
           }
           
           // Only return empty state if we have no existing data
@@ -467,102 +486,11 @@ const useUnifiedAnalytics = (
           return emptyData;
         }
 
-        // Only make API calls if NOT using dashboard data (legacy mode)
-        console.log('🔄 UNIFIED_ANALYTICS: Using legacy API mode (not using dashboard data)');
-        console.warn('⚠️ DEPRECATED: Using legacy unified analytics API. This will be removed in a future version. Use dashboard data instead.');
+        // Legacy API mode is no longer supported
+        console.error('🚫 UNIFIED_ANALYTICS: Legacy API mode is not supported. The unified-analytics endpoint has been removed.');
+        console.error('🚫 UNIFIED_ANALYTICS: Please use dashboard data mode by setting useDashboardData: true');
         
-        // Check cache first (unless forcing refresh)
-        if (!forceRefresh) {
-          const cachedEntry = loadFromCache(shop);
-          if (cachedEntry) {
-            const ageMinutes = Math.round((Date.now() - cachedEntry.timestamp) / (1000 * 60));
-            console.log(`✅ UNIFIED_ANALYTICS: Using cached data (${ageMinutes}min old)`);
-            
-            setData(cachedEntry.data);
-            setLastUpdated(cachedEntry.lastUpdated);
-            setIsCached(true);
-            setCacheAge(ageMinutes);
-            
-            return cachedEntry.data;
-          }
-        }
-
-        // Fetch fresh data from API
-        console.log(`🔄 UNIFIED_ANALYTICS: Fetching fresh data from API`);
-        setIsCached(false);
-        setCacheAge(0);
-
-        const params = new URLSearchParams({
-          days: days.toString(),
-          includePredictions: includePredictions.toString(),
-        });
-
-        const MAX_RETRIES = 3;
-        let attempt = 0;
-        
-        while (attempt < MAX_RETRIES) {
-          try {
-            const response = await fetchWithAuth(`/api/analytics/unified-analytics?${params}`);
-
-            if (!response.ok) {
-              // For 5xx errors, we should retry
-              if (response.status >= 500 && response.status < 600) {
-                throw new Error(`HTTP ${response.status}: Server error, retrying...`);
-              }
-              // For other errors, fail immediately
-              else if (response.status === 401) {
-                throw new Error('Authentication required');
-              } else if (response.status === 403) {
-                throw new Error('Permission denied – please re-authenticate with Shopify');
-              } else if (response.status === 429) {
-                throw new Error('Rate limited – please try again later');
-              } else {
-                throw new Error(`HTTP ${response.status}: Failed to fetch analytics data`);
-              }
-            }
-            
-            const result = await response.json();
-            
-            if (result.error) {
-              throw new Error(result.error);
-            }
-
-            // Validate the response structure
-            if (!result.historical || !Array.isArray(result.historical)) {
-              throw new Error('Invalid analytics data format');
-            }
-
-            // Ensure predictions is always an array
-            if (!result.predictions || !Array.isArray(result.predictions)) {
-              result.predictions = [];
-            }
-
-            // Save to cache
-            saveToCache(shop, result);
-
-            setData(result);
-            setLastUpdated(new Date());
-            
-            console.log('✅ UNIFIED_ANALYTICS: Fresh data loaded and cached:', {
-              historicalPoints: result.historical.length,
-              predictionPoints: result.predictions.length,
-              totalRevenue: result.total_revenue,
-              totalOrders: result.total_orders,
-              periodDays: result.period_days,
-            });
-
-            return result;
-
-          } catch (err) {
-            attempt++;
-            if (attempt >= MAX_RETRIES) {
-              // If all retries fail, throw the last error
-              throw err;
-            }
-            console.warn(`Attempt ${attempt} failed. Retrying in ${attempt * 2} seconds...`);
-            await new Promise(res => setTimeout(res, attempt * 2000)); // Exponential backoff
-          }
-        }
+        throw new Error('Legacy unified analytics API has been removed. Use dashboard data mode instead.');
 
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to fetch analytics data';
@@ -649,14 +577,17 @@ const useUnifiedAnalytics = (
       shop.trim()
     ) {
       // Only process if we have valid data and it's different from current state
-      const hasValidData = Array.isArray(dashboardRevenueData) && dashboardRevenueData.length > 0;
+      const hasValidData = (Array.isArray(dashboardRevenueData) && dashboardRevenueData.length > 0) ||
+                          (Array.isArray(dashboardOrdersData) && dashboardOrdersData.length > 0);
       
       if (hasValidData) {
         // Check if we need to update based on data changes
         const needsUpdate =
           !data ||
           data.historical.length === 0 ||
-          (data.historical.length > 0 && data.historical.length !== dashboardRevenueData.length);
+          (data.historical.length > 0 && 
+           (dashboardRevenueData.length !== lastProcessedRevenueLength.current ||
+            dashboardOrdersData.length !== lastProcessedOrdersLength.current));
 
         if (needsUpdate) {
           console.log(
@@ -666,15 +597,23 @@ const useUnifiedAnalytics = (
             dashboardRevenueData,
             dashboardOrdersData
           );
+          
+          // Update tracking refs
+          lastProcessedRevenueLength.current = dashboardRevenueData.length;
+          lastProcessedOrdersLength.current = dashboardOrdersData.length;
+          
           setData(updated);
           setLastUpdated(new Date());
           setIsCached(false);
           setCacheAge(0);
           setLoading(false); // Ensure loading is false after data update
           setError(null); // Clear any existing errors
+          
+          // Save to cache
+          saveToCache(shop, updated);
         }
-      } else if (!loading && !data) {
-        // If no valid data and not loading, ensure we're in a proper empty state
+      } else if (!loading && !data && !lastValidDataRef.current) {
+        // Only set empty state if we have no data at all
         setData({
           historical: [],
           predictions: [],
@@ -686,7 +625,7 @@ const useUnifiedAnalytics = (
         setError(null);
       }
     }
-  }, [dashboardRevenueData, dashboardOrdersData, useDashboardData, shop, data, convertDashboardDataToUnified, loading, days]);
+  }, [dashboardRevenueData, dashboardOrdersData, useDashboardData, shop, data, convertDashboardDataToUnified, loading, days, saveToCache]);
 
   return {
     data,

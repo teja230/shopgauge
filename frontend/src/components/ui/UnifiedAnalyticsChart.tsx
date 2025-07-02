@@ -407,6 +407,28 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
   // Render different chart types based on selection
   const renderChart = () => {
     try {
+      // Validate chart data before rendering
+      if (!chartData || chartData.length === 0) {
+        console.warn('UnifiedAnalyticsChart: No chart data available for rendering');
+        return (
+          <Box sx={{ 
+            height: '100%', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            flexDirection: 'column',
+            gap: 2
+          }}>
+            <Typography variant="h6" color="text.secondary">
+              No data to display
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Chart data is being processed...
+            </Typography>
+          </Box>
+        );
+      }
+
       const commonProps = {
         data: chartData,
         margin: { top: 20, right: 30, left: 20, bottom: 20 },
@@ -925,7 +947,13 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
     );
   }
 
-  if (!data || !data.historical || !Array.isArray(data.historical) || data.historical.length === 0) {
+  // Check if we have valid data
+  const hasValidData = data && 
+    data.historical && 
+    Array.isArray(data.historical) && 
+    data.historical.length > 0;
+
+  if (!hasValidData) {
     return (
       <Box
         sx={{

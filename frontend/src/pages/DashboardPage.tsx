@@ -757,7 +757,7 @@ const DashboardPage = () => {
     shop: shop && shop.trim() ? shop : undefined,
     useDashboardData: true, // Use dashboard data instead of separate API calls
     dashboardRevenueData: insights?.timeseries && Array.isArray(insights.timeseries) ? insights.timeseries : [],
-    dashboardOrdersData: insights?.orders && Array.isArray(insights.orders) ? insights.orders : [],
+    dashboardOrdersData: insights?.timeseries && Array.isArray(insights.timeseries) ? insights.timeseries : [], // Use timeseries for orders too
   });
 
   // Debug logging for unified analytics data
@@ -765,7 +765,7 @@ const DashboardPage = () => {
     if (insights) {
       console.log('Dashboard: Insights data for unified analytics:', {
         timeseriesLength: insights.timeseries?.length || 0,
-        ordersLength: insights.orders?.length || 0,
+        ordersLength: insights.timeseries?.length || 0,
         shop: shop,
       });
     }
