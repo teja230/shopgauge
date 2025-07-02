@@ -142,7 +142,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
   const chartData = useMemo(() => {
     try {
       if (!data || !data.historical || !Array.isArray(data.historical)) {
-        console.log('UnifiedAnalyticsChart: No data available');
+        console.log('UnifiedAnalyticsChart: No valid data available');
         return [];
       }
 
@@ -166,7 +166,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         avg_order_value: safeNumber(item.avg_order_value),
       }));
 
-      // Add predictions if enabled
+      // Add predictions if enabled and available
       if (showPredictions && data.predictions && Array.isArray(data.predictions)) {
         const predictions = data.predictions.map((item, index) => {
           const ci = item.confidence_interval || {};
@@ -202,6 +202,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         totalPoints: validData.length,
         historicalPoints: validData.filter(d => !d.isPrediction).length,
         predictionPoints: validData.filter(d => d.isPrediction).length,
+        hasValidData: validData.length > 0
       });
 
       return validData;
@@ -214,7 +215,10 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
   // Calculate summary statistics with error handling
   const stats = useMemo(() => {
     try {
-      if (!data || !data.historical || !Array.isArray(data.historical) || data.historical.length === 0) return null;
+      if (!data || !data.historical || !Array.isArray(data.historical) || data.historical.length === 0) {
+        console.log('UnifiedAnalyticsChart: No historical data for stats calculation');
+        return null;
+      }
 
       const historical = data.historical.map(processHistoricalItem);
       const recent7Days = historical.slice(-7);
@@ -251,7 +255,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         },
         predictions: {
           revenue: predictedRevenue,
-          period: futurePredictions.length,
+          days: futurePredictions.length,
         },
       };
     } catch (err) {
@@ -940,18 +944,28 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
 
   if (error) {
     return (
-      <Alert severity="error" sx={{ borderRadius: 3 }}>
+      <Alert severity="error" sx={{ borderRadius: 3, mb: 2 }}>
         <Typography variant="h6">Failed to load analytics data</Typography>
         <Typography variant="body2">{error}</Typography>
+        <Button 
+          variant="outlined" 
+          size="small" 
+          onClick={() => window.location.reload()}
+          sx={{ mt: 1 }}
+        >
+          Refresh Page
+        </Button>
       </Alert>
     );
   }
 
-  // Check if we have valid data
+  // Enhanced data validation
   const hasValidData = data && 
     data.historical && 
     Array.isArray(data.historical) && 
-    data.historical.length > 0;
+    data.historical.length > 0 &&
+    chartData &&
+    chartData.length > 0;
 
   if (!hasValidData) {
     return (
@@ -975,6 +989,14 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         <Typography variant="body2" color="text.secondary" textAlign="center">
           Analytics data will appear here once you start receiving orders and generating revenue
         </Typography>
+        <Button 
+          variant="outlined" 
+          size="small" 
+          onClick={() => window.location.reload()}
+          sx={{ mt: 1 }}
+        >
+          Refresh Data
+        </Button>
       </Box>
     );
   }

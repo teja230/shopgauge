@@ -19,15 +19,14 @@ interface PredictionData {
   orders_count: number;
   conversion_rate: number;
   avg_order_value: number;
-  confidence_interval: {
+  isPrediction: true;
+  confidence_score: number;
+  confidence_interval?: {
     revenue_min: number;
     revenue_max: number;
     orders_min: number;
     orders_max: number;
   };
-  prediction_type: string;
-  confidence_score: number;
-  isPrediction: true;
 }
 
 interface UnifiedAnalyticsData {
@@ -91,7 +90,7 @@ const useUnifiedAnalytics = (
   } = options;
 
   const [data, setData] = useState<UnifiedAnalyticsData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Changed: Start with false instead of true
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [isCached, setIsCached] = useState(false);
@@ -100,15 +99,25 @@ const useUnifiedAnalytics = (
   // Track active fetches to prevent concurrent calls
   const activeFetchRef = useRef<Promise<UnifiedAnalyticsData> | null>(null);
   
-  // Track if we've done the initial load
+  // Track if we've done the initial load to prevent multiple initial loads
   const initialLoadRef = useRef(false);
+  const isInitializedRef = useRef(false);
 
   // Keep a stable reference to the last valid data
   const lastValidDataRef = useRef<UnifiedAnalyticsData | null>(null);
 
-  // Track the last processed data lengths to avoid unnecessary updates
-  const lastProcessedRevenueLength = useRef(0);
-  const lastProcessedOrdersLength = useRef(0);
+  // Track the last processed data to avoid unnecessary updates
+  const lastProcessedDataRef = useRef<{
+    revenueLength: number;
+    ordersLength: number;
+    revenueData: any[];
+    ordersData: any[];
+  }>({
+    revenueLength: 0,
+    ordersLength: 0,
+    revenueData: [],
+    ordersData: []
+  });
 
   // Update the ref whenever we get new valid data
   useEffect(() => {
@@ -195,12 +204,39 @@ const useUnifiedAnalytics = (
     }
   }, [days, includePredictions, getCacheKeyForAnalytics]);
 
-  // Convert dashboard data to unified analytics format
+  // Enhanced data change detection
+  const hasDataChanged = useCallback((newRevenueData: any[], newOrdersData: any[]): boolean => {
+    const lastProcessed = lastProcessedDataRef.current;
+    
+    // Check if lengths changed
+    if (
+      newRevenueData.length !== lastProcessed.revenueLength ||
+      newOrdersData.length !== lastProcessed.ordersLength
+    ) {
+      return true;
+    }
+    
+    // Check if data content changed (for small datasets)
+    if (newRevenueData.length < 100 && newOrdersData.length < 100) {
+      try {
+        const revenueChanged = JSON.stringify(newRevenueData) !== JSON.stringify(lastProcessed.revenueData);
+        const ordersChanged = JSON.stringify(newOrdersData) !== JSON.stringify(lastProcessed.ordersData);
+        return revenueChanged || ordersChanged;
+      } catch {
+        // If JSON.stringify fails, assume changed
+        return true;
+      }
+    }
+    
+    return false;
+  }, []);
+
+  // Convert dashboard data to unified analytics format with enhanced error handling
   const convertDashboardDataToUnified = useCallback((revenueData: any[], ordersData: any[]): UnifiedAnalyticsData => {
     try {
       // Safety check: ensure inputs are arrays
-      if (!Array.isArray(revenueData) || !Array.isArray(ordersData)) {
-        console.warn('UNIFIED_ANALYTICS: Invalid input data - not arrays:', { revenueData, ordersData });
+      if (!Array.isArray(revenueData) && !Array.isArray(ordersData)) {
+        console.warn('UNIFIED_ANALYTICS: No valid input data arrays provided');
         return {
           historical: [],
           predictions: [],
@@ -210,12 +246,16 @@ const useUnifiedAnalytics = (
         };
       }
 
+      // Use empty arrays as fallbacks
+      const safeRevenueData = Array.isArray(revenueData) ? revenueData : [];
+      const safeOrdersData = Array.isArray(ordersData) ? ordersData : [];
+
       // Group revenue data by date
       const revenueByDate = new Map<string, number>();
       const ordersByDate = new Map<string, { count: number; totalPrice: number }>();
       
       // Process revenue data (can be orders with revenue or separate revenue entries)
-      revenueData.forEach(item => {
+      safeRevenueData.forEach(item => {
         if (item && typeof item === 'object' && item.created_at) {
           try {
             const date = new Date(item.created_at).toISOString().split('T')[0];
@@ -239,7 +279,7 @@ const useUnifiedAnalytics = (
       });
 
       // Process orders data separately if provided
-      ordersData.forEach(item => {
+      safeOrdersData.forEach(item => {
         if (item && typeof item === 'object' && item.created_at) {
           try {
             const date = new Date(item.created_at).toISOString().split('T')[0];
@@ -327,38 +367,36 @@ const useUnifiedAnalytics = (
 
           // Generate 30 days of predictions
           const lastDate = new Date(historical[historical.length - 1].date);
-          
           for (let i = 1; i <= 30; i++) {
-            const futureDate = new Date(lastDate);
-            futureDate.setDate(futureDate.getDate() + i);
-            const dateStr = futureDate.toISOString().split('T')[0];
-
-            // Apply trend with some randomness and weekly patterns
-            const dayOfWeek = futureDate.getDay();
-            const weekendFactor = (dayOfWeek === 0 || dayOfWeek === 6) ? 0.8 : 1.1; // Lower on weekends
-            const randomFactor = 0.9 + (Math.random() * 0.2); // ±10% random variation
-            const trendFactor = 1 + (revenueTrend * 0.1); // Apply trend gradually
+            const predictionDate = new Date(lastDate);
+            predictionDate.setDate(lastDate.getDate() + i);
             
-            const predictedRevenue = Math.max(0, avgRevenue * trendFactor * weekendFactor * randomFactor);
-            const predictedOrders = Math.max(0, Math.round(avgOrders * (1 + ordersTrend * 0.1) * weekendFactor * randomFactor));
-            const predictedConversion = Math.max(0, Math.min(10, avgConversion + (Math.random() - 0.5) * 0.5));
-
+            // Apply trend with some randomness
+            const trendMultiplier = 1 + (revenueTrend * (i / 30));
+            const orderTrendMultiplier = 1 + (ordersTrend * (i / 30));
+            
+            // Add some variance
+            const variance = 0.1 + (Math.random() * 0.2); // 10-30% variance
+            
+            const predictedRevenue = Math.max(0, avgRevenue * trendMultiplier * (0.9 + Math.random() * 0.2));
+            const predictedOrders = Math.max(0, Math.round(avgOrders * orderTrendMultiplier * (0.9 + Math.random() * 0.2)));
+            const predictedAOV = predictedOrders > 0 ? predictedRevenue / predictedOrders : avgRevenue / Math.max(avgOrders, 1);
+            
             predictions.push({
               kind: 'prediction',
-              date: dateStr,
+              date: predictionDate.toISOString().split('T')[0],
               revenue: predictedRevenue,
               orders_count: predictedOrders,
-              conversion_rate: predictedConversion,
-              avg_order_value: predictedOrders > 0 ? predictedRevenue / predictedOrders : avgRevenue / Math.max(avgOrders, 1),
+              conversion_rate: avgConversion * (0.9 + Math.random() * 0.2),
+              avg_order_value: predictedAOV,
+              isPrediction: true,
+              confidence_score: Math.max(0.3, 0.8 - (i / 30) * 0.4), // Confidence decreases over time
               confidence_interval: {
                 revenue_min: predictedRevenue * 0.7,
                 revenue_max: predictedRevenue * 1.3,
-                orders_min: Math.max(0, Math.floor(predictedOrders * 0.8)),
-                orders_max: Math.ceil(predictedOrders * 1.2),
+                orders_min: Math.max(0, Math.round(predictedOrders * 0.7)),
+                orders_max: Math.round(predictedOrders * 1.3),
               },
-              prediction_type: 'trend_analysis',
-              confidence_score: 0.75 + (Math.random() * 0.15), // 75-90% confidence
-              isPrediction: true,
             });
           }
         }
@@ -394,8 +432,7 @@ const useUnifiedAnalytics = (
     }
   }, [days, includePredictions]);
 
-  // fetchData is stable across renders unless the key query parameters change.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Enhanced fetchData function with better error handling
   const fetchData = useCallback(async (forceRefresh = false): Promise<UnifiedAnalyticsData> => {
     // Validate shop before proceeding
     if (!shop || !shop.trim()) {
@@ -422,6 +459,14 @@ const useUnifiedAnalytics = (
             console.log('🔄 UNIFIED_ANALYTICS: Using dashboard data instead of API call');
             const unifiedData = convertDashboardDataToUnified(dashboardRevenueData, dashboardOrdersData);
             
+            // Update tracking
+            lastProcessedDataRef.current = {
+              revenueLength: dashboardRevenueData.length,
+              ordersLength: dashboardOrdersData.length,
+              revenueData: [...dashboardRevenueData],
+              ordersData: [...dashboardOrdersData]
+            };
+            
             // Save to cache even when using dashboard data
             saveToCache(shop, unifiedData);
             
@@ -443,7 +488,7 @@ const useUnifiedAnalytics = (
           // If using dashboard data but no data available, try cache first
           console.log('🔄 UNIFIED_ANALYTICS: Dashboard data not available, checking cache');
           const cachedEntry = loadFromCache(shop);
-          if (cachedEntry) {
+          if (cachedEntry && !forceRefresh) {
             const ageMinutes = Math.round((Date.now() - cachedEntry.timestamp) / (1000 * 60));
             console.log(`✅ UNIFIED_ANALYTICS: Using cached data (${ageMinutes}min old)`);
             
@@ -462,7 +507,6 @@ const useUnifiedAnalytics = (
             const dataToUse = data || lastValidDataRef.current;
             if (dataToUse) {
               setData(dataToUse);
-              setLoading(false);
               return dataToUse;
             }
           }
@@ -481,7 +525,6 @@ const useUnifiedAnalytics = (
           setLastUpdated(new Date());
           setIsCached(false);
           setCacheAge(0);
-          setLoading(false); // Important: Set loading to false here
           
           return emptyData;
         }
@@ -498,7 +541,11 @@ const useUnifiedAnalytics = (
         console.error('Unified analytics fetch error:', err);
         
         // Don't clear existing data on error to provide a better UX
-        // Note: We don't reference 'data' here to avoid dependency issues
+        // Keep the last valid data if available
+        if (lastValidDataRef.current && !data) {
+          console.log('🔄 UNIFIED_ANALYTICS: Using last valid data after error');
+          setData(lastValidDataRef.current);
+        }
         
         throw err;
       } finally {
@@ -509,123 +556,139 @@ const useUnifiedAnalytics = (
 
     activeFetchRef.current = fetchPromise;
     return fetchPromise;
-  }, [days, includePredictions, shop, loadFromCache, saveToCache, useDashboardData, dashboardRevenueData, dashboardOrdersData, convertDashboardDataToUnified]);
+  }, [days, includePredictions, shop, loadFromCache, saveToCache, useDashboardData, dashboardRevenueData, dashboardOrdersData, convertDashboardDataToUnified, data]);
 
   const refetch = useCallback(async () => {
-    await fetchData(true); // Force refresh
+    try {
+      console.log('🔄 UNIFIED_ANALYTICS: Manual refetch initiated');
+      await fetchData(true); // Force refresh
+    } catch (error) {
+      console.error('🔄 UNIFIED_ANALYTICS: Manual refetch failed:', error);
+      // Don't throw here - let the component handle the error state
+    }
   }, [fetchData]);
 
-  // Initial fetch
+  // Initialize data when shop changes or first load
   useEffect(() => {
-    if (shop && shop.trim()) {
-      // If using dashboard data mode, we need to handle the initial state differently
-      if (useDashboardData) {
-        // Check if we have dashboard data available
-        const hasData = Array.isArray(dashboardRevenueData) && dashboardRevenueData.length > 0;
-        
-        if (!hasData && !initialLoadRef.current) {
-          // No dashboard data yet, but set loading to false after a short delay
-          // to prevent indefinite loading state
-          const timer = setTimeout(() => {
-            if (!data) {
-              console.log('🔄 UNIFIED_ANALYTICS: No dashboard data received, setting empty state');
-              setData({
-                historical: [],
-                predictions: [],
-                period_days: days,
-                total_revenue: 0,
-                total_orders: 0,
-              });
-              setLoading(false);
-              setError(null);
-            }
-          }, 1000); // Wait 1 second for dashboard data
-          
-          return () => clearTimeout(timer);
-        } else if (hasData && !initialLoadRef.current) {
-          // We have dashboard data, process it immediately
-          initialLoadRef.current = true;
-          fetchData();
-        }
-      } else {
-        // Legacy API mode
-        fetchData();
-      }
-    } else {
+    if (!shop || !shop.trim()) {
       // No shop, set empty state
       setLoading(false);
       setError('No shop selected');
+      setData(null);
+      isInitializedRef.current = false;
+      return;
     }
-  }, [shop, fetchData, useDashboardData, dashboardRevenueData, data, days]);
+
+    // Skip if already initialized for this shop
+    if (isInitializedRef.current) {
+      return;
+    }
+
+    console.log('🔄 UNIFIED_ANALYTICS: Initializing for shop:', shop);
+    isInitializedRef.current = true;
+    
+    if (useDashboardData) {
+      // For dashboard data mode, we'll wait for the data in the next useEffect
+      console.log('🔄 UNIFIED_ANALYTICS: Dashboard data mode - waiting for data');
+      setLoading(false); // Don't show loading initially
+    } else {
+      // Legacy API mode
+      fetchData().catch(error => {
+        console.error('🔄 UNIFIED_ANALYTICS: Initial fetch failed:', error);
+      });
+    }
+  }, [shop, useDashboardData, fetchData]);
 
   // Auto-refresh if enabled
   useEffect(() => {
     if (autoRefresh && refreshInterval > 0 && shop && shop.trim()) {
       const interval = setInterval(() => {
-        fetchData();
+        fetchData().catch(error => {
+          console.error('🔄 UNIFIED_ANALYTICS: Auto-refresh failed:', error);
+        });
       }, refreshInterval);
 
       return () => clearInterval(interval);
     }
   }, [autoRefresh, refreshInterval, fetchData, shop]);
 
-  // Recompute analytics when fresh dashboard data arrives
+  // Recompute analytics when dashboard data changes
   useEffect(() => {
     if (
-      useDashboardData &&
-      shop &&
-      shop.trim()
+      !useDashboardData ||
+      !shop ||
+      !shop.trim() ||
+      !isInitializedRef.current
     ) {
-      // Only process if we have valid data and it's different from current state
-      const hasValidData = (Array.isArray(dashboardRevenueData) && dashboardRevenueData.length > 0) ||
-                          (Array.isArray(dashboardOrdersData) && dashboardOrdersData.length > 0);
-      
-      if (hasValidData) {
-        // Check if we need to update based on data changes
-        const needsUpdate =
-          !data ||
-          data.historical.length === 0 ||
-          (data.historical.length > 0 && 
-           (dashboardRevenueData.length !== lastProcessedRevenueLength.current ||
-            dashboardOrdersData.length !== lastProcessedOrdersLength.current));
+      return;
+    }
 
-        if (needsUpdate) {
-          console.log(
-            '🔄 UNIFIED_ANALYTICS: Detected updated dashboard data, regenerating unified dataset'
-          );
+    // Check if we have valid data
+    const hasValidData = (Array.isArray(dashboardRevenueData) && dashboardRevenueData.length > 0) ||
+                        (Array.isArray(dashboardOrdersData) && dashboardOrdersData.length > 0);
+    
+    if (hasValidData) {
+      // Check if data actually changed to avoid unnecessary updates
+      const dataChanged = hasDataChanged(dashboardRevenueData, dashboardOrdersData);
+      
+      if (dataChanged || !data || data.historical.length === 0) {
+        console.log('🔄 UNIFIED_ANALYTICS: Processing updated dashboard data');
+        
+        try {
           const updated = convertDashboardDataToUnified(
             dashboardRevenueData,
             dashboardOrdersData
           );
           
           // Update tracking refs
-          lastProcessedRevenueLength.current = dashboardRevenueData.length;
-          lastProcessedOrdersLength.current = dashboardOrdersData.length;
+          lastProcessedDataRef.current = {
+            revenueLength: dashboardRevenueData.length,
+            ordersLength: dashboardOrdersData.length,
+            revenueData: [...dashboardRevenueData],
+            ordersData: [...dashboardOrdersData]
+          };
           
           setData(updated);
           setLastUpdated(new Date());
           setIsCached(false);
           setCacheAge(0);
-          setLoading(false); // Ensure loading is false after data update
-          setError(null); // Clear any existing errors
+          setLoading(false);
+          setError(null);
           
           // Save to cache
           saveToCache(shop, updated);
+          
+          console.log('✅ UNIFIED_ANALYTICS: Updated with new dashboard data');
+        } catch (error) {
+          console.error('🔄 UNIFIED_ANALYTICS: Error processing dashboard data:', error);
+          setError('Failed to process dashboard data');
+          setLoading(false);
         }
-      } else if (!loading && !data && !lastValidDataRef.current) {
-        // Only set empty state if we have no data at all
-        setData({
-          historical: [],
-          predictions: [],
-          period_days: days,
-          total_revenue: 0,
-          total_orders: 0,
-        });
-        setLoading(false);
-        setError(null);
       }
+    } else if (!data || data.historical.length === 0) {
+      // No data available, set empty state
+      console.log('🔄 UNIFIED_ANALYTICS: No dashboard data available');
+      setData({
+        historical: [],
+        predictions: [],
+        period_days: days,
+        total_revenue: 0,
+        total_orders: 0,
+      });
+      setLoading(false);
+      setError(null);
     }
-  }, [dashboardRevenueData, dashboardOrdersData, useDashboardData, shop, data, convertDashboardDataToUnified, loading, days, saveToCache]);
+  }, [
+    dashboardRevenueData, 
+    dashboardOrdersData, 
+    useDashboardData, 
+    shop, 
+    data, 
+    convertDashboardDataToUnified, 
+    days, 
+    saveToCache,
+    hasDataChanged
+  ]);
 
   return {
     data,

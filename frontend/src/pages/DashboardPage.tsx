@@ -739,10 +739,23 @@ const DashboardPage = () => {
     }
   }, [shop, isAuthReady]);
   
-  // Chart toggle state
+  // =====================================
+  // ENHANCED CHART TOGGLE STATE MANAGEMENT
+  // =====================================
   const [chartMode, setChartMode] = useState<'unified' | 'classic'>('unified');
+  
+  // Add error boundary reset key to force remount when needed
+  const [errorBoundaryKey, setErrorBoundaryKey] = useState(0);
+  
+  // Create stable data references to prevent corruption during toggles
+  const stableTimeseriesData = useMemo(() => {
+    if (insights?.timeseries && Array.isArray(insights.timeseries)) {
+      return insights.timeseries;
+    }
+    return [];
+  }, [insights?.timeseries]);
 
-  // Use the new unified analytics hook with enterprise caching
+  // Use the new unified analytics hook with stabilized data
   const {
     data: unifiedAnalyticsData,
     loading: unifiedAnalyticsLoading,
@@ -756,9 +769,51 @@ const DashboardPage = () => {
     autoRefresh: false,
     shop: shop && shop.trim() ? shop : undefined,
     useDashboardData: true, // Use dashboard data instead of separate API calls
-    dashboardRevenueData: insights?.timeseries && Array.isArray(insights.timeseries) ? insights.timeseries : [],
-    dashboardOrdersData: insights?.timeseries && Array.isArray(insights.timeseries) ? insights.timeseries : [], // Use timeseries for orders too
+    dashboardRevenueData: stableTimeseriesData, // Use stable reference
+    dashboardOrdersData: stableTimeseriesData, // Use stable reference
   });
+
+  // Enhanced chart mode toggle handler to prevent state corruption
+  const handleChartModeChange = useCallback((event: React.MouseEvent<HTMLElement>, newMode: 'unified' | 'classic' | null) => {
+    if (!newMode || newMode === chartMode) return;
+    
+    console.log(`🔄 Chart mode changing from ${chartMode} to ${newMode}`);
+    
+    // Reset error boundary on mode change to clear any sticky states
+    setErrorBoundaryKey(prev => prev + 1);
+    
+    // Set the new chart mode
+    setChartMode(newMode);
+    
+    // If switching to unified mode and there's an error, force a refetch
+    if (newMode === 'unified' && unifiedAnalyticsError) {
+      console.log('🔄 Switching to unified mode with existing error - forcing refetch');
+      setTimeout(() => {
+        refetchUnifiedAnalytics().catch(console.error);
+      }, 100);
+    }
+    
+    console.log(`✅ Chart mode successfully changed to ${newMode}`);
+  }, [chartMode, unifiedAnalyticsError, refetchUnifiedAnalytics]);
+
+  // Enhanced retry handler for error boundaries
+  const handleUnifiedAnalyticsRetry = useCallback(() => {
+    console.log('🔄 Manual retry for unified analytics initiated');
+    
+    // Reset error boundary
+    setErrorBoundaryKey(prev => prev + 1);
+    
+    // Force refetch with delay to allow component to reset
+    setTimeout(() => {
+      refetchUnifiedAnalytics().catch(error => {
+        console.error('❌ Retry failed:', error);
+        notifications.showError('Failed to reload analytics. Please try refreshing the page.', {
+          persistent: true,
+          category: 'Analytics'
+        });
+      });
+    }, 100);
+  }, [refetchUnifiedAnalytics, notifications]);
 
   // Debug logging for unified analytics data
   useEffect(() => {
@@ -767,9 +822,10 @@ const DashboardPage = () => {
         timeseriesLength: insights.timeseries?.length || 0,
         ordersLength: insights.timeseries?.length || 0,
         shop: shop,
+        hasStableData: stableTimeseriesData.length > 0,
       });
     }
-  }, [insights, shop]);
+  }, [insights, shop, stableTimeseriesData]);
 
   // Individual card loading states
   const [cardLoading, setCardLoading] = useState<CardLoadingState>({
@@ -2373,10 +2429,9 @@ const DashboardPage = () => {
           {/* Chart Container (Charts render above) */}
           {chartMode === 'unified' ? (
             <ErrorBoundary 
+              key={`unified-${errorBoundaryKey}`}
               fallbackMessage="The Advanced Analytics chart failed to load. Please try refreshing."
-              onRetry={() => {
-                refetchUnifiedAnalytics();
-              }}
+              onRetry={handleUnifiedAnalyticsRetry}
             >
               {/* Unified Analytics Chart always renders; it handles loading and fallback internally */}
               <UnifiedAnalyticsChart
@@ -2388,13 +2443,17 @@ const DashboardPage = () => {
             </ErrorBoundary>
           ) : (
             <ErrorBoundary 
+              key={`classic-${errorBoundaryKey}`}
               fallbackMessage="The Revenue chart failed to load. Please try refreshing."
-              onRetry={() => fetchRevenueData(true)}
+              onRetry={() => {
+                setErrorBoundaryKey(prev => prev + 1);
+                setTimeout(() => fetchRevenueData(true), 100);
+              }}
             >
               {/* Only render RevenueChart when we have initialized the dashboard */}
-              {dashboardDataInitialized || insights?.timeseries ? (
+              {dashboardDataInitialized || stableTimeseriesData.length > 0 ? (
                 <RevenueChart
-                  data={insights?.timeseries || []}
+                  data={stableTimeseriesData}
                   loading={cardLoading.revenue}
                   error={cardErrors.revenue}
                   height={500}
@@ -2426,7 +2485,7 @@ const DashboardPage = () => {
             <ToggleButtonGroup
               value={chartMode}
               exclusive
-              onChange={(_, newMode) => newMode && setChartMode(newMode)}
+              onChange={handleChartModeChange}
               size="large"
               sx={{
                 backgroundColor: 'white',
