@@ -35,6 +35,15 @@
 - Better fallback UI for no-data states
 - Improved error display with actionable refresh buttons
 
+### 5. **Advanced Analytics Breaking on Toggle (Second Fix)**
+**Problem**: Advanced Analytics loaded on initial visit and refresh but broke when toggling back from Classic mode.
+
+**Solution**:
+- Enhanced toggle handler to always check for valid data when switching to unified mode
+- Fixed `isInitializedRef` blocking issue in useUnifiedAnalytics hook
+- Improved refetch function to reprocess dashboard data instead of making API calls
+- Removed initialization check that prevented data processing on remount
+
 ## Key Changes Made
 
 ### 1. Enhanced Error Boundary Management
