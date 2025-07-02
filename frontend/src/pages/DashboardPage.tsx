@@ -785,16 +785,26 @@ const DashboardPage = () => {
     // Set the new chart mode
     setChartMode(newMode);
     
-    // If switching to unified mode and there's an error, force a refetch
-    if (newMode === 'unified' && unifiedAnalyticsError) {
-      console.log('🔄 Switching to unified mode with existing error - forcing refetch');
+    // If switching to unified mode, always ensure we have data
+    if (newMode === 'unified') {
+      console.log('🔄 Switching to unified mode - ensuring data is available');
+      
+      // Force a refetch regardless of error state to ensure fresh data
       setTimeout(() => {
-        refetchUnifiedAnalytics().catch(console.error);
+        // Check if we have valid data, if not force a refetch
+        if (!unifiedAnalyticsData || unifiedAnalyticsData.historical.length === 0 || unifiedAnalyticsError) {
+          console.log('🔄 Unified analytics needs data - forcing refetch');
+          refetchUnifiedAnalytics().catch(error => {
+            console.error('❌ Failed to fetch unified analytics on toggle:', error);
+          });
+        } else {
+          console.log('✅ Unified analytics already has valid data');
+        }
       }, 100);
     }
     
     console.log(`✅ Chart mode successfully changed to ${newMode}`);
-  }, [chartMode, unifiedAnalyticsError, refetchUnifiedAnalytics]);
+  }, [chartMode, unifiedAnalyticsData, unifiedAnalyticsError, refetchUnifiedAnalytics]);
 
   // Enhanced retry handler for error boundaries
   const handleUnifiedAnalyticsRetry = useCallback(() => {

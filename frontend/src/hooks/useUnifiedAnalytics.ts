@@ -561,12 +561,49 @@ const useUnifiedAnalytics = (
   const refetch = useCallback(async () => {
     try {
       console.log('🔄 UNIFIED_ANALYTICS: Manual refetch initiated');
+      
+      // Clear any existing errors before refetching
+      setError(null);
+      
+      // For dashboard data mode, reprocess the current data
+      if (useDashboardData && dashboardRevenueData && dashboardOrdersData) {
+        console.log('🔄 UNIFIED_ANALYTICS: Reprocessing dashboard data on refetch');
+        
+        try {
+          const updated = convertDashboardDataToUnified(
+            dashboardRevenueData,
+            dashboardOrdersData
+          );
+          
+          setData(updated);
+          setLastUpdated(new Date());
+          setIsCached(false);
+          setCacheAge(0);
+          setLoading(false);
+          setError(null);
+          
+          // Save to cache
+          if (shop) {
+            saveToCache(shop, updated);
+          }
+          
+          console.log('✅ UNIFIED_ANALYTICS: Reprocessed dashboard data on refetch');
+          return;
+        } catch (error) {
+          console.error('🔄 UNIFIED_ANALYTICS: Error reprocessing dashboard data:', error);
+          setError('Failed to reprocess dashboard data');
+          setLoading(false);
+          return;
+        }
+      }
+      
+      // Otherwise do a full fetch
       await fetchData(true); // Force refresh
     } catch (error) {
       console.error('🔄 UNIFIED_ANALYTICS: Manual refetch failed:', error);
       // Don't throw here - let the component handle the error state
     }
-  }, [fetchData]);
+  }, [fetchData, useDashboardData, dashboardRevenueData, dashboardOrdersData, convertDashboardDataToUnified, shop, saveToCache]);
 
   // Initialize data when shop changes or first load
   useEffect(() => {
@@ -579,20 +616,26 @@ const useUnifiedAnalytics = (
       return;
     }
 
-    // Skip if already initialized for this shop
-    if (isInitializedRef.current) {
+    // For dashboard data mode, we don't need complex initialization
+    // The data will be handled by the dashboard data change effect
+    if (useDashboardData) {
+      console.log('🔄 UNIFIED_ANALYTICS: Dashboard data mode - data will be processed when available');
+      setLoading(false); // Don't show loading initially
+      setError(null); // Clear any previous errors
+      
+      // Mark as initialized to prevent duplicate processing
+      if (!isInitializedRef.current) {
+        console.log('🔄 UNIFIED_ANALYTICS: Marking as initialized for shop:', shop);
+        isInitializedRef.current = true;
+      }
       return;
     }
 
-    console.log('🔄 UNIFIED_ANALYTICS: Initializing for shop:', shop);
-    isInitializedRef.current = true;
-    
-    if (useDashboardData) {
-      // For dashboard data mode, we'll wait for the data in the next useEffect
-      console.log('🔄 UNIFIED_ANALYTICS: Dashboard data mode - waiting for data');
-      setLoading(false); // Don't show loading initially
-    } else {
-      // Legacy API mode
+    // Legacy API mode initialization (keeping for backwards compatibility)
+    if (!isInitializedRef.current) {
+      console.log('🔄 UNIFIED_ANALYTICS: Initializing API mode for shop:', shop);
+      isInitializedRef.current = true;
+      
       fetchData().catch(error => {
         console.error('🔄 UNIFIED_ANALYTICS: Initial fetch failed:', error);
       });
@@ -617,8 +660,7 @@ const useUnifiedAnalytics = (
     if (
       !useDashboardData ||
       !shop ||
-      !shop.trim() ||
-      !isInitializedRef.current
+      !shop.trim()
     ) {
       return;
     }
@@ -631,8 +673,15 @@ const useUnifiedAnalytics = (
       // Check if data actually changed to avoid unnecessary updates
       const dataChanged = hasDataChanged(dashboardRevenueData, dashboardOrdersData);
       
+      // Always process data if we don't have any, or if data changed
       if (dataChanged || !data || data.historical.length === 0) {
-        console.log('🔄 UNIFIED_ANALYTICS: Processing updated dashboard data');
+        console.log('🔄 UNIFIED_ANALYTICS: Processing dashboard data', {
+          dataChanged,
+          hasExistingData: !!data,
+          existingDataLength: data?.historical.length || 0,
+          newRevenueLength: dashboardRevenueData.length,
+          newOrdersLength: dashboardOrdersData.length
+        });
         
         try {
           const updated = convertDashboardDataToUnified(
@@ -658,16 +707,22 @@ const useUnifiedAnalytics = (
           // Save to cache
           saveToCache(shop, updated);
           
-          console.log('✅ UNIFIED_ANALYTICS: Updated with new dashboard data');
+          console.log('✅ UNIFIED_ANALYTICS: Updated with dashboard data', {
+            historicalPoints: updated.historical.length,
+            predictionPoints: updated.predictions.length,
+            totalRevenue: updated.total_revenue
+          });
         } catch (error) {
           console.error('🔄 UNIFIED_ANALYTICS: Error processing dashboard data:', error);
           setError('Failed to process dashboard data');
           setLoading(false);
         }
+      } else {
+        console.log('🔄 UNIFIED_ANALYTICS: No data change detected, keeping existing data');
       }
     } else if (!data || data.historical.length === 0) {
       // No data available, set empty state
-      console.log('🔄 UNIFIED_ANALYTICS: No dashboard data available');
+      console.log('🔄 UNIFIED_ANALYTICS: No dashboard data available, setting empty state');
       setData({
         historical: [],
         predictions: [],
@@ -677,6 +732,8 @@ const useUnifiedAnalytics = (
       });
       setLoading(false);
       setError(null);
+    } else {
+      console.log('🔄 UNIFIED_ANALYTICS: No dashboard data but keeping existing data');
     }
   }, [
     dashboardRevenueData, 
