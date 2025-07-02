@@ -762,6 +762,7 @@ const DashboardPage = () => {
     error: unifiedAnalyticsError,
     refetch: refetchUnifiedAnalytics,
     loadFromStorage: loadUnifiedAnalyticsFromStorage,
+    forceCompute: forceComputeUnifiedAnalytics,
     isCached: unifiedAnalyticsIsCached,
     cacheAge: unifiedAnalyticsCacheAge,
   } = useUnifiedAnalytics({
@@ -1841,9 +1842,12 @@ const DashboardPage = () => {
         fetchNewProductsData(true),
         fetchInsightsData(true),
         fetchOrdersData(true),
-        fetchAbandonedCartsData(true),
-        refetchUnifiedAnalytics() // Add unified analytics refetch
+        fetchAbandonedCartsData(true)
       ]);
+      
+      // Force compute unified analytics after main dashboard data is refreshed
+      console.log('🔄 Force computing unified analytics after dashboard refresh');
+      forceComputeUnifiedAnalytics();
       
       notifications.showSuccess('✅ Dashboard data has been updated.', { duration: 3000, category: 'Dashboard' });
       setIsRefreshing(false);
@@ -1863,7 +1867,7 @@ const DashboardPage = () => {
     fetchInsightsData, 
     fetchOrdersData,
     fetchAbandonedCartsData,
-    refetchUnifiedAnalytics,
+    forceComputeUnifiedAnalytics,
     notifications
   ]);
 

@@ -68,6 +68,7 @@ interface UseUnifiedAnalyticsReturn {
   isCached: boolean;
   cacheAge: number; // in minutes
   loadFromStorage: () => boolean;
+  forceCompute: () => void;
 }
 
 // Cache configuration - same as dashboard
@@ -867,10 +868,12 @@ const useUnifiedAnalytics = (
       // Check if data actually changed to avoid unnecessary updates
       const dataChanged = hasDataChanged(dashboardRevenueData, dashboardOrdersData);
       
-      // Always process data if we don't have any, or if data changed, or if there's an error
-      if (dataChanged || !data || data.historical.length === 0 || error) {
-        console.log('🔄 UNIFIED_ANALYTICS: Processing dashboard data', {
-          dataChanged,
+      // Only process data if:
+      // 1. We don't have any existing data, OR
+      // 2. Data actually changed significantly, OR
+      // 3. There's an error that needs recovery
+      if (!data || data.historical.length === 0 || error) {
+        console.log('🔄 UNIFIED_ANALYTICS: Processing dashboard data (no existing data or error recovery)', {
           hasExistingData: !!data,
           existingDataLength: data?.historical.length || 0,
           hasError: !!error,
@@ -925,6 +928,9 @@ const useUnifiedAnalytics = (
             console.log('🔄 UNIFIED_ANALYTICS: Keeping existing data after error');
           }
         }
+      } else if (dataChanged) {
+        // Data changed but we have existing data - only update if it's a significant change
+        console.log('🔄 UNIFIED_ANALYTICS: Data changed but keeping existing data (use session storage for toggles)');
       } else {
         console.log('🔄 UNIFIED_ANALYTICS: No data change detected, keeping existing data');
       }
@@ -956,6 +962,67 @@ const useUnifiedAnalytics = (
     error
   ]);
 
+  // Force compute unified analytics (called when main dashboard data is refreshed)
+  const forceCompute = useCallback(() => {
+    if (!shop || !shop.trim() || !useDashboardData) {
+      console.log('🔄 UNIFIED_ANALYTICS: Cannot force compute - missing shop or not in dashboard mode');
+      return;
+    }
+
+    const hasValidData = (Array.isArray(dashboardRevenueData) && dashboardRevenueData.length > 0) ||
+                        (Array.isArray(dashboardOrdersData) && dashboardOrdersData.length > 0);
+
+    if (!hasValidData) {
+      console.log('🔄 UNIFIED_ANALYTICS: Cannot force compute - no valid dashboard data');
+      return;
+    }
+
+    console.log('🔄 UNIFIED_ANALYTICS: Force computing unified analytics');
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const updated = convertDashboardDataToUnified(
+        dashboardRevenueData,
+        dashboardOrdersData
+      );
+      
+      // Validate the converted data before setting it
+      if (updated && Array.isArray(updated.historical)) {
+        // Update tracking refs
+        lastProcessedDataRef.current = {
+          revenueLength: dashboardRevenueData.length,
+          ordersLength: dashboardOrdersData.length,
+          revenueData: [...dashboardRevenueData],
+          ordersData: [...dashboardOrdersData]
+        };
+        
+        setData(updated);
+        setLastUpdated(new Date());
+        setIsCached(false);
+        setCacheAge(0);
+        setLoading(false);
+        setError(null);
+        
+        // Save to session storage for future toggles
+        saveUnifiedAnalyticsToStorage(shop, updated);
+        
+        console.log('✅ UNIFIED_ANALYTICS: Force computed and saved to storage', {
+          historicalPoints: updated.historical.length,
+          predictionPoints: updated.predictions.length,
+          totalRevenue: updated.total_revenue
+        });
+      } else {
+        throw new Error('Invalid data structure returned from conversion');
+      }
+    } catch (error) {
+      console.error('🔄 UNIFIED_ANALYTICS: Error force computing:', error);
+      setError('Failed to compute unified analytics');
+      setLoading(false);
+    }
+  }, [shop, useDashboardData, dashboardRevenueData, dashboardOrdersData, convertDashboardDataToUnified, saveUnifiedAnalyticsToStorage]);
+
   return {
     data,
     loading,
@@ -965,6 +1032,7 @@ const useUnifiedAnalytics = (
     isCached,
     cacheAge,
     loadFromStorage,
+    forceCompute,
   };
 };
 
