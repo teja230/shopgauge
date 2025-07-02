@@ -804,17 +804,28 @@ const DashboardPage = () => {
     // Set the new chart mode
     setChartMode(newMode);
     
-    // If switching to unified mode, always ensure we have data
+    // If switching to unified mode, ensure we have data
     if (newMode === 'unified') {
       console.log('🔄 Switching to unified mode - ensuring data is available');
       
-      // Force a refetch regardless of error state to ensure fresh data
+      // Check if we have valid timeseries data first
+      if (!stableTimeseriesData || stableTimeseriesData.length === 0) {
+        console.warn('🔄 No timeseries data available for unified analytics');
+        // Don't force a refetch if we don't have base data - this could cause errors
+        return;
+      }
+      
+      // Force a refetch if we don't have valid unified analytics data or if there's an error
       setTimeout(() => {
-        // Check if we have valid data, if not force a refetch
-        if (!unifiedAnalyticsData || unifiedAnalyticsData.historical.length === 0 || unifiedAnalyticsError) {
+        const needsData = !unifiedAnalyticsData || 
+                         unifiedAnalyticsData.historical.length === 0 || 
+                         unifiedAnalyticsError;
+        
+        if (needsData) {
           console.log('🔄 Unified analytics needs data - forcing refetch');
           refetchUnifiedAnalytics().catch(error => {
             console.error('❌ Failed to fetch unified analytics on toggle:', error);
+            // Don't show error to user - let the component handle it gracefully
           });
         } else {
           console.log('✅ Unified analytics already has valid data');

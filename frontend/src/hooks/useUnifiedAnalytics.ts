@@ -243,7 +243,7 @@ const useUnifiedAnalytics = (
         ordersDataSample: ordersData?.slice(0, 2)
       });
 
-      // Safety check: ensure inputs are arrays
+      // Enhanced safety check: ensure inputs are arrays and have valid structure
       if (!Array.isArray(revenueData) && !Array.isArray(ordersData)) {
         console.warn('UNIFIED_ANALYTICS: No valid input data arrays provided');
         return {
@@ -255,14 +255,41 @@ const useUnifiedAnalytics = (
         };
       }
 
-      // Use empty arrays as fallbacks
-      const safeRevenueData = Array.isArray(revenueData) ? revenueData : [];
-      const safeOrdersData = Array.isArray(ordersData) ? ordersData : [];
+      // Use empty arrays as fallbacks and validate data structure
+      const safeRevenueData = Array.isArray(revenueData) ? revenueData.filter(item => 
+        item && 
+        typeof item === 'object' && 
+        item.created_at && 
+        typeof item.created_at === 'string' &&
+        item.total_price !== undefined
+      ) : [];
+      
+      const safeOrdersData = Array.isArray(ordersData) ? ordersData.filter(item => 
+        item && 
+        typeof item === 'object' && 
+        item.created_at && 
+        typeof item.created_at === 'string' &&
+        item.total_price !== undefined
+      ) : [];
 
       console.log('🔄 UNIFIED_ANALYTICS: Using safe data arrays', {
         safeRevenueLength: safeRevenueData.length,
-        safeOrdersLength: safeOrdersData.length
+        safeOrdersLength: safeOrdersData.length,
+        originalRevenueLength: revenueData?.length || 0,
+        originalOrdersLength: ordersData?.length || 0
       });
+
+      // If no valid data after filtering, return empty state
+      if (safeRevenueData.length === 0 && safeOrdersData.length === 0) {
+        console.warn('UNIFIED_ANALYTICS: No valid data after filtering');
+        return {
+          historical: [],
+          predictions: [],
+          period_days: days,
+          total_revenue: 0,
+          total_orders: 0,
+        };
+      }
 
       // Group revenue data by date
       const revenueByDate = new Map<string, number>();
@@ -270,61 +297,82 @@ const useUnifiedAnalytics = (
       
       // Process revenue data (can be orders with revenue or separate revenue entries)
       safeRevenueData.forEach((item, index) => {
-        if (item && typeof item === 'object' && item.created_at) {
-          try {
-            const date = new Date(item.created_at).toISOString().split('T')[0];
-            if (date && date.length === 10) { // Valid date string should be 10 characters (YYYY-MM-DD)
-              const price = Number(item.total_price) || 0;
-              revenueByDate.set(date, (revenueByDate.get(date) || 0) + price);
-              
-              // Also track orders if this is order data
-              if (item.id) {
-                const existing = ordersByDate.get(date) || { count: 0, totalPrice: 0 };
-                ordersByDate.set(date, {
-                  count: existing.count + 1,
-                  totalPrice: existing.totalPrice + price
-                });
-              }
-            } else {
-              console.warn('UNIFIED_ANALYTICS: Invalid date format:', item.created_at, 'at index:', index);
-            }
-          } catch (dateError) {
-            console.warn('UNIFIED_ANALYTICS: Invalid date in revenue data:', item.created_at, 'at index:', index, 'error:', dateError);
+        try {
+          // Validate date format more strictly
+          const dateStr = item.created_at;
+          if (!dateStr || typeof dateStr !== 'string' || dateStr.length < 10) {
+            console.warn('UNIFIED_ANALYTICS: Invalid date format:', dateStr, 'at index:', index);
+            return;
           }
-        } else {
-          console.warn('UNIFIED_ANALYTICS: Invalid revenue item at index:', index, 'item:', item);
+
+          // Extract date part (YYYY-MM-DD)
+          const date = dateStr.substring(0, 10);
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+            console.warn('UNIFIED_ANALYTICS: Invalid date format (not YYYY-MM-DD):', date, 'at index:', index);
+            return;
+          }
+
+          // Validate and parse price
+          const price = Number(item.total_price);
+          if (isNaN(price) || price < 0) {
+            console.warn('UNIFIED_ANALYTICS: Invalid price:', item.total_price, 'at index:', index);
+            return;
+          }
+
+          revenueByDate.set(date, (revenueByDate.get(date) || 0) + price);
+          
+          // Also track orders if this is order data
+          if (item.id) {
+            const existing = ordersByDate.get(date) || { count: 0, totalPrice: 0 };
+            ordersByDate.set(date, {
+              count: existing.count + 1,
+              totalPrice: existing.totalPrice + price
+            });
+          }
+        } catch (dateError) {
+          console.warn('UNIFIED_ANALYTICS: Error processing revenue item at index:', index, 'error:', dateError);
         }
       });
 
       // Process orders data separately if provided
       safeOrdersData.forEach((item, index) => {
-        if (item && typeof item === 'object' && item.created_at) {
-          try {
-            const date = new Date(item.created_at).toISOString().split('T')[0];
-            if (date && date.length === 10) {
-              const price = Number(item.total_price) || 0;
-              
-              // Update orders count and revenue
-              const existing = ordersByDate.get(date) || { count: 0, totalPrice: 0 };
-              ordersByDate.set(date, {
-                count: existing.count + 1,
-                totalPrice: existing.totalPrice + price
-              });
-              
-              // Also update revenue if not already tracked
-              if (!revenueByDate.has(date)) {
-                revenueByDate.set(date, price);
-              } else {
-                revenueByDate.set(date, (revenueByDate.get(date) || 0) + price);
-              }
-            } else {
-              console.warn('UNIFIED_ANALYTICS: Invalid date format in orders:', item.created_at, 'at index:', index);
-            }
-          } catch (dateError) {
-            console.warn('UNIFIED_ANALYTICS: Invalid date in orders data:', item.created_at, 'at index:', index, 'error:', dateError);
+        try {
+          // Validate date format more strictly
+          const dateStr = item.created_at;
+          if (!dateStr || typeof dateStr !== 'string' || dateStr.length < 10) {
+            console.warn('UNIFIED_ANALYTICS: Invalid date format in orders:', dateStr, 'at index:', index);
+            return;
           }
-        } else {
-          console.warn('UNIFIED_ANALYTICS: Invalid orders item at index:', index, 'item:', item);
+
+          // Extract date part (YYYY-MM-DD)
+          const date = dateStr.substring(0, 10);
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+            console.warn('UNIFIED_ANALYTICS: Invalid date format in orders (not YYYY-MM-DD):', date, 'at index:', index);
+            return;
+          }
+
+          // Validate and parse price
+          const price = Number(item.total_price);
+          if (isNaN(price) || price < 0) {
+            console.warn('UNIFIED_ANALYTICS: Invalid price in orders:', item.total_price, 'at index:', index);
+            return;
+          }
+          
+          // Update orders count and revenue
+          const existing = ordersByDate.get(date) || { count: 0, totalPrice: 0 };
+          ordersByDate.set(date, {
+            count: existing.count + 1,
+            totalPrice: existing.totalPrice + price
+          });
+          
+          // Also update revenue if not already tracked
+          if (!revenueByDate.has(date)) {
+            revenueByDate.set(date, price);
+          } else {
+            revenueByDate.set(date, (revenueByDate.get(date) || 0) + price);
+          }
+        } catch (dateError) {
+          console.warn('UNIFIED_ANALYTICS: Error processing orders item at index:', index, 'error:', dateError);
         }
       });
 
@@ -354,7 +402,7 @@ const useUnifiedAnalytics = (
         const orderData = ordersByDate.get(date) || { count: 0, totalPrice: 0 };
         const ordersCount = orderData.count;
         
-        // Calculate metrics
+        // Calculate metrics with safety checks
         const avgOrderValue = ordersCount > 0 ? revenue / ordersCount : 0;
         // Realistic conversion rate calculation (2-5% is typical for e-commerce)
         const conversionRate = ordersCount > 0 ? 2.5 + (Math.random() * 2.5) : 0;
@@ -399,7 +447,7 @@ const useUnifiedAnalytics = (
             
             const firstHalfAvgRevenue = firstHalf.reduce((sum, item) => sum + item.revenue, 0) / firstHalf.length;
             const secondHalfAvgRevenue = secondHalf.reduce((sum, item) => sum + item.revenue, 0) / secondHalf.length;
-            revenueTrend = (secondHalfAvgRevenue - firstHalfAvgRevenue) / firstHalfAvgRevenue;
+            revenueTrend = (secondHalfAvgRevenue - firstHalfAvgRevenue) / Math.max(firstHalfAvgRevenue, 1);
             
             const firstHalfAvgOrders = firstHalf.reduce((sum, item) => sum + item.orders_count, 0) / firstHalf.length;
             const secondHalfAvgOrders = secondHalf.reduce((sum, item) => sum + item.orders_count, 0) / secondHalf.length;
@@ -712,6 +760,15 @@ const useUnifiedAnalytics = (
       return;
     }
 
+    console.log('🔄 UNIFIED_ANALYTICS: Dashboard data effect triggered', {
+      useDashboardData,
+      shop,
+      dashboardRevenueDataLength: dashboardRevenueData?.length || 0,
+      dashboardOrdersDataLength: dashboardOrdersData?.length || 0,
+      currentDataLength: data?.historical?.length || 0,
+      hasError: !!error
+    });
+
     // Check if we have valid data
     const hasValidData = (Array.isArray(dashboardRevenueData) && dashboardRevenueData.length > 0) ||
                         (Array.isArray(dashboardOrdersData) && dashboardOrdersData.length > 0);
@@ -720,49 +777,63 @@ const useUnifiedAnalytics = (
       // Check if data actually changed to avoid unnecessary updates
       const dataChanged = hasDataChanged(dashboardRevenueData, dashboardOrdersData);
       
-      // Always process data if we don't have any, or if data changed
-      if (dataChanged || !data || data.historical.length === 0) {
+      // Always process data if we don't have any, or if data changed, or if there's an error
+      if (dataChanged || !data || data.historical.length === 0 || error) {
         console.log('🔄 UNIFIED_ANALYTICS: Processing dashboard data', {
           dataChanged,
           hasExistingData: !!data,
           existingDataLength: data?.historical.length || 0,
+          hasError: !!error,
           newRevenueLength: dashboardRevenueData.length,
           newOrdersLength: dashboardOrdersData.length
         });
         
         try {
+          setLoading(true);
+          setError(null);
+          
           const updated = convertDashboardDataToUnified(
             dashboardRevenueData,
             dashboardOrdersData
           );
           
-          // Update tracking refs
-          lastProcessedDataRef.current = {
-            revenueLength: dashboardRevenueData.length,
-            ordersLength: dashboardOrdersData.length,
-            revenueData: [...dashboardRevenueData],
-            ordersData: [...dashboardOrdersData]
-          };
-          
-          setData(updated);
-          setLastUpdated(new Date());
-          setIsCached(false);
-          setCacheAge(0);
-          setLoading(false);
-          setError(null);
-          
-          // Save to cache
-          saveToCache(shop, updated);
-          
-          console.log('✅ UNIFIED_ANALYTICS: Updated with dashboard data', {
-            historicalPoints: updated.historical.length,
-            predictionPoints: updated.predictions.length,
-            totalRevenue: updated.total_revenue
-          });
+          // Validate the converted data before setting it
+          if (updated && Array.isArray(updated.historical)) {
+            // Update tracking refs
+            lastProcessedDataRef.current = {
+              revenueLength: dashboardRevenueData.length,
+              ordersLength: dashboardOrdersData.length,
+              revenueData: [...dashboardRevenueData],
+              ordersData: [...dashboardOrdersData]
+            };
+            
+            setData(updated);
+            setLastUpdated(new Date());
+            setIsCached(false);
+            setCacheAge(0);
+            setLoading(false);
+            setError(null);
+            
+            // Save to cache
+            saveToCache(shop, updated);
+            
+            console.log('✅ UNIFIED_ANALYTICS: Updated with dashboard data', {
+              historicalPoints: updated.historical.length,
+              predictionPoints: updated.predictions.length,
+              totalRevenue: updated.total_revenue
+            });
+          } else {
+            throw new Error('Invalid data structure returned from conversion');
+          }
         } catch (error) {
           console.error('🔄 UNIFIED_ANALYTICS: Error processing dashboard data:', error);
           setError('Failed to process dashboard data');
           setLoading(false);
+          
+          // Keep existing data if available to prevent complete failure
+          if (data && data.historical.length > 0) {
+            console.log('🔄 UNIFIED_ANALYTICS: Keeping existing data after error');
+          }
         }
       } else {
         console.log('🔄 UNIFIED_ANALYTICS: No data change detected, keeping existing data');
@@ -791,7 +862,8 @@ const useUnifiedAnalytics = (
     convertDashboardDataToUnified, 
     days, 
     saveToCache,
-    hasDataChanged
+    hasDataChanged,
+    error
   ]);
 
   return {
