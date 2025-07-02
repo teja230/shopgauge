@@ -234,6 +234,15 @@ const useUnifiedAnalytics = (
   // Convert dashboard data to unified analytics format with enhanced error handling
   const convertDashboardDataToUnified = useCallback((revenueData: any[], ordersData: any[]): UnifiedAnalyticsData => {
     try {
+      console.log('🔄 UNIFIED_ANALYTICS: Starting data conversion', {
+        revenueDataLength: revenueData?.length || 0,
+        ordersDataLength: ordersData?.length || 0,
+        revenueDataType: Array.isArray(revenueData) ? 'array' : typeof revenueData,
+        ordersDataType: Array.isArray(ordersData) ? 'array' : typeof ordersData,
+        revenueDataSample: revenueData?.slice(0, 2),
+        ordersDataSample: ordersData?.slice(0, 2)
+      });
+
       // Safety check: ensure inputs are arrays
       if (!Array.isArray(revenueData) && !Array.isArray(ordersData)) {
         console.warn('UNIFIED_ANALYTICS: No valid input data arrays provided');
@@ -250,12 +259,17 @@ const useUnifiedAnalytics = (
       const safeRevenueData = Array.isArray(revenueData) ? revenueData : [];
       const safeOrdersData = Array.isArray(ordersData) ? ordersData : [];
 
+      console.log('🔄 UNIFIED_ANALYTICS: Using safe data arrays', {
+        safeRevenueLength: safeRevenueData.length,
+        safeOrdersLength: safeOrdersData.length
+      });
+
       // Group revenue data by date
       const revenueByDate = new Map<string, number>();
       const ordersByDate = new Map<string, { count: number; totalPrice: number }>();
       
       // Process revenue data (can be orders with revenue or separate revenue entries)
-      safeRevenueData.forEach(item => {
+      safeRevenueData.forEach((item, index) => {
         if (item && typeof item === 'object' && item.created_at) {
           try {
             const date = new Date(item.created_at).toISOString().split('T')[0];
@@ -271,15 +285,19 @@ const useUnifiedAnalytics = (
                   totalPrice: existing.totalPrice + price
                 });
               }
+            } else {
+              console.warn('UNIFIED_ANALYTICS: Invalid date format:', item.created_at, 'at index:', index);
             }
           } catch (dateError) {
-            console.warn('UNIFIED_ANALYTICS: Invalid date in revenue data:', item.created_at);
+            console.warn('UNIFIED_ANALYTICS: Invalid date in revenue data:', item.created_at, 'at index:', index, 'error:', dateError);
           }
+        } else {
+          console.warn('UNIFIED_ANALYTICS: Invalid revenue item at index:', index, 'item:', item);
         }
       });
 
       // Process orders data separately if provided
-      safeOrdersData.forEach(item => {
+      safeOrdersData.forEach((item, index) => {
         if (item && typeof item === 'object' && item.created_at) {
           try {
             const date = new Date(item.created_at).toISOString().split('T')[0];
@@ -299,11 +317,22 @@ const useUnifiedAnalytics = (
               } else {
                 revenueByDate.set(date, (revenueByDate.get(date) || 0) + price);
               }
+            } else {
+              console.warn('UNIFIED_ANALYTICS: Invalid date format in orders:', item.created_at, 'at index:', index);
             }
           } catch (dateError) {
-            console.warn('UNIFIED_ANALYTICS: Invalid date in orders data:', item.created_at);
+            console.warn('UNIFIED_ANALYTICS: Invalid date in orders data:', item.created_at, 'at index:', index, 'error:', dateError);
           }
+        } else {
+          console.warn('UNIFIED_ANALYTICS: Invalid orders item at index:', index, 'item:', item);
         }
+      });
+
+      console.log('🔄 UNIFIED_ANALYTICS: Processed data maps', {
+        revenueDates: revenueByDate.size,
+        ordersDates: ordersByDate.size,
+        revenueByDateKeys: Array.from(revenueByDate.keys()).slice(0, 5),
+        ordersByDateKeys: Array.from(ordersByDate.keys()).slice(0, 5)
       });
 
       // Create historical data array
@@ -314,6 +343,11 @@ const useUnifiedAnalytics = (
       const sortedDates = Array.from(allDates).sort((a, b) => 
         new Date(a).getTime() - new Date(b).getTime()
       );
+      
+      console.log('🔄 UNIFIED_ANALYTICS: Creating historical data', {
+        totalDates: sortedDates.length,
+        dateRange: sortedDates.length > 0 ? `${sortedDates[0]} to ${sortedDates[sortedDates.length - 1]}` : 'none'
+      });
       
       sortedDates.forEach(date => {
         const revenue = revenueByDate.get(date) || 0;
@@ -336,9 +370,16 @@ const useUnifiedAnalytics = (
         });
       });
 
+      console.log('🔄 UNIFIED_ANALYTICS: Historical data created', {
+        historicalLength: historical.length,
+        sampleHistorical: historical.slice(0, 2)
+      });
+
       // Generate simple predictions based on recent trends
       const predictions: PredictionData[] = [];
       if (includePredictions && historical.length > 0) {
+        console.log('🔄 UNIFIED_ANALYTICS: Generating predictions');
+        
         // Get last 7-14 days of data for trend analysis
         const recentDays = Math.min(14, historical.length);
         const recentData = historical.slice(-recentDays);
@@ -399,13 +440,18 @@ const useUnifiedAnalytics = (
               },
             });
           }
+          
+          console.log('🔄 UNIFIED_ANALYTICS: Predictions generated', {
+            predictionsLength: predictions.length,
+            samplePredictions: predictions.slice(0, 2)
+          });
         }
       }
 
       const totalRevenue = historical.reduce((sum, item) => sum + (item.revenue || 0), 0);
       const totalOrders = historical.reduce((sum, item) => sum + (item.orders_count || 0), 0);
 
-      console.log('UNIFIED_ANALYTICS: Converted dashboard data:', {
+      console.log('✅ UNIFIED_ANALYTICS: Data conversion completed successfully', {
         historicalDays: historical.length,
         predictionDays: predictions.length,
         totalRevenue: totalRevenue.toFixed(2),
@@ -421,7 +467,8 @@ const useUnifiedAnalytics = (
         total_orders: totalOrders,
       };
     } catch (error) {
-      console.error('Error converting dashboard data to unified format:', error);
+      console.error('❌ UNIFIED_ANALYTICS: Error converting dashboard data to unified format:', error);
+      console.error('❌ UNIFIED_ANALYTICS: Error stack:', error instanceof Error ? error.stack : 'No stack trace');
       return {
         historical: [],
         predictions: [],

@@ -778,6 +778,25 @@ const DashboardPage = () => {
     if (!newMode || newMode === chartMode) return;
     
     console.log(`🔄 Chart mode changing from ${chartMode} to ${newMode}`);
+    console.log('🔄 Chart toggle - Current data state:', {
+      insights: insights ? {
+        timeseriesLength: insights.timeseries?.length || 0,
+        totalRevenue: insights.totalRevenue,
+        hasTimeseries: !!insights.timeseries
+      } : 'null',
+      stableTimeseriesData: {
+        length: stableTimeseriesData.length,
+        sample: stableTimeseriesData.slice(0, 2)
+      },
+      unifiedAnalyticsData: unifiedAnalyticsData ? {
+        historicalLength: unifiedAnalyticsData.historical?.length || 0,
+        predictionsLength: unifiedAnalyticsData.predictions?.length || 0,
+        totalRevenue: unifiedAnalyticsData.total_revenue,
+        totalOrders: unifiedAnalyticsData.total_orders
+      } : 'null',
+      unifiedAnalyticsError: unifiedAnalyticsError,
+      unifiedAnalyticsLoading: unifiedAnalyticsLoading
+    });
     
     // Reset error boundary on mode change to clear any sticky states
     setErrorBoundaryKey(prev => prev + 1);
@@ -804,7 +823,7 @@ const DashboardPage = () => {
     }
     
     console.log(`✅ Chart mode successfully changed to ${newMode}`);
-  }, [chartMode, unifiedAnalyticsData, unifiedAnalyticsError, refetchUnifiedAnalytics]);
+  }, [chartMode, unifiedAnalyticsData, unifiedAnalyticsError, refetchUnifiedAnalytics, insights, stableTimeseriesData, unifiedAnalyticsLoading]);
 
   // Enhanced retry handler for error boundaries
   const handleUnifiedAnalyticsRetry = useCallback(() => {
