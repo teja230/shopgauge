@@ -53,6 +53,7 @@ import {
 import LoadingIndicator from './LoadingIndicator';
 import type { TooltipProps, ChartPayload, UnifiedDatum, PredictionPoint } from '../../types/charts';
 import { useMediaQuery, useTheme } from '@mui/material';
+import { debugLog } from './DebugPanel';
 
 interface HistoricalData {
   date: string;
@@ -153,8 +154,24 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
 
   // Process and combine historical and prediction data with error handling
   const chartData = useMemo(() => {
+    debugLog.info('=== CHART DATA PROCESSING STARTED ===', { 
+      hasData: !!data,
+      hasHistorical: !!(data && data.historical),
+      isHistoricalArray: !!(data && Array.isArray(data.historical)),
+      dataKeys: data ? Object.keys(data) : [],
+      loading,
+      error
+    }, 'UnifiedAnalyticsChart');
+    
     try {
       if (!data || !data.historical || !Array.isArray(data.historical)) {
+        debugLog.warn('No valid data available for chart', {
+          hasData: !!data,
+          hasHistorical: !!(data && data.historical),
+          isHistoricalArray: !!(data && Array.isArray(data.historical)),
+          dataKeys: data ? Object.keys(data) : [],
+        }, 'UnifiedAnalyticsChart');
+        
         console.log('UnifiedAnalyticsChart: No valid data available', {
           hasData: !!data,
           hasHistorical: !!(data && data.historical),
@@ -163,6 +180,17 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         });
         return [];
       }
+
+      debugLog.info('Processing historical data for chart', {
+        historicalLength: data.historical.length,
+        sampleItem: data.historical[0],
+        dataStructure: {
+          hasPredictions: !!(data.predictions),
+          predictionsLength: Array.isArray(data.predictions) ? data.predictions.length : 0,
+          totalRevenue: data.total_revenue,
+          totalOrders: data.total_orders,
+        }
+      }, 'UnifiedAnalyticsChart');
 
       console.log('UnifiedAnalyticsChart: Processing historical data', {
         historicalLength: data.historical.length,
@@ -441,9 +469,27 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
 
   // Render different chart types based on selection
   const renderChart = () => {
+    debugLog.info('=== RENDERING CHART ===', { 
+      chartType,
+      showPredictions,
+      timeRange,
+      visibleMetrics,
+      chartDataLength: chartData.length,
+      hasData: !!data,
+      loading,
+      error
+    }, 'UnifiedAnalyticsChart');
+    
     try {
       // Validate chart data before rendering
       if (!chartData || chartData.length === 0) {
+        debugLog.warn('No chart data available for rendering', {
+          chartDataLength: chartData?.length || 0,
+          hasData: !!data,
+          loading,
+          error
+        }, 'UnifiedAnalyticsChart');
+        
         console.warn('UnifiedAnalyticsChart: No chart data available for rendering');
         return (
           <Box sx={{ 
@@ -980,11 +1026,25 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
     return () => ro.disconnect();
   }, []);
 
+  // Debug logging for component render states
+  debugLog.info('=== UNIFIED ANALYTICS CHART RENDER ===', { 
+    loading,
+    error,
+    hasData: !!data,
+    hasHistorical: !!(data && data.historical),
+    historicalLength: data?.historical?.length || 0,
+    chartDataLength: chartData.length,
+    chartType,
+    showPredictions
+  }, 'UnifiedAnalyticsChart');
+
   if (loading) {
+    debugLog.info('Rendering loading state', { height }, 'UnifiedAnalyticsChart');
     return <LoadingIndicator height={height} message="Loading analytics data…" />;
   }
 
   if (error) {
+    debugLog.error('Rendering error state', { error, height }, 'UnifiedAnalyticsChart');
     return (
       <Box
         sx={{
@@ -1021,9 +1081,26 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
     chartData &&
     chartData.length > 0;
 
+  debugLog.info('Data validation check', { 
+    hasValidData,
+    hasData: !!data,
+    hasHistorical: !!(data && data.historical),
+    isHistoricalArray: !!(data && Array.isArray(data.historical)),
+    historicalLength: data?.historical?.length || 0,
+    hasChartData: !!chartData,
+    chartDataLength: chartData.length
+  }, 'UnifiedAnalyticsChart');
+
   if (!hasValidData) {
     // Check if we have data but it's not valid
     if (data && (!data.historical || !Array.isArray(data.historical))) {
+      debugLog.error('Invalid data format detected', { 
+        hasData: !!data,
+        hasHistorical: !!(data && data.historical),
+        isHistoricalArray: !!(data && Array.isArray(data.historical)),
+        dataKeys: data ? Object.keys(data) : []
+      }, 'UnifiedAnalyticsChart');
+      
       return (
         <Box
           sx={{
@@ -1050,6 +1127,13 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
     }
 
     // No data available
+    debugLog.warn('No valid data available for chart', { 
+      hasData: !!data,
+      hasHistorical: !!(data && data.historical),
+      historicalLength: data?.historical?.length || 0,
+      chartDataLength: chartData.length
+    }, 'UnifiedAnalyticsChart');
+    
     return (
       <Box
         sx={{

@@ -687,6 +687,8 @@ const useUnifiedAnalytics = (
 
   // Load data from session storage (for toggling)
   const loadFromStorage = useCallback(() => {
+    debugLog.info('=== LOAD FROM STORAGE CALLED ===', { shop, useDashboardData }, 'UnifiedAnalytics');
+    
     if (!shop || !shop.trim()) {
       debugLog.warn('No shop available for loading from storage', { shop }, 'UnifiedAnalytics');
       return false;
@@ -698,6 +700,13 @@ const useUnifiedAnalytics = (
       const storedData = loadUnifiedAnalyticsFromStorage(shop);
       
       if (storedData) {
+        debugLog.info('✅ Successfully loaded from session storage', {
+          historicalLength: storedData.historical.length,
+          predictionLength: storedData.predictions.length,
+          totalRevenue: storedData.total_revenue,
+          totalOrders: storedData.total_orders
+        }, 'UnifiedAnalytics');
+        
         console.log('✅ UNIFIED_ANALYTICS: Successfully loaded from session storage', {
           historicalLength: storedData.historical.length,
           predictionLength: storedData.predictions.length,
@@ -716,15 +725,32 @@ const useUnifiedAnalytics = (
         // Mark as processed to prevent unnecessary reprocessing
         hasProcessedDataRef.current = true;
         
+        debugLog.info('✅ State updated successfully from storage', { 
+          hasData: !!storedData,
+          historicalLength: storedData.historical.length 
+        }, 'UnifiedAnalytics');
+        
         return true;
       } else {
+        debugLog.warn('No data found in session storage', { shop }, 'UnifiedAnalytics');
         console.log('🔄 UNIFIED_ANALYTICS: No data found in session storage');
         
         // If we have dashboard data available, try to fall back to processing it
         const hasValidDashboardData = (Array.isArray(dashboardRevenueData) && dashboardRevenueData.length > 0) ||
                                      (Array.isArray(dashboardOrdersData) && dashboardOrdersData.length > 0);
         
+        debugLog.info('Checking for dashboard data fallback', { 
+          hasRevenueData: Array.isArray(dashboardRevenueData) && dashboardRevenueData.length > 0,
+          hasOrdersData: Array.isArray(dashboardOrdersData) && dashboardOrdersData.length > 0,
+          useDashboardData 
+        }, 'UnifiedAnalytics');
+        
         if (hasValidDashboardData && useDashboardData) {
+          debugLog.info('Attempting dashboard data fallback processing', { 
+            revenueDataLength: dashboardRevenueData.length,
+            ordersDataLength: dashboardOrdersData.length 
+          }, 'UnifiedAnalytics');
+          
           console.log('🔄 UNIFIED_ANALYTICS: Falling back to processing dashboard data since no storage data found');
           try {
             setLoading(true);
@@ -742,33 +768,62 @@ const useUnifiedAnalytics = (
               hasProcessedDataRef.current = true;
               saveUnifiedAnalyticsToStorage(shop, processedData);
               
+              debugLog.info('✅ Successfully processed dashboard data as fallback', {
+                historicalLength: processedData.historical.length,
+                predictionsLength: processedData.predictions.length
+              }, 'UnifiedAnalytics');
+              
               console.log('✅ UNIFIED_ANALYTICS: Successfully processed dashboard data as fallback');
               return true;
             } else {
+              debugLog.error('Fallback processing failed - invalid data structure', { 
+                hasProcessedData: !!processedData,
+                hasHistorical: processedData && Array.isArray(processedData.historical)
+              }, 'UnifiedAnalytics');
+              
               console.error('🔄 UNIFIED_ANALYTICS: Fallback processing failed - invalid data structure');
               setError('Failed to process analytics data');
               setLoading(false);
               return false;
             }
           } catch (fallbackError) {
+            debugLog.error('Fallback processing failed with error', { 
+              error: fallbackError instanceof Error ? fallbackError.message : String(fallbackError)
+            }, 'UnifiedAnalytics');
+            
             console.error('🔄 UNIFIED_ANALYTICS: Fallback processing failed:', fallbackError);
             setError('Failed to process analytics data');
             setLoading(false);
             return false;
           }
+        } else {
+          debugLog.warn('No fallback data available', { 
+            hasValidDashboardData, 
+            useDashboardData 
+          }, 'UnifiedAnalytics');
         }
         
         return false;
       }
     } catch (error) {
+      debugLog.error('Error loading from session storage', { 
+        error: error instanceof Error ? error.message : String(error),
+        shop 
+      }, 'UnifiedAnalytics');
+      
       console.error('🔄 UNIFIED_ANALYTICS: Error loading from session storage:', error);
       
       // Clear potentially corrupted storage and set error state
       try {
         const storageKey = getUnifiedAnalyticsStorageKey(shop);
         sessionStorage.removeItem(storageKey);
+        debugLog.info('Cleared potentially corrupted session storage', { storageKey }, 'UnifiedAnalytics');
         console.log('🗑️ UNIFIED_ANALYTICS: Cleared potentially corrupted session storage');
       } catch (clearError) {
+        debugLog.error('Failed to clear corrupted storage', { 
+          error: clearError instanceof Error ? clearError.message : String(clearError)
+        }, 'UnifiedAnalytics');
+        
         console.error('🔄 UNIFIED_ANALYTICS: Failed to clear corrupted storage:', clearError);
       }
       
