@@ -105,6 +105,7 @@ const useUnifiedAnalytics = (
   // Track if we've done the initial load to prevent multiple initial loads
   const initialLoadRef = useRef(false);
   const isInitializedRef = useRef(false);
+  const loadedFromStorageRef = useRef(false); // Track if data was loaded from session storage
 
   // Keep a stable reference to the last valid data
   const lastValidDataRef = useRef<UnifiedAnalyticsData | null>(null);
@@ -541,14 +542,28 @@ const useUnifiedAnalytics = (
     
     try {
       const storageKey = getUnifiedAnalyticsStorageKey(shopName);
+      console.log('🔄 UNIFIED_ANALYTICS: Attempting to load with key:', storageKey);
+      
       const stored = sessionStorage.getItem(storageKey);
       
       if (!stored) {
-        console.log('🔄 UNIFIED_ANALYTICS: No cached data found in session storage');
+        console.log('🔄 UNIFIED_ANALYTICS: No cached data found in session storage for key:', storageKey);
         return null;
       }
 
+      console.log('🔄 UNIFIED_ANALYTICS: Found stored data, length:', stored.length);
       const parsed = JSON.parse(stored);
+      console.log('🔄 UNIFIED_ANALYTICS: Parsed data structure:', {
+        hasParsed: !!parsed,
+        hasHistorical: Array.isArray(parsed?.historical),
+        hasPredictions: Array.isArray(parsed?.predictions),
+        historicalLength: parsed?.historical?.length,
+        predictionLength: parsed?.predictions?.length,
+        totalRevenueType: typeof parsed?.total_revenue,
+        totalOrdersType: typeof parsed?.total_orders,
+        totalRevenue: parsed?.total_revenue,
+        totalOrders: parsed?.total_orders
+      });
       
       // Basic validation
       if (parsed && 
@@ -557,15 +572,24 @@ const useUnifiedAnalytics = (
           typeof parsed.total_revenue === 'number' &&
           typeof parsed.total_orders === 'number') {
         
-        console.log('✅ UNIFIED_ANALYTICS: Loaded from session storage', {
+        console.log('✅ UNIFIED_ANALYTICS: Validation passed, returning data', {
           historicalLength: parsed.historical.length,
           predictionLength: parsed.predictions.length,
-          totalRevenue: parsed.total_revenue
+          totalRevenue: parsed.total_revenue,
+          totalOrders: parsed.total_orders
         });
         
         return parsed;
       } else {
-        console.warn('🔄 UNIFIED_ANALYTICS: Invalid cached data structure, clearing');
+        console.warn('🔄 UNIFIED_ANALYTICS: Validation failed, details:', {
+          hasParsed: !!parsed,
+          historicalIsArray: Array.isArray(parsed?.historical),
+          predictionsIsArray: Array.isArray(parsed?.predictions),
+          totalRevenueIsNumber: typeof parsed?.total_revenue === 'number',
+          totalOrdersIsNumber: typeof parsed?.total_orders === 'number',
+          totalRevenueValue: parsed?.total_revenue,
+          totalOrdersValue: parsed?.total_orders
+        });
         sessionStorage.removeItem(storageKey);
         return null;
       }
@@ -743,6 +767,9 @@ const useUnifiedAnalytics = (
           setLoading(false);
           setError(null);
           
+          // Reset the loaded from storage flag since we're now using fresh data
+          loadedFromStorageRef.current = false;
+          
           // Save to session storage
           if (shop) {
             saveUnifiedAnalyticsToStorage(shop, updated);
@@ -784,12 +811,19 @@ const useUnifiedAnalytics = (
         totalRevenue: storedData.total_revenue,
         totalOrders: storedData.total_orders
       });
+      
+      console.log('🔄 UNIFIED_ANALYTICS: Setting data in state...');
       setData(storedData);
       setLastUpdated(new Date());
       setIsCached(true);
       setCacheAge(0);
       setLoading(false);
       setError(null);
+      
+      // Mark that we loaded from session storage to prevent dashboard effect from overriding
+      loadedFromStorageRef.current = true;
+      
+      console.log('✅ UNIFIED_ANALYTICS: Data successfully set in state, returning true');
       return true;
     } else {
       console.log('🔄 UNIFIED_ANALYTICS: No data found in session storage for shop:', shop);
@@ -884,11 +918,13 @@ const useUnifiedAnalytics = (
       // 1. We don't have any existing data, OR
       // 2. Data actually changed significantly, OR
       // 3. There's an error that needs recovery
-      if (!data || data.historical.length === 0 || error) {
+      // 4. AND we haven't just loaded from session storage
+      if ((!data || data.historical.length === 0 || error) && !loadedFromStorageRef.current) {
         console.log('🔄 UNIFIED_ANALYTICS: Processing dashboard data (no existing data or error recovery)', {
           hasExistingData: !!data,
           existingDataLength: data?.historical.length || 0,
           hasError: !!error,
+          loadedFromStorage: loadedFromStorageRef.current,
           newRevenueLength: dashboardRevenueData.length,
           newOrdersLength: dashboardOrdersData.length
         });
@@ -919,6 +955,9 @@ const useUnifiedAnalytics = (
             setLoading(false);
             setError(null);
             
+            // Reset the loaded from storage flag since we're now using fresh data
+            loadedFromStorageRef.current = false;
+            
             // Save to session storage for future toggles
             saveUnifiedAnalyticsToStorage(shop, updated);
             
@@ -943,6 +982,8 @@ const useUnifiedAnalytics = (
       } else if (dataChanged) {
         // Data changed but we have existing data - only update if it's a significant change
         console.log('🔄 UNIFIED_ANALYTICS: Data changed but keeping existing data (use session storage for toggles)');
+        // Reset the loaded from storage flag since data has changed
+        loadedFromStorageRef.current = false;
       } else {
         console.log('🔄 UNIFIED_ANALYTICS: No data change detected, keeping existing data');
       }
@@ -1023,6 +1064,9 @@ const useUnifiedAnalytics = (
         setLoading(false);
         setError(null);
         
+        // Reset the loaded from storage flag since we're now using fresh data
+        loadedFromStorageRef.current = false;
+        
         // Save to session storage for future toggles (following dashboard cache pattern)
         saveUnifiedAnalyticsToStorage(shop, updated);
         
@@ -1081,6 +1125,11 @@ const useUnifiedAnalytics = (
       console.error('🔄 UNIFIED_ANALYTICS: Error clearing session storage:', error);
     }
   }, [shop, getUnifiedAnalyticsStorageKey]);
+
+  // Reset loaded from storage flag when shop changes
+  useEffect(() => {
+    loadedFromStorageRef.current = false;
+  }, [shop]);
 
   return {
     data,
