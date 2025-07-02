@@ -784,79 +784,45 @@ const DashboardPage = () => {
     }
   }, [shop, clearUnifiedAnalyticsStorage]);
 
-  // Enhanced chart mode toggle handler to prevent state corruption
+  // Simplified chart mode toggle handler
   const handleChartModeChange = useCallback((event: React.MouseEvent<HTMLElement>, newMode: 'unified' | 'classic' | null) => {
     if (!newMode || newMode === chartMode) return;
     
     console.log(`🔄 Chart mode changing from ${chartMode} to ${newMode}`);
-    console.log('🔄 Chart toggle - Current data state:', {
-      insights: insights ? {
-        timeseriesLength: insights.timeseries?.length || 0,
-        totalRevenue: insights.totalRevenue,
-        hasTimeseries: !!insights.timeseries
-      } : 'null',
-      stableTimeseriesData: {
-        length: stableTimeseriesData.length,
-        sample: stableTimeseriesData.slice(0, 2)
-      },
-      unifiedAnalyticsData: unifiedAnalyticsData ? {
-        historicalLength: unifiedAnalyticsData.historical?.length || 0,
-        predictionsLength: unifiedAnalyticsData.predictions?.length || 0,
-        totalRevenue: unifiedAnalyticsData.total_revenue,
-        totalOrders: unifiedAnalyticsData.total_orders
-      } : 'null',
-      unifiedAnalyticsError: unifiedAnalyticsError,
-      unifiedAnalyticsLoading: unifiedAnalyticsLoading
-    });
     
-    // Reset error boundary on mode change to clear any sticky states
+    // Reset error boundary on mode change
     setErrorBoundaryKey(prev => prev + 1);
     
     // Set the new chart mode
     setChartMode(newMode);
     
-    // If switching to unified mode, try to load from session storage first
+    // If switching to unified mode, try to load from session storage
     if (newMode === 'unified') {
-      console.log('🔄 Switching to unified mode - attempting to load from session storage');
+      console.log('🔄 Switching to unified mode');
       
       // Try to load from session storage first
       const loadedFromStorage = loadUnifiedAnalyticsFromStorage();
       
-      if (loadedFromStorage) {
-        console.log('✅ Unified analytics loaded from session storage');
-      } else {
-        console.log('🔄 No data in session storage, checking if we need to process data');
-        
-        // Check if we have valid timeseries data to process
-        if (stableTimeseriesData && stableTimeseriesData.length > 0) {
-          console.log('🔄 Have timeseries data, will be processed by the hook automatically');
-        } else {
-          console.warn('🔄 No timeseries data available for unified analytics');
-        }
+      if (!loadedFromStorage) {
+        console.log('🔄 No session storage data, will be processed automatically');
       }
     }
     
-    console.log(`✅ Chart mode successfully changed to ${newMode}`);
-  }, [chartMode, unifiedAnalyticsData, unifiedAnalyticsError, loadUnifiedAnalyticsFromStorage, insights, stableTimeseriesData, unifiedAnalyticsLoading]);
+    console.log(`✅ Chart mode changed to ${newMode}`);
+  }, [chartMode, loadUnifiedAnalyticsFromStorage]);
 
-  // Enhanced retry handler for error boundaries
+  // Simplified retry handler for error boundaries
   const handleUnifiedAnalyticsRetry = useCallback(() => {
-    console.log('🔄 Manual retry for unified analytics initiated');
+    console.log('🔄 Manual retry for unified analytics');
     
     // Reset error boundary
     setErrorBoundaryKey(prev => prev + 1);
     
-    // Force refetch with delay to allow component to reset
+    // Force compute new data
     setTimeout(() => {
-      refetchUnifiedAnalytics().catch(error => {
-        console.error('❌ Retry failed:', error);
-        notifications.showError('Failed to reload analytics. Please try refreshing the page.', {
-          persistent: true,
-          category: 'Analytics'
-        });
-      });
+      forceComputeUnifiedAnalytics();
     }, 100);
-  }, [refetchUnifiedAnalytics, notifications]);
+  }, [forceComputeUnifiedAnalytics]);
 
   // Debug logging for unified analytics data
   useEffect(() => {

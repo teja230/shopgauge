@@ -964,19 +964,23 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
           backgroundColor: 'rgba(255, 0, 0, 0.02)',
           borderRadius: 2,
           border: '1px solid rgba(255, 0, 0, 0.1)',
+          p: 3,
         }}
       >
-        <Typography variant="h6" color="error">
+        <Typography variant="h6" color="error" textAlign="center">
           Failed to load analytics data
         </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {error}
+        <Typography variant="body2" color="text.secondary" textAlign="center">
+          The Advanced Analytics chart encountered an error. Please try refreshing the page.
+        </Typography>
+        <Typography variant="caption" color="text.secondary" textAlign="center" sx={{ mt: 1 }}>
+          Error: {error}
         </Typography>
       </Box>
     );
   }
 
-  // Enhanced data validation
+  // Enhanced data validation with better error messaging
   const hasValidData = data && 
     data.historical && 
     Array.isArray(data.historical) && 
@@ -985,6 +989,34 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
     chartData.length > 0;
 
   if (!hasValidData) {
+    // Check if we have data but it's not valid
+    if (data && (!data.historical || !Array.isArray(data.historical))) {
+      return (
+        <Box
+          sx={{
+            height,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexDirection: 'column',
+            gap: 2,
+            backgroundColor: 'rgba(255, 165, 0, 0.02)',
+            borderRadius: 2,
+            border: '1px solid rgba(255, 165, 0, 0.1)',
+            p: 3,
+          }}
+        >
+          <Typography variant="h6" color="warning.main" textAlign="center">
+            Invalid data format
+          </Typography>
+          <Typography variant="body2" color="text.secondary" textAlign="center">
+            The analytics data format is not valid. Please try refreshing the page.
+          </Typography>
+        </Box>
+      );
+    }
+
+    // No data available
     return (
       <Box
         sx={{
@@ -996,11 +1028,15 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
           gap: 2,
           backgroundColor: 'rgba(0, 0, 0, 0.02)',
           borderRadius: 2,
+          p: 3,
         }}
       >
         <Analytics sx={{ fontSize: 48, color: 'rgba(0, 0, 0, 0.2)' }} />
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="h6" color="text.secondary" textAlign="center">
           No analytics data available
+        </Typography>
+        <Typography variant="body2" color="text.secondary" textAlign="center">
+          Analytics data will appear here once your store has sufficient data.
         </Typography>
       </Box>
     );
