@@ -95,6 +95,7 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({
   isVisible = false, 
   onToggleVisibility 
 }) => {
+  console.log('DebugPanel: Rendering with isVisible:', isVisible);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isExpanded, setIsExpanded] = useState(false);
   const [filterLevel, setFilterLevel] = useState<string>('all');
@@ -156,6 +157,7 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({
   };
 
   if (!isVisible) {
+    console.log('DebugPanel: Rendering button (not visible)');
     return (
       <Box
         sx={{
@@ -187,6 +189,7 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({
     );
   }
 
+  console.log('DebugPanel: Rendering full panel (visible)');
   return (
     <Box
       sx={{

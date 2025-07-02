@@ -69,7 +69,7 @@ const RouteErrorCleaner: React.FC = () => {
 const AppContent: React.FC = () => {
   const { isAuthenticated, authLoading, loading } = useAuth();
   const { handleServiceError } = useServiceStatus();
-  const [showDebugPanel, setShowDebugPanel] = React.useState(false);
+  const [showDebugPanel, setShowDebugPanel] = React.useState(true); // Force debug panel to be visible for testing
   
   // Escalating loader: render the branded IntelligentLoadingScreen only
   // if the critical boot-up takes longer than a short threshold.
@@ -101,6 +101,8 @@ const AppContent: React.FC = () => {
       <IntelligentLoadingScreen fastMode={true} message="Loading ShopGauge..." />
     ) : null;
   }
+  
+  console.log('AppContent: DebugPanel state:', { showDebugPanel, isAuthenticated, loading, authLoading });
   
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col animate-fadeIn">
