@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getCacheKey, CACHE_VERSION } from '../utils/cacheUtils';
 import { fetchWithAuth } from '../api';
+import { debugLog } from '../components/ui/DebugPanel';
 
 interface HistoricalData {
   kind: 'historical';
@@ -687,11 +688,11 @@ const useUnifiedAnalytics = (
   // Load data from session storage (for toggling)
   const loadFromStorage = useCallback(() => {
     if (!shop || !shop.trim()) {
-      console.log('🔄 UNIFIED_ANALYTICS: No shop available for loading from storage');
+      debugLog.warn('No shop available for loading from storage', { shop }, 'UnifiedAnalytics');
       return false;
     }
 
-    console.log('🔄 UNIFIED_ANALYTICS: Attempting to load from session storage for shop:', shop);
+    debugLog.info('Attempting to load from session storage', { shop }, 'UnifiedAnalytics');
     
     try {
       const storedData = loadUnifiedAnalyticsFromStorage(shop);
@@ -791,7 +792,7 @@ const useUnifiedAnalytics = (
 
     // Initialize for dashboard data mode
     if (useDashboardData) {
-      console.log('🔄 UNIFIED_ANALYTICS: Initializing dashboard data mode for shop:', shop);
+      debugLog.info('Initializing dashboard data mode', { shop, useDashboardData }, 'UnifiedAnalytics');
       
       // Start loading state
       setLoading(true);
@@ -800,7 +801,10 @@ const useUnifiedAnalytics = (
       // Try to load from session storage first
       const storageData = loadUnifiedAnalyticsFromStorage(shop);
       if (storageData) {
-        console.log('✅ UNIFIED_ANALYTICS: Loaded initial data from session storage');
+        debugLog.info('Loaded initial data from session storage', { 
+          historicalLength: storageData.historical.length,
+          predictionsLength: storageData.predictions.length 
+        }, 'UnifiedAnalytics');
         setData(storageData);
         setLastUpdated(new Date());
         setIsCached(true);
@@ -808,7 +812,7 @@ const useUnifiedAnalytics = (
         setLoading(false);
         hasProcessedDataRef.current = true;
       } else {
-        console.log('🔄 UNIFIED_ANALYTICS: No session storage data, waiting for dashboard data');
+        debugLog.info('No session storage data, waiting for dashboard data', { shop }, 'UnifiedAnalytics');
         // Keep loading state until dashboard data arrives or timeout
         
         // Set a backup timeout in case dashboard data never arrives
@@ -886,7 +890,7 @@ const useUnifiedAnalytics = (
       return;
     }
 
-    console.log('🔄 UNIFIED_ANALYTICS: Dashboard data effect triggered', {
+    debugLog.info('Dashboard data effect triggered', {
       shop,
       dashboardRevenueDataLength: dashboardRevenueData?.length || 0,
       dashboardOrdersDataLength: dashboardOrdersData?.length || 0,
@@ -894,7 +898,7 @@ const useUnifiedAnalytics = (
       currentDataLength: data?.historical?.length || 0,
       loading,
       error: !!error
-    });
+    }, 'UnifiedAnalytics');
 
     // Check if we have valid dashboard data
     const hasValidData = (Array.isArray(dashboardRevenueData) && dashboardRevenueData.length > 0) ||

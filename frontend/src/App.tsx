@@ -21,6 +21,7 @@ import { CssBaseline } from '@mui/material';
 import theme from './theme';
 import IntelligentLoadingScreen from './components/ui/IntelligentLoadingScreen';
 import CommandPalette from './components/CommandPalette';
+import { DebugPanel, debugLog } from './components/ui/DebugPanel';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, authLoading } = useAuth();
@@ -68,6 +69,7 @@ const RouteErrorCleaner: React.FC = () => {
 const AppContent: React.FC = () => {
   const { isAuthenticated, authLoading, loading } = useAuth();
   const { handleServiceError } = useServiceStatus();
+  const [showDebugPanel, setShowDebugPanel] = React.useState(false);
   
   // Escalating loader: render the branded IntelligentLoadingScreen only
   // if the critical boot-up takes longer than a short threshold.
@@ -106,6 +108,10 @@ const AppContent: React.FC = () => {
       <RouteErrorCleaner />
       <NavBar />
       <PrivacyBanner />
+      <DebugPanel 
+        isVisible={showDebugPanel} 
+        onToggleVisibility={setShowDebugPanel} 
+      />
       <main className="flex-1">
         <Routes>
           <Route path="/" element={<HomePage />} />
