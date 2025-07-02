@@ -761,6 +761,7 @@ const DashboardPage = () => {
     loading: unifiedAnalyticsLoading,
     error: unifiedAnalyticsError,
     refetch: refetchUnifiedAnalytics,
+    loadFromStorage: loadUnifiedAnalyticsFromStorage,
     isCached: unifiedAnalyticsIsCached,
     cacheAge: unifiedAnalyticsCacheAge,
   } = useUnifiedAnalytics({
@@ -804,37 +805,29 @@ const DashboardPage = () => {
     // Set the new chart mode
     setChartMode(newMode);
     
-    // If switching to unified mode, ensure we have data
+    // If switching to unified mode, try to load from session storage first
     if (newMode === 'unified') {
-      console.log('🔄 Switching to unified mode - ensuring data is available');
+      console.log('🔄 Switching to unified mode - attempting to load from session storage');
       
-      // Check if we have valid timeseries data first
-      if (!stableTimeseriesData || stableTimeseriesData.length === 0) {
-        console.warn('🔄 No timeseries data available for unified analytics');
-        // Don't force a refetch if we don't have base data - this could cause errors
-        return;
-      }
+      // Try to load from session storage first
+      const loadedFromStorage = loadUnifiedAnalyticsFromStorage();
       
-      // Force a refetch if we don't have valid unified analytics data or if there's an error
-      setTimeout(() => {
-        const needsData = !unifiedAnalyticsData || 
-                         unifiedAnalyticsData.historical.length === 0 || 
-                         unifiedAnalyticsError;
+      if (loadedFromStorage) {
+        console.log('✅ Unified analytics loaded from session storage');
+      } else {
+        console.log('🔄 No data in session storage, checking if we need to process data');
         
-        if (needsData) {
-          console.log('🔄 Unified analytics needs data - forcing refetch');
-          refetchUnifiedAnalytics().catch(error => {
-            console.error('❌ Failed to fetch unified analytics on toggle:', error);
-            // Don't show error to user - let the component handle it gracefully
-          });
+        // Check if we have valid timeseries data to process
+        if (stableTimeseriesData && stableTimeseriesData.length > 0) {
+          console.log('🔄 Have timeseries data, will be processed by the hook automatically');
         } else {
-          console.log('✅ Unified analytics already has valid data');
+          console.warn('🔄 No timeseries data available for unified analytics');
         }
-      }, 100);
+      }
     }
     
     console.log(`✅ Chart mode successfully changed to ${newMode}`);
-  }, [chartMode, unifiedAnalyticsData, unifiedAnalyticsError, refetchUnifiedAnalytics, insights, stableTimeseriesData, unifiedAnalyticsLoading]);
+  }, [chartMode, unifiedAnalyticsData, unifiedAnalyticsError, loadUnifiedAnalyticsFromStorage, insights, stableTimeseriesData, unifiedAnalyticsLoading]);
 
   // Enhanced retry handler for error boundaries
   const handleUnifiedAnalyticsRetry = useCallback(() => {

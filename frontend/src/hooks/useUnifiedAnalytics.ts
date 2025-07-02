@@ -67,6 +67,7 @@ interface UseUnifiedAnalyticsReturn {
   lastUpdated: Date | null;
   isCached: boolean;
   cacheAge: number; // in minutes
+  loadFromStorage: () => boolean;
 }
 
 // Cache configuration - same as dashboard
@@ -527,6 +528,69 @@ const useUnifiedAnalytics = (
     }
   }, [days, includePredictions]);
 
+  // Simple session storage key for unified analytics
+  const getUnifiedAnalyticsStorageKey = useCallback((shopName: string) => {
+    return `unified_analytics_${shopName}_${days}d_${includePredictions ? 'with' : 'no'}_predictions`;
+  }, [days, includePredictions]);
+
+  // Load unified analytics from session storage
+  const loadUnifiedAnalyticsFromStorage = useCallback((shopName: string): UnifiedAnalyticsData | null => {
+    if (!shopName || !shopName.trim()) return null;
+    
+    try {
+      const storageKey = getUnifiedAnalyticsStorageKey(shopName);
+      const stored = sessionStorage.getItem(storageKey);
+      
+      if (!stored) {
+        console.log('🔄 UNIFIED_ANALYTICS: No cached data found in session storage');
+        return null;
+      }
+
+      const parsed = JSON.parse(stored);
+      
+      // Basic validation
+      if (parsed && 
+          Array.isArray(parsed.historical) && 
+          Array.isArray(parsed.predictions) &&
+          typeof parsed.total_revenue === 'number' &&
+          typeof parsed.total_orders === 'number') {
+        
+        console.log('✅ UNIFIED_ANALYTICS: Loaded from session storage', {
+          historicalLength: parsed.historical.length,
+          predictionLength: parsed.predictions.length,
+          totalRevenue: parsed.total_revenue
+        });
+        
+        return parsed;
+      } else {
+        console.warn('🔄 UNIFIED_ANALYTICS: Invalid cached data structure, clearing');
+        sessionStorage.removeItem(storageKey);
+        return null;
+      }
+    } catch (error) {
+      console.warn('🔄 UNIFIED_ANALYTICS: Error loading from session storage:', error);
+      return null;
+    }
+  }, [getUnifiedAnalyticsStorageKey]);
+
+  // Save unified analytics to session storage
+  const saveUnifiedAnalyticsToStorage = useCallback((shopName: string, analyticsData: UnifiedAnalyticsData) => {
+    if (!shopName || !shopName.trim()) return;
+
+    try {
+      const storageKey = getUnifiedAnalyticsStorageKey(shopName);
+      sessionStorage.setItem(storageKey, JSON.stringify(analyticsData));
+      
+      console.log('💾 UNIFIED_ANALYTICS: Saved to session storage', {
+        key: storageKey,
+        historicalLength: analyticsData.historical.length,
+        predictionLength: analyticsData.predictions.length
+      });
+    } catch (error) {
+      console.warn('🔄 UNIFIED_ANALYTICS: Error saving to session storage:', error);
+    }
+  }, [getUnifiedAnalyticsStorageKey]);
+
   // Enhanced fetchData function with better error handling
   const fetchData = useCallback(async (forceRefresh = false): Promise<UnifiedAnalyticsData> => {
     // Validate shop before proceeding
@@ -677,9 +741,9 @@ const useUnifiedAnalytics = (
           setLoading(false);
           setError(null);
           
-          // Save to cache
+          // Save to session storage
           if (shop) {
-            saveToCache(shop, updated);
+            saveUnifiedAnalyticsToStorage(shop, updated);
           }
           
           console.log('✅ UNIFIED_ANALYTICS: Reprocessed dashboard data on refetch');
@@ -698,7 +762,33 @@ const useUnifiedAnalytics = (
       console.error('🔄 UNIFIED_ANALYTICS: Manual refetch failed:', error);
       // Don't throw here - let the component handle the error state
     }
-  }, [fetchData, useDashboardData, dashboardRevenueData, dashboardOrdersData, convertDashboardDataToUnified, shop, saveToCache]);
+  }, [fetchData, useDashboardData, dashboardRevenueData, dashboardOrdersData, convertDashboardDataToUnified, shop, saveUnifiedAnalyticsToStorage]);
+
+  // Load data from session storage (for toggling)
+  const loadFromStorage = useCallback(() => {
+    if (!shop || !shop.trim()) {
+      console.log('🔄 UNIFIED_ANALYTICS: No shop available for loading from storage');
+      return false;
+    }
+
+    console.log('🔄 UNIFIED_ANALYTICS: Attempting to load from session storage');
+    
+    const storedData = loadUnifiedAnalyticsFromStorage(shop);
+    
+    if (storedData) {
+      console.log('✅ UNIFIED_ANALYTICS: Successfully loaded from session storage');
+      setData(storedData);
+      setLastUpdated(new Date());
+      setIsCached(true);
+      setCacheAge(0);
+      setLoading(false);
+      setError(null);
+      return true;
+    } else {
+      console.log('🔄 UNIFIED_ANALYTICS: No data found in session storage');
+      return false;
+    }
+  }, [shop, loadUnifiedAnalyticsFromStorage]);
 
   // Initialize data when shop changes or first load
   useEffect(() => {
@@ -814,10 +904,10 @@ const useUnifiedAnalytics = (
             setLoading(false);
             setError(null);
             
-            // Save to cache
-            saveToCache(shop, updated);
+            // Save to session storage for future toggles
+            saveUnifiedAnalyticsToStorage(shop, updated);
             
-            console.log('✅ UNIFIED_ANALYTICS: Updated with dashboard data', {
+            console.log('✅ UNIFIED_ANALYTICS: Updated with dashboard data and saved to storage', {
               historicalPoints: updated.historical.length,
               predictionPoints: updated.predictions.length,
               totalRevenue: updated.total_revenue
@@ -861,7 +951,7 @@ const useUnifiedAnalytics = (
     data, 
     convertDashboardDataToUnified, 
     days, 
-    saveToCache,
+    saveUnifiedAnalyticsToStorage,
     hasDataChanged,
     error
   ]);
@@ -874,6 +964,7 @@ const useUnifiedAnalytics = (
     lastUpdated,
     isCached,
     cacheAge,
+    loadFromStorage,
   };
 };
 
