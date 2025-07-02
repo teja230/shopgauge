@@ -789,6 +789,14 @@ const DashboardPage = () => {
     if (!newMode || newMode === chartMode) return;
     
     console.log(`🔄 Chart mode changing from ${chartMode} to ${newMode}`);
+    console.log('Dashboard: Chart mode change debug:', {
+      currentMode: chartMode,
+      newMode,
+      hasUnifiedData: !!unifiedAnalyticsData,
+      unifiedLoading: unifiedAnalyticsLoading,
+      unifiedError: unifiedAnalyticsError,
+      hasStableData: stableTimeseriesData.length > 0
+    });
     
     // Reset error boundary on mode change
     setErrorBoundaryKey(prev => prev + 1);
@@ -805,11 +813,11 @@ const DashboardPage = () => {
       
       if (!loadedFromStorage) {
         console.log('🔄 No session storage data, will be processed automatically');
-      }
+        }
     }
     
     console.log(`✅ Chart mode changed to ${newMode}`);
-  }, [chartMode, loadUnifiedAnalyticsFromStorage]);
+  }, [chartMode, loadUnifiedAnalyticsFromStorage, unifiedAnalyticsData, unifiedAnalyticsLoading, unifiedAnalyticsError, stableTimeseriesData]);
 
   // Simplified retry handler for error boundaries
   const handleUnifiedAnalyticsRetry = useCallback(() => {
@@ -826,15 +834,19 @@ const DashboardPage = () => {
 
   // Debug logging for unified analytics data
   useEffect(() => {
-    if (insights) {
-      console.log('Dashboard: Insights data for unified analytics:', {
-        timeseriesLength: insights.timeseries?.length || 0,
-        ordersLength: insights.timeseries?.length || 0,
-        shop: shop,
-        hasStableData: stableTimeseriesData.length > 0,
-      });
-    }
-  }, [insights, shop, stableTimeseriesData]);
+    console.log('Dashboard: Unified Analytics Debug Info:', {
+      hasInsights: !!insights,
+      timeseriesLength: insights?.timeseries?.length || 0,
+      ordersLength: insights?.timeseries?.length || 0,
+      shop: shop,
+      hasStableData: stableTimeseriesData.length > 0,
+      stableTimeseriesDataLength: stableTimeseriesData.length,
+      unifiedAnalyticsData: !!unifiedAnalyticsData,
+      unifiedAnalyticsLoading,
+      unifiedAnalyticsError,
+      chartMode
+    });
+  }, [insights, shop, stableTimeseriesData, unifiedAnalyticsData, unifiedAnalyticsLoading, unifiedAnalyticsError, chartMode]);
 
   // Individual card loading states
   const [cardLoading, setCardLoading] = useState<CardLoadingState>({
