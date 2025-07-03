@@ -1644,11 +1644,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
             })()}
             
             {/* Render chart based on selected type */}
-            <div style={{ width: '100%', height: chartHeight, minHeight: '200px', border: '2px solid red', backgroundColor: 'rgba(255, 0, 0, 0.1)' }}>
-              {/* Debug: Add visible marker to see if container is rendered */}
-              <div style={{ position: 'absolute', top: '10px', left: '10px', background: 'yellow', padding: '5px', fontSize: '12px', zIndex: 1000 }}>
-                CHART CONTAINER: {chartHeight}px
-              </div>
+            <div style={{ width: '100%', height: chartHeight, minHeight: '200px' }}>
               
               <ResponsiveContainer width="100%" height={chartHeight}>
                 {(() => {
