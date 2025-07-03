@@ -195,11 +195,38 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
     conversion: true,
   });
   const [predictionLoading, setPredictionLoading] = useState(false);
-
+  
+  // Force component remount when chart type changes to prevent stale references
+  const [chartKey, setChartKey] = useState(0);
+  
   // Generate a unique id prefix for gradient defs to avoid DOM ID collisions
   const gradientIdPrefix = useMemo(() => {
-    return `ua-${Math.random().toString(36).substring(2, 8)}`;
-  }, []);
+    return `ua-${chartType}-${chartKey}-${Math.random().toString(36).substring(2, 8)}`;
+  }, [chartType, chartKey]);
+
+  // Force remount when chart type changes to prevent React invariant errors
+  const handleChartTypeChange = (newType: ChartType) => {
+    if (newType && newType !== chartType) {
+      debugLog.info('Chart type changing - forcing complete remount to prevent invariant errors', {
+        oldType: chartType,
+        newType,
+        chartKey,
+        action: 'FORCE_REMOUNT'
+      }, 'UnifiedAnalyticsChart');
+      
+      // First clear the container to prevent any stale references
+      setContainerReady(false);
+      
+      // Update chart type and force remount
+      setChartType(newType);
+      setChartKey(prev => prev + 1);
+      
+      // Re-enable container after a brief delay to ensure clean slate
+      setTimeout(() => {
+        setContainerReady(true);
+      }, 50);
+    }
+  };
 
   // Process and combine historical and prediction data with error handling
   const chartData = useMemo(() => {
@@ -638,46 +665,64 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         )
       }, 'UnifiedAnalyticsChart');
 
-      // Create a final safety-filtered and sanitized dataset to prevent any remaining invalid data from reaching Recharts
+      // Create a completely sanitized dataset with aggressive validation to prevent React invariant errors
       const safeChartData = chartData
         .filter(item => {
-          return item && 
-                 typeof item.date === 'string' && 
-                 item.date.length > 0 &&
-                 typeof item.revenue === 'number' && 
-                 !isNaN(item.revenue) &&
-                 isFinite(item.revenue) &&
-                 item.revenue >= 0 &&
-                 item.revenue <= 1e9 &&
-                 typeof item.orders_count === 'number' && 
-                 !isNaN(item.orders_count) &&
-                 isFinite(item.orders_count) &&
-                 item.orders_count >= 0 &&
-                 item.orders_count <= 1e6 &&
-                 typeof item.conversion_rate === 'number' && 
-                 !isNaN(item.conversion_rate) &&
-                 isFinite(item.conversion_rate) &&
-                 item.conversion_rate >= 0 &&
-                 item.conversion_rate <= 100 &&
-                 typeof item.avg_order_value === 'number' && 
-                 !isNaN(item.avg_order_value) &&
-                 isFinite(item.avg_order_value) &&
-                 item.avg_order_value >= 0 &&
-                 item.avg_order_value <= 1e6;
+          // Ultra-strict validation
+          if (!item || typeof item !== 'object') return false;
+          
+          // Validate date
+          if (typeof item.date !== 'string' || item.date.length === 0) return false;
+          const dateTest = new Date(item.date);
+          if (isNaN(dateTest.getTime())) return false;
+          
+          // Validate all numeric fields with strict bounds
+          const fields = ['revenue', 'orders_count', 'conversion_rate', 'avg_order_value'];
+          for (const field of fields) {
+            const value = item[field];
+            if (typeof value !== 'number' || isNaN(value) || !isFinite(value)) return false;
+            if (value < 0 || value === Infinity || value === -Infinity) return false;
+          }
+          
+          // Additional bounds checking
+          if (item.revenue > 1e9 || item.orders_count > 1e6 || 
+              item.conversion_rate > 100 || item.avg_order_value > 1e6) return false;
+          
+          return true;
         })
-        .map(item => ({
-          // Deep sanitization of each data point
-          ...item,
-          date: safeDateString(item.date),
-          revenue: Math.max(0, Math.min(1e9, safeNumber(item.revenue))),
-          orders_count: Math.max(0, Math.min(1e6, safeNumber(item.orders_count))),
-          conversion_rate: Math.max(0, Math.min(100, safeNumber(item.conversion_rate))),
-          avg_order_value: Math.max(0, Math.min(1e6, safeNumber(item.avg_order_value))),
-          // Ensure all other properties are safe
-          key: item.key || `item-${item.date}`,
-          type: item.type || 'historical',
-          isPrediction: Boolean(item.isPrediction),
-        }));
+        .map((item, index) => {
+          // Create a completely new object to prevent any reference issues
+          const sanitizedItem = {
+            // Ensure date is properly formatted
+            date: safeDateString(item.date),
+            
+            // Clamp all numeric values to safe ranges
+            revenue: Math.round(Math.max(0, Math.min(1e9, safeNumber(item.revenue))) * 100) / 100,
+            orders_count: Math.round(Math.max(0, Math.min(1e6, safeNumber(item.orders_count)))),
+            conversion_rate: Math.round(Math.max(0, Math.min(100, safeNumber(item.conversion_rate))) * 100) / 100,
+            avg_order_value: Math.round(Math.max(0, Math.min(1e6, safeNumber(item.avg_order_value))) * 100) / 100,
+            
+            // Ensure safe metadata
+            key: `${chartType}-${chartKey}-${item.date}-${index}`,
+            type: String(item.type || 'historical'),
+            isPrediction: Boolean(item.isPrediction),
+            
+            // Add any additional safe properties
+            ...(item.confidence_score !== undefined && { 
+              confidence_score: Math.max(0, Math.min(1, safeNumber(item.confidence_score))) 
+            }),
+          };
+          
+                     // Final validation of the sanitized item
+           Object.keys(sanitizedItem).forEach(key => {
+             const value = (sanitizedItem as any)[key];
+             if (value === undefined || value === null) {
+               delete (sanitizedItem as any)[key];
+             }
+           });
+          
+          return sanitizedItem;
+        });
 
       if (safeChartData.length !== chartData.length) {
         debugLog.warn('Filtered out invalid data points before passing to Recharts', {
@@ -720,6 +765,8 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         // Add additional props to prevent SVG rendering issues
         syncId: undefined, // Prevent sync issues
         throttleDelay: 0,   // Prevent throttling issues
+        // Force complete remount with unique key
+        key: `${chartType}-chart-${chartKey}`,
       };
 
       const commonXAxis = (
@@ -1455,7 +1502,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
           <ToggleButtonGroup
             value={chartType}
             exclusive
-            onChange={(_, newType) => newType && setChartType(newType)}
+            onChange={(_, newType) => newType && handleChartTypeChange(newType)}
             size="small"
             sx={{
               overflowX: 'auto',
@@ -1734,8 +1781,9 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         ))}
       </Box>
 
-      {/* Chart Container */}
+      {/* Chart Container - Force remount with key to prevent React invariant errors */}
       <Paper
+        key={`chart-container-${chartType}-${chartKey}`}
         ref={containerRef}
         elevation={0}
         sx={{
@@ -1748,27 +1796,51 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         }}
       >
         {containerReady && (
-          <div style={{ width: '100%', height: height }}>
-            <ResponsiveContainer width="100%" height={height}>
+          <div 
+            key={`chart-wrapper-${chartType}-${chartKey}`}
+            style={{ width: '100%', height: height }}
+          >
+            <ResponsiveContainer 
+              key={`responsive-container-${chartType}-${chartKey}`}
+              width="100%" 
+              height={height}
+            >
               {(() => {
                 try {
                   debugLog.info('About to render chart inside ResponsiveContainer', {
                     chartType,
+                    chartKey,
                     chartDataLength: chartData.length,
                     containerReady,
-                    hasValidData: chartData.length > 0
+                    hasValidData: chartData.length > 0,
+                    gradientIdPrefix
                   }, 'UnifiedAnalyticsChart');
                   
-                  return renderChart();
+                  const chartElement = renderChart();
+                  
+                  debugLog.info('Chart element created successfully', {
+                    chartType,
+                    chartKey,
+                    hasElement: !!chartElement
+                  }, 'UnifiedAnalyticsChart');
+                  
+                  return chartElement;
                 } catch (renderError) {
-                  debugLog.error('Error in ResponsiveContainer render', {
+                  debugLog.error('CRITICAL: Error in ResponsiveContainer render', {
                     error: renderError instanceof Error ? renderError.message : String(renderError),
                     stack: renderError instanceof Error ? renderError.stack : undefined,
                     chartType,
-                    chartDataLength: chartData.length
+                    chartKey,
+                    chartDataLength: chartData.length,
+                    gradientIdPrefix
                   }, 'UnifiedAnalyticsChart');
                   
-                  console.error('ResponsiveContainer render error:', renderError);
+                  console.error('CRITICAL: ResponsiveContainer render error:', renderError);
+                  
+                  // Force a chart key increment to try to recover
+                  setTimeout(() => {
+                    setChartKey(prev => prev + 1);
+                  }, 100);
                   
                   return (
                     <div style={{ 
@@ -1778,13 +1850,16 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                       alignItems: 'center', 
                       justifyContent: 'center',
                       flexDirection: 'column',
-                      gap: '16px'
+                      gap: '16px',
+                      backgroundColor: '#fef2f2',
+                      borderRadius: '8px',
+                      border: '1px solid #fecaca'
                     }}>
                       <Typography variant="h6" color="error">
                         Chart Rendering Failed
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        The chart could not be rendered due to a data issue.
+                        Attempting to recover...
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
                         Error: {renderError instanceof Error ? renderError.message : String(renderError)}
