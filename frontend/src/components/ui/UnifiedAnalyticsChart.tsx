@@ -585,6 +585,71 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
     }
   }, [data]);
 
+  // Create sanitized chart data with aggressive validation to prevent React invariant errors
+  const safeChartData = useMemo(() => {
+    if (!chartData || !Array.isArray(chartData) || chartData.length === 0) {
+      return [];
+    }
+
+    return chartData
+      .filter(item => {
+        // Ultra-strict validation
+        if (!item || typeof item !== 'object') return false;
+        
+        // Validate date
+        if (typeof item.date !== 'string' || item.date.length === 0) return false;
+        const dateTest = new Date(item.date);
+        if (isNaN(dateTest.getTime())) return false;
+        
+        // Validate all numeric fields with strict bounds
+        const fields = ['revenue', 'orders_count', 'conversion_rate', 'avg_order_value'];
+        for (const field of fields) {
+          const value = item[field];
+          if (typeof value !== 'number' || isNaN(value) || !isFinite(value)) return false;
+          if (value < 0 || value === Infinity || value === -Infinity) return false;
+        }
+        
+        // Additional bounds checking
+        if (item.revenue > 1e9 || item.orders_count > 1e6 || 
+            item.conversion_rate > 100 || item.avg_order_value > 1e6) return false;
+        
+        return true;
+      })
+      .map((item, index) => {
+        // Create a completely new object to prevent any reference issues
+        const sanitizedItem = {
+          // Ensure date is properly formatted
+          date: safeDateString(item.date),
+          
+          // Clamp all numeric values to safe ranges
+          revenue: Math.round(Math.max(0, Math.min(1e9, safeNumber(item.revenue))) * 100) / 100,
+          orders_count: Math.round(Math.max(0, Math.min(1e6, safeNumber(item.orders_count)))),
+          conversion_rate: Math.round(Math.max(0, Math.min(100, safeNumber(item.conversion_rate))) * 100) / 100,
+          avg_order_value: Math.round(Math.max(0, Math.min(1e6, safeNumber(item.avg_order_value))) * 100) / 100,
+          
+          // Ensure safe metadata
+          key: `data-${item.date}-${index}`,
+          type: String(item.type || 'historical'),
+          isPrediction: Boolean(item.isPrediction),
+          
+          // Add any additional safe properties
+          ...(item.confidence_score !== undefined && { 
+            confidence_score: Math.max(0, Math.min(1, safeNumber(item.confidence_score))) 
+          }),
+        };
+        
+        // Final validation of the sanitized item
+        Object.keys(sanitizedItem).forEach(key => {
+          const value = (sanitizedItem as any)[key];
+          if (value === undefined || value === null) {
+            delete (sanitizedItem as any)[key];
+          }
+        });
+        
+        return sanitizedItem;
+      });
+  }, [chartData]);
+
   const formatXAxisTick = (tickItem: string) => {
     try {
       const date = new Date(tickItem);
@@ -731,14 +796,14 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
   
   // Prepare common chart props and components
   const commonProps = useMemo(() => ({
-    data: chartData, // This will be replaced with safeChartData in renderChart
+    data: safeChartData,
     margin: { top: 20, right: 30, left: 20, bottom: 20 },
     // Add additional props to prevent SVG rendering issues
     syncId: undefined, // Prevent sync issues
     throttleDelay: 0,   // Prevent throttling issues
     // Force complete remount with unique key
     key: `${chartType}-chart-${chartKey}`,
-  }), [chartData, chartType, chartKey]);
+  }), [safeChartData, chartType, chartKey]);
 
   const commonXAxis = (
     <XAxis
@@ -803,28 +868,8 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
   // Render different chart types based on selection
   const renderChart = () => {
     try {
-      // Enhanced validation to prevent React invariant errors
-      if (!chartData) {
-        debugLog.error('Chart data is null/undefined', {}, 'UnifiedAnalyticsChart');
-        throw new Error('Chart data is null/undefined');
-      }
-      
-      if (!Array.isArray(chartData)) {
-        debugLog.error('Chart data is not an array', { 
-          chartDataType: typeof chartData,
-          chartDataValue: chartData 
-        }, 'UnifiedAnalyticsChart');
-        throw new Error('Chart data is not an array');
-      }
-      
-      if (chartData.length === 0) {
-        debugLog.warn('No chart data available for rendering', {
-          chartDataLength: 0,
-          hasData: !!data,
-          loading,
-          error
-        }, 'UnifiedAnalyticsChart');
-        
+      // Use the pre-sanitized data
+      if (!safeChartData || safeChartData.length === 0) {
         return (
           <Box sx={{ 
             height: '100%', 
@@ -843,141 +888,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
           </Box>
         );
       }
-      
-      // Enhanced validation that checks for all potential issues that could cause React invariant errors
-      // This validation works with the actual data structure from the API
-      const invalidDataPoints = chartData.filter(item => {
-        // Check for null/undefined items
-        if (!item) return true;
-        
-        // Check for required string properties and validate date format
-        if (typeof item.date !== 'string' || item.date.length === 0) return true;
-        
-        // Validate date string can be parsed
-        const dateCheck = new Date(item.date);
-        if (isNaN(dateCheck.getTime())) return true;
-        
-        // Check for required numeric properties with comprehensive validation
-        if (typeof item.revenue !== 'number' || isNaN(item.revenue) || !isFinite(item.revenue)) return true;
-        if (typeof item.orders_count !== 'number' || isNaN(item.orders_count) || !isFinite(item.orders_count)) return true;
-        if (typeof item.conversion_rate !== 'number' || isNaN(item.conversion_rate) || !isFinite(item.conversion_rate)) return true;
-        if (typeof item.avg_order_value !== 'number' || isNaN(item.avg_order_value) || !isFinite(item.avg_order_value)) return true;
-        
-        // Check for negative values that might cause chart issues
-        if (item.revenue < 0 || item.orders_count < 0 || item.conversion_rate < 0 || item.avg_order_value < 0) return true;
-        
-        // Check for extremely large values that could cause SVG coordinate overflow
-        if (item.revenue > 1e9 || item.orders_count > 1e6 || item.conversion_rate > 100 || item.avg_order_value > 1e6) return true;
-        
-        // Check for extremely small decimal values that might cause precision issues
-        if (item.revenue > 0 && item.revenue < 1e-10) return true;
-        if (item.orders_count > 0 && item.orders_count < 1e-10) return true;
-        
-        return false;
-      });
-      
-      if (invalidDataPoints.length > 0) {
-        debugLog.error('Invalid data points found that could cause React invariant errors', {
-          totalPoints: chartData.length,
-          invalidPoints: invalidDataPoints.length,
-          sampleInvalidPoint: invalidDataPoints[0],
-          sampleValidPoint: chartData.find(item => !invalidDataPoints.includes(item))
-        }, 'UnifiedAnalyticsChart');
-        throw new Error(`Found ${invalidDataPoints.length} invalid data points that could cause React invariant errors`);
-      }
 
-      // Create a completely sanitized dataset with aggressive validation to prevent React invariant errors
-      const safeChartData = chartData
-        .filter(item => {
-          // Ultra-strict validation
-          if (!item || typeof item !== 'object') return false;
-          
-          // Validate date
-          if (typeof item.date !== 'string' || item.date.length === 0) return false;
-          const dateTest = new Date(item.date);
-          if (isNaN(dateTest.getTime())) return false;
-          
-          // Validate all numeric fields with strict bounds
-          const fields = ['revenue', 'orders_count', 'conversion_rate', 'avg_order_value'];
-          for (const field of fields) {
-            const value = item[field];
-            if (typeof value !== 'number' || isNaN(value) || !isFinite(value)) return false;
-            if (value < 0 || value === Infinity || value === -Infinity) return false;
-          }
-          
-          // Additional bounds checking
-          if (item.revenue > 1e9 || item.orders_count > 1e6 || 
-              item.conversion_rate > 100 || item.avg_order_value > 1e6) return false;
-          
-          return true;
-        })
-        .map((item, index) => {
-          // Create a completely new object to prevent any reference issues
-          const sanitizedItem = {
-            // Ensure date is properly formatted
-            date: safeDateString(item.date),
-            
-            // Clamp all numeric values to safe ranges
-            revenue: Math.round(Math.max(0, Math.min(1e9, safeNumber(item.revenue))) * 100) / 100,
-            orders_count: Math.round(Math.max(0, Math.min(1e6, safeNumber(item.orders_count)))),
-            conversion_rate: Math.round(Math.max(0, Math.min(100, safeNumber(item.conversion_rate))) * 100) / 100,
-            avg_order_value: Math.round(Math.max(0, Math.min(1e6, safeNumber(item.avg_order_value))) * 100) / 100,
-            
-            // Ensure safe metadata
-            key: `${chartType}-${chartKey}-${item.date}-${index}`,
-            type: String(item.type || 'historical'),
-            isPrediction: Boolean(item.isPrediction),
-            
-            // Add any additional safe properties
-            ...(item.confidence_score !== undefined && { 
-              confidence_score: Math.max(0, Math.min(1, safeNumber(item.confidence_score))) 
-            }),
-          };
-          
-                     // Final validation of the sanitized item
-           Object.keys(sanitizedItem).forEach(key => {
-             const value = (sanitizedItem as any)[key];
-             if (value === undefined || value === null) {
-               delete (sanitizedItem as any)[key];
-             }
-           });
-          
-          return sanitizedItem;
-        });
-
-      if (safeChartData.length !== chartData.length) {
-        debugLog.warn('Filtered out invalid data points before passing to Recharts', {
-          originalLength: chartData.length,
-          filteredLength: safeChartData.length,
-          removedCount: chartData.length - safeChartData.length
-        }, 'UnifiedAnalyticsChart');
-      }
-
-      // Final safety check - don't render if no safe data available
-      if (safeChartData.length === 0) {
-        debugLog.error('No safe data available for chart rendering - preventing React invariant error', {
-          originalDataLength: chartData.length,
-          safeDataLength: safeChartData.length
-        }, 'UnifiedAnalyticsChart');
-        
-        return (
-          <Box sx={{ 
-            height: '100%', 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center',
-            flexDirection: 'column',
-            gap: 2
-          }}>
-            <Typography variant="h6" color="text.secondary">
-              No Valid Data Available
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              The chart data contains invalid values that could cause rendering errors.
-            </Typography>
-          </Box>
-        );
-      }
 
       const shouldShowPredictionLine = showPredictions && data?.predictions && data.predictions.length > 0;
 
@@ -1293,7 +1204,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
       debugLog.error('Error rendering chart', { 
         error: error instanceof Error ? error.message : String(error),
         chartType,
-        chartDataLength: chartData.length,
+        chartDataLength: safeChartData.length,
         hasData: !!data
       }, 'UnifiedAnalyticsChart');
       
@@ -1815,14 +1726,14 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
             overflow: 'hidden',
           }}
         >
-          {chartData.length > 0 && (
+          {safeChartData.length > 0 && (
             <React.Fragment key={`chart-fragment-${chartType}-${chartKey}`}>
               {/* Use conditional rendering to completely isolate each chart type */}
               {chartType === 'line' && (
                 <div key="line-chart-wrapper" style={{ width: '100%', height: height }}>
                   <ResponsiveContainer width="100%" height={height}>
                     <MemoizedLineChart
-                      commonProps={{ ...commonProps, data: chartData }}
+                      commonProps={commonProps}
                       commonGrid={commonGrid}
                       commonXAxis={commonXAxis}
                       commonYAxisRevenue={commonYAxisRevenue}
@@ -1840,7 +1751,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                 <div key="area-chart-wrapper" style={{ width: '100%', height: height }}>
                   <ResponsiveContainer width="100%" height={height}>
                     <MemoizedAreaChart
-                      commonProps={{ ...commonProps, data: chartData }}
+                      commonProps={commonProps}
                       commonGrid={commonGrid}
                       commonXAxis={commonXAxis}
                       commonYAxisRevenue={commonYAxisRevenue}
@@ -1859,7 +1770,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                 <div key="bar-chart-wrapper" style={{ width: '100%', height: height }}>
                   <ResponsiveContainer width="100%" height={height}>
                     <MemoizedBarChart
-                      commonProps={{ ...commonProps, data: chartData }}
+                      commonProps={commonProps}
                       commonGrid={commonGrid}
                       commonXAxis={commonXAxis}
                       commonYAxisRevenue={commonYAxisRevenue}
@@ -1877,7 +1788,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                 <div key="composed-chart-wrapper" style={{ width: '100%', height: height }}>
                   <ResponsiveContainer width="100%" height={height}>
                     <MemoizedComposedChart
-                      commonProps={{ ...commonProps, data: chartData }}
+                      commonProps={commonProps}
                       commonGrid={commonGrid}
                       commonXAxis={commonXAxis}
                       commonYAxisRevenue={commonYAxisRevenue}
@@ -1902,7 +1813,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                         debugLog.info('Rendering fallback chart type', {
                           chartType,
                           chartKey,
-                          chartDataLength: chartData.length
+                          chartDataLength: safeChartData.length
                         }, 'UnifiedAnalyticsChart');
                         
                         return renderChart();
@@ -1940,7 +1851,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
           )}
           
           {/* Show loading or empty state when no data */}
-          {chartData.length === 0 && (
+          {safeChartData.length === 0 && (
             <Box sx={{ 
               height: height, 
               display: 'flex', 
