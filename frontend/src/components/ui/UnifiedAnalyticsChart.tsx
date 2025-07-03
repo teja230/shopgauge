@@ -406,64 +406,23 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
 
   // Process and combine historical and prediction data with error handling
   const chartData = useMemo(() => {
-    debugLog.info('=== CHART DATA PROCESSING STARTED ===', { 
-      hasData: !!data,
-      hasHistorical: !!(data && data.historical),
-      isHistoricalArray: !!(data && Array.isArray(data.historical)),
-      dataKeys: data ? Object.keys(data) : [],
-      loading,
-      error
-    }, 'UnifiedAnalyticsChart');
-    
     try {
       // Enhanced validation to prevent React invariant errors
       if (!data) {
-        debugLog.warn('No data object provided', {}, 'UnifiedAnalyticsChart');
         return [];
       }
       
       if (!data.historical) {
-        debugLog.warn('No historical data in data object', { dataKeys: Object.keys(data) }, 'UnifiedAnalyticsChart');
         return [];
       }
       
       if (!Array.isArray(data.historical)) {
-        debugLog.warn('Historical data is not an array', { 
-          historicalType: typeof data.historical,
-          historicalValue: data.historical 
-        }, 'UnifiedAnalyticsChart');
         return [];
       }
       
       if (data.historical.length === 0) {
-        debugLog.warn('Historical data array is empty', {}, 'UnifiedAnalyticsChart');
         return [];
       }
-
-      debugLog.info('Processing historical data for chart', {
-        historicalLength: data.historical.length,
-        sampleItem: data.historical[0],
-        sampleItemKeys: data.historical[0] ? Object.keys(data.historical[0]) : [],
-        dataStructure: {
-          hasPredictions: !!(data.predictions),
-          predictionsLength: Array.isArray(data.predictions) ? data.predictions.length : 0,
-          totalRevenue: data.total_revenue,
-          totalOrders: data.total_orders,
-          samplePrediction: data.predictions && data.predictions[0] ? data.predictions[0] : null,
-          samplePredictionKeys: data.predictions && data.predictions[0] ? Object.keys(data.predictions[0]) : [],
-        }
-      }, 'UnifiedAnalyticsChart');
-
-      console.log('UnifiedAnalyticsChart: Processing historical data', {
-        historicalLength: data.historical.length,
-        sampleItem: data.historical[0],
-        dataStructure: {
-          hasPredictions: !!(data.predictions),
-          predictionsLength: Array.isArray(data.predictions) ? data.predictions.length : 0,
-          totalRevenue: data.total_revenue,
-          totalOrders: data.total_orders,
-        }
-      });
 
       let historical = data.historical.map(processHistoricalItem).filter(item => 
         item && item.date && typeof item.revenue === 'number' && !isNaN(item.revenue)
@@ -519,19 +478,60 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         !isNaN(item.orders_count)
       );
 
-      console.log('UnifiedAnalyticsChart: Processed chart data:', {
-        totalPoints: validData.length,
-        historicalPoints: validData.filter(d => !d.isPrediction).length,
-        predictionPoints: validData.filter(d => d.isPrediction).length,
-        hasValidData: validData.length > 0
-      });
-
       return validData;
     } catch (err) {
       console.error('Error processing chart data:', err);
       return [];
     }
   }, [data, timeRange, showPredictions]);
+
+  // Debug logging for chart data processing (moved outside of useMemo)
+  useLayoutEffect(() => {
+    debugLog.info('=== CHART DATA PROCESSING STARTED ===', { 
+      hasData: !!data,
+      hasHistorical: !!(data && data.historical),
+      isHistoricalArray: !!(data && Array.isArray(data.historical)),
+      dataKeys: data ? Object.keys(data) : [],
+      loading,
+      error
+    }, 'UnifiedAnalyticsChart');
+    
+    if (data && data.historical && Array.isArray(data.historical) && data.historical.length > 0) {
+      debugLog.info('Processing historical data for chart', {
+        historicalLength: data.historical.length,
+        sampleItem: data.historical[0],
+        sampleItemKeys: data.historical[0] ? Object.keys(data.historical[0]) : [],
+        dataStructure: {
+          hasPredictions: !!(data.predictions),
+          predictionsLength: Array.isArray(data.predictions) ? data.predictions.length : 0,
+          totalRevenue: data.total_revenue,
+          totalOrders: data.total_orders,
+          samplePrediction: data.predictions && data.predictions[0] ? data.predictions[0] : null,
+          samplePredictionKeys: data.predictions && data.predictions[0] ? Object.keys(data.predictions[0]) : [],
+        }
+      }, 'UnifiedAnalyticsChart');
+
+      console.log('UnifiedAnalyticsChart: Processing historical data', {
+        historicalLength: data.historical.length,
+        sampleItem: data.historical[0],
+        dataStructure: {
+          hasPredictions: !!(data.predictions),
+          predictionsLength: Array.isArray(data.predictions) ? data.predictions.length : 0,
+          totalRevenue: data.total_revenue,
+          totalOrders: data.total_orders,
+        }
+      });
+    }
+
+    if (chartData.length > 0) {
+      console.log('UnifiedAnalyticsChart: Processed chart data:', {
+        totalPoints: chartData.length,
+        historicalPoints: chartData.filter(d => !d.isPrediction).length,
+        predictionPoints: chartData.filter(d => d.isPrediction).length,
+        hasValidData: chartData.length > 0
+      });
+    }
+  }, [data, chartData, loading, error]);
 
   // Calculate summary statistics with error handling
   const stats = useMemo(() => {
@@ -802,18 +802,6 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
 
   // Render different chart types based on selection
   const renderChart = () => {
-    debugLog.info('=== RENDERING CHART ===', { 
-      chartType,
-      showPredictions,
-      timeRange,
-      visibleMetrics,
-      chartDataLength: chartData.length,
-      hasData: !!data,
-      loading,
-      error,
-      chartKey
-    }, 'UnifiedAnalyticsChart');
-    
     try {
       // Enhanced validation to prevent React invariant errors
       if (!chartData) {
@@ -897,21 +885,6 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         }, 'UnifiedAnalyticsChart');
         throw new Error(`Found ${invalidDataPoints.length} invalid data points that could cause React invariant errors`);
       }
-
-      // Log the exact data being passed to Recharts to help debug invariant errors
-      debugLog.info('Passing data to Recharts', {
-        chartDataLength: chartData.length,
-        chartType,
-        sampleDataPoints: chartData.slice(0, 3),
-        dataKeys: chartData.length > 0 ? Object.keys(chartData[0]) : [],
-        hasValidData: chartData.every(item => 
-          item && 
-          typeof item.date === 'string' && 
-          typeof item.revenue === 'number' && 
-          !isNaN(item.revenue) &&
-          isFinite(item.revenue)
-        )
-      }, 'UnifiedAnalyticsChart');
 
       // Create a completely sanitized dataset with aggressive validation to prevent React invariant errors
       const safeChartData = chartData
@@ -1382,16 +1355,18 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
   }, []);
 
   // Debug logging for component render states
-  debugLog.info('=== UNIFIED ANALYTICS CHART RENDER ===', { 
-    loading,
-    error,
-    hasData: !!data,
-    hasHistorical: !!(data && data.historical),
-    historicalLength: data?.historical?.length || 0,
-    chartDataLength: chartData.length,
-    chartType,
-    showPredictions
-  }, 'UnifiedAnalyticsChart');
+  useLayoutEffect(() => {
+    debugLog.info('=== UNIFIED ANALYTICS CHART RENDER ===', { 
+      loading,
+      error,
+      hasData: !!data,
+      hasHistorical: !!(data && data.historical),
+      historicalLength: data?.historical?.length || 0,
+      chartDataLength: chartData.length,
+      chartType,
+      showPredictions
+    }, 'UnifiedAnalyticsChart');
+  }, [loading, error, data, chartData.length, chartType, showPredictions]);
 
   if (loading) {
     debugLog.info('Rendering loading state', { height }, 'UnifiedAnalyticsChart');
@@ -1514,23 +1489,6 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
       </Box>
     );
   }
-
-  // Enhanced debug logging for main render
-  debugLog.info('UnifiedAnalyticsChart: Rendering main chart', {
-    hasValidData,
-    chartDataLength: chartData.length,
-    chartType,
-    showPredictions,
-    timeRange,
-    visibleMetrics,
-    stats: stats ? {
-      hasStats: true,
-      revenueChange: stats.changes.revenue,
-      ordersChange: stats.changes.orders,
-    } : { hasStats: false },
-    containerReady,
-    height,
-  }, 'UnifiedAnalyticsChart');
 
   return (
     <Box ref={containerRef} sx={{ width: '100%' }}>
@@ -1847,7 +1805,6 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
       {containerReady ? (
         <Paper
           key={`chart-container-${chartType}-${chartKey}`}
-          ref={containerRef}
           elevation={0}
           sx={{
             p: 3,
