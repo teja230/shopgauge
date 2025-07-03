@@ -4,7 +4,6 @@ import { Box, Typography, Card, CardContent, Alert, CircularProgress, Link as Mu
 import { RevenueChart } from '../components/ui/RevenueChart';
 import UnifiedAnalyticsChart from '../components/ui/UnifiedAnalyticsChart';
 import useUnifiedAnalytics from '../hooks/useUnifiedAnalytics';
-import ChartTest from '../components/ui/ChartTest';
 import { MetricCard } from '../components/ui/MetricCard';
 import { fetchWithAuth, retryWithBackoff } from '../api';
 import { useAuth } from '../context/AuthContext';
@@ -2456,9 +2455,6 @@ const DashboardPage = () => {
 
         {/* Analytics Charts with Toggle */}
         <Box sx={{ width: '100%' }}>
-          {/* Chart Test Component for debugging */}
-          <ChartTest />
-          
           {/* Chart Container (Charts render above) */}
           {chartMode === 'unified' ? (
             <ErrorBoundary 
