@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useLayoutEffect, useRef, memo } from 'react';
+import React, { useState, useMemo, useLayoutEffect, useRef, memo, useCallback } from 'react';
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -356,6 +356,183 @@ const MemoizedComposedChart = memo(({ commonProps, commonGrid, commonXAxis, comm
   </ComposedChart>
 ));
 
+// Add memoized components for all other chart types to prevent React invariant errors
+const MemoizedCandlestickChart = memo(({ commonProps, commonGrid, commonXAxis, commonYAxisRevenue, commonTooltip, commonLegend, visibleMetrics, shouldShowPredictionLine, predictionDate }: any) => (
+  <ComposedChart {...commonProps}>
+    {commonGrid}
+    {commonXAxis}
+    {commonYAxisRevenue}
+    {commonTooltip}
+    {commonLegend}
+    {visibleMetrics.revenue && (
+      <Bar
+        yAxisId="revenue"
+        dataKey="revenue"
+        fill="#10b981"
+        name="Revenue"
+        radius={[2, 2, 0, 0]}
+        opacity={0.8}
+        isAnimationActive={false}
+      />
+    )}
+    {visibleMetrics.orders && (
+      <Line
+        yAxisId="revenue"
+        type="monotone"
+        dataKey="orders_count"
+        stroke="#6b7280"
+        strokeWidth={1}
+        name="Orders"
+        dot={false}
+        connectNulls={false}
+        isAnimationActive={false}
+      />
+    )}
+    {shouldShowPredictionLine && predictionDate && (
+      <ReferenceLine
+        x={predictionDate}
+        stroke="rgba(0, 0, 0, 0.3)"
+        strokeDasharray="2,2"
+        label="Predictions"
+      />
+    )}
+  </ComposedChart>
+));
+
+const MemoizedWaterfallChart = memo(({ commonProps, commonGrid, commonXAxis, commonYAxisRevenue, commonTooltip, commonLegend, visibleMetrics, shouldShowPredictionLine, predictionDate }: any) => (
+  <ComposedChart {...commonProps}>
+    {commonGrid}
+    {commonXAxis}
+    {commonYAxisRevenue}
+    {commonTooltip}
+    {commonLegend}
+    {visibleMetrics.revenue && (
+      <Bar
+        yAxisId="revenue"
+        dataKey="revenue"
+        fill="#10b981"
+        name="Revenue"
+        radius={[2, 2, 0, 0]}
+        opacity={0.8}
+        isAnimationActive={false}
+      />
+    )}
+    {visibleMetrics.orders && (
+      <Line
+        yAxisId="revenue"
+        type="monotone"
+        dataKey="orders_count"
+        stroke="#f59e0b"
+        strokeWidth={2}
+        name="Orders"
+        dot={{ fill: '#f59e0b', strokeWidth: 2, r: 3 }}
+        connectNulls={false}
+        isAnimationActive={false}
+      />
+    )}
+    {shouldShowPredictionLine && predictionDate && (
+      <ReferenceLine
+        x={predictionDate}
+        stroke="rgba(0, 0, 0, 0.3)"
+        strokeDasharray="2,2"
+        label="Predictions"
+      />
+    )}
+  </ComposedChart>
+));
+
+const MemoizedStackedChart = memo(({ commonProps, commonGrid, commonXAxis, commonYAxisRevenue, commonTooltip, commonLegend, visibleMetrics, shouldShowPredictionLine, predictionDate, gradientIdPrefix }: any) => (
+  <AreaChart {...commonProps}>
+    <defs>
+      <linearGradient id={`${gradientIdPrefix}-stackedRevenueGradient`} x1="0" y1="0" x2="0" y2="1">
+        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
+        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.05} />
+      </linearGradient>
+      <linearGradient id={`${gradientIdPrefix}-ordersGradient`} x1="0" y1="0" x2="0" y2="1">
+        <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
+        <stop offset="95%" stopColor="#10b981" stopOpacity={0.05} />
+      </linearGradient>
+    </defs>
+    {commonGrid}
+    {commonXAxis}
+    {commonYAxisRevenue}
+    {commonTooltip}
+    {commonLegend}
+    {visibleMetrics.revenue && (
+      <Area
+        yAxisId="revenue"
+        type="monotone"
+        dataKey="revenue"
+        stroke="#8b5cf6"
+        strokeWidth={2}
+        fill={`url(#${gradientIdPrefix}-stackedRevenueGradient)`}
+        name="Revenue"
+        stackId="1"
+        connectNulls={false}
+        isAnimationActive={false}
+      />
+    )}
+    {visibleMetrics.orders && (
+      <Area
+        yAxisId="revenue"
+        type="monotone"
+        dataKey="orders_count"
+        stroke="#10b981"
+        strokeWidth={1}
+        fill={`url(#${gradientIdPrefix}-ordersGradient)`}
+        name="Orders"
+        stackId="2"
+        connectNulls={false}
+        isAnimationActive={false}
+      />
+    )}
+    {shouldShowPredictionLine && predictionDate && (
+      <ReferenceLine
+        x={predictionDate}
+        stroke="rgba(0, 0, 0, 0.3)"
+        strokeDasharray="2,2"
+        label="Predictions"
+      />
+    )}
+  </AreaChart>
+));
+
+const MemoizedRevenueFocusChart = memo(({ commonProps, commonGrid, commonXAxis, commonYAxisRevenue, commonTooltip, commonLegend, shouldShowPredictionLine, predictionDate, gradientIdPrefix }: any) => (
+  <AreaChart {...commonProps}>
+    <defs>
+      <linearGradient id={`${gradientIdPrefix}-revenueFocusGradient`} x1="0" y1="0" x2="0" y2="1">
+        <stop offset="5%" stopColor="#2563eb" stopOpacity={0.4} />
+        <stop offset="95%" stopColor="#2563eb" stopOpacity={0.1} />
+      </linearGradient>
+    </defs>
+    {commonGrid}
+    {commonXAxis}
+    {commonYAxisRevenue}
+    {commonTooltip}
+    {commonLegend}
+    <Area
+      yAxisId="revenue"
+      type="monotone"
+      dataKey="revenue"
+      stroke="#2563eb"
+      strokeWidth={4}
+      fill={`url(#${gradientIdPrefix}-revenueFocusGradient)`}
+      name="Revenue"
+      dot={{ fill: '#2563eb', strokeWidth: 3, r: 5 }}
+      connectNulls={false}
+      isAnimationActive={false}
+    />
+    {shouldShowPredictionLine && predictionDate && (
+      <ReferenceLine
+        x={predictionDate}
+        stroke="rgba(0, 0, 0, 0.3)"
+        strokeDasharray="2,2"
+        label="Predictions"
+      />
+    )}
+  </AreaChart>
+));
+
 const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
   data,
   loading = false,
@@ -380,6 +557,9 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
     return `ua-${chartType}-${chartKey}-${Math.random().toString(36).substring(2, 8)}`;
   }, [chartType, chartKey]);
 
+  // State to control chart visibility during transitions
+  const [chartVisible, setChartVisible] = useState(true);
+  
   // Force remount when chart type changes to prevent React invariant errors
   const handleChartTypeChange = (newType: ChartType) => {
     if (newType && newType !== chartType) {
@@ -390,17 +570,15 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         action: 'FORCE_REMOUNT'
       }, 'UnifiedAnalyticsChart');
       
-      // First clear the container to prevent any stale references
-      setContainerReady(false);
+      // First hide the chart completely
+      setChartVisible(false);
       
-      // Update chart type and force remount
-      setChartType(newType);
-      setChartKey(prev => prev + 1);
-      
-      // Re-enable container after a brief delay to ensure clean slate
+      // After a brief delay, update chart type and show again
       setTimeout(() => {
-        setContainerReady(true);
-      }, 50);
+        setChartType(newType);
+        setChartKey(prev => prev + 1);
+        setChartVisible(true);
+      }, 100);
     }
   };
 
@@ -1346,7 +1524,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
       </Box>
 
       {/* Chart Container - Force remount with key to prevent React invariant errors */}
-      {containerReady ? (
+      {containerReady && chartVisible ? (
         <Paper
           key={`chart-container-${chartType}-${chartKey}`}
           elevation={0}
@@ -1440,39 +1618,17 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
               {chartType === 'revenue_focus' && (
                 <div key="revenue-focus-chart-wrapper" style={{ width: '100%', height: height }}>
                   <ResponsiveContainer width="100%" height={height}>
-                    <AreaChart {...commonProps}>
-                      <defs>
-                        <linearGradient id={`${gradientIdPrefix}-revenueFocusGradient`} x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#2563eb" stopOpacity={0.4} />
-                          <stop offset="95%" stopColor="#2563eb" stopOpacity={0.1} />
-                        </linearGradient>
-                      </defs>
-                      {commonGrid}
-                      {commonXAxis}
-                      {commonYAxisRevenue}
-                      {commonTooltip}
-                      {commonLegend}
-                      <Area
-                        yAxisId="revenue"
-                        type="monotone"
-                        dataKey="revenue"
-                        stroke="#2563eb"
-                        strokeWidth={4}
-                        fill={`url(#${gradientIdPrefix}-revenueFocusGradient)`}
-                        name="Revenue"
-                        dot={{ fill: '#2563eb', strokeWidth: 3, r: 5 }}
-                        connectNulls={false}
-                        isAnimationActive={false}
-                      />
-                      {showPredictions && data?.predictions && data.predictions.length > 0 && data?.predictions?.[0]?.date && (
-                        <ReferenceLine
-                          x={data.predictions[0].date}
-                          stroke="rgba(0, 0, 0, 0.3)"
-                          strokeDasharray="2,2"
-                          label="Predictions"
-                        />
-                      )}
-                    </AreaChart>
+                    <MemoizedRevenueFocusChart
+                      commonProps={commonProps}
+                      commonGrid={commonGrid}
+                      commonXAxis={commonXAxis}
+                      commonYAxisRevenue={commonYAxisRevenue}
+                      commonTooltip={commonTooltip}
+                      commonLegend={commonLegend}
+                      shouldShowPredictionLine={showPredictions && data?.predictions && data.predictions.length > 0}
+                      predictionDate={data?.predictions?.[0]?.date}
+                      gradientIdPrefix={gradientIdPrefix}
+                    />
                   </ResponsiveContainer>
                 </div>
               )}
@@ -1480,45 +1636,17 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
               {chartType === 'candlestick' && (
                 <div key="candlestick-chart-wrapper" style={{ width: '100%', height: height }}>
                   <ResponsiveContainer width="100%" height={height}>
-                    <ComposedChart {...commonProps}>
-                      {commonGrid}
-                      {commonXAxis}
-                      {commonYAxisRevenue}
-                      {commonTooltip}
-                      {commonLegend}
-                      {visibleMetrics.revenue && (
-                        <Bar
-                          yAxisId="revenue"
-                          dataKey="revenue"
-                          fill="#10b981"
-                          name="Revenue"
-                          radius={[2, 2, 0, 0]}
-                          opacity={0.8}
-                          isAnimationActive={false}
-                        />
-                      )}
-                      {visibleMetrics.orders && (
-                        <Line
-                          yAxisId="revenue"
-                          type="monotone"
-                          dataKey="orders_count"
-                          stroke="#6b7280"
-                          strokeWidth={1}
-                          name="Orders"
-                          dot={false}
-                          connectNulls={false}
-                          isAnimationActive={false}
-                        />
-                      )}
-                      {showPredictions && data?.predictions && data.predictions.length > 0 && data?.predictions?.[0]?.date && (
-                        <ReferenceLine
-                          x={data.predictions[0].date}
-                          stroke="rgba(0, 0, 0, 0.3)"
-                          strokeDasharray="2,2"
-                          label="Predictions"
-                        />
-                      )}
-                    </ComposedChart>
+                    <MemoizedCandlestickChart
+                      commonProps={commonProps}
+                      commonGrid={commonGrid}
+                      commonXAxis={commonXAxis}
+                      commonYAxisRevenue={commonYAxisRevenue}
+                      commonTooltip={commonTooltip}
+                      commonLegend={commonLegend}
+                      visibleMetrics={visibleMetrics}
+                      shouldShowPredictionLine={showPredictions && data?.predictions && data.predictions.length > 0}
+                      predictionDate={data?.predictions?.[0]?.date}
+                    />
                   </ResponsiveContainer>
                 </div>
               )}
@@ -1526,45 +1654,17 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
               {chartType === 'waterfall' && (
                 <div key="waterfall-chart-wrapper" style={{ width: '100%', height: height }}>
                   <ResponsiveContainer width="100%" height={height}>
-                    <ComposedChart {...commonProps}>
-                      {commonGrid}
-                      {commonXAxis}
-                      {commonYAxisRevenue}
-                      {commonTooltip}
-                      {commonLegend}
-                      {visibleMetrics.revenue && (
-                        <Bar
-                          yAxisId="revenue"
-                          dataKey="revenue"
-                          fill="#10b981"
-                          name="Revenue"
-                          radius={[2, 2, 0, 0]}
-                          opacity={0.8}
-                          isAnimationActive={false}
-                        />
-                      )}
-                      {visibleMetrics.orders && (
-                        <Line
-                          yAxisId="revenue"
-                          type="monotone"
-                          dataKey="orders_count"
-                          stroke="#f59e0b"
-                          strokeWidth={2}
-                          name="Orders"
-                          dot={{ fill: '#f59e0b', strokeWidth: 2, r: 3 }}
-                          connectNulls={false}
-                          isAnimationActive={false}
-                        />
-                      )}
-                      {showPredictions && data?.predictions && data.predictions.length > 0 && data?.predictions?.[0]?.date && (
-                        <ReferenceLine
-                          x={data.predictions[0].date}
-                          stroke="rgba(0, 0, 0, 0.3)"
-                          strokeDasharray="2,2"
-                          label="Predictions"
-                        />
-                      )}
-                    </ComposedChart>
+                    <MemoizedWaterfallChart
+                      commonProps={commonProps}
+                      commonGrid={commonGrid}
+                      commonXAxis={commonXAxis}
+                      commonYAxisRevenue={commonYAxisRevenue}
+                      commonTooltip={commonTooltip}
+                      commonLegend={commonLegend}
+                      visibleMetrics={visibleMetrics}
+                      shouldShowPredictionLine={showPredictions && data?.predictions && data.predictions.length > 0}
+                      predictionDate={data?.predictions?.[0]?.date}
+                    />
                   </ResponsiveContainer>
                 </div>
               )}
@@ -1572,59 +1672,18 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
               {chartType === 'stacked' && (
                 <div key="stacked-chart-wrapper" style={{ width: '100%', height: height }}>
                   <ResponsiveContainer width="100%" height={height}>
-                    <AreaChart {...commonProps}>
-                      <defs>
-                        <linearGradient id={`${gradientIdPrefix}-stackedRevenueGradient`} x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
-                          <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.05} />
-                        </linearGradient>
-                        <linearGradient id={`${gradientIdPrefix}-ordersGradient`} x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
-                          <stop offset="95%" stopColor="#10b981" stopOpacity={0.05} />
-                        </linearGradient>
-                      </defs>
-                      {commonGrid}
-                      {commonXAxis}
-                      {commonYAxisRevenue}
-                      {commonTooltip}
-                      {commonLegend}
-                      {visibleMetrics.revenue && (
-                        <Area
-                          yAxisId="revenue"
-                          type="monotone"
-                          dataKey="revenue"
-                          stroke="#8b5cf6"
-                          strokeWidth={2}
-                          fill={`url(#${gradientIdPrefix}-stackedRevenueGradient)`}
-                          name="Revenue"
-                          stackId="1"
-                          connectNulls={false}
-                          isAnimationActive={false}
-                        />
-                      )}
-                      {visibleMetrics.orders && (
-                        <Area
-                          yAxisId="revenue"
-                          type="monotone"
-                          dataKey="orders_count"
-                          stroke="#10b981"
-                          strokeWidth={1}
-                          fill={`url(#${gradientIdPrefix}-ordersGradient)`}
-                          name="Orders"
-                          stackId="2"
-                          connectNulls={false}
-                          isAnimationActive={false}
-                        />
-                      )}
-                      {showPredictions && data?.predictions && data.predictions.length > 0 && data?.predictions?.[0]?.date && (
-                        <ReferenceLine
-                          x={data.predictions[0].date}
-                          stroke="rgba(0, 0, 0, 0.3)"
-                          strokeDasharray="2,2"
-                          label="Predictions"
-                        />
-                      )}
-                    </AreaChart>
+                    <MemoizedStackedChart
+                      commonProps={commonProps}
+                      commonGrid={commonGrid}
+                      commonXAxis={commonXAxis}
+                      commonYAxisRevenue={commonYAxisRevenue}
+                      commonTooltip={commonTooltip}
+                      commonLegend={commonLegend}
+                      visibleMetrics={visibleMetrics}
+                      shouldShowPredictionLine={showPredictions && data?.predictions && data.predictions.length > 0}
+                      predictionDate={data?.predictions?.[0]?.date}
+                      gradientIdPrefix={gradientIdPrefix}
+                    />
                   </ResponsiveContainer>
                 </div>
               )}
