@@ -1594,6 +1594,14 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
               {/* Use conditional rendering to completely isolate each chart type */}
               {chartType === 'line' && (
                 <div key="line-chart-wrapper" style={{ width: '100%', height: height }}>
+                  {(() => {
+                    debugLog.info('Rendering line chart', {
+                      chartType,
+                      height,
+                      commonPropsData: commonProps.data?.length || 0
+                    }, 'UnifiedAnalyticsChart');
+                    return null;
+                  })()}
                   <ResponsiveContainer width="100%" height={height}>
                     <MemoizedLineChart
                       commonProps={commonProps}
@@ -1612,6 +1620,14 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
               
               {chartType === 'area' && (
                 <div key="area-chart-wrapper" style={{ width: '100%', height: height }}>
+                  {(() => {
+                    debugLog.info('Rendering area chart', {
+                      chartType,
+                      height,
+                      commonPropsData: commonProps.data?.length || 0
+                    }, 'UnifiedAnalyticsChart');
+                    return null;
+                  })()}
                   <ResponsiveContainer width="100%" height={height}>
                     <MemoizedAreaChart
                       commonProps={commonProps}
@@ -1631,6 +1647,14 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
               
               {chartType === 'bar' && (
                 <div key="bar-chart-wrapper" style={{ width: '100%', height: height }}>
+                  {(() => {
+                    debugLog.info('Rendering bar chart', {
+                      chartType,
+                      height,
+                      commonPropsData: commonProps.data?.length || 0
+                    }, 'UnifiedAnalyticsChart');
+                    return null;
+                  })()}
                   <ResponsiveContainer width="100%" height={height}>
                     <MemoizedBarChart
                       commonProps={commonProps}
@@ -1704,6 +1728,14 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
               
               {chartType === 'candlestick' && (
                 <div key="candlestick-chart-wrapper" style={{ width: '100%', height: height }}>
+                  {(() => {
+                    debugLog.info('Rendering candlestick chart', {
+                      chartType,
+                      height,
+                      commonPropsData: commonProps.data?.length || 0
+                    }, 'UnifiedAnalyticsChart');
+                    return null;
+                  })()}
                   <ResponsiveContainer width="100%" height={height}>
                     <MemoizedCandlestickChart
                       commonProps={commonProps}
@@ -1722,6 +1754,14 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
               
               {chartType === 'waterfall' && (
                 <div key="waterfall-chart-wrapper" style={{ width: '100%', height: height }}>
+                  {(() => {
+                    debugLog.info('Rendering waterfall chart', {
+                      chartType,
+                      height,
+                      commonPropsData: commonProps.data?.length || 0
+                    }, 'UnifiedAnalyticsChart');
+                    return null;
+                  })()}
                   <ResponsiveContainer width="100%" height={height}>
                     <MemoizedWaterfallChart
                       commonProps={commonProps}
@@ -1740,6 +1780,14 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
               
               {chartType === 'stacked' && (
                 <div key="stacked-chart-wrapper" style={{ width: '100%', height: height }}>
+                  {(() => {
+                    debugLog.info('Rendering stacked chart', {
+                      chartType,
+                      height,
+                      commonPropsData: commonProps.data?.length || 0
+                    }, 'UnifiedAnalyticsChart');
+                    return null;
+                  })()}
                   <ResponsiveContainer width="100%" height={height}>
                     <MemoizedStackedChart
                       commonProps={commonProps}
