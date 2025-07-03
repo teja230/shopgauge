@@ -553,21 +553,20 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
   });
   const [predictionLoading, setPredictionLoading] = useState(false);
   
-  // Force component remount when chart type changes to prevent stale references
+  // Simplified chart key for chart type changes
   const [chartKey, setChartKey] = useState(0);
   
   // Generate a unique id prefix for gradient defs to avoid DOM ID collisions
   const gradientIdPrefix = useMemo(() => {
-    return `ua-${chartType}-${chartKey}-${Math.random().toString(36).substring(2, 8)}`;
-  }, [chartType, chartKey]);
+    return `ua-${chartType}-${Math.random().toString(36).substring(2, 8)}`;
+  }, [chartType]);
 
-  // Remount chart when type changes to avoid stale references
+  // Simplified chart type change handler
   const handleChartTypeChange = (newType: ChartType) => {
     if (newType && newType !== chartType) {
-      debugLog.info('Chart type change – remounting with new key', {
+      debugLog.info('Chart type change', {
         oldType: chartType,
         newType,
-        chartKey,
       }, 'UnifiedAnalyticsChart');
       setChartType(newType);
       setChartKey(prev => prev + 1);
@@ -976,12 +975,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
       left: SPACING.MEDIUM, 
       bottom: SPACING.MEDIUM 
     },
-    // Add additional props to prevent SVG rendering issues
-    syncId: undefined, // Prevent sync issues
-    throttleDelay: 0,   // Prevent throttling issues
-    // Force complete remount with unique key
-    key: `${chartType}-chart-${chartKey}`,
-  }), [safeChartData, chartType, chartKey]);
+  }), [safeChartData]);
 
   const commonXAxis = (
     <XAxis
@@ -1043,51 +1037,8 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
   const commonTooltip = <Tooltip content={<CustomTooltip />} />;
   const commonLegend = <Legend />;
 
-
-  // ============================================
-  // ResizeObserver gate – only render the chart
-  // once the container has a measurable width.
-  // This prevents Recharts from throwing errors
-  // when mounted inside hidden or zero-width
-  // containers (e.g. before layout is ready).
-  // ============================================
-
+  // Simplified container reference for the chart
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const { width: containerWidth, height: containerHeight } = useSize(containerRef);
-  
-  // Enhanced container readiness check with fallback
-  const [forceReady, setForceReady] = useState(false);
-  const containerReady = containerWidth > 0 || forceReady;
-
-  // Fallback mechanism: if container isn't ready after a short delay, force it ready
-  // This prevents infinite loading states on edge cases
-  useEffect(() => {
-    if (!containerReady && safeChartData.length > 0) {
-      const timer = setTimeout(() => {
-        debugLog.warn('Container size detection timeout - forcing ready state', {
-          containerWidth,
-          containerHeight,
-          hasData: safeChartData.length > 0,
-        }, 'UnifiedAnalyticsChart');
-        setForceReady(true);
-      }, 500); // Wait 500ms before forcing ready
-
-      return () => clearTimeout(timer);
-    }
-  }, [containerReady, safeChartData.length, containerWidth, containerHeight]);
-
-  // Log container size changes for debugging
-  useLayoutEffect(() => {
-    debugLog.info('Container size updated', { 
-      width: containerWidth, 
-      height: containerHeight,
-      containerReady,
-      forceReady,
-      hasRef: !!containerRef.current,
-      refOffsetWidth: containerRef.current?.offsetWidth || 0,
-      refOffsetHeight: containerRef.current?.offsetHeight || 0,
-    }, 'UnifiedAnalyticsChart');
-  }, [containerWidth, containerHeight, containerReady, forceReady]);
 
   // Debug logging for component render states
   useLayoutEffect(() => {
@@ -1101,12 +1052,8 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
       safeChartDataLength: safeChartData.length,
       chartType,
       showPredictions,
-      containerReady,
-      containerWidth,
-      containerHeight,
-      forceReady,
     }, 'UnifiedAnalyticsChart');
-  }, [loading, error, data, chartData.length, safeChartData.length, chartType, showPredictions, containerReady, forceReady]);
+  }, [loading, error, data, chartData.length, safeChartData.length, chartType, showPredictions]);
 
   if (loading) {
     debugLog.info('Rendering loading state', { height: chartHeight }, 'UnifiedAnalyticsChart');
@@ -1541,10 +1488,9 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         ))}
       </Box>
 
-      {/* Chart Container - Force remount with key to prevent React invariant errors */}
+      {/* Chart Container */}
       <Paper
         ref={containerRef}
-        key={`chart-container-${chartType}-${chartKey}`}
         elevation={0}
         sx={{
           p: SPACING.LARGE,
@@ -1556,33 +1502,23 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
           minHeight: CHART_DIMENSIONS.MIN_HEIGHT,
         }}
       >
-        {containerReady && safeChartData.length > 0 && (
-          <React.Fragment key={`chart-fragment-${chartType}-${chartKey}`}>
+        {safeChartData.length > 0 && (
+          <React.Fragment>
             {/* Debug logging for chart rendering */}
             {(() => {
               debugLog.info('About to render chart', {
                 chartType,
-                containerReady,
                 safeChartDataLength: safeChartData.length,
-                chartKey,
                 visibleMetrics,
                 chartHeight
               }, 'UnifiedAnalyticsChart');
               return null;
             })()}
             
-            {/* Use conditional rendering to completely isolate each chart type */}
-            {chartType === 'line' && (
-              <div key="line-chart-wrapper" style={{ width: '100%', height: chartHeight }}>
-                {(() => {
-                  debugLog.info('Rendering line chart', {
-                    chartType,
-                    height: chartHeight,
-                    commonPropsData: commonProps.data?.length || 0
-                  }, 'UnifiedAnalyticsChart');
-                  return null;
-                })()}
-                <ResponsiveContainer width="100%" height={chartHeight}>
+            {/* Render chart based on selected type */}
+            <div style={{ width: '100%', height: chartHeight }}>
+              <ResponsiveContainer width="100%" height={chartHeight}>
+                {chartType === 'line' && (
                   <MemoizedLineChart
                     commonProps={commonProps}
                     commonGrid={commonGrid}
@@ -1594,21 +1530,9 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                     shouldShowPredictionLine={showPredictions && data?.predictions && data.predictions.length > 0}
                     predictionDate={data?.predictions?.[0]?.date}
                   />
-                </ResponsiveContainer>
-              </div>
-            )}
-            
-            {chartType === 'area' && (
-              <div key="area-chart-wrapper" style={{ width: '100%', height: chartHeight }}>
-                {(() => {
-                  debugLog.info('Rendering area chart', {
-                    chartType,
-                    height: chartHeight,
-                    commonPropsData: commonProps.data?.length || 0
-                  }, 'UnifiedAnalyticsChart');
-                  return null;
-                })()}
-                <ResponsiveContainer width="100%" height={chartHeight}>
+                )}
+                
+                {chartType === 'area' && (
                   <MemoizedAreaChart
                     commonProps={commonProps}
                     commonGrid={commonGrid}
@@ -1621,21 +1545,9 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                     predictionDate={data?.predictions?.[0]?.date}
                     gradientIdPrefix={gradientIdPrefix}
                   />
-                </ResponsiveContainer>
-              </div>
-            )}
-            
-            {chartType === 'bar' && (
-              <div key="bar-chart-wrapper" style={{ width: '100%', height: chartHeight }}>
-                {(() => {
-                  debugLog.info('Rendering bar chart', {
-                    chartType,
-                    height: chartHeight,
-                    commonPropsData: commonProps.data?.length || 0
-                  }, 'UnifiedAnalyticsChart');
-                  return null;
-                })()}
-                <ResponsiveContainer width="100%" height={chartHeight}>
+                )}
+                
+                {chartType === 'bar' && (
                   <MemoizedBarChart
                     commonProps={commonProps}
                     commonGrid={commonGrid}
@@ -1647,21 +1559,9 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                     shouldShowPredictionLine={showPredictions && data?.predictions && data.predictions.length > 0}
                     predictionDate={data?.predictions?.[0]?.date}
                   />
-                </ResponsiveContainer>
-              </div>
-            )}
-            
-            {(chartType === 'combined' || chartType === 'composed') && (
-              <div key="composed-chart-wrapper" style={{ width: '100%', height: chartHeight }}>
-                {(() => {
-                  debugLog.info('Rendering combined/composed chart', {
-                    chartType,
-                    height: chartHeight,
-                    commonPropsData: commonProps.data?.length || 0
-                  }, 'UnifiedAnalyticsChart');
-                  return null;
-                })()}
-                <ResponsiveContainer width="100%" height={chartHeight}>
+                )}
+                
+                {(chartType === 'combined' || chartType === 'composed') && (
                   <MemoizedComposedChart
                     commonProps={commonProps}
                     commonGrid={commonGrid}
@@ -1675,21 +1575,9 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                     shouldShowPredictionLine={showPredictions && data?.predictions && data.predictions.length > 0}
                     predictionDate={data?.predictions?.[0]?.date}
                   />
-                </ResponsiveContainer>
-              </div>
-            )}
-            
-            {chartType === 'revenue_focus' && (
-              <div key="revenue-focus-chart-wrapper" style={{ width: '100%', height: chartHeight }}>
-                {(() => {
-                  debugLog.info('Rendering revenue_focus chart', {
-                    chartType,
-                    height: chartHeight,
-                    commonPropsData: commonProps.data?.length || 0
-                  }, 'UnifiedAnalyticsChart');
-                  return null;
-                })()}
-                <ResponsiveContainer width="100%" height={chartHeight}>
+                )}
+                
+                {chartType === 'revenue_focus' && (
                   <MemoizedRevenueFocusChart
                     commonProps={commonProps}
                     commonGrid={commonGrid}
@@ -1702,21 +1590,9 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                     predictionDate={data?.predictions?.[0]?.date}
                     gradientIdPrefix={gradientIdPrefix}
                   />
-                </ResponsiveContainer>
-              </div>
-            )}
-            
-            {chartType === 'candlestick' && (
-              <div key="candlestick-chart-wrapper" style={{ width: '100%', height: chartHeight }}>
-                {(() => {
-                  debugLog.info('Rendering candlestick chart', {
-                    chartType,
-                    height: chartHeight,
-                    commonPropsData: commonProps.data?.length || 0
-                  }, 'UnifiedAnalyticsChart');
-                  return null;
-                })()}
-                <ResponsiveContainer width="100%" height={chartHeight}>
+                )}
+                
+                {chartType === 'candlestick' && (
                   <MemoizedCandlestickChart
                     commonProps={commonProps}
                     commonGrid={commonGrid}
@@ -1728,21 +1604,9 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                     shouldShowPredictionLine={showPredictions && data?.predictions && data.predictions.length > 0}
                     predictionDate={data?.predictions?.[0]?.date}
                   />
-                </ResponsiveContainer>
-              </div>
-            )}
-            
-            {chartType === 'waterfall' && (
-              <div key="waterfall-chart-wrapper" style={{ width: '100%', height: chartHeight }}>
-                {(() => {
-                  debugLog.info('Rendering waterfall chart', {
-                    chartType,
-                    height: chartHeight,
-                    commonPropsData: commonProps.data?.length || 0
-                  }, 'UnifiedAnalyticsChart');
-                  return null;
-                })()}
-                <ResponsiveContainer width="100%" height={chartHeight}>
+                )}
+                
+                {chartType === 'waterfall' && (
                   <MemoizedWaterfallChart
                     commonProps={commonProps}
                     commonGrid={commonGrid}
@@ -1754,21 +1618,9 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                     shouldShowPredictionLine={showPredictions && data?.predictions && data.predictions.length > 0}
                     predictionDate={data?.predictions?.[0]?.date}
                   />
-                </ResponsiveContainer>
-              </div>
-            )}
-            
-            {chartType === 'stacked' && (
-              <div key="stacked-chart-wrapper" style={{ width: '100%', height: chartHeight }}>
-                {(() => {
-                  debugLog.info('Rendering stacked chart', {
-                    chartType,
-                    height: chartHeight,
-                    commonPropsData: commonProps.data?.length || 0
-                  }, 'UnifiedAnalyticsChart');
-                  return null;
-                })()}
-                <ResponsiveContainer width="100%" height={chartHeight}>
+                )}
+                
+                {chartType === 'stacked' && (
                   <MemoizedStackedChart
                     commonProps={commonProps}
                     commonGrid={commonGrid}
@@ -1781,31 +1633,14 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                     predictionDate={data?.predictions?.[0]?.date}
                     gradientIdPrefix={gradientIdPrefix}
                   />
-                </ResponsiveContainer>
-              </div>
-            )}
+                )}
+              </ResponsiveContainer>
+            </div>
           </React.Fragment>
         )}
         
-        {/* Show loading state while container is not ready */}
-        {!containerReady && (
-          <Box sx={{ 
-            height: chartHeight, 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center',
-            flexDirection: 'column',
-            gap: SPACING.MEDIUM
-          }}>
-            <CircularProgress size={32} />
-            <Typography variant="body2" color="text.secondary">
-              {safeChartData.length > 0 ? 'Initializing chart view...' : 'Preparing chart...'}
-            </Typography>
-          </Box>
-        )}
-        
         {/* Show empty state when no data */}
-        {containerReady && safeChartData.length === 0 && (
+        {safeChartData.length === 0 && (
           <Box sx={{ 
             height: chartHeight, 
             display: 'flex', 
