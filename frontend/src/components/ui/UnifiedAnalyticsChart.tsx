@@ -570,8 +570,9 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         action: 'FORCE_REMOUNT'
       }, 'UnifiedAnalyticsChart');
       
-      // First hide the chart completely
+      // First hide the chart completely and reset container state
       setChartVisible(false);
+      setContainerReady(false);
       
       // After a brief delay, update chart type and show again
       setTimeout(() => {
@@ -1055,15 +1056,33 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   useLayoutEffect(() => {
-    if (!containerRef.current) return;
+    if (!containerRef.current) {
+      debugLog.info('Container ref not available yet', { chartVisible, chartType }, 'UnifiedAnalyticsChart');
+      return;
+    }
+
+    debugLog.info('Setting up ResizeObserver', { 
+      offsetWidth: containerRef.current.offsetWidth,
+      chartVisible, 
+      chartType,
+      chartKey
+    }, 'UnifiedAnalyticsChart');
 
     if (containerRef.current.offsetWidth > 0) {
+      debugLog.info('Container already has width, setting ready immediately', { 
+        width: containerRef.current.offsetWidth 
+      }, 'UnifiedAnalyticsChart');
       setContainerReady(true);
       return;
     }
 
     const ro = new ResizeObserver((entries) => {
       for (const entry of entries) {
+        debugLog.info('ResizeObserver triggered', { 
+          width: entry.contentRect.width,
+          height: entry.contentRect.height
+        }, 'UnifiedAnalyticsChart');
+        
         if (entry.contentRect.width > 0) {
           setContainerReady(true);
           ro.disconnect();
@@ -1073,8 +1092,11 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
     });
 
     ro.observe(containerRef.current);
-    return () => ro.disconnect();
-  }, []);
+    return () => {
+      debugLog.info('Cleaning up ResizeObserver', { chartType }, 'UnifiedAnalyticsChart');
+      ro.disconnect();
+    };
+  }, [chartVisible, chartType, chartKey]); // Re-run when chart becomes visible or type changes
 
   // Debug logging for component render states
   useLayoutEffect(() => {
