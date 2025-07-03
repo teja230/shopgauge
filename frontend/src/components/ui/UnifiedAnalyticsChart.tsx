@@ -1658,7 +1658,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                   const shouldShowPredictionLine = showPredictions && data && data.predictions && data.predictions.length > 0;
                   const predictionDate = data && data.predictions && data.predictions[0] ? data.predictions[0].date : undefined;
                   
-                  // Validate commonProps before rendering
+                  // Comprehensive data validation to prevent React invariant violations
                   if (!commonProps || !commonProps.data || commonProps.data.length === 0) {
                     debugLog.error('Invalid commonProps in chart render', {
                       hasCommonProps: !!commonProps,
@@ -1668,36 +1668,82 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                       safeChartDataLength: safeChartData.length
                     }, 'UnifiedAnalyticsChart');
                     return (
-                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'orange' }}>
+                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255, 0, 0, 0.1)' }}>
                         <Typography variant="body2" color="error">Chart data error</Typography>
                       </div>
                     );
                   }
+
+                  // Validate each data point to prevent React invariant violations
+                  const validatedData = commonProps.data.filter((item: any) => {
+                    if (!item || typeof item !== 'object') return false;
+                    
+                    // Check for required fields
+                    if (!item.date || typeof item.date !== 'string') return false;
+                    
+                    // Validate numeric fields - must be finite numbers
+                    const numericChecks = [
+                      { field: 'revenue', value: item.revenue },
+                      { field: 'orders_count', value: item.orders_count },
+                      { field: 'conversion_rate', value: item.conversion_rate },
+                      { field: 'avg_order_value', value: item.avg_order_value }
+                    ];
+                    
+                    for (const check of numericChecks) {
+                      if (check.value !== undefined && check.value !== null) {
+                        const value = Number(check.value);
+                        if (!Number.isFinite(value)) {
+                          debugLog.warn(`Invalid numeric value in ${check.field}`, {
+                            field: check.field,
+                            value: check.value,
+                            type: typeof check.value,
+                            isFinite: Number.isFinite(value)
+                          }, 'UnifiedAnalyticsChart');
+                          return false;
+                        }
+                      }
+                    }
+                    
+                    return true;
+                  });
+
+                  // Ensure we have valid data after filtering
+                  if (validatedData.length === 0) {
+                    debugLog.error('No valid data points after validation', {
+                      originalLength: commonProps.data.length,
+                      validatedLength: validatedData.length,
+                      sampleInvalidData: commonProps.data.slice(0, 3)
+                    }, 'UnifiedAnalyticsChart');
+                    return (
+                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255, 165, 0, 0.1)' }}>
+                        <Typography variant="body2" color="error">Invalid chart data format</Typography>
+                      </div>
+                    );
+                  }
+
+                  // Create safe props with validated data
+                  const safeProps = {
+                    ...commonProps,
+                    data: validatedData
+                  };
+
+                  debugLog.info('Data validation passed', {
+                    originalLength: commonProps.data.length,
+                    validatedLength: validatedData.length,
+                    sampleValidData: validatedData.slice(0, 2)
+                  }, 'UnifiedAnalyticsChart');
                   
                   try {
-                    // TEMPORARY: Add a simple test to bypass all charts
-                    debugLog.info('=== ABOUT TO RENDER CHART ===', {
+                    debugLog.info('=== ABOUT TO RENDER CHART WITH VALIDATED DATA ===', {
                       chartType,
-                      willRenderTest: true
+                      validatedDataLength: safeProps.data.length,
+                      sampleValidatedData: safeProps.data.slice(0, 2)
                     }, 'UnifiedAnalyticsChart');
                     
-                    // Test 2: Minimal Recharts test - super simple AreaChart
-                    debugLog.info('=== TESTING MINIMAL RECHARTS COMPONENT ===', {
-                      chartType,
-                      dataLength: commonProps?.data?.length || 0,
-                      hasData: !!commonProps?.data,
-                      firstDataPoint: commonProps?.data?.[0]
-                    }, 'UnifiedAnalyticsChart');
-                    
-                    // Test 3: ResponsiveContainer with working chart
-                    debugLog.info('=== TESTING RESPONSIVE CONTAINER WITH WORKING CHART ===', {
-                      chartType,
-                      dataLength: commonProps?.data?.length || 0,
-                      containerHeight: chartHeight
-                    }, 'UnifiedAnalyticsChart');
-                    
-                    // Render chart based on type with working configuration
-                    switch (chartType) {
+                    // Additional React-specific error boundary
+                    try {
+                      // Render chart based on type with working configuration
+                      switch (chartType) {
                       case 'combined':
                       case 'composed':
                         debugLog.info('Rendering working combined chart', {
@@ -1709,7 +1755,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                         return (
                           <ResponsiveContainer width="100%" height="100%">
                             <ComposedChart
-                              data={commonProps?.data || []}
+                              data={safeProps.data}
                               margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                             >
                               <defs>
@@ -1845,7 +1891,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                         return (
                           <ResponsiveContainer width="100%" height="100%">
                             <AreaChart
-                              data={commonProps?.data || []}
+                              data={safeProps.data}
                               margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                             >
                               <defs>
@@ -1903,7 +1949,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                         return (
                           <ResponsiveContainer width="100%" height="100%">
                             <AreaChart
-                              data={commonProps?.data || []}
+                              data={safeProps.data}
                               margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                             >
                               <CartesianGrid strokeDasharray="3 3" stroke="rgba(0, 0, 0, 0.1)" />
@@ -1954,6 +2000,20 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                             </AreaChart>
                           </ResponsiveContainer>
                         );
+                    }
+                    } catch (reactError) {
+                      debugLog.error('React invariant violation in chart rendering', {
+                        error: reactError instanceof Error ? reactError.message : String(reactError),
+                        chartType,
+                        validatedDataLength: safeProps.data.length,
+                        errorStack: reactError instanceof Error ? reactError.stack : undefined
+                      }, 'UnifiedAnalyticsChart');
+                      return (
+                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
+                          <Typography variant="h6" color="error">React Rendering Error</Typography>
+                          <Typography variant="body2" color="text.secondary">Chart rendering failed. Please refresh the page.</Typography>
+                        </div>
+                      );
                     }
                     
                     // Switch statement temporarily disabled for debugging
