@@ -1685,11 +1685,48 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                       willRenderTest: true
                     }, 'UnifiedAnalyticsChart');
                     
-                    // Test 1: Simple div rendering (enabled to test if container works)
+                    // Test 2: Minimal Recharts test - super simple AreaChart
+                    debugLog.info('=== TESTING MINIMAL RECHARTS COMPONENT ===', {
+                      chartType,
+                      dataLength: commonProps?.data?.length || 0,
+                      hasData: !!commonProps?.data,
+                      firstDataPoint: commonProps?.data?.[0]
+                    }, 'UnifiedAnalyticsChart');
+                    
                     return (
-                      <div style={{ width: '100%', height: '100%', background: 'linear-gradient(45deg, #ff6b6b, #4ecdc4)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '20px', fontWeight: 'bold' }}>
-                        TEST CHART RENDER - {chartType.toUpperCase()} - {commonProps?.data?.length || 0} POINTS
-                      </div>
+                      <AreaChart
+                        width={800}
+                        height={250}
+                        data={commonProps?.data || []}
+                        margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                        style={{ background: 'rgba(255, 255, 0, 0.1)' }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#000" />
+                        <XAxis 
+                          dataKey="date" 
+                          stroke="#000"
+                          tick={{ fill: '#000', fontSize: 12 }}
+                        />
+                        <YAxis 
+                          stroke="#000"
+                          tick={{ fill: '#000', fontSize: 12 }}
+                        />
+                        <Tooltip 
+                          contentStyle={{ 
+                            background: 'white', 
+                            border: '2px solid red',
+                            color: 'black' 
+                          }}
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="revenue"
+                          stroke="#ff0000"
+                          strokeWidth={4}
+                          fill="#ff0000"
+                          fillOpacity={0.6}
+                        />
+                      </AreaChart>
                     );
                     
                     // Switch statement temporarily disabled for debugging
