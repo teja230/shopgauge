@@ -1085,10 +1085,13 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
       hasHistorical: !!(data && data.historical),
       historicalLength: data?.historical?.length || 0,
       chartDataLength: chartData.length,
+      safeChartDataLength: safeChartData.length,
       chartType,
-      showPredictions
+      showPredictions,
+      containerReady,
+      chartVisible
     }, 'UnifiedAnalyticsChart');
-  }, [loading, error, data, chartData.length, chartType, showPredictions]);
+  }, [loading, error, data, chartData.length, safeChartData.length, chartType, showPredictions, containerReady, chartVisible]);
 
   if (loading) {
     debugLog.info('Rendering loading state', { height }, 'UnifiedAnalyticsChart');
@@ -1212,8 +1215,8 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
     );
   }
 
-  return (
-    <Box ref={containerRef} sx={{ width: '100%' }}>
+      return (
+    <Box sx={{ width: '100%' }}>
       {/* Header with Controls */}
       <Box
         sx={{
@@ -1524,8 +1527,9 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
       </Box>
 
       {/* Chart Container - Force remount with key to prevent React invariant errors */}
-      {containerReady && chartVisible ? (
+      {chartVisible ? (
         <Paper
+          ref={containerRef}
           key={`chart-container-${chartType}-${chartKey}`}
           elevation={0}
           sx={{
@@ -1537,7 +1541,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
             overflow: 'hidden',
           }}
         >
-          {safeChartData.length > 0 && (
+          {containerReady && safeChartData.length > 0 && (
             <React.Fragment key={`chart-fragment-${chartType}-${chartKey}`}>
               {/* Use conditional rendering to completely isolate each chart type */}
               {chartType === 'line' && (
@@ -1690,8 +1694,25 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
             </React.Fragment>
           )}
           
-          {/* Show loading or empty state when no data */}
-          {safeChartData.length === 0 && (
+          {/* Show loading state while container is not ready */}
+          {!containerReady && (
+            <Box sx={{ 
+              height: height, 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              flexDirection: 'column',
+              gap: 2
+            }}>
+              <CircularProgress size={32} />
+              <Typography variant="body2" color="text.secondary">
+                Preparing chart...
+              </Typography>
+            </Box>
+          )}
+          
+          {/* Show empty state when no data */}
+          {containerReady && safeChartData.length === 0 && (
             <Box sx={{ 
               height: height, 
               display: 'flex', 
@@ -1710,9 +1731,8 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
           )}
         </Paper>
       ) : (
-        /* Show a loading container while waiting for container to be ready */
+        /* Show a loading container while chart is transitioning */
         <Box
-          ref={containerRef}
           sx={{
             p: 3,
             backgroundColor: '#fff',
@@ -1727,6 +1747,9 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
           }}
         >
           <CircularProgress size={32} />
+          <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
+            Switching chart type...
+          </Typography>
         </Box>
       )}
 
