@@ -5,13 +5,15 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.session.data.redis.config.annotation.web.http.EnableRedisHttpSession;
 import org.springframework.session.web.http.CookieSerializer;
 import org.springframework.session.web.http.DefaultCookieSerializer;
 
 @Configuration
+@Profile("!test")
 @EnableRedisHttpSession(
-    maxInactiveIntervalInSeconds = 3600, // 1 hour
+    maxInactiveIntervalInSeconds = 14400, // 4 hours (aligned with business app standards)
     redisNamespace = "storesight:sessions")
 public class SessionConfig {
 

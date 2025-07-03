@@ -11,9 +11,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.context.annotation.Profile;
 import org.springframework.core.env.Environment;
 
 @Configuration
+@Profile("!test")
 public class DatabaseConfig {
 
   private static final Logger logger = LoggerFactory.getLogger(DatabaseConfig.class);
@@ -52,41 +54,52 @@ public class DatabaseConfig {
     // Check if we're in production environment
     boolean isProduction = isProductionEnvironment();
 
-    // Connection pool settings (pool size can also be overridden via ENV var `DB_POOL_SIZE`)
-    int maxPoolSize = isProduction ? 10 : 50; // Reduced for production
+    // Connection pool settings - Use environment variables with sensible defaults
+    // Production: smaller pool for remote DB, Development: larger pool for local DB
+    int defaultMaxPoolSize = isProduction ? 15 : 25; // Increased from 10 to 15 for production
     String poolSizeProp = System.getenv("DB_POOL_SIZE");
+    int maxPoolSize = defaultMaxPoolSize;
+
     if (poolSizeProp != null) {
       try {
         maxPoolSize = Integer.parseInt(poolSizeProp);
-      } catch (NumberFormatException ignore) {
+        logger.info("Using DB_POOL_SIZE from environment: {}", maxPoolSize);
+      } catch (NumberFormatException e) {
         logger.warn(
-            "Invalid DB_POOL_SIZE env value '{}', using default {}", poolSizeProp, maxPoolSize);
+            "Invalid DB_POOL_SIZE env value '{}', using default {}",
+            poolSizeProp,
+            defaultMaxPoolSize);
+        maxPoolSize = defaultMaxPoolSize;
       }
     }
 
-    config.setMaximumPoolSize(maxPoolSize);
-    config.setMinimumIdle(isProduction ? 2 : Math.min(10, maxPoolSize / 5));
+    // Ensure minimum pool size is reasonable
+    int minimumIdle = Math.max(2, Math.min(5, maxPoolSize / 4));
 
-    // Production-optimized timeouts
+    config.setMaximumPoolSize(maxPoolSize);
+    config.setMinimumIdle(minimumIdle);
+
+    // Enhanced timeouts for production stability
     if (isProduction) {
-      config.setConnectionTimeout(60000); // 60 seconds for production
-      config.setIdleTimeout(600000); // 10 minutes
-      config.setMaxLifetime(1800000); // 30 minutes
-      config.setLeakDetectionThreshold(180000); // 3 minutes
-      config.setValidationTimeout(10000); // 10 seconds
+      config.setConnectionTimeout(45000); // Reduced from 60s to 45s
+      config.setIdleTimeout(300000); // 5 minutes (reduced from 10 minutes)
+      config.setMaxLifetime(1200000); // 20 minutes (reduced from 30 minutes)
+      config.setLeakDetectionThreshold(120000); // 2 minutes (reduced from 3 minutes)
+      config.setValidationTimeout(8000); // 8 seconds (reduced from 10 seconds)
     } else {
       config.setConnectionTimeout(30000);
       config.setIdleTimeout(300000);
       config.setMaxLifetime(1200000);
-      config.setLeakDetectionThreshold(120000);
+      config.setLeakDetectionThreshold(60000); // 1 minute for development
       config.setValidationTimeout(5000);
     }
 
+    // Enhanced connection testing
     config.setConnectionTestQuery("SELECT 1");
     config.setAutoCommit(true);
-    config.setPoolName("StoresightHikariCP" + (isProduction ? "-Prod" : ""));
+    config.setPoolName("StoresightHikariCP" + (isProduction ? "-Prod" : "-Dev"));
 
-    // Connection properties for better performance
+    // Connection properties for better performance and reliability
     config.addDataSourceProperty("cachePrepStmts", "true");
     config.addDataSourceProperty("prepStmtCacheSize", "250");
     config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
@@ -106,15 +119,25 @@ public class DatabaseConfig {
       config.addDataSourceProperty("initialTimeout", "10");
       config.addDataSourceProperty("socketTimeout", "30000");
       config.addDataSourceProperty("connectTimeout", "30000");
+      // Add TCP keepalive for production
+      config.addDataSourceProperty("tcpKeepAlive", "true");
     }
 
     HikariDataSource dataSource = new HikariDataSource(config);
 
-    // Test connection on startup with retry logic for production
+    // Test connection on startup with retry logic
     testDatabaseConnection(dataSource, isProduction);
 
     // Warm up the connection pool
     warmupConnectionPool(dataSource, isProduction);
+
+    // Log final configuration
+    logger.info(
+        "HikariCP configured - maxPoolSize: {}, minimumIdle: {}, connectionTimeout: {}ms, isProduction: {}",
+        maxPoolSize,
+        minimumIdle,
+        config.getConnectionTimeout(),
+        isProduction);
 
     return dataSource;
   }
@@ -131,12 +154,17 @@ public class DatabaseConfig {
 
   private void testDatabaseConnection(HikariDataSource dataSource, boolean isProduction) {
     int maxRetries = isProduction ? 3 : 1;
-    int retryDelayMs = isProduction ? 5000 : 1000;
+    int retryDelayMs = isProduction ? 3000 : 1000; // Reduced delay
 
     for (int attempt = 1; attempt <= maxRetries; attempt++) {
       try (Connection connection = dataSource.getConnection()) {
-        logger.info("Database connection test successful (attempt {}/{})", attempt, maxRetries);
-        return;
+        // Quick connection test
+        if (connection.isValid(5)) {
+          logger.info("Database connection test successful (attempt {}/{})", attempt, maxRetries);
+          return;
+        } else {
+          throw new SQLException("Connection validation failed");
+        }
       } catch (SQLException e) {
         logger.warn(
             "Database connection test failed (attempt {}/{}): {}",
@@ -155,7 +183,7 @@ public class DatabaseConfig {
         } else {
           logger.error("Failed to establish database connection after {} attempts", maxRetries, e);
           if (isProduction) {
-            // In production, we might want to continue startup and let health checks handle it
+            // In production, continue startup and let health checks handle monitoring
             logger.warn(
                 "Continuing startup despite database connection failure - health checks will monitor connection");
           } else {
@@ -169,14 +197,18 @@ public class DatabaseConfig {
   private void warmupConnectionPool(HikariDataSource dataSource, boolean isProduction) {
     logger.info("Warming up database connection pool...");
     try {
-      // Create and close a few connections to warm up the pool
-      int warmupConnections = isProduction ? 2 : 3;
+      // Create and test connections to warm up the pool
+      int warmupConnections = Math.min(3, dataSource.getMinimumIdle());
       for (int i = 0; i < warmupConnections; i++) {
         try (Connection conn = dataSource.getConnection()) {
-          conn.prepareStatement("SELECT 1").execute();
+          // Quick validation
+          if (conn.isValid(3)) {
+            conn.prepareStatement("SELECT 1").execute();
+          }
         }
       }
-      logger.info("Database connection pool warmed up successfully");
+      logger.info(
+          "Database connection pool warmed up successfully with {} connections", warmupConnections);
     } catch (Exception e) {
       logger.warn("Failed to warm up connection pool: {}", e.getMessage());
     }

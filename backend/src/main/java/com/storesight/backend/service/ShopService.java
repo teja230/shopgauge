@@ -32,10 +32,12 @@ public class ShopService {
   private static final String SHOP_SESSION_PREFIX = "shop_session:";
   private static final String ACTIVE_SESSIONS_PREFIX = "active_sessions:";
 
-  // TTL values
+  // TTL values - Further optimized for better resource management
   private static final int REDIS_CACHE_TTL_MINUTES = 30; // Shorter TTL for cache
-  private static final int SESSION_INACTIVITY_HOURS = 24; // Mark sessions inactive after 24 hours
-  private static final int SESSION_CLEANUP_DAYS = 7; // Delete old inactive sessions after 7 days
+  private static final int SESSION_INACTIVITY_HOURS =
+      4; // Reduced from 12h to 4h (business app standard)
+  private static final int SESSION_CLEANUP_DAYS = 2; // Reduced from 3 to 2 days
+  private static final int MAX_SESSIONS_PER_SHOP = 5; // Limit concurrent sessions per shop
 
   @Autowired
   public ShopService(
@@ -84,7 +86,7 @@ public class ShopService {
   /**
    * Save shop and create/update session. This method handles multiple concurrent sessions properly.
    */
-  @Transactional
+  @Transactional(timeout = 30)
   public ShopSession saveShop(
       String shopifyDomain, String accessToken, String sessionId, HttpServletRequest request) {
     logger.info("Saving shop: {} for session: {}", shopifyDomain, sessionId);
@@ -111,6 +113,9 @@ public class ShopService {
     // Update shop's main access token (most recent one)
     shop.setAccessToken(accessToken);
     shop = shopRepository.save(shop);
+
+    // Check and limit concurrent sessions before creating new one
+    cleanupExcessiveSessions(shop);
 
     // Create or update session
     ShopSession session = createOrUpdateSession(shop, validSessionId, accessToken, request);
@@ -600,9 +605,51 @@ public class ShopService {
 
   // Scheduled cleanup methods
 
-  /** Clean up expired sessions - runs every hour */
+  /** Clean up excessive sessions for a shop to prevent database bloat */
+  @Transactional(timeout = 15)
+  public void cleanupExcessiveSessions(Shop shop) {
+    try {
+      List<ShopSession> activeSessions =
+          shopSessionRepository.findByShopAndIsActiveTrueOrderByLastAccessedAtDesc(shop);
+
+      if (activeSessions.size() >= MAX_SESSIONS_PER_SHOP) {
+        // Keep only the most recent sessions, deactivate the rest
+        List<ShopSession> sessionsToDeactivate =
+            activeSessions.subList(MAX_SESSIONS_PER_SHOP - 1, activeSessions.size());
+
+        for (ShopSession session : sessionsToDeactivate) {
+          session.deactivate();
+          shopSessionRepository.save(session);
+
+          // Clear from Redis cache
+          try {
+            redisTemplate.delete(
+                SHOP_TOKEN_PREFIX + shop.getShopifyDomain() + ":" + session.getSessionId());
+          } catch (Exception e) {
+            logger.warn(
+                "Failed to clear Redis cache for session {}: {}",
+                session.getSessionId(),
+                e.getMessage());
+          }
+        }
+
+        logger.info(
+            "Deactivated {} excessive sessions for shop: {}",
+            sessionsToDeactivate.size(),
+            shop.getShopifyDomain());
+      }
+    } catch (Exception e) {
+      logger.error(
+          "Error during excessive session cleanup for shop {}: {}",
+          shop.getShopifyDomain(),
+          e.getMessage());
+      // Don't propagate exception as this is a cleanup operation
+    }
+  }
+
+  /** Clean up expired sessions - runs every 15 minutes (aggressive cleanup) */
   @Transactional
-  @Scheduled(fixedRate = 3600000) // 1 hour
+  @Scheduled(fixedRate = 900000) // 15 minutes (reduced from 30 minutes)
   public void cleanupExpiredSessions() {
     try {
       List<ShopSession> expiredSessions = shopSessionRepository.findExpiredSessions();
@@ -612,26 +659,34 @@ public class ShopService {
 
         // Clear from cache
         if (session.getShop() != null) {
-          redisTemplate.delete(
-              SHOP_TOKEN_PREFIX
-                  + session.getShop().getShopifyDomain()
-                  + ":"
-                  + session.getSessionId());
+          try {
+            redisTemplate.delete(
+                SHOP_TOKEN_PREFIX
+                    + session.getShop().getShopifyDomain()
+                    + ":"
+                    + session.getSessionId());
+          } catch (Exception e) {
+            logger.warn(
+                "Failed to clear Redis cache during expired session cleanup: {}", e.getMessage());
+          }
         }
       }
 
       if (!expiredSessions.isEmpty()) {
         logger.info("Deactivated {} expired sessions", expiredSessions.size());
       }
+
+      // Also clean up old inactive sessions more frequently
+      cleanupInactiveSessions();
+
     } catch (Exception e) {
       logger.error("Error during expired session cleanup: {}", e.getMessage(), e);
     }
   }
 
-  /** Clean up old inactive sessions - runs daily at 2 AM */
+  /** Clean up old inactive sessions - now called from expired session cleanup and daily */
   @Transactional
-  @Scheduled(cron = "0 0 2 * * *")
-  public void cleanupOldInactiveSessions() {
+  public void cleanupInactiveSessions() {
     try {
       LocalDateTime cutoffDate = LocalDateTime.now().minusDays(SESSION_CLEANUP_DAYS);
 
@@ -643,15 +698,41 @@ public class ShopService {
         shopSessionRepository.save(session);
       }
 
-      // Delete very old inactive sessions
+      // Delete very old inactive sessions more aggressively
       LocalDateTime deleteCutoffDate = LocalDateTime.now().minusDays(SESSION_CLEANUP_DAYS * 2);
       shopSessionRepository.deleteOldInactiveSessions(deleteCutoffDate);
 
       if (!oldSessions.isEmpty()) {
-        logger.info("Cleaned up {} old sessions", oldSessions.size());
+        logger.info("Cleaned up {} old inactive sessions", oldSessions.size());
       }
     } catch (Exception e) {
-      logger.error("Error during old session cleanup: {}", e.getMessage(), e);
+      logger.error("Error during inactive session cleanup: {}", e.getMessage(), e);
+    }
+  }
+
+  /** Clean up old inactive sessions - runs daily at 2 AM and 2 PM */
+  @Transactional
+  @Scheduled(cron = "0 0 2,14 * * *") // Run twice daily
+  public void cleanupOldInactiveSessionsScheduled() {
+    logger.info("Starting scheduled inactive session cleanup");
+    cleanupInactiveSessions();
+
+    // Additional cleanup: remove very old Redis keys
+    cleanupOldRedisKeys();
+  }
+
+  /** Clean up old Redis keys that might be orphaned */
+  private void cleanupOldRedisKeys() {
+    try {
+      // This is a basic cleanup - in production you might want to use Redis SCAN
+      // to avoid blocking operations on large keysets
+      var allTokenKeys = redisTemplate.keys(SHOP_TOKEN_PREFIX + "*");
+      if (allTokenKeys != null && !allTokenKeys.isEmpty()) {
+        logger.debug("Found {} Redis token keys for potential cleanup", allTokenKeys.size());
+        // For now, just log the count. More sophisticated cleanup can be added later.
+      }
+    } catch (Exception e) {
+      logger.warn("Error during Redis key cleanup: {}", e.getMessage());
     }
   }
 

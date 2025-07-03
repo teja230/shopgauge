@@ -86,7 +86,7 @@ import { fetchWithAuth } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { styled } from '@mui/material/styles';
 import { useNotifications } from '../hooks/useNotifications';
-import HealthSummary from '../components/ui/HealthSummary';
+import EnhancedHealthSummary from '../components/ui/EnhancedHealthSummary';
 import DiffViewerDialog from '../components/ui/DiffViewerDialog';
 
 interface Secret {
@@ -933,8 +933,8 @@ const AdminPage: React.FC = () => {
             </Tabs>
           </TabsContainer>
 
-          {/* Health Summary */}
-          <HealthSummary />
+          {/* Enhanced Health Summary */}
+          <EnhancedHealthSummary />
 
           {/* Session Statistics Card */}
           {sessionStats && auditLogType === 'active' && (
