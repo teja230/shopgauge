@@ -570,14 +570,14 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         action: 'FORCE_REMOUNT'
       }, 'UnifiedAnalyticsChart');
       
-      // First hide the chart completely and reset container state
+      // First hide the chart completely
       setChartVisible(false);
-      setContainerReady(false);
       
       // After a brief delay, update chart type and show again
       setTimeout(() => {
         setChartType(newType);
         setChartKey(prev => prev + 1);
+        setContainerReady(false); // Reset container ready state here
         setChartVisible(true);
       }, 100);
     }
@@ -1044,6 +1044,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
   const commonTooltip = <Tooltip content={<CustomTooltip />} />;
   const commonLegend = <Legend />;
 
+
   // ============================================
   // ResizeObserver gate – only render the chart
   // once the container has a measurable width.
@@ -1054,6 +1055,16 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
 
   const [containerReady, setContainerReady] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
+
+  // Debug containerReady state changes
+  useLayoutEffect(() => {
+    debugLog.info('containerReady state changed', { 
+      containerReady, 
+      chartType, 
+      chartVisible,
+      chartKey
+    }, 'UnifiedAnalyticsChart');
+  }, [containerReady]);
 
   useLayoutEffect(() => {
     if (!containerRef.current) {
@@ -1070,7 +1081,8 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
 
     if (containerRef.current.offsetWidth > 0) {
       debugLog.info('Container already has width, setting ready immediately', { 
-        width: containerRef.current.offsetWidth 
+        width: containerRef.current.offsetWidth,
+        currentContainerReady: containerReady
       }, 'UnifiedAnalyticsChart');
       setContainerReady(true);
       return;
