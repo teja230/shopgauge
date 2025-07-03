@@ -1577,6 +1577,18 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         >
           {containerReady && safeChartData.length > 0 && (
             <React.Fragment key={`chart-fragment-${chartType}-${chartKey}`}>
+              {/* Debug logging for chart rendering */}
+              {(() => {
+                debugLog.info('About to render chart', {
+                  chartType,
+                  containerReady,
+                  safeChartDataLength: safeChartData.length,
+                  chartKey,
+                  visibleMetrics
+                }, 'UnifiedAnalyticsChart');
+                return null;
+              })()}
+              
               {/* Use conditional rendering to completely isolate each chart type */}
               {chartType === 'line' && (
                 <div key="line-chart-wrapper" style={{ width: '100%', height: height }}>
@@ -1635,6 +1647,14 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
               
               {(chartType === 'combined' || chartType === 'composed') && (
                 <div key="composed-chart-wrapper" style={{ width: '100%', height: height }}>
+                  {(() => {
+                    debugLog.info('Rendering combined/composed chart', {
+                      chartType,
+                      height,
+                      commonPropsData: commonProps.data?.length || 0
+                    }, 'UnifiedAnalyticsChart');
+                    return null;
+                  })()}
                   <ResponsiveContainer width="100%" height={height}>
                     <MemoizedComposedChart
                       commonProps={commonProps}
@@ -1655,6 +1675,14 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
               
               {chartType === 'revenue_focus' && (
                 <div key="revenue-focus-chart-wrapper" style={{ width: '100%', height: height }}>
+                  {(() => {
+                    debugLog.info('Rendering revenue_focus chart', {
+                      chartType,
+                      height,
+                      commonPropsData: commonProps.data?.length || 0
+                    }, 'UnifiedAnalyticsChart');
+                    return null;
+                  })()}
                   <ResponsiveContainer width="100%" height={height}>
                     <MemoizedRevenueFocusChart
                       commonProps={commonProps}
