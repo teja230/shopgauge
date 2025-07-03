@@ -11,7 +11,7 @@ import org.springframework.session.web.http.DefaultCookieSerializer;
 
 @Configuration
 @EnableRedisHttpSession(
-    maxInactiveIntervalInSeconds = 3600, // 1 hour
+    maxInactiveIntervalInSeconds = 14400, // 4 hours (aligned with business app standards)
     redisNamespace = "storesight:sessions")
 public class SessionConfig {
 

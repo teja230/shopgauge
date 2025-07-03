@@ -169,7 +169,7 @@ const PerformanceMetricsCard: React.FC<{ metrics: DatabaseMetrics }> = ({ metric
       </Typography>
       
       <Box display="flex" gap={2} mb={2}>
-        <Box flex={1} textAlign="center" sx={{ p: 2, bgcolor: 'success.50', borderRadius: 2 }}>
+        <Box flex={1} textAlign="center" sx={{ p: 2, bgcolor: 'rgba(46, 125, 50, 0.1)', borderRadius: 2 }}>
           <Typography variant="h5" color="success.main" fontWeight="bold">
             {metrics.totalConnections}
           </Typography>
@@ -177,7 +177,7 @@ const PerformanceMetricsCard: React.FC<{ metrics: DatabaseMetrics }> = ({ metric
             Total Connections
           </Typography>
         </Box>
-        <Box flex={1} textAlign="center" sx={{ p: 2, bgcolor: 'info.50', borderRadius: 2 }}>
+        <Box flex={1} textAlign="center" sx={{ p: 2, bgcolor: 'rgba(2, 136, 209, 0.1)', borderRadius: 2 }}>
           <Typography variant="h5" color="info.main" fontWeight="bold">
             {metrics.minimumIdle}
           </Typography>
@@ -207,7 +207,7 @@ const PerformanceMetricsCard: React.FC<{ metrics: DatabaseMetrics }> = ({ metric
   </Card>
 );
 
-const HealthSummary: React.FC = () => {
+const EnhancedHealthSummary: React.FC = () => {
   const [metrics, setMetrics] = useState<HealthMetrics | null>(null);
   const [databaseDetails, setDatabaseDetails] = useState<DatabaseMetrics | null>(null);
   const [loading, setLoading] = useState(false);
@@ -386,4 +386,4 @@ const HealthSummary: React.FC = () => {
   );
 };
 
-export default HealthSummary; 
+export default EnhancedHealthSummary;

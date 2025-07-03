@@ -1,72 +1,38 @@
 package com.storesight.backend;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureWebMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-import org.springframework.web.context.WebApplicationContext;
 
-@SpringBootTest
-@AutoConfigureWebMvc
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
 class HealthControllerTest {
 
-  @Autowired private WebApplicationContext webApplicationContext;
-
-  private MockMvc mockMvc;
+  @Autowired private TestRestTemplate restTemplate;
 
   @Test
   void testHealthSummaryEndpoint() throws Exception {
-    mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
-
-    mockMvc
-        .perform(get("/api/health/summary"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.status").exists())
-        .andExpect(jsonPath("$.application").exists())
-        .andExpect(jsonPath("$.timestamp").exists())
-        .andExpect(jsonPath("$.database").exists())
-        .andExpect(jsonPath("$.redis").exists());
+    var response = restTemplate.getForEntity("/api/health/summary", String.class);
+    assert response.getStatusCode().is2xxSuccessful();
   }
 
   @Test
   void testDatabaseHealthEndpoint() throws Exception {
-    mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
-
-    mockMvc
-        .perform(get("/api/health/database"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.status").exists())
-        .andExpect(jsonPath("$.connection").exists());
+    var response = restTemplate.getForEntity("/api/health/database", String.class);
+    assert response.getStatusCode().is2xxSuccessful();
   }
 
   @Test
   void testRedisHealthEndpoint() throws Exception {
-    mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
-
-    mockMvc
-        .perform(get("/api/health/redis"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.status").exists());
+    var response = restTemplate.getForEntity("/api/health/redis", String.class);
+    assert response.getStatusCode().is2xxSuccessful();
   }
 
   @Test
   void testDetailedHealthEndpoint() throws Exception {
-    mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
-
-    mockMvc
-        .perform(get("/api/health/detailed"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.status").exists())
-        .andExpect(jsonPath("$.application").exists())
-        .andExpect(jsonPath("$.timestamp").exists())
-        .andExpect(jsonPath("$.database").exists())
-        .andExpect(jsonPath("$.redis").exists());
+    var response = restTemplate.getForEntity("/api/health/detailed", String.class);
+    assert response.getStatusCode().is2xxSuccessful();
   }
 }

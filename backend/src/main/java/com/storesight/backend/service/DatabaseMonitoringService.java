@@ -20,11 +20,17 @@ public class DatabaseMonitoringService {
   private long lastConnectionFailureTime = 0;
   private int consecutiveFailures = 0;
 
+  // Enhanced monitoring thresholds
+  private static final double HIGH_USAGE_THRESHOLD = 0.8; // 80% pool usage
+  private static final double CRITICAL_USAGE_THRESHOLD = 0.95; // 95% pool usage
+  private static final int MAX_CONSECUTIVE_FAILURES = 2; // Reduced from 3
+  private static final long WARNING_DURATION_MS = 30000; // 30 seconds
+
   public DatabaseMonitoringService(DataSource dataSource) {
     this.dataSource = dataSource;
   }
 
-  @Scheduled(fixedRate = 60000) // Run every minute
+  @Scheduled(fixedRate = 30000) // Run every 30 seconds (increased from 1 minute)
   public void monitorDatabaseHealth() {
     if (dataSource instanceof HikariDataSource) {
       monitorHikariCPHealth((HikariDataSource) dataSource);
@@ -38,34 +44,67 @@ public class DatabaseMonitoringService {
       Map<String, Object> metrics = new HashMap<>();
 
       // Get HikariCP metrics
-      metrics.put(
-          "activeConnections", hikariDataSource.getHikariPoolMXBean().getActiveConnections());
-      metrics.put("idleConnections", hikariDataSource.getHikariPoolMXBean().getIdleConnections());
-      metrics.put("totalConnections", hikariDataSource.getHikariPoolMXBean().getTotalConnections());
-      metrics.put(
-          "threadsAwaitingConnection",
-          hikariDataSource.getHikariPoolMXBean().getThreadsAwaitingConnection());
-      metrics.put("maxPoolSize", hikariDataSource.getMaximumPoolSize());
-      metrics.put("minimumIdle", hikariDataSource.getMinimumIdle());
+      int activeConnections = hikariDataSource.getHikariPoolMXBean().getActiveConnections();
+      int idleConnections = hikariDataSource.getHikariPoolMXBean().getIdleConnections();
+      int totalConnections = hikariDataSource.getHikariPoolMXBean().getTotalConnections();
+      int threadsAwaiting = hikariDataSource.getHikariPoolMXBean().getThreadsAwaitingConnection();
+      int maxPoolSize = hikariDataSource.getMaximumPoolSize();
+      int minimumIdle = hikariDataSource.getMinimumIdle();
 
-      // Test actual connection
+      metrics.put("activeConnections", activeConnections);
+      metrics.put("idleConnections", idleConnections);
+      metrics.put("totalConnections", totalConnections);
+      metrics.put("threadsAwaitingConnection", threadsAwaiting);
+      metrics.put("maxPoolSize", maxPoolSize);
+      metrics.put("minimumIdle", minimumIdle);
+
+      // Calculate usage ratios for better monitoring
+      double activeUsageRatio = (double) activeConnections / maxPoolSize;
+      double totalUsageRatio = (double) totalConnections / maxPoolSize;
+
+      metrics.put("activeUsageRatio", Math.round(activeUsageRatio * 100.0) / 100.0);
+      metrics.put("totalUsageRatio", Math.round(totalUsageRatio * 100.0) / 100.0);
+
+      // Test actual connection with timeout
       try (Connection connection = hikariDataSource.getConnection()) {
-        boolean isValid = connection.isValid(5); // 5 second timeout
+        boolean isValid = connection.isValid(3); // Reduced timeout to 3 seconds
         metrics.put("connectionValid", isValid);
 
         if (isValid) {
           consecutiveFailures = 0;
           if (lastConnectionFailureTime > 0) {
-            logger.info("Database connection recovered after {} failures", consecutiveFailures);
+            logger.info("Database connection recovered after failures");
             lastConnectionFailureTime = 0;
           }
 
-          // Log metrics if there are issues
-          if ((Integer) metrics.get("threadsAwaitingConnection") > 0) {
-            logger.warn("Database connection pool under pressure: {}", metrics);
+          // Enhanced monitoring with early warnings
+          if (threadsAwaiting > 0) {
+            logger.warn(
+                "ALERT: {} threads waiting for database connections - Pool pressure detected: {}",
+                threadsAwaiting,
+                metrics);
+          } else if (activeUsageRatio >= CRITICAL_USAGE_THRESHOLD) {
+            logger.error(
+                "CRITICAL: Database pool usage at {}% - Immediate action required: {}",
+                Math.round(activeUsageRatio * 100), metrics);
+          } else if (activeUsageRatio >= HIGH_USAGE_THRESHOLD) {
+            logger.warn(
+                "WARNING: High database pool usage at {}% - Monitor closely: {}",
+                Math.round(activeUsageRatio * 100), metrics);
           } else if (logger.isDebugEnabled()) {
-            logger.debug("Database health check passed: {}", metrics);
+            logger.debug(
+                "Database health check passed - Usage: {}%: {}",
+                Math.round(activeUsageRatio * 100), metrics);
           }
+
+          // Check for pool growth issues
+          if (totalConnections < minimumIdle) {
+            logger.warn(
+                "WARNING: Total connections ({}) below minimum idle ({})",
+                totalConnections,
+                minimumIdle);
+          }
+
         } else {
           handleConnectionFailure("Connection validation failed", metrics);
         }
@@ -79,7 +118,7 @@ public class DatabaseMonitoringService {
 
   private void monitorBasicConnectionHealth() {
     try (Connection connection = dataSource.getConnection()) {
-      boolean isValid = connection.isValid(5);
+      boolean isValid = connection.isValid(3); // Reduced timeout
       if (isValid) {
         consecutiveFailures = 0;
         if (lastConnectionFailureTime > 0) {
@@ -112,12 +151,15 @@ public class DatabaseMonitoringService {
         error,
         metrics);
 
-    // Alert on consecutive failures
-    if (consecutiveFailures >= 3) {
+    // Enhanced alerting with earlier warnings
+    if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
       logger.error(
-          "CRITICAL: Database connection has failed {} consecutive times over {}ms",
+          "CRITICAL: Database connection has failed {} consecutive times over {}ms - IMMEDIATE ACTION REQUIRED",
           consecutiveFailures,
           failureDuration);
+    } else if (failureDuration > WARNING_DURATION_MS) {
+      logger.warn(
+          "WARNING: Database connection issues for {}ms - Monitor closely", failureDuration);
     }
   }
 
@@ -126,20 +168,50 @@ public class DatabaseMonitoringService {
 
     if (dataSource instanceof HikariDataSource) {
       HikariDataSource hikariDataSource = (HikariDataSource) dataSource;
-      metrics.put(
-          "activeConnections", hikariDataSource.getHikariPoolMXBean().getActiveConnections());
+
+      int activeConnections = hikariDataSource.getHikariPoolMXBean().getActiveConnections();
+      int maxPoolSize = hikariDataSource.getMaximumPoolSize();
+
+      metrics.put("activeConnections", activeConnections);
       metrics.put("idleConnections", hikariDataSource.getHikariPoolMXBean().getIdleConnections());
       metrics.put("totalConnections", hikariDataSource.getHikariPoolMXBean().getTotalConnections());
       metrics.put(
           "threadsAwaitingConnection",
           hikariDataSource.getHikariPoolMXBean().getThreadsAwaitingConnection());
-      metrics.put("maxPoolSize", hikariDataSource.getMaximumPoolSize());
+      metrics.put("maxPoolSize", maxPoolSize);
       metrics.put("minimumIdle", hikariDataSource.getMinimumIdle());
+
+      // Add calculated ratios
+      metrics.put(
+          "activeUsageRatio",
+          Math.round(((double) activeConnections / maxPoolSize) * 100.0) / 100.0);
+      metrics.put(
+          "activeUsagePercent", Math.round(((double) activeConnections / maxPoolSize) * 100));
     }
 
     metrics.put("consecutiveFailures", consecutiveFailures);
     metrics.put("lastFailureTime", lastConnectionFailureTime);
+    metrics.put("healthStatus", consecutiveFailures == 0 ? "HEALTHY" : "DEGRADED");
 
     return metrics;
+  }
+
+  /** Get connection pool status for health checks */
+  public String getPoolStatus() {
+    if (dataSource instanceof HikariDataSource) {
+      HikariDataSource hikariDataSource = (HikariDataSource) dataSource;
+      int activeConnections = hikariDataSource.getHikariPoolMXBean().getActiveConnections();
+      int maxPoolSize = hikariDataSource.getMaximumPoolSize();
+      double usageRatio = (double) activeConnections / maxPoolSize;
+
+      if (usageRatio >= CRITICAL_USAGE_THRESHOLD) {
+        return "CRITICAL";
+      } else if (usageRatio >= HIGH_USAGE_THRESHOLD) {
+        return "WARNING";
+      } else {
+        return "HEALTHY";
+      }
+    }
+    return "UNKNOWN";
   }
 }

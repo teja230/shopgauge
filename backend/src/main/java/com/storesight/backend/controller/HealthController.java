@@ -6,6 +6,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -69,7 +70,60 @@ public class HealthController {
   @GetMapping("/database")
   public ResponseEntity<Map<String, Object>> getDatabaseHealth() {
     Map<String, Object> health = checkDatabaseHealth();
-    return ResponseEntity.ok(health);
+
+    // Add enhanced monitoring metrics
+    Map<String, Object> monitoringMetrics = databaseMonitoringService.getDatabaseMetrics();
+    health.putAll(monitoringMetrics);
+
+    // Add pool status assessment
+    String poolStatus = databaseMonitoringService.getPoolStatus();
+    health.put("poolStatus", poolStatus);
+
+    // Determine HTTP status based on pool health
+    HttpStatus responseStatus = HttpStatus.OK;
+    if ("CRITICAL".equals(poolStatus)) {
+      responseStatus = HttpStatus.SERVICE_UNAVAILABLE;
+    } else if ("WARNING".equals(poolStatus)) {
+      responseStatus = HttpStatus.OK; // Still operational but warn
+      health.put("warning", "Database pool usage is high - monitor closely");
+    }
+
+    return ResponseEntity.status(responseStatus).body(health);
+  }
+
+  @GetMapping("/database-pool")
+  public ResponseEntity<Map<String, Object>> getDatabasePoolStatus() {
+    Map<String, Object> poolInfo = databaseMonitoringService.getDatabaseMetrics();
+    String poolStatus = databaseMonitoringService.getPoolStatus();
+
+    // Enhanced pool information
+    poolInfo.put("poolStatus", poolStatus);
+    poolInfo.put("timestamp", LocalDateTime.now().toString());
+
+    // Add recommendations based on status
+    if ("CRITICAL".equals(poolStatus)) {
+      poolInfo.put("recommendation", "IMMEDIATE ACTION REQUIRED: Pool exhaustion imminent");
+      poolInfo.put(
+          "actions",
+          List.of(
+              "Check for connection leaks",
+              "Review long-running transactions",
+              "Consider increasing pool size",
+              "Check database performance"));
+      return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(poolInfo);
+    } else if ("WARNING".equals(poolStatus)) {
+      poolInfo.put("recommendation", "Monitor closely - High pool usage detected");
+      poolInfo.put(
+          "actions",
+          List.of(
+              "Monitor active connections",
+              "Check for slow queries",
+              "Review session cleanup effectiveness"));
+    } else {
+      poolInfo.put("recommendation", "Pool operating normally");
+    }
+
+    return ResponseEntity.ok(poolInfo);
   }
 
   @GetMapping("/redis")

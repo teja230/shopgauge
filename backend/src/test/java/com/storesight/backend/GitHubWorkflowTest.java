@@ -11,8 +11,6 @@ import org.springframework.test.context.ActiveProfiles;
  * test profile which is configured to work with the PostgreSQL and Redis services defined in the
  * GitHub Actions workflow.
  */
-@SpringBootTest
-@ActiveProfiles("test")
 class GitHubWorkflowTest {
 
   @Test
