@@ -1700,60 +1700,265 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                       containerHeight: chartHeight
                     }, 'UnifiedAnalyticsChart');
                     
-                    return (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart
-                          data={commonProps?.data || []}
-                          margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                        >
-                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(0, 0, 0, 0.1)" />
-                          <XAxis 
-                            dataKey="date" 
-                            stroke="rgba(0, 0, 0, 0.4)"
-                            tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: 12 }}
-                            tickFormatter={(tickItem) => {
-                              try {
-                                return new Date(tickItem).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                              } catch {
-                                return tickItem;
-                              }
-                            }}
-                          />
-                          <YAxis 
-                            stroke="rgba(0, 0, 0, 0.4)"
-                            tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: 11 }}
-                            tickFormatter={(value) => `$${(value / 1000).toFixed(1)}k`}
-                          />
-                          <Tooltip 
-                            content={({ active, payload, label }) => {
-                              if (active && payload && payload.length) {
-                                return (
-                                  <div style={{ background: 'white', border: '1px solid #ccc', borderRadius: '4px', padding: '8px' }}>
-                                    <p style={{ margin: 0, fontWeight: 'bold' }}>{`Date: ${label}`}</p>
-                                    <p style={{ margin: 0, color: '#2563eb' }}>{`Revenue: $${payload[0]?.value?.toLocaleString()}`}</p>
-                                  </div>
-                                );
-                              }
-                              return null;
-                            }}
-                          />
-                          <Area
-                            type="monotone"
-                            dataKey="revenue"
-                            stroke="#2563eb"
-                            strokeWidth={2}
-                            fill="url(#revenueGradient)"
-                            fillOpacity={0.3}
-                          />
-                          <defs>
-                            <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3} />
-                              <stop offset="95%" stopColor="#2563eb" stopOpacity={0.05} />
-                            </linearGradient>
-                          </defs>
-                        </AreaChart>
-                      </ResponsiveContainer>
-                    );
+                    // Render chart based on type with working configuration
+                    switch (chartType) {
+                      case 'combined':
+                      case 'composed':
+                        debugLog.info('Rendering working combined chart', {
+                          chartType,
+                          dataLength: commonProps?.data?.length || 0,
+                          visibleMetrics
+                        }, 'UnifiedAnalyticsChart');
+                        
+                        return (
+                          <ResponsiveContainer width="100%" height="100%">
+                            <ComposedChart
+                              data={commonProps?.data || []}
+                              margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                            >
+                              <defs>
+                                <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3} />
+                                  <stop offset="95%" stopColor="#2563eb" stopOpacity={0.05} />
+                                </linearGradient>
+                              </defs>
+                              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0, 0, 0, 0.06)" />
+                              <XAxis 
+                                dataKey="date" 
+                                stroke="rgba(0, 0, 0, 0.4)"
+                                tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: 12 }}
+                                axisLine={{ stroke: 'rgba(0, 0, 0, 0.1)' }}
+                                tickFormatter={(tickItem) => {
+                                  try {
+                                    return new Date(tickItem).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                                  } catch {
+                                    return tickItem;
+                                  }
+                                }}
+                              />
+                              <YAxis 
+                                yAxisId="revenue"
+                                orientation="left"
+                                stroke="rgba(0, 0, 0, 0.4)"
+                                tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: 11 }}
+                                tickFormatter={(value) => `$${(value / 1000).toFixed(1)}k`}
+                                domain={['dataMin', 'dataMax']}
+                                type="number"
+                              />
+                              <YAxis 
+                                yAxisId="orders"
+                                orientation="right"
+                                stroke="rgba(0, 0, 0, 0.4)"
+                                tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: 11 }}
+                                tickFormatter={(value) => Math.round(value).toString()}
+                                domain={['dataMin', 'dataMax']}
+                                type="number"
+                              />
+                              <Tooltip 
+                                content={({ active, payload, label }) => {
+                                  if (active && payload && payload.length) {
+                                    const data = payload[0]?.payload;
+                                    return (
+                                      <div style={{ background: 'white', border: '1px solid #ccc', borderRadius: '4px', padding: '12px', boxShadow: '0 4px 8px rgba(0,0,0,0.1)' }}>
+                                        <p style={{ margin: '0 0 8px 0', fontWeight: 'bold', color: '#374151' }}>
+                                          {new Date(label).toLocaleDateString('en-US', { 
+                                            month: 'short', 
+                                            day: 'numeric',
+                                            year: 'numeric'
+                                          })}
+                                        </p>
+                                        {visibleMetrics.revenue && (
+                                          <p style={{ margin: '4px 0', color: '#2563eb', fontSize: '14px' }}>
+                                            💰 Revenue: ${data?.revenue?.toLocaleString()}
+                                          </p>
+                                        )}
+                                        {visibleMetrics.orders && (
+                                          <p style={{ margin: '4px 0', color: '#10b981', fontSize: '14px' }}>
+                                            📦 Orders: {data?.orders_count}
+                                          </p>
+                                        )}
+                                        {visibleMetrics.conversion && (
+                                          <p style={{ margin: '4px 0', color: '#f59e0b', fontSize: '14px' }}>
+                                            📈 Conversion: {data?.conversion_rate?.toFixed(2)}%
+                                          </p>
+                                        )}
+                                        {data?.isPrediction && (
+                                          <p style={{ margin: '4px 0', color: '#8b5cf6', fontSize: '12px', fontStyle: 'italic' }}>
+                                            🔮 Prediction
+                                          </p>
+                                        )}
+                                      </div>
+                                    );
+                                  }
+                                  return null;
+                                }}
+                              />
+                              <Legend />
+                              
+                              {visibleMetrics.revenue && (
+                                <Bar
+                                  yAxisId="revenue"
+                                  dataKey="revenue"
+                                  fill="#2563eb"
+                                  name="Revenue"
+                                  radius={[2, 2, 0, 0]}
+                                  opacity={0.8}
+                                />
+                              )}
+                              
+                              {visibleMetrics.orders && (
+                                <Line
+                                  yAxisId="orders"
+                                  type="monotone"
+                                  dataKey="orders_count"
+                                  stroke="#10b981"
+                                  strokeWidth={3}
+                                  name="Orders"
+                                  dot={{ fill: '#10b981', strokeWidth: 2, r: 3 }}
+                                  connectNulls={false}
+                                />
+                              )}
+                              
+                              {visibleMetrics.conversion && (
+                                <Line
+                                  yAxisId="orders"
+                                  type="monotone"
+                                  dataKey="conversion_rate"
+                                  stroke="#f59e0b"
+                                  strokeWidth={2}
+                                  name="Conversion Rate (%)"
+                                  dot={{ fill: '#f59e0b', strokeWidth: 2, r: 2 }}
+                                  connectNulls={false}
+                                />
+                              )}
+                              
+                              {shouldShowPredictionLine && predictionDate && (
+                                <ReferenceLine
+                                  x={predictionDate}
+                                  stroke="rgba(139, 92, 246, 0.5)"
+                                  strokeDasharray="5,5"
+                                  strokeWidth={2}
+                                  label={{ value: "Predictions →", position: "top" }}
+                                />
+                              )}
+                            </ComposedChart>
+                          </ResponsiveContainer>
+                        );
+                        
+                      case 'area':
+                        return (
+                          <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart
+                              data={commonProps?.data || []}
+                              margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                            >
+                              <defs>
+                                <linearGradient id="areaRevenueGradient" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3} />
+                                  <stop offset="95%" stopColor="#2563eb" stopOpacity={0.05} />
+                                </linearGradient>
+                              </defs>
+                              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0, 0, 0, 0.06)" />
+                              <XAxis 
+                                dataKey="date" 
+                                stroke="rgba(0, 0, 0, 0.4)"
+                                tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: 12 }}
+                                tickFormatter={(tickItem) => {
+                                  try {
+                                    return new Date(tickItem).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                                  } catch {
+                                    return tickItem;
+                                  }
+                                }}
+                              />
+                              <YAxis 
+                                stroke="rgba(0, 0, 0, 0.4)"
+                                tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: 11 }}
+                                tickFormatter={(value) => `$${(value / 1000).toFixed(1)}k`}
+                                domain={['dataMin', 'dataMax']}
+                                type="number"
+                              />
+                              <Tooltip 
+                                content={({ active, payload, label }) => {
+                                  if (active && payload && payload.length) {
+                                    return (
+                                      <div style={{ background: 'white', border: '1px solid #ccc', borderRadius: '4px', padding: '8px' }}>
+                                        <p style={{ margin: 0, fontWeight: 'bold' }}>{`Date: ${label}`}</p>
+                                        <p style={{ margin: 0, color: '#2563eb' }}>{`Revenue: $${payload[0]?.value?.toLocaleString()}`}</p>
+                                      </div>
+                                    );
+                                  }
+                                  return null;
+                                }}
+                              />
+                              <Area
+                                type="monotone"
+                                dataKey="revenue"
+                                stroke="#2563eb"
+                                strokeWidth={2}
+                                fill="url(#areaRevenueGradient)"
+                                fillOpacity={0.3}
+                              />
+                            </AreaChart>
+                          </ResponsiveContainer>
+                        );
+                        
+                      default:
+                        return (
+                          <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart
+                              data={commonProps?.data || []}
+                              margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                            >
+                              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0, 0, 0, 0.1)" />
+                              <XAxis 
+                                dataKey="date" 
+                                stroke="rgba(0, 0, 0, 0.4)"
+                                tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: 12 }}
+                                tickFormatter={(tickItem) => {
+                                  try {
+                                    return new Date(tickItem).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                                  } catch {
+                                    return tickItem;
+                                  }
+                                }}
+                              />
+                              <YAxis 
+                                stroke="rgba(0, 0, 0, 0.4)"
+                                tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: 11 }}
+                                tickFormatter={(value) => `$${(value / 1000).toFixed(1)}k`}
+                              />
+                              <Tooltip 
+                                content={({ active, payload, label }) => {
+                                  if (active && payload && payload.length) {
+                                    return (
+                                      <div style={{ background: 'white', border: '1px solid #ccc', borderRadius: '4px', padding: '8px' }}>
+                                        <p style={{ margin: 0, fontWeight: 'bold' }}>{`Date: ${label}`}</p>
+                                        <p style={{ margin: 0, color: '#2563eb' }}>{`Revenue: $${payload[0]?.value?.toLocaleString()}`}</p>
+                                      </div>
+                                    );
+                                  }
+                                  return null;
+                                }}
+                              />
+                              <Area
+                                type="monotone"
+                                dataKey="revenue"
+                                stroke="#2563eb"
+                                strokeWidth={2}
+                                fill="url(#revenueGradient)"
+                                fillOpacity={0.3}
+                              />
+                              <defs>
+                                <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3} />
+                                  <stop offset="95%" stopColor="#2563eb" stopOpacity={0.05} />
+                                </linearGradient>
+                              </defs>
+                            </AreaChart>
+                          </ResponsiveContainer>
+                        );
+                    }
                     
                     // Switch statement temporarily disabled for debugging
                     // switch (chartType) {
