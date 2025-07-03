@@ -1,5 +1,6 @@
 import React from 'react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
+import { debugLog } from './DebugPanel';
 
 // Simple test data
 const testData = [
@@ -11,7 +12,11 @@ const testData = [
 ];
 
 const ChartTest: React.FC = () => {
-  console.log('🧪 ChartTest rendering with data:', testData);
+  debugLog.info('ChartTest rendering', {
+    dataLength: testData.length,
+    dataSample: testData.slice(0, 2),
+    hasValidData: testData.every(item => item.date && typeof item.revenue === 'number')
+  }, 'ChartTest');
   
   return (
     <div style={{ width: '100%', height: '400px', border: '1px solid #ccc', padding: '20px' }}>

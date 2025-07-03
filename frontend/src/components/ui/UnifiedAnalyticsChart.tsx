@@ -169,7 +169,11 @@ const processHistoricalItem = (item: any) => {
     
     return processedItem;
   } catch (error) {
-    console.error('Error processing historical item:', error, item);
+    debugLog.error('Error processing historical item', {
+      error: error instanceof Error ? error.message : String(error),
+      item: item ? { ...item, date: item.date } : null,
+      errorStack: error instanceof Error ? error.stack : undefined
+    }, 'processHistoricalItem');
     // Return a safe default structure
     return {
       date: new Date().toISOString().split('T')[0],
@@ -183,15 +187,18 @@ const processHistoricalItem = (item: any) => {
   }
 };
 
-// Add a debug helper for chart rendering
+// Add a debug helper for chart rendering using Debug Panel
 const debugChartRender = (componentName: string, props: any) => {
-  console.group(`🎯 ${componentName} Debug`);
-  console.log('Props:', props);
-  console.log('Data sample:', props.commonProps?.data?.slice(0, 2));
-  console.log('Data length:', props.commonProps?.data?.length);
-  console.log('Visible metrics:', props.visibleMetrics);
-  console.log('Chart height:', props.commonProps?.height);
-  console.groupEnd();
+  debugLog.info(`${componentName} Debug - Props`, {
+    hasCommonProps: !!props.commonProps,
+    dataLength: props.commonProps?.data?.length || 0,
+    dataSample: props.commonProps?.data?.slice(0, 2) || [],
+    visibleMetrics: props.visibleMetrics,
+    chartHeight: props.commonProps?.height,
+    shouldShowPredictionLine: props.shouldShowPredictionLine,
+    predictionDate: props.predictionDate,
+    gradientIdPrefix: props.gradientIdPrefix
+  }, componentName);
 };
 
 // Create memoized chart components to prevent re-renders and isolate each chart type
@@ -524,7 +531,12 @@ const MemoizedRevenueFocusChart = memo(({ commonProps, commonGrid, commonXAxis, 
 
   // Validate data before rendering
   if (!commonProps || !commonProps.data || !Array.isArray(commonProps.data) || commonProps.data.length === 0) {
-    console.error('MemoizedRevenueFocusChart: Invalid data props', commonProps);
+    debugLog.error('MemoizedRevenueFocusChart: Invalid data props', {
+      hasCommonProps: !!commonProps,
+      hasData: !!(commonProps && commonProps.data),
+      isArray: !!(commonProps && Array.isArray(commonProps.data)),
+      dataLength: commonProps?.data?.length || 0
+    }, 'MemoizedRevenueFocusChart');
     return null;
   }
 
@@ -534,7 +546,12 @@ const MemoizedRevenueFocusChart = memo(({ commonProps, commonGrid, commonXAxis, 
   );
   
   if (!hasRevenueData) {
-    console.error('MemoizedRevenueFocusChart: No valid revenue data found', commonProps.data);
+    debugLog.error('MemoizedRevenueFocusChart: No valid revenue data found', {
+      dataLength: commonProps.data?.length || 0,
+      dataSample: commonProps.data?.slice(0, 3) || [],
+      hasAnyRevenue: commonProps.data?.some((item: any) => item && 'revenue' in item),
+      revenueTypes: commonProps.data?.map((item: any) => typeof item?.revenue).slice(0, 5)
+    }, 'MemoizedRevenueFocusChart');
     return null;
   }
 
@@ -689,7 +706,13 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
 
       return validData;
     } catch (err) {
-      console.error('Error processing chart data:', err);
+      debugLog.error('Error processing chart data', {
+        error: err instanceof Error ? err.message : String(err),
+        hasData: !!data,
+        hasHistorical: !!(data && data.historical),
+        historicalLength: data?.historical?.length || 0,
+        errorStack: err instanceof Error ? err.stack : undefined
+      }, 'UnifiedAnalyticsChart');
       return [];
     }
   }, [data, timeRange, showPredictions]);
@@ -720,7 +743,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         }
       }, 'UnifiedAnalyticsChart');
 
-      console.log('UnifiedAnalyticsChart: Processing historical data', {
+      debugLog.info('Processing historical data for chart (console fallback)', {
         historicalLength: data.historical.length,
         sampleItem: data.historical[0],
         dataStructure: {
@@ -729,16 +752,16 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
           totalRevenue: data.total_revenue,
           totalOrders: data.total_orders,
         }
-      });
+      }, 'UnifiedAnalyticsChart');
     }
 
     if (chartData.length > 0) {
-      console.log('UnifiedAnalyticsChart: Processed chart data:', {
+      debugLog.info('Processed chart data summary', {
         totalPoints: chartData.length,
         historicalPoints: chartData.filter(d => !d.isPrediction).length,
         predictionPoints: chartData.filter(d => d.isPrediction).length,
         hasValidData: chartData.length > 0
-      });
+      }, 'UnifiedAnalyticsChart');
     }
   }, [data, chartData, loading, error]);
 
@@ -746,7 +769,12 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
   const stats = useMemo(() => {
     try {
       if (!data || !data.historical || !Array.isArray(data.historical) || data.historical.length === 0) {
-        console.log('UnifiedAnalyticsChart: No historical data for stats calculation');
+        debugLog.warn('No historical data for stats calculation', {
+          hasData: !!data,
+          hasHistorical: !!(data && data.historical),
+          isArray: !!(data && Array.isArray(data.historical)),
+          length: data?.historical?.length || 0
+        }, 'UnifiedAnalyticsChart');
         return null;
       }
 
@@ -789,7 +817,13 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         },
       };
     } catch (err) {
-      console.error('Error calculating stats:', err);
+      debugLog.error('Error calculating stats', {
+        error: err instanceof Error ? err.message : String(err),
+        hasData: !!data,
+        hasHistorical: !!(data && data.historical),
+        historicalLength: data?.historical?.length || 0,
+        errorStack: err instanceof Error ? err.stack : undefined
+      }, 'UnifiedAnalyticsChart');
       return null;
     }
   }, [data]);
@@ -989,7 +1023,13 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
       }
       return null;
     } catch (err) {
-      console.error('Error rendering tooltip:', err);
+      debugLog.error('Error rendering tooltip', {
+        error: err instanceof Error ? err.message : String(err),
+        hasActive: !!active,
+        hasPayload: !!(payload && payload.length),
+        label: label,
+        errorStack: err instanceof Error ? err.stack : undefined
+      }, 'CustomTooltip');
       return null;
     }
   };
@@ -1103,8 +1143,12 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
   }
 
   if (error) {
-    debugLog.error('Rendering error state', { error, height: chartHeight }, 'UnifiedAnalyticsChart');
-    console.error('UnifiedAnalyticsChart: Error state triggered with error:', error);
+    debugLog.error('Rendering error state', { 
+      error, 
+      height: chartHeight,
+      errorType: typeof error,
+      errorMessage: error || 'Unknown error'
+    }, 'UnifiedAnalyticsChart');
     return (
       <Box
         sx={{
@@ -1554,14 +1598,15 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
               }, 'UnifiedAnalyticsChart');
               
               // Additional debug logging
-              console.log('🔍 Chart Render Debug:', {
+              debugLog.info('Chart Render Debug', {
                 chartType,
                 safeChartDataLength: safeChartData.length,
                 visibleMetrics,
                 chartHeight,
                 dataSample: safeChartData.slice(0, 3),
-                hasRevenueData: safeChartData.some(item => item && typeof item.revenue === 'number' && !isNaN(item.revenue) && item.revenue > 0)
-              });
+                hasRevenueData: safeChartData.some(item => item && typeof item.revenue === 'number' && !isNaN(item.revenue) && item.revenue > 0),
+                commonPropsValid: !!(commonProps && commonProps.data && commonProps.data.length > 0)
+              }, 'UnifiedAnalyticsChart');
               
               return null;
             })()}
@@ -1575,7 +1620,13 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                   
                   // Validate commonProps before rendering
                   if (!commonProps || !commonProps.data || commonProps.data.length === 0) {
-                    console.error('Invalid commonProps in chart render:', commonProps);
+                    debugLog.error('Invalid commonProps in chart render', {
+                      hasCommonProps: !!commonProps,
+                      hasData: !!(commonProps && commonProps.data),
+                      dataLength: commonProps?.data?.length || 0,
+                      chartType,
+                      safeChartDataLength: safeChartData.length
+                    }, 'UnifiedAnalyticsChart');
                     return (
                       <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <Typography variant="body2" color="error">Chart data error</Typography>
@@ -1646,12 +1697,15 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                           />
                         );
                       case 'revenue_focus':
-                        console.log('🎯 Rendering revenue_focus chart with:', {
+                        debugLog.info('Rendering revenue_focus chart', {
                           dataLength: commonProps.data?.length,
                           hasRevenueData: commonProps.data?.some((item: any) => item && typeof item.revenue === 'number' && !isNaN(item.revenue) && item.revenue > 0),
                           visibleRevenue: visibleMetrics.revenue,
-                          dataSample: commonProps.data?.slice(0, 2)
-                        });
+                          dataSample: commonProps.data?.slice(0, 2),
+                          chartHeight,
+                          shouldShowPredictionLine,
+                          predictionDate
+                        }, 'UnifiedAnalyticsChart');
                         return (
                           <MemoizedRevenueFocusChart
                             commonProps={commonProps}
@@ -1727,7 +1781,13 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                         );
                     }
                   } catch (error) {
-                    console.error('Error rendering chart:', error);
+                    debugLog.error('Error rendering chart', {
+                      error: error instanceof Error ? error.message : String(error),
+                      chartType,
+                      dataLength: commonProps?.data?.length || 0,
+                      hasCommonProps: !!commonProps,
+                      errorStack: error instanceof Error ? error.stack : undefined
+                    }, 'UnifiedAnalyticsChart');
                     return (
                       <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
                         <Typography variant="h6" color="error">Chart Rendering Error</Typography>
