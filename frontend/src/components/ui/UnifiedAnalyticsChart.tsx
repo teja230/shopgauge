@@ -1685,177 +1685,178 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                       willRenderTest: true
                     }, 'UnifiedAnalyticsChart');
                     
-                    // Test 1: Simple div rendering (temporarily disabled to avoid unreachable code)
-                    // return (
-                    //   <div style={{ width: '100%', height: '100%', background: 'linear-gradient(45deg, #ff6b6b, #4ecdc4)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '20px', fontWeight: 'bold' }}>
-                    //     TEST CHART RENDER - {chartType.toUpperCase()} - {commonProps?.data?.length || 0} POINTS
-                    //   </div>
-                    // );
+                    // Test 1: Simple div rendering (enabled to test if container works)
+                    return (
+                      <div style={{ width: '100%', height: '100%', background: 'linear-gradient(45deg, #ff6b6b, #4ecdc4)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '20px', fontWeight: 'bold' }}>
+                        TEST CHART RENDER - {chartType.toUpperCase()} - {commonProps?.data?.length || 0} POINTS
+                      </div>
+                    );
                     
-                    switch (chartType) {
-                      case 'line':
-                        return (
-                          <MemoizedLineChart
-                            commonProps={commonProps}
-                            commonGrid={commonGrid}
-                            commonXAxis={commonXAxis}
-                            commonYAxisRevenue={commonYAxisRevenue}
-                            commonTooltip={commonTooltip}
-                            commonLegend={commonLegend}
-                            visibleMetrics={visibleMetrics}
-                            shouldShowPredictionLine={shouldShowPredictionLine}
-                            predictionDate={predictionDate}
-                          />
-                        );
-                      case 'area':
-                        return (
-                          <MemoizedAreaChart
-                            commonProps={commonProps}
-                            commonGrid={commonGrid}
-                            commonXAxis={commonXAxis}
-                            commonYAxisRevenue={commonYAxisRevenue}
-                            commonTooltip={commonTooltip}
-                            commonLegend={commonLegend}
-                            visibleMetrics={visibleMetrics}
-                            shouldShowPredictionLine={shouldShowPredictionLine}
-                            predictionDate={predictionDate}
-                            gradientIdPrefix={gradientIdPrefix}
-                          />
-                        );
-                      case 'bar':
-                        return (
-                          <MemoizedBarChart
-                            commonProps={commonProps}
-                            commonGrid={commonGrid}
-                            commonXAxis={commonXAxis}
-                            commonYAxisRevenue={commonYAxisRevenue}
-                            commonTooltip={commonTooltip}
-                            commonLegend={commonLegend}
-                            visibleMetrics={visibleMetrics}
-                            shouldShowPredictionLine={shouldShowPredictionLine}
-                            predictionDate={predictionDate}
-                          />
-                        );
-                      case 'combined':
-                      case 'composed':
-                        debugLog.info('Rendering combined/composed chart', {
-                          chartType,
-                          hasCommonProps: !!commonProps,
-                          dataLength: commonProps?.data?.length || 0,
-                          hasYAxisRevenue: !!commonYAxisRevenue,
-                          hasYAxisOrders: !!commonYAxisOrders,
-                          visibleMetrics,
-                          showPredictions,
-                          shouldShowPredictionLine,
-                          predictionDate,
-                          commonPropsKeys: commonProps ? Object.keys(commonProps) : [],
-                          dataSample: commonProps?.data?.slice(0, 2) || []
-                        }, 'UnifiedAnalyticsChart');
-                        
-                        // Temporary fallback to AreaChart for debugging
-                        debugLog.info('Using AreaChart fallback for combined chart', {
-                          chartType,
-                          dataLength: commonProps?.data?.length || 0
-                        }, 'UnifiedAnalyticsChart');
-                        
-                        return (
-                          <MemoizedAreaChart
-                            commonProps={commonProps}
-                            commonGrid={commonGrid}
-                            commonXAxis={commonXAxis}
-                            commonYAxisRevenue={commonYAxisRevenue}
-                            commonTooltip={commonTooltip}
-                            commonLegend={commonLegend}
-                            visibleMetrics={visibleMetrics}
-                            shouldShowPredictionLine={shouldShowPredictionLine}
-                            predictionDate={predictionDate}
-                            gradientIdPrefix={gradientIdPrefix}
-                          />
-                        );
-                      case 'revenue_focus':
-                        debugLog.info('Rendering revenue_focus chart', {
-                          dataLength: commonProps.data?.length,
-                          hasRevenueData: commonProps.data?.some((item: any) => item && typeof item.revenue === 'number' && !isNaN(item.revenue) && item.revenue > 0),
-                          visibleRevenue: visibleMetrics.revenue,
-                          dataSample: commonProps.data?.slice(0, 2),
-                          chartHeight,
-                          shouldShowPredictionLine,
-                          predictionDate
-                        }, 'UnifiedAnalyticsChart');
-                        return (
-                          <MemoizedRevenueFocusChart
-                            commonProps={commonProps}
-                            commonGrid={commonGrid}
-                            commonXAxis={commonXAxis}
-                            commonYAxisRevenue={commonYAxisRevenue}
-                            commonTooltip={commonTooltip}
-                            commonLegend={commonLegend}
-                            visibleMetrics={visibleMetrics}
-                            shouldShowPredictionLine={shouldShowPredictionLine}
-                            predictionDate={predictionDate}
-                            gradientIdPrefix={gradientIdPrefix}
-                          />
-                        );
-                      case 'candlestick':
-                        return (
-                          <MemoizedCandlestickChart
-                            commonProps={commonProps}
-                            commonGrid={commonGrid}
-                            commonXAxis={commonXAxis}
-                            commonYAxisRevenue={commonYAxisRevenue}
-                            commonTooltip={commonTooltip}
-                            commonLegend={commonLegend}
-                            visibleMetrics={visibleMetrics}
-                            shouldShowPredictionLine={shouldShowPredictionLine}
-                            predictionDate={predictionDate}
-                          />
-                        );
-                      case 'waterfall':
-                        return (
-                          <MemoizedWaterfallChart
-                            commonProps={commonProps}
-                            commonGrid={commonGrid}
-                            commonXAxis={commonXAxis}
-                            commonYAxisRevenue={commonYAxisRevenue}
-                            commonTooltip={commonTooltip}
-                            commonLegend={commonLegend}
-                            visibleMetrics={visibleMetrics}
-                            shouldShowPredictionLine={shouldShowPredictionLine}
-                            predictionDate={predictionDate}
-                          />
-                        );
-                      case 'stacked':
-                        return (
-                          <MemoizedStackedChart
-                            commonProps={commonProps}
-                            commonGrid={commonGrid}
-                            commonXAxis={commonXAxis}
-                            commonYAxisRevenue={commonYAxisRevenue}
-                            commonTooltip={commonTooltip}
-                            commonLegend={commonLegend}
-                            visibleMetrics={visibleMetrics}
-                            shouldShowPredictionLine={shouldShowPredictionLine}
-                            predictionDate={predictionDate}
-                            gradientIdPrefix={gradientIdPrefix}
-                          />
-                        );
-                      default:
-                        return (
-                          <MemoizedComposedChart
-                            commonProps={commonProps}
-                            commonGrid={commonGrid}
-                            commonXAxis={commonXAxis}
-                            commonYAxisRevenue={commonYAxisRevenue}
-                            commonYAxisOrders={commonYAxisOrders}
-                            commonTooltip={commonTooltip}
-                            commonLegend={commonLegend}
-                            visibleMetrics={visibleMetrics}
-                            showPredictions={showPredictions}
-                            shouldShowPredictionLine={shouldShowPredictionLine}
-                            predictionDate={predictionDate}
-                          />
-                        );
-                    }
+                    // Switch statement temporarily disabled for debugging
+                    // switch (chartType) {
+                    //   case 'line':
+                    //     return (
+                    //       <MemoizedLineChart
+                    //         commonProps={commonProps}
+                    //         commonGrid={commonGrid}
+                    //         commonXAxis={commonXAxis}
+                    //         commonYAxisRevenue={commonYAxisRevenue}
+                    //         commonTooltip={commonTooltip}
+                    //         commonLegend={commonLegend}
+                    //         visibleMetrics={visibleMetrics}
+                    //         shouldShowPredictionLine={shouldShowPredictionLine}
+                    //         predictionDate={predictionDate}
+                    //       />
+                    //     );
+                    //   case 'area':
+                    //     return (
+                    //       <MemoizedAreaChart
+                    //         commonProps={commonProps}
+                    //         commonGrid={commonGrid}
+                    //         commonXAxis={commonXAxis}
+                    //         commonYAxisRevenue={commonYAxisRevenue}
+                    //         commonTooltip={commonTooltip}
+                    //         commonLegend={commonLegend}
+                    //         visibleMetrics={visibleMetrics}
+                    //         shouldShowPredictionLine={shouldShowPredictionLine}
+                    //         predictionDate={predictionDate}
+                    //         gradientIdPrefix={gradientIdPrefix}
+                    //       />
+                    //     );
+                    //   case 'bar':
+                    //     return (
+                    //       <MemoizedBarChart
+                    //         commonProps={commonProps}
+                    //         commonGrid={commonGrid}
+                    //         commonXAxis={commonXAxis}
+                    //         commonYAxisRevenue={commonYAxisRevenue}
+                    //         commonTooltip={commonTooltip}
+                    //         commonLegend={commonLegend}
+                    //         visibleMetrics={visibleMetrics}
+                    //         shouldShowPredictionLine={shouldShowPredictionLine}
+                    //         predictionDate={predictionDate}
+                    //       />
+                    //     );
+                    //   case 'combined':
+                    //   case 'composed':
+                    //     debugLog.info('Rendering combined/composed chart', {
+                    //       chartType,
+                    //       hasCommonProps: !!commonProps,
+                    //       dataLength: commonProps?.data?.length || 0,
+                    //       hasYAxisRevenue: !!commonYAxisRevenue,
+                    //       hasYAxisOrders: !!commonYAxisOrders,
+                    //       visibleMetrics,
+                    //       showPredictions,
+                    //       shouldShowPredictionLine,
+                    //       predictionDate,
+                    //       commonPropsKeys: commonProps ? Object.keys(commonProps) : [],
+                    //       dataSample: commonProps?.data?.slice(0, 2) || []
+                    //     }, 'UnifiedAnalyticsChart');
+                    //     
+                    //     // Temporary fallback to AreaChart for debugging
+                    //     debugLog.info('Using AreaChart fallback for combined chart', {
+                    //       chartType,
+                    //       dataLength: commonProps?.data?.length || 0
+                    //     }, 'UnifiedAnalyticsChart');
+                    //     
+                    //     return (
+                    //       <MemoizedAreaChart
+                    //         commonProps={commonProps}
+                    //         commonGrid={commonGrid}
+                    //         commonXAxis={commonXAxis}
+                    //         commonYAxisRevenue={commonYAxisRevenue}
+                    //         commonTooltip={commonTooltip}
+                    //         commonLegend={commonLegend}
+                    //         visibleMetrics={visibleMetrics}
+                    //         shouldShowPredictionLine={shouldShowPredictionLine}
+                    //         predictionDate={predictionDate}
+                    //         gradientIdPrefix={gradientIdPrefix}
+                    //       />
+                    //     );
+                    //   case 'revenue_focus':
+                    //     debugLog.info('Rendering revenue_focus chart', {
+                    //       dataLength: commonProps.data?.length,
+                    //       hasRevenueData: commonProps.data?.some((item: any) => item && typeof item.revenue === 'number' && !isNaN(item.revenue) && item.revenue > 0),
+                    //       visibleRevenue: visibleMetrics.revenue,
+                    //       dataSample: commonProps.data?.slice(0, 2),
+                    //       chartHeight,
+                    //       shouldShowPredictionLine,
+                    //       predictionDate
+                    //     }, 'UnifiedAnalyticsChart');
+                    //     return (
+                    //       <MemoizedRevenueFocusChart
+                    //         commonProps={commonProps}
+                    //         commonGrid={commonGrid}
+                    //         commonXAxis={commonXAxis}
+                    //         commonYAxisRevenue={commonYAxisRevenue}
+                    //         commonTooltip={commonTooltip}
+                    //         commonLegend={commonLegend}
+                    //         visibleMetrics={visibleMetrics}
+                    //         shouldShowPredictionLine={shouldShowPredictionLine}
+                    //         predictionDate={predictionDate}
+                    //         gradientIdPrefix={gradientIdPrefix}
+                    //       />
+                    //     );
+                    //   case 'candlestick':
+                    //     return (
+                    //       <MemoizedCandlestickChart
+                    //         commonProps={commonProps}
+                    //         commonGrid={commonGrid}
+                    //         commonXAxis={commonXAxis}
+                    //         commonYAxisRevenue={commonYAxisRevenue}
+                    //         commonTooltip={commonTooltip}
+                    //         commonLegend={commonLegend}
+                    //         visibleMetrics={visibleMetrics}
+                    //         shouldShowPredictionLine={shouldShowPredictionLine}
+                    //         predictionDate={predictionDate}
+                    //       />
+                    //     );
+                    //   case 'waterfall':
+                    //     return (
+                    //       <MemoizedWaterfallChart
+                    //         commonProps={commonProps}
+                    //         commonGrid={commonGrid}
+                    //         commonXAxis={commonXAxis}
+                    //         commonYAxisRevenue={commonYAxisRevenue}
+                    //         commonTooltip={commonTooltip}
+                    //         commonLegend={commonLegend}
+                    //         visibleMetrics={visibleMetrics}
+                    //         shouldShowPredictionLine={shouldShowPredictionLine}
+                    //         predictionDate={predictionDate}
+                    //       />
+                    //     );
+                    //   case 'stacked':
+                    //     return (
+                    //       <MemoizedStackedChart
+                    //         commonProps={commonProps}
+                    //         commonGrid={commonGrid}
+                    //         commonXAxis={commonXAxis}
+                    //         commonYAxisRevenue={commonYAxisRevenue}
+                    //         commonTooltip={commonTooltip}
+                    //         commonLegend={commonLegend}
+                    //         visibleMetrics={visibleMetrics}
+                    //         shouldShowPredictionLine={shouldShowPredictionLine}
+                    //         predictionDate={predictionDate}
+                    //         gradientIdPrefix={gradientIdPrefix}
+                    //       />
+                    //     );
+                    //   default:
+                    //     return (
+                    //       <MemoizedComposedChart
+                    //         commonProps={commonProps}
+                    //         commonGrid={commonGrid}
+                    //         commonXAxis={commonXAxis}
+                    //         commonYAxisRevenue={commonYAxisRevenue}
+                    //         commonYAxisOrders={commonYAxisOrders}
+                    //         commonTooltip={commonTooltip}
+                    //         commonLegend={commonLegend}
+                    //         visibleMetrics={visibleMetrics}
+                    //         showPredictions={showPredictions}
+                    //         shouldShowPredictionLine={shouldShowPredictionLine}
+                    //         predictionDate={predictionDate}
+                    //       />
+                    //     );
+                    // }
                   } catch (error) {
                     debugLog.error('Error rendering chart', {
                       error: error instanceof Error ? error.message : String(error),
