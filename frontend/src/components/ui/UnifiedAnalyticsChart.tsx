@@ -106,7 +106,27 @@ const safeNumber = (value: any, defaultValue: number = 0): number => {
   if (value === null || value === undefined || isNaN(Number(value))) {
     return defaultValue;
   }
-  return Number(value);
+  const num = Number(value);
+  // Additional checks for SVG-safe values
+  if (!isFinite(num) || num < -1e10 || num > 1e10) {
+    return defaultValue;
+  }
+  return num;
+};
+
+// Helper function to validate date strings for SVG rendering
+const safeDateString = (dateStr: any): string => {
+  if (!dateStr || typeof dateStr !== 'string') {
+    return new Date().toISOString().split('T')[0];
+  }
+  
+  // Check if it's a valid date string
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) {
+    return new Date().toISOString().split('T')[0];
+  }
+  
+  return dateStr;
 };
 
 // Helper function to safely process historical data item
@@ -114,7 +134,7 @@ const processHistoricalItem = (item: any) => {
   try {
     // Handle the current API format with 'kind' and 'isPrediction' fields
     const processedItem = {
-      date: item.date || '',
+      date: safeDateString(item.date),
       revenue: safeNumber(item.revenue),
       orders_count: safeNumber(item.orders_count),
       conversion_rate: safeNumber(item.conversion_rate),
@@ -124,26 +144,32 @@ const processHistoricalItem = (item: any) => {
       ...(typeof item.isPrediction === 'boolean' && { isPrediction: item.isPrediction }),
     };
     
-    // Additional validation to ensure all numeric values are safe
-    if (isNaN(processedItem.revenue) || !isFinite(processedItem.revenue)) {
+    // Additional validation to ensure all numeric values are SVG-safe
+    if (isNaN(processedItem.revenue) || !isFinite(processedItem.revenue) || processedItem.revenue < 0) {
       processedItem.revenue = 0;
     }
-    if (isNaN(processedItem.orders_count) || !isFinite(processedItem.orders_count)) {
+    if (isNaN(processedItem.orders_count) || !isFinite(processedItem.orders_count) || processedItem.orders_count < 0) {
       processedItem.orders_count = 0;
     }
-    if (isNaN(processedItem.conversion_rate) || !isFinite(processedItem.conversion_rate)) {
+    if (isNaN(processedItem.conversion_rate) || !isFinite(processedItem.conversion_rate) || processedItem.conversion_rate < 0) {
       processedItem.conversion_rate = 0;
     }
-    if (isNaN(processedItem.avg_order_value) || !isFinite(processedItem.avg_order_value)) {
+    if (isNaN(processedItem.avg_order_value) || !isFinite(processedItem.avg_order_value) || processedItem.avg_order_value < 0) {
       processedItem.avg_order_value = 0;
     }
+    
+    // Cap extremely large values that might cause SVG rendering issues
+    processedItem.revenue = Math.min(processedItem.revenue, 1e9);
+    processedItem.orders_count = Math.min(processedItem.orders_count, 1e6);
+    processedItem.conversion_rate = Math.min(processedItem.conversion_rate, 100);
+    processedItem.avg_order_value = Math.min(processedItem.avg_order_value, 1e6);
     
     return processedItem;
   } catch (error) {
     console.error('Error processing historical item:', error, item);
     // Return a safe default structure
     return {
-      date: '',
+      date: new Date().toISOString().split('T')[0],
       revenue: 0,
       orders_count: 0,
       conversion_rate: 0,
@@ -561,21 +587,28 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         // Check for null/undefined items
         if (!item) return true;
         
-        // Check for required string properties
+        // Check for required string properties and validate date format
         if (typeof item.date !== 'string' || item.date.length === 0) return true;
         
-        // Check for required numeric properties with NaN validation
-        if (typeof item.revenue !== 'number' || isNaN(item.revenue)) return true;
-        if (typeof item.orders_count !== 'number' || isNaN(item.orders_count)) return true;
-        if (typeof item.conversion_rate !== 'number' || isNaN(item.conversion_rate)) return true;
-        if (typeof item.avg_order_value !== 'number' || isNaN(item.avg_order_value)) return true;
+        // Validate date string can be parsed
+        const dateCheck = new Date(item.date);
+        if (isNaN(dateCheck.getTime())) return true;
         
-        // Check for infinite values that could cause SVG rendering issues
-        if (!isFinite(item.revenue) || !isFinite(item.orders_count)) return true;
-        if (!isFinite(item.conversion_rate) || !isFinite(item.avg_order_value)) return true;
+        // Check for required numeric properties with comprehensive validation
+        if (typeof item.revenue !== 'number' || isNaN(item.revenue) || !isFinite(item.revenue)) return true;
+        if (typeof item.orders_count !== 'number' || isNaN(item.orders_count) || !isFinite(item.orders_count)) return true;
+        if (typeof item.conversion_rate !== 'number' || isNaN(item.conversion_rate) || !isFinite(item.conversion_rate)) return true;
+        if (typeof item.avg_order_value !== 'number' || isNaN(item.avg_order_value) || !isFinite(item.avg_order_value)) return true;
         
-        // Additional validation for negative values that might cause chart issues
-        if (item.revenue < 0 || item.orders_count < 0) return true;
+        // Check for negative values that might cause chart issues
+        if (item.revenue < 0 || item.orders_count < 0 || item.conversion_rate < 0 || item.avg_order_value < 0) return true;
+        
+        // Check for extremely large values that could cause SVG coordinate overflow
+        if (item.revenue > 1e9 || item.orders_count > 1e6 || item.conversion_rate > 100 || item.avg_order_value > 1e6) return true;
+        
+        // Check for extremely small decimal values that might cause precision issues
+        if (item.revenue > 0 && item.revenue < 1e-10) return true;
+        if (item.orders_count > 0 && item.orders_count < 1e-10) return true;
         
         return false;
       });
@@ -605,18 +638,46 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         )
       }, 'UnifiedAnalyticsChart');
 
-      // Create a final safety-filtered dataset to prevent any remaining invalid data from reaching Recharts
-      const safeChartData = chartData.filter(item => {
-        return item && 
-               typeof item.date === 'string' && 
-               item.date.length > 0 &&
-               typeof item.revenue === 'number' && 
-               !isNaN(item.revenue) &&
-               isFinite(item.revenue) &&
-               typeof item.orders_count === 'number' && 
-               !isNaN(item.orders_count) &&
-               isFinite(item.orders_count);
-      });
+      // Create a final safety-filtered and sanitized dataset to prevent any remaining invalid data from reaching Recharts
+      const safeChartData = chartData
+        .filter(item => {
+          return item && 
+                 typeof item.date === 'string' && 
+                 item.date.length > 0 &&
+                 typeof item.revenue === 'number' && 
+                 !isNaN(item.revenue) &&
+                 isFinite(item.revenue) &&
+                 item.revenue >= 0 &&
+                 item.revenue <= 1e9 &&
+                 typeof item.orders_count === 'number' && 
+                 !isNaN(item.orders_count) &&
+                 isFinite(item.orders_count) &&
+                 item.orders_count >= 0 &&
+                 item.orders_count <= 1e6 &&
+                 typeof item.conversion_rate === 'number' && 
+                 !isNaN(item.conversion_rate) &&
+                 isFinite(item.conversion_rate) &&
+                 item.conversion_rate >= 0 &&
+                 item.conversion_rate <= 100 &&
+                 typeof item.avg_order_value === 'number' && 
+                 !isNaN(item.avg_order_value) &&
+                 isFinite(item.avg_order_value) &&
+                 item.avg_order_value >= 0 &&
+                 item.avg_order_value <= 1e6;
+        })
+        .map(item => ({
+          // Deep sanitization of each data point
+          ...item,
+          date: safeDateString(item.date),
+          revenue: Math.max(0, Math.min(1e9, safeNumber(item.revenue))),
+          orders_count: Math.max(0, Math.min(1e6, safeNumber(item.orders_count))),
+          conversion_rate: Math.max(0, Math.min(100, safeNumber(item.conversion_rate))),
+          avg_order_value: Math.max(0, Math.min(1e6, safeNumber(item.avg_order_value))),
+          // Ensure all other properties are safe
+          key: item.key || `item-${item.date}`,
+          type: item.type || 'historical',
+          isPrediction: Boolean(item.isPrediction),
+        }));
 
       if (safeChartData.length !== chartData.length) {
         debugLog.warn('Filtered out invalid data points before passing to Recharts', {
@@ -652,9 +713,13 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         );
       }
 
+      // Ensure chart props are completely safe for SVG rendering
       const commonProps = {
         data: safeChartData,
         margin: { top: 20, right: 30, left: 20, bottom: 20 },
+        // Add additional props to prevent SVG rendering issues
+        syncId: undefined, // Prevent sync issues
+        throttleDelay: 0,   // Prevent throttling issues
       };
 
       const commonXAxis = (
@@ -738,6 +803,8 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                   name="Revenue"
                   dot={{ fill: '#2563eb', strokeWidth: 2, r: 4 }}
                   activeDot={{ r: 6, fill: '#2563eb', stroke: '#fff', strokeWidth: 2 }}
+                  connectNulls={false}
+                  isAnimationActive={false}
                 />
               )}
               {visibleMetrics.orders && (
@@ -749,6 +816,8 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                   strokeWidth={2}
                   name="Orders"
                   dot={{ fill: '#10b981', strokeWidth: 2, r: 3 }}
+                  connectNulls={false}
+                  isAnimationActive={false}
                 />
               )}
               {shouldShowPredictionLine && data?.predictions?.[0]?.date && (
@@ -777,16 +846,18 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
               {commonTooltip}
               {commonLegend}
               {visibleMetrics.revenue && (
-                <Area
-                  yAxisId="revenue"
-                  type="monotone"
-                  dataKey="revenue"
-                  stroke="#2563eb"
-                  strokeWidth={3}
-                  fill={`url(#${gradientIdPrefix}-revenueGradient)`}
-                  name="Revenue"
-                  dot={{ fill: '#2563eb', strokeWidth: 2, r: 4 }}
-                />
+                              <Area
+                yAxisId="revenue"
+                type="monotone"
+                dataKey="revenue"
+                stroke="#2563eb"
+                strokeWidth={3}
+                fill={`url(#${gradientIdPrefix}-revenueGradient)`}
+                name="Revenue"
+                dot={{ fill: '#2563eb', strokeWidth: 2, r: 4 }}
+                connectNulls={false}
+                isAnimationActive={false}
+              />
               )}
               {shouldShowPredictionLine && data?.predictions?.[0]?.date && (
                 <ReferenceLine
@@ -808,14 +879,15 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
               {commonTooltip}
               {commonLegend}
               {visibleMetrics.revenue && (
-                <Bar
-                  yAxisId="revenue"
-                  dataKey="revenue"
-                  fill="#2563eb"
-                  name="Revenue"
-                  radius={[4, 4, 0, 0]}
-                  opacity={0.8}
-                />
+                              <Bar
+                yAxisId="revenue"
+                dataKey="revenue"
+                fill="#2563eb"
+                name="Revenue"
+                radius={[4, 4, 0, 0]}
+                opacity={0.8}
+                isAnimationActive={false}
+              />
               )}
               {shouldShowPredictionLine && data?.predictions?.[0]?.date && (
                 <ReferenceLine
@@ -844,6 +916,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                   name="Revenue"
                   radius={[2, 2, 0, 0]}
                   opacity={0.8}
+                  isAnimationActive={false}
                 />
               )}
               {visibleMetrics.orders && (
@@ -855,6 +928,8 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                   strokeWidth={1}
                   name="Orders"
                   dot={false}
+                  connectNulls={false}
+                  isAnimationActive={false}
                 />
               )}
               {shouldShowPredictionLine && data?.predictions?.[0]?.date && (
@@ -884,6 +959,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                   name="Revenue"
                   radius={[2, 2, 0, 0]}
                   opacity={0.8}
+                  isAnimationActive={false}
                 />
               )}
               {visibleMetrics.orders && (
@@ -895,6 +971,8 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                   strokeWidth={2}
                   name="Orders"
                   dot={{ fill: '#f59e0b', strokeWidth: 2, r: 3 }}
+                  connectNulls={false}
+                  isAnimationActive={false}
                 />
               )}
               {shouldShowPredictionLine && data?.predictions?.[0]?.date && (
@@ -927,28 +1005,32 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
               {commonTooltip}
               {commonLegend}
               {visibleMetrics.revenue && (
-                <Area
-                  yAxisId="revenue"
-                  type="monotone"
-                  dataKey="revenue"
-                  stroke="#8b5cf6"
-                  strokeWidth={2}
-                  fill={`url(#${gradientIdPrefix}-stackedRevenueGradient)`}
-                  name="Revenue"
-                  stackId="1"
-                />
+                              <Area
+                yAxisId="revenue"
+                type="monotone"
+                dataKey="revenue"
+                stroke="#8b5cf6"
+                strokeWidth={2}
+                fill={`url(#${gradientIdPrefix}-stackedRevenueGradient)`}
+                name="Revenue"
+                stackId="1"
+                connectNulls={false}
+                isAnimationActive={false}
+              />
               )}
               {visibleMetrics.orders && (
-                <Area
-                  yAxisId="revenue"
-                  type="monotone"
-                  dataKey="orders_count"
-                  stroke="#10b981"
-                  strokeWidth={1}
-                  fill={`url(#${gradientIdPrefix}-ordersGradient)`}
-                  name="Orders"
-                  stackId="2"
-                />
+                              <Area
+                yAxisId="revenue"
+                type="monotone"
+                dataKey="orders_count"
+                stroke="#10b981"
+                strokeWidth={1}
+                fill={`url(#${gradientIdPrefix}-ordersGradient)`}
+                name="Orders"
+                stackId="2"
+                connectNulls={false}
+                isAnimationActive={false}
+              />
               )}
               {shouldShowPredictionLine && data?.predictions?.[0]?.date && (
                 <ReferenceLine
@@ -980,6 +1062,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                   name="Revenue"
                   radius={[2, 2, 0, 0]}
                   opacity={0.8}
+                  isAnimationActive={false}
                 />
               )}
               
@@ -993,6 +1076,8 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                   name="Orders"
                   dot={{ fill: '#10b981', strokeWidth: 2, r: 3 }}
                   strokeDasharray={showPredictions ? "5,5" : ""}
+                  connectNulls={false}
+                  isAnimationActive={false}
                 />
               )}
               
@@ -1006,6 +1091,8 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                   name="Conversion Rate (%)"
                   dot={{ fill: '#f59e0b', strokeWidth: 2, r: 2 }}
                   strokeDasharray={showPredictions ? "3,3" : ""}
+                  connectNulls={false}
+                  isAnimationActive={false}
                 />
               )}
               
@@ -1043,6 +1130,8 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                 fill={`url(#${gradientIdPrefix}-revenueFocusGradient)`}
                 name="Revenue"
                 dot={{ fill: '#2563eb', strokeWidth: 3, r: 5 }}
+                connectNulls={false}
+                isAnimationActive={false}
               />
               {shouldShowPredictionLine && data?.predictions?.[0]?.date && (
                 <ReferenceLine
@@ -1073,6 +1162,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                   name="Revenue"
                   radius={[2, 2, 0, 0]}
                   opacity={0.8}
+                  isAnimationActive={false}
                 />
               )}
               
@@ -1086,6 +1176,8 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                   name="Orders"
                   dot={{ fill: '#10b981', strokeWidth: 2, r: 3 }}
                   strokeDasharray={showPredictions ? "5,5" : ""}
+                  connectNulls={false}
+                  isAnimationActive={false}
                 />
               )}
               
@@ -1099,6 +1191,8 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                   name="Conversion Rate (%)"
                   dot={{ fill: '#f59e0b', strokeWidth: 2, r: 2 }}
                   strokeDasharray={showPredictions ? "3,3" : ""}
+                  connectNulls={false}
+                  isAnimationActive={false}
                 />
               )}
               
@@ -1654,9 +1748,53 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         }}
       >
         {containerReady && (
-          <ResponsiveContainer width="100%" height={height}>
-            {renderChart()}
-          </ResponsiveContainer>
+          <div style={{ width: '100%', height: height }}>
+            <ResponsiveContainer width="100%" height={height}>
+              {(() => {
+                try {
+                  debugLog.info('About to render chart inside ResponsiveContainer', {
+                    chartType,
+                    chartDataLength: chartData.length,
+                    containerReady,
+                    hasValidData: chartData.length > 0
+                  }, 'UnifiedAnalyticsChart');
+                  
+                  return renderChart();
+                } catch (renderError) {
+                  debugLog.error('Error in ResponsiveContainer render', {
+                    error: renderError instanceof Error ? renderError.message : String(renderError),
+                    stack: renderError instanceof Error ? renderError.stack : undefined,
+                    chartType,
+                    chartDataLength: chartData.length
+                  }, 'UnifiedAnalyticsChart');
+                  
+                  console.error('ResponsiveContainer render error:', renderError);
+                  
+                  return (
+                    <div style={{ 
+                      width: '100%', 
+                      height: '100%', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center',
+                      flexDirection: 'column',
+                      gap: '16px'
+                    }}>
+                      <Typography variant="h6" color="error">
+                        Chart Rendering Failed
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        The chart could not be rendered due to a data issue.
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Error: {renderError instanceof Error ? renderError.message : String(renderError)}
+                      </Typography>
+                    </div>
+                  );
+                }
+              })()}
+            </ResponsiveContainer>
+          </div>
         )}
       </Paper>
 
