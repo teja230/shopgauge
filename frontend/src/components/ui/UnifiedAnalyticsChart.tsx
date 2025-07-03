@@ -314,67 +314,97 @@ const MemoizedBarChart = memo(({ commonProps, commonGrid, commonXAxis, commonYAx
   </BarChart>
 ));
 
-const MemoizedComposedChart = memo(({ commonProps, commonGrid, commonXAxis, commonYAxisRevenue, commonYAxisOrders, commonTooltip, commonLegend, visibleMetrics, showPredictions, shouldShowPredictionLine, predictionDate }: any) => (
-  <ComposedChart {...commonProps}>
-    {commonGrid}
-    {commonXAxis}
-    {commonYAxisRevenue}
-    {commonYAxisOrders}
-    {commonTooltip}
-    {commonLegend}
+const MemoizedComposedChart = memo(({ commonProps, commonGrid, commonXAxis, commonYAxisRevenue, commonYAxisOrders, commonTooltip, commonLegend, visibleMetrics, showPredictions, shouldShowPredictionLine, predictionDate }: any) => {
+  // Add debug logging for ComposedChart rendering
+  try {
+    debugLog.info('MemoizedComposedChart rendering', {
+      hasCommonProps: !!commonProps,
+      dataLength: commonProps?.data?.length || 0,
+      hasYAxisRevenue: !!commonYAxisRevenue,
+      hasYAxisOrders: !!commonYAxisOrders,
+      visibleMetrics,
+      showPredictions,
+      shouldShowPredictionLine,
+      predictionDate,
+      dataSample: commonProps?.data?.slice(0, 3) || []
+    }, 'MemoizedComposedChart');
+
+    return (
+      <ComposedChart {...commonProps}>
+        {commonGrid}
+        {commonXAxis}
+        {commonYAxisRevenue}
+        {commonYAxisOrders}
+        {commonTooltip}
+        {commonLegend}
+        
+        {visibleMetrics.revenue && (
+          <Bar
+            yAxisId="revenue"
+            dataKey="revenue"
+            fill="#2563eb"
+            name="Revenue"
+            radius={[2, 2, 0, 0]}
+            opacity={0.8}
+            isAnimationActive={false}
+          />
+        )}
+        
+        {visibleMetrics.orders && (
+          <Line
+            yAxisId="orders"
+            type="monotone"
+            dataKey="orders_count"
+            stroke="#10b981"
+            strokeWidth={3}
+            name="Orders"
+            dot={{ fill: '#10b981', strokeWidth: 2, r: 3 }}
+            strokeDasharray={showPredictions ? "5,5" : ""}
+            connectNulls={false}
+            isAnimationActive={false}
+          />
+        )}
+        
+        {visibleMetrics.conversion && (
+          <Line
+            yAxisId="orders"
+            type="monotone"
+            dataKey="conversion_rate"
+            stroke="#f59e0b"
+            strokeWidth={2}
+            name="Conversion Rate (%)"
+            dot={{ fill: '#f59e0b', strokeWidth: 2, r: 2 }}
+            strokeDasharray={showPredictions ? "3,3" : ""}
+            connectNulls={false}
+            isAnimationActive={false}
+          />
+        )}
+        
+        {shouldShowPredictionLine && predictionDate && (
+          <ReferenceLine
+            x={predictionDate}
+            stroke="rgba(0, 0, 0, 0.3)"
+            strokeDasharray="2,2"
+            label="Predictions"
+          />
+        )}
+      </ComposedChart>
+    );
+  } catch (error) {
+    debugLog.error('Error in MemoizedComposedChart', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      hasCommonProps: !!commonProps,
+      dataLength: commonProps?.data?.length || 0
+    }, 'MemoizedComposedChart');
     
-    {visibleMetrics.revenue && (
-      <Bar
-        yAxisId="revenue"
-        dataKey="revenue"
-        fill="#2563eb"
-        name="Revenue"
-        radius={[2, 2, 0, 0]}
-        opacity={0.8}
-        isAnimationActive={false}
-      />
-    )}
-    
-    {visibleMetrics.orders && (
-      <Line
-        yAxisId="orders"
-        type="monotone"
-        dataKey="orders_count"
-        stroke="#10b981"
-        strokeWidth={3}
-        name="Orders"
-        dot={{ fill: '#10b981', strokeWidth: 2, r: 3 }}
-        strokeDasharray={showPredictions ? "5,5" : ""}
-        connectNulls={false}
-        isAnimationActive={false}
-      />
-    )}
-    
-    {visibleMetrics.conversion && (
-      <Line
-        yAxisId="orders"
-        type="monotone"
-        dataKey="conversion_rate"
-        stroke="#f59e0b"
-        strokeWidth={2}
-        name="Conversion Rate (%)"
-        dot={{ fill: '#f59e0b', strokeWidth: 2, r: 2 }}
-        strokeDasharray={showPredictions ? "3,3" : ""}
-        connectNulls={false}
-        isAnimationActive={false}
-      />
-    )}
-    
-    {shouldShowPredictionLine && predictionDate && (
-      <ReferenceLine
-        x={predictionDate}
-        stroke="rgba(0, 0, 0, 0.3)"
-        strokeDasharray="2,2"
-        label="Predictions"
-      />
-    )}
-  </ComposedChart>
-));
+    return (
+      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span>Chart rendering error</span>
+      </div>
+    );
+  }
+});
 
 // Add memoized components for all other chart types to prevent React invariant errors
 const MemoizedCandlestickChart = memo(({ commonProps, commonGrid, commonXAxis, commonYAxisRevenue, commonTooltip, commonLegend, visibleMetrics, shouldShowPredictionLine, predictionDate }: any) => (
@@ -1109,6 +1139,8 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         fill: 'rgba(0, 0, 0, 0.54)',
         fontSize: 12,
       }}
+      domain={['dataMin', 'dataMax']}
+      type="number"
     />
   );
 
@@ -1612,9 +1644,21 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
             })()}
             
             {/* Render chart based on selected type */}
-            <div style={{ width: '100%', height: chartHeight, minHeight: '200px' }}>
+            <div style={{ width: '100%', height: chartHeight, minHeight: '200px', border: '2px solid red', backgroundColor: 'rgba(255, 0, 0, 0.1)' }}>
+              {/* Debug: Add visible marker to see if container is rendered */}
+              <div style={{ position: 'absolute', top: '10px', left: '10px', background: 'yellow', padding: '5px', fontSize: '12px', zIndex: 1000 }}>
+                CHART CONTAINER: {chartHeight}px
+              </div>
+              
               <ResponsiveContainer width="100%" height={chartHeight}>
                 {(() => {
+                  debugLog.info('=== INSIDE RESPONSIVE CONTAINER ===', {
+                    chartHeight,
+                    chartType,
+                    dataLength: commonProps?.data?.length || 0,
+                    containerDimensions: { width: '100%', height: chartHeight }
+                  }, 'UnifiedAnalyticsChart');
+                  
                   const shouldShowPredictionLine = showPredictions && data && data.predictions && data.predictions.length > 0;
                   const predictionDate = data && data.predictions && data.predictions[0] ? data.predictions[0].date : undefined;
                   
@@ -1628,13 +1672,26 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                       safeChartDataLength: safeChartData.length
                     }, 'UnifiedAnalyticsChart');
                     return (
-                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'orange' }}>
                         <Typography variant="body2" color="error">Chart data error</Typography>
                       </div>
                     );
                   }
                   
                   try {
+                    // TEMPORARY: Add a simple test to bypass all charts
+                    debugLog.info('=== ABOUT TO RENDER CHART ===', {
+                      chartType,
+                      willRenderTest: true
+                    }, 'UnifiedAnalyticsChart');
+                    
+                    // Test 1: Simple div rendering (temporarily disabled to avoid unreachable code)
+                    // return (
+                    //   <div style={{ width: '100%', height: '100%', background: 'linear-gradient(45deg, #ff6b6b, #4ecdc4)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '20px', fontWeight: 'bold' }}>
+                    //     TEST CHART RENDER - {chartType.toUpperCase()} - {commonProps?.data?.length || 0} POINTS
+                    //   </div>
+                    // );
+                    
                     switch (chartType) {
                       case 'line':
                         return (
@@ -1681,19 +1738,38 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                         );
                       case 'combined':
                       case 'composed':
+                        debugLog.info('Rendering combined/composed chart', {
+                          chartType,
+                          hasCommonProps: !!commonProps,
+                          dataLength: commonProps?.data?.length || 0,
+                          hasYAxisRevenue: !!commonYAxisRevenue,
+                          hasYAxisOrders: !!commonYAxisOrders,
+                          visibleMetrics,
+                          showPredictions,
+                          shouldShowPredictionLine,
+                          predictionDate,
+                          commonPropsKeys: commonProps ? Object.keys(commonProps) : [],
+                          dataSample: commonProps?.data?.slice(0, 2) || []
+                        }, 'UnifiedAnalyticsChart');
+                        
+                        // Temporary fallback to AreaChart for debugging
+                        debugLog.info('Using AreaChart fallback for combined chart', {
+                          chartType,
+                          dataLength: commonProps?.data?.length || 0
+                        }, 'UnifiedAnalyticsChart');
+                        
                         return (
-                          <MemoizedComposedChart
+                          <MemoizedAreaChart
                             commonProps={commonProps}
                             commonGrid={commonGrid}
                             commonXAxis={commonXAxis}
                             commonYAxisRevenue={commonYAxisRevenue}
-                            commonYAxisOrders={commonYAxisOrders}
                             commonTooltip={commonTooltip}
                             commonLegend={commonLegend}
                             visibleMetrics={visibleMetrics}
-                            showPredictions={showPredictions}
                             shouldShowPredictionLine={shouldShowPredictionLine}
                             predictionDate={predictionDate}
+                            gradientIdPrefix={gradientIdPrefix}
                           />
                         );
                       case 'revenue_focus':
