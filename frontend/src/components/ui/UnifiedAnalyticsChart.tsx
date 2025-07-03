@@ -1320,6 +1320,9 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                   '&.Mui-selected': {
                     background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                     color: 'white',
+                    '&:hover': {
+                      background: 'linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%)',
+                    },
                   },
                 }}
               >
@@ -1388,9 +1391,6 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                   '&.Mui-selected': {
                     backgroundColor: 'primary.main',
                     color: 'white',
-                    '&:hover': {
-                      backgroundColor: 'primary.dark',
-                    },
                   },
                 },
               }}
@@ -1507,6 +1507,8 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         key={`chart-container-${chartType}-${chartKey}`}
         elevation={0}
         sx={{
+          width: '100%',
+          minHeight: '300px',
           p: 3,
           backgroundColor: '#fff',
           border: '1px solid rgba(0, 0, 0, 0.05)',
