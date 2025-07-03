@@ -1185,9 +1185,9 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'flex-start',
-          mb: 3,
+          mb: 2,
           flexWrap: 'wrap',
-          gap: 2,
+          gap: 1.5,
         }}
       >
         <Box>
@@ -1280,26 +1280,24 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                 }}
                 disabled={predictionLoading}
                 sx={{
-                  minWidth: 200,
+                  minWidth: 160,
                   background: showPredictions ? 
                     'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : 
                     'transparent',
-                  border: showPredictions ? 'none' : '2px solid rgba(102, 126, 234, 0.3)',
+                  border: showPredictions ? 'none' : '1px solid rgba(102, 126, 234, 0.3)',
                   color: showPredictions ? 'white' : 'primary.main',
-                  fontWeight: 600,
-                  borderRadius: 3,
-                  py: 1.5,
-                  px: 3,
-                  transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-                  transform: showPredictions ? 'scale(1.02)' : 'scale(1)',
+                  fontWeight: 500,
+                  borderRadius: 2,
+                  py: 1,
+                  px: 2,
+                  transition: 'all 0.3s ease',
                   boxShadow: showPredictions ? 
-                    '0 8px 25px rgba(102, 126, 234, 0.3)' : 
-                    '0 2px 8px rgba(0, 0, 0, 0.1)',
+                    '0 4px 12px rgba(102, 126, 234, 0.2)' : 
+                    '0 1px 4px rgba(0, 0, 0, 0.1)',
                   '&:hover': {
-                    transform: 'scale(1.05)',
                     boxShadow: showPredictions ? 
-                      '0 12px 35px rgba(102, 126, 234, 0.4)' : 
-                      '0 4px 15px rgba(102, 126, 234, 0.2)',
+                      '0 6px 16px rgba(102, 126, 234, 0.3)' : 
+                      '0 2px 8px rgba(102, 126, 234, 0.15)',
                     background: showPredictions ? 
                       'linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%)' : 
                       'rgba(102, 126, 234, 0.05)',
@@ -1318,12 +1316,12 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                 ) : (
                   showPredictions ? <Stop /> : <AutoFixHigh />
                 )}
-                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', ml: 1 }}>
-                  <Typography variant="button" fontWeight="inherit">
-                    {predictionLoading ? 'Analyzing your data…' : (showPredictions ? 'Stop Predictions' : 'Predict Future')}
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', ml: 0.5 }}>
+                  <Typography variant="caption" fontWeight="inherit" fontSize="0.8rem">
+                    {predictionLoading ? 'Analyzing…' : (showPredictions ? 'Stop Predictions' : 'AI Predictions')}
                   </Typography>
-                  <Typography variant="caption" sx={{ opacity: 0.8, fontSize: '0.7rem' }}>
-                    {predictionLoading ? 'Our AI models are processing your forecast…' : (showPredictions ? 'Hide AI forecasting' : 'AI-powered 60-day forecast')}
+                  <Typography variant="caption" sx={{ opacity: 0.7, fontSize: '0.65rem' }}>
+                    {predictionLoading ? 'Processing forecast…' : (showPredictions ? 'Hide forecasting' : '60-day forecast')}
                   </Typography>
                 </Box>
               </ToggleButton>
@@ -1392,12 +1390,12 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
 
       {/* Summary Statistics */}
       {stats && (
-        <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
-          <Card elevation={0} sx={{ border: '1px solid rgba(0, 0, 0, 0.1)', flex: 1, minWidth: 200 }}>
-            <CardContent sx={{ p: 2 }}>
+        <Box sx={{ display: 'flex', gap: 1.5, mb: 2, flexWrap: 'wrap' }}>
+          <Card elevation={0} sx={{ border: '1px solid rgba(0, 0, 0, 0.1)', flex: 1, minWidth: 180 }}>
+            <CardContent sx={{ p: 1.5 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <Box>
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                  <Typography variant="caption" color="text.secondary" gutterBottom>
                     Revenue (7d)
                   </Typography>
                   <Typography variant="h6" color="primary" fontWeight={600}>
@@ -1422,11 +1420,11 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
             </CardContent>
           </Card>
 
-          <Card elevation={0} sx={{ border: '1px solid rgba(0, 0, 0, 0.1)', flex: 1, minWidth: 200 }}>
-            <CardContent sx={{ p: 2 }}>
+          <Card elevation={0} sx={{ border: '1px solid rgba(0, 0, 0, 0.1)', flex: 1, minWidth: 180 }}>
+            <CardContent sx={{ p: 1.5 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <Box>
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                  <Typography variant="caption" color="text.secondary" gutterBottom>
                     Orders (7d)
                   </Typography>
                   <Typography variant="h6" color="success.main" fontWeight={600}>
@@ -1451,11 +1449,11 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
             </CardContent>
           </Card>
 
-          <Card elevation={0} sx={{ border: '1px solid rgba(0, 0, 0, 0.1)', flex: 1, minWidth: 200 }}>
-            <CardContent sx={{ p: 2 }}>
+          <Card elevation={0} sx={{ border: '1px solid rgba(0, 0, 0, 0.1)', flex: 1, minWidth: 180 }}>
+            <CardContent sx={{ p: 1.5 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <Box>
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                  <Typography variant="caption" color="text.secondary" gutterBottom>
                     Next 30d Forecast
                   </Typography>
                   <Typography variant="h6" color="info.main" fontWeight={600}>
@@ -1474,7 +1472,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
       )}
 
       {/* Metric Visibility Controls */}
-      <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+      <Box sx={{ display: 'flex', gap: 0.5, mb: 1.5, flexWrap: 'wrap' }}>
         {Object.entries(visibleMetrics).map(([key, visible]) => (
           <Chip
             key={key}
@@ -1493,10 +1491,10 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         ref={containerRef}
         elevation={0}
         sx={{
-          p: SPACING.LARGE,
+          p: SPACING.MEDIUM,
           backgroundColor: '#fff',
           border: '1px solid rgba(0, 0, 0, 0.05)',
-          borderRadius: 3,
+          borderRadius: 2,
           position: 'relative',
           overflow: 'hidden',
           minHeight: CHART_DIMENSIONS.MIN_HEIGHT,
@@ -1688,32 +1686,29 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
       {showPredictions && data.predictions && data.predictions.length > 0 && (
         <Box 
           sx={{ 
-            mt: SPACING.MEDIUM, 
-            p: SPACING.MEDIUM,
-            borderRadius: 3,
+            mt: SPACING.SMALL, 
+            p: SPACING.SMALL,
+            borderRadius: 2,
             background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(34, 197, 94, 0.05) 100%)',
             border: '1px solid rgba(16, 185, 129, 0.2)',
           }}
         >
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Box>
-              <Typography variant="body2" fontWeight={600} gutterBottom>
+              <Typography variant="caption" fontWeight={600} gutterBottom sx={{ fontSize: '0.8rem' }}>
                 🔮 AI Predictions Active
               </Typography>
-              <Typography variant="body2" sx={{ mb: 1 }}>
-                Showing <strong>{data.predictions.length}-day forecast</strong> using advanced algorithms including 
-                linear regression, moving averages, and seasonal patterns.
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                ⚡ Algorithms: Linear Regression • Moving Averages • Seasonal Decomposition
+              <Typography variant="caption" sx={{ fontSize: '0.75rem', display: 'block' }}>
+                {data.predictions.length}-day forecast using ML algorithms
               </Typography>
             </Box>
             <Chip
-              icon={<Insights />}
-              label={`${Math.round((data.predictions[0]?.confidence_score || 0) * 100)}% Confidence`}
+              icon={<Insights fontSize="small" />}
+              label={`${Math.round((data.predictions[0]?.confidence_score || 0) * 100)}%`}
               size="small"
               color="success"
               variant="outlined"
+              sx={{ fontSize: '0.7rem' }}
             />
           </Box>
         </Box>

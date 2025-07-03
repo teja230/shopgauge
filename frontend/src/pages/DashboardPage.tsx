@@ -2484,7 +2484,7 @@ const DashboardPage = () => {
                 data={unifiedAnalyticsData}
                 loading={unifiedAnalyticsLoading}
                 error={unifiedAnalyticsError}
-                height={350}
+                height={280}
               />
             </ErrorBoundary>
           ) : (
@@ -2502,12 +2502,12 @@ const DashboardPage = () => {
                   data={stableTimeseriesData}
                   loading={cardLoading.revenue}
                   error={cardErrors.revenue}
-                  height={350}
+                  height={280}
                 />
               ) : (
                 <Box
                   sx={{
-                    height: 350,
+                    height: 280,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',

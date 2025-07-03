@@ -4,8 +4,8 @@
 
 // Chart dimension constants
 export const CHART_DIMENSIONS = {
-  DEFAULT_HEIGHT: 350,
-  MIN_HEIGHT: 250,
+  DEFAULT_HEIGHT: 280,
+  MIN_HEIGHT: 200,
   MIN_WIDTH: 200,
   FALLBACK_WIDTH: 0,
   FALLBACK_HEIGHT: 0,
@@ -13,10 +13,10 @@ export const CHART_DIMENSIONS = {
 
 // Spacing constants using a consistent scale
 export const SPACING = {
-  SMALL: 8,
-  MEDIUM: 12,
-  LARGE: 16,
-  XLARGE: 24,
+  SMALL: 6,
+  MEDIUM: 10,
+  LARGE: 14,
+  XLARGE: 20,
 } as const;
 
 /**
