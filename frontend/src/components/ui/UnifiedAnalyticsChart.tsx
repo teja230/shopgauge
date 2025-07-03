@@ -529,25 +529,101 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         );
       }
       
-      // Validate that each data point has required properties
-      const invalidDataPoints = chartData.filter(item => 
-        !item || 
-        typeof item.date !== 'string' || 
-        typeof item.revenue !== 'number' || 
-        isNaN(item.revenue)
-      );
+      // Enhanced validation that checks for all potential issues that could cause React invariant errors
+      const invalidDataPoints = chartData.filter(item => {
+        // Check for null/undefined items
+        if (!item) return true;
+        
+        // Check for required string properties
+        if (typeof item.date !== 'string' || item.date.length === 0) return true;
+        
+        // Check for required numeric properties with NaN validation
+        if (typeof item.revenue !== 'number' || isNaN(item.revenue)) return true;
+        if (typeof item.orders_count !== 'number' || isNaN(item.orders_count)) return true;
+        if (typeof item.conversion_rate !== 'number' || isNaN(item.conversion_rate)) return true;
+        if (typeof item.avg_order_value !== 'number' || isNaN(item.avg_order_value)) return true;
+        
+        // Check for infinite values that could cause SVG rendering issues
+        if (!isFinite(item.revenue) || !isFinite(item.orders_count)) return true;
+        if (!isFinite(item.conversion_rate) || !isFinite(item.avg_order_value)) return true;
+        
+        return false;
+      });
       
       if (invalidDataPoints.length > 0) {
-        debugLog.error('Invalid data points found', {
+        debugLog.error('Invalid data points found that could cause React invariant errors', {
           totalPoints: chartData.length,
           invalidPoints: invalidDataPoints.length,
-          sampleInvalidPoint: invalidDataPoints[0]
+          sampleInvalidPoint: invalidDataPoints[0],
+          sampleValidPoint: chartData.find(item => !invalidDataPoints.includes(item))
         }, 'UnifiedAnalyticsChart');
-        throw new Error(`Found ${invalidDataPoints.length} invalid data points`);
+        throw new Error(`Found ${invalidDataPoints.length} invalid data points that could cause React invariant errors`);
+      }
+
+      // Log the exact data being passed to Recharts to help debug invariant errors
+      debugLog.info('Passing data to Recharts', {
+        chartDataLength: chartData.length,
+        chartType,
+        sampleDataPoints: chartData.slice(0, 3),
+        dataKeys: chartData.length > 0 ? Object.keys(chartData[0]) : [],
+        hasValidData: chartData.every(item => 
+          item && 
+          typeof item.date === 'string' && 
+          typeof item.revenue === 'number' && 
+          !isNaN(item.revenue) &&
+          isFinite(item.revenue)
+        )
+      }, 'UnifiedAnalyticsChart');
+
+      // Create a final safety-filtered dataset to prevent any remaining invalid data from reaching Recharts
+      const safeChartData = chartData.filter(item => {
+        return item && 
+               typeof item.date === 'string' && 
+               item.date.length > 0 &&
+               typeof item.revenue === 'number' && 
+               !isNaN(item.revenue) &&
+               isFinite(item.revenue) &&
+               typeof item.orders_count === 'number' && 
+               !isNaN(item.orders_count) &&
+               isFinite(item.orders_count);
+      });
+
+      if (safeChartData.length !== chartData.length) {
+        debugLog.warn('Filtered out invalid data points before passing to Recharts', {
+          originalLength: chartData.length,
+          filteredLength: safeChartData.length,
+          removedCount: chartData.length - safeChartData.length
+        }, 'UnifiedAnalyticsChart');
+      }
+
+      // Final safety check - don't render if no safe data available
+      if (safeChartData.length === 0) {
+        debugLog.error('No safe data available for chart rendering - preventing React invariant error', {
+          originalDataLength: chartData.length,
+          safeDataLength: safeChartData.length
+        }, 'UnifiedAnalyticsChart');
+        
+        return (
+          <Box sx={{ 
+            height: '100%', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            flexDirection: 'column',
+            gap: 2
+          }}>
+            <Typography variant="h6" color="text.secondary">
+              No Valid Data Available
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              The chart data contains invalid values that could cause rendering errors.
+            </Typography>
+          </Box>
+        );
       }
 
       const commonProps = {
-        data: chartData,
+        data: safeChartData,
         margin: { top: 20, right: 30, left: 20, bottom: 20 },
       };
 
