@@ -56,27 +56,31 @@ import { useMediaQuery, useTheme } from '@mui/material';
 import { debugLog } from './DebugPanel';
 
 interface HistoricalData {
+  kind?: 'historical';
   date: string;
   revenue: number;
   orders_count: number;
   conversion_rate: number;
   avg_order_value: number;
+  isPrediction?: false;
 }
 
 interface PredictionData {
+  kind?: 'prediction';
   date: string;
   revenue: number;
   orders_count: number;
   conversion_rate: number;
   avg_order_value: number;
-  confidence_interval: {
+  isPrediction?: true;
+  confidence_interval?: {
     revenue_min: number;
     revenue_max: number;
     orders_min: number;
     orders_max: number;
   };
-  prediction_type: string;
-  confidence_score: number;
+  prediction_type?: string;
+  confidence_score?: number;
 }
 
 interface UnifiedAnalyticsData {
@@ -108,16 +112,33 @@ const safeNumber = (value: any, defaultValue: number = 0): number => {
 // Helper function to safely process historical data item
 const processHistoricalItem = (item: any) => {
   try {
-    // Handle both new format (with kind) and legacy format
-    return {
+    // Handle the current API format with 'kind' and 'isPrediction' fields
+    const processedItem = {
       date: item.date || '',
       revenue: safeNumber(item.revenue),
       orders_count: safeNumber(item.orders_count),
       conversion_rate: safeNumber(item.conversion_rate),
       avg_order_value: safeNumber(item.avg_order_value),
-      // Preserve any additional properties like 'kind' for debugging
+      // Preserve the API format fields
       ...(item.kind && { kind: item.kind }),
+      ...(typeof item.isPrediction === 'boolean' && { isPrediction: item.isPrediction }),
     };
+    
+    // Additional validation to ensure all numeric values are safe
+    if (isNaN(processedItem.revenue) || !isFinite(processedItem.revenue)) {
+      processedItem.revenue = 0;
+    }
+    if (isNaN(processedItem.orders_count) || !isFinite(processedItem.orders_count)) {
+      processedItem.orders_count = 0;
+    }
+    if (isNaN(processedItem.conversion_rate) || !isFinite(processedItem.conversion_rate)) {
+      processedItem.conversion_rate = 0;
+    }
+    if (isNaN(processedItem.avg_order_value) || !isFinite(processedItem.avg_order_value)) {
+      processedItem.avg_order_value = 0;
+    }
+    
+    return processedItem;
   } catch (error) {
     console.error('Error processing historical item:', error, item);
     // Return a safe default structure
@@ -127,6 +148,8 @@ const processHistoricalItem = (item: any) => {
       orders_count: 0,
       conversion_rate: 0,
       avg_order_value: 0,
+      kind: 'historical',
+      isPrediction: false,
     };
   }
 };
@@ -191,11 +214,14 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
       debugLog.info('Processing historical data for chart', {
         historicalLength: data.historical.length,
         sampleItem: data.historical[0],
+        sampleItemKeys: data.historical[0] ? Object.keys(data.historical[0]) : [],
         dataStructure: {
           hasPredictions: !!(data.predictions),
           predictionsLength: Array.isArray(data.predictions) ? data.predictions.length : 0,
           totalRevenue: data.total_revenue,
           totalOrders: data.total_orders,
+          samplePrediction: data.predictions && data.predictions[0] ? data.predictions[0] : null,
+          samplePredictionKeys: data.predictions && data.predictions[0] ? Object.keys(data.predictions[0]) : [],
         }
       }, 'UnifiedAnalyticsChart');
 
@@ -235,7 +261,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
       // Add predictions if enabled and available
       if (showPredictions && data.predictions && Array.isArray(data.predictions)) {
         const predictions = data.predictions.map((item, index) => {
-          const ci = item.confidence_interval || {};
+          const ci = item.confidence_interval;
           return {
             date: item.date || '',
             key: `prediction-${item.date}-${index}`,
@@ -246,10 +272,10 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
             type: 'prediction',
             isPrediction: true,
             confidence_score: safeNumber(item.confidence_score, 0),
-            revenue_min: safeNumber(ci.revenue_min),
-            revenue_max: safeNumber(ci.revenue_max),
-            orders_min: safeNumber(ci.orders_min),
-            orders_max: safeNumber(ci.orders_max),
+            revenue_min: ci ? safeNumber(ci.revenue_min) : 0,
+            revenue_max: ci ? safeNumber(ci.revenue_max) : 0,
+            orders_min: ci ? safeNumber(ci.orders_min) : 0,
+            orders_max: ci ? safeNumber(ci.orders_max) : 0,
           };
         });
         combinedData.push(...predictions);
@@ -530,6 +556,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
       }
       
       // Enhanced validation that checks for all potential issues that could cause React invariant errors
+      // This validation works with the actual data structure from the API
       const invalidDataPoints = chartData.filter(item => {
         // Check for null/undefined items
         if (!item) return true;
@@ -546,6 +573,9 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         // Check for infinite values that could cause SVG rendering issues
         if (!isFinite(item.revenue) || !isFinite(item.orders_count)) return true;
         if (!isFinite(item.conversion_rate) || !isFinite(item.avg_order_value)) return true;
+        
+        // Additional validation for negative values that might cause chart issues
+        if (item.revenue < 0 || item.orders_count < 0) return true;
         
         return false;
       });
