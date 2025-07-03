@@ -497,7 +497,7 @@ const MemoizedStackedChart = memo(({ commonProps, commonGrid, commonXAxis, commo
   </AreaChart>
 ));
 
-const MemoizedRevenueFocusChart = memo(({ commonProps, commonGrid, commonXAxis, commonYAxisRevenue, commonTooltip, commonLegend, shouldShowPredictionLine, predictionDate, gradientIdPrefix }: any) => (
+const MemoizedRevenueFocusChart = memo(({ commonProps, commonGrid, commonXAxis, commonYAxisRevenue, commonTooltip, commonLegend, visibleMetrics, shouldShowPredictionLine, predictionDate, gradientIdPrefix }: any) => (
   <AreaChart {...commonProps}>
     <defs>
       <linearGradient id={`${gradientIdPrefix}-revenueFocusGradient`} x1="0" y1="0" x2="0" y2="1">
@@ -510,18 +510,20 @@ const MemoizedRevenueFocusChart = memo(({ commonProps, commonGrid, commonXAxis, 
     {commonYAxisRevenue}
     {commonTooltip}
     {commonLegend}
-    <Area
-      yAxisId="revenue"
-      type="monotone"
-      dataKey="revenue"
-      stroke="#2563eb"
-      strokeWidth={4}
-      fill={`url(#${gradientIdPrefix}-revenueFocusGradient)`}
-      name="Revenue"
-      dot={{ fill: '#2563eb', strokeWidth: 3, r: 5 }}
-      connectNulls={false}
-      isAnimationActive={false}
-    />
+    {visibleMetrics.revenue && (
+      <Area
+        yAxisId="revenue"
+        type="monotone"
+        dataKey="revenue"
+        stroke="#2563eb"
+        strokeWidth={4}
+        fill={`url(#${gradientIdPrefix}-revenueFocusGradient)`}
+        name="Revenue"
+        dot={{ fill: '#2563eb', strokeWidth: 3, r: 5 }}
+        connectNulls={false}
+        isAnimationActive={false}
+      />
+    )}
     {shouldShowPredictionLine && predictionDate && (
       <ReferenceLine
         x={predictionDate}
@@ -1691,6 +1693,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                       commonYAxisRevenue={commonYAxisRevenue}
                       commonTooltip={commonTooltip}
                       commonLegend={commonLegend}
+                      visibleMetrics={visibleMetrics}
                       shouldShowPredictionLine={showPredictions && data?.predictions && data.predictions.length > 0}
                       predictionDate={data?.predictions?.[0]?.date}
                       gradientIdPrefix={gradientIdPrefix}
