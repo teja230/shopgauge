@@ -1693,40 +1693,66 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                       firstDataPoint: commonProps?.data?.[0]
                     }, 'UnifiedAnalyticsChart');
                     
+                    // Test 3: ResponsiveContainer with working chart
+                    debugLog.info('=== TESTING RESPONSIVE CONTAINER WITH WORKING CHART ===', {
+                      chartType,
+                      dataLength: commonProps?.data?.length || 0,
+                      containerHeight: chartHeight
+                    }, 'UnifiedAnalyticsChart');
+                    
                     return (
-                      <AreaChart
-                        width={800}
-                        height={250}
-                        data={commonProps?.data || []}
-                        margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                        style={{ background: 'rgba(255, 255, 0, 0.1)' }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" stroke="#000" />
-                        <XAxis 
-                          dataKey="date" 
-                          stroke="#000"
-                          tick={{ fill: '#000', fontSize: 12 }}
-                        />
-                        <YAxis 
-                          stroke="#000"
-                          tick={{ fill: '#000', fontSize: 12 }}
-                        />
-                        <Tooltip 
-                          contentStyle={{ 
-                            background: 'white', 
-                            border: '2px solid red',
-                            color: 'black' 
-                          }}
-                        />
-                        <Area
-                          type="monotone"
-                          dataKey="revenue"
-                          stroke="#ff0000"
-                          strokeWidth={4}
-                          fill="#ff0000"
-                          fillOpacity={0.6}
-                        />
-                      </AreaChart>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart
+                          data={commonProps?.data || []}
+                          margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(0, 0, 0, 0.1)" />
+                          <XAxis 
+                            dataKey="date" 
+                            stroke="rgba(0, 0, 0, 0.4)"
+                            tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: 12 }}
+                            tickFormatter={(tickItem) => {
+                              try {
+                                return new Date(tickItem).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                              } catch {
+                                return tickItem;
+                              }
+                            }}
+                          />
+                          <YAxis 
+                            stroke="rgba(0, 0, 0, 0.4)"
+                            tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: 11 }}
+                            tickFormatter={(value) => `$${(value / 1000).toFixed(1)}k`}
+                          />
+                          <Tooltip 
+                            content={({ active, payload, label }) => {
+                              if (active && payload && payload.length) {
+                                return (
+                                  <div style={{ background: 'white', border: '1px solid #ccc', borderRadius: '4px', padding: '8px' }}>
+                                    <p style={{ margin: 0, fontWeight: 'bold' }}>{`Date: ${label}`}</p>
+                                    <p style={{ margin: 0, color: '#2563eb' }}>{`Revenue: $${payload[0]?.value?.toLocaleString()}`}</p>
+                                  </div>
+                                );
+                              }
+                              return null;
+                            }}
+                          />
+                          <Area
+                            type="monotone"
+                            dataKey="revenue"
+                            stroke="#2563eb"
+                            strokeWidth={2}
+                            fill="url(#revenueGradient)"
+                            fillOpacity={0.3}
+                          />
+                          <defs>
+                            <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3} />
+                              <stop offset="95%" stopColor="#2563eb" stopOpacity={0.05} />
+                            </linearGradient>
+                          </defs>
+                        </AreaChart>
+                      </ResponsiveContainer>
                     );
                     
                     // Switch statement temporarily disabled for debugging
