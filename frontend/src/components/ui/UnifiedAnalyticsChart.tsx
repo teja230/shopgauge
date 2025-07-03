@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useLayoutEffect, useRef, memo } from 'react';
+import React, { useState, useMemo, useLayoutEffect, useRef, memo, useEffect } from 'react';
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -56,6 +56,7 @@ import type { TooltipProps, ChartPayload, UnifiedDatum, PredictionPoint } from '
 import { useMediaQuery, useTheme } from '@mui/material';
 import { debugLog } from './DebugPanel';
 import useSize from '../../hooks/useSize';
+import { CHART_DIMENSIONS, SPACING, ensureMinHeight } from '../../utils/dimensionUtils';
 
 interface HistoricalData {
   kind?: 'historical';
@@ -540,7 +541,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
   data,
   loading = false,
   error = null,
-  height = 500,
+  height = CHART_DIMENSIONS.DEFAULT_HEIGHT,
 }) => {
   const [chartType, setChartType] = useState<ChartType>('combined');
   const [showPredictions, setShowPredictions] = useState(true);
@@ -963,10 +964,18 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
+  // Ensure height meets minimum requirements
+  const chartHeight = ensureMinHeight(height);
+
   // Prepare common chart props and components
   const commonProps = useMemo(() => ({
     data: safeChartData,
-    margin: { top: 20, right: 30, left: 20, bottom: 20 },
+    margin: { 
+      top: SPACING.MEDIUM, 
+      right: SPACING.LARGE, 
+      left: SPACING.MEDIUM, 
+      bottom: SPACING.MEDIUM 
+    },
     // Add additional props to prevent SVG rendering issues
     syncId: undefined, // Prevent sync issues
     throttleDelay: 0,   // Prevent throttling issues
@@ -1045,12 +1054,40 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const { width: containerWidth, height: containerHeight } = useSize(containerRef);
-  const containerReady = containerWidth > 0;
+  
+  // Enhanced container readiness check with fallback
+  const [forceReady, setForceReady] = useState(false);
+  const containerReady = containerWidth > 0 || forceReady;
+
+  // Fallback mechanism: if container isn't ready after a short delay, force it ready
+  // This prevents infinite loading states on edge cases
+  useEffect(() => {
+    if (!containerReady && safeChartData.length > 0) {
+      const timer = setTimeout(() => {
+        debugLog.warn('Container size detection timeout - forcing ready state', {
+          containerWidth,
+          containerHeight,
+          hasData: safeChartData.length > 0,
+        }, 'UnifiedAnalyticsChart');
+        setForceReady(true);
+      }, 500); // Wait 500ms before forcing ready
+
+      return () => clearTimeout(timer);
+    }
+  }, [containerReady, safeChartData.length, containerWidth, containerHeight]);
 
   // Log container size changes for debugging
   useLayoutEffect(() => {
-    debugLog.info('Container size updated', { width: containerWidth, height: containerHeight }, 'UnifiedAnalyticsChart');
-  }, [containerWidth, containerHeight]);
+    debugLog.info('Container size updated', { 
+      width: containerWidth, 
+      height: containerHeight,
+      containerReady,
+      forceReady,
+      hasRef: !!containerRef.current,
+      refOffsetWidth: containerRef.current?.offsetWidth || 0,
+      refOffsetHeight: containerRef.current?.offsetHeight || 0,
+    }, 'UnifiedAnalyticsChart');
+  }, [containerWidth, containerHeight, containerReady, forceReady]);
 
   // Debug logging for component render states
   useLayoutEffect(() => {
@@ -1065,30 +1102,33 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
       chartType,
       showPredictions,
       containerReady,
+      containerWidth,
+      containerHeight,
+      forceReady,
     }, 'UnifiedAnalyticsChart');
-  }, [loading, error, data, chartData.length, safeChartData.length, chartType, showPredictions, containerReady]);
+  }, [loading, error, data, chartData.length, safeChartData.length, chartType, showPredictions, containerReady, forceReady]);
 
   if (loading) {
-    debugLog.info('Rendering loading state', { height }, 'UnifiedAnalyticsChart');
-    return <LoadingIndicator height={height} message="Loading analytics data…" />;
+    debugLog.info('Rendering loading state', { height: chartHeight }, 'UnifiedAnalyticsChart');
+    return <LoadingIndicator height={chartHeight} message="Loading analytics data…" />;
   }
 
   if (error) {
-    debugLog.error('Rendering error state', { error, height }, 'UnifiedAnalyticsChart');
+    debugLog.error('Rendering error state', { error, height: chartHeight }, 'UnifiedAnalyticsChart');
     console.error('UnifiedAnalyticsChart: Error state triggered with error:', error);
     return (
       <Box
         sx={{
-          height,
+          height: chartHeight,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           flexDirection: 'column',
-          gap: 2,
+          gap: SPACING.MEDIUM,
           backgroundColor: 'rgba(255, 0, 0, 0.02)',
           borderRadius: 2,
           border: '1px solid rgba(255, 0, 0, 0.1)',
-          p: 3,
+          p: SPACING.LARGE,
         }}
       >
         <Typography variant="h6" color="error" textAlign="center">
@@ -1097,9 +1137,9 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         <Typography variant="body2" color="text.secondary" textAlign="center">
           The Advanced Analytics chart encountered an error. Please try refreshing the page.
         </Typography>
-                  <Typography variant="caption" color="text.secondary" textAlign="center" sx={{ mt: 1 }}>
-            Error: {error}
-          </Typography>
+        <Typography variant="caption" color="text.secondary" textAlign="center" sx={{ mt: 1 }}>
+          Error: {error}
+        </Typography>
       </Box>
     );
   }
@@ -1135,16 +1175,16 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
       return (
         <Box
           sx={{
-            height,
+            height: chartHeight,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             flexDirection: 'column',
-            gap: 2,
+            gap: SPACING.MEDIUM,
             backgroundColor: 'rgba(255, 165, 0, 0.02)',
             borderRadius: 2,
             border: '1px solid rgba(255, 165, 0, 0.1)',
-            p: 3,
+            p: SPACING.LARGE,
           }}
         >
           <Typography variant="h6" color="warning.main" textAlign="center">
@@ -1168,15 +1208,15 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
     return (
       <Box
         sx={{
-          height,
+          height: chartHeight,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           flexDirection: 'column',
-          gap: 2,
+          gap: SPACING.MEDIUM,
           backgroundColor: 'rgba(0, 0, 0, 0.02)',
           borderRadius: 2,
-          p: 3,
+          p: SPACING.LARGE,
         }}
       >
         <Analytics sx={{ fontSize: 48, color: 'rgba(0, 0, 0, 0.2)' }} />
@@ -1507,14 +1547,13 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         key={`chart-container-${chartType}-${chartKey}`}
         elevation={0}
         sx={{
-          width: '100%',
-          minHeight: '300px',
-          p: 3,
+          p: SPACING.LARGE,
           backgroundColor: '#fff',
           border: '1px solid rgba(0, 0, 0, 0.05)',
           borderRadius: 3,
           position: 'relative',
           overflow: 'hidden',
+          minHeight: CHART_DIMENSIONS.MIN_HEIGHT,
         }}
       >
         {containerReady && safeChartData.length > 0 && (
@@ -1526,23 +1565,24 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                 containerReady,
                 safeChartDataLength: safeChartData.length,
                 chartKey,
-                visibleMetrics
+                visibleMetrics,
+                chartHeight
               }, 'UnifiedAnalyticsChart');
               return null;
             })()}
             
             {/* Use conditional rendering to completely isolate each chart type */}
             {chartType === 'line' && (
-              <div key="line-chart-wrapper" style={{ width: '100%', height: height }}>
+              <div key="line-chart-wrapper" style={{ width: '100%', height: chartHeight }}>
                 {(() => {
                   debugLog.info('Rendering line chart', {
                     chartType,
-                    height,
+                    height: chartHeight,
                     commonPropsData: commonProps.data?.length || 0
                   }, 'UnifiedAnalyticsChart');
                   return null;
                 })()}
-                <ResponsiveContainer width="100%" height={height}>
+                <ResponsiveContainer width="100%" height={chartHeight}>
                   <MemoizedLineChart
                     commonProps={commonProps}
                     commonGrid={commonGrid}
@@ -1559,16 +1599,16 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
             )}
             
             {chartType === 'area' && (
-              <div key="area-chart-wrapper" style={{ width: '100%', height: height }}>
+              <div key="area-chart-wrapper" style={{ width: '100%', height: chartHeight }}>
                 {(() => {
                   debugLog.info('Rendering area chart', {
                     chartType,
-                    height,
+                    height: chartHeight,
                     commonPropsData: commonProps.data?.length || 0
                   }, 'UnifiedAnalyticsChart');
                   return null;
                 })()}
-                <ResponsiveContainer width="100%" height={height}>
+                <ResponsiveContainer width="100%" height={chartHeight}>
                   <MemoizedAreaChart
                     commonProps={commonProps}
                     commonGrid={commonGrid}
@@ -1586,16 +1626,16 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
             )}
             
             {chartType === 'bar' && (
-              <div key="bar-chart-wrapper" style={{ width: '100%', height: height }}>
+              <div key="bar-chart-wrapper" style={{ width: '100%', height: chartHeight }}>
                 {(() => {
                   debugLog.info('Rendering bar chart', {
                     chartType,
-                    height,
+                    height: chartHeight,
                     commonPropsData: commonProps.data?.length || 0
                   }, 'UnifiedAnalyticsChart');
                   return null;
                 })()}
-                <ResponsiveContainer width="100%" height={height}>
+                <ResponsiveContainer width="100%" height={chartHeight}>
                   <MemoizedBarChart
                     commonProps={commonProps}
                     commonGrid={commonGrid}
@@ -1612,16 +1652,16 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
             )}
             
             {(chartType === 'combined' || chartType === 'composed') && (
-              <div key="composed-chart-wrapper" style={{ width: '100%', height: height }}>
+              <div key="composed-chart-wrapper" style={{ width: '100%', height: chartHeight }}>
                 {(() => {
                   debugLog.info('Rendering combined/composed chart', {
                     chartType,
-                    height,
+                    height: chartHeight,
                     commonPropsData: commonProps.data?.length || 0
                   }, 'UnifiedAnalyticsChart');
                   return null;
                 })()}
-                <ResponsiveContainer width="100%" height={height}>
+                <ResponsiveContainer width="100%" height={chartHeight}>
                   <MemoizedComposedChart
                     commonProps={commonProps}
                     commonGrid={commonGrid}
@@ -1640,16 +1680,16 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
             )}
             
             {chartType === 'revenue_focus' && (
-              <div key="revenue-focus-chart-wrapper" style={{ width: '100%', height: height }}>
+              <div key="revenue-focus-chart-wrapper" style={{ width: '100%', height: chartHeight }}>
                 {(() => {
                   debugLog.info('Rendering revenue_focus chart', {
                     chartType,
-                    height,
+                    height: chartHeight,
                     commonPropsData: commonProps.data?.length || 0
                   }, 'UnifiedAnalyticsChart');
                   return null;
                 })()}
-                <ResponsiveContainer width="100%" height={height}>
+                <ResponsiveContainer width="100%" height={chartHeight}>
                   <MemoizedRevenueFocusChart
                     commonProps={commonProps}
                     commonGrid={commonGrid}
@@ -1667,16 +1707,16 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
             )}
             
             {chartType === 'candlestick' && (
-              <div key="candlestick-chart-wrapper" style={{ width: '100%', height: height }}>
+              <div key="candlestick-chart-wrapper" style={{ width: '100%', height: chartHeight }}>
                 {(() => {
                   debugLog.info('Rendering candlestick chart', {
                     chartType,
-                    height,
+                    height: chartHeight,
                     commonPropsData: commonProps.data?.length || 0
                   }, 'UnifiedAnalyticsChart');
                   return null;
                 })()}
-                <ResponsiveContainer width="100%" height={height}>
+                <ResponsiveContainer width="100%" height={chartHeight}>
                   <MemoizedCandlestickChart
                     commonProps={commonProps}
                     commonGrid={commonGrid}
@@ -1693,16 +1733,16 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
             )}
             
             {chartType === 'waterfall' && (
-              <div key="waterfall-chart-wrapper" style={{ width: '100%', height: height }}>
+              <div key="waterfall-chart-wrapper" style={{ width: '100%', height: chartHeight }}>
                 {(() => {
                   debugLog.info('Rendering waterfall chart', {
                     chartType,
-                    height,
+                    height: chartHeight,
                     commonPropsData: commonProps.data?.length || 0
                   }, 'UnifiedAnalyticsChart');
                   return null;
                 })()}
-                <ResponsiveContainer width="100%" height={height}>
+                <ResponsiveContainer width="100%" height={chartHeight}>
                   <MemoizedWaterfallChart
                     commonProps={commonProps}
                     commonGrid={commonGrid}
@@ -1719,16 +1759,16 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
             )}
             
             {chartType === 'stacked' && (
-              <div key="stacked-chart-wrapper" style={{ width: '100%', height: height }}>
+              <div key="stacked-chart-wrapper" style={{ width: '100%', height: chartHeight }}>
                 {(() => {
                   debugLog.info('Rendering stacked chart', {
                     chartType,
-                    height,
+                    height: chartHeight,
                     commonPropsData: commonProps.data?.length || 0
                   }, 'UnifiedAnalyticsChart');
                   return null;
                 })()}
-                <ResponsiveContainer width="100%" height={height}>
+                <ResponsiveContainer width="100%" height={chartHeight}>
                   <MemoizedStackedChart
                     commonProps={commonProps}
                     commonGrid={commonGrid}
@@ -1750,16 +1790,16 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         {/* Show loading state while container is not ready */}
         {!containerReady && (
           <Box sx={{ 
-            height: height, 
+            height: chartHeight, 
             display: 'flex', 
             alignItems: 'center', 
             justifyContent: 'center',
             flexDirection: 'column',
-            gap: 2
+            gap: SPACING.MEDIUM
           }}>
             <CircularProgress size={32} />
             <Typography variant="body2" color="text.secondary">
-              Preparing chart...
+              {safeChartData.length > 0 ? 'Initializing chart view...' : 'Preparing chart...'}
             </Typography>
           </Box>
         )}
@@ -1767,12 +1807,12 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         {/* Show empty state when no data */}
         {containerReady && safeChartData.length === 0 && (
           <Box sx={{ 
-            height: height, 
+            height: chartHeight, 
             display: 'flex', 
             alignItems: 'center', 
             justifyContent: 'center',
             flexDirection: 'column',
-            gap: 2
+            gap: SPACING.MEDIUM
           }}>
             <Typography variant="h6" color="text.secondary">
               No data to display
@@ -1788,8 +1828,8 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
       {showPredictions && data.predictions && data.predictions.length > 0 && (
         <Box 
           sx={{ 
-            mt: 2, 
-            p: 2,
+            mt: SPACING.MEDIUM, 
+            p: SPACING.MEDIUM,
             borderRadius: 3,
             background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(34, 197, 94, 0.05) 100%)',
             border: '1px solid rgba(16, 185, 129, 0.2)',
