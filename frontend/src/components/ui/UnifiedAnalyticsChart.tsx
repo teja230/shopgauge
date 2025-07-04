@@ -201,127 +201,242 @@ const debugChartRender = (componentName: string, props: any) => {
   }, componentName);
 };
 
-// Create memoized chart components to prevent re-renders and isolate each chart type
-const MemoizedLineChart = memo(({ commonProps, commonGrid, commonXAxis, commonYAxisRevenue, commonTooltip, commonLegend, visibleMetrics, shouldShowPredictionLine, predictionDate }: any) => (
-  <LineChart {...commonProps}>
-    {commonGrid}
-    {commonXAxis}
-    {commonYAxisRevenue}
-    {commonTooltip}
-    {commonLegend}
-    {visibleMetrics.revenue && (
-      <Line
-        yAxisId="revenue"
-        type="monotone"
-        dataKey="revenue"
-        stroke="#2563eb"
-        strokeWidth={3}
-        name="Revenue"
-        dot={{ fill: '#2563eb', strokeWidth: 2, r: 4 }}
-        activeDot={{ r: 6, fill: '#2563eb', stroke: '#fff', strokeWidth: 2 }}
-        connectNulls={false}
-        isAnimationActive={false}
-      />
-    )}
-    {visibleMetrics.orders && (
-      <Line
-        yAxisId="revenue"
-        type="monotone"
-        dataKey="orders_count"
-        stroke="#10b981"
-        strokeWidth={2}
-        name="Orders"
-        dot={{ fill: '#10b981', strokeWidth: 2, r: 3 }}
-        connectNulls={false}
-        isAnimationActive={false}
-      />
-    )}
-    {shouldShowPredictionLine && predictionDate && (
-      <ReferenceLine
-        x={predictionDate}
-        stroke="rgba(0, 0, 0, 0.3)"
-        strokeDasharray="2,2"
-        label="Predictions"
-      />
-    )}
-  </LineChart>
-));
+// Enhanced memoized components with better prop stabilization and error boundaries
+const MemoizedLineChart = memo(({ commonProps, commonGrid, commonXAxis, commonYAxisRevenue, commonTooltip, commonLegend, visibleMetrics, shouldShowPredictionLine, predictionDate }: any) => {
+  // Validate props before rendering
+  if (!commonProps?.data || !Array.isArray(commonProps.data) || commonProps.data.length === 0) {
+    return null;
+  }
 
-const MemoizedAreaChart = memo(({ commonProps, commonGrid, commonXAxis, commonYAxisRevenue, commonTooltip, commonLegend, visibleMetrics, shouldShowPredictionLine, predictionDate, gradientIdPrefix }: any) => (
-  <AreaChart {...commonProps}>
-    <defs>
-      <linearGradient id={`${gradientIdPrefix}-revenueGradient`} x1="0" y1="0" x2="0" y2="1">
-        <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3} />
-        <stop offset="95%" stopColor="#2563eb" stopOpacity={0.05} />
-      </linearGradient>
-    </defs>
-    {commonGrid}
-    {commonXAxis}
-    {commonYAxisRevenue}
-    {commonTooltip}
-    {commonLegend}
-    {visibleMetrics.revenue && (
-      <Area
-        yAxisId="revenue"
-        type="monotone"
-        dataKey="revenue"
-        stroke="#2563eb"
-        strokeWidth={3}
-        fill={`url(#${gradientIdPrefix}-revenueGradient)`}
-        name="Revenue"
-        dot={{ fill: '#2563eb', strokeWidth: 2, r: 4 }}
-        connectNulls={false}
-        isAnimationActive={false}
-      />
-    )}
-    {shouldShowPredictionLine && predictionDate && (
-      <ReferenceLine
-        x={predictionDate}
-        stroke="rgba(0, 0, 0, 0.3)"
-        strokeDasharray="2,2"
-        label="Predictions"
-      />
-    )}
-  </AreaChart>
-));
+  try {
+    return (
+      <LineChart {...commonProps}>
+        {commonGrid}
+        {commonXAxis}
+        {commonYAxisRevenue}
+        {commonTooltip}
+        {commonLegend}
+        {visibleMetrics.revenue && (
+          <Line
+            yAxisId="revenue"
+            type="monotone"
+            dataKey="revenue"
+            stroke="#2563eb"
+            strokeWidth={2}
+            name="Revenue"
+            dot={{ fill: '#2563eb', strokeWidth: 2, r: 4 }}
+            connectNulls={false}
+            isAnimationActive={false}
+          />
+        )}
+        {visibleMetrics.orders && (
+          <Line
+            yAxisId="revenue"
+            type="monotone"
+            dataKey="orders_count"
+            stroke="#f59e0b"
+            strokeWidth={2}
+            name="Orders"
+            dot={{ fill: '#f59e0b', strokeWidth: 2, r: 3 }}
+            connectNulls={false}
+            isAnimationActive={false}
+          />
+        )}
+        {visibleMetrics.conversion && (
+          <Line
+            yAxisId="revenue"
+            type="monotone"
+            dataKey="conversion_rate"
+            stroke="#10b981"
+            strokeWidth={2}
+            name="Conversion Rate"
+            dot={{ fill: '#10b981', strokeWidth: 2, r: 3 }}
+            connectNulls={false}
+            isAnimationActive={false}
+          />
+        )}
+        {shouldShowPredictionLine && predictionDate && (
+          <ReferenceLine
+            x={predictionDate}
+            stroke="rgba(0, 0, 0, 0.3)"
+            strokeDasharray="2,2"
+            label="Predictions"
+          />
+        )}
+      </LineChart>
+    );
+  } catch (error) {
+    debugLog.error('Error in MemoizedLineChart', { error: error instanceof Error ? error.message : String(error) }, 'MemoizedLineChart');
+    return null;
+  }
+}, (prevProps, nextProps) => {
+  // Custom comparison function to prevent unnecessary re-renders
+  return (
+    prevProps.commonProps?.data === nextProps.commonProps?.data &&
+    prevProps.visibleMetrics === nextProps.visibleMetrics &&
+    prevProps.shouldShowPredictionLine === nextProps.shouldShowPredictionLine &&
+    prevProps.predictionDate === nextProps.predictionDate
+  );
+});
 
-const MemoizedBarChart = memo(({ commonProps, commonGrid, commonXAxis, commonYAxisRevenue, commonTooltip, commonLegend, visibleMetrics, shouldShowPredictionLine, predictionDate }: any) => (
-  <BarChart {...commonProps}>
-    {commonGrid}
-    {commonXAxis}
-    {commonYAxisRevenue}
-    {commonTooltip}
-    {commonLegend}
-    {visibleMetrics.revenue && (
-      <Bar
-        yAxisId="revenue"
-        dataKey="revenue"
-        fill="#2563eb"
-        name="Revenue"
-        radius={[4, 4, 0, 0]}
-        opacity={0.8}
-        isAnimationActive={false}
-      />
-    )}
-    {shouldShowPredictionLine && predictionDate && (
-      <ReferenceLine
-        x={predictionDate}
-        stroke="rgba(0, 0, 0, 0.3)"
-        strokeDasharray="2,2"
-        label="Predictions"
-      />
-    )}
-  </BarChart>
-));
+const MemoizedAreaChart = memo(({ commonProps, commonGrid, commonXAxis, commonYAxisRevenue, commonTooltip, commonLegend, visibleMetrics, shouldShowPredictionLine, predictionDate, gradientIdPrefix }: any) => {
+  // Validate props before rendering
+  if (!commonProps?.data || !Array.isArray(commonProps.data) || commonProps.data.length === 0) {
+    return null;
+  }
+
+  try {
+    return (
+      <AreaChart {...commonProps}>
+        <defs>
+          <linearGradient id={`${gradientIdPrefix}-revenueGradient`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3} />
+            <stop offset="95%" stopColor="#2563eb" stopOpacity={0.05} />
+          </linearGradient>
+        </defs>
+        {commonGrid}
+        {commonXAxis}
+        {commonYAxisRevenue}
+        {commonTooltip}
+        {commonLegend}
+        {visibleMetrics.revenue && (
+          <Area
+            yAxisId="revenue"
+            type="monotone"
+            dataKey="revenue"
+            stroke="#2563eb"
+            strokeWidth={2}
+            fill={`url(#${gradientIdPrefix}-revenueGradient)`}
+            name="Revenue"
+            connectNulls={false}
+            isAnimationActive={false}
+          />
+        )}
+        {visibleMetrics.orders && (
+          <Area
+            yAxisId="revenue"
+            type="monotone"
+            dataKey="orders_count"
+            stroke="#f59e0b"
+            strokeWidth={1}
+            fill="rgba(245, 158, 11, 0.1)"
+            name="Orders"
+            connectNulls={false}
+            isAnimationActive={false}
+          />
+        )}
+        {shouldShowPredictionLine && predictionDate && (
+          <ReferenceLine
+            x={predictionDate}
+            stroke="rgba(0, 0, 0, 0.3)"
+            strokeDasharray="2,2"
+            label="Predictions"
+          />
+        )}
+      </AreaChart>
+    );
+  } catch (error) {
+    debugLog.error('Error in MemoizedAreaChart', { error: error instanceof Error ? error.message : String(error) }, 'MemoizedAreaChart');
+    return null;
+  }
+}, (prevProps, nextProps) => {
+  return (
+    prevProps.commonProps?.data === nextProps.commonProps?.data &&
+    prevProps.visibleMetrics === nextProps.visibleMetrics &&
+    prevProps.shouldShowPredictionLine === nextProps.shouldShowPredictionLine &&
+    prevProps.predictionDate === nextProps.predictionDate &&
+    prevProps.gradientIdPrefix === nextProps.gradientIdPrefix
+  );
+});
+
+const MemoizedBarChart = memo(({ commonProps, commonGrid, commonXAxis, commonYAxisRevenue, commonTooltip, commonLegend, visibleMetrics, shouldShowPredictionLine, predictionDate }: any) => {
+  // Validate props before rendering
+  if (!commonProps?.data || !Array.isArray(commonProps.data) || commonProps.data.length === 0) {
+    return null;
+  }
+
+  try {
+    return (
+      <BarChart {...commonProps}>
+        {commonGrid}
+        {commonXAxis}
+        {commonYAxisRevenue}
+        {commonTooltip}
+        {commonLegend}
+        {visibleMetrics.revenue && (
+          <Bar
+            yAxisId="revenue"
+            dataKey="revenue"
+            fill="#2563eb"
+            name="Revenue"
+            radius={[2, 2, 0, 0]}
+            isAnimationActive={false}
+          />
+        )}
+        {visibleMetrics.orders && (
+          <Bar
+            yAxisId="revenue"
+            dataKey="orders_count"
+            fill="#f59e0b"
+            name="Orders"
+            radius={[2, 2, 0, 0]}
+            isAnimationActive={false}
+          />
+        )}
+        {shouldShowPredictionLine && predictionDate && (
+          <ReferenceLine
+            x={predictionDate}
+            stroke="rgba(0, 0, 0, 0.3)"
+            strokeDasharray="2,2"
+            label="Predictions"
+          />
+        )}
+      </BarChart>
+    );
+  } catch (error) {
+    debugLog.error('Error in MemoizedBarChart', { error: error instanceof Error ? error.message : String(error) }, 'MemoizedBarChart');
+    return null;
+  }
+}, (prevProps, nextProps) => {
+  return (
+    prevProps.commonProps?.data === nextProps.commonProps?.data &&
+    prevProps.visibleMetrics === nextProps.visibleMetrics &&
+    prevProps.shouldShowPredictionLine === nextProps.shouldShowPredictionLine &&
+    prevProps.predictionDate === nextProps.predictionDate
+  );
+});
 
 const MemoizedComposedChart = memo(({ commonProps, commonGrid, commonXAxis, commonYAxisRevenue, commonYAxisOrders, commonTooltip, commonLegend, visibleMetrics, showPredictions, shouldShowPredictionLine, predictionDate }: any) => {
-  // Add debug logging for ComposedChart rendering
+  // Enhanced validation for composed chart
+  if (!commonProps?.data || !Array.isArray(commonProps.data) || commonProps.data.length === 0) {
+    debugLog.error('MemoizedComposedChart: Invalid data props', {
+      hasCommonProps: !!commonProps,
+      dataLength: commonProps?.data?.length || 0
+    }, 'MemoizedComposedChart');
+    return null;
+  }
+
   try {
-    debugLog.info('MemoizedComposedChart rendering', {
+    // Validate that we have the required data fields
+    const hasValidData = commonProps.data.some((item: any) => 
+      item && 
+      typeof item.revenue === 'number' && 
+      typeof item.orders_count === 'number' && 
+      !isNaN(item.revenue) && 
+      !isNaN(item.orders_count)
+    );
+    
+    if (!hasValidData) {
+      debugLog.error('MemoizedComposedChart: No valid data found', {
+        dataLength: commonProps.data.length,
+        dataSample: commonProps.data.slice(0, 3)
+      }, 'MemoizedComposedChart');
+      return null;
+    }
+
+    debugLog.info('MemoizedComposedChart: About to render', {
       hasCommonProps: !!commonProps,
       dataLength: commonProps?.data?.length || 0,
-      hasYAxisRevenue: !!commonYAxisRevenue,
-      hasYAxisOrders: !!commonYAxisOrders,
       visibleMetrics,
       showPredictions,
       shouldShowPredictionLine,
@@ -337,49 +452,43 @@ const MemoizedComposedChart = memo(({ commonProps, commonGrid, commonXAxis, comm
         {commonYAxisOrders}
         {commonTooltip}
         {commonLegend}
-        
         {visibleMetrics.revenue && (
-          <Bar
+          <Area
             yAxisId="revenue"
+            type="monotone"
             dataKey="revenue"
-            fill="#2563eb"
+            stroke="#2563eb"
+            strokeWidth={2}
+            fill="rgba(37, 99, 235, 0.1)"
             name="Revenue"
+            connectNulls={false}
+            isAnimationActive={false}
+          />
+        )}
+        {visibleMetrics.orders && (
+          <Bar
+            yAxisId="orders"
+            dataKey="orders_count"
+            fill="#f59e0b"
+            name="Orders"
             radius={[2, 2, 0, 0]}
             opacity={0.8}
             isAnimationActive={false}
           />
         )}
-        
-        {visibleMetrics.orders && (
-          <Line
-            yAxisId="orders"
-            type="monotone"
-            dataKey="orders_count"
-            stroke="#10b981"
-            strokeWidth={3}
-            name="Orders"
-            dot={{ fill: '#10b981', strokeWidth: 2, r: 3 }}
-            strokeDasharray={showPredictions ? "5,5" : ""}
-            connectNulls={false}
-            isAnimationActive={false}
-          />
-        )}
-        
         {visibleMetrics.conversion && (
           <Line
-            yAxisId="orders"
+            yAxisId="revenue"
             type="monotone"
             dataKey="conversion_rate"
-            stroke="#f59e0b"
+            stroke="#10b981"
             strokeWidth={2}
-            name="Conversion Rate (%)"
-            dot={{ fill: '#f59e0b', strokeWidth: 2, r: 2 }}
-            strokeDasharray={showPredictions ? "3,3" : ""}
+            name="Conversion Rate"
+            dot={{ fill: '#10b981', strokeWidth: 2, r: 3 }}
             connectNulls={false}
             isAnimationActive={false}
           />
         )}
-        
         {shouldShowPredictionLine && predictionDate && (
           <ReferenceLine
             x={predictionDate}
@@ -391,161 +500,219 @@ const MemoizedComposedChart = memo(({ commonProps, commonGrid, commonXAxis, comm
       </ComposedChart>
     );
   } catch (error) {
-    debugLog.error('Error in MemoizedComposedChart', {
+    debugLog.error('Error in MemoizedComposedChart', { 
       error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-      hasCommonProps: !!commonProps,
-      dataLength: commonProps?.data?.length || 0
+      errorStack: error instanceof Error ? error.stack : undefined
     }, 'MemoizedComposedChart');
-    
-    return (
-      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <span>Chart rendering error</span>
-      </div>
-    );
+    return null;
   }
+}, (prevProps, nextProps) => {
+  return (
+    prevProps.commonProps?.data === nextProps.commonProps?.data &&
+    prevProps.visibleMetrics === nextProps.visibleMetrics &&
+    prevProps.showPredictions === nextProps.showPredictions &&
+    prevProps.shouldShowPredictionLine === nextProps.shouldShowPredictionLine &&
+    prevProps.predictionDate === nextProps.predictionDate
+  );
 });
 
-// Add memoized components for all other chart types to prevent React invariant errors
-const MemoizedCandlestickChart = memo(({ commonProps, commonGrid, commonXAxis, commonYAxisRevenue, commonTooltip, commonLegend, visibleMetrics, shouldShowPredictionLine, predictionDate }: any) => (
-  <ComposedChart {...commonProps}>
-    {commonGrid}
-    {commonXAxis}
-    {commonYAxisRevenue}
-    {commonTooltip}
-    {commonLegend}
-    {visibleMetrics.revenue && (
-      <Bar
-        yAxisId="revenue"
-        dataKey="revenue"
-        fill="#10b981"
-        name="Revenue"
-        radius={[2, 2, 0, 0]}
-        opacity={0.8}
-        isAnimationActive={false}
-      />
-    )}
-    {visibleMetrics.orders && (
-      <Line
-        yAxisId="revenue"
-        type="monotone"
-        dataKey="orders_count"
-        stroke="#6b7280"
-        strokeWidth={1}
-        name="Orders"
-        dot={false}
-        connectNulls={false}
-        isAnimationActive={false}
-      />
-    )}
-    {shouldShowPredictionLine && predictionDate && (
-      <ReferenceLine
-        x={predictionDate}
-        stroke="rgba(0, 0, 0, 0.3)"
-        strokeDasharray="2,2"
-        label="Predictions"
-      />
-    )}
-  </ComposedChart>
-));
+const MemoizedCandlestickChart = memo(({ commonProps, commonGrid, commonXAxis, commonYAxisRevenue, commonTooltip, commonLegend, visibleMetrics, shouldShowPredictionLine, predictionDate }: any) => {
+  // Validate props before rendering
+  if (!commonProps?.data || !Array.isArray(commonProps.data) || commonProps.data.length === 0) {
+    return null;
+  }
 
-const MemoizedWaterfallChart = memo(({ commonProps, commonGrid, commonXAxis, commonYAxisRevenue, commonTooltip, commonLegend, visibleMetrics, shouldShowPredictionLine, predictionDate }: any) => (
-  <ComposedChart {...commonProps}>
-    {commonGrid}
-    {commonXAxis}
-    {commonYAxisRevenue}
-    {commonTooltip}
-    {commonLegend}
-    {visibleMetrics.revenue && (
-      <Bar
-        yAxisId="revenue"
-        dataKey="revenue"
-        fill="#10b981"
-        name="Revenue"
-        radius={[2, 2, 0, 0]}
-        opacity={0.8}
-        isAnimationActive={false}
-      />
-    )}
-    {visibleMetrics.orders && (
-      <Line
-        yAxisId="revenue"
-        type="monotone"
-        dataKey="orders_count"
-        stroke="#f59e0b"
-        strokeWidth={2}
-        name="Orders"
-        dot={{ fill: '#f59e0b', strokeWidth: 2, r: 3 }}
-        connectNulls={false}
-        isAnimationActive={false}
-      />
-    )}
-    {shouldShowPredictionLine && predictionDate && (
-      <ReferenceLine
-        x={predictionDate}
-        stroke="rgba(0, 0, 0, 0.3)"
-        strokeDasharray="2,2"
-        label="Predictions"
-      />
-    )}
-  </ComposedChart>
-));
+  try {
+    return (
+      <ComposedChart {...commonProps}>
+        {commonGrid}
+        {commonXAxis}
+        {commonYAxisRevenue}
+        {commonTooltip}
+        {commonLegend}
+        {visibleMetrics.revenue && (
+          <Line
+            yAxisId="revenue"
+            type="monotone"
+            dataKey="revenue"
+            stroke="#2563eb"
+            strokeWidth={3}
+            name="Revenue"
+            dot={{ fill: '#2563eb', strokeWidth: 3, r: 6 }}
+            connectNulls={false}
+            isAnimationActive={false}
+          />
+        )}
+        {visibleMetrics.orders && (
+          <Bar
+            yAxisId="revenue"
+            dataKey="orders_count"
+            fill="#f59e0b"
+            name="Orders"
+            radius={[4, 4, 0, 0]}
+            opacity={0.6}
+            isAnimationActive={false}
+          />
+        )}
+        {shouldShowPredictionLine && predictionDate && (
+          <ReferenceLine
+            x={predictionDate}
+            stroke="rgba(0, 0, 0, 0.3)"
+            strokeDasharray="2,2"
+            label="Predictions"
+          />
+        )}
+      </ComposedChart>
+    );
+  } catch (error) {
+    debugLog.error('Error in MemoizedCandlestickChart', { error: error instanceof Error ? error.message : String(error) }, 'MemoizedCandlestickChart');
+    return null;
+  }
+}, (prevProps, nextProps) => {
+  return (
+    prevProps.commonProps?.data === nextProps.commonProps?.data &&
+    prevProps.visibleMetrics === nextProps.visibleMetrics &&
+    prevProps.shouldShowPredictionLine === nextProps.shouldShowPredictionLine &&
+    prevProps.predictionDate === nextProps.predictionDate
+  );
+});
 
-const MemoizedStackedChart = memo(({ commonProps, commonGrid, commonXAxis, commonYAxisRevenue, commonTooltip, commonLegend, visibleMetrics, shouldShowPredictionLine, predictionDate, gradientIdPrefix }: any) => (
-  <AreaChart {...commonProps}>
-    <defs>
-      <linearGradient id={`${gradientIdPrefix}-stackedRevenueGradient`} x1="0" y1="0" x2="0" y2="1">
-        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
-        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.05} />
-      </linearGradient>
-      <linearGradient id={`${gradientIdPrefix}-ordersGradient`} x1="0" y1="0" x2="0" y2="1">
-        <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
-        <stop offset="95%" stopColor="#10b981" stopOpacity={0.05} />
-      </linearGradient>
-    </defs>
-    {commonGrid}
-    {commonXAxis}
-    {commonYAxisRevenue}
-    {commonTooltip}
-    {commonLegend}
-    {visibleMetrics.revenue && (
-      <Area
-        yAxisId="revenue"
-        type="monotone"
-        dataKey="revenue"
-        stroke="#8b5cf6"
-        strokeWidth={2}
-        fill={`url(#${gradientIdPrefix}-stackedRevenueGradient)`}
-        name="Revenue"
-        stackId="1"
-        connectNulls={false}
-        isAnimationActive={false}
-      />
-    )}
-    {visibleMetrics.orders && (
-      <Area
-        yAxisId="revenue"
-        type="monotone"
-        dataKey="orders_count"
-        stroke="#10b981"
-        strokeWidth={1}
-        fill={`url(#${gradientIdPrefix}-ordersGradient)`}
-        name="Orders"
-        stackId="2"
-        connectNulls={false}
-        isAnimationActive={false}
-      />
-    )}
-    {shouldShowPredictionLine && predictionDate && (
-      <ReferenceLine
-        x={predictionDate}
-        stroke="rgba(0, 0, 0, 0.3)"
-        strokeDasharray="2,2"
-        label="Predictions"
-      />
-    )}
-  </AreaChart>
-));
+const MemoizedWaterfallChart = memo(({ commonProps, commonGrid, commonXAxis, commonYAxisRevenue, commonTooltip, commonLegend, visibleMetrics, shouldShowPredictionLine, predictionDate }: any) => {
+  // Validate props before rendering
+  if (!commonProps?.data || !Array.isArray(commonProps.data) || commonProps.data.length === 0) {
+    return null;
+  }
+
+  try {
+    return (
+      <ComposedChart {...commonProps}>
+        {commonGrid}
+        {commonXAxis}
+        {commonYAxisRevenue}
+        {commonTooltip}
+        {commonLegend}
+        {visibleMetrics.revenue && (
+          <Bar
+            yAxisId="revenue"
+            dataKey="revenue"
+            fill="#10b981"
+            name="Revenue"
+            radius={[2, 2, 0, 0]}
+            opacity={0.8}
+            isAnimationActive={false}
+          />
+        )}
+        {visibleMetrics.orders && (
+          <Line
+            yAxisId="revenue"
+            type="monotone"
+            dataKey="orders_count"
+            stroke="#f59e0b"
+            strokeWidth={2}
+            name="Orders"
+            dot={{ fill: '#f59e0b', strokeWidth: 2, r: 3 }}
+            connectNulls={false}
+            isAnimationActive={false}
+          />
+        )}
+        {shouldShowPredictionLine && predictionDate && (
+          <ReferenceLine
+            x={predictionDate}
+            stroke="rgba(0, 0, 0, 0.3)"
+            strokeDasharray="2,2"
+            label="Predictions"
+          />
+        )}
+      </ComposedChart>
+    );
+  } catch (error) {
+    debugLog.error('Error in MemoizedWaterfallChart', { error: error instanceof Error ? error.message : String(error) }, 'MemoizedWaterfallChart');
+    return null;
+  }
+}, (prevProps, nextProps) => {
+  return (
+    prevProps.commonProps?.data === nextProps.commonProps?.data &&
+    prevProps.visibleMetrics === nextProps.visibleMetrics &&
+    prevProps.shouldShowPredictionLine === nextProps.shouldShowPredictionLine &&
+    prevProps.predictionDate === nextProps.predictionDate
+  );
+});
+
+const MemoizedStackedChart = memo(({ commonProps, commonGrid, commonXAxis, commonYAxisRevenue, commonTooltip, commonLegend, visibleMetrics, shouldShowPredictionLine, predictionDate, gradientIdPrefix }: any) => {
+  // Validate props before rendering
+  if (!commonProps?.data || !Array.isArray(commonProps.data) || commonProps.data.length === 0) {
+    return null;
+  }
+
+  try {
+    return (
+      <AreaChart {...commonProps}>
+        <defs>
+          <linearGradient id={`${gradientIdPrefix}-stackedRevenueGradient`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
+            <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.05} />
+          </linearGradient>
+          <linearGradient id={`${gradientIdPrefix}-ordersGradient`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
+            <stop offset="95%" stopColor="#10b981" stopOpacity={0.05} />
+          </linearGradient>
+        </defs>
+        {commonGrid}
+        {commonXAxis}
+        {commonYAxisRevenue}
+        {commonTooltip}
+        {commonLegend}
+        {visibleMetrics.revenue && (
+          <Area
+            yAxisId="revenue"
+            type="monotone"
+            dataKey="revenue"
+            stroke="#8b5cf6"
+            strokeWidth={2}
+            fill={`url(#${gradientIdPrefix}-stackedRevenueGradient)`}
+            name="Revenue"
+            stackId="1"
+            connectNulls={false}
+            isAnimationActive={false}
+          />
+        )}
+        {visibleMetrics.orders && (
+          <Area
+            yAxisId="revenue"
+            type="monotone"
+            dataKey="orders_count"
+            stroke="#10b981"
+            strokeWidth={1}
+            fill={`url(#${gradientIdPrefix}-ordersGradient)`}
+            name="Orders"
+            stackId="2"
+            connectNulls={false}
+            isAnimationActive={false}
+          />
+        )}
+        {shouldShowPredictionLine && predictionDate && (
+          <ReferenceLine
+            x={predictionDate}
+            stroke="rgba(0, 0, 0, 0.3)"
+            strokeDasharray="2,2"
+            label="Predictions"
+          />
+        )}
+      </AreaChart>
+    );
+  } catch (error) {
+    debugLog.error('Error in MemoizedStackedChart', { error: error instanceof Error ? error.message : String(error) }, 'MemoizedStackedChart');
+    return null;
+  }
+}, (prevProps, nextProps) => {
+  return (
+    prevProps.commonProps?.data === nextProps.commonProps?.data &&
+    prevProps.visibleMetrics === nextProps.visibleMetrics &&
+    prevProps.shouldShowPredictionLine === nextProps.shouldShowPredictionLine &&
+    prevProps.predictionDate === nextProps.predictionDate &&
+    prevProps.gradientIdPrefix === nextProps.gradientIdPrefix
+  );
+});
 
 const MemoizedRevenueFocusChart = memo(({ commonProps, commonGrid, commonXAxis, commonYAxisRevenue, commonTooltip, commonLegend, visibleMetrics, shouldShowPredictionLine, predictionDate, gradientIdPrefix }: any) => {
   // Add debug logging for this specific chart
@@ -585,42 +752,58 @@ const MemoizedRevenueFocusChart = memo(({ commonProps, commonGrid, commonXAxis, 
     return null;
   }
 
+  try {
+    return (
+      <AreaChart {...commonProps}>
+        <defs>
+          <linearGradient id={`${gradientIdPrefix}-revenueFocusGradient`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor="#2563eb" stopOpacity={0.4} />
+            <stop offset="95%" stopColor="#2563eb" stopOpacity={0.1} />
+          </linearGradient>
+        </defs>
+        {commonGrid}
+        {commonXAxis}
+        {commonYAxisRevenue}
+        {commonTooltip}
+        {commonLegend}
+        {visibleMetrics.revenue && (
+          <Area
+            yAxisId="revenue"
+            type="monotone"
+            dataKey="revenue"
+            stroke="#2563eb"
+            strokeWidth={4}
+            fill={`url(#${gradientIdPrefix}-revenueFocusGradient)`}
+            name="Revenue"
+            dot={{ fill: '#2563eb', strokeWidth: 3, r: 5 }}
+            connectNulls={false}
+            isAnimationActive={false}
+          />
+        )}
+        {shouldShowPredictionLine && predictionDate && (
+          <ReferenceLine
+            x={predictionDate}
+            stroke="rgba(0, 0, 0, 0.3)"
+            strokeDasharray="2,2"
+            label="Predictions"
+          />
+        )}
+      </AreaChart>
+    );
+  } catch (error) {
+    debugLog.error('Error in MemoizedRevenueFocusChart', { 
+      error: error instanceof Error ? error.message : String(error),
+      errorStack: error instanceof Error ? error.stack : undefined
+    }, 'MemoizedRevenueFocusChart');
+    return null;
+  }
+}, (prevProps, nextProps) => {
   return (
-    <AreaChart {...commonProps}>
-      <defs>
-        <linearGradient id={`${gradientIdPrefix}-revenueFocusGradient`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="5%" stopColor="#2563eb" stopOpacity={0.4} />
-          <stop offset="95%" stopColor="#2563eb" stopOpacity={0.1} />
-        </linearGradient>
-      </defs>
-      {commonGrid}
-      {commonXAxis}
-      {commonYAxisRevenue}
-      {commonTooltip}
-      {commonLegend}
-      {visibleMetrics.revenue && (
-        <Area
-          yAxisId="revenue"
-          type="monotone"
-          dataKey="revenue"
-          stroke="#2563eb"
-          strokeWidth={4}
-          fill={`url(#${gradientIdPrefix}-revenueFocusGradient)`}
-          name="Revenue"
-          dot={{ fill: '#2563eb', strokeWidth: 3, r: 5 }}
-          connectNulls={false}
-          isAnimationActive={false}
-        />
-      )}
-      {shouldShowPredictionLine && predictionDate && (
-        <ReferenceLine
-          x={predictionDate}
-          stroke="rgba(0, 0, 0, 0.3)"
-          strokeDasharray="2,2"
-          label="Predictions"
-        />
-      )}
-    </AreaChart>
+    prevProps.commonProps?.data === nextProps.commonProps?.data &&
+    prevProps.visibleMetrics === nextProps.visibleMetrics &&
+    prevProps.shouldShowPredictionLine === nextProps.shouldShowPredictionLine &&
+    prevProps.predictionDate === nextProps.predictionDate &&
+    prevProps.gradientIdPrefix === nextProps.gradientIdPrefix
   );
 });
 
@@ -1037,7 +1220,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
   // Ensure height meets minimum requirements
   const chartHeight = ensureMinHeight(height);
 
-  // Prepare common chart props and components
+  // Prepare common chart props and components with better stabilization
   const commonProps = useMemo(() => ({
     data: safeChartData,
     margin: { 
@@ -1046,9 +1229,11 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
       left: SPACING.MEDIUM, 
       bottom: SPACING.MEDIUM 
     },
-  }), [safeChartData]);
+    key: `chart-${chartType}-${safeChartData.length}`, // Add key for better React tracking
+  }), [safeChartData, chartType]);
 
-  const commonXAxis = (
+  // Memoize common chart components to prevent unnecessary re-renders
+  const commonXAxis = useMemo(() => (
     <XAxis
       dataKey="date"
       tickFormatter={formatXAxisTick}
@@ -1063,9 +1248,9 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         fontSize: 12,
       }}
     />
-  );
+  ), []);
 
-  const commonYAxisRevenue = (
+  const commonYAxisRevenue = useMemo(() => (
     <YAxis
       yAxisId="revenue"
       orientation="left"
@@ -1083,9 +1268,9 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
       domain={['dataMin', 'dataMax']}
       type="number"
     />
-  );
+  ), []);
 
-  const commonYAxisOrders = (
+  const commonYAxisOrders = useMemo(() => (
     <YAxis
       yAxisId="orders"
       orientation="right"
@@ -1103,14 +1288,14 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
       domain={['dataMin', 'dataMax']}
       type="number"
     />
-  );
+  ), []);
 
-  const commonGrid = (
+  const commonGrid = useMemo(() => (
     <CartesianGrid strokeDasharray="3 3" stroke="rgba(0, 0, 0, 0.06)" />
-  );
+  ), []);
 
-  const commonTooltip = <Tooltip content={<CustomTooltip />} />;
-  const commonLegend = <Legend />;
+  const commonTooltip = useMemo(() => <Tooltip content={<CustomTooltip />} />, []);
+  const commonLegend = useMemo(() => <Legend />, []);
 
   // Simplified container reference for the chart
   const containerRef = useRef<HTMLDivElement | null>(null);
