@@ -743,17 +743,17 @@ const DashboardPage = () => {
   // =====================================
   // ENHANCED CHART TOGGLE STATE MANAGEMENT
   // =====================================
-  const [chartMode, setChartMode] = useState<'unified' | 'classic'>('unified');
+  const [chartMode, setChartMode] = useState<'unified' | 'classic'>('classic');
   
   // Add error boundary reset key to force remount when needed
   const [errorBoundaryKey, setErrorBoundaryKey] = useState(0);
   
-  // Create stable data references to prevent corruption during toggles
+  // Prediction days state for Advanced Analytics
+  const [predictionDays, setPredictionDays] = useState(30);
+
+  // Create a stable reference for timeseries data to prevent unnecessary re-renders
   const stableTimeseriesData = useMemo(() => {
-    if (insights?.timeseries && Array.isArray(insights.timeseries)) {
-      return insights.timeseries;
-    }
-    return [];
+    return insights?.timeseries || [];
   }, [insights?.timeseries]);
 
   // Use the new unified analytics hook with stabilized data
@@ -775,6 +775,8 @@ const DashboardPage = () => {
     useDashboardData: true, // Use dashboard data instead of separate API calls
     dashboardRevenueData: stableTimeseriesData, // Use stable reference
     dashboardOrdersData: stableTimeseriesData, // Use stable reference
+    realConversionRate: insights?.conversionRate, // Pass real conversion rate from dashboard
+    predictionDays: predictionDays, // Use configurable prediction days
   });
 
   // Clear unified analytics storage when shop changes (following dashboard pattern)
@@ -784,6 +786,17 @@ const DashboardPage = () => {
       clearUnifiedAnalyticsStorage();
     }
   }, [shop, clearUnifiedAnalyticsStorage]);
+
+  // Handler for prediction days changes
+  const handlePredictionDaysChange = useCallback((newDays: number) => {
+    console.log(`🔄 Prediction days changing from ${predictionDays} to ${newDays}`);
+    setPredictionDays(newDays);
+    
+    // Force recompute unified analytics with new prediction days
+    setTimeout(() => {
+      forceComputeUnifiedAnalytics();
+    }, 100);
+  }, [predictionDays, forceComputeUnifiedAnalytics]);
 
   // Simplified chart mode toggle handler
   const handleChartModeChange = useCallback((event: React.MouseEvent<HTMLElement>, newMode: 'unified' | 'classic' | null) => {
@@ -2486,6 +2499,8 @@ const DashboardPage = () => {
                 loading={unifiedAnalyticsLoading}
                 error={unifiedAnalyticsError}
                 height={450}
+                predictionDays={predictionDays}
+                onPredictionDaysChange={handlePredictionDaysChange}
               />
             </ChartErrorBoundary>
           ) : (

@@ -108,6 +108,8 @@ interface PredictionViewContainerProps {
   loading?: boolean;
   error?: string | null;
   height?: number;
+  onPredictionDaysChange?: (days: number) => void;
+  predictionDays?: number;
 }
 
 type PredictionView = 'revenue' | 'orders' | 'conversion';
@@ -117,6 +119,8 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
   loading = false,
   error = null,
   height = 500,
+  onPredictionDaysChange,
+  predictionDays = 30,
 }) => {
   const [activeView, setActiveView] = useState<PredictionView>('revenue');
   const [showPredictions, setShowPredictions] = useState(true);
@@ -563,6 +567,51 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
                 </Box>
               }
             />
+            
+            {/* Prediction Days Toggle */}
+            {showPredictions && onPredictionDaysChange && (
+              <ToggleButtonGroup
+                value={predictionDays}
+                exclusive
+                onChange={(_, newDays) => newDays && onPredictionDaysChange(newDays)}
+                size="small"
+                sx={{
+                  backgroundColor: theme.palette.background.default,
+                  borderRadius: theme.shape.borderRadius,
+                  border: `1px solid ${theme.palette.divider}`,
+                  '& .MuiToggleButton-root': {
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    px: theme.spacing(1.5),
+                    py: theme.spacing(0.5),
+                    border: 'none',
+                    color: theme.palette.text.secondary,
+                    minWidth: 'auto',
+                    fontSize: '0.75rem',
+                    '&.Mui-selected': {
+                      backgroundColor: theme.palette.secondary.main,
+                      color: theme.palette.secondary.contrastText,
+                      '&:hover': {
+                        backgroundColor: theme.palette.secondary.dark,
+                      },
+                    },
+                    '&:hover': {
+                      backgroundColor: theme.palette.action.hover,
+                    },
+                  },
+                }}
+              >
+                <ToggleButton value={7} aria-label="7 days">
+                  7d
+                </ToggleButton>
+                <ToggleButton value={30} aria-label="30 days">
+                  30d
+                </ToggleButton>
+                <ToggleButton value={60} aria-label="60 days">
+                  60d
+                </ToggleButton>
+              </ToggleButtonGroup>
+            )}
             
             {showPredictions && (
               <Chip
