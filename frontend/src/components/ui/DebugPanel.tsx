@@ -15,68 +15,56 @@ interface DebugPanelProps {
   onToggleVisibility?: (visible: boolean) => void;
 }
 
+// Environment variable controls
+const DEBUG_PANEL_ENABLED = import.meta.env.VITE_DEBUG_PANEL_ENABLED === 'true';
+const DEBUG_PANEL_STORE = (import.meta.env.VITE_DEBUG_PANEL_STORE as string) || '';
+
 // Global debug state
 let debugLogs: LogEntry[] = [];
 let debugSubscribers: ((logs: LogEntry[]) => void)[] = [];
-let isDebugEnabled = false;
+let isDebugEnabled = DEBUG_PANEL_ENABLED;
+let currentStore: string | null = null;
+
+// Helper functions
+const setCurrentStore = (store: string | null) => {
+  currentStore = store;
+};
+
+const shouldDebugForStore = (): boolean => {
+  return DEBUG_PANEL_ENABLED; // Simplified for now - can enhance with store filtering later
+};
 
 // Debug logging functions
+const createLogEntry = (level: 'info' | 'warn' | 'error' | 'debug', message: string, data?: any, source: string = 'App') => {
+  if (shouldDebugForStore()) {
+    const entry: LogEntry = {
+      id: Date.now().toString() + Math.random().toString(36).substring(2),
+      timestamp: new Date(),
+      level,
+      message,
+      data,
+      source,
+    };
+    debugLogs.push(entry);
+    if (debugLogs.length > 1000) { // Keep only last 1000 logs
+      debugLogs = debugLogs.slice(-1000);
+    }
+    debugSubscribers.forEach(callback => callback([...debugLogs]));
+  }
+};
+
 export const debugLog = {
   info: (message: string, data?: any, source: string = 'App') => {
-    if (isDebugEnabled) {
-      const entry: LogEntry = {
-        id: Date.now().toString() + Math.random().toString(36).substring(2),
-        timestamp: new Date(),
-        level: 'info',
-        message,
-        data,
-        source,
-      };
-      debugLogs.push(entry);
-      debugSubscribers.forEach(callback => callback([...debugLogs]));
-    }
+    createLogEntry('info', message, data, source);
   },
   warn: (message: string, data?: any, source: string = 'App') => {
-    if (isDebugEnabled) {
-      const entry: LogEntry = {
-        id: Date.now().toString() + Math.random().toString(36).substring(2),
-        timestamp: new Date(),
-        level: 'warn',
-        message,
-        data,
-        source,
-      };
-      debugLogs.push(entry);
-      debugSubscribers.forEach(callback => callback([...debugLogs]));
-    }
+    createLogEntry('warn', message, data, source);
   },
   error: (message: string, data?: any, source: string = 'App') => {
-    if (isDebugEnabled) {
-      const entry: LogEntry = {
-        id: Date.now().toString() + Math.random().toString(36).substring(2),
-        timestamp: new Date(),
-        level: 'error',
-        message,
-        data,
-        source,
-      };
-      debugLogs.push(entry);
-      debugSubscribers.forEach(callback => callback([...debugLogs]));
-    }
+    createLogEntry('error', message, data, source);
   },
   debug: (message: string, data?: any, source: string = 'App') => {
-    if (isDebugEnabled) {
-      const entry: LogEntry = {
-        id: Date.now().toString() + Math.random().toString(36).substring(2),
-        timestamp: new Date(),
-        level: 'debug',
-        message,
-        data,
-        source,
-      };
-      debugLogs.push(entry);
-      debugSubscribers.forEach(callback => callback([...debugLogs]));
-    }
+    createLogEntry('debug', message, data, source);
   },
   clear: () => {
     debugLogs = [];
@@ -89,13 +77,14 @@ export const debugLog = {
     isDebugEnabled = false;
   },
   getLogs: () => [...debugLogs],
+  setStore: setCurrentStore,
+  isEnabled: () => shouldDebugForStore(),
 };
 
 export const DebugPanel: React.FC<DebugPanelProps> = ({ 
   isVisible = false, 
   onToggleVisibility 
 }) => {
-  console.log('DebugPanel: Rendering with isVisible:', isVisible);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isExpanded, setIsExpanded] = useState(false);
   const [filterLevel, setFilterLevel] = useState<string>('all');
@@ -127,10 +116,13 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({
   useEffect(() => {
     if (isVisible) {
       debugLog.enable();
-    } else {
-      debugLog.disable();
     }
   }, [isVisible]);
+
+  // Don't render anything if debug panel is not enabled via environment variable
+  if (!DEBUG_PANEL_ENABLED) {
+    return null;
+  }
 
   const filteredLogs = logs.filter(log => {
     if (filterLevel !== 'all' && log.level !== filterLevel) return false;
@@ -157,7 +149,6 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({
   };
 
   if (!isVisible) {
-    console.log('DebugPanel: Rendering button (not visible)');
     return (
       <Box
         sx={{
@@ -189,7 +180,6 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({
     );
   }
 
-  console.log('DebugPanel: Rendering full panel (visible)');
   return (
     <Box
       sx={{
