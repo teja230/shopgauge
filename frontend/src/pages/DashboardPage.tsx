@@ -2469,7 +2469,15 @@ const DashboardPage = () => {
 
         {/* Analytics Charts with Toggle */}
         <Box sx={{ width: '100%' }}>
-          {/* Chart Container (Charts render above) */}
+          {/* Chart Container with smooth transitions */}
+          <Box sx={{ 
+            position: 'relative',
+            minHeight: 490,
+            transition: 'all 0.3s ease-in-out',
+            '& > *': {
+              transition: 'opacity 0.3s ease-in-out, transform 0.3s ease-in-out',
+            }
+          }}>
           {chartMode === 'unified' ? (
             <ChartErrorBoundary 
               key={`unified-${errorBoundaryKey}`}
@@ -2583,7 +2591,7 @@ const DashboardPage = () => {
               }}
             >
               {/* Revenue Chart Section */}
-              <StyledCard sx={{ height: 450 }}>
+              <StyledCard sx={{ height: 490 }}>
                 <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                   {/* Only render RevenueChart when we have initialized the dashboard */}
                   {dashboardDataInitialized || stableTimeseriesData.length > 0 ? (
@@ -2592,7 +2600,7 @@ const DashboardPage = () => {
                         data={stableTimeseriesData}
                         loading={cardLoading.revenue}
                         error={cardErrors.revenue}
-                        height={410} // Increased height since we removed the section header
+                        height={450} // Match PredictionViewContainer height for smooth transitions
                       />
                     </Box>
                   ) : (
@@ -2614,6 +2622,7 @@ const DashboardPage = () => {
               </StyledCard>
             </ErrorBoundary>
           )}
+          </Box>
 
           {/* Move Chart Mode Toggle BELOW charts */}
           <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>

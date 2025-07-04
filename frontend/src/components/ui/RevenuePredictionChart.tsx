@@ -145,6 +145,117 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
     return `$${value.toFixed(0)}`;
   };
 
+  // Common chart elements with enhanced visual separation - moved before early returns
+  const commonElements = useMemo(() => {
+    const historicalData = processedData.historical;
+    const predictionData = processedData.predicted;
+    const separatorDate = predictionData.length > 0 ? predictionData[0]?.date : null;
+
+    return (
+      <>
+        <defs>
+          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor={theme.palette.primary.main} stopOpacity={0.4} />
+            <stop offset="95%" stopColor={theme.palette.primary.main} stopOpacity={0.05} />
+          </linearGradient>
+          <linearGradient id={predictionGradientId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor={theme.palette.secondary.main} stopOpacity={0.3} />
+            <stop offset="95%" stopColor={theme.palette.secondary.main} stopOpacity={0.05} />
+          </linearGradient>
+          {/* Pattern for prediction area */}
+          <pattern id="predictionPattern" patternUnits="userSpaceOnUse" width="4" height="4">
+            <rect width="4" height="4" fill={theme.palette.secondary.main} fillOpacity="0.1"/>
+            <path d="M 0,4 l 4,-4 M -1,1 l 2,-2 M 3,5 l 2,-2" stroke={theme.palette.secondary.main} strokeWidth="0.5" strokeOpacity="0.3"/>
+          </pattern>
+        </defs>
+        <CartesianGrid 
+          strokeDasharray="3 3" 
+          stroke="rgba(0, 0, 0, 0.1)" 
+          strokeOpacity={0.5}
+        />
+        <XAxis
+          dataKey="date"
+          tickFormatter={(value) => {
+            try {
+              return new Date(value).toLocaleDateString('en-US', { 
+                month: 'short', 
+                day: 'numeric' 
+              });
+            } catch {
+              return value;
+            }
+          }}
+          stroke="rgba(0, 0, 0, 0.6)"
+          tick={{ fontSize: 11, fill: 'rgba(0, 0, 0, 0.7)' }}
+          axisLine={{ stroke: 'rgba(0, 0, 0, 0.2)' }}
+        />
+        <YAxis
+          tickFormatter={formatCurrency}
+          stroke="rgba(0, 0, 0, 0.6)"
+          tick={{ fontSize: 11, fill: 'rgba(0, 0, 0, 0.7)' }}
+          axisLine={{ stroke: 'rgba(0, 0, 0, 0.2)' }}
+        />
+        <Tooltip
+          labelFormatter={(label) => {
+            try {
+              const date = new Date(label);
+              return date.toLocaleDateString('en-US', { 
+                weekday: 'short',
+                month: 'short', 
+                day: 'numeric',
+                year: 'numeric'
+              });
+            } catch {
+              return label;
+            }
+          }}
+          formatter={(value: number, name: string, props: any) => {
+            const isPrediction = props.payload?.isPrediction;
+            const prefix = isPrediction ? '🔮 Forecast: ' : '📊 Actual: ';
+            return [`${prefix}${formatCurrency(value)}`, name];
+          }}
+          contentStyle={{
+            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+            border: '1px solid rgba(0, 0, 0, 0.1)',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            fontSize: '12px'
+          }}
+        />
+        <Legend 
+          formatter={(value, entry) => (
+            <span style={{ 
+              color: entry.color, 
+              fontSize: '12px',
+              fontWeight: 500
+            }}>
+              {value}
+            </span>
+          )}
+        />
+        
+        {/* Stylish separator line between historical and predicted data */}
+        {separatorDate && (
+          <>
+            {/* Main separator line */}
+            <ReferenceLine
+              x={separatorDate}
+              stroke={theme.palette.warning.main}
+              strokeWidth={2}
+              strokeDasharray="8 4"
+              opacity={0.8}
+            />
+            {/* Subtle background highlight for prediction area */}
+            <ReferenceLine
+              x={separatorDate}
+              stroke="transparent"
+            />
+          </>
+        )}
+      </>
+    );
+  }, [processedData.historical, processedData.predicted, theme, gradientId, predictionGradientId, formatCurrency]);
+
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
@@ -229,127 +340,11 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
 
   const predictionStartDate = processedData.predicted.find(d => d.isPrediction)?.date;
 
-  const chartTypeConfig = {
-    area: { icon: <Timeline />, label: 'Area', color: theme.palette.primary.main },
-    line: { icon: <ShowChart />, label: 'Line', color: theme.palette.primary.main },
-    bar: { icon: <BarChartIcon />, label: 'Bar', color: theme.palette.primary.main },
-  };
-
   const renderChart = () => {
     const commonProps = {
       data: processedData.combined,
-      ...chartCommonProps,
+      margin: { top: 10, right: 30, left: 20, bottom: 20 },
     };
-
-    const commonElements = useMemo(() => {
-      const historicalData = processedData.historical;
-      const predictionData = processedData.predicted;
-      const separatorDate = predictionData.length > 0 ? predictionData[0]?.date : null;
-
-      return (
-        <>
-          <defs>
-            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor={theme.palette.primary.main} stopOpacity={0.4} />
-              <stop offset="95%" stopColor={theme.palette.primary.main} stopOpacity={0.05} />
-            </linearGradient>
-            <linearGradient id={predictionGradientId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor={theme.palette.secondary.main} stopOpacity={0.3} />
-              <stop offset="95%" stopColor={theme.palette.secondary.main} stopOpacity={0.05} />
-            </linearGradient>
-            {/* Pattern for prediction area */}
-            <pattern id="predictionPattern" patternUnits="userSpaceOnUse" width="4" height="4">
-              <rect width="4" height="4" fill={theme.palette.secondary.main} fillOpacity="0.1"/>
-              <path d="M 0,4 l 4,-4 M -1,1 l 2,-2 M 3,5 l 2,-2" stroke={theme.palette.secondary.main} strokeWidth="0.5" strokeOpacity="0.3"/>
-            </pattern>
-          </defs>
-          <CartesianGrid 
-            strokeDasharray="3 3" 
-            stroke="rgba(0, 0, 0, 0.1)" 
-            strokeOpacity={0.5}
-          />
-          <XAxis
-            dataKey="date"
-            tickFormatter={(value) => {
-              try {
-                return new Date(value).toLocaleDateString('en-US', { 
-                  month: 'short', 
-                  day: 'numeric' 
-                });
-              } catch {
-                return value;
-              }
-            }}
-            stroke="rgba(0, 0, 0, 0.6)"
-            tick={{ fontSize: 11, fill: 'rgba(0, 0, 0, 0.7)' }}
-            axisLine={{ stroke: 'rgba(0, 0, 0, 0.2)' }}
-          />
-          <YAxis
-            tickFormatter={formatCurrency}
-            stroke="rgba(0, 0, 0, 0.6)"
-            tick={{ fontSize: 11, fill: 'rgba(0, 0, 0, 0.7)' }}
-            axisLine={{ stroke: 'rgba(0, 0, 0, 0.2)' }}
-          />
-          <Tooltip
-            labelFormatter={(label) => {
-              try {
-                const date = new Date(label);
-                return date.toLocaleDateString('en-US', { 
-                  weekday: 'short',
-                  month: 'short', 
-                  day: 'numeric',
-                  year: 'numeric'
-                });
-              } catch {
-                return label;
-              }
-            }}
-            formatter={(value: number, name: string, props: any) => {
-              const isPrediction = props.payload?.isPrediction;
-              const prefix = isPrediction ? '🔮 Forecast: ' : '📊 Actual: ';
-              return [`${prefix}${formatCurrency(value)}`, name];
-            }}
-            contentStyle={{
-              backgroundColor: 'rgba(255, 255, 255, 0.95)',
-              border: '1px solid rgba(0, 0, 0, 0.1)',
-              borderRadius: '8px',
-              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-              fontSize: '12px'
-            }}
-          />
-          <Legend 
-            formatter={(value, entry) => (
-              <span style={{ 
-                color: entry.color, 
-                fontSize: '12px',
-                fontWeight: 500
-              }}>
-                {value}
-              </span>
-            )}
-          />
-          
-          {/* Stylish separator line between historical and predicted data */}
-          {separatorDate && (
-            <>
-              {/* Main separator line */}
-              <ReferenceLine
-                x={separatorDate}
-                stroke={theme.palette.warning.main}
-                strokeWidth={2}
-                strokeDasharray="8 4"
-                opacity={0.8}
-              />
-              {/* Subtle background highlight for prediction area */}
-              <ReferenceLine
-                x={separatorDate}
-                stroke="transparent"
-              />
-            </>
-          )}
-        </>
-      );
-    }, [processedData.combined, theme, gradientId, predictionGradientId, formatCurrency]);
 
     switch (chartType) {
       case 'area':

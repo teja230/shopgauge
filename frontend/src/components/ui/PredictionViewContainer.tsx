@@ -71,7 +71,8 @@ const CardTitle = styled(Typography)(({ theme }) => ({
 
 const ChartContainer = styled(Box)(({ theme }) => ({
   flex: 1,
-  minHeight: 400,
+  minHeight: 450,
+  height: 450,
   padding: theme.spacing(1),
   backgroundColor: theme.palette.background.paper,
 }));

@@ -111,104 +111,7 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
     return value.toLocaleString();
   };
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload;
-      const isPrediction = data.isPrediction;
-      
-      return (
-        <Paper
-          elevation={8}
-          sx={{
-            p: 2,
-            backgroundColor: 'rgba(255, 255, 255, 0.98)',
-            border: `1px solid ${theme.palette.divider}`,
-            borderRadius: 2,
-            minWidth: 200,
-            backdropFilter: 'blur(10px)',
-          }}
-        >
-          <Typography variant="body2" color="text.secondary" gutterBottom>
-            {new Date(label).toLocaleDateString('en-US', {
-              weekday: 'short',
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric'
-            })}
-          </Typography>
-          
-          {payload.map((entry: any, index: number) => (
-            <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-              <Box
-                sx={{
-                  width: 12,
-                  height: 12,
-                  borderRadius: '50%',
-                  backgroundColor: entry.color,
-                  boxShadow: `0 0 8px ${entry.color}40`,
-                }}
-              />
-              <Typography variant="body2" fontWeight={600}>
-                {entry.name}: {entry.value?.toLocaleString()} orders
-              </Typography>
-            </Box>
-          ))}
-          
-          {isPrediction && (
-            <Box sx={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: 0.5, 
-              mt: 1, 
-              pt: 1, 
-              borderTop: `1px solid ${theme.palette.divider}` 
-            }}>
-              <AutoAwesome sx={{ fontSize: 14, color: theme.palette.primary.main }} />
-              <Typography variant="caption" color="primary" fontWeight={600}>
-                AI Forecast
-              </Typography>
-              {data.confidence_score && (
-                <Chip 
-                  label={`${(data.confidence_score * 100).toFixed(0)}% confidence`}
-                  size="small"
-                  color="primary"
-                  variant="outlined"
-                  sx={{ ml: 1, height: 20, fontSize: '0.6875rem' }}
-                />
-              )}
-            </Box>
-          )}
-        </Paper>
-      );
-    }
-    return null;
-  };
-
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height }}>
-        <Typography>Loading order forecasts...</Typography>
-      </Box>
-    );
-  }
-
-  if (error) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height }}>
-        <Typography color="error">Error: {error}</Typography>
-      </Box>
-    );
-  }
-
-  const predictionStartDate = processedData.find(d => d.isPrediction)?.date;
-
-  const chartTypeConfig = {
-    line: { icon: <ShowChart />, label: 'Line', color: theme.palette.success.main },
-    area: { icon: <Timeline />, label: 'Area', color: theme.palette.success.main },
-    bar: { icon: <BarChartIcon />, label: 'Bar', color: theme.palette.success.main },
-  };
-
-  // Common chart elements with enhanced visual separation
+  // Common chart elements with enhanced visual separation - moved before early returns 
   const commonElements = useMemo(() => {
     const historicalData = processedData.filter(d => !d.isPrediction);
     const predictionData = processedData.filter(d => d.isPrediction);
@@ -310,6 +213,103 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
       </>
     );
   }, [processedData, theme, gradientId, predictionGradientId]);
+
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      const isPrediction = data.isPrediction;
+      
+      return (
+        <Paper
+          elevation={8}
+          sx={{
+            p: 2,
+            backgroundColor: 'rgba(255, 255, 255, 0.98)',
+            border: `1px solid ${theme.palette.divider}`,
+            borderRadius: 2,
+            minWidth: 200,
+            backdropFilter: 'blur(10px)',
+          }}
+        >
+          <Typography variant="body2" color="text.secondary" gutterBottom>
+            {new Date(label).toLocaleDateString('en-US', {
+              weekday: 'short',
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric'
+            })}
+          </Typography>
+          
+          {payload.map((entry: any, index: number) => (
+            <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+              <Box
+                sx={{
+                  width: 12,
+                  height: 12,
+                  borderRadius: '50%',
+                  backgroundColor: entry.color,
+                  boxShadow: `0 0 8px ${entry.color}40`,
+                }}
+              />
+              <Typography variant="body2" fontWeight={600}>
+                {entry.name}: {entry.value?.toLocaleString()} orders
+              </Typography>
+            </Box>
+          ))}
+          
+          {isPrediction && (
+            <Box sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: 0.5, 
+              mt: 1, 
+              pt: 1, 
+              borderTop: `1px solid ${theme.palette.divider}` 
+            }}>
+              <AutoAwesome sx={{ fontSize: 14, color: theme.palette.primary.main }} />
+              <Typography variant="caption" color="primary" fontWeight={600}>
+                AI Forecast
+              </Typography>
+              {data.confidence_score && (
+                <Chip 
+                  label={`${(data.confidence_score * 100).toFixed(0)}% confidence`}
+                  size="small"
+                  color="primary"
+                  variant="outlined"
+                  sx={{ ml: 1, height: 20, fontSize: '0.6875rem' }}
+                />
+              )}
+            </Box>
+          )}
+        </Paper>
+      );
+    }
+    return null;
+  };
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height }}>
+        <Typography>Loading order forecasts...</Typography>
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height }}>
+        <Typography color="error">Error: {error}</Typography>
+      </Box>
+    );
+  }
+
+  const predictionStartDate = processedData.find(d => d.isPrediction)?.date;
+
+  const chartTypeConfig = {
+    line: { icon: <ShowChart />, label: 'Line', color: theme.palette.success.main },
+    area: { icon: <Timeline />, label: 'Area', color: theme.palette.success.main },
+    bar: { icon: <BarChartIcon />, label: 'Bar', color: theme.palette.success.main },
+  };
 
   const renderChart = () => {
     const commonProps = {
