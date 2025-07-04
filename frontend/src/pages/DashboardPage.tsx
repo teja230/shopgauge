@@ -2497,56 +2497,31 @@ const DashboardPage = () => {
                 setTimeout(() => fetchRevenueData(true), 100);
               }}
             >
-              {/* Wrap RevenueChart in StyledCard to match main branch styling */}
-              <StyledCard sx={{ height: '100%' }}>
-                <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 3 }}>
-                  <SectionHeader>
-                    <SectionTitle>
-                      <ShowChart color="primary" />
-                      Revenue Analysis
-                    </SectionTitle>
-                    {cardErrors.revenue && (
-                      <IconButton 
-                        size="small" 
-                        onClick={() => handleCardLoad('revenue')}
-                        className="text-red-500 hover:text-red-700"
-                      >
-                        <Refresh fontSize="small" />
-                      </IconButton>
-                    )}
-                  </SectionHeader>
-                  
-                  {/* Only render RevenueChart when we have initialized the dashboard */}
-                  {dashboardDataInitialized || stableTimeseriesData.length > 0 ? (
-                    <Box sx={{ flex: 1, minHeight: 300 }}>
-                      <RevenueChart
-                        data={stableTimeseriesData}
-                        loading={cardLoading.revenue}
-                        error={cardErrors.revenue}
-                        height={350}
-                      />
-                    </Box>
-                  ) : (
-                    <Box
-                      sx={{
-                        height: 350,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexDirection: 'column',
-                        gap: 2,
-                        backgroundColor: 'rgba(0, 0, 0, 0.02)',
-                        borderRadius: 2,
-                      }}
-                    >
-                      <CircularProgress size={48} />
-                      <Typography variant="body2" color="text.secondary">
-                        Loading revenue data...
-                      </Typography>
-                    </Box>
-                  )}
-                </CardContent>
-              </StyledCard>
+              {/* Only render RevenueChart when we have initialized the dashboard */}
+              {dashboardDataInitialized || stableTimeseriesData.length > 0 ? (
+                <RevenueChart
+                  data={stableTimeseriesData}
+                  loading={cardLoading.revenue}
+                  error={cardErrors.revenue}
+                  height={450}
+                />
+              ) : (
+                <StyledCard sx={{ height: 450 }}>
+                  <CardContent sx={{ 
+                    height: '100%', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    flexDirection: 'column',
+                    gap: 2
+                  }}>
+                    <CircularProgress size={48} />
+                    <Typography variant="body2" color="text.secondary">
+                      Loading revenue data...
+                    </Typography>
+                  </CardContent>
+                </StyledCard>
+              )}
             </ErrorBoundary>
           )}
 
