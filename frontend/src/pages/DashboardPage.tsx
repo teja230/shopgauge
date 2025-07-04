@@ -20,6 +20,7 @@ import {
 } from '../utils/cacheUtils'; // Import from shared utils
 import IntelligentLoadingScreen from '../components/ui/IntelligentLoadingScreen';
 import ErrorBoundary from '../components/ErrorBoundary';
+import ChartErrorBoundary from '../components/ui/ChartErrorBoundary';
 
 /**
  * 🚀 DASHBOARD CACHE BEHAVIOR
@@ -2457,9 +2458,9 @@ const DashboardPage = () => {
         <Box sx={{ width: '100%' }}>
           {/* Chart Container (Charts render above) */}
           {chartMode === 'unified' ? (
-            <ErrorBoundary 
+            <ChartErrorBoundary 
               key={`unified-${errorBoundaryKey}`}
-              fallbackMessage="The Advanced Analytics chart failed to load. Please try refreshing."
+              fallbackHeight={280}
               onRetry={handleUnifiedAnalyticsRetry}
             >
               {/* Debug logging for Unified Analytics data */}
@@ -2486,7 +2487,7 @@ const DashboardPage = () => {
                 error={unifiedAnalyticsError}
                 height={280}
               />
-            </ErrorBoundary>
+            </ChartErrorBoundary>
           ) : (
             <ErrorBoundary 
               key={`classic-${errorBoundaryKey}`}

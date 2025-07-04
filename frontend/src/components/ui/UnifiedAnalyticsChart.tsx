@@ -52,6 +52,7 @@ import {
   Stop,
 } from '@mui/icons-material';
 import LoadingIndicator from './LoadingIndicator';
+import ChartErrorBoundary from './ChartErrorBoundary';
 import type { TooltipProps, ChartPayload, UnifiedDatum, PredictionPoint } from '../../types/charts';
 import { useMediaQuery, useTheme } from '@mui/material';
 import { debugLog } from './DebugPanel';
@@ -104,91 +105,109 @@ interface UnifiedAnalyticsChartProps {
 type ChartType = 'combined' | 'revenue_focus' | 'line' | 'area' | 'bar' | 'candlestick' | 'waterfall' | 'stacked' | 'composed';
 type TimeRange = 'all' | 'last30' | 'last7';
 
-// Helper function to safely get numeric value
+// Enhanced SVG-safe number validation
 const safeNumber = (value: any, defaultValue: number = 0): number => {
-  if (value === null || value === undefined || isNaN(Number(value))) {
+  if (value === null || value === undefined) {
     return defaultValue;
   }
+  
   const num = Number(value);
-  // Additional checks for SVG-safe values
-  if (!isFinite(num) || num < -1e10 || num > 1e10) {
+  
+  // Check for NaN, infinity, or extreme values
+  if (isNaN(num) || !isFinite(num)) {
     return defaultValue;
   }
-  return num;
+  
+  // Prevent extremely large values that can cause SVG rendering issues
+  if (Math.abs(num) > 1e10) {
+    return defaultValue;
+  }
+  
+  // Round to prevent floating point precision issues
+  return Math.round(num * 100) / 100;
 };
 
-// Helper function to validate date strings for SVG rendering
+// Enhanced date validation for SVG rendering
 const safeDateString = (dateStr: any): string => {
   if (!dateStr || typeof dateStr !== 'string') {
     return new Date().toISOString().split('T')[0];
   }
   
-  // Check if it's a valid date string
+  // Validate date format
   const date = new Date(dateStr);
   if (isNaN(date.getTime())) {
     return new Date().toISOString().split('T')[0];
   }
   
-  return dateStr;
+  // Return standardized date format
+  return dateStr.substring(0, 10);
 };
 
-// Helper function to safely process historical data item
-const processHistoricalItem = (item: any) => {
+// Comprehensive data validation for chart rendering
+const validateChartData = (data: any[]): boolean => {
+  if (!Array.isArray(data) || data.length === 0) {
+    return false;
+  }
+
+  return data.every((item, index) => {
+    if (!item || typeof item !== 'object') {
+      debugLog.warn('Invalid data item', { index, item }, 'validateChartData');
+      return false;
+    }
+
+    // Validate required fields
+    if (!item.date || typeof item.date !== 'string') {
+      debugLog.warn('Invalid date field', { index, date: item.date }, 'validateChartData');
+      return false;
+    }
+
+    // Validate numeric fields
+    const numericFields = ['revenue', 'orders_count', 'conversion_rate', 'avg_order_value'];
+    for (const field of numericFields) {
+      const value = item[field];
+      if (typeof value !== 'number' || isNaN(value) || !isFinite(value)) {
+        debugLog.warn('Invalid numeric field', { index, field, value }, 'validateChartData');
+        return false;
+      }
+    }
+
+    return true;
+  });
+};
+
+// Enhanced data processing with comprehensive validation
+const processHistoricalItem = (item: any): any => {
   try {
-    // Handle the current API format with 'kind' and 'isPrediction' fields
-    const processedItem = {
+    const processedItem: any = {
       date: safeDateString(item.date),
-      revenue: safeNumber(item.revenue),
-      orders_count: safeNumber(item.orders_count),
-      conversion_rate: safeNumber(item.conversion_rate),
-      avg_order_value: safeNumber(item.avg_order_value),
-      // Preserve the API format fields
-      ...(item.kind && { kind: item.kind }),
-      ...(typeof item.isPrediction === 'boolean' && { isPrediction: item.isPrediction }),
+      revenue: safeNumber(item.revenue, 0),
+      orders_count: safeNumber(item.orders_count, 0),
+      conversion_rate: safeNumber(item.conversion_rate, 0),
+      avg_order_value: safeNumber(item.avg_order_value, 0),
+      kind: item.kind || 'historical',
+      isPrediction: Boolean(item.isPrediction),
     };
-    
-    // Additional validation to ensure all numeric values are SVG-safe
-    if (isNaN(processedItem.revenue) || !isFinite(processedItem.revenue) || processedItem.revenue < 0) {
-      processedItem.revenue = 0;
+
+    // Ensure reasonable bounds for each metric
+    processedItem.revenue = Math.max(0, Math.min(processedItem.revenue, 1e9));
+    processedItem.orders_count = Math.max(0, Math.min(processedItem.orders_count, 1e6));
+    processedItem.conversion_rate = Math.max(0, Math.min(processedItem.conversion_rate, 100));
+    processedItem.avg_order_value = Math.max(0, Math.min(processedItem.avg_order_value, 1e6));
+
+    // Add confidence interval for predictions
+    if (item.isPrediction && item.confidence_interval) {
+      processedItem.confidence_interval = {
+        revenue_min: safeNumber(item.confidence_interval.revenue_min, 0),
+        revenue_max: safeNumber(item.confidence_interval.revenue_max, 0),
+        orders_min: safeNumber(item.confidence_interval.orders_min, 0),
+        orders_max: safeNumber(item.confidence_interval.orders_max, 0),
+      };
     }
-    if (isNaN(processedItem.orders_count) || !isFinite(processedItem.orders_count) || processedItem.orders_count < 0) {
-      processedItem.orders_count = 0;
-    }
-    if (isNaN(processedItem.conversion_rate) || !isFinite(processedItem.conversion_rate) || processedItem.conversion_rate < 0) {
-      processedItem.conversion_rate = 0;
-    }
-    if (isNaN(processedItem.avg_order_value) || !isFinite(processedItem.avg_order_value) || processedItem.avg_order_value < 0) {
-      processedItem.avg_order_value = 0;
-    }
-    
-    // Cap extremely large values that might cause SVG rendering issues
-    processedItem.revenue = Math.min(processedItem.revenue, 1e9);
-    processedItem.orders_count = Math.min(processedItem.orders_count, 1e6);
-    // Fix conversion rate to be within reasonable bounds (0-100%)
-    processedItem.conversion_rate = Math.min(processedItem.conversion_rate, 100);
-    processedItem.avg_order_value = Math.min(processedItem.avg_order_value, 1e6);
-    
-    // Additional SVG-safe bounds checking
-    // Ensure no values are exactly 0 which can cause division by zero in SVG calculations
-    if (processedItem.revenue === 0) processedItem.revenue = 0.01;
-    if (processedItem.orders_count === 0) processedItem.orders_count = 0.01;
-    if (processedItem.conversion_rate === 0) processedItem.conversion_rate = 0.01;
-    if (processedItem.avg_order_value === 0) processedItem.avg_order_value = 0.01;
-    
-    // Round to reasonable precision to prevent floating point precision issues in SVG
-    processedItem.revenue = Math.round(processedItem.revenue * 100) / 100;
-    processedItem.orders_count = Math.round(processedItem.orders_count * 100) / 100;
-    processedItem.conversion_rate = Math.round(processedItem.conversion_rate * 100) / 100;
-    processedItem.avg_order_value = Math.round(processedItem.avg_order_value * 100) / 100;
-    
+
     return processedItem;
   } catch (error) {
-    debugLog.error('Error processing historical item', {
-      error: error instanceof Error ? error.message : String(error),
-      item: item ? { ...item, date: item.date } : null,
-      errorStack: error instanceof Error ? error.stack : undefined
-    }, 'processHistoricalItem');
-    // Return a safe default structure
+    debugLog.error('Error processing data item', { error, item }, 'processHistoricalItem');
+    // Return safe fallback
     return {
       date: new Date().toISOString().split('T')[0],
       revenue: 0,
@@ -201,746 +220,305 @@ const processHistoricalItem = (item: any) => {
   }
 };
 
-// Add a debug helper for chart rendering using Debug Panel
-const debugChartRender = (componentName: string, props: any) => {
-  debugLog.info(`${componentName} Debug - Props`, {
-    hasCommonProps: !!props.commonProps,
-    dataLength: props.commonProps?.data?.length || 0,
-    dataSample: props.commonProps?.data?.slice(0, 2) || [],
-    visibleMetrics: props.visibleMetrics,
-    chartHeight: props.commonProps?.height,
-    shouldShowPredictionLine: props.shouldShowPredictionLine,
-    predictionDate: props.predictionDate,
-    gradientIdPrefix: props.gradientIdPrefix
-  }, componentName);
-};
-
-// Enhanced memoized components with better prop stabilization and error boundaries
-const MemoizedLineChart = memo(({ commonProps, commonGrid, commonXAxis, commonYAxisRevenue, commonTooltip, commonLegend, visibleMetrics, shouldShowPredictionLine, predictionDate }: any) => {
-  // Relaxed validation - only check if we have some data
-  if (!commonProps?.data || !Array.isArray(commonProps.data)) {
-    debugLog.warn('MemoizedLineChart: No data available', {
-      hasCommonProps: !!commonProps,
-      hasData: !!(commonProps && commonProps.data),
-      isArray: !!(commonProps && Array.isArray(commonProps.data))
-    }, 'MemoizedLineChart');
+// Simplified and robust Line Chart component with all metrics support
+const SimpleLineChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, predictionDate }: any) => {
+  if (!validateChartData(data)) {
     return null;
   }
 
-  try {
-    // Additional safety check for SVG-safe props
-    const safeProps = {
-      ...commonProps,
-      // Ensure width and height are valid numbers for SVG
-      width: Math.max(100, Math.min(commonProps.width || 800, 2000)),
-      height: Math.max(100, Math.min(commonProps.height || 400, 1000)),
-      // Ensure margin values are safe
-      margin: {
-        top: Math.max(0, commonProps.margin?.top || 20),
-        right: Math.max(0, commonProps.margin?.right || 30),
-        left: Math.max(0, commonProps.margin?.left || 20),
-        bottom: Math.max(0, commonProps.margin?.bottom || 20),
-      }
-    };
-
-    return (
-      <LineChart {...safeProps}>
-        {commonGrid}
-        {commonXAxis}
-        {commonYAxisRevenue}
-        {commonTooltip}
-        {commonLegend}
-        {visibleMetrics.revenue && (
-          <Line
-            yAxisId="revenue"
-            type="monotone"
-            dataKey="revenue"
-            stroke="#2563eb"
-            strokeWidth={2}
-            name="Revenue"
-            dot={{ fill: '#2563eb', strokeWidth: 2, r: 4 }}
-            connectNulls={false}
-            isAnimationActive={false}
-          />
-        )}
-        {visibleMetrics.orders && (
-          <Line
-            yAxisId="revenue"
-            type="monotone"
-            dataKey="orders_count"
-            stroke="#f59e0b"
-            strokeWidth={2}
-            name="Orders"
-            dot={{ fill: '#f59e0b', strokeWidth: 2, r: 3 }}
-            connectNulls={false}
-            isAnimationActive={false}
-          />
-        )}
-        {visibleMetrics.conversion && (
-          <Line
-            yAxisId="revenue"
-            type="monotone"
-            dataKey="conversion_rate"
-            stroke="#10b981"
-            strokeWidth={2}
-            name="Conversion Rate"
-            dot={{ fill: '#10b981', strokeWidth: 2, r: 3 }}
-            connectNulls={false}
-            isAnimationActive={false}
-          />
-        )}
-        {shouldShowPredictionLine && predictionDate && (
-          <ReferenceLine
-            x={predictionDate}
-            stroke="rgba(0, 0, 0, 0.3)"
-            strokeDasharray="2,2"
-            label="Predictions"
-          />
-        )}
-      </LineChart>
-    );
-  } catch (error) {
-    debugLog.error('Error in MemoizedLineChart', { error: error instanceof Error ? error.message : String(error) }, 'MemoizedLineChart');
-    return null;
-  }
-}, (prevProps, nextProps) => {
-  // Custom comparison function to prevent unnecessary re-renders
   return (
-    prevProps.commonProps?.data === nextProps.commonProps?.data &&
-    prevProps.visibleMetrics === nextProps.visibleMetrics &&
-    prevProps.shouldShowPredictionLine === nextProps.shouldShowPredictionLine &&
-    prevProps.predictionDate === nextProps.predictionDate
+    <LineChart
+      data={data}
+      margin={{ top: 10, right: 30, left: 20, bottom: 20 }}
+    >
+      <CartesianGrid strokeDasharray="3 3" stroke="rgba(0, 0, 0, 0.1)" />
+      <XAxis
+        dataKey="date"
+        tickFormatter={(value) => {
+          try {
+            return new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          } catch {
+            return value;
+          }
+        }}
+        stroke="rgba(0, 0, 0, 0.6)"
+      />
+      <YAxis
+        yAxisId="left"
+        stroke="rgba(0, 0, 0, 0.6)"
+        tickFormatter={(value) => `$${value.toLocaleString()}`}
+      />
+      <YAxis
+        yAxisId="right"
+        orientation="right"
+        stroke="rgba(0, 0, 0, 0.6)"
+        tickFormatter={(value) => value.toLocaleString()}
+      />
+      <Tooltip
+        labelFormatter={(label) => {
+          try {
+            return new Date(label).toLocaleDateString();
+          } catch {
+            return label;
+          }
+        }}
+        formatter={(value: number, name: string) => {
+          if (name === 'Revenue') return [`$${value.toLocaleString()}`, name];
+          if (name === 'Orders') return [value.toLocaleString(), name];
+          if (name === 'Conversion Rate') return [`${value.toFixed(2)}%`, name];
+          return [value.toLocaleString(), name];
+        }}
+      />
+      <Legend />
+      {visibleMetrics.revenue && (
+        <Line
+          yAxisId="left"
+          type="monotone"
+          dataKey="revenue"
+          stroke="#2563eb"
+          strokeWidth={2}
+          name="Revenue"
+          dot={false}
+          isAnimationActive={false}
+        />
+      )}
+      {visibleMetrics.orders && (
+        <Line
+          yAxisId="right"
+          type="monotone"
+          dataKey="orders_count"
+          stroke="#10b981"
+          strokeWidth={2}
+          name="Orders"
+          dot={false}
+          isAnimationActive={false}
+        />
+      )}
+      {visibleMetrics.conversion && (
+        <Line
+          yAxisId="right"
+          type="monotone"
+          dataKey="conversion_rate"
+          stroke="#f59e0b"
+          strokeWidth={2}
+          name="Conversion Rate"
+          dot={false}
+          isAnimationActive={false}
+        />
+      )}
+      {shouldShowPredictionLine && predictionDate && (
+        <ReferenceLine
+          x={predictionDate}
+          stroke="rgba(0, 0, 0, 0.3)"
+          strokeDasharray="3 3"
+          label="Predictions"
+        />
+      )}
+    </LineChart>
   );
 });
 
-const MemoizedAreaChart = memo(({ commonProps, commonGrid, commonXAxis, commonYAxisRevenue, commonTooltip, commonLegend, visibleMetrics, shouldShowPredictionLine, predictionDate, gradientIdPrefix }: any) => {
-  // Relaxed validation - only check if we have some data
-  if (!commonProps?.data || !Array.isArray(commonProps.data)) {
+// Simplified and robust Area Chart component with all metrics support
+const SimpleAreaChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, predictionDate }: any) => {
+  if (!validateChartData(data)) {
     return null;
   }
 
-  try {
-    // Additional safety check for SVG-safe props
-    const safeProps = {
-      ...commonProps,
-      // Ensure width and height are valid numbers for SVG
-      width: Math.max(100, Math.min(commonProps.width || 800, 2000)),
-      height: Math.max(100, Math.min(commonProps.height || 400, 1000)),
-      // Ensure margin values are safe
-      margin: {
-        top: Math.max(0, commonProps.margin?.top || 20),
-        right: Math.max(0, commonProps.margin?.right || 30),
-        left: Math.max(0, commonProps.margin?.left || 20),
-        bottom: Math.max(0, commonProps.margin?.bottom || 20),
-      }
-    };
-
-    // Ensure gradientIdPrefix is safe for SVG IDs
-    const safeGradientId = (gradientIdPrefix || 'chart').replace(/[^a-zA-Z0-9-_]/g, '');
-
-    return (
-      <AreaChart {...safeProps}>
-        <defs>
-          <linearGradient id={`${safeGradientId}-revenueGradient`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3} />
-            <stop offset="95%" stopColor="#2563eb" stopOpacity={0.05} />
-          </linearGradient>
-        </defs>
-        {commonGrid}
-        {commonXAxis}
-        {commonYAxisRevenue}
-        {commonTooltip}
-        {commonLegend}
-        {visibleMetrics.revenue && (
-          <Area
-            yAxisId="revenue"
-            type="monotone"
-            dataKey="revenue"
-            stroke="#2563eb"
-            strokeWidth={2}
-            fill={`url(#${safeGradientId}-revenueGradient)`}
-            name="Revenue"
-            connectNulls={false}
-            isAnimationActive={false}
-          />
-        )}
-        {visibleMetrics.orders && (
-          <Area
-            yAxisId="revenue"
-            type="monotone"
-            dataKey="orders_count"
-            stroke="#f59e0b"
-            strokeWidth={1}
-            fill="rgba(245, 158, 11, 0.1)"
-            name="Orders"
-            connectNulls={false}
-            isAnimationActive={false}
-          />
-        )}
-        {shouldShowPredictionLine && predictionDate && (
-          <ReferenceLine
-            x={predictionDate}
-            stroke="rgba(0, 0, 0, 0.3)"
-            strokeDasharray="2,2"
-            label="Predictions"
-          />
-        )}
-      </AreaChart>
-    );
-  } catch (error) {
-    debugLog.error('Error in MemoizedAreaChart', { error: error instanceof Error ? error.message : String(error) }, 'MemoizedAreaChart');
-    return null;
-  }
-}, (prevProps, nextProps) => {
   return (
-    prevProps.commonProps?.data === nextProps.commonProps?.data &&
-    prevProps.visibleMetrics === nextProps.visibleMetrics &&
-    prevProps.shouldShowPredictionLine === nextProps.shouldShowPredictionLine &&
-    prevProps.predictionDate === nextProps.predictionDate &&
-    prevProps.gradientIdPrefix === nextProps.gradientIdPrefix
+    <AreaChart
+      data={data}
+      margin={{ top: 10, right: 30, left: 20, bottom: 20 }}
+    >
+      <defs>
+        <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3} />
+          <stop offset="95%" stopColor="#2563eb" stopOpacity={0.1} />
+        </linearGradient>
+        <linearGradient id="ordersGradient" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+          <stop offset="95%" stopColor="#10b981" stopOpacity={0.1} />
+        </linearGradient>
+        <linearGradient id="conversionGradient" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3} />
+          <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.1} />
+        </linearGradient>
+      </defs>
+      <CartesianGrid strokeDasharray="3 3" stroke="rgba(0, 0, 0, 0.1)" />
+      <XAxis
+        dataKey="date"
+        tickFormatter={(value) => {
+          try {
+            return new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          } catch {
+            return value;
+          }
+        }}
+        stroke="rgba(0, 0, 0, 0.6)"
+      />
+      <YAxis
+        yAxisId="left"
+        stroke="rgba(0, 0, 0, 0.6)"
+        tickFormatter={(value) => `$${value.toLocaleString()}`}
+      />
+      <YAxis
+        yAxisId="right"
+        orientation="right"
+        stroke="rgba(0, 0, 0, 0.6)"
+        tickFormatter={(value) => value.toLocaleString()}
+      />
+      <Tooltip
+        labelFormatter={(label) => {
+          try {
+            return new Date(label).toLocaleDateString();
+          } catch {
+            return label;
+          }
+        }}
+        formatter={(value: number, name: string) => {
+          if (name === 'Revenue') return [`$${value.toLocaleString()}`, name];
+          if (name === 'Orders') return [value.toLocaleString(), name];
+          if (name === 'Conversion Rate') return [`${value.toFixed(2)}%`, name];
+          return [value.toLocaleString(), name];
+        }}
+      />
+      <Legend />
+      {visibleMetrics.revenue && (
+        <Area
+          yAxisId="left"
+          type="monotone"
+          dataKey="revenue"
+          stroke="#2563eb"
+          strokeWidth={2}
+          fill="url(#revenueGradient)"
+          name="Revenue"
+          isAnimationActive={false}
+        />
+      )}
+      {visibleMetrics.orders && (
+        <Area
+          yAxisId="right"
+          type="monotone"
+          dataKey="orders_count"
+          stroke="#10b981"
+          strokeWidth={2}
+          fill="url(#ordersGradient)"
+          name="Orders"
+          isAnimationActive={false}
+        />
+      )}
+      {visibleMetrics.conversion && (
+        <Area
+          yAxisId="right"
+          type="monotone"
+          dataKey="conversion_rate"
+          stroke="#f59e0b"
+          strokeWidth={2}
+          fill="url(#conversionGradient)"
+          name="Conversion Rate"
+          isAnimationActive={false}
+        />
+      )}
+      {shouldShowPredictionLine && predictionDate && (
+        <ReferenceLine
+          x={predictionDate}
+          stroke="rgba(0, 0, 0, 0.3)"
+          strokeDasharray="3 3"
+          label="Predictions"
+        />
+      )}
+    </AreaChart>
   );
 });
 
-const MemoizedBarChart = memo(({ commonProps, commonGrid, commonXAxis, commonYAxisRevenue, commonTooltip, commonLegend, visibleMetrics, shouldShowPredictionLine, predictionDate }: any) => {
-  // Relaxed validation - only check if we have some data
-  if (!commonProps?.data || !Array.isArray(commonProps.data)) {
+// Simplified and robust Bar Chart component with all metrics support
+const SimpleBarChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, predictionDate }: any) => {
+  if (!validateChartData(data)) {
     return null;
   }
 
-  try {
-    // Additional safety check for SVG-safe props
-    const safeProps = {
-      ...commonProps,
-      // Ensure width and height are valid numbers for SVG
-      width: Math.max(100, Math.min(commonProps.width || 800, 2000)),
-      height: Math.max(100, Math.min(commonProps.height || 400, 1000)),
-      // Ensure margin values are safe
-      margin: {
-        top: Math.max(0, commonProps.margin?.top || 20),
-        right: Math.max(0, commonProps.margin?.right || 30),
-        left: Math.max(0, commonProps.margin?.left || 20),
-        bottom: Math.max(0, commonProps.margin?.bottom || 20),
-      }
-    };
-
-    return (
-      <BarChart {...safeProps}>
-        {commonGrid}
-        {commonXAxis}
-        {commonYAxisRevenue}
-        {commonTooltip}
-        {commonLegend}
-        {visibleMetrics.revenue && (
-          <Bar
-            yAxisId="revenue"
-            dataKey="revenue"
-            fill="#2563eb"
-            name="Revenue"
-            radius={[2, 2, 0, 0]}
-            isAnimationActive={false}
-          />
-        )}
-        {visibleMetrics.orders && (
-          <Bar
-            yAxisId="revenue"
-            dataKey="orders_count"
-            fill="#f59e0b"
-            name="Orders"
-            radius={[2, 2, 0, 0]}
-            isAnimationActive={false}
-          />
-        )}
-        {shouldShowPredictionLine && predictionDate && (
-          <ReferenceLine
-            x={predictionDate}
-            stroke="rgba(0, 0, 0, 0.3)"
-            strokeDasharray="2,2"
-            label="Predictions"
-          />
-        )}
-      </BarChart>
-    );
-  } catch (error) {
-    debugLog.error('Error in MemoizedBarChart', { error: error instanceof Error ? error.message : String(error) }, 'MemoizedBarChart');
-    return null;
-  }
-}, (prevProps, nextProps) => {
   return (
-    prevProps.commonProps?.data === nextProps.commonProps?.data &&
-    prevProps.visibleMetrics === nextProps.visibleMetrics &&
-    prevProps.shouldShowPredictionLine === nextProps.shouldShowPredictionLine &&
-    prevProps.predictionDate === nextProps.predictionDate
-  );
-});
-
-const MemoizedComposedChart = memo(({ commonProps, commonGrid, commonXAxis, commonYAxisRevenue, commonYAxisOrders, commonTooltip, commonLegend, visibleMetrics, showPredictions, shouldShowPredictionLine, predictionDate }: any) => {
-  // Relaxed validation for composed chart
-  if (!commonProps?.data || !Array.isArray(commonProps.data)) {
-    debugLog.warn('MemoizedComposedChart: No data available', {
-      hasCommonProps: !!commonProps,
-      hasData: !!(commonProps && commonProps.data),
-      isArray: !!(commonProps && Array.isArray(commonProps.data))
-    }, 'MemoizedComposedChart');
-    return null;
-  }
-
-  try {
-    // Basic validation that we have some data
-    if (commonProps.data.length === 0) {
-      debugLog.warn('MemoizedComposedChart: Empty data array', {
-        dataLength: commonProps.data.length
-      }, 'MemoizedComposedChart');
-      return null;
-    }
-
-    // Additional validation for SVG-safe data values
-    const hasValidData = commonProps.data.every((item: any) => {
-      if (!item || typeof item !== 'object') return false;
-      
-      // Check for problematic values that could cause SVG rendering issues
-      const revenue = item.revenue;
-      const orders = item.orders_count;
-      const conversion = item.conversion_rate;
-      
-      // Ensure all values are finite numbers
-      if (typeof revenue !== 'number' || !isFinite(revenue)) return false;
-      if (typeof orders !== 'number' || !isFinite(orders)) return false;
-      if (typeof conversion !== 'number' || !isFinite(conversion)) return false;
-      
-      // Check for extreme values that could cause SVG issues
-      if (revenue < 0 || revenue > 1e10) return false;
-      if (orders < 0 || orders > 1e8) return false;
-      if (conversion < 0 || conversion > 1000) return false;
-      
-      return true;
-    });
-
-    if (!hasValidData) {
-      debugLog.warn('MemoizedComposedChart: Data contains invalid values', {
-        dataLength: commonProps.data.length,
-        sampleData: commonProps.data.slice(0, 3)
-      }, 'MemoizedComposedChart');
-      return null;
-    }
-
-    // Additional safety check for SVG-safe props
-    const safeProps = {
-      ...commonProps,
-      // Ensure width and height are valid numbers for SVG
-      width: Math.max(100, Math.min(commonProps.width || 800, 2000)),
-      height: Math.max(100, Math.min(commonProps.height || 400, 1000)),
-      // Ensure margin values are safe
-      margin: {
-        top: Math.max(0, commonProps.margin?.top || 20),
-        right: Math.max(0, commonProps.margin?.right || 30),
-        left: Math.max(0, commonProps.margin?.left || 20),
-        bottom: Math.max(0, commonProps.margin?.bottom || 20),
-      }
-    };
-
-    debugLog.info('MemoizedComposedChart: About to render', {
-      hasCommonProps: !!commonProps,
-      dataLength: commonProps?.data?.length || 0,
-      visibleMetrics,
-      showPredictions,
-      shouldShowPredictionLine,
-      predictionDate,
-      safeProps: {
-        width: safeProps.width,
-        height: safeProps.height,
-        margin: safeProps.margin
-      },
-      dataSample: commonProps?.data?.slice(0, 3) || []
-    }, 'MemoizedComposedChart');
-
-    return (
-      <ComposedChart {...safeProps}>
-        {commonGrid}
-        {commonXAxis}
-        {commonYAxisRevenue}
-        {commonYAxisOrders}
-        {commonTooltip}
-        {commonLegend}
-        {visibleMetrics.revenue && (
-          <Area
-            yAxisId="revenue"
-            type="monotone"
-            dataKey="revenue"
-            stroke="#2563eb"
-            strokeWidth={2}
-            fill="rgba(37, 99, 235, 0.1)"
-            name="Revenue"
-            connectNulls={false}
-            isAnimationActive={false}
-          />
-        )}
-        {visibleMetrics.orders && (
-          <Bar
-            yAxisId="orders"
-            dataKey="orders_count"
-            fill="#f59e0b"
-            name="Orders"
-            radius={[2, 2, 0, 0]}
-            opacity={0.8}
-            isAnimationActive={false}
-          />
-        )}
-        {visibleMetrics.conversion && (
-          <Line
-            yAxisId="orders"
-            type="monotone"
-            dataKey="conversion_rate"
-            stroke="#10b981"
-            strokeWidth={2}
-            name="Conversion Rate"
-            dot={{ fill: '#10b981', strokeWidth: 2, r: 3 }}
-            connectNulls={false}
-            isAnimationActive={false}
-          />
-        )}
-        {shouldShowPredictionLine && predictionDate && (
-          <ReferenceLine
-            x={predictionDate}
-            stroke="rgba(0, 0, 0, 0.3)"
-            strokeDasharray="2,2"
-            label="Predictions"
-          />
-        )}
-      </ComposedChart>
-    );
-  } catch (error) {
-    debugLog.error('Error in MemoizedComposedChart', { 
-      error: error instanceof Error ? error.message : String(error),
-      errorStack: error instanceof Error ? error.stack : undefined
-    }, 'MemoizedComposedChart');
-    return null;
-  }
-}, (prevProps, nextProps) => {
-  return (
-    prevProps.commonProps?.data === nextProps.commonProps?.data &&
-    prevProps.visibleMetrics === nextProps.visibleMetrics &&
-    prevProps.showPredictions === nextProps.showPredictions &&
-    prevProps.shouldShowPredictionLine === nextProps.shouldShowPredictionLine &&
-    prevProps.predictionDate === nextProps.predictionDate
-  );
-});
-
-const MemoizedCandlestickChart = memo(({ commonProps, commonGrid, commonXAxis, commonYAxisRevenue, commonTooltip, commonLegend, visibleMetrics, shouldShowPredictionLine, predictionDate }: any) => {
-  // Relaxed validation - only check if we have some data
-  if (!commonProps?.data || !Array.isArray(commonProps.data)) {
-    return null;
-  }
-
-  try {
-    return (
-      <ComposedChart {...commonProps}>
-        {commonGrid}
-        {commonXAxis}
-        {commonYAxisRevenue}
-        {commonTooltip}
-        {commonLegend}
-        {visibleMetrics.revenue && (
-          <Line
-            yAxisId="revenue"
-            type="monotone"
-            dataKey="revenue"
-            stroke="#2563eb"
-            strokeWidth={3}
-            name="Revenue"
-            dot={{ fill: '#2563eb', strokeWidth: 3, r: 6 }}
-            connectNulls={false}
-            isAnimationActive={false}
-          />
-        )}
-        {visibleMetrics.orders && (
-          <Bar
-            yAxisId="revenue"
-            dataKey="orders_count"
-            fill="#f59e0b"
-            name="Orders"
-            radius={[4, 4, 0, 0]}
-            opacity={0.6}
-            isAnimationActive={false}
-          />
-        )}
-        {shouldShowPredictionLine && predictionDate && (
-          <ReferenceLine
-            x={predictionDate}
-            stroke="rgba(0, 0, 0, 0.3)"
-            strokeDasharray="2,2"
-            label="Predictions"
-          />
-        )}
-      </ComposedChart>
-    );
-  } catch (error) {
-    debugLog.error('Error in MemoizedCandlestickChart', { error: error instanceof Error ? error.message : String(error) }, 'MemoizedCandlestickChart');
-    return null;
-  }
-}, (prevProps, nextProps) => {
-  return (
-    prevProps.commonProps?.data === nextProps.commonProps?.data &&
-    prevProps.visibleMetrics === nextProps.visibleMetrics &&
-    prevProps.shouldShowPredictionLine === nextProps.shouldShowPredictionLine &&
-    prevProps.predictionDate === nextProps.predictionDate
-  );
-});
-
-const MemoizedWaterfallChart = memo(({ commonProps, commonGrid, commonXAxis, commonYAxisRevenue, commonTooltip, commonLegend, visibleMetrics, shouldShowPredictionLine, predictionDate }: any) => {
-  // Relaxed validation - only check if we have some data
-  if (!commonProps?.data || !Array.isArray(commonProps.data)) {
-    return null;
-  }
-
-  try {
-    return (
-      <ComposedChart {...commonProps}>
-        {commonGrid}
-        {commonXAxis}
-        {commonYAxisRevenue}
-        {commonTooltip}
-        {commonLegend}
-        {visibleMetrics.revenue && (
-          <Bar
-            yAxisId="revenue"
-            dataKey="revenue"
-            fill="#10b981"
-            name="Revenue"
-            radius={[2, 2, 0, 0]}
-            opacity={0.8}
-            isAnimationActive={false}
-          />
-        )}
-        {visibleMetrics.orders && (
-          <Line
-            yAxisId="revenue"
-            type="monotone"
-            dataKey="orders_count"
-            stroke="#f59e0b"
-            strokeWidth={2}
-            name="Orders"
-            dot={{ fill: '#f59e0b', strokeWidth: 2, r: 3 }}
-            connectNulls={false}
-            isAnimationActive={false}
-          />
-        )}
-        {shouldShowPredictionLine && predictionDate && (
-          <ReferenceLine
-            x={predictionDate}
-            stroke="rgba(0, 0, 0, 0.3)"
-            strokeDasharray="2,2"
-            label="Predictions"
-          />
-        )}
-      </ComposedChart>
-    );
-  } catch (error) {
-    debugLog.error('Error in MemoizedWaterfallChart', { error: error instanceof Error ? error.message : String(error) }, 'MemoizedWaterfallChart');
-    return null;
-  }
-}, (prevProps, nextProps) => {
-  return (
-    prevProps.commonProps?.data === nextProps.commonProps?.data &&
-    prevProps.visibleMetrics === nextProps.visibleMetrics &&
-    prevProps.shouldShowPredictionLine === nextProps.shouldShowPredictionLine &&
-    prevProps.predictionDate === nextProps.predictionDate
-  );
-});
-
-const MemoizedStackedChart = memo(({ commonProps, commonGrid, commonXAxis, commonYAxisRevenue, commonTooltip, commonLegend, visibleMetrics, shouldShowPredictionLine, predictionDate, gradientIdPrefix }: any) => {
-  // Relaxed validation - only check if we have some data
-  if (!commonProps?.data || !Array.isArray(commonProps.data)) {
-    return null;
-  }
-
-  try {
-    // Additional safety check for SVG-safe props
-    const safeProps = {
-      ...commonProps,
-      // Ensure width and height are valid numbers for SVG
-      width: Math.max(100, Math.min(commonProps.width || 800, 2000)),
-      height: Math.max(100, Math.min(commonProps.height || 400, 1000)),
-      // Ensure margin values are safe
-      margin: {
-        top: Math.max(0, commonProps.margin?.top || 20),
-        right: Math.max(0, commonProps.margin?.right || 30),
-        left: Math.max(0, commonProps.margin?.left || 20),
-        bottom: Math.max(0, commonProps.margin?.bottom || 20),
-      }
-    };
-
-    // Ensure gradientIdPrefix is safe for SVG IDs
-    const safeGradientId = (gradientIdPrefix || 'chart').replace(/[^a-zA-Z0-9-_]/g, '');
-
-    return (
-      <AreaChart {...safeProps}>
-        <defs>
-          <linearGradient id={`${safeGradientId}-stackedRevenueGradient`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
-            <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.05} />
-          </linearGradient>
-          <linearGradient id={`${safeGradientId}-ordersGradient`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
-            <stop offset="95%" stopColor="#10b981" stopOpacity={0.05} />
-          </linearGradient>
-        </defs>
-        {commonGrid}
-        {commonXAxis}
-        {commonYAxisRevenue}
-        {commonTooltip}
-        {commonLegend}
-        {visibleMetrics.revenue && (
-          <Area
-            yAxisId="revenue"
-            type="monotone"
-            dataKey="revenue"
-            stroke="#8b5cf6"
-            strokeWidth={2}
-            fill={`url(#${safeGradientId}-stackedRevenueGradient)`}
-            name="Revenue"
-            stackId="1"
-            connectNulls={false}
-            isAnimationActive={false}
-          />
-        )}
-        {visibleMetrics.orders && (
-          <Area
-            yAxisId="revenue"
-            type="monotone"
-            dataKey="orders_count"
-            stroke="#10b981"
-            strokeWidth={1}
-            fill={`url(#${safeGradientId}-ordersGradient)`}
-            name="Orders"
-            stackId="2"
-            connectNulls={false}
-            isAnimationActive={false}
-          />
-        )}
-        {shouldShowPredictionLine && predictionDate && (
-          <ReferenceLine
-            x={predictionDate}
-            stroke="rgba(0, 0, 0, 0.3)"
-            strokeDasharray="2,2"
-            label="Predictions"
-          />
-        )}
-      </AreaChart>
-    );
-  } catch (error) {
-    debugLog.error('Error in MemoizedStackedChart', { error: error instanceof Error ? error.message : String(error) }, 'MemoizedStackedChart');
-    return null;
-  }
-}, (prevProps, nextProps) => {
-  return (
-    prevProps.commonProps?.data === nextProps.commonProps?.data &&
-    prevProps.visibleMetrics === nextProps.visibleMetrics &&
-    prevProps.shouldShowPredictionLine === nextProps.shouldShowPredictionLine &&
-    prevProps.predictionDate === nextProps.predictionDate &&
-    prevProps.gradientIdPrefix === nextProps.gradientIdPrefix
-  );
-});
-
-const MemoizedRevenueFocusChart = memo(({ commonProps, commonGrid, commonXAxis, commonYAxisRevenue, commonTooltip, commonLegend, visibleMetrics, shouldShowPredictionLine, predictionDate, gradientIdPrefix }: any) => {
-  // Add debug logging for this specific chart
-  useEffect(() => {
-    debugChartRender('MemoizedRevenueFocusChart', {
-      commonProps,
-      visibleMetrics,
-      shouldShowPredictionLine,
-      predictionDate,
-      gradientIdPrefix
-    });
-  }, [commonProps, visibleMetrics, shouldShowPredictionLine, predictionDate, gradientIdPrefix]);
-
-  // Relaxed validation - only check if we have some data
-  if (!commonProps || !commonProps.data || !Array.isArray(commonProps.data)) {
-    debugLog.warn('MemoizedRevenueFocusChart: No data available', {
-      hasCommonProps: !!commonProps,
-      hasData: !!(commonProps && commonProps.data),
-      isArray: !!(commonProps && Array.isArray(commonProps.data))
-    }, 'MemoizedRevenueFocusChart');
-    return null;
-  }
-
-  // Basic validation that we have some data
-  if (commonProps.data.length === 0) {
-    debugLog.warn('MemoizedRevenueFocusChart: Empty data array', {
-      dataLength: commonProps.data?.length || 0
-    }, 'MemoizedRevenueFocusChart');
-    return null;
-  }
-
-  try {
-    // Additional safety check for SVG-safe props
-    const safeProps = {
-      ...commonProps,
-      // Ensure width and height are valid numbers for SVG
-      width: Math.max(100, Math.min(commonProps.width || 800, 2000)),
-      height: Math.max(100, Math.min(commonProps.height || 400, 1000)),
-      // Ensure margin values are safe
-      margin: {
-        top: Math.max(0, commonProps.margin?.top || 20),
-        right: Math.max(0, commonProps.margin?.right || 30),
-        left: Math.max(0, commonProps.margin?.left || 20),
-        bottom: Math.max(0, commonProps.margin?.bottom || 20),
-      }
-    };
-
-    // Ensure gradientIdPrefix is safe for SVG IDs
-    const safeGradientId = (gradientIdPrefix || 'chart').replace(/[^a-zA-Z0-9-_]/g, '');
-
-    return (
-      <AreaChart {...safeProps}>
-        <defs>
-          <linearGradient id={`${safeGradientId}-revenueFocusGradient`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="#2563eb" stopOpacity={0.4} />
-            <stop offset="95%" stopColor="#2563eb" stopOpacity={0.1} />
-          </linearGradient>
-        </defs>
-        {commonGrid}
-        {commonXAxis}
-        {commonYAxisRevenue}
-        {commonTooltip}
-        {commonLegend}
-        {visibleMetrics.revenue && (
-          <Area
-            yAxisId="revenue"
-            type="monotone"
-            dataKey="revenue"
-            stroke="#2563eb"
-            strokeWidth={4}
-            fill={`url(#${safeGradientId}-revenueFocusGradient)`}
-            name="Revenue"
-            dot={{ fill: '#2563eb', strokeWidth: 3, r: 5 }}
-            connectNulls={false}
-            isAnimationActive={false}
-          />
-        )}
-        {shouldShowPredictionLine && predictionDate && (
-          <ReferenceLine
-            x={predictionDate}
-            stroke="rgba(0, 0, 0, 0.3)"
-            strokeDasharray="2,2"
-            label="Predictions"
-          />
-        )}
-      </AreaChart>
-    );
-  } catch (error) {
-    debugLog.error('Error in MemoizedRevenueFocusChart', { 
-      error: error instanceof Error ? error.message : String(error),
-      errorStack: error instanceof Error ? error.stack : undefined
-    }, 'MemoizedRevenueFocusChart');
-    return null;
-  }
-}, (prevProps, nextProps) => {
-  return (
-    prevProps.commonProps?.data === nextProps.commonProps?.data &&
-    prevProps.visibleMetrics === nextProps.visibleMetrics &&
-    prevProps.shouldShowPredictionLine === nextProps.shouldShowPredictionLine &&
-    prevProps.predictionDate === nextProps.predictionDate &&
-    prevProps.gradientIdPrefix === nextProps.gradientIdPrefix
+    <BarChart
+      data={data}
+      margin={{ top: 10, right: 30, left: 20, bottom: 20 }}
+    >
+      <CartesianGrid strokeDasharray="3 3" stroke="rgba(0, 0, 0, 0.1)" />
+      <XAxis
+        dataKey="date"
+        tickFormatter={(value) => {
+          try {
+            return new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          } catch {
+            return value;
+          }
+        }}
+        stroke="rgba(0, 0, 0, 0.6)"
+      />
+      <YAxis
+        yAxisId="left"
+        stroke="rgba(0, 0, 0, 0.6)"
+        tickFormatter={(value) => `$${value.toLocaleString()}`}
+      />
+      <YAxis
+        yAxisId="right"
+        orientation="right"
+        stroke="rgba(0, 0, 0, 0.6)"
+        tickFormatter={(value) => value.toLocaleString()}
+      />
+      <Tooltip
+        labelFormatter={(label) => {
+          try {
+            return new Date(label).toLocaleDateString();
+          } catch {
+            return label;
+          }
+        }}
+        formatter={(value: number, name: string) => {
+          if (name === 'Revenue') return [`$${value.toLocaleString()}`, name];
+          if (name === 'Orders') return [value.toLocaleString(), name];
+          if (name === 'Conversion Rate') return [`${value.toFixed(2)}%`, name];
+          return [value.toLocaleString(), name];
+        }}
+      />
+      <Legend />
+      {visibleMetrics.revenue && (
+        <Bar
+          yAxisId="left"
+          dataKey="revenue"
+          fill="#2563eb"
+          name="Revenue"
+          radius={[2, 2, 0, 0]}
+          isAnimationActive={false}
+        />
+      )}
+      {visibleMetrics.orders && (
+        <Bar
+          yAxisId="right"
+          dataKey="orders_count"
+          fill="#10b981"
+          name="Orders"
+          radius={[2, 2, 0, 0]}
+          isAnimationActive={false}
+        />
+      )}
+      {visibleMetrics.conversion && (
+        <Bar
+          yAxisId="right"
+          dataKey="conversion_rate"
+          fill="#f59e0b"
+          name="Conversion Rate"
+          radius={[2, 2, 0, 0]}
+          isAnimationActive={false}
+        />
+      )}
+      {shouldShowPredictionLine && predictionDate && (
+        <ReferenceLine
+          x={predictionDate}
+          stroke="rgba(0, 0, 0, 0.3)"
+          strokeDasharray="3 3"
+          label="Predictions"
+        />
+      )}
+    </BarChart>
   );
 });
 
@@ -950,588 +528,81 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
   error = null,
   height = CHART_DIMENSIONS.DEFAULT_HEIGHT,
 }) => {
-  const [chartType, setChartType] = useState<ChartType>('combined');
+  const [chartType, setChartType] = useState<ChartType>('area');
   const [showPredictions, setShowPredictions] = useState(true);
-  const [timeRange, setTimeRange] = useState<TimeRange>('all');
   const [visibleMetrics, setVisibleMetrics] = useState({
     revenue: true,
     orders: true,
-    conversion: true,
+    conversion: false,
   });
-  const [predictionLoading, setPredictionLoading] = useState(false);
-  
-  // Simplified chart key for chart type changes
-  const [chartKey, setChartKey] = useState(0);
-  
-  // Generate a unique gradient ID prefix to prevent conflicts
-  const gradientIdPrefix = useMemo(() => {
-    return `ua-${chartType}-${Math.random().toString(36).substring(2, 8)}`;
-  }, [chartType]);
 
-  // Simplified chart type change handler
-  const handleChartTypeChange = (newType: ChartType) => {
-    if (newType && newType !== chartType) {
-      debugLog.info('Chart type change', {
-        oldType: chartType,
-        newType,
-      }, 'UnifiedAnalyticsChart');
-      setChartType(newType);
-      setChartKey(prev => prev + 1);
-    }
-  };
-
-  // Process and combine historical and prediction data with error handling
-  const chartData = useMemo(() => {
-    try {
-      // Enhanced validation to prevent React invariant errors
-      if (!data) {
-        return [];
-      }
-      
-      if (!data.historical) {
-        return [];
-      }
-      
-      if (!Array.isArray(data.historical)) {
-        return [];
-      }
-      
-      if (data.historical.length === 0) {
-        return [];
-      }
-
-      let historical = data.historical.map(processHistoricalItem).filter(item => 
-        item && item.date && typeof item.revenue === 'number' && !isNaN(item.revenue)
-      );
-      
-      // Apply time range filter
-      if (timeRange !== 'all') {
-        const days = timeRange === 'last30' ? 30 : 7;
-        historical = historical.slice(-days);
-      }
-
-      const combinedData = historical.map((item, index) => ({
-        ...item,
-        key: `historical-${item.date}-${index}`,
-        type: 'historical',
-        isPrediction: false,
-        // Ensure all numeric values are valid
-        revenue: safeNumber(item.revenue),
-        orders_count: safeNumber(item.orders_count),
-        conversion_rate: safeNumber(item.conversion_rate),
-        avg_order_value: safeNumber(item.avg_order_value),
-      }));
-
-      // Add predictions if enabled and available
-      if (showPredictions && data.predictions && Array.isArray(data.predictions)) {
-        const predictions = data.predictions.map((item, index) => {
-          const ci = item.confidence_interval;
-          return {
-            date: item.date || '',
-            key: `prediction-${item.date}-${index}`,
-            revenue: safeNumber(item.revenue),
-            orders_count: safeNumber(item.orders_count),
-            conversion_rate: safeNumber(item.conversion_rate),
-            avg_order_value: safeNumber(item.avg_order_value),
-            type: 'prediction',
-            isPrediction: true,
-            confidence_score: safeNumber(item.confidence_score, 0),
-            revenue_min: ci ? safeNumber(ci.revenue_min) : 0,
-            revenue_max: ci ? safeNumber(ci.revenue_max) : 0,
-            orders_min: ci ? safeNumber(ci.orders_min) : 0,
-            orders_max: ci ? safeNumber(ci.orders_max) : 0,
-          };
-        });
-        combinedData.push(...predictions);
-      }
-
-      // Filter out any invalid entries
-      const validData = combinedData.filter(item => 
-        item.date && 
-        typeof item.revenue === 'number' && 
-        !isNaN(item.revenue) &&
-        typeof item.orders_count === 'number' &&
-        !isNaN(item.orders_count)
-      );
-
-      return validData;
-    } catch (err) {
-      debugLog.error('Error processing chart data', {
-        error: err instanceof Error ? err.message : String(err),
-        hasData: !!data,
-        hasHistorical: !!(data && data.historical),
-        historicalLength: data?.historical?.length || 0,
-        errorStack: err instanceof Error ? err.stack : undefined
-      }, 'UnifiedAnalyticsChart');
-      return [];
-    }
-  }, [data, timeRange, showPredictions]);
-
-  // Debug logging for chart data processing (moved outside of useMemo)
-  useLayoutEffect(() => {
-    debugLog.info('=== CHART DATA PROCESSING STARTED ===', { 
-      hasData: !!data,
-      hasHistorical: !!(data && data.historical),
-      isHistoricalArray: !!(data && Array.isArray(data.historical)),
-      dataKeys: data ? Object.keys(data) : [],
-      loading,
-      error
-    }, 'UnifiedAnalyticsChart');
-    
-    if (data && data.historical && Array.isArray(data.historical) && data.historical.length > 0) {
-      debugLog.info('Processing historical data for chart', {
-        historicalLength: data.historical.length,
-        sampleItem: data.historical[0],
-        sampleItemKeys: data.historical[0] ? Object.keys(data.historical[0]) : [],
-        dataStructure: {
-          hasPredictions: !!(data.predictions),
-          predictionsLength: Array.isArray(data.predictions) ? data.predictions.length : 0,
-          totalRevenue: data.total_revenue,
-          totalOrders: data.total_orders,
-          samplePrediction: data.predictions && data.predictions[0] ? data.predictions[0] : null,
-          samplePredictionKeys: data.predictions && data.predictions[0] ? Object.keys(data.predictions[0]) : [],
-        }
-      }, 'UnifiedAnalyticsChart');
-
-      debugLog.info('Processing historical data for chart (console fallback)', {
-        historicalLength: data.historical.length,
-        sampleItem: data.historical[0],
-        dataStructure: {
-          hasPredictions: !!(data.predictions),
-          predictionsLength: Array.isArray(data.predictions) ? data.predictions.length : 0,
-          totalRevenue: data.total_revenue,
-          totalOrders: data.total_orders,
-        }
-      }, 'UnifiedAnalyticsChart');
-    }
-
-    if (chartData.length > 0) {
-      debugLog.info('Processed chart data summary', {
-        totalPoints: chartData.length,
-        historicalPoints: chartData.filter(d => !d.isPrediction).length,
-        predictionPoints: chartData.filter(d => d.isPrediction).length,
-        hasValidData: chartData.length > 0
-      }, 'UnifiedAnalyticsChart');
-    }
-  }, [data, chartData, loading, error]);
-
-  // Calculate summary statistics with error handling
-  const stats = useMemo(() => {
-    try {
-      if (!data || !data.historical || !Array.isArray(data.historical) || data.historical.length === 0) {
-        debugLog.warn('No historical data for stats calculation', {
-          hasData: !!data,
-          hasHistorical: !!(data && data.historical),
-          isArray: !!(data && Array.isArray(data.historical)),
-          length: data?.historical?.length || 0
-        }, 'UnifiedAnalyticsChart');
-        return null;
-      }
-
-      const historical = data.historical.map(processHistoricalItem);
-      const recent7Days = historical.slice(-7);
-      const previous7Days = historical.slice(-14, -7);
-
-      const recentRevenue = recent7Days.reduce((sum, item) => sum + safeNumber(item.revenue), 0);
-      const previousRevenue = previous7Days.reduce((sum, item) => sum + safeNumber(item.revenue), 0);
-      const revenueChange = previousRevenue > 0 ? ((recentRevenue - previousRevenue) / previousRevenue) * 100 : 0;
-
-      const recentOrders = recent7Days.reduce((sum, item) => sum + safeNumber(item.orders_count), 0);
-      const previousOrders = previous7Days.reduce((sum, item) => sum + safeNumber(item.orders_count), 0);
-      const ordersChange = previousOrders > 0 ? ((recentOrders - previousOrders) / previousOrders) * 100 : 0;
-
-      const avgConversion = recent7Days.length > 0 ? 
-        recent7Days.reduce((sum, item) => sum + safeNumber(item.conversion_rate), 0) / recent7Days.length : 0;
-      const prevAvgConversion = previous7Days.length > 0 ? 
-        previous7Days.reduce((sum, item) => sum + safeNumber(item.conversion_rate), 0) / previous7Days.length : 0;
-      const conversionChange = prevAvgConversion > 0 ? ((avgConversion - prevAvgConversion) / prevAvgConversion) * 100 : 0;
-
-      // Future predictions summary
-      const futurePredictions = (data.predictions && Array.isArray(data.predictions)) ? data.predictions.slice(0, 30) : [];
-      const predictedRevenue = futurePredictions.reduce((sum, item) => sum + safeNumber(item.revenue), 0);
-
-      return {
-        current: {
-          revenue: recentRevenue,
-          orders: recentOrders,
-          conversion: avgConversion,
-        },
-        changes: {
-          revenue: revenueChange,
-          orders: ordersChange,
-          conversion: conversionChange,
-        },
-        predictions: {
-          revenue: predictedRevenue,
-          days: futurePredictions.length,
-        },
-      };
-    } catch (err) {
-      debugLog.error('Error calculating stats', {
-        error: err instanceof Error ? err.message : String(err),
-        hasData: !!data,
-        hasHistorical: !!(data && data.historical),
-        historicalLength: data?.historical?.length || 0,
-        errorStack: err instanceof Error ? err.stack : undefined
-      }, 'UnifiedAnalyticsChart');
-      return null;
-    }
-  }, [data]);
-
-  // Create sanitized chart data with basic validation to prevent React invariant errors
-  const safeChartData = useMemo(() => {
-    if (!chartData || !Array.isArray(chartData) || chartData.length === 0) {
-      return [];
-    }
-
-    return chartData
-      .filter(item => {
-        // Basic validation - less aggressive than before
-        if (!item || typeof item !== 'object') return false;
-        
-        // Validate date
-        if (typeof item.date !== 'string' || item.date.length === 0) return false;
-        
-        // Basic numeric validation
-        const fields = ['revenue', 'orders_count', 'conversion_rate', 'avg_order_value'];
-        for (const field of fields) {
-          const value = item[field];
-          if (typeof value !== 'number' || isNaN(value)) return false;
-        }
-        
-        return true;
-      })
-      .map(processHistoricalItem)
-      .filter(item => {
-        // Additional SVG safety validation after processing
-        if (!item || typeof item !== 'object') return false;
-        
-        // Ensure all numeric values are finite and within SVG-safe ranges
-        const numericFields = ['revenue', 'orders_count', 'conversion_rate', 'avg_order_value'];
-        for (const field of numericFields) {
-          const value = item[field];
-          if (typeof value !== 'number' || !isFinite(value) || value < 0) {
-            return false;
-          }
-          // Additional bounds check for extremely large values that could break SVG
-          if (value > 1e12) return false;
-        }
-        
-        // Ensure date is valid
-        if (typeof item.date !== 'string' || item.date.length === 0) return false;
-        const dateTest = new Date(item.date);
-        if (isNaN(dateTest.getTime())) return false;
-        
-        return true;
-      });
-  }, [chartData]);
-
-  const formatXAxisTick = (tickItem: string) => {
-    try {
-      const date = new Date(tickItem);
-      if (isNaN(date.getTime())) return tickItem;
-      return date.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-      });
-    } catch {
-      return tickItem;
-    }
-  };
-
-  const formatYAxisTick = (value: number, axis: 'revenue' | 'orders' | 'conversion') => {
-    try {
-      const numValue = safeNumber(value);
-      switch (axis) {
-        case 'revenue':
-          if (numValue >= 1000000) return `$${(numValue / 1000000).toFixed(1)}M`;
-          if (numValue >= 1000) return `$${(numValue / 1000).toFixed(1)}K`;
-          return `$${numValue.toFixed(0)}`;
-        case 'orders':
-          return Math.round(numValue).toString();
-        case 'conversion':
-          return `${numValue.toFixed(1)}%`;
-        default:
-          return numValue.toString();
-      }
-    } catch {
-      return value.toString();
-    }
-  };
-
-  const CustomTooltip: React.FC<TooltipProps<UnifiedDatum>> = ({ active, payload, label }) => {
-    try {
-      if (active && payload && payload.length) {
-        const entry = payload[0] as ChartPayload<UnifiedDatum>;
-        const data = entry.payload;
-        // Better detection that works with latest dataset structure
-        const isPrediction = (data as any).isPrediction === true || data.kind === 'prediction';
-
-        return (
-          <Paper
-            elevation={12}
-            sx={{
-              p: 2.5,
-              backgroundColor: 'rgba(255, 255, 255, 0.98)',
-              border: isPrediction ? '2px solid #e3f2fd' : '1px solid rgba(0, 0, 0, 0.1)',
-              borderRadius: 3,
-              minWidth: 280,
-            }}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-              {isPrediction && <AutoGraph color="primary" fontSize="small" />}
-              <Typography variant="body2" color="text.secondary" fontWeight={600}>
-                {(() => {
-                  if (typeof label === 'string' || typeof label === 'number') {
-                    const d = new Date(label);
-                    if (!Number.isNaN(d.getTime())) {
-                      return d.toLocaleDateString('en-US', {
-                        weekday: 'long',
-                        month: 'short',
-                        day: 'numeric',
-                      });
-                    }
-                  }
-                  return String(label);
-                })()}
-              </Typography>
-              {isPrediction && (
-                <Chip
-                  size="small"
-                  label={
-                    (data as PredictionPoint).confidence_score !== undefined && (data as PredictionPoint).confidence_score !== null
-                      ? `${Math.round(safeNumber((data as PredictionPoint).confidence_score) * 100)}% confidence`
-                      : 'Prediction'
-                  }
-                  color="primary"
-                  variant="outlined"
-                />
-              )}
-            </Box>
-            
-            <Divider sx={{ mb: 1.5 }} />
-            
-            {(payload as ChartPayload<UnifiedDatum>[]).map((entry, index) => (
-              <Box key={index} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Box
-                    sx={{
-                      width: 12,
-                      height: 12,
-                      borderRadius: '50%',
-                      backgroundColor: entry.color,
-                    }}
-                  />
-                  <Typography variant="body2" fontWeight={500}>
-                    {entry.dataKey === 'revenue' && 'Revenue'}
-                    {entry.dataKey === 'orders_count' && 'Orders'}
-                    {entry.dataKey === 'conversion_rate' && 'Conversion'}
-                    {entry.dataKey === 'avg_order_value' && 'AOV'}
-                  </Typography>
-                </Box>
-                <Typography variant="body2" fontWeight={600}>
-                  {entry.dataKey === 'revenue' && `$${safeNumber(entry.value).toLocaleString()}`}
-                  {entry.dataKey === 'orders_count' && safeNumber(entry.value)}
-                  {entry.dataKey === 'conversion_rate' && `${safeNumber(entry.value).toFixed(1)}%`}
-                  {entry.dataKey === 'avg_order_value' && `$${safeNumber(entry.value).toFixed(2)}`}
-                </Typography>
-              </Box>
-            ))}
-            
-            {isPrediction && (data as PredictionPoint).revenue_min !== undefined && (
-              <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid rgba(0, 0, 0, 0.1)' }}>
-                <Typography variant="caption" color="text.secondary" gutterBottom>
-                  Confidence Range
-                </Typography>
-                <Typography variant="body2" fontSize="0.8rem">
-                  Revenue: ${safeNumber((data as PredictionPoint).revenue_min).toLocaleString()} - ${safeNumber((data as PredictionPoint).revenue_max).toLocaleString()}
-                </Typography>
-                <Typography variant="body2" fontSize="0.8rem">
-                  Orders: {safeNumber((data as PredictionPoint).orders_min)} - {safeNumber((data as PredictionPoint).orders_max)}
-                </Typography>
-              </Box>
-            )}
-          </Paper>
-        );
-      }
-      return null;
-    } catch (err) {
-      debugLog.error('Error rendering tooltip', {
-        error: err instanceof Error ? err.message : String(err),
-        hasActive: !!active,
-        hasPayload: !!(payload && payload.length),
-        label: label,
-        errorStack: err instanceof Error ? err.stack : undefined
-      }, 'CustomTooltip');
-      return null;
-    }
-  };
-
-  // ------------------------------------------------------------------
-  // Responsive helpers – detect small/mobile screens so we can adjust
-  // toggle button layout (icons-only on very small screens, scrollbar
-  // for overflow, etc.).
-  // ------------------------------------------------------------------
-
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  
-  // Ensure height meets minimum requirements
   const chartHeight = ensureMinHeight(height);
 
-  // Prepare common chart props and components with better stabilization
-  const commonProps = useMemo(() => ({
-    data: safeChartData,
-    width: 800, // Add explicit width for Recharts
-    height: chartHeight, // Add explicit height for Recharts
-    margin: { 
-      top: SPACING.MEDIUM, 
-      right: SPACING.LARGE, 
-      left: SPACING.MEDIUM, 
-      bottom: SPACING.MEDIUM 
-    },
-    key: `chart-${chartType}-${safeChartData.length}`, // Add key for better React tracking
-  }), [safeChartData, chartType, chartHeight]);
-
-  // Debug logging for commonProps construction
-  useLayoutEffect(() => {
-    debugLog.info('=== COMMON PROPS CONSTRUCTED ===', {
-      hasData: !!commonProps.data,
-      dataLength: commonProps.data?.length || 0,
-      width: commonProps.width,
-      height: commonProps.height,
-      margin: commonProps.margin,
-      key: commonProps.key,
-      chartType,
-      safeChartDataLength: safeChartData.length
-    }, 'UnifiedAnalyticsChart');
-  }, [commonProps, chartType, safeChartData.length]);
-
-  // Memoize common chart components to prevent unnecessary re-renders
-  const commonXAxis = useMemo(() => (
-    <XAxis
-      dataKey="date"
-      tickFormatter={formatXAxisTick}
-      stroke="rgba(0, 0, 0, 0.4)"
-      tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: 12 }}
-      axisLine={{ stroke: 'rgba(0, 0, 0, 0.1)' }}
-      label={{
-        value: 'Date',
-        position: 'insideBottomRight',
-        offset: -6,
-        fill: 'rgba(0, 0, 0, 0.54)',
-        fontSize: 12,
-      }}
-    />
-  ), []);
-
-  // Calculate safe domain ranges to prevent SVG rendering issues
-  const domainRanges = useMemo(() => {
-    if (!safeChartData || safeChartData.length === 0) {
-      return {
-        revenue: [0, 1000],
-        orders: [0, 100],
-        conversion: [0, 10]
-      };
-    }
-
-    const revenues = safeChartData.map(d => d.revenue).filter(v => v > 0);
-    const orders = safeChartData.map(d => d.orders_count).filter(v => v > 0);
-    const conversions = safeChartData.map(d => d.conversion_rate).filter(v => v > 0);
-
-    return {
-      revenue: [
-        Math.max(0, Math.min(...revenues) * 0.9),
-        Math.max(1000, Math.max(...revenues) * 1.1)
-      ],
-      orders: [
-        Math.max(0, Math.min(...orders) * 0.9),
-        Math.max(10, Math.max(...orders) * 1.1)
-      ],
-      conversion: [
-        Math.max(0, Math.min(...conversions) * 0.9),
-        Math.max(1, Math.max(...conversions) * 1.1)
-      ]
-    };
-  }, [safeChartData]);
-
-  const commonYAxisRevenue = useMemo(() => (
-    <YAxis
-      yAxisId="revenue"
-      orientation="left"
-      tickFormatter={(value) => formatYAxisTick(value, 'revenue')}
-      stroke="rgba(0, 0, 0, 0.4)"
-      tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: 12 }}
-      axisLine={{ stroke: 'rgba(0, 0, 0, 0.1)' }}
-      domain={domainRanges.revenue}
-      label={{
-        value: 'Revenue (USD)',
-        angle: -90,
-        position: 'insideLeft',
-        offset: -10,
-        fill: 'rgba(0, 0, 0, 0.54)',
-        fontSize: 12,
-      }}
-    />
-  ), [domainRanges.revenue]);
-
-  const commonYAxisOrders = useMemo(() => (
-    <YAxis
-      yAxisId="orders"
-      orientation="right"
-      tickFormatter={(value) => formatYAxisTick(value, 'orders')}
-      stroke="rgba(0, 0, 0, 0.4)"
-      tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: 12 }}
-      axisLine={{ stroke: 'rgba(0, 0, 0, 0.1)' }}
-      domain={domainRanges.orders}
-      label={{
-        value: 'Orders / Conversion %',
-        angle: 90,
-        position: 'insideRight',
-        offset: -10,
-        fill: 'rgba(0, 0, 0, 0.54)',
-        fontSize: 12,
-      }}
-    />
-  ), [domainRanges.orders]);
-
-  const commonGrid = useMemo(() => (
-    <CartesianGrid strokeDasharray="3 3" stroke="rgba(0, 0, 0, 0.06)" />
-  ), []);
-
-  const commonTooltip = useMemo(() => <Tooltip content={<CustomTooltip />} />, []);
-  const commonLegend = useMemo(() => <Legend />, []);
-
-  // Simplified container reference for the chart
-  const containerRef = useRef<HTMLDivElement | null>(null);
-
-  // Debug logging for component render states
-  useLayoutEffect(() => {
-    debugLog.info('=== UNIFIED ANALYTICS CHART RENDER ===', { 
-      loading,
-      error,
+  // Process and validate chart data
+  const chartData = useMemo(() => {
+    debugLog.info('=== CHART DATA PROCESSING STARTED ===', {
       hasData: !!data,
       hasHistorical: !!(data && data.historical),
-      historicalLength: data?.historical?.length || 0,
-      chartDataLength: chartData.length,
-      safeChartDataLength: safeChartData.length,
-      chartType,
-      showPredictions,
+      isHistoricalArray: Array.isArray(data?.historical),
+      dataKeys: data ? Object.keys(data) : [],
+      loading,
+      error,
     }, 'UnifiedAnalyticsChart');
-  }, [loading, error, data, chartData.length, safeChartData.length, chartType, showPredictions]);
 
+    if (!data || !data.historical || !Array.isArray(data.historical)) {
+      return [];
+    }
+
+    try {
+      // Process historical data
+      const processedHistorical = data.historical.map(processHistoricalItem);
+      
+      // Process predictions if enabled
+      let processedPredictions: any[] = [];
+      if (showPredictions && data.predictions && Array.isArray(data.predictions)) {
+        processedPredictions = data.predictions.map(processHistoricalItem);
+      }
+
+      // Combine and sort data
+      const combinedData = [...processedHistorical, ...processedPredictions].sort((a, b) => 
+        new Date(a.date).getTime() - new Date(b.date).getTime()
+      );
+
+      debugLog.info('Processed chart data', {
+        totalPoints: combinedData.length,
+        historicalPoints: processedHistorical.length,
+        predictionPoints: processedPredictions.length,
+        hasValidData: validateChartData(combinedData)
+      }, 'UnifiedAnalyticsChart');
+
+      return combinedData;
+    } catch (error) {
+      debugLog.error('Error processing chart data', { error }, 'UnifiedAnalyticsChart');
+      return [];
+    }
+  }, [data, showPredictions]);
+
+  const handleChartTypeChange = (newType: ChartType) => {
+    if (newType && newType !== chartType) {
+      debugLog.info('Chart type change', { oldType: chartType, newType }, 'UnifiedAnalyticsChart');
+      setChartType(newType);
+    }
+  };
+
+  const handleMetricToggle = (metric: keyof typeof visibleMetrics) => {
+    setVisibleMetrics(prev => ({
+      ...prev,
+      [metric]: !prev[metric],
+    }));
+  };
+
+  // Render loading state
   if (loading) {
-    debugLog.info('Rendering loading state', { height: chartHeight }, 'UnifiedAnalyticsChart');
     return <LoadingIndicator height={chartHeight} message="Loading analytics data…" />;
   }
 
+  // Render error state
   if (error) {
-    debugLog.error('Rendering error state', { 
-      error, 
-      height: chartHeight,
-      errorType: typeof error,
-      errorMessage: error || 'Unknown error'
-    }, 'UnifiedAnalyticsChart');
     return (
       <Box
         sx={{
@@ -1540,87 +611,25 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
           alignItems: 'center',
           justifyContent: 'center',
           flexDirection: 'column',
-          gap: SPACING.MEDIUM,
-          backgroundColor: 'rgba(255, 0, 0, 0.02)',
+          gap: 2,
+          backgroundColor: 'rgba(255, 0, 0, 0.05)',
           borderRadius: 2,
           border: '1px solid rgba(255, 0, 0, 0.1)',
-          p: SPACING.LARGE,
+          p: 3,
         }}
       >
         <Typography variant="h6" color="error" textAlign="center">
           Failed to load analytics data
         </Typography>
         <Typography variant="body2" color="text.secondary" textAlign="center">
-          The Advanced Analytics chart encountered an error. Please try refreshing the page.
-        </Typography>
-        <Typography variant="caption" color="text.secondary" textAlign="center" sx={{ mt: 1 }}>
-          Error: {error}
+          {error}
         </Typography>
       </Box>
     );
   }
 
-  // Enhanced data validation with better error messaging
-  const hasValidData = data && 
-    data.historical && 
-    Array.isArray(data.historical) && 
-    data.historical.length > 0 &&
-    chartData &&
-    chartData.length > 0;
-
-  debugLog.info('Data validation check', { 
-    hasValidData,
-    hasData: !!data,
-    hasHistorical: !!(data && data.historical),
-    isHistoricalArray: !!(data && Array.isArray(data.historical)),
-    historicalLength: data?.historical?.length || 0,
-    hasChartData: !!chartData,
-    chartDataLength: chartData.length
-  }, 'UnifiedAnalyticsChart');
-
-  if (!hasValidData) {
-    // Check if we have data but it's not valid
-    if (data && (!data.historical || !Array.isArray(data.historical))) {
-      debugLog.error('Invalid data format detected', { 
-        hasData: !!data,
-        hasHistorical: !!(data && data.historical),
-        isHistoricalArray: !!(data && Array.isArray(data.historical)),
-        dataKeys: data ? Object.keys(data) : []
-      }, 'UnifiedAnalyticsChart');
-      
-      return (
-        <Box
-          sx={{
-            height: chartHeight,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexDirection: 'column',
-            gap: SPACING.MEDIUM,
-            backgroundColor: 'rgba(255, 165, 0, 0.02)',
-            borderRadius: 2,
-            border: '1px solid rgba(255, 165, 0, 0.1)',
-            p: SPACING.LARGE,
-          }}
-        >
-          <Typography variant="h6" color="warning.main" textAlign="center">
-            Invalid data format
-          </Typography>
-          <Typography variant="body2" color="text.secondary" textAlign="center">
-            The analytics data format is not valid. Please try refreshing the page.
-          </Typography>
-        </Box>
-      );
-    }
-
-    // No data available
-    debugLog.warn('No valid data available for chart', { 
-      hasData: !!data,
-      hasHistorical: !!(data && data.historical),
-      historicalLength: data?.historical?.length || 0,
-      chartDataLength: chartData.length
-    }, 'UnifiedAnalyticsChart');
-    
+  // Render no data state
+  if (!data || !validateChartData(chartData)) {
     return (
       <Box
         sx={{
@@ -1629,585 +638,142 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
           alignItems: 'center',
           justifyContent: 'center',
           flexDirection: 'column',
-          gap: SPACING.MEDIUM,
+          gap: 2,
           backgroundColor: 'rgba(0, 0, 0, 0.02)',
           borderRadius: 2,
-          p: SPACING.LARGE,
+          border: '1px solid rgba(0, 0, 0, 0.1)',
+          p: 3,
         }}
       >
-        <Analytics sx={{ fontSize: 48, color: 'rgba(0, 0, 0, 0.2)' }} />
         <Typography variant="h6" color="text.secondary" textAlign="center">
           No analytics data available
         </Typography>
         <Typography variant="body2" color="text.secondary" textAlign="center">
-          Analytics data will appear here once your store has sufficient data.
+          Data will appear here once your store starts receiving orders.
         </Typography>
       </Box>
     );
   }
 
-      return (
+  const shouldShowPredictionLine = showPredictions && 
+    data && 
+    data.predictions && 
+    data.predictions.length > 0;
+  
+  const predictionDate = shouldShowPredictionLine ? data.predictions[0]?.date : undefined;
+
+  return (
     <Box sx={{ width: '100%' }}>
-      {/* Header with Controls */}
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          mb: 2,
-          flexWrap: 'wrap',
-          gap: 1.5,
-        }}
-      >
-        <Box>
-          <Typography variant="h5" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-            <Analytics color="primary" />
-            Advanced Analytics & Forecasts
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Revenue, orders, and conversion rate with 60-day forecasting
-          </Typography>
-        </Box>
+      {/* Chart Controls */}
+      <Box sx={{ mb: 3, display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
+        <ToggleButtonGroup
+          value={chartType}
+          exclusive
+          onChange={(_, value) => value && handleChartTypeChange(value)}
+          size="small"
+        >
+          <ToggleButton value="area" aria-label="Area Chart">
+            <Timeline /> Area
+          </ToggleButton>
+          <ToggleButton value="line" aria-label="Line Chart">
+            <ShowChart /> Line
+          </ToggleButton>
+          <ToggleButton value="bar" aria-label="Bar Chart">
+            <BarChartIcon /> Bar
+          </ToggleButton>
+        </ToggleButtonGroup>
 
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'flex-end' }}>
-          {/*
-            Chart-type selector – on mobile we switch to a horizontally
-            scrollable, icons-only (to save space) list. On larger
-            screens we render the existing label + icon combination.
-          */}
-          <ToggleButtonGroup
-            value={chartType}
-            exclusive
-            onChange={(_, newType) => newType && handleChartTypeChange(newType)}
-            size="small"
-            sx={{
-              overflowX: 'auto',
-              flexWrap: isMobile ? 'nowrap' : 'wrap',
-              maxWidth: '100%',
-              '& .MuiToggleButton-root': {
-                flex: '0 0 auto',
-                px: isMobile ? 1.2 : 2,
-              },
-            }}
-          >
-            <ToggleButton value="combined">
-              <Analytics fontSize="small" />
-              {!isMobile && 'Combined'}
-            </ToggleButton>
-            <ToggleButton value="revenue_focus">
-              <ShowChart fontSize="small" />
-              {!isMobile && 'Revenue Focus'}
-            </ToggleButton>
-            <ToggleButton value="line">
-              <ShowChart fontSize="small" />
-              {!isMobile && 'Line'}
-            </ToggleButton>
-            <ToggleButton value="area">
-              <Timeline fontSize="small" />
-              {!isMobile && 'Area'}
-            </ToggleButton>
-            <ToggleButton value="bar">
-              <BarChartIcon fontSize="small" />
-              {!isMobile && 'Bar'}
-            </ToggleButton>
-            <ToggleButton value="candlestick">
-              <CandlestickChart fontSize="small" />
-              {!isMobile && 'Candle'}
-            </ToggleButton>
-            <ToggleButton value="waterfall">
-              <WaterfallChart fontSize="small" />
-              {!isMobile && 'Waterfall'}
-            </ToggleButton>
-            <ToggleButton value="stacked">
-              <StackedLineChart fontSize="small" />
-              {!isMobile && 'Stacked'}
-            </ToggleButton>
-            <ToggleButton value="composed">
-              <Analytics fontSize="small" />
-              {!isMobile && 'Composed'}
-            </ToggleButton>
-          </ToggleButtonGroup>
-
-          {/* Modern Prediction Controls */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'flex-end' }}>
-            {/* AI Prediction Toggle */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <ToggleButton
-                value={showPredictions ? "on" : "off"}
-                selected={showPredictions}
-                onChange={() => {
-                  if (!showPredictions) {
-                    setPredictionLoading(true);
-                    // Simulate loading for better UX
-                    setTimeout(() => {
-                      setShowPredictions(true);
-                      setPredictionLoading(false);
-                    }, 800);
-                  } else {
-                    setShowPredictions(false);
-                  }
-                }}
-                disabled={predictionLoading}
-                sx={{
-                  minWidth: 160,
-                  background: showPredictions ? 
-                    'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : 
-                    'transparent',
-                  border: showPredictions ? 'none' : '1px solid rgba(102, 126, 234, 0.3)',
-                  color: showPredictions ? 'white' : 'primary.main',
-                  fontWeight: 500,
-                  borderRadius: 2,
-                  py: 1,
-                  px: 2,
-                  transition: 'all 0.3s ease',
-                  boxShadow: showPredictions ? 
-                    '0 4px 12px rgba(102, 126, 234, 0.2)' : 
-                    '0 1px 4px rgba(0, 0, 0, 0.1)',
-                  '&:hover': {
-                    boxShadow: showPredictions ? 
-                      '0 6px 16px rgba(102, 126, 234, 0.3)' : 
-                      '0 2px 8px rgba(102, 126, 234, 0.15)',
-                    background: showPredictions ? 
-                      'linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%)' : 
-                      'rgba(102, 126, 234, 0.05)',
-                  },
-                  '&.Mui-selected': {
-                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                    color: 'white',
-                    '&:hover': {
-                      background: 'linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%)',
-                    },
-                  },
-                }}
-              >
-                {predictionLoading ? (
-                  <AutoGraph sx={{ animation: 'spin 1s linear infinite', '@keyframes spin': { from: { transform: 'rotate(0deg)' }, to: { transform: 'rotate(360deg)' } } }} />
-                ) : (
-                  showPredictions ? <Stop /> : <AutoFixHigh />
-                )}
-                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', ml: 0.5 }}>
-                  <Typography variant="caption" fontWeight="inherit" fontSize="0.8rem">
-                    {predictionLoading ? 'Analyzing…' : (showPredictions ? 'Stop Predictions' : 'AI Predictions')}
-                  </Typography>
-                  <Typography variant="caption" sx={{ opacity: 0.7, fontSize: '0.65rem' }}>
-                    {predictionLoading ? 'Processing forecast…' : (showPredictions ? 'Hide forecasting' : '60-day forecast')}
-                  </Typography>
-                </Box>
-              </ToggleButton>
-
-              {/* Prediction Confidence Indicator */}
-              {showPredictions && data?.predictions?.length > 0 && (
-                <MuiTooltip title={`Prediction confidence: ${Math.round((data.predictions[0]?.confidence_score || 0) * 100)}%`}>
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 0.5,
-                      px: 2,
-                      py: 1,
-                      borderRadius: 2,
-                      background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(34, 197, 94, 0.1) 100%)',
-                      border: '1px solid rgba(16, 185, 129, 0.2)',
-                      animation: 'pulse 2s infinite',
-                      '@keyframes pulse': {
-                        '0%, 100%': { opacity: 1 },
-                        '50%': { opacity: 0.7 },
-                      },
-                    }}
-                  >
-                    <Insights color="success" fontSize="small" />
-                    <Typography variant="caption" fontWeight={600} color="success.main">
-                      {Math.round((data.predictions[0]?.confidence_score || 0) * 100)}% Confidence
-                    </Typography>
-                  </Box>
-                </MuiTooltip>
-              )}
-            </Box>
-
-            {/* Time Range Selector */}
-            <ToggleButtonGroup
-              value={timeRange}
-              exclusive
-              onChange={(_, newRange) => newRange && setTimeRange(newRange)}
+        <FormControlLabel
+          control={
+            <Switch
+              checked={showPredictions}
+              onChange={(e) => setShowPredictions(e.target.checked)}
               size="small"
-              sx={{
-                backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                border: '1px solid rgba(0, 0, 0, 0.1)',
-                borderRadius: 2,
-                '& .MuiToggleButton-root': {
-                  border: 'none',
-                  borderRadius: 1.5,
-                  px: 2,
-                  py: 0.5,
-                  fontSize: '0.8rem',
-                  fontWeight: 500,
-                  transition: 'all 0.2s ease',
-                  '&.Mui-selected': {
-                    backgroundColor: 'primary.main',
-                    color: 'white',
-                  },
-                },
-              }}
-            >
-              <ToggleButton value="last7">7D</ToggleButton>
-              <ToggleButton value="last30">30D</ToggleButton>
-              <ToggleButton value="all">All</ToggleButton>
-            </ToggleButtonGroup>
-          </Box>
-        </Box>
-      </Box>
+            />
+          }
+          label="Show Predictions"
+        />
 
-      {/* Summary Statistics */}
-      {stats && (
-        <Box sx={{ display: 'flex', gap: 1.5, mb: 2, flexWrap: 'wrap' }}>
-          <Card elevation={0} sx={{ border: '1px solid rgba(0, 0, 0, 0.1)', flex: 1, minWidth: 180 }}>
-            <CardContent sx={{ p: 1.5 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Box>
-                  <Typography variant="caption" color="text.secondary" gutterBottom>
-                    Revenue (7d)
-                  </Typography>
-                  <Typography variant="h6" color="primary" fontWeight={600}>
-                    ${stats.current.revenue.toLocaleString()}
-                  </Typography>
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  {stats.changes.revenue >= 0 ? (
-                    <TrendingUp color="success" fontSize="small" />
-                  ) : (
-                    <TrendingDown color="error" fontSize="small" />
-                  )}
-                  <Typography
-                    variant="body2"
-                    color={stats.changes.revenue >= 0 ? 'success.main' : 'error.main'}
-                    fontWeight={600}
-                  >
-                    {Math.abs(stats.changes.revenue).toFixed(1)}%
-                  </Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-
-          <Card elevation={0} sx={{ border: '1px solid rgba(0, 0, 0, 0.1)', flex: 1, minWidth: 180 }}>
-            <CardContent sx={{ p: 1.5 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Box>
-                  <Typography variant="caption" color="text.secondary" gutterBottom>
-                    Orders (7d)
-                  </Typography>
-                  <Typography variant="h6" color="success.main" fontWeight={600}>
-                    {stats.current.orders}
-                  </Typography>
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  {stats.changes.orders >= 0 ? (
-                    <TrendingUp color="success" fontSize="small" />
-                  ) : (
-                    <TrendingDown color="error" fontSize="small" />
-                  )}
-                  <Typography
-                    variant="body2"
-                    color={stats.changes.orders >= 0 ? 'success.main' : 'error.main'}
-                    fontWeight={600}
-                  >
-                    {Math.abs(stats.changes.orders).toFixed(1)}%
-                  </Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-
-          <Card elevation={0} sx={{ border: '1px solid rgba(0, 0, 0, 0.1)', flex: 1, minWidth: 180 }}>
-            <CardContent sx={{ p: 1.5 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Box>
-                  <Typography variant="caption" color="text.secondary" gutterBottom>
-                    Next 30d Forecast
-                  </Typography>
-                  <Typography variant="h6" color="info.main" fontWeight={600}>
-                    ${stats.predictions.revenue.toLocaleString()}
-                  </Typography>
-                </Box>
-                <MuiTooltip title="Predicted revenue for the next 30 days">
-                  <IconButton size="small">
-                    <InfoOutlined fontSize="small" />
-                  </IconButton>
-                </MuiTooltip>
-              </Box>
-            </CardContent>
-          </Card>
-        </Box>
-      )}
-
-      {/* Metric Visibility Controls */}
-      <Box sx={{ display: 'flex', gap: 0.5, mb: 1.5, flexWrap: 'wrap' }}>
-        {Object.entries(visibleMetrics).map(([key, visible]) => (
+        <Box sx={{ display: 'flex', gap: 1 }}>
           <Chip
-            key={key}
-            label={key.charAt(0).toUpperCase() + key.slice(1)}
-            onClick={() => setVisibleMetrics(prev => ({ ...prev, [key]: !visible }))}
-            color={visible ? 'primary' : 'default'}
-            variant={visible ? 'filled' : 'outlined'}
+            label="Revenue"
+            color={visibleMetrics.revenue ? 'primary' : 'default'}
+            onClick={() => handleMetricToggle('revenue')}
             size="small"
-            icon={visible ? <Visibility /> : <VisibilityOff />}
           />
-        ))}
+          <Chip
+            label="Orders"
+            color={visibleMetrics.orders ? 'primary' : 'default'}
+            onClick={() => handleMetricToggle('orders')}
+            size="small"
+          />
+          <Chip
+            label="Conversion"
+            color={visibleMetrics.conversion ? 'primary' : 'default'}
+            onClick={() => handleMetricToggle('conversion')}
+            size="small"
+          />
+        </Box>
       </Box>
 
       {/* Chart Container */}
       <Paper
-        ref={containerRef}
         elevation={0}
         sx={{
-          p: SPACING.MEDIUM,
+          p: 2,
           backgroundColor: '#fff',
           border: '1px solid rgba(0, 0, 0, 0.05)',
           borderRadius: 2,
-          position: 'relative',
-          overflow: 'hidden',
-          minHeight: CHART_DIMENSIONS.MIN_HEIGHT,
         }}
       >
-        {safeChartData.length > 0 && (
-          <div style={{ width: '100%', height: chartHeight }}>
-            <ResponsiveContainer width="100%" height={chartHeight}>
+        <Box sx={{ height: chartHeight }}>
+          <ChartErrorBoundary fallbackHeight={chartHeight}>
+            <ResponsiveContainer width="100%" height="100%">
               {(() => {
-                const shouldShowPredictionLine = showPredictions && data && data.predictions && data.predictions.length > 0;
-                const predictionDate = data && data.predictions && data.predictions[0] ? data.predictions[0].date : undefined;
-                
-                debugLog.info('Rendering chart', {
-                  chartType,
-                  dataLength: commonProps?.data?.length || 0,
-                  safeChartDataLength: safeChartData.length,
-                  shouldShowPredictionLine,
-                  predictionDate,
-                  commonPropsDataSample: commonProps?.data?.slice(0, 2) || [],
-                  safeChartDataSample: safeChartData.slice(0, 2) || []
-                }, 'UnifiedAnalyticsChart');
-
-                try {
-                  // Restore proper chart type switching from working version
-                  switch (chartType) {
-                    case 'line':
-                      return (
-                        <MemoizedLineChart
-                          commonProps={commonProps}
-                          commonGrid={commonGrid}
-                          commonXAxis={commonXAxis}
-                          commonYAxisRevenue={commonYAxisRevenue}
-                          commonTooltip={commonTooltip}
-                          commonLegend={commonLegend}
-                          visibleMetrics={visibleMetrics}
-                          shouldShowPredictionLine={shouldShowPredictionLine}
-                          predictionDate={predictionDate}
-                        />
-                      );
-                    case 'area':
-                      return (
-                        <MemoizedAreaChart
-                          commonProps={commonProps}
-                          commonGrid={commonGrid}
-                          commonXAxis={commonXAxis}
-                          commonYAxisRevenue={commonYAxisRevenue}
-                          commonTooltip={commonTooltip}
-                          commonLegend={commonLegend}
-                          visibleMetrics={visibleMetrics}
-                          shouldShowPredictionLine={shouldShowPredictionLine}
-                          predictionDate={predictionDate}
-                          gradientIdPrefix={gradientIdPrefix}
-                        />
-                      );
-                    case 'bar':
-                      return (
-                        <MemoizedBarChart
-                          commonProps={commonProps}
-                          commonGrid={commonGrid}
-                          commonXAxis={commonXAxis}
-                          commonYAxisRevenue={commonYAxisRevenue}
-                          commonTooltip={commonTooltip}
-                          commonLegend={commonLegend}
-                          visibleMetrics={visibleMetrics}
-                          shouldShowPredictionLine={shouldShowPredictionLine}
-                          predictionDate={predictionDate}
-                        />
-                      );
-                    case 'combined':
-                      // Temporarily use AreaChart instead of ComposedChart to prevent React invariant errors
-                      // The ComposedChart with dual Y-axes is causing SVG rendering issues
-                      return (
-                        <MemoizedAreaChart
-                          commonProps={commonProps}
-                          commonGrid={commonGrid}
-                          commonXAxis={commonXAxis}
-                          commonYAxisRevenue={commonYAxisRevenue}
-                          commonTooltip={commonTooltip}
-                          commonLegend={commonLegend}
-                          visibleMetrics={visibleMetrics}
-                          shouldShowPredictionLine={shouldShowPredictionLine}
-                          predictionDate={predictionDate}
-                          gradientIdPrefix={gradientIdPrefix}
-                        />
-                      );
-                    case 'revenue_focus':
-                      return (
-                        <MemoizedRevenueFocusChart
-                          commonProps={commonProps}
-                          commonGrid={commonGrid}
-                          commonXAxis={commonXAxis}
-                          commonYAxisRevenue={commonYAxisRevenue}
-                          commonTooltip={commonTooltip}
-                          commonLegend={commonLegend}
-                          visibleMetrics={visibleMetrics}
-                          shouldShowPredictionLine={shouldShowPredictionLine}
-                          predictionDate={predictionDate}
-                          gradientIdPrefix={gradientIdPrefix}
-                        />
-                      );
-                    case 'candlestick':
-                      return (
-                        <MemoizedCandlestickChart
-                          commonProps={commonProps}
-                          commonGrid={commonGrid}
-                          commonXAxis={commonXAxis}
-                          commonYAxisRevenue={commonYAxisRevenue}
-                          commonTooltip={commonTooltip}
-                          commonLegend={commonLegend}
-                          visibleMetrics={visibleMetrics}
-                          shouldShowPredictionLine={shouldShowPredictionLine}
-                          predictionDate={predictionDate}
-                        />
-                      );
-                    case 'waterfall':
-                      return (
-                        <MemoizedWaterfallChart
-                          commonProps={commonProps}
-                          commonGrid={commonGrid}
-                          commonXAxis={commonXAxis}
-                          commonYAxisRevenue={commonYAxisRevenue}
-                          commonTooltip={commonTooltip}
-                          commonLegend={commonLegend}
-                          visibleMetrics={visibleMetrics}
-                          shouldShowPredictionLine={shouldShowPredictionLine}
-                          predictionDate={predictionDate}
-                        />
-                      );
-                    case 'stacked':
-                      return (
-                        <MemoizedStackedChart
-                          commonProps={commonProps}
-                          commonGrid={commonGrid}
-                          commonXAxis={commonXAxis}
-                          commonYAxisRevenue={commonYAxisRevenue}
-                          commonTooltip={commonTooltip}
-                          commonLegend={commonLegend}
-                          visibleMetrics={visibleMetrics}
-                          shouldShowPredictionLine={shouldShowPredictionLine}
-                          predictionDate={predictionDate}
-                          gradientIdPrefix={gradientIdPrefix}
-                        />
-                      );
-                    case 'composed':
-                      // Use LineChart instead of ComposedChart to avoid dual Y-axis issues
-                      return (
-                        <MemoizedLineChart
-                          commonProps={commonProps}
-                          commonGrid={commonGrid}
-                          commonXAxis={commonXAxis}
-                          commonYAxisRevenue={commonYAxisRevenue}
-                          commonTooltip={commonTooltip}
-                          commonLegend={commonLegend}
-                          visibleMetrics={visibleMetrics}
-                          shouldShowPredictionLine={shouldShowPredictionLine}
-                          predictionDate={predictionDate}
-                        />
-                      );
-                    default:
-                      return (
-                        <MemoizedAreaChart
-                          commonProps={commonProps}
-                          commonGrid={commonGrid}
-                          commonXAxis={commonXAxis}
-                          commonYAxisRevenue={commonYAxisRevenue}
-                          commonTooltip={commonTooltip}
-                          commonLegend={commonLegend}
-                          visibleMetrics={visibleMetrics}
-                          shouldShowPredictionLine={shouldShowPredictionLine}
-                          predictionDate={predictionDate}
-                          gradientIdPrefix={gradientIdPrefix}
-                        />
-                      );
-                  }
-                } catch (error) {
-                  debugLog.error('Error rendering chart', {
-                    error: error instanceof Error ? error.message : String(error),
-                    chartType,
-                    dataLength: commonProps?.data?.length || 0
-                  }, 'UnifiedAnalyticsChart');
-                  
-                  return (
-                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
-                      <Typography variant="h6" color="error">Chart Rendering Error</Typography>
-                      <Typography variant="body2" color="text.secondary">Unable to render the chart. Please try refreshing.</Typography>
-                    </div>
-                  );
+                switch (chartType) {
+                  case 'line':
+                    return (
+                      <SimpleLineChart
+                        data={chartData}
+                        visibleMetrics={visibleMetrics}
+                        shouldShowPredictionLine={shouldShowPredictionLine}
+                        predictionDate={predictionDate}
+                      />
+                    );
+                  case 'bar':
+                    return (
+                      <SimpleBarChart
+                        data={chartData}
+                        visibleMetrics={visibleMetrics}
+                        shouldShowPredictionLine={shouldShowPredictionLine}
+                        predictionDate={predictionDate}
+                      />
+                    );
+                  default:
+                    return (
+                      <SimpleAreaChart
+                        data={chartData}
+                        visibleMetrics={visibleMetrics}
+                        shouldShowPredictionLine={shouldShowPredictionLine}
+                        predictionDate={predictionDate}
+                      />
+                    );
                 }
               })()}
             </ResponsiveContainer>
-          </div>
-        )}
-        
-        {/* Show empty state when no data */}
-        {safeChartData.length === 0 && (
-          <Box sx={{ 
-            height: chartHeight, 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center',
-            flexDirection: 'column',
-            gap: SPACING.MEDIUM
-          }}>
-            <Typography variant="h6" color="text.secondary">
-              No data to display
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Chart data is being processed...
-            </Typography>
-          </Box>
-        )}
-      </Paper>
-
-      {/* Enhanced Predictions Info Panel */}
-      {showPredictions && data.predictions && data.predictions.length > 0 && (
-        <Box 
-          sx={{ 
-            mt: SPACING.SMALL, 
-            p: SPACING.SMALL,
-            borderRadius: 2,
-            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(34, 197, 94, 0.05) 100%)',
-            border: '1px solid rgba(16, 185, 129, 0.2)',
-          }}
-        >
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Box>
-              <Typography variant="caption" fontWeight={600} gutterBottom sx={{ fontSize: '0.8rem' }}>
-                🔮 AI Predictions Active
-              </Typography>
-              <Typography variant="caption" sx={{ fontSize: '0.75rem', display: 'block' }}>
-                {data.predictions.length}-day forecast using ML algorithms
-              </Typography>
-            </Box>
-            <Chip
-              icon={<Insights fontSize="small" />}
-              label={`${Math.round((data.predictions[0]?.confidence_score || 0) * 100)}%`}
-              size="small"
-              color="success"
-              variant="outlined"
-              sx={{ fontSize: '0.7rem' }}
-            />
-          </Box>
+          </ChartErrorBoundary>
         </Box>
-      )}
+
+        {/* Chart Summary */}
+        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="caption" color="text.secondary">
+            {chartData.length} data points • Last updated: {new Date().toLocaleString()}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Total Revenue: ${data.total_revenue?.toLocaleString() || '0'}
+          </Typography>
+        </Box>
+      </Paper>
     </Box>
   );
 };
