@@ -2497,31 +2497,41 @@ const DashboardPage = () => {
                 setTimeout(() => fetchRevenueData(true), 100);
               }}
             >
-              {/* Only render RevenueChart when we have initialized the dashboard */}
-              {dashboardDataInitialized || stableTimeseriesData.length > 0 ? (
-                <RevenueChart
-                  data={stableTimeseriesData}
-                  loading={cardLoading.revenue}
-                  error={cardErrors.revenue}
-                  height={450}
-                />
-              ) : (
-                <StyledCard sx={{ height: 450 }}>
-                  <CardContent sx={{ 
-                    height: '100%', 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center',
-                    flexDirection: 'column',
-                    gap: 2
-                  }}>
-                    <CircularProgress size={48} />
-                    <Typography variant="body2" color="text.secondary">
-                      Loading revenue data...
-                    </Typography>
-                  </CardContent>
-                </StyledCard>
-              )}
+              {/* Revenue Analysis Section */}
+              <StyledCard sx={{ height: 450 }}>
+                <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                  <CardTitle>
+                    <Analytics color="primary" />
+                    Revenue Analysis
+                  </CardTitle>
+                  
+                  {/* Only render RevenueChart when we have initialized the dashboard */}
+                  {dashboardDataInitialized || stableTimeseriesData.length > 0 ? (
+                    <Box sx={{ flex: 1 }}>
+                      <RevenueChart
+                        data={stableTimeseriesData}
+                        loading={cardLoading.revenue}
+                        error={cardErrors.revenue}
+                        height={350} // Reduced height to account for the section header
+                      />
+                    </Box>
+                  ) : (
+                    <Box sx={{ 
+                      flex: 1,
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center',
+                      flexDirection: 'column',
+                      gap: 2
+                    }}>
+                      <CircularProgress size={48} />
+                      <Typography variant="body2" color="text.secondary">
+                        Loading revenue data...
+                      </Typography>
+                    </Box>
+                  )}
+                </CardContent>
+              </StyledCard>
             </ErrorBoundary>
           )}
 

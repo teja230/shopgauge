@@ -1226,17 +1226,6 @@ const useUnifiedAnalytics = (
                    (Array.isArray(dashboardOrdersData) && dashboardOrdersData.length > 0)
     }, 'useUnifiedAnalytics');
 
-    // Clear session storage to force fresh computation after bug fix
-    if (shop) {
-      try {
-        const storageKey = getUnifiedAnalyticsStorageKey(shop);
-        sessionStorage.removeItem(storageKey);
-        debugLog.info('🗑️ UNIFIED_ANALYTICS: Cleared session storage for fresh computation', { storageKey }, 'useUnifiedAnalytics');
-      } catch (error) {
-        debugLog.warn('🔄 UNIFIED_ANALYTICS: Failed to clear session storage', { error }, 'useUnifiedAnalytics');
-      }
-    }
-
     // Validate inputs
     if (!shop || !shop.trim()) {
       debugLog.warn('🔄 UNIFIED_ANALYTICS: Cannot force compute - missing shop', { shop }, 'useUnifiedAnalytics');
@@ -1259,7 +1248,7 @@ const useUnifiedAnalytics = (
       return;
     }
 
-    debugLog.info('🔄 UNIFIED_ANALYTICS: Force computing unified analytics with bug fix', {
+    debugLog.info('🔄 UNIFIED_ANALYTICS: Force computing unified analytics with robust solution', {
       shop,
       revenueDataLength: dashboardRevenueData?.length || 0,
       ordersDataLength: dashboardOrdersData?.length || 0
@@ -1269,12 +1258,14 @@ const useUnifiedAnalytics = (
       setLoading(true);
       setError(null);
       
+      // Robust solution: Compute data to render chart and update session storage
       const processedData = convertDashboardDataToUnified(
         dashboardRevenueData,
         dashboardOrdersData
       );
       
       if (processedData && Array.isArray(processedData.historical)) {
+        // Update state immediately for chart rendering
         setData(processedData);
         setLastUpdated(new Date());
         setIsCached(false);
@@ -1282,15 +1273,19 @@ const useUnifiedAnalytics = (
         setLoading(false);
         setError(null);
         
-        // Mark as processed and save to storage
-        hasProcessedDataRef.current = true;
+        // Update session storage with corrected data for unified analytics
         saveUnifiedAnalyticsToStorage(shop, processedData);
         
-        debugLog.info('✅ UNIFIED_ANALYTICS: Force compute successful with bug fix', {
+        // Mark as processed
+        hasProcessedDataRef.current = true;
+        
+        debugLog.info('✅ UNIFIED_ANALYTICS: Force compute successful - data ready for chart rendering', {
           historicalPoints: processedData.historical.length,
           predictionPoints: processedData.predictions.length,
           totalRevenue: processedData.total_revenue,
-          totalOrders: processedData.total_orders
+          totalOrders: processedData.total_orders,
+          dataComputed: true,
+          sessionStorageUpdated: true
         }, 'useUnifiedAnalytics');
       } else {
         debugLog.error('🔄 UNIFIED_ANALYTICS: Invalid data structure returned from force compute', {}, 'useUnifiedAnalytics');
@@ -1308,8 +1303,7 @@ const useUnifiedAnalytics = (
     dashboardRevenueData,
     dashboardOrdersData,
     convertDashboardDataToUnified,
-    saveUnifiedAnalyticsToStorage,
-    getUnifiedAnalyticsStorageKey
+    saveUnifiedAnalyticsToStorage
   ]);
 
   // Clear unified analytics session storage (called when shop changes)

@@ -542,18 +542,14 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
       ref={containerRef} 
       sx={{ 
         width: '100%',
-        backgroundColor: theme.palette.background.paper,
-        borderRadius: theme.shape.borderRadius,
-        boxShadow: '0 2px 12px rgba(0, 0, 0, 0.05)',
-        border: `1px solid ${theme.palette.divider}`,
-        overflow: 'hidden',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
       }}
     >
       {/* Header with Dashboard Theme */}
       <Box sx={{ 
-        p: theme.spacing(2),
-        borderBottom: `1px solid ${theme.palette.divider}`,
-        backgroundColor: theme.palette.background.paper,
+        mb: theme.spacing(2),
       }}>
         <Box sx={{ 
           display: 'flex', 
@@ -563,9 +559,9 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
         }}>
           <Typography 
             variant="h6" 
-            component="h2" 
+            component="h3" 
             sx={{
-              fontSize: '1.25rem',
+              fontSize: '1.1rem',
               fontWeight: 600,
               color: theme.palette.text.primary,
               display: 'flex',
@@ -678,7 +674,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
 
       {/* Chart with proper margins */}
       <Box sx={{ 
-        p: theme.spacing(2),
+        flex: 1,
         minHeight: height - 140, // Account for header height
       }}>
         {containerReady && (

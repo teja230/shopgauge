@@ -152,13 +152,14 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
       showPredictions
     });
 
-    if (!data || !Array.isArray(data.historical)) {
-      console.log('⚠️ PredictionViewContainer: No valid data structure', { data });
+    if (!data) {
+      console.log('⚠️ PredictionViewContainer: No data provided', { data });
       return { revenue: [], orders: [], conversion: [] };
     }
 
-    const historicalData = data.historical || [];
-    const predictionData = showPredictions ? (data.predictions || []) : [];
+    // Simplified validation - just check if arrays exist
+    const historicalData = Array.isArray(data.historical) ? data.historical : [];
+    const predictionData = showPredictions && Array.isArray(data.predictions) ? data.predictions : [];
     
     console.log('🔄 PredictionViewContainer: Processing data arrays', {
       historicalLength: historicalData.length,
@@ -166,47 +167,38 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
       showPredictions
     });
 
-    // Validate historical data structure
+    // More permissive validation - filter out invalid items instead of rejecting all
     const validHistoricalData = historicalData.filter(item => {
-      const isValid = item && 
-        typeof item.date === 'string' && 
+      return item && 
+        item.date && 
         typeof item.revenue === 'number' && 
         typeof item.orders_count === 'number' &&
         !isNaN(item.revenue) &&
         !isNaN(item.orders_count);
-      
-      if (!isValid) {
-        console.warn('⚠️ PredictionViewContainer: Invalid historical item', item);
-      }
-      return isValid;
     });
 
-    // Validate prediction data structure
     const validPredictionData = predictionData.filter(item => {
-      const isValid = item && 
-        typeof item.date === 'string' && 
+      return item && 
+        item.date && 
         typeof item.revenue === 'number' && 
         typeof item.orders_count === 'number' &&
         !isNaN(item.revenue) &&
         !isNaN(item.orders_count);
-      
-      if (!isValid) {
-        console.warn('⚠️ PredictionViewContainer: Invalid prediction item', item);
-      }
-      return isValid;
     });
 
     console.log('✅ PredictionViewContainer: Validated data', {
       validHistoricalLength: validHistoricalData.length,
       validPredictionLength: validPredictionData.length,
-      filteredHistorical: historicalData.length - validHistoricalData.length,
-      filteredPrediction: predictionData.length - validPredictionData.length
+      historicalFiltered: historicalData.length - validHistoricalData.length,
+      predictionFiltered: predictionData.length - validPredictionData.length
     });
 
+    // Combine and sort data
     const combinedData = [...validHistoricalData, ...validPredictionData].sort((a, b) => 
       new Date(a.date).getTime() - new Date(b.date).getTime()
     );
 
+    // Transform for each chart type
     const revenue = combinedData.map(item => ({
       date: item.date,
       revenue: item.revenue,
@@ -229,7 +221,7 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
       date: item.date,
       conversion_rate: item.conversion_rate || 0,
       isPrediction: Boolean(item.isPrediction),
-      confidence_min: (item.conversion_rate || 0) * 0.8, // Simplified confidence interval
+      confidence_min: (item.conversion_rate || 0) * 0.8,
       confidence_max: (item.conversion_rate || 0) * 1.2,
       confidence_score: (item.isPrediction && (item as any).confidence_score) || 0,
     }));
@@ -295,17 +287,20 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
       );
     }
 
-    // Enhanced validation for data availability
+    // Simplified validation for data availability
     const hasValidData = data && 
       Array.isArray(data.historical) && 
-      data.historical.length > 0;
+      data.historical.length > 0 &&
+      transformedData[activeView] && 
+      transformedData[activeView].length > 0;
 
     console.log('🔍 PredictionViewContainer: Data validation', {
       hasValidData,
       hasData: !!data,
       hasHistorical: data && Array.isArray(data.historical),
       historicalLength: data?.historical?.length || 0,
-      transformedDataLength: transformedData[activeView]?.length || 0
+      transformedDataLength: transformedData[activeView]?.length || 0,
+      activeView
     });
 
     if (!hasValidData) {
