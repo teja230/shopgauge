@@ -256,7 +256,7 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
     const commonProps = {
       loading,
       error,
-      height: height - 80, // Account for header
+      height: Math.max(300, height - 120), // Account for header and ensure minimum height
     };
 
     switch (activeView) {
@@ -335,7 +335,7 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
   return (
     <Box sx={{ 
       width: '100%',
-      minHeight: { xs: 400, sm: 450, md: height || 500 },
+      minHeight: { xs: 450, sm: 500, md: height || 550 },
       display: 'flex', 
       flexDirection: 'column',
       backgroundColor: theme.palette.background.paper,
@@ -382,42 +382,64 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
             />
           </Typography>
           
-          {/* Forecast Toggle with Better Styling */}
-          <FormControlLabel
-            control={
-              <Switch
-                checked={showPredictions}
-                onChange={(e) => setShowPredictions(e.target.checked)}
-                color="primary"
-                sx={{
-                  '& .MuiSwitch-switchBase.Mui-checked': {
-                    color: theme.palette.primary.main,
-                  },
-                  '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                    backgroundColor: theme.palette.primary.main,
-                  },
-                }}
-              />
-            }
-            label={
-              <Typography variant="body2" fontWeight={600} color="text.primary">
-                {showPredictions ? 'Hide Forecast' : 'Show Forecast'}
-              </Typography>
-            }
-            labelPlacement="start"
-            sx={{ m: 0, gap: 1 }}
-          />
+          {/* Enhanced Forecast Toggle */}
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 1,
+            p: 1.5,
+            borderRadius: theme.shape.borderRadius,
+            backgroundColor: showPredictions ? `${theme.palette.secondary.main}10` : theme.palette.background.default,
+            border: `1px solid ${showPredictions ? theme.palette.secondary.main : theme.palette.divider}`,
+            transition: 'all 0.2s ease',
+            '&:hover': {
+              backgroundColor: showPredictions ? `${theme.palette.secondary.main}15` : theme.palette.action.hover,
+            },
+          }}>
+            <AutoAwesome 
+              sx={{ 
+                fontSize: 18, 
+                color: showPredictions ? theme.palette.secondary.main : theme.palette.text.disabled,
+                transition: 'color 0.2s ease',
+              }} 
+            />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={showPredictions}
+                  onChange={(e) => setShowPredictions(e.target.checked)}
+                  color="secondary"
+                  size="small"
+                  sx={{
+                    '& .MuiSwitch-switchBase.Mui-checked': {
+                      color: theme.palette.secondary.main,
+                    },
+                    '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                      backgroundColor: theme.palette.secondary.main,
+                    },
+                  }}
+                />
+              }
+              label={
+                <Typography variant="body2" fontWeight={600} color="text.primary">
+                  {showPredictions ? 'AI Forecasts ON' : 'AI Forecasts OFF'}
+                </Typography>
+              }
+              labelPlacement="start"
+              sx={{ m: 0, gap: 1 }}
+            />
+          </Box>
         </Box>
 
         {/* Enhanced Stats Display */}
         {stats && (
           <Box sx={{ 
-            display: 'grid', 
-            gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' },
+            display: 'flex', 
+            flexWrap: 'wrap',
             gap: theme.spacing(2), 
             mb: theme.spacing(2),
             p: theme.spacing(2),
-            background: `linear-gradient(135deg, ${theme.palette.background.default}, ${theme.palette.grey[50]})`,
+            backgroundColor: theme.palette.background.default,
             borderRadius: theme.shape.borderRadius,
             border: `1px solid ${theme.palette.divider}`,
           }}>
@@ -425,10 +447,12 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
               display: 'flex', 
               flexDirection: 'column',
               alignItems: 'center',
-              p: theme.spacing(1),
+              p: theme.spacing(1.5),
               borderRadius: theme.shape.borderRadius,
-              backgroundColor: 'rgba(255, 255, 255, 0.7)',
-              border: `1px solid ${theme.palette.grey[200]}`,
+              backgroundColor: theme.palette.background.paper,
+              border: `1px solid ${theme.palette.divider}`,
+              minWidth: 120,
+              flex: 1,
             }}>
               <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5 }}>
                 Current {stats.metric}
@@ -442,10 +466,12 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
                 display: 'flex', 
                 flexDirection: 'column',
                 alignItems: 'center',
-                p: theme.spacing(1),
+                p: theme.spacing(1.5),
                 borderRadius: theme.shape.borderRadius,
-                backgroundColor: 'rgba(255, 255, 255, 0.7)',
-                border: `1px solid ${theme.palette.secondary.main}30`,
+                backgroundColor: theme.palette.background.paper,
+                border: `1px solid ${theme.palette.secondary.main}40`,
+                minWidth: 120,
+                flex: 1,
                 position: 'relative',
                 '&::before': {
                   content: '""',
@@ -453,9 +479,9 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
                   top: 0,
                   left: 0,
                   right: 0,
-                  height: 2,
+                  height: 3,
                   background: theme.palette.secondary.main,
-                  borderRadius: '4px 4px 0 0',
+                  borderRadius: `${theme.shape.borderRadius}px ${theme.shape.borderRadius}px 0 0`,
                 },
               }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
@@ -473,10 +499,12 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
               display: 'flex', 
               flexDirection: 'column',
               alignItems: 'center',
-              p: theme.spacing(1),
+              p: theme.spacing(1.5),
               borderRadius: theme.shape.borderRadius,
-              backgroundColor: 'rgba(255, 255, 255, 0.7)',
-              border: `1px solid ${theme.palette.grey[200]}`,
+              backgroundColor: theme.palette.background.paper,
+              border: `1px solid ${theme.palette.divider}`,
+              minWidth: 120,
+              flex: 1,
             }}>
               <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5 }}>
                 Active Metric
@@ -504,18 +532,31 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
               textTransform: 'none',
               fontWeight: 600,
               px: theme.spacing(2),
-              py: theme.spacing(1),
+              py: theme.spacing(1.5),
               border: 'none',
               color: theme.palette.text.secondary,
-              minHeight: isMobile ? 48 : 'auto',
+              minHeight: isMobile ? 48 : 44,
               width: isMobile ? '100%' : 'auto',
               justifyContent: isMobile ? 'flex-start' : 'center',
+              borderRadius: theme.shape.borderRadius,
+              position: 'relative',
               '&.Mui-selected': {
                 backgroundColor: theme.palette.primary.main,
                 color: theme.palette.primary.contrastText,
                 boxShadow: `0 2px 8px ${theme.palette.primary.main}30`,
                 '&:hover': {
                   backgroundColor: theme.palette.primary.dark,
+                },
+                '&::after': {
+                  content: '""',
+                  position: 'absolute',
+                  bottom: 0,
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  width: '60%',
+                  height: 2,
+                  backgroundColor: theme.palette.primary.main,
+                  borderRadius: 1,
                 },
               },
               '&:hover': {
@@ -547,10 +588,12 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
       {/* Chart Content with Proper Margins */}
       <Box sx={{ 
         flex: 1,
-        minHeight: 300,
+        minHeight: 400,
         p: theme.spacing(2),
         display: 'flex',
         flexDirection: 'column',
+        backgroundColor: theme.palette.background.default,
+        position: 'relative',
       }}>
         {renderCurrentView()}
       </Box>

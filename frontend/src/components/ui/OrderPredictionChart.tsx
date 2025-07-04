@@ -439,14 +439,24 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
       {/* Chart with proper margins */}
       <Box sx={{ 
         flex: 1, 
-        minHeight: 250,
+        minHeight: 300,
+        height: height || 400,
         width: '100%',
+        position: 'relative',
         '& .recharts-wrapper': {
           width: '100% !important',
           height: '100% !important',
         },
         '& .recharts-surface': {
           overflow: 'visible',
+        },
+        '& .recharts-cartesian-grid-horizontal line': {
+          stroke: theme.palette.divider,
+          strokeOpacity: 0.3,
+        },
+        '& .recharts-cartesian-grid-vertical line': {
+          stroke: theme.palette.divider,
+          strokeOpacity: 0.3,
         },
       }}>
         <ResponsiveContainer width="100%" height="100%">
