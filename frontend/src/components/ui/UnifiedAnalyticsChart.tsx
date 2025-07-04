@@ -1212,6 +1212,8 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
   // Prepare common chart props and components with better stabilization
   const commonProps = useMemo(() => ({
     data: safeChartData,
+    width: 800, // Add explicit width for Recharts
+    height: chartHeight, // Add explicit height for Recharts
     margin: { 
       top: SPACING.MEDIUM, 
       right: SPACING.LARGE, 
@@ -1219,7 +1221,21 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
       bottom: SPACING.MEDIUM 
     },
     key: `chart-${chartType}-${safeChartData.length}`, // Add key for better React tracking
-  }), [safeChartData, chartType]);
+  }), [safeChartData, chartType, chartHeight]);
+
+  // Debug logging for commonProps construction
+  useLayoutEffect(() => {
+    debugLog.info('=== COMMON PROPS CONSTRUCTED ===', {
+      hasData: !!commonProps.data,
+      dataLength: commonProps.data?.length || 0,
+      width: commonProps.width,
+      height: commonProps.height,
+      margin: commonProps.margin,
+      key: commonProps.key,
+      chartType,
+      safeChartDataLength: safeChartData.length
+    }, 'UnifiedAnalyticsChart');
+  }, [commonProps, chartType, safeChartData.length]);
 
   // Memoize common chart components to prevent unnecessary re-renders
   const commonXAxis = useMemo(() => (
