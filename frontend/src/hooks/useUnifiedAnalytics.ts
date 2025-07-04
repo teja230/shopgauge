@@ -539,7 +539,7 @@ const useUnifiedAnalytics = (
         totalOrders: parsed?.total_orders
       }, 'useUnifiedAnalytics');
       
-      // Enhanced validation with auto-fix for missing totals
+      // SIMPLIFIED VALIDATION - Only check for essential arrays
       const hasBasicStructure = parsed && 
         Array.isArray(parsed.historical) && 
         Array.isArray(parsed.predictions);
@@ -553,12 +553,14 @@ const useUnifiedAnalytics = (
         return null;
       }
 
-      // Check if historical data items have required fields
+      // SIMPLIFIED VALIDATION - Only check for valid historical data structure
       const hasValidHistoricalData = parsed.historical.length === 0 || parsed.historical.every((item: any) => 
         item && 
         typeof item.date === 'string' && 
         typeof item.revenue === 'number' && 
-        typeof item.orders_count === 'number'
+        typeof item.orders_count === 'number' &&
+        !isNaN(item.revenue) &&
+        !isNaN(item.orders_count)
       );
       
       if (!hasValidHistoricalData) {
@@ -567,24 +569,8 @@ const useUnifiedAnalytics = (
         return null;
       }
 
-      // Improved validation: Always attempt auto-fix for missing or invalid totals
-      const hasValidTotals = typeof parsed.total_revenue === 'number' && 
-                            typeof parsed.total_orders === 'number' &&
-                            !isNaN(parsed.total_revenue) &&
-                            !isNaN(parsed.total_orders);
-
-      if (hasValidTotals) {
-        debugLog.info('✅ UNIFIED_ANALYTICS: Validation passed, returning data as-is', {
-          historicalLength: parsed.historical.length,
-          predictionLength: parsed.predictions.length,
-          totalRevenue: parsed.total_revenue,
-          totalOrders: parsed.total_orders
-        }, 'useUnifiedAnalytics');
-        return parsed;
-      }
-
-      // Auto-fix approach: Always calculate totals from historical data for consistency
-      debugLog.info('🔧 UNIFIED_ANALYTICS: Auto-fixing totals from historical data', {
+      // ALWAYS AUTO-FIX TOTALS - This ensures compatibility with any data format
+      debugLog.info('🔧 UNIFIED_ANALYTICS: Auto-calculating totals from historical data', {
         hasTotalRevenue: typeof parsed.total_revenue === 'number',
         hasTotalOrders: typeof parsed.total_orders === 'number',
         historicalLength: parsed.historical.length
@@ -607,7 +593,7 @@ const useUnifiedAnalytics = (
           period_days: parsed.period_days || days, // Ensure period_days is set
         };
 
-        debugLog.info('✅ UNIFIED_ANALYTICS: Auto-fix successful, calculated totals', {
+        debugLog.info('✅ UNIFIED_ANALYTICS: Data ready for rendering', {
           originalTotalRevenue: parsed.total_revenue,
           originalTotalOrders: parsed.total_orders,
           calculatedTotalRevenue,
@@ -615,7 +601,8 @@ const useUnifiedAnalytics = (
           finalTotalRevenue: fixedData.total_revenue,
           finalTotalOrders: fixedData.total_orders,
           historicalLength: parsed.historical.length,
-          predictionLength: parsed.predictions.length
+          predictionLength: parsed.predictions.length,
+          dataValid: true
         }, 'useUnifiedAnalytics');
 
         // Save the fixed data back to session storage for next time
@@ -1027,83 +1014,57 @@ const useUnifiedAnalytics = (
 
     // Initialize for dashboard data mode
     if (useDashboardData) {
-      debugLog.info('Initializing dashboard data mode', { shop, useDashboardData }, 'UnifiedAnalytics');
+      debugLog.info('🔄 UNIFIED_ANALYTICS: Initializing dashboard data mode', { shop, useDashboardData }, 'useUnifiedAnalytics');
       
       // Start loading state
       setLoading(true);
       setError(null);
       
-      // Try to load from session storage first
+      // SIMPLIFIED APPROACH: Try to load from session storage first
       const storageData = loadUnifiedAnalyticsFromStorage(shop);
-      if (storageData) {
-        debugLog.info('Loaded initial data from session storage', { 
+      if (storageData && storageData.historical && storageData.historical.length > 0) {
+        debugLog.info('✅ UNIFIED_ANALYTICS: Loaded initial data from session storage', { 
           historicalLength: storageData.historical.length,
           predictionsLength: storageData.predictions.length 
-        }, 'UnifiedAnalytics');
+        }, 'useUnifiedAnalytics');
         setData(storageData);
         setLastUpdated(new Date());
         setIsCached(true);
         setCacheAge(0);
         setLoading(false);
         hasProcessedDataRef.current = true;
+        isInitializedRef.current = true;
+        return;
       } else {
-        debugLog.info('No session storage data, waiting for dashboard data', { shop }, 'UnifiedAnalytics');
-        // Keep loading state until dashboard data arrives or timeout
+        debugLog.info('🔄 UNIFIED_ANALYTICS: No session storage data, will process dashboard data when available', { shop }, 'useUnifiedAnalytics');
+        // Keep loading state until dashboard data arrives
         
-        // Set a backup timeout in case dashboard data never arrives
+        // SIMPLIFIED TIMEOUT: If no data loads in 2 seconds, provide empty state
         const initTimeoutId = setTimeout(() => {
           if (loading && !hasProcessedDataRef.current) {
-            debugLog.info('🔄 UNIFIED_ANALYTICS: Initialization timeout, checking for any available data', {}, 'useUnifiedAnalytics');
-            
-            // Check if we have any dashboard data available now
-            const hasAnyData = (Array.isArray(dashboardRevenueData) && dashboardRevenueData.length > 0) ||
-                              (Array.isArray(dashboardOrdersData) && dashboardOrdersData.length > 0);
-            
-            if (hasAnyData) {
-              debugLog.info('🔄 UNIFIED_ANALYTICS: Found data during timeout, processing immediately', {}, 'useUnifiedAnalytics');
-              // Force process the data
-              try {
-                const processedData = convertDashboardDataToUnified(dashboardRevenueData, dashboardOrdersData, realConversionRate);
-                setData(processedData);
-                setLastUpdated(new Date());
-                setIsCached(false);
-                setCacheAge(0);
-                setLoading(false);
-                hasProcessedDataRef.current = true;
-                saveUnifiedAnalyticsToStorage(shop, processedData);
-              } catch (error) {
-                debugLog.error('🔄 UNIFIED_ANALYTICS: Error processing data during timeout', { error }, 'useUnifiedAnalytics');
-                setError('Failed to process analytics data');
-                setLoading(false);
-              }
-            } else {
-              debugLog.info('🔄 UNIFIED_ANALYTICS: No data available, setting empty state', {}, 'useUnifiedAnalytics');
-              setData({
-                historical: [],
-                predictions: [],
-                period_days: days,
-                total_revenue: 0,
-                total_orders: 0,
-              });
-              setLoading(false);
-              hasProcessedDataRef.current = true;
-            }
+            debugLog.info('⏰ UNIFIED_ANALYTICS: Initialization timeout, providing empty state', {}, 'useUnifiedAnalytics');
+            setData({
+              historical: [],
+              predictions: [],
+              period_days: days,
+              total_revenue: 0,
+              total_orders: 0,
+            });
+            setLoading(false);
+            hasProcessedDataRef.current = true;
+            isInitializedRef.current = true;
           }
-        }, 3000); // 3 second initialization timeout
+        }, 2000); // 2 second timeout
         
-        // Clean up timeout when component unmounts or shop changes
         return () => clearTimeout(initTimeoutId);
       }
-      
-      isInitializedRef.current = true;
-      return;
     }
 
     // Legacy API mode not supported
     debugLog.error('🚫 UNIFIED_ANALYTICS: API mode not supported', {}, 'useUnifiedAnalytics');
     setError('API mode not supported. Use dashboard data mode.');
     setLoading(false);
-  }, [shop, useDashboardData, loadUnifiedAnalyticsFromStorage, dashboardRevenueData, dashboardOrdersData, convertDashboardDataToUnified, saveUnifiedAnalyticsToStorage, days, loading, realConversionRate]);
+  }, [shop, useDashboardData, loadUnifiedAnalyticsFromStorage, days, loading]);
 
   // Auto-refresh if enabled
   useEffect(() => {
@@ -1118,128 +1079,90 @@ const useUnifiedAnalytics = (
     }
   }, [autoRefresh, refreshInterval, fetchData, shop]);
 
-  // Process dashboard data when it becomes available
+  // SIMPLIFIED DASHBOARD DATA PROCESSING
   useEffect(() => {
-    // Only process if we're in dashboard mode and have a shop
-    if (!useDashboardData || !shop || !shop.trim() || !isInitializedRef.current) {
+    if (!shop || !shop.trim() || !useDashboardData || !isInitializedRef.current) {
       return;
     }
 
-    debugLog.info('Dashboard data effect triggered', {
-      shop,
-      dashboardRevenueDataLength: dashboardRevenueData?.length || 0,
-      dashboardOrdersDataLength: dashboardOrdersData?.length || 0,
-      hasProcessedData: hasProcessedDataRef.current,
-      currentDataLength: data?.historical?.length || 0,
-      loading,
-      error: !!error
-    }, 'UnifiedAnalytics');
-
-    // Check if we have valid dashboard data
-    const hasValidData = (Array.isArray(dashboardRevenueData) && dashboardRevenueData.length > 0) ||
-                        (Array.isArray(dashboardOrdersData) && dashboardOrdersData.length > 0);
-    
-    if (!hasValidData) {
-      // No dashboard data yet - if we haven't processed anything yet, wait a bit more
-      // but don't wait indefinitely to prevent stuck loading states
-      if (!hasProcessedDataRef.current) {
-        debugLog.info('🔄 UNIFIED_ANALYTICS: No dashboard data available yet', {}, 'useUnifiedAnalytics');
-        
-        // Set a timeout to stop loading if no data comes after a reasonable wait
-        const timeoutId = setTimeout(() => {
-          if (!hasProcessedDataRef.current && loading) {
-            debugLog.info('🔄 UNIFIED_ANALYTICS: Timeout waiting for dashboard data, setting empty state', {}, 'useUnifiedAnalytics');
-            setLoading(false);
-            setError(null);
-            setData({
-              historical: [],
-              predictions: [],
-              period_days: days,
-              total_revenue: 0,
-              total_orders: 0,
-            });
-            hasProcessedDataRef.current = true;
-          }
-        }, 5000); // Reduced to 5 second timeout for faster response
-        
-        return () => clearTimeout(timeoutId);
-      }
+    // Skip if we already have data and it's not stale
+    if (data && Array.isArray(data.historical) && data.historical.length > 0) {
+      debugLog.info('🔄 UNIFIED_ANALYTICS: Already have valid data, skipping processing', {
+        hasData: true,
+        historicalLength: data.historical.length
+      }, 'useUnifiedAnalytics');
       return;
     }
 
-    // Check if data has actually changed to avoid unnecessary processing
-    const dataChanged = hasDataChanged(dashboardRevenueData, dashboardOrdersData);
+    // Check if we have dashboard data to process
+    const hasRevenueData = Array.isArray(dashboardRevenueData) && dashboardRevenueData.length > 0;
+    const hasOrdersData = Array.isArray(dashboardOrdersData) && dashboardOrdersData.length > 0;
     
-    // Process if we haven't processed data yet, there's an error to recover from, or data has changed
-    if (!hasProcessedDataRef.current || error || dataChanged) {
-      debugLog.info('🔄 UNIFIED_ANALYTICS: Processing dashboard data', {
-        hasProcessedBefore: hasProcessedDataRef.current,
-        hasError: !!error,
-        dataChanged: dataChanged,
+    if (!hasRevenueData && !hasOrdersData) {
+      debugLog.info('🔄 UNIFIED_ANALYTICS: No dashboard data available yet', {
+        hasRevenueData,
+        hasOrdersData,
         revenueDataLength: dashboardRevenueData?.length || 0,
         ordersDataLength: dashboardOrdersData?.length || 0
       }, 'useUnifiedAnalytics');
-      
-      try {
-        setLoading(true);
+      return;
+    }
+
+    debugLog.info('🔄 UNIFIED_ANALYTICS: Processing dashboard data', {
+      hasRevenueData,
+      hasOrdersData,
+      revenueDataLength: dashboardRevenueData?.length || 0,
+      ordersDataLength: dashboardOrdersData?.length || 0
+    }, 'useUnifiedAnalytics');
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const processedData = convertDashboardDataToUnified(
+        dashboardRevenueData || [],
+        dashboardOrdersData || [],
+        realConversionRate
+      );
+
+      if (processedData && Array.isArray(processedData.historical)) {
+        setData(processedData);
+        setLastUpdated(new Date());
+        setIsCached(false);
+        setCacheAge(0);
+        setLoading(false);
         setError(null);
+        hasProcessedDataRef.current = true;
         
-        const processedData = convertDashboardDataToUnified(
-          dashboardRevenueData,
-          dashboardOrdersData,
-          realConversionRate
-        );
+        // Save to session storage
+        saveUnifiedAnalyticsToStorage(shop, processedData);
         
-        // Validate the processed data
-        if (processedData && Array.isArray(processedData.historical)) {
-          setData(processedData);
-          setLastUpdated(new Date());
-          setIsCached(false);
-          setCacheAge(0);
-          setLoading(false);
-          setError(null);
-          
-          // Update tracking
-          lastProcessedDataRef.current = {
-            revenueLength: dashboardRevenueData?.length || 0,
-            ordersLength: dashboardOrdersData?.length || 0,
-            revenueData: dashboardRevenueData ? [...dashboardRevenueData] : [],
-            ordersData: dashboardOrdersData ? [...dashboardOrdersData] : []
-          };
-          
-          // Mark as processed and save to storage
-          hasProcessedDataRef.current = true;
-          saveUnifiedAnalyticsToStorage(shop, processedData);
-          
-          debugLog.info('✅ UNIFIED_ANALYTICS: Successfully processed dashboard data', {
-            historicalPoints: processedData.historical.length,
-            predictionPoints: processedData.predictions.length,
-            totalRevenue: processedData.total_revenue
-          }, 'useUnifiedAnalytics');
-        } else {
-          debugLog.error('🔄 UNIFIED_ANALYTICS: Invalid data structure returned from conversion', {}, 'useUnifiedAnalytics');
-          setError('Invalid data structure returned from conversion');
-          setLoading(false);
-        }
-      } catch (error) {
-        debugLog.error('🔄 UNIFIED_ANALYTICS: Error processing dashboard data', { error }, 'useUnifiedAnalytics');
-        setError('Failed to process dashboard data');
+        debugLog.info('✅ UNIFIED_ANALYTICS: Successfully processed dashboard data', {
+          historicalPoints: processedData.historical.length,
+          predictionPoints: processedData.predictions.length,
+          totalRevenue: processedData.total_revenue,
+          totalOrders: processedData.total_orders
+        }, 'useUnifiedAnalytics');
+      } else {
+        debugLog.error('🔄 UNIFIED_ANALYTICS: Invalid data structure returned from conversion', {}, 'useUnifiedAnalytics');
+        setError('Invalid data structure returned from conversion');
         setLoading(false);
       }
-    } else {
-      debugLog.info('🔄 UNIFIED_ANALYTICS: Data already processed and unchanged, skipping', {}, 'useUnifiedAnalytics');
+    } catch (error) {
+      debugLog.error('🔄 UNIFIED_ANALYTICS: Error processing dashboard data', { error }, 'useUnifiedAnalytics');
+      setError('Failed to process dashboard data');
+      setLoading(false);
     }
   }, [
-    useDashboardData, 
-    shop, 
-    dashboardRevenueData, 
-    dashboardOrdersData, 
-    convertDashboardDataToUnified, 
+    shop,
+    useDashboardData,
+    dashboardRevenueData,
+    dashboardOrdersData,
+    convertDashboardDataToUnified,
     saveUnifiedAnalyticsToStorage,
-    hasDataChanged,
-    error,
-    days,
-    realConversionRate
+    realConversionRate,
+    data,
+    isInitializedRef.current
   ]);
 
   // Force compute unified analytics (called when main dashboard data is refreshed)

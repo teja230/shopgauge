@@ -155,7 +155,7 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
       hasData: !!data,
       showPredictions,
       predictionDays,
-      note: 'Filtering pre-computed predictions for instant response'
+      note: 'Processing unified analytics data for chart rendering'
     });
 
     if (!data) {
@@ -163,49 +163,58 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
       return { revenue: [], orders: [], conversion: [] };
     }
 
-    // Simplified validation - just check if arrays exist
+    // SIMPLIFIED VALIDATION - be more permissive with data structure
     const historicalData = Array.isArray(data.historical) ? data.historical : [];
-    
-    // Filter predictions based on selected days (instead of recomputing)
     const allPredictions = showPredictions && Array.isArray(data.predictions) ? data.predictions : [];
-    const filteredPredictions = showPredictions ? allPredictions.slice(0, predictionDays) : [];
     
     console.log('🔄 PredictionViewContainer: Processing data arrays', {
       historicalLength: historicalData.length,
       allPredictionsLength: allPredictions.length,
-      filteredPredictionsLength: filteredPredictions.length,
       predictionDays,
       showPredictions
     });
 
-    // More permissive validation - filter out invalid items instead of rejecting all
+    // MORE PERMISSIVE VALIDATION - keep any valid items instead of rejecting all
     const validHistoricalData = historicalData.filter(item => {
       return item && 
         item.date && 
-        typeof item.revenue === 'number' && 
-        typeof item.orders_count === 'number' &&
-        !isNaN(item.revenue) &&
-        !isNaN(item.orders_count);
-    });
+        (typeof item.revenue === 'number' || typeof item.revenue === 'string') &&
+        (typeof item.orders_count === 'number' || typeof item.orders_count === 'string') &&
+        !isNaN(Number(item.revenue)) &&
+        !isNaN(Number(item.orders_count));
+    }).map(item => ({
+      ...item,
+      revenue: Number(item.revenue) || 0,
+      orders_count: Number(item.orders_count) || 0,
+      conversion_rate: Number(item.conversion_rate) || 0,
+      avg_order_value: Number((item as any).avg_order_value) || 0
+    }));
 
-    const validPredictionData = filteredPredictions.filter(item => {
+    // Filter and take only the requested number of predictions
+    const filteredPredictions = allPredictions.slice(0, predictionDays).filter(item => {
       return item && 
         item.date && 
-        typeof item.revenue === 'number' && 
-        typeof item.orders_count === 'number' &&
-        !isNaN(item.revenue) &&
-        !isNaN(item.orders_count);
-    });
+        (typeof item.revenue === 'number' || typeof item.revenue === 'string') &&
+        (typeof item.orders_count === 'number' || typeof item.orders_count === 'string') &&
+        !isNaN(Number(item.revenue)) &&
+        !isNaN(Number(item.orders_count));
+    }).map(item => ({
+      ...item,
+      revenue: Number(item.revenue) || 0,
+      orders_count: Number(item.orders_count) || 0,
+      conversion_rate: Number(item.conversion_rate) || 0,
+      avg_order_value: Number((item as any).avg_order_value) || 0
+    }));
 
-    console.log('✅ PredictionViewContainer: Validated data', {
+    console.log('✅ PredictionViewContainer: Validated and cleaned data', {
       validHistoricalLength: validHistoricalData.length,
-      validPredictionLength: validPredictionData.length,
-      historicalFiltered: historicalData.length - validHistoricalData.length,
-      predictionFiltered: filteredPredictions.length - validPredictionData.length
+      validPredictionLength: filteredPredictions.length,
+      historicalSample: validHistoricalData.slice(0, 2),
+      predictionSample: filteredPredictions.slice(0, 2)
     });
 
     // Combine and sort data
-    const combinedData = [...validHistoricalData, ...validPredictionData].sort((a, b) => 
+    const combinedData = [...validHistoricalData, ...filteredPredictions].sort((a, b) => 
       new Date(a.date).getTime() - new Date(b.date).getTime()
     );
 
@@ -306,51 +315,63 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
       transformedData[activeView] && 
       transformedData[activeView].length > 0;
 
-    console.log('🔍 PredictionViewContainer: Data validation', {
+    console.log('🔍 PredictionViewContainer: Data validation for rendering', {
       hasValidData,
       hasData: !!data,
       hasHistorical: data && Array.isArray(data.historical),
       historicalLength: data?.historical?.length || 0,
       transformedDataLength: transformedData[activeView]?.length || 0,
-      activeView
+      activeView,
+      dataReadyForChart: hasValidData
     });
 
     if (!hasValidData) {
-      console.log('⚠️ PredictionViewContainer: No valid data available, showing empty state');
-      return (
-        <Box sx={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center',
-          height: '100%',
-          flexDirection: 'column',
-          gap: 3,
-          p: 4,
-        }}>
+      // Check if we have any data at all (even if not perfect)
+      const hasAnyData = data && (
+        (Array.isArray(data.historical) && data.historical.length > 0) ||
+        (Array.isArray(data.predictions) && data.predictions.length > 0)
+      );
+
+      if (hasAnyData) {
+        console.log('⚠️ PredictionViewContainer: Some data available but validation failed, attempting to render anyway');
+        // Fall through to render - maybe the chart can handle it
+      } else {
+        console.log('⚠️ PredictionViewContainer: No valid data available, showing empty state');
+        return (
           <Box sx={{ 
             display: 'flex', 
-            flexDirection: 'column',
+            justifyContent: 'center', 
             alignItems: 'center',
-            gap: 2,
-            textAlign: 'center',
+            height: '100%',
+            flexDirection: 'column',
+            gap: 3,
+            p: 4,
           }}>
-            <Analytics 
-              sx={{ 
-                fontSize: 64, 
-                color: theme.palette.grey[400],
-                opacity: 0.8,
-              }} 
-            />
-            <Typography variant="h5" fontWeight={600} color="text.secondary">
-              No Analytics Data Available
-            </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 400 }}>
-              Advanced analytics will appear here once your store has revenue data. 
-              The system needs historical data to generate forecasts.
-            </Typography>
+            <Box sx={{ 
+              display: 'flex', 
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 2,
+              textAlign: 'center',
+            }}>
+              <Analytics 
+                sx={{ 
+                  fontSize: 64, 
+                  color: theme.palette.grey[400],
+                  opacity: 0.8,
+                }} 
+              />
+              <Typography variant="h5" fontWeight={600} color="text.secondary">
+                No Analytics Data Available
+              </Typography>
+              <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 400 }}>
+                Advanced analytics will appear here once your store has revenue data. 
+                The system needs historical data to generate forecasts.
+              </Typography>
+            </Box>
           </Box>
-        </Box>
-      );
+        );
+      }
     }
 
     // Show stylish "Make Forecasts" button when forecasts are off
