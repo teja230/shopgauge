@@ -3,6 +3,7 @@ package com.storesight.backend.controller;
 import com.storesight.backend.service.DatabaseMonitoringService;
 import com.storesight.backend.service.RedisHealthService;
 import com.storesight.backend.service.ShopService;
+import com.storesight.backend.service.TransactionMonitoringService;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
@@ -42,6 +43,8 @@ public class HealthController {
   @Autowired private DatabaseMonitoringService databaseMonitoringService;
 
   @Autowired private RedisHealthService redisHealthService;
+
+  @Autowired private TransactionMonitoringService transactionMonitoringService;
 
   @Value("${spring.application.name:storesight-backend}")
   private String applicationName;
@@ -435,6 +438,85 @@ public class HealthController {
       return ResponseEntity.ok(result);
     } catch (Exception e) {
       logger.error("Force Redis health check failed: {}", e.getMessage(), e);
+      Map<String, Object> error = new HashMap<>();
+      error.put("error", e.getMessage());
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+    }
+  }
+
+  /** Transaction monitoring health check */
+  @GetMapping("/health/transactions")
+  public ResponseEntity<Map<String, Object>> getTransactionHealth() {
+    try {
+      Map<String, Object> transactionHealth = transactionMonitoringService.getHealthMetrics();
+      Map<String, Object> alerts = transactionMonitoringService.getCriticalAlerts();
+
+      transactionHealth.put("alerts", alerts);
+      transactionHealth.put("isHealthy", transactionMonitoringService.isHealthy());
+
+      // Determine response status based on health
+      if (!transactionMonitoringService.isHealthy() || !alerts.isEmpty()) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(transactionHealth);
+      }
+
+      return ResponseEntity.ok(transactionHealth);
+    } catch (Exception e) {
+      logger.error("Transaction health check failed: {}", e.getMessage(), e);
+      Map<String, Object> error = new HashMap<>();
+      error.put("error", e.getMessage());
+      error.put("healthy", false);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+    }
+  }
+
+  /** Transaction monitoring metrics endpoint */
+  @GetMapping("/metrics/transactions")
+  public ResponseEntity<Map<String, Object>> getTransactionMetrics() {
+    try {
+      Map<String, Object> metrics = transactionMonitoringService.getHealthMetrics();
+      return ResponseEntity.ok(metrics);
+    } catch (Exception e) {
+      logger.error("Failed to get transaction metrics: {}", e.getMessage(), e);
+      Map<String, Object> error = new HashMap<>();
+      error.put("error", e.getMessage());
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+    }
+  }
+
+  /** Transaction alerts endpoint */
+  @GetMapping("/alerts/transactions")
+  public ResponseEntity<Map<String, Object>> getTransactionAlerts() {
+    try {
+      Map<String, Object> alerts = transactionMonitoringService.getCriticalAlerts();
+
+      Map<String, Object> response = new HashMap<>();
+      response.put("alerts", alerts);
+      response.put("alertCount", alerts.size());
+      response.put("hasAlerts", !alerts.isEmpty());
+      response.put("timestamp", LocalDateTime.now());
+
+      return ResponseEntity.ok(response);
+    } catch (Exception e) {
+      logger.error("Failed to get transaction alerts: {}", e.getMessage(), e);
+      Map<String, Object> error = new HashMap<>();
+      error.put("error", e.getMessage());
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+    }
+  }
+
+  /** Reset transaction monitoring metrics (for testing/maintenance) */
+  @PostMapping("/metrics/transactions/reset")
+  public ResponseEntity<Map<String, Object>> resetTransactionMetrics() {
+    try {
+      transactionMonitoringService.resetMetrics();
+
+      Map<String, Object> response = new HashMap<>();
+      response.put("message", "Transaction metrics reset successfully");
+      response.put("timestamp", LocalDateTime.now());
+
+      return ResponseEntity.ok(response);
+    } catch (Exception e) {
+      logger.error("Failed to reset transaction metrics: {}", e.getMessage(), e);
       Map<String, Object> error = new HashMap<>();
       error.put("error", e.getMessage());
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);

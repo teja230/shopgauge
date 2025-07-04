@@ -28,6 +28,7 @@ public class ShopService {
   private final ShopRepository shopRepository;
   private final ShopSessionRepository shopSessionRepository;
   private final StringRedisTemplate redisTemplate;
+  private final AsyncSessionService asyncSessionService;
 
   // Redis key patterns for backward compatibility and caching
   private static final String SHOP_TOKEN_PREFIX = "shop_token:";
@@ -45,10 +46,12 @@ public class ShopService {
   public ShopService(
       ShopRepository shopRepository,
       ShopSessionRepository shopSessionRepository,
-      StringRedisTemplate redisTemplate) {
+      StringRedisTemplate redisTemplate,
+      AsyncSessionService asyncSessionService) {
     this.shopRepository = shopRepository;
     this.shopSessionRepository = shopSessionRepository;
     this.redisTemplate = redisTemplate;
+    this.asyncSessionService = asyncSessionService;
   }
 
   @PostConstruct
@@ -217,7 +220,6 @@ public class ShopService {
   }
 
   /** Get access token for a specific shop and session - Reactive version */
-  @Transactional
   public Mono<String> getTokenForShopReactive(String shopifyDomain, String sessionId) {
     logger.debug("Getting token for shop: {} and session: {}", shopifyDomain, sessionId);
 
@@ -233,7 +235,8 @@ public class ShopService {
       if (cachedToken != null) {
         logger.debug(
             "Found token in Redis cache for shop: {} and session: {}", shopifyDomain, sessionId);
-        updateSessionLastAccessed(sessionId);
+        // FIXED: Update last accessed time asynchronously to avoid transaction violations
+        updateSessionLastAccessedAsync(sessionId);
         return Mono.just(cachedToken);
       }
     } catch (Exception e) {
@@ -255,17 +258,12 @@ public class ShopService {
                 ShopSession session = sessionOpt.get();
                 String token = session.getAccessToken();
 
-                // Update last accessed time
-                session.markAsAccessed();
-                return Mono.fromCallable(() -> shopSessionRepository.save(session))
-                    .publishOn(Schedulers.boundedElastic())
-                    .then(
-                        Mono.fromCallable(
-                            () -> {
-                              // Cache for future requests
-                              cacheShopSession(shopifyDomain, sessionId, token);
-                              return token;
-                            }));
+                // FIXED: Update last accessed time asynchronously to avoid transaction violations
+                updateSessionLastAccessedAsync(sessionId);
+
+                // Cache for future requests
+                cacheShopSession(shopifyDomain, sessionId, token);
+                return Mono.just(token);
               }
 
               // Fallback to most recent active session for this shop
@@ -311,9 +309,8 @@ public class ShopService {
       ShopSession session = sessionOpt.get();
       String token = session.getAccessToken();
 
-      // Update last accessed time
-      session.markAsAccessed();
-      shopSessionRepository.save(session);
+      // FIXED: Update last accessed time asynchronously to avoid read-only transaction violation
+      updateSessionLastAccessedAsync(sessionId);
 
       // Cache for future requests with extended TTL
       cacheShopSessionWithExtendedTTL(shopifyDomain, sessionId, token);
@@ -359,22 +356,17 @@ public class ShopService {
                 ShopSession session = recentSessionOpt.get();
                 String token = session.getAccessToken();
 
-                // Update last accessed time
-                session.markAsAccessed();
-                return Mono.fromCallable(() -> shopSessionRepository.save(session))
-                    .publishOn(Schedulers.boundedElastic())
-                    .then(
-                        Mono.fromCallable(
-                            () -> {
-                              // Cache for future requests
-                              redisTemplate
-                                  .opsForValue()
-                                  .set(
-                                      SHOP_TOKEN_PREFIX + shopifyDomain,
-                                      token,
-                                      java.time.Duration.ofMinutes(REDIS_CACHE_TTL_MINUTES));
-                              return token;
-                            }));
+                // FIXED: Update last accessed time asynchronously to avoid transaction violations
+                updateSessionLastAccessedAsync(session.getSessionId());
+
+                // Cache for future requests
+                redisTemplate
+                    .opsForValue()
+                    .set(
+                        SHOP_TOKEN_PREFIX + shopifyDomain,
+                        token,
+                        java.time.Duration.ofMinutes(REDIS_CACHE_TTL_MINUTES));
+                return Mono.just(token);
               }
 
               // Fallback to shop's main token
@@ -430,9 +422,8 @@ public class ShopService {
       ShopSession session = recentSessionOpt.get();
       String token = session.getAccessToken();
 
-      // Update last accessed time
-      session.markAsAccessed();
-      shopSessionRepository.save(session);
+      // FIXED: Update last accessed time asynchronously to avoid read-only transaction violation
+      updateSessionLastAccessedAsync(session.getSessionId());
 
       // Cache for future requests
       redisTemplate
@@ -674,13 +665,19 @@ public class ShopService {
     }
   }
 
+  /**
+   * Asynchronous session last accessed time update to avoid blocking read-only transactions This
+   * method delegates to AsyncSessionService which runs updates in a separate thread pool and
+   * transaction context, preventing read-only transaction violations.
+   */
   private void updateSessionLastAccessedAsync(String sessionId) {
     try {
-      // This could be made truly async with @Async annotation if needed
-      shopSessionRepository.updateLastAccessedTime(sessionId);
+      // Delegate to the dedicated async service
+      asyncSessionService.updateSessionLastAccessedAsync(sessionId);
     } catch (Exception e) {
       logger.warn(
-          "Failed to update last accessed time for session {}: {}", sessionId, e.getMessage());
+          "Failed to initiate async session update for session {}: {}", sessionId, e.getMessage());
+      // Don't propagate the exception as this is a non-critical background operation
     }
   }
 
@@ -902,9 +899,8 @@ public class ShopService {
           shopSessionRepository.findActiveSessionByShopDomainAndSessionId(shopifyDomain, sessionId);
 
       if (sessionOpt.isPresent()) {
-        ShopSession session = sessionOpt.get();
-        session.markAsAccessed();
-        shopSessionRepository.save(session);
+        // ENHANCED: Use async service for heartbeat to avoid transaction conflicts
+        asyncSessionService.performSessionHeartbeatAsync(sessionId, shopifyDomain);
 
         // Update Redis cache TTL to extend session life
         try {
@@ -923,7 +919,7 @@ public class ShopService {
         }
 
         logger.debug(
-            "Session heartbeat updated for shop: {} and session: {}", shopifyDomain, sessionId);
+            "Session heartbeat initiated for shop: {} and session: {}", shopifyDomain, sessionId);
         return true;
       } else {
         logger.warn(
