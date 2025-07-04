@@ -17,15 +17,12 @@ import {
 import {
   Box,
   Typography,
-  Card,
-  CardContent,
   Chip,
   ToggleButton,
   ToggleButtonGroup,
   useTheme,
   useMediaQuery,
   Paper,
-  Badge,
 } from '@mui/material';
 import { 
   TrendingUp, 
@@ -35,6 +32,30 @@ import {
   Timeline,
   BarChart as BarChartIcon,
 } from '@mui/icons-material';
+import {
+  chartContainerStyles,
+  chartContentStyles,
+  chartHeaderStyles,
+  chartTitleStyles,
+  toggleButtonGroupStyles,
+  statsRowStyles,
+  loadingContainerStyles,
+  errorContainerStyles,
+  tooltipStyles,
+  chartTypeConfig,
+  chartCommonProps,
+  createGradientDefs,
+  axisStyles,
+  gridStyles,
+  dotStyles,
+  activeDotStyles,
+  barStyles,
+  lineStyles,
+  areaStyles,
+  referenceLineStyles,
+  statChipStyles,
+  forecastChipStyles,
+} from './ChartStyles';
 
 interface RevenuePredictionData {
   date: string;
@@ -66,6 +87,12 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
   
   const gradientId = useMemo(() => `revenue-gradient-${Math.random().toString(36).substr(2, 9)}`, []);
   const predictionGradientId = useMemo(() => `prediction-gradient-${Math.random().toString(36).substr(2, 9)}`, []);
+  
+  const chartConfig = {
+    area: { icon: <Timeline />, label: 'Area', color: theme.palette.primary.main },
+    line: { icon: <ShowChart />, label: 'Line', color: theme.palette.primary.main },
+    bar: { icon: <BarChartIcon />, label: 'Bar', color: theme.palette.primary.main },
+  };
   // Process and validate data
   const processedData = useMemo(() => {
     if (!data || !Array.isArray(data)) return [];
@@ -117,14 +144,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
       return (
         <Paper
           elevation={8}
-          sx={{
-            p: 2,
-            backgroundColor: 'rgba(255, 255, 255, 0.98)',
-            border: `1px solid ${theme.palette.divider}`,
-            borderRadius: 2,
-            minWidth: 200,
-            backdropFilter: 'blur(10px)',
-          }}
+          sx={tooltipStyles(theme)}
         >
           <Typography variant="body2" color="text.secondary" gutterBottom>
             {new Date(label).toLocaleDateString('en-US', {
@@ -184,7 +204,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height }}>
+      <Box sx={loadingContainerStyles(theme, height)}>
         <Typography>Loading revenue forecasts...</Typography>
       </Box>
     );
@@ -192,7 +212,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
 
   if (error) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height }}>
+      <Box sx={errorContainerStyles(theme, height)}>
         <Typography color="error">Error: {error}</Typography>
       </Box>
     );
@@ -209,27 +229,14 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
   const renderChart = () => {
     const commonProps = {
       data: processedData,
-      margin: { top: 10, right: 30, left: 20, bottom: 20 },
+      ...chartCommonProps,
     };
 
     const commonElements = (
       <>
-        <defs>
-          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor={theme.palette.primary.main} stopOpacity={0.3} />
-            <stop offset="95%" stopColor={theme.palette.primary.main} stopOpacity={0.05} />
-          </linearGradient>
-          <linearGradient id={predictionGradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor={theme.palette.secondary.main} stopOpacity={0.3} />
-            <stop offset="95%" stopColor={theme.palette.secondary.main} stopOpacity={0.05} />
-          </linearGradient>
-        </defs>
+        {createGradientDefs(gradientId, predictionGradientId, theme)}
         
-        <CartesianGrid 
-          strokeDasharray="3 3" 
-          stroke={theme.palette.divider} 
-          opacity={0.6}
-        />
+        <CartesianGrid {...gridStyles(theme)} />
         
         <XAxis
           dataKey="date"
@@ -243,16 +250,12 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
               return value;
             }
           }}
-          stroke={theme.palette.text.secondary}
-          tick={{ fontSize: 12, fill: theme.palette.text.secondary }}
-          axisLine={{ stroke: theme.palette.divider }}
+          {...axisStyles(theme)}
         />
         
         <YAxis
           tickFormatter={formatCurrency}
-          stroke={theme.palette.text.secondary}
-          tick={{ fontSize: 12, fill: theme.palette.text.secondary }}
-          axisLine={{ stroke: theme.palette.divider }}
+          {...axisStyles(theme)}
           label={{
             value: 'Revenue (USD)',
             angle: -90,
@@ -267,14 +270,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
         {predictionStartDate && (
           <ReferenceLine
             x={predictionStartDate}
-            stroke={theme.palette.secondary.main}
-            strokeDasharray="5,5"
-            strokeWidth={2}
-            label={{ 
-              value: "AI Forecasts →", 
-              position: "top",
-              style: { fill: theme.palette.secondary.main, fontWeight: 600 }
-            }}
+            {...referenceLineStyles(theme)}
           />
         )}
       </>
@@ -288,23 +284,10 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
             <Area
               type="monotone"
               dataKey="revenue"
-              stroke={theme.palette.primary.main}
-              strokeWidth={3}
-              fill={`url(#${gradientId})`}
               name="Revenue"
-              connectNulls={false}
-              isAnimationActive={false}
-              dot={{
-                fill: theme.palette.primary.main,
-                strokeWidth: 2,
-                r: 4,
-              }}
-                             activeDot={{
-                 r: 6,
-                 fill: theme.palette.primary.main,
-                 stroke: '#fff',
-                 strokeWidth: 2,
-               }}
+              {...areaStyles(theme.palette.primary.main, gradientId)}
+              dot={dotStyles(theme.palette.primary.main)}
+              activeDot={activeDotStyles(theme.palette.primary.main)}
             />
           </AreaChart>
         );
@@ -316,22 +299,10 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
             <Line
               type="monotone"
               dataKey="revenue"
-              stroke={theme.palette.primary.main}
-              strokeWidth={3}
               name="Revenue"
-              connectNulls={false}
-              isAnimationActive={false}
-              dot={{
-                fill: theme.palette.primary.main,
-                strokeWidth: 2,
-                r: 4,
-              }}
-              activeDot={{
-                r: 6,
-                fill: theme.palette.primary.main,
-                stroke: '#fff',
-                strokeWidth: 2,
-              }}
+              {...lineStyles(theme.palette.primary.main)}
+              dot={dotStyles(theme.palette.primary.main)}
+              activeDot={activeDotStyles(theme.palette.primary.main)}
             />
           </LineChart>
         );
@@ -342,56 +313,32 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
             {commonElements}
             <Bar
               dataKey="revenue"
-              fill={theme.palette.primary.main}
               name="Revenue"
-              radius={[4, 4, 0, 0]}
-              opacity={0.8}
-              isAnimationActive={false}
+              {...barStyles(theme.palette.primary.main)}
             />
           </BarChart>
         );
       
-             default:
-         return (
-           <AreaChart {...commonProps}>
-             {commonElements}
-             <Area
-               type="monotone"
-               dataKey="revenue"
-               stroke={theme.palette.primary.main}
-               strokeWidth={3}
-               fill={`url(#${gradientId})`}
-               name="Revenue"
-               connectNulls={false}
-               isAnimationActive={false}
-             />
-           </AreaChart>
-         );
+      default:
+        return (
+          <AreaChart {...commonProps}>
+            {commonElements}
+            <Area
+              type="monotone"
+              dataKey="revenue"
+              name="Revenue"
+              {...areaStyles(theme.palette.primary.main, gradientId)}
+            />
+          </AreaChart>
+        );
     }
   };
 
   return (
-    <Box sx={{ 
-      width: '100%',
-      height: '100%',
-      display: 'flex',
-      flexDirection: 'column',
-    }}>
+    <Box sx={chartContainerStyles(theme)}>
       {/* Header with Chart Type Toggle */}
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        mb: theme.spacing(2),
-        flexWrap: 'wrap',
-        gap: 1,
-      }}>
-        <Typography variant="subtitle1" fontWeight={600} sx={{ 
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1,
-          color: theme.palette.text.primary,
-        }}>
+      <Box sx={chartHeaderStyles(theme)}>
+        <Typography variant="subtitle1" fontWeight={600} sx={chartTitleStyles(theme)}>
           <AutoAwesome color="secondary" fontSize="small" />
           Revenue Forecast
         </Typography>
@@ -402,22 +349,9 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
           exclusive
           onChange={(_, value) => value && setChartType(value)}
           size="small"
-          sx={{
-            backgroundColor: theme.palette.background.default,
-            borderRadius: theme.shape.borderRadius,
-            '& .MuiToggleButton-root': {
-              px: theme.spacing(1),
-              py: theme.spacing(0.5),
-              minWidth: 'auto',
-              border: 'none',
-              '&.Mui-selected': {
-                backgroundColor: theme.palette.primary.main,
-                color: theme.palette.primary.contrastText,
-              },
-            },
-          }}
+          sx={toggleButtonGroupStyles(theme, isMobile)}
         >
-          {Object.entries(chartTypeConfig).map(([type, config]) => (
+          {Object.entries(chartConfig).map(([type, config]) => (
             <ToggleButton key={type} value={type} aria-label={config.label}>
               {config.icon}
             </ToggleButton>
@@ -427,52 +361,26 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
 
       {/* Stats Row */}
       {stats && (
-        <Box sx={{ 
-          display: 'flex', 
-          gap: theme.spacing(1), 
-          mb: theme.spacing(2), 
-          flexWrap: 'wrap' 
-        }}>
+        <Box sx={statsRowStyles(theme)}>
           <Chip
             label={`${stats.growthRate >= 0 ? '+' : ''}${stats.growthRate.toFixed(1)}%`}
             color={stats.growthRate >= 0 ? 'success' : 'error'}
             size="small"
             icon={stats.growthRate >= 0 ? <TrendingUp /> : <TrendingDown />}
-            sx={{ fontWeight: 600 }}
+            sx={statChipStyles(theme)}
           />
           <Chip
             label={`${formatCurrency(stats.predictedRevenue)} forecast`}
             variant="outlined"
             color="secondary"
             size="small"
-            sx={{ fontWeight: 600 }}
+            sx={forecastChipStyles(theme)}
           />
         </Box>
       )}
 
       {/* Chart with proper margins */}
-      <Box sx={{ 
-        flex: 1, 
-        minHeight: 300,
-        height: height || 400,
-        width: '100%',
-        position: 'relative',
-        '& .recharts-wrapper': {
-          width: '100% !important',
-          height: '100% !important',
-        },
-        '& .recharts-surface': {
-          overflow: 'visible',
-        },
-        '& .recharts-cartesian-grid-horizontal line': {
-          stroke: theme.palette.divider,
-          strokeOpacity: 0.3,
-        },
-        '& .recharts-cartesian-grid-vertical line': {
-          stroke: theme.palette.divider,
-          strokeOpacity: 0.3,
-        },
-      }}>
+      <Box sx={chartContentStyles(theme, height)}>
         <ResponsiveContainer width="100%" height="100%">
           {renderChart()}
         </ResponsiveContainer>
