@@ -164,8 +164,22 @@ const processHistoricalItem = (item: any) => {
     // Cap extremely large values that might cause SVG rendering issues
     processedItem.revenue = Math.min(processedItem.revenue, 1e9);
     processedItem.orders_count = Math.min(processedItem.orders_count, 1e6);
+    // Fix conversion rate to be within reasonable bounds (0-100%)
     processedItem.conversion_rate = Math.min(processedItem.conversion_rate, 100);
     processedItem.avg_order_value = Math.min(processedItem.avg_order_value, 1e6);
+    
+    // Additional SVG-safe bounds checking
+    // Ensure no values are exactly 0 which can cause division by zero in SVG calculations
+    if (processedItem.revenue === 0) processedItem.revenue = 0.01;
+    if (processedItem.orders_count === 0) processedItem.orders_count = 0.01;
+    if (processedItem.conversion_rate === 0) processedItem.conversion_rate = 0.01;
+    if (processedItem.avg_order_value === 0) processedItem.avg_order_value = 0.01;
+    
+    // Round to reasonable precision to prevent floating point precision issues in SVG
+    processedItem.revenue = Math.round(processedItem.revenue * 100) / 100;
+    processedItem.orders_count = Math.round(processedItem.orders_count * 100) / 100;
+    processedItem.conversion_rate = Math.round(processedItem.conversion_rate * 100) / 100;
+    processedItem.avg_order_value = Math.round(processedItem.avg_order_value * 100) / 100;
     
     return processedItem;
   } catch (error) {
@@ -475,6 +489,36 @@ const MemoizedComposedChart = memo(({ commonProps, commonGrid, commonXAxis, comm
     if (commonProps.data.length === 0) {
       debugLog.warn('MemoizedComposedChart: Empty data array', {
         dataLength: commonProps.data.length
+      }, 'MemoizedComposedChart');
+      return null;
+    }
+
+    // Additional validation for SVG-safe data values
+    const hasValidData = commonProps.data.every((item: any) => {
+      if (!item || typeof item !== 'object') return false;
+      
+      // Check for problematic values that could cause SVG rendering issues
+      const revenue = item.revenue;
+      const orders = item.orders_count;
+      const conversion = item.conversion_rate;
+      
+      // Ensure all values are finite numbers
+      if (typeof revenue !== 'number' || !isFinite(revenue)) return false;
+      if (typeof orders !== 'number' || !isFinite(orders)) return false;
+      if (typeof conversion !== 'number' || !isFinite(conversion)) return false;
+      
+      // Check for extreme values that could cause SVG issues
+      if (revenue < 0 || revenue > 1e10) return false;
+      if (orders < 0 || orders > 1e8) return false;
+      if (conversion < 0 || conversion > 1000) return false;
+      
+      return true;
+    });
+
+    if (!hasValidData) {
+      debugLog.warn('MemoizedComposedChart: Data contains invalid values', {
+        dataLength: commonProps.data.length,
+        sampleData: commonProps.data.slice(0, 3)
       }, 'MemoizedComposedChart');
       return null;
     }
@@ -1381,13 +1425,45 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
     />
   ), []);
 
+  // Calculate safe domain ranges to prevent SVG rendering issues
+  const domainRanges = useMemo(() => {
+    if (!safeChartData || safeChartData.length === 0) {
+      return {
+        revenue: [0, 1000],
+        orders: [0, 100],
+        conversion: [0, 10]
+      };
+    }
+
+    const revenues = safeChartData.map(d => d.revenue).filter(v => v > 0);
+    const orders = safeChartData.map(d => d.orders_count).filter(v => v > 0);
+    const conversions = safeChartData.map(d => d.conversion_rate).filter(v => v > 0);
+
+    return {
+      revenue: [
+        Math.max(0, Math.min(...revenues) * 0.9),
+        Math.max(1000, Math.max(...revenues) * 1.1)
+      ],
+      orders: [
+        Math.max(0, Math.min(...orders) * 0.9),
+        Math.max(10, Math.max(...orders) * 1.1)
+      ],
+      conversion: [
+        Math.max(0, Math.min(...conversions) * 0.9),
+        Math.max(1, Math.max(...conversions) * 1.1)
+      ]
+    };
+  }, [safeChartData]);
+
   const commonYAxisRevenue = useMemo(() => (
     <YAxis
       yAxisId="revenue"
       orientation="left"
       tickFormatter={(value) => formatYAxisTick(value, 'revenue')}
       stroke="rgba(0, 0, 0, 0.4)"
-      tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: 11 }}
+      tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: 12 }}
+      axisLine={{ stroke: 'rgba(0, 0, 0, 0.1)' }}
+      domain={domainRanges.revenue}
       label={{
         value: 'Revenue (USD)',
         angle: -90,
@@ -1396,10 +1472,8 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         fill: 'rgba(0, 0, 0, 0.54)',
         fontSize: 12,
       }}
-      domain={['dataMin', 'dataMax']}
-      type="number"
     />
-  ), []);
+  ), [domainRanges.revenue]);
 
   const commonYAxisOrders = useMemo(() => (
     <YAxis
@@ -1407,19 +1481,19 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
       orientation="right"
       tickFormatter={(value) => formatYAxisTick(value, 'orders')}
       stroke="rgba(0, 0, 0, 0.4)"
-      tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: 11 }}
+      tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: 12 }}
+      axisLine={{ stroke: 'rgba(0, 0, 0, 0.1)' }}
+      domain={domainRanges.orders}
       label={{
-        value: 'Orders',
+        value: 'Orders / Conversion %',
         angle: 90,
         position: 'insideRight',
-        offset: 10,
+        offset: -10,
         fill: 'rgba(0, 0, 0, 0.54)',
         fontSize: 12,
       }}
-      domain={['dataMin', 'dataMax']}
-      type="number"
     />
-  ), []);
+  ), [domainRanges.orders]);
 
   const commonGrid = useMemo(() => (
     <CartesianGrid strokeDasharray="3 3" stroke="rgba(0, 0, 0, 0.06)" />
