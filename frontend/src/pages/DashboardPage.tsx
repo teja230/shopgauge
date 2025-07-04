@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Box, Typography, Card, CardContent, Alert, CircularProgress, Link as MuiLink, IconButton, Button, ToggleButtonGroup, ToggleButton } from '@mui/material';
 import { RevenueChart } from '../components/ui/RevenueChart';
-import UnifiedAnalyticsChart from '../components/ui/UnifiedAnalyticsChart';
+import PredictionViewContainer from '../components/ui/PredictionViewContainer';
 import useUnifiedAnalytics from '../hooks/useUnifiedAnalytics';
 import { MetricCard } from '../components/ui/MetricCard';
 import { fetchWithAuth, retryWithBackoff } from '../api';
@@ -2480,8 +2480,8 @@ const DashboardPage = () => {
                 return null;
               })()}
               
-              {/* Unified Analytics Chart handles errors internally like RevenueChart */}
-              <UnifiedAnalyticsChart
+              {/* Simplified Prediction View Container with individual metric charts */}
+              <PredictionViewContainer
                 data={unifiedAnalyticsData}
                 loading={unifiedAnalyticsLoading}
                 error={unifiedAnalyticsError}
