@@ -208,238 +208,141 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
   const stats = getViewStats();
 
   return (
-    <Card sx={{ 
-      height: '100%', 
+    <Box sx={{ 
+      width: '100%',
+      height: { xs: 350, sm: 400, md: height || 450 },
       display: 'flex', 
       flexDirection: 'column',
-      background: 'linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)',
+      backgroundColor: 'background.paper',
       border: `1px solid ${theme.palette.divider}`,
-      borderRadius: 3,
-      boxShadow: theme.shadows[6],
+      borderRadius: 2,
+      boxShadow: theme.shadows[2],
     }}>
-      {/* Enhanced Header */}
-      <CardContent sx={{ pb: 1 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Badge
-              badgeContent={<Psychology sx={{ fontSize: 14, color: theme.palette.secondary.contrastText }} />}
-              color="secondary"
-              anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-              sx={{
-                '& .MuiBadge-badge': {
-                  backgroundColor: theme.palette.secondary.main,
-                  animation: 'pulse 2s infinite',
-                  '@keyframes pulse': {
-                    '0%': { transform: 'scale(1)' },
-                    '50%': { transform: 'scale(1.1)' },
-                    '100%': { transform: 'scale(1)' },
-                  },
-                },
-              }}
-            >
-              <Typography variant="h5" component="h1" fontWeight={700} sx={{ 
-                background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-                backgroundClip: 'text',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1,
-              }}>
-                <Analytics />
-                Advanced Analytics
-              </Typography>
-            </Badge>
+      {/* Simplified Header */}
+      <Box sx={{ 
+        p: { xs: 2, sm: 3 },
+        borderBottom: `1px solid ${theme.palette.divider}`,
+        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+      }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Typography variant="h6" component="h2" fontWeight={700} sx={{ 
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              color: theme.palette.text.primary,
+            }}>
+              <Analytics color="primary" />
+              Advanced Analytics
+            </Typography>
             
             <Chip
               icon={<AutoAwesome />}
-              label="AI-Powered"
+              label="AI"
               color="secondary"
-              variant="outlined"
               size="small"
-              sx={{ 
-                fontWeight: 600,
-                borderWidth: 2,
-                '&:hover': {
-                  boxShadow: `0 0 10px ${theme.palette.secondary.main}40`,
-                },
-              }}
+              sx={{ fontWeight: 600 }}
             />
           </Box>
           
-          {/* Prediction Toggle */}
+          {/* Simplified Prediction Toggle */}
           <FormControlLabel
             control={
               <Switch
                 checked={showPredictions}
                 onChange={(e) => setShowPredictions(e.target.checked)}
                 color="secondary"
-                icon={<VisibilityOff />}
-                checkedIcon={<Visibility />}
+                size="small"
               />
             }
             label={
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <Insights fontSize="small" />
-                <Typography variant="body2" fontWeight={600}>
-                  {showPredictions ? 'Hide' : 'Show'} Predictions
-                </Typography>
-              </Box>
+              <Typography variant="body2" fontWeight={600}>
+                Predictions
+              </Typography>
             }
             labelPlacement="start"
-            sx={{ 
-              m: 0,
-              '& .MuiFormControlLabel-label': {
-                color: theme.palette.text.secondary,
-              },
-            }}
+            sx={{ m: 0 }}
           />
         </Box>
 
-        {/* Enhanced Stats Display */}
+        {/* Compact Stats Display */}
         {stats && (
-          <Fade in={true} timeout={800}>
-            <Box sx={{ 
-              display: 'grid', 
-              gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' },
-              gap: 2, 
-              mb: 3,
-            }}>
-              <Card variant="outlined" sx={{ p: 1.5, backgroundColor: 'rgba(37, 99, 235, 0.05)' }}>
-                <Typography variant="caption" color="text.secondary" fontWeight={600}>
-                  Current Period
-                </Typography>
-                <Typography variant="h6" fontWeight={700} color="primary">
-                  {stats.current}
-                </Typography>
-              </Card>
-              
-              {showPredictions && (
-                <Card variant="outlined" sx={{ p: 1.5, backgroundColor: 'rgba(139, 92, 246, 0.05)' }}>
-                  <Typography variant="caption" color="text.secondary" fontWeight={600}>
-                    AI Prediction
-                  </Typography>
-                  <Typography variant="h6" fontWeight={700} color="secondary">
-                    {stats.predicted}
-                  </Typography>
-                </Card>
-              )}
-              
-              <Card variant="outlined" sx={{ p: 1.5, backgroundColor: 'rgba(16, 185, 129, 0.05)' }}>
-                <Typography variant="caption" color="text.secondary" fontWeight={600}>
-                  Metric Type
-                </Typography>
-                <Typography variant="h6" fontWeight={700} color="success.main">
-                  {stats.metric}
-                </Typography>
-              </Card>
-              
-              {showPredictions && (
-                <Card variant="outlined" sx={{ p: 1.5, backgroundColor: 'rgba(245, 158, 11, 0.05)' }}>
-                  <Typography variant="caption" color="text.secondary" fontWeight={600}>
-                    Confidence
-                  </Typography>
-                  <Typography variant="h6" fontWeight={700} color="warning.main">
-                    85-92%
-                  </Typography>
-                </Card>
-              )}
-            </Box>
-          </Fade>
+          <Box sx={{ 
+            display: 'flex', 
+            gap: 2, 
+            mb: 2,
+            flexWrap: 'wrap',
+            alignItems: 'center',
+          }}>
+            <Typography variant="body2" color="text.secondary">
+              Current: <strong>{stats.current}</strong>
+            </Typography>
+            {showPredictions && (
+              <Typography variant="body2" color="text.secondary">
+                Predicted: <strong>{stats.predicted}</strong>
+              </Typography>
+            )}
+            <Typography variant="body2" color="text.secondary">
+              Metric: <strong>{stats.metric}</strong>
+            </Typography>
+          </Box>
         )}
 
-        <Divider sx={{ mb: 2, opacity: 0.6 }} />
-
-        {/* Enhanced View Toggle */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
-          <ToggleButtonGroup
-            value={activeView}
-            exclusive
-            onChange={handleViewChange}
-            size={isMobile ? 'medium' : 'large'}
-            sx={{
-              backgroundColor: 'rgba(255, 255, 255, 0.8)',
-              border: `2px solid ${theme.palette.divider}`,
-              borderRadius: 3,
-              boxShadow: theme.shadows[2],
-              '& .MuiToggleButton-root': {
-                border: 'none',
-                borderRadius: 2.5,
-                margin: 0.5,
-                px: isMobile ? 2 : 3,
-                py: 1,
-                textTransform: 'none',
-                fontWeight: 600,
-                fontSize: isMobile ? '0.875rem' : '1rem',
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        {/* Mobile-Optimized View Toggle */}
+        <ToggleButtonGroup
+          value={activeView}
+          exclusive
+          onChange={handleViewChange}
+          size={isMobile ? "medium" : "small"}
+          orientation={isMobile ? "vertical" : "horizontal"}
+          sx={{
+            width: isMobile ? '100%' : 'auto',
+            '& .MuiToggleButton-root': {
+              textTransform: 'none',
+              fontWeight: 600,
+              px: { xs: 2, sm: 2 },
+              py: { xs: 1, sm: 0.5 },
+              border: `1px solid ${theme.palette.divider}`,
+              minHeight: isMobile ? 48 : 'auto',
+              justifyContent: isMobile ? 'flex-start' : 'center',
+              '&.Mui-selected': {
+                backgroundColor: theme.palette.primary.main,
+                color: theme.palette.primary.contrastText,
                 '&:hover': {
-                  backgroundColor: 'rgba(37, 99, 235, 0.08)',
-                  transform: 'translateY(-1px)',
-                },
-                '&.Mui-selected': {
-                  backgroundColor: theme.palette.primary.main,
-                  color: theme.palette.primary.contrastText,
-                  boxShadow: `0 4px 12px ${theme.palette.primary.main}40`,
-                  '&:hover': {
-                    backgroundColor: theme.palette.primary.dark,
-                  },
+                  backgroundColor: theme.palette.primary.dark,
                 },
               },
-            }}
-          >
-            <ToggleButton value="revenue" aria-label="Revenue predictions">
-              <TrendingUp fontSize="small" sx={{ mr: 1 }} />
-              Revenue
-              {showPredictions && (
-                <AutoAwesome sx={{ ml: 1, fontSize: 16, opacity: 0.7 }} />
-              )}
-            </ToggleButton>
-            <ToggleButton value="orders" aria-label="Order predictions">
-              <ShoppingCart fontSize="small" sx={{ mr: 1 }} />
-              Orders
-              {showPredictions && (
-                <AutoAwesome sx={{ ml: 1, fontSize: 16, opacity: 0.7 }} />
-              )}
-            </ToggleButton>
-            <ToggleButton value="conversion" aria-label="Conversion predictions">
-              <Percent fontSize="small" sx={{ mr: 1 }} />
-              Conversion
-              {showPredictions && (
-                <AutoAwesome sx={{ ml: 1, fontSize: 16, opacity: 0.7 }} />
-              )}
-            </ToggleButton>
-          </ToggleButtonGroup>
-          
-          {showPredictions && (
-            <Slide direction="left" in={showPredictions} timeout={500}>
-              <Chip
-                icon={<Timeline />}
-                label="30-Day Forecast Active"
-                color="secondary"
-                variant="filled"
-                sx={{ 
-                  fontWeight: 600,
-                  animation: 'glow 3s ease-in-out infinite alternate',
-                  '@keyframes glow': {
-                    '0%': { boxShadow: `0 0 5px ${theme.palette.secondary.main}40` },
-                    '100%': { boxShadow: `0 0 15px ${theme.palette.secondary.main}60` },
-                  },
-                }}
-              />
-            </Slide>
-          )}
-        </Box>
-      </CardContent>
-
-      {/* Chart Content */}
-      <Box sx={{ flex: 1, p: 0, minHeight: 0 }}>
-        <Fade in={true} timeout={600} key={`${activeView}-${showPredictions}`}>
-          <Box sx={{ height: '100%' }}>
-            {renderCurrentView()}
-          </Box>
-        </Fade>
+            },
+          }}
+        >
+          <ToggleButton value="revenue" aria-label="Revenue predictions" sx={{ width: isMobile ? '100%' : 'auto' }}>
+            <TrendingUp fontSize="small" sx={{ mr: 0.5 }} />
+            Revenue
+            {showPredictions && <AutoAwesome sx={{ ml: 0.5, fontSize: 14 }} />}
+          </ToggleButton>
+          <ToggleButton value="orders" aria-label="Order predictions" sx={{ width: isMobile ? '100%' : 'auto' }}>
+            <ShoppingCart fontSize="small" sx={{ mr: 0.5 }} />
+            Orders
+            {showPredictions && <AutoAwesome sx={{ ml: 0.5, fontSize: 14 }} />}
+          </ToggleButton>
+          <ToggleButton value="conversion" aria-label="Conversion predictions" sx={{ width: isMobile ? '100%' : 'auto' }}>
+            <Percent fontSize="small" sx={{ mr: 0.5 }} />
+            Conversion
+            {showPredictions && <AutoAwesome sx={{ ml: 0.5, fontSize: 14 }} />}
+          </ToggleButton>
+        </ToggleButtonGroup>
       </Box>
-    </Card>
+
+      {/* Chart Content - Fixed Height */}
+      <Box sx={{ 
+        flex: 1,
+        minHeight: 0,
+        position: 'relative',
+        overflow: 'hidden',
+      }}>
+        {renderCurrentView()}
+      </Box>
+    </Box>
   );
 };
 

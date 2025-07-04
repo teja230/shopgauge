@@ -356,90 +356,76 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
   };
 
   return (
-    <Card sx={{ 
+    <Box sx={{ 
+      width: '100%',
       height: '100%',
-      boxShadow: theme.shadows[4],
-      borderRadius: 3,
-      border: `1px solid ${theme.palette.divider}`,
-      background: 'linear-gradient(145deg, #ffffff 0%, #f0f9ff 100%)',
+      display: 'flex',
+      flexDirection: 'column',
+      p: 2,
     }}>
-      <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-        {/* Header */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Badge
-              badgeContent={<AutoAwesome sx={{ fontSize: 12 }} />}
-              color="secondary"
-              anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-            >
-              <Typography variant="h6" component="h2" fontWeight={700}>
-                Order Predictions
-              </Typography>
-            </Badge>
-          </Box>
-          
-          {stats && (
-            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-              <Chip
-                label={`${stats.growthRate >= 0 ? '+' : ''}${stats.growthRate.toFixed(1)}%`}
-                color={stats.growthRate >= 0 ? 'success' : 'error'}
-                size="small"
-                icon={stats.growthRate >= 0 ? <TrendingUp /> : <TrendingDown />}
-                sx={{ fontWeight: 600 }}
-              />
-              <Chip
-                label={`${formatNumber(stats.predictedOrders)} predicted`}
-                variant="outlined"
-                color="success"
-                size="small"
-                icon={<ShoppingCart />}
-                sx={{ fontWeight: 600 }}
-              />
-            </Box>
-          )}
-        </Box>
-
+      {/* Simplified Header */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="h6" component="h2" fontWeight={600} sx={{ 
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+        }}>
+          <AutoAwesome color="secondary" fontSize="small" />
+          Order Predictions
+        </Typography>
+        
         {/* Chart Type Toggle */}
-        <Box sx={{ mb: 2 }}>
-          <ToggleButtonGroup
-            value={chartType}
-            exclusive
-            onChange={(_, value) => value && setChartType(value)}
-            size="small"
-            sx={{
-              '& .MuiToggleButton-root': {
-                border: `1px solid ${theme.palette.divider}`,
-                borderRadius: 2,
-                px: isMobile ? 1 : 2,
-                py: 0.5,
-                minWidth: isMobile ? 'auto' : 80,
-                '&.Mui-selected': {
-                  backgroundColor: theme.palette.success.main,
-                  color: theme.palette.success.contrastText,
-                  '&:hover': {
-                    backgroundColor: theme.palette.success.dark,
-                  },
-                },
+        <ToggleButtonGroup
+          value={chartType}
+          exclusive
+          onChange={(_, value) => value && setChartType(value)}
+          size="small"
+          sx={{
+            '& .MuiToggleButton-root': {
+              px: 1,
+              py: 0.5,
+              minWidth: 'auto',
+              '&.Mui-selected': {
+                backgroundColor: theme.palette.success.main,
+                color: theme.palette.success.contrastText,
               },
-            }}
-          >
-            {Object.entries(chartTypeConfig).map(([type, config]) => (
-              <ToggleButton key={type} value={type} aria-label={config.label}>
-                {config.icon}
-                {!isMobile && <Typography variant="caption" sx={{ ml: 0.5 }}>{config.label}</Typography>}
-              </ToggleButton>
-            ))}
-          </ToggleButtonGroup>
-        </Box>
+            },
+          }}
+        >
+          {Object.entries(chartTypeConfig).map(([type, config]) => (
+            <ToggleButton key={type} value={type} aria-label={config.label}>
+              {config.icon}
+            </ToggleButton>
+          ))}
+        </ToggleButtonGroup>
+      </Box>
 
-        {/* Chart */}
-        <Box sx={{ flex: 1, minHeight: 0 }}>
-          <ResponsiveContainer width="100%" height="100%">
-            {renderChart()}
-          </ResponsiveContainer>
+      {/* Stats Row */}
+      {stats && (
+        <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+          <Chip
+            label={`${stats.growthRate >= 0 ? '+' : ''}${stats.growthRate.toFixed(1)}%`}
+            color={stats.growthRate >= 0 ? 'success' : 'error'}
+            size="small"
+            icon={stats.growthRate >= 0 ? <TrendingUp /> : <TrendingDown />}
+          />
+          <Chip
+            label={`${formatNumber(stats.predictedOrders)} predicted`}
+            variant="outlined"
+            color="success"
+            size="small"
+            icon={<ShoppingCart />}
+          />
         </Box>
-      </CardContent>
-    </Card>
+      )}
+
+      {/* Chart */}
+      <Box sx={{ flex: 1, minHeight: 0, width: '100%' }}>
+        <ResponsiveContainer width="100%" height="100%">
+          {renderChart()}
+        </ResponsiveContainer>
+      </Box>
+    </Box>
   );
 };
 
