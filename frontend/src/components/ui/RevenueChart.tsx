@@ -116,6 +116,11 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
   // Responsive helper
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
+  
+  // Mobile-optimized dimensions
+  const mobileHeight = Math.min(height * 0.8, 350); // Reduce height by 20% on mobile, cap at 350px
+  const responsiveHeight = isMobile ? mobileHeight : height;
 
   const chartTypeConfig = {
     line: {
@@ -233,9 +238,13 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
 
   const renderChart = () => {
     try {
+      // Mobile-optimized margins
+      const mobileMargins = { top: 10, right: 10, left: 10, bottom: 30 };
+      const desktopMargins = { top: 20, right: 30, left: 20, bottom: 20 };
+      
       const commonProps = {
         data: processedData,
-        margin: { top: 20, right: 30, left: 20, bottom: 20 },
+        margin: isMobile ? mobileMargins : desktopMargins,
       };
 
       const commonXAxis = (
@@ -243,15 +252,19 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
           dataKey="created_at"
           tickFormatter={formatXAxisTick}
           stroke="rgba(0, 0, 0, 0.4)"
-          tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: 12 }}
+          tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: isMobile ? 10 : 12 }}
           axisLine={{ stroke: 'rgba(0, 0, 0, 0.1)' }}
-          label={{
+          interval={isMobile ? 'preserveStartEnd' : 0}
+          angle={isMobile ? -45 : 0}
+          textAnchor={isMobile ? 'end' : 'middle'}
+          height={isMobile ? 50 : 30}
+          label={!isMobile ? {
             value: 'Date',
             position: 'insideBottomRight',
             offset: -6,
             fill: 'rgba(0, 0, 0, 0.54)',
             fontSize: 12,
-          }}
+          } : undefined}
         />
       );
 
@@ -259,16 +272,17 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
         <YAxis
           tickFormatter={formatYAxisTick}
           stroke="rgba(0, 0, 0, 0.4)"
-          tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: 12 }}
+          tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: isMobile ? 10 : 12 }}
           axisLine={{ stroke: 'rgba(0, 0, 0, 0.1)' }}
-          label={{
+          width={isMobile ? 50 : 60}
+          label={!isMobile ? {
             value: 'Revenue (USD)',
             angle: -90,
             position: 'insideLeft',
             offset: -10,
             fill: 'rgba(0, 0, 0, 0.54)',
             fontSize: 12,
-          }}
+          } : undefined}
         />
       );
 
@@ -549,27 +563,30 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
     >
       {/* Header with Dashboard Theme */}
       <Box sx={{ 
-        mb: theme.spacing(2),
+        mb: theme.spacing(isMobile ? 1 : 2),
       }}>
         <Box sx={{ 
           display: 'flex', 
+          flexDirection: isMobile ? 'column' : 'row',
           justifyContent: 'space-between', 
-          alignItems: 'center', 
-          mb: theme.spacing(2) 
+          alignItems: isMobile ? 'stretch' : 'center', 
+          mb: theme.spacing(isMobile ? 1 : 2),
+          gap: theme.spacing(isMobile ? 1 : 0),
         }}>
           <Typography 
             variant="h6" 
             component="h3" 
             sx={{
-              fontSize: '1.1rem',
+              fontSize: isMobile ? '1rem' : '1.1rem',
               fontWeight: 600,
               color: theme.palette.text.primary,
               display: 'flex',
               alignItems: 'center',
               gap: theme.spacing(1),
+              mb: isMobile ? 1 : 0,
             }}
           >
-            <TrendingUp color="primary" />
+            <TrendingUp color="primary" sx={{ fontSize: isMobile ? 18 : 20 }} />
             Revenue Chart
           </Typography>
           
@@ -583,14 +600,16 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
               backgroundColor: theme.palette.background.default,
               borderRadius: theme.shape.borderRadius,
               border: `1px solid ${theme.palette.divider}`,
+              overflowX: isMobile ? 'auto' : 'visible',
               '& .MuiToggleButton-root': {
                 textTransform: 'none',
                 fontWeight: 600,
-                px: theme.spacing(1.5),
+                px: theme.spacing(isMobile ? 1 : 1.5),
                 py: theme.spacing(0.5),
                 border: 'none',
                 color: theme.palette.text.secondary,
-                minWidth: 'auto',
+                minWidth: isMobile ? 'auto' : 'auto',
+                fontSize: isMobile ? '0.75rem' : '0.875rem',
                 '&.Mui-selected': {
                   backgroundColor: theme.palette.primary.main,
                   color: theme.palette.primary.contrastText,
@@ -638,34 +657,49 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
         {/* Stats Row */}
         <Box sx={{ 
           display: 'flex', 
-          gap: theme.spacing(1), 
+          gap: theme.spacing(isMobile ? 0.5 : 1), 
           flexWrap: 'wrap',
           alignItems: 'center',
-          p: theme.spacing(1.5),
+          p: theme.spacing(isMobile ? 1 : 1.5),
           backgroundColor: theme.palette.background.default,
           borderRadius: theme.shape.borderRadius,
         }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <Typography variant="body2" color="text.secondary">
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 0.5,
+            minWidth: isMobile ? 'auto' : 'fit-content',
+          }}>
+            <Typography variant="body2" color="text.secondary" sx={{ fontSize: isMobile ? '0.75rem' : '0.875rem' }}>
               Total:
             </Typography>
-            <Typography variant="body2" fontWeight={600} color="text.primary">
+            <Typography variant="body2" fontWeight={600} color="text.primary" sx={{ fontSize: isMobile ? '0.75rem' : '0.875rem' }}>
               {formatYAxisTick(totalRevenue)}
             </Typography>
           </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <Typography variant="body2" color="text.secondary">
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 0.5,
+            minWidth: isMobile ? 'auto' : 'fit-content',
+          }}>
+            <Typography variant="body2" color="text.secondary" sx={{ fontSize: isMobile ? '0.75rem' : '0.875rem' }}>
               Average:
             </Typography>
-            <Typography variant="body2" fontWeight={600} color="text.primary">
+            <Typography variant="body2" fontWeight={600} color="text.primary" sx={{ fontSize: isMobile ? '0.75rem' : '0.875rem' }}>
               {formatYAxisTick(averageRevenue)}
             </Typography>
           </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <Typography variant="body2" color="text.secondary">
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 0.5,
+            minWidth: isMobile ? 'auto' : 'fit-content',
+          }}>
+            <Typography variant="body2" color="text.secondary" sx={{ fontSize: isMobile ? '0.75rem' : '0.875rem' }}>
               Data Points:
             </Typography>
-            <Typography variant="body2" fontWeight={600} color="text.primary">
+            <Typography variant="body2" fontWeight={600} color="text.primary" sx={{ fontSize: isMobile ? '0.75rem' : '0.875rem' }}>
               {sanitizedData.length}
             </Typography>
           </Box>
@@ -675,10 +709,10 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
       {/* Chart with proper margins */}
       <Box sx={{ 
         flex: 1,
-        minHeight: height - 140, // Account for header height
+        minHeight: responsiveHeight - (isMobile ? 100 : 140), // Account for header height, less on mobile
       }}>
         {containerReady && (
-          <ResponsiveContainer width="100%" height={height - 140}>
+          <ResponsiveContainer width="100%" height={responsiveHeight - (isMobile ? 100 : 140)}>
             {renderChart()}
           </ResponsiveContainer>
         )}

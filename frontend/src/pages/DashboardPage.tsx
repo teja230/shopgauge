@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Box, Typography, Card, CardContent, Alert, CircularProgress, Link as MuiLink, IconButton, Button, ToggleButtonGroup, ToggleButton } from '@mui/material';
+import { Box, Typography, Card, CardContent, Alert, CircularProgress, Link as MuiLink, IconButton, Button, ToggleButtonGroup, ToggleButton, useMediaQuery, useTheme } from '@mui/material';
 import { RevenueChart } from '../components/ui/RevenueChart';
 import PredictionViewContainer from '../components/ui/PredictionViewContainer';
 import useUnifiedAnalytics from '../hooks/useUnifiedAnalytics';
@@ -684,6 +684,11 @@ const DashboardPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const notifications = useNotifications();
+  
+  // Mobile detection
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  
   const [insights, setInsights] = useState<DashboardInsight>(defaultInsights);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -2472,7 +2477,7 @@ const DashboardPage = () => {
           {/* Chart Container with smooth transitions */}
           <Box sx={{ 
             position: 'relative',
-            minHeight: 490,
+            minHeight: { xs: 380, sm: 490 }, // Reduced height on mobile
             transition: 'all 0.3s ease-in-out',
             '& > *': {
               transition: 'opacity 0.3s ease-in-out, transform 0.3s ease-in-out',
@@ -2576,7 +2581,7 @@ const DashboardPage = () => {
                 data={unifiedAnalyticsData}
                 loading={unifiedAnalyticsLoading}
                 error={unifiedAnalyticsError}
-                height={450}
+                height={isMobile ? 360 : 450} // Responsive height
                 predictionDays={predictionDays}
                 onPredictionDaysChange={handlePredictionDaysChange}
               />
@@ -2591,7 +2596,7 @@ const DashboardPage = () => {
               }}
             >
               {/* Revenue Chart Section */}
-              <StyledCard sx={{ height: 490 }}>
+              <StyledCard sx={{ height: isMobile ? 400 : 490 }}>
                 <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                   {/* Only render RevenueChart when we have initialized the dashboard */}
                   {dashboardDataInitialized || stableTimeseriesData.length > 0 ? (
@@ -2600,7 +2605,7 @@ const DashboardPage = () => {
                         data={stableTimeseriesData}
                         loading={cardLoading.revenue}
                         error={cardErrors.revenue}
-                        height={450} // Match PredictionViewContainer height for smooth transitions
+                        height={isMobile ? 360 : 450} // Responsive height to match PredictionViewContainer
                       />
                     </Box>
                   ) : (
@@ -2625,34 +2630,41 @@ const DashboardPage = () => {
           </Box>
 
           {/* Move Chart Mode Toggle BELOW charts */}
-          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+          <Box sx={{ 
+            display: 'flex', 
+            justifyContent: 'center', 
+            mt: 3,
+            px: isMobile ? 2 : 0, // Add padding on mobile
+          }}>
             <ToggleButtonGroup
               value={chartMode}
               exclusive
               onChange={handleChartModeChange}
-              size="large"
+              size={isMobile ? "medium" : "large"}
+              orientation={isMobile ? "vertical" : "horizontal"}
               sx={{
                 backgroundColor: 'white',
                 border: '2px solid rgba(37, 99, 235, 0.2)',
                 borderRadius: 3,
                 boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                width: isMobile ? '100%' : 'auto',
                 '& .MuiToggleButton-root': {
-                  px: 4,
-                  py: 1.5,
-                  fontSize: '1rem',
+                  px: isMobile ? 2 : 4,
+                  py: isMobile ? 1 : 1.5,
+                  fontSize: isMobile ? '0.875rem' : '1rem',
                   fontWeight: 600,
                   textTransform: 'none',
                   border: 'none',
                   borderRadius: 2.5,
                   margin: 0.5,
-                  minWidth: 180,
+                  minWidth: isMobile ? 'auto' : 180,
                   color: 'text.secondary',
                   backgroundColor: 'transparent',
                   transition: 'all 0.3s ease',
                   '&:hover': {
                     backgroundColor: 'rgba(37, 99, 235, 0.08)',
                     color: 'primary.main',
-                    transform: 'translateY(-1px)',
+                    transform: isMobile ? 'none' : 'translateY(-1px)',
                   },
                   '&.Mui-selected': {
                     backgroundColor: 'primary.main',
@@ -2660,7 +2672,7 @@ const DashboardPage = () => {
                     boxShadow: '0 2px 8px rgba(37, 99, 235, 0.3)',
                     '&:hover': {
                       backgroundColor: 'primary.dark',
-                      transform: 'translateY(-1px)',
+                      transform: isMobile ? 'none' : 'translateY(-1px)',
                     },
                   },
                 },

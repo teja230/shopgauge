@@ -75,6 +75,12 @@ const ChartContainer = styled(Box)(({ theme }) => ({
   height: 450,
   padding: theme.spacing(1),
   backgroundColor: theme.palette.background.paper,
+  // Mobile optimizations
+  [theme.breakpoints.down('sm')]: {
+    minHeight: 320, // Reduced height for mobile
+    height: 320,
+    padding: theme.spacing(0.5),
+  },
 }));
 
 interface UnifiedAnalyticsData {
@@ -127,6 +133,11 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
   const [showPredictions, setShowPredictions] = useState(true);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
+  
+  // Mobile-optimized dimensions
+  const mobileHeight = Math.min(height * 0.8, 400); // Reduce height by 20% on mobile, cap at 400px
+  const responsiveHeight = isMobile ? mobileHeight : height;
 
   // Enhanced debugging for data structure
   React.useEffect(() => {
@@ -751,9 +762,9 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
           <Box sx={{ 
             display: 'flex', 
             flexWrap: 'wrap',
-            gap: 2, 
-            mb: 3,
-            p: 2,
+            gap: isMobile ? 1 : 2, 
+            mb: isMobile ? 2 : 3,
+            p: isMobile ? 1 : 2,
             backgroundColor: theme.palette.background.default,
             borderRadius: theme.shape.borderRadius,
             border: `1px solid ${theme.palette.divider}`,
@@ -762,17 +773,17 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
               display: 'flex', 
               flexDirection: 'column',
               alignItems: 'center',
-              p: 1.5,
+              p: isMobile ? 1 : 1.5,
               borderRadius: theme.shape.borderRadius,
               backgroundColor: theme.palette.background.paper,
               border: `1px solid ${theme.palette.divider}`,
-              minWidth: 120,
+              minWidth: isMobile ? 80 : 120,
               flex: 1,
             }}>
-              <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, fontSize: isMobile ? '0.7rem' : '0.75rem' }}>
                 Current {stats.metric}
               </Typography>
-              <Typography variant="h6" fontWeight={700} color="text.primary">
+              <Typography variant="h6" fontWeight={700} color="text.primary" sx={{ fontSize: isMobile ? '0.9rem' : '1.25rem' }}>
                 {stats.current}
               </Typography>
             </Box>
@@ -781,11 +792,11 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
                 display: 'flex', 
                 flexDirection: 'column',
                 alignItems: 'center',
-                p: 1.5,
+                p: isMobile ? 1 : 1.5,
                 borderRadius: theme.shape.borderRadius,
                 backgroundColor: theme.palette.background.paper,
                 border: `1px solid ${theme.palette.secondary.main}40`,
-                minWidth: 120,
+                minWidth: isMobile ? 80 : 120,
                 flex: 1,
                 position: 'relative',
                 '&::before': {
@@ -794,18 +805,18 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
                   top: 0,
                   left: 0,
                   right: 0,
-                  height: 3,
+                  height: isMobile ? 2 : 3,
                   background: theme.palette.secondary.main,
                   borderRadius: `${theme.shape.borderRadius}px ${theme.shape.borderRadius}px 0 0`,
                 },
               }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                  <AutoAwesome sx={{ fontSize: 12, color: theme.palette.secondary.main }} />
-                  <Typography variant="caption" color="text.secondary">
+                  <AutoAwesome sx={{ fontSize: isMobile ? 10 : 12, color: theme.palette.secondary.main }} />
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: isMobile ? '0.7rem' : '0.75rem' }}>
                     Forecast {stats.metric}
                   </Typography>
                 </Box>
-                <Typography variant="h6" fontWeight={700} color="secondary.main">
+                <Typography variant="h6" fontWeight={700} color="secondary.main" sx={{ fontSize: isMobile ? '0.9rem' : '1.25rem' }}>
                   {stats.predicted}
                 </Typography>
               </Box>
@@ -814,17 +825,17 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
               display: 'flex', 
               flexDirection: 'column',
               alignItems: 'center',
-              p: 1.5,
+              p: isMobile ? 1 : 1.5,
               borderRadius: theme.shape.borderRadius,
               backgroundColor: theme.palette.background.paper,
               border: `1px solid ${theme.palette.divider}`,
-              minWidth: 120,
+              minWidth: isMobile ? 80 : 120,
               flex: 1,
             }}>
-              <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, fontSize: isMobile ? '0.7rem' : '0.75rem' }}>
                 Active Metric
               </Typography>
-              <Typography variant="h6" fontWeight={700} color="primary.main">
+              <Typography variant="h6" fontWeight={700} color="primary.main" sx={{ fontSize: isMobile ? '0.9rem' : '1.25rem' }}>
                 {stats.metric}
               </Typography>
             </Box>
