@@ -42,6 +42,8 @@ export const useSessionLimit = (): UseSessionLimitReturn => {
   const checkSessionLimit = useCallback(async (): Promise<SessionLimitResponse | null> => {
     setLoading(true);
     try {
+      console.log('🔍 useSessionLimit: Checking session limit at /api/sessions/limit-check');
+      
       const response = await fetch('/api/sessions/limit-check', {
         method: 'GET',
         credentials: 'include',
@@ -50,8 +52,11 @@ export const useSessionLimit = (): UseSessionLimitReturn => {
         },
       });
 
+      console.log('🔍 useSessionLimit: Response status:', response.status);
+
       if (response.ok) {
         const data: SessionLimitResponse = await response.json();
+        console.log('✅ useSessionLimit: Session limit check successful:', data);
         setSessionLimitData(data);
         
         // Automatically show dialog if limit is reached
@@ -60,13 +65,51 @@ export const useSessionLimit = (): UseSessionLimitReturn => {
         }
         
         return data;
+      } else if (response.status === 404) {
+        console.error('❌ useSessionLimit: 404 Not Found - Session limit endpoint not available');
+        console.error('❌ This might indicate:', {
+          possibleCauses: [
+            'Backend controller not properly registered',
+            'API routing issue',
+            'Session endpoint not accessible',
+            'Authentication timing issue'
+          ]
+        });
+        return null;
+      } else if (response.status === 401) {
+        console.error('❌ useSessionLimit: 401 Unauthorized - User not authenticated');
+        console.error('❌ This might indicate:', {
+          possibleCauses: [
+            'No shop cookie present',
+            'Session expired',
+            'Authentication not completed',
+            'Cookie not being sent with request'
+          ]
+        });
+        return null;
       } else {
-        console.error('Failed to check session limit:', response.status);
+        console.error('❌ useSessionLimit: Failed to check session limit:', response.status);
+        const errorText = await response.text().catch(() => 'Unknown error');
+        console.error('❌ Error details:', errorText);
         return null;
       }
     } catch (error) {
-      console.error('Error checking session limit:', error);
-      toast.error('Failed to check session limit');
+      console.error('❌ useSessionLimit: Network error checking session limit:', error);
+      console.error('❌ This might indicate:', {
+        possibleCauses: [
+          'Network connectivity issue',
+          'Backend server not responding',
+          'CORS issue',
+          'Request timeout'
+        ]
+      });
+      
+      // Only show toast error if it's not a network connectivity issue
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        console.error('❌ Network fetch error - not showing toast to avoid user confusion');
+      } else {
+        toast.error('Failed to check session limit');
+      }
       return null;
     } finally {
       setLoading(false);

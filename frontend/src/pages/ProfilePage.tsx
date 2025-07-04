@@ -111,6 +111,17 @@ export default function ProfilePage() {
     openSessionDialog,
   } = useSessionLimit();
 
+  // FIXED: Initialize session limit check when component mounts and user is authenticated
+  useEffect(() => {
+    if (shop && !sessionLimitData) {
+      console.log('🔧 ProfilePage: Checking session limits for authenticated user');
+      checkSessionLimit().catch(error => {
+        console.error('❌ ProfilePage: Failed to check session limits:', error);
+        // Don't show error toast here as it might be due to authentication not being ready
+      });
+    }
+  }, [shop, sessionLimitData, checkSessionLimit]);
+
   // Save current store to past stores when shop changes
   useEffect(() => {
     if (shop) {

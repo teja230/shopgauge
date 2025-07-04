@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster, toast } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -85,6 +85,9 @@ const AppContent: React.FC = () => {
     canProceedWithLogin,
   } = useSessionLimit();
   
+  // Track session initialization to prevent repeated calls
+  const [sessionInitialized, setSessionInitialized] = useState(false);
+  
   // Escalating loader: render the branded IntelligentLoadingScreen only
   // if the critical boot-up takes longer than a short threshold.
   const MIN_BRAND_LOADER_TIME = 400; // ms – tweak if needed
@@ -101,7 +104,8 @@ const AppContent: React.FC = () => {
     hash: window.location.hash,
     isAuthenticated,
     authLoading,
-    loading
+    loading,
+    sessionInitialized
   });
 
   // Set up global service error handler
@@ -109,10 +113,10 @@ const AppContent: React.FC = () => {
     setGlobalServiceErrorHandler(handleServiceError);
   }, [handleServiceError]);
 
-  // Initialize session management for authenticated users
+  // Initialize session management for authenticated users - FIXED: Only run once per authentication
   useEffect(() => {
-    if (isAuthenticated && !authLoading) {
-      console.log('🔧 Initializing session management for authenticated user');
+    if (isAuthenticated && !authLoading && !sessionInitialized) {
+      console.log('🔧 Initializing session management for authenticated user (one-time)');
       
       // Set up session invalidation callback
       sessionManager.setSessionInvalidatedCallback(() => {
@@ -127,19 +131,28 @@ const AppContent: React.FC = () => {
         sessionManager.startHeartbeat();
       }
 
-      // Check session limit for authenticated users
-      checkSessionLimit();
+      // Check session limit for authenticated users - ONLY ONCE on login
+      checkSessionLimit().then(() => {
+        console.log('📊 Initial session limit check completed');
+      }).catch(error => {
+        console.error('❌ Initial session limit check failed:', error);
+      });
 
       // Log session status for debugging
       const sessionStatus = getSessionStatus();
       console.log('📊 Session status:', sessionStatus);
       
+      // Mark session as initialized
+      setSessionInitialized(true);
+      
     } else if (!isAuthenticated && sessionManager.isHeartbeatActive()) {
       console.log('🛑 User not authenticated - stopping session heartbeat');
       sessionManager.stopHeartbeat();
       sessionManager.clearSessionInfo();
+      // Reset session initialization flag
+      setSessionInitialized(false);
     }
-  }, [isAuthenticated, authLoading, checkSessionLimit]);
+  }, [isAuthenticated, authLoading, sessionInitialized]); // FIXED: Removed checkSessionLimit from dependencies
 
   // Show global loading state during initial load or auth loading
   if (loading || authLoading) {
