@@ -153,7 +153,9 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
   const transformedData = useMemo(() => {
     console.log('🔄 PredictionViewContainer: Starting data transformation', {
       hasData: !!data,
-      showPredictions
+      showPredictions,
+      predictionDays,
+      note: 'Filtering pre-computed predictions for instant response'
     });
 
     if (!data) {
@@ -163,11 +165,16 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
 
     // Simplified validation - just check if arrays exist
     const historicalData = Array.isArray(data.historical) ? data.historical : [];
-    const predictionData = showPredictions && Array.isArray(data.predictions) ? data.predictions : [];
+    
+    // Filter predictions based on selected days (instead of recomputing)
+    const allPredictions = showPredictions && Array.isArray(data.predictions) ? data.predictions : [];
+    const filteredPredictions = showPredictions ? allPredictions.slice(0, predictionDays) : [];
     
     console.log('🔄 PredictionViewContainer: Processing data arrays', {
       historicalLength: historicalData.length,
-      predictionLength: predictionData.length,
+      allPredictionsLength: allPredictions.length,
+      filteredPredictionsLength: filteredPredictions.length,
+      predictionDays,
       showPredictions
     });
 
@@ -181,7 +188,7 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
         !isNaN(item.orders_count);
     });
 
-    const validPredictionData = predictionData.filter(item => {
+    const validPredictionData = filteredPredictions.filter(item => {
       return item && 
         item.date && 
         typeof item.revenue === 'number' && 
@@ -194,7 +201,7 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
       validHistoricalLength: validHistoricalData.length,
       validPredictionLength: validPredictionData.length,
       historicalFiltered: historicalData.length - validHistoricalData.length,
-      predictionFiltered: predictionData.length - validPredictionData.length
+      predictionFiltered: filteredPredictions.length - validPredictionData.length
     });
 
     // Combine and sort data
@@ -234,11 +241,12 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
       revenuePoints: revenue.length,
       ordersPoints: orders.length,
       conversionPoints: conversion.length,
-      combinedDataLength: combinedData.length
+      combinedDataLength: combinedData.length,
+      predictionDaysUsed: predictionDays
     });
 
     return { revenue, orders, conversion };
-  }, [data, showPredictions]);
+  }, [data, showPredictions, predictionDays]);
 
   const handleViewChange = (
     event: React.MouseEvent<HTMLElement>,

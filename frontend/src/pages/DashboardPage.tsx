@@ -776,7 +776,7 @@ const DashboardPage = () => {
     dashboardRevenueData: stableTimeseriesData, // Use stable reference
     dashboardOrdersData: stableTimeseriesData, // Use stable reference
     realConversionRate: insights?.conversionRate, // Pass real conversion rate from dashboard
-    predictionDays: predictionDays, // Use configurable prediction days
+    // Note: Always computes 60 days max, filtering done in PredictionViewContainer
   });
 
   // Clear unified analytics storage when shop changes (following dashboard pattern)
@@ -789,14 +789,11 @@ const DashboardPage = () => {
 
   // Handler for prediction days changes
   const handlePredictionDaysChange = useCallback((newDays: number) => {
-    console.log(`🔄 Prediction days changing from ${predictionDays} to ${newDays}`);
+    console.log(`🔄 Prediction days changing from ${predictionDays} to ${newDays} (instant filtering)`);
     setPredictionDays(newDays);
     
-    // Force recompute unified analytics with new prediction days
-    setTimeout(() => {
-      forceComputeUnifiedAnalytics();
-    }, 100);
-  }, [predictionDays, forceComputeUnifiedAnalytics]);
+    // No recomputation needed - PredictionViewContainer will filter the pre-computed data instantly
+  }, [predictionDays]);
 
   // Simplified chart mode toggle handler
   const handleChartModeChange = useCallback((event: React.MouseEvent<HTMLElement>, newMode: 'unified' | 'classic' | null) => {

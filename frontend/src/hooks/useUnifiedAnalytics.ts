@@ -60,8 +60,7 @@ interface UseUnifiedAnalyticsOptions {
   dashboardOrdersData?: any[];
   // Real conversion rate from dashboard
   realConversionRate?: number;
-  // Configurable prediction days (7, 30, 60)
-  predictionDays?: number;
+  // Note: Always computes max 60 days of predictions, filtering done in UI
 }
 
 interface UseUnifiedAnalyticsReturn {
@@ -96,7 +95,6 @@ const useUnifiedAnalytics = (
     dashboardRevenueData = [],
     dashboardOrdersData = [],
     realConversionRate,
-    predictionDays = 30,
   } = options;
 
   const [data, setData] = useState<UnifiedAnalyticsData | null>(null);
@@ -249,7 +247,7 @@ const useUnifiedAnalytics = (
     revenueData: any[], 
     ordersData: any[], 
     realConversionRate?: number,
-    predictionDays: number = 30
+    maxPredictionDays: number = 60 // Always compute max, filter later
   ): UnifiedAnalyticsData => {
     debugLog.info('🔄 UNIFIED_ANALYTICS: Starting enhanced data conversion', {
       revenueDataLength: revenueData?.length || 0,
@@ -257,7 +255,8 @@ const useUnifiedAnalytics = (
       revenueDataType: Array.isArray(revenueData) ? 'array' : typeof revenueData,
       ordersDataType: Array.isArray(ordersData) ? 'array' : typeof ordersData,
       realConversionRate,
-      predictionDays
+      maxPredictionDays: maxPredictionDays,
+      note: 'Computing max predictions for instant filtering'
     }, 'useUnifiedAnalytics');
 
     // Use empty arrays as fallbacks
@@ -420,7 +419,7 @@ const useUnifiedAnalytics = (
     if (includePredictions && historical.length > 0) {
       debugLog.info('🔄 UNIFIED_ANALYTICS: Generating enhanced predictions', {
         historicalDataPoints: historical.length,
-        predictionDays
+        maxPredictionDays
       }, 'useUnifiedAnalytics');
       
       // Use more data points for better predictions
@@ -433,13 +432,13 @@ const useUnifiedAnalytics = (
         
         const lastDate = new Date(historical[historical.length - 1].date);
         
-        for (let i = 1; i <= predictionDays; i++) {
+        for (let i = 1; i <= maxPredictionDays; i++) {
           const predictionDate = new Date(lastDate);
           predictionDate.setDate(lastDate.getDate() + i);
           
           // Add realistic variation to predictions (seasonal, trend-based)
           const trendFactor = 1 + (Math.random() - 0.5) * 0.4; // ±20% variation
-          const seasonalFactor = 1 + Math.sin((i / predictionDays) * Math.PI) * 0.1; // Small seasonal effect
+          const seasonalFactor = 1 + Math.sin((i / maxPredictionDays) * Math.PI) * 0.1; // Small seasonal effect
           const combinedFactor = trendFactor * seasonalFactor;
           
           const predictedRevenue = Math.max(0, avgRevenue * combinedFactor);
@@ -489,7 +488,7 @@ const useUnifiedAnalytics = (
     }, 'useUnifiedAnalytics');
 
     return result;
-  }, [days, includePredictions, realConversionRate, predictionDays]);
+  }, [days, includePredictions, realConversionRate]);
 
   // Simple session storage key for unified analytics
   const getUnifiedAnalyticsStorageKey = useCallback((shopName: string) => {
@@ -711,7 +710,7 @@ const useUnifiedAnalytics = (
               revenueDataLength: dashboardRevenueData.length,
               ordersDataLength: dashboardOrdersData.length
             }, 'useUnifiedAnalytics');
-            const unifiedData = convertDashboardDataToUnified(dashboardRevenueData, dashboardOrdersData, realConversionRate, predictionDays);
+            const unifiedData = convertDashboardDataToUnified(dashboardRevenueData, dashboardOrdersData, realConversionRate);
             
             // Update tracking
             lastProcessedDataRef.current = {
@@ -815,7 +814,7 @@ const useUnifiedAnalytics = (
 
     activeFetchRef.current = fetchPromise;
     return fetchPromise;
-  }, [days, includePredictions, shop, loadFromCache, saveToCache, useDashboardData, dashboardRevenueData, dashboardOrdersData, convertDashboardDataToUnified, data, realConversionRate, predictionDays]);
+  }, [days, includePredictions, shop, loadFromCache, saveToCache, useDashboardData, dashboardRevenueData, dashboardOrdersData, convertDashboardDataToUnified, data, realConversionRate]);
 
   const refetch = useCallback(async () => {
     try {
@@ -835,8 +834,7 @@ const useUnifiedAnalytics = (
           const updated = convertDashboardDataToUnified(
             dashboardRevenueData,
             dashboardOrdersData,
-            realConversionRate,
-            predictionDays
+            realConversionRate
           );
           
           setData(updated);
@@ -873,7 +871,7 @@ const useUnifiedAnalytics = (
       debugLog.error('🔄 UNIFIED_ANALYTICS: Manual refetch failed', { error }, 'useUnifiedAnalytics');
       // Don't throw here - let the component handle the error state
     }
-  }, [fetchData, useDashboardData, dashboardRevenueData, dashboardOrdersData, convertDashboardDataToUnified, shop, saveUnifiedAnalyticsToStorage, realConversionRate, predictionDays]);
+  }, [fetchData, useDashboardData, dashboardRevenueData, dashboardOrdersData, convertDashboardDataToUnified, shop, saveUnifiedAnalyticsToStorage, realConversionRate]);
 
   // Load data from session storage (for toggling)
   const loadFromStorage = useCallback(() => {
@@ -938,7 +936,7 @@ const useUnifiedAnalytics = (
             setLoading(true);
             setError(null);
             
-            const processedData = convertDashboardDataToUnified(dashboardRevenueData, dashboardOrdersData, realConversionRate, predictionDays);
+            const processedData = convertDashboardDataToUnified(dashboardRevenueData, dashboardOrdersData, realConversionRate);
             
             if (processedData && Array.isArray(processedData.historical)) {
               setData(processedData);
@@ -1013,7 +1011,7 @@ const useUnifiedAnalytics = (
       setLoading(false);
       return false;
     }
-  }, [shop, loadUnifiedAnalyticsFromStorage, dashboardRevenueData, dashboardOrdersData, useDashboardData, convertDashboardDataToUnified, saveUnifiedAnalyticsToStorage, getUnifiedAnalyticsStorageKey, realConversionRate, predictionDays]);
+  }, [shop, loadUnifiedAnalyticsFromStorage, dashboardRevenueData, dashboardOrdersData, useDashboardData, convertDashboardDataToUnified, saveUnifiedAnalyticsToStorage, getUnifiedAnalyticsStorageKey, realConversionRate]);
 
   // Initialize data when shop changes or first load
   useEffect(() => {
@@ -1065,7 +1063,7 @@ const useUnifiedAnalytics = (
               debugLog.info('🔄 UNIFIED_ANALYTICS: Found data during timeout, processing immediately', {}, 'useUnifiedAnalytics');
               // Force process the data
               try {
-                const processedData = convertDashboardDataToUnified(dashboardRevenueData, dashboardOrdersData, realConversionRate, predictionDays);
+                const processedData = convertDashboardDataToUnified(dashboardRevenueData, dashboardOrdersData, realConversionRate);
                 setData(processedData);
                 setLastUpdated(new Date());
                 setIsCached(false);
@@ -1105,7 +1103,7 @@ const useUnifiedAnalytics = (
     debugLog.error('🚫 UNIFIED_ANALYTICS: API mode not supported', {}, 'useUnifiedAnalytics');
     setError('API mode not supported. Use dashboard data mode.');
     setLoading(false);
-  }, [shop, useDashboardData, loadUnifiedAnalyticsFromStorage, dashboardRevenueData, dashboardOrdersData, convertDashboardDataToUnified, saveUnifiedAnalyticsToStorage, days, loading, realConversionRate, predictionDays]);
+  }, [shop, useDashboardData, loadUnifiedAnalyticsFromStorage, dashboardRevenueData, dashboardOrdersData, convertDashboardDataToUnified, saveUnifiedAnalyticsToStorage, days, loading, realConversionRate]);
 
   // Auto-refresh if enabled
   useEffect(() => {
@@ -1189,8 +1187,7 @@ const useUnifiedAnalytics = (
         const processedData = convertDashboardDataToUnified(
           dashboardRevenueData,
           dashboardOrdersData,
-          realConversionRate,
-          predictionDays
+          realConversionRate
         );
         
         // Validate the processed data
@@ -1242,8 +1239,7 @@ const useUnifiedAnalytics = (
     hasDataChanged,
     error,
     days,
-    realConversionRate,
-    predictionDays
+    realConversionRate
   ]);
 
   // Force compute unified analytics (called when main dashboard data is refreshed)
@@ -1295,8 +1291,7 @@ const useUnifiedAnalytics = (
       const processedData = convertDashboardDataToUnified(
         dashboardRevenueData,
         dashboardOrdersData,
-        realConversionRate,
-        predictionDays
+        realConversionRate
       );
       
       if (processedData && Array.isArray(processedData.historical)) {
@@ -1339,8 +1334,7 @@ const useUnifiedAnalytics = (
     dashboardOrdersData,
     convertDashboardDataToUnified,
     saveUnifiedAnalyticsToStorage,
-    realConversionRate,
-    predictionDays
+    realConversionRate
   ]);
 
   // Clear unified analytics session storage (called when shop changes)
