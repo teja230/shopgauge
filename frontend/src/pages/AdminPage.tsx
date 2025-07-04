@@ -81,6 +81,7 @@ import {
   Person as PersonIcon,
   Group as GroupIcon,
   Storefront as StorefrontIcon,
+  MonitorHeart as MonitorHeartIcon,
 } from '@mui/icons-material';
 import { fetchWithAuth } from '../api';
 import { useAuth } from '../context/AuthContext';
@@ -88,6 +89,7 @@ import { styled } from '@mui/material/styles';
 import { useNotifications } from '../hooks/useNotifications';
 import EnhancedHealthSummary from '../components/ui/EnhancedHealthSummary';
 import DiffViewerDialog from '../components/ui/DiffViewerDialog';
+import TransactionMonitoring from '../components/ui/TransactionMonitoring';
 
 interface Secret {
   key: string;
@@ -319,7 +321,7 @@ const AdminPage: React.FC = () => {
   const [auditSearchTerm, setAuditSearchTerm] = useState('');
   const [auditActionFilter, setAuditActionFilter] = useState<string>('all');
   const [auditCategoryFilter, setAuditCategoryFilter] = useState<string>('all');
-  const [auditLogType, setAuditLogType] = useState<'all' | 'deleted' | 'active'>('all');
+  const [auditLogType, setAuditLogType] = useState<'all' | 'deleted' | 'active' | 'monitoring'>('all');
 
   // Active shops state
   const [activeShops, setActiveShops] = useState<ActiveShop[]>([]);
@@ -930,11 +932,20 @@ const AdminPage: React.FC = () => {
                 } 
                 value="active" 
               />
+              <Tab 
+                label={
+                  <Box display="flex" alignItems="center" gap={1}>
+                    <MonitorHeartIcon fontSize="small" />
+                    Transaction Monitoring
+                  </Box>
+                } 
+                value="monitoring" 
+              />
             </Tabs>
           </TabsContainer>
 
-          {/* Enhanced Health Summary */}
-          <EnhancedHealthSummary />
+          {/* Enhanced Health Summary - Only show for non-monitoring tabs */}
+          {auditLogType !== 'monitoring' && <EnhancedHealthSummary />}
 
           {/* Session Statistics Card */}
           {sessionStats && auditLogType === 'active' && (
@@ -981,7 +992,7 @@ const AdminPage: React.FC = () => {
           )}
 
           {/* Search and Filter Controls */}
-          {auditLogType !== 'active' && (
+          {auditLogType !== 'active' && auditLogType !== 'monitoring' && (
             <FilterContainer elevation={0}>
               <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
                 <FormControl size="small" sx={{ minWidth: 180 }}>
@@ -1062,7 +1073,7 @@ const AdminPage: React.FC = () => {
           )}
 
           {/* Results Summary */}
-          {!auditLoading && !auditError && auditLogType !== 'active' && (
+          {!auditLoading && !auditError && auditLogType !== 'active' && auditLogType !== 'monitoring' && (
             <Box sx={{ mb: 2 }}>
               <Typography variant="body2" color="text.secondary">
                 Showing {filteredAuditLogs.length} of {auditTotalCount} total audit logs
@@ -1682,6 +1693,11 @@ const AdminPage: React.FC = () => {
                 </>
               )}
             </>
+          )}
+
+          {/* Transaction Monitoring Tab */}
+          {auditLogType === 'monitoring' && (
+            <TransactionMonitoring />
           )}
         </Box>
       </SectionCard>
