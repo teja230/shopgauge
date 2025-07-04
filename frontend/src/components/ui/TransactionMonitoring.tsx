@@ -32,7 +32,27 @@ import {
   RestartAlt as RestartAltIcon,
 } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
-import { fetchWithAuth } from '../../api';
+// Custom fetch function for admin endpoints that doesn't require shop authentication
+const fetchAdminEndpoint = async (url: string, options: RequestInit = {}) => {
+  const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) || 'https://api.shopgaugeai.com';
+  const fullUrl = `${API_BASE_URL}${url}`;
+  
+  const response = await fetch(fullUrl, {
+    ...options,
+    credentials: 'include',
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+
+  return response.json();
+};
 
 interface TransactionHealth {
   status: string;
@@ -122,7 +142,7 @@ const TransactionMonitoring: React.FC = () => {
 
   const fetchTransactionHealth = async () => {
     try {
-      const response = await fetchWithAuth('/api/health/transactions');
+      const response = await fetchAdminEndpoint('/api/health/transactions');
       setHealth(response as unknown as TransactionHealth);
     } catch (err) {
       console.error('Failed to fetch transaction health:', err);
@@ -132,7 +152,7 @@ const TransactionMonitoring: React.FC = () => {
 
   const fetchTransactionMetrics = async () => {
     try {
-      const response = await fetchWithAuth('/api/metrics/transactions');
+      const response = await fetchAdminEndpoint('/api/metrics/transactions');
       setMetrics(response as unknown as TransactionMetrics);
     } catch (err) {
       console.error('Failed to fetch transaction metrics:', err);
@@ -142,7 +162,7 @@ const TransactionMonitoring: React.FC = () => {
 
   const fetchTransactionAlerts = async () => {
     try {
-      const response = await fetchWithAuth('/api/alerts/transactions') as any;
+      const response = await fetchAdminEndpoint('/api/alerts/transactions') as any;
       setAlerts(response.alerts || []);
     } catch (err) {
       console.error('Failed to fetch transaction alerts:', err);
@@ -152,7 +172,7 @@ const TransactionMonitoring: React.FC = () => {
 
   const resetMetrics = async () => {
     try {
-      await fetchWithAuth('/api/metrics/transactions/reset', {
+      await fetchAdminEndpoint('/api/metrics/transactions/reset', {
         method: 'POST',
       });
       await refreshAll();
