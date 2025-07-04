@@ -538,59 +538,155 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
   }
 
   return (
-    <Box ref={containerRef} sx={{ width: '100%' }}>
-      {/* Chart type selector */}
-      <Box sx={{ mb: 2, maxWidth: '100%', overflowX: 'auto' }}>
-        <ToggleButtonGroup
-          value={chartType}
-          exclusive
-          onChange={(_, newType) => newType && setChartType(newType)}
-          size="small"
-          sx={{
-            flexWrap: isMobile ? 'nowrap' : 'wrap',
-            '& .MuiToggleButton-root': {
-              flex: '0 0 auto',
-              px: isMobile ? 1.2 : 2,
-            },
-          }}
-        >
-          <ToggleButton value="line"> 
-            <ShowChart />
-            {!isMobile && 'Line'}
-          </ToggleButton>
-          <ToggleButton value="area">
-            <Timeline />
-            {!isMobile && 'Area'}
-          </ToggleButton>
-          <ToggleButton value="bar">
-            <BarChartIcon />
-            {!isMobile && 'Bar'}
-          </ToggleButton>
-          <ToggleButton value="candlestick">
-            <CandlestickChart />
-            {!isMobile && 'Candle'}
-          </ToggleButton>
-          <ToggleButton value="waterfall">
-            <WaterfallChart />
-            {!isMobile && 'Waterfall'}
-          </ToggleButton>
-          <ToggleButton value="stacked">
-            <StackedLineChart />
-            {!isMobile && 'Stacked'}
-          </ToggleButton>
-          <ToggleButton value="composed">
-            <Analytics />
-            {!isMobile && 'Composed'}
-          </ToggleButton>
-        </ToggleButtonGroup>
+    <Box 
+      ref={containerRef} 
+      sx={{ 
+        width: '100%',
+        backgroundColor: theme.palette.background.paper,
+        borderRadius: theme.shape.borderRadius,
+        boxShadow: '0 2px 12px rgba(0, 0, 0, 0.05)',
+        border: `1px solid ${theme.palette.divider}`,
+        overflow: 'hidden',
+      }}
+    >
+      {/* Header with Dashboard Theme */}
+      <Box sx={{ 
+        p: theme.spacing(2),
+        borderBottom: `1px solid ${theme.palette.divider}`,
+        backgroundColor: theme.palette.background.paper,
+      }}>
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          mb: theme.spacing(2) 
+        }}>
+          <Typography 
+            variant="h6" 
+            component="h2" 
+            sx={{
+              fontSize: '1.25rem',
+              fontWeight: 600,
+              color: theme.palette.text.primary,
+              display: 'flex',
+              alignItems: 'center',
+              gap: theme.spacing(1),
+            }}
+          >
+            <TrendingUp color="primary" />
+            Revenue Chart
+          </Typography>
+          
+          {/* Chart Type Toggle with Dashboard Theme */}
+          <ToggleButtonGroup
+            value={chartType}
+            exclusive
+            onChange={(_, newType) => newType && setChartType(newType)}
+            size="small"
+            sx={{
+              backgroundColor: theme.palette.background.default,
+              borderRadius: theme.shape.borderRadius,
+              border: `1px solid ${theme.palette.divider}`,
+              '& .MuiToggleButton-root': {
+                textTransform: 'none',
+                fontWeight: 600,
+                px: theme.spacing(1.5),
+                py: theme.spacing(0.5),
+                border: 'none',
+                color: theme.palette.text.secondary,
+                minWidth: 'auto',
+                '&.Mui-selected': {
+                  backgroundColor: theme.palette.primary.main,
+                  color: theme.palette.primary.contrastText,
+                  '&:hover': {
+                    backgroundColor: theme.palette.primary.dark,
+                  },
+                },
+                '&:hover': {
+                  backgroundColor: theme.palette.action.hover,
+                },
+              },
+            }}
+          >
+            <ToggleButton value="line" aria-label="Line chart"> 
+              <ShowChart fontSize="small" sx={{ mr: isMobile ? 0 : 0.5 }} />
+              {!isMobile && 'Line'}
+            </ToggleButton>
+            <ToggleButton value="area" aria-label="Area chart">
+              <Timeline fontSize="small" sx={{ mr: isMobile ? 0 : 0.5 }} />
+              {!isMobile && 'Area'}
+            </ToggleButton>
+            <ToggleButton value="bar" aria-label="Bar chart">
+              <BarChartIcon fontSize="small" sx={{ mr: isMobile ? 0 : 0.5 }} />
+              {!isMobile && 'Bar'}
+            </ToggleButton>
+            <ToggleButton value="candlestick" aria-label="Candlestick chart">
+              <CandlestickChart fontSize="small" sx={{ mr: isMobile ? 0 : 0.5 }} />
+              {!isMobile && 'Candle'}
+            </ToggleButton>
+            <ToggleButton value="waterfall" aria-label="Waterfall chart">
+              <WaterfallChart fontSize="small" sx={{ mr: isMobile ? 0 : 0.5 }} />
+              {!isMobile && 'Waterfall'}
+            </ToggleButton>
+            <ToggleButton value="stacked" aria-label="Stacked chart">
+              <StackedLineChart fontSize="small" sx={{ mr: isMobile ? 0 : 0.5 }} />
+              {!isMobile && 'Stacked'}
+            </ToggleButton>
+            <ToggleButton value="composed" aria-label="Composed chart">
+              <Analytics fontSize="small" sx={{ mr: isMobile ? 0 : 0.5 }} />
+              {!isMobile && 'Composed'}
+            </ToggleButton>
+          </ToggleButtonGroup>
+        </Box>
+
+        {/* Stats Row */}
+        <Box sx={{ 
+          display: 'flex', 
+          gap: theme.spacing(1), 
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          p: theme.spacing(1.5),
+          backgroundColor: theme.palette.background.default,
+          borderRadius: theme.shape.borderRadius,
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Typography variant="body2" color="text.secondary">
+              Total:
+            </Typography>
+            <Typography variant="body2" fontWeight={600} color="text.primary">
+              {formatYAxisTick(totalRevenue)}
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Typography variant="body2" color="text.secondary">
+              Average:
+            </Typography>
+            <Typography variant="body2" fontWeight={600} color="text.primary">
+              {formatYAxisTick(averageRevenue)}
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Typography variant="body2" color="text.secondary">
+              Data Points:
+            </Typography>
+            <Typography variant="body2" fontWeight={600} color="text.primary">
+              {sanitizedData.length}
+            </Typography>
+          </Box>
+        </Box>
       </Box>
 
-      {/* Chart */}
-      {containerReady && (
-        <ResponsiveContainer width="100%" height={height}>
-          {renderChart()}
-        </ResponsiveContainer>
-      )}
+      {/* Chart with proper margins */}
+      <Box sx={{ 
+        p: theme.spacing(2),
+        minHeight: height - 140, // Account for header height
+      }}>
+        {containerReady && (
+          <ResponsiveContainer width="100%" height={height - 140}>
+            {renderChart()}
+          </ResponsiveContainer>
+        )}
+      </Box>
     </Box>
   );
 };

@@ -163,7 +163,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
             }}>
               <AutoAwesome sx={{ fontSize: 14, color: theme.palette.primary.main }} />
               <Typography variant="caption" color="primary" fontWeight={600}>
-                AI Prediction
+                AI Forecast
               </Typography>
               {data.confidence_score && (
                 <Chip 
@@ -185,7 +185,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height }}>
-        <Typography>Loading revenue predictions...</Typography>
+        <Typography>Loading revenue forecasts...</Typography>
       </Box>
     );
   }
@@ -271,7 +271,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
             strokeDasharray="5,5"
             strokeWidth={2}
             label={{ 
-              value: "AI Predictions →", 
+              value: "AI Forecasts →", 
               position: "top",
               style: { fill: theme.palette.secondary.main, fontWeight: 600 }
             }}
@@ -376,17 +376,24 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
       height: '100%',
       display: 'flex',
       flexDirection: 'column',
-      p: 2,
     }}>
-      {/* Simplified Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h6" component="h2" fontWeight={600} sx={{ 
+      {/* Header with Chart Type Toggle */}
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        mb: theme.spacing(2),
+        flexWrap: 'wrap',
+        gap: 1,
+      }}>
+        <Typography variant="subtitle1" fontWeight={600} sx={{ 
           display: 'flex',
           alignItems: 'center',
           gap: 1,
+          color: theme.palette.text.primary,
         }}>
           <AutoAwesome color="secondary" fontSize="small" />
-          Revenue Predictions
+          Revenue Forecast
         </Typography>
         
         {/* Chart Type Toggle */}
@@ -396,10 +403,13 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
           onChange={(_, value) => value && setChartType(value)}
           size="small"
           sx={{
+            backgroundColor: theme.palette.background.default,
+            borderRadius: theme.shape.borderRadius,
             '& .MuiToggleButton-root': {
-              px: 1,
-              py: 0.5,
+              px: theme.spacing(1),
+              py: theme.spacing(0.5),
               minWidth: 'auto',
+              border: 'none',
               '&.Mui-selected': {
                 backgroundColor: theme.palette.primary.main,
                 color: theme.palette.primary.contrastText,
@@ -417,24 +427,42 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
 
       {/* Stats Row */}
       {stats && (
-        <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+        <Box sx={{ 
+          display: 'flex', 
+          gap: theme.spacing(1), 
+          mb: theme.spacing(2), 
+          flexWrap: 'wrap' 
+        }}>
           <Chip
             label={`${stats.growthRate >= 0 ? '+' : ''}${stats.growthRate.toFixed(1)}%`}
             color={stats.growthRate >= 0 ? 'success' : 'error'}
             size="small"
             icon={stats.growthRate >= 0 ? <TrendingUp /> : <TrendingDown />}
+            sx={{ fontWeight: 600 }}
           />
           <Chip
-            label={`${formatCurrency(stats.predictedRevenue)} predicted`}
+            label={`${formatCurrency(stats.predictedRevenue)} forecast`}
             variant="outlined"
             color="secondary"
             size="small"
+            sx={{ fontWeight: 600 }}
           />
         </Box>
       )}
 
-      {/* Chart */}
-      <Box sx={{ flex: 1, minHeight: 0, width: '100%' }}>
+      {/* Chart with proper margins */}
+      <Box sx={{ 
+        flex: 1, 
+        minHeight: 250,
+        width: '100%',
+        '& .recharts-wrapper': {
+          width: '100% !important',
+          height: '100% !important',
+        },
+        '& .recharts-surface': {
+          overflow: 'visible',
+        },
+      }}>
         <ResponsiveContainer width="100%" height="100%">
           {renderChart()}
         </ResponsiveContainer>

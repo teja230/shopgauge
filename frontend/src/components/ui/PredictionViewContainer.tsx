@@ -16,6 +16,8 @@ import {
   Badge,
   Fade,
   Slide,
+  Button,
+  CircularProgress,
 } from '@mui/material';
 import {
   TrendingUp,
@@ -128,6 +130,129 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
   };
 
   const renderCurrentView = () => {
+    if (loading) {
+      return (
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center',
+          height: '100%',
+          flexDirection: 'column',
+          gap: 2,
+        }}>
+          <CircularProgress />
+          <Typography variant="body2" color="text.secondary">
+            Loading analytics data...
+          </Typography>
+        </Box>
+      );
+    }
+
+    if (error) {
+      return (
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center',
+          height: '100%',
+          flexDirection: 'column',
+          gap: 2,
+        }}>
+          <Typography variant="h6" color="error">
+            Error loading data
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {error}
+          </Typography>
+        </Box>
+      );
+    }
+
+    // Show stylish "Make Predictions" button when forecasts are off
+    if (!showPredictions) {
+      return (
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center',
+          height: '100%',
+          flexDirection: 'column',
+          gap: 3,
+          p: 4,
+        }}>
+          <Box sx={{ 
+            display: 'flex', 
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 2,
+            textAlign: 'center',
+          }}>
+            <AutoAwesome 
+              sx={{ 
+                fontSize: 64, 
+                color: theme.palette.secondary.main,
+                opacity: 0.8,
+              }} 
+            />
+            <Typography variant="h5" fontWeight={600} color="text.primary">
+              Enable AI Forecasting
+            </Typography>
+            <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 400 }}>
+              Turn on forecasts to see AI-powered forecasts for your revenue, orders, and conversion rates.
+            </Typography>
+          </Box>
+          
+          <Button
+            variant="contained"
+            size="large"
+            onClick={() => setShowPredictions(true)}
+            startIcon={<AutoAwesome />}
+            sx={{
+              mt: 2,
+              px: 5,
+              py: 2,
+              fontSize: '1.2rem',
+              fontWeight: 700,
+              borderRadius: 4,
+              textTransform: 'none',
+              background: `linear-gradient(135deg, ${theme.palette.secondary.main}, ${theme.palette.primary.main})`,
+              boxShadow: `0 8px 32px ${theme.palette.secondary.main}40`,
+              border: `2px solid transparent`,
+              position: 'relative',
+              overflow: 'hidden',
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                top: 0,
+                left: '-100%',
+                width: '100%',
+                height: '100%',
+                background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)',
+                transition: 'left 0.6s ease',
+              },
+              '&:hover': {
+                background: `linear-gradient(135deg, ${theme.palette.secondary.dark}, ${theme.palette.primary.dark})`,
+                boxShadow: `0 12px 40px ${theme.palette.secondary.main}60`,
+                transform: 'translateY(-3px) scale(1.02)',
+                '&::before': {
+                  left: '100%',
+                },
+              },
+              '&:active': {
+                transform: 'translateY(-1px) scale(0.98)',
+              },
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              Make Forecasts
+              <AutoAwesome sx={{ fontSize: '1.2rem' }} />
+            </Box>
+          </Button>
+        </Box>
+      );
+    }
+
     const commonProps = {
       loading,
       error,
@@ -210,135 +335,222 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
   return (
     <Box sx={{ 
       width: '100%',
-      height: { xs: 350, sm: 400, md: height || 450 },
+      minHeight: { xs: 400, sm: 450, md: height || 500 },
       display: 'flex', 
       flexDirection: 'column',
-      backgroundColor: 'background.paper',
+      backgroundColor: theme.palette.background.paper,
+      borderRadius: theme.shape.borderRadius,
+      boxShadow: '0 2px 12px rgba(0, 0, 0, 0.05)',
       border: `1px solid ${theme.palette.divider}`,
-      borderRadius: 2,
-      boxShadow: theme.shadows[2],
+      overflow: 'hidden',
     }}>
-      {/* Simplified Header */}
+      {/* Header with Dashboard Theme */}
       <Box sx={{ 
-        p: { xs: 2, sm: 3 },
+        p: theme.spacing(2),
         borderBottom: `1px solid ${theme.palette.divider}`,
-        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+        backgroundColor: theme.palette.background.paper,
       }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Typography variant="h6" component="h2" fontWeight={700} sx={{ 
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          mb: theme.spacing(2) 
+        }}>
+          <Typography 
+            variant="h6" 
+            component="h2" 
+            sx={{
+              fontSize: '1.25rem',
+              fontWeight: 600,
+              color: theme.palette.text.primary,
               display: 'flex',
               alignItems: 'center',
-              gap: 1,
-              color: theme.palette.text.primary,
-            }}>
-              <Analytics color="primary" />
-              Advanced Analytics
-            </Typography>
-            
+              gap: theme.spacing(1),
+            }}
+          >
+            <Analytics color="primary" />
+            Advanced Analytics
             <Chip
               icon={<AutoAwesome />}
-              label="AI"
+              label="AI Forecast"
               color="secondary"
               size="small"
-              sx={{ fontWeight: 600 }}
+              sx={{ 
+                fontWeight: 600,
+                ml: 1,
+              }}
             />
-          </Box>
+          </Typography>
           
-          {/* Simplified Prediction Toggle */}
+          {/* Forecast Toggle with Better Styling */}
           <FormControlLabel
             control={
               <Switch
                 checked={showPredictions}
                 onChange={(e) => setShowPredictions(e.target.checked)}
-                color="secondary"
-                size="small"
+                color="primary"
+                sx={{
+                  '& .MuiSwitch-switchBase.Mui-checked': {
+                    color: theme.palette.primary.main,
+                  },
+                  '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                    backgroundColor: theme.palette.primary.main,
+                  },
+                }}
               />
             }
             label={
-              <Typography variant="body2" fontWeight={600}>
-                Predictions
+              <Typography variant="body2" fontWeight={600} color="text.primary">
+                {showPredictions ? 'Hide Forecast' : 'Show Forecast'}
               </Typography>
             }
             labelPlacement="start"
-            sx={{ m: 0 }}
+            sx={{ m: 0, gap: 1 }}
           />
         </Box>
 
-        {/* Compact Stats Display */}
+        {/* Enhanced Stats Display */}
         {stats && (
           <Box sx={{ 
-            display: 'flex', 
-            gap: 2, 
-            mb: 2,
-            flexWrap: 'wrap',
-            alignItems: 'center',
+            display: 'grid', 
+            gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' },
+            gap: theme.spacing(2), 
+            mb: theme.spacing(2),
+            p: theme.spacing(2),
+            background: `linear-gradient(135deg, ${theme.palette.background.default}, ${theme.palette.grey[50]})`,
+            borderRadius: theme.shape.borderRadius,
+            border: `1px solid ${theme.palette.divider}`,
           }}>
-            <Typography variant="body2" color="text.secondary">
-              Current: <strong>{stats.current}</strong>
-            </Typography>
-            {showPredictions && (
-              <Typography variant="body2" color="text.secondary">
-                Predicted: <strong>{stats.predicted}</strong>
+            <Box sx={{ 
+              display: 'flex', 
+              flexDirection: 'column',
+              alignItems: 'center',
+              p: theme.spacing(1),
+              borderRadius: theme.shape.borderRadius,
+              backgroundColor: 'rgba(255, 255, 255, 0.7)',
+              border: `1px solid ${theme.palette.grey[200]}`,
+            }}>
+              <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5 }}>
+                Current {stats.metric}
               </Typography>
+              <Typography variant="h6" fontWeight={700} color="text.primary">
+                {stats.current !== 'NaN' && stats.current !== 'undefined' ? stats.current : 'No data'}
+              </Typography>
+            </Box>
+            {showPredictions && stats.predicted !== 'NaN' && stats.predicted !== 'undefined' && (
+              <Box sx={{ 
+                display: 'flex', 
+                flexDirection: 'column',
+                alignItems: 'center',
+                p: theme.spacing(1),
+                borderRadius: theme.shape.borderRadius,
+                backgroundColor: 'rgba(255, 255, 255, 0.7)',
+                border: `1px solid ${theme.palette.secondary.main}30`,
+                position: 'relative',
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: 2,
+                  background: theme.palette.secondary.main,
+                  borderRadius: '4px 4px 0 0',
+                },
+              }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                  <AutoAwesome sx={{ fontSize: 12, color: theme.palette.secondary.main }} />
+                  <Typography variant="caption" color="text.secondary">
+                    Forecast {stats.metric}
+                  </Typography>
+                </Box>
+                <Typography variant="h6" fontWeight={700} color="secondary.main">
+                  {stats.predicted}
+                </Typography>
+              </Box>
             )}
-            <Typography variant="body2" color="text.secondary">
-              Metric: <strong>{stats.metric}</strong>
-            </Typography>
+            <Box sx={{ 
+              display: 'flex', 
+              flexDirection: 'column',
+              alignItems: 'center',
+              p: theme.spacing(1),
+              borderRadius: theme.shape.borderRadius,
+              backgroundColor: 'rgba(255, 255, 255, 0.7)',
+              border: `1px solid ${theme.palette.grey[200]}`,
+            }}>
+              <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5 }}>
+                Active Metric
+              </Typography>
+              <Typography variant="h6" fontWeight={700} color="primary.main">
+                {stats.metric}
+              </Typography>
+            </Box>
           </Box>
         )}
 
-        {/* Mobile-Optimized View Toggle */}
+        {/* Enhanced View Toggle */}
         <ToggleButtonGroup
           value={activeView}
           exclusive
           onChange={handleViewChange}
-          size={isMobile ? "medium" : "small"}
+          size="small"
           orientation={isMobile ? "vertical" : "horizontal"}
           sx={{
+            backgroundColor: theme.palette.background.default,
+            borderRadius: theme.shape.borderRadius,
+            border: `1px solid ${theme.palette.divider}`,
             width: isMobile ? '100%' : 'auto',
             '& .MuiToggleButton-root': {
               textTransform: 'none',
               fontWeight: 600,
-              px: { xs: 2, sm: 2 },
-              py: { xs: 1, sm: 0.5 },
-              border: `1px solid ${theme.palette.divider}`,
+              px: theme.spacing(2),
+              py: theme.spacing(1),
+              border: 'none',
+              color: theme.palette.text.secondary,
               minHeight: isMobile ? 48 : 'auto',
+              width: isMobile ? '100%' : 'auto',
               justifyContent: isMobile ? 'flex-start' : 'center',
               '&.Mui-selected': {
                 backgroundColor: theme.palette.primary.main,
                 color: theme.palette.primary.contrastText,
+                boxShadow: `0 2px 8px ${theme.palette.primary.main}30`,
                 '&:hover': {
                   backgroundColor: theme.palette.primary.dark,
                 },
               },
+              '&:hover': {
+                backgroundColor: theme.palette.action.hover,
+                transform: 'translateY(-1px)',
+              },
+              transition: 'all 0.2s ease',
             },
           }}
         >
-          <ToggleButton value="revenue" aria-label="Revenue predictions" sx={{ width: isMobile ? '100%' : 'auto' }}>
+          <ToggleButton value="revenue" aria-label="Revenue forecasts">
             <TrendingUp fontSize="small" sx={{ mr: 0.5 }} />
             Revenue
-            {showPredictions && <AutoAwesome sx={{ ml: 0.5, fontSize: 14 }} />}
+            {showPredictions && <AutoAwesome sx={{ ml: 0.5, fontSize: 14, color: 'secondary.main' }} />}
           </ToggleButton>
-          <ToggleButton value="orders" aria-label="Order predictions" sx={{ width: isMobile ? '100%' : 'auto' }}>
+          <ToggleButton value="orders" aria-label="Order forecasts">
             <ShoppingCart fontSize="small" sx={{ mr: 0.5 }} />
             Orders
-            {showPredictions && <AutoAwesome sx={{ ml: 0.5, fontSize: 14 }} />}
+            {showPredictions && <AutoAwesome sx={{ ml: 0.5, fontSize: 14, color: 'secondary.main' }} />}
           </ToggleButton>
-          <ToggleButton value="conversion" aria-label="Conversion predictions" sx={{ width: isMobile ? '100%' : 'auto' }}>
+          <ToggleButton value="conversion" aria-label="Conversion forecasts">
             <Percent fontSize="small" sx={{ mr: 0.5 }} />
             Conversion
-            {showPredictions && <AutoAwesome sx={{ ml: 0.5, fontSize: 14 }} />}
+            {showPredictions && <AutoAwesome sx={{ ml: 0.5, fontSize: 14, color: 'secondary.main' }} />}
           </ToggleButton>
         </ToggleButtonGroup>
       </Box>
 
-      {/* Chart Content - Fixed Height */}
+      {/* Chart Content with Proper Margins */}
       <Box sx={{ 
         flex: 1,
-        minHeight: 0,
-        position: 'relative',
-        overflow: 'hidden',
+        minHeight: 300,
+        p: theme.spacing(2),
+        display: 'flex',
+        flexDirection: 'column',
       }}>
         {renderCurrentView()}
       </Box>
