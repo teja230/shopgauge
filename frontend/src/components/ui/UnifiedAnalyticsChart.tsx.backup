@@ -858,7 +858,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
     }
   }, [data]);
 
-  // Create sanitized chart data with basic validation to prevent React invariant errors
+  // Create sanitized chart data with aggressive validation to prevent React invariant errors
   const safeChartData = useMemo(() => {
     if (!chartData || !Array.isArray(chartData) || chartData.length === 0) {
       return [];
@@ -866,22 +866,61 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
 
     return chartData
       .filter(item => {
-        // Basic validation - less aggressive than before
+        // Ultra-strict validation
         if (!item || typeof item !== 'object') return false;
         
         // Validate date
         if (typeof item.date !== 'string' || item.date.length === 0) return false;
+        const dateTest = new Date(item.date);
+        if (isNaN(dateTest.getTime())) return false;
         
-        // Basic numeric validation
+        // Validate all numeric fields with strict bounds
         const fields = ['revenue', 'orders_count', 'conversion_rate', 'avg_order_value'];
         for (const field of fields) {
           const value = item[field];
-          if (typeof value !== 'number' || isNaN(value)) return false;
+          if (typeof value !== 'number' || isNaN(value) || !isFinite(value)) return false;
+          if (value < 0 || value === Infinity || value === -Infinity) return false;
         }
+        
+        // Additional bounds checking
+        if (item.revenue > 1e9 || item.orders_count > 1e6 || 
+            item.conversion_rate > 100 || item.avg_order_value > 1e6) return false;
         
         return true;
       })
-      .map(processHistoricalItem);
+      .map((item, index) => {
+        // Create a completely new object to prevent any reference issues
+        const sanitizedItem = {
+          // Ensure date is properly formatted
+          date: safeDateString(item.date),
+          
+          // Clamp all numeric values to safe ranges
+          revenue: Math.round(Math.max(0, Math.min(1e9, safeNumber(item.revenue))) * 100) / 100,
+          orders_count: Math.round(Math.max(0, Math.min(1e6, safeNumber(item.orders_count)))),
+          conversion_rate: Math.round(Math.max(0, Math.min(100, safeNumber(item.conversion_rate))) * 100) / 100,
+          avg_order_value: Math.round(Math.max(0, Math.min(1e6, safeNumber(item.avg_order_value))) * 100) / 100,
+          
+          // Ensure safe metadata
+          key: `data-${item.date}-${index}`,
+          type: String(item.type || 'historical'),
+          isPrediction: Boolean(item.isPrediction),
+          
+          // Add any additional safe properties
+          ...(item.confidence_score !== undefined && { 
+            confidence_score: Math.max(0, Math.min(1, safeNumber(item.confidence_score))) 
+          }),
+        };
+        
+        // Final validation of the sanitized item
+        Object.keys(sanitizedItem).forEach(key => {
+          const value = (sanitizedItem as any)[key];
+          if (value === undefined || value === null) {
+            delete (sanitizedItem as any)[key];
+          }
+        });
+        
+        return sanitizedItem;
+      });
   }, [chartData]);
 
   const formatXAxisTick = (tickItem: string) => {
@@ -1580,174 +1619,587 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         }}
       >
         {safeChartData.length > 0 && (
-          <div style={{ width: '100%', height: chartHeight }}>
-            <ResponsiveContainer width="100%" height={chartHeight}>
-              {(() => {
-                const shouldShowPredictionLine = showPredictions && data && data.predictions && data.predictions.length > 0;
-                const predictionDate = data && data.predictions && data.predictions[0] ? data.predictions[0].date : undefined;
-                
-                debugLog.info('Rendering chart', {
-                  chartType,
-                  dataLength: commonProps?.data?.length || 0,
-                  shouldShowPredictionLine,
-                  predictionDate
-                }, 'UnifiedAnalyticsChart');
-
-                try {
-                  // Restore proper chart type switching from working version
-                  switch (chartType) {
-                    case 'line':
-                      return (
-                        <MemoizedLineChart
-                          commonProps={commonProps}
-                          commonGrid={commonGrid}
-                          commonXAxis={commonXAxis}
-                          commonYAxisRevenue={commonYAxisRevenue}
-                          commonTooltip={commonTooltip}
-                          commonLegend={commonLegend}
-                          visibleMetrics={visibleMetrics}
-                          shouldShowPredictionLine={shouldShowPredictionLine}
-                          predictionDate={predictionDate}
-                        />
-                      );
-                    case 'area':
-                      return (
-                        <MemoizedAreaChart
-                          commonProps={commonProps}
-                          commonGrid={commonGrid}
-                          commonXAxis={commonXAxis}
-                          commonYAxisRevenue={commonYAxisRevenue}
-                          commonTooltip={commonTooltip}
-                          commonLegend={commonLegend}
-                          visibleMetrics={visibleMetrics}
-                          shouldShowPredictionLine={shouldShowPredictionLine}
-                          predictionDate={predictionDate}
-                          gradientIdPrefix={gradientIdPrefix}
-                        />
-                      );
-                    case 'bar':
-                      return (
-                        <MemoizedBarChart
-                          commonProps={commonProps}
-                          commonGrid={commonGrid}
-                          commonXAxis={commonXAxis}
-                          commonYAxisRevenue={commonYAxisRevenue}
-                          commonTooltip={commonTooltip}
-                          commonLegend={commonLegend}
-                          visibleMetrics={visibleMetrics}
-                          shouldShowPredictionLine={shouldShowPredictionLine}
-                          predictionDate={predictionDate}
-                        />
-                      );
-                    case 'combined':
-                    case 'composed':
-                      return (
-                        <MemoizedComposedChart
-                          commonProps={commonProps}
-                          commonGrid={commonGrid}
-                          commonXAxis={commonXAxis}
-                          commonYAxisRevenue={commonYAxisRevenue}
-                          commonYAxisOrders={commonYAxisOrders}
-                          commonTooltip={commonTooltip}
-                          commonLegend={commonLegend}
-                          visibleMetrics={visibleMetrics}
-                          showPredictions={showPredictions}
-                          shouldShowPredictionLine={shouldShowPredictionLine}
-                          predictionDate={predictionDate}
-                        />
-                      );
-                    case 'revenue_focus':
-                      return (
-                        <MemoizedRevenueFocusChart
-                          commonProps={commonProps}
-                          commonGrid={commonGrid}
-                          commonXAxis={commonXAxis}
-                          commonYAxisRevenue={commonYAxisRevenue}
-                          commonTooltip={commonTooltip}
-                          commonLegend={commonLegend}
-                          visibleMetrics={visibleMetrics}
-                          shouldShowPredictionLine={shouldShowPredictionLine}
-                          predictionDate={predictionDate}
-                          gradientIdPrefix={gradientIdPrefix}
-                        />
-                      );
-                    case 'candlestick':
-                      return (
-                        <MemoizedCandlestickChart
-                          commonProps={commonProps}
-                          commonGrid={commonGrid}
-                          commonXAxis={commonXAxis}
-                          commonYAxisRevenue={commonYAxisRevenue}
-                          commonTooltip={commonTooltip}
-                          commonLegend={commonLegend}
-                          visibleMetrics={visibleMetrics}
-                          shouldShowPredictionLine={shouldShowPredictionLine}
-                          predictionDate={predictionDate}
-                        />
-                      );
-                    case 'waterfall':
-                      return (
-                        <MemoizedWaterfallChart
-                          commonProps={commonProps}
-                          commonGrid={commonGrid}
-                          commonXAxis={commonXAxis}
-                          commonYAxisRevenue={commonYAxisRevenue}
-                          commonTooltip={commonTooltip}
-                          commonLegend={commonLegend}
-                          visibleMetrics={visibleMetrics}
-                          shouldShowPredictionLine={shouldShowPredictionLine}
-                          predictionDate={predictionDate}
-                        />
-                      );
-                    case 'stacked':
-                      return (
-                        <MemoizedStackedChart
-                          commonProps={commonProps}
-                          commonGrid={commonGrid}
-                          commonXAxis={commonXAxis}
-                          commonYAxisRevenue={commonYAxisRevenue}
-                          commonTooltip={commonTooltip}
-                          commonLegend={commonLegend}
-                          visibleMetrics={visibleMetrics}
-                          shouldShowPredictionLine={shouldShowPredictionLine}
-                          predictionDate={predictionDate}
-                          gradientIdPrefix={gradientIdPrefix}
-                        />
-                      );
-                    default:
-                      return (
-                        <MemoizedComposedChart
-                          commonProps={commonProps}
-                          commonGrid={commonGrid}
-                          commonXAxis={commonXAxis}
-                          commonYAxisRevenue={commonYAxisRevenue}
-                          commonYAxisOrders={commonYAxisOrders}
-                          commonTooltip={commonTooltip}
-                          commonLegend={commonLegend}
-                          visibleMetrics={visibleMetrics}
-                          showPredictions={showPredictions}
-                          shouldShowPredictionLine={shouldShowPredictionLine}
-                          predictionDate={predictionDate}
-                        />
-                      );
-                  }
-                } catch (error) {
-                  debugLog.error('Error rendering chart', {
-                    error: error instanceof Error ? error.message : String(error),
+          <React.Fragment>
+            {/* Debug logging for chart rendering */}
+            {(() => {
+              debugLog.info('About to render chart', {
+                chartType,
+                safeChartDataLength: safeChartData.length,
+                visibleMetrics,
+                chartHeight
+              }, 'UnifiedAnalyticsChart');
+              
+              // Additional debug logging
+              debugLog.info('Chart Render Debug', {
+                chartType,
+                safeChartDataLength: safeChartData.length,
+                visibleMetrics,
+                chartHeight,
+                dataSample: safeChartData.slice(0, 3),
+                hasRevenueData: safeChartData.some(item => item && typeof item.revenue === 'number' && !isNaN(item.revenue) && item.revenue > 0),
+                commonPropsValid: !!(commonProps && commonProps.data && commonProps.data.length > 0)
+              }, 'UnifiedAnalyticsChart');
+              
+              return null;
+            })()}
+            
+            {/* Render chart based on selected type */}
+            <div style={{ width: '100%', height: chartHeight, minHeight: '200px' }}>
+              
+              <ResponsiveContainer width="100%" height={chartHeight}>
+                {(() => {
+                  debugLog.info('=== INSIDE RESPONSIVE CONTAINER ===', {
+                    chartHeight,
                     chartType,
-                    dataLength: commonProps?.data?.length || 0
+                    dataLength: commonProps?.data?.length || 0,
+                    containerDimensions: { width: '100%', height: chartHeight }
                   }, 'UnifiedAnalyticsChart');
                   
-                  return (
-                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
-                      <Typography variant="h6" color="error">Chart Rendering Error</Typography>
-                      <Typography variant="body2" color="text.secondary">Unable to render the chart. Please try refreshing.</Typography>
-                    </div>
-                  );
-                }
-              })()}
-            </ResponsiveContainer>
-          </div>
+                  const shouldShowPredictionLine = showPredictions && data && data.predictions && data.predictions.length > 0;
+                  const predictionDate = data && data.predictions && data.predictions[0] ? data.predictions[0].date : undefined;
+                  
+                  // Comprehensive data validation to prevent React invariant violations
+                  if (!commonProps || !commonProps.data || commonProps.data.length === 0) {
+                    debugLog.error('Invalid commonProps in chart render', {
+                      hasCommonProps: !!commonProps,
+                      hasData: !!(commonProps && commonProps.data),
+                      dataLength: commonProps?.data?.length || 0,
+                      chartType,
+                      safeChartDataLength: safeChartData.length
+                    }, 'UnifiedAnalyticsChart');
+                    return (
+                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255, 0, 0, 0.1)' }}>
+                        <Typography variant="body2" color="error">Chart data error</Typography>
+                      </div>
+                    );
+                  }
+
+                  // Validate each data point to prevent React invariant violations
+                  const validatedData = commonProps.data.filter((item: any) => {
+                    if (!item || typeof item !== 'object') return false;
+                    
+                    // Check for required fields
+                    if (!item.date || typeof item.date !== 'string') return false;
+                    
+                    // Validate numeric fields - must be finite numbers
+                    const numericChecks = [
+                      { field: 'revenue', value: item.revenue },
+                      { field: 'orders_count', value: item.orders_count },
+                      { field: 'conversion_rate', value: item.conversion_rate },
+                      { field: 'avg_order_value', value: item.avg_order_value }
+                    ];
+                    
+                    for (const check of numericChecks) {
+                      if (check.value !== undefined && check.value !== null) {
+                        const value = Number(check.value);
+                        if (!Number.isFinite(value)) {
+                          debugLog.warn(`Invalid numeric value in ${check.field}`, {
+                            field: check.field,
+                            value: check.value,
+                            type: typeof check.value,
+                            isFinite: Number.isFinite(value)
+                          }, 'UnifiedAnalyticsChart');
+                          return false;
+                        }
+                      }
+                    }
+                    
+                    return true;
+                  });
+
+                  // Ensure we have valid data after filtering
+                  if (validatedData.length === 0) {
+                    debugLog.error('No valid data points after validation', {
+                      originalLength: commonProps.data.length,
+                      validatedLength: validatedData.length,
+                      sampleInvalidData: commonProps.data.slice(0, 3)
+                    }, 'UnifiedAnalyticsChart');
+                    return (
+                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255, 165, 0, 0.1)' }}>
+                        <Typography variant="body2" color="error">Invalid chart data format</Typography>
+                      </div>
+                    );
+                  }
+
+                  // Create safe props with validated data
+                  const safeProps = {
+                    ...commonProps,
+                    data: validatedData
+                  };
+
+                  debugLog.info('Data validation passed', {
+                    originalLength: commonProps.data.length,
+                    validatedLength: validatedData.length,
+                    sampleValidData: validatedData.slice(0, 2)
+                  }, 'UnifiedAnalyticsChart');
+                  
+                  try {
+                    debugLog.info('=== ABOUT TO RENDER CHART WITH VALIDATED DATA ===', {
+                      chartType,
+                      validatedDataLength: safeProps.data.length,
+                      sampleValidatedData: safeProps.data.slice(0, 2)
+                    }, 'UnifiedAnalyticsChart');
+                    
+                    // Additional React-specific error boundary
+                    try {
+                      // Render chart based on type with working configuration
+                      switch (chartType) {
+                      case 'combined':
+                      case 'composed':
+                        debugLog.info('Rendering working combined chart', {
+                          chartType,
+                          dataLength: commonProps?.data?.length || 0,
+                          visibleMetrics
+                        }, 'UnifiedAnalyticsChart');
+                        
+                        return (
+                          <ResponsiveContainer width="100%" height="100%">
+                            <ComposedChart
+                              data={safeProps.data}
+                              margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                            >
+                              <defs>
+                                <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3} />
+                                  <stop offset="95%" stopColor="#2563eb" stopOpacity={0.05} />
+                                </linearGradient>
+                              </defs>
+                              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0, 0, 0, 0.06)" />
+                              <XAxis 
+                                dataKey="date" 
+                                stroke="rgba(0, 0, 0, 0.4)"
+                                tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: 12 }}
+                                axisLine={{ stroke: 'rgba(0, 0, 0, 0.1)' }}
+                                tickFormatter={(tickItem) => {
+                                  try {
+                                    return new Date(tickItem).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                                  } catch {
+                                    return tickItem;
+                                  }
+                                }}
+                              />
+                              <YAxis 
+                                yAxisId="revenue"
+                                orientation="left"
+                                stroke="rgba(0, 0, 0, 0.4)"
+                                tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: 11 }}
+                                tickFormatter={(value) => `$${(value / 1000).toFixed(1)}k`}
+                                domain={['dataMin', 'dataMax']}
+                                type="number"
+                              />
+                              <YAxis 
+                                yAxisId="orders"
+                                orientation="right"
+                                stroke="rgba(0, 0, 0, 0.4)"
+                                tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: 11 }}
+                                tickFormatter={(value) => Math.round(value).toString()}
+                                domain={['dataMin', 'dataMax']}
+                                type="number"
+                              />
+                              <Tooltip 
+                                content={({ active, payload, label }) => {
+                                  if (active && payload && payload.length) {
+                                    const data = payload[0]?.payload;
+                                    return (
+                                      <div style={{ background: 'white', border: '1px solid #ccc', borderRadius: '4px', padding: '12px', boxShadow: '0 4px 8px rgba(0,0,0,0.1)' }}>
+                                        <p style={{ margin: '0 0 8px 0', fontWeight: 'bold', color: '#374151' }}>
+                                          {new Date(label).toLocaleDateString('en-US', { 
+                                            month: 'short', 
+                                            day: 'numeric',
+                                            year: 'numeric'
+                                          })}
+                                        </p>
+                                        {visibleMetrics.revenue && (
+                                          <p style={{ margin: '4px 0', color: '#2563eb', fontSize: '14px' }}>
+                                            💰 Revenue: ${data?.revenue?.toLocaleString()}
+                                          </p>
+                                        )}
+                                        {visibleMetrics.orders && (
+                                          <p style={{ margin: '4px 0', color: '#10b981', fontSize: '14px' }}>
+                                            📦 Orders: {data?.orders_count}
+                                          </p>
+                                        )}
+                                        {visibleMetrics.conversion && (
+                                          <p style={{ margin: '4px 0', color: '#f59e0b', fontSize: '14px' }}>
+                                            📈 Conversion: {data?.conversion_rate?.toFixed(2)}%
+                                          </p>
+                                        )}
+                                        {data?.isPrediction && (
+                                          <p style={{ margin: '4px 0', color: '#8b5cf6', fontSize: '12px', fontStyle: 'italic' }}>
+                                            🔮 Prediction
+                                          </p>
+                                        )}
+                                      </div>
+                                    );
+                                  }
+                                  return null;
+                                }}
+                              />
+                              <Legend />
+                              
+                              {visibleMetrics.revenue && (
+                                <Bar
+                                  yAxisId="revenue"
+                                  dataKey="revenue"
+                                  fill="#2563eb"
+                                  name="Revenue"
+                                  radius={[2, 2, 0, 0]}
+                                  opacity={0.8}
+                                />
+                              )}
+                              
+                              {visibleMetrics.orders && (
+                                <Line
+                                  yAxisId="orders"
+                                  type="monotone"
+                                  dataKey="orders_count"
+                                  stroke="#10b981"
+                                  strokeWidth={3}
+                                  name="Orders"
+                                  dot={{ fill: '#10b981', strokeWidth: 2, r: 3 }}
+                                  connectNulls={false}
+                                />
+                              )}
+                              
+                              {visibleMetrics.conversion && (
+                                <Line
+                                  yAxisId="orders"
+                                  type="monotone"
+                                  dataKey="conversion_rate"
+                                  stroke="#f59e0b"
+                                  strokeWidth={2}
+                                  name="Conversion Rate (%)"
+                                  dot={{ fill: '#f59e0b', strokeWidth: 2, r: 2 }}
+                                  connectNulls={false}
+                                />
+                              )}
+                              
+                              {shouldShowPredictionLine && predictionDate && (
+                                <ReferenceLine
+                                  x={predictionDate}
+                                  stroke="rgba(139, 92, 246, 0.5)"
+                                  strokeDasharray="5,5"
+                                  strokeWidth={2}
+                                  label={{ value: "Predictions →", position: "top" }}
+                                />
+                              )}
+                            </ComposedChart>
+                          </ResponsiveContainer>
+                        );
+                        
+                      case 'area':
+                        return (
+                          <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart
+                              data={safeProps.data}
+                              margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                            >
+                              <defs>
+                                <linearGradient id="areaRevenueGradient" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3} />
+                                  <stop offset="95%" stopColor="#2563eb" stopOpacity={0.05} />
+                                </linearGradient>
+                              </defs>
+                              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0, 0, 0, 0.06)" />
+                              <XAxis 
+                                dataKey="date" 
+                                stroke="rgba(0, 0, 0, 0.4)"
+                                tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: 12 }}
+                                tickFormatter={(tickItem) => {
+                                  try {
+                                    return new Date(tickItem).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                                  } catch {
+                                    return tickItem;
+                                  }
+                                }}
+                              />
+                              <YAxis 
+                                stroke="rgba(0, 0, 0, 0.4)"
+                                tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: 11 }}
+                                tickFormatter={(value) => `$${(value / 1000).toFixed(1)}k`}
+                                domain={['dataMin', 'dataMax']}
+                                type="number"
+                              />
+                              <Tooltip 
+                                content={({ active, payload, label }) => {
+                                  if (active && payload && payload.length) {
+                                    return (
+                                      <div style={{ background: 'white', border: '1px solid #ccc', borderRadius: '4px', padding: '8px' }}>
+                                        <p style={{ margin: 0, fontWeight: 'bold' }}>{`Date: ${label}`}</p>
+                                        <p style={{ margin: 0, color: '#2563eb' }}>{`Revenue: $${payload[0]?.value?.toLocaleString()}`}</p>
+                                      </div>
+                                    );
+                                  }
+                                  return null;
+                                }}
+                              />
+                              <Area
+                                type="monotone"
+                                dataKey="revenue"
+                                stroke="#2563eb"
+                                strokeWidth={2}
+                                fill="url(#areaRevenueGradient)"
+                                fillOpacity={0.3}
+                              />
+                            </AreaChart>
+                          </ResponsiveContainer>
+                        );
+                        
+                      default:
+                        return (
+                          <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart
+                              data={safeProps.data}
+                              margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                            >
+                              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0, 0, 0, 0.1)" />
+                              <XAxis 
+                                dataKey="date" 
+                                stroke="rgba(0, 0, 0, 0.4)"
+                                tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: 12 }}
+                                tickFormatter={(tickItem) => {
+                                  try {
+                                    return new Date(tickItem).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                                  } catch {
+                                    return tickItem;
+                                  }
+                                }}
+                              />
+                              <YAxis 
+                                stroke="rgba(0, 0, 0, 0.4)"
+                                tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: 11 }}
+                                tickFormatter={(value) => `$${(value / 1000).toFixed(1)}k`}
+                              />
+                              <Tooltip 
+                                content={({ active, payload, label }) => {
+                                  if (active && payload && payload.length) {
+                                    return (
+                                      <div style={{ background: 'white', border: '1px solid #ccc', borderRadius: '4px', padding: '8px' }}>
+                                        <p style={{ margin: 0, fontWeight: 'bold' }}>{`Date: ${label}`}</p>
+                                        <p style={{ margin: 0, color: '#2563eb' }}>{`Revenue: $${payload[0]?.value?.toLocaleString()}`}</p>
+                                      </div>
+                                    );
+                                  }
+                                  return null;
+                                }}
+                              />
+                              <Area
+                                type="monotone"
+                                dataKey="revenue"
+                                stroke="#2563eb"
+                                strokeWidth={2}
+                                fill="url(#revenueGradient)"
+                                fillOpacity={0.3}
+                              />
+                              <defs>
+                                <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3} />
+                                  <stop offset="95%" stopColor="#2563eb" stopOpacity={0.05} />
+                                </linearGradient>
+                              </defs>
+                            </AreaChart>
+                          </ResponsiveContainer>
+                        );
+                    }
+                    } catch (reactError) {
+                      debugLog.error('React invariant violation in chart rendering', {
+                        error: reactError instanceof Error ? reactError.message : String(reactError),
+                        chartType,
+                        validatedDataLength: safeProps.data.length,
+                        errorStack: reactError instanceof Error ? reactError.stack : undefined
+                      }, 'UnifiedAnalyticsChart');
+                      return (
+                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
+                          <Typography variant="h6" color="error">React Rendering Error</Typography>
+                          <Typography variant="body2" color="text.secondary">Chart rendering failed. Please refresh the page.</Typography>
+                        </div>
+                      );
+                    }
+                    
+                    // Switch statement temporarily disabled for debugging
+                    // switch (chartType) {
+                    //   case 'line':
+                    //     return (
+                    //       <MemoizedLineChart
+                    //         commonProps={commonProps}
+                    //         commonGrid={commonGrid}
+                    //         commonXAxis={commonXAxis}
+                    //         commonYAxisRevenue={commonYAxisRevenue}
+                    //         commonTooltip={commonTooltip}
+                    //         commonLegend={commonLegend}
+                    //         visibleMetrics={visibleMetrics}
+                    //         shouldShowPredictionLine={shouldShowPredictionLine}
+                    //         predictionDate={predictionDate}
+                    //       />
+                    //     );
+                    //   case 'area':
+                    //     return (
+                    //       <MemoizedAreaChart
+                    //         commonProps={commonProps}
+                    //         commonGrid={commonGrid}
+                    //         commonXAxis={commonXAxis}
+                    //         commonYAxisRevenue={commonYAxisRevenue}
+                    //         commonTooltip={commonTooltip}
+                    //         commonLegend={commonLegend}
+                    //         visibleMetrics={visibleMetrics}
+                    //         shouldShowPredictionLine={shouldShowPredictionLine}
+                    //         predictionDate={predictionDate}
+                    //         gradientIdPrefix={gradientIdPrefix}
+                    //       />
+                    //     );
+                    //   case 'bar':
+                    //     return (
+                    //       <MemoizedBarChart
+                    //         commonProps={commonProps}
+                    //         commonGrid={commonGrid}
+                    //         commonXAxis={commonXAxis}
+                    //         commonYAxisRevenue={commonYAxisRevenue}
+                    //         commonTooltip={commonTooltip}
+                    //         commonLegend={commonLegend}
+                    //         visibleMetrics={visibleMetrics}
+                    //         shouldShowPredictionLine={shouldShowPredictionLine}
+                    //         predictionDate={predictionDate}
+                    //       />
+                    //     );
+                    //   case 'combined':
+                    //   case 'composed':
+                    //     debugLog.info('Rendering combined/composed chart', {
+                    //       chartType,
+                    //       hasCommonProps: !!commonProps,
+                    //       dataLength: commonProps?.data?.length || 0,
+                    //       hasYAxisRevenue: !!commonYAxisRevenue,
+                    //       hasYAxisOrders: !!commonYAxisOrders,
+                    //       visibleMetrics,
+                    //       showPredictions,
+                    //       shouldShowPredictionLine,
+                    //       predictionDate,
+                    //       commonPropsKeys: commonProps ? Object.keys(commonProps) : [],
+                    //       dataSample: commonProps?.data?.slice(0, 2) || []
+                    //     }, 'UnifiedAnalyticsChart');
+                    //     
+                    //     // Temporary fallback to AreaChart for debugging
+                    //     debugLog.info('Using AreaChart fallback for combined chart', {
+                    //       chartType,
+                    //       dataLength: commonProps?.data?.length || 0
+                    //     }, 'UnifiedAnalyticsChart');
+                    //     
+                    //     return (
+                    //       <MemoizedAreaChart
+                    //         commonProps={commonProps}
+                    //         commonGrid={commonGrid}
+                    //         commonXAxis={commonXAxis}
+                    //         commonYAxisRevenue={commonYAxisRevenue}
+                    //         commonTooltip={commonTooltip}
+                    //         commonLegend={commonLegend}
+                    //         visibleMetrics={visibleMetrics}
+                    //         shouldShowPredictionLine={shouldShowPredictionLine}
+                    //         predictionDate={predictionDate}
+                    //         gradientIdPrefix={gradientIdPrefix}
+                    //       />
+                    //     );
+                    //   case 'revenue_focus':
+                    //     debugLog.info('Rendering revenue_focus chart', {
+                    //       dataLength: commonProps.data?.length,
+                    //       hasRevenueData: commonProps.data?.some((item: any) => item && typeof item.revenue === 'number' && !isNaN(item.revenue) && item.revenue > 0),
+                    //       visibleRevenue: visibleMetrics.revenue,
+                    //       dataSample: commonProps.data?.slice(0, 2),
+                    //       chartHeight,
+                    //       shouldShowPredictionLine,
+                    //       predictionDate
+                    //     }, 'UnifiedAnalyticsChart');
+                    //     return (
+                    //       <MemoizedRevenueFocusChart
+                    //         commonProps={commonProps}
+                    //         commonGrid={commonGrid}
+                    //         commonXAxis={commonXAxis}
+                    //         commonYAxisRevenue={commonYAxisRevenue}
+                    //         commonTooltip={commonTooltip}
+                    //         commonLegend={commonLegend}
+                    //         visibleMetrics={visibleMetrics}
+                    //         shouldShowPredictionLine={shouldShowPredictionLine}
+                    //         predictionDate={predictionDate}
+                    //         gradientIdPrefix={gradientIdPrefix}
+                    //       />
+                    //     );
+                    //   case 'candlestick':
+                    //     return (
+                    //       <MemoizedCandlestickChart
+                    //         commonProps={commonProps}
+                    //         commonGrid={commonGrid}
+                    //         commonXAxis={commonXAxis}
+                    //         commonYAxisRevenue={commonYAxisRevenue}
+                    //         commonTooltip={commonTooltip}
+                    //         commonLegend={commonLegend}
+                    //         visibleMetrics={visibleMetrics}
+                    //         shouldShowPredictionLine={shouldShowPredictionLine}
+                    //         predictionDate={predictionDate}
+                    //       />
+                    //     );
+                    //   case 'waterfall':
+                    //     return (
+                    //       <MemoizedWaterfallChart
+                    //         commonProps={commonProps}
+                    //         commonGrid={commonGrid}
+                    //         commonXAxis={commonXAxis}
+                    //         commonYAxisRevenue={commonYAxisRevenue}
+                    //         commonTooltip={commonTooltip}
+                    //         commonLegend={commonLegend}
+                    //         visibleMetrics={visibleMetrics}
+                    //         shouldShowPredictionLine={shouldShowPredictionLine}
+                    //         predictionDate={predictionDate}
+                    //       />
+                    //     );
+                    //   case 'stacked':
+                    //     return (
+                    //       <MemoizedStackedChart
+                    //         commonProps={commonProps}
+                    //         commonGrid={commonGrid}
+                    //         commonXAxis={commonXAxis}
+                    //         commonYAxisRevenue={commonYAxisRevenue}
+                    //         commonTooltip={commonTooltip}
+                    //         commonLegend={commonLegend}
+                    //         visibleMetrics={visibleMetrics}
+                    //         shouldShowPredictionLine={shouldShowPredictionLine}
+                    //         predictionDate={predictionDate}
+                    //         gradientIdPrefix={gradientIdPrefix}
+                    //       />
+                    //     );
+                    //   default:
+                    //     return (
+                    //       <MemoizedComposedChart
+                    //         commonProps={commonProps}
+                    //         commonGrid={commonGrid}
+                    //         commonXAxis={commonXAxis}
+                    //         commonYAxisRevenue={commonYAxisRevenue}
+                    //         commonYAxisOrders={commonYAxisOrders}
+                    //         commonTooltip={commonTooltip}
+                    //         commonLegend={commonLegend}
+                    //         visibleMetrics={visibleMetrics}
+                    //         showPredictions={showPredictions}
+                    //         shouldShowPredictionLine={shouldShowPredictionLine}
+                    //         predictionDate={predictionDate}
+                    //       />
+                    //     );
+                    // }
+                  } catch (error) {
+                    debugLog.error('Error rendering chart', {
+                      error: error instanceof Error ? error.message : String(error),
+                      chartType,
+                      dataLength: commonProps?.data?.length || 0,
+                      hasCommonProps: !!commonProps,
+                      errorStack: error instanceof Error ? error.stack : undefined
+                    }, 'UnifiedAnalyticsChart');
+                    return (
+                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
+                        <Typography variant="h6" color="error">Chart Rendering Error</Typography>
+                        <Typography variant="body2" color="text.secondary">Unable to render the chart. Please try refreshing.</Typography>
+                      </div>
+                    );
+                  }
+                })()}
+              </ResponsiveContainer>
+            </div>
+          </React.Fragment>
         )}
         
         {/* Show empty state when no data */}
