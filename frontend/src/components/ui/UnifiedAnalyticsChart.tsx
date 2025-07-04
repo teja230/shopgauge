@@ -203,8 +203,13 @@ const debugChartRender = (componentName: string, props: any) => {
 
 // Enhanced memoized components with better prop stabilization and error boundaries
 const MemoizedLineChart = memo(({ commonProps, commonGrid, commonXAxis, commonYAxisRevenue, commonTooltip, commonLegend, visibleMetrics, shouldShowPredictionLine, predictionDate }: any) => {
-  // Validate props before rendering
-  if (!commonProps?.data || !Array.isArray(commonProps.data) || commonProps.data.length === 0) {
+  // Relaxed validation - only check if we have some data
+  if (!commonProps?.data || !Array.isArray(commonProps.data)) {
+    debugLog.warn('MemoizedLineChart: No data available', {
+      hasCommonProps: !!commonProps,
+      hasData: !!(commonProps && commonProps.data),
+      isArray: !!(commonProps && Array.isArray(commonProps.data))
+    }, 'MemoizedLineChart');
     return null;
   }
 
@@ -280,8 +285,8 @@ const MemoizedLineChart = memo(({ commonProps, commonGrid, commonXAxis, commonYA
 });
 
 const MemoizedAreaChart = memo(({ commonProps, commonGrid, commonXAxis, commonYAxisRevenue, commonTooltip, commonLegend, visibleMetrics, shouldShowPredictionLine, predictionDate, gradientIdPrefix }: any) => {
-  // Validate props before rendering
-  if (!commonProps?.data || !Array.isArray(commonProps.data) || commonProps.data.length === 0) {
+  // Relaxed validation - only check if we have some data
+  if (!commonProps?.data || !Array.isArray(commonProps.data)) {
     return null;
   }
 
@@ -350,8 +355,8 @@ const MemoizedAreaChart = memo(({ commonProps, commonGrid, commonXAxis, commonYA
 });
 
 const MemoizedBarChart = memo(({ commonProps, commonGrid, commonXAxis, commonYAxisRevenue, commonTooltip, commonLegend, visibleMetrics, shouldShowPredictionLine, predictionDate }: any) => {
-  // Validate props before rendering
-  if (!commonProps?.data || !Array.isArray(commonProps.data) || commonProps.data.length === 0) {
+  // Relaxed validation - only check if we have some data
+  if (!commonProps?.data || !Array.isArray(commonProps.data)) {
     return null;
   }
 
@@ -407,29 +412,21 @@ const MemoizedBarChart = memo(({ commonProps, commonGrid, commonXAxis, commonYAx
 });
 
 const MemoizedComposedChart = memo(({ commonProps, commonGrid, commonXAxis, commonYAxisRevenue, commonYAxisOrders, commonTooltip, commonLegend, visibleMetrics, showPredictions, shouldShowPredictionLine, predictionDate }: any) => {
-  // Enhanced validation for composed chart
-  if (!commonProps?.data || !Array.isArray(commonProps.data) || commonProps.data.length === 0) {
-    debugLog.error('MemoizedComposedChart: Invalid data props', {
+  // Relaxed validation for composed chart
+  if (!commonProps?.data || !Array.isArray(commonProps.data)) {
+    debugLog.warn('MemoizedComposedChart: No data available', {
       hasCommonProps: !!commonProps,
-      dataLength: commonProps?.data?.length || 0
+      hasData: !!(commonProps && commonProps.data),
+      isArray: !!(commonProps && Array.isArray(commonProps.data))
     }, 'MemoizedComposedChart');
     return null;
   }
 
   try {
-    // Validate that we have the required data fields
-    const hasValidData = commonProps.data.some((item: any) => 
-      item && 
-      typeof item.revenue === 'number' && 
-      typeof item.orders_count === 'number' && 
-      !isNaN(item.revenue) && 
-      !isNaN(item.orders_count)
-    );
-    
-    if (!hasValidData) {
-      debugLog.error('MemoizedComposedChart: No valid data found', {
-        dataLength: commonProps.data.length,
-        dataSample: commonProps.data.slice(0, 3)
+    // Basic validation that we have some data
+    if (commonProps.data.length === 0) {
+      debugLog.warn('MemoizedComposedChart: Empty data array', {
+        dataLength: commonProps.data.length
       }, 'MemoizedComposedChart');
       return null;
     }
@@ -517,8 +514,8 @@ const MemoizedComposedChart = memo(({ commonProps, commonGrid, commonXAxis, comm
 });
 
 const MemoizedCandlestickChart = memo(({ commonProps, commonGrid, commonXAxis, commonYAxisRevenue, commonTooltip, commonLegend, visibleMetrics, shouldShowPredictionLine, predictionDate }: any) => {
-  // Validate props before rendering
-  if (!commonProps?.data || !Array.isArray(commonProps.data) || commonProps.data.length === 0) {
+  // Relaxed validation - only check if we have some data
+  if (!commonProps?.data || !Array.isArray(commonProps.data)) {
     return null;
   }
 
@@ -578,8 +575,8 @@ const MemoizedCandlestickChart = memo(({ commonProps, commonGrid, commonXAxis, c
 });
 
 const MemoizedWaterfallChart = memo(({ commonProps, commonGrid, commonXAxis, commonYAxisRevenue, commonTooltip, commonLegend, visibleMetrics, shouldShowPredictionLine, predictionDate }: any) => {
-  // Validate props before rendering
-  if (!commonProps?.data || !Array.isArray(commonProps.data) || commonProps.data.length === 0) {
+  // Relaxed validation - only check if we have some data
+  if (!commonProps?.data || !Array.isArray(commonProps.data)) {
     return null;
   }
 
@@ -639,8 +636,8 @@ const MemoizedWaterfallChart = memo(({ commonProps, commonGrid, commonXAxis, com
 });
 
 const MemoizedStackedChart = memo(({ commonProps, commonGrid, commonXAxis, commonYAxisRevenue, commonTooltip, commonLegend, visibleMetrics, shouldShowPredictionLine, predictionDate, gradientIdPrefix }: any) => {
-  // Validate props before rendering
-  if (!commonProps?.data || !Array.isArray(commonProps.data) || commonProps.data.length === 0) {
+  // Relaxed validation - only check if we have some data
+  if (!commonProps?.data || !Array.isArray(commonProps.data)) {
     return null;
   }
 
@@ -726,28 +723,20 @@ const MemoizedRevenueFocusChart = memo(({ commonProps, commonGrid, commonXAxis, 
     });
   }, [commonProps, visibleMetrics, shouldShowPredictionLine, predictionDate, gradientIdPrefix]);
 
-  // Validate data before rendering
-  if (!commonProps || !commonProps.data || !Array.isArray(commonProps.data) || commonProps.data.length === 0) {
-    debugLog.error('MemoizedRevenueFocusChart: Invalid data props', {
+  // Relaxed validation - only check if we have some data
+  if (!commonProps || !commonProps.data || !Array.isArray(commonProps.data)) {
+    debugLog.warn('MemoizedRevenueFocusChart: No data available', {
       hasCommonProps: !!commonProps,
       hasData: !!(commonProps && commonProps.data),
-      isArray: !!(commonProps && Array.isArray(commonProps.data)),
-      dataLength: commonProps?.data?.length || 0
+      isArray: !!(commonProps && Array.isArray(commonProps.data))
     }, 'MemoizedRevenueFocusChart');
     return null;
   }
 
-  // Validate that we have revenue data
-  const hasRevenueData = commonProps.data.some((item: any) => 
-    item && typeof item.revenue === 'number' && !isNaN(item.revenue) && item.revenue > 0
-  );
-  
-  if (!hasRevenueData) {
-    debugLog.error('MemoizedRevenueFocusChart: No valid revenue data found', {
-      dataLength: commonProps.data?.length || 0,
-      dataSample: commonProps.data?.slice(0, 3) || [],
-      hasAnyRevenue: commonProps.data?.some((item: any) => item && 'revenue' in item),
-      revenueTypes: commonProps.data?.map((item: any) => typeof item?.revenue).slice(0, 5)
+  // Basic validation that we have some data
+  if (commonProps.data.length === 0) {
+    debugLog.warn('MemoizedRevenueFocusChart: Empty data array', {
+      dataLength: commonProps.data?.length || 0
     }, 'MemoizedRevenueFocusChart');
     return null;
   }
@@ -1774,8 +1763,11 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                 debugLog.info('Rendering chart', {
                   chartType,
                   dataLength: commonProps?.data?.length || 0,
+                  safeChartDataLength: safeChartData.length,
                   shouldShowPredictionLine,
-                  predictionDate
+                  predictionDate,
+                  commonPropsDataSample: commonProps?.data?.slice(0, 2) || [],
+                  safeChartDataSample: safeChartData.slice(0, 2) || []
                 }, 'UnifiedAnalyticsChart');
 
                 try {
