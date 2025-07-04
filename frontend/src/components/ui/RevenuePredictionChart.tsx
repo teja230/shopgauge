@@ -93,11 +93,11 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
     line: { icon: <ShowChart />, label: 'Line', color: theme.palette.primary.main },
     bar: { icon: <BarChartIcon />, label: 'Bar', color: theme.palette.primary.main },
   };
-  // Process and validate data
+  // Process and validate data with separation of historical vs predicted
   const processedData = useMemo(() => {
-    if (!data || !Array.isArray(data)) return [];
+    if (!data || !Array.isArray(data)) return { combined: [], historical: [], predicted: [] };
     
-    return data.map(item => ({
+    const validData = data.map(item => ({
       date: item.date,
       revenue: Math.max(0, item.revenue || 0),
       isPrediction: Boolean(item.isPrediction),
@@ -105,14 +105,23 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
       confidence_max: item.confidence_max || 0,
       confidence_score: item.confidence_score || 0,
     })).filter(item => item.date && !isNaN(item.revenue));
+
+    const historical = validData.filter(item => !item.isPrediction);
+    const predicted = validData.filter(item => item.isPrediction);
+
+    return {
+      combined: validData,
+      historical,
+      predicted
+    };
   }, [data]);
 
   // Calculate statistics
   const stats = useMemo(() => {
-    if (processedData.length === 0) return null;
+    if (processedData.combined.length === 0) return null;
     
-    const historicalData = processedData.filter(d => !d.isPrediction);
-    const predictionData = processedData.filter(d => d.isPrediction);
+    const historicalData = processedData.historical;
+    const predictionData = processedData.predicted;
     
     const currentRevenue = historicalData.reduce((sum, d) => sum + d.revenue, 0);
     const predictedRevenue = predictionData.reduce((sum, d) => sum + d.revenue, 0);
@@ -218,7 +227,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
     );
   }
 
-  const predictionStartDate = processedData.find(d => d.isPrediction)?.date;
+  const predictionStartDate = processedData.predicted.find(d => d.isPrediction)?.date;
 
   const chartTypeConfig = {
     area: { icon: <Timeline />, label: 'Area', color: theme.palette.primary.main },
@@ -228,66 +237,149 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
 
   const renderChart = () => {
     const commonProps = {
-      data: processedData,
+      data: processedData.combined,
       ...chartCommonProps,
     };
 
-    const commonElements = (
-      <>
-        {createGradientDefs(gradientId, predictionGradientId, theme)}
-        
-        <CartesianGrid {...gridStyles(theme)} />
-        
-        <XAxis
-          dataKey="date"
-          tickFormatter={(value) => {
-            try {
-              return new Date(value).toLocaleDateString('en-US', { 
-                month: 'short', 
-                day: 'numeric' 
-              });
-            } catch {
-              return value;
-            }
-          }}
-          {...axisStyles(theme)}
-        />
-        
-        <YAxis
-          tickFormatter={formatCurrency}
-          {...axisStyles(theme)}
-          label={{
-            value: 'Revenue (USD)',
-            angle: -90,
-            position: 'insideLeft',
-            style: { textAnchor: 'middle', fill: theme.palette.text.secondary }
-          }}
-        />
-        
-        <Tooltip content={<CustomTooltip />} />
-        <Legend />
-        
-        {predictionStartDate && (
-          <ReferenceLine
-            x={predictionStartDate}
-            {...referenceLineStyles(theme)}
+    const commonElements = useMemo(() => {
+      const historicalData = processedData.historical;
+      const predictionData = processedData.predicted;
+      const separatorDate = predictionData.length > 0 ? predictionData[0]?.date : null;
+
+      return (
+        <>
+          <defs>
+            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor={theme.palette.primary.main} stopOpacity={0.4} />
+              <stop offset="95%" stopColor={theme.palette.primary.main} stopOpacity={0.05} />
+            </linearGradient>
+            <linearGradient id={predictionGradientId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor={theme.palette.secondary.main} stopOpacity={0.3} />
+              <stop offset="95%" stopColor={theme.palette.secondary.main} stopOpacity={0.05} />
+            </linearGradient>
+            {/* Pattern for prediction area */}
+            <pattern id="predictionPattern" patternUnits="userSpaceOnUse" width="4" height="4">
+              <rect width="4" height="4" fill={theme.palette.secondary.main} fillOpacity="0.1"/>
+              <path d="M 0,4 l 4,-4 M -1,1 l 2,-2 M 3,5 l 2,-2" stroke={theme.palette.secondary.main} strokeWidth="0.5" strokeOpacity="0.3"/>
+            </pattern>
+          </defs>
+          <CartesianGrid 
+            strokeDasharray="3 3" 
+            stroke="rgba(0, 0, 0, 0.1)" 
+            strokeOpacity={0.5}
           />
-        )}
-      </>
-    );
+          <XAxis
+            dataKey="date"
+            tickFormatter={(value) => {
+              try {
+                return new Date(value).toLocaleDateString('en-US', { 
+                  month: 'short', 
+                  day: 'numeric' 
+                });
+              } catch {
+                return value;
+              }
+            }}
+            stroke="rgba(0, 0, 0, 0.6)"
+            tick={{ fontSize: 11, fill: 'rgba(0, 0, 0, 0.7)' }}
+            axisLine={{ stroke: 'rgba(0, 0, 0, 0.2)' }}
+          />
+          <YAxis
+            tickFormatter={formatCurrency}
+            stroke="rgba(0, 0, 0, 0.6)"
+            tick={{ fontSize: 11, fill: 'rgba(0, 0, 0, 0.7)' }}
+            axisLine={{ stroke: 'rgba(0, 0, 0, 0.2)' }}
+          />
+          <Tooltip
+            labelFormatter={(label) => {
+              try {
+                const date = new Date(label);
+                return date.toLocaleDateString('en-US', { 
+                  weekday: 'short',
+                  month: 'short', 
+                  day: 'numeric',
+                  year: 'numeric'
+                });
+              } catch {
+                return label;
+              }
+            }}
+            formatter={(value: number, name: string, props: any) => {
+              const isPrediction = props.payload?.isPrediction;
+              const prefix = isPrediction ? '🔮 Forecast: ' : '📊 Actual: ';
+              return [`${prefix}${formatCurrency(value)}`, name];
+            }}
+            contentStyle={{
+              backgroundColor: 'rgba(255, 255, 255, 0.95)',
+              border: '1px solid rgba(0, 0, 0, 0.1)',
+              borderRadius: '8px',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+              fontSize: '12px'
+            }}
+          />
+          <Legend 
+            formatter={(value, entry) => (
+              <span style={{ 
+                color: entry.color, 
+                fontSize: '12px',
+                fontWeight: 500
+              }}>
+                {value}
+              </span>
+            )}
+          />
+          
+          {/* Stylish separator line between historical and predicted data */}
+          {separatorDate && (
+            <>
+              {/* Main separator line */}
+              <ReferenceLine
+                x={separatorDate}
+                stroke={theme.palette.warning.main}
+                strokeWidth={2}
+                strokeDasharray="8 4"
+                opacity={0.8}
+              />
+              {/* Subtle background highlight for prediction area */}
+              <ReferenceLine
+                x={separatorDate}
+                stroke="transparent"
+              />
+            </>
+          )}
+        </>
+      );
+    }, [processedData.combined, theme, gradientId, predictionGradientId, formatCurrency]);
 
     switch (chartType) {
       case 'area':
         return (
           <AreaChart {...commonProps}>
             {commonElements}
+            {/* Single area with conditional styling - Recharts will handle the data */}
             <Area
               type="monotone"
               dataKey="revenue"
               name="Revenue"
-              {...areaStyles(theme.palette.primary.main, gradientId)}
-              dot={dotStyles(theme.palette.primary.main)}
-              activeDot={activeDotStyles(theme.palette.primary.main)}
+              stroke={theme.palette.primary.main}
+              strokeWidth={2}
+              fill={`url(#${gradientId})`}
+              fillOpacity={0.6}
+              dot={(props: any) => {
+                const { payload } = props;
+                return (
+                  <circle
+                    cx={props.cx}
+                    cy={props.cy}
+                    r={3}
+                    fill={payload?.isPrediction ? theme.palette.secondary.main : theme.palette.primary.main}
+                    stroke={payload?.isPrediction ? theme.palette.secondary.dark : theme.palette.primary.dark}
+                    strokeWidth={2}
+                  />
+                );
+              }}
+              connectNulls={false}
+              isAnimationActive={false}
             />
           </AreaChart>
         );
@@ -300,9 +392,28 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
               type="monotone"
               dataKey="revenue"
               name="Revenue"
-              {...lineStyles(theme.palette.primary.main)}
-              dot={dotStyles(theme.palette.primary.main)}
-              activeDot={activeDotStyles(theme.palette.primary.main)}
+              stroke={theme.palette.primary.main}
+              strokeWidth={3}
+              dot={(props: any) => {
+                const { payload } = props;
+                return (
+                  <circle
+                    cx={props.cx}
+                    cy={props.cy}
+                    r={4}
+                    fill={payload?.isPrediction ? theme.palette.secondary.main : theme.palette.primary.main}
+                    stroke={payload?.isPrediction ? theme.palette.secondary.dark : theme.palette.primary.dark}
+                    strokeWidth={2}
+                  />
+                );
+              }}
+              activeDot={{ 
+                r: 6, 
+                stroke: theme.palette.background.paper,
+                strokeWidth: 2
+              }}
+              connectNulls={false}
+              isAnimationActive={false}
             />
           </LineChart>
         );
@@ -314,7 +425,27 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
             <Bar
               dataKey="revenue"
               name="Revenue"
-              {...barStyles(theme.palette.primary.main)}
+              fill={theme.palette.primary.main}
+              opacity={0.8}
+              radius={[2, 2, 0, 0]}
+              isAnimationActive={false}
+              shape={(props: any) => {
+                const { payload } = props;
+                const fill = payload?.isPrediction ? theme.palette.secondary.main : theme.palette.primary.main;
+                const opacity = payload?.isPrediction ? 0.6 : 0.8;
+                return (
+                  <rect
+                    x={props.x}
+                    y={props.y}
+                    width={props.width}
+                    height={props.height}
+                    fill={fill}
+                    opacity={opacity}
+                    rx={2}
+                    ry={2}
+                  />
+                );
+              }}
             />
           </BarChart>
         );
@@ -327,7 +458,12 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
               type="monotone"
               dataKey="revenue"
               name="Revenue"
-              {...areaStyles(theme.palette.primary.main, gradientId)}
+              stroke={theme.palette.primary.main}
+              strokeWidth={2}
+              fill={`url(#${gradientId})`}
+              fillOpacity={0.6}
+              connectNulls={false}
+              isAnimationActive={false}
             />
           </AreaChart>
         );

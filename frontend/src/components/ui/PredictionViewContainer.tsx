@@ -376,6 +376,96 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
 
     // Show stylish "Make Forecasts" button when forecasts are off
     if (!showPredictions) {
+      // Still show historical data when predictions are off
+      const hasHistoricalData = data && 
+        Array.isArray(data.historical) && 
+        data.historical.length > 0;
+
+      if (hasHistoricalData) {
+        console.log('🔄 PredictionViewContainer: Showing historical data with predictions off');
+        // Show the charts with historical data only
+        const commonProps = {
+          loading,
+          error,
+          height: Math.max(300, height - 120),
+        };
+
+        const historicalOnlyData = {
+          revenue: transformedData.revenue.filter(item => !item.isPrediction),
+          orders: transformedData.orders.filter(item => !item.isPrediction),
+          conversion: transformedData.conversion.filter(item => !item.isPrediction),
+        };
+
+        return (
+          <Box sx={{ height: '100%' }}>
+            {/* Header showing that forecasts are off but data is available */}
+            <Box sx={{ 
+              mb: 2,
+              p: 2,
+              backgroundColor: theme.palette.info.light,
+              borderRadius: theme.shape.borderRadius,
+              border: `1px solid ${theme.palette.info.main}`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Analytics sx={{ color: theme.palette.info.main }} />
+                <Typography variant="body2" fontWeight={600} color="info.main">
+                  Showing Historical Data Only
+                </Typography>
+              </Box>
+              <Button
+                variant="contained"
+                color="secondary"
+                size="small"
+                onClick={() => setShowPredictions(true)}
+                startIcon={<AutoAwesome />}
+                sx={{
+                  textTransform: 'none',
+                  borderRadius: 2,
+                  fontWeight: 600,
+                }}
+              >
+                Enable Forecasts
+              </Button>
+            </Box>
+
+            {/* Render the current chart view with historical data only */}
+            <Box sx={{ flex: 1, minHeight: 300 }}>
+              {(() => {
+                switch (activeView) {
+                  case 'revenue':
+                    return (
+                      <RevenuePredictionChart
+                        data={historicalOnlyData.revenue}
+                        {...commonProps}
+                      />
+                    );
+                  case 'orders':
+                    return (
+                      <OrderPredictionChart
+                        data={historicalOnlyData.orders}
+                        {...commonProps}
+                      />
+                    );
+                  case 'conversion':
+                    return (
+                      <ConversionPredictionChart
+                        data={historicalOnlyData.conversion}
+                        {...commonProps}
+                      />
+                    );
+                  default:
+                    return null;
+                }
+              })()}
+            </Box>
+          </Box>
+        );
+      }
+
+      // Show enable forecasts prompt when no historical data
       console.log('🔄 PredictionViewContainer: Rendering forecast toggle state');
       return (
         <Box sx={{ 

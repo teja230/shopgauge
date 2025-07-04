@@ -746,7 +746,7 @@ const DashboardPage = () => {
   // =====================================
   // ENHANCED CHART TOGGLE STATE MANAGEMENT
   // =====================================
-  const [chartMode, setChartMode] = useState<'unified' | 'classic'>('classic');
+  const [chartMode, setChartMode] = useState<'unified' | 'classic'>('unified');
   
   // Add error boundary reset key to force remount when needed
   const [errorBoundaryKey, setErrorBoundaryKey] = useState(0);
@@ -2582,14 +2582,9 @@ const DashboardPage = () => {
                 setTimeout(() => fetchRevenueData(true), 100);
               }}
             >
-              {/* Revenue Analysis Section */}
+              {/* Revenue Chart Section */}
               <StyledCard sx={{ height: 450 }}>
                 <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                  <CardTitle>
-                    <Analytics color="primary" />
-                    Revenue Analysis
-                  </CardTitle>
-                  
                   {/* Only render RevenueChart when we have initialized the dashboard */}
                   {dashboardDataInitialized || stableTimeseriesData.length > 0 ? (
                     <Box sx={{ flex: 1 }}>
@@ -2597,7 +2592,7 @@ const DashboardPage = () => {
                         data={stableTimeseriesData}
                         loading={cardLoading.revenue}
                         error={cardErrors.revenue}
-                        height={350} // Reduced height to account for the section header
+                        height={410} // Increased height since we removed the section header
                       />
                     </Box>
                   ) : (

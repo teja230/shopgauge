@@ -66,6 +66,7 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
   const gradientId = useMemo(() => `orders-gradient-${Math.random().toString(36).substr(2, 9)}`, []);
+  const predictionGradientId = useMemo(() => `prediction-gradient-${Math.random().toString(36).substr(2, 9)}`, []);
   // Process and validate data
   const processedData = useMemo(() => {
     if (!data || !Array.isArray(data)) return [];
@@ -207,27 +208,34 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
     bar: { icon: <BarChartIcon />, label: 'Bar', color: theme.palette.success.main },
   };
 
-  const renderChart = () => {
-    const commonProps = {
-      data: processedData,
-      margin: { top: 10, right: 30, left: 20, bottom: 20 },
-    };
+  // Common chart elements with enhanced visual separation
+  const commonElements = useMemo(() => {
+    const historicalData = processedData.filter(d => !d.isPrediction);
+    const predictionData = processedData.filter(d => d.isPrediction);
+    const separatorDate = predictionData.length > 0 ? predictionData[0]?.date : null;
 
-    const commonElements = (
+    return (
       <>
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor={theme.palette.success.main} stopOpacity={0.3} />
+            <stop offset="5%" stopColor={theme.palette.success.main} stopOpacity={0.4} />
             <stop offset="95%" stopColor={theme.palette.success.main} stopOpacity={0.05} />
           </linearGradient>
+          <linearGradient id={predictionGradientId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor={theme.palette.warning.main} stopOpacity={0.3} />
+            <stop offset="95%" stopColor={theme.palette.warning.main} stopOpacity={0.05} />
+          </linearGradient>
+          {/* Pattern for prediction area */}
+          <pattern id="orderPredictionPattern" patternUnits="userSpaceOnUse" width="4" height="4">
+            <rect width="4" height="4" fill={theme.palette.warning.main} fillOpacity="0.1"/>
+            <path d="M 0,4 l 4,-4 M -1,1 l 2,-2 M 3,5 l 2,-2" stroke={theme.palette.warning.main} strokeWidth="0.5" strokeOpacity="0.3"/>
+          </pattern>
         </defs>
-        
         <CartesianGrid 
           strokeDasharray="3 3" 
-          stroke={theme.palette.divider} 
-          opacity={0.6}
+          stroke="rgba(0, 0, 0, 0.1)" 
+          strokeOpacity={0.5}
         />
-        
         <XAxis
           dataKey="date"
           tickFormatter={(value) => {
@@ -240,42 +248,74 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
               return value;
             }
           }}
-          stroke={theme.palette.text.secondary}
-          tick={{ fontSize: 12, fill: theme.palette.text.secondary }}
-          axisLine={{ stroke: theme.palette.divider }}
+          stroke="rgba(0, 0, 0, 0.6)"
+          tick={{ fontSize: 11, fill: 'rgba(0, 0, 0, 0.7)' }}
+          axisLine={{ stroke: 'rgba(0, 0, 0, 0.2)' }}
         />
-        
         <YAxis
-          tickFormatter={formatNumber}
-          stroke={theme.palette.text.secondary}
-          tick={{ fontSize: 12, fill: theme.palette.text.secondary }}
-          axisLine={{ stroke: theme.palette.divider }}
-          label={{
-            value: 'Orders',
-            angle: -90,
-            position: 'insideLeft',
-            style: { textAnchor: 'middle', fill: theme.palette.text.secondary }
+          tickFormatter={(value) => Math.round(value).toString()}
+          stroke="rgba(0, 0, 0, 0.6)"
+          tick={{ fontSize: 11, fill: 'rgba(0, 0, 0, 0.7)' }}
+          axisLine={{ stroke: 'rgba(0, 0, 0, 0.2)' }}
+        />
+        <Tooltip
+          labelFormatter={(label) => {
+            try {
+              const date = new Date(label);
+              return date.toLocaleDateString('en-US', { 
+                weekday: 'short',
+                month: 'short', 
+                day: 'numeric',
+                year: 'numeric'
+              });
+            } catch {
+              return label;
+            }
+          }}
+          formatter={(value: number, name: string, props: any) => {
+            const isPrediction = props.payload?.isPrediction;
+            const prefix = isPrediction ? '🔮 Forecast: ' : '📊 Actual: ';
+            return [`${prefix}${Math.round(value)} orders`, name];
+          }}
+          contentStyle={{
+            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+            border: '1px solid rgba(0, 0, 0, 0.1)',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            fontSize: '12px'
           }}
         />
+        <Legend 
+          formatter={(value, entry) => (
+            <span style={{ 
+              color: entry.color, 
+              fontSize: '12px',
+              fontWeight: 500
+            }}>
+              {value}
+            </span>
+          )}
+        />
         
-        <Tooltip content={<CustomTooltip />} />
-        <Legend />
-        
-        {predictionStartDate && (
+        {/* Stylish separator line between historical and predicted data */}
+        {separatorDate && (
           <ReferenceLine
-            x={predictionStartDate}
-            stroke={theme.palette.secondary.main}
-            strokeDasharray="5,5"
+            x={separatorDate}
+            stroke={theme.palette.warning.main}
             strokeWidth={2}
-            label={{ 
-              value: "AI Forecasts →", 
-              position: "top",
-              style: { fill: theme.palette.secondary.main, fontWeight: 600 }
-            }}
+            strokeDasharray="8 4"
+            opacity={0.8}
           />
         )}
       </>
     );
+  }, [processedData, theme, gradientId, predictionGradientId]);
+
+  const renderChart = () => {
+    const commonProps = {
+      data: processedData,
+      margin: { top: 10, right: 30, left: 20, bottom: 20 },
+    };
 
     switch (chartType) {
       case 'line':
@@ -285,22 +325,29 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
             <Line
               type="monotone"
               dataKey="orders_count"
+              name="Orders"
               stroke={theme.palette.success.main}
               strokeWidth={3}
-              name="Orders"
+              dot={(props: any) => {
+                const { payload } = props;
+                return (
+                  <circle
+                    cx={props.cx}
+                    cy={props.cy}
+                    r={4}
+                    fill={payload?.isPrediction ? theme.palette.warning.main : theme.palette.success.main}
+                    stroke={payload?.isPrediction ? theme.palette.warning.dark : theme.palette.success.dark}
+                    strokeWidth={2}
+                  />
+                );
+              }}
+              activeDot={{ 
+                r: 6, 
+                stroke: theme.palette.background.paper,
+                strokeWidth: 2
+              }}
               connectNulls={false}
               isAnimationActive={false}
-              dot={{
-                fill: theme.palette.success.main,
-                strokeWidth: 2,
-                r: 4,
-              }}
-              activeDot={{
-                r: 6,
-                fill: theme.palette.success.main,
-                stroke: '#fff',
-                strokeWidth: 2,
-              }}
             />
           </LineChart>
         );
@@ -312,10 +359,24 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
             <Area
               type="monotone"
               dataKey="orders_count"
-              stroke={theme.palette.success.main}
-              strokeWidth={3}
-              fill={`url(#${gradientId})`}
               name="Orders"
+              stroke={theme.palette.success.main}
+              strokeWidth={2}
+              fill={`url(#${gradientId})`}
+              fillOpacity={0.6}
+              dot={(props: any) => {
+                const { payload } = props;
+                return (
+                  <circle
+                    cx={props.cx}
+                    cy={props.cy}
+                    r={3}
+                    fill={payload?.isPrediction ? theme.palette.warning.main : theme.palette.success.main}
+                    stroke={payload?.isPrediction ? theme.palette.warning.dark : theme.palette.success.dark}
+                    strokeWidth={2}
+                  />
+                );
+              }}
               connectNulls={false}
               isAnimationActive={false}
             />
@@ -328,11 +389,28 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
             {commonElements}
             <Bar
               dataKey="orders_count"
-              fill={theme.palette.success.main}
               name="Orders"
-              radius={[4, 4, 0, 0]}
+              fill={theme.palette.success.main}
               opacity={0.8}
+              radius={[2, 2, 0, 0]}
               isAnimationActive={false}
+              shape={(props: any) => {
+                const { payload } = props;
+                const fill = payload?.isPrediction ? theme.palette.warning.main : theme.palette.success.main;
+                const opacity = payload?.isPrediction ? 0.6 : 0.8;
+                return (
+                  <rect
+                    x={props.x}
+                    y={props.y}
+                    width={props.width}
+                    height={props.height}
+                    fill={fill}
+                    opacity={opacity}
+                    rx={2}
+                    ry={2}
+                  />
+                );
+              }}
             />
           </BarChart>
         );
