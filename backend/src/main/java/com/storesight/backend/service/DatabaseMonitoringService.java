@@ -19,7 +19,7 @@ public class DatabaseMonitoringService {
   private final DataSource dataSource;
   private long lastConnectionFailureTime = 0;
   private int consecutiveFailures = 0;
-  
+
   // Circuit breaker state
   private boolean circuitBreakerOpen = false;
   private long circuitBreakerOpenTime = 0;
@@ -83,25 +83,28 @@ public class DatabaseMonitoringService {
       metrics.put("activeUsageRatio", Math.round(activeUsageRatio * 100.0) / 100.0);
       metrics.put("totalUsageRatio", Math.round(totalUsageRatio * 100.0) / 100.0);
 
-      // EMERGENCY: If pool usage is critical, skip connection testing to avoid competing for connections
-      if (activeUsageRatio >= EMERGENCY_USAGE_THRESHOLD || idleConnections == 0 || threadsAwaiting > 0) {
+      // EMERGENCY: If pool usage is critical, skip connection testing to avoid competing for
+      // connections
+      if (activeUsageRatio >= EMERGENCY_USAGE_THRESHOLD
+          || idleConnections == 0
+          || threadsAwaiting > 0) {
         logger.error(
             "EMERGENCY: Database pool exhaustion detected - Skipping connection test to avoid competing for connections. Usage: {}%, Idle: {}, Threads waiting: {}",
             Math.round(activeUsageRatio * 100), idleConnections, threadsAwaiting);
-        
+
         // Open circuit breaker to prevent further connection attempts
         circuitBreakerOpen = true;
         circuitBreakerOpenTime = System.currentTimeMillis();
-        
+
         // Log metrics without testing connection
         logger.error("CRITICAL: Pool exhaustion metrics: {}", metrics);
-        
+
         // Track consecutive failures
         consecutiveFailures++;
         if (lastConnectionFailureTime == 0) {
           lastConnectionFailureTime = System.currentTimeMillis();
         }
-        
+
         return;
       }
 

@@ -123,10 +123,9 @@ public class ShopService {
     return session;
   }
 
-  /**
-   * Post-transaction operations to reduce connection holding time
-   */
-  public void postSaveShopOperations(String shopifyDomain, String validSessionId, String accessToken) {
+  /** Post-transaction operations to reduce connection holding time */
+  public void postSaveShopOperations(
+      String shopifyDomain, String validSessionId, String accessToken) {
     // These operations are moved outside the transaction to reduce connection holding time
     try {
       // Check and limit concurrent sessions (moved to separate transaction)
@@ -658,9 +657,7 @@ public class ShopService {
     }
   }
 
-  /**
-   * Async version of excessive session cleanup to reduce connection holding time
-   */
+  /** Async version of excessive session cleanup to reduce connection holding time */
   public void cleanupExcessiveSessionsAsync(String shopifyDomain) {
     try {
       Optional<Shop> shopOpt = shopRepository.findByShopifyDomain(shopifyDomain);
