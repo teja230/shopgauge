@@ -19,6 +19,7 @@ import {
   Button,
   CircularProgress,
 } from '@mui/material';
+import { styled } from '@mui/material/styles';
 import {
   TrendingUp,
   ShoppingCart,
@@ -35,6 +36,45 @@ import {
 import RevenuePredictionChart from './RevenuePredictionChart';
 import OrderPredictionChart from './OrderPredictionChart';
 import ConversionPredictionChart from './ConversionPredictionChart';
+
+// Styled components matching main branch dashboard theme
+const StyledCard = styled(Card)(({ theme }) => ({
+  height: '100%',
+  display: 'flex',
+  flexDirection: 'column',
+  borderRadius: theme.shape.borderRadius,
+  transition: 'all 0.3s ease',
+  backgroundColor: theme.palette.background.paper,
+  border: `1px solid ${theme.palette.divider}`,
+  boxShadow: '0 2px 12px rgba(0, 0, 0, 0.05)',
+  '&:hover': {
+    transform: 'translateY(-2px)',
+    boxShadow: theme.shadows[8],
+  },
+  // Mobile-first responsive design - disable hover effects on touch devices
+  '@media (hover: none)': {
+    '&:hover': {
+      transform: 'none',
+      boxShadow: '0 2px 12px rgba(0, 0, 0, 0.05)',
+    },
+  },
+}));
+
+const CardTitle = styled(Typography)(({ theme }) => ({
+  fontWeight: 600,
+  marginBottom: theme.spacing(2),
+  color: theme.palette.text.primary,
+  display: 'flex',
+  alignItems: 'center',
+  gap: theme.spacing(1),
+}));
+
+const ChartContainer = styled(Box)(({ theme }) => ({
+  flex: 1,
+  minHeight: 400,
+  padding: theme.spacing(1),
+  backgroundColor: theme.palette.background.paper,
+}));
 
 interface UnifiedAnalyticsData {
   historical: Array<{
@@ -58,6 +98,8 @@ interface UnifiedAnalyticsData {
     };
     confidence_score?: number;
   }>;
+  total_revenue?: number; // Add this to get accurate total revenue
+  total_orders?: number;  // Add this to get accurate total orders
 }
 
 interface PredictionViewContainerProps {
@@ -168,7 +210,7 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
       );
     }
 
-    // Show stylish "Make Predictions" button when forecasts are off
+    // Show stylish "Make Forecasts" button when forecasts are off
     if (!showPredictions) {
       return (
         <Box sx={{ 
@@ -198,56 +240,31 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
               Enable AI Forecasting
             </Typography>
             <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 400 }}>
-              Turn on forecasts to see AI-powered forecasts for your revenue, orders, and conversion rates.
+              Turn on forecasts to see AI-powered predictions for your revenue, orders, and conversion rates.
             </Typography>
           </Box>
           
           <Button
             variant="contained"
-            size="large"
+            color="secondary"
             onClick={() => setShowPredictions(true)}
             startIcon={<AutoAwesome />}
             sx={{
-              mt: 2,
-              px: 5,
-              py: 2,
-              fontSize: '1.2rem',
-              fontWeight: 700,
-              borderRadius: 4,
+              borderRadius: 3,
               textTransform: 'none',
-              background: `linear-gradient(135deg, ${theme.palette.secondary.main}, ${theme.palette.primary.main})`,
-              boxShadow: `0 8px 32px ${theme.palette.secondary.main}40`,
-              border: `2px solid transparent`,
-              position: 'relative',
-              overflow: 'hidden',
-              '&::before': {
-                content: '""',
-                position: 'absolute',
-                top: 0,
-                left: '-100%',
-                width: '100%',
-                height: '100%',
-                background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)',
-                transition: 'left 0.6s ease',
-              },
+              fontWeight: 600,
+              px: 4,
+              py: 1.5,
+              fontSize: '1rem',
+              background: `linear-gradient(135deg, ${theme.palette.secondary.main} 0%, ${theme.palette.secondary.dark} 100%)`,
+              boxShadow: '0 4px 12px rgba(156, 39, 176, 0.3)',
               '&:hover': {
-                background: `linear-gradient(135deg, ${theme.palette.secondary.dark}, ${theme.palette.primary.dark})`,
-                boxShadow: `0 12px 40px ${theme.palette.secondary.main}60`,
-                transform: 'translateY(-3px) scale(1.02)',
-                '&::before': {
-                  left: '100%',
-                },
+                boxShadow: '0 6px 16px rgba(156, 39, 176, 0.4)',
+                transform: 'translateY(-1px)',
               },
-              '&:active': {
-                transform: 'translateY(-1px) scale(0.98)',
-              },
-              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
             }}
           >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              Make Forecasts
-              <AutoAwesome sx={{ fontSize: '1.2rem' }} />
-            </Box>
+            Make Forecasts
           </Button>
         </Box>
       );
@@ -292,82 +309,67 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
     const historical = data.historical || [];
     const predictions = data.predictions || [];
 
-    const currentPeriodData = historical.slice(-7); // Last 7 days
+    // Fix: Use the total revenue from the data object instead of summing daily values
+    // For current period, we'll use recent data, but for totals use the provided totals
+    const currentPeriodData = historical.slice(-7); // Last 7 days for period comparison
     const predictedData = showPredictions ? predictions.slice(0, 30) : []; // Next 30 days
 
-          switch (activeView) {
-        case 'revenue': {
-          const currentRevenue = currentPeriodData.reduce((sum, d) => sum + d.revenue, 0);
-          const predictedRevenue = predictedData.reduce((sum, d) => sum + d.revenue, 0);
-          return {
-            current: `$${currentRevenue.toLocaleString()}`,
-            predicted: `$${predictedRevenue.toLocaleString()}`,
-            metric: 'Revenue',
-          };
-        }
-        case 'orders': {
-          const currentOrders = currentPeriodData.reduce((sum, d) => sum + d.orders_count, 0);
-          const predictedOrders = predictedData.reduce((sum, d) => sum + d.orders_count, 0);
-          return {
-            current: currentOrders.toLocaleString(),
-            predicted: predictedOrders.toLocaleString(),
-            metric: 'Orders',
-          };
-        }
-        case 'conversion': {
-          const avgCurrentConversion = currentPeriodData.length > 0 ? 
-            currentPeriodData.reduce((sum, d) => sum + d.conversion_rate, 0) / currentPeriodData.length : 0;
-          const avgPredictedConversion = predictedData.length > 0 ? 
-            predictedData.reduce((sum, d) => sum + d.conversion_rate, 0) / predictedData.length : 0;
-          return {
-            current: `${avgCurrentConversion.toFixed(1)}%`,
-            predicted: `${avgPredictedConversion.toFixed(1)}%`,
-            metric: 'Conversion Rate',
-          };
-        }
-        default:
-          return null;
+    switch (activeView) {
+      case 'revenue': {
+        // Use the total revenue from data.total_revenue if available, otherwise fall back to calculation
+        const totalRevenue = data.total_revenue || historical.reduce((sum, d) => sum + d.revenue, 0);
+        
+        // For current period (last 7 days), sum the values
+        const currentPeriodRevenue = currentPeriodData.reduce((sum, d) => sum + d.revenue, 0);
+        const predictedRevenue = predictedData.reduce((sum, d) => sum + d.revenue, 0);
+        
+        return {
+          current: `$${currentPeriodRevenue.toLocaleString()}`,
+          predicted: `$${predictedRevenue.toLocaleString()}`,
+          metric: 'Revenue (7d)',
+          total: `$${totalRevenue.toLocaleString()}`, // Add total for reference
+        };
       }
+      case 'orders': {
+        // Use the total orders from data.total_orders if available
+        const totalOrders = data.total_orders || historical.reduce((sum, d) => sum + d.orders_count, 0);
+        
+        const currentOrders = currentPeriodData.reduce((sum, d) => sum + d.orders_count, 0);
+        const predictedOrders = predictedData.reduce((sum, d) => sum + d.orders_count, 0);
+        
+        return {
+          current: currentOrders.toLocaleString(),
+          predicted: predictedOrders.toLocaleString(),
+          metric: 'Orders (7d)',
+          total: totalOrders.toLocaleString(),
+        };
+      }
+      case 'conversion': {
+        const avgCurrentConversion = currentPeriodData.length > 0 ? 
+          currentPeriodData.reduce((sum, d) => sum + d.conversion_rate, 0) / currentPeriodData.length : 0;
+        const avgPredictedConversion = predictedData.length > 0 ? 
+          predictedData.reduce((sum, d) => sum + d.conversion_rate, 0) / predictedData.length : 0;
+        return {
+          current: `${avgCurrentConversion.toFixed(1)}%`,
+          predicted: `${avgPredictedConversion.toFixed(1)}%`,
+          metric: 'Conversion Rate',
+        };
+      }
+      default:
+        return null;
+    }
   };
 
   const stats = getViewStats();
 
   return (
-    <Box sx={{ 
-      width: '100%',
+    <StyledCard sx={{ 
       minHeight: { xs: 450, sm: 500, md: height || 550 },
-      display: 'flex', 
-      flexDirection: 'column',
-      backgroundColor: theme.palette.background.paper,
-      borderRadius: theme.shape.borderRadius,
-      boxShadow: '0 2px 12px rgba(0, 0, 0, 0.05)',
-      border: `1px solid ${theme.palette.divider}`,
-      overflow: 'hidden',
     }}>
-      {/* Header with Dashboard Theme */}
-      <Box sx={{ 
-        p: theme.spacing(2),
-        borderBottom: `1px solid ${theme.palette.divider}`,
-        backgroundColor: theme.palette.background.paper,
-      }}>
-        <Box sx={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center', 
-          mb: theme.spacing(2) 
-        }}>
-          <Typography 
-            variant="h6" 
-            component="h2" 
-            sx={{
-              fontSize: '1.25rem',
-              fontWeight: 600,
-              color: theme.palette.text.primary,
-              display: 'flex',
-              alignItems: 'center',
-              gap: theme.spacing(1),
-            }}
-          >
+      <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 3 }}>
+        {/* Header with Dashboard Theme */}
+        <Box sx={{ mb: 3 }}>
+          <CardTitle>
             <Analytics color="primary" />
             Advanced Analytics
             <Chip
@@ -380,65 +382,56 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
                 ml: 1,
               }}
             />
-          </Typography>
+          </CardTitle>
           
           {/* Enhanced Forecast Toggle */}
           <Box sx={{ 
             display: 'flex', 
-            alignItems: 'center', 
+            justifyContent: 'space-between', 
+            alignItems: 'center',
+            mb: 2,
+            flexWrap: 'wrap',
             gap: 1,
-            p: 1.5,
-            borderRadius: theme.shape.borderRadius,
-            backgroundColor: showPredictions ? `${theme.palette.secondary.main}10` : theme.palette.background.default,
-            border: `1px solid ${showPredictions ? theme.palette.secondary.main : theme.palette.divider}`,
-            transition: 'all 0.2s ease',
-            '&:hover': {
-              backgroundColor: showPredictions ? `${theme.palette.secondary.main}15` : theme.palette.action.hover,
-            },
           }}>
-            <AutoAwesome 
-              sx={{ 
-                fontSize: 18, 
-                color: showPredictions ? theme.palette.secondary.main : theme.palette.text.disabled,
-                transition: 'color 0.2s ease',
-              }} 
-            />
             <FormControlLabel
               control={
                 <Switch
                   checked={showPredictions}
                   onChange={(e) => setShowPredictions(e.target.checked)}
                   color="secondary"
-                  size="small"
-                  sx={{
-                    '& .MuiSwitch-switchBase.Mui-checked': {
-                      color: theme.palette.secondary.main,
-                    },
-                    '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                      backgroundColor: theme.palette.secondary.main,
-                    },
-                  }}
                 />
               }
               label={
-                <Typography variant="body2" fontWeight={600} color="text.primary">
-                  {showPredictions ? 'AI Forecasts ON' : 'AI Forecasts OFF'}
-                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <AutoAwesome sx={{ fontSize: 16, color: 'secondary.main' }} />
+                  <Typography variant="body2" fontWeight={600}>
+                    {showPredictions ? 'Forecasts On' : 'Forecasts Off'}
+                  </Typography>
+                </Box>
               }
-              labelPlacement="start"
-              sx={{ m: 0, gap: 1 }}
             />
+            
+            {showPredictions && (
+              <Chip
+                icon={<Psychology />}
+                label="AI Powered"
+                size="small"
+                color="secondary"
+                variant="outlined"
+                sx={{ fontWeight: 500 }}
+              />
+            )}
           </Box>
         </Box>
-
-        {/* Enhanced Stats Display */}
+        
+        {/* Stats Display with Enhanced Design */}
         {stats && (
           <Box sx={{ 
             display: 'flex', 
             flexWrap: 'wrap',
-            gap: theme.spacing(2), 
-            mb: theme.spacing(2),
-            p: theme.spacing(2),
+            gap: 2, 
+            mb: 3,
+            p: 2,
             backgroundColor: theme.palette.background.default,
             borderRadius: theme.shape.borderRadius,
             border: `1px solid ${theme.palette.divider}`,
@@ -447,7 +440,7 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
               display: 'flex', 
               flexDirection: 'column',
               alignItems: 'center',
-              p: theme.spacing(1.5),
+              p: 1.5,
               borderRadius: theme.shape.borderRadius,
               backgroundColor: theme.palette.background.paper,
               border: `1px solid ${theme.palette.divider}`,
@@ -458,15 +451,15 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
                 Current {stats.metric}
               </Typography>
               <Typography variant="h6" fontWeight={700} color="text.primary">
-                {stats.current !== 'NaN' && stats.current !== 'undefined' ? stats.current : 'No data'}
+                {stats.current}
               </Typography>
             </Box>
-            {showPredictions && stats.predicted !== 'NaN' && stats.predicted !== 'undefined' && (
+            {showPredictions && stats.predicted && (
               <Box sx={{ 
                 display: 'flex', 
                 flexDirection: 'column',
                 alignItems: 'center',
-                p: theme.spacing(1.5),
+                p: 1.5,
                 borderRadius: theme.shape.borderRadius,
                 backgroundColor: theme.palette.background.paper,
                 border: `1px solid ${theme.palette.secondary.main}40`,
@@ -499,7 +492,7 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
               display: 'flex', 
               flexDirection: 'column',
               alignItems: 'center',
-              p: theme.spacing(1.5),
+              p: 1.5,
               borderRadius: theme.shape.borderRadius,
               backgroundColor: theme.palette.background.paper,
               border: `1px solid ${theme.palette.divider}`,
@@ -516,7 +509,7 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
           </Box>
         )}
 
-        {/* Enhanced View Toggle */}
+        {/* Enhanced View Toggle with Dashboard Style */}
         <ToggleButtonGroup
           value={activeView}
           exclusive
@@ -524,46 +517,20 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
           size="small"
           orientation={isMobile ? "vertical" : "horizontal"}
           sx={{
-            backgroundColor: theme.palette.background.default,
-            borderRadius: theme.shape.borderRadius,
-            border: `1px solid ${theme.palette.divider}`,
-            width: isMobile ? '100%' : 'auto',
+            mb: 3,
+            alignSelf: isMobile ? 'stretch' : 'flex-start',
             '& .MuiToggleButton-root': {
+              borderRadius: theme.shape.borderRadius,
               textTransform: 'none',
               fontWeight: 600,
-              px: theme.spacing(2),
-              py: theme.spacing(1.5),
-              border: 'none',
-              color: theme.palette.text.secondary,
-              minHeight: isMobile ? 48 : 44,
-              width: isMobile ? '100%' : 'auto',
-              justifyContent: isMobile ? 'flex-start' : 'center',
-              borderRadius: theme.shape.borderRadius,
-              position: 'relative',
+              padding: theme.spacing(1, 2),
               '&.Mui-selected': {
                 backgroundColor: theme.palette.primary.main,
                 color: theme.palette.primary.contrastText,
-                boxShadow: `0 2px 8px ${theme.palette.primary.main}30`,
                 '&:hover': {
                   backgroundColor: theme.palette.primary.dark,
                 },
-                '&::after': {
-                  content: '""',
-                  position: 'absolute',
-                  bottom: 0,
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  width: '60%',
-                  height: 2,
-                  backgroundColor: theme.palette.primary.main,
-                  borderRadius: 1,
-                },
               },
-              '&:hover': {
-                backgroundColor: theme.palette.action.hover,
-                transform: 'translateY(-1px)',
-              },
-              transition: 'all 0.2s ease',
             },
           }}
         >
@@ -583,21 +550,13 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
             {showPredictions && <AutoAwesome sx={{ ml: 0.5, fontSize: 14, color: 'secondary.main' }} />}
           </ToggleButton>
         </ToggleButtonGroup>
-      </Box>
 
-      {/* Chart Content with Proper Margins */}
-      <Box sx={{ 
-        flex: 1,
-        minHeight: 400,
-        p: theme.spacing(2),
-        display: 'flex',
-        flexDirection: 'column',
-        backgroundColor: theme.palette.background.default,
-        position: 'relative',
-      }}>
-        {renderCurrentView()}
-      </Box>
-    </Box>
+        {/* Chart Content with Dashboard Style */}
+        <ChartContainer>
+          {renderCurrentView()}
+        </ChartContainer>
+      </CardContent>
+    </StyledCard>
   );
 };
 
