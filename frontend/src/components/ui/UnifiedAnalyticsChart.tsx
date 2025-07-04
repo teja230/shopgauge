@@ -214,8 +214,23 @@ const MemoizedLineChart = memo(({ commonProps, commonGrid, commonXAxis, commonYA
   }
 
   try {
+    // Additional safety check for SVG-safe props
+    const safeProps = {
+      ...commonProps,
+      // Ensure width and height are valid numbers for SVG
+      width: Math.max(100, Math.min(commonProps.width || 800, 2000)),
+      height: Math.max(100, Math.min(commonProps.height || 400, 1000)),
+      // Ensure margin values are safe
+      margin: {
+        top: Math.max(0, commonProps.margin?.top || 20),
+        right: Math.max(0, commonProps.margin?.right || 30),
+        left: Math.max(0, commonProps.margin?.left || 20),
+        bottom: Math.max(0, commonProps.margin?.bottom || 20),
+      }
+    };
+
     return (
-      <LineChart {...commonProps}>
+      <LineChart {...safeProps}>
         {commonGrid}
         {commonXAxis}
         {commonYAxisRevenue}
@@ -291,10 +306,28 @@ const MemoizedAreaChart = memo(({ commonProps, commonGrid, commonXAxis, commonYA
   }
 
   try {
+    // Additional safety check for SVG-safe props
+    const safeProps = {
+      ...commonProps,
+      // Ensure width and height are valid numbers for SVG
+      width: Math.max(100, Math.min(commonProps.width || 800, 2000)),
+      height: Math.max(100, Math.min(commonProps.height || 400, 1000)),
+      // Ensure margin values are safe
+      margin: {
+        top: Math.max(0, commonProps.margin?.top || 20),
+        right: Math.max(0, commonProps.margin?.right || 30),
+        left: Math.max(0, commonProps.margin?.left || 20),
+        bottom: Math.max(0, commonProps.margin?.bottom || 20),
+      }
+    };
+
+    // Ensure gradientIdPrefix is safe for SVG IDs
+    const safeGradientId = (gradientIdPrefix || 'chart').replace(/[^a-zA-Z0-9-_]/g, '');
+
     return (
-      <AreaChart {...commonProps}>
+      <AreaChart {...safeProps}>
         <defs>
-          <linearGradient id={`${gradientIdPrefix}-revenueGradient`} x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id={`${safeGradientId}-revenueGradient`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3} />
             <stop offset="95%" stopColor="#2563eb" stopOpacity={0.05} />
           </linearGradient>
@@ -311,7 +344,7 @@ const MemoizedAreaChart = memo(({ commonProps, commonGrid, commonXAxis, commonYA
             dataKey="revenue"
             stroke="#2563eb"
             strokeWidth={2}
-            fill={`url(#${gradientIdPrefix}-revenueGradient)`}
+            fill={`url(#${safeGradientId}-revenueGradient)`}
             name="Revenue"
             connectNulls={false}
             isAnimationActive={false}
@@ -361,8 +394,23 @@ const MemoizedBarChart = memo(({ commonProps, commonGrid, commonXAxis, commonYAx
   }
 
   try {
+    // Additional safety check for SVG-safe props
+    const safeProps = {
+      ...commonProps,
+      // Ensure width and height are valid numbers for SVG
+      width: Math.max(100, Math.min(commonProps.width || 800, 2000)),
+      height: Math.max(100, Math.min(commonProps.height || 400, 1000)),
+      // Ensure margin values are safe
+      margin: {
+        top: Math.max(0, commonProps.margin?.top || 20),
+        right: Math.max(0, commonProps.margin?.right || 30),
+        left: Math.max(0, commonProps.margin?.left || 20),
+        bottom: Math.max(0, commonProps.margin?.bottom || 20),
+      }
+    };
+
     return (
-      <BarChart {...commonProps}>
+      <BarChart {...safeProps}>
         {commonGrid}
         {commonXAxis}
         {commonYAxisRevenue}
@@ -431,6 +479,21 @@ const MemoizedComposedChart = memo(({ commonProps, commonGrid, commonXAxis, comm
       return null;
     }
 
+    // Additional safety check for SVG-safe props
+    const safeProps = {
+      ...commonProps,
+      // Ensure width and height are valid numbers for SVG
+      width: Math.max(100, Math.min(commonProps.width || 800, 2000)),
+      height: Math.max(100, Math.min(commonProps.height || 400, 1000)),
+      // Ensure margin values are safe
+      margin: {
+        top: Math.max(0, commonProps.margin?.top || 20),
+        right: Math.max(0, commonProps.margin?.right || 30),
+        left: Math.max(0, commonProps.margin?.left || 20),
+        bottom: Math.max(0, commonProps.margin?.bottom || 20),
+      }
+    };
+
     debugLog.info('MemoizedComposedChart: About to render', {
       hasCommonProps: !!commonProps,
       dataLength: commonProps?.data?.length || 0,
@@ -438,11 +501,16 @@ const MemoizedComposedChart = memo(({ commonProps, commonGrid, commonXAxis, comm
       showPredictions,
       shouldShowPredictionLine,
       predictionDate,
+      safeProps: {
+        width: safeProps.width,
+        height: safeProps.height,
+        margin: safeProps.margin
+      },
       dataSample: commonProps?.data?.slice(0, 3) || []
     }, 'MemoizedComposedChart');
 
     return (
-      <ComposedChart {...commonProps}>
+      <ComposedChart {...safeProps}>
         {commonGrid}
         {commonXAxis}
         {commonYAxisRevenue}
@@ -475,7 +543,7 @@ const MemoizedComposedChart = memo(({ commonProps, commonGrid, commonXAxis, comm
         )}
         {visibleMetrics.conversion && (
           <Line
-            yAxisId="revenue"
+            yAxisId="orders"
             type="monotone"
             dataKey="conversion_rate"
             stroke="#10b981"
@@ -642,14 +710,32 @@ const MemoizedStackedChart = memo(({ commonProps, commonGrid, commonXAxis, commo
   }
 
   try {
+    // Additional safety check for SVG-safe props
+    const safeProps = {
+      ...commonProps,
+      // Ensure width and height are valid numbers for SVG
+      width: Math.max(100, Math.min(commonProps.width || 800, 2000)),
+      height: Math.max(100, Math.min(commonProps.height || 400, 1000)),
+      // Ensure margin values are safe
+      margin: {
+        top: Math.max(0, commonProps.margin?.top || 20),
+        right: Math.max(0, commonProps.margin?.right || 30),
+        left: Math.max(0, commonProps.margin?.left || 20),
+        bottom: Math.max(0, commonProps.margin?.bottom || 20),
+      }
+    };
+
+    // Ensure gradientIdPrefix is safe for SVG IDs
+    const safeGradientId = (gradientIdPrefix || 'chart').replace(/[^a-zA-Z0-9-_]/g, '');
+
     return (
-      <AreaChart {...commonProps}>
+      <AreaChart {...safeProps}>
         <defs>
-          <linearGradient id={`${gradientIdPrefix}-stackedRevenueGradient`} x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id={`${safeGradientId}-stackedRevenueGradient`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
             <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.05} />
           </linearGradient>
-          <linearGradient id={`${gradientIdPrefix}-ordersGradient`} x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id={`${safeGradientId}-ordersGradient`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
             <stop offset="95%" stopColor="#10b981" stopOpacity={0.05} />
           </linearGradient>
@@ -666,7 +752,7 @@ const MemoizedStackedChart = memo(({ commonProps, commonGrid, commonXAxis, commo
             dataKey="revenue"
             stroke="#8b5cf6"
             strokeWidth={2}
-            fill={`url(#${gradientIdPrefix}-stackedRevenueGradient)`}
+            fill={`url(#${safeGradientId}-stackedRevenueGradient)`}
             name="Revenue"
             stackId="1"
             connectNulls={false}
@@ -680,7 +766,7 @@ const MemoizedStackedChart = memo(({ commonProps, commonGrid, commonXAxis, commo
             dataKey="orders_count"
             stroke="#10b981"
             strokeWidth={1}
-            fill={`url(#${gradientIdPrefix}-ordersGradient)`}
+            fill={`url(#${safeGradientId}-ordersGradient)`}
             name="Orders"
             stackId="2"
             connectNulls={false}
@@ -742,10 +828,28 @@ const MemoizedRevenueFocusChart = memo(({ commonProps, commonGrid, commonXAxis, 
   }
 
   try {
+    // Additional safety check for SVG-safe props
+    const safeProps = {
+      ...commonProps,
+      // Ensure width and height are valid numbers for SVG
+      width: Math.max(100, Math.min(commonProps.width || 800, 2000)),
+      height: Math.max(100, Math.min(commonProps.height || 400, 1000)),
+      // Ensure margin values are safe
+      margin: {
+        top: Math.max(0, commonProps.margin?.top || 20),
+        right: Math.max(0, commonProps.margin?.right || 30),
+        left: Math.max(0, commonProps.margin?.left || 20),
+        bottom: Math.max(0, commonProps.margin?.bottom || 20),
+      }
+    };
+
+    // Ensure gradientIdPrefix is safe for SVG IDs
+    const safeGradientId = (gradientIdPrefix || 'chart').replace(/[^a-zA-Z0-9-_]/g, '');
+
     return (
-      <AreaChart {...commonProps}>
+      <AreaChart {...safeProps}>
         <defs>
-          <linearGradient id={`${gradientIdPrefix}-revenueFocusGradient`} x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id={`${safeGradientId}-revenueFocusGradient`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="5%" stopColor="#2563eb" stopOpacity={0.4} />
             <stop offset="95%" stopColor="#2563eb" stopOpacity={0.1} />
           </linearGradient>
@@ -762,7 +866,7 @@ const MemoizedRevenueFocusChart = memo(({ commonProps, commonGrid, commonXAxis, 
             dataKey="revenue"
             stroke="#2563eb"
             strokeWidth={4}
-            fill={`url(#${gradientIdPrefix}-revenueFocusGradient)`}
+            fill={`url(#${safeGradientId}-revenueFocusGradient)`}
             name="Revenue"
             dot={{ fill: '#2563eb', strokeWidth: 3, r: 5 }}
             connectNulls={false}
@@ -815,7 +919,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
   // Simplified chart key for chart type changes
   const [chartKey, setChartKey] = useState(0);
   
-  // Generate a unique id prefix for gradient defs to avoid DOM ID collisions
+  // Generate a unique gradient ID prefix to prevent conflicts
   const gradientIdPrefix = useMemo(() => {
     return `ua-${chartType}-${Math.random().toString(36).substring(2, 8)}`;
   }, [chartType]);
@@ -1053,7 +1157,29 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         
         return true;
       })
-      .map(processHistoricalItem);
+      .map(processHistoricalItem)
+      .filter(item => {
+        // Additional SVG safety validation after processing
+        if (!item || typeof item !== 'object') return false;
+        
+        // Ensure all numeric values are finite and within SVG-safe ranges
+        const numericFields = ['revenue', 'orders_count', 'conversion_rate', 'avg_order_value'];
+        for (const field of numericFields) {
+          const value = item[field];
+          if (typeof value !== 'number' || !isFinite(value) || value < 0) {
+            return false;
+          }
+          // Additional bounds check for extremely large values that could break SVG
+          if (value > 1e12) return false;
+        }
+        
+        // Ensure date is valid
+        if (typeof item.date !== 'string' || item.date.length === 0) return false;
+        const dateTest = new Date(item.date);
+        if (isNaN(dateTest.getTime())) return false;
+        
+        return true;
+      });
   }, [chartData]);
 
   const formatXAxisTick = (tickItem: string) => {
