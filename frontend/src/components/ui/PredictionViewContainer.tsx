@@ -100,6 +100,7 @@ interface UnifiedAnalyticsData {
   }>;
   total_revenue?: number; // Add this to get accurate total revenue
   total_orders?: number;  // Add this to get accurate total orders
+  period_days?: number;   // Add this to fix TypeScript error
 }
 
 interface PredictionViewContainerProps {
@@ -122,13 +123,87 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
-  // Transform data for each prediction view
+  // Enhanced debugging for data structure
+  React.useEffect(() => {
+    console.log('🔍 PredictionViewContainer: Data update', {
+      hasData: !!data,
+      loading,
+      error,
+      dataStructure: data ? {
+        hasHistorical: Array.isArray(data.historical),
+        historicalLength: data.historical?.length || 0,
+        hasPredictions: Array.isArray(data.predictions),
+        predictionsLength: data.predictions?.length || 0,
+        hasTotalRevenue: typeof data.total_revenue === 'number',
+        hasTotalOrders: typeof data.total_orders === 'number',
+        totalRevenue: data.total_revenue,
+        totalOrders: data.total_orders,
+        periodDays: data.period_days,
+        firstHistoricalItem: data.historical?.[0],
+        firstPredictionItem: data.predictions?.[0]
+      } : null
+    });
+  }, [data, loading, error]);
+
+  // Transform data for each prediction view with enhanced validation
   const transformedData = useMemo(() => {
-    if (!data) return { revenue: [], orders: [], conversion: [] };
+    console.log('🔄 PredictionViewContainer: Starting data transformation', {
+      hasData: !!data,
+      showPredictions
+    });
+
+    if (!data || !Array.isArray(data.historical)) {
+      console.log('⚠️ PredictionViewContainer: No valid data structure', { data });
+      return { revenue: [], orders: [], conversion: [] };
+    }
 
     const historicalData = data.historical || [];
     const predictionData = showPredictions ? (data.predictions || []) : [];
-    const combinedData = [...historicalData, ...predictionData].sort((a, b) => 
+    
+    console.log('🔄 PredictionViewContainer: Processing data arrays', {
+      historicalLength: historicalData.length,
+      predictionLength: predictionData.length,
+      showPredictions
+    });
+
+    // Validate historical data structure
+    const validHistoricalData = historicalData.filter(item => {
+      const isValid = item && 
+        typeof item.date === 'string' && 
+        typeof item.revenue === 'number' && 
+        typeof item.orders_count === 'number' &&
+        !isNaN(item.revenue) &&
+        !isNaN(item.orders_count);
+      
+      if (!isValid) {
+        console.warn('⚠️ PredictionViewContainer: Invalid historical item', item);
+      }
+      return isValid;
+    });
+
+    // Validate prediction data structure
+    const validPredictionData = predictionData.filter(item => {
+      const isValid = item && 
+        typeof item.date === 'string' && 
+        typeof item.revenue === 'number' && 
+        typeof item.orders_count === 'number' &&
+        !isNaN(item.revenue) &&
+        !isNaN(item.orders_count);
+      
+      if (!isValid) {
+        console.warn('⚠️ PredictionViewContainer: Invalid prediction item', item);
+      }
+      return isValid;
+    });
+
+    console.log('✅ PredictionViewContainer: Validated data', {
+      validHistoricalLength: validHistoricalData.length,
+      validPredictionLength: validPredictionData.length,
+      filteredHistorical: historicalData.length - validHistoricalData.length,
+      filteredPrediction: predictionData.length - validPredictionData.length
+    });
+
+    const combinedData = [...validHistoricalData, ...validPredictionData].sort((a, b) => 
       new Date(a.date).getTime() - new Date(b.date).getTime()
     );
 
@@ -152,12 +227,19 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
 
     const conversion = combinedData.map(item => ({
       date: item.date,
-      conversion_rate: item.conversion_rate,
+      conversion_rate: item.conversion_rate || 0,
       isPrediction: Boolean(item.isPrediction),
-      confidence_min: item.conversion_rate * 0.8, // Simplified confidence interval
-      confidence_max: item.conversion_rate * 1.2,
+      confidence_min: (item.conversion_rate || 0) * 0.8, // Simplified confidence interval
+      confidence_max: (item.conversion_rate || 0) * 1.2,
       confidence_score: (item.isPrediction && (item as any).confidence_score) || 0,
     }));
+
+    console.log('✅ PredictionViewContainer: Transformation complete', {
+      revenuePoints: revenue.length,
+      ordersPoints: orders.length,
+      conversionPoints: conversion.length,
+      combinedDataLength: combinedData.length
+    });
 
     return { revenue, orders, conversion };
   }, [data, showPredictions]);
@@ -167,12 +249,14 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
     newView: PredictionView,
   ) => {
     if (newView !== null) {
+      console.log('🔄 PredictionViewContainer: View changed', { from: activeView, to: newView });
       setActiveView(newView);
     }
   };
 
   const renderCurrentView = () => {
     if (loading) {
+      console.log('🔄 PredictionViewContainer: Rendering loading state');
       return (
         <Box sx={{ 
           display: 'flex', 
@@ -191,6 +275,7 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
     }
 
     if (error) {
+      console.log('❌ PredictionViewContainer: Rendering error state', { error });
       return (
         <Box sx={{ 
           display: 'flex', 
@@ -210,8 +295,60 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
       );
     }
 
+    // Enhanced validation for data availability
+    const hasValidData = data && 
+      Array.isArray(data.historical) && 
+      data.historical.length > 0;
+
+    console.log('🔍 PredictionViewContainer: Data validation', {
+      hasValidData,
+      hasData: !!data,
+      hasHistorical: data && Array.isArray(data.historical),
+      historicalLength: data?.historical?.length || 0,
+      transformedDataLength: transformedData[activeView]?.length || 0
+    });
+
+    if (!hasValidData) {
+      console.log('⚠️ PredictionViewContainer: No valid data available, showing empty state');
+      return (
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center',
+          height: '100%',
+          flexDirection: 'column',
+          gap: 3,
+          p: 4,
+        }}>
+          <Box sx={{ 
+            display: 'flex', 
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 2,
+            textAlign: 'center',
+          }}>
+            <Analytics 
+              sx={{ 
+                fontSize: 64, 
+                color: theme.palette.grey[400],
+                opacity: 0.8,
+              }} 
+            />
+            <Typography variant="h5" fontWeight={600} color="text.secondary">
+              No Analytics Data Available
+            </Typography>
+            <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 400 }}>
+              Advanced analytics will appear here once your store has revenue data. 
+              The system needs historical data to generate forecasts.
+            </Typography>
+          </Box>
+        </Box>
+      );
+    }
+
     // Show stylish "Make Forecasts" button when forecasts are off
     if (!showPredictions) {
+      console.log('🔄 PredictionViewContainer: Rendering forecast toggle state');
       return (
         <Box sx={{ 
           display: 'flex', 
@@ -276,6 +413,11 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
       height: Math.max(300, height - 120), // Account for header and ensure minimum height
     };
 
+    console.log('🔄 PredictionViewContainer: Rendering chart view', { 
+      activeView, 
+      dataLength: transformedData[activeView]?.length || 0 
+    });
+
     switch (activeView) {
       case 'revenue':
         return (
@@ -304,7 +446,10 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
   };
 
   const getViewStats = () => {
-    if (!data) return null;
+    if (!data || !Array.isArray(data.historical) || data.historical.length === 0) {
+      console.log('⚠️ PredictionViewContainer: No data for stats calculation');
+      return null;
+    }
 
     const historical = data.historical || [];
     const predictions = data.predictions || [];
@@ -312,16 +457,27 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
     // Fix: Use the total revenue from the data object instead of summing daily values
     // For current period, we'll use recent data, but for totals use the provided totals
     const currentPeriodData = historical.slice(-7); // Last 7 days for period comparison
-    const predictedData = showPredictions ? predictions.slice(0, 30) : []; // Next 30 days
+    const predictedData = showPredictions ? predictions.slice(0, 30) : [];
+
+    console.log('🔄 PredictionViewContainer: Calculating stats', {
+      activeView,
+      historicalLength: historical.length,
+      predictionsLength: predictions.length,
+      currentPeriodLength: currentPeriodData.length,
+      predictedDataLength: predictedData.length,
+      totalRevenue: data.total_revenue,
+      totalOrders: data.total_orders
+    });
 
     switch (activeView) {
       case 'revenue': {
         // Use the total revenue from data.total_revenue if available, otherwise fall back to calculation
-        const totalRevenue = data.total_revenue || historical.reduce((sum, d) => sum + d.revenue, 0);
+        const totalRevenue = typeof data.total_revenue === 'number' ? data.total_revenue : 
+          historical.reduce((sum, d) => sum + (d.revenue || 0), 0);
         
         // For current period (last 7 days), sum the values
-        const currentPeriodRevenue = currentPeriodData.reduce((sum, d) => sum + d.revenue, 0);
-        const predictedRevenue = predictedData.reduce((sum, d) => sum + d.revenue, 0);
+        const currentPeriodRevenue = currentPeriodData.reduce((sum, d) => sum + (d.revenue || 0), 0);
+        const predictedRevenue = predictedData.reduce((sum, d) => sum + (d.revenue || 0), 0);
         
         return {
           current: `$${currentPeriodRevenue.toLocaleString()}`,
@@ -332,10 +488,11 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
       }
       case 'orders': {
         // Use the total orders from data.total_orders if available
-        const totalOrders = data.total_orders || historical.reduce((sum, d) => sum + d.orders_count, 0);
+        const totalOrders = typeof data.total_orders === 'number' ? data.total_orders : 
+          historical.reduce((sum, d) => sum + (d.orders_count || 0), 0);
         
-        const currentOrders = currentPeriodData.reduce((sum, d) => sum + d.orders_count, 0);
-        const predictedOrders = predictedData.reduce((sum, d) => sum + d.orders_count, 0);
+        const currentOrders = currentPeriodData.reduce((sum, d) => sum + (d.orders_count || 0), 0);
+        const predictedOrders = predictedData.reduce((sum, d) => sum + (d.orders_count || 0), 0);
         
         return {
           current: currentOrders.toLocaleString(),
@@ -346,9 +503,9 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
       }
       case 'conversion': {
         const avgCurrentConversion = currentPeriodData.length > 0 ? 
-          currentPeriodData.reduce((sum, d) => sum + d.conversion_rate, 0) / currentPeriodData.length : 0;
+          currentPeriodData.reduce((sum, d) => sum + (d.conversion_rate || 0), 0) / currentPeriodData.length : 0;
         const avgPredictedConversion = predictedData.length > 0 ? 
-          predictedData.reduce((sum, d) => sum + d.conversion_rate, 0) / predictedData.length : 0;
+          predictedData.reduce((sum, d) => sum + (d.conversion_rate || 0), 0) / predictedData.length : 0;
         return {
           current: `${avgCurrentConversion.toFixed(1)}%`,
           predicted: `${avgPredictedConversion.toFixed(1)}%`,
@@ -361,6 +518,7 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
   };
 
   const stats = getViewStats();
+  console.log('🔄 PredictionViewContainer: Stats calculated', { stats, activeView });
 
   return (
     <StyledCard sx={{ 
