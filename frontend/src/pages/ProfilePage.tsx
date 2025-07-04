@@ -104,23 +104,47 @@ export default function ProfilePage() {
   const {
     sessionLimitData,
     loading: sessionLimitLoading,
+    error: sessionLimitError,
     showSessionDialog,
     checkSessionLimit,
     deleteSession,
     closeSessionDialog,
     openSessionDialog,
+    refreshSessionData,
   } = useSessionLimit();
 
-  // FIXED: Initialize session limit check when component mounts and user is authenticated
+  // Enhanced session limit initialization with retry logic
   useEffect(() => {
-    if (shop && !sessionLimitData) {
+    if (shop && !sessionLimitData && !sessionLimitLoading) {
       console.log('🔧 ProfilePage: Checking session limits for authenticated user');
-      checkSessionLimit().catch(error => {
-        console.error('❌ ProfilePage: Failed to check session limits:', error);
-        // Don't show error toast here as it might be due to authentication not being ready
-      });
+      
+      // Add a small delay to ensure authentication is fully established
+      const timer = setTimeout(() => {
+        checkSessionLimit().catch(error => {
+          console.error('❌ ProfilePage: Failed to check session limits:', error);
+          // Don't show error toast here as it might be due to authentication not being ready
+        });
+      }, 1000); // 1 second delay to allow auth to settle
+
+      return () => clearTimeout(timer);
     }
-  }, [shop, sessionLimitData, checkSessionLimit]);
+  }, [shop, sessionLimitData, sessionLimitLoading, checkSessionLimit]);
+
+  // Retry session loading if there was an error and user is authenticated
+  useEffect(() => {
+    if (shop && sessionLimitError && !sessionLimitLoading) {
+      console.log('🔄 ProfilePage: Retrying session limit check after error');
+      
+      // Retry after 3 seconds if there was an error
+      const retryTimer = setTimeout(() => {
+        checkSessionLimit().catch(error => {
+          console.error('❌ ProfilePage: Retry failed:', error);
+        });
+      }, 3000);
+
+      return () => clearTimeout(retryTimer);
+    }
+  }, [shop, sessionLimitError, sessionLimitLoading, checkSessionLimit]);
 
   // Save current store to past stores when shop changes
   useEffect(() => {
@@ -1444,11 +1468,49 @@ export default function ProfilePage() {
                     )}
                   </div>
                 </>
+              ) : sessionLimitError ? (
+                <div className="flex items-center justify-center p-8 text-red-500">
+                  <div className="text-center">
+                    <div className="text-2xl mb-2">⚠️</div>
+                    <div className="text-sm mb-3">Failed to load session information</div>
+                    <div className="text-xs text-gray-600 mb-3">{sessionLimitError}</div>
+                    <button
+                      onClick={() => refreshSessionData()}
+                      disabled={sessionLimitLoading}
+                      className="inline-flex items-center px-3 py-1 border border-red-300 text-xs font-medium rounded text-red-700 bg-red-50 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
+                    >
+                      {sessionLimitLoading ? (
+                        <>
+                          <svg className="animate-spin -ml-1 mr-1 h-3 w-3 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Retrying...
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          </svg>
+                          Retry
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
               ) : (
                 <div className="flex items-center justify-center p-8 text-gray-500">
                   <div className="text-center">
                     <div className="text-2xl mb-2">📱</div>
-                    <div className="text-sm">Loading session information...</div>
+                    <div className="text-sm mb-2">Loading session information...</div>
+                    {sessionLimitLoading && (
+                      <div className="flex items-center justify-center">
+                        <svg className="animate-spin h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -1487,7 +1549,7 @@ export default function ProfilePage() {
               
               <button
                 onClick={openSessionDialog}
-                disabled={!sessionLimitData || sessionLimitData.sessions.length === 0}
+                disabled={(!sessionLimitData || sessionLimitData.sessions.length === 0) && !sessionLimitError}
                 className="w-full inline-flex items-center justify-center px-4 py-3 border border-purple-300 text-sm font-medium rounded-lg text-purple-700 bg-purple-50 hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 transition-colors"
               >
                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
