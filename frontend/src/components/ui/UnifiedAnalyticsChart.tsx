@@ -2033,20 +2033,20 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                         />
                       );
                     case 'combined':
-                    case 'composed':
+                      // Temporarily use AreaChart instead of ComposedChart to prevent React invariant errors
+                      // The ComposedChart with dual Y-axes is causing SVG rendering issues
                       return (
-                        <MemoizedComposedChart
+                        <MemoizedAreaChart
                           commonProps={commonProps}
                           commonGrid={commonGrid}
                           commonXAxis={commonXAxis}
                           commonYAxisRevenue={commonYAxisRevenue}
-                          commonYAxisOrders={commonYAxisOrders}
                           commonTooltip={commonTooltip}
                           commonLegend={commonLegend}
                           visibleMetrics={visibleMetrics}
-                          showPredictions={showPredictions}
                           shouldShowPredictionLine={shouldShowPredictionLine}
                           predictionDate={predictionDate}
+                          gradientIdPrefix={gradientIdPrefix}
                         />
                       );
                     case 'revenue_focus':
@@ -2107,20 +2107,34 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                           gradientIdPrefix={gradientIdPrefix}
                         />
                       );
-                    default:
+                    case 'composed':
+                      // Use LineChart instead of ComposedChart to avoid dual Y-axis issues
                       return (
-                        <MemoizedComposedChart
+                        <MemoizedLineChart
                           commonProps={commonProps}
                           commonGrid={commonGrid}
                           commonXAxis={commonXAxis}
                           commonYAxisRevenue={commonYAxisRevenue}
-                          commonYAxisOrders={commonYAxisOrders}
                           commonTooltip={commonTooltip}
                           commonLegend={commonLegend}
                           visibleMetrics={visibleMetrics}
-                          showPredictions={showPredictions}
                           shouldShowPredictionLine={shouldShowPredictionLine}
                           predictionDate={predictionDate}
+                        />
+                      );
+                    default:
+                      return (
+                        <MemoizedAreaChart
+                          commonProps={commonProps}
+                          commonGrid={commonGrid}
+                          commonXAxis={commonXAxis}
+                          commonYAxisRevenue={commonYAxisRevenue}
+                          commonTooltip={commonTooltip}
+                          commonLegend={commonLegend}
+                          visibleMetrics={visibleMetrics}
+                          shouldShowPredictionLine={shouldShowPredictionLine}
+                          predictionDate={predictionDate}
+                          gradientIdPrefix={gradientIdPrefix}
                         />
                       );
                   }
