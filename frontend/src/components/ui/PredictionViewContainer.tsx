@@ -7,74 +7,15 @@ import {
   ToggleButtonGroup,
   useMediaQuery,
   useTheme,
-  Switch,
-  FormControlLabel,
-  Chip,
-  Card,
-  CardContent,
-  Divider,
-  Badge,
-  Fade,
-  Slide,
-  Button,
-  CircularProgress,
 } from '@mui/material';
-import { styled } from '@mui/material/styles';
 import {
   TrendingUp,
   ShoppingCart,
   Percent,
-  AutoAwesome,
-  Psychology,
-  TrendingDown,
-  Analytics,
-  Insights,
-  Timeline,
-  Visibility,
-  VisibilityOff,
 } from '@mui/icons-material';
 import RevenuePredictionChart from './RevenuePredictionChart';
 import OrderPredictionChart from './OrderPredictionChart';
 import ConversionPredictionChart from './ConversionPredictionChart';
-
-// Styled components matching main branch dashboard theme
-const StyledCard = styled(Card)(({ theme }) => ({
-  height: '100%',
-  display: 'flex',
-  flexDirection: 'column',
-  borderRadius: theme.shape.borderRadius,
-  transition: 'all 0.3s ease',
-  backgroundColor: theme.palette.background.paper,
-  border: `1px solid ${theme.palette.divider}`,
-  boxShadow: '0 2px 12px rgba(0, 0, 0, 0.05)',
-  '&:hover': {
-    transform: 'translateY(-2px)',
-    boxShadow: theme.shadows[8],
-  },
-  // Mobile-first responsive design - disable hover effects on touch devices
-  '@media (hover: none)': {
-    '&:hover': {
-      transform: 'none',
-      boxShadow: '0 2px 12px rgba(0, 0, 0, 0.05)',
-    },
-  },
-}));
-
-const CardTitle = styled(Typography)(({ theme }) => ({
-  fontWeight: 600,
-  marginBottom: theme.spacing(2),
-  color: theme.palette.text.primary,
-  display: 'flex',
-  alignItems: 'center',
-  gap: theme.spacing(1),
-}));
-
-const ChartContainer = styled(Box)(({ theme }) => ({
-  flex: 1,
-  minHeight: 400,
-  padding: theme.spacing(1),
-  backgroundColor: theme.palette.background.paper,
-}));
 
 interface UnifiedAnalyticsData {
   historical: Array<{
@@ -98,9 +39,6 @@ interface UnifiedAnalyticsData {
     };
     confidence_score?: number;
   }>;
-  total_revenue?: number; // Add this to get accurate total revenue
-  total_orders?: number;  // Add this to get accurate total orders
-  period_days?: number;   // Add this to fix TypeScript error
 }
 
 interface PredictionViewContainerProps {
@@ -119,91 +57,14 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
   height = 500,
 }) => {
   const [activeView, setActiveView] = useState<PredictionView>('revenue');
-  const [showPredictions, setShowPredictions] = useState(true);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
-  // Enhanced debugging for data structure
-  React.useEffect(() => {
-    console.log('🔍 PredictionViewContainer: Data update', {
-      hasData: !!data,
-      loading,
-      error,
-      dataStructure: data ? {
-        hasHistorical: Array.isArray(data.historical),
-        historicalLength: data.historical?.length || 0,
-        hasPredictions: Array.isArray(data.predictions),
-        predictionsLength: data.predictions?.length || 0,
-        hasTotalRevenue: typeof data.total_revenue === 'number',
-        hasTotalOrders: typeof data.total_orders === 'number',
-        totalRevenue: data.total_revenue,
-        totalOrders: data.total_orders,
-        periodDays: data.period_days,
-        firstHistoricalItem: data.historical?.[0],
-        firstPredictionItem: data.predictions?.[0]
-      } : null
-    });
-  }, [data, loading, error]);
-
-  // Transform data for each prediction view with enhanced validation
+  // Transform data for each prediction view
   const transformedData = useMemo(() => {
-    console.log('🔄 PredictionViewContainer: Starting data transformation', {
-      hasData: !!data,
-      showPredictions
-    });
+    if (!data) return { revenue: [], orders: [], conversion: [] };
 
-    if (!data || !Array.isArray(data.historical)) {
-      console.log('⚠️ PredictionViewContainer: No valid data structure', { data });
-      return { revenue: [], orders: [], conversion: [] };
-    }
-
-    const historicalData = data.historical || [];
-    const predictionData = showPredictions ? (data.predictions || []) : [];
-    
-    console.log('🔄 PredictionViewContainer: Processing data arrays', {
-      historicalLength: historicalData.length,
-      predictionLength: predictionData.length,
-      showPredictions
-    });
-
-    // Validate historical data structure
-    const validHistoricalData = historicalData.filter(item => {
-      const isValid = item && 
-        typeof item.date === 'string' && 
-        typeof item.revenue === 'number' && 
-        typeof item.orders_count === 'number' &&
-        !isNaN(item.revenue) &&
-        !isNaN(item.orders_count);
-      
-      if (!isValid) {
-        console.warn('⚠️ PredictionViewContainer: Invalid historical item', item);
-      }
-      return isValid;
-    });
-
-    // Validate prediction data structure
-    const validPredictionData = predictionData.filter(item => {
-      const isValid = item && 
-        typeof item.date === 'string' && 
-        typeof item.revenue === 'number' && 
-        typeof item.orders_count === 'number' &&
-        !isNaN(item.revenue) &&
-        !isNaN(item.orders_count);
-      
-      if (!isValid) {
-        console.warn('⚠️ PredictionViewContainer: Invalid prediction item', item);
-      }
-      return isValid;
-    });
-
-    console.log('✅ PredictionViewContainer: Validated data', {
-      validHistoricalLength: validHistoricalData.length,
-      validPredictionLength: validPredictionData.length,
-      filteredHistorical: historicalData.length - validHistoricalData.length,
-      filteredPrediction: predictionData.length - validPredictionData.length
-    });
-
-    const combinedData = [...validHistoricalData, ...validPredictionData].sort((a, b) => 
+    const combinedData = [...(data.historical || []), ...(data.predictions || [])].sort((a, b) => 
       new Date(a.date).getTime() - new Date(b.date).getTime()
     );
 
@@ -227,196 +88,31 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
 
     const conversion = combinedData.map(item => ({
       date: item.date,
-      conversion_rate: item.conversion_rate || 0,
+      conversion_rate: item.conversion_rate,
       isPrediction: Boolean(item.isPrediction),
-      confidence_min: (item.conversion_rate || 0) * 0.8, // Simplified confidence interval
-      confidence_max: (item.conversion_rate || 0) * 1.2,
+      confidence_min: item.conversion_rate * 0.8, // Simplified confidence interval
+      confidence_max: item.conversion_rate * 1.2,
       confidence_score: (item.isPrediction && (item as any).confidence_score) || 0,
     }));
 
-    console.log('✅ PredictionViewContainer: Transformation complete', {
-      revenuePoints: revenue.length,
-      ordersPoints: orders.length,
-      conversionPoints: conversion.length,
-      combinedDataLength: combinedData.length
-    });
-
     return { revenue, orders, conversion };
-  }, [data, showPredictions]);
+  }, [data]);
 
   const handleViewChange = (
     event: React.MouseEvent<HTMLElement>,
     newView: PredictionView,
   ) => {
     if (newView !== null) {
-      console.log('🔄 PredictionViewContainer: View changed', { from: activeView, to: newView });
       setActiveView(newView);
     }
   };
 
   const renderCurrentView = () => {
-    if (loading) {
-      console.log('🔄 PredictionViewContainer: Rendering loading state');
-      return (
-        <Box sx={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center',
-          height: '100%',
-          flexDirection: 'column',
-          gap: 2,
-        }}>
-          <CircularProgress />
-          <Typography variant="body2" color="text.secondary">
-            Loading analytics data...
-          </Typography>
-        </Box>
-      );
-    }
-
-    if (error) {
-      console.log('❌ PredictionViewContainer: Rendering error state', { error });
-      return (
-        <Box sx={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center',
-          height: '100%',
-          flexDirection: 'column',
-          gap: 2,
-        }}>
-          <Typography variant="h6" color="error">
-            Error loading data
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {error}
-          </Typography>
-        </Box>
-      );
-    }
-
-    // Enhanced validation for data availability
-    const hasValidData = data && 
-      Array.isArray(data.historical) && 
-      data.historical.length > 0;
-
-    console.log('🔍 PredictionViewContainer: Data validation', {
-      hasValidData,
-      hasData: !!data,
-      hasHistorical: data && Array.isArray(data.historical),
-      historicalLength: data?.historical?.length || 0,
-      transformedDataLength: transformedData[activeView]?.length || 0
-    });
-
-    if (!hasValidData) {
-      console.log('⚠️ PredictionViewContainer: No valid data available, showing empty state');
-      return (
-        <Box sx={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center',
-          height: '100%',
-          flexDirection: 'column',
-          gap: 3,
-          p: 4,
-        }}>
-          <Box sx={{ 
-            display: 'flex', 
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 2,
-            textAlign: 'center',
-          }}>
-            <Analytics 
-              sx={{ 
-                fontSize: 64, 
-                color: theme.palette.grey[400],
-                opacity: 0.8,
-              }} 
-            />
-            <Typography variant="h5" fontWeight={600} color="text.secondary">
-              No Analytics Data Available
-            </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 400 }}>
-              Advanced analytics will appear here once your store has revenue data. 
-              The system needs historical data to generate forecasts.
-            </Typography>
-          </Box>
-        </Box>
-      );
-    }
-
-    // Show stylish "Make Forecasts" button when forecasts are off
-    if (!showPredictions) {
-      console.log('🔄 PredictionViewContainer: Rendering forecast toggle state');
-      return (
-        <Box sx={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center',
-          height: '100%',
-          flexDirection: 'column',
-          gap: 3,
-          p: 4,
-        }}>
-          <Box sx={{ 
-            display: 'flex', 
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 2,
-            textAlign: 'center',
-          }}>
-            <AutoAwesome 
-              sx={{ 
-                fontSize: 64, 
-                color: theme.palette.secondary.main,
-                opacity: 0.8,
-              }} 
-            />
-            <Typography variant="h5" fontWeight={600} color="text.primary">
-              Enable AI Forecasting
-            </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 400 }}>
-              Turn on forecasts to see AI-powered predictions for your revenue, orders, and conversion rates.
-            </Typography>
-          </Box>
-          
-          <Button
-            variant="contained"
-            color="secondary"
-            onClick={() => setShowPredictions(true)}
-            startIcon={<AutoAwesome />}
-            sx={{
-              borderRadius: 3,
-              textTransform: 'none',
-              fontWeight: 600,
-              px: 4,
-              py: 1.5,
-              fontSize: '1rem',
-              background: `linear-gradient(135deg, ${theme.palette.secondary.main} 0%, ${theme.palette.secondary.dark} 100%)`,
-              boxShadow: '0 4px 12px rgba(156, 39, 176, 0.3)',
-              '&:hover': {
-                boxShadow: '0 6px 16px rgba(156, 39, 176, 0.4)',
-                transform: 'translateY(-1px)',
-              },
-            }}
-          >
-            Make Forecasts
-          </Button>
-        </Box>
-      );
-    }
-
     const commonProps = {
       loading,
       error,
-      height: Math.max(300, height - 120), // Account for header and ensure minimum height
+      height: height - 80, // Account for header
     };
-
-    console.log('🔄 PredictionViewContainer: Rendering chart view', { 
-      activeView, 
-      dataLength: transformedData[activeView]?.length || 0 
-    });
 
     switch (activeView) {
       case 'revenue':
@@ -446,66 +142,38 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
   };
 
   const getViewStats = () => {
-    if (!data || !Array.isArray(data.historical) || data.historical.length === 0) {
-      console.log('⚠️ PredictionViewContainer: No data for stats calculation');
-      return null;
-    }
+    if (!data) return null;
 
     const historical = data.historical || [];
     const predictions = data.predictions || [];
 
-    // Fix: Use the total revenue from the data object instead of summing daily values
-    // For current period, we'll use recent data, but for totals use the provided totals
-    const currentPeriodData = historical.slice(-7); // Last 7 days for period comparison
-    const predictedData = showPredictions ? predictions.slice(0, 30) : [];
-
-    console.log('🔄 PredictionViewContainer: Calculating stats', {
-      activeView,
-      historicalLength: historical.length,
-      predictionsLength: predictions.length,
-      currentPeriodLength: currentPeriodData.length,
-      predictedDataLength: predictedData.length,
-      totalRevenue: data.total_revenue,
-      totalOrders: data.total_orders
-    });
+    const currentPeriodData = historical.slice(-7); // Last 7 days
+    const predictedData = predictions.slice(0, 30); // Next 30 days
 
     switch (activeView) {
       case 'revenue': {
-        // Use the total revenue from data.total_revenue if available, otherwise fall back to calculation
-        const totalRevenue = typeof data.total_revenue === 'number' ? data.total_revenue : 
-          historical.reduce((sum, d) => sum + (d.revenue || 0), 0);
-        
-        // For current period (last 7 days), sum the values
-        const currentPeriodRevenue = currentPeriodData.reduce((sum, d) => sum + (d.revenue || 0), 0);
-        const predictedRevenue = predictedData.reduce((sum, d) => sum + (d.revenue || 0), 0);
-        
+        const currentRevenue = currentPeriodData.reduce((sum, d) => sum + d.revenue, 0);
+        const predictedRevenue = predictedData.reduce((sum, d) => sum + d.revenue, 0);
         return {
-          current: `$${currentPeriodRevenue.toLocaleString()}`,
+          current: `$${currentRevenue.toLocaleString()}`,
           predicted: `$${predictedRevenue.toLocaleString()}`,
-          metric: 'Revenue (7d)',
-          total: `$${totalRevenue.toLocaleString()}`, // Add total for reference
+          metric: 'Revenue',
         };
       }
       case 'orders': {
-        // Use the total orders from data.total_orders if available
-        const totalOrders = typeof data.total_orders === 'number' ? data.total_orders : 
-          historical.reduce((sum, d) => sum + (d.orders_count || 0), 0);
-        
-        const currentOrders = currentPeriodData.reduce((sum, d) => sum + (d.orders_count || 0), 0);
-        const predictedOrders = predictedData.reduce((sum, d) => sum + (d.orders_count || 0), 0);
-        
+        const currentOrders = currentPeriodData.reduce((sum, d) => sum + d.orders_count, 0);
+        const predictedOrders = predictedData.reduce((sum, d) => sum + d.orders_count, 0);
         return {
           current: currentOrders.toLocaleString(),
           predicted: predictedOrders.toLocaleString(),
-          metric: 'Orders (7d)',
-          total: totalOrders.toLocaleString(),
+          metric: 'Orders',
         };
       }
       case 'conversion': {
         const avgCurrentConversion = currentPeriodData.length > 0 ? 
-          currentPeriodData.reduce((sum, d) => sum + (d.conversion_rate || 0), 0) / currentPeriodData.length : 0;
+          currentPeriodData.reduce((sum, d) => sum + d.conversion_rate, 0) / currentPeriodData.length : 0;
         const avgPredictedConversion = predictedData.length > 0 ? 
-          predictedData.reduce((sum, d) => sum + (d.conversion_rate || 0), 0) / predictedData.length : 0;
+          predictedData.reduce((sum, d) => sum + d.conversion_rate, 0) / predictedData.length : 0;
         return {
           current: `${avgCurrentConversion.toFixed(1)}%`,
           predicted: `${avgPredictedConversion.toFixed(1)}%`,
@@ -518,203 +186,60 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
   };
 
   const stats = getViewStats();
-  console.log('🔄 PredictionViewContainer: Stats calculated', { stats, activeView });
 
   return (
-    <StyledCard sx={{ 
-      minHeight: { xs: 450, sm: 500, md: height || 550 },
-    }}>
-      <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 3 }}>
-        {/* Header with Dashboard Theme */}
-        <Box sx={{ mb: 3 }}>
-          <CardTitle>
-            <Analytics color="primary" />
-            Advanced Analytics
-            <Chip
-              icon={<AutoAwesome />}
-              label="AI Forecast"
-              color="secondary"
-              size="small"
-              sx={{ 
-                fontWeight: 600,
-                ml: 1,
-              }}
-            />
-          </CardTitle>
-          
-          {/* Enhanced Forecast Toggle */}
-          <Box sx={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center',
-            mb: 2,
-            flexWrap: 'wrap',
-            gap: 1,
-          }}>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={showPredictions}
-                  onChange={(e) => setShowPredictions(e.target.checked)}
-                  color="secondary"
-                />
-              }
-              label={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <AutoAwesome sx={{ fontSize: 16, color: 'secondary.main' }} />
-                  <Typography variant="body2" fontWeight={600}>
-                    {showPredictions ? 'Forecasts On' : 'Forecasts Off'}
-                  </Typography>
-                </Box>
-              }
-            />
-            
-            {showPredictions && (
-              <Chip
-                icon={<Psychology />}
-                label="AI Powered"
-                size="small"
-                color="secondary"
-                variant="outlined"
-                sx={{ fontWeight: 500 }}
-              />
-            )}
-          </Box>
+    <Paper sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      {/* Header with controls */}
+      <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h6" component="h2">
+            Predictive Analytics
+          </Typography>
+          {stats && (
+            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+              <Typography variant="body2" color="text.secondary">
+                Last 7 days: <strong>{stats.current}</strong>
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Next 30 days: <strong>{stats.predicted}</strong>
+              </Typography>
+            </Box>
+          )}
         </Box>
-        
-        {/* Stats Display with Enhanced Design */}
-        {stats && (
-          <Box sx={{ 
-            display: 'flex', 
-            flexWrap: 'wrap',
-            gap: 2, 
-            mb: 3,
-            p: 2,
-            backgroundColor: theme.palette.background.default,
-            borderRadius: theme.shape.borderRadius,
-            border: `1px solid ${theme.palette.divider}`,
-          }}>
-            <Box sx={{ 
-              display: 'flex', 
-              flexDirection: 'column',
-              alignItems: 'center',
-              p: 1.5,
-              borderRadius: theme.shape.borderRadius,
-              backgroundColor: theme.palette.background.paper,
-              border: `1px solid ${theme.palette.divider}`,
-              minWidth: 120,
-              flex: 1,
-            }}>
-              <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5 }}>
-                Current {stats.metric}
-              </Typography>
-              <Typography variant="h6" fontWeight={700} color="text.primary">
-                {stats.current}
-              </Typography>
-            </Box>
-            {showPredictions && stats.predicted && (
-              <Box sx={{ 
-                display: 'flex', 
-                flexDirection: 'column',
-                alignItems: 'center',
-                p: 1.5,
-                borderRadius: theme.shape.borderRadius,
-                backgroundColor: theme.palette.background.paper,
-                border: `1px solid ${theme.palette.secondary.main}40`,
-                minWidth: 120,
-                flex: 1,
-                position: 'relative',
-                '&::before': {
-                  content: '""',
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  height: 3,
-                  background: theme.palette.secondary.main,
-                  borderRadius: `${theme.shape.borderRadius}px ${theme.shape.borderRadius}px 0 0`,
-                },
-              }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                  <AutoAwesome sx={{ fontSize: 12, color: theme.palette.secondary.main }} />
-                  <Typography variant="caption" color="text.secondary">
-                    Forecast {stats.metric}
-                  </Typography>
-                </Box>
-                <Typography variant="h6" fontWeight={700} color="secondary.main">
-                  {stats.predicted}
-                </Typography>
-              </Box>
-            )}
-            <Box sx={{ 
-              display: 'flex', 
-              flexDirection: 'column',
-              alignItems: 'center',
-              p: 1.5,
-              borderRadius: theme.shape.borderRadius,
-              backgroundColor: theme.palette.background.paper,
-              border: `1px solid ${theme.palette.divider}`,
-              minWidth: 120,
-              flex: 1,
-            }}>
-              <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5 }}>
-                Active Metric
-              </Typography>
-              <Typography variant="h6" fontWeight={700} color="primary.main">
-                {stats.metric}
-              </Typography>
-            </Box>
-          </Box>
-        )}
 
-        {/* Enhanced View Toggle with Dashboard Style */}
+        {/* View Toggle */}
         <ToggleButtonGroup
           value={activeView}
           exclusive
           onChange={handleViewChange}
           size="small"
-          orientation={isMobile ? "vertical" : "horizontal"}
           sx={{
-            mb: 3,
-            alignSelf: isMobile ? 'stretch' : 'flex-start',
             '& .MuiToggleButton-root': {
-              borderRadius: theme.shape.borderRadius,
               textTransform: 'none',
-              fontWeight: 600,
-              padding: theme.spacing(1, 2),
-              '&.Mui-selected': {
-                backgroundColor: theme.palette.primary.main,
-                color: theme.palette.primary.contrastText,
-                '&:hover': {
-                  backgroundColor: theme.palette.primary.dark,
-                },
-              },
+              fontWeight: 500,
             },
           }}
         >
-          <ToggleButton value="revenue" aria-label="Revenue forecasts">
-            <TrendingUp fontSize="small" sx={{ mr: 0.5 }} />
-            Revenue
-            {showPredictions && <AutoAwesome sx={{ ml: 0.5, fontSize: 14, color: 'secondary.main' }} />}
+          <ToggleButton value="revenue" aria-label="Revenue predictions">
+            <TrendingUp fontSize="small" sx={{ mr: isMobile ? 0 : 1 }} />
+            {!isMobile && 'Revenue'}
           </ToggleButton>
-          <ToggleButton value="orders" aria-label="Order forecasts">
-            <ShoppingCart fontSize="small" sx={{ mr: 0.5 }} />
-            Orders
-            {showPredictions && <AutoAwesome sx={{ ml: 0.5, fontSize: 14, color: 'secondary.main' }} />}
+          <ToggleButton value="orders" aria-label="Order predictions">
+            <ShoppingCart fontSize="small" sx={{ mr: isMobile ? 0 : 1 }} />
+            {!isMobile && 'Orders'}
           </ToggleButton>
-          <ToggleButton value="conversion" aria-label="Conversion forecasts">
-            <Percent fontSize="small" sx={{ mr: 0.5 }} />
-            Conversion
-            {showPredictions && <AutoAwesome sx={{ ml: 0.5, fontSize: 14, color: 'secondary.main' }} />}
+          <ToggleButton value="conversion" aria-label="Conversion predictions">
+            <Percent fontSize="small" sx={{ mr: isMobile ? 0 : 1 }} />
+            {!isMobile && 'Conversion'}
           </ToggleButton>
         </ToggleButtonGroup>
+      </Box>
 
-        {/* Chart Content with Dashboard Style */}
-        <ChartContainer>
-          {renderCurrentView()}
-        </ChartContainer>
-      </CardContent>
-    </StyledCard>
+      {/* Chart Content */}
+      <Box sx={{ flex: 1, p: 0 }}>
+        {renderCurrentView()}
+      </Box>
+    </Paper>
   );
 };
 
