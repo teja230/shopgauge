@@ -418,6 +418,10 @@ public class ShopifyAuthController {
       try {
         shopService.saveShop(shop, accessToken, sessionId, request);
         logger.info("Shop data saved successfully");
+
+        // Execute post-save operations (caching, cleanup) outside transaction
+        shopService.postSaveShopOperations(shop, sessionId, accessToken);
+        logger.debug("Post-save operations completed for shop: {}", shop);
       } catch (Exception saveError) {
         logger.error("Failed to save shop data to Redis/database: {}", saveError.getMessage());
         // Continue with cookie setting even if save fails

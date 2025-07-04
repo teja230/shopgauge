@@ -74,10 +74,11 @@ public class RedisConfig {
             .tcpNoDelay(true)
             .build();
 
-    // Enhanced timeout options for better performance
+    // Enhanced timeout options for better performance and reliability
     TimeoutOptions timeoutOptions =
         TimeoutOptions.builder()
             .fixedTimeout(Duration.ofSeconds(isProduction ? 10 : 5)) // Increased from 5s
+            .timeoutCommands(true) // Enable command timeouts
             .build();
 
     // Enhanced client options for production stability

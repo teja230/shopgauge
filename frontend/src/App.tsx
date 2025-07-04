@@ -22,6 +22,9 @@ import theme from './theme';
 import IntelligentLoadingScreen from './components/ui/IntelligentLoadingScreen';
 import CommandPalette from './components/CommandPalette';
 import { DebugPanel, debugLog } from './components/ui/DebugPanel';
+import { sessionManager, getSessionStatus } from './utils/sessionUtils';
+import SessionLimitDialog from './components/ui/SessionLimitDialog';
+import useSessionLimit from './hooks/useSessionLimit';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, authLoading } = useAuth();
@@ -71,6 +74,17 @@ const AppContent: React.FC = () => {
   const { handleServiceError } = useServiceStatus();
   const [showDebugPanel, setShowDebugPanel] = React.useState(true); // Force debug panel to be visible for testing
   
+  // Session limit management
+  const {
+    sessionLimitData,
+    loading: sessionLimitLoading,
+    showSessionDialog,
+    checkSessionLimit,
+    deleteSession,
+    closeSessionDialog,
+    canProceedWithLogin,
+  } = useSessionLimit();
+  
   // Escalating loader: render the branded IntelligentLoadingScreen only
   // if the critical boot-up takes longer than a short threshold.
   const MIN_BRAND_LOADER_TIME = 400; // ms – tweak if needed
@@ -95,6 +109,38 @@ const AppContent: React.FC = () => {
     setGlobalServiceErrorHandler(handleServiceError);
   }, [handleServiceError]);
 
+  // Initialize session management for authenticated users
+  useEffect(() => {
+    if (isAuthenticated && !authLoading) {
+      console.log('🔧 Initializing session management for authenticated user');
+      
+      // Set up session invalidation callback
+      sessionManager.setSessionInvalidatedCallback(() => {
+        console.warn('🚨 Session invalidated - redirecting to home page');
+        toast.error('Your session has expired. Please login again.');
+        // Force re-authentication by reloading the page
+        window.location.href = '/';
+      });
+
+      // Start heartbeat if not already active
+      if (!sessionManager.isHeartbeatActive()) {
+        sessionManager.startHeartbeat();
+      }
+
+      // Check session limit for authenticated users
+      checkSessionLimit();
+
+      // Log session status for debugging
+      const sessionStatus = getSessionStatus();
+      console.log('📊 Session status:', sessionStatus);
+      
+    } else if (!isAuthenticated && sessionManager.isHeartbeatActive()) {
+      console.log('🛑 User not authenticated - stopping session heartbeat');
+      sessionManager.stopHeartbeat();
+      sessionManager.clearSessionInfo();
+    }
+  }, [isAuthenticated, authLoading, checkSessionLimit]);
+
   // Show global loading state during initial load or auth loading
   if (loading || authLoading) {
     return showBrandLoader ? (
@@ -104,6 +150,15 @@ const AppContent: React.FC = () => {
   
   console.log('AppContent: DebugPanel state:', { showDebugPanel, isAuthenticated, loading, authLoading });
   
+  const handleSessionDeleted = (sessionId: string) => {
+    deleteSession(sessionId);
+  };
+
+  const handleContinueAfterSessionManagement = () => {
+    closeSessionDialog();
+    // Optionally refresh session data or perform other actions
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col animate-fadeIn">
       <CommandPalette />
@@ -114,6 +169,18 @@ const AppContent: React.FC = () => {
         isVisible={showDebugPanel} 
         onToggleVisibility={setShowDebugPanel} 
       />
+      
+      {/* Session Limit Management Dialog */}
+      <SessionLimitDialog
+        open={showSessionDialog}
+        onClose={closeSessionDialog}
+        onSessionDeleted={handleSessionDeleted}
+        onContinue={handleContinueAfterSessionManagement}
+        sessions={sessionLimitData?.sessions || []}
+        loading={sessionLimitLoading}
+        maxSessions={sessionLimitData?.maxSessions || 5}
+      />
+      
       <main className="flex-1">
         <Routes>
           <Route path="/" element={<HomePage />} />

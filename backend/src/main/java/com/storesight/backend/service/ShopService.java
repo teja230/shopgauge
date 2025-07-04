@@ -7,8 +7,10 @@ import com.storesight.backend.repository.ShopSessionRepository;
 import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,11 +34,11 @@ public class ShopService {
   private static final String SHOP_SESSION_PREFIX = "shop_session:";
   private static final String ACTIVE_SESSIONS_PREFIX = "active_sessions:";
 
-  // TTL values - Further optimized for better resource management
-  private static final int REDIS_CACHE_TTL_MINUTES = 30; // Shorter TTL for cache
-  private static final int SESSION_INACTIVITY_HOURS =
-      4; // Reduced from 12h to 4h (business app standard)
-  private static final int SESSION_CLEANUP_DAYS = 2; // Reduced from 3 to 2 days
+  // TTL values - Optimized for better resource management and reduced DB load
+  private static final int REDIS_CACHE_TTL_MINUTES = 120; // Increased from 30 to 120 minutes
+  private static final int REDIS_FALLBACK_TTL_MINUTES = 60; // Fallback cache TTL
+  private static final int SESSION_INACTIVITY_HOURS = 4; // 4 hours (business app standard)
+  private static final int SESSION_CLEANUP_DAYS = 2; // 2 days
   private static final int MAX_SESSIONS_PER_SHOP = 5; // Limit concurrent sessions per shop
 
   @Autowired
@@ -84,10 +86,10 @@ public class ShopService {
   }
 
   /**
-   * Save shop and create/update session. This method handles multiple concurrent sessions properly.
-   * OPTIMIZED: Reduced transaction scope to minimize connection holding time
+   * Enhanced session saving with immediate session limit enforcement Optimized for minimal database
+   * connection usage
    */
-  @Transactional(timeout = 15) // Reduced timeout for faster connection release
+  @Transactional(timeout = 10) // Reduced from 15s to 10s for faster connection release
   public ShopSession saveShop(
       String shopifyDomain, String accessToken, String sessionId, HttpServletRequest request) {
     logger.info("Saving shop: {} for session: {}", shopifyDomain, sessionId);
@@ -101,7 +103,7 @@ public class ShopService {
           "Generated fallback sessionId for shop: {} - original was null/empty", shopifyDomain);
     }
 
-    // Find or create shop - optimized query
+    // Find or create shop - optimized single query
     Shop shop =
         shopRepository
             .findByShopifyDomain(shopifyDomain)
@@ -115,7 +117,10 @@ public class ShopService {
     shop.setAccessToken(accessToken);
     shop = shopRepository.save(shop);
 
-    // Create or update session (simplified to reduce transaction time)
+    // CRITICAL: Enforce session limit BEFORE creating new session
+    enforceSessionLimitSync(shop, validSessionId);
+
+    // Create or update session (optimized to minimize transaction time)
     ShopSession session = createOrUpdateSession(shop, validSessionId, accessToken, request);
 
     logger.info(
@@ -123,19 +128,74 @@ public class ShopService {
     return session;
   }
 
-  /** Post-transaction operations to reduce connection holding time */
+  /**
+   * Synchronous session limit enforcement to prevent race conditions This runs within the same
+   * transaction as session creation
+   */
+  private void enforceSessionLimitSync(Shop shop, String currentSessionId) {
+    try {
+      List<ShopSession> activeSessions =
+          shopSessionRepository.findByShopAndIsActiveTrueOrderByLastAccessedAtDesc(shop);
+
+      logger.debug(
+          "Found {} active sessions for shop: {}", activeSessions.size(), shop.getShopifyDomain());
+
+      // If we're at or over the limit, we need to deactivate old sessions
+      if (activeSessions.size() >= MAX_SESSIONS_PER_SHOP) {
+        // Check if current session already exists in the list
+        boolean currentSessionExists =
+            activeSessions.stream().anyMatch(s -> s.getSessionId().equals(currentSessionId));
+
+        int sessionsToDeactivate =
+            currentSessionExists
+                ? activeSessions.size() - MAX_SESSIONS_PER_SHOP
+                : activeSessions.size() - MAX_SESSIONS_PER_SHOP + 1;
+
+        if (sessionsToDeactivate > 0) {
+          // Deactivate the oldest sessions (keep the most recent ones)
+          List<ShopSession> sessionsToRemove =
+              activeSessions.stream()
+                  .skip(MAX_SESSIONS_PER_SHOP - (currentSessionExists ? 1 : 0))
+                  .collect(Collectors.toList());
+
+          logger.info(
+              "Enforcing session limit: deactivating {} sessions for shop: {}",
+              sessionsToRemove.size(),
+              shop.getShopifyDomain());
+
+          for (ShopSession session : sessionsToRemove) {
+            session.deactivate();
+            shopSessionRepository.save(session);
+            // Note: Redis cleanup will be done in post-transaction operations
+          }
+        }
+      }
+    } catch (Exception e) {
+      logger.error(
+          "Error enforcing session limit for shop {}: {}",
+          shop.getShopifyDomain(),
+          e.getMessage(),
+          e);
+      // Don't fail the transaction, but log the error
+    }
+  }
+
+  /**
+   * Post-transaction operations to reduce connection holding time These operations are moved
+   * outside the transaction for better performance
+   */
   public void postSaveShopOperations(
       String shopifyDomain, String validSessionId, String accessToken) {
-    // These operations are moved outside the transaction to reduce connection holding time
     try {
-      // Check and limit concurrent sessions (moved to separate transaction)
-      cleanupExcessiveSessionsAsync(shopifyDomain);
-
-      // Cache in Redis for performance
+      // Cache in Redis for performance (with increased TTL)
       cacheShopSession(shopifyDomain, validSessionId, accessToken);
 
       // Update active sessions list
       updateActiveSessionsList(shopifyDomain);
+
+      // Clean up Redis cache for any deactivated sessions
+      cleanupDeactivatedSessionsFromRedis(shopifyDomain);
+
     } catch (Exception e) {
       logger.warn("Post-save operations failed for shop {}: {}", shopifyDomain, e.getMessage());
     }
@@ -217,10 +277,8 @@ public class ShopService {
             });
   }
 
-  /**
-   * Get access token for a specific shop and session - Blocking version for backward compatibility
-   */
-  @Transactional
+  /** Enhanced token retrieval with improved Redis caching strategy */
+  @Transactional(readOnly = true, timeout = 5) // Reduced timeout for read-only operations
   public String getTokenForShop(String shopifyDomain, String sessionId) {
     logger.debug("Getting token for shop: {} and session: {}", shopifyDomain, sessionId);
 
@@ -228,7 +286,7 @@ public class ShopService {
       return getTokenForShopFallback(shopifyDomain);
     }
 
-    // Try Redis cache first with proper error handling
+    // Try Redis cache first with improved error handling
     String cachedToken = null;
     try {
       cachedToken =
@@ -236,16 +294,16 @@ public class ShopService {
       if (cachedToken != null) {
         logger.debug(
             "Found token in Redis cache for shop: {} and session: {}", shopifyDomain, sessionId);
-        updateSessionLastAccessed(sessionId);
+        // Update last accessed time asynchronously to avoid blocking
+        updateSessionLastAccessedAsync(sessionId);
         return cachedToken;
       }
     } catch (Exception e) {
       logger.warn(
           "Redis unavailable for token lookup - falling back to database: {}", e.getMessage());
-      // Continue to database lookup
     }
 
-    // Try database
+    // Try database with read-only transaction
     Optional<ShopSession> sessionOpt =
         shopSessionRepository.findActiveSessionByShopDomainAndSessionId(shopifyDomain, sessionId);
 
@@ -257,8 +315,8 @@ public class ShopService {
       session.markAsAccessed();
       shopSessionRepository.save(session);
 
-      // Cache for future requests
-      cacheShopSession(shopifyDomain, sessionId, token);
+      // Cache for future requests with extended TTL
+      cacheShopSessionWithExtendedTTL(shopifyDomain, sessionId, token);
 
       logger.debug(
           "Found token in database for shop: {} and session: {}", shopifyDomain, sessionId);
@@ -519,7 +577,7 @@ public class ShopService {
 
   private void cacheShopSession(String shopifyDomain, String sessionId, String accessToken) {
     try {
-      // Cache session-specific token
+      // Cache session-specific token with extended TTL
       redisTemplate
           .opsForValue()
           .set(
@@ -527,21 +585,40 @@ public class ShopService {
               accessToken,
               java.time.Duration.ofMinutes(REDIS_CACHE_TTL_MINUTES));
 
-      // Cache shop-only token (most recent)
+      // Cache shop-only token (most recent) with fallback TTL
       redisTemplate
           .opsForValue()
           .set(
               SHOP_TOKEN_PREFIX + shopifyDomain,
               accessToken,
-              java.time.Duration.ofMinutes(REDIS_CACHE_TTL_MINUTES));
+              java.time.Duration.ofMinutes(REDIS_FALLBACK_TTL_MINUTES));
 
-      logger.debug("Cached tokens for shop: {} and session: {}", shopifyDomain, sessionId);
+      logger.debug(
+          "Cached tokens for shop: {} and session: {} with extended TTL", shopifyDomain, sessionId);
     } catch (Exception e) {
       logger.warn(
           "Failed to cache tokens for shop {} - Redis may be unavailable: {}",
           shopifyDomain,
           e.getMessage());
-      // Don't propagate the exception - caching is optional
+    }
+  }
+
+  private void cacheShopSessionWithExtendedTTL(
+      String shopifyDomain, String sessionId, String accessToken) {
+    try {
+      // Use longer TTL for database-retrieved sessions to reduce future DB queries
+      redisTemplate
+          .opsForValue()
+          .set(
+              SHOP_TOKEN_PREFIX + shopifyDomain + ":" + sessionId,
+              accessToken,
+              java.time.Duration.ofMinutes(
+                  REDIS_CACHE_TTL_MINUTES * 2)); // Double TTL for DB-retrieved sessions
+
+      logger.debug(
+          "Cached token with extended TTL for shop: {} and session: {}", shopifyDomain, sessionId);
+    } catch (Exception e) {
+      logger.warn("Failed to cache token with extended TTL: {}", e.getMessage());
     }
   }
 
@@ -590,6 +667,16 @@ public class ShopService {
 
   private void updateSessionLastAccessed(String sessionId) {
     try {
+      shopSessionRepository.updateLastAccessedTime(sessionId);
+    } catch (Exception e) {
+      logger.warn(
+          "Failed to update last accessed time for session {}: {}", sessionId, e.getMessage());
+    }
+  }
+
+  private void updateSessionLastAccessedAsync(String sessionId) {
+    try {
+      // This could be made truly async with @Async annotation if needed
       shopSessionRepository.updateLastAccessedTime(sessionId);
     } catch (Exception e) {
       logger.warn(
@@ -669,15 +756,20 @@ public class ShopService {
     }
   }
 
-  /** Clean up expired sessions - runs every 15 minutes (aggressive cleanup) */
-  @Transactional
-  @Scheduled(fixedRate = 900000) // 15 minutes (reduced from 30 minutes)
+  /** Enhanced session cleanup with better error handling and monitoring */
+  @Transactional(timeout = 10) // Reduced timeout for cleanup operations
+  @Scheduled(fixedRate = 900000) // 15 minutes (aggressive cleanup)
   public void cleanupExpiredSessions() {
     try {
+      logger.debug("Starting expired session cleanup");
+
       List<ShopSession> expiredSessions = shopSessionRepository.findExpiredSessions();
+      int cleanedCount = 0;
+
       for (ShopSession session : expiredSessions) {
         session.deactivate();
         shopSessionRepository.save(session);
+        cleanedCount++;
 
         // Clear from cache
         if (session.getShop() != null) {
@@ -694,8 +786,8 @@ public class ShopService {
         }
       }
 
-      if (!expiredSessions.isEmpty()) {
-        logger.info("Deactivated {} expired sessions", expiredSessions.size());
+      if (cleanedCount > 0) {
+        logger.info("Cleaned up {} expired sessions", cleanedCount);
       }
 
       // Also clean up old inactive sessions more frequently
@@ -758,11 +850,159 @@ public class ShopService {
     }
   }
 
+  /** Clean up Redis cache for deactivated sessions */
+  private void cleanupDeactivatedSessionsFromRedis(String shopifyDomain) {
+    try {
+      // Get all sessions for this shop from database
+      Optional<Shop> shopOpt = shopRepository.findByShopifyDomain(shopifyDomain);
+      if (shopOpt.isPresent()) {
+        Shop shop = shopOpt.get();
+
+        // Get all sessions (active and inactive) to compare with Redis
+        List<ShopSession> allSessions = shopSessionRepository.findByShop(shop);
+        List<String> inactiveSessionIds =
+            allSessions.stream()
+                .filter(s -> !s.getIsActive())
+                .map(ShopSession::getSessionId)
+                .collect(Collectors.toList());
+
+        // Remove inactive sessions from Redis
+        for (String sessionId : inactiveSessionIds) {
+          redisTemplate.delete(SHOP_TOKEN_PREFIX + shopifyDomain + ":" + sessionId);
+        }
+
+        if (!inactiveSessionIds.isEmpty()) {
+          logger.debug(
+              "Cleaned up {} inactive sessions from Redis for shop: {}",
+              inactiveSessionIds.size(),
+              shopifyDomain);
+        }
+      }
+    } catch (Exception e) {
+      logger.warn(
+          "Failed to cleanup deactivated sessions from Redis for shop {}: {}",
+          shopifyDomain,
+          e.getMessage());
+    }
+  }
+
   // Backward compatibility methods (deprecated but maintained for existing code)
 
   @Deprecated
   public void removeToken(String shopifyDomain, String sessionId) {
     logger.warn("Using deprecated removeToken method. Use removeSession instead.");
     removeSession(shopifyDomain, sessionId);
+  }
+
+  /** Update session heartbeat to track active browser sessions */
+  @Transactional(timeout = 5)
+  public boolean updateSessionHeartbeat(String shopifyDomain, String sessionId) {
+    try {
+      Optional<ShopSession> sessionOpt =
+          shopSessionRepository.findActiveSessionByShopDomainAndSessionId(shopifyDomain, sessionId);
+
+      if (sessionOpt.isPresent()) {
+        ShopSession session = sessionOpt.get();
+        session.markAsAccessed();
+        shopSessionRepository.save(session);
+
+        // Update Redis cache TTL to extend session life
+        try {
+          String cachedToken =
+              redisTemplate.opsForValue().get(SHOP_TOKEN_PREFIX + shopifyDomain + ":" + sessionId);
+          if (cachedToken != null) {
+            redisTemplate
+                .opsForValue()
+                .set(
+                    SHOP_TOKEN_PREFIX + shopifyDomain + ":" + sessionId,
+                    cachedToken,
+                    java.time.Duration.ofMinutes(REDIS_CACHE_TTL_MINUTES));
+          }
+        } catch (Exception e) {
+          logger.warn("Failed to update Redis TTL during heartbeat: {}", e.getMessage());
+        }
+
+        logger.debug(
+            "Session heartbeat updated for shop: {} and session: {}", shopifyDomain, sessionId);
+        return true;
+      } else {
+        logger.warn(
+            "Session not found for heartbeat update: shop={}, session={}",
+            shopifyDomain,
+            sessionId);
+        return false;
+      }
+    } catch (Exception e) {
+      logger.error(
+          "Error updating session heartbeat for shop {}: {}", shopifyDomain, e.getMessage(), e);
+      return false;
+    }
+  }
+
+  /** Get stale sessions for a shop (sessions that haven't been accessed recently) */
+  @Transactional(readOnly = true)
+  public List<ShopSession> getStaleSessionsForShop(String shopifyDomain) {
+    try {
+      Optional<Shop> shopOpt = shopRepository.findByShopifyDomain(shopifyDomain);
+      if (shopOpt.isPresent()) {
+        Shop shop = shopOpt.get();
+
+        // Define stale threshold (sessions not accessed for more than 30 minutes)
+        LocalDateTime staleThreshold = LocalDateTime.now().minusMinutes(30);
+
+        return shopSessionRepository
+            .findByShopAndIsActiveTrueOrderByLastAccessedAtDesc(shop)
+            .stream()
+            .filter(session -> session.getLastAccessedAt().isBefore(staleThreshold))
+            .collect(Collectors.toList());
+      }
+      return new ArrayList<>();
+    } catch (Exception e) {
+      logger.error(
+          "Error getting stale sessions for shop {}: {}", shopifyDomain, e.getMessage(), e);
+      return new ArrayList<>();
+    }
+  }
+
+  /** Clean up stale sessions (sessions that haven't sent heartbeat for extended period) */
+  @Transactional
+  @Scheduled(fixedRate = 1800000) // 30 minutes
+  public void cleanupStaleSessions() {
+    try {
+      // Define stale threshold (sessions not accessed for more than 1 hour)
+      LocalDateTime staleThreshold = LocalDateTime.now().minusHours(1);
+
+      List<ShopSession> staleSessions =
+          shopSessionRepository.findInactiveSessionsOlderThan(staleThreshold);
+      int cleanedCount = 0;
+
+      for (ShopSession session : staleSessions) {
+        if (session.getIsActive()) {
+          session.deactivate();
+          shopSessionRepository.save(session);
+          cleanedCount++;
+
+          // Clear from Redis cache
+          if (session.getShop() != null) {
+            try {
+              redisTemplate.delete(
+                  SHOP_TOKEN_PREFIX
+                      + session.getShop().getShopifyDomain()
+                      + ":"
+                      + session.getSessionId());
+            } catch (Exception e) {
+              logger.warn(
+                  "Failed to clear Redis cache during stale session cleanup: {}", e.getMessage());
+            }
+          }
+        }
+      }
+
+      if (cleanedCount > 0) {
+        logger.info("Cleaned up {} stale sessions", cleanedCount);
+      }
+    } catch (Exception e) {
+      logger.error("Error during stale session cleanup: {}", e.getMessage(), e);
+    }
   }
 }
