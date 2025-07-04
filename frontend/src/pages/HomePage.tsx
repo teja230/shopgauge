@@ -29,11 +29,10 @@ const features = [
 const HomePage = () => {
   const [shopDomain, setShopDomain] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isOAuthFlow, setIsOAuthFlow] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [errorCode, setErrorCode] = useState('');
   const [showConnectForm, setShowConnectForm] = useState(false);
-  const { isAuthenticated, authLoading, logout, setShop } = useAuth();
+  const { isAuthenticated, authLoading, logout, setShop, hasInitiallyLoaded } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const notifications = useNotifications();
@@ -45,10 +44,9 @@ const HomePage = () => {
     const errorFromUrl = urlParams.get('error');
     const errorMsgFromUrl = urlParams.get('error_message');
     
-    if (shopFromUrl && !authLoading) {
+    if (shopFromUrl && hasInitiallyLoaded) {
       console.log('HomePage: Detected OAuth callback, shop will be processed by AuthContext');
-      // Don't set isOAuthFlow here as AuthContext will handle the redirect
-      // Just wait for the auth context to process the shop parameter
+      // The AuthContext will handle the OAuth flow
       return;
     }
     
@@ -67,45 +65,35 @@ const HomePage = () => {
       // Clear URL parameters after showing error
       const newUrl = window.location.pathname;
       window.history.replaceState({}, '', newUrl);
-      
-      // Reset OAuth flow if there was an error
-      setIsOAuthFlow(false);
     }
-  }, [location.search, authLoading, notifications]);
+  }, [location.search, hasInitiallyLoaded, notifications]);
 
-  // Handle navigation after authentication
+  // Handle redirect after successful authentication (only when explicitly requested)
   useEffect(() => {
-    if (isAuthenticated && !authLoading) {
-      console.log('HomePage: User authenticated, checking for redirect navigation');
+    if (isAuthenticated && hasInitiallyLoaded && !authLoading) {
+      console.log('HomePage: User authenticated, checking for explicit redirect');
       
-      // Check for redirect parameter in URL
+      // Only handle explicit redirect parameters, don't auto-redirect
       const urlParams = new URLSearchParams(location.search);
       const redirectPath = urlParams.get('redirect');
-      const forceHome = urlParams.get('force') === 'true' || urlParams.get('view') === 'home';
       
       if (redirectPath) {
-        console.log('HomePage: Found redirect parameter, navigating to:', redirectPath);
-        navigate(redirectPath, { replace: true });
-      } else if (!forceHome) {
-        // Auto-navigate to dashboard if no specific redirect and not forced to stay on home
-        console.log('HomePage: No redirect parameter and not forced to stay, navigating to dashboard');
-        navigate('/dashboard', { replace: true });
-      } else {
-        console.log('HomePage: Forced to stay on home page, not redirecting');
-        // Clear the force parameter from URL for cleaner appearance
+        console.log('HomePage: Found explicit redirect parameter, navigating to:', redirectPath);
+        // Clean up URL parameters
         const newUrl = new URL(window.location.href);
-        newUrl.searchParams.delete('force');
-        newUrl.searchParams.delete('view');
+        newUrl.searchParams.delete('redirect');
         window.history.replaceState({}, '', newUrl.toString());
+        
+        // Navigate to the requested path
+        navigate(redirectPath, { replace: true });
+      } else {
+        console.log('HomePage: No explicit redirect requested, staying on home page');
       }
-    } else if (!isAuthenticated && !authLoading) {
-      // User is not authenticated, stay on home page
-      console.log('HomePage: User not authenticated, staying on home page');
     }
-  }, [isAuthenticated, authLoading, navigate, location.pathname, location.search]);
+  }, [isAuthenticated, hasInitiallyLoaded, authLoading, navigate, location.search]);
 
-  // Determine if user is authenticated after auth check completes
-  const showAuthConnected = isAuthenticated && !authLoading && !isOAuthFlow;
+  // Determine if user is authenticated and ready to show connected state
+  const showAuthConnected = isAuthenticated && hasInitiallyLoaded && !authLoading;
 
   const handleSwitchStore = () => {
     // Show the connect form for switching stores
@@ -143,7 +131,7 @@ const HomePage = () => {
       // Clear any existing dashboard cache before switching stores
       clearAllDashboardCache();
 
-      // Optimized: Build return URL for faster post-OAuth loading
+      // Build return URL for post-OAuth loading
       const baseUrl = `${window.location.origin}/dashboard`;
       const returnUrl = encodeURIComponent(`${baseUrl}?connected=true&skip_loading=true`);
 
@@ -153,7 +141,7 @@ const HomePage = () => {
         duration: 2000
       });
 
-      // Redirect to the login endpoint with optimized parameters
+      // Redirect to the login endpoint
       window.location.href = `${API_BASE_URL}/api/auth/shopify/login?shop=${encodeURIComponent(cleanDomain)}&return_url=${returnUrl}`;
     } catch (error) {
       console.error('Login failed:', error);
@@ -166,11 +154,7 @@ const HomePage = () => {
     }
   };
 
-  const handleGoHome = () => {
-    window.location.href = '/?force=true';
-  };
-
-  // Show loading state for form submission only, not OAuth flow
+  // Show loading state for form submission only
   if (isLoading) {
     return <IntelligentLoadingScreen message="Connecting to Shopify..." fastMode={true} />;
   }
@@ -218,7 +202,7 @@ const HomePage = () => {
         </div>
       )}
 
-      {/* Pricing Section - Moved up for prominence */}
+      {/* Pricing Section */}
       <section className="mb-12 w-full max-w-4xl">
         <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl p-8 text-white text-center">
           <h2 className="text-3xl font-bold mb-4">🚀 Limited Time Offer</h2>
@@ -230,7 +214,7 @@ const HomePage = () => {
             <div className="text-lg opacity-80">after 3-day free trial</div>
           </div>
           
-          {/* Action section now INSIDE the banner */}
+          {/* Action section */}
           <div className="mt-8 flex flex-col items-center">
             {showAuthConnected ? (
               showConnectForm ? (
@@ -339,7 +323,6 @@ const HomePage = () => {
                 </button>
               )
             )}
-            {/* Always-visible note in the banner */}
             <p className="text-sm opacity-90 mt-6 text-white">No credit card required • Cancel anytime</p>
           </div>
         </div>

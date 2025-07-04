@@ -41,27 +41,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
   const [isAuthReady, setIsAuthReady] = useState(false);
 
-  // Handle authentication errors globally
+  // Enhanced authentication error handling
   const handleAuthError = (error: any) => {
+    console.log('AuthContext: Handling potential auth error', error);
+    
     if (error?.authenticationError || error?.status === 401) {
-      console.log('AuthContext: Handling authentication error');
+      console.log('AuthContext: Confirmed authentication error, clearing auth state');
+      
+      // Clear authentication state
       setIsAuthenticated(false);
       setShop(null);
       setApiAuthState(false, null);
       
-      // Only redirect if we're not already on the home page to prevent infinite loops
-      if (window.location.pathname !== '/') {
-        console.log('AuthContext: Redirecting to home page for re-authentication');
-        // Use React Router navigation instead of window.location.href to prevent full page reload
-        window.history.pushState({}, '', '/');
-        // Dispatch a popstate event to trigger React Router navigation
-        window.dispatchEvent(new PopStateEvent('popstate'));
-      } else {
-        console.log('AuthContext: Already on home page, not redirecting');
-      }
+      // Mark auth as ready even when not authenticated
+      setIsAuthReady(true);
+      
+      // Don't redirect here - let the route guards handle navigation
+      // This prevents competing navigation logic
+      console.log('AuthContext: Auth state cleared, route guards will handle navigation');
       
       return true; // Indicate that the error was handled
     }
+    
+    // Handle other types of errors that might indicate auth issues
+    if (error?.response?.status === 403 || error?.code === 'UNAUTHORIZED') {
+      console.log('AuthContext: Handling 403/UNAUTHORIZED error');
+      
+      // Clear auth state but don't redirect
+      setIsAuthenticated(false);
+      setShop(null);
+      setApiAuthState(false, null);
+      setIsAuthReady(true);
+      
+      return true;
+    }
+    
     return false; // Let other errors be handled elsewhere
   };
 
@@ -101,10 +115,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     try {
       setAuthLoading(true);
-      setLoading(true); // Ensure loading state is active during auth check
+      setLoading(true);
       
       // Use direct fetch for initial auth check to avoid triggering global error handler
-      // This prevents infinite loops when user is not authenticated
       const response = await fetch(`${API_BASE_URL}/api/auth/shopify/me`, {
         method: 'GET',
         headers: {
@@ -114,6 +127,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         credentials: 'include',
         cache: 'no-cache',
       });
+
+      console.log('AuthContext: Auth check response status:', response.status);
 
       if (response.ok) {
         const data = await response.json();
@@ -130,8 +145,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
       
-      // Handle non-authenticated state (401 or other responses)
-      console.log('AuthContext: Not authenticated or no shop found, response status:', response.status);
+      // Handle non-authenticated state
+      console.log('AuthContext: Not authenticated, response status:', response.status);
       setShop(null);
       setIsAuthenticated(false);
       setIsAuthReady(true);
@@ -142,6 +157,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
     } catch (error) {
       console.error('AuthContext: Error during authentication check:', error);
+      
+      // Handle network errors gracefully
       setShop(null);
       setIsAuthenticated(false);
       setIsAuthReady(true);
@@ -149,10 +166,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Sync API authentication state
       setApiAuthState(false, null);
+      
+      // Don't throw error to prevent breaking the app
     } finally {
       setAuthLoading(false);
-      setLoading(false); // CRITICAL: Set loading to false when auth check completes
-      console.log('AuthContext: Authentication check completed, loading state cleared');
+      setLoading(false);
+      console.log('AuthContext: Authentication check completed');
     }
   };
 
@@ -194,13 +213,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
       
+      // Clear auth state
       setIsAuthenticated(false);
       setShop(null);
-      
-      // Update API auth state
       setApiAuthState(false, null);
-      
-      setIsAuthReady(true); // Keep auth system ready
+      setIsAuthReady(true);
       
       console.log('AuthContext: Logout completed');
     }
