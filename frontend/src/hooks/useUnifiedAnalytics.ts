@@ -411,7 +411,12 @@ const useUnifiedAnalytics = (
 
   // Load unified analytics from session storage
   const loadUnifiedAnalyticsFromStorage = useCallback((shopName: string): UnifiedAnalyticsData | null => {
-    if (!shopName || !shopName.trim()) return null;
+    if (!shopName || !shopName.trim()) {
+      console.log('🔄 UNIFIED_ANALYTICS: loadUnifiedAnalyticsFromStorage called with empty shop name');
+      return null;
+    }
+    
+    console.log('🔄 UNIFIED_ANALYTICS: loadUnifiedAnalyticsFromStorage called', { shopName });
     
     try {
       const storageKey = getUnifiedAnalyticsStorageKey(shopName);
@@ -421,6 +426,15 @@ const useUnifiedAnalytics = (
       
       if (!stored) {
         console.log('🔄 UNIFIED_ANALYTICS: No cached data found in session storage for key:', storageKey);
+        
+        // Debug: Check what keys actually exist in session storage
+        console.log('🔍 UNIFIED_ANALYTICS: Available session storage keys:');
+        for (let i = 0; i < sessionStorage.length; i++) {
+          const key = sessionStorage.key(i);
+          if (key && key.includes('unified_analytics')) {
+            console.log(`  - ${key}`);
+          }
+        }
         return null;
       }
 
@@ -475,9 +489,16 @@ const useUnifiedAnalytics = (
           totalRevenueIsNumber: typeof parsed?.total_revenue === 'number',
           totalOrdersIsNumber: typeof parsed?.total_orders === 'number',
           totalRevenueValue: parsed?.total_revenue,
-          totalOrdersValue: parsed?.total_orders
+          totalOrdersValue: parsed?.total_orders,
+          parsedKeys: parsed ? Object.keys(parsed) : [],
+          historicalLength: parsed?.historical?.length || 0,
+          predictionsLength: parsed?.predictions?.length || 0,
+          firstHistoricalItem: parsed?.historical?.[0] || null,
+          dataStructure: parsed
         });
-        sessionStorage.removeItem(storageKey);
+        
+        // Don't remove session storage immediately - let's see what's there
+        console.warn('🔄 UNIFIED_ANALYTICS: Not removing session storage to allow inspection');
         return null;
       }
     } catch (error) {
