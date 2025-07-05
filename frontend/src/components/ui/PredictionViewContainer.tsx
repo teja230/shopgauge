@@ -235,7 +235,8 @@ const PredictionViewContainer = memo(({
       revenue: Number(item.revenue) || 0,
       orders_count: Number(item.orders_count) || 0,
       conversion_rate: Number(item.conversion_rate) || 0,
-      avg_order_value: Number((item as any).avg_order_value) || 0
+      avg_order_value: Number((item as any).avg_order_value) || 0,
+      isPrediction: false, // EXPLICITLY set historical data as not prediction
     }));
 
     // Filter and take only the requested number of predictions
@@ -251,7 +252,8 @@ const PredictionViewContainer = memo(({
       revenue: Number(item.revenue) || 0,
       orders_count: Number(item.orders_count) || 0,
       conversion_rate: Number(item.conversion_rate) || 0,
-      avg_order_value: Number((item as any).avg_order_value) || 0
+      avg_order_value: Number((item as any).avg_order_value) || 0,
+      isPrediction: true, // EXPLICITLY set prediction data as prediction
     }));
 
     console.log('✅ PredictionViewContainer: Validated and cleaned data', {
@@ -266,11 +268,11 @@ const PredictionViewContainer = memo(({
       new Date(a.date).getTime() - new Date(b.date).getTime()
     );
 
-    // Transform for each chart type
+    // Transform for each chart type with EXPLICIT isPrediction flag
     const revenue = combinedData.map(item => ({
       date: item.date,
       revenue: item.revenue,
-      isPrediction: Boolean(item.isPrediction),
+      isPrediction: item.isPrediction, // Use the explicitly set flag
       confidence_min: (item.isPrediction && (item as any).confidence_interval?.revenue_min) || 0,
       confidence_max: (item.isPrediction && (item as any).confidence_interval?.revenue_max) || 0,
       confidence_score: (item.isPrediction && (item as any).confidence_score) || 0,
@@ -279,7 +281,7 @@ const PredictionViewContainer = memo(({
     const orders = combinedData.map(item => ({
       date: item.date,
       orders_count: item.orders_count,
-      isPrediction: Boolean(item.isPrediction),
+      isPrediction: item.isPrediction, // Use the explicitly set flag
       confidence_min: (item.isPrediction && (item as any).confidence_interval?.orders_min) || 0,
       confidence_max: (item.isPrediction && (item as any).confidence_interval?.orders_max) || 0,
       confidence_score: (item.isPrediction && (item as any).confidence_score) || 0,
@@ -288,7 +290,7 @@ const PredictionViewContainer = memo(({
     const conversion = combinedData.map(item => ({
       date: item.date,
       conversion_rate: item.conversion_rate || 0,
-      isPrediction: Boolean(item.isPrediction),
+      isPrediction: item.isPrediction, // Use the explicitly set flag
       confidence_min: (item.conversion_rate || 0) * 0.8,
       confidence_max: (item.conversion_rate || 0) * 1.2,
       confidence_score: (item.isPrediction && (item as any).confidence_score) || 0,
@@ -299,7 +301,12 @@ const PredictionViewContainer = memo(({
       ordersPoints: orders.length,
       conversionPoints: conversion.length,
       combinedDataLength: combinedData.length,
-      predictionDaysUsed: predictionDays
+      predictionDaysUsed: predictionDays,
+      // Add debug info about isPrediction flags
+      revenueHistorical: revenue.filter(r => !r.isPrediction).length,
+      revenueForecast: revenue.filter(r => r.isPrediction).length,
+      ordersHistorical: orders.filter(o => !o.isPrediction).length,
+      ordersForecast: orders.filter(o => o.isPrediction).length,
     });
 
     return { revenue, orders, conversion };

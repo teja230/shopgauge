@@ -218,8 +218,8 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
           )}
         />
         
-        {/* Stylish separator line between historical and predicted data */}
-        {separatorDate && (
+        {/* Stylish separator line between historical and predicted data - only show when predictions are enabled */}
+        {showPredictions && separatorDate && (
           <ReferenceLine
             x={separatorDate}
             stroke="#f97316"
@@ -335,10 +335,17 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
   };
 
   const renderChart = () => {
+    // Use only historical data when showPredictions is false, otherwise use all data
+    const chartData = showPredictions ? processedData : processedData.filter(d => !d.isPrediction);
+    
     const commonProps = {
-      data: processedData,
+      data: chartData,
       margin: { top: 10, right: 30, left: 20, bottom: 20 },
     };
+
+    // Separate historical and forecast data for proper rendering
+    const historicalData = processedData.filter(d => !d.isPrediction);
+    const forecastData = processedData.filter(d => d.isPrediction);
 
     switch (chartType) {
       case 'bar':
@@ -409,40 +416,42 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
               connectNulls={false}
               isAnimationActive={false}
             />
-            {/* Forecast data line - only show if forecast data exists */}
-            <Line
-              type="monotone"
-              dataKey="conversion_rate"
-              name="Conversion Rate (Forecast)"
-              stroke={COLOR_SCHEME.forecast.conversion}
-              strokeWidth={3}
-              strokeDasharray="8 4"
-              dot={(props: any) => {
-                const { payload } = props;
-                const isPrediction = payload?.isPrediction;
-                if (!isPrediction) {
-                  // Return invisible dot for historical on forecast line
-                  return <circle cx={props.cx} cy={props.cy} r={0} fill="transparent" />;
-                }
-                return (
-                  <circle
-                    cx={props.cx}
-                    cy={props.cy}
-                    r={4}
-                    fill={COLOR_SCHEME.forecast.conversion}
-                    stroke={COLOR_SCHEME.forecast.conversion}
-                    strokeWidth={2}
-                  />
-                );
-              }}
-              activeDot={{ 
-                r: 6, 
-                stroke: theme.palette.background.paper,
-                strokeWidth: 2
-              }}
-              connectNulls={false}
-              isAnimationActive={false}
-            />
+            {/* Forecast data line - only show if forecast data exists AND showPredictions is true */}
+            {showPredictions && forecastData.length > 0 && (
+              <Line
+                type="monotone"
+                dataKey="conversion_rate"
+                name="Conversion Rate (Forecast)"
+                stroke={COLOR_SCHEME.forecast.conversion}
+                strokeWidth={3}
+                strokeDasharray="8 4"
+                dot={(props: any) => {
+                  const { payload } = props;
+                  const isPrediction = payload?.isPrediction;
+                  if (!isPrediction) {
+                    // Return invisible dot for historical data on forecast line
+                    return <circle cx={props.cx} cy={props.cy} r={0} fill="transparent" />;
+                  }
+                  return (
+                    <circle
+                      cx={props.cx}
+                      cy={props.cy}
+                      r={4}
+                      fill={COLOR_SCHEME.forecast.conversion}
+                      stroke={COLOR_SCHEME.forecast.conversion}
+                      strokeWidth={2}
+                    />
+                  );
+                }}
+                activeDot={{ 
+                  r: 6, 
+                  stroke: theme.palette.background.paper,
+                  strokeWidth: 2
+                }}
+                connectNulls={false}
+                isAnimationActive={false}
+              />
+            )}
           </LineChart>
         );
       
@@ -459,24 +468,60 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
               strokeWidth={3}
               fill={`url(#${gradientId})`}
               fillOpacity={0.6}
-              dot={false}
+              dot={(props: any) => {
+                const { payload } = props;
+                const isPrediction = payload?.isPrediction;
+                if (isPrediction) {
+                  // Return invisible dot for predictions on historical area
+                  return <circle cx={props.cx} cy={props.cy} r={0} fill="transparent" />;
+                }
+                return (
+                  <circle
+                    cx={props.cx}
+                    cy={props.cy}
+                    r={3}
+                    fill={COLOR_SCHEME.historical.conversion}
+                    stroke={COLOR_SCHEME.historical.conversion}
+                    strokeWidth={1}
+                  />
+                );
+              }}
               connectNulls={false}
               isAnimationActive={false}
             />
-            {/* Forecast data area */}
-            <Area
-              type="monotone"
-              dataKey="conversion_rate"
-              name="Conversion Rate (Forecast)"
-              stroke={COLOR_SCHEME.forecast.conversion}
-              strokeWidth={3}
-              strokeDasharray="8 4"
-              fill={`url(#${predictionGradientId})`}
-              fillOpacity={0.4}
-              dot={false}
-              connectNulls={false}
-              isAnimationActive={false}
-            />
+            {/* Forecast data area - only show if forecast data exists AND showPredictions is true */}
+            {showPredictions && forecastData.length > 0 && (
+              <Area
+                type="monotone"
+                dataKey="conversion_rate"
+                name="Conversion Rate (Forecast)"
+                stroke={COLOR_SCHEME.forecast.conversion}
+                strokeWidth={3}
+                strokeDasharray="8 4"
+                fill={`url(#${predictionGradientId})`}
+                fillOpacity={0.4}
+                dot={(props: any) => {
+                  const { payload } = props;
+                  const isPrediction = payload?.isPrediction;
+                  if (!isPrediction) {
+                    // Return invisible dot for historical data on forecast area
+                    return <circle cx={props.cx} cy={props.cy} r={0} fill="transparent" />;
+                  }
+                  return (
+                    <circle
+                      cx={props.cx}
+                      cy={props.cy}
+                      r={3}
+                      fill={COLOR_SCHEME.forecast.conversion}
+                      stroke={COLOR_SCHEME.forecast.conversion}
+                      strokeWidth={1}
+                    />
+                  );
+                }}
+                connectNulls={false}
+                isAnimationActive={false}
+              />
+            )}
           </AreaChart>
         );
 
@@ -513,16 +558,6 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
               name="Conversion Rate"
               fill="#f59e0b"
               radius={[2, 2, 0, 0]}
-              opacity={0.8}
-              isAnimationActive={false}
-            />
-            <Line
-              type="monotone"
-              dataKey="conversion_rate"
-              stroke="#ef4444"
-              strokeWidth={2}
-              dot={{ fill: '#ef4444', strokeWidth: 2, r: 3 }}
-              connectNulls={false}
               isAnimationActive={false}
             />
           </ComposedChart>
@@ -535,13 +570,19 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
             <Area
               type="monotone"
               dataKey="conversion_rate"
-              name="Conversion Rate"
-              stroke="#8b5cf6"
-              strokeWidth={2}
-              fill={`url(#${gradientId})`}
-              fillOpacity={0.6}
               stackId="1"
-              connectNulls={false}
+              stroke="#8b5cf6"
+              fill="#8b5cf6"
+              fillOpacity={0.6}
+              isAnimationActive={false}
+            />
+            <Area
+              type="monotone"
+              dataKey="confidence_min"
+              stackId="2"
+              stroke="#8b5cf6"
+              fill="#8b5cf6"
+              fillOpacity={0.3}
               isAnimationActive={false}
             />
           </AreaChart>
@@ -556,51 +597,89 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
               name="Conversion Rate"
               fill="#ef4444"
               radius={[2, 2, 0, 0]}
-              opacity={0.8}
+              opacity={0.7}
               isAnimationActive={false}
             />
             <Line
               type="monotone"
               dataKey="conversion_rate"
-              stroke={theme.palette.info.main}
-              strokeWidth={3}
-              name="Conversion Trend"
-              dot={{ fill: theme.palette.info.main, strokeWidth: 2, r: 3 }}
+              stroke="#ef4444"
+              strokeWidth={2}
+              dot={false}
               connectNulls={false}
               isAnimationActive={false}
             />
           </ComposedChart>
         );
-      
+
       default:
         return (
-          <BarChart {...commonProps}>
+          <AreaChart {...commonProps}>
             {commonElements}
-            <Bar
+            {/* Historical data area */}
+            <Area
+              type="monotone"
               dataKey="conversion_rate"
-              name="Conversion Rate"
-              radius={[2, 2, 0, 0]}
-              isAnimationActive={false}
-              shape={(props: any) => {
+              name="Conversion Rate (Historical)"
+              stroke={COLOR_SCHEME.historical.conversion}
+              strokeWidth={3}
+              fill={`url(#${gradientId})`}
+              fillOpacity={0.6}
+              dot={(props: any) => {
                 const { payload } = props;
                 const isPrediction = payload?.isPrediction;
-                const fill = isPrediction ? COLOR_SCHEME.forecast.conversion : COLOR_SCHEME.historical.conversion;
-                const opacity = isPrediction ? 0.7 : 0.9;
+                if (isPrediction) {
+                  // Return invisible dot for predictions on historical area
+                  return <circle cx={props.cx} cy={props.cy} r={0} fill="transparent" />;
+                }
                 return (
-                  <rect
-                    x={props.x}
-                    y={props.y}
-                    width={props.width}
-                    height={props.height}
-                    fill={fill}
-                    opacity={opacity}
-                    rx={2}
-                    ry={2}
+                  <circle
+                    cx={props.cx}
+                    cy={props.cy}
+                    r={3}
+                    fill={COLOR_SCHEME.historical.conversion}
+                    stroke={COLOR_SCHEME.historical.conversion}
+                    strokeWidth={1}
                   />
                 );
               }}
+              connectNulls={false}
+              isAnimationActive={false}
             />
-          </BarChart>
+            {/* Forecast data area - only show if forecast data exists AND showPredictions is true */}
+            {showPredictions && forecastData.length > 0 && (
+              <Area
+                type="monotone"
+                dataKey="conversion_rate"
+                name="Conversion Rate (Forecast)"
+                stroke={COLOR_SCHEME.forecast.conversion}
+                strokeWidth={3}
+                strokeDasharray="8 4"
+                fill={`url(#${predictionGradientId})`}
+                fillOpacity={0.4}
+                dot={(props: any) => {
+                  const { payload } = props;
+                  const isPrediction = payload?.isPrediction;
+                  if (!isPrediction) {
+                    // Return invisible dot for historical data on forecast area
+                    return <circle cx={props.cx} cy={props.cy} r={0} fill="transparent" />;
+                  }
+                  return (
+                    <circle
+                      cx={props.cx}
+                      cy={props.cy}
+                      r={3}
+                      fill={COLOR_SCHEME.forecast.conversion}
+                      stroke={COLOR_SCHEME.forecast.conversion}
+                      strokeWidth={1}
+                    />
+                  );
+                }}
+                connectNulls={false}
+                isAnimationActive={false}
+              />
+            )}
+          </AreaChart>
         );
     }
   };

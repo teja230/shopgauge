@@ -257,8 +257,8 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
           )}
         />
         
-        {/* Stylish separator line between historical and predicted data */}
-        {separatorDate && (
+        {/* Stylish separator line between historical and predicted data - only show when predictions are enabled */}
+        {showPredictions && separatorDate && (
           <>
             {/* Main separator line */}
             <ReferenceLine
@@ -365,46 +365,48 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
   const predictionStartDate = processedData.predicted.find(d => d.isPrediction)?.date;
 
   const renderChart = () => {
+    // Use only historical data when showPredictions is false, otherwise use combined data
+    const chartData = showPredictions ? processedData.combined : processedData.historical;
+    
     const commonProps = {
-      data: processedData.combined,
+      data: chartData,
       margin: { top: 10, right: 30, left: 20, bottom: 20 },
     };
 
+    // Separate historical and forecast data for proper rendering
+    const historicalData = processedData.historical;
+    const forecastData = processedData.predicted;
+
     switch (chartType) {
-      case 'area':
+      case 'bar':
         return (
-          <AreaChart {...commonProps}>
+          <BarChart {...commonProps}>
             {commonElements}
-            {/* Historical data area */}
-            <Area
-              type="monotone"
+            <Bar
               dataKey="revenue"
-              name="Revenue (Historical)"
-              stroke={COLOR_SCHEME.historical.revenue}
-              strokeWidth={3}
-              fill={`url(#${gradientId})`}
-              fillOpacity={0.6}
-              dot={false}
-              connectNulls={false}
+              name="Revenue"
+              radius={[2, 2, 0, 0]}
               isAnimationActive={false}
+              shape={(props: any) => {
+                const { payload } = props;
+                const isPrediction = payload?.isPrediction;
+                const fill = isPrediction ? COLOR_SCHEME.forecast.revenue : COLOR_SCHEME.historical.revenue;
+                const opacity = isPrediction ? 0.7 : 0.9;
+                return (
+                  <rect
+                    x={props.x}
+                    y={props.y}
+                    width={props.width}
+                    height={props.height}
+                    fill={fill}
+                    opacity={opacity}
+                    rx={2}
+                    ry={2}
+                  />
+                );
+              }}
             />
-            {/* Forecast data area - only show if forecast data exists */}
-            {processedData.predicted.length > 0 && (
-              <Area
-                type="monotone"
-                dataKey="revenue"
-                name="Revenue (Forecast)"
-                stroke={COLOR_SCHEME.forecast.revenue}
-                strokeWidth={3}
-                strokeDasharray="8 4"
-                fill={`url(#${predictionGradientId})`}
-                fillOpacity={0.4}
-                dot={false}
-                connectNulls={false}
-                isAnimationActive={false}
-              />
-            )}
-          </AreaChart>
+          </BarChart>
         );
       
       case 'line':
@@ -444,8 +446,8 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
               connectNulls={false}
               isAnimationActive={false}
             />
-            {/* Forecast data line - only show if forecast data exists */}
-            {processedData.predicted.length > 0 && (
+            {/* Forecast data line - only show if forecast data exists AND showPredictions is true */}
+            {showPredictions && forecastData.length > 0 && (
               <Line
                 type="monotone"
                 dataKey="revenue"
@@ -457,7 +459,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
                   const { payload } = props;
                   const isPrediction = payload?.isPrediction;
                   if (!isPrediction) {
-                    // Return invisible dot for historical on forecast line
+                    // Return invisible dot for historical data on forecast line
                     return <circle cx={props.cx} cy={props.cy} r={0} fill="transparent" />;
                   }
                   return (
@@ -483,36 +485,74 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
           </LineChart>
         );
       
-      case 'bar':
+      case 'area':
         return (
-          <BarChart {...commonProps}>
+          <AreaChart {...commonProps}>
             {commonElements}
-            <Bar
+            {/* Historical data area */}
+            <Area
+              type="monotone"
               dataKey="revenue"
-              name="Revenue"
-              opacity={0.8}
-              radius={[2, 2, 0, 0]}
-              isAnimationActive={false}
-              shape={(props: any) => {
+              name="Revenue (Historical)"
+              stroke={COLOR_SCHEME.historical.revenue}
+              strokeWidth={3}
+              fill={`url(#${gradientId})`}
+              fillOpacity={0.6}
+              dot={(props: any) => {
                 const { payload } = props;
                 const isPrediction = payload?.isPrediction;
-                const fill = isPrediction ? COLOR_SCHEME.forecast.revenue : COLOR_SCHEME.historical.revenue;
-                const opacity = isPrediction ? 0.7 : 0.9;
+                if (isPrediction) {
+                  // Return invisible dot for predictions on historical area
+                  return <circle cx={props.cx} cy={props.cy} r={0} fill="transparent" />;
+                }
                 return (
-                  <rect
-                    x={props.x}
-                    y={props.y}
-                    width={props.width}
-                    height={props.height}
-                    fill={fill}
-                    opacity={opacity}
-                    rx={2}
-                    ry={2}
+                  <circle
+                    cx={props.cx}
+                    cy={props.cy}
+                    r={3}
+                    fill={COLOR_SCHEME.historical.revenue}
+                    stroke={COLOR_SCHEME.historical.revenue}
+                    strokeWidth={1}
                   />
                 );
               }}
+              connectNulls={false}
+              isAnimationActive={false}
             />
-          </BarChart>
+            {/* Forecast data area - only show if forecast data exists AND showPredictions is true */}
+            {showPredictions && forecastData.length > 0 && (
+              <Area
+                type="monotone"
+                dataKey="revenue"
+                name="Revenue (Forecast)"
+                stroke={COLOR_SCHEME.forecast.revenue}
+                strokeWidth={3}
+                strokeDasharray="8 4"
+                fill={`url(#${predictionGradientId})`}
+                fillOpacity={0.4}
+                dot={(props: any) => {
+                  const { payload } = props;
+                  const isPrediction = payload?.isPrediction;
+                  if (!isPrediction) {
+                    // Return invisible dot for historical data on forecast area
+                    return <circle cx={props.cx} cy={props.cy} r={0} fill="transparent" />;
+                  }
+                  return (
+                    <circle
+                      cx={props.cx}
+                      cy={props.cy}
+                      r={3}
+                      fill={COLOR_SCHEME.forecast.revenue}
+                      stroke={COLOR_SCHEME.forecast.revenue}
+                      strokeWidth={1}
+                    />
+                  );
+                }}
+                connectNulls={false}
+                isAnimationActive={false}
+              />
+            )}
+          </AreaChart>
         );
 
       case 'candlestick':
@@ -525,6 +565,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
               fill="#10b981"
               radius={[2, 2, 0, 0]}
               opacity={0.8}
+              isAnimationActive={false}
             />
             <Line
               type="monotone"
@@ -532,6 +573,8 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
               stroke="#6b7280"
               strokeWidth={1}
               dot={false}
+              connectNulls={false}
+              isAnimationActive={false}
             />
           </ComposedChart>
         );
@@ -542,22 +585,10 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
             {commonElements}
             <Bar
               dataKey="revenue"
-              name="Revenue Change"
-              fill="#10b981"
+              name="Revenue"
+              fill="#f59e0b"
               radius={[2, 2, 0, 0]}
-              opacity={0.8}
-            />
-            <Line
-              type="monotone"
-              dataKey="revenue"
-              name="Cumulative"
-              stroke="#f59e0b"
-              strokeWidth={2}
-              dot={{
-                fill: '#f59e0b',
-                strokeWidth: 2,
-                r: 3,
-              }}
+              isAnimationActive={false}
             />
           </ComposedChart>
         );
@@ -569,11 +600,20 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
             <Area
               type="monotone"
               dataKey="revenue"
-              name="Revenue"
-              stroke="#8b5cf6"
-              strokeWidth={2}
-              fill={`url(#${gradientId})`}
               stackId="1"
+              stroke="#8b5cf6"
+              fill="#8b5cf6"
+              fillOpacity={0.6}
+              isAnimationActive={false}
+            />
+            <Area
+              type="monotone"
+              dataKey="confidence_min"
+              stackId="2"
+              stroke="#8b5cf6"
+              fill="#8b5cf6"
+              fillOpacity={0.3}
+              isAnimationActive={false}
             />
           </AreaChart>
         );
@@ -587,37 +627,88 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
               name="Revenue"
               fill="#ef4444"
               radius={[2, 2, 0, 0]}
-              opacity={0.6}
+              opacity={0.7}
+              isAnimationActive={false}
             />
             <Line
               type="monotone"
               dataKey="revenue"
-              stroke={theme.palette.primary.main}
+              stroke="#ef4444"
               strokeWidth={2}
-              dot={{
-                fill: theme.palette.primary.main,
-                strokeWidth: 2,
-                r: 3,
-              }}
+              dot={false}
+              connectNulls={false}
+              isAnimationActive={false}
             />
           </ComposedChart>
         );
-      
+
       default:
         return (
           <AreaChart {...commonProps}>
             {commonElements}
+            {/* Historical data area */}
             <Area
               type="monotone"
               dataKey="revenue"
-              name="Revenue"
-              stroke={theme.palette.primary.main}
-              strokeWidth={2}
+              name="Revenue (Historical)"
+              stroke={COLOR_SCHEME.historical.revenue}
+              strokeWidth={3}
               fill={`url(#${gradientId})`}
               fillOpacity={0.6}
+              dot={(props: any) => {
+                const { payload } = props;
+                const isPrediction = payload?.isPrediction;
+                if (isPrediction) {
+                  // Return invisible dot for predictions on historical area
+                  return <circle cx={props.cx} cy={props.cy} r={0} fill="transparent" />;
+                }
+                return (
+                  <circle
+                    cx={props.cx}
+                    cy={props.cy}
+                    r={3}
+                    fill={COLOR_SCHEME.historical.revenue}
+                    stroke={COLOR_SCHEME.historical.revenue}
+                    strokeWidth={1}
+                  />
+                );
+              }}
               connectNulls={false}
               isAnimationActive={false}
             />
+            {/* Forecast data area - only show if forecast data exists AND showPredictions is true */}
+            {showPredictions && forecastData.length > 0 && (
+              <Area
+                type="monotone"
+                dataKey="revenue"
+                name="Revenue (Forecast)"
+                stroke={COLOR_SCHEME.forecast.revenue}
+                strokeWidth={3}
+                strokeDasharray="8 4"
+                fill={`url(#${predictionGradientId})`}
+                fillOpacity={0.4}
+                dot={(props: any) => {
+                  const { payload } = props;
+                  const isPrediction = payload?.isPrediction;
+                  if (!isPrediction) {
+                    // Return invisible dot for historical data on forecast area
+                    return <circle cx={props.cx} cy={props.cy} r={0} fill="transparent" />;
+                  }
+                  return (
+                    <circle
+                      cx={props.cx}
+                      cy={props.cy}
+                      r={3}
+                      fill={COLOR_SCHEME.forecast.revenue}
+                      stroke={COLOR_SCHEME.forecast.revenue}
+                      strokeWidth={1}
+                    />
+                  );
+                }}
+                connectNulls={false}
+                isAnimationActive={false}
+              />
+            )}
           </AreaChart>
         );
     }

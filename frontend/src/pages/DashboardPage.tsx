@@ -22,7 +22,7 @@ import IntelligentLoadingScreen from '../components/ui/IntelligentLoadingScreen'
 import ErrorBoundary from '../components/ErrorBoundary';
 import ChartErrorBoundary from '../components/ui/ChartErrorBoundary';
 import { debugLog } from '../components/ui/DebugPanel';
-import { clearCacheForShop } from '../utils/cacheUtils';
+
 
 /**
  * 🚀 DASHBOARD CACHE BEHAVIOR
@@ -750,7 +750,7 @@ const DashboardPage = () => {
   // =====================================
   // ENHANCED CHART TOGGLE STATE MANAGEMENT
   // =====================================
-  const [chartMode, setChartMode] = useState<'unified' | 'classic'>('unified');
+  const [chartMode, setChartMode] = useState<'unified' | 'classic'>('classic');
   
   // Add error boundary reset key to force remount when needed
   const [errorBoundaryKey, setErrorBoundaryKey] = useState(0);
@@ -2488,10 +2488,12 @@ const DashboardPage = () => {
 
         {/* Analytics Charts with Toggle */}
         <Box sx={{ width: '100%' }}>
+
+
           {/* Chart Container with smooth transitions */}
           <Box sx={{ 
             position: 'relative',
-            minHeight: { xs: 380, sm: 490 }, // Reduced height on mobile
+            minHeight: { xs: 450, sm: 540 }, // Consistent height for smooth transitions
             transition: 'all 0.3s ease-in-out',
             '& > *': {
               transition: 'opacity 0.3s ease-in-out, transform 0.3s ease-in-out',
@@ -2527,7 +2529,7 @@ const DashboardPage = () => {
                 data={unifiedAnalyticsData}
                 loading={unifiedAnalyticsLoading}
                 error={unifiedAnalyticsError}
-                height={isMobile ? 360 : 450} // Responsive height
+                height={isMobile ? 400 : 480} // Consistent height with Classic Charts
                 predictionDays={predictionDays}
                 onPredictionDaysChange={handlePredictionDaysChange}
               />
@@ -2541,8 +2543,8 @@ const DashboardPage = () => {
                 setTimeout(() => fetchRevenueData(true), 100);
               }}
             >
-              {/* Revenue Chart Section */}
-              <StyledCard sx={{ height: isMobile ? 400 : 490 }}>
+              {/* Revenue Chart Section - Consistent sizing with Advanced Analytics */}
+              <StyledCard sx={{ height: isMobile ? 450 : 540 }}>
                 <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                   {/* Only render RevenueChart when we have initialized the dashboard */}
                   {dashboardDataInitialized || stableTimeseriesData.length > 0 ? (
@@ -2551,7 +2553,7 @@ const DashboardPage = () => {
                         data={stableTimeseriesData}
                         loading={cardLoading.revenue}
                         error={cardErrors.revenue}
-                        height={isMobile ? 360 : 450} // Responsive height to match PredictionViewContainer
+                        height={isMobile ? 400 : 480} // Consistent height with PredictionViewContainer
                       />
                     </Box>
                   ) : (
@@ -2575,38 +2577,39 @@ const DashboardPage = () => {
           )}
           </Box>
 
-          {/* Move Chart Mode Toggle BELOW charts */}
+          {/* Chart Mode Toggle - Positioned Below Charts */}
           <Box sx={{ 
             display: 'flex', 
             justifyContent: 'center', 
             mt: 3,
-            px: isMobile ? 2 : 0, // Add padding on mobile
+            px: isMobile ? 2 : 0,
           }}>
             <ToggleButtonGroup
               value={chartMode}
               exclusive
               onChange={handleChartModeChange}
               size={isMobile ? "medium" : "large"}
-              orientation={isMobile ? "vertical" : "horizontal"}
+              orientation="horizontal"
               sx={{
                 backgroundColor: 'white',
                 border: '2px solid rgba(37, 99, 235, 0.2)',
-                borderRadius: 3,
+                borderRadius: 1.5,
                 boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
                 width: isMobile ? '100%' : 'auto',
                 '& .MuiToggleButton-root': {
                   px: isMobile ? 2 : 4,
-                  py: isMobile ? 1 : 1.5,
+                  py: isMobile ? 1.5 : 2,
                   fontSize: isMobile ? '0.875rem' : '1rem',
                   fontWeight: 600,
                   textTransform: 'none',
                   border: 'none',
-                  borderRadius: 2.5,
+                  borderRadius: 1.5,
                   margin: 0.5,
-                  minWidth: isMobile ? 'auto' : 180,
+                  minWidth: isMobile ? 'auto' : 200,
                   color: 'text.secondary',
                   backgroundColor: 'transparent',
                   transition: 'all 0.3s ease',
+                  position: 'relative',
                   '&:hover': {
                     backgroundColor: 'rgba(37, 99, 235, 0.08)',
                     color: 'primary.main',
@@ -2625,36 +2628,153 @@ const DashboardPage = () => {
               }}
             >
               <ToggleButton
-                value="unified"
-                sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}
-              >
-                <Analytics sx={{ fontSize: '1.5rem' }} />
-                <Box>
-                  <Typography variant="body1" fontWeight="inherit">
-                    Advanced Analytics
-                  </Typography>
-                  <Typography variant="caption" sx={{ opacity: 0.8, fontSize: '0.7rem' }}>
-                    AI-Powered Forecasts
-                  </Typography>
-                </Box>
-              </ToggleButton>
-              <ToggleButton
                 value="classic"
                 sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}
               >
                 <ShowChart sx={{ fontSize: '1.5rem' }} />
                 <Box>
                   <Typography variant="body1" fontWeight="inherit">
-                    Classic Charts
+                    Classic View
                   </Typography>
                   <Typography variant="caption" sx={{ opacity: 0.8, fontSize: '0.7rem' }}>
-                    Traditional Revenue View
+                    Traditional Revenue Charts
+                  </Typography>
+                </Box>
+              </ToggleButton>
+              <ToggleButton
+                value="unified"
+                sx={{ 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  alignItems: 'center', 
+                  gap: 0.5,
+                  position: 'relative',
+                  '&::before': {
+                    content: '""',
+                    position: 'absolute',
+                    top: -8,
+                    right: -8,
+                    width: 20,
+                    height: 20,
+                    background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%)',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '10px',
+                    fontWeight: 700,
+                    color: 'white',
+                    animation: 'pulse 2s infinite',
+                    zIndex: 1,
+                  },
+                  '&::after': {
+                    content: '"NEW"',
+                    position: 'absolute',
+                    top: -8,
+                    right: -8,
+                    width: 20,
+                    height: 20,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '8px',
+                    fontWeight: 700,
+                    color: 'white',
+                    zIndex: 2,
+                  },
+                  '@keyframes pulse': {
+                    '0%': {
+                      transform: 'scale(1)',
+                      opacity: 1,
+                    },
+                    '50%': {
+                      transform: 'scale(1.1)',
+                      opacity: 0.8,
+                    },
+                    '100%': {
+                      transform: 'scale(1)',
+                      opacity: 1,
+                    },
+                  },
+                }}
+              >
+                <Analytics sx={{ fontSize: '1.5rem' }} />
+                <Box>
+                  <Typography variant="body1" fontWeight="inherit">
+                    Advanced Analytics
+                  </Typography>
+                  <Typography variant="caption" sx={{ opacity: 0.8, fontSize: '0.7rem', color: '#ff6b6b' }}>
+                    🚀 AI-Powered Forecasts
                   </Typography>
                 </Box>
               </ToggleButton>
             </ToggleButtonGroup>
           </Box>
 
+          {/* Discovery Banner for Advanced Analytics */}
+          {chartMode === 'classic' && (
+            <Box sx={{
+              mt: 2,
+              p: 2,
+              background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.1) 0%, rgba(147, 51, 234, 0.1) 100%)',
+              borderRadius: 2,
+              border: '1px solid rgba(37, 99, 235, 0.2)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexDirection: isMobile ? 'column' : 'row',
+              gap: 2,
+            }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Box sx={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #2563eb 0%, #9333ea 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  animation: 'float 3s ease-in-out infinite',
+                  '@keyframes float': {
+                    '0%, 100%': { transform: 'translateY(0px)' },
+                    '50%': { transform: 'translateY(-5px)' },
+                  },
+                }}>
+                  <Analytics sx={{ color: 'white', fontSize: '1.25rem' }} />
+                </Box>
+                <Box>
+                  <Typography variant="h6" fontWeight={600} color="primary.main">
+                    🔮 Unlock AI-Powered Forecasting
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Predict revenue trends 7-60 days ahead with 9 chart types, confidence intervals, and professional exports
+                  </Typography>
+                </Box>
+              </Box>
+              <Button
+                variant="contained"
+                onClick={() => handleChartModeChange(null as any, 'unified')}
+                sx={{
+                  background: 'linear-gradient(135deg, #2563eb 0%, #9333ea 100%)',
+                  borderRadius: 2,
+                  px: 3,
+                  py: 1,
+                  fontWeight: 600,
+                  textTransform: 'none',
+                  boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #1d4ed8 0%, #7c3aed 100%)',
+                    transform: 'translateY(-1px)',
+                    boxShadow: '0 6px 16px rgba(37, 99, 235, 0.4)',
+                  },
+                  minWidth: isMobile ? '100%' : 'auto',
+                }}
+                startIcon={<Analytics />}
+              >
+                Try Advanced Analytics
+              </Button>
+            </Box>
+          )}
 
         </Box>
 
