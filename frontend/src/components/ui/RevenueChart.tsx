@@ -109,7 +109,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
   data = [],
   loading = false,
   error = null,
-  height = 400,
+  height = 450,
 }) => {
   const [chartType, setChartType] = useState<ChartType>('area');
 

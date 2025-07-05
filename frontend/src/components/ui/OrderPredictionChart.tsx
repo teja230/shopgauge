@@ -59,7 +59,7 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
   data,
   loading = false,
   error = null,
-  height = 400,
+  height = 450,
 }) => {
   const [chartType, setChartType] = useState<ChartType>('line');
   const theme = useTheme();
@@ -468,21 +468,37 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
           sx={{
             backgroundColor: theme.palette.background.default,
             borderRadius: theme.shape.borderRadius,
+            border: `1px solid ${theme.palette.divider}`,
+            overflowX: isMobile ? 'auto' : 'visible',
             '& .MuiToggleButton-root': {
-              px: theme.spacing(1),
+              textTransform: 'none',
+              fontWeight: 600,
+              px: theme.spacing(isMobile ? 1 : 1.5),
               py: theme.spacing(0.5),
-              minWidth: 'auto',
               border: 'none',
+              color: theme.palette.text.secondary,
+              minWidth: isMobile ? 'auto' : 'auto',
+              fontSize: isMobile ? '0.75rem' : '0.875rem',
               '&.Mui-selected': {
                 backgroundColor: theme.palette.success.main,
                 color: theme.palette.success.contrastText,
+                '&:hover': {
+                  backgroundColor: theme.palette.success.dark,
+                },
+              },
+              '&:hover': {
+                backgroundColor: theme.palette.action.hover,
               },
             },
           }}
         >
           {Object.entries(chartTypeConfig).map(([type, config]) => (
             <ToggleButton key={type} value={type} aria-label={config.label}>
-              {config.icon}
+              {React.cloneElement(config.icon, { 
+                fontSize: "small", 
+                sx: { mr: isMobile ? 0 : 0.5 } 
+              })}
+              {!isMobile && config.label}
             </ToggleButton>
           ))}
         </ToggleButtonGroup>

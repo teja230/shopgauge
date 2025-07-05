@@ -80,7 +80,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
   data,
   loading = false,
   error = null,
-  height = 400,
+  height = 450,
 }) => {
   const [chartType, setChartType] = useState<ChartType>('area');
   const theme = useTheme();
@@ -577,7 +577,11 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
         >
           {Object.entries(chartConfig).map(([type, config]) => (
             <ToggleButton key={type} value={type} aria-label={config.label}>
-              {config.icon}
+              {React.cloneElement(config.icon, { 
+                fontSize: "small", 
+                sx: { mr: isMobile ? 0 : 0.5 } 
+              })}
+              {!isMobile && config.label}
             </ToggleButton>
           ))}
         </ToggleButtonGroup>
