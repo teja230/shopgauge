@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, memo } from 'react';
+import React, { useState, useMemo, useCallback, memo, useRef } from 'react';
 import {
   Box,
   Paper,
@@ -18,6 +18,8 @@ import {
   Slide,
   Button,
   CircularProgress,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import {
@@ -32,11 +34,14 @@ import {
   Timeline,
   Visibility,
   VisibilityOff,
+  Share as ShareIcon,
 } from '@mui/icons-material';
 import RevenuePredictionChart from './RevenuePredictionChart';
 import OrderPredictionChart from './OrderPredictionChart';
 import ConversionPredictionChart from './ConversionPredictionChart';
+import SimpleShareModal from './SimpleShareModal';
 import { useNotifications } from '../../hooks/useNotifications';
+import { useAuth } from '../../context/AuthContext';
 
 // Styled components matching main branch dashboard theme
 const StyledCard = styled(Card)(({ theme }) => ({
@@ -134,10 +139,13 @@ const PredictionViewContainer = memo(({
 }: PredictionViewContainerProps) => {
   const [activeView, setActiveView] = useState<PredictionView>('revenue');
   const [showPredictions, setShowPredictions] = useState(true);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.down('md'));
   const notifications = useNotifications();
+  const { shop } = useAuth();
+  const chartRef = useRef<HTMLDivElement>(null);
 
   // Handle prediction toggle with notifications
   const handlePredictionToggle = useCallback((newValue: boolean) => {
@@ -157,6 +165,11 @@ const PredictionViewContainer = memo(({
       });
     }
   }, [notifications]);
+
+  // Handle share button
+  const handleShareChart = useCallback(() => {
+    setShareModalOpen(true);
+  }, []);
   
   // Mobile-optimized dimensions
   const mobileHeight = Math.min(500 * 0.8, 400); // Reduce height by 20% on mobile, cap at 400px
@@ -697,20 +710,41 @@ const PredictionViewContainer = memo(({
       <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 3 }}>
         {/* Header with Dashboard Theme */}
         <Box sx={{ mb: 3 }}>
-          <CardTitle>
-            <Analytics color="primary" />
-            Advanced Analytics
-            <Chip
-              icon={<AutoAwesome />}
-              label="AI Forecast"
-              color="secondary"
-              size="small"
-              sx={{ 
-                fontWeight: 600,
-                ml: 1,
-              }}
-            />
-          </CardTitle>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+            <CardTitle>
+              <Analytics color="primary" />
+              Advanced Analytics
+              <Chip
+                icon={<AutoAwesome />}
+                label="AI Forecast"
+                color="secondary"
+                size="small"
+                sx={{ 
+                  fontWeight: 600,
+                  ml: 1,
+                }}
+              />
+            </CardTitle>
+            
+            {/* Share Button */}
+            <Tooltip title="Share Professional Chart">
+              <IconButton
+                onClick={handleShareChart}
+                size="small"
+                sx={{
+                  backgroundColor: theme.palette.primary.main,
+                  color: theme.palette.primary.contrastText,
+                  '&:hover': {
+                    backgroundColor: theme.palette.primary.dark,
+                  },
+                  borderRadius: 1.5,
+                  p: 1,
+                }}
+              >
+                <ShareIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
           
           {/* Enhanced Forecast Toggle */}
           <Box sx={{ 
@@ -926,10 +960,26 @@ const PredictionViewContainer = memo(({
         </ToggleButtonGroup>
 
         {/* Chart Content with Dashboard Style */}
-        <ChartContainer>
+        <ChartContainer ref={chartRef}>
           {renderCurrentView()}
         </ChartContainer>
       </CardContent>
+      
+      {/* Share Chart Modal */}
+      <SimpleShareModal
+        open={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+        chartRef={chartRef}
+        chartData={data}
+        chartType={activeView}
+        chartTitle={`${activeView.charAt(0).toUpperCase() + activeView.slice(1)} Analytics`}
+        shopName={shop || undefined}
+        metrics={{
+          revenue: data?.total_revenue,
+          orders: data?.total_orders,
+          timeRange: `${predictionDays}d`,
+        }}
+      />
     </StyledCard>
   );
 });
