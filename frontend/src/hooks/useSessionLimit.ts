@@ -1,6 +1,27 @@
 import { useState, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
-import { API_BASE_URL } from '../api';
+
+// Fix for API URL - ensure we always use the correct API domain
+const getApiBaseUrl = () => {
+  const envUrl = import.meta.env.VITE_API_BASE_URL as string | undefined;
+  
+  // If production domain is detected, always use api.shopgaugeai.com
+  if (window.location.hostname === 'shopgaugeai.com' || 
+      window.location.hostname === 'www.shopgaugeai.com' || 
+      window.location.hostname.includes('shopgaugeai.com')) {
+    return 'https://api.shopgaugeai.com';
+  }
+  
+  // Otherwise use the environment variable or default
+  return envUrl || 'https://api.shopgaugeai.com';
+};
+
+const API_BASE_URL = getApiBaseUrl();
+
+// Log the API URL being used for debugging
+console.log('🔗 useSessionLimit: API_BASE_URL determined as:', API_BASE_URL);
+console.log('🔗 useSessionLimit: Environment VITE_API_BASE_URL:', import.meta.env.VITE_API_BASE_URL);
+console.log('🔗 useSessionLimit: Current hostname:', window.location.hostname);
 
 interface SessionInfo {
   sessionId: string;

@@ -1079,13 +1079,13 @@ const useUnifiedAnalytics = (
           debugLog.info('🔄 UNIFIED_ANALYTICS: No dashboard data yet, waiting for data processing effect', {}, 'useUnifiedAnalytics');
         }
       }
+    } else {
+      // Legacy API mode not supported
+      debugLog.error('🚫 UNIFIED_ANALYTICS: API mode not supported', {}, 'useUnifiedAnalytics');
+      setError('API mode not supported. Use dashboard data mode.');
+      setLoading(false);
     }
-
-    // Legacy API mode not supported
-    debugLog.error('🚫 UNIFIED_ANALYTICS: API mode not supported', {}, 'useUnifiedAnalytics');
-    setError('API mode not supported. Use dashboard data mode.');
-    setLoading(false);
-  }, [shop, useDashboardData, loadUnifiedAnalyticsFromStorage, days, loading, dashboardRevenueData, dashboardOrdersData, convertDashboardDataToUnified, saveUnifiedAnalyticsToStorage, realConversionRate]);
+  }, [shop, useDashboardData, loadUnifiedAnalyticsFromStorage, days, dashboardRevenueData, dashboardOrdersData, convertDashboardDataToUnified, saveUnifiedAnalyticsToStorage, realConversionRate]);
 
   // Auto-refresh if enabled
   useEffect(() => {
@@ -1100,9 +1100,9 @@ const useUnifiedAnalytics = (
     }
   }, [autoRefresh, refreshInterval, fetchData, shop]);
 
-  // SIMPLIFIED DASHBOARD DATA PROCESSING
+  // SIMPLIFIED DASHBOARD DATA PROCESSING - FIXED to prevent infinite loops
   useEffect(() => {
-    if (!shop || !shop.trim() || !useDashboardData) {
+    if (!shop || !shop.trim() || !useDashboardData || !isInitializedRef.current) {
       return;
     }
 
@@ -1190,7 +1190,6 @@ const useUnifiedAnalytics = (
     convertDashboardDataToUnified,
     saveUnifiedAnalyticsToStorage,
     realConversionRate,
-    data,
     hasDataChanged
   ]);
 

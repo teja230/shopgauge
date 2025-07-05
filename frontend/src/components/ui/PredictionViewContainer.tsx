@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, memo } from 'react';
 import {
   Box,
   Paper,
@@ -117,18 +117,20 @@ interface PredictionViewContainerProps {
   height?: number;
   onPredictionDaysChange?: (days: number) => void;
   predictionDays?: number;
+  className?: string;
 }
 
 type PredictionView = 'revenue' | 'orders' | 'conversion';
 
-const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
-  data,
-  loading = false,
-  error = null,
-  height = 500,
+// Memoize the chart component to prevent unnecessary re-renders
+const PredictionViewContainer = memo(({ 
+  data, 
+  loading, 
+  error, 
   onPredictionDaysChange,
   predictionDays = 30,
-}) => {
+  className = '' 
+}: PredictionViewContainerProps) => {
   const [activeView, setActiveView] = useState<PredictionView>('revenue');
   const [showPredictions, setShowPredictions] = useState(true);
   const theme = useTheme();
@@ -136,8 +138,8 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
   const isTablet = useMediaQuery(theme.breakpoints.down('md'));
   
   // Mobile-optimized dimensions
-  const mobileHeight = Math.min(height * 0.8, 400); // Reduce height by 20% on mobile, cap at 400px
-  const responsiveHeight = isMobile ? mobileHeight : height;
+  const mobileHeight = Math.min(500 * 0.8, 400); // Reduce height by 20% on mobile, cap at 400px
+  const responsiveHeight = isMobile ? mobileHeight : 500;
 
   // Enhanced debugging for data structure
   React.useEffect(() => {
@@ -399,7 +401,7 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
         const commonProps = {
           loading,
           error,
-          height: Math.max(300, height - 120),
+          height: Math.max(300, responsiveHeight - 120),
         };
 
         const historicalOnlyData = {
@@ -540,7 +542,7 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
     const commonProps = {
       loading,
       error,
-      height: Math.max(300, height - 120), // Account for header and ensure minimum height
+      height: Math.max(300, responsiveHeight - 120), // Account for header and ensure minimum height
     };
 
     console.log('🔄 PredictionViewContainer: Rendering chart view', { 
@@ -652,7 +654,8 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
 
   return (
     <StyledCard sx={{ 
-      minHeight: { xs: 450, sm: 500, md: height || 550 },
+      minHeight: { xs: 450, sm: 500, md: responsiveHeight || 550 },
+      className,
     }}>
       <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 3 }}>
         {/* Header with Dashboard Theme */}
@@ -891,6 +894,6 @@ const PredictionViewContainer: React.FC<PredictionViewContainerProps> = ({
       </CardContent>
     </StyledCard>
   );
-};
+});
 
 export default PredictionViewContainer; 
