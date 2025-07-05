@@ -110,6 +110,7 @@ const useUnifiedAnalytics = (
   // Simplified tracking refs
   const isInitializedRef = useRef(false);
   const hasProcessedDataRef = useRef(false); // Track if we've processed any data
+  const currentShopRef = useRef<string | null>(null); // Track current shop for change detection
 
   // Keep a stable reference to the last valid data
   const lastValidDataRef = useRef<UnifiedAnalyticsData | null>(null);
@@ -1105,7 +1106,7 @@ const useUnifiedAnalytics = (
     }
   }, [autoRefresh, refreshInterval, fetchData, shop]);
 
-  // SIMPLIFIED DASHBOARD DATA PROCESSING - FIXED to prevent infinite loops
+  // SIMPLIFIED DASHBOARD DATA PROCESSING - FIXED to prevent data loss on navigation
   useEffect(() => {
     // Only process if initialized and in dashboard mode
     if (!shop || !shop.trim() || !useDashboardData || !isInitializedRef.current) {
@@ -1119,109 +1120,110 @@ const useUnifiedAnalytics = (
       const currentOrdersLength = dashboardOrdersData?.length || 0;
       const existingHistoricalLength = data.historical.length;
       
-      // Check for significant data changes (more than 10% difference or completely different data)
-      const revenueChange = Math.abs(currentRevenueLength - lastProcessedDataRef.current.revenueLength);
-      const ordersChange = Math.abs(currentOrdersLength - lastProcessedDataRef.current.ordersLength);
-      const significantChange = (revenueChange > Math.max(5, currentRevenueLength * 0.1)) || 
-                               (ordersChange > Math.max(5, currentOrdersLength * 0.1));
+      // Check for significant data changes (more than 10% difference)
+      const hasSignificantChange = Math.abs(currentRevenueLength - existingHistoricalLength) > existingHistoricalLength * 0.1 ||
+                                   Math.abs(currentOrdersLength - existingHistoricalLength) > existingHistoricalLength * 0.1;
       
-      if (!significantChange) {
-        debugLog.info('🔄 UNIFIED_ANALYTICS: Data unchanged, skipping reprocessing', {
-          currentRevenueLength,
-          currentOrdersLength,
+      if (!hasSignificantChange) {
+        debugLog.info('🔄 UNIFIED_ANALYTICS: Data already processed and stable, skipping reprocess', {
           existingHistoricalLength,
-          revenueChange,
-          ordersChange
+          currentRevenueLength,
+          currentOrdersLength
         }, 'useUnifiedAnalytics');
         return;
       }
-      
-      debugLog.info('🔄 UNIFIED_ANALYTICS: Significant data change detected, reprocessing', {
-        currentRevenueLength,
-        currentOrdersLength,
-        revenueChange,
-        ordersChange
-      }, 'useUnifiedAnalytics');
     }
 
-    // Check if we have dashboard data to process
-    const hasRevenueData = Array.isArray(dashboardRevenueData) && dashboardRevenueData.length > 0;
-    const hasOrdersData = Array.isArray(dashboardOrdersData) && dashboardOrdersData.length > 0;
+    // CRITICAL: Only process if we have dashboard data AND no valid cached data
+    // Don't destroy valid cached data just because dashboard data isn't loaded yet
+    const hasValidCachedData = data && Array.isArray(data.historical) && data.historical.length > 0;
+    const hasDashboardData = Array.isArray(dashboardRevenueData) && dashboardRevenueData.length > 0 &&
+                             Array.isArray(dashboardOrdersData) && dashboardOrdersData.length > 0;
     
-    if (!hasRevenueData && !hasOrdersData) {
-      debugLog.info('🔄 UNIFIED_ANALYTICS: No dashboard data available for processing', {
-        hasRevenueData,
-        hasOrdersData
-      }, 'useUnifiedAnalytics');
-      
-      // Only set loading false if we don't already have data
-      if (!data || !Array.isArray(data.historical) || data.historical.length === 0) {
-        setLoading(false);
-        setError(null);
+    if (!hasDashboardData) {
+      if (hasValidCachedData) {
+        debugLog.info('🔄 UNIFIED_ANALYTICS: Valid cached data exists, preserving it while waiting for dashboard data', {
+          cachedHistoricalLength: data.historical.length,
+          cachedPredictionsLength: data.predictions?.length || 0
+        }, 'useUnifiedAnalytics');
+        return; // Preserve existing valid data
+      } else {
+        debugLog.info('🔄 UNIFIED_ANALYTICS: No dashboard data available and no cached data, waiting', {
+          hasRevenueData: Array.isArray(dashboardRevenueData) && dashboardRevenueData.length > 0,
+          hasOrdersData: Array.isArray(dashboardOrdersData) && dashboardOrdersData.length > 0
+        }, 'useUnifiedAnalytics');
+        return; // Wait for data without clearing
       }
-      return;
     }
 
-    debugLog.info('🔄 UNIFIED_ANALYTICS: Processing available dashboard data', {
-      hasRevenueData,
-      hasOrdersData,
+    // Only proceed with processing if we have dashboard data
+    debugLog.info('🔄 UNIFIED_ANALYTICS: Processing dashboard data to unified analytics', {
       revenueDataLength: dashboardRevenueData?.length || 0,
-      ordersDataLength: dashboardOrdersData?.length || 0
+      ordersDataLength: dashboardOrdersData?.length || 0,
+      hasExistingData: hasValidCachedData
     }, 'useUnifiedAnalytics');
 
     try {
       setLoading(true);
       setError(null);
 
-      const processedData = convertDashboardDataToUnified(
-        dashboardRevenueData || [],
-        dashboardOrdersData || [],
-        realConversionRate
-      );
+             const converted = convertDashboardDataToUnified(
+         dashboardRevenueData || [],
+         dashboardOrdersData || [],
+         realConversionRate,
+         60 // Always compute max 60 days for filtering
+       );
 
-      if (processedData && Array.isArray(processedData.historical)) {
-        setData(processedData);
-        setLastUpdated(new Date());
-        setIsCached(false);
-        setCacheAge(0);
-        setLoading(false);
-        setError(null);
-        hasProcessedDataRef.current = true;
-        
-        // Update tracking to prevent unnecessary reprocessing
-        lastProcessedDataRef.current = {
-          revenueLength: dashboardRevenueData?.length || 0,
-          ordersLength: dashboardOrdersData?.length || 0,
-          revenueData: [...(dashboardRevenueData || [])],
-          ordersData: [...(dashboardOrdersData || [])]
-        };
-        
-        // Save to session storage
-        saveUnifiedAnalyticsToStorage(shop, processedData);
-        
-        debugLog.info('✅ UNIFIED_ANALYTICS: Successfully processed dashboard data', {
-          historicalPoints: processedData.historical.length,
-          predictionPoints: processedData.predictions.length,
-          totalRevenue: processedData.total_revenue,
-          totalOrders: processedData.total_orders
+      if (converted && Array.isArray(converted.historical) && converted.historical.length > 0) {
+        debugLog.info('✅ UNIFIED_ANALYTICS: Successfully converted dashboard data', {
+          historicalLength: converted.historical.length,
+          predictionsLength: converted.predictions?.length || 0
         }, 'useUnifiedAnalytics');
+
+        setData(converted);
+        saveUnifiedAnalyticsToStorage(shop, converted);
+        hasProcessedDataRef.current = true;
       } else {
-        debugLog.error('🔄 UNIFIED_ANALYTICS: Invalid data structure returned from conversion', {}, 'useUnifiedAnalytics');
-        setError('Invalid data structure returned from conversion');
-        setLoading(false);
+        debugLog.warn('⚠️ UNIFIED_ANALYTICS: Dashboard data conversion failed', {
+          converted: !!converted,
+          hasHistorical: converted ? Array.isArray(converted.historical) : false,
+          historicalLength: converted?.historical?.length || 0
+        }, 'useUnifiedAnalytics');
       }
     } catch (error) {
-      debugLog.error('🔄 UNIFIED_ANALYTICS: Error processing dashboard data', { error }, 'useUnifiedAnalytics');
-      setError('Failed to process dashboard data');
+      debugLog.error('❌ UNIFIED_ANALYTICS: Error processing dashboard data', { error }, 'useUnifiedAnalytics');
+      setError(`Failed to process analytics data: ${error}`);
+    } finally {
       setLoading(false);
     }
-  }, [
-    shop,
-    useDashboardData,
-    dashboardRevenueData,
-    dashboardOrdersData,
-    realConversionRate
-  ]); // SIMPLIFIED DEPENDENCIES
+  }, [shop, useDashboardData, dashboardRevenueData, dashboardOrdersData, realConversionRate, includePredictions]);
+
+  // SHOP CHANGE HANDLER - Only clear when shop actually changes
+  useEffect(() => {
+    if (!shop || !shop.trim()) {
+      return;
+    }
+
+    // Only reset if shop has actually changed
+    if (currentShopRef.current && currentShopRef.current !== shop) {
+      debugLog.info('🔄 UNIFIED_ANALYTICS: Shop changed, resetting state', {
+        oldShop: currentShopRef.current,
+        newShop: shop
+      }, 'useUnifiedAnalytics');
+      
+      // Clear state for new shop
+      setData(null);
+      setLoading(false);
+      setError(null);
+      isInitializedRef.current = false;
+      hasProcessedDataRef.current = false;
+      
+             // Clear old shop's data from storage
+       clearUnifiedAnalyticsStorage();
+    }
+
+    currentShopRef.current = shop;
+  }, [shop]);
 
   // Force compute unified analytics (called when main dashboard data is refreshed)
   const forceCompute = useCallback(() => {

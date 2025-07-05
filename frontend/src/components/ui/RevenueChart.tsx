@@ -23,6 +23,7 @@ import {
   ToggleButtonGroup,
   useMediaQuery,
   useTheme,
+  Tooltip as MuiTooltip,
 } from '@mui/material';
 import {
   TrendingUp,
@@ -590,67 +591,58 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
             Revenue Chart
           </Typography>
           
-          {/* Chart Type Toggle with Dashboard Theme */}
+          {/* Chart Type Toggle with Professional Icons + Tooltips */}
           <ToggleButtonGroup
             value={chartType}
             exclusive
             onChange={(_, newType) => newType && setChartType(newType)}
             size="small"
             sx={{
-              backgroundColor: theme.palette.background.default,
-              borderRadius: theme.shape.borderRadius,
-              border: `1px solid ${theme.palette.divider}`,
-              overflowX: isMobile ? 'auto' : 'visible',
+              backgroundColor: 'transparent',
+              border: 'none',
+              gap: 0.5,
               '& .MuiToggleButton-root': {
+                border: '1px solid',
+                borderColor: 'primary.main',
+                borderRadius: 2,
+                px: 1.5,
+                py: 0.75,
+                minWidth: 'auto',
+                color: 'primary.main',
+                backgroundColor: 'primary.50',
+                fontSize: '0.875rem',
+                fontWeight: 500,
                 textTransform: 'none',
-                fontWeight: 600,
-                px: theme.spacing(isMobile ? 1 : 1.5),
-                py: theme.spacing(0.5),
-                border: 'none',
-                color: theme.palette.text.secondary,
-                minWidth: isMobile ? 'auto' : 'auto',
-                fontSize: isMobile ? '0.75rem' : '0.875rem',
+                '&:hover': {
+                  backgroundColor: 'primary.100',
+                  borderColor: 'primary.main',
+                },
                 '&.Mui-selected': {
-                  backgroundColor: theme.palette.primary.main,
-                  color: theme.palette.primary.contrastText,
+                  backgroundColor: 'primary.main',
+                  color: 'primary.contrastText',
+                  borderColor: 'primary.main',
                   '&:hover': {
-                    backgroundColor: theme.palette.primary.dark,
+                    backgroundColor: 'primary.dark',
                   },
                 },
-                '&:hover': {
-                  backgroundColor: theme.palette.action.hover,
+                '&:focus': {
+                  outline: '2px solid',
+                  outlineColor: 'primary.main',
+                  outlineOffset: '2px',
                 },
+                transition: 'all 0.2s ease-in-out',
               },
             }}
           >
-            <ToggleButton value="line" aria-label="Line chart"> 
-              <ShowChart fontSize="small" sx={{ mr: isMobile ? 0 : 0.5 }} />
-              {!isMobile && 'Line'}
-            </ToggleButton>
-            <ToggleButton value="area" aria-label="Area chart">
-              <Timeline fontSize="small" sx={{ mr: isMobile ? 0 : 0.5 }} />
-              {!isMobile && 'Area'}
-            </ToggleButton>
-            <ToggleButton value="bar" aria-label="Bar chart">
-              <BarChartIcon fontSize="small" sx={{ mr: isMobile ? 0 : 0.5 }} />
-              {!isMobile && 'Bar'}
-            </ToggleButton>
-            <ToggleButton value="candlestick" aria-label="Candlestick chart">
-              <CandlestickChart fontSize="small" sx={{ mr: isMobile ? 0 : 0.5 }} />
-              {!isMobile && 'Candle'}
-            </ToggleButton>
-            <ToggleButton value="waterfall" aria-label="Waterfall chart">
-              <WaterfallChart fontSize="small" sx={{ mr: isMobile ? 0 : 0.5 }} />
-              {!isMobile && 'Waterfall'}
-            </ToggleButton>
-            <ToggleButton value="stacked" aria-label="Stacked chart">
-              <StackedLineChart fontSize="small" sx={{ mr: isMobile ? 0 : 0.5 }} />
-              {!isMobile && 'Stacked'}
-            </ToggleButton>
-            <ToggleButton value="composed" aria-label="Composed chart">
-              <Analytics fontSize="small" sx={{ mr: isMobile ? 0 : 0.5 }} />
-              {!isMobile && 'Composed'}
-            </ToggleButton>
+            {Object.entries(chartTypeConfig).map(([type, config]) => (
+              <MuiTooltip key={type} title={config.label} arrow placement="top">
+                <ToggleButton value={type} aria-label={`${config.label} chart`}>
+                  {React.cloneElement(config.icon, { 
+                    fontSize: "small"
+                  })}
+                </ToggleButton>
+              </MuiTooltip>
+            ))}
           </ToggleButtonGroup>
         </Box>
 

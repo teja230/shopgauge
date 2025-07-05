@@ -570,29 +570,39 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
           onChange={(_, value) => value && setChartType(value)}
           size="small"
           sx={{
-            backgroundColor: theme.palette.background.default,
-            borderRadius: theme.shape.borderRadius,
-            border: `1px solid ${theme.palette.divider}`,
-            overflowX: isMobile ? 'auto' : 'visible',
+            backgroundColor: 'transparent',
+            border: 'none',
+            gap: 0.5,
             '& .MuiToggleButton-root': {
+              border: '1px solid',
+              borderColor: 'success.main',
+              borderRadius: 2,
+              px: 1.5,
+              py: 0.75,
+              minWidth: 'auto',
+              color: 'success.main',
+              backgroundColor: 'success.50',
+              fontSize: '0.875rem',
+              fontWeight: 500,
               textTransform: 'none',
-              fontWeight: 600,
-              px: theme.spacing(isMobile ? 1 : 1.5),
-              py: theme.spacing(0.5),
-              border: 'none',
-              color: theme.palette.text.secondary,
-              minWidth: isMobile ? 'auto' : 'auto',
-              fontSize: isMobile ? '0.75rem' : '0.875rem',
+              '&:hover': {
+                backgroundColor: 'success.100',
+                borderColor: 'success.main',
+              },
               '&.Mui-selected': {
-                backgroundColor: theme.palette.success.main,
-                color: theme.palette.success.contrastText,
+                backgroundColor: 'success.main',
+                color: 'success.contrastText',
+                borderColor: 'success.main',
                 '&:hover': {
-                  backgroundColor: theme.palette.success.dark,
+                  backgroundColor: 'success.dark',
                 },
               },
-              '&:hover': {
-                backgroundColor: theme.palette.action.hover,
+              '&:focus': {
+                outline: '2px solid',
+                outlineColor: 'success.main',
+                outlineOffset: '2px',
               },
+              transition: 'all 0.2s ease-in-out',
             },
           }}
         >
@@ -607,8 +617,6 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
           ))}
         </ToggleButtonGroup>
       </Box>
-
-
 
       {/* Chart with proper margins */}
       <Box sx={{ 

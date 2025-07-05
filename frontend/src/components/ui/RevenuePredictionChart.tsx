@@ -581,7 +581,42 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
           exclusive
           onChange={(_, value) => value && setChartType(value)}
           size="small"
-          sx={toggleButtonGroupStyles(theme, isMobile)}
+          sx={{
+            backgroundColor: 'transparent',
+            border: 'none',
+            gap: 0.5,
+            '& .MuiToggleButton-root': {
+              border: '1px solid',
+              borderColor: 'primary.main',
+              borderRadius: 2,
+              px: 1.5,
+              py: 0.75,
+              minWidth: 'auto',
+              color: 'primary.main',
+              backgroundColor: 'primary.50',
+              fontSize: '0.875rem',
+              fontWeight: 500,
+              textTransform: 'none',
+              '&:hover': {
+                backgroundColor: 'primary.100',
+                borderColor: 'primary.main',
+              },
+              '&.Mui-selected': {
+                backgroundColor: 'primary.main',
+                color: 'primary.contrastText',
+                borderColor: 'primary.main',
+                '&:hover': {
+                  backgroundColor: 'primary.dark',
+                },
+              },
+              '&:focus': {
+                outline: '2px solid',
+                outlineColor: 'primary.main',
+                outlineOffset: '2px',
+              },
+              transition: 'all 0.2s ease-in-out',
+            },
+          }}
         >
           {Object.entries(chartConfig).map(([type, config]) => (
             <Tooltip key={type} title={config.label} arrow placement="top">
@@ -594,8 +629,6 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
           ))}
         </ToggleButtonGroup>
       </Box>
-
-
 
       {/* Chart with proper margins */}
       <Box sx={chartContentStyles(theme, height)}>
