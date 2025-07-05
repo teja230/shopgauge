@@ -2616,139 +2616,7 @@ const DashboardPage = () => {
             </Box>
           )}
 
-          {/* Chart Mode Toggle - Positioned Above Charts */}
-          <Box sx={{ 
-            display: 'flex', 
-            justifyContent: 'center', 
-            mb: 3,
-            px: isMobile ? 2 : 0,
-          }}>
-            <ToggleButtonGroup
-              value={chartMode}
-              exclusive
-              onChange={handleChartModeChange}
-              size={isMobile ? "medium" : "large"}
-              orientation="horizontal"
-              sx={{
-                backgroundColor: 'white',
-                border: '2px solid rgba(37, 99, 235, 0.2)',
-                borderRadius: 1.5,
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-                width: isMobile ? '100%' : 'auto',
-                '& .MuiToggleButton-root': {
-                  px: isMobile ? 2 : 4,
-                  py: isMobile ? 1.5 : 2,
-                  fontSize: isMobile ? '0.875rem' : '1rem',
-                  fontWeight: 600,
-                  textTransform: 'none',
-                  border: 'none',
-                  borderRadius: 1.5,
-                  margin: 0.5,
-                  minWidth: isMobile ? 'auto' : 200,
-                  color: 'text.secondary',
-                  backgroundColor: 'transparent',
-                  transition: 'all 0.3s ease',
-                  position: 'relative',
-                  '&:hover': {
-                    backgroundColor: 'rgba(37, 99, 235, 0.08)',
-                    color: 'primary.main',
-                    transform: isMobile ? 'none' : 'translateY(-1px)',
-                  },
-                  '&.Mui-selected': {
-                    backgroundColor: 'primary.main',
-                    color: 'white',
-                    boxShadow: '0 2px 8px rgba(37, 99, 235, 0.3)',
-                    '&:hover': {
-                      backgroundColor: 'primary.dark',
-                      transform: isMobile ? 'none' : 'translateY(-1px)',
-                    },
-                  },
-                },
-              }}
-            >
-              <ToggleButton
-                value="classic"
-                sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}
-              >
-                <ShowChart sx={{ fontSize: '1.5rem' }} />
-                <Box>
-                  <Typography variant="body1" fontWeight="inherit">
-                    Classic View
-                  </Typography>
-                  <Typography variant="caption" sx={{ opacity: 0.8, fontSize: '0.7rem' }}>
-                    Traditional Revenue Charts
-                  </Typography>
-                </Box>
-              </ToggleButton>
-              <ToggleButton
-                value="unified"
-                sx={{ 
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  alignItems: 'center', 
-                  gap: 0.5,
-                  position: 'relative',
-                  '&::before': {
-                    content: '""',
-                    position: 'absolute',
-                    top: -8,
-                    right: -8,
-                    width: 20,
-                    height: 20,
-                    background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%)',
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '10px',
-                    fontWeight: 700,
-                    color: 'white',
-                    animation: 'pulse 2s infinite',
-                    zIndex: 1,
-                  },
-                  '&::after': {
-                    content: '"NEW"',
-                    position: 'absolute',
-                    top: -8,
-                    right: -8,
-                    width: 20,
-                    height: 20,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '8px',
-                    fontWeight: 700,
-                    color: 'white',
-                    zIndex: 2,
-                  },
-                  '@keyframes pulse': {
-                    '0%': {
-                      transform: 'scale(1)',
-                      opacity: 1,
-                    },
-                    '50%': {
-                      transform: 'scale(1.1)',
-                      opacity: 0.8,
-                    },
-                    '100%': {
-                      transform: 'scale(1)',
-                      opacity: 1,
-                    },
-                  },
-                }}
-              >
-                <Analytics sx={{ fontSize: '1.5rem' }} />
-                <Box>
-                  <Typography variant="body1" fontWeight="inherit">
-                    Advanced Analytics
-                  </Typography>
-                  <Typography variant="caption" sx={{ opacity: 0.8, fontSize: '0.7rem', color: '#ff6b6b' }}>
-                    🚀 AI-Powered Forecasts
-                  </Typography>
-                </Box>
-              </ToggleButton>
-            </ToggleButtonGroup>
-          </Box>
+
 
           {/* Chart Container with smooth transitions */}
           <Box sx={{ 
@@ -2973,6 +2841,141 @@ const DashboardPage = () => {
             </ErrorBoundary>
           )}
           </Box>
+        </Box>
+
+        {/* Chart Mode Toggle - Positioned Below Charts */}
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          mt: 3,
+          mb: 2,
+          px: isMobile ? 2 : 0,
+        }}>
+          <ToggleButtonGroup
+            value={chartMode}
+            exclusive
+            onChange={handleChartModeChange}
+            size={isMobile ? "medium" : "large"}
+            orientation="horizontal"
+            sx={{
+              backgroundColor: 'white',
+              border: '2px solid rgba(37, 99, 235, 0.2)',
+              borderRadius: 1.5,
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+              width: isMobile ? '100%' : 'auto',
+              '& .MuiToggleButton-root': {
+                px: isMobile ? 2 : 4,
+                py: isMobile ? 1.5 : 2,
+                fontSize: isMobile ? '0.875rem' : '1rem',
+                fontWeight: 600,
+                textTransform: 'none',
+                border: 'none',
+                borderRadius: 1.5,
+                margin: 0.5,
+                minWidth: isMobile ? 'auto' : 200,
+                color: 'text.secondary',
+                backgroundColor: 'transparent',
+                transition: 'all 0.3s ease',
+                position: 'relative',
+                '&:hover': {
+                  backgroundColor: 'rgba(37, 99, 235, 0.08)',
+                  color: 'primary.main',
+                  transform: isMobile ? 'none' : 'translateY(-1px)',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'primary.main',
+                  color: 'white',
+                  boxShadow: '0 2px 8px rgba(37, 99, 235, 0.3)',
+                  '&:hover': {
+                    backgroundColor: 'primary.dark',
+                    transform: isMobile ? 'none' : 'translateY(-1px)',
+                  },
+                },
+              },
+            }}
+          >
+            <ToggleButton
+              value="classic"
+              sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}
+            >
+              <ShowChart sx={{ fontSize: '1.5rem' }} />
+              <Box>
+                <Typography variant="body1" fontWeight="inherit">
+                  Classic View
+                </Typography>
+                <Typography variant="caption" sx={{ opacity: 0.8, fontSize: '0.7rem' }}>
+                  Traditional Revenue Charts
+                </Typography>
+              </Box>
+            </ToggleButton>
+            <ToggleButton
+              value="unified"
+              sx={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                gap: 0.5,
+                position: 'relative',
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  top: -8,
+                  right: -8,
+                  width: 20,
+                  height: 20,
+                  background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%)',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '10px',
+                  fontWeight: 700,
+                  color: 'white',
+                  animation: 'pulse 2s infinite',
+                  zIndex: 1,
+                },
+                '&::after': {
+                  content: '"NEW"',
+                  position: 'absolute',
+                  top: -8,
+                  right: -8,
+                  width: 20,
+                  height: 20,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '8px',
+                  fontWeight: 700,
+                  color: 'white',
+                  zIndex: 2,
+                },
+                '@keyframes pulse': {
+                  '0%': {
+                    transform: 'scale(1)',
+                    opacity: 1,
+                  },
+                  '50%': {
+                    transform: 'scale(1.1)',
+                    opacity: 0.8,
+                  },
+                  '100%': {
+                    transform: 'scale(1)',
+                    opacity: 1,
+                  },
+                },
+              }}
+            >
+              <Analytics sx={{ fontSize: '1.5rem' }} />
+              <Box>
+                <Typography variant="body1" fontWeight="inherit">
+                  Advanced Analytics
+                </Typography>
+                <Typography variant="caption" sx={{ opacity: 0.8, fontSize: '0.7rem', color: '#ff6b6b' }}>
+                  🚀 AI-Powered Forecasts
+                </Typography>
+              </Box>
+            </ToggleButton>
+          </ToggleButtonGroup>
         </Box>
 
         {/* Dashboard Status and Refresh Controls */}
