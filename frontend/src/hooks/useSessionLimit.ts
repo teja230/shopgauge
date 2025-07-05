@@ -1,27 +1,12 @@
 import { useState, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
+import { fetchWithAuth } from '../api';
 
-// Fix for API URL - ensure we always use the correct API domain
-const getApiBaseUrl = () => {
-  const envUrl = import.meta.env.VITE_API_BASE_URL as string | undefined;
-  
-  // If production domain is detected, always use api.shopgaugeai.com
-  if (window.location.hostname === 'shopgaugeai.com' || 
-      window.location.hostname === 'www.shopgaugeai.com' || 
-      window.location.hostname.includes('shopgaugeai.com')) {
-    return 'https://api.shopgaugeai.com';
-  }
-  
-  // Otherwise use the environment variable or default
-  return envUrl || 'https://api.shopgaugeai.com';
-};
-
-const API_BASE_URL = getApiBaseUrl();
-
-// Log the API URL being used for debugging
-console.log('🔗 useSessionLimit: API_BASE_URL determined as:', API_BASE_URL);
-console.log('🔗 useSessionLimit: Environment VITE_API_BASE_URL:', import.meta.env.VITE_API_BASE_URL);
-console.log('🔗 useSessionLimit: Current hostname:', window.location.hostname);
+// Cache duration for session limit data (5 minutes)
+const SESSION_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const MAX_RETRY_ATTEMPTS = 3;
+const RETRY_DELAY_BASE = 2000; // 2 seconds base delay
+const FAILURE_COOLDOWN_PERIOD = 10 * 60 * 1000; // 10 minutes cooldown after max retries
 
 interface SessionInfo {
   sessionId: string;
@@ -59,12 +44,6 @@ interface UseSessionLimitReturn {
   refreshSessionData: () => Promise<void>;
 }
 
-// Cache duration for session limit data (5 minutes)
-const SESSION_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-const MAX_RETRY_ATTEMPTS = 3;
-const RETRY_DELAY_BASE = 2000; // 2 seconds base delay
-const FAILURE_COOLDOWN_PERIOD = 10 * 60 * 1000; // 10 minutes cooldown after max retries
-
 export const useSessionLimit = (): UseSessionLimitReturn => {
   const [sessionLimitData, setSessionLimitData] = useState<SessionLimitResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -73,6 +52,7 @@ export const useSessionLimit = (): UseSessionLimitReturn => {
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
   const [isRequestInProgress, setIsRequestInProgress] = useState(false);
   const [lastFailureTime, setLastFailureTime] = useState<number | null>(null);
+  const [retryAttempts, setRetryAttempts] = useState(0);
 
   // Cache management
   const getCacheKey = () => 'session_limit_cache';
@@ -147,14 +127,10 @@ export const useSessionLimit = (): UseSessionLimitReturn => {
     setError(null);
     
     try {
-      console.log(`🔍 useSessionLimit: Checking session limit at ${API_BASE_URL}/api/sessions/limit-check (attempt ${retryCount + 1})`);
+      console.log(`🔍 useSessionLimit: Checking session limit (attempt ${retryCount + 1})`);
       
-      const response = await fetch(`${API_BASE_URL}/api/sessions/limit-check`, {
+      const response = await fetchWithAuth('/api/sessions/limit-check', {
         method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
       });
 
       console.log('🔍 useSessionLimit: Response status:', response.status);
@@ -256,9 +232,8 @@ export const useSessionLimit = (): UseSessionLimitReturn => {
 
   const deleteSession = useCallback(async (sessionId: string): Promise<boolean> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/sessions/terminate`, {
+      const response = await fetchWithAuth('/api/sessions/terminate', {
         method: 'POST',
-        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
