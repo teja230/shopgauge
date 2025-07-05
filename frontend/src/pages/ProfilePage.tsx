@@ -86,6 +86,7 @@ export default function ProfilePage() {
   const [isCheckingConnection, setIsCheckingConnection] = useState(false);
   const [refreshDebounce, setRefreshDebounce] = useState(false);
   const [sessionRefreshDebounce, setSessionRefreshDebounce] = useState(false);
+  const [sessionRefreshCountdown, setSessionRefreshCountdown] = useState(0);
   const [pastStores, setPastStores] = useState<string[]>([]);
   
   // Confirmation dialog state
@@ -121,10 +122,35 @@ export default function ProfilePage() {
     if (sessionRefreshDebounce) return;
     
     setSessionRefreshDebounce(true);
-    setTimeout(() => setSessionRefreshDebounce(false), SESSION_REFRESH_DEBOUNCE_MS);
+    setSessionRefreshCountdown(Math.ceil(SESSION_REFRESH_DEBOUNCE_MS / 1000)); // Convert to seconds
+    
+    setTimeout(() => {
+      setSessionRefreshDebounce(false);
+      setSessionRefreshCountdown(0);
+    }, SESSION_REFRESH_DEBOUNCE_MS);
     
     await refreshSessionData();
   };
+
+  // Countdown timer for session refresh cooldown
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    
+    if (sessionRefreshCountdown > 0) {
+      interval = setInterval(() => {
+        setSessionRefreshCountdown(prev => {
+          if (prev <= 1) {
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [sessionRefreshCountdown]);
 
   // Save current store to past stores when shop changes
   useEffect(() => {
@@ -195,6 +221,14 @@ export default function ProfilePage() {
       loadStoreStats();
     }
   }, [shop]);
+
+  // Auto-load session data when authenticated and page loads
+  useEffect(() => {
+    if (shop && !sessionLimitData && !sessionLimitLoading) {
+      console.log('ProfilePage: Auto-loading session data on page load');
+      checkSessionLimit();
+    }
+  }, [shop, sessionLimitData, sessionLimitLoading, checkSessionLimit]);
 
   const checkConnectionStatus = async () => {
     try {
@@ -1423,27 +1457,40 @@ export default function ProfilePage() {
                     {sessionLimitData.sessions.slice(0, 3).map((session, index) => {
                       const device = getDeviceDisplay(session.userAgent);
                       return (
-                        <div key={session.sessionId} className={`flex items-center justify-between p-3 rounded-lg border ${
+                        <div key={session.sessionId} className={`flex items-center justify-between p-3 rounded-lg border transition-all ${
                           session.isCurrentSession 
-                            ? 'bg-green-50 border-green-200' 
-                            : 'bg-gray-50 border-gray-200'
+                            ? 'bg-gradient-to-r from-green-50 to-blue-50 border-green-300 shadow-md' 
+                            : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
                         }`}>
-                          <div className="flex items-center space-x-3">
+                          <div className="flex items-center space-x-3 flex-1">
                             <div className="text-lg">{device.icon}</div>
-                            <div>
-                              <div className="text-sm font-medium text-gray-900">
-                                {device.name}
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-sm font-medium text-gray-900">
+                                  {device.name}
+                                </span>
                                 {session.isCurrentSession && (
-                                  <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
-                                    Current
+                                  <span className="inline-flex items-center gap-1 text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full font-medium">
+                                    <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                                    This Device
                                   </span>
                                 )}
                               </div>
-                              <div className="text-xs text-gray-600">
-                                {getRelativeTime(session.lastAccessedAt)}
+                              <div className="text-xs text-gray-500 mb-1">
+                                {device.subtitle}
+                              </div>
+                              <div className={`text-xs font-medium ${
+                                session.isCurrentSession ? 'text-green-700' : 'text-gray-600'
+                              }`}>
+                                Last used: {session.lastUsedFormatted || getRelativeTime(session.lastAccessedAt)}
                               </div>
                             </div>
                           </div>
+                          {session.isCurrentSession && (
+                            <div className="text-right">
+                              <div className="text-xs text-green-600 font-medium">Active Now</div>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -1534,7 +1581,11 @@ export default function ProfilePage() {
                     <svg className="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    Wait 5min...
+                    {sessionRefreshCountdown > 0 ? (
+                      <>Wait {Math.floor(sessionRefreshCountdown / 60)}:{(sessionRefreshCountdown % 60).toString().padStart(2, '0')}</>
+                    ) : (
+                      <>Wait 5min...</>
+                    )}
                   </>
                 ) : (
                   <>
@@ -1692,4 +1743,4 @@ export default function ProfilePage() {
       />
     </div>
   );
-} 
+}

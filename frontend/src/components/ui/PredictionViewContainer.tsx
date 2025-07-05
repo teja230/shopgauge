@@ -36,6 +36,7 @@ import {
 import RevenuePredictionChart from './RevenuePredictionChart';
 import OrderPredictionChart from './OrderPredictionChart';
 import ConversionPredictionChart from './ConversionPredictionChart';
+import { useNotifications } from '../../hooks/useNotifications';
 
 // Styled components matching main branch dashboard theme
 const StyledCard = styled(Card)(({ theme }) => ({
@@ -136,6 +137,26 @@ const PredictionViewContainer = memo(({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.down('md'));
+  const notifications = useNotifications();
+
+  // Handle prediction toggle with notifications
+  const handlePredictionToggle = useCallback((newValue: boolean) => {
+    setShowPredictions(newValue);
+    
+    if (newValue) {
+      notifications.showSuccess('🔮 AI Forecasting enabled - predictions now visible', {
+        persistent: true,
+        category: 'AI Mode',
+        duration: 4000
+      });
+    } else {
+      notifications.showInfo('📊 AI Forecasting disabled - showing historical data only', {
+        persistent: true,
+        category: 'AI Mode',
+        duration: 4000
+      });
+    }
+  }, [notifications]);
   
   // Mobile-optimized dimensions
   const mobileHeight = Math.min(500 * 0.8, 400); // Reduce height by 20% on mobile, cap at 400px
@@ -433,7 +454,7 @@ const PredictionViewContainer = memo(({
                 variant="contained"
                 color="secondary"
                 size="small"
-                onClick={() => setShowPredictions(true)}
+                onClick={() => handlePredictionToggle(true)}
                 startIcon={<AutoAwesome />}
                 sx={{
                   textTransform: 'none',
@@ -519,7 +540,7 @@ const PredictionViewContainer = memo(({
           <Button
             variant="contained"
             color="secondary"
-            onClick={() => setShowPredictions(true)}
+            onClick={() => handlePredictionToggle(true)}
             startIcon={<AutoAwesome />}
             sx={{
               borderRadius: 3,
@@ -694,7 +715,7 @@ const PredictionViewContainer = memo(({
               control={
                 <Switch
                   checked={showPredictions}
-                  onChange={(e) => setShowPredictions(e.target.checked)}
+                  onChange={(e) => handlePredictionToggle(e.target.checked)}
                   color="secondary"
                 />
               }

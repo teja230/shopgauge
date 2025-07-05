@@ -43,6 +43,7 @@ interface SessionInfo {
   isCurrentSession: boolean;
   createdAt: string;
   lastAccessedAt: string;
+  lastUsedFormatted?: string;
   ipAddress: string;
   userAgent: string;
   isExpired: boolean;
@@ -222,7 +223,7 @@ export const SessionLimitDialog: React.FC<SessionLimitDialogProps> = ({
     const isSelected = selectedSessions.has(session.sessionId);
     const isDeleting = deleting.has(session.sessionId);
     const isCurrent = session.isCurrentSession;
-    const relativeTime = getRelativeTime(session.lastAccessedAt);
+    const relativeTime = session.lastUsedFormatted || getRelativeTime(session.lastAccessedAt);
     const location = getLocationFromIP(session.ipAddress);
 
     const getDeviceIcon = () => {

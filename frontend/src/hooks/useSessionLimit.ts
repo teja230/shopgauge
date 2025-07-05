@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
 import { fetchWithAuth } from '../api';
+import { useNotifications } from './useNotifications';
 
 // Cache duration for session limit data (5 minutes)
 const SESSION_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
@@ -13,6 +14,7 @@ interface SessionInfo {
   isCurrentSession: boolean;
   createdAt: string;
   lastAccessedAt: string;
+  lastUsedFormatted?: string;
   ipAddress: string;
   userAgent: string;
   isExpired: boolean;
@@ -53,6 +55,8 @@ export const useSessionLimit = (): UseSessionLimitReturn => {
   const [isRequestInProgress, setIsRequestInProgress] = useState(false);
   const [lastFailureTime, setLastFailureTime] = useState<number | null>(null);
   const [retryAttempts, setRetryAttempts] = useState(0);
+
+  const notifications = useNotifications();
 
   // Cache management
   const getCacheKey = () => 'session_limit_cache';
@@ -258,23 +262,35 @@ export const useSessionLimit = (): UseSessionLimitReturn => {
             saveToCache(updatedData); // Update cache
           }
           
-          toast.success('Session removed successfully');
+          notifications.showSuccess('Session removed successfully', {
+            persistent: true,
+            category: 'Session Management'
+          });
           return true;
         } else {
-          toast.error(result.error || 'Failed to remove session');
+          notifications.showError(result.error || 'Failed to remove session', {
+            persistent: true,
+            category: 'Session Management'
+          });
           return false;
         }
       } else {
         const errorData = await response.json().catch(() => ({}));
-        toast.error(errorData.error || 'Failed to remove session');
+        notifications.showError(errorData.error || 'Failed to remove session', {
+          persistent: true,
+          category: 'Session Management'
+        });
         return false;
       }
     } catch (error) {
       console.error('Error deleting session:', error);
-      toast.error('Network error while removing session');
+      notifications.showError('Network error while removing session', {
+        persistent: true,
+        category: 'Session Management'
+      });
       return false;
     }
-  }, [sessionLimitData]);
+  }, [sessionLimitData, notifications]);
 
   const closeSessionDialog = useCallback(() => {
     setShowSessionDialog(false);

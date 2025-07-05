@@ -58,6 +58,7 @@ import { useMediaQuery, useTheme } from '@mui/material';
 import { debugLog } from './DebugPanel';
 import useSize from '../../hooks/useSize';
 import { CHART_DIMENSIONS, SPACING, ensureMinHeight } from '../../utils/dimensionUtils';
+import { useNotifications } from '../../hooks/useNotifications';
 
 interface HistoricalData {
   kind?: 'historical';
@@ -535,8 +536,28 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
     orders: true,
     conversion: false,
   });
+  const notifications = useNotifications();
 
   const chartHeight = ensureMinHeight(height);
+
+  // Handle prediction toggle with notifications
+  const handlePredictionToggle = (checked: boolean) => {
+    setShowPredictions(checked);
+    
+    if (checked) {
+      notifications.showSuccess('🔮 AI Forecasting enabled - predictions now visible', {
+        persistent: true,
+        category: 'AI Mode',
+        duration: 4000
+      });
+    } else {
+      notifications.showInfo('📊 AI Forecasting disabled - showing historical data only', {
+        persistent: true,
+        category: 'AI Mode',
+        duration: 4000
+      });
+    }
+  };
 
   // Process and validate chart data
   const chartData = useMemo(() => {
@@ -687,7 +708,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
           control={
             <Switch
               checked={showPredictions}
-              onChange={(e) => setShowPredictions(e.target.checked)}
+              onChange={(e) => handlePredictionToggle(e.target.checked)}
               size="small"
             />
           }

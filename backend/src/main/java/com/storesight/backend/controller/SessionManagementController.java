@@ -5,6 +5,7 @@ import com.storesight.backend.service.ShopService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -64,6 +65,8 @@ public class SessionManagementController {
                     sessionInfo.put(
                         "lastAccessedAt",
                         session.getLastAccessedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+                    sessionInfo.put(
+                        "lastUsedFormatted", formatLastUsedTime(session.getLastAccessedAt()));
                     sessionInfo.put("ipAddress", session.getIpAddress());
                     sessionInfo.put("userAgent", session.getUserAgent());
                     sessionInfo.put("isExpired", session.isExpired());
@@ -557,6 +560,8 @@ public class SessionManagementController {
                         "lastAccessedAt",
                         session.getLastAccessedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
                     sessionInfo.put(
+                        "lastUsedFormatted", formatLastUsedTime(session.getLastAccessedAt()));
+                    sessionInfo.put(
                         "ipAddress",
                         session.getIpAddress() != null ? session.getIpAddress() : "Unknown");
                     sessionInfo.put(
@@ -654,5 +659,32 @@ public class SessionManagementController {
             "^[a-zA-Z0-9][a-zA-Z0-9\\-]*[a-zA-Z0-9](\\.myshopify\\.com)?$");
 
     return shopPattern.matcher(trimmedShop).matches();
+  }
+
+  /** Format last accessed time in a user-friendly way */
+  private String formatLastUsedTime(LocalDateTime lastAccessedAt) {
+    if (lastAccessedAt == null) {
+      return "Unknown";
+    }
+
+    LocalDateTime now = LocalDateTime.now();
+
+    // Calculate the time difference
+    long minutes = ChronoUnit.MINUTES.between(lastAccessedAt, now);
+    long hours = ChronoUnit.HOURS.between(lastAccessedAt, now);
+    long days = ChronoUnit.DAYS.between(lastAccessedAt, now);
+
+    if (minutes < 1) {
+      return "Just now";
+    } else if (minutes < 60) {
+      return minutes + " minute" + (minutes == 1 ? "" : "s") + " ago";
+    } else if (hours < 24) {
+      return hours + " hour" + (hours == 1 ? "" : "s") + " ago";
+    } else if (days < 30) {
+      return days + " day" + (days == 1 ? "" : "s") + " ago";
+    } else {
+      // For older sessions, show the actual date
+      return "On " + lastAccessedAt.format(DateTimeFormatter.ofPattern("MMM dd, yyyy"));
+    }
   }
 }
