@@ -147,8 +147,8 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
 
   // Common chart elements with enhanced visual separation - moved before early returns 
   const commonElements = useMemo(() => {
-    const historicalData = processedData.filter(d => !d.isPrediction);
-    const predictionData = processedData.filter(d => d.isPrediction);
+    const historicalData = processedData.historical;
+    const predictionData = processedData.predicted;
     const separatorDate = predictionData.length > 0 ? predictionData[0]?.date : null;
 
     return (
@@ -247,7 +247,7 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
         )}
       </>
     );
-  }, [processedData, gradientId, predictionGradientId]);
+  }, [processedData, gradientId, predictionGradientId, showPredictions]);
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
