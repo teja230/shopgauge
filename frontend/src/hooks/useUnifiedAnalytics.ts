@@ -254,8 +254,8 @@ const useUnifiedAnalytics = (
 
   // Simplified data conversion
   const convertDashboardData = useCallback((
-    revenueData: any[],
-    ordersData: any[],
+    revenueData: any[], 
+    ordersData: any[], 
     conversionRate: number = 0
   ): UnifiedAnalyticsData => {
     try {
@@ -276,7 +276,7 @@ const useUnifiedAnalytics = (
         // Always use the real conversion rate from dashboard
         const conversion = validateData(realConversionRate);
         
-        return {
+      return {
           kind: 'historical' as const,
           date,
           revenue,
@@ -313,7 +313,7 @@ const useUnifiedAnalytics = (
             randomVariation = 1 + (Math.random() - 0.5) * 0.1; // ±5% for 7-day
           } else if (i <= 30) {
             randomVariation = 1 + (Math.random() - 0.5) * 0.2; // ±10% for 30-day
-          } else {
+    } else {
             randomVariation = 1 + (Math.random() - 0.5) * 0.3; // ±15% for 60-day
           }
           
@@ -342,16 +342,16 @@ const useUnifiedAnalytics = (
               orders_max: validateData(predictedOrders * (1 + (1 - confidenceScore) * 0.3)),
             },
           });
-        }
       }
+    }
 
       const totalRevenue = processedData.reduce((sum, item) => sum + item.revenue, 0);
       const totalOrders = processedData.reduce((sum, item) => sum + item.orders_count, 0);
 
       const result = {
         historical: processedData,
-        predictions,
-        period_days: days,
+      predictions,
+      period_days: days,
         total_revenue: validateData(totalRevenue),
         total_orders: validateData(totalOrders),
       };
@@ -364,7 +364,7 @@ const useUnifiedAnalytics = (
         allUsingSameRate: realConversionRate
       });
 
-      return result;
+    return result;
     } catch (error) {
       console.error('Error converting dashboard data:', error);
       return {

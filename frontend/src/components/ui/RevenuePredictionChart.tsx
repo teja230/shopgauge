@@ -14,6 +14,7 @@ import {
   Tooltip as RechartsTooltip,
   Legend,
   ReferenceLine,
+  ReferenceArea,
 } from 'recharts';
 import {
   Box,
@@ -195,6 +196,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
     return (
       <>
         <defs>
+          {/* Enhanced gradient that transitions from historical to forecast colors */}
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
             <stop offset="5%" stopColor={UNIFIED_COLOR_SCHEME.historical.revenue} stopOpacity={0.4} />
             <stop offset="95%" stopColor={UNIFIED_COLOR_SCHEME.historical.revenue} stopOpacity={0.05} />
@@ -202,6 +204,11 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
           <linearGradient id={predictionGradientId} x1="0" y1="0" x2="0" y2="1">
             <stop offset="5%" stopColor={UNIFIED_COLOR_SCHEME.forecast.revenue} stopOpacity={0.3} />
             <stop offset="95%" stopColor={UNIFIED_COLOR_SCHEME.forecast.revenue} stopOpacity={0.05} />
+          </linearGradient>
+          {/* Confidence interval gradient */}
+          <linearGradient id="confidenceGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={UNIFIED_COLOR_SCHEME.forecast.revenue} stopOpacity={0.2} />
+            <stop offset="100%" stopColor={UNIFIED_COLOR_SCHEME.forecast.revenue} stopOpacity={0} />
           </linearGradient>
           {/* Pattern for prediction area */}
           <pattern id="predictionPattern" patternUnits="userSpaceOnUse" width="4" height="4">
@@ -431,55 +438,58 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
         return (
           <LineChart {...commonProps}>
             {commonElements}
-            {/* Historical data line - SOLID, no dashes */}
-            {processedData.hasHistorical && (
-              <Line
+            {/* Render both historical and forecast data as a single line to avoid gaps */}
+            <Line
+              type="monotone"
+              dataKey="revenue"
+              name="Revenue"
+              stroke={UNIFIED_COLOR_SCHEME.historical.revenue}
+              strokeWidth={3}
+              strokeDasharray="" // Always solid for the main line
+              dot={(props: any) => {
+                const { payload } = props;
+                const isPrediction = payload?.isPrediction;
+                // Use different dot styles for historical vs forecast
+                return (
+                  <circle
+                    cx={props.cx}
+                    cy={props.cy}
+                    r={isPrediction && showPredictions ? 3 : 4}
+                    fill={isPrediction ? UNIFIED_COLOR_SCHEME.forecast.revenue : UNIFIED_COLOR_SCHEME.historical.revenue}
+                    stroke={isPrediction ? UNIFIED_COLOR_SCHEME.forecast.revenue : UNIFIED_COLOR_SCHEME.historical.revenue}
+                    strokeWidth={isPrediction ? 1 : 2}
+                    opacity={isPrediction && !showPredictions ? 0 : 1}
+                  />
+                );
+              }}
+              activeDot={{ 
+                r: 6, 
+                stroke: theme.palette.background.paper,
+                strokeWidth: 2,
+              }}
+              connectNulls={false}
+              isAnimationActive={false}
+            />
+            {/* Add confidence interval area for predictions if enabled */}
+            {showPredictions && processedData.hasPredictions && (
+              <Area
                 type="monotone"
-                dataKey="revenue"
-                data={processedData.historical}
-                name="Revenue (Historical)"
-                stroke={UNIFIED_COLOR_SCHEME.historical.revenue}
-                strokeWidth={3}
-                strokeDasharray="" // Solid line for historical data
-                dot={{
-                  fill: UNIFIED_COLOR_SCHEME.historical.revenue,
-                  stroke: UNIFIED_COLOR_SCHEME.historical.revenue,
-                  strokeWidth: 2,
-                  r: 4,
-                }}
-                activeDot={{ 
-                  r: 6, 
-                  stroke: theme.palette.background.paper,
-                  strokeWidth: 2,
-                  fill: UNIFIED_COLOR_SCHEME.historical.revenue,
-                }}
-                connectNulls={false}
+                dataKey="confidence_max"
+                data={processedData.combined}
+                stroke="none"
+                fill={UNIFIED_COLOR_SCHEME.forecast.revenue}
+                fillOpacity={0.1}
                 isAnimationActive={false}
               />
             )}
-            {/* Forecast data line - DASHED, different color */}
             {showPredictions && processedData.hasPredictions && (
-              <Line
+              <Area
                 type="monotone"
-                dataKey="revenue"
-                data={processedData.predicted}
-                name="Revenue (Forecast)"
-                stroke={UNIFIED_COLOR_SCHEME.forecast.revenue}
-                strokeWidth={3}
-                strokeDasharray="8 4" // Dashed line for forecast data
-                dot={{
-                  fill: UNIFIED_COLOR_SCHEME.forecast.revenue,
-                  stroke: UNIFIED_COLOR_SCHEME.forecast.revenue,
-                  strokeWidth: 2,
-                  r: 4,
-                }}
-                activeDot={{ 
-                  r: 6, 
-                  stroke: theme.palette.background.paper,
-                  strokeWidth: 2,
-                  fill: UNIFIED_COLOR_SCHEME.forecast.revenue,
-                }}
-                connectNulls={false}
+                dataKey="confidence_min"
+                data={processedData.combined}
+                stroke="none"
+                fill="#ffffff"
+                fillOpacity={1}
                 isAnimationActive={false}
               />
             )}
@@ -490,47 +500,42 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
         return (
           <AreaChart {...commonProps}>
             {commonElements}
-            {/* Historical data area - SOLID fill */}
-            {processedData.hasHistorical && (
-              <Area
-                type="monotone"
-                dataKey="revenue"
-                data={processedData.historical}
-                name="Revenue (Historical)"
-                stroke={UNIFIED_COLOR_SCHEME.historical.revenue}
-                strokeWidth={3}
-                fill={`url(#${gradientId})`}
-                fillOpacity={0.6}
-                dot={{
-                  fill: UNIFIED_COLOR_SCHEME.historical.revenue,
-                  stroke: UNIFIED_COLOR_SCHEME.historical.revenue,
-                  strokeWidth: 1,
-                  r: 3,
-                }}
-                connectNulls={false}
-                isAnimationActive={false}
-              />
-            )}
-            {/* Forecast data area - DASHED with different fill */}
-            {showPredictions && processedData.hasPredictions && (
-              <Area
-                type="monotone"
-                dataKey="revenue"
-                data={processedData.predicted}
-                name="Revenue (Forecast)"
-                stroke={UNIFIED_COLOR_SCHEME.forecast.revenue}
-                strokeWidth={3}
-                strokeDasharray="8 4"
-                fill={`url(#${predictionGradientId})`}
-                fillOpacity={0.4}
-                dot={{
-                  fill: UNIFIED_COLOR_SCHEME.forecast.revenue,
-                  stroke: UNIFIED_COLOR_SCHEME.forecast.revenue,
-                  strokeWidth: 1,
-                  r: 3,
-                }}
-                connectNulls={false}
-                isAnimationActive={false}
+            {/* Render single area with gradient transition */}
+            <Area
+              type="monotone"
+              dataKey="revenue"
+              name="Revenue"
+              stroke={UNIFIED_COLOR_SCHEME.historical.revenue}
+              strokeWidth={3}
+              strokeDasharray="" // Always solid stroke
+              fill={`url(#${gradientId})`}
+              fillOpacity={0.6}
+              dot={(props: any) => {
+                const { payload } = props;
+                const isPrediction = payload?.isPrediction;
+                return (
+                  <circle
+                    cx={props.cx}
+                    cy={props.cy}
+                    r={isPrediction && showPredictions ? 2.5 : 3}
+                    fill={isPrediction ? UNIFIED_COLOR_SCHEME.forecast.revenue : UNIFIED_COLOR_SCHEME.historical.revenue}
+                    stroke={isPrediction ? UNIFIED_COLOR_SCHEME.forecast.revenue : UNIFIED_COLOR_SCHEME.historical.revenue}
+                    strokeWidth={1}
+                    opacity={isPrediction && !showPredictions ? 0 : 1}
+                  />
+                );
+              }}
+              connectNulls={false}
+              isAnimationActive={false}
+            />
+            {/* Add subtle overlay for forecast region */}
+            {showPredictions && predictionStartDate && (
+              <ReferenceArea
+                x1={predictionStartDate}
+                x2={processedData.combined[processedData.combined.length - 1]?.date}
+                fill={UNIFIED_COLOR_SCHEME.forecast.revenue}
+                fillOpacity={0.05}
+                strokeWidth={0}
               />
             )}
           </AreaChart>
@@ -627,67 +632,42 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
         return (
           <AreaChart {...commonProps}>
             {commonElements}
-            {/* Historical data area */}
+            {/* Single area with smooth transition between historical and forecast */}
             <Area
               type="monotone"
               dataKey="revenue"
-              name="Revenue (Historical)"
+              name="Revenue"
               stroke={UNIFIED_COLOR_SCHEME.historical.revenue}
               strokeWidth={3}
+              strokeDasharray="" // Always solid stroke
               fill={`url(#${gradientId})`}
               fillOpacity={0.6}
               dot={(props: any) => {
                 const { payload } = props;
                 const isPrediction = payload?.isPrediction;
-                if (isPrediction) {
-                  // Return invisible dot for predictions on historical area
-                  return <circle cx={props.cx} cy={props.cy} r={0} fill="transparent" />;
-                }
                 return (
                   <circle
                     cx={props.cx}
                     cy={props.cy}
-                    r={3}
-                    fill={UNIFIED_COLOR_SCHEME.historical.revenue}
-                    stroke={UNIFIED_COLOR_SCHEME.historical.revenue}
+                    r={isPrediction && showPredictions ? 2.5 : 3}
+                    fill={isPrediction ? UNIFIED_COLOR_SCHEME.forecast.revenue : UNIFIED_COLOR_SCHEME.historical.revenue}
+                    stroke={isPrediction ? UNIFIED_COLOR_SCHEME.forecast.revenue : UNIFIED_COLOR_SCHEME.historical.revenue}
                     strokeWidth={1}
+                    opacity={isPrediction && !showPredictions ? 0 : 1}
                   />
                 );
               }}
               connectNulls={false}
               isAnimationActive={false}
             />
-            {/* Forecast data area - only show if forecast data exists AND showPredictions is true */}
-            {showPredictions && forecastData.length > 0 && (
-              <Area
-                type="monotone"
-                dataKey="revenue"
-                name="Revenue (Forecast)"
-                stroke={UNIFIED_COLOR_SCHEME.forecast.revenue}
-                strokeWidth={3}
-                strokeDasharray="8 4"
-                fill={`url(#${predictionGradientId})`}
-                fillOpacity={0.4}
-                dot={(props: any) => {
-                  const { payload } = props;
-                  const isPrediction = payload?.isPrediction;
-                  if (!isPrediction) {
-                    // Return invisible dot for historical data on forecast area
-                    return <circle cx={props.cx} cy={props.cy} r={0} fill="transparent" />;
-                  }
-                  return (
-                    <circle
-                      cx={props.cx}
-                      cy={props.cy}
-                      r={3}
-                      fill={UNIFIED_COLOR_SCHEME.forecast.revenue}
-                      stroke={UNIFIED_COLOR_SCHEME.forecast.revenue}
-                      strokeWidth={1}
-                    />
-                  );
-                }}
-                connectNulls={false}
-                isAnimationActive={false}
+            {/* Add subtle overlay for forecast region */}
+            {showPredictions && predictionStartDate && (
+              <ReferenceArea
+                x1={predictionStartDate}
+                x2={processedData.combined[processedData.combined.length - 1]?.date}
+                fill={UNIFIED_COLOR_SCHEME.forecast.revenue}
+                fillOpacity={0.05}
+                strokeWidth={0}
               />
             )}
           </AreaChart>

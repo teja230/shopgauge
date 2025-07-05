@@ -111,6 +111,7 @@ const PredictionViewContainer = memo(({
 }: PredictionViewContainerProps) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
   const { shop } = useAuth();
   
   // Local state
@@ -120,8 +121,29 @@ const PredictionViewContainer = memo(({
   
   // Refs
   const chartRef = useRef<HTMLDivElement>(null);
-  const responsiveHeight = isMobile ? Math.max(500, height) : Math.max(600, height);
-  const chartHeight = responsiveHeight - 280; // Account for header, controls, and stats
+  const containerRef = useRef<HTMLDivElement>(null);
+  
+  // Better responsive height calculations
+  const responsiveHeight = useMemo(() => {
+    if (isMobile) return Math.max(500, height); // Increased from 400
+    if (isTablet) return Math.max(600, height); // Increased from 500
+    return Math.max(700, height); // Increased from 600
+  }, [height, isMobile, isTablet]);
+
+  // Calculate chart height with better margins
+  const chartHeight = useMemo(() => {
+    // Account for header, controls, stats, and margins
+    const headerHeight = 120; // Header and controls
+    const statsHeight = isMobile ? 100 : 120; // Stats section
+    const buttonsHeight = 60; // View toggle buttons
+    const margins = 40; // Top and bottom margins
+    
+    const totalNonChartHeight = headerHeight + statsHeight + buttonsHeight + margins;
+    const calculatedHeight = responsiveHeight - totalNonChartHeight;
+    
+    // Ensure minimum chart height
+    return Math.max(350, calculatedHeight); // Increased from 300
+  }, [responsiveHeight, isMobile]);
 
   // Chrome-safe data validation
   const validateNumber = useCallback((value: any, defaultValue: number = 0): number => {
@@ -514,11 +536,11 @@ const PredictionViewContainer = memo(({
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
                     <AutoAwesome sx={{ fontSize: isMobile ? 10 : 12, color: 'secondary.main' }} />
                     <Typography variant="caption" color="text.secondary" sx={{ fontSize: isMobile ? '0.7rem' : '0.75rem' }}>
-                      {showPredictions ? `Forecast (${predictionDays}d)` : 'Forecasts Off'}
+                      Forecast ({predictionDays}d)
                     </Typography>
                   </Box>
                   <Typography variant="h6" fontWeight={700} color="secondary.main" sx={{ fontSize: isMobile ? '0.9rem' : '1.25rem' }}>
-                    {showPredictions ? (() => {
+                    {(() => {
                       const predictionData = data.predictions.slice(0, predictionDays);
                       switch (activeView) {
                         case 'revenue': {
@@ -537,10 +559,10 @@ const PredictionViewContainer = memo(({
                         default:
                           return 'N/A';
                       }
-                    })() : 'Disabled'}
+                    })()}
                   </Typography>
-                  {/* Confidence Score Display - only show when predictions are enabled */}
-                  {showPredictions && data.predictions.length > 0 && data.predictions[0].confidence_score && (
+                  {/* Confidence Score Display */}
+                  {data.predictions.length > 0 && data.predictions[0].confidence_score && (
                     <Typography variant="caption" color="secondary.main" sx={{ fontSize: '0.6rem', mt: 0.5 }}>
                       {(data.predictions[0].confidence_score * 100).toFixed(0)}% confidence
                     </Typography>
@@ -588,7 +610,7 @@ const PredictionViewContainer = memo(({
           )}
         </Box>
 
-        {/* View Toggle with Chart Theme Colors */}
+        {/* View Toggle with Chart Theme Colors - Fixed responsive layout */}
         <ToggleButtonGroup
           value={activeView}
           exclusive
@@ -596,13 +618,21 @@ const PredictionViewContainer = memo(({
           size="small"
           sx={{
             mb: 2,
+            display: 'flex',
+            flexWrap: isMobile ? 'nowrap' : 'nowrap', // Prevent wrapping
+            gap: isMobile ? 0.5 : 1,
+            width: '100%',
+            justifyContent: 'center',
             '& .MuiToggleButton-root': {
               textTransform: 'none',
               fontWeight: 600,
-              px: 2,
-              py: 1,
+              px: isMobile ? 1 : 2,
+              py: isMobile ? 0.75 : 1,
               border: '1px solid',
               borderRadius: 1.5,
+              fontSize: isMobile ? '0.75rem' : '0.875rem',
+              minWidth: isMobile ? 'auto' : 100,
+              flex: isMobile ? 1 : 'initial', // Equal width on mobile
               '&[value="revenue"]': {
                 borderColor: UNIFIED_COLOR_SCHEME.historical.revenue,
                 color: UNIFIED_COLOR_SCHEME.historical.revenue,
@@ -615,9 +645,7 @@ const PredictionViewContainer = memo(({
                   },
                 },
                 '&:hover': {
-                  backgroundColor: UNIFIED_COLOR_SCHEME.historical.revenue,
-                  color: 'white',
-                  opacity: 0.1,
+                  backgroundColor: `${UNIFIED_COLOR_SCHEME.historical.revenue}10`,
                 },
               },
               '&[value="orders"]': {
@@ -632,9 +660,7 @@ const PredictionViewContainer = memo(({
                   },
                 },
                 '&:hover': {
-                  backgroundColor: UNIFIED_COLOR_SCHEME.historical.orders,
-                  color: 'white',
-                  opacity: 0.1,
+                  backgroundColor: `${UNIFIED_COLOR_SCHEME.historical.orders}10`,
                 },
               },
               '&[value="conversion"]': {
@@ -649,25 +675,25 @@ const PredictionViewContainer = memo(({
                   },
                 },
                 '&:hover': {
-                  backgroundColor: UNIFIED_COLOR_SCHEME.historical.conversion,
-                  color: 'white',
-                  opacity: 0.1,
+                  backgroundColor: `${UNIFIED_COLOR_SCHEME.historical.conversion}10`,
                 },
               },
             },
           }}
         >
           <ToggleButton value="revenue">
-            <TrendingUp fontSize="small" sx={{ mr: 0.5 }} />
-            Revenue
+            <TrendingUp fontSize="small" sx={{ mr: isMobile ? 0.25 : 0.5 }} />
+            {!isMobile && 'Revenue'}
+            {isMobile && 'Rev'}
           </ToggleButton>
           <ToggleButton value="orders">
-            <ShoppingCart fontSize="small" sx={{ mr: 0.5 }} />
+            <ShoppingCart fontSize="small" sx={{ mr: isMobile ? 0.25 : 0.5 }} />
             Orders
           </ToggleButton>
           <ToggleButton value="conversion">
-            <Percent fontSize="small" sx={{ mr: 0.5 }} />
-            Conversion
+            <Percent fontSize="small" sx={{ mr: isMobile ? 0.25 : 0.5 }} />
+            {!isMobile && 'Conversion'}
+            {isMobile && 'Conv'}
           </ToggleButton>
         </ToggleButtonGroup>
 

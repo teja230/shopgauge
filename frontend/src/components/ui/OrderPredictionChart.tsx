@@ -14,6 +14,7 @@ import {
   Tooltip as RechartsTooltip,
   Legend,
   ReferenceLine,
+  ReferenceArea,
 } from 'recharts';
 import {
   Box,
@@ -401,28 +402,26 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
         return (
           <LineChart {...commonProps}>
             {commonElements}
-            {/* Historical data line */}
+            {/* Single line with different dot styles for historical vs forecast */}
             <Line
               type="monotone"
               dataKey="orders_count"
-              name="Orders (Historical)"
+              name="Orders"
               stroke={UNIFIED_COLOR_SCHEME.historical.orders}
               strokeWidth={3}
+              strokeDasharray="" // Always solid line
               dot={(props: any) => {
                 const { payload } = props;
                 const isPrediction = payload?.isPrediction;
-                if (isPrediction) {
-                  // Return invisible dot for predictions on historical line
-                  return <circle cx={props.cx} cy={props.cy} r={0} fill="transparent" />;
-                }
                 return (
                   <circle
                     cx={props.cx}
                     cy={props.cy}
-                    r={4}
-                    fill={UNIFIED_COLOR_SCHEME.historical.orders}
-                    stroke={UNIFIED_COLOR_SCHEME.historical.orders}
-                    strokeWidth={2}
+                    r={isPrediction && showPredictions ? 3 : 4}
+                    fill={isPrediction ? UNIFIED_COLOR_SCHEME.forecast.orders : UNIFIED_COLOR_SCHEME.historical.orders}
+                    stroke={isPrediction ? UNIFIED_COLOR_SCHEME.forecast.orders : UNIFIED_COLOR_SCHEME.historical.orders}
+                    strokeWidth={isPrediction ? 1 : 2}
+                    opacity={isPrediction && !showPredictions ? 0 : 1}
                   />
                 );
               }}
@@ -434,39 +433,26 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
               connectNulls={false}
               isAnimationActive={false}
             />
-            {/* Forecast data line - only show if forecast data exists AND showPredictions is true */}
-            {showPredictions && forecastData.length > 0 && (
-              <Line
+            {/* Add confidence visualization for predictions */}
+            {showPredictions && processedData.hasPredictions && (
+              <Area
                 type="monotone"
-                dataKey="orders_count"
-                name="Orders (Forecast)"
-                stroke={UNIFIED_COLOR_SCHEME.forecast.orders}
-                strokeWidth={3}
-                strokeDasharray="8 4"
-                dot={(props: any) => {
-                  const { payload } = props;
-                  const isPrediction = payload?.isPrediction;
-                  if (!isPrediction) {
-                    // Return invisible dot for historical data on forecast line
-                    return <circle cx={props.cx} cy={props.cy} r={0} fill="transparent" />;
-                  }
-                  return (
-                    <circle
-                      cx={props.cx}
-                      cy={props.cy}
-                      r={4}
-                      fill={UNIFIED_COLOR_SCHEME.forecast.orders}
-                      stroke={UNIFIED_COLOR_SCHEME.forecast.orders}
-                      strokeWidth={2}
-                    />
-                  );
-                }}
-                activeDot={{ 
-                  r: 6, 
-                  stroke: theme.palette.background.paper,
-                  strokeWidth: 2
-                }}
-                connectNulls={false}
+                dataKey="confidence_max"
+                data={processedData.combined}
+                stroke="none"
+                fill={UNIFIED_COLOR_SCHEME.forecast.orders}
+                fillOpacity={0.1}
+                isAnimationActive={false}
+              />
+            )}
+            {showPredictions && processedData.hasPredictions && (
+              <Area
+                type="monotone"
+                dataKey="confidence_min"
+                data={processedData.combined}
+                stroke="none"
+                fill="#ffffff"
+                fillOpacity={1}
                 isAnimationActive={false}
               />
             )}
@@ -477,67 +463,42 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
         return (
           <AreaChart {...commonProps}>
             {commonElements}
-            {/* Historical data area */}
+            {/* Single area with smooth transition */}
             <Area
               type="monotone"
               dataKey="orders_count"
-              name="Orders (Historical)"
+              name="Orders"
               stroke={UNIFIED_COLOR_SCHEME.historical.orders}
               strokeWidth={3}
+              strokeDasharray="" // Always solid stroke
               fill={`url(#${gradientId})`}
               fillOpacity={0.6}
               dot={(props: any) => {
                 const { payload } = props;
                 const isPrediction = payload?.isPrediction;
-                if (isPrediction) {
-                  // Return invisible dot for predictions on historical area
-                  return <circle cx={props.cx} cy={props.cy} r={0} fill="transparent" />;
-                }
                 return (
                   <circle
                     cx={props.cx}
                     cy={props.cy}
-                    r={3}
-                    fill={UNIFIED_COLOR_SCHEME.historical.orders}
-                    stroke={UNIFIED_COLOR_SCHEME.historical.orders}
+                    r={isPrediction && showPredictions ? 2.5 : 3}
+                    fill={isPrediction ? UNIFIED_COLOR_SCHEME.forecast.orders : UNIFIED_COLOR_SCHEME.historical.orders}
+                    stroke={isPrediction ? UNIFIED_COLOR_SCHEME.forecast.orders : UNIFIED_COLOR_SCHEME.historical.orders}
                     strokeWidth={1}
+                    opacity={isPrediction && !showPredictions ? 0 : 1}
                   />
                 );
               }}
               connectNulls={false}
               isAnimationActive={false}
             />
-            {/* Forecast data area - only show if forecast data exists AND showPredictions is true */}
-            {showPredictions && forecastData.length > 0 && (
-              <Area
-                type="monotone"
-                dataKey="orders_count"
-                name="Orders (Forecast)"
-                stroke={UNIFIED_COLOR_SCHEME.forecast.orders}
-                strokeWidth={3}
-                strokeDasharray="8 4"
-                fill={`url(#${predictionGradientId})`}
-                fillOpacity={0.4}
-                dot={(props: any) => {
-                  const { payload } = props;
-                  const isPrediction = payload?.isPrediction;
-                  if (!isPrediction) {
-                    // Return invisible dot for historical data on forecast area
-                    return <circle cx={props.cx} cy={props.cy} r={0} fill="transparent" />;
-                  }
-                  return (
-                    <circle
-                      cx={props.cx}
-                      cy={props.cy}
-                      r={3}
-                      fill={UNIFIED_COLOR_SCHEME.forecast.orders}
-                      stroke={UNIFIED_COLOR_SCHEME.forecast.orders}
-                      strokeWidth={1}
-                    />
-                  );
-                }}
-                connectNulls={false}
-                isAnimationActive={false}
+            {/* Subtle overlay for forecast region */}
+            {showPredictions && predictionStartDate && (
+              <ReferenceArea
+                x1={predictionStartDate}
+                x2={processedData.combined[processedData.combined.length - 1]?.date}
+                fill={UNIFIED_COLOR_SCHEME.forecast.orders}
+                fillOpacity={0.05}
+                strokeWidth={0}
               />
             )}
           </AreaChart>
@@ -634,67 +595,42 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
         return (
           <AreaChart {...commonProps}>
             {commonElements}
-            {/* Historical data area */}
+            {/* Single area with smooth transition */}
             <Area
               type="monotone"
               dataKey="orders_count"
-              name="Orders (Historical)"
+              name="Orders"
               stroke={UNIFIED_COLOR_SCHEME.historical.orders}
               strokeWidth={3}
+              strokeDasharray="" // Always solid stroke
               fill={`url(#${gradientId})`}
               fillOpacity={0.6}
               dot={(props: any) => {
                 const { payload } = props;
                 const isPrediction = payload?.isPrediction;
-                if (isPrediction) {
-                  // Return invisible dot for predictions on historical area
-                  return <circle cx={props.cx} cy={props.cy} r={0} fill="transparent" />;
-                }
                 return (
                   <circle
                     cx={props.cx}
                     cy={props.cy}
-                    r={3}
-                    fill={UNIFIED_COLOR_SCHEME.historical.orders}
-                    stroke={UNIFIED_COLOR_SCHEME.historical.orders}
+                    r={isPrediction && showPredictions ? 2.5 : 3}
+                    fill={isPrediction ? UNIFIED_COLOR_SCHEME.forecast.orders : UNIFIED_COLOR_SCHEME.historical.orders}
+                    stroke={isPrediction ? UNIFIED_COLOR_SCHEME.forecast.orders : UNIFIED_COLOR_SCHEME.historical.orders}
                     strokeWidth={1}
+                    opacity={isPrediction && !showPredictions ? 0 : 1}
                   />
                 );
               }}
               connectNulls={false}
               isAnimationActive={false}
             />
-            {/* Forecast data area - only show if forecast data exists AND showPredictions is true */}
-            {showPredictions && forecastData.length > 0 && (
-              <Area
-                type="monotone"
-                dataKey="orders_count"
-                name="Orders (Forecast)"
-                stroke={UNIFIED_COLOR_SCHEME.forecast.orders}
-                strokeWidth={3}
-                strokeDasharray="8 4"
-                fill={`url(#${predictionGradientId})`}
-                fillOpacity={0.4}
-                dot={(props: any) => {
-                  const { payload } = props;
-                  const isPrediction = payload?.isPrediction;
-                  if (!isPrediction) {
-                    // Return invisible dot for historical data on forecast area
-                    return <circle cx={props.cx} cy={props.cy} r={0} fill="transparent" />;
-                  }
-                  return (
-                    <circle
-                      cx={props.cx}
-                      cy={props.cy}
-                      r={3}
-                      fill={UNIFIED_COLOR_SCHEME.forecast.orders}
-                      stroke={UNIFIED_COLOR_SCHEME.forecast.orders}
-                      strokeWidth={1}
-                    />
-                  );
-                }}
-                connectNulls={false}
-                isAnimationActive={false}
+            {/* Subtle overlay for forecast region */}
+            {showPredictions && predictionStartDate && (
+              <ReferenceArea
+                x1={predictionStartDate}
+                x2={processedData.combined[processedData.combined.length - 1]?.date}
+                fill={UNIFIED_COLOR_SCHEME.forecast.orders}
+                fillOpacity={0.05}
+                strokeWidth={0}
               />
             )}
           </AreaChart>
