@@ -81,13 +81,15 @@ import {
   Person as PersonIcon,
   Group as GroupIcon,
   Storefront as StorefrontIcon,
+  MonitorHeart as MonitorHeartIcon,
 } from '@mui/icons-material';
 import { fetchWithAuth } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { styled } from '@mui/material/styles';
 import { useNotifications } from '../hooks/useNotifications';
-import HealthSummary from '../components/ui/HealthSummary';
+import EnhancedHealthSummary from '../components/ui/EnhancedHealthSummary';
 import DiffViewerDialog from '../components/ui/DiffViewerDialog';
+import TransactionMonitoring from '../components/ui/TransactionMonitoring';
 
 interface Secret {
   key: string;
@@ -300,7 +302,6 @@ const extractShopDomainFromDetails = (details: string): string | null => {
 };
 
 const AdminPage: React.FC = () => {
-  const { shop, isAuthenticated: isShopAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(true);
   const [password, setPassword] = useState('');
@@ -319,7 +320,7 @@ const AdminPage: React.FC = () => {
   const [auditSearchTerm, setAuditSearchTerm] = useState('');
   const [auditActionFilter, setAuditActionFilter] = useState<string>('all');
   const [auditCategoryFilter, setAuditCategoryFilter] = useState<string>('all');
-  const [auditLogType, setAuditLogType] = useState<'all' | 'deleted' | 'active'>('all');
+  const [auditLogType, setAuditLogType] = useState<'all' | 'deleted' | 'active' | 'monitoring'>('all');
 
   // Active shops state
   const [activeShops, setActiveShops] = useState<ActiveShop[]>([]);
@@ -391,6 +392,28 @@ const AdminPage: React.FC = () => {
   const MAX_ATTEMPTS = 5;
   const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutes
   const SESSION_DURATION = 2 * 60 * 60 * 1000; // 2 hours
+
+  // Custom fetch function for admin endpoints that doesn't require shop authentication
+  const fetchAdminEndpoint = async (url: string, options: RequestInit = {}) => {
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.shopgaugeai.com';
+    const fullUrl = `${API_BASE_URL}${url}`;
+    
+    const response = await fetch(fullUrl, {
+      ...options,
+      credentials: 'include',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    return response.json();
+  };
 
   // Check for existing session on mount
   useEffect(() => {
@@ -520,13 +543,7 @@ const AdminPage: React.FC = () => {
       setActiveShopsLoading(true);
       setActiveShopsError(null);
       
-      const response = await fetchWithAuth('/api/admin/active-shops');
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
+      const data = await fetchAdminEndpoint('/api/admin/active-shops');
       
       if (data.active_shops) {
         setActiveShops(data.active_shops);
@@ -552,13 +569,7 @@ const AdminPage: React.FC = () => {
       setDeletedShopsLoading(true);
       setDeletedShopsError(null);
       
-      const response = await fetchWithAuth('/api/admin/deleted-shops');
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
+      const data = await fetchAdminEndpoint('/api/admin/deleted-shops');
       
       if (data.deleted_shops) {
         setDeletedShops(data.deleted_shops);
@@ -584,13 +595,7 @@ const AdminPage: React.FC = () => {
       setSessionStatsLoading(true);
       setSessionStatsError(null);
       
-      const response = await fetchWithAuth('/api/admin/session-statistics');
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
+      const data = await fetchAdminEndpoint('/api/admin/session-statistics');
       
       if (data.statistics) {
         setSessionStats(data.statistics);
@@ -623,13 +628,7 @@ const AdminPage: React.FC = () => {
         endpoint = `/api/admin/audit-logs/active-shops?page=${auditPage}&size=${auditRowsPerPage}`;
       }
       
-      const response = await fetchWithAuth(endpoint);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
+      const data = await fetchAdminEndpoint(endpoint);
       
       if (data.audit_logs) {
         // Map backend fields to frontend expected fields
@@ -680,7 +679,7 @@ const AdminPage: React.FC = () => {
   const uniqueCategories = Array.from(new Set(auditLogs.map(log => getActionCategory(log.action)))).sort();
 
   useEffect(() => {
-    if (!shop || !isAuthenticated) {
+    if (!isAuthenticated) {
       setAuditLogs([]);
       setAuditLoading(false);
       setAuditError(null);
@@ -693,7 +692,7 @@ const AdminPage: React.FC = () => {
       setAuditLogType('all');
       return;
     }
-  }, [shop, isAuthenticated]);
+  }, [isAuthenticated]);
 
   // Fetch audit logs when pagination or log type changes
   useEffect(() => {
@@ -871,12 +870,8 @@ const AdminPage: React.FC = () => {
                   localStorage.removeItem('admin_session_expiry');
                   showSuccess('Admin session ended securely');
                   
-                  // Redirect based on shop authentication state
-                  if (isShopAuthenticated && shop) {
-                    navigate('/dashboard');
-                  } else {
-                    navigate('/');
-                  }
+                  // Always redirect to home page when logging out of admin
+                  navigate('/');
                 }}
                 sx={{ borderRadius: 2 }}
               >
@@ -930,11 +925,20 @@ const AdminPage: React.FC = () => {
                 } 
                 value="active" 
               />
+              <Tab 
+                label={
+                  <Box display="flex" alignItems="center" gap={1}>
+                    <MonitorHeartIcon fontSize="small" />
+                    Transaction Monitoring
+                  </Box>
+                } 
+                value="monitoring" 
+              />
             </Tabs>
           </TabsContainer>
 
-          {/* Health Summary */}
-          <HealthSummary />
+          {/* Enhanced Health Summary - Only show for non-monitoring tabs */}
+          {auditLogType !== 'monitoring' && <EnhancedHealthSummary />}
 
           {/* Session Statistics Card */}
           {sessionStats && auditLogType === 'active' && (
@@ -981,7 +985,7 @@ const AdminPage: React.FC = () => {
           )}
 
           {/* Search and Filter Controls */}
-          {auditLogType !== 'active' && (
+          {auditLogType !== 'active' && auditLogType !== 'monitoring' && (
             <FilterContainer elevation={0}>
               <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
                 <FormControl size="small" sx={{ minWidth: 180 }}>
@@ -1062,7 +1066,7 @@ const AdminPage: React.FC = () => {
           )}
 
           {/* Results Summary */}
-          {!auditLoading && !auditError && auditLogType !== 'active' && (
+          {!auditLoading && !auditError && auditLogType !== 'active' && auditLogType !== 'monitoring' && (
             <Box sx={{ mb: 2 }}>
               <Typography variant="body2" color="text.secondary">
                 Showing {filteredAuditLogs.length} of {auditTotalCount} total audit logs
@@ -1682,6 +1686,11 @@ const AdminPage: React.FC = () => {
                 </>
               )}
             </>
+          )}
+
+          {/* Transaction Monitoring Tab */}
+          {auditLogType === 'monitoring' && (
+            <TransactionMonitoring />
           )}
         </Box>
       </SectionCard>

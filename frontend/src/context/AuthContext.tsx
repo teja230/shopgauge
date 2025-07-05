@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import axios from 'axios';
-import { getAuthShop, setApiAuthState, API_BASE_URL } from '../api';
+import { setApiAuthState, setGlobalServiceErrorHandler, API_BASE_URL } from '../api';
 import { invalidateCache } from '../utils/cacheUtils';
 
 // Types
@@ -41,6 +41,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
   const [isAuthReady, setIsAuthReady] = useState(false);
 
+  // Enhanced authentication error handling
+  const handleAuthError = (error: any) => {
+    console.log('AuthContext: Handling potential auth error', error);
+    
+    if (error?.authenticationError || error?.status === 401) {
+      console.log('AuthContext: Confirmed authentication error, clearing auth state');
+      
+      // Clear authentication state
+      setIsAuthenticated(false);
+      setShop(null);
+      setApiAuthState(false, null);
+      
+      // Mark auth as ready even when not authenticated
+      setIsAuthReady(true);
+      
+      // Don't redirect here - let the route guards handle navigation
+      // This prevents competing navigation logic
+      console.log('AuthContext: Auth state cleared, route guards will handle navigation');
+      
+      return true; // Indicate that the error was handled
+    }
+    
+    // Handle other types of errors that might indicate auth issues
+    if (error?.response?.status === 403 || error?.code === 'UNAUTHORIZED') {
+      console.log('AuthContext: Handling 403/UNAUTHORIZED error');
+      
+      // Clear auth state but don't redirect
+      setIsAuthenticated(false);
+      setShop(null);
+      setApiAuthState(false, null);
+      setIsAuthReady(true);
+      
+      return true;
+    }
+    
+    return false; // Let other errors be handled elsewhere
+  };
+
+  // Set the global error handler
+  useEffect(() => {
+    setGlobalServiceErrorHandler(handleAuthError);
+  }, []);
+
   // Comprehensive cache clearing function
   const clearAllDashboardCache = () => {
     // Clear all known dashboard cache keys
@@ -51,13 +94,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const keysToRemove = [];
     for (let i = 0; i < sessionStorage.length; i++) {
       const key = sessionStorage.key(i);
-      if (key && key.includes('dashboard_cache')) {
+      if (key && (key.includes('dashboard_cache') || key.includes('unified_analytics_'))) {
         keysToRemove.push(key);
       }
     }
     keysToRemove.forEach(key => sessionStorage.removeItem(key));
     
-    console.log('AuthContext: Cleared all dashboard cache keys');
+    console.log('AuthContext: Cleared all dashboard and unified analytics cache keys');
   };
 
   useEffect(() => {
@@ -72,33 +115,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     try {
       setAuthLoading(true);
-      setLoading(true); // Ensure loading state is active during auth check
+      setLoading(true);
       
-      // Use enhanced auth check that handles race conditions
-      const authResult = await getAuthShop();
-      
-      if (authResult.authenticated && authResult.shop) {
-        console.log('AuthContext: Authentication successful, shop:', authResult.shop);
-        setShop(authResult.shop);
-        setIsAuthenticated(true);
-        setIsAuthReady(true);
-        
-        // Sync API authentication state
-        setApiAuthState(true, authResult.shop);
-      } else {
-        console.log('AuthContext: Not authenticated or no shop found');
-        setShop(null);
-        setIsAuthenticated(false);
-        setIsAuthReady(true);
-        
-        // Sync API authentication state
-        setApiAuthState(false, null);
+      // Use direct fetch for initial auth check to avoid triggering global error handler
+      const response = await fetch(`${API_BASE_URL}/api/auth/shopify/me`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        cache: 'no-cache',
+      });
+
+      console.log('AuthContext: Auth check response status:', response.status);
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.shop && data.authenticated) {
+          console.log('AuthContext: Authentication successful, shop:', data.shop);
+          setShop(data.shop);
+          setIsAuthenticated(true);
+          setIsAuthReady(true);
+          
+          // Sync API authentication state
+          setApiAuthState(true, data.shop);
+          setHasInitiallyLoaded(true);
+          return;
+        }
       }
       
+      // Handle non-authenticated state
+      console.log('AuthContext: Not authenticated, response status:', response.status);
+      setShop(null);
+      setIsAuthenticated(false);
+      setIsAuthReady(true);
+      
+      // Sync API authentication state
+      setApiAuthState(false, null);
       setHasInitiallyLoaded(true);
       
     } catch (error) {
       console.error('AuthContext: Error during authentication check:', error);
+      
+      // Handle network errors gracefully
       setShop(null);
       setIsAuthenticated(false);
       setIsAuthReady(true);
@@ -106,10 +166,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Sync API authentication state
       setApiAuthState(false, null);
+      
+      // Don't throw error to prevent breaking the app
     } finally {
       setAuthLoading(false);
-      setLoading(false); // CRITICAL: Set loading to false when auth check completes
-      console.log('AuthContext: Authentication check completed, loading state cleared');
+      setLoading(false);
+      console.log('AuthContext: Authentication check completed');
     }
   };
 
@@ -129,15 +191,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Clear dashboard cache for the specific shop on logout
       if (shopToClear) {
         invalidateCache(shopToClear);
+        
+        // Clear unified analytics storage on logout
+        try {
+          const unifiedAnalyticsKeys = [
+            `unified_analytics_${shopToClear}_60d_with_predictions`,
+            `unified_analytics_${shopToClear}_60d_no_predictions`,
+            `unified_analytics_${shopToClear}_30d_with_predictions`,
+            `unified_analytics_${shopToClear}_30d_no_predictions`,
+            `unified_analytics_${shopToClear}_90d_with_predictions`,
+            `unified_analytics_${shopToClear}_90d_no_predictions`,
+          ];
+          
+          unifiedAnalyticsKeys.forEach(key => {
+            sessionStorage.removeItem(key);
+          });
+          
+          console.log('AuthContext: Cleared unified analytics storage on logout');
+        } catch (error) {
+          console.warn('AuthContext: Error clearing unified analytics storage:', error);
+        }
       }
       
+      // Clear auth state
       setIsAuthenticated(false);
       setShop(null);
-      
-      // Update API auth state
       setApiAuthState(false, null);
-      
-      setIsAuthReady(true); // Keep auth system ready
+      setIsAuthReady(true);
       
       console.log('AuthContext: Logout completed');
     }

@@ -3,7 +3,9 @@ package com.storesight.backend.controller;
 import com.storesight.backend.model.ShopSession;
 import com.storesight.backend.service.ShopService;
 import jakarta.servlet.http.HttpServletRequest;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -63,6 +65,8 @@ public class SessionManagementController {
                     sessionInfo.put(
                         "lastAccessedAt",
                         session.getLastAccessedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+                    sessionInfo.put(
+                        "lastUsedFormatted", formatLastUsedTime(session.getLastAccessedAt()));
                     sessionInfo.put("ipAddress", session.getIpAddress());
                     sessionInfo.put("userAgent", session.getUserAgent());
                     sessionInfo.put("isExpired", session.isExpired());
@@ -379,6 +383,294 @@ public class SessionManagementController {
     }
   }
 
+  /** Session heartbeat endpoint to detect browser closure and maintain session activity */
+  @PostMapping("/heartbeat")
+  public ResponseEntity<Map<String, Object>> sessionHeartbeat(
+      @CookieValue(value = "shop", required = false) String shop, HttpServletRequest request) {
+
+    Map<String, Object> response = new HashMap<>();
+
+    if (shop == null) {
+      response.put("error", "No shop authentication found");
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+    }
+
+    try {
+      String sessionId = request.getSession().getId();
+
+      // Update session last accessed time
+      boolean sessionUpdated = shopService.updateSessionHeartbeat(shop, sessionId);
+
+      if (sessionUpdated) {
+        response.put("success", true);
+        response.put("message", "Session heartbeat recorded");
+        response.put("sessionId", sessionId);
+        response.put("shop", shop);
+        response.put("timestamp", System.currentTimeMillis());
+
+        // Return active session count for client-side monitoring
+        List<ShopSession> activeSessions = shopService.getActiveSessionsForShop(shop);
+        response.put("activeSessionCount", activeSessions.size());
+
+        return ResponseEntity.ok(response);
+      } else {
+        response.put("error", "Session not found or inactive");
+        response.put("success", false);
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+      }
+
+    } catch (Exception e) {
+      logger.error("Error processing session heartbeat for shop {}: {}", shop, e.getMessage(), e);
+      response.put("error", "Failed to process session heartbeat");
+      response.put("success", false);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+    }
+  }
+
+  /** Endpoint to check if sessions are stale (for cleanup detection) */
+  @GetMapping("/stale-check")
+  public ResponseEntity<Map<String, Object>> checkStaleEsessions(
+      @CookieValue(value = "shop", required = false) String shop, HttpServletRequest request) {
+
+    Map<String, Object> response = new HashMap<>();
+
+    if (shop == null) {
+      response.put("error", "No shop authentication found");
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+    }
+
+    try {
+      String sessionId = request.getSession().getId();
+
+      // Get stale sessions for this shop
+      List<ShopSession> staleSessions = shopService.getStaleSessionsForShop(shop);
+
+      List<Map<String, Object>> staleSessionData =
+          staleSessions.stream()
+              .map(
+                  session -> {
+                    Map<String, Object> sessionInfo = new HashMap<>();
+                    sessionInfo.put("sessionId", session.getSessionId());
+                    sessionInfo.put("isCurrentSession", session.getSessionId().equals(sessionId));
+                    sessionInfo.put(
+                        "lastAccessedAt",
+                        session.getLastAccessedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+                    sessionInfo.put(
+                        "minutesSinceLastAccess",
+                        java.time.Duration.between(session.getLastAccessedAt(), LocalDateTime.now())
+                            .toMinutes());
+                    return sessionInfo;
+                  })
+              .collect(Collectors.toList());
+
+      response.put("success", true);
+      response.put("shop", shop);
+      response.put("currentSessionId", sessionId);
+      response.put("staleSessionCount", staleSessions.size());
+      response.put("staleSessions", staleSessionData);
+      response.put("timestamp", System.currentTimeMillis());
+
+      return ResponseEntity.ok(response);
+
+    } catch (Exception e) {
+      logger.error("Error checking stale sessions for shop {}: {}", shop, e.getMessage(), e);
+      response.put("error", "Failed to check stale sessions");
+      response.put("success", false);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+    }
+  }
+
+  /** Endpoint to handle session termination signals from browser unload events */
+  @PostMapping("/terminate-current")
+  public ResponseEntity<Map<String, Object>> terminateCurrentSession(
+      @CookieValue(value = "shop", required = false) String shop, HttpServletRequest request) {
+
+    Map<String, Object> response = new HashMap<>();
+
+    try {
+      String sessionId =
+          request.getSession(false) != null ? request.getSession(false).getId() : null;
+
+      if (shop != null && sessionId != null) {
+        shopService.removeSession(shop, sessionId);
+        logger.info("Session terminated via unload signal: {} for shop: {}", sessionId, shop);
+
+        response.put("success", true);
+        response.put("message", "Session terminated successfully");
+        response.put("sessionId", sessionId);
+        response.put("shop", shop);
+      } else {
+        logger.warn(
+            "Session termination request missing shop or sessionId: shop={}, sessionId={}",
+            shop,
+            sessionId);
+        response.put("success", false);
+        response.put("message", "Missing shop or session information");
+      }
+
+      response.put("timestamp", System.currentTimeMillis());
+      return ResponseEntity.ok(response);
+
+    } catch (Exception e) {
+      logger.error("Error terminating current session for shop {}: {}", shop, e.getMessage(), e);
+      response.put("error", "Failed to terminate session");
+      response.put("success", false);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+    }
+  }
+
+  /** Check if session limit would be exceeded and return session details for UI */
+  @GetMapping("/limit-check")
+  public ResponseEntity<Map<String, Object>> checkSessionLimit(
+      @CookieValue(value = "shop", required = false) String shop, HttpServletRequest request) {
+
+    Map<String, Object> response = new HashMap<>();
+
+    if (shop == null) {
+      response.put("error", "No shop authentication found");
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+    }
+
+    try {
+      String currentSessionId = request.getSession().getId();
+
+      // Retry mechanism to handle session commit timing during login
+      List<ShopSession> activeSessions = null;
+      boolean currentSessionFound = false;
+      int maxRetries = 3;
+      int retryDelay = 500; // 500ms between retries
+
+      for (int attempt = 0; attempt < maxRetries; attempt++) {
+        activeSessions = shopService.getActiveSessionsForShop(shop);
+        currentSessionFound =
+            activeSessions.stream()
+                .anyMatch(session -> session.getSessionId().equals(currentSessionId));
+
+        if (currentSessionFound || attempt == maxRetries - 1) {
+          break; // Found current session or exhausted retries
+        }
+
+        // Wait before retry (only during login timing issues)
+        try {
+          Thread.sleep(retryDelay);
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          break;
+        }
+
+        logger.debug(
+            "Retrying session limit check - attempt {}/{} for shop: {} session: {}",
+            attempt + 1,
+            maxRetries,
+            shop,
+            currentSessionId);
+      }
+
+      // Check if limit would be exceeded
+      boolean limitReached = activeSessions.size() >= 5; // MAX_SESSIONS_PER_SHOP
+
+      response.put("limitReached", limitReached);
+      response.put("maxSessions", 5);
+      response.put("currentSessionCount", activeSessions.size());
+      response.put("shop", shop);
+      response.put("currentSessionId", currentSessionId);
+      response.put("currentSessionFound", currentSessionFound);
+
+      // Include detailed session information for UI
+      List<Map<String, Object>> sessionDetails =
+          activeSessions.stream()
+              .map(
+                  session -> {
+                    Map<String, Object> sessionInfo = new HashMap<>();
+                    sessionInfo.put("sessionId", session.getSessionId());
+                    sessionInfo.put(
+                        "isCurrentSession", session.getSessionId().equals(currentSessionId));
+                    sessionInfo.put(
+                        "createdAt",
+                        session.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+                    sessionInfo.put(
+                        "lastAccessedAt",
+                        session.getLastAccessedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+                    sessionInfo.put(
+                        "lastUsedFormatted", formatLastUsedTime(session.getLastAccessedAt()));
+                    sessionInfo.put(
+                        "ipAddress",
+                        session.getIpAddress() != null ? session.getIpAddress() : "Unknown");
+                    sessionInfo.put(
+                        "userAgent",
+                        session.getUserAgent() != null
+                            ? session.getUserAgent()
+                            : "Unknown Browser");
+                    sessionInfo.put("isExpired", session.isExpired());
+
+                    if (session.getExpiresAt() != null) {
+                      sessionInfo.put(
+                          "expiresAt",
+                          session.getExpiresAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+                    }
+
+                    return sessionInfo;
+                  })
+              .collect(Collectors.toList());
+
+      response.put("sessions", sessionDetails);
+      response.put("success", true);
+      response.put("timestamp", System.currentTimeMillis());
+
+      return ResponseEntity.ok(response);
+
+    } catch (Exception e) {
+      logger.error("Error checking session limit for shop {}: {}", shop, e.getMessage(), e);
+      response.put("error", "Failed to check session limit");
+      response.put("success", false);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+    }
+  }
+
+  /** Force session limit check (returns true if login should proceed) */
+  @PostMapping("/can-create-session")
+  public ResponseEntity<Map<String, Object>> canCreateSession(
+      @CookieValue(value = "shop", required = false) String shop, HttpServletRequest request) {
+
+    Map<String, Object> response = new HashMap<>();
+
+    if (shop == null) {
+      response.put("error", "No shop authentication found");
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+    }
+
+    try {
+      List<ShopSession> activeSessions = shopService.getActiveSessionsForShop(shop);
+      String currentSessionId = request.getSession().getId();
+
+      // Check if current session already exists
+      boolean currentSessionExists =
+          activeSessions.stream().anyMatch(s -> s.getSessionId().equals(currentSessionId));
+
+      // If current session exists, we can proceed (it's a refresh/re-auth)
+      // If it doesn't exist, check if we're at the limit
+      boolean canCreate = currentSessionExists || activeSessions.size() < 5;
+
+      response.put("canCreate", canCreate);
+      response.put("currentSessionExists", currentSessionExists);
+      response.put("activeSessionCount", activeSessions.size());
+      response.put("maxSessions", 5);
+      response.put("shop", shop);
+      response.put("currentSessionId", currentSessionId);
+      response.put("success", true);
+
+      return ResponseEntity.ok(response);
+
+    } catch (Exception e) {
+      logger.error(
+          "Error checking if session can be created for shop {}: {}", shop, e.getMessage(), e);
+      response.put("error", "Failed to check session creation eligibility");
+      response.put("canCreate", false);
+      response.put("success", false);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+    }
+  }
+
   // Helper method for input validation
   private boolean isValidShopDomain(String shop) {
     if (shop == null || shop.trim().isEmpty()) {
@@ -399,5 +691,32 @@ public class SessionManagementController {
             "^[a-zA-Z0-9][a-zA-Z0-9\\-]*[a-zA-Z0-9](\\.myshopify\\.com)?$");
 
     return shopPattern.matcher(trimmedShop).matches();
+  }
+
+  /** Format last accessed time in a user-friendly way */
+  private String formatLastUsedTime(LocalDateTime lastAccessedAt) {
+    if (lastAccessedAt == null) {
+      return "Unknown";
+    }
+
+    LocalDateTime now = LocalDateTime.now();
+
+    // Calculate the time difference
+    long minutes = ChronoUnit.MINUTES.between(lastAccessedAt, now);
+    long hours = ChronoUnit.HOURS.between(lastAccessedAt, now);
+    long days = ChronoUnit.DAYS.between(lastAccessedAt, now);
+
+    if (minutes < 1) {
+      return "Just now";
+    } else if (minutes < 60) {
+      return minutes + " minute" + (minutes == 1 ? "" : "s") + " ago";
+    } else if (hours < 24) {
+      return hours + " hour" + (hours == 1 ? "" : "s") + " ago";
+    } else if (days < 30) {
+      return days + " day" + (days == 1 ? "" : "s") + " ago";
+    } else {
+      // For older sessions, show the actual date
+      return "On " + lastAccessedAt.format(DateTimeFormatter.ofPattern("MMM dd, yyyy"));
+    }
   }
 }

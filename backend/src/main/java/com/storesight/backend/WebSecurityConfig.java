@@ -225,7 +225,21 @@ public class WebSecurityConfig implements WebMvcConfigurer {
                     .frameOptions(frameOptionsConfig -> frameOptionsConfig.deny())
                     .contentTypeOptions(contentTypeOptionsConfig -> {})
                     .httpStrictTransportSecurity(
-                        hstsConfig -> hstsConfig.maxAgeInSeconds(31536000).includeSubDomains(true)))
+                        hstsConfig -> hstsConfig.maxAgeInSeconds(31536000).includeSubDomains(true))
+                    .contentSecurityPolicy(
+                        cspConfig ->
+                            cspConfig.policyDirectives(
+                                "default-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.shopify.com https://*.shopify.com https://shopgaugeai.com https://api.shopgaugeai.com; "
+                                    + "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.shopify.com https://*.shopify.com https://shopgaugeai.com; "
+                                    + "style-src 'self' 'unsafe-inline' https://cdn.shopify.com https://*.shopify.com https://fonts.googleapis.com; "
+                                    + "font-src 'self' https://fonts.gstatic.com https://cdn.shopify.com; "
+                                    + "img-src 'self' data: https: blob:; "
+                                    + "media-src 'self' https:; "
+                                    + "object-src 'none'; "
+                                    + "base-uri 'self'; "
+                                    + "form-action 'self' https://*.shopify.com https://accounts.shopify.com https://admin.shopify.com https://app.shopify.com https://themes.shopify.com https://apps.shopify.com https://dev.shopify.com https://shop.app; "
+                                    + "frame-ancestors 'self' https://*.shopify.com https://admin.shopify.com https://app.shopify.com; "
+                                    + "connect-src 'self' https://api.shopgaugeai.com https://shopgaugeai.com https://*.shopify.com https://accounts.shopify.com https://admin.shopify.com;")))
         .authorizeHttpRequests(
             auth -> {
               auth.requestMatchers(

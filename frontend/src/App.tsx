@@ -1,6 +1,6 @@
-import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { Toaster, toast } from 'react-hot-toast';
+import React, { useEffect, useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ServiceStatusProvider, useServiceStatus } from './context/ServiceStatusContext';
 import { NotificationSettingsProvider } from './context/NotificationSettingsContext';
@@ -15,100 +15,73 @@ import NotFoundPage from './pages/NotFoundPage';
 import ServiceUnavailablePage from './pages/ServiceUnavailablePage';
 import NavBar from './components/NavBar';
 import PrivacyBanner from './components/ui/PrivacyBanner';
-import { ErrorBoundary } from './components/ErrorBoundary';
+import ErrorBoundary from './components/ErrorBoundary';
 import { ThemeProvider } from '@mui/material/styles';
 import { CssBaseline } from '@mui/material';
 import theme from './theme';
 import IntelligentLoadingScreen from './components/ui/IntelligentLoadingScreen';
 import CommandPalette from './components/CommandPalette';
+import { DebugPanel, debugLog } from './components/ui/DebugPanel';
+import { sessionManager, getSessionStatus } from './utils/sessionUtils';
+import SessionLimitDialog from './components/ui/SessionLimitDialog';
+import useSessionLimit from './hooks/useSessionLimit';
 
+// Simple Protected Route for shop authentication
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isAuthenticated, authLoading } = useAuth();
+  const { isAuthenticated, authLoading, hasInitiallyLoaded } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   
-  console.log('ProtectedRoute: Auth status', { 
+  debugLog.debug('ProtectedRoute: Auth status', { 
     isAuthenticated, 
     authLoading, 
-    path: window.location.pathname,
-    search: window.location.search 
-  });
+    hasInitiallyLoaded,
+    path: location.pathname
+  }, 'ProtectedRoute');
   
-  if (authLoading) {
-    console.log('ProtectedRoute: Showing loading state');
+  // Handle redirect for unauthenticated users
+  useEffect(() => {
+    if (!isAuthenticated && !authLoading && hasInitiallyLoaded) {
+      debugLog.info('ProtectedRoute: Not authenticated, redirecting to home', {
+        currentPath: location.pathname + location.search + location.hash
+      }, 'ProtectedRoute');
+      const currentPath = location.pathname + location.search + location.hash;
+      const redirectUrl = currentPath !== '/' ? `/?redirect=${encodeURIComponent(currentPath)}` : '/';
+      navigate(redirectUrl, { replace: true });
+    }
+  }, [isAuthenticated, authLoading, hasInitiallyLoaded, navigate, location.pathname, location.search, location.hash]);
+  
+  // Show loading state while auth is being checked
+  if (authLoading || !hasInitiallyLoaded) {
     return <IntelligentLoadingScreen fastMode={true} message="Authenticating..." />;
   }
   
+  // Show loading state for redirect
   if (!isAuthenticated) {
-    console.log('ProtectedRoute: Not authenticated, redirecting to home from:', window.location.pathname);
-    // Preserve the current path as a redirect parameter so user can return after login
-    const currentPath = location.pathname + location.search + location.hash;
-    return <Navigate to={`/?redirect=${encodeURIComponent(currentPath)}`} replace />;
+    return <IntelligentLoadingScreen fastMode={true} message="Redirecting..." />;
   }
   
-  console.log('ProtectedRoute: Authenticated, rendering children for:', window.location.pathname);
+  // Render protected content
   return <>{children}</>;
 };
 
-// Component to handle redirects from 404.html and loading.html
-const RedirectHandler: React.FC = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { authLoading, isAuthenticated } = useAuth();
-
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const redirectPath = params.get('redirect');
-    
-    if (redirectPath && redirectPath !== '/index.html') {
-      console.log('RedirectHandler: Processing redirect to:', redirectPath);
-      
-      // Define valid routes that should be redirected to
-      const validRoutes = ['/dashboard', '/competitors', '/admin', '/profile', '/privacy-policy', '/service-unavailable'];
-      const protectedRoutes = ['/dashboard', '/competitors', '/profile'];
-      
-      // Check if the redirect path is a valid route
-      if (validRoutes.includes(redirectPath)) {
-        // For protected routes, wait for auth loading to complete
-        if (protectedRoutes.includes(redirectPath)) {
-          if (authLoading) {
-            // Still loading auth, don't redirect yet
-            return;
-          }
-          
-          if (isAuthenticated) {
-            console.log('RedirectHandler: Authenticated user, redirecting to protected route:', redirectPath);
-            navigate(redirectPath, { replace: true });
-          } else {
-            console.log('RedirectHandler: Not authenticated, staying on home page with redirect param');
-            // Keep the redirect parameter for after login - no action needed
-          }
-        } else {
-          // Non-protected routes (admin, privacy-policy) can be accessed directly
-          console.log('RedirectHandler: Redirecting to public route:', redirectPath);
-          navigate(redirectPath, { replace: true });
-        }
-      } else {
-        // Invalid route - remove redirect parameter and let the app handle it normally
-        // This will cause the catch-all route (*) to show the 404 page
-        console.log('RedirectHandler: Invalid route, removing redirect parameter:', redirectPath);
-        navigate(location.pathname, { replace: true });
-      }
-    }
-  }, [navigate, location, authLoading, isAuthenticated]);
-
-  return null;
+// Admin Protected Route - Independent of shop authentication
+const AdminProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  debugLog.debug('AdminProtectedRoute: Rendering AdminPage (admin handles own auth)', {}, 'AdminProtectedRoute');
+  
+  // Always render AdminPage - it has its own password dialog for authentication
+  // This allows admin access independent of shop authentication
+  return <>{children}</>;
 };
 
-// Component to handle global error clearing on route changes
+// Component to clear errors on route changes
 const RouteErrorCleaner: React.FC = () => {
   const location = useLocation();
   
   useEffect(() => {
-    // Only clear error toasts, not all toasts
-    // This prevents success/info notifications from being dismissed
-    console.log('RouteErrorCleaner: Route changed to:', location.pathname);
+    debugLog.info('RouteErrorCleaner: Route changed', { pathname: location.pathname }, 'RouteErrorCleaner');
     
-    // Dispatch a custom event that components can listen to for clearing their error states
+    // Clear component errors on navigation
     window.dispatchEvent(new CustomEvent('clearComponentErrors'));
   }, [location.pathname]);
 
@@ -116,90 +89,127 @@ const RouteErrorCleaner: React.FC = () => {
 };
 
 const AppContent: React.FC = () => {
-  const { isAuthenticated, authLoading, loading } = useAuth();
+  const { isAuthenticated, authLoading, loading, hasInitiallyLoaded, shop } = useAuth();
   const { handleServiceError } = useServiceStatus();
+  const [showDebugPanel, setShowDebugPanel] = React.useState(false);
   
-  // Escalating loader: render the branded IntelligentLoadingScreen only
-  // if the critical boot-up takes longer than a short threshold.
-  const MIN_BRAND_LOADER_TIME = 400; // ms – tweak if needed
-  const [showBrandLoader, setShowBrandLoader] = React.useState(false);
-
-  React.useEffect(() => {
-    const timer = setTimeout(() => setShowBrandLoader(true), MIN_BRAND_LOADER_TIME);
-    return () => clearTimeout(timer);
-  }, []);
+  // Session limit management
+  const {
+    sessionLimitData,
+    loading: sessionLimitLoading,
+    showSessionDialog,
+    checkSessionLimit,
+    deleteSession,
+    deleteSessions,
+    closeSessionDialog,
+  } = useSessionLimit();
   
-  console.log('AppContent: Current location', {
+  // Track session initialization to prevent repeated calls
+  const [sessionInitialized, setSessionInitialized] = useState(false);
+  
+  debugLog.debug('AppContent: Current state', {
     pathname: window.location.pathname,
-    search: window.location.search,
-    hash: window.location.hash,
     isAuthenticated,
     authLoading,
-    loading
-  });
+    loading,
+    hasInitiallyLoaded,
+    sessionInitialized
+  }, 'AppContent');
 
   // Set up global service error handler
   useEffect(() => {
     setGlobalServiceErrorHandler(handleServiceError);
   }, [handleServiceError]);
 
-  // Show global loading state during initial load or auth loading
-  if (loading || authLoading) {
-    return showBrandLoader ? (
-      <IntelligentLoadingScreen fastMode={true} message="Loading ShopGauge..." />
-    ) : null;
+  // Set current store for debug panel
+  useEffect(() => {
+    debugLog.setStore(shop);
+    if (shop) {
+      debugLog.info('🏪 Store set for debug panel', { shop }, 'App');
+    }
+  }, [shop]);
+
+  // Initialize session management for authenticated users
+  useEffect(() => {
+    if (isAuthenticated && hasInitiallyLoaded && !authLoading && !sessionInitialized) {
+      debugLog.info('🔧 Initializing session management for authenticated user', {}, 'SessionManager');
+      
+      // Set up session invalidation callback
+      sessionManager.setSessionInvalidatedCallback(() => {
+        debugLog.warn('🚨 Session invalidated - auth context will handle cleanup', {}, 'SessionManager');
+      });
+
+      // Start heartbeat if not already active
+      if (!sessionManager.isHeartbeatActive()) {
+        sessionManager.startHeartbeat();
+      }
+
+      // Check session limit - with delay to prevent race conditions
+      setTimeout(() => {
+        checkSessionLimit().then(() => {
+          debugLog.info('📊 Session limit check completed', {}, 'SessionManager');
+        }).catch(error => {
+          debugLog.error('❌ Session limit check failed', { error: error.message }, 'SessionManager');
+        });
+      }, 1000);
+
+      // Log session status
+      const sessionStatus = getSessionStatus();
+      debugLog.debug('📊 Session status', sessionStatus, 'SessionManager');
+      
+      setSessionInitialized(true);
+      
+    } else if (!isAuthenticated && sessionManager.isHeartbeatActive()) {
+      debugLog.info('🛑 User not authenticated - stopping session heartbeat', {}, 'SessionManager');
+      sessionManager.stopHeartbeat();
+      sessionManager.clearSessionInfo();
+      setSessionInitialized(false);
+    }
+  }, [isAuthenticated, hasInitiallyLoaded, authLoading, sessionInitialized, checkSessionLimit]);
+
+  // Show global loading state during initial load - always show something to prevent blank pages
+  if (loading || (authLoading && !hasInitiallyLoaded)) {
+    return <IntelligentLoadingScreen fastMode={true} message="Loading ShopGauge..." />;
   }
   
+  const handleSessionDeleted = (sessionId: string) => {
+    deleteSession(sessionId);
+  };
+
+  const handleContinueAfterSessionManagement = () => {
+    closeSessionDialog();
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col animate-fadeIn">
       <CommandPalette />
       <RouteErrorCleaner />
-      <RedirectHandler />
       <NavBar />
       <PrivacyBanner />
+      <DebugPanel 
+        isVisible={showDebugPanel} 
+        onToggleVisibility={setShowDebugPanel} 
+      />
+      
+      {/* Session Limit Management Dialog */}
+      <SessionLimitDialog
+        open={showSessionDialog}
+        onClose={closeSessionDialog}
+        onSessionDeleted={handleSessionDeleted}
+        onSessionsDeleted={deleteSessions}
+        onContinue={handleContinueAfterSessionManagement}
+        sessions={sessionLimitData?.sessions || []}
+        loading={sessionLimitLoading}
+        maxSessions={sessionLimitData?.maxSessions || 5}
+      />
+      
       <main className="flex-1">
         <Routes>
           <Route path="/" element={<HomePage />} />
-          <Route
-            path="/dashboard"
-            element={
-              isAuthenticated ? (
-                <DashboardPage />
-              ) : (
-                <Navigate to="/" replace />
-              )
-            }
-          />
-          <Route
-            path="/competitors"
-            element={
-              isAuthenticated ? (
-                <CompetitorsPage />
-              ) : (
-                <Navigate to="/" replace />
-              )
-            }
-          />
-          <Route
-            path="/profile"
-            element={
-              isAuthenticated ? (
-                <ProfilePage />
-              ) : (
-                <Navigate to="/" replace />
-              )
-            }
-          />
-          <Route
-            path="/admin" 
-            element={
-              isAuthenticated ? (
-                <AdminPage />
-              ) : (
-                <Navigate to="/" replace />
-              )
-            } 
-          />
+          <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+          <Route path="/competitors" element={<ProtectedRoute><CompetitorsPage /></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+          <Route path="/admin" element={<AdminProtectedRoute><AdminPage /></AdminProtectedRoute>} />
           <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
           <Route path="/service-unavailable" element={<ServiceUnavailablePage />} />
           <Route path="*" element={<NotFoundPage />} />
@@ -210,10 +220,18 @@ const AppContent: React.FC = () => {
 };
 
 const App: React.FC = () => {
-  // Only log in development
-  if (import.meta.env.DEV) {
-    console.log('App: Rendering');
-  }
+  debugLog.debug('App: Rendering', {}, 'App');
+
+  useEffect(() => {
+    // Normalize URLs that accidentally include /index.html
+    if (window.location.pathname.startsWith('/index.html')) {
+      const cleanPath = window.location.pathname.replace('/index.html', '/') || '/';
+      const newUrl = cleanPath + window.location.search + window.location.hash;
+      debugLog.info('App: Stripping /index.html from URL', { newUrl }, 'App');
+      window.history.replaceState({}, '', newUrl);
+    }
+  }, []);
+
   return (
     <ErrorBoundary>
       <ThemeProvider theme={theme}>
@@ -221,37 +239,37 @@ const App: React.FC = () => {
         <Router>
           <AuthProvider>
             <ServiceStatusProvider>
-            <NotificationSettingsProvider>
-            <Toaster 
-              position="top-center"
-              toastOptions={{
-                duration: 4000,
-                style: {
-                  borderRadius: '8px',
-                  fontWeight: '500',
-                  zIndex: 9999,
-                  boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
-                },
-                success: {
-                  style: {
-                    background: '#10b981', // Green
-                    color: '#ffffff',
-                  },
-                },
-                error: {
-                  style: {
-                    background: '#ef4444', // Red
-                    color: '#ffffff',
-                  },
-                },
-              }}
-              containerStyle={{
-                zIndex: 9999,
-                top: '20px', // Reduced from 60px to ensure visibility
-              }}
-            />
-            <AppContent />
-            </NotificationSettingsProvider>
+              <NotificationSettingsProvider>
+                <Toaster 
+                  position="top-center"
+                  toastOptions={{
+                    duration: 4000,
+                    style: {
+                      borderRadius: '8px',
+                      fontWeight: '500',
+                      zIndex: 9999,
+                      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                    },
+                    success: {
+                      style: {
+                        background: '#10b981',
+                        color: '#ffffff',
+                      },
+                    },
+                    error: {
+                      style: {
+                        background: '#ef4444',
+                        color: '#ffffff',
+                      },
+                    },
+                  }}
+                  containerStyle={{
+                    zIndex: 9999,
+                    top: '20px',
+                  }}
+                />
+                <AppContent />
+              </NotificationSettingsProvider>
             </ServiceStatusProvider>
           </AuthProvider>
         </Router>

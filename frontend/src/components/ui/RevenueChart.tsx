@@ -21,6 +21,9 @@ import {
   Chip,
   ToggleButton,
   ToggleButtonGroup,
+  useMediaQuery,
+  useTheme,
+  Tooltip as MuiTooltip,
 } from '@mui/material';
 import {
   TrendingUp,
@@ -32,11 +35,10 @@ import {
   StackedLineChart,
   Analytics,
 } from '@mui/icons-material';
+import LoadingIndicator from './LoadingIndicator';
+import type { RevenuePoint, TooltipProps, ChartPayload } from '../../types/charts';
 
-interface RevenueData {
-  created_at: string;
-  total_price: number;
-}
+type RevenueData = RevenuePoint;
 
 interface RevenueChartProps {
   data: RevenueData[];
@@ -47,7 +49,7 @@ interface RevenueChartProps {
 
 type ChartType = 'line' | 'area' | 'bar' | 'candlestick' | 'waterfall' | 'stacked' | 'composed';
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+const CustomTooltip: React.FC<TooltipProps<RevenuePoint>> = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
       <Paper
@@ -60,26 +62,26 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         }}
       >
         <Typography variant="body2" color="text.secondary" gutterBottom>
-          {new Date(label).toLocaleDateString('en-US', {
+          {new Date(label as string).toLocaleDateString('en-US', {
             weekday: 'short',
             month: 'short',
             day: 'numeric',
           })}
         </Typography>
-        {payload.map((entry: any, index: number) => (
+        {(payload as ChartPayload<RevenuePoint>[]).map((entry, index) => (
           <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-          <Box
-            sx={{
-              width: 12,
-              height: 12,
-              borderRadius: '50%',
+            <Box
+              sx={{
+                width: 12,
+                height: 12,
+                borderRadius: '50%',
                 backgroundColor: entry.color,
-            }}
-          />
-          <Typography variant="body2" fontWeight={600}>
-              {entry.name}: ${entry.value?.toLocaleString()}
-          </Typography>
-        </Box>
+              }}
+            />
+            <Typography variant="body2" fontWeight={600}>
+              {entry.name as string}: ${entry.value?.toLocaleString()}
+            </Typography>
+          </Box>
         ))}
       </Paper>
     );
@@ -105,12 +107,21 @@ const formatYAxisTick = (value: number) => {
 };
 
 export const RevenueChart: React.FC<RevenueChartProps> = ({
-  data,
+  data = [],
   loading = false,
   error = null,
-  height = 400,
+  height = 450,
 }) => {
   const [chartType, setChartType] = useState<ChartType>('area');
+
+  // Responsive helper
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
+  
+  // Mobile-optimized dimensions
+  const mobileHeight = Math.min(height * 0.8, 350); // Reduce height by 20% on mobile, cap at 350px
+  const responsiveHeight = isMobile ? mobileHeight : height;
 
   const chartTypeConfig = {
     line: {
@@ -157,6 +168,31 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
     },
   };
 
+  const gradientIdPrefix = React.useMemo(() => `rev-${Math.random().toString(36).substring(2,8)}`, []);
+
+  // Layout-aware container hooks declared early to satisfy rules-of-hooks
+  const [containerReady, setContainerReady] = React.useState(false);
+  const containerRef = React.useRef<HTMLDivElement | null>(null);
+
+  React.useLayoutEffect(() => {
+    if (!containerRef.current) return;
+    if (containerRef.current.offsetWidth > 0) {
+      setContainerReady(true);
+      return;
+    }
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.contentRect.width > 0) {
+          setContainerReady(true);
+          ro.disconnect();
+          break;
+        }
+      }
+    });
+    ro.observe(containerRef.current);
+    return () => ro.disconnect();
+  }, []);
+
   // Validate and sanitize input data to prevent runtime errors
   const sanitizedData = React.useMemo(() => {
     if (!Array.isArray(data)) return [];
@@ -202,259 +238,270 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
   }, [sanitizedData]);
 
   const renderChart = () => {
-    const commonProps = {
-      data: processedData,
-      margin: { top: 20, right: 30, left: 20, bottom: 20 },
-    };
+    try {
+      // Mobile-optimized margins
+      const mobileMargins = { top: 10, right: 10, left: 10, bottom: 30 };
+      const desktopMargins = { top: 20, right: 30, left: 20, bottom: 20 };
+      
+      const commonProps = {
+        data: processedData,
+        margin: isMobile ? mobileMargins : desktopMargins,
+      };
 
-    const commonXAxis = (
-      <XAxis
-        dataKey="created_at"
-        tickFormatter={formatXAxisTick}
-        stroke="rgba(0, 0, 0, 0.4)"
-        tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: 12 }}
-        axisLine={{ stroke: 'rgba(0, 0, 0, 0.1)' }}
-      />
-    );
+      const commonXAxis = (
+        <XAxis
+          dataKey="created_at"
+          tickFormatter={formatXAxisTick}
+          stroke="rgba(0, 0, 0, 0.4)"
+          tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: isMobile ? 10 : 12 }}
+          axisLine={{ stroke: 'rgba(0, 0, 0, 0.1)' }}
+          interval={isMobile ? 'preserveStartEnd' : 0}
+          angle={isMobile ? -45 : 0}
+          textAnchor={isMobile ? 'end' : 'middle'}
+          height={isMobile ? 50 : 30}
+          label={!isMobile ? {
+            value: 'Date',
+            position: 'insideBottomRight',
+            offset: -6,
+            fill: 'rgba(0, 0, 0, 0.54)',
+            fontSize: 12,
+          } : undefined}
+        />
+      );
 
-    const commonYAxis = (
-      <YAxis
-        tickFormatter={formatYAxisTick}
-        stroke="rgba(0, 0, 0, 0.4)"
-        tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: 12 }}
-        axisLine={{ stroke: 'rgba(0, 0, 0, 0.1)' }}
-      />
-    );
+      const commonYAxis = (
+        <YAxis
+          tickFormatter={formatYAxisTick}
+          stroke="rgba(0, 0, 0, 0.4)"
+          tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: isMobile ? 10 : 12 }}
+          axisLine={{ stroke: 'rgba(0, 0, 0, 0.1)' }}
+          width={isMobile ? 50 : 60}
+          label={!isMobile ? {
+            value: 'Revenue (USD)',
+            angle: -90,
+            position: 'insideLeft',
+            offset: -10,
+            fill: 'rgba(0, 0, 0, 0.54)',
+            fontSize: 12,
+          } : undefined}
+        />
+      );
 
-    const commonGrid = (
-      <CartesianGrid
-        strokeDasharray="3 3"
-        stroke="rgba(0, 0, 0, 0.05)"
-        horizontal={true}
-        vertical={false}
-      />
-    );
+      const commonGrid = (
+        <CartesianGrid
+          strokeDasharray="3 3"
+          stroke="rgba(0, 0, 0, 0.05)"
+          horizontal={true}
+          vertical={false}
+        />
+      );
 
-    const commonTooltip = <Tooltip content={<CustomTooltip />} />;
+      const commonTooltip = <Tooltip content={<CustomTooltip />} />;
 
-    switch (chartType) {
-      case 'line':
-        return (
-          <LineChart {...commonProps}>
-            {commonGrid}
-            {commonXAxis}
-            {commonYAxis}
-            {commonTooltip}
-            <Line
-              type="monotone"
-              dataKey="total_price"
-              stroke={chartTypeConfig.line.color}
-              strokeWidth={3}
-              dot={{
-                fill: chartTypeConfig.line.color,
-                strokeWidth: 2,
-                r: 4,
-              }}
-              activeDot={{
-                r: 6,
-                fill: chartTypeConfig.line.color,
-                stroke: '#fff',
-                strokeWidth: 2,
-              }}
-            />
-          </LineChart>
-        );
+      switch (chartType) {
+        case 'line':
+          return (
+            <LineChart {...commonProps}>
+              {commonGrid}
+              {commonXAxis}
+              {commonYAxis}
+              {commonTooltip}
+              <Line
+                type="monotone"
+                dataKey="total_price"
+                stroke={chartTypeConfig.line.color}
+                strokeWidth={3}
+                dot={{
+                  fill: chartTypeConfig.line.color,
+                  strokeWidth: 2,
+                  r: 4,
+                }}
+                activeDot={{
+                  r: 6,
+                  fill: chartTypeConfig.line.color,
+                  stroke: '#fff',
+                  strokeWidth: 2,
+                }}
+              />
+            </LineChart>
+          );
 
-      case 'area':
-        return (
-          <AreaChart {...commonProps}>
-            <defs>
-              <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={chartTypeConfig.area.color} stopOpacity={0.3} />
-                <stop offset="95%" stopColor={chartTypeConfig.area.color} stopOpacity={0.05} />
-              </linearGradient>
-            </defs>
-            {commonGrid}
-            {commonXAxis}
-            {commonYAxis}
-            {commonTooltip}
-            <Area
-              type="monotone"
-              dataKey="total_price"
-              stroke={chartTypeConfig.area.color}
-              strokeWidth={3}
-              fill="url(#revenueGradient)"
-              dot={{
-                fill: chartTypeConfig.area.color,
-                strokeWidth: 2,
-                r: 4,
-              }}
-              activeDot={{
-                r: 6,
-                fill: chartTypeConfig.area.color,
-                stroke: '#fff',
-                strokeWidth: 2,
-              }}
-            />
-          </AreaChart>
-        );
+        case 'area':
+          return (
+            <AreaChart {...commonProps}>
+              <defs>
+                <linearGradient id={`${gradientIdPrefix}-revenueGradient`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={chartTypeConfig.area.color} stopOpacity={0.3} />
+                  <stop offset="95%" stopColor={chartTypeConfig.area.color} stopOpacity={0.05} />
+                </linearGradient>
+              </defs>
+              {commonGrid}
+              {commonXAxis}
+              {commonYAxis}
+              {commonTooltip}
+              <Area
+                type="monotone"
+                dataKey="total_price"
+                stroke={chartTypeConfig.area.color}
+                strokeWidth={3}
+                fill={`url(#${gradientIdPrefix}-revenueGradient)`}
+                dot={{
+                  fill: chartTypeConfig.area.color,
+                  strokeWidth: 2,
+                  r: 4,
+                }}
+                activeDot={{
+                  r: 6,
+                  fill: chartTypeConfig.area.color,
+                  stroke: '#fff',
+                  strokeWidth: 2,
+                }}
+              />
+            </AreaChart>
+          );
 
-      case 'bar':
-        return (
-          <BarChart {...commonProps}>
-            {commonGrid}
-            {commonXAxis}
-            {commonYAxis}
-            {commonTooltip}
-            <Bar
-              dataKey="total_price"
-              fill={chartTypeConfig.bar.color}
-              radius={[4, 4, 0, 0]}
-              opacity={0.8}
-            />
-          </BarChart>
-        );
+        case 'bar':
+          return (
+            <BarChart {...commonProps}>
+              {commonGrid}
+              {commonXAxis}
+              {commonYAxis}
+              {commonTooltip}
+              <Bar
+                dataKey="total_price"
+                fill={chartTypeConfig.bar.color}
+                radius={[4, 4, 0, 0]}
+                opacity={0.8}
+              />
+            </BarChart>
+          );
 
-      case 'candlestick':
-        return (
-          <ComposedChart {...commonProps}>
-            {commonGrid}
-            {commonXAxis}
-            {commonYAxis}
-            {commonTooltip}
-            <Bar
-              dataKey="total_price"
-              fill="#10b981"
-              radius={[2, 2, 0, 0]}
-              opacity={0.8}
-            />
-            <Line
-              type="monotone"
-              dataKey="total_price"
-              stroke="#6b7280"
-              strokeWidth={1}
-              dot={false}
-            />
-          </ComposedChart>
-        );
+        case 'candlestick':
+          return (
+            <ComposedChart {...commonProps}>
+              {commonGrid}
+              {commonXAxis}
+              {commonYAxis}
+              {commonTooltip}
+              <Bar
+                dataKey="total_price"
+                fill="#10b981"
+                radius={[2, 2, 0, 0]}
+                opacity={0.8}
+              />
+              <Line
+                type="monotone"
+                dataKey="total_price"
+                stroke="#6b7280"
+                strokeWidth={1}
+                dot={false}
+              />
+            </ComposedChart>
+          );
 
-      case 'waterfall':
-        return (
-          <ComposedChart {...commonProps}>
-            {commonGrid}
-            {commonXAxis}
-            {commonYAxis}
-            {commonTooltip}
-            <Bar
-              dataKey="change"
-              fill="#10b981"
-              radius={[2, 2, 0, 0]}
-              opacity={0.8}
-            />
-            <Line
-              type="monotone"
-              dataKey="cumulative"
-              stroke="#f59e0b"
-              strokeWidth={2}
-              dot={{
-                fill: '#f59e0b',
-                strokeWidth: 2,
-                r: 3,
-              }}
-            />
-          </ComposedChart>
-        );
+        case 'waterfall':
+          return (
+            <ComposedChart {...commonProps}>
+              {commonGrid}
+              {commonXAxis}
+              {commonYAxis}
+              {commonTooltip}
+              <Bar
+                dataKey="change"
+                fill="#10b981"
+                radius={[2, 2, 0, 0]}
+                opacity={0.8}
+              />
+              <Line
+                type="monotone"
+                dataKey="cumulative"
+                stroke="#f59e0b"
+                strokeWidth={2}
+                dot={{
+                  fill: '#f59e0b',
+                  strokeWidth: 2,
+                  r: 3,
+                }}
+              />
+            </ComposedChart>
+          );
 
-      case 'stacked':
-        return (
-          <AreaChart {...commonProps}>
-            <defs>
-              <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={chartTypeConfig.stacked.color} stopOpacity={0.3} />
-                <stop offset="95%" stopColor={chartTypeConfig.stacked.color} stopOpacity={0.05} />
-              </linearGradient>
-              <linearGradient id="changeGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
-                <stop offset="95%" stopColor="#10b981" stopOpacity={0.05} />
-              </linearGradient>
-            </defs>
-            {commonGrid}
-            {commonXAxis}
-            {commonYAxis}
-            {commonTooltip}
-            <Area
-              type="monotone"
-              dataKey="total_price"
-              stroke={chartTypeConfig.stacked.color}
-              strokeWidth={2}
-              fill="url(#revenueGradient)"
-              stackId="1"
-            />
-            <Area
-              type="monotone"
-              dataKey="change"
-              stroke="#10b981"
-              strokeWidth={1}
-              fill="url(#changeGradient)"
-              stackId="2"
-            />
-          </AreaChart>
-        );
+        case 'stacked':
+          return (
+            <AreaChart {...commonProps}>
+              <defs>
+                <linearGradient id={`${gradientIdPrefix}-stackedRevenueGradient`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={chartTypeConfig.stacked.color} stopOpacity={0.3} />
+                  <stop offset="95%" stopColor={chartTypeConfig.stacked.color} stopOpacity={0.05} />
+                </linearGradient>
+                <linearGradient id={`${gradientIdPrefix}-changeGradient`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
+                  <stop offset="95%" stopColor="#10b981" stopOpacity={0.05} />
+                </linearGradient>
+              </defs>
+              {commonGrid}
+              {commonXAxis}
+              {commonYAxis}
+              {commonTooltip}
+              <Area
+                type="monotone"
+                dataKey="total_price"
+                stroke={chartTypeConfig.stacked.color}
+                strokeWidth={2}
+                fill={`url(#${gradientIdPrefix}-stackedRevenueGradient)`}
+                stackId="1"
+              />
+              <Area
+                type="monotone"
+                dataKey="change"
+                stroke="#10b981"
+                strokeWidth={1}
+                fill={`url(#${gradientIdPrefix}-changeGradient)`}
+                stackId="2"
+              />
+            </AreaChart>
+          );
 
-      case 'composed':
-        return (
-          <ComposedChart {...commonProps}>
-            {commonGrid}
-            {commonXAxis}
-            {commonYAxis}
-            {commonTooltip}
-            <Bar
-              dataKey="total_price"
-              fill={chartTypeConfig.composed.color}
-              radius={[2, 2, 0, 0]}
-              opacity={0.6}
-            />
-            <Line
-              type="monotone"
-              dataKey="total_price"
-              stroke="#2563eb"
-              strokeWidth={2}
-              dot={{
-                fill: '#2563eb',
-                strokeWidth: 2,
-                r: 3,
-              }}
-            />
-            <ReferenceLine y={averageRevenue} stroke="#6b7280" strokeDasharray="3 3" />
-          </ComposedChart>
-        );
+        case 'composed':
+          return (
+            <ComposedChart {...commonProps}>
+              {commonGrid}
+              {commonXAxis}
+              {commonYAxis}
+              {commonTooltip}
+              <Bar
+                dataKey="total_price"
+                fill={chartTypeConfig.composed.color}
+                radius={[2, 2, 0, 0]}
+                opacity={0.6}
+              />
+              <Line
+                type="monotone"
+                dataKey="total_price"
+                stroke="#2563eb"
+                strokeWidth={2}
+                dot={{
+                  fill: '#2563eb',
+                  strokeWidth: 2,
+                  r: 3,
+                }}
+              />
+              <ReferenceLine y={averageRevenue} stroke="#6b7280" strokeDasharray="3 3" />
+            </ComposedChart>
+          );
 
-      default:
-        return <div />;
+        default:
+          return <div />;
+      }
+    } catch (error) {
+      console.error('Error rendering chart:', error);
+      return <div />;
     }
   };
 
   if (loading) {
     return (
-      <Box
-        sx={{
-          height,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexDirection: 'column',
-          gap: 2,
-          backgroundColor: 'rgba(0, 0, 0, 0.02)',
-          borderRadius: 2,
-        }}
-      >
-        <div className="animate-pulse">
-          <TrendingUp sx={{ fontSize: 48, color: 'rgba(0, 0, 0, 0.2)' }} />
-        </div>
-        <Typography variant="body2" color="text.secondary">
-          Loading revenue data...
-        </Typography>
-      </Box>
+      <LoadingIndicator height={height} message="Loading revenue data…" />
     );
   }
 
@@ -483,7 +530,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
     );
   }
 
-  if (processedData.length === 0) {
+  if (sanitizedData.length === 0) {
     return (
       <Box
         sx={{
@@ -498,218 +545,172 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
         }}
       >
         <TrendingUp sx={{ fontSize: 48, color: 'rgba(0, 0, 0, 0.2)' }} />
-        <Typography variant="h6" color="text.secondary">
-          No revenue data available
-        </Typography>
         <Typography variant="body2" color="text.secondary">
-          Revenue data will appear here once you start making sales
+          No revenue data available
         </Typography>
       </Box>
     );
   }
 
   return (
-    <Box sx={{ width: '100%' }}>
-      {/* Chart Header with Controls */}
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          mb: 3,
-          flexWrap: 'wrap',
-          gap: 2,
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <TrendingUp color="primary" />
-            Revenue Overview
+    <Box 
+      ref={containerRef} 
+      sx={{ 
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      {/* Header with Dashboard Theme */}
+      <Box sx={{ 
+        mb: theme.spacing(isMobile ? 1 : 2),
+      }}>
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: isMobile ? 'column' : 'row',
+          justifyContent: 'space-between', 
+          alignItems: isMobile ? 'stretch' : 'center', 
+          mb: theme.spacing(isMobile ? 1 : 2),
+          gap: theme.spacing(isMobile ? 1 : 0),
+        }}>
+          <Typography 
+            variant="h6" 
+            component="h3" 
+            sx={{
+              fontSize: isMobile ? '1rem' : '1.1rem',
+              fontWeight: 600,
+              color: theme.palette.text.primary,
+              display: 'flex',
+              alignItems: 'center',
+              gap: theme.spacing(1),
+              mb: isMobile ? 1 : 0,
+            }}
+          >
+            <TrendingUp color="primary" sx={{ fontSize: isMobile ? 18 : 20 }} />
+            Revenue Chart
           </Typography>
-          <Chip
-            label={`${sanitizedData.length} ${sanitizedData.length === 1 ? 'day' : 'days'}`}
-            size="small"
-            variant="outlined"
-            color="primary"
-          />
-        </Box>
-
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          {/* Enhanced Chart Type Selector */}
+          
+          {/* Chart Type Toggle with Professional Icons + Tooltips */}
           <ToggleButtonGroup
             value={chartType}
             exclusive
             onChange={(_, newType) => newType && setChartType(newType)}
             size="small"
             sx={{
-              backgroundColor: 'white',
-              border: '1px solid rgba(0, 0, 0, 0.1)',
-              borderRadius: 2,
-              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)',
+              backgroundColor: 'transparent',
+              border: 'none',
+              gap: 0.5,
               '& .MuiToggleButton-root': {
+                border: '1px solid',
+                borderColor: 'primary.main',
+                borderRadius: 2,
                 px: 1.5,
-                py: 1,
-                fontSize: '0.75rem',
-                textTransform: 'none',
-                fontWeight: 500,
-                border: 'none',
-                borderRadius: 1.5,
-                margin: 0.25,
+                py: 0.75,
                 minWidth: 'auto',
-                color: 'text.secondary',
-                backgroundColor: 'transparent',
-                transition: 'all 0.2s ease',
+                color: 'primary.main',
+                backgroundColor: 'primary.50',
+                fontSize: '0.875rem',
+                fontWeight: 500,
+                textTransform: 'none',
                 '&:hover': {
-                  backgroundColor: 'rgba(37, 99, 235, 0.08)',
-                  color: 'primary.main',
+                  backgroundColor: 'primary.100',
+                  borderColor: 'primary.main',
                 },
                 '&.Mui-selected': {
                   backgroundColor: 'primary.main',
-                  color: 'white',
+                  color: 'primary.contrastText',
+                  borderColor: 'primary.main',
                   '&:hover': {
                     backgroundColor: 'primary.dark',
                   },
                 },
+                '&:focus': {
+                  outline: '2px solid',
+                  outlineColor: 'primary.main',
+                  outlineOffset: '2px',
+                },
+                transition: 'all 0.2s ease-in-out',
               },
             }}
           >
-            {(Object.keys(chartTypeConfig) as ChartType[]).map((type) => (
-              <ToggleButton
-                key={type}
-                value={type}
-                sx={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: 0.25,
-                  minWidth: 'auto',
-                }}
-                title={chartTypeConfig[type].description}
-              >
-                {React.cloneElement(chartTypeConfig[type].icon, { 
-                  sx: { fontSize: '1rem' } 
-                })}
-                <Typography variant="caption" sx={{ fontSize: '0.65rem', lineHeight: 1 }}>
-                {chartTypeConfig[type].label}
-                </Typography>
-              </ToggleButton>
+            {Object.entries(chartTypeConfig).map(([type, config]) => (
+              <MuiTooltip key={type} title={config.label} arrow placement="top">
+                <ToggleButton value={type} aria-label={`${config.label} chart`}>
+                  {React.cloneElement(config.icon, { 
+                    fontSize: "small"
+                  })}
+                </ToggleButton>
+              </MuiTooltip>
             ))}
           </ToggleButtonGroup>
         </Box>
-      </Box>
 
-      {/* Enhanced Revenue Summary Stats */}
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr 1fr' },
-          gap: 2,
-          mb: 3,
-        }}
-      >
-        <Paper
-          elevation={0}
-          sx={{
-            p: 2,
-            backgroundColor: 'rgba(37, 99, 235, 0.05)',
-            border: '1px solid rgba(37, 99, 235, 0.1)',
-            borderRadius: 2,
-          }}
-        >
-          <Typography variant="body2" color="text.secondary" gutterBottom>
-            Total Revenue
-          </Typography>
-          <Typography variant="h6" color="primary" fontWeight={600}>
-            ${isNaN(totalRevenue) ? '0' : totalRevenue.toLocaleString()}
-          </Typography>
-        </Paper>
-
-        <Paper
-          elevation={0}
-          sx={{
-            p: 2,
-            backgroundColor: 'rgba(16, 185, 129, 0.05)',
-            border: '1px solid rgba(16, 185, 129, 0.1)',
-            borderRadius: 2,
-          }}
-        >
-          <Typography variant="body2" color="text.secondary" gutterBottom>
-            Average Daily
-          </Typography>
-          <Typography variant="h6" sx={{ color: 'rgb(16, 185, 129)' }} fontWeight={600}>
-            ${isNaN(averageRevenue) ? '0' : Math.round(averageRevenue).toLocaleString()}
-          </Typography>
-        </Paper>
-
-        <Paper
-          elevation={0}
-          sx={{
-            p: 2,
-            backgroundColor: 'rgba(245, 158, 11, 0.05)',
-            border: '1px solid rgba(245, 158, 11, 0.1)',
-            borderRadius: 2,
-          }}
-        >
-          <Typography variant="body2" color="text.secondary" gutterBottom>
-            Peak Day
-          </Typography>
-          <Typography variant="h6" sx={{ color: 'rgb(245, 158, 11)' }} fontWeight={600}>
-            ${isNaN(maxRevenue) ? '0' : maxRevenue.toLocaleString()}
-          </Typography>
-        </Paper>
-
-        <Paper
-          elevation={0}
-          sx={{
-            p: 2,
-            backgroundColor: 'rgba(139, 92, 246, 0.05)',
-            border: '1px solid rgba(139, 92, 246, 0.1)',
-            borderRadius: 2,
-          }}
-        >
-          <Typography variant="body2" color="text.secondary" gutterBottom>
-            Range
-          </Typography>
-          <Typography variant="h6" sx={{ color: 'rgb(139, 92, 246)' }} fontWeight={600}>
-            ${isNaN(maxRevenue - minRevenue) ? '0' : (maxRevenue - minRevenue).toLocaleString()}
-          </Typography>
-        </Paper>
-      </Box>
-
-      {/* Chart Container */}
-      <Paper
-        elevation={0}
-        sx={{
-          p: 3,
-          backgroundColor: '#fff',
-          border: '1px solid rgba(0, 0, 0, 0.05)',
-          borderRadius: 3,
-          position: 'relative',
-          overflow: 'hidden',
-        }}
-      >
-        <ResponsiveContainer width="100%" height={height}>
-          {renderChart()}
-        </ResponsiveContainer>
-        
-        {/* Data Activity Period Indicator */}
-        <Box
-          sx={{
-            position: 'absolute',
-            bottom: 8,
-            right: 12,
-            fontSize: '0.7rem',
-            color: 'text.secondary',
-            backgroundColor: 'rgba(255, 255, 255, 0.9)',
-            px: 1,
-            py: 0.5,
-            borderRadius: 1,
-            border: '1px solid rgba(0, 0, 0, 0.08)',
-          }}
-        >
-          📊 Data reflects the last 60 days of activity
+        {/* Stats Row */}
+        <Box sx={{ 
+          display: 'flex', 
+          gap: theme.spacing(isMobile ? 0.5 : 1), 
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          p: theme.spacing(isMobile ? 1 : 1.5),
+          backgroundColor: theme.palette.background.default,
+          borderRadius: theme.shape.borderRadius,
+        }}>
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 0.5,
+            minWidth: isMobile ? 'auto' : 'fit-content',
+          }}>
+            <Typography variant="body2" color="text.secondary" sx={{ fontSize: isMobile ? '0.75rem' : '0.875rem' }}>
+              Total:
+            </Typography>
+            <Typography variant="body2" fontWeight={600} color="text.primary" sx={{ fontSize: isMobile ? '0.75rem' : '0.875rem' }}>
+              {formatYAxisTick(totalRevenue)}
+            </Typography>
+          </Box>
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 0.5,
+            minWidth: isMobile ? 'auto' : 'fit-content',
+          }}>
+            <Typography variant="body2" color="text.secondary" sx={{ fontSize: isMobile ? '0.75rem' : '0.875rem' }}>
+              Average:
+            </Typography>
+            <Typography variant="body2" fontWeight={600} color="text.primary" sx={{ fontSize: isMobile ? '0.75rem' : '0.875rem' }}>
+              {formatYAxisTick(averageRevenue)}
+            </Typography>
+          </Box>
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 0.5,
+            minWidth: isMobile ? 'auto' : 'fit-content',
+          }}>
+            <Typography variant="body2" color="text.secondary" sx={{ fontSize: isMobile ? '0.75rem' : '0.875rem' }}>
+              Data Points:
+            </Typography>
+            <Typography variant="body2" fontWeight={600} color="text.primary" sx={{ fontSize: isMobile ? '0.75rem' : '0.875rem' }}>
+              {sanitizedData.length}
+            </Typography>
+          </Box>
         </Box>
-      </Paper>
+      </Box>
+
+      {/* Chart with proper margins */}
+      <Box sx={{ 
+        flex: 1,
+        minHeight: responsiveHeight - (isMobile ? 100 : 140), // Account for header height, less on mobile
+      }}>
+        {containerReady && (
+          <ResponsiveContainer width="100%" height={responsiveHeight - (isMobile ? 100 : 140)}>
+            {renderChart()}
+          </ResponsiveContainer>
+        )}
+      </Box>
     </Box>
   );
-}; 
+};
+
+export default RevenueChart; 

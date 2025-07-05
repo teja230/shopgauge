@@ -472,6 +472,12 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
 
   // Enhanced fetchNotifications with better error handling
   const fetchNotifications = useCallback(async () => {
+    // Skip if not authenticated to prevent 401 errors and infinite loops
+    if (!isAuthenticated) {
+      console.log('useNotifications: Skipping fetch - user not authenticated');
+      return;
+    }
+    
     const now = Date.now();
     
     // Rate limiting
@@ -527,19 +533,19 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
       isLoadingGlobal = false;
       setLoading(false);
     }
-  }, []);
+  }, [isAuthenticated]);
 
-  // Load notifications only once when the first component mounts
+  // Load notifications only once when the first component mounts and user is authenticated
   useEffect(() => {
-    // Only fetch if we haven't loaded yet and this is the first instance
-    if (globalNotifications.length === 0 && !isLoadingGlobal) {
+    // Only fetch if user is authenticated, we haven't loaded yet, and this is the first instance
+    if (isAuthenticated && globalNotifications.length === 0 && !isLoadingGlobal) {
       fetchNotifications();
     } else {
       // Sync with global state
       setNotifications([...globalNotifications]);
       setUnreadCount(globalUnreadCount);
     }
-  }, []);
+  }, [isAuthenticated, fetchNotifications]);
 
   // Register this hook instance for broadcasts
   useEffect(() => {

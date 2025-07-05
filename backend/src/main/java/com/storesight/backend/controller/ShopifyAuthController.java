@@ -418,6 +418,10 @@ public class ShopifyAuthController {
       try {
         shopService.saveShop(shop, accessToken, sessionId, request);
         logger.info("Shop data saved successfully");
+
+        // Execute post-save operations (caching, cleanup) outside transaction
+        shopService.postSaveShopOperations(shop, sessionId, accessToken);
+        logger.debug("Post-save operations completed for shop: {}", shop);
       } catch (Exception saveError) {
         logger.error("Failed to save shop data to Redis/database: {}", saveError.getMessage());
         // Continue with cookie setting even if save fails
@@ -1038,16 +1042,29 @@ public class ShopifyAuthController {
     logger.info("Auth: Disconnecting shop: {}", shop);
 
     if (shop != null) {
-      // Clear the access token from Redis and database
+      // Enhanced cleanup: Clear current session and optionally all sessions
       try {
         String sessionId =
             request.getSession(false) != null ? request.getSession(false).getId() : null;
         if (sessionId != null) {
-          shopService.removeToken(shop, sessionId);
-          logger.info("Auth: Cleared access token for shop: {} and session: {}", shop, sessionId);
+          // Remove current session
+          shopService.removeSession(shop, sessionId);
+          logger.info("Auth: Cleared session for shop: {} and session: {}", shop, sessionId);
+
+          // Invalidate the HTTP session
+          try {
+            request.getSession(false).invalidate();
+            logger.info("Auth: Invalidated HTTP session: {}", sessionId);
+          } catch (Exception sessionError) {
+            logger.warn("Auth: Could not invalidate HTTP session: {}", sessionError.getMessage());
+          }
+        } else {
+          // Fallback: remove all sessions if no current session
+          shopService.removeAllSessionsForShop(shop);
+          logger.info("Auth: Cleared all sessions for shop: {} (no current session found)", shop);
         }
       } catch (Exception e) {
-        logger.error("Auth: Error clearing access token for shop: {}", shop, e);
+        logger.error("Auth: Error during enhanced disconnect cleanup for shop: {}", shop, e);
       }
 
       // Clear the shop cookie with the correct domain setting
@@ -1198,21 +1215,29 @@ public class ShopifyAuthController {
     String shop = shopParam != null ? shopParam : shopCookieValue;
 
     if (shop != null && !shop.isBlank()) {
-      // Clear the access token from Redis and database
+      // Enhanced force cleanup: Clear ALL sessions and data
       try {
         String sessionId =
             request.getSession(false) != null ? request.getSession(false).getId() : null;
+
+        // Force remove ALL sessions for this shop
+        shopService.removeAllSessionsForShop(shop);
+        logger.info("Auth: Force cleared ALL sessions for shop: {}", shop);
+
+        // Invalidate current HTTP session if exists
         if (sessionId != null) {
-          logger.info(
-              "Auth: Calling shopService.removeToken for shop: {} and session: {}",
-              shop,
-              sessionId);
-          shopService.removeToken(shop, sessionId);
-          logger.info(
-              "Auth: Force cleared access token for shop: {} and session: {}", shop, sessionId);
+          try {
+            request.getSession(false).invalidate();
+            logger.info("Auth: Force invalidated HTTP session: {}", sessionId);
+          } catch (Exception sessionError) {
+            logger.warn(
+                "Auth: Could not invalidate HTTP session during force disconnect: {}",
+                sessionError.getMessage());
+          }
         }
+
       } catch (Exception e) {
-        logger.error("Auth: Error force clearing access token for shop: {}", shop, e);
+        logger.error("Auth: Error during force disconnect cleanup for shop: {}", shop, e);
       }
     } else {
       logger.warn("Auth: No shop provided for force disconnect");

@@ -142,7 +142,7 @@
   ],
   "protocol_handlers": [
     {
-      "protocol": "shopgauge",
+      "protocol": "web+shopgauge",
       "url": "/?handler=%s"
     }
   ],

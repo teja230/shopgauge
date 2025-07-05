@@ -19,7 +19,6 @@
     
     <!-- Security Headers -->
     <meta http-equiv="X-Content-Type-Options" content="nosniff"/>
-    <meta http-equiv="X-Frame-Options" content="DENY"/>
     <meta http-equiv="X-XSS-Protection" content="1; mode=block"/>
     <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin"/>
     <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=()"/>
@@ -133,17 +132,23 @@
     }
     </script>
     
-    <!-- Service Worker Registration -->
+    <!-- Service Worker Registration for PWA features and caching -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
                 navigator.serviceWorker.register('/sw.js')
                     .then(function(registration) {
-                        console.log('SW registered: ', registration);
+                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
                     })
-                    .catch(function(registrationError) {
-                        console.log('SW registration failed: ', registrationError);
+                    .catch(function(error) {
+                        console.log('ServiceWorker registration failed: ', error);
                     });
+            });
+            
+            // Handle service worker updates
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                // Reload the page when a new service worker takes control
+                window.location.reload();
             });
         }
     </script>

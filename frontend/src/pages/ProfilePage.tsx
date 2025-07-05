@@ -14,11 +14,15 @@ import {
 import { normalizeShopDomain } from '../utils/normalizeShopDomain';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import IntelligentLoadingScreen from '../components/ui/IntelligentLoadingScreen';
+import useSessionLimit from '../hooks/useSessionLimit';
+import SessionLimitDialog from '../components/ui/SessionLimitDialog';
+import { getDeviceDisplay, getRelativeTime } from '../utils/deviceUtils';
 
 // Cache configuration for store stats
 const STORE_STATS_CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
 const STORE_STATS_CACHE_KEY = 'store_stats_cache_v1';
 const REFRESH_DEBOUNCE_MS = 2000; // 2 seconds debounce
+const SESSION_REFRESH_DEBOUNCE_MS = 300000; // 5 minutes for session limit refresh
 
 interface StoreStatsCache {
   data: any;
@@ -81,6 +85,8 @@ export default function ProfilePage() {
   const [storeStatsLastUpdated, setStoreStatsLastUpdated] = useState<Date | null>(null);
   const [isCheckingConnection, setIsCheckingConnection] = useState(false);
   const [refreshDebounce, setRefreshDebounce] = useState(false);
+  const [sessionRefreshDebounce, setSessionRefreshDebounce] = useState(false);
+  const [sessionRefreshCountdown, setSessionRefreshCountdown] = useState(0);
   const [pastStores, setPastStores] = useState<string[]>([]);
   
   // Confirmation dialog state
@@ -96,6 +102,56 @@ export default function ProfilePage() {
   
   const navigate = useNavigate();
   const notifications = useNotifications();
+  
+  // Session limit management
+  const {
+    sessionLimitData,
+    loading: sessionLimitLoading,
+    error: sessionLimitError,
+    showSessionDialog,
+    lastChecked,
+    checkSessionLimit,
+    deleteSession,
+    deleteSessions,
+    closeSessionDialog,
+    openSessionDialog,
+    refreshSessionData,
+  } = useSessionLimit();
+
+  // Session limit manual refresh handler
+  const handleRefreshSessionData = async () => {
+    if (sessionRefreshDebounce) return;
+    
+    setSessionRefreshDebounce(true);
+    setSessionRefreshCountdown(Math.ceil(SESSION_REFRESH_DEBOUNCE_MS / 1000)); // Convert to seconds
+    
+    setTimeout(() => {
+      setSessionRefreshDebounce(false);
+      setSessionRefreshCountdown(0);
+    }, SESSION_REFRESH_DEBOUNCE_MS);
+    
+    await refreshSessionData();
+  };
+
+  // Countdown timer for session refresh cooldown
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    
+    if (sessionRefreshCountdown > 0) {
+      interval = setInterval(() => {
+        setSessionRefreshCountdown(prev => {
+          if (prev <= 1) {
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [sessionRefreshCountdown]);
 
   // Save current store to past stores when shop changes
   useEffect(() => {
@@ -166,6 +222,17 @@ export default function ProfilePage() {
       loadStoreStats();
     }
   }, [shop]);
+
+  // Auto-load session data when user visits Profile page (optional: can be disabled)
+  // This provides immediate session information without requiring manual refresh
+  // Benefits: Users see their sessions immediately, better UX
+  // Alternative: Remove this effect to require manual "Refresh Sessions" click
+  useEffect(() => {
+    if (shop && !sessionLimitData && !sessionLimitLoading) {
+      console.log('ProfilePage: Auto-loading session data on page load for better UX');
+      checkSessionLimit();
+    }
+  }, [shop, sessionLimitData, sessionLimitLoading, checkSessionLimit]);
 
   const checkConnectionStatus = async () => {
     try {
@@ -503,13 +570,13 @@ export default function ProfilePage() {
     const keysToRemove = [];
     for (let i = 0; i < sessionStorage.length; i++) {
       const key = sessionStorage.key(i);
-      if (key && key.includes('dashboard_cache')) {
+      if (key && (key.includes('dashboard_cache') || key.includes('unified_analytics_'))) {
         keysToRemove.push(key);
       }
     }
     keysToRemove.forEach(key => sessionStorage.removeItem(key));
     
-    console.log('Cleared all dashboard cache keys');
+    console.log('Cleared all dashboard and unified analytics cache keys');
   };
 
   // FIXED: Connect new store with Dashboard redirect  
@@ -1344,6 +1411,233 @@ export default function ProfilePage() {
         </div>
       )}
 
+      {/* Session Management Section */}
+      <div className="bg-gradient-to-r from-purple-50 to-indigo-50 shadow-sm rounded-lg p-6 mb-8 border border-purple-200">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+          <span className="mr-3 text-2xl">🖥️</span>
+          Active Sessions
+        </h2>
+        <p className="text-sm text-gray-700 mb-6">
+          Manage your active sessions across different devices and browsers. You can have up to 5 active sessions at once.
+        </p>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Session Status */}
+          <div className="bg-white p-5 rounded-xl shadow-sm">
+            <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
+              <span className="mr-2">📊</span>
+              Session Status
+            </h3>
+            <div className="space-y-4">
+              {sessionLimitData ? (
+                <>
+                  <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <div>
+                      <div className="text-lg font-bold text-blue-800">
+                        {sessionLimitData.currentSessionCount} / {sessionLimitData.maxSessions}
+                      </div>
+                      <div className="text-sm text-blue-600">Active Sessions</div>
+                    </div>
+                    <div className="text-right">
+                      <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                        sessionLimitData.limitReached 
+                          ? 'bg-red-100 text-red-800' 
+                          : 'bg-green-100 text-green-800'
+                      }`}>
+                        {sessionLimitData.limitReached ? '⚠️ Limit Reached' : '✅ Available'}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Last checked info */}
+                  {lastChecked && (
+                    <div className="text-xs text-gray-500 mb-2">
+                      Last updated: {lastChecked.toLocaleString()}
+                    </div>
+                  )}
+                  
+                  {/* Current sessions preview */}
+                  <div className="space-y-2">
+                    {sessionLimitData.sessions.slice(0, 3).map((session, index) => {
+                      const device = getDeviceDisplay(session.userAgent);
+                      return (
+                        <div key={session.sessionId} className={`flex items-center justify-between p-3 rounded-lg border transition-all ${
+                          session.isCurrentSession 
+                            ? 'bg-gradient-to-r from-green-50 to-blue-50 border-green-300 shadow-md' 
+                            : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
+                        }`}>
+                          <div className="flex items-center space-x-3 flex-1">
+                            <div className="text-lg">{device.icon}</div>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-sm font-medium text-gray-900">
+                                  {device.name}
+                                </span>
+                                {session.isCurrentSession && (
+                                  <span className="inline-flex items-center gap-1 text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full font-medium">
+                                    <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                                    This Device
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-xs text-gray-500 mb-1">
+                                {device.subtitle}
+                              </div>
+                              <div className={`text-xs font-medium ${
+                                session.isCurrentSession ? 'text-green-700' : 'text-gray-600'
+                              }`}>
+                                Last used: {session.lastUsedFormatted || getRelativeTime(session.lastAccessedAt)}
+                              </div>
+                            </div>
+                          </div>
+                          {session.isCurrentSession && (
+                            <div className="text-right">
+                              <div className="text-xs text-green-600 font-medium">Active Now</div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                    
+                    {sessionLimitData.sessions.length > 3 && (
+                      <div className="text-center text-sm text-gray-500">
+                        +{sessionLimitData.sessions.length - 3} more sessions
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : sessionLimitError ? (
+                <div className="flex items-center justify-center p-8 text-red-500">
+                  <div className="text-center">
+                    <div className="text-2xl mb-2">⚠️</div>
+                    <div className="text-sm mb-3">Session limit feature is unavailable</div>
+                    <div className="text-xs text-gray-600 mb-3">{sessionLimitError}</div>
+                    {lastChecked && (
+                      <div className="text-xs text-gray-500 mb-3">
+                        Last checked: {lastChecked.toLocaleString()}
+                      </div>
+                    )}
+                    <button
+                      onClick={handleRefreshSessionData}
+                      disabled={sessionLimitLoading || sessionRefreshDebounce}
+                      className="inline-flex items-center px-3 py-1 border border-red-300 text-xs font-medium rounded text-red-700 bg-red-50 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
+                    >
+                      {sessionLimitLoading ? (
+                        <>
+                          <svg className="animate-spin -ml-1 mr-1 h-3 w-3 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Retrying...
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          </svg>
+                          Retry
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center p-8 text-gray-500">
+                  <div className="text-center">
+                    <div className="text-2xl mb-2">📱</div>
+                    <div className="text-sm mb-2">Loading session information...</div>
+                    {sessionLimitLoading && (
+                      <div className="flex items-center justify-center">
+                        <svg className="animate-spin h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          {/* Session Actions */}
+          <div className="bg-white p-5 rounded-xl shadow-sm">
+            <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
+              <span className="mr-2">🔧</span>
+              Session Management
+            </h3>
+            <div className="space-y-3">
+              <button
+                onClick={handleRefreshSessionData}
+                disabled={sessionLimitLoading || sessionRefreshDebounce}
+                className="w-full inline-flex items-center justify-center px-4 py-3 border border-blue-300 text-sm font-medium rounded-lg text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors"
+              >
+                {sessionLimitLoading ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Checking Sessions...
+                  </>
+                ) : sessionRefreshDebounce ? (
+                  <>
+                    <svg className="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    {sessionRefreshCountdown > 0 ? (
+                      <>Wait {Math.floor(sessionRefreshCountdown / 60)}:{(sessionRefreshCountdown % 60).toString().padStart(2, '0')}</>
+                    ) : (
+                      <>Wait 5min...</>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Refresh Sessions
+                  </>
+                )}
+              </button>
+              
+              <button
+                onClick={openSessionDialog}
+                disabled={(!sessionLimitData || sessionLimitData.sessions.length === 0) && !sessionLimitError}
+                className="w-full inline-flex items-center justify-center px-4 py-3 border border-purple-300 text-sm font-medium rounded-lg text-purple-700 bg-purple-50 hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 transition-colors"
+              >
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+                </svg>
+                Manage All Sessions
+              </button>
+              
+              <div className="text-xs text-gray-600">
+                <p className="font-medium mb-1">Session Features:</p>
+                <ul className="space-y-1">
+                  <li>• Maximum 5 concurrent sessions</li>
+                  <li>• Automatic cleanup of old sessions</li>
+                  <li>• Device and browser identification</li>
+                  <li>• Real-time session monitoring</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Session Limit Dialog */}
+      <SessionLimitDialog
+        open={showSessionDialog}
+        onClose={closeSessionDialog}
+        onSessionDeleted={(sessionId) => deleteSession(sessionId)}
+        onSessionsDeleted={deleteSessions}
+        onContinue={closeSessionDialog}
+        sessions={sessionLimitData?.sessions || []}
+        loading={sessionLimitLoading}
+        maxSessions={sessionLimitData?.maxSessions || 5}
+      />
+
       {/* Danger Zone - Enhanced with Better Explanations */}
       <div className="bg-white shadow-sm rounded-lg p-6 border border-red-200">
         <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
@@ -1454,4 +1748,4 @@ export default function ProfilePage() {
       />
     </div>
   );
-} 
+}
