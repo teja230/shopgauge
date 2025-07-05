@@ -107,15 +107,6 @@ const AppContent: React.FC = () => {
   // Track session initialization to prevent repeated calls
   const [sessionInitialized, setSessionInitialized] = useState(false);
   
-  // Loading state management
-  const MIN_BRAND_LOADER_TIME = 400;
-  const [showBrandLoader, setShowBrandLoader] = React.useState(false);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setShowBrandLoader(true), MIN_BRAND_LOADER_TIME);
-    return () => clearTimeout(timer);
-  }, []);
-  
   debugLog.debug('AppContent: Current state', {
     pathname: window.location.pathname,
     isAuthenticated,
@@ -176,11 +167,9 @@ const AppContent: React.FC = () => {
     }
   }, [isAuthenticated, hasInitiallyLoaded, authLoading, sessionInitialized, checkSessionLimit]);
 
-  // Show global loading state during initial load
+  // Show global loading state during initial load - always show something to prevent blank pages
   if (loading || (authLoading && !hasInitiallyLoaded)) {
-    return showBrandLoader ? (
-      <IntelligentLoadingScreen fastMode={true} message="Loading ShopGauge..." />
-    ) : null;
+    return <IntelligentLoadingScreen fastMode={true} message="Loading ShopGauge..." />;
   }
   
   const handleSessionDeleted = (sessionId: string) => {
