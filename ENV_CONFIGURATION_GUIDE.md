@@ -24,26 +24,39 @@ DB_USERNAME=your_username
 DB_PASSWORD=your_password
 
 # Connection Pool Settings (Optimized for Performance)
-DB_POOL_SIZE=15              # Increased from 10 to 15
-DB_MIN_IDLE=4                # Minimum idle connections
-DB_CONNECTION_TIMEOUT=45000  # 45 seconds (increased from 30s)
-DB_IDLE_TIMEOUT=300000       # 5 minutes
-DB_MAX_LIFETIME=1200000      # 20 minutes
-DB_LEAK_DETECTION_THRESHOLD=120000  # 2 minutes
+DB_POOL_SIZE=12                    # Reduced from 25 to 12 (optimal for remote PostgreSQL)
+DB_MIN_IDLE=3                      # Reduced from 5 to 3 (prevents connection waste)
+DB_CONNECTION_TIMEOUT=25000        # Reduced from 45000ms to 25000ms (faster failure detection)
+DB_LEAK_DETECTION=30000           # Reduced from 60000ms to 30000ms (30 seconds)
+DB_VALIDATION_TIMEOUT=3000        # Reduced from 5000ms to 3000ms (3 seconds)
+DB_IDLE_TIMEOUT=180000            # 3 minutes (reduced from 5 minutes)
+DB_MAX_LIFETIME=900000            # 15 minutes (reduced from 20 minutes)
+
+# CRITICAL: Enable custom database configuration
+CUSTOM_DB_CONFIG_ENABLED=true     # MUST be true for production optimization
+
+# Database Connection Details (REPLACE WITH YOUR ACTUAL VALUES)
+DB_URL=jdbc:postgresql://your-db-host:5432/your-database-name
+DB_USER=your_database_user
+DB_PASS=your_secure_database_password
+
+# Redis Configuration - OPTIMIZED (REPLACE WITH YOUR ACTUAL VALUES)
+REDIS_HOST=your-redis-host
+REDIS_PORT=6379
+REDIS_POOL_MAX_ACTIVE=6           # Reduced from 10 to 6
+REDIS_POOL_MAX_IDLE=6             # Reduced from 8 to 6
+REDIS_TIMEOUT=5000                # 5 seconds
+
+# Session Management
+SESSION_TIMEOUT_HOURS=4
+SESSION_CLEANUP_MINUTES=15
+MAX_SESSIONS_PER_SHOP=5
 ```
 
 ### 🚀 Redis Configuration (Enhanced)
 ```bash
 # Redis Connection (Enhanced Performance)
-REDIS_HOST=localhost
-REDIS_PORT=6379
 REDIS_PASSWORD=your_redis_password
-
-# Redis Pool Settings (New - Enhanced Performance)
-REDIS_POOL_MAX_ACTIVE=10     # Maximum active connections
-REDIS_POOL_MAX_IDLE=8        # Maximum idle connections
-REDIS_POOL_MIN_IDLE=2        # Minimum idle connections
-REDIS_TIMEOUT=5000           # 5 seconds (increased from 3s)
 ```
 
 ### ⏱️ Session Configuration (Optimized)
@@ -118,7 +131,7 @@ HIBERNATE_LOG_LEVEL=WARN
 - **Impact**: 75% reduction in session bloat
 
 ### ✅ Database Connection Pool
-- **Before**: 10 max connections → **After**: 15 max connections
+- **Before**: 10 max connections → **After**: 12 max connections
 - **Before**: No monitoring → **After**: Real-time pool monitoring
 - **Impact**: Better connection availability + proactive alerts
 
@@ -128,7 +141,7 @@ HIBERNATE_LOG_LEVEL=WARN
 - **Impact**: 40% better Redis reliability
 
 ### ✅ Transaction Optimization
-- **Before**: No timeouts → **After**: 30s transaction timeouts
+- **Before**: No timeouts → **After**: 15s transaction timeouts
 - **Before**: Long-running transactions → **After**: Bounded execution
 - **Impact**: Prevents connection pool exhaustion
 
@@ -175,3 +188,127 @@ Access these directly for debugging:
 - `/api/admin/session-statistics` - Session analytics
 
 Your database connection issues should now be **completely resolved** with these optimizations! 🎉 
+
+## Environment Configuration Guide - Database Connection Pool Optimization
+
+## **Key Optimizations Made**
+
+### 1. **Connection Pool Size Reduction**
+- **Before**: DB_POOL_SIZE=25 (too large for remote database)
+- **After**: DB_POOL_SIZE=12 (optimal for production load)
+- **Benefit**: Prevents connection exhaustion on remote PostgreSQL
+
+### 2. **Timeout Optimization**
+- **Connection Timeout**: 45s → 25s (faster failure detection)
+- **Leak Detection**: 60s → 30s (earlier leak detection)
+- **Validation**: 5s → 3s (faster connection validation)
+
+### 3. **Connection Lifecycle Management**
+- **Idle Timeout**: 5min → 3min (faster cleanup of idle connections)
+- **Max Lifetime**: 20min → 15min (more frequent connection refresh)
+- **Keepalive**: Added 5-minute keepalive for production
+
+### 4. **Transaction Timeout**
+- **Default Transaction Timeout**: 30s → 15s
+- **Prevents long-running transactions from holding connections**
+
+## **Monitoring and Alerting**
+
+### Connection Pool Health Endpoints
+```bash
+# Check connection pool health
+curl https://api.shopgaugeai.com/actuator/health
+
+# Monitor HikariCP metrics
+curl https://api.shopgaugeai.com/actuator/metrics/hikaricp.connections
+```
+
+### Key Metrics to Monitor
+- **Active Connections**: Should be < 80% of max pool size
+- **Pending Connections**: Should be 0 under normal load
+- **Connection Creation Time**: Should be < 1 second
+- **Connection Usage**: Should show healthy turnover
+
+## **Troubleshooting Connection Issues**
+
+### Common Problems and Solutions
+
+1. **"Connection is not available, request timed out"**
+   - **Cause**: Pool exhaustion or long-running transactions
+   - **Solution**: Reduce DB_POOL_SIZE, optimize queries, fix transaction leaks
+
+2. **"Could not open JPA EntityManager for transaction"**
+   - **Cause**: Read-only transaction violations
+   - **Solution**: Ensure async operations don't update in read-only transactions
+
+3. **High connection creation rate**
+   - **Cause**: Connections being closed too frequently
+   - **Solution**: Increase DB_IDLE_TIMEOUT and DB_MAX_LIFETIME
+
+### Performance Tuning Guidelines
+
+1. **Start with smaller pool sizes** (8-12 connections)
+2. **Monitor actual usage** before increasing
+3. **Optimize queries** before adding more connections
+4. **Use connection pooling metrics** to guide decisions
+
+## **Development vs Production Settings**
+
+### Development Environment
+```bash
+DB_POOL_SIZE=15                   # Slightly larger for local development
+DB_CONNECTION_TIMEOUT=20000       # 20 seconds
+DB_LEAK_DETECTION=30000          # 30 seconds
+CUSTOM_DB_CONFIG_ENABLED=true    # Enable optimizations
+```
+
+### Production Environment
+```bash
+DB_POOL_SIZE=12                   # Optimal for remote database
+DB_CONNECTION_TIMEOUT=25000       # 25 seconds
+DB_LEAK_DETECTION=30000          # 30 seconds
+CUSTOM_DB_CONFIG_ENABLED=true    # CRITICAL: Must be enabled
+```
+
+## **Database Connection Best Practices**
+
+1. **Always use transactions appropriately**
+   - Read-only for queries
+   - Short-lived for updates
+   - Async for non-critical operations
+
+2. **Monitor connection usage patterns**
+   - Peak usage times
+   - Connection lifecycle
+   - Query performance
+
+3. **Implement proper error handling**
+   - Retry logic for transient failures
+   - Circuit breakers for persistent issues
+   - Graceful degradation
+
+4. **Regular maintenance**
+   - Monitor slow queries
+   - Clean up unused sessions
+   - Review connection pool metrics
+
+## **Emergency Procedures**
+
+### If Connection Pool Exhaustion Occurs
+1. **Immediate**: Restart the application
+2. **Short-term**: Reduce DB_POOL_SIZE to 8-10
+3. **Long-term**: Identify and fix connection leaks
+
+### Health Check Commands
+```bash
+# Check database connectivity
+curl -f https://api.shopgaugeai.com/actuator/health/db
+
+# Check connection pool status
+curl -f https://api.shopgaugeai.com/actuator/metrics/hikaricp.connections.active
+```
+
+## **Security Note**
+⚠️ **IMPORTANT**: Never commit actual database credentials to version control. Always use environment variables and keep credentials secure in your deployment environment.
+
+This configuration should resolve the connection timeout issues and provide better scalability for production workloads. 

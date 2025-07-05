@@ -292,7 +292,8 @@ public class ShopService {
       if (cachedToken != null) {
         logger.debug(
             "Found token in Redis cache for shop: {} and session: {}", shopifyDomain, sessionId);
-        // Update last accessed time asynchronously to avoid blocking
+        // CRITICAL FIX: Update last accessed time asynchronously OUTSIDE the read-only transaction
+        // This prevents read-only transaction violations
         updateSessionLastAccessedAsync(sessionId);
         return cachedToken;
       }
@@ -301,7 +302,7 @@ public class ShopService {
           "Redis unavailable for token lookup - falling back to database: {}", e.getMessage());
     }
 
-    // Try database with read-only transaction
+    // Try database with read-only transaction - NO UPDATES ALLOWED HERE
     Optional<ShopSession> sessionOpt =
         shopSessionRepository.findActiveSessionByShopDomainAndSessionId(shopifyDomain, sessionId);
 
@@ -309,7 +310,8 @@ public class ShopService {
       ShopSession session = sessionOpt.get();
       String token = session.getAccessToken();
 
-      // FIXED: Update last accessed time asynchronously to avoid read-only transaction violation
+      // CRITICAL FIX: Update last accessed time asynchronously OUTSIDE the read-only transaction
+      // This runs in a separate thread pool and transaction context
       updateSessionLastAccessedAsync(sessionId);
 
       // Cache for future requests with extended TTL
