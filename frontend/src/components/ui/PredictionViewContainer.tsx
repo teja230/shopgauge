@@ -452,14 +452,23 @@ const PredictionViewContainer = memo(({
               </Box>
               <Button
                 variant="contained"
-                color="secondary"
+                color="primary"
                 size="small"
                 onClick={() => handlePredictionToggle(true)}
                 startIcon={<AutoAwesome />}
                 sx={{
                   textTransform: 'none',
-                  borderRadius: 2,
+                  borderRadius: 1.5,
                   fontWeight: 600,
+                  px: 3,
+                  py: 1,
+                  background: 'linear-gradient(135deg, #1976d2 0%, #1565c0 100%)',
+                  boxShadow: '0 2px 8px rgba(25, 118, 210, 0.3)',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #1565c0 0%, #0d47a1 100%)',
+                    boxShadow: '0 4px 12px rgba(25, 118, 210, 0.4)',
+                    transform: 'translateY(-1px)',
+                  },
                 }}
               >
                 Enable Forecasts
@@ -539,20 +548,21 @@ const PredictionViewContainer = memo(({
           
           <Button
             variant="contained"
-            color="secondary"
+            color="primary"
             onClick={() => handlePredictionToggle(true)}
             startIcon={<AutoAwesome />}
             sx={{
-              borderRadius: 3,
+              borderRadius: 1.5,
               textTransform: 'none',
               fontWeight: 600,
               px: 4,
               py: 1.5,
               fontSize: '1rem',
-              background: `linear-gradient(135deg, ${theme.palette.secondary.main} 0%, ${theme.palette.secondary.dark} 100%)`,
-              boxShadow: '0 4px 12px rgba(156, 39, 176, 0.3)',
+              background: 'linear-gradient(135deg, #1976d2 0%, #1565c0 100%)',
+              boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)',
               '&:hover': {
-                boxShadow: '0 6px 16px rgba(156, 39, 176, 0.4)',
+                background: 'linear-gradient(135deg, #1565c0 0%, #0d47a1 100%)',
+                boxShadow: '0 6px 16px rgba(25, 118, 210, 0.4)',
                 transform: 'translateY(-1px)',
               },
             }}
@@ -738,7 +748,7 @@ const PredictionViewContainer = memo(({
                 size="small"
                 sx={{
                   backgroundColor: theme.palette.background.default,
-                  borderRadius: theme.shape.borderRadius,
+                  borderRadius: 1.5,
                   border: `1px solid ${theme.palette.divider}`,
                   '& .MuiToggleButton-root': {
                     textTransform: 'none',
@@ -746,14 +756,15 @@ const PredictionViewContainer = memo(({
                     px: theme.spacing(1.5),
                     py: theme.spacing(0.5),
                     border: 'none',
+                    borderRadius: 1.5,
                     color: theme.palette.text.secondary,
                     minWidth: 'auto',
                     fontSize: '0.75rem',
                     '&.Mui-selected': {
-                      backgroundColor: theme.palette.secondary.main,
-                      color: theme.palette.secondary.contrastText,
+                      backgroundColor: theme.palette.primary.main,
+                      color: theme.palette.primary.contrastText,
                       '&:hover': {
-                        backgroundColor: theme.palette.secondary.dark,
+                        backgroundColor: theme.palette.primary.dark,
                       },
                     },
                     '&:hover': {
@@ -883,7 +894,7 @@ const PredictionViewContainer = memo(({
             mb: 3,
             alignSelf: isMobile ? 'stretch' : 'flex-start',
             '& .MuiToggleButton-root': {
-              borderRadius: theme.shape.borderRadius,
+              borderRadius: 1.5,
               textTransform: 'none',
               fontWeight: 600,
               padding: theme.spacing(1, 2),
