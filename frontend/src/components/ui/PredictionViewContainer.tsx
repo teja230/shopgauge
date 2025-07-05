@@ -651,7 +651,7 @@ const PredictionViewContainer = memo(({
         return {
           current: `$${currentPeriodRevenue.toLocaleString()}`,
           predicted: `$${predictedRevenue.toLocaleString()}`,
-          metric: 'Revenue (7d)',
+          metric: `Revenue (${predictionDays}d)`,
           total: `$${totalRevenue.toLocaleString()}`, // Add total for reference
         };
       }
@@ -666,7 +666,7 @@ const PredictionViewContainer = memo(({
         return {
           current: currentOrders.toLocaleString(),
           predicted: predictedOrders.toLocaleString(),
-          metric: 'Orders (7d)',
+          metric: `Orders (${predictionDays}d)`,
           total: totalOrders.toLocaleString(),
         };
       }
