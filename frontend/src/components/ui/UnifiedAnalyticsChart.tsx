@@ -238,7 +238,7 @@ const SimpleLineChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
   return (
     <LineChart
       data={data}
-      margin={{ top: 10, right: 30, left: 20, bottom: 20 }}
+      margin={{ top: 10, right: 30, left: 20, bottom: 40 }}
     >
       <CartesianGrid strokeDasharray="3 3" stroke="rgba(0, 0, 0, 0.1)" />
       <XAxis
@@ -251,17 +251,35 @@ const SimpleLineChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
           }
         }}
         stroke="rgba(0, 0, 0, 0.6)"
+        label={{ 
+          value: 'Date', 
+          position: 'insideBottom', 
+          offset: -10,
+          style: { textAnchor: 'middle', fontSize: '12px', fill: 'rgba(0, 0, 0, 0.7)' }
+        }}
       />
       <YAxis
         yAxisId="left"
         stroke="rgba(0, 0, 0, 0.6)"
         tickFormatter={(value) => `$${value.toLocaleString()}`}
+        label={{ 
+          value: 'Revenue (USD)', 
+          angle: -90, 
+          position: 'insideLeft',
+          style: { textAnchor: 'middle', fontSize: '12px', fill: 'rgba(0, 0, 0, 0.7)' }
+        }}
       />
       <YAxis
         yAxisId="right"
         orientation="right"
         stroke="rgba(0, 0, 0, 0.6)"
         tickFormatter={(value) => value.toLocaleString()}
+        label={{ 
+          value: 'Orders & Conversion (%)', 
+          angle: 90, 
+          position: 'insideRight',
+          style: { textAnchor: 'middle', fontSize: '12px', fill: 'rgba(0, 0, 0, 0.7)' }
+        }}
       />
       <Tooltip
         labelFormatter={(label) => {
@@ -407,7 +425,7 @@ const SimpleAreaChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
   return (
     <AreaChart
       data={data}
-      margin={{ top: 10, right: 30, left: 20, bottom: 20 }}
+      margin={{ top: 10, right: 30, left: 20, bottom: 40 }}
     >
       <defs>
         {/* Historical gradients */}
@@ -456,17 +474,35 @@ const SimpleAreaChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
           }
         }}
         stroke="rgba(0, 0, 0, 0.6)"
+        label={{ 
+          value: 'Date', 
+          position: 'insideBottom', 
+          offset: -10,
+          style: { textAnchor: 'middle', fontSize: '12px', fill: 'rgba(0, 0, 0, 0.7)' }
+        }}
       />
       <YAxis
         yAxisId="left"
         stroke="rgba(0, 0, 0, 0.6)"
         tickFormatter={(value) => `$${value.toLocaleString()}`}
+        label={{ 
+          value: 'Revenue (USD)', 
+          angle: -90, 
+          position: 'insideLeft',
+          style: { textAnchor: 'middle', fontSize: '12px', fill: 'rgba(0, 0, 0, 0.7)' }
+        }}
       />
       <YAxis
         yAxisId="right"
         orientation="right"
         stroke="rgba(0, 0, 0, 0.6)"
         tickFormatter={(value) => value.toLocaleString()}
+        label={{ 
+          value: 'Orders & Conversion (%)', 
+          angle: 90, 
+          position: 'insideRight',
+          style: { textAnchor: 'middle', fontSize: '12px', fill: 'rgba(0, 0, 0, 0.7)' }
+        }}
       />
       <Tooltip
         labelFormatter={(label) => {
@@ -618,7 +654,7 @@ const SimpleBarChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, p
   return (
     <BarChart
       data={data}
-      margin={{ top: 10, right: 30, left: 20, bottom: 20 }}
+      margin={{ top: 10, right: 30, left: 20, bottom: 40 }}
     >
       <CartesianGrid strokeDasharray="3 3" stroke="rgba(0, 0, 0, 0.1)" />
       <XAxis
@@ -631,17 +667,35 @@ const SimpleBarChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, p
           }
         }}
         stroke="rgba(0, 0, 0, 0.6)"
+        label={{ 
+          value: 'Date', 
+          position: 'insideBottom', 
+          offset: -10,
+          style: { textAnchor: 'middle', fontSize: '12px', fill: 'rgba(0, 0, 0, 0.7)' }
+        }}
       />
       <YAxis
         yAxisId="left"
         stroke="rgba(0, 0, 0, 0.6)"
         tickFormatter={(value) => `$${value.toLocaleString()}`}
+        label={{ 
+          value: 'Revenue (USD)', 
+          angle: -90, 
+          position: 'insideLeft',
+          style: { textAnchor: 'middle', fontSize: '12px', fill: 'rgba(0, 0, 0, 0.7)' }
+        }}
       />
       <YAxis
         yAxisId="right"
         orientation="right"
         stroke="rgba(0, 0, 0, 0.6)"
         tickFormatter={(value) => value.toLocaleString()}
+        label={{ 
+          value: 'Orders & Conversion (%)', 
+          angle: 90, 
+          position: 'insideRight',
+          style: { textAnchor: 'middle', fontSize: '12px', fill: 'rgba(0, 0, 0, 0.7)' }
+        }}
       />
       <Tooltip
         labelFormatter={(label) => {

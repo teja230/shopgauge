@@ -444,7 +444,7 @@ const HomePage = () => {
             <div className="text-sm text-gray-500 mt-1">Social engagement increased 60%</div>
           </div>
           <div className="bg-white rounded-lg shadow-lg p-6 border-l-4 border-purple-500">
-            <p className="text-gray-700 italic mb-3">"The 9 chart types with predictive analytics give us insights we never had. The Executive template PDFs are perfect for investor updates!"</p>
+                            <p className="text-gray-700 italic mb-3">"The 7 chart types with predictive analytics give us insights we never had. The Executive template PDFs are perfect for investor updates!"</p>
             <div className="font-semibold text-blue-900">— Marcus, E-commerce Director</div>
             <div className="text-sm text-gray-500 mt-1">Investment confidence improved dramatically</div>
           </div>
@@ -464,7 +464,7 @@ const HomePage = () => {
             <p className="text-gray-700">Export your charts as high-resolution PNG images, professional PDF reports, or share directly on LinkedIn and Twitter. Choose from Executive, Investor, and Marketing templates with auto-generated messaging.</p>
           </div>
           <div className="bg-white rounded-lg shadow-lg p-6 border-t-4 border-purple-500">
-            <h3 className="text-lg font-semibold mb-3 text-blue-900">How do the 9 chart types work?</h3>
+                            <h3 className="text-lg font-semibold mb-3 text-blue-900">How do the 7 chart types work?</h3>
             <p className="text-gray-700">Choose from Line, Area, Bar, Candlestick, Waterfall, Stacked, Composed, and more. Each chart type offers unique insights with intelligent color separation between historical (blue/green/amber) and forecast (purple/pink/orange) data.</p>
           </div>
           <div className="bg-white rounded-lg shadow-lg p-6 border-t-4 border-orange-500">

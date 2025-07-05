@@ -2587,7 +2587,7 @@ const DashboardPage = () => {
                     🔮 Unlock AI-Powered Forecasting
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Predict revenue trends 7-60 days ahead with 9 chart types, confidence intervals, and professional exports
+                    Predict revenue trends 7-60 days ahead with 7 chart types, confidence intervals, and professional exports
                   </Typography>
                 </Box>
               </Box>

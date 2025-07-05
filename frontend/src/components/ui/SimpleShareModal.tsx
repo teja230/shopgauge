@@ -205,7 +205,7 @@ const SimpleShareModal: React.FC<SimpleShareModalProps> = ({
   const [exportProgress, setExportProgress] = useState(0);
   const [showPreview, setShowPreview] = useState(false);
   const [copiedToClipboard, setCopiedToClipboard] = useState(false);
-  
+
   // Export settings
   const [exportSettings, setExportSettings] = useState<ExportSettings>({
     format: 'png',
@@ -267,7 +267,7 @@ const SimpleShareModal: React.FC<SimpleShareModalProps> = ({
 
     try {
       setExportProgress(25);
-      
+
       const sizePreset = SIZE_PRESETS.find(s => s.value === exportSettings.size);
       const qualityMultiplier = exportSettings.quality === 'ultra' ? 4 : 
                                exportSettings.quality === 'high' ? 2 : 1;
@@ -310,7 +310,7 @@ const SimpleShareModal: React.FC<SimpleShareModalProps> = ({
       setExportProgress(0);
     }
   }, [chartRef, templatePreviewRef, showPreview, exportSettings, selectedTemplate, generateFilename, theme, addNotification]);
-  
+
   // Enhanced PDF export with professional layout
   const handleExportPDF = useCallback(async () => {
     const targetRef = showPreview ? templatePreviewRef : chartRef;
@@ -363,7 +363,7 @@ const SimpleShareModal: React.FC<SimpleShareModalProps> = ({
       
       // Add footer with branding
       if (exportSettings.includeWatermark) {
-        pdf.setFontSize(8);
+      pdf.setFontSize(8);
         pdf.setTextColor(160, 160, 160);
         pdf.text('Generated with StoresightAI', 20, pdfHeight - 10);
       }
@@ -382,7 +382,7 @@ const SimpleShareModal: React.FC<SimpleShareModalProps> = ({
       setExportProgress(0);
     }
   }, [chartRef, templatePreviewRef, showPreview, selectedTemplate, generateFilename, shopName, chartTitle, metrics, exportSettings, theme, addNotification]);
-  
+
   // Enhanced social sharing with analytics
   const handleSocialShare = useCallback(async (platform: string) => {
     const message = `🎯 ${shopName} Performance Update\n\n${chartTitle} showing ${
@@ -393,25 +393,25 @@ const SimpleShareModal: React.FC<SimpleShareModalProps> = ({
     const shareableUrl = `${window.location.origin}/share/${generateFilename()}`;
     
     try {
-      switch (platform) {
-        case 'linkedin':
+    switch (platform) {
+      case 'linkedin':
           window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareableUrl)}&summary=${encodeURIComponent(message)}`);
-          break;
-        case 'twitter':
+        break;
+      case 'twitter':
           window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(message)}&url=${encodeURIComponent(shareableUrl)}`);
-          break;
-        case 'email':
+        break;
+      case 'email':
           window.open(`mailto:?subject=${encodeURIComponent(`${shopName} - ${chartTitle}`)}&body=${encodeURIComponent(message + '\n\n' + shareableUrl)}`);
-          break;
+        break;
         case 'copy':
           await navigator.clipboard.writeText(message + '\n\n' + shareableUrl);
-          setCopiedToClipboard(true);
-          setTimeout(() => setCopiedToClipboard(false), 3000);
+        setCopiedToClipboard(true);
+        setTimeout(() => setCopiedToClipboard(false), 3000);
           addNotification('Link copied to clipboard!', 'success');
           break;
         default:
-          break;
-      }
+        break;
+    }
       
     } catch (error) {
       console.error('Sharing failed:', error);
@@ -454,7 +454,7 @@ const SimpleShareModal: React.FC<SimpleShareModalProps> = ({
       </Box>
     );
   };
-  
+
   return (
     <Dialog
       open={open}
@@ -860,7 +860,7 @@ const SimpleShareModal: React.FC<SimpleShareModalProps> = ({
           {/* Share & Export Tab */}
           {activeTab === 3 && (
             <Box>
-              <Typography variant="h6" gutterBottom>
+          <Typography variant="h6" gutterBottom>
                 Share & Export Your Chart
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
@@ -874,30 +874,30 @@ const SimpleShareModal: React.FC<SimpleShareModalProps> = ({
               }}>
                 <Box>
                   <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-                    Export Options
-                  </Typography>
+            Export Options
+          </Typography>
                   
                   <ButtonGroup orientation="vertical" fullWidth sx={{ mb: 2 }}>
-                    <Button
-                      variant="contained"
+            <Button
+              variant="contained"
                       startIcon={<FileDownloadIcon />}
-                      onClick={handleExportPNG}
-                      disabled={isExporting}
+              onClick={handleExportPNG}
+              disabled={isExporting}
                       size="large"
                       sx={{ justifyContent: 'flex-start', py: 1.5 }}
-                    >
+            >
                       Export as {exportSettings.format.toUpperCase()}
-                    </Button>
-                    <Button
-                      variant="outlined"
+            </Button>
+            <Button
+              variant="outlined"
                       startIcon={<PdfIcon />}
-                      onClick={handleExportPDF}
-                      disabled={isExporting}
+              onClick={handleExportPDF}
+              disabled={isExporting}
                       size="large"
                       sx={{ justifyContent: 'flex-start', py: 1.5 }}
-                    >
+            >
                       Export as PDF Report
-                    </Button>
+            </Button>
                   </ButtonGroup>
                   
                   <Box sx={{ 
@@ -919,24 +919,24 @@ const SimpleShareModal: React.FC<SimpleShareModalProps> = ({
                     <Typography variant="body2" color="text.secondary">
                       Size: {SIZE_PRESETS.find(s => s.value === exportSettings.size)?.label}
                     </Typography>
-                  </Box>
-                </Box>
-                
+          </Box>
+        </Box>
+
                 <Box>
                   <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-                    Social Sharing
-                  </Typography>
+            Social Sharing
+          </Typography>
                   
                   <Box sx={{ 
                     display: 'grid', 
                     gridTemplateColumns: 'repeat(2, 1fr)', 
                     gap: 2 
                   }}>
-                    <Button
-                      variant="outlined"
+            <Button
+              variant="outlined"
                       startIcon={<LinkedInIcon />}
-                      onClick={() => handleSocialShare('linkedin')}
-                      disabled={isExporting}
+              onClick={() => handleSocialShare('linkedin')}
+              disabled={isExporting}
                       fullWidth
                       sx={{ 
                         py: 1.5,
@@ -944,14 +944,14 @@ const SimpleShareModal: React.FC<SimpleShareModalProps> = ({
                         borderColor: '#0077b5',
                         '&:hover': { bgcolor: 'rgba(0, 119, 181, 0.1)' }
                       }}
-                    >
-                      LinkedIn
-                    </Button>
-                    <Button
-                      variant="outlined"
+            >
+              LinkedIn
+            </Button>
+            <Button
+              variant="outlined"
                       startIcon={<TwitterIcon />}
-                      onClick={() => handleSocialShare('twitter')}
-                      disabled={isExporting}
+              onClick={() => handleSocialShare('twitter')}
+              disabled={isExporting}
                       fullWidth
                       sx={{ 
                         py: 1.5,
@@ -959,55 +959,55 @@ const SimpleShareModal: React.FC<SimpleShareModalProps> = ({
                         borderColor: '#1da1f2',
                         '&:hover': { bgcolor: 'rgba(29, 161, 242, 0.1)' }
                       }}
-                    >
-                      Twitter
-                    </Button>
-                    <Button
-                      variant="outlined"
+            >
+              Twitter
+            </Button>
+            <Button
+              variant="outlined"
                       startIcon={<EmailIcon />}
-                      onClick={() => handleSocialShare('email')}
-                      disabled={isExporting}
+              onClick={() => handleSocialShare('email')}
+              disabled={isExporting}
                       fullWidth
                       sx={{ py: 1.5 }}
-                    >
-                      Email
-                    </Button>
-                    <Button
-                      variant="outlined"
+            >
+              Email
+            </Button>
+            <Button
+              variant="outlined"
                       startIcon={<ContentCopyIcon />}
-                      onClick={() => handleSocialShare('copy')}
-                      disabled={isExporting}
+              onClick={() => handleSocialShare('copy')}
+              disabled={isExporting}
                       fullWidth
                       sx={{ py: 1.5 }}
-                    >
+            >
                       Copy Link
-                    </Button>
-                  </Box>
-                  
-                  <Box sx={{ 
+            </Button>
+        </Box>
+
+        <Box sx={{ 
                     mt: 2,
-                    p: 2, 
+          p: 2, 
                     bgcolor: 'primary.50', 
-                    borderRadius: 1,
+          borderRadius: 1,
                     border: '1px solid',
                     borderColor: 'primary.200',
-                  }}>
+        }}>
                     <Typography variant="body2" fontWeight={600} gutterBottom>
-                      Chart Information
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      <strong>Title:</strong> {chartTitle}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
+            Chart Information
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            <strong>Title:</strong> {chartTitle}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
                       <strong>Store:</strong> {brandSettings.companyName}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
                       <strong>Period:</strong> {metrics?.timeRange || '30d'}
-                    </Typography>
+          </Typography>
                     {metrics?.revenue && (
-                      <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" color="text.secondary">
                         <strong>Revenue:</strong> ${metrics.revenue.toLocaleString()}
-                      </Typography>
+            </Typography>
                     )}
                   </Box>
                 </Box>

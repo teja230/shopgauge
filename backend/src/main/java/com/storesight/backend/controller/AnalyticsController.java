@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.storesight.backend.config.BackendConfig;
 import com.storesight.backend.config.ShopifyConfig;
 import com.storesight.backend.model.AuditLog;
+import com.storesight.backend.service.DashboardCacheService;
 import com.storesight.backend.service.DataPrivacyService;
 import com.storesight.backend.service.ShopService;
 import jakarta.servlet.http.HttpSession;
@@ -33,6 +34,7 @@ public class AnalyticsController {
   private final WebClient webClient;
   private final ShopService shopService;
   private final StringRedisTemplate redisTemplate;
+  private final DashboardCacheService dashboardCacheService;
   private final DataPrivacyService dataPrivacyService;
   private final ShopifyConfig shopifyConfig;
   private final BackendConfig backendConfig;
@@ -43,12 +45,14 @@ public class AnalyticsController {
       WebClient.Builder webClientBuilder,
       ShopService shopService,
       StringRedisTemplate redisTemplate,
+      DashboardCacheService dashboardCacheService,
       DataPrivacyService dataPrivacyService,
       ShopifyConfig shopifyConfig,
       BackendConfig backendConfig) {
     this.webClient = webClientBuilder.build();
     this.shopService = shopService;
     this.redisTemplate = redisTemplate;
+    this.dashboardCacheService = dashboardCacheService;
     this.dataPrivacyService = dataPrivacyService;
     this.shopifyConfig = shopifyConfig;
     this.backendConfig = backendConfig;
@@ -120,6 +124,15 @@ public class AnalyticsController {
       response.put("limit", limit);
       response.put("has_more", false);
       return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response));
+    }
+
+    // Check Redis cache first (only for first page to avoid complex pagination caching)
+    if (page == 1 && pageInfo == null) {
+      var cachedOrders = dashboardCacheService.getCachedOrdersData(shop);
+      if (cachedOrders.isPresent()) {
+        logger.info("Cache hit for orders data for shop: {}", shop);
+        return Mono.just(ResponseEntity.ok((Map<String, Object>) cachedOrders.get()));
+      }
     }
 
     // Get orders from the last `days` days (default 60)
@@ -296,6 +309,12 @@ public class AnalyticsController {
                         result.put("pagination_method", pageInfo != null ? "cursor" : "page");
                         result.put("days_requested", clampedDays);
 
+                        // Cache the result in Redis (only for first page)
+                        if (page == 1 && pageInfo == null) {
+                          dashboardCacheService.cacheOrdersData(shop, result);
+                          logger.info("Cached orders data for shop: {}", shop);
+                        }
+
                         return ResponseEntity.ok(result);
                       });
             })
@@ -372,6 +391,13 @@ public class AnalyticsController {
       response.put("total_products", 0);
       response.put("total_revenue", "$0.00");
       return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response));
+    }
+
+    // Check Redis cache first
+    var cachedProducts = dashboardCacheService.getCachedProductsData(shop);
+    if (cachedProducts.isPresent()) {
+      logger.info("Cache hit for products data for shop: {}", shop);
+      return Mono.just(ResponseEntity.ok((Map<String, Object>) cachedProducts.get()));
     }
 
     String url = getShopifyUrl(shop, "products.json") + "?limit=50";
@@ -451,6 +477,10 @@ public class AnalyticsController {
               response.put("total_revenue", "N/A - Orders access restricted");
               response.put("shopify_products_url", getShopifyAdminUrl(shop, "products"));
               response.put("note", "Sales and revenue data requires orders API access approval");
+
+              // Cache the result in Redis
+              dashboardCacheService.cacheProductsData(shop, response);
+              logger.info("Cached products data for shop: {}", shop);
 
               logger.info("Returning real product data for {} products", productAnalytics.size());
               return ResponseEntity.ok(response);
@@ -858,6 +888,13 @@ public class AnalyticsController {
       return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response));
     }
 
+    // Check Redis cache first
+    var cachedRevenue = dashboardCacheService.getCachedRevenueData(shop);
+    if (cachedRevenue.isPresent()) {
+      logger.info("Cache hit for revenue data for shop: {}", shop);
+      return Mono.just(ResponseEntity.ok((Map<String, Object>) cachedRevenue.get()));
+    }
+
     // Log the revenue data access
     dataPrivacyService.logDataAccess("REVENUE_DATA_REQUEST", "Revenue data accessed", shop);
 
@@ -1002,6 +1039,10 @@ public class AnalyticsController {
               result.put("orders_count", orders != null ? orders.size() : 0);
               result.put("period_days", 60);
               result.put("timeseries", timeseriesData);
+
+              // Cache the result in Redis
+              dashboardCacheService.cacheRevenueData(shop, result);
+              logger.info("Cached revenue data for shop: {}", shop);
 
               return ResponseEntity.ok(result);
             })
@@ -1260,6 +1301,13 @@ public class AnalyticsController {
       return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response));
     }
 
+    // Check Redis cache first
+    var cachedConversion = dashboardCacheService.getCachedAnalyticsData(shop);
+    if (cachedConversion.isPresent()) {
+      logger.info("Cache hit for conversion data for shop: {}", shop);
+      return Mono.just(ResponseEntity.ok((Map<String, Object>) cachedConversion.get()));
+    }
+
     // Calculate conversion rate using available public data
     String since =
         java.time.LocalDate.now().minusDays(30).format(java.time.format.DateTimeFormatter.ISO_DATE);
@@ -1315,6 +1363,10 @@ public class AnalyticsController {
                         result.put("orders_count", totalOrders);
                         result.put("products_count", totalProducts);
                         result.put("period_days", 30);
+
+                        // Cache the result in Redis
+                        dashboardCacheService.cacheAnalyticsData(shop, result);
+                        logger.info("Cached conversion data for shop: {}", shop);
 
                         return ResponseEntity.ok(result);
                       });

@@ -158,8 +158,8 @@ public class DatabaseConfig {
 
     // Log final configuration
     logger.info(
-        "HikariCP configured - maxPoolSize: {}, minimumIdle: {}, connectionTimeout: {}ms, " +
-        "leakDetectionThreshold: {}ms, isProduction: {}",
+        "HikariCP configured - maxPoolSize: {}, minimumIdle: {}, connectionTimeout: {}ms, "
+            + "leakDetectionThreshold: {}ms, isProduction: {}",
         maxPoolSize,
         minimumIdle,
         config.getConnectionTimeout(),
