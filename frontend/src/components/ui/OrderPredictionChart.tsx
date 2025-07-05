@@ -78,41 +78,64 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
   
   const gradientId = useMemo(() => `order-gradient-${Math.random().toString(36).substr(2, 9)}`, []);
   const predictionGradientId = useMemo(() => `order-prediction-gradient-${Math.random().toString(36).substr(2, 9)}`, []);
-  // Process and validate data
+  // Process data for rendering - separate historical and forecast data properly
   const processedData = useMemo(() => {
-    if (!data || !Array.isArray(data)) return [];
-    
-    return data.map(item => ({
-      date: item.date,
-      orders_count: Math.max(0, Math.round(item.orders_count || 0)),
-      isPrediction: Boolean(item.isPrediction),
-      confidence_min: Math.round(item.confidence_min || 0),
-      confidence_max: Math.round(item.confidence_max || 0),
-      confidence_score: item.confidence_score || 0,
-    })).filter(item => item.date && !isNaN(item.orders_count));
+    if (!data || data.length === 0) {
+      return { 
+        historical: [], 
+        predicted: [], 
+        combined: [],
+        hasHistorical: false,
+        hasPredictions: false 
+      };
+    }
+
+    try {
+      // Separate data by type
+      const historical = data.filter(item => !item.isPrediction);
+      const predicted = data.filter(item => item.isPrediction);
+      
+      // Sort each array by date
+      const sortedHistorical = historical.sort((a, b) => 
+        new Date(a.date).getTime() - new Date(b.date).getTime()
+      );
+      const sortedPredicted = predicted.sort((a, b) => 
+        new Date(a.date).getTime() - new Date(b.date).getTime()
+      );
+
+      // For combined view, we need to create two separate datasets
+      const combined = [...sortedHistorical, ...sortedPredicted];
+
+      return {
+        historical: sortedHistorical,
+        predicted: sortedPredicted,
+        combined: combined.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
+        hasHistorical: sortedHistorical.length > 0,
+        hasPredictions: sortedPredicted.length > 0
+      };
+    } catch (error) {
+      console.error('Error processing chart data:', error);
+      return { 
+        historical: [], 
+        predicted: [], 
+        combined: [],
+        hasHistorical: false,
+        hasPredictions: false 
+      };
+    }
   }, [data]);
 
-  // Calculate statistics
+  // Aggregate stats for display
   const stats = useMemo(() => {
-    if (processedData.length === 0) return null;
+    if (!processedData.hasHistorical) return null;
     
-    const historicalData = processedData.filter(d => !d.isPrediction);
-    const predictionData = processedData.filter(d => d.isPrediction);
-    
-    const currentOrders = historicalData.reduce((sum, d) => sum + d.orders_count, 0);
-    const predictedOrders = predictionData.reduce((sum, d) => sum + d.orders_count, 0);
-    
-    const growthRate = historicalData.length > 0 ? 
-      ((predictedOrders / predictionData.length) - (currentOrders / historicalData.length)) / 
-      (currentOrders / historicalData.length) * 100 : 0;
+    const totalHistorical = processedData.historical.reduce((sum: number, d: any) => sum + (d.orders_count || 0), 0);
+    const totalForecast = processedData.predicted.reduce((sum: number, d: any) => sum + (d.orders_count || 0), 0);
     
     return {
-      currentOrders,
-      predictedOrders,
-      growthRate,
-      historicalDays: historicalData.length,
-      predictionDays: predictionData.length,
-      avgDailyOrders: historicalData.length > 0 ? (currentOrders / historicalData.length).toFixed(1) : 0,
+      historical: totalHistorical,
+      forecast: totalForecast,
+      total: totalHistorical + totalForecast,
     };
   }, [processedData]);
 
@@ -299,6 +322,15 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
     return null;
   };
 
+  // Chart data preparation
+  const chartData = useMemo(() => {
+    return showPredictions ? processedData.combined : processedData.historical;
+  }, [processedData, showPredictions]);
+
+  // Separate historical and forecast data for proper rendering
+  const historicalData = processedData.historical;
+  const forecastData = processedData.predicted;
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height }}>
@@ -315,7 +347,7 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
     );
   }
 
-  const predictionStartDate = processedData.find(d => d.isPrediction)?.date;
+  const predictionStartDate = processedData.predicted.find(d => d.isPrediction)?.date;
 
   const chartTypeConfig = {
     line: { icon: <ShowChart />, label: 'Line', color: theme.palette.success.main },
@@ -328,17 +360,10 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
   };
 
   const renderChart = () => {
-    // Use only historical data when showPredictions is false, otherwise use all data
-    const chartData = showPredictions ? processedData : processedData.filter(d => !d.isPrediction);
-    
     const commonProps = {
       data: chartData,
       margin: { top: 10, right: 30, left: 20, bottom: 20 },
     };
-
-    // Separate historical and forecast data for proper rendering
-    const historicalData = processedData.filter(d => !d.isPrediction);
-    const forecastData = processedData.filter(d => d.isPrediction);
 
     switch (chartType) {
       case 'bar':

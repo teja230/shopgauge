@@ -33,6 +33,7 @@ import OrderPredictionChart from './OrderPredictionChart';
 import ConversionPredictionChart from './ConversionPredictionChart';
 import SimpleShareModal from './SimpleShareModal';
 import { useAuth } from '../../context/AuthContext';
+import { UNIFIED_COLOR_SCHEME } from './ChartStyles';
 
 // Simplified styled components for Chrome compatibility
 const StyledCard = styled(Card)(({ theme }) => ({
@@ -119,7 +120,8 @@ const PredictionViewContainer = memo(({
   
   // Refs
   const chartRef = useRef<HTMLDivElement>(null);
-  const responsiveHeight = isMobile ? 400 : height;
+  const responsiveHeight = isMobile ? Math.max(500, height) : Math.max(600, height);
+  const chartHeight = responsiveHeight - 280; // Account for header, controls, and stats
 
   // Chrome-safe data validation
   const validateNumber = useCallback((value: any, defaultValue: number = 0): number => {
@@ -275,7 +277,7 @@ const PredictionViewContainer = memo(({
     const commonProps = {
       loading: false,
       error: null,
-      height: responsiveHeight - 150,
+      height: Math.max(300, chartHeight), // Ensure minimum chart height
     };
 
     // Chrome-safe chart rendering with error boundaries
@@ -512,11 +514,11 @@ const PredictionViewContainer = memo(({
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
                     <AutoAwesome sx={{ fontSize: isMobile ? 10 : 12, color: 'secondary.main' }} />
                     <Typography variant="caption" color="text.secondary" sx={{ fontSize: isMobile ? '0.7rem' : '0.75rem' }}>
-                      Forecast ({predictionDays}d)
+                      {showPredictions ? `Forecast (${predictionDays}d)` : 'Forecasts Off'}
                     </Typography>
                   </Box>
                   <Typography variant="h6" fontWeight={700} color="secondary.main" sx={{ fontSize: isMobile ? '0.9rem' : '1.25rem' }}>
-                    {(() => {
+                    {showPredictions ? (() => {
                       const predictionData = data.predictions.slice(0, predictionDays);
                       switch (activeView) {
                         case 'revenue': {
@@ -535,10 +537,10 @@ const PredictionViewContainer = memo(({
                         default:
                           return 'N/A';
                       }
-                    })()}
+                    })() : 'Disabled'}
                   </Typography>
-                  {/* Confidence Score Display */}
-                  {data.predictions.length > 0 && data.predictions[0].confidence_score && (
+                  {/* Confidence Score Display - only show when predictions are enabled */}
+                  {showPredictions && data.predictions.length > 0 && data.predictions[0].confidence_score && (
                     <Typography variant="caption" color="secondary.main" sx={{ fontSize: '0.6rem', mt: 0.5 }}>
                       {(data.predictions[0].confidence_score * 100).toFixed(0)}% confidence
                     </Typography>
@@ -586,7 +588,7 @@ const PredictionViewContainer = memo(({
           )}
         </Box>
 
-        {/* View Toggle */}
+        {/* View Toggle with Chart Theme Colors */}
         <ToggleButtonGroup
           value={activeView}
           exclusive
@@ -599,9 +601,58 @@ const PredictionViewContainer = memo(({
               fontWeight: 600,
               px: 2,
               py: 1,
-              '&.Mui-selected': {
-                backgroundColor: 'primary.main',
-                color: 'primary.contrastText',
+              border: '1px solid',
+              borderRadius: 1.5,
+              '&[value="revenue"]': {
+                borderColor: UNIFIED_COLOR_SCHEME.historical.revenue,
+                color: UNIFIED_COLOR_SCHEME.historical.revenue,
+                '&.Mui-selected': {
+                  backgroundColor: UNIFIED_COLOR_SCHEME.historical.revenue,
+                  color: 'white',
+                  '&:hover': {
+                    backgroundColor: UNIFIED_COLOR_SCHEME.historical.revenue,
+                    opacity: 0.9,
+                  },
+                },
+                '&:hover': {
+                  backgroundColor: UNIFIED_COLOR_SCHEME.historical.revenue,
+                  color: 'white',
+                  opacity: 0.1,
+                },
+              },
+              '&[value="orders"]': {
+                borderColor: UNIFIED_COLOR_SCHEME.historical.orders,
+                color: UNIFIED_COLOR_SCHEME.historical.orders,
+                '&.Mui-selected': {
+                  backgroundColor: UNIFIED_COLOR_SCHEME.historical.orders,
+                  color: 'white',
+                  '&:hover': {
+                    backgroundColor: UNIFIED_COLOR_SCHEME.historical.orders,
+                    opacity: 0.9,
+                  },
+                },
+                '&:hover': {
+                  backgroundColor: UNIFIED_COLOR_SCHEME.historical.orders,
+                  color: 'white',
+                  opacity: 0.1,
+                },
+              },
+              '&[value="conversion"]': {
+                borderColor: UNIFIED_COLOR_SCHEME.historical.conversion,
+                color: UNIFIED_COLOR_SCHEME.historical.conversion,
+                '&.Mui-selected': {
+                  backgroundColor: UNIFIED_COLOR_SCHEME.historical.conversion,
+                  color: 'white',
+                  '&:hover': {
+                    backgroundColor: UNIFIED_COLOR_SCHEME.historical.conversion,
+                    opacity: 0.9,
+                  },
+                },
+                '&:hover': {
+                  backgroundColor: UNIFIED_COLOR_SCHEME.historical.conversion,
+                  color: 'white',
+                  opacity: 0.1,
+                },
               },
             },
           }}

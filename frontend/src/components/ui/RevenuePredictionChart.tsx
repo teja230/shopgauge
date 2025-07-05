@@ -109,27 +109,52 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
     stacked: { icon: <StackedLineChart />, label: 'Stacked', color: '#8b5cf6' },
     composed: { icon: <Analytics />, label: 'Composed', color: '#ef4444' },
   };
-  // Process and validate data with separation of historical vs predicted
+  // Process data for rendering - separate historical and forecast data properly
   const processedData = useMemo(() => {
-    if (!data || !Array.isArray(data)) return { combined: [], historical: [], predicted: [] };
-    
-    const validData = data.map(item => ({
-      date: item.date,
-      revenue: Math.max(0, item.revenue || 0),
-      isPrediction: Boolean(item.isPrediction),
-      confidence_min: item.confidence_min || 0,
-      confidence_max: item.confidence_max || 0,
-      confidence_score: item.confidence_score || 0,
-    })).filter(item => item.date && !isNaN(item.revenue));
+    if (!data || data.length === 0) {
+      return { 
+        historical: [], 
+        predicted: [], 
+        combined: [],
+        hasHistorical: false,
+        hasPredictions: false 
+      };
+    }
 
-    const historical = validData.filter(item => !item.isPrediction);
-    const predicted = validData.filter(item => item.isPrediction);
+    try {
+      // Separate data by type
+      const historical = data.filter(item => !item.isPrediction);
+      const predicted = data.filter(item => item.isPrediction);
+      
+      // Sort each array by date
+      const sortedHistorical = historical.sort((a, b) => 
+        new Date(a.date).getTime() - new Date(b.date).getTime()
+      );
+      const sortedPredicted = predicted.sort((a, b) => 
+        new Date(a.date).getTime() - new Date(b.date).getTime()
+      );
 
-    return {
-      combined: validData,
-      historical,
-      predicted
-    };
+      // For combined view, we need to create two separate datasets
+      // This prevents line connections between historical and forecast data
+      const combined = [...sortedHistorical, ...sortedPredicted];
+
+      return {
+        historical: sortedHistorical,
+        predicted: sortedPredicted,
+        combined: combined.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
+        hasHistorical: sortedHistorical.length > 0,
+        hasPredictions: sortedPredicted.length > 0
+      };
+    } catch (error) {
+      console.error('Error processing chart data:', error);
+      return { 
+        historical: [], 
+        predicted: [], 
+        combined: [],
+        hasHistorical: false,
+        hasPredictions: false 
+      };
+    }
   }, [data]);
 
   // Calculate statistics
@@ -406,70 +431,53 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
         return (
           <LineChart {...commonProps}>
             {commonElements}
-            {/* Historical data line */}
-            <Line
-              type="monotone"
-              dataKey="revenue"
-              name="Revenue (Historical)"
-              stroke={UNIFIED_COLOR_SCHEME.historical.revenue}
-              strokeWidth={3}
-              dot={(props: any) => {
-                const { payload } = props;
-                const isPrediction = payload?.isPrediction;
-                if (isPrediction) {
-                  // Return invisible dot for predictions on historical line
-                  return <circle cx={props.cx} cy={props.cy} r={0} fill="transparent" />;
-                }
-                return (
-                  <circle
-                    cx={props.cx}
-                    cy={props.cy}
-                    r={4}
-                    fill={UNIFIED_COLOR_SCHEME.historical.revenue}
-                    stroke={UNIFIED_COLOR_SCHEME.historical.revenue}
-                    strokeWidth={2}
-                  />
-                );
-              }}
-              activeDot={{ 
-                r: 6, 
-                stroke: theme.palette.background.paper,
-                strokeWidth: 2
-              }}
-              connectNulls={false}
-              isAnimationActive={false}
-            />
-            {/* Forecast data line - only show if forecast data exists AND showPredictions is true */}
-            {showPredictions && forecastData.length > 0 && (
+            {/* Historical data line - SOLID, no dashes */}
+            {processedData.hasHistorical && (
               <Line
                 type="monotone"
                 dataKey="revenue"
-                name="Revenue (Forecast)"
-                stroke={UNIFIED_COLOR_SCHEME.forecast.revenue}
+                data={processedData.historical}
+                name="Revenue (Historical)"
+                stroke={UNIFIED_COLOR_SCHEME.historical.revenue}
                 strokeWidth={3}
-                strokeDasharray="8 4"
-                dot={(props: any) => {
-                  const { payload } = props;
-                  const isPrediction = payload?.isPrediction;
-                  if (!isPrediction) {
-                    // Return invisible dot for historical data on forecast line
-                    return <circle cx={props.cx} cy={props.cy} r={0} fill="transparent" />;
-                  }
-                  return (
-                    <circle
-                      cx={props.cx}
-                      cy={props.cy}
-                      r={4}
-                      fill={UNIFIED_COLOR_SCHEME.forecast.revenue}
-                      stroke={UNIFIED_COLOR_SCHEME.forecast.revenue}
-                      strokeWidth={2}
-                    />
-                  );
+                strokeDasharray="" // Solid line for historical data
+                dot={{
+                  fill: UNIFIED_COLOR_SCHEME.historical.revenue,
+                  stroke: UNIFIED_COLOR_SCHEME.historical.revenue,
+                  strokeWidth: 2,
+                  r: 4,
                 }}
                 activeDot={{ 
                   r: 6, 
                   stroke: theme.palette.background.paper,
-                  strokeWidth: 2
+                  strokeWidth: 2,
+                  fill: UNIFIED_COLOR_SCHEME.historical.revenue,
+                }}
+                connectNulls={false}
+                isAnimationActive={false}
+              />
+            )}
+            {/* Forecast data line - DASHED, different color */}
+            {showPredictions && processedData.hasPredictions && (
+              <Line
+                type="monotone"
+                dataKey="revenue"
+                data={processedData.predicted}
+                name="Revenue (Forecast)"
+                stroke={UNIFIED_COLOR_SCHEME.forecast.revenue}
+                strokeWidth={3}
+                strokeDasharray="8 4" // Dashed line for forecast data
+                dot={{
+                  fill: UNIFIED_COLOR_SCHEME.forecast.revenue,
+                  stroke: UNIFIED_COLOR_SCHEME.forecast.revenue,
+                  strokeWidth: 2,
+                  r: 4,
+                }}
+                activeDot={{ 
+                  r: 6, 
+                  stroke: theme.palette.background.paper,
+                  strokeWidth: 2,
+                  fill: UNIFIED_COLOR_SCHEME.forecast.revenue,
                 }}
                 connectNulls={false}
                 isAnimationActive={false}
@@ -482,64 +490,44 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
         return (
           <AreaChart {...commonProps}>
             {commonElements}
-            {/* Historical data area */}
-            <Area
-              type="monotone"
-              dataKey="revenue"
-              name="Revenue (Historical)"
-              stroke={UNIFIED_COLOR_SCHEME.historical.revenue}
-              strokeWidth={3}
-              fill={`url(#${gradientId})`}
-              fillOpacity={0.6}
-              dot={(props: any) => {
-                const { payload } = props;
-                const isPrediction = payload?.isPrediction;
-                if (isPrediction) {
-                  // Return invisible dot for predictions on historical area
-                  return <circle cx={props.cx} cy={props.cy} r={0} fill="transparent" />;
-                }
-                return (
-                  <circle
-                    cx={props.cx}
-                    cy={props.cy}
-                    r={3}
-                    fill={UNIFIED_COLOR_SCHEME.historical.revenue}
-                    stroke={UNIFIED_COLOR_SCHEME.historical.revenue}
-                    strokeWidth={1}
-                  />
-                );
-              }}
-              connectNulls={false}
-              isAnimationActive={false}
-            />
-            {/* Forecast data area - only show if forecast data exists AND showPredictions is true */}
-            {showPredictions && forecastData.length > 0 && (
+            {/* Historical data area - SOLID fill */}
+            {processedData.hasHistorical && (
               <Area
                 type="monotone"
                 dataKey="revenue"
+                data={processedData.historical}
+                name="Revenue (Historical)"
+                stroke={UNIFIED_COLOR_SCHEME.historical.revenue}
+                strokeWidth={3}
+                fill={`url(#${gradientId})`}
+                fillOpacity={0.6}
+                dot={{
+                  fill: UNIFIED_COLOR_SCHEME.historical.revenue,
+                  stroke: UNIFIED_COLOR_SCHEME.historical.revenue,
+                  strokeWidth: 1,
+                  r: 3,
+                }}
+                connectNulls={false}
+                isAnimationActive={false}
+              />
+            )}
+            {/* Forecast data area - DASHED with different fill */}
+            {showPredictions && processedData.hasPredictions && (
+              <Area
+                type="monotone"
+                dataKey="revenue"
+                data={processedData.predicted}
                 name="Revenue (Forecast)"
                 stroke={UNIFIED_COLOR_SCHEME.forecast.revenue}
                 strokeWidth={3}
                 strokeDasharray="8 4"
                 fill={`url(#${predictionGradientId})`}
                 fillOpacity={0.4}
-                dot={(props: any) => {
-                  const { payload } = props;
-                  const isPrediction = payload?.isPrediction;
-                  if (!isPrediction) {
-                    // Return invisible dot for historical data on forecast area
-                    return <circle cx={props.cx} cy={props.cy} r={0} fill="transparent" />;
-                  }
-                  return (
-                    <circle
-                      cx={props.cx}
-                      cy={props.cy}
-                      r={3}
-                      fill={UNIFIED_COLOR_SCHEME.forecast.revenue}
-                      stroke={UNIFIED_COLOR_SCHEME.forecast.revenue}
-                      strokeWidth={1}
-                    />
-                  );
+                dot={{
+                  fill: UNIFIED_COLOR_SCHEME.forecast.revenue,
+                  stroke: UNIFIED_COLOR_SCHEME.forecast.revenue,
+                  strokeWidth: 1,
+                  r: 3,
                 }}
                 connectNulls={false}
                 isAnimationActive={false}

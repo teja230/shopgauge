@@ -259,19 +259,29 @@ const useUnifiedAnalytics = (
     conversionRate: number = 0
   ): UnifiedAnalyticsData => {
     try {
+      // Use the real conversion rate from dashboard, fallback to calculated or default
+      const realConversionRate = conversionRate > 0 ? conversionRate : 2.5;
+      
+      console.log('🔄 UNIFIED_ANALYTICS: Using conversion rate:', {
+        passedConversionRate: conversionRate,
+        finalConversionRate: realConversionRate,
+        source: conversionRate > 0 ? 'dashboard' : 'default'
+      });
+
       // Use revenue data as primary source
       const processedData = (revenueData || []).map((item, index) => {
         const date = item.created_at || item.date || new Date().toISOString();
         const revenue = validateData(item.total_price || item.revenue || 0);
         const orders = validateData(item.orders_count || 1);
-        const conversion = validateData(conversionRate || item.conversion_rate || 2.5);
+        // Always use the real conversion rate from dashboard
+        const conversion = validateData(realConversionRate);
         
         return {
           kind: 'historical' as const,
           date,
           revenue,
           orders_count: orders,
-          conversion_rate: conversion,
+          conversion_rate: conversion, // Use consistent conversion rate
           avg_order_value: orders > 0 ? revenue / orders : 0,
           isPrediction: false as const,
         };
@@ -289,14 +299,23 @@ const useUnifiedAnalytics = (
         const recentAvgRevenue = recentData.reduce((sum, item) => sum + item.revenue, 0) / recentData.length;
         const trendFactor = recentAvgRevenue > 0 ? recentAvgRevenue / avgRevenue : 1;
         
-        for (let i = 1; i <= Math.min(days, 30); i++) {
+        for (let i = 1; i <= Math.min(days, 60); i++) {
           const futureDate = new Date();
           futureDate.setDate(futureDate.getDate() + i);
           
           // Enhanced prediction with trend analysis and confidence calculation
           const timeFactor = 1 - (i / 60); // Decrease confidence over time
           const baseTrend = 1 + (trendFactor - 1) * 0.5; // Moderate the trend
-          const randomVariation = 1 + (Math.random() - 0.5) * 0.15; // ±7.5% variation
+          
+          // Create more realistic variation for different prediction periods
+          let randomVariation;
+          if (i <= 7) {
+            randomVariation = 1 + (Math.random() - 0.5) * 0.1; // ±5% for 7-day
+          } else if (i <= 30) {
+            randomVariation = 1 + (Math.random() - 0.5) * 0.2; // ±10% for 30-day
+          } else {
+            randomVariation = 1 + (Math.random() - 0.5) * 0.3; // ±15% for 60-day
+          }
           
           const predictedRevenue = validateData(avgRevenue * baseTrend * randomVariation);
           const predictedOrders = validateData(avgOrders * baseTrend * randomVariation);
@@ -312,7 +331,7 @@ const useUnifiedAnalytics = (
             date: futureDate.toISOString(),
             revenue: predictedRevenue,
             orders_count: predictedOrders,
-            conversion_rate: validateData(conversionRate || 2.5),
+            conversion_rate: validateData(realConversionRate), // Use consistent conversion rate
             avg_order_value: predictedOrders > 0 ? predictedRevenue / predictedOrders : 0,
             isPrediction: true,
             confidence_score: confidenceScore,
@@ -329,13 +348,23 @@ const useUnifiedAnalytics = (
       const totalRevenue = processedData.reduce((sum, item) => sum + item.revenue, 0);
       const totalOrders = processedData.reduce((sum, item) => sum + item.orders_count, 0);
 
-      return {
+      const result = {
         historical: processedData,
         predictions,
         period_days: days,
         total_revenue: validateData(totalRevenue),
         total_orders: validateData(totalOrders),
       };
+      
+      console.log('🔄 UNIFIED_ANALYTICS: Conversion data summary:', {
+        historicalConversionRates: processedData.slice(0, 3).map(d => d.conversion_rate),
+        predictionConversionRates: predictions.slice(0, 3).map(d => d.conversion_rate),
+        totalHistoricalPoints: processedData.length,
+        totalPredictionPoints: predictions.length,
+        allUsingSameRate: realConversionRate
+      });
+
+      return result;
     } catch (error) {
       console.error('Error converting dashboard data:', error);
       return {
