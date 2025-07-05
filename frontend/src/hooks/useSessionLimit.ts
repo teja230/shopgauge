@@ -28,6 +28,7 @@ interface UseSessionLimitReturn {
   loading: boolean;
   error: string | null;
   showSessionDialog: boolean;
+  lastChecked: Date | null;
   checkSessionLimit: () => Promise<SessionLimitResponse | null>;
   deleteSession: (sessionId: string) => Promise<boolean>;
   closeSessionDialog: () => void;
@@ -36,18 +37,72 @@ interface UseSessionLimitReturn {
   refreshSessionData: () => Promise<void>;
 }
 
+// Cache duration for session limit data (5 minutes)
+const SESSION_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const MAX_RETRY_ATTEMPTS = 3;
+const RETRY_DELAY_BASE = 2000; // 2 seconds base delay
+
 export const useSessionLimit = (): UseSessionLimitReturn => {
   const [sessionLimitData, setSessionLimitData] = useState<SessionLimitResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showSessionDialog, setShowSessionDialog] = useState(false);
+  const [lastChecked, setLastChecked] = useState<Date | null>(null);
 
-  const checkSessionLimit = useCallback(async (): Promise<SessionLimitResponse | null> => {
+  // Cache management
+  const getCacheKey = () => 'session_limit_cache';
+  
+  const loadFromCache = (): SessionLimitResponse | null => {
+    try {
+      const cached = localStorage.getItem(getCacheKey());
+      if (!cached) return null;
+      
+      const { data, timestamp } = JSON.parse(cached);
+      const isExpired = Date.now() - timestamp > SESSION_CACHE_DURATION;
+      
+      if (isExpired) {
+        localStorage.removeItem(getCacheKey());
+        return null;
+      }
+      
+      // Update states from cache
+      setLastChecked(new Date(timestamp));
+      return data;
+    } catch (error) {
+      console.warn('Failed to load session limit from cache:', error);
+      localStorage.removeItem(getCacheKey());
+      return null;
+    }
+  };
+  
+  const saveToCache = (data: SessionLimitResponse) => {
+    try {
+      const cacheData = {
+        data,
+        timestamp: Date.now(),
+      };
+      localStorage.setItem(getCacheKey(), JSON.stringify(cacheData));
+      setLastChecked(new Date());
+    } catch (error) {
+      console.warn('Failed to save session limit to cache:', error);
+    }
+  };
+
+  const checkSessionLimit = useCallback(async (retryCount = 0): Promise<SessionLimitResponse | null> => {
+    // Check cache first
+    const cachedData = loadFromCache();
+    if (cachedData && retryCount === 0) {
+      console.log('✅ useSessionLimit: Using cached session data');
+      setSessionLimitData(cachedData);
+      setError(null);
+      return cachedData;
+    }
+
     setLoading(true);
     setError(null);
     
     try {
-      console.log('🔍 useSessionLimit: Checking session limit at /api/sessions/limit-check');
+      console.log(`🔍 useSessionLimit: Checking session limit at /api/sessions/limit-check (attempt ${retryCount + 1})`);
       
       const response = await fetch('/api/sessions/limit-check', {
         method: 'GET',
@@ -62,8 +117,10 @@ export const useSessionLimit = (): UseSessionLimitReturn => {
       if (response.ok) {
         const data: SessionLimitResponse = await response.json();
         console.log('✅ useSessionLimit: Session limit check successful:', data);
+        
         setSessionLimitData(data);
         setError(null);
+        saveToCache(data);
         
         // Automatically show dialog if limit is reached
         if (data.limitReached && data.success) {
@@ -72,59 +129,65 @@ export const useSessionLimit = (): UseSessionLimitReturn => {
         
         return data;
       } else if (response.status === 404) {
-        const errorMsg = 'Session limit endpoint not found - this feature may not be available';
-        console.error('❌ useSessionLimit: 404 Not Found - Session limit endpoint not available');
-        console.error('❌ This might indicate:', {
-          possibleCauses: [
-            'Backend controller not properly registered',
-            'API routing issue',
-            'Session endpoint not accessible',
-            'Authentication timing issue'
-          ]
-        });
-        setError(errorMsg);
+        const errorMsg = 'Session limit feature is currently unavailable';
+        console.log('ℹ️ useSessionLimit: Session limit endpoint not available - this is optional');
+        
+        // Don't show error for 404 - treat as optional feature
+        setError(null);
+        setLastChecked(new Date());
+        
         return null;
       } else if (response.status === 401) {
-        const errorMsg = 'Authentication required - please log in again';
-        console.error('❌ useSessionLimit: 401 Unauthorized - User not authenticated');
-        console.error('❌ This might indicate:', {
-          possibleCauses: [
-            'No shop cookie present',
-            'Session expired',
-            'Authentication not completed',
-            'Cookie not being sent with request'
-          ]
-        });
-        setError(errorMsg);
+        const errorMsg = 'Authentication required for session management';
+        console.log('ℹ️ useSessionLimit: Authentication required - user may not be logged in yet');
+        
+        // Don't show error for 401 during initial load
+        setError(null);
+        setLastChecked(new Date());
+        
         return null;
       } else {
+        // For other errors, implement retry logic
+        if (retryCount < MAX_RETRY_ATTEMPTS) {
+          const delay = RETRY_DELAY_BASE * Math.pow(2, retryCount); // Exponential backoff
+          console.log(`⏳ useSessionLimit: Retrying in ${delay}ms (attempt ${retryCount + 1}/${MAX_RETRY_ATTEMPTS})`);
+          
+          setTimeout(() => {
+            checkSessionLimit(retryCount + 1);
+          }, delay);
+          
+          return null;
+        }
+        
         const errorText = await response.text().catch(() => 'Unknown error');
-        const errorMsg = `Failed to check session limit: ${response.status} ${errorText}`;
-        console.error('❌ useSessionLimit: Failed to check session limit:', response.status);
-        console.error('❌ Error details:', errorText);
+        const errorMsg = `Session management temporarily unavailable`;
+        console.log('⚠️ useSessionLimit: Max retries reached, giving up gracefully');
+        
+        // Set error but don't show toast - handle gracefully
         setError(errorMsg);
+        setLastChecked(new Date());
         return null;
       }
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Network error occurred';
-      console.error('❌ useSessionLimit: Network error checking session limit:', error);
-      console.error('❌ This might indicate:', {
-        possibleCauses: [
-          'Network connectivity issue',
-          'Backend server not responding',
-          'CORS issue',
-          'Request timeout'
-        ]
-      });
-      
-      setError(errorMsg);
-      
-      // Only show toast error if it's not a network connectivity issue during initial load
-      if (error instanceof TypeError && error.message.includes('fetch')) {
-        console.error('❌ Network fetch error - not showing toast to avoid user confusion');
-      } else {
-        toast.error('Failed to check session limit');
+      // For network errors, implement retry logic
+      if (retryCount < MAX_RETRY_ATTEMPTS) {
+        const delay = RETRY_DELAY_BASE * Math.pow(2, retryCount);
+        console.log(`⏳ useSessionLimit: Network error, retrying in ${delay}ms (attempt ${retryCount + 1}/${MAX_RETRY_ATTEMPTS})`);
+        
+        setTimeout(() => {
+          checkSessionLimit(retryCount + 1);
+        }, delay);
+        
+        return null;
       }
+      
+      const errorMsg = 'Session management is currently unavailable';
+      console.log('ℹ️ useSessionLimit: Network error after max retries - handling gracefully');
+      
+      // Don't show toast for network errors - handle gracefully
+      setError(errorMsg);
+      setLastChecked(new Date());
+      
       return null;
     } finally {
       setLoading(false);
@@ -132,7 +195,9 @@ export const useSessionLimit = (): UseSessionLimitReturn => {
   }, []);
 
   const refreshSessionData = useCallback(async (): Promise<void> => {
-    console.log('🔄 useSessionLimit: Refreshing session data');
+    console.log('🔄 useSessionLimit: Force refreshing session data (bypassing cache)');
+    // Clear cache to force fresh fetch
+    localStorage.removeItem(getCacheKey());
     await checkSessionLimit();
   }, [checkSessionLimit]);
 
@@ -154,12 +219,15 @@ export const useSessionLimit = (): UseSessionLimitReturn => {
           // Update local session data
           if (sessionLimitData) {
             const updatedSessions = sessionLimitData.sessions.filter(s => s.sessionId !== sessionId);
-            setSessionLimitData({
+            const updatedData = {
               ...sessionLimitData,
               sessions: updatedSessions,
               currentSessionCount: updatedSessions.length,
               limitReached: updatedSessions.length >= sessionLimitData.maxSessions
-            });
+            };
+            
+            setSessionLimitData(updatedData);
+            saveToCache(updatedData); // Update cache
           }
           
           toast.success('Session removed successfully');
@@ -201,6 +269,7 @@ export const useSessionLimit = (): UseSessionLimitReturn => {
     loading,
     error,
     showSessionDialog,
+    lastChecked,
     checkSessionLimit,
     deleteSession,
     closeSessionDialog,

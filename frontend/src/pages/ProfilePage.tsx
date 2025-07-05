@@ -106,6 +106,7 @@ export default function ProfilePage() {
     loading: sessionLimitLoading,
     error: sessionLimitError,
     showSessionDialog,
+    lastChecked,
     checkSessionLimit,
     deleteSession,
     closeSessionDialog,
@@ -1431,6 +1432,13 @@ export default function ProfilePage() {
                     </div>
                   </div>
                   
+                  {/* Last checked info */}
+                  {lastChecked && (
+                    <div className="text-xs text-gray-500 mb-2">
+                      Last updated: {lastChecked.toLocaleString()}
+                    </div>
+                  )}
+                  
                   {/* Current sessions preview */}
                   <div className="space-y-2">
                     {sessionLimitData.sessions.slice(0, 3).map((session, index) => {
@@ -1472,8 +1480,13 @@ export default function ProfilePage() {
                 <div className="flex items-center justify-center p-8 text-red-500">
                   <div className="text-center">
                     <div className="text-2xl mb-2">⚠️</div>
-                    <div className="text-sm mb-3">Failed to load session information</div>
+                    <div className="text-sm mb-3">Session limit feature is unavailable</div>
                     <div className="text-xs text-gray-600 mb-3">{sessionLimitError}</div>
+                    {lastChecked && (
+                      <div className="text-xs text-gray-500 mb-3">
+                        Last checked: {lastChecked.toLocaleString()}
+                      </div>
+                    )}
                     <button
                       onClick={() => refreshSessionData()}
                       disabled={sessionLimitLoading}
