@@ -100,6 +100,7 @@ const AppContent: React.FC = () => {
     showSessionDialog,
     checkSessionLimit,
     deleteSession,
+    deleteSessions,
     closeSessionDialog,
   } = useSessionLimit();
   
@@ -206,6 +207,7 @@ const AppContent: React.FC = () => {
         open={showSessionDialog}
         onClose={closeSessionDialog}
         onSessionDeleted={handleSessionDeleted}
+        onSessionsDeleted={deleteSessions}
         onContinue={handleContinueAfterSessionManagement}
         sessions={sessionLimitData?.sessions || []}
         loading={sessionLimitLoading}

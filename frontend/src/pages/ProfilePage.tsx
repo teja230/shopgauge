@@ -112,6 +112,7 @@ export default function ProfilePage() {
     lastChecked,
     checkSessionLimit,
     deleteSession,
+    deleteSessions,
     closeSessionDialog,
     openSessionDialog,
     refreshSessionData,
@@ -222,10 +223,13 @@ export default function ProfilePage() {
     }
   }, [shop]);
 
-  // Auto-load session data when authenticated and page loads
+  // Auto-load session data when user visits Profile page (optional: can be disabled)
+  // This provides immediate session information without requiring manual refresh
+  // Benefits: Users see their sessions immediately, better UX
+  // Alternative: Remove this effect to require manual "Refresh Sessions" click
   useEffect(() => {
     if (shop && !sessionLimitData && !sessionLimitLoading) {
-      console.log('ProfilePage: Auto-loading session data on page load');
+      console.log('ProfilePage: Auto-loading session data on page load for better UX');
       checkSessionLimit();
     }
   }, [shop, sessionLimitData, sessionLimitLoading, checkSessionLimit]);
@@ -1627,6 +1631,7 @@ export default function ProfilePage() {
         open={showSessionDialog}
         onClose={closeSessionDialog}
         onSessionDeleted={(sessionId) => deleteSession(sessionId)}
+        onSessionsDeleted={deleteSessions}
         onContinue={closeSessionDialog}
         sessions={sessionLimitData?.sessions || []}
         loading={sessionLimitLoading}

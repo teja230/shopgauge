@@ -532,8 +532,39 @@ public class SessionManagementController {
     }
 
     try {
-      List<ShopSession> activeSessions = shopService.getActiveSessionsForShop(shop);
       String currentSessionId = request.getSession().getId();
+
+      // Retry mechanism to handle session commit timing during login
+      List<ShopSession> activeSessions = null;
+      boolean currentSessionFound = false;
+      int maxRetries = 3;
+      int retryDelay = 500; // 500ms between retries
+
+      for (int attempt = 0; attempt < maxRetries; attempt++) {
+        activeSessions = shopService.getActiveSessionsForShop(shop);
+        currentSessionFound =
+            activeSessions.stream()
+                .anyMatch(session -> session.getSessionId().equals(currentSessionId));
+
+        if (currentSessionFound || attempt == maxRetries - 1) {
+          break; // Found current session or exhausted retries
+        }
+
+        // Wait before retry (only during login timing issues)
+        try {
+          Thread.sleep(retryDelay);
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          break;
+        }
+
+        logger.debug(
+            "Retrying session limit check - attempt {}/{} for shop: {} session: {}",
+            attempt + 1,
+            maxRetries,
+            shop,
+            currentSessionId);
+      }
 
       // Check if limit would be exceeded
       boolean limitReached = activeSessions.size() >= 5; // MAX_SESSIONS_PER_SHOP
@@ -543,6 +574,7 @@ public class SessionManagementController {
       response.put("currentSessionCount", activeSessions.size());
       response.put("shop", shop);
       response.put("currentSessionId", currentSessionId);
+      response.put("currentSessionFound", currentSessionFound);
 
       // Include detailed session information for UI
       List<Map<String, Object>> sessionDetails =

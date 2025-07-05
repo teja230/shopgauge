@@ -40,6 +40,7 @@ interface UseSessionLimitReturn {
   lastChecked: Date | null;
   checkSessionLimit: () => Promise<SessionLimitResponse | null>;
   deleteSession: (sessionId: string) => Promise<boolean>;
+  deleteSessions: (sessionIds: string[]) => Promise<{ success: number; failed: number }>;
   closeSessionDialog: () => void;
   openSessionDialog: () => void;
   canProceedWithLogin: () => boolean;
@@ -292,6 +293,103 @@ export const useSessionLimit = (): UseSessionLimitReturn => {
     }
   }, [sessionLimitData, notifications]);
 
+  const deleteSessions = useCallback(async (sessionIds: string[]): Promise<{ success: number; failed: number }> => {
+    let successCount = 0;
+    let failedCount = 0;
+
+    try {
+      // Delete sessions sequentially to avoid overwhelming the server
+      for (const sessionId of sessionIds) {
+        try {
+          const response = await fetchWithAuth('/api/sessions/terminate', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ sessionId }),
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+            if (result.success) {
+              successCount++;
+            } else {
+              failedCount++;
+            }
+          } else {
+            failedCount++;
+          }
+        } catch (error) {
+          console.error('Error deleting session:', sessionId, error);
+          failedCount++;
+        }
+
+        // Small delay between requests to avoid overwhelming the server
+        if (sessionIds.length > 1) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+      }
+
+      // Update local session data after all deletions
+      if (sessionLimitData && successCount > 0) {
+        const remainingSessionIds = sessionLimitData.sessions
+          .map(s => s.sessionId)
+          .filter(id => !sessionIds.includes(id) || failedCount > 0);
+        
+        const updatedSessions = sessionLimitData.sessions.filter(s => remainingSessionIds.includes(s.sessionId));
+        const updatedData = {
+          ...sessionLimitData,
+          sessions: updatedSessions,
+          currentSessionCount: updatedSessions.length,
+          limitReached: updatedSessions.length >= sessionLimitData.maxSessions
+        };
+        
+        setSessionLimitData(updatedData);
+        saveToCache(updatedData); // Update cache
+      }
+
+      // Send a single consolidated notification
+      if (successCount > 0 && failedCount === 0) {
+        notifications.showSuccess(
+          successCount === 1 
+            ? 'Session removed successfully' 
+            : `${successCount} sessions removed successfully`, 
+          {
+            persistent: true,
+            category: 'Session Management'
+          }
+        );
+      } else if (successCount > 0 && failedCount > 0) {
+        notifications.showWarning(
+          `${successCount} sessions removed, ${failedCount} failed to remove`, 
+          {
+            persistent: true,
+            category: 'Session Management'
+          }
+        );
+      } else if (failedCount > 0) {
+        notifications.showError(
+          failedCount === 1 
+            ? 'Failed to remove session' 
+            : `Failed to remove ${failedCount} sessions`, 
+          {
+            persistent: true,
+            category: 'Session Management'
+          }
+        );
+      }
+
+      return { success: successCount, failed: failedCount };
+    } catch (error) {
+      console.error('Error in bulk session deletion:', error);
+      notifications.showError('Network error while removing sessions', {
+        persistent: true,
+        category: 'Session Management'
+      });
+      return { success: 0, failed: sessionIds.length };
+    }
+  }, [sessionLimitData, notifications]);
+
   const closeSessionDialog = useCallback(() => {
     setShowSessionDialog(false);
   }, []);
@@ -316,6 +414,7 @@ export const useSessionLimit = (): UseSessionLimitReturn => {
     lastChecked,
     checkSessionLimit,
     deleteSession,
+    deleteSessions,
     closeSessionDialog,
     openSessionDialog,
     canProceedWithLogin,

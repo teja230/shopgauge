@@ -54,6 +54,7 @@ interface SessionLimitDialogProps {
   open: boolean;
   onClose: () => void;
   onSessionDeleted: (sessionId: string) => void;
+  onSessionsDeleted?: (sessionIds: string[]) => Promise<{ success: number; failed: number }>;
   onContinue: () => void;
   sessions: SessionInfo[];
   loading?: boolean;
@@ -163,6 +164,7 @@ export const SessionLimitDialog: React.FC<SessionLimitDialogProps> = ({
   open,
   onClose,
   onSessionDeleted,
+  onSessionsDeleted,
   onContinue,
   sessions,
   loading = false,
@@ -199,16 +201,30 @@ export const SessionLimitDialog: React.FC<SessionLimitDialogProps> = ({
     setDeleting(new Set(selectedSessions));
 
     try {
-      // Delete sessions sequentially to avoid overwhelming the server
-      for (const sessionId of selectedSessions) {
-        await new Promise(resolve => setTimeout(resolve, 200)); // Small delay between requests
-        onSessionDeleted(sessionId);
-      }
+      if (onSessionsDeleted && selectedSessions.size > 1) {
+        // Use bulk delete for multiple sessions (sends one notification)
+        const sessionIds = Array.from(selectedSessions);
+        const result = await onSessionsDeleted(sessionIds);
+        
+        // Check if we have enough space now
+        if (result.success > 0) {
+          const remainingSessions = sessions.filter(s => !selectedSessions.has(s.sessionId));
+          if (remainingSessions.length < maxSessions) {
+            onContinue();
+          }
+        }
+      } else {
+        // Fallback to individual deletion for single session or when bulk delete not available
+        for (const sessionId of selectedSessions) {
+          await new Promise(resolve => setTimeout(resolve, 200)); // Small delay between requests
+          onSessionDeleted(sessionId);
+        }
 
-      // Check if we have enough space now
-      const remainingSessions = sessions.filter(s => !selectedSessions.has(s.sessionId));
-      if (remainingSessions.length < maxSessions) {
-        onContinue();
+        // Check if we have enough space now
+        const remainingSessions = sessions.filter(s => !selectedSessions.has(s.sessionId));
+        if (remainingSessions.length < maxSessions) {
+          onContinue();
+        }
       }
     } catch (error) {
       console.error('Error deleting sessions:', error);
