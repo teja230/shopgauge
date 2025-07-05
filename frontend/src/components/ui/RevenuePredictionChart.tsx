@@ -83,6 +83,16 @@ interface RevenuePredictionChartProps {
 
 type ChartType = 'line' | 'area' | 'bar' | 'candlestick' | 'waterfall' | 'stacked' | 'composed';
 
+// Define consistent color scheme for historical vs forecast data
+const COLOR_SCHEME = {
+  historical: {
+    revenue: '#2563eb',      // Blue - trustworthy, solid color for actual data
+  },
+  forecast: {
+    revenue: '#9333ea',      // Purple - prediction color for forecasted revenue
+  }
+};
+
 const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
   data,
   loading = false,
@@ -98,9 +108,9 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
   const predictionGradientId = useMemo(() => `prediction-gradient-${Math.random().toString(36).substr(2, 9)}`, []);
   
   const chartConfig = {
-    line: { icon: <ShowChart />, label: 'Line', color: theme.palette.primary.main },
-    area: { icon: <Timeline />, label: 'Area', color: theme.palette.primary.main },
-    bar: { icon: <BarChartIcon />, label: 'Bar', color: theme.palette.primary.main },
+    line: { icon: <ShowChart />, label: 'Line', color: COLOR_SCHEME.historical.revenue },
+    area: { icon: <Timeline />, label: 'Area', color: COLOR_SCHEME.historical.revenue },
+    bar: { icon: <BarChartIcon />, label: 'Bar', color: COLOR_SCHEME.historical.revenue },
     candlestick: { icon: <CandlestickChart />, label: 'Candlestick', color: '#10b981' },
     waterfall: { icon: <WaterfallChart />, label: 'Waterfall', color: '#f59e0b' },
     stacked: { icon: <StackedLineChart />, label: 'Stacked', color: '#8b5cf6' },
@@ -168,17 +178,17 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
       <>
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor={theme.palette.primary.main} stopOpacity={0.4} />
-            <stop offset="95%" stopColor={theme.palette.primary.main} stopOpacity={0.05} />
+            <stop offset="5%" stopColor={COLOR_SCHEME.historical.revenue} stopOpacity={0.4} />
+            <stop offset="95%" stopColor={COLOR_SCHEME.historical.revenue} stopOpacity={0.05} />
           </linearGradient>
           <linearGradient id={predictionGradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor={theme.palette.secondary.main} stopOpacity={0.3} />
-            <stop offset="95%" stopColor={theme.palette.secondary.main} stopOpacity={0.05} />
+            <stop offset="5%" stopColor={COLOR_SCHEME.forecast.revenue} stopOpacity={0.3} />
+            <stop offset="95%" stopColor={COLOR_SCHEME.forecast.revenue} stopOpacity={0.05} />
           </linearGradient>
           {/* Pattern for prediction area */}
           <pattern id="predictionPattern" patternUnits="userSpaceOnUse" width="4" height="4">
-            <rect width="4" height="4" fill={theme.palette.secondary.main} fillOpacity="0.1"/>
-            <path d="M 0,4 l 4,-4 M -1,1 l 2,-2 M 3,5 l 2,-2" stroke={theme.palette.secondary.main} strokeWidth="0.5" strokeOpacity="0.3"/>
+            <rect width="4" height="4" fill={COLOR_SCHEME.forecast.revenue} fillOpacity="0.1"/>
+            <path d="M 0,4 l 4,-4 M -1,1 l 2,-2 M 3,5 l 2,-2" stroke={COLOR_SCHEME.forecast.revenue} strokeWidth="0.5" strokeOpacity="0.3"/>
           </pattern>
         </defs>
         <CartesianGrid 
@@ -253,10 +263,11 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
             {/* Main separator line */}
             <ReferenceLine
               x={separatorDate}
-              stroke={theme.palette.warning.main}
+              stroke="#9333ea"
               strokeWidth={2}
               strokeDasharray="8 4"
               opacity={0.8}
+              label={{ value: "Forecasts", position: "top" }}
             />
             {/* Subtle background highlight for prediction area */}
             <ReferenceLine
@@ -267,7 +278,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
         )}
       </>
     );
-  }, [processedData.historical, processedData.predicted, theme, gradientId, predictionGradientId, formatCurrency]);
+  }, [processedData.historical, processedData.predicted, gradientId, predictionGradientId, formatCurrency]);
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -364,31 +375,35 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
         return (
           <AreaChart {...commonProps}>
             {commonElements}
-            {/* Single area with conditional styling - Recharts will handle the data */}
+            {/* Historical data area */}
             <Area
               type="monotone"
               dataKey="revenue"
-              name="Revenue"
-              stroke={theme.palette.primary.main}
-              strokeWidth={2}
+              name="Revenue (Historical)"
+              stroke={COLOR_SCHEME.historical.revenue}
+              strokeWidth={3}
               fill={`url(#${gradientId})`}
               fillOpacity={0.6}
-              dot={(props: any) => {
-                const { payload } = props;
-                return (
-                  <circle
-                    cx={props.cx}
-                    cy={props.cy}
-                    r={3}
-                    fill={payload?.isPrediction ? theme.palette.secondary.main : theme.palette.primary.main}
-                    stroke={payload?.isPrediction ? theme.palette.secondary.dark : theme.palette.primary.dark}
-                    strokeWidth={2}
-                  />
-                );
-              }}
+              dot={false}
               connectNulls={false}
               isAnimationActive={false}
             />
+            {/* Forecast data area - only show if forecast data exists */}
+            {processedData.predicted.length > 0 && (
+              <Area
+                type="monotone"
+                dataKey="revenue"
+                name="Revenue (Forecast)"
+                stroke={COLOR_SCHEME.forecast.revenue}
+                strokeWidth={3}
+                strokeDasharray="8 4"
+                fill={`url(#${predictionGradientId})`}
+                fillOpacity={0.4}
+                dot={false}
+                connectNulls={false}
+                isAnimationActive={false}
+              />
+            )}
           </AreaChart>
         );
       
@@ -396,21 +411,27 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
         return (
           <LineChart {...commonProps}>
             {commonElements}
+            {/* Historical data line */}
             <Line
               type="monotone"
               dataKey="revenue"
-              name="Revenue"
-              stroke={theme.palette.primary.main}
+              name="Revenue (Historical)"
+              stroke={COLOR_SCHEME.historical.revenue}
               strokeWidth={3}
               dot={(props: any) => {
                 const { payload } = props;
+                const isPrediction = payload?.isPrediction;
+                if (isPrediction) {
+                  // Return invisible dot for predictions on historical line
+                  return <circle cx={props.cx} cy={props.cy} r={0} fill="transparent" />;
+                }
                 return (
                   <circle
                     cx={props.cx}
                     cy={props.cy}
                     r={4}
-                    fill={payload?.isPrediction ? theme.palette.secondary.main : theme.palette.primary.main}
-                    stroke={payload?.isPrediction ? theme.palette.secondary.dark : theme.palette.primary.dark}
+                    fill={COLOR_SCHEME.historical.revenue}
+                    stroke={COLOR_SCHEME.historical.revenue}
                     strokeWidth={2}
                   />
                 );
@@ -423,6 +444,42 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
               connectNulls={false}
               isAnimationActive={false}
             />
+            {/* Forecast data line - only show if forecast data exists */}
+            {processedData.predicted.length > 0 && (
+              <Line
+                type="monotone"
+                dataKey="revenue"
+                name="Revenue (Forecast)"
+                stroke={COLOR_SCHEME.forecast.revenue}
+                strokeWidth={3}
+                strokeDasharray="8 4"
+                dot={(props: any) => {
+                  const { payload } = props;
+                  const isPrediction = payload?.isPrediction;
+                  if (!isPrediction) {
+                    // Return invisible dot for historical on forecast line
+                    return <circle cx={props.cx} cy={props.cy} r={0} fill="transparent" />;
+                  }
+                  return (
+                    <circle
+                      cx={props.cx}
+                      cy={props.cy}
+                      r={4}
+                      fill={COLOR_SCHEME.forecast.revenue}
+                      stroke={COLOR_SCHEME.forecast.revenue}
+                      strokeWidth={2}
+                    />
+                  );
+                }}
+                activeDot={{ 
+                  r: 6, 
+                  stroke: theme.palette.background.paper,
+                  strokeWidth: 2
+                }}
+                connectNulls={false}
+                isAnimationActive={false}
+              />
+            )}
           </LineChart>
         );
       
@@ -433,14 +490,14 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
             <Bar
               dataKey="revenue"
               name="Revenue"
-              fill={theme.palette.primary.main}
               opacity={0.8}
               radius={[2, 2, 0, 0]}
               isAnimationActive={false}
               shape={(props: any) => {
                 const { payload } = props;
-                const fill = payload?.isPrediction ? theme.palette.secondary.main : theme.palette.primary.main;
-                const opacity = payload?.isPrediction ? 0.6 : 0.8;
+                const isPrediction = payload?.isPrediction;
+                const fill = isPrediction ? COLOR_SCHEME.forecast.revenue : COLOR_SCHEME.historical.revenue;
+                const opacity = isPrediction ? 0.7 : 0.9;
                 return (
                   <rect
                     x={props.x}

@@ -62,6 +62,16 @@ interface OrderPredictionChartProps {
 
 type ChartType = 'line' | 'area' | 'bar' | 'candlestick' | 'waterfall' | 'stacked' | 'composed';
 
+// Define consistent color scheme for historical vs forecast data
+const COLOR_SCHEME = {
+  historical: {
+    orders: '#10b981',       // Green - success color for actual orders
+  },
+  forecast: {
+    orders: '#ec4899',       // Pink - prediction color for forecasted orders
+  }
+};
+
 const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
   data,
   loading = false,
@@ -69,12 +79,12 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
   height = 450,
   showPredictions = true,
 }) => {
-  const [chartType, setChartType] = useState<ChartType>('line');
+  const [chartType, setChartType] = useState<ChartType>('area');
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
-  const gradientId = useMemo(() => `orders-gradient-${Math.random().toString(36).substr(2, 9)}`, []);
-  const predictionGradientId = useMemo(() => `prediction-gradient-${Math.random().toString(36).substr(2, 9)}`, []);
+  const gradientId = useMemo(() => `order-gradient-${Math.random().toString(36).substr(2, 9)}`, []);
+  const predictionGradientId = useMemo(() => `order-prediction-gradient-${Math.random().toString(36).substr(2, 9)}`, []);
   // Process and validate data
   const processedData = useMemo(() => {
     if (!data || !Array.isArray(data)) return [];
@@ -129,17 +139,17 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
       <>
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor={theme.palette.success.main} stopOpacity={0.4} />
-            <stop offset="95%" stopColor={theme.palette.success.main} stopOpacity={0.05} />
+            <stop offset="5%" stopColor={COLOR_SCHEME.historical.orders} stopOpacity={0.4} />
+            <stop offset="95%" stopColor={COLOR_SCHEME.historical.orders} stopOpacity={0.05} />
           </linearGradient>
           <linearGradient id={predictionGradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor={theme.palette.warning.main} stopOpacity={0.3} />
-            <stop offset="95%" stopColor={theme.palette.warning.main} stopOpacity={0.05} />
+            <stop offset="5%" stopColor={COLOR_SCHEME.forecast.orders} stopOpacity={0.3} />
+            <stop offset="95%" stopColor={COLOR_SCHEME.forecast.orders} stopOpacity={0.05} />
           </linearGradient>
           {/* Pattern for prediction area */}
           <pattern id="orderPredictionPattern" patternUnits="userSpaceOnUse" width="4" height="4">
-            <rect width="4" height="4" fill={theme.palette.warning.main} fillOpacity="0.1"/>
-            <path d="M 0,4 l 4,-4 M -1,1 l 2,-2 M 3,5 l 2,-2" stroke={theme.palette.warning.main} strokeWidth="0.5" strokeOpacity="0.3"/>
+            <rect width="4" height="4" fill={COLOR_SCHEME.forecast.orders} fillOpacity="0.1"/>
+            <path d="M 0,4 l 4,-4 M -1,1 l 2,-2 M 3,5 l 2,-2" stroke={COLOR_SCHEME.forecast.orders} strokeWidth="0.5" strokeOpacity="0.3"/>
           </pattern>
         </defs>
         <CartesianGrid 
@@ -212,15 +222,16 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
         {separatorDate && (
           <ReferenceLine
             x={separatorDate}
-            stroke={theme.palette.warning.main}
+            stroke="#ec4899"
             strokeWidth={2}
             strokeDasharray="8 4"
             opacity={0.8}
+            label={{ value: "Forecasts", position: "top" }}
           />
         )}
       </>
     );
-  }, [processedData, theme, gradientId, predictionGradientId]);
+  }, [processedData, gradientId, predictionGradientId]);
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -334,21 +345,61 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
         return (
           <LineChart {...commonProps}>
             {commonElements}
+            {/* Historical data line */}
             <Line
               type="monotone"
               dataKey="orders_count"
-              name="Orders"
-              stroke={theme.palette.success.main}
+              name="Orders (Historical)"
+              stroke={COLOR_SCHEME.historical.orders}
               strokeWidth={3}
               dot={(props: any) => {
                 const { payload } = props;
+                const isPrediction = payload?.isPrediction;
+                if (isPrediction) {
+                  // Return invisible dot for predictions on historical line
+                  return <circle cx={props.cx} cy={props.cy} r={0} fill="transparent" />;
+                }
                 return (
                   <circle
                     cx={props.cx}
                     cy={props.cy}
                     r={4}
-                    fill={payload?.isPrediction ? theme.palette.warning.main : theme.palette.success.main}
-                    stroke={payload?.isPrediction ? theme.palette.warning.dark : theme.palette.success.dark}
+                    fill={COLOR_SCHEME.historical.orders}
+                    stroke={COLOR_SCHEME.historical.orders}
+                    strokeWidth={2}
+                  />
+                );
+              }}
+              activeDot={{ 
+                r: 6, 
+                stroke: theme.palette.background.paper,
+                strokeWidth: 2
+              }}
+              connectNulls={false}
+              isAnimationActive={false}
+            />
+            {/* Forecast data line - only show if forecast data exists */}
+            <Line
+              type="monotone"
+              dataKey="orders_count"
+              name="Orders (Forecast)"
+              stroke={COLOR_SCHEME.forecast.orders}
+              strokeWidth={3}
+              strokeDasharray="8 4"
+              dot={(props: any) => {
+                const { payload } = props;
+                const isPrediction = payload?.isPrediction;
+                if (!isPrediction) {
+                  // Return invisible dot for historical on forecast line
+                  return <circle cx={props.cx} cy={props.cy} r={0} fill="transparent" />;
+                }
+                return (
+                  <circle
+                    cx={props.cx}
+                    cy={props.cy}
+                    r={4}
+                    fill={COLOR_SCHEME.forecast.orders}
+                    stroke={COLOR_SCHEME.forecast.orders}
                     strokeWidth={2}
                   />
                 );
@@ -368,27 +419,30 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
         return (
           <AreaChart {...commonProps}>
             {commonElements}
+            {/* Historical data area */}
             <Area
               type="monotone"
               dataKey="orders_count"
-              name="Orders"
-              stroke={theme.palette.success.main}
-              strokeWidth={2}
+              name="Orders (Historical)"
+              stroke={COLOR_SCHEME.historical.orders}
+              strokeWidth={3}
               fill={`url(#${gradientId})`}
               fillOpacity={0.6}
-              dot={(props: any) => {
-                const { payload } = props;
-                return (
-                  <circle
-                    cx={props.cx}
-                    cy={props.cy}
-                    r={3}
-                    fill={payload?.isPrediction ? theme.palette.warning.main : theme.palette.success.main}
-                    stroke={payload?.isPrediction ? theme.palette.warning.dark : theme.palette.success.dark}
-                    strokeWidth={2}
-                  />
-                );
-              }}
+              dot={false}
+              connectNulls={false}
+              isAnimationActive={false}
+            />
+            {/* Forecast data area */}
+            <Area
+              type="monotone"
+              dataKey="orders_count"
+              name="Orders (Forecast)"
+              stroke={COLOR_SCHEME.forecast.orders}
+              strokeWidth={3}
+              strokeDasharray="8 4"
+              fill={`url(#${predictionGradientId})`}
+              fillOpacity={0.4}
+              dot={false}
               connectNulls={false}
               isAnimationActive={false}
             />
@@ -402,14 +456,13 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
             <Bar
               dataKey="orders_count"
               name="Orders"
-              fill={theme.palette.success.main}
-              opacity={0.8}
               radius={[2, 2, 0, 0]}
               isAnimationActive={false}
               shape={(props: any) => {
                 const { payload } = props;
-                const fill = payload?.isPrediction ? theme.palette.warning.main : theme.palette.success.main;
-                const opacity = payload?.isPrediction ? 0.6 : 0.8;
+                const isPrediction = payload?.isPrediction;
+                const fill = isPrediction ? COLOR_SCHEME.forecast.orders : COLOR_SCHEME.historical.orders;
+                const opacity = isPrediction ? 0.7 : 0.9;
                 return (
                   <rect
                     x={props.x}

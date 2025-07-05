@@ -106,6 +106,20 @@ interface UnifiedAnalyticsChartProps {
 type ChartType = 'combined' | 'revenue_focus' | 'line' | 'area' | 'bar' | 'candlestick' | 'waterfall' | 'stacked' | 'composed';
 type TimeRange = 'all' | 'last30' | 'last7';
 
+// Define consistent color scheme for historical vs forecast data
+const COLOR_SCHEME = {
+  historical: {
+    revenue: '#2563eb',      // Blue - trustworthy, solid color for actual data
+    orders: '#10b981',       // Green - success color for actual orders
+    conversion: '#f59e0b',   // Amber - warning color for conversion rates
+  },
+  forecast: {
+    revenue: '#9333ea',      // Purple - prediction color for forecasted revenue
+    orders: '#ec4899',       // Pink - prediction color for forecasted orders  
+    conversion: '#f97316',   // Orange - prediction color for forecasted conversion
+  }
+};
+
 // Enhanced SVG-safe number validation
 const safeNumber = (value: any, defaultValue: number = 0): number => {
   if (value === null || value === undefined) {
@@ -221,11 +235,15 @@ const processHistoricalItem = (item: any): any => {
   }
 };
 
-// Simplified and robust Line Chart component with all metrics support
+// Enhanced Line Chart component with historical vs forecast color separation
 const SimpleLineChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, predictionDate }: any) => {
   if (!validateChartData(data)) {
     return null;
   }
+
+  // Separate historical and forecast data
+  const historicalData = data.filter((item: any) => !item.isPrediction);
+  const forecastData = data.filter((item: any) => item.isPrediction);
 
   return (
     <LineChart
@@ -263,23 +281,40 @@ const SimpleLineChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
             return label;
           }
         }}
-        formatter={(value: number, name: string) => {
-          if (name === 'Revenue') return [`$${value.toLocaleString()}`, name];
-          if (name === 'Orders') return [value.toLocaleString(), name];
-          if (name === 'Conversion Rate') return [`${value.toFixed(2)}%`, name];
-          return [value.toLocaleString(), name];
+        formatter={(value: number, name: string, props: any) => {
+          const isPrediction = props.payload?.isPrediction;
+          const prefix = isPrediction ? '🔮 Forecast: ' : '📊 Actual: ';
+          if (name.includes('Revenue')) return [`${prefix}$${value.toLocaleString()}`, name];
+          if (name.includes('Orders')) return [`${prefix}${value.toLocaleString()}`, name];
+          if (name.includes('Conversion')) return [`${prefix}${value.toFixed(2)}%`, name];
+          return [`${prefix}${value.toLocaleString()}`, name];
+        }}
+        contentStyle={{
+          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+          border: '1px solid rgba(0, 0, 0, 0.1)',
+          borderRadius: '8px',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
         }}
       />
-      <Legend />
+      <Legend 
+        formatter={(value, entry) => (
+          <span style={{ color: entry.color, fontSize: '12px', fontWeight: 500 }}>
+            {value}
+          </span>
+        )}
+      />
+      
+      {/* Historical Data Lines */}
       {visibleMetrics.revenue && (
         <Line
           yAxisId="left"
           type="monotone"
           dataKey="revenue"
-          stroke="#2563eb"
-          strokeWidth={2}
-          name="Revenue"
-          dot={false}
+          stroke={COLOR_SCHEME.historical.revenue}
+          strokeWidth={3}
+          name="Revenue (Historical)"
+          dot={{ fill: COLOR_SCHEME.historical.revenue, strokeWidth: 2, r: 4 }}
+          connectNulls={false}
           isAnimationActive={false}
         />
       )}
@@ -288,10 +323,11 @@ const SimpleLineChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
           yAxisId="right"
           type="monotone"
           dataKey="orders_count"
-          stroke="#10b981"
+          stroke={COLOR_SCHEME.historical.orders}
           strokeWidth={2}
-          name="Orders"
-          dot={false}
+          name="Orders (Historical)"
+          dot={{ fill: COLOR_SCHEME.historical.orders, strokeWidth: 2, r: 3 }}
+          connectNulls={false}
           isAnimationActive={false}
         />
       )}
@@ -300,30 +336,83 @@ const SimpleLineChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
           yAxisId="right"
           type="monotone"
           dataKey="conversion_rate"
-          stroke="#f59e0b"
+          stroke={COLOR_SCHEME.historical.conversion}
           strokeWidth={2}
-          name="Conversion Rate"
-          dot={false}
+          name="Conversion Rate (Historical)"
+          dot={{ fill: COLOR_SCHEME.historical.conversion, strokeWidth: 2, r: 3 }}
+          connectNulls={false}
           isAnimationActive={false}
         />
       )}
+
+      {/* Forecast Data Lines - Only show if we have forecast data */}
+      {forecastData.length > 0 && visibleMetrics.revenue && (
+        <Line
+          yAxisId="left"
+          type="monotone"
+          dataKey="revenue"
+          stroke={COLOR_SCHEME.forecast.revenue}
+          strokeWidth={3}
+          strokeDasharray="8 4"
+          name="Revenue (Forecast)"
+          dot={{ fill: COLOR_SCHEME.forecast.revenue, strokeWidth: 2, r: 4 }}
+          connectNulls={false}
+          isAnimationActive={false}
+        />
+      )}
+      {forecastData.length > 0 && visibleMetrics.orders && (
+        <Line
+          yAxisId="right"
+          type="monotone"
+          dataKey="orders_count"
+          stroke={COLOR_SCHEME.forecast.orders}
+          strokeWidth={2}
+          strokeDasharray="8 4"
+          name="Orders (Forecast)"
+          dot={{ fill: COLOR_SCHEME.forecast.orders, strokeWidth: 2, r: 3 }}
+          connectNulls={false}
+          isAnimationActive={false}
+        />
+      )}
+      {forecastData.length > 0 && visibleMetrics.conversion && (
+        <Line
+          yAxisId="right"
+          type="monotone"
+          dataKey="conversion_rate"
+          stroke={COLOR_SCHEME.forecast.conversion}
+          strokeWidth={2}
+          strokeDasharray="8 4"
+          name="Conversion Rate (Forecast)"
+          dot={{ fill: COLOR_SCHEME.forecast.conversion, strokeWidth: 2, r: 3 }}
+          connectNulls={false}
+          isAnimationActive={false}
+        />
+      )}
+
+      {/* Prediction separator line */}
       {shouldShowPredictionLine && predictionDate && (
         <ReferenceLine
           x={predictionDate}
-          stroke="rgba(0, 0, 0, 0.3)"
-          strokeDasharray="3 3"
-          label="Predictions"
+          stroke="#9333ea"
+          strokeWidth={2}
+          strokeDasharray="8 4"
+          opacity={0.8}
+          label={{ value: "Forecasts", position: "top" }}
         />
       )}
     </LineChart>
   );
 });
 
-// Simplified and robust Area Chart component with all metrics support
+// Enhanced Area Chart component with historical vs forecast color separation
 const SimpleAreaChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, predictionDate }: any) => {
   if (!validateChartData(data)) {
     return null;
   }
+
+  // Separate historical and forecast data
+  const historicalData = data.filter((item: any) => !item.isPrediction);
+  const forecastData = data.filter((item: any) => item.isPrediction);
 
   return (
     <AreaChart
@@ -331,19 +420,41 @@ const SimpleAreaChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
       margin={{ top: 10, right: 30, left: 20, bottom: 20 }}
     >
       <defs>
-        <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3} />
-          <stop offset="95%" stopColor="#2563eb" stopOpacity={0.1} />
+        {/* Historical gradients */}
+        <linearGradient id="revenueGradientHistorical" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="5%" stopColor={COLOR_SCHEME.historical.revenue} stopOpacity={0.4} />
+          <stop offset="95%" stopColor={COLOR_SCHEME.historical.revenue} stopOpacity={0.05} />
         </linearGradient>
-        <linearGradient id="ordersGradient" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-          <stop offset="95%" stopColor="#10b981" stopOpacity={0.1} />
+        <linearGradient id="ordersGradientHistorical" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="5%" stopColor={COLOR_SCHEME.historical.orders} stopOpacity={0.4} />
+          <stop offset="95%" stopColor={COLOR_SCHEME.historical.orders} stopOpacity={0.05} />
         </linearGradient>
-        <linearGradient id="conversionGradient" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3} />
-          <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.1} />
+        <linearGradient id="conversionGradientHistorical" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="5%" stopColor={COLOR_SCHEME.historical.conversion} stopOpacity={0.4} />
+          <stop offset="95%" stopColor={COLOR_SCHEME.historical.conversion} stopOpacity={0.05} />
         </linearGradient>
+        
+        {/* Forecast gradients */}
+        <linearGradient id="revenueGradientForecast" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="5%" stopColor={COLOR_SCHEME.forecast.revenue} stopOpacity={0.3} />
+          <stop offset="95%" stopColor={COLOR_SCHEME.forecast.revenue} stopOpacity={0.05} />
+        </linearGradient>
+        <linearGradient id="ordersGradientForecast" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="5%" stopColor={COLOR_SCHEME.forecast.orders} stopOpacity={0.3} />
+          <stop offset="95%" stopColor={COLOR_SCHEME.forecast.orders} stopOpacity={0.05} />
+        </linearGradient>
+        <linearGradient id="conversionGradientForecast" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="5%" stopColor={COLOR_SCHEME.forecast.conversion} stopOpacity={0.3} />
+          <stop offset="95%" stopColor={COLOR_SCHEME.forecast.conversion} stopOpacity={0.05} />
+        </linearGradient>
+
+        {/* Forecast patterns for better distinction */}
+        <pattern id="forecastPattern" patternUnits="userSpaceOnUse" width="4" height="4">
+          <rect width="4" height="4" fill={COLOR_SCHEME.forecast.revenue} fillOpacity="0.05"/>
+          <path d="M 0,4 l 4,-4 M -1,1 l 2,-2 M 3,5 l 2,-2" stroke={COLOR_SCHEME.forecast.revenue} strokeWidth="0.5" strokeOpacity="0.2"/>
+        </pattern>
       </defs>
+      
       <CartesianGrid strokeDasharray="3 3" stroke="rgba(0, 0, 0, 0.1)" />
       <XAxis
         dataKey="date"
@@ -375,23 +486,41 @@ const SimpleAreaChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
             return label;
           }
         }}
-        formatter={(value: number, name: string) => {
-          if (name === 'Revenue') return [`$${value.toLocaleString()}`, name];
-          if (name === 'Orders') return [value.toLocaleString(), name];
-          if (name === 'Conversion Rate') return [`${value.toFixed(2)}%`, name];
-          return [value.toLocaleString(), name];
+        formatter={(value: number, name: string, props: any) => {
+          const isPrediction = props.payload?.isPrediction;
+          const prefix = isPrediction ? '🔮 Forecast: ' : '📊 Actual: ';
+          if (name.includes('Revenue')) return [`${prefix}$${value.toLocaleString()}`, name];
+          if (name.includes('Orders')) return [`${prefix}${value.toLocaleString()}`, name];
+          if (name.includes('Conversion')) return [`${prefix}${value.toFixed(2)}%`, name];
+          return [`${prefix}${value.toLocaleString()}`, name];
+        }}
+        contentStyle={{
+          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+          border: '1px solid rgba(0, 0, 0, 0.1)',
+          borderRadius: '8px',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
         }}
       />
-      <Legend />
+      <Legend 
+        formatter={(value, entry) => (
+          <span style={{ color: entry.color, fontSize: '12px', fontWeight: 500 }}>
+            {value}
+          </span>
+        )}
+      />
+      
+      {/* Historical Data Areas */}
       {visibleMetrics.revenue && (
         <Area
           yAxisId="left"
           type="monotone"
           dataKey="revenue"
-          stroke="#2563eb"
-          strokeWidth={2}
-          fill="url(#revenueGradient)"
-          name="Revenue"
+          stroke={COLOR_SCHEME.historical.revenue}
+          strokeWidth={3}
+          fill="url(#revenueGradientHistorical)"
+          name="Revenue (Historical)"
+          dot={{ fill: COLOR_SCHEME.historical.revenue, strokeWidth: 2, r: 4 }}
+          connectNulls={false}
           isAnimationActive={false}
         />
       )}
@@ -400,10 +529,12 @@ const SimpleAreaChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
           yAxisId="right"
           type="monotone"
           dataKey="orders_count"
-          stroke="#10b981"
+          stroke={COLOR_SCHEME.historical.orders}
           strokeWidth={2}
-          fill="url(#ordersGradient)"
-          name="Orders"
+          fill="url(#ordersGradientHistorical)"
+          name="Orders (Historical)"
+          dot={{ fill: COLOR_SCHEME.historical.orders, strokeWidth: 2, r: 3 }}
+          connectNulls={false}
           isAnimationActive={false}
         />
       )}
@@ -412,30 +543,87 @@ const SimpleAreaChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
           yAxisId="right"
           type="monotone"
           dataKey="conversion_rate"
-          stroke="#f59e0b"
+          stroke={COLOR_SCHEME.historical.conversion}
           strokeWidth={2}
-          fill="url(#conversionGradient)"
-          name="Conversion Rate"
+          fill="url(#conversionGradientHistorical)"
+          name="Conversion Rate (Historical)"
+          dot={{ fill: COLOR_SCHEME.historical.conversion, strokeWidth: 2, r: 3 }}
+          connectNulls={false}
           isAnimationActive={false}
         />
       )}
+
+      {/* Forecast Data Areas - Only show if we have forecast data */}
+      {forecastData.length > 0 && visibleMetrics.revenue && (
+        <Area
+          yAxisId="left"
+          type="monotone"
+          dataKey="revenue"
+          stroke={COLOR_SCHEME.forecast.revenue}
+          strokeWidth={3}
+          strokeDasharray="8 4"
+          fill="url(#revenueGradientForecast)"
+          name="Revenue (Forecast)"
+          dot={{ fill: COLOR_SCHEME.forecast.revenue, strokeWidth: 2, r: 4 }}
+          connectNulls={false}
+          isAnimationActive={false}
+        />
+      )}
+      {forecastData.length > 0 && visibleMetrics.orders && (
+        <Area
+          yAxisId="right"
+          type="monotone"
+          dataKey="orders_count"
+          stroke={COLOR_SCHEME.forecast.orders}
+          strokeWidth={2}
+          strokeDasharray="8 4"
+          fill="url(#ordersGradientForecast)"
+          name="Orders (Forecast)"
+          dot={{ fill: COLOR_SCHEME.forecast.orders, strokeWidth: 2, r: 3 }}
+          connectNulls={false}
+          isAnimationActive={false}
+        />
+      )}
+      {forecastData.length > 0 && visibleMetrics.conversion && (
+        <Area
+          yAxisId="right"
+          type="monotone"
+          dataKey="conversion_rate"
+          stroke={COLOR_SCHEME.forecast.conversion}
+          strokeWidth={2}
+          strokeDasharray="8 4"
+          fill="url(#conversionGradientForecast)"
+          name="Conversion Rate (Forecast)"
+          dot={{ fill: COLOR_SCHEME.forecast.conversion, strokeWidth: 2, r: 3 }}
+          connectNulls={false}
+          isAnimationActive={false}
+        />
+      )}
+
+      {/* Prediction separator line */}
       {shouldShowPredictionLine && predictionDate && (
         <ReferenceLine
           x={predictionDate}
-          stroke="rgba(0, 0, 0, 0.3)"
-          strokeDasharray="3 3"
-          label="Predictions"
+          stroke="#9333ea"
+          strokeWidth={2}
+          strokeDasharray="8 4"
+          opacity={0.8}
+          label={{ value: "Forecasts", position: "top" }}
         />
       )}
     </AreaChart>
   );
 });
 
-// Simplified and robust Bar Chart component with all metrics support
+// Enhanced Bar Chart component with historical vs forecast color separation
 const SimpleBarChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, predictionDate }: any) => {
   if (!validateChartData(data)) {
     return null;
   }
+
+  // Separate historical and forecast data
+  const historicalData = data.filter((item: any) => !item.isPrediction);
+  const forecastData = data.filter((item: any) => item.isPrediction);
 
   return (
     <BarChart
@@ -473,50 +661,125 @@ const SimpleBarChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, p
             return label;
           }
         }}
-        formatter={(value: number, name: string) => {
-          if (name === 'Revenue') return [`$${value.toLocaleString()}`, name];
-          if (name === 'Orders') return [value.toLocaleString(), name];
-          if (name === 'Conversion Rate') return [`${value.toFixed(2)}%`, name];
-          return [value.toLocaleString(), name];
+        formatter={(value: number, name: string, props: any) => {
+          const isPrediction = props.payload?.isPrediction;
+          const prefix = isPrediction ? '🔮 Forecast: ' : '📊 Actual: ';
+          if (name.includes('Revenue')) return [`${prefix}$${value.toLocaleString()}`, name];
+          if (name.includes('Orders')) return [`${prefix}${value.toLocaleString()}`, name];
+          if (name.includes('Conversion')) return [`${prefix}${value.toFixed(2)}%`, name];
+          return [`${prefix}${value.toLocaleString()}`, name];
+        }}
+        contentStyle={{
+          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+          border: '1px solid rgba(0, 0, 0, 0.1)',
+          borderRadius: '8px',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
         }}
       />
-      <Legend />
+      <Legend 
+        formatter={(value, entry) => (
+          <span style={{ color: entry.color, fontSize: '12px', fontWeight: 500 }}>
+            {value}
+          </span>
+        )}
+      />
+      
+      {/* Revenue Bars */}
       {visibleMetrics.revenue && (
         <Bar
           yAxisId="left"
           dataKey="revenue"
-          fill="#2563eb"
           name="Revenue"
           radius={[2, 2, 0, 0]}
           isAnimationActive={false}
+          shape={(props: any) => {
+            const { payload } = props;
+            const isPrediction = payload?.isPrediction;
+            const fill = isPrediction ? COLOR_SCHEME.forecast.revenue : COLOR_SCHEME.historical.revenue;
+            const opacity = isPrediction ? 0.7 : 0.9;
+            return (
+              <rect
+                x={props.x}
+                y={props.y}
+                width={props.width}
+                height={props.height}
+                fill={fill}
+                opacity={opacity}
+                rx={2}
+                ry={2}
+              />
+            );
+          }}
         />
       )}
+      
+      {/* Orders Bars */}
       {visibleMetrics.orders && (
         <Bar
           yAxisId="right"
           dataKey="orders_count"
-          fill="#10b981"
           name="Orders"
           radius={[2, 2, 0, 0]}
           isAnimationActive={false}
+          shape={(props: any) => {
+            const { payload } = props;
+            const isPrediction = payload?.isPrediction;
+            const fill = isPrediction ? COLOR_SCHEME.forecast.orders : COLOR_SCHEME.historical.orders;
+            const opacity = isPrediction ? 0.7 : 0.9;
+            return (
+              <rect
+                x={props.x}
+                y={props.y}
+                width={props.width}
+                height={props.height}
+                fill={fill}
+                opacity={opacity}
+                rx={2}
+                ry={2}
+              />
+            );
+          }}
         />
       )}
+      
+      {/* Conversion Bars */}
       {visibleMetrics.conversion && (
         <Bar
           yAxisId="right"
           dataKey="conversion_rate"
-          fill="#f59e0b"
           name="Conversion Rate"
           radius={[2, 2, 0, 0]}
           isAnimationActive={false}
+          shape={(props: any) => {
+            const { payload } = props;
+            const isPrediction = payload?.isPrediction;
+            const fill = isPrediction ? COLOR_SCHEME.forecast.conversion : COLOR_SCHEME.historical.conversion;
+            const opacity = isPrediction ? 0.7 : 0.9;
+            return (
+              <rect
+                x={props.x}
+                y={props.y}
+                width={props.width}
+                height={props.height}
+                fill={fill}
+                opacity={opacity}
+                rx={2}
+                ry={2}
+              />
+            );
+          }}
         />
       )}
+
+      {/* Prediction separator line */}
       {shouldShowPredictionLine && predictionDate && (
         <ReferenceLine
           x={predictionDate}
-          stroke="rgba(0, 0, 0, 0.3)"
-          strokeDasharray="3 3"
-          label="Predictions"
+          stroke="#9333ea"
+          strokeWidth={2}
+          strokeDasharray="8 4"
+          opacity={0.8}
+          label={{ value: "Forecasts", position: "top" }}
         />
       )}
     </BarChart>

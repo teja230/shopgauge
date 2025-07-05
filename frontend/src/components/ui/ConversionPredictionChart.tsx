@@ -63,6 +63,16 @@ interface ConversionPredictionChartProps {
 
 type ChartType = 'line' | 'area' | 'bar' | 'candlestick' | 'waterfall' | 'stacked' | 'composed';
 
+// Define consistent color scheme for historical vs forecast data
+const COLOR_SCHEME = {
+  historical: {
+    conversion: '#f59e0b',   // Amber - warning color for actual conversion rates
+  },
+  forecast: {
+    conversion: '#f97316',   // Orange - prediction color for forecasted conversion
+  }
+};
+
 const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
   data,
   loading = false,
@@ -70,12 +80,12 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
   height = 450,
   showPredictions = true,
 }) => {
-  const [chartType, setChartType] = useState<ChartType>('bar');
+  const [chartType, setChartType] = useState<ChartType>('area');
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
   const gradientId = useMemo(() => `conversion-gradient-${Math.random().toString(36).substr(2, 9)}`, []);
-  const predictionGradientId = useMemo(() => `prediction-gradient-${Math.random().toString(36).substr(2, 9)}`, []);
+  const predictionGradientId = useMemo(() => `conversion-prediction-gradient-${Math.random().toString(36).substr(2, 9)}`, []);
   // Process and validate data
   const processedData = useMemo(() => {
     if (!data || !Array.isArray(data)) return [];
@@ -129,17 +139,17 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
       <>
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor={theme.palette.info.main} stopOpacity={0.4} />
-            <stop offset="95%" stopColor={theme.palette.info.main} stopOpacity={0.05} />
+            <stop offset="5%" stopColor={COLOR_SCHEME.historical.conversion} stopOpacity={0.4} />
+            <stop offset="95%" stopColor={COLOR_SCHEME.historical.conversion} stopOpacity={0.05} />
           </linearGradient>
           <linearGradient id={predictionGradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor={theme.palette.error.main} stopOpacity={0.3} />
-            <stop offset="95%" stopColor={theme.palette.error.main} stopOpacity={0.05} />
+            <stop offset="5%" stopColor={COLOR_SCHEME.forecast.conversion} stopOpacity={0.3} />
+            <stop offset="95%" stopColor={COLOR_SCHEME.forecast.conversion} stopOpacity={0.05} />
           </linearGradient>
           {/* Pattern for prediction area */}
           <pattern id="conversionPredictionPattern" patternUnits="userSpaceOnUse" width="4" height="4">
-            <rect width="4" height="4" fill={theme.palette.error.main} fillOpacity="0.1"/>
-            <path d="M 0,4 l 4,-4 M -1,1 l 2,-2 M 3,5 l 2,-2" stroke={theme.palette.error.main} strokeWidth="0.5" strokeOpacity="0.3"/>
+            <rect width="4" height="4" fill={COLOR_SCHEME.forecast.conversion} fillOpacity="0.1"/>
+            <path d="M 0,4 l 4,-4 M -1,1 l 2,-2 M 3,5 l 2,-2" stroke={COLOR_SCHEME.forecast.conversion} strokeWidth="0.5" strokeOpacity="0.3"/>
           </pattern>
         </defs>
         <CartesianGrid 
@@ -212,15 +222,16 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
         {separatorDate && (
           <ReferenceLine
             x={separatorDate}
-            stroke={theme.palette.warning.main}
+            stroke="#f97316"
             strokeWidth={2}
             strokeDasharray="8 4"
             opacity={0.8}
+            label={{ value: "Forecasts", position: "top" }}
           />
         )}
       </>
     );
-  }, [processedData, theme, gradientId, predictionGradientId]);
+  }, [processedData, gradientId, predictionGradientId]);
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -337,14 +348,13 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
             <Bar
               dataKey="conversion_rate"
               name="Conversion Rate"
-              fill={theme.palette.info.main}
-              opacity={0.8}
               radius={[2, 2, 0, 0]}
               isAnimationActive={false}
               shape={(props: any) => {
                 const { payload } = props;
-                const fill = payload?.isPrediction ? theme.palette.error.main : theme.palette.info.main;
-                const opacity = payload?.isPrediction ? 0.6 : 0.8;
+                const isPrediction = payload?.isPrediction;
+                const fill = isPrediction ? COLOR_SCHEME.forecast.conversion : COLOR_SCHEME.historical.conversion;
+                const opacity = isPrediction ? 0.7 : 0.9;
                 return (
                   <rect
                     x={props.x}
@@ -366,21 +376,61 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
         return (
           <LineChart {...commonProps}>
             {commonElements}
+            {/* Historical data line */}
             <Line
               type="monotone"
               dataKey="conversion_rate"
-              name="Conversion Rate"
-              stroke={theme.palette.info.main}
+              name="Conversion Rate (Historical)"
+              stroke={COLOR_SCHEME.historical.conversion}
               strokeWidth={3}
               dot={(props: any) => {
                 const { payload } = props;
+                const isPrediction = payload?.isPrediction;
+                if (isPrediction) {
+                  // Return invisible dot for predictions on historical line
+                  return <circle cx={props.cx} cy={props.cy} r={0} fill="transparent" />;
+                }
                 return (
                   <circle
                     cx={props.cx}
                     cy={props.cy}
                     r={4}
-                    fill={payload?.isPrediction ? theme.palette.error.main : theme.palette.info.main}
-                    stroke={payload?.isPrediction ? theme.palette.error.dark : theme.palette.info.dark}
+                    fill={COLOR_SCHEME.historical.conversion}
+                    stroke={COLOR_SCHEME.historical.conversion}
+                    strokeWidth={2}
+                  />
+                );
+              }}
+              activeDot={{ 
+                r: 6, 
+                stroke: theme.palette.background.paper,
+                strokeWidth: 2
+              }}
+              connectNulls={false}
+              isAnimationActive={false}
+            />
+            {/* Forecast data line - only show if forecast data exists */}
+            <Line
+              type="monotone"
+              dataKey="conversion_rate"
+              name="Conversion Rate (Forecast)"
+              stroke={COLOR_SCHEME.forecast.conversion}
+              strokeWidth={3}
+              strokeDasharray="8 4"
+              dot={(props: any) => {
+                const { payload } = props;
+                const isPrediction = payload?.isPrediction;
+                if (!isPrediction) {
+                  // Return invisible dot for historical on forecast line
+                  return <circle cx={props.cx} cy={props.cy} r={0} fill="transparent" />;
+                }
+                return (
+                  <circle
+                    cx={props.cx}
+                    cy={props.cy}
+                    r={4}
+                    fill={COLOR_SCHEME.forecast.conversion}
+                    stroke={COLOR_SCHEME.forecast.conversion}
                     strokeWidth={2}
                   />
                 );
@@ -400,27 +450,30 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
         return (
           <AreaChart {...commonProps}>
             {commonElements}
+            {/* Historical data area */}
             <Area
               type="monotone"
               dataKey="conversion_rate"
-              name="Conversion Rate"
-              stroke={theme.palette.info.main}
-              strokeWidth={2}
+              name="Conversion Rate (Historical)"
+              stroke={COLOR_SCHEME.historical.conversion}
+              strokeWidth={3}
               fill={`url(#${gradientId})`}
               fillOpacity={0.6}
-              dot={(props: any) => {
-                const { payload } = props;
-                return (
-                  <circle
-                    cx={props.cx}
-                    cy={props.cy}
-                    r={3}
-                    fill={payload?.isPrediction ? theme.palette.error.main : theme.palette.info.main}
-                    stroke={payload?.isPrediction ? theme.palette.error.dark : theme.palette.info.dark}
-                    strokeWidth={2}
-                  />
-                );
-              }}
+              dot={false}
+              connectNulls={false}
+              isAnimationActive={false}
+            />
+            {/* Forecast data area */}
+            <Area
+              type="monotone"
+              dataKey="conversion_rate"
+              name="Conversion Rate (Forecast)"
+              stroke={COLOR_SCHEME.forecast.conversion}
+              strokeWidth={3}
+              strokeDasharray="8 4"
+              fill={`url(#${predictionGradientId})`}
+              fillOpacity={0.4}
+              dot={false}
               connectNulls={false}
               isAnimationActive={false}
             />
@@ -526,14 +579,13 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
             <Bar
               dataKey="conversion_rate"
               name="Conversion Rate"
-              fill={theme.palette.info.main}
-              opacity={0.8}
               radius={[2, 2, 0, 0]}
               isAnimationActive={false}
               shape={(props: any) => {
                 const { payload } = props;
-                const fill = payload?.isPrediction ? theme.palette.error.main : theme.palette.info.main;
-                const opacity = payload?.isPrediction ? 0.6 : 0.8;
+                const isPrediction = payload?.isPrediction;
+                const fill = isPrediction ? COLOR_SCHEME.forecast.conversion : COLOR_SCHEME.historical.conversion;
+                const opacity = isPrediction ? 0.7 : 0.9;
                 return (
                   <rect
                     x={props.x}
