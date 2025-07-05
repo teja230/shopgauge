@@ -453,6 +453,7 @@ const PredictionViewContainer = memo(({
                     return (
                       <RevenuePredictionChart
                         data={historicalOnlyData.revenue}
+                        showPredictions={false}
                         {...commonProps}
                       />
                     );
@@ -460,6 +461,7 @@ const PredictionViewContainer = memo(({
                     return (
                       <OrderPredictionChart
                         data={historicalOnlyData.orders}
+                        showPredictions={false}
                         {...commonProps}
                       />
                     );
@@ -467,6 +469,7 @@ const PredictionViewContainer = memo(({
                     return (
                       <ConversionPredictionChart
                         data={historicalOnlyData.conversion}
+                        showPredictions={false}
                         {...commonProps}
                       />
                     );
@@ -555,6 +558,7 @@ const PredictionViewContainer = memo(({
         return (
           <RevenuePredictionChart
             data={transformedData.revenue}
+            showPredictions={showPredictions}
             {...commonProps}
           />
         );
@@ -562,6 +566,7 @@ const PredictionViewContainer = memo(({
         return (
           <OrderPredictionChart
             data={transformedData.orders}
+            showPredictions={showPredictions}
             {...commonProps}
           />
         );
@@ -569,6 +574,7 @@ const PredictionViewContainer = memo(({
         return (
           <ConversionPredictionChart
             data={transformedData.conversion}
+            showPredictions={showPredictions}
             {...commonProps}
           />
         );

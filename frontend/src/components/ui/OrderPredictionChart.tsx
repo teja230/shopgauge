@@ -4,13 +4,14 @@ import {
   LineChart,
   AreaChart,
   BarChart,
+  ComposedChart,
   Line,
   Area,
   Bar,
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
+  Tooltip as RechartsTooltip,
   Legend,
   ReferenceLine,
 } from 'recharts';
@@ -26,6 +27,7 @@ import {
   useMediaQuery,
   Paper,
   Badge,
+  Tooltip,
 } from '@mui/material';
 import { 
   TrendingUp, 
@@ -35,6 +37,10 @@ import {
   ShowChart,
   Timeline,
   BarChart as BarChartIcon,
+  CandlestickChart,
+  WaterfallChart,
+  StackedLineChart,
+  Analytics,
 } from '@mui/icons-material';
 
 interface OrderPredictionData {
@@ -51,6 +57,7 @@ interface OrderPredictionChartProps {
   loading?: boolean;
   error?: string | null;
   height?: number;
+  showPredictions?: boolean;
 }
 
 type ChartType = 'line' | 'area' | 'bar' | 'candlestick' | 'waterfall' | 'stacked' | 'composed';
@@ -60,6 +67,7 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
   loading = false,
   error = null,
   height = 450,
+  showPredictions = true,
 }) => {
   const [chartType, setChartType] = useState<ChartType>('line');
   const theme = useTheme();
@@ -161,7 +169,7 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
           tick={{ fontSize: 11, fill: 'rgba(0, 0, 0, 0.7)' }}
           axisLine={{ stroke: 'rgba(0, 0, 0, 0.2)' }}
         />
-        <Tooltip
+        <RechartsTooltip
           labelFormatter={(label) => {
             try {
               const date = new Date(label);
@@ -309,6 +317,10 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
     line: { icon: <ShowChart />, label: 'Line', color: theme.palette.success.main },
     area: { icon: <Timeline />, label: 'Area', color: theme.palette.success.main },
     bar: { icon: <BarChartIcon />, label: 'Bar', color: theme.palette.success.main },
+    candlestick: { icon: <CandlestickChart />, label: 'Candlestick', color: '#10b981' },
+    waterfall: { icon: <WaterfallChart />, label: 'Waterfall', color: '#f59e0b' },
+    stacked: { icon: <StackedLineChart />, label: 'Stacked', color: '#8b5cf6' },
+    composed: { icon: <Analytics />, label: 'Composed', color: '#ef4444' },
   };
 
   const renderChart = () => {
@@ -414,6 +426,98 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
             />
           </BarChart>
         );
+
+      case 'candlestick':
+        return (
+          <ComposedChart {...commonProps}>
+            {commonElements}
+            <Bar
+              dataKey="orders_count"
+              name="Orders"
+              fill="#10b981"
+              radius={[2, 2, 0, 0]}
+              opacity={0.8}
+              isAnimationActive={false}
+            />
+            <Line
+              type="monotone"
+              dataKey="orders_count"
+              stroke="#6b7280"
+              strokeWidth={1}
+              dot={false}
+              connectNulls={false}
+              isAnimationActive={false}
+            />
+          </ComposedChart>
+        );
+
+      case 'waterfall':
+        return (
+          <ComposedChart {...commonProps}>
+            {commonElements}
+            <Bar
+              dataKey="orders_count"
+              name="Orders"
+              fill="#f59e0b"
+              radius={[2, 2, 0, 0]}
+              opacity={0.8}
+              isAnimationActive={false}
+            />
+            <Line
+              type="monotone"
+              dataKey="orders_count"
+              stroke="#ef4444"
+              strokeWidth={2}
+              dot={{ fill: '#ef4444', strokeWidth: 2, r: 3 }}
+              connectNulls={false}
+              isAnimationActive={false}
+            />
+          </ComposedChart>
+        );
+
+      case 'stacked':
+        return (
+          <AreaChart {...commonProps}>
+            {commonElements}
+            <Area
+              type="monotone"
+              dataKey="orders_count"
+              name="Orders"
+              stroke="#8b5cf6"
+              strokeWidth={2}
+              fill={`url(#${gradientId})`}
+              fillOpacity={0.6}
+              stackId="1"
+              connectNulls={false}
+              isAnimationActive={false}
+            />
+          </AreaChart>
+        );
+
+      case 'composed':
+        return (
+          <ComposedChart {...commonProps}>
+            {commonElements}
+            <Bar
+              dataKey="orders_count"
+              name="Orders"
+              fill="#ef4444"
+              radius={[2, 2, 0, 0]}
+              opacity={0.8}
+              isAnimationActive={false}
+            />
+            <Line
+              type="monotone"
+              dataKey="orders_count"
+              stroke={theme.palette.success.main}
+              strokeWidth={3}
+              name="Orders Trend"
+              dot={{ fill: theme.palette.success.main, strokeWidth: 2, r: 3 }}
+              connectNulls={false}
+              isAnimationActive={false}
+            />
+          </ComposedChart>
+        );
       
       default:
         return (
@@ -493,42 +597,18 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
           }}
         >
           {Object.entries(chartTypeConfig).map(([type, config]) => (
-            <ToggleButton key={type} value={type} aria-label={config.label}>
-              {React.cloneElement(config.icon, { 
-                fontSize: "small", 
-                sx: { mr: isMobile ? 0 : 0.5 } 
-              })}
-              {!isMobile && config.label}
-            </ToggleButton>
+            <Tooltip key={type} title={config.label} arrow placement="top">
+              <ToggleButton value={type} aria-label={config.label}>
+                {React.cloneElement(config.icon, { 
+                  fontSize: "small"
+                })}
+              </ToggleButton>
+            </Tooltip>
           ))}
         </ToggleButtonGroup>
       </Box>
 
-      {/* Stats Row */}
-      {stats && (
-        <Box sx={{ 
-          display: 'flex', 
-          gap: theme.spacing(1), 
-          mb: theme.spacing(2), 
-          flexWrap: 'wrap' 
-        }}>
-          <Chip
-            label={`${stats.growthRate >= 0 ? '+' : ''}${stats.growthRate.toFixed(1)}%`}
-            color={stats.growthRate >= 0 ? 'success' : 'error'}
-            size="small"
-            icon={stats.growthRate >= 0 ? <TrendingUp /> : <TrendingDown />}
-            sx={{ fontWeight: 600 }}
-          />
-          <Chip
-            label={`${formatNumber(stats.predictedOrders)} orders forecast`}
-            variant="outlined"
-            color="success"
-            size="small"
-            icon={<ShoppingCart />}
-            sx={{ fontWeight: 600 }}
-          />
-        </Box>
-      )}
+
 
       {/* Chart with proper margins */}
       <Box sx={{ 

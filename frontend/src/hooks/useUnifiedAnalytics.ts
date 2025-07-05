@@ -1016,11 +1016,10 @@ const useUnifiedAnalytics = (
     if (useDashboardData) {
       debugLog.info('🔄 UNIFIED_ANALYTICS: Initializing dashboard data mode', { shop, useDashboardData }, 'useUnifiedAnalytics');
       
-      // Start loading state
-      setLoading(true);
-      setError(null);
+      // SIMPLIFIED APPROACH: Mark as initialized immediately to prevent loops
+      isInitializedRef.current = true;
       
-      // SIMPLIFIED APPROACH: Try to load from session storage first
+      // Try to load from session storage first
       const storageData = loadUnifiedAnalyticsFromStorage(shop);
       if (storageData && storageData.historical && storageData.historical.length > 0) {
         debugLog.info('✅ UNIFIED_ANALYTICS: Loaded initial data from session storage', { 
@@ -1032,60 +1031,66 @@ const useUnifiedAnalytics = (
         setIsCached(true);
         setCacheAge(0);
         setLoading(false);
+        setError(null);
         hasProcessedDataRef.current = true;
-        isInitializedRef.current = true;
         return;
-      } else {
-        debugLog.info('🔄 UNIFIED_ANALYTICS: No session storage data, ready to process dashboard data when available', { shop }, 'useUnifiedAnalytics');
-        // Mark as initialized so dashboard data processing can start
-        isInitializedRef.current = true;
+      }
+      
+      // If no storage data, check if we have dashboard data to process immediately
+      const hasValidData = (Array.isArray(dashboardRevenueData) && dashboardRevenueData.length > 0) ||
+                          (Array.isArray(dashboardOrdersData) && dashboardOrdersData.length > 0);
+      
+      if (hasValidData) {
+        debugLog.info('🔄 UNIFIED_ANALYTICS: Processing dashboard data immediately on init', {
+          revenueDataLength: dashboardRevenueData?.length || 0,
+          ordersDataLength: dashboardOrdersData?.length || 0
+        }, 'useUnifiedAnalytics');
         
-        // Check if we already have dashboard data available
-        const hasValidData = (Array.isArray(dashboardRevenueData) && dashboardRevenueData.length > 0) ||
-                            (Array.isArray(dashboardOrdersData) && dashboardOrdersData.length > 0);
+        setLoading(true);
+        setError(null);
         
-        if (hasValidData) {
-          debugLog.info('🔄 UNIFIED_ANALYTICS: Dashboard data already available, processing immediately', {
-            revenueDataLength: dashboardRevenueData?.length || 0,
-            ordersDataLength: dashboardOrdersData?.length || 0
-          }, 'useUnifiedAnalytics');
+        try {
+          const processedData = convertDashboardDataToUnified(
+            dashboardRevenueData || [],
+            dashboardOrdersData || [],
+            realConversionRate
+          );
           
-          try {
-            const processedData = convertDashboardDataToUnified(
-              dashboardRevenueData || [],
-              dashboardOrdersData || [],
-              realConversionRate
-            );
-            
+          if (processedData && Array.isArray(processedData.historical)) {
             setData(processedData);
             setLastUpdated(new Date());
             setIsCached(false);
             setCacheAge(0);
             setLoading(false);
+            setError(null);
             hasProcessedDataRef.current = true;
             saveUnifiedAnalyticsToStorage(shop, processedData);
             
-            debugLog.info('✅ UNIFIED_ANALYTICS: Immediately processed available dashboard data', {
+            debugLog.info('✅ UNIFIED_ANALYTICS: Successfully processed dashboard data on init', {
               historicalLength: processedData.historical.length,
               predictionsLength: processedData.predictions.length
             }, 'useUnifiedAnalytics');
-          } catch (error) {
-            debugLog.error('🔄 UNIFIED_ANALYTICS: Error processing immediate dashboard data', { error }, 'useUnifiedAnalytics');
-            setError('Failed to process dashboard data');
-            setLoading(false);
+            return;
           }
-        } else {
-          // No data yet, but keep loading state and wait for dashboard data effect
-          debugLog.info('🔄 UNIFIED_ANALYTICS: No dashboard data yet, waiting for data processing effect', {}, 'useUnifiedAnalytics');
+        } catch (error) {
+          debugLog.error('🔄 UNIFIED_ANALYTICS: Error processing dashboard data on init', { error }, 'useUnifiedAnalytics');
+          setError('Failed to process dashboard data');
+          setLoading(false);
+          return;
         }
       }
+      
+      // No data available yet - stop loading but keep waiting for data
+      debugLog.info('🔄 UNIFIED_ANALYTICS: No data available yet, waiting for dashboard data', {}, 'useUnifiedAnalytics');
+      setLoading(false);
+      setError(null);
     } else {
       // Legacy API mode not supported
       debugLog.error('🚫 UNIFIED_ANALYTICS: API mode not supported', {}, 'useUnifiedAnalytics');
       setError('API mode not supported. Use dashboard data mode.');
       setLoading(false);
     }
-  }, [shop, useDashboardData, loadUnifiedAnalyticsFromStorage, days, dashboardRevenueData, dashboardOrdersData, convertDashboardDataToUnified, saveUnifiedAnalyticsToStorage, realConversionRate]);
+  }, [shop, useDashboardData]); // SIMPLIFIED DEPENDENCIES - only shop and mode
 
   // Auto-refresh if enabled
   useEffect(() => {
@@ -1102,25 +1107,41 @@ const useUnifiedAnalytics = (
 
   // SIMPLIFIED DASHBOARD DATA PROCESSING - FIXED to prevent infinite loops
   useEffect(() => {
+    // Only process if initialized and in dashboard mode
     if (!shop || !shop.trim() || !useDashboardData || !isInitializedRef.current) {
       return;
     }
 
-    // Check if dashboard data has changed - only skip if data hasn't changed
-    const currentRevenueLength = dashboardRevenueData?.length || 0;
-    const currentOrdersLength = dashboardOrdersData?.length || 0;
-    
-    const dataChanged = hasDataChanged(dashboardRevenueData || [], dashboardOrdersData || []);
-    
-    // Skip if we already have data and it hasn't changed
-    if (data && Array.isArray(data.historical) && data.historical.length > 0 && !dataChanged) {
-      debugLog.info('🔄 UNIFIED_ANALYTICS: Data unchanged, skipping processing', {
-        hasData: true,
-        historicalLength: data.historical.length,
+    // Skip if we already processed data and it hasn't meaningfully changed
+    if (hasProcessedDataRef.current && data && Array.isArray(data.historical) && data.historical.length > 0) {
+      // Only reprocess if data has significantly changed (length difference)
+      const currentRevenueLength = dashboardRevenueData?.length || 0;
+      const currentOrdersLength = dashboardOrdersData?.length || 0;
+      const existingHistoricalLength = data.historical.length;
+      
+      // Check for significant data changes (more than 10% difference or completely different data)
+      const revenueChange = Math.abs(currentRevenueLength - lastProcessedDataRef.current.revenueLength);
+      const ordersChange = Math.abs(currentOrdersLength - lastProcessedDataRef.current.ordersLength);
+      const significantChange = (revenueChange > Math.max(5, currentRevenueLength * 0.1)) || 
+                               (ordersChange > Math.max(5, currentOrdersLength * 0.1));
+      
+      if (!significantChange) {
+        debugLog.info('🔄 UNIFIED_ANALYTICS: Data unchanged, skipping reprocessing', {
+          currentRevenueLength,
+          currentOrdersLength,
+          existingHistoricalLength,
+          revenueChange,
+          ordersChange
+        }, 'useUnifiedAnalytics');
+        return;
+      }
+      
+      debugLog.info('🔄 UNIFIED_ANALYTICS: Significant data change detected, reprocessing', {
         currentRevenueLength,
-        currentOrdersLength
+        currentOrdersLength,
+        revenueChange,
+        ordersChange
       }, 'useUnifiedAnalytics');
-      return;
     }
 
     // Check if we have dashboard data to process
@@ -1128,16 +1149,20 @@ const useUnifiedAnalytics = (
     const hasOrdersData = Array.isArray(dashboardOrdersData) && dashboardOrdersData.length > 0;
     
     if (!hasRevenueData && !hasOrdersData) {
-      debugLog.info('🔄 UNIFIED_ANALYTICS: No dashboard data available yet', {
+      debugLog.info('🔄 UNIFIED_ANALYTICS: No dashboard data available for processing', {
         hasRevenueData,
-        hasOrdersData,
-        revenueDataLength: dashboardRevenueData?.length || 0,
-        ordersDataLength: dashboardOrdersData?.length || 0
+        hasOrdersData
       }, 'useUnifiedAnalytics');
+      
+      // Only set loading false if we don't already have data
+      if (!data || !Array.isArray(data.historical) || data.historical.length === 0) {
+        setLoading(false);
+        setError(null);
+      }
       return;
     }
 
-    debugLog.info('🔄 UNIFIED_ANALYTICS: Processing dashboard data', {
+    debugLog.info('🔄 UNIFIED_ANALYTICS: Processing available dashboard data', {
       hasRevenueData,
       hasOrdersData,
       revenueDataLength: dashboardRevenueData?.length || 0,
@@ -1163,6 +1188,14 @@ const useUnifiedAnalytics = (
         setError(null);
         hasProcessedDataRef.current = true;
         
+        // Update tracking to prevent unnecessary reprocessing
+        lastProcessedDataRef.current = {
+          revenueLength: dashboardRevenueData?.length || 0,
+          ordersLength: dashboardOrdersData?.length || 0,
+          revenueData: [...(dashboardRevenueData || [])],
+          ordersData: [...(dashboardOrdersData || [])]
+        };
+        
         // Save to session storage
         saveUnifiedAnalyticsToStorage(shop, processedData);
         
@@ -1187,33 +1220,30 @@ const useUnifiedAnalytics = (
     useDashboardData,
     dashboardRevenueData,
     dashboardOrdersData,
-    convertDashboardDataToUnified,
-    saveUnifiedAnalyticsToStorage,
-    realConversionRate,
-    hasDataChanged
-  ]);
+    realConversionRate
+  ]); // SIMPLIFIED DEPENDENCIES
 
   // Force compute unified analytics (called when main dashboard data is refreshed)
   const forceCompute = useCallback(() => {
-    // Enhanced debug logging for force compute
-    debugLog.info('UNIFIED_ANALYTICS: Force compute called', {
+    debugLog.info('🔧 UNIFIED_ANALYTICS: Force compute called', {
       shop: shop || 'undefined',
       useDashboardData,
-      dashboardRevenueDataLength: dashboardRevenueData?.length || 0,
-      dashboardOrdersDataLength: dashboardOrdersData?.length || 0,
-      hasShop: !!(shop && shop.trim()),
-      hasValidData: (Array.isArray(dashboardRevenueData) && dashboardRevenueData.length > 0) ||
-                   (Array.isArray(dashboardOrdersData) && dashboardOrdersData.length > 0)
+      hasRevenueData: Array.isArray(dashboardRevenueData) && dashboardRevenueData.length > 0,
+      hasOrdersData: Array.isArray(dashboardOrdersData) && dashboardOrdersData.length > 0
     }, 'useUnifiedAnalytics');
 
     // Validate inputs
     if (!shop || !shop.trim()) {
       debugLog.warn('🔄 UNIFIED_ANALYTICS: Cannot force compute - missing shop', { shop }, 'useUnifiedAnalytics');
+      setError('No shop selected');
+      setLoading(false);
       return;
     }
 
     if (!useDashboardData) {
       debugLog.warn('🔄 UNIFIED_ANALYTICS: Cannot force compute - not in dashboard mode', { useDashboardData }, 'useUnifiedAnalytics');
+      setError('Dashboard mode required');
+      setLoading(false);
       return;
     }
 
@@ -1222,14 +1252,15 @@ const useUnifiedAnalytics = (
 
     if (!hasValidData) {
       debugLog.warn('🔄 UNIFIED_ANALYTICS: Cannot force compute - no valid dashboard data', {
-        dashboardRevenueDataLength: dashboardRevenueData?.length || 0,
-        dashboardOrdersDataLength: dashboardOrdersData?.length || 0
+        revenueDataLength: dashboardRevenueData?.length || 0,
+        ordersDataLength: dashboardOrdersData?.length || 0
       }, 'useUnifiedAnalytics');
+      setError('No dashboard data available');
+      setLoading(false);
       return;
     }
 
-    debugLog.info('🔄 UNIFIED_ANALYTICS: Force computing unified analytics with robust solution', {
-      shop,
+    debugLog.info('🔧 UNIFIED_ANALYTICS: Force computing analytics data', {
       revenueDataLength: dashboardRevenueData?.length || 0,
       ordersDataLength: dashboardOrdersData?.length || 0
     }, 'useUnifiedAnalytics');
@@ -1238,10 +1269,9 @@ const useUnifiedAnalytics = (
       setLoading(true);
       setError(null);
       
-      // Robust solution: Compute data to render chart and update session storage
       const processedData = convertDashboardDataToUnified(
-        dashboardRevenueData,
-        dashboardOrdersData,
+        dashboardRevenueData || [],
+        dashboardOrdersData || [],
         realConversionRate
       );
       
@@ -1254,23 +1284,28 @@ const useUnifiedAnalytics = (
         setLoading(false);
         setError(null);
         
-        // Update session storage with corrected data for unified analytics
+        // Mark as processed and update tracking
+        hasProcessedDataRef.current = true;
+        isInitializedRef.current = true;
+        lastProcessedDataRef.current = {
+          revenueLength: dashboardRevenueData?.length || 0,
+          ordersLength: dashboardOrdersData?.length || 0,
+          revenueData: [...(dashboardRevenueData || [])],
+          ordersData: [...(dashboardOrdersData || [])]
+        };
+        
+        // Update session storage
         saveUnifiedAnalyticsToStorage(shop, processedData);
         
-        // Mark as processed
-        hasProcessedDataRef.current = true;
-        
-        debugLog.info('✅ UNIFIED_ANALYTICS: Force compute successful - data ready for chart rendering', {
+        debugLog.info('✅ UNIFIED_ANALYTICS: Force compute successful', {
           historicalPoints: processedData.historical.length,
           predictionPoints: processedData.predictions.length,
           totalRevenue: processedData.total_revenue,
-          totalOrders: processedData.total_orders,
-          dataComputed: true,
-          sessionStorageUpdated: true
+          totalOrders: processedData.total_orders
         }, 'useUnifiedAnalytics');
       } else {
-        debugLog.error('🔄 UNIFIED_ANALYTICS: Invalid data structure returned from force compute', {}, 'useUnifiedAnalytics');
-        setError('Invalid data structure returned from conversion');
+        debugLog.error('🔄 UNIFIED_ANALYTICS: Force compute failed - invalid data structure', {}, 'useUnifiedAnalytics');
+        setError('Invalid data structure returned');
         setLoading(false);
       }
     } catch (error) {
@@ -1283,9 +1318,9 @@ const useUnifiedAnalytics = (
     useDashboardData,
     dashboardRevenueData,
     dashboardOrdersData,
+    realConversionRate,
     convertDashboardDataToUnified,
-    saveUnifiedAnalyticsToStorage,
-    realConversionRate
+    saveUnifiedAnalyticsToStorage
   ]);
 
   // Clear unified analytics session storage (called when shop changes)

@@ -11,7 +11,7 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
+  Tooltip as RechartsTooltip,
   Legend,
   ReferenceLine,
 } from 'recharts';
@@ -24,14 +24,20 @@ import {
   useTheme,
   useMediaQuery,
   Paper,
+  Tooltip,
 } from '@mui/material';
 import { 
   TrendingUp, 
   TrendingDown, 
+  AttachMoney,
   AutoAwesome,
   ShowChart,
   Timeline,
   BarChart as BarChartIcon,
+  CandlestickChart,
+  WaterfallChart,
+  StackedLineChart,
+  Analytics,
 } from '@mui/icons-material';
 import {
   chartContainerStyles,
@@ -72,6 +78,7 @@ interface RevenuePredictionChartProps {
   loading?: boolean;
   error?: string | null;
   height?: number;
+  showPredictions?: boolean;
 }
 
 type ChartType = 'line' | 'area' | 'bar' | 'candlestick' | 'waterfall' | 'stacked' | 'composed';
@@ -81,6 +88,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
   loading = false,
   error = null,
   height = 450,
+  showPredictions = true,
 }) => {
   const [chartType, setChartType] = useState<ChartType>('area');
   const theme = useTheme();
@@ -93,10 +101,10 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
     line: { icon: <ShowChart />, label: 'Line', color: theme.palette.primary.main },
     area: { icon: <Timeline />, label: 'Area', color: theme.palette.primary.main },
     bar: { icon: <BarChartIcon />, label: 'Bar', color: theme.palette.primary.main },
-    candlestick: { icon: <TrendingUp />, label: 'Candlestick', color: '#10b981' },
-    waterfall: { icon: <TrendingDown />, label: 'Waterfall', color: '#f59e0b' },
-    stacked: { icon: <Timeline />, label: 'Stacked', color: '#8b5cf6' },
-    composed: { icon: <BarChartIcon />, label: 'Composed', color: '#ef4444' },
+    candlestick: { icon: <CandlestickChart />, label: 'Candlestick', color: '#10b981' },
+    waterfall: { icon: <WaterfallChart />, label: 'Waterfall', color: '#f59e0b' },
+    stacked: { icon: <StackedLineChart />, label: 'Stacked', color: '#8b5cf6' },
+    composed: { icon: <Analytics />, label: 'Composed', color: '#ef4444' },
   };
   // Process and validate data with separation of historical vs predicted
   const processedData = useMemo(() => {
@@ -200,7 +208,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
           tick={{ fontSize: 11, fill: 'rgba(0, 0, 0, 0.7)' }}
           axisLine={{ stroke: 'rgba(0, 0, 0, 0.2)' }}
         />
-        <Tooltip
+        <RechartsTooltip
           labelFormatter={(label) => {
             try {
               const date = new Date(label);
@@ -576,36 +584,18 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
           sx={toggleButtonGroupStyles(theme, isMobile)}
         >
           {Object.entries(chartConfig).map(([type, config]) => (
-            <ToggleButton key={type} value={type} aria-label={config.label}>
-              {React.cloneElement(config.icon, { 
-                fontSize: "small", 
-                sx: { mr: isMobile ? 0 : 0.5 } 
-              })}
-              {!isMobile && config.label}
-            </ToggleButton>
+            <Tooltip key={type} title={config.label} arrow placement="top">
+              <ToggleButton value={type} aria-label={config.label}>
+                {React.cloneElement(config.icon, { 
+                  fontSize: "small"
+                })}
+              </ToggleButton>
+            </Tooltip>
           ))}
         </ToggleButtonGroup>
       </Box>
 
-      {/* Stats Row */}
-      {stats && (
-        <Box sx={statsRowStyles(theme)}>
-          <Chip
-            label={`${stats.growthRate >= 0 ? '+' : ''}${stats.growthRate.toFixed(1)}%`}
-            color={stats.growthRate >= 0 ? 'success' : 'error'}
-            size="small"
-            icon={stats.growthRate >= 0 ? <TrendingUp /> : <TrendingDown />}
-            sx={statChipStyles(theme)}
-          />
-          <Chip
-            label={`${formatCurrency(stats.predictedRevenue)} forecast`}
-            variant="outlined"
-            color="secondary"
-            size="small"
-            sx={forecastChipStyles(theme)}
-          />
-        </Box>
-      )}
+
 
       {/* Chart with proper margins */}
       <Box sx={chartContentStyles(theme, height)}>

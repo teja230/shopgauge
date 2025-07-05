@@ -4,13 +4,14 @@ import {
   BarChart,
   LineChart,
   AreaChart,
+  ComposedChart,
   Bar,
   Line,
   Area,
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
+  Tooltip as RechartsTooltip,
   Legend,
   ReferenceLine,
 } from 'recharts';
@@ -26,6 +27,7 @@ import {
   useMediaQuery,
   Paper,
   Badge,
+  Tooltip,
 } from '@mui/material';
 import { 
   TrendingUp, 
@@ -35,6 +37,11 @@ import {
   ShowChart,
   Timeline,
   BarChart as BarChartIcon,
+  Speed,
+  CandlestickChart,
+  WaterfallChart,
+  StackedLineChart,
+  Analytics,
 } from '@mui/icons-material';
 
 interface ConversionPredictionData {
@@ -51,6 +58,7 @@ interface ConversionPredictionChartProps {
   loading?: boolean;
   error?: string | null;
   height?: number;
+  showPredictions?: boolean;
 }
 
 type ChartType = 'line' | 'area' | 'bar' | 'candlestick' | 'waterfall' | 'stacked' | 'composed';
@@ -60,6 +68,7 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
   loading = false,
   error = null,
   height = 450,
+  showPredictions = true,
 }) => {
   const [chartType, setChartType] = useState<ChartType>('bar');
   const theme = useTheme();
@@ -160,7 +169,7 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
           tick={{ fontSize: 11, fill: 'rgba(0, 0, 0, 0.7)' }}
           axisLine={{ stroke: 'rgba(0, 0, 0, 0.2)' }}
         />
-        <Tooltip
+        <RechartsTooltip
           labelFormatter={(label) => {
             try {
               const date = new Date(label);
@@ -305,9 +314,13 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
   const predictionStartDate = processedData.find(d => d.isPrediction)?.date;
 
   const chartTypeConfig = {
-    bar: { icon: <BarChartIcon />, label: 'Bar', color: theme.palette.warning.main },
-    line: { icon: <ShowChart />, label: 'Line', color: theme.palette.warning.main },
-    area: { icon: <Timeline />, label: 'Area', color: theme.palette.warning.main },
+    line: { icon: <ShowChart />, label: 'Line', color: theme.palette.info.main },
+    area: { icon: <Timeline />, label: 'Area', color: theme.palette.info.main },
+    bar: { icon: <BarChartIcon />, label: 'Bar', color: theme.palette.info.main },
+    candlestick: { icon: <CandlestickChart />, label: 'Candlestick', color: '#10b981' },
+    waterfall: { icon: <WaterfallChart />, label: 'Waterfall', color: '#f59e0b' },
+    stacked: { icon: <StackedLineChart />, label: 'Stacked', color: '#8b5cf6' },
+    composed: { icon: <Analytics />, label: 'Composed', color: '#ef4444' },
   };
 
   const renderChart = () => {
@@ -413,6 +426,98 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
             />
           </AreaChart>
         );
+
+      case 'candlestick':
+        return (
+          <ComposedChart {...commonProps}>
+            {commonElements}
+            <Bar
+              dataKey="conversion_rate"
+              name="Conversion Rate"
+              fill="#10b981"
+              radius={[2, 2, 0, 0]}
+              opacity={0.8}
+              isAnimationActive={false}
+            />
+            <Line
+              type="monotone"
+              dataKey="conversion_rate"
+              stroke="#6b7280"
+              strokeWidth={1}
+              dot={false}
+              connectNulls={false}
+              isAnimationActive={false}
+            />
+          </ComposedChart>
+        );
+
+      case 'waterfall':
+        return (
+          <ComposedChart {...commonProps}>
+            {commonElements}
+            <Bar
+              dataKey="conversion_rate"
+              name="Conversion Rate"
+              fill="#f59e0b"
+              radius={[2, 2, 0, 0]}
+              opacity={0.8}
+              isAnimationActive={false}
+            />
+            <Line
+              type="monotone"
+              dataKey="conversion_rate"
+              stroke="#ef4444"
+              strokeWidth={2}
+              dot={{ fill: '#ef4444', strokeWidth: 2, r: 3 }}
+              connectNulls={false}
+              isAnimationActive={false}
+            />
+          </ComposedChart>
+        );
+
+      case 'stacked':
+        return (
+          <AreaChart {...commonProps}>
+            {commonElements}
+            <Area
+              type="monotone"
+              dataKey="conversion_rate"
+              name="Conversion Rate"
+              stroke="#8b5cf6"
+              strokeWidth={2}
+              fill={`url(#${gradientId})`}
+              fillOpacity={0.6}
+              stackId="1"
+              connectNulls={false}
+              isAnimationActive={false}
+            />
+          </AreaChart>
+        );
+
+      case 'composed':
+        return (
+          <ComposedChart {...commonProps}>
+            {commonElements}
+            <Bar
+              dataKey="conversion_rate"
+              name="Conversion Rate"
+              fill="#ef4444"
+              radius={[2, 2, 0, 0]}
+              opacity={0.8}
+              isAnimationActive={false}
+            />
+            <Line
+              type="monotone"
+              dataKey="conversion_rate"
+              stroke={theme.palette.info.main}
+              strokeWidth={3}
+              name="Conversion Trend"
+              dot={{ fill: theme.palette.info.main, strokeWidth: 2, r: 3 }}
+              connectNulls={false}
+              isAnimationActive={false}
+            />
+          </ComposedChart>
+        );
       
       default:
         return (
@@ -508,42 +613,18 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
           }}
         >
           {Object.entries(chartTypeConfig).map(([type, config]) => (
-            <ToggleButton key={type} value={type} aria-label={config.label}>
-              {React.cloneElement(config.icon, { 
-                fontSize: "small", 
-                sx: { mr: isMobile ? 0 : 0.5 } 
-              })}
-              {!isMobile && config.label}
-            </ToggleButton>
+            <Tooltip key={type} title={config.label} arrow placement="top">
+              <ToggleButton value={type} aria-label={config.label}>
+                {React.cloneElement(config.icon, { 
+                  fontSize: "small"
+                })}
+              </ToggleButton>
+            </Tooltip>
           ))}
         </ToggleButtonGroup>
       </Box>
 
-      {/* Stats Row */}
-      {stats && (
-        <Box sx={{ 
-          display: 'flex', 
-          gap: theme.spacing(1), 
-          mb: theme.spacing(2), 
-          flexWrap: 'wrap' 
-        }}>
-          <Chip
-            label={`${stats.growthRate >= 0 ? '+' : ''}${stats.growthRate.toFixed(1)}%`}
-            color={stats.growthRate >= 0 ? 'success' : 'error'}
-            size="small"
-            icon={stats.growthRate >= 0 ? <TrendingUp /> : <TrendingDown />}
-            sx={{ fontWeight: 600 }}
-          />
-          <Chip
-            label={`${formatPercentage(stats.avgPredictedConversion)} forecast`}
-            variant="outlined"
-            color="warning"
-            size="small"
-            icon={<Percent />}
-            sx={{ fontWeight: 600 }}
-          />
-        </Box>
-      )}
+
 
       {/* Chart with proper margins */}
       <Box sx={{ 
