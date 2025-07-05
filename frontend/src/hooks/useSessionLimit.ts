@@ -63,6 +63,7 @@ interface UseSessionLimitReturn {
 const SESSION_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 const MAX_RETRY_ATTEMPTS = 3;
 const RETRY_DELAY_BASE = 2000; // 2 seconds base delay
+const FAILURE_COOLDOWN_PERIOD = 10 * 60 * 1000; // 10 minutes cooldown after max retries
 
 export const useSessionLimit = (): UseSessionLimitReturn => {
   const [sessionLimitData, setSessionLimitData] = useState<SessionLimitResponse | null>(null);
@@ -70,6 +71,8 @@ export const useSessionLimit = (): UseSessionLimitReturn => {
   const [error, setError] = useState<string | null>(null);
   const [showSessionDialog, setShowSessionDialog] = useState(false);
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
+  const [isRequestInProgress, setIsRequestInProgress] = useState(false);
+  const [lastFailureTime, setLastFailureTime] = useState<number | null>(null);
 
   // Cache management
   const getCacheKey = () => 'session_limit_cache';
@@ -110,7 +113,26 @@ export const useSessionLimit = (): UseSessionLimitReturn => {
     }
   };
 
+  // Check if we're in a cooldown period after failures
+  const isInCooldownPeriod = (): boolean => {
+    if (!lastFailureTime) return false;
+    return Date.now() - lastFailureTime < FAILURE_COOLDOWN_PERIOD;
+  };
+
   const checkSessionLimit = useCallback(async (retryCount = 0): Promise<SessionLimitResponse | null> => {
+    // Prevent overlapping requests
+    if (isRequestInProgress) {
+      console.log('🔄 useSessionLimit: Request already in progress, skipping');
+      return null;
+    }
+
+    // Check cooldown period
+    if (isInCooldownPeriod() && retryCount === 0) {
+      console.log('⏸️ useSessionLimit: In cooldown period, skipping request');
+      setError('Session management temporarily unavailable (cooling down)');
+      return null;
+    }
+
     // Check cache first
     const cachedData = loadFromCache();
     if (cachedData && retryCount === 0) {
@@ -120,6 +142,7 @@ export const useSessionLimit = (): UseSessionLimitReturn => {
       return cachedData;
     }
 
+    setIsRequestInProgress(true);
     setLoading(true);
     setError(null);
     
@@ -142,6 +165,7 @@ export const useSessionLimit = (): UseSessionLimitReturn => {
         
         setSessionLimitData(data);
         setError(null);
+        setLastFailureTime(null); // Clear failure time on success
         saveToCache(data);
         
         // Automatically show dialog if limit is reached
@@ -151,21 +175,21 @@ export const useSessionLimit = (): UseSessionLimitReturn => {
         
         return data;
       } else if (response.status === 404) {
-        const errorMsg = 'Session limit feature is currently unavailable';
         console.log('ℹ️ useSessionLimit: Session limit endpoint not available - this is optional');
         
         // Don't show error for 404 - treat as optional feature
         setError(null);
         setLastChecked(new Date());
+        setLastFailureTime(null); // Don't treat 404 as a failure for cooldown
         
         return null;
       } else if (response.status === 401) {
-        const errorMsg = 'Authentication required for session management';
         console.log('ℹ️ useSessionLimit: Authentication required - user may not be logged in yet');
         
         // Don't show error for 401 during initial load
         setError(null);
         setLastChecked(new Date());
+        setLastFailureTime(null); // Don't treat 401 as a failure for cooldown
         
         return null;
       } else {
@@ -174,20 +198,21 @@ export const useSessionLimit = (): UseSessionLimitReturn => {
           const delay = RETRY_DELAY_BASE * Math.pow(2, retryCount); // Exponential backoff
           console.log(`⏳ useSessionLimit: Retrying in ${delay}ms (attempt ${retryCount + 1}/${MAX_RETRY_ATTEMPTS})`);
           
-          setTimeout(() => {
-            checkSessionLimit(retryCount + 1);
-          }, delay);
+          // Use a promise-based approach instead of recursive setTimeout
+          await new Promise(resolve => setTimeout(resolve, delay));
           
-          return null;
+          // Reset request in progress before retry
+          setIsRequestInProgress(false);
+          return await checkSessionLimit(retryCount + 1);
         }
         
-        const errorText = await response.text().catch(() => 'Unknown error');
         const errorMsg = `Session management temporarily unavailable`;
-        console.log('⚠️ useSessionLimit: Max retries reached, giving up gracefully');
+        console.log('⚠️ useSessionLimit: Max retries reached, entering cooldown period');
         
-        // Set error but don't show toast - handle gracefully
+        // Set error and enter cooldown period
         setError(errorMsg);
         setLastChecked(new Date());
+        setLastFailureTime(Date.now()); // Start cooldown period
         return null;
       }
     } catch (error) {
@@ -196,30 +221,36 @@ export const useSessionLimit = (): UseSessionLimitReturn => {
         const delay = RETRY_DELAY_BASE * Math.pow(2, retryCount);
         console.log(`⏳ useSessionLimit: Network error, retrying in ${delay}ms (attempt ${retryCount + 1}/${MAX_RETRY_ATTEMPTS})`);
         
-        setTimeout(() => {
-          checkSessionLimit(retryCount + 1);
-        }, delay);
+        // Use a promise-based approach instead of recursive setTimeout
+        await new Promise(resolve => setTimeout(resolve, delay));
         
-        return null;
+        // Reset request in progress before retry
+        setIsRequestInProgress(false);
+        return await checkSessionLimit(retryCount + 1);
       }
       
       const errorMsg = 'Session management is currently unavailable';
-      console.log('ℹ️ useSessionLimit: Network error after max retries - handling gracefully');
+      console.log('ℹ️ useSessionLimit: Network error after max retries - entering cooldown period');
       
       // Don't show toast for network errors - handle gracefully
       setError(errorMsg);
       setLastChecked(new Date());
+      setLastFailureTime(Date.now()); // Start cooldown period
       
       return null;
     } finally {
       setLoading(false);
+      setIsRequestInProgress(false);
     }
-  }, []);
+  }, [isRequestInProgress, isInCooldownPeriod]);
 
   const refreshSessionData = useCallback(async (): Promise<void> => {
     console.log('🔄 useSessionLimit: Force refreshing session data (bypassing cache)');
-    // Clear cache to force fresh fetch
+    
+    // Clear cache and failure state to force fresh fetch
     localStorage.removeItem(getCacheKey());
+    setLastFailureTime(null); // Clear cooldown period on manual refresh
+    
     await checkSessionLimit();
   }, [checkSessionLimit]);
 
