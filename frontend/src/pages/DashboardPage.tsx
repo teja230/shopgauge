@@ -23,7 +23,6 @@ import ErrorBoundary from '../components/ErrorBoundary';
 import ChartErrorBoundary from '../components/ui/ChartErrorBoundary';
 import { debugLog } from '../components/ui/DebugPanel';
 import { clearCacheForShop } from '../utils/cacheUtils';
-import { debugSessionStorage, fixSessionStorageData } from '../utils/sessionStorageDebugger';
 
 /**
  * 🚀 DASHBOARD CACHE BEHAVIOR
@@ -2506,75 +2505,7 @@ const DashboardPage = () => {
                 return null;
               })()}
               
-              {/* DEBUG: Quick fix button for Advanced Analytics */}
-              {(!unifiedAnalyticsData || !unifiedAnalyticsData.historical || unifiedAnalyticsData.historical.length === 0) && (
-                <Box sx={{ mb: 2, p: 2, backgroundColor: '#ffeb3b', borderRadius: 1, border: '1px solid #fbc02d' }}>
-                  <Typography variant="body2" sx={{ mb: 1, fontWeight: 600 }}>
-                    🔧 Advanced Analytics Debug
-                  </Typography>
-                  <Typography variant="body2" sx={{ mb: 1, fontSize: '0.8rem' }}>
-                    Data not loading? Try these quick fixes:
-                  </Typography>
-                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      onClick={() => {
-                        console.log('🔧 FORCE COMPUTE clicked');
-                        forceCompute();
-                      }}
-                      sx={{ textTransform: 'none', fontSize: '0.75rem' }}
-                    >
-                      Force Compute
-                    </Button>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      onClick={() => {
-                        console.log('🔧 LOAD FROM STORAGE clicked');
-                        const loaded = loadFromStorage();
-                        console.log('Load from storage result:', loaded);
-                      }}
-                      sx={{ textTransform: 'none', fontSize: '0.75rem' }}
-                    >
-                      Load from Storage
-                    </Button>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      onClick={() => {
-                        console.log('🔧 REFETCH clicked');
-                        refetchUnifiedAnalytics();
-                      }}
-                      sx={{ textTransform: 'none', fontSize: '0.75rem' }}
-                    >
-                      Refetch
-                    </Button>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      onClick={() => {
-                        console.log('🔧 SESSION STORAGE DEBUG:');
-                        debugSessionStorage();
-                      }}
-                      sx={{ textTransform: 'none', fontSize: '0.75rem' }}
-                    >
-                      Debug Storage
-                    </Button>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      onClick={() => {
-                        console.log('🔧 FIX SESSION STORAGE clicked');
-                        fixSessionStorageData();
-                      }}
-                      sx={{ textTransform: 'none', fontSize: '0.75rem' }}
-                    >
-                                            Fix Storage
-                    </Button>
-                   </Box>
-                </Box>
-              )}
+
               
               {/* Simplified Prediction View Container with individual metric charts */}
               <PredictionViewContainer

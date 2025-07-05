@@ -53,7 +53,7 @@ interface OrderPredictionChartProps {
   height?: number;
 }
 
-type ChartType = 'line' | 'area' | 'bar';
+type ChartType = 'line' | 'area' | 'bar' | 'candlestick' | 'waterfall' | 'stacked' | 'composed';
 
 const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
   data,

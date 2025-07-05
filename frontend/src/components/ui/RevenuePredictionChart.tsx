@@ -4,6 +4,7 @@ import {
   AreaChart,
   LineChart,
   BarChart,
+  ComposedChart,
   Area,
   Line,
   Bar,
@@ -73,7 +74,7 @@ interface RevenuePredictionChartProps {
   height?: number;
 }
 
-type ChartType = 'area' | 'line' | 'bar';
+type ChartType = 'line' | 'area' | 'bar' | 'candlestick' | 'waterfall' | 'stacked' | 'composed';
 
 const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
   data,
@@ -89,9 +90,13 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
   const predictionGradientId = useMemo(() => `prediction-gradient-${Math.random().toString(36).substr(2, 9)}`, []);
   
   const chartConfig = {
-    area: { icon: <Timeline />, label: 'Area', color: theme.palette.primary.main },
     line: { icon: <ShowChart />, label: 'Line', color: theme.palette.primary.main },
+    area: { icon: <Timeline />, label: 'Area', color: theme.palette.primary.main },
     bar: { icon: <BarChartIcon />, label: 'Bar', color: theme.palette.primary.main },
+    candlestick: { icon: <TrendingUp />, label: 'Candlestick', color: '#10b981' },
+    waterfall: { icon: <TrendingDown />, label: 'Waterfall', color: '#f59e0b' },
+    stacked: { icon: <Timeline />, label: 'Stacked', color: '#8b5cf6' },
+    composed: { icon: <BarChartIcon />, label: 'Composed', color: '#ef4444' },
   };
   // Process and validate data with separation of historical vs predicted
   const processedData = useMemo(() => {
@@ -443,6 +448,94 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
               }}
             />
           </BarChart>
+        );
+
+      case 'candlestick':
+        return (
+          <ComposedChart {...commonProps}>
+            {commonElements}
+            <Bar
+              dataKey="revenue"
+              name="Revenue"
+              fill="#10b981"
+              radius={[2, 2, 0, 0]}
+              opacity={0.8}
+            />
+            <Line
+              type="monotone"
+              dataKey="revenue"
+              stroke="#6b7280"
+              strokeWidth={1}
+              dot={false}
+            />
+          </ComposedChart>
+        );
+
+      case 'waterfall':
+        return (
+          <ComposedChart {...commonProps}>
+            {commonElements}
+            <Bar
+              dataKey="revenue"
+              name="Revenue Change"
+              fill="#10b981"
+              radius={[2, 2, 0, 0]}
+              opacity={0.8}
+            />
+            <Line
+              type="monotone"
+              dataKey="revenue"
+              name="Cumulative"
+              stroke="#f59e0b"
+              strokeWidth={2}
+              dot={{
+                fill: '#f59e0b',
+                strokeWidth: 2,
+                r: 3,
+              }}
+            />
+          </ComposedChart>
+        );
+
+      case 'stacked':
+        return (
+          <AreaChart {...commonProps}>
+            {commonElements}
+            <Area
+              type="monotone"
+              dataKey="revenue"
+              name="Revenue"
+              stroke="#8b5cf6"
+              strokeWidth={2}
+              fill={`url(#${gradientId})`}
+              stackId="1"
+            />
+          </AreaChart>
+        );
+
+      case 'composed':
+        return (
+          <ComposedChart {...commonProps}>
+            {commonElements}
+            <Bar
+              dataKey="revenue"
+              name="Revenue"
+              fill="#ef4444"
+              radius={[2, 2, 0, 0]}
+              opacity={0.6}
+            />
+            <Line
+              type="monotone"
+              dataKey="revenue"
+              stroke={theme.palette.primary.main}
+              strokeWidth={2}
+              dot={{
+                fill: theme.palette.primary.main,
+                strokeWidth: 2,
+                r: 3,
+              }}
+            />
+          </ComposedChart>
         );
       
       default:

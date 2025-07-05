@@ -53,7 +53,7 @@ interface ConversionPredictionChartProps {
   height?: number;
 }
 
-type ChartType = 'bar' | 'line' | 'area';
+type ChartType = 'line' | 'area' | 'bar' | 'candlestick' | 'waterfall' | 'stacked' | 'composed';
 
 const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
   data,

@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
+import { API_BASE_URL } from '../api';
 
 interface SessionInfo {
   sessionId: string;
@@ -102,9 +103,9 @@ export const useSessionLimit = (): UseSessionLimitReturn => {
     setError(null);
     
     try {
-      console.log(`🔍 useSessionLimit: Checking session limit at /api/sessions/limit-check (attempt ${retryCount + 1})`);
+      console.log(`🔍 useSessionLimit: Checking session limit at ${API_BASE_URL}/api/sessions/limit-check (attempt ${retryCount + 1})`);
       
-      const response = await fetch('/api/sessions/limit-check', {
+      const response = await fetch(`${API_BASE_URL}/api/sessions/limit-check`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -203,7 +204,7 @@ export const useSessionLimit = (): UseSessionLimitReturn => {
 
   const deleteSession = useCallback(async (sessionId: string): Promise<boolean> => {
     try {
-      const response = await fetch('/api/sessions/terminate', {
+      const response = await fetch(`${API_BASE_URL}/api/sessions/terminate`, {
         method: 'POST',
         credentials: 'include',
         headers: {

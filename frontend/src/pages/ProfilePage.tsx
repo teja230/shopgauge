@@ -22,6 +22,7 @@ import { getDeviceDisplay, getRelativeTime } from '../utils/deviceUtils';
 const STORE_STATS_CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
 const STORE_STATS_CACHE_KEY = 'store_stats_cache_v1';
 const REFRESH_DEBOUNCE_MS = 2000; // 2 seconds debounce
+const SESSION_REFRESH_DEBOUNCE_MS = 300000; // 5 minutes for session limit refresh
 
 interface StoreStatsCache {
   data: any;
@@ -84,6 +85,7 @@ export default function ProfilePage() {
   const [storeStatsLastUpdated, setStoreStatsLastUpdated] = useState<Date | null>(null);
   const [isCheckingConnection, setIsCheckingConnection] = useState(false);
   const [refreshDebounce, setRefreshDebounce] = useState(false);
+  const [sessionRefreshDebounce, setSessionRefreshDebounce] = useState(false);
   const [pastStores, setPastStores] = useState<string[]>([]);
   
   // Confirmation dialog state
@@ -114,38 +116,15 @@ export default function ProfilePage() {
     refreshSessionData,
   } = useSessionLimit();
 
-  // Enhanced session limit initialization with retry logic
-  useEffect(() => {
-    if (shop && !sessionLimitData && !sessionLimitLoading) {
-      console.log('🔧 ProfilePage: Checking session limits for authenticated user');
-      
-      // Add a small delay to ensure authentication is fully established
-      const timer = setTimeout(() => {
-        checkSessionLimit().catch(error => {
-          console.error('❌ ProfilePage: Failed to check session limits:', error);
-          // Don't show error toast here as it might be due to authentication not being ready
-        });
-      }, 1000); // 1 second delay to allow auth to settle
-
-      return () => clearTimeout(timer);
-    }
-  }, [shop, sessionLimitData, sessionLimitLoading, checkSessionLimit]);
-
-  // Retry session loading if there was an error and user is authenticated
-  useEffect(() => {
-    if (shop && sessionLimitError && !sessionLimitLoading) {
-      console.log('🔄 ProfilePage: Retrying session limit check after error');
-      
-      // Retry after 3 seconds if there was an error
-      const retryTimer = setTimeout(() => {
-        checkSessionLimit().catch(error => {
-          console.error('❌ ProfilePage: Retry failed:', error);
-        });
-      }, 3000);
-
-      return () => clearTimeout(retryTimer);
-    }
-  }, [shop, sessionLimitError, sessionLimitLoading, checkSessionLimit]);
+  // Session limit manual refresh handler
+  const handleRefreshSessionData = async () => {
+    if (sessionRefreshDebounce) return;
+    
+    setSessionRefreshDebounce(true);
+    setTimeout(() => setSessionRefreshDebounce(false), SESSION_REFRESH_DEBOUNCE_MS);
+    
+    await refreshSessionData();
+  };
 
   // Save current store to past stores when shop changes
   useEffect(() => {
@@ -1488,8 +1467,8 @@ export default function ProfilePage() {
                       </div>
                     )}
                     <button
-                      onClick={() => refreshSessionData()}
-                      disabled={sessionLimitLoading}
+                      onClick={handleRefreshSessionData}
+                      disabled={sessionLimitLoading || sessionRefreshDebounce}
                       className="inline-flex items-center px-3 py-1 border border-red-300 text-xs font-medium rounded text-red-700 bg-red-50 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
                     >
                       {sessionLimitLoading ? (
@@ -1538,8 +1517,8 @@ export default function ProfilePage() {
             </h3>
             <div className="space-y-3">
               <button
-                onClick={checkSessionLimit}
-                disabled={sessionLimitLoading}
+                onClick={handleRefreshSessionData}
+                disabled={sessionLimitLoading || sessionRefreshDebounce}
                 className="w-full inline-flex items-center justify-center px-4 py-3 border border-blue-300 text-sm font-medium rounded-lg text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors"
               >
                 {sessionLimitLoading ? (
@@ -1549,6 +1528,13 @@ export default function ProfilePage() {
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
                     Checking Sessions...
+                  </>
+                ) : sessionRefreshDebounce ? (
+                  <>
+                    <svg className="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Wait 5min...
                   </>
                 ) : (
                   <>
