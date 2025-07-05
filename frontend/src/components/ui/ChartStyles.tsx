@@ -105,12 +105,80 @@ export const tooltipStyles = (theme: Theme) => ({
   backdropFilter: 'blur(10px)',
 });
 
-// Shared chart type config
-export const chartTypeConfig = (theme: Theme) => ({
-  area: { icon: 'Timeline', label: 'Area', color: theme.palette.primary.main },
-  line: { icon: 'ShowChart', label: 'Line', color: theme.palette.primary.main },
-  bar: { icon: 'BarChart', label: 'Bar', color: theme.palette.primary.main },
-});
+// Enhanced Color Scheme for Consistent Chart Visualization
+// Historical data: Strong, solid colors for real data
+// Forecast data: Lighter, dashed versions to indicate predictions
+
+export const UNIFIED_COLOR_SCHEME = {
+  historical: {
+    revenue: '#2563eb',      // Strong blue for revenue (primary)
+    orders: '#10b981',       // Strong green for orders  
+    conversion: '#f59e0b',   // Strong amber for conversion
+  },
+  forecast: {
+    revenue: '#93c5fd',      // Light blue for revenue predictions
+    orders: '#6ee7b7',       // Light green for order predictions
+    conversion: '#fbbf24',   // Light amber for conversion predictions
+  },
+  confidence: {
+    high: '#059669',         // Green for high confidence (>70%)
+    medium: '#d97706',       // Orange for medium confidence (40-70%)
+    low: '#dc2626',          // Red for low confidence (<40%)
+  },
+  gradients: {
+    revenue: {
+      historical: 'linear-gradient(180deg, rgba(37, 99, 235, 0.3) 0%, rgba(37, 99, 235, 0.05) 100%)',
+      forecast: 'linear-gradient(180deg, rgba(147, 197, 253, 0.4) 0%, rgba(147, 197, 253, 0.1) 100%)',
+    },
+    orders: {
+      historical: 'linear-gradient(180deg, rgba(16, 185, 129, 0.3) 0%, rgba(16, 185, 129, 0.05) 100%)',
+      forecast: 'linear-gradient(180deg, rgba(110, 231, 183, 0.4) 0%, rgba(110, 231, 183, 0.1) 100%)',
+    },
+    conversion: {
+      historical: 'linear-gradient(180deg, rgba(245, 158, 11, 0.3) 0%, rgba(245, 158, 11, 0.05) 100%)',
+      forecast: 'linear-gradient(180deg, rgba(251, 191, 36, 0.4) 0%, rgba(251, 191, 36, 0.1) 100%)',
+    },
+  }
+};
+
+// Chart styling configurations
+export const chartTypeConfig = {
+  line: {
+    strokeWidth: {
+      historical: 3,
+      forecast: 2,
+    },
+    strokeDasharray: {
+      historical: '',
+      forecast: '8 4',
+    },
+    dot: {
+      historical: { r: 4, strokeWidth: 2 },
+      forecast: { r: 3, strokeWidth: 1 },
+    },
+  },
+  area: {
+    strokeWidth: {
+      historical: 3,
+      forecast: 2,
+    },
+    strokeDasharray: {
+      historical: '',
+      forecast: '8 4',
+    },
+    fillOpacity: {
+      historical: 0.6,
+      forecast: 0.4,
+    },
+  },
+  bar: {
+    opacity: {
+      historical: 0.9,
+      forecast: 0.7,
+    },
+    radius: [2, 2, 0, 0],
+  },
+};
 
 // Shared chart common props
 export const chartCommonProps = {

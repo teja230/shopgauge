@@ -59,6 +59,7 @@ import { debugLog } from './DebugPanel';
 import useSize from '../../hooks/useSize';
 import { CHART_DIMENSIONS, SPACING, ensureMinHeight } from '../../utils/dimensionUtils';
 import { useNotifications } from '../../hooks/useNotifications';
+import { UNIFIED_COLOR_SCHEME } from './ChartStyles';
 
 interface HistoricalData {
   kind?: 'historical';
@@ -106,19 +107,8 @@ interface UnifiedAnalyticsChartProps {
 type ChartType = 'combined' | 'revenue_focus' | 'line' | 'area' | 'bar' | 'candlestick' | 'waterfall' | 'stacked' | 'composed';
 type TimeRange = 'all' | 'last30' | 'last7';
 
-// Define consistent color scheme for historical vs forecast data
-const COLOR_SCHEME = {
-  historical: {
-    revenue: '#2563eb',      // Blue - trustworthy, solid color for actual data
-    orders: '#10b981',       // Green - success color for actual orders
-    conversion: '#f59e0b',   // Amber - warning color for conversion rates
-  },
-  forecast: {
-    revenue: '#9333ea',      // Purple - prediction color for forecasted revenue
-    orders: '#ec4899',       // Pink - prediction color for forecasted orders  
-    conversion: '#f97316',   // Orange - prediction color for forecasted conversion
-  }
-};
+// Use unified color scheme for consistency across all charts
+const COLOR_SCHEME = UNIFIED_COLOR_SCHEME;
 
 // Enhanced SVG-safe number validation
 const safeNumber = (value: any, defaultValue: number = 0): number => {

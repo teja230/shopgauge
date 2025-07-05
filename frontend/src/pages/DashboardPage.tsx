@@ -807,62 +807,92 @@ const DashboardPage = () => {
     if (!newMode || newMode === chartMode) return;
     
     console.log(`🔄 Chart mode changing from ${chartMode} to ${newMode}`);
-    console.log('Dashboard: Chart mode change debug:', {
-      currentMode: chartMode,
-      newMode,
-      hasUnifiedData: !!unifiedAnalyticsData,
-      unifiedLoading: unifiedAnalyticsLoading,
-      unifiedError: unifiedAnalyticsError,
-      hasStableData: stableTimeseriesData.length > 0
-    });
     
-    // Reset error boundary on mode change
-    setErrorBoundaryKey(prev => prev + 1);
-    
-    // Set the new chart mode
-    setChartMode(newMode);
-    
-    // If switching to unified mode, ensure data is properly initialized
-    if (newMode === 'unified') {
-      console.log('🔄 Switching to unified mode - initializing data');
+    // Chrome-specific: Add error boundary reset
+    try {
+      // Reset error boundary on mode change
+      setErrorBoundaryKey(prev => prev + 1);
       
-      // Try to load from session storage first
-      const loadedFromStorage = loadUnifiedAnalyticsFromStorage();
+      // Set the new chart mode
+      setChartMode(newMode);
       
-      if (!loadedFromStorage) {
-        console.log('🔄 No session storage data, forcing computation from dashboard data');
+      // If switching to unified mode, ensure data is properly initialized
+      if (newMode === 'unified') {
+        console.log('🔄 Switching to unified mode - Chrome-safe initialization');
         
-        // Check if we have dashboard data available for processing
-        const hasDashboardData = (Array.isArray(stableTimeseriesData) && stableTimeseriesData.length > 0);
-        
-        if (hasDashboardData) {
-          console.log('🔄 Dashboard data available, forcing computation');
-          // Force compute unified analytics from dashboard data
-          setTimeout(() => {
-            forceComputeUnifiedAnalytics();
-          }, 100);
-        } else {
-          console.log('⚠️ No dashboard data available yet, will wait for data to load');
-        }
-      } else {
-        console.log('✅ Loaded unified analytics from session storage');
+        // Chrome-safe: Add timeout to prevent immediate re-render issues
+        setTimeout(() => {
+          try {
+            // Try to load from session storage first
+            const loadedFromStorage = loadUnifiedAnalyticsFromStorage();
+            
+            if (!loadedFromStorage) {
+              console.log('🔄 No session storage data, checking dashboard data availability');
+              
+              // Check if we have dashboard data available for processing
+              const hasDashboardData = (Array.isArray(stableTimeseriesData) && stableTimeseriesData.length > 0);
+              
+              if (hasDashboardData) {
+                console.log('🔄 Dashboard data available, forcing computation');
+                // Chrome-safe: Additional timeout for data processing
+                setTimeout(() => {
+                  try {
+                    forceComputeUnifiedAnalytics();
+                  } catch (computeError) {
+                    console.error('❌ Error in forceComputeUnifiedAnalytics:', computeError);
+                    // Fallback to classic mode if unified mode fails
+                    setChartMode('classic');
+                    setError('Advanced Analytics temporarily unavailable. Using Classic View.');
+                  }
+                }, 200);
+              } else {
+                console.log('⚠️ No dashboard data available yet for unified mode');
+              }
+            } else {
+              console.log('✅ Loaded unified analytics from session storage');
+            }
+          } catch (loadError) {
+            console.error('❌ Error in chart mode initialization:', loadError);
+            // Fallback to classic mode
+            setChartMode('classic');
+            setError('Advanced Analytics failed to load. Using Classic View.');
+          }
+        }, 100);
       }
+      
+      console.log(`✅ Chart mode changed to ${newMode}`);
+    } catch (modeChangeError) {
+      console.error('❌ Critical error in chart mode change:', modeChangeError);
+      // Emergency fallback
+      setChartMode('classic');
+      setError('Chart mode change failed. Reverting to Classic View.');
     }
-    
-    console.log(`✅ Chart mode changed to ${newMode}`);
-  }, [chartMode, loadUnifiedAnalyticsFromStorage, forceComputeUnifiedAnalytics, unifiedAnalyticsData, unifiedAnalyticsLoading, unifiedAnalyticsError, stableTimeseriesData]);
+  }, [chartMode, loadUnifiedAnalyticsFromStorage, forceComputeUnifiedAnalytics, stableTimeseriesData]);
 
   // Simplified retry handler for error boundaries
   const handleUnifiedAnalyticsRetry = useCallback(() => {
     console.log('🔄 Manual retry for unified analytics');
     
-    // Reset error boundary
-    setErrorBoundaryKey(prev => prev + 1);
-    
-    // Force compute new data
-    setTimeout(() => {
-      forceComputeUnifiedAnalytics();
-    }, 100);
+    try {
+      // Reset error boundary
+      setErrorBoundaryKey(prev => prev + 1);
+      
+      // Clear any existing errors
+      setError(null);
+      
+      // Chrome-safe: Add timeout before retry
+      setTimeout(() => {
+        try {
+          forceComputeUnifiedAnalytics();
+        } catch (retryError) {
+          console.error('❌ Retry failed:', retryError);
+          setError('Retry failed. Please refresh the page.');
+        }
+      }, 300);
+    } catch (handlerError) {
+      console.error('❌ Error in retry handler:', handlerError);
+      setError('Retry handler failed. Please refresh the page.');
+    }
   }, [forceComputeUnifiedAnalytics]);
 
   // Debug logging for unified analytics data
@@ -880,6 +910,38 @@ const DashboardPage = () => {
       chartMode
     });
   }, [insights, shop, stableTimeseriesData, unifiedAnalyticsData, unifiedAnalyticsLoading, unifiedAnalyticsError, chartMode]);
+
+  // Chrome-specific: Add data availability check
+  const hasValidData = useMemo(() => {
+    const hasBasicData = insights && (
+      insights.totalRevenue > 0 || 
+      (insights.timeseries && insights.timeseries.length > 0) ||
+      (insights.orders && insights.orders.length > 0)
+    );
+    
+    console.log('Chrome Debug - Data Availability:', {
+      hasBasicData,
+      totalRevenue: insights?.totalRevenue || 0,
+      timeseriesLength: insights?.timeseries?.length || 0,
+      ordersLength: insights?.orders?.length || 0,
+      chartMode,
+      browser: navigator.userAgent.includes('Chrome') ? 'Chrome' : 'Other'
+    });
+    
+    return hasBasicData;
+  }, [insights, chartMode]);
+
+  // Chrome-specific logging for mode changes
+  useEffect(() => {
+    console.log('Chrome Debug - Chart Mode Change:', {
+      chartMode,
+      hasValidData,
+      unifiedAnalyticsData: !!unifiedAnalyticsData,
+      stableDataLength: stableTimeseriesData.length,
+      browser: navigator.userAgent,
+      timestamp: new Date().toISOString()
+    });
+  }, [chartMode, hasValidData, unifiedAnalyticsData, stableTimeseriesData]);
 
   // Individual card loading states
   const [cardLoading, setCardLoading] = useState<CardLoadingState>({
@@ -2489,99 +2551,76 @@ const DashboardPage = () => {
         {/* Analytics Charts with Toggle */}
         <Box sx={{ width: '100%' }}>
 
-
-          {/* Chart Container with smooth transitions */}
-          <Box sx={{ 
-            position: 'relative',
-            minHeight: { xs: 450, sm: 540 }, // Consistent height for smooth transitions
-            transition: 'all 0.3s ease-in-out',
-            '& > *': {
-              transition: 'opacity 0.3s ease-in-out, transform 0.3s ease-in-out',
-            }
-          }}>
-          {chartMode === 'unified' ? (
-            <ChartErrorBoundary 
-              key={`unified-${errorBoundaryKey}`}
-              fallbackHeight={280}
-              onRetry={handleUnifiedAnalyticsRetry}
-            >
-              {/* Debug logging for Unified Analytics data */}
-              {(() => {
-                console.log('DashboardPage: Rendering UnifiedAnalyticsChart', {
-                  chartMode,
-                  errorBoundaryKey,
-                  hasUnifiedData: !!unifiedAnalyticsData,
-                  unifiedDataKeys: unifiedAnalyticsData ? Object.keys(unifiedAnalyticsData) : [],
-                  unifiedLoading: unifiedAnalyticsLoading,
-                  unifiedError: unifiedAnalyticsError,
-                  hasHistorical: !!(unifiedAnalyticsData && unifiedAnalyticsData.historical),
-                  historicalLength: unifiedAnalyticsData?.historical?.length || 0,
-                  hasPredictions: !!(unifiedAnalyticsData && unifiedAnalyticsData.predictions),
-                  predictionsLength: unifiedAnalyticsData?.predictions?.length || 0,
-                });
-                return null;
-              })()}
-              
-
-              
-              {/* Simplified Prediction View Container with individual metric charts */}
-              <PredictionViewContainer
-                data={unifiedAnalyticsData}
-                loading={unifiedAnalyticsLoading}
-                error={unifiedAnalyticsError}
-                height={isMobile ? 400 : 480} // Consistent height with Classic Charts
-                predictionDays={predictionDays}
-                onPredictionDaysChange={handlePredictionDaysChange}
-              />
-            </ChartErrorBoundary>
-          ) : (
-            <ErrorBoundary 
-              key={`classic-${errorBoundaryKey}`}
-              fallbackMessage="The Revenue chart failed to load. Please try refreshing."
-              onRetry={() => {
-                setErrorBoundaryKey(prev => prev + 1);
-                setTimeout(() => fetchRevenueData(true), 100);
-              }}
-            >
-              {/* Revenue Chart Section - Consistent sizing with Advanced Analytics */}
-              <StyledCard sx={{ height: isMobile ? 450 : 540 }}>
-                <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                  {/* Only render RevenueChart when we have initialized the dashboard */}
-                  {dashboardDataInitialized || stableTimeseriesData.length > 0 ? (
-                    <Box sx={{ flex: 1 }}>
-                      <RevenueChart
-                        data={stableTimeseriesData}
-                        loading={cardLoading.revenue}
-                        error={cardErrors.revenue}
-                        height={isMobile ? 400 : 480} // Consistent height with PredictionViewContainer
-                      />
-                    </Box>
-                  ) : (
-                    <Box sx={{ 
-                      flex: 1,
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      justifyContent: 'center',
-                      flexDirection: 'column',
-                      gap: 2
-                    }}>
-                      <CircularProgress size={48} />
-                      <Typography variant="body2" color="text.secondary">
-                        Loading revenue data...
-                      </Typography>
-                    </Box>
-                  )}
-                </CardContent>
-              </StyledCard>
-            </ErrorBoundary>
+          {/* Discovery Banner for Advanced Analytics - Moved Above Charts */}
+          {chartMode === 'classic' && (
+            <Box sx={{
+              mb: 3,
+              p: 2,
+              background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.1) 0%, rgba(147, 51, 234, 0.1) 100%)',
+              borderRadius: 2,
+              border: '1px solid rgba(37, 99, 235, 0.2)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexDirection: isMobile ? 'column' : 'row',
+              gap: 2,
+            }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Box sx={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #2563eb 0%, #9333ea 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  animation: 'float 3s ease-in-out infinite',
+                  '@keyframes float': {
+                    '0%, 100%': { transform: 'translateY(0px)' },
+                    '50%': { transform: 'translateY(-5px)' },
+                  },
+                }}>
+                  <Analytics sx={{ color: 'white', fontSize: '1.25rem' }} />
+                </Box>
+                <Box>
+                  <Typography variant="h6" fontWeight={600} color="primary.main">
+                    🔮 Unlock AI-Powered Forecasting
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Predict revenue trends 7-60 days ahead with 9 chart types, confidence intervals, and professional exports
+                  </Typography>
+                </Box>
+              </Box>
+              <Button
+                variant="contained"
+                onClick={() => handleChartModeChange(null as any, 'unified')}
+                sx={{
+                  background: 'linear-gradient(135deg, #2563eb 0%, #9333ea 100%)',
+                  borderRadius: 2,
+                  px: 3,
+                  py: 1,
+                  fontWeight: 600,
+                  textTransform: 'none',
+                  boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #1d4ed8 0%, #7c3aed 100%)',
+                    transform: 'translateY(-1px)',
+                    boxShadow: '0 6px 16px rgba(37, 99, 235, 0.4)',
+                  },
+                  minWidth: isMobile ? '100%' : 'auto',
+                }}
+                startIcon={<Analytics />}
+              >
+                Try Advanced Analytics
+              </Button>
+            </Box>
           )}
-          </Box>
 
-          {/* Chart Mode Toggle - Positioned Below Charts */}
+          {/* Chart Mode Toggle - Positioned Above Charts */}
           <Box sx={{ 
             display: 'flex', 
             justifyContent: 'center', 
-            mt: 3,
+            mb: 3,
             px: isMobile ? 2 : 0,
           }}>
             <ToggleButtonGroup
@@ -2711,71 +2750,229 @@ const DashboardPage = () => {
             </ToggleButtonGroup>
           </Box>
 
-          {/* Discovery Banner for Advanced Analytics */}
-          {chartMode === 'classic' && (
-            <Box sx={{
-              mt: 2,
-              p: 2,
-              background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.1) 0%, rgba(147, 51, 234, 0.1) 100%)',
-              borderRadius: 2,
-              border: '1px solid rgba(37, 99, 235, 0.2)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              flexDirection: isMobile ? 'column' : 'row',
-              gap: 2,
-            }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Box sx={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #2563eb 0%, #9333ea 100%)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  animation: 'float 3s ease-in-out infinite',
-                  '@keyframes float': {
-                    '0%, 100%': { transform: 'translateY(0px)' },
-                    '50%': { transform: 'translateY(-5px)' },
-                  },
-                }}>
-                  <Analytics sx={{ color: 'white', fontSize: '1.25rem' }} />
-                </Box>
-                <Box>
-                  <Typography variant="h6" fontWeight={600} color="primary.main">
-                    🔮 Unlock AI-Powered Forecasting
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Predict revenue trends 7-60 days ahead with 9 chart types, confidence intervals, and professional exports
-                  </Typography>
-                </Box>
-              </Box>
-              <Button
-                variant="contained"
-                onClick={() => handleChartModeChange(null as any, 'unified')}
-                sx={{
-                  background: 'linear-gradient(135deg, #2563eb 0%, #9333ea 100%)',
-                  borderRadius: 2,
-                  px: 3,
-                  py: 1,
-                  fontWeight: 600,
-                  textTransform: 'none',
-                  boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)',
-                  '&:hover': {
-                    background: 'linear-gradient(135deg, #1d4ed8 0%, #7c3aed 100%)',
-                    transform: 'translateY(-1px)',
-                    boxShadow: '0 6px 16px rgba(37, 99, 235, 0.4)',
-                  },
-                  minWidth: isMobile ? '100%' : 'auto',
-                }}
-                startIcon={<Analytics />}
-              >
-                Try Advanced Analytics
-              </Button>
-            </Box>
-          )}
+          {/* Chart Container with smooth transitions */}
+          <Box sx={{ 
+            position: 'relative',
+            minHeight: { xs: 450, sm: 540 }, // Consistent height for smooth transitions
+            transition: 'all 0.3s ease-in-out',
+            '& > *': {
+              transition: 'opacity 0.3s ease-in-out, transform 0.3s ease-in-out',
+            }
+          }}>
+          {chartMode === 'unified' ? (
+            // Chrome-safe Advanced Analytics with multiple fallback layers
+            <React.Fragment>
+              {(() => {
+                try {
+                  // Chrome-specific: Pre-render validation
+                  if (!hasValidData || !unifiedAnalyticsData) {
+                    console.log('⚠️ Chrome-safe: No unified analytics data available yet');
+                    return (
+                      <StyledCard sx={{ height: isMobile ? 450 : 540 }}>
+                        <CardContent sx={{ 
+                          height: '100%', 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center',
+                          flexDirection: 'column',
+                          gap: 2,
+                        }}>
+                          <CircularProgress />
+                          <Typography variant="body2" color="text.secondary">
+                            Loading Advanced Analytics...
+                          </Typography>
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            onClick={() => setChartMode('classic')}
+                            sx={{ mt: 2 }}
+                          >
+                            Use Classic View
+                          </Button>
+                        </CardContent>
+                      </StyledCard>
+                    );
+                  }
 
+                  // Chrome-specific: Error state handling
+                  if (unifiedAnalyticsError) {
+                    console.log('⚠️ Chrome-safe: Unified analytics error detected:', unifiedAnalyticsError);
+                    return (
+                      <StyledCard sx={{ height: isMobile ? 450 : 540 }}>
+                        <CardContent sx={{ 
+                          height: '100%', 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center',
+                          flexDirection: 'column',
+                          gap: 2,
+                        }}>
+                          <Typography variant="h6" color="error" gutterBottom>
+                            Advanced Analytics Error
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" textAlign="center">
+                            {unifiedAnalyticsError}
+                          </Typography>
+                          <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              onClick={handleUnifiedAnalyticsRetry}
+                            >
+                              Retry
+                            </Button>
+                            <Button
+                              variant="contained"
+                              size="small"
+                              onClick={() => setChartMode('classic')}
+                            >
+                              Use Classic View
+                            </Button>
+                          </Box>
+                        </CardContent>
+                      </StyledCard>
+                    );
+                  }
+
+                  // Chrome-specific: Loading state
+                  if (unifiedAnalyticsLoading) {
+                    console.log('⏳ Chrome-safe: Unified analytics loading');
+                    return (
+                      <StyledCard sx={{ height: isMobile ? 450 : 540 }}>
+                        <CardContent sx={{ 
+                          height: '100%', 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center',
+                          flexDirection: 'column',
+                          gap: 2,
+                        }}>
+                          <CircularProgress size={48} />
+                          <Typography variant="body1" color="text.secondary">
+                            Computing AI Analytics...
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" textAlign="center">
+                            This may take a moment
+                          </Typography>
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            onClick={() => setChartMode('classic')}
+                            sx={{ mt: 2 }}
+                          >
+                            Use Classic View Instead
+                          </Button>
+                        </CardContent>
+                      </StyledCard>
+                    );
+                  }
+
+                  // Chrome-safe: Main Advanced Analytics rendering
+                  console.log('✅ Chrome-safe: Rendering Advanced Analytics');
+                  return (
+                    <ChartErrorBoundary 
+                      key={`unified-${errorBoundaryKey}`}
+                      fallbackHeight={280}
+                      onRetry={handleUnifiedAnalyticsRetry}
+                    >
+                      <PredictionViewContainer
+                        data={unifiedAnalyticsData}
+                        loading={unifiedAnalyticsLoading}
+                        error={unifiedAnalyticsError}
+                        height={isMobile ? 400 : 480}
+                        predictionDays={predictionDays}
+                        onPredictionDaysChange={handlePredictionDaysChange}
+                      />
+                    </ChartErrorBoundary>
+                  );
+
+                } catch (renderError) {
+                  console.error('❌ Chrome-safe: Critical render error in unified mode:', renderError);
+                  
+                  // Chrome emergency fallback
+                  return (
+                    <StyledCard sx={{ height: isMobile ? 450 : 540 }}>
+                      <CardContent sx={{ 
+                        height: '100%', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center',
+                        flexDirection: 'column',
+                        gap: 2,
+                      }}>
+                        <Typography variant="h6" color="error" gutterBottom>
+                          Rendering Error
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" textAlign="center">
+                          Advanced Analytics failed to render. This might be a browser compatibility issue.
+                        </Typography>
+                        <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            onClick={() => window.location.reload()}
+                          >
+                            Refresh Page
+                          </Button>
+                          <Button
+                            variant="contained"
+                            size="small"
+                            onClick={() => {
+                              setChartMode('classic');
+                              setError(null);
+                            }}
+                          >
+                            Use Classic View
+                          </Button>
+                        </Box>
+                      </CardContent>
+                    </StyledCard>
+                  );
+                }
+              })()}
+            </React.Fragment>
+          ) : (
+            <ErrorBoundary 
+              key={`classic-${errorBoundaryKey}`}
+              fallbackMessage="The Revenue chart failed to load. Please try refreshing."
+              onRetry={() => {
+                setErrorBoundaryKey(prev => prev + 1);
+                setTimeout(() => fetchRevenueData(true), 100);
+              }}
+            >
+              {/* Revenue Chart Section - Consistent sizing with Advanced Analytics */}
+              <StyledCard sx={{ height: isMobile ? 450 : 540 }}>
+                <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                  {/* Only render RevenueChart when we have initialized the dashboard */}
+                  {dashboardDataInitialized || stableTimeseriesData.length > 0 ? (
+                    <Box sx={{ flex: 1 }}>
+                      <RevenueChart
+                        data={stableTimeseriesData}
+                        loading={cardLoading.revenue}
+                        error={cardErrors.revenue}
+                        height={isMobile ? 400 : 480} // Consistent height with PredictionViewContainer
+                      />
+                    </Box>
+                  ) : (
+                    <Box sx={{ 
+                      flex: 1,
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center',
+                      flexDirection: 'column',
+                      gap: 2
+                    }}>
+                      <CircularProgress size={48} />
+                      <Typography variant="body2" color="text.secondary">
+                        Loading revenue data...
+                      </Typography>
+                    </Box>
+                  )}
+                </CardContent>
+              </StyledCard>
+            </ErrorBoundary>
+          )}
+          </Box>
         </Box>
 
         {/* Dashboard Status and Refresh Controls */}

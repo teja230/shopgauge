@@ -62,6 +62,7 @@ import {
   referenceLineStyles,
   statChipStyles,
   forecastChipStyles,
+  UNIFIED_COLOR_SCHEME,
 } from './ChartStyles';
 
 interface RevenuePredictionData {
@@ -83,15 +84,7 @@ interface RevenuePredictionChartProps {
 
 type ChartType = 'line' | 'area' | 'bar' | 'candlestick' | 'waterfall' | 'stacked' | 'composed';
 
-// Define consistent color scheme for historical vs forecast data
-const COLOR_SCHEME = {
-  historical: {
-    revenue: '#2563eb',      // Blue - trustworthy, solid color for actual data
-  },
-  forecast: {
-    revenue: '#9333ea',      // Purple - prediction color for forecasted revenue
-  }
-};
+// Use unified color scheme for consistency across all charts
 
 const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
   data,
@@ -108,9 +101,9 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
   const predictionGradientId = useMemo(() => `prediction-gradient-${Math.random().toString(36).substr(2, 9)}`, []);
   
   const chartConfig = {
-    line: { icon: <ShowChart />, label: 'Line', color: COLOR_SCHEME.historical.revenue },
-    area: { icon: <Timeline />, label: 'Area', color: COLOR_SCHEME.historical.revenue },
-    bar: { icon: <BarChartIcon />, label: 'Bar', color: COLOR_SCHEME.historical.revenue },
+    line: { icon: <ShowChart />, label: 'Line', color: UNIFIED_COLOR_SCHEME.historical.revenue },
+    area: { icon: <Timeline />, label: 'Area', color: UNIFIED_COLOR_SCHEME.historical.revenue },
+    bar: { icon: <BarChartIcon />, label: 'Bar', color: UNIFIED_COLOR_SCHEME.historical.revenue },
     candlestick: { icon: <CandlestickChart />, label: 'Candlestick', color: '#10b981' },
     waterfall: { icon: <WaterfallChart />, label: 'Waterfall', color: '#f59e0b' },
     stacked: { icon: <StackedLineChart />, label: 'Stacked', color: '#8b5cf6' },
@@ -178,17 +171,17 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
       <>
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor={COLOR_SCHEME.historical.revenue} stopOpacity={0.4} />
-            <stop offset="95%" stopColor={COLOR_SCHEME.historical.revenue} stopOpacity={0.05} />
+            <stop offset="5%" stopColor={UNIFIED_COLOR_SCHEME.historical.revenue} stopOpacity={0.4} />
+            <stop offset="95%" stopColor={UNIFIED_COLOR_SCHEME.historical.revenue} stopOpacity={0.05} />
           </linearGradient>
           <linearGradient id={predictionGradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor={COLOR_SCHEME.forecast.revenue} stopOpacity={0.3} />
-            <stop offset="95%" stopColor={COLOR_SCHEME.forecast.revenue} stopOpacity={0.05} />
+            <stop offset="5%" stopColor={UNIFIED_COLOR_SCHEME.forecast.revenue} stopOpacity={0.3} />
+            <stop offset="95%" stopColor={UNIFIED_COLOR_SCHEME.forecast.revenue} stopOpacity={0.05} />
           </linearGradient>
           {/* Pattern for prediction area */}
           <pattern id="predictionPattern" patternUnits="userSpaceOnUse" width="4" height="4">
-            <rect width="4" height="4" fill={COLOR_SCHEME.forecast.revenue} fillOpacity="0.1"/>
-            <path d="M 0,4 l 4,-4 M -1,1 l 2,-2 M 3,5 l 2,-2" stroke={COLOR_SCHEME.forecast.revenue} strokeWidth="0.5" strokeOpacity="0.3"/>
+            <rect width="4" height="4" fill={UNIFIED_COLOR_SCHEME.forecast.revenue} fillOpacity="0.1"/>
+            <path d="M 0,4 l 4,-4 M -1,1 l 2,-2 M 3,5 l 2,-2" stroke={UNIFIED_COLOR_SCHEME.forecast.revenue} strokeWidth="0.5" strokeOpacity="0.3"/>
           </pattern>
         </defs>
         <CartesianGrid 
@@ -390,7 +383,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
               shape={(props: any) => {
                 const { payload } = props;
                 const isPrediction = payload?.isPrediction;
-                const fill = isPrediction ? COLOR_SCHEME.forecast.revenue : COLOR_SCHEME.historical.revenue;
+                const fill = isPrediction ? UNIFIED_COLOR_SCHEME.forecast.revenue : UNIFIED_COLOR_SCHEME.historical.revenue;
                 const opacity = isPrediction ? 0.7 : 0.9;
                 return (
                   <rect
@@ -418,7 +411,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
               type="monotone"
               dataKey="revenue"
               name="Revenue (Historical)"
-              stroke={COLOR_SCHEME.historical.revenue}
+              stroke={UNIFIED_COLOR_SCHEME.historical.revenue}
               strokeWidth={3}
               dot={(props: any) => {
                 const { payload } = props;
@@ -432,8 +425,8 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
                     cx={props.cx}
                     cy={props.cy}
                     r={4}
-                    fill={COLOR_SCHEME.historical.revenue}
-                    stroke={COLOR_SCHEME.historical.revenue}
+                    fill={UNIFIED_COLOR_SCHEME.historical.revenue}
+                    stroke={UNIFIED_COLOR_SCHEME.historical.revenue}
                     strokeWidth={2}
                   />
                 );
@@ -452,7 +445,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
                 type="monotone"
                 dataKey="revenue"
                 name="Revenue (Forecast)"
-                stroke={COLOR_SCHEME.forecast.revenue}
+                stroke={UNIFIED_COLOR_SCHEME.forecast.revenue}
                 strokeWidth={3}
                 strokeDasharray="8 4"
                 dot={(props: any) => {
@@ -467,8 +460,8 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
                       cx={props.cx}
                       cy={props.cy}
                       r={4}
-                      fill={COLOR_SCHEME.forecast.revenue}
-                      stroke={COLOR_SCHEME.forecast.revenue}
+                      fill={UNIFIED_COLOR_SCHEME.forecast.revenue}
+                      stroke={UNIFIED_COLOR_SCHEME.forecast.revenue}
                       strokeWidth={2}
                     />
                   );
@@ -494,7 +487,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
               type="monotone"
               dataKey="revenue"
               name="Revenue (Historical)"
-              stroke={COLOR_SCHEME.historical.revenue}
+              stroke={UNIFIED_COLOR_SCHEME.historical.revenue}
               strokeWidth={3}
               fill={`url(#${gradientId})`}
               fillOpacity={0.6}
@@ -510,8 +503,8 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
                     cx={props.cx}
                     cy={props.cy}
                     r={3}
-                    fill={COLOR_SCHEME.historical.revenue}
-                    stroke={COLOR_SCHEME.historical.revenue}
+                    fill={UNIFIED_COLOR_SCHEME.historical.revenue}
+                    stroke={UNIFIED_COLOR_SCHEME.historical.revenue}
                     strokeWidth={1}
                   />
                 );
@@ -525,7 +518,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
                 type="monotone"
                 dataKey="revenue"
                 name="Revenue (Forecast)"
-                stroke={COLOR_SCHEME.forecast.revenue}
+                stroke={UNIFIED_COLOR_SCHEME.forecast.revenue}
                 strokeWidth={3}
                 strokeDasharray="8 4"
                 fill={`url(#${predictionGradientId})`}
@@ -542,8 +535,8 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
                       cx={props.cx}
                       cy={props.cy}
                       r={3}
-                      fill={COLOR_SCHEME.forecast.revenue}
-                      stroke={COLOR_SCHEME.forecast.revenue}
+                      fill={UNIFIED_COLOR_SCHEME.forecast.revenue}
+                      stroke={UNIFIED_COLOR_SCHEME.forecast.revenue}
                       strokeWidth={1}
                     />
                   );
@@ -651,7 +644,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
               type="monotone"
               dataKey="revenue"
               name="Revenue (Historical)"
-              stroke={COLOR_SCHEME.historical.revenue}
+              stroke={UNIFIED_COLOR_SCHEME.historical.revenue}
               strokeWidth={3}
               fill={`url(#${gradientId})`}
               fillOpacity={0.6}
@@ -667,8 +660,8 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
                     cx={props.cx}
                     cy={props.cy}
                     r={3}
-                    fill={COLOR_SCHEME.historical.revenue}
-                    stroke={COLOR_SCHEME.historical.revenue}
+                    fill={UNIFIED_COLOR_SCHEME.historical.revenue}
+                    stroke={UNIFIED_COLOR_SCHEME.historical.revenue}
                     strokeWidth={1}
                   />
                 );
@@ -682,7 +675,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
                 type="monotone"
                 dataKey="revenue"
                 name="Revenue (Forecast)"
-                stroke={COLOR_SCHEME.forecast.revenue}
+                stroke={UNIFIED_COLOR_SCHEME.forecast.revenue}
                 strokeWidth={3}
                 strokeDasharray="8 4"
                 fill={`url(#${predictionGradientId})`}
@@ -699,8 +692,8 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
                       cx={props.cx}
                       cy={props.cy}
                       r={3}
-                      fill={COLOR_SCHEME.forecast.revenue}
-                      stroke={COLOR_SCHEME.forecast.revenue}
+                      fill={UNIFIED_COLOR_SCHEME.forecast.revenue}
+                      stroke={UNIFIED_COLOR_SCHEME.forecast.revenue}
                       strokeWidth={1}
                     />
                   );

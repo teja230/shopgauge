@@ -29,6 +29,7 @@ import {
   Badge,
   Tooltip,
 } from '@mui/material';
+import { UNIFIED_COLOR_SCHEME } from './ChartStyles';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -62,15 +63,7 @@ interface OrderPredictionChartProps {
 
 type ChartType = 'line' | 'area' | 'bar' | 'candlestick' | 'waterfall' | 'stacked' | 'composed';
 
-// Define consistent color scheme for historical vs forecast data
-const COLOR_SCHEME = {
-  historical: {
-    orders: '#10b981',       // Green - success color for actual orders
-  },
-  forecast: {
-    orders: '#ec4899',       // Pink - prediction color for forecasted orders
-  }
-};
+// Use unified color scheme for consistency across all charts
 
 const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
   data,
@@ -139,17 +132,17 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
       <>
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor={COLOR_SCHEME.historical.orders} stopOpacity={0.4} />
-            <stop offset="95%" stopColor={COLOR_SCHEME.historical.orders} stopOpacity={0.05} />
+            <stop offset="5%" stopColor={UNIFIED_COLOR_SCHEME.historical.orders} stopOpacity={0.4} />
+            <stop offset="95%" stopColor={UNIFIED_COLOR_SCHEME.historical.orders} stopOpacity={0.05} />
           </linearGradient>
           <linearGradient id={predictionGradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor={COLOR_SCHEME.forecast.orders} stopOpacity={0.3} />
-            <stop offset="95%" stopColor={COLOR_SCHEME.forecast.orders} stopOpacity={0.05} />
+            <stop offset="5%" stopColor={UNIFIED_COLOR_SCHEME.forecast.orders} stopOpacity={0.3} />
+            <stop offset="95%" stopColor={UNIFIED_COLOR_SCHEME.forecast.orders} stopOpacity={0.05} />
           </linearGradient>
           {/* Pattern for prediction area */}
           <pattern id="orderPredictionPattern" patternUnits="userSpaceOnUse" width="4" height="4">
-            <rect width="4" height="4" fill={COLOR_SCHEME.forecast.orders} fillOpacity="0.1"/>
-            <path d="M 0,4 l 4,-4 M -1,1 l 2,-2 M 3,5 l 2,-2" stroke={COLOR_SCHEME.forecast.orders} strokeWidth="0.5" strokeOpacity="0.3"/>
+            <rect width="4" height="4" fill={UNIFIED_COLOR_SCHEME.forecast.orders} fillOpacity="0.1"/>
+            <path d="M 0,4 l 4,-4 M -1,1 l 2,-2 M 3,5 l 2,-2" stroke={UNIFIED_COLOR_SCHEME.forecast.orders} strokeWidth="0.5" strokeOpacity="0.3"/>
           </pattern>
         </defs>
         <CartesianGrid 
@@ -360,7 +353,7 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
               shape={(props: any) => {
                 const { payload } = props;
                 const isPrediction = payload?.isPrediction;
-                const fill = isPrediction ? COLOR_SCHEME.forecast.orders : COLOR_SCHEME.historical.orders;
+                const fill = isPrediction ? UNIFIED_COLOR_SCHEME.forecast.orders : UNIFIED_COLOR_SCHEME.historical.orders;
                 const opacity = isPrediction ? 0.7 : 0.9;
                 return (
                   <rect
@@ -388,7 +381,7 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
               type="monotone"
               dataKey="orders_count"
               name="Orders (Historical)"
-              stroke={COLOR_SCHEME.historical.orders}
+              stroke={UNIFIED_COLOR_SCHEME.historical.orders}
               strokeWidth={3}
               dot={(props: any) => {
                 const { payload } = props;
@@ -402,8 +395,8 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
                     cx={props.cx}
                     cy={props.cy}
                     r={4}
-                    fill={COLOR_SCHEME.historical.orders}
-                    stroke={COLOR_SCHEME.historical.orders}
+                    fill={UNIFIED_COLOR_SCHEME.historical.orders}
+                    stroke={UNIFIED_COLOR_SCHEME.historical.orders}
                     strokeWidth={2}
                   />
                 );
@@ -422,7 +415,7 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
                 type="monotone"
                 dataKey="orders_count"
                 name="Orders (Forecast)"
-                stroke={COLOR_SCHEME.forecast.orders}
+                stroke={UNIFIED_COLOR_SCHEME.forecast.orders}
                 strokeWidth={3}
                 strokeDasharray="8 4"
                 dot={(props: any) => {
@@ -437,8 +430,8 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
                       cx={props.cx}
                       cy={props.cy}
                       r={4}
-                      fill={COLOR_SCHEME.forecast.orders}
-                      stroke={COLOR_SCHEME.forecast.orders}
+                      fill={UNIFIED_COLOR_SCHEME.forecast.orders}
+                      stroke={UNIFIED_COLOR_SCHEME.forecast.orders}
                       strokeWidth={2}
                     />
                   );
@@ -464,7 +457,7 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
               type="monotone"
               dataKey="orders_count"
               name="Orders (Historical)"
-              stroke={COLOR_SCHEME.historical.orders}
+              stroke={UNIFIED_COLOR_SCHEME.historical.orders}
               strokeWidth={3}
               fill={`url(#${gradientId})`}
               fillOpacity={0.6}
@@ -480,8 +473,8 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
                     cx={props.cx}
                     cy={props.cy}
                     r={3}
-                    fill={COLOR_SCHEME.historical.orders}
-                    stroke={COLOR_SCHEME.historical.orders}
+                    fill={UNIFIED_COLOR_SCHEME.historical.orders}
+                    stroke={UNIFIED_COLOR_SCHEME.historical.orders}
                     strokeWidth={1}
                   />
                 );
@@ -495,7 +488,7 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
                 type="monotone"
                 dataKey="orders_count"
                 name="Orders (Forecast)"
-                stroke={COLOR_SCHEME.forecast.orders}
+                stroke={UNIFIED_COLOR_SCHEME.forecast.orders}
                 strokeWidth={3}
                 strokeDasharray="8 4"
                 fill={`url(#${predictionGradientId})`}
@@ -512,8 +505,8 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
                       cx={props.cx}
                       cy={props.cy}
                       r={3}
-                      fill={COLOR_SCHEME.forecast.orders}
-                      stroke={COLOR_SCHEME.forecast.orders}
+                      fill={UNIFIED_COLOR_SCHEME.forecast.orders}
+                      stroke={UNIFIED_COLOR_SCHEME.forecast.orders}
                       strokeWidth={1}
                     />
                   );
@@ -621,7 +614,7 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
               type="monotone"
               dataKey="orders_count"
               name="Orders (Historical)"
-              stroke={COLOR_SCHEME.historical.orders}
+              stroke={UNIFIED_COLOR_SCHEME.historical.orders}
               strokeWidth={3}
               fill={`url(#${gradientId})`}
               fillOpacity={0.6}
@@ -637,8 +630,8 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
                     cx={props.cx}
                     cy={props.cy}
                     r={3}
-                    fill={COLOR_SCHEME.historical.orders}
-                    stroke={COLOR_SCHEME.historical.orders}
+                    fill={UNIFIED_COLOR_SCHEME.historical.orders}
+                    stroke={UNIFIED_COLOR_SCHEME.historical.orders}
                     strokeWidth={1}
                   />
                 );
@@ -652,7 +645,7 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
                 type="monotone"
                 dataKey="orders_count"
                 name="Orders (Forecast)"
-                stroke={COLOR_SCHEME.forecast.orders}
+                stroke={UNIFIED_COLOR_SCHEME.forecast.orders}
                 strokeWidth={3}
                 strokeDasharray="8 4"
                 fill={`url(#${predictionGradientId})`}
@@ -669,8 +662,8 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
                       cx={props.cx}
                       cy={props.cy}
                       r={3}
-                      fill={COLOR_SCHEME.forecast.orders}
-                      stroke={COLOR_SCHEME.forecast.orders}
+                      fill={UNIFIED_COLOR_SCHEME.forecast.orders}
+                      stroke={UNIFIED_COLOR_SCHEME.forecast.orders}
                       strokeWidth={1}
                     />
                   );
