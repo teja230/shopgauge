@@ -802,7 +802,7 @@ const DashboardPage = () => {
     // No recomputation needed - PredictionViewContainer will filter the pre-computed data instantly
   }, [predictionDays]);
 
-  // Simplified chart mode toggle handler
+  // Enhanced chart mode toggle handler with proper data initialization
   const handleChartModeChange = useCallback((event: React.MouseEvent<HTMLElement>, newMode: 'unified' | 'classic' | null) => {
     if (!newMode || newMode === chartMode) return;
     
@@ -822,20 +822,35 @@ const DashboardPage = () => {
     // Set the new chart mode
     setChartMode(newMode);
     
-    // If switching to unified mode, try to load from session storage
+    // If switching to unified mode, ensure data is properly initialized
     if (newMode === 'unified') {
-      console.log('🔄 Switching to unified mode');
+      console.log('🔄 Switching to unified mode - initializing data');
       
       // Try to load from session storage first
       const loadedFromStorage = loadUnifiedAnalyticsFromStorage();
       
       if (!loadedFromStorage) {
-        console.log('🔄 No session storage data, will be processed automatically');
+        console.log('🔄 No session storage data, forcing computation from dashboard data');
+        
+        // Check if we have dashboard data available for processing
+        const hasDashboardData = (Array.isArray(stableTimeseriesData) && stableTimeseriesData.length > 0);
+        
+        if (hasDashboardData) {
+          console.log('🔄 Dashboard data available, forcing computation');
+          // Force compute unified analytics from dashboard data
+          setTimeout(() => {
+            forceComputeUnifiedAnalytics();
+          }, 100);
+        } else {
+          console.log('⚠️ No dashboard data available yet, will wait for data to load');
         }
+      } else {
+        console.log('✅ Loaded unified analytics from session storage');
+      }
     }
     
     console.log(`✅ Chart mode changed to ${newMode}`);
-  }, [chartMode, loadUnifiedAnalyticsFromStorage, unifiedAnalyticsData, unifiedAnalyticsLoading, unifiedAnalyticsError, stableTimeseriesData]);
+  }, [chartMode, loadUnifiedAnalyticsFromStorage, forceComputeUnifiedAnalytics, unifiedAnalyticsData, unifiedAnalyticsLoading, unifiedAnalyticsError, stableTimeseriesData]);
 
   // Simplified retry handler for error boundaries
   const handleUnifiedAnalyticsRetry = useCallback(() => {

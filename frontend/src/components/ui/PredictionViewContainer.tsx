@@ -343,7 +343,7 @@ const PredictionViewContainer = memo(({
       );
     }
 
-    // Simplified validation for data availability
+    // Enhanced validation for data availability with better fallback handling
     const hasValidData = data && 
       Array.isArray(data.historical) && 
       data.historical.length > 0 &&

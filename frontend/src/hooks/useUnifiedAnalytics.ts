@@ -1091,7 +1091,7 @@ const useUnifiedAnalytics = (
       setError('API mode not supported. Use dashboard data mode.');
       setLoading(false);
     }
-  }, [shop, useDashboardData]); // SIMPLIFIED DEPENDENCIES - only shop and mode
+  }, [shop, useDashboardData, loadUnifiedAnalyticsFromStorage, convertDashboardDataToUnified, saveUnifiedAnalyticsToStorage, dashboardRevenueData, dashboardOrdersData, realConversionRate]); // Enhanced dependencies for proper initialization
 
   // Auto-refresh if enabled
   useEffect(() => {

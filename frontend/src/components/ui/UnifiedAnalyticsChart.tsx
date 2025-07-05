@@ -559,7 +559,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
     }
   };
 
-  // Process and validate chart data
+  // Process and validate chart data with enhanced error handling
   const chartData = useMemo(() => {
     debugLog.info('=== CHART DATA PROCESSING STARTED ===', {
       hasData: !!data,
@@ -575,13 +575,17 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
     }
 
     try {
-      // Process historical data
-      const processedHistorical = data.historical.map(processHistoricalItem);
+      // Process historical data with safe handling
+      const processedHistorical = data.historical
+        .filter(item => item && typeof item === 'object' && item.date) // Filter out invalid items
+        .map(processHistoricalItem);
       
       // Process predictions if enabled
       let processedPredictions: any[] = [];
       if (showPredictions && data.predictions && Array.isArray(data.predictions)) {
-        processedPredictions = data.predictions.map(processHistoricalItem);
+        processedPredictions = data.predictions
+          .filter(item => item && typeof item === 'object' && item.date) // Filter out invalid items
+          .map(processHistoricalItem);
       }
 
       // Combine and sort data
@@ -593,7 +597,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         totalPoints: combinedData.length,
         historicalPoints: processedHistorical.length,
         predictionPoints: processedPredictions.length,
-        hasValidData: validateChartData(combinedData)
+        hasValidData: combinedData.length > 0 // Simplified validation
       }, 'UnifiedAnalyticsChart');
 
       return combinedData;
@@ -649,8 +653,8 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
     );
   }
 
-  // Render no data state
-  if (!data || !validateChartData(chartData)) {
+  // Render no data state with more lenient validation
+  if (!data || !data.historical || !Array.isArray(data.historical) || data.historical.length === 0) {
     return (
       <Box
         sx={{
