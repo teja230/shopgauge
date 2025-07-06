@@ -99,7 +99,7 @@ const SimpleShareModal: React.FC<SimpleShareModalProps> = ({
     setExportProgress(0);
     
     debugLog.info('Starting PNG export', { quality: exportSettings.quality, filename: generateFilename() }, 'SimpleShareModal');
-    showInfo('Generating high-resolution analytics report...');
+    showInfo('Generating professional performance report...');
 
     try {
       setExportProgress(25);
@@ -123,7 +123,7 @@ const SimpleShareModal: React.FC<SimpleShareModalProps> = ({
       link.click();
 
       setExportProgress(100);
-      showSuccess('Analytics report exported successfully');
+      showSuccess('Professional performance report exported successfully!');
       debugLog.info('PNG export completed', { filename: link.download, scale }, 'SimpleShareModal');
 
     } catch (error) {
@@ -143,7 +143,7 @@ const SimpleShareModal: React.FC<SimpleShareModalProps> = ({
     setExportProgress(0);
     
     debugLog.info('Starting PDF export', { filename: generateFilename(), includeWatermark: exportSettings.includeWatermark }, 'SimpleShareModal');
-    showInfo('Generating professional analytics document...');
+    showInfo('Generating professional business document...');
 
     try {
       setExportProgress(25);
@@ -192,14 +192,14 @@ const SimpleShareModal: React.FC<SimpleShareModalProps> = ({
       if (exportSettings.includeWatermark) {
         pdf.setFontSize(8);
         pdf.setTextColor(160, 160, 160);
-        pdf.text('Generated with StoresightAI', 10, pdfHeight - 10);
+        pdf.text('Powered by ShopGauge - AI-powered analytics for Shopify stores', 10, pdfHeight - 10);
       }
       
       setExportProgress(75);
       
       pdf.save(`${generateFilename()}.pdf`);
       setExportProgress(100);
-      showSuccess('Professional analytics report generated successfully');
+      showSuccess('Professional business report generated successfully!');
       debugLog.info('PDF export completed', { filename: `${generateFilename()}.pdf`, includeWatermark: exportSettings.includeWatermark }, 'SimpleShareModal');
       
     } catch (error) {
@@ -222,34 +222,61 @@ const SimpleShareModal: React.FC<SimpleShareModalProps> = ({
 
   // Social sharing
   const handleSocialShare = useCallback(async (platform: string) => {
-    const message = `📊 ${shopName || 'Business'} Analytics: ${chartTitle}${
-      metrics?.revenue ? ` - $${metrics.revenue.toLocaleString()} revenue` : ''
-    }${metrics?.orders ? ` across ${metrics.orders.toLocaleString()} orders` : ''}`;
+    // Create marketing-friendly messages for different platforms
+    const createShareMessage = (platform: string) => {
+      const storeName = shopName || 'Our Store';
+      const revenueText = metrics?.revenue ? `$${metrics.revenue.toLocaleString()}` : '';
+      const ordersText = metrics?.orders ? `${metrics.orders.toLocaleString()} orders` : '';
+      const timeRange = metrics?.timeRange || 'recent period';
+      
+      const baseMessage = `🚀 ${storeName} Performance Insights`;
+      const metricsText = revenueText && ordersText ? 
+        `\n💰 Revenue: ${revenueText}\n📦 Orders: ${ordersText}` : 
+        revenueText ? `\n💰 Revenue: ${revenueText}` : 
+        ordersText ? `\n📦 Orders: ${ordersText}` : '';
+      
+      const poweredByText = '\n\n📊 Powered by ShopGauge - AI-powered analytics for Shopify stores';
+      
+      switch (platform) {
+        case 'linkedin':
+          return `${baseMessage}${metricsText}\n\n📈 ${chartTitle} analysis for ${timeRange}${poweredByText}\n\n#Shopify #Ecommerce #Analytics #BusinessIntelligence`;
+        
+        case 'twitter':
+          return `${baseMessage}${metricsText}\n\n📈 ${chartTitle} - ${timeRange}${poweredByText}\n\n#Shopify #Ecommerce #Analytics`;
+        
+        case 'email':
+          return `${baseMessage}${metricsText}\n\n📈 ${chartTitle} Analysis\n📅 Period: ${timeRange}${poweredByText}`;
+        
+        default:
+          return `${baseMessage}${metricsText}\n\n📈 ${chartTitle} - ${timeRange}${poweredByText}`;
+      }
+    };
     
+    const message = createShareMessage(platform);
     const shareableUrl = window.location.href;
     
     try {
       switch (platform) {
         case 'linkedin':
           window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareableUrl)}&summary=${encodeURIComponent(message)}`);
-          showInfo('Opening LinkedIn business network sharing...');
+          showInfo('Sharing your business insights on LinkedIn...');
           debugLog.info('LinkedIn share opened', { messageLength: message.length }, 'SimpleShareModal');
           break;
         case 'twitter':
           window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(message)}&url=${encodeURIComponent(shareableUrl)}`);
-          showInfo('Opening social media sharing platform...');
+          showInfo('Sharing your performance insights on Twitter...');
           debugLog.info('Twitter share opened', { messageLength: message.length }, 'SimpleShareModal');
           break;
         case 'email':
-          window.open(`mailto:?subject=${encodeURIComponent(`${shopName} - ${chartTitle}`)}&body=${encodeURIComponent(message + '\n\n' + shareableUrl)}`);
-          showInfo('Opening email application for report distribution...');
+          window.open(`mailto:?subject=${encodeURIComponent(`${shopName || 'Store'} Performance Insights - ${chartTitle}`)}&body=${encodeURIComponent(message + '\n\n' + shareableUrl)}`);
+          showInfo('Opening email to share your business insights...');
           debugLog.info('Email share opened', { subject: `${shopName} - ${chartTitle}` }, 'SimpleShareModal');
           break;
         case 'copy':
           await navigator.clipboard.writeText(message + '\n\n' + shareableUrl);
           setCopiedToClipboard(true);
           setTimeout(() => setCopiedToClipboard(false), 3000);
-          showSuccess('Analytics report link copied to clipboard for sharing');
+          showSuccess('Performance insights link copied to clipboard!');
           debugLog.info('Link copied to clipboard', { messageLength: message.length }, 'SimpleShareModal');
           break;
         default:
@@ -342,7 +369,7 @@ const SimpleShareModal: React.FC<SimpleShareModalProps> = ({
                   size="small"
                 />
               }
-              label="Include StoresightAI branding"
+              label="Include ShopGauge branding"
             />
           </Box>
 
