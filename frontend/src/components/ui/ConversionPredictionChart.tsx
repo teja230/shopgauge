@@ -72,7 +72,7 @@ interface ConversionPredictionChartProps {
   showPredictions?: boolean;
 }
 
-type ChartType = 'line' | 'area' | 'bar' | 'waterfall' | 'stacked' | 'composed';
+type ChartType = 'line' | 'area' | 'bar' | 'waterfall' | 'stacked' | 'composed' | 'candlestick';
 
 // Use unified color scheme for consistency across all charts
 
@@ -80,15 +80,15 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
   data,
   loading = false,
   error = null,
-  height = 450,
+  height = 650,
   showPredictions = true,
 }) => {
   const [chartType, setChartType] = useState<ChartType>('area');
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
-  // Use mobile-optimized height
-  const optimizedHeight = getMobileOptimizedHeight(height, isMobile);
+  // Better responsive height calculation
+  const optimizedHeight = isMobile ? Math.max(400, height * 0.75) : height;
 
   const gradientId = useMemo(() => `conversion-gradient-${Math.random().toString(36).substr(2, 9)}`, []);
   const predictionGradientId = useMemo(() => `conversion-prediction-gradient-${Math.random().toString(36).substr(2, 9)}`, []);
@@ -325,6 +325,7 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
     waterfall: { icon: <WaterfallChart />, label: 'Waterfall', color: '#f59e0b' },
     stacked: { icon: <StackedLineChart />, label: 'Stacked', color: '#8b5cf6' },
     composed: { icon: <Analytics />, label: 'Composed', color: '#ef4444' },
+    candlestick: { icon: <CandlestickChart />, label: 'Candlestick', color: '#10b981' },
   };
 
   const renderChart = () => {
@@ -705,6 +706,78 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
           </ComposedChart>
         );
 
+      case 'candlestick':
+        return (
+          <ComposedChart {...commonProps}>
+            <defs>
+              <linearGradient id="conversionCandlestickHistoricalGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#ef4444" stopOpacity={0.8} />
+                <stop offset="95%" stopColor="#ef4444" stopOpacity={0.6} />
+              </linearGradient>
+              <linearGradient id="conversionCandlestickForecastGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#fca5a5" stopOpacity={0.6} />
+                <stop offset="95%" stopColor="#fca5a5" stopOpacity={0.3} />
+              </linearGradient>
+            </defs>
+            {commonElements}
+            <Bar
+              dataKey="conversion_rate"
+              name="Conversion Rate"
+              radius={[2, 2, 0, 0]}
+              isAnimationActive={false}
+              shape={(props: any) => {
+                const { payload } = props;
+                const isPrediction = payload?.isPrediction;
+                const fill = isPrediction ? "url(#conversionCandlestickForecastGradient)" : "url(#conversionCandlestickHistoricalGradient)";
+                const opacity = isPrediction ? 0.5 : 0.6;
+                return (
+                  <rect
+                    x={props.x}
+                    y={props.y}
+                    width={props.width}
+                    height={props.height}
+                    fill={fill}
+                    opacity={opacity}
+                    rx={2}
+                    ry={2}
+                  />
+                );
+              }}
+            />
+            <Line
+              type="monotone"
+              dataKey="conversion_rate"
+              stroke="#2563eb"
+              strokeWidth={2}
+              dot={(props: any) => {
+                const { payload } = props;
+                const isPrediction = payload?.isPrediction;
+                return (
+                  <circle
+                    cx={props.cx}
+                    cy={props.cy}
+                    r={isPrediction ? 2 : 3}
+                    fill={isPrediction ? "#93c5fd" : "#2563eb"}
+                    stroke={isPrediction ? "#93c5fd" : "#2563eb"}
+                    strokeWidth={2}
+                  />
+                );
+              }}
+              connectNulls={false}
+              isAnimationActive={false}
+            />
+            {/* Reference line for average */}
+            {processedData.length > 0 && (
+              <ReferenceLine 
+                y={processedData.reduce((sum, d) => sum + d.conversion_rate, 0) / processedData.length}
+                stroke="#6b7280" 
+                strokeDasharray="3 3"
+                label={{ value: "Average", position: "insideTopRight" }}
+              />
+            )}
+          </ComposedChart>
+        );
+
       default:
         return (
           <AreaChart {...commonProps}>
@@ -833,8 +906,42 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
         </ToggleButtonGroup>
       </Box>
 
-      {/* Chart with mobile-optimized sizing */}
-      <Box sx={mobileOptimizedContainer(theme, isMobile, optimizedHeight)}>
+      {/* Chart with improved responsive sizing */}
+      <Box sx={{
+        width: '100%',
+        height: optimizedHeight,
+        position: 'relative',
+        overflow: 'hidden',
+        // Enhanced styling for better appearance
+        backgroundColor: theme.palette.background.paper,
+        borderRadius: 1,
+        border: `1px solid ${theme.palette.divider}`,
+        // Responsive chart optimizations
+        ...(isMobile && {
+          '& .recharts-cartesian-axis-tick-value': {
+            fontSize: '10px !important',
+          },
+          '& .recharts-legend-wrapper': {
+            fontSize: '11px !important',
+            paddingTop: '8px !important',
+          },
+          '& .recharts-tooltip-wrapper': {
+            fontSize: '12px !important',
+          },
+        }),
+        // Desktop optimizations
+        ...(!isMobile && {
+          '& .recharts-cartesian-axis-tick-value': {
+            fontSize: '12px !important',
+          },
+          '& .recharts-legend-wrapper': {
+            fontSize: '13px !important',
+          },
+          '& .recharts-tooltip-wrapper': {
+            fontSize: '14px !important',
+          },
+        }),
+      }}>
         <ResponsiveContainer width="100%" height="100%">
           {renderChart()}
         </ResponsiveContainer>

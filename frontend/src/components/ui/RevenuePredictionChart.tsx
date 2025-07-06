@@ -90,7 +90,7 @@ interface RevenuePredictionChartProps {
   showPredictions?: boolean;
 }
 
-type ChartType = 'line' | 'area' | 'bar' | 'waterfall' | 'stacked' | 'composed';
+type ChartType = 'line' | 'area' | 'bar' | 'waterfall' | 'stacked' | 'composed' | 'candlestick';
 
 // Use unified color scheme for consistency across all charts
 
@@ -98,15 +98,15 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
   data,
   loading = false,
   error = null,
-  height = 450,
+  height = 650,
   showPredictions = true,
 }) => {
   const [chartType, setChartType] = useState<ChartType>('area');
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
-  // Use mobile-optimized height
-  const optimizedHeight = getMobileOptimizedHeight(height, isMobile);
+  // Better responsive height calculation
+  const optimizedHeight = isMobile ? Math.max(400, height * 0.75) : height;
 
   const gradientId = useMemo(() => `revenue-gradient-${Math.random().toString(36).substr(2, 9)}`, []);
   const predictionGradientId = useMemo(() => `prediction-gradient-${Math.random().toString(36).substr(2, 9)}`, []);
@@ -115,6 +115,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
     line: { icon: <ShowChart />, label: 'Line', color: UNIFIED_COLOR_SCHEME.historical.revenue },
     area: { icon: <Timeline />, label: 'Area', color: UNIFIED_COLOR_SCHEME.historical.revenue },
     bar: { icon: <BarChartIcon />, label: 'Bar', color: UNIFIED_COLOR_SCHEME.historical.revenue },
+    candlestick: { icon: <CandlestickChart />, label: 'Candlestick', color: '#10b981' },
     waterfall: { icon: <WaterfallChart />, label: 'Waterfall', color: '#f59e0b' },
     stacked: { icon: <StackedLineChart />, label: 'Stacked', color: '#8b5cf6' },
     composed: { icon: <Analytics />, label: 'Composed', color: '#ef4444' },
@@ -768,6 +769,87 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
           </ComposedChart>
         );
 
+      case 'candlestick': {
+        // Process data for candlestick chart - calculate OHLC values
+        const candlestickData = processedData.combined.map((item, index) => {
+          const revenue = item.revenue;
+          const prevRevenue = index > 0 ? processedData.combined[index - 1].revenue : revenue;
+          const nextRevenue = index < processedData.combined.length - 1 ? processedData.combined[index + 1].revenue : revenue;
+          
+          // Calculate OHLC (Open, High, Low, Close) values
+          const open = prevRevenue;
+          const close = revenue;
+          const high = Math.max(open, close, revenue * 1.05); // Add some variation
+          const low = Math.min(open, close, revenue * 0.95);
+          
+          return {
+            ...item,
+            open,
+            high,
+            low,
+            close: revenue,
+            isPositive: close >= open,
+          };
+        });
+
+        return (
+          <ComposedChart {...commonProps} data={candlestickData}>
+            <defs>
+              <linearGradient id="candlestickPositiveGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
+                <stop offset="95%" stopColor="#10b981" stopOpacity={0.6} />
+              </linearGradient>
+              <linearGradient id="candlestickNegativeGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#ef4444" stopOpacity={0.8} />
+                <stop offset="95%" stopColor="#ef4444" stopOpacity={0.6} />
+              </linearGradient>
+            </defs>
+            {commonElements}
+            {/* Candlestick bodies */}
+            <Bar
+              dataKey="close"
+              name="Revenue"
+              radius={[1, 1, 1, 1]}
+              isAnimationActive={false}
+              shape={(props: any) => {
+                const { payload } = props;
+                const isPrediction = payload?.isPrediction;
+                const isPositive = payload?.isPositive;
+                const fill = isPrediction 
+                  ? (isPositive ? "#34d399" : "#fca5a5")
+                  : (isPositive ? "url(#candlestickPositiveGradient)" : "url(#candlestickNegativeGradient)");
+                const opacity = isPrediction ? 0.7 : 0.9;
+                
+                return (
+                  <rect
+                    x={props.x}
+                    y={props.y}
+                    width={props.width}
+                    height={props.height}
+                    fill={fill}
+                    opacity={opacity}
+                    stroke={isPositive ? "#10b981" : "#ef4444"}
+                    strokeWidth={1}
+                    rx={1}
+                    ry={1}
+                  />
+                );
+              }}
+            />
+            {/* High-Low lines */}
+            <Line
+              type="monotone"
+              dataKey="high"
+              stroke="#6b7280"
+              strokeWidth={1}
+              dot={false}
+              connectNulls={false}
+              isAnimationActive={false}
+            />
+          </ComposedChart>
+        );
+      }
+
       default:
         return (
           <AreaChart {...commonProps}>
@@ -879,8 +961,42 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
         </ToggleButtonGroup>
       </Box>
 
-      {/* Chart with mobile-optimized sizing */}
-      <Box sx={mobileOptimizedContainer(theme, isMobile, optimizedHeight)}>
+      {/* Chart with improved responsive sizing */}
+      <Box sx={{
+        width: '100%',
+        height: optimizedHeight,
+        position: 'relative',
+        overflow: 'hidden',
+        // Enhanced styling for better appearance
+        backgroundColor: theme.palette.background.paper,
+        borderRadius: 1,
+        border: `1px solid ${theme.palette.divider}`,
+        // Responsive chart optimizations
+        ...(isMobile && {
+          '& .recharts-cartesian-axis-tick-value': {
+            fontSize: '10px !important',
+          },
+          '& .recharts-legend-wrapper': {
+            fontSize: '11px !important',
+            paddingTop: '8px !important',
+          },
+          '& .recharts-tooltip-wrapper': {
+            fontSize: '12px !important',
+          },
+        }),
+        // Desktop optimizations
+        ...(!isMobile && {
+          '& .recharts-cartesian-axis-tick-value': {
+            fontSize: '12px !important',
+          },
+          '& .recharts-legend-wrapper': {
+            fontSize: '13px !important',
+          },
+          '& .recharts-tooltip-wrapper': {
+            fontSize: '14px !important',
+          },
+        }),
+      }}>
         <ResponsiveContainer width="100%" height="100%">
           {renderChart()}
         </ResponsiveContainer>
