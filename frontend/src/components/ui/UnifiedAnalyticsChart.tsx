@@ -246,10 +246,10 @@ const SimpleLineChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
   const historicalData = data.filter((item: any) => !item.isPrediction);
   const forecastData = data.filter((item: any) => item.isPrediction);
 
-  // Mobile-optimized margins
+  // Mobile-optimized margins with increased bottom space
   const margins = isMobile 
-    ? { top: 10, right: 15, left: 15, bottom: 60 }
-    : { top: 20, right: 30, left: 20, bottom: 80 };
+    ? { top: 15, right: 20, left: 20, bottom: 100 }
+    : { top: 25, right: 40, left: 40, bottom: 120 };
 
   return (
     <LineChart
@@ -438,10 +438,10 @@ const SimpleAreaChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
   const historicalData = data.filter((item: any) => !item.isPrediction);
   const forecastData = data.filter((item: any) => item.isPrediction);
 
-  // Mobile-optimized margins
+  // Mobile-optimized margins with increased bottom space
   const margins = isMobile 
-    ? { top: 10, right: 15, left: 15, bottom: 60 }
-    : { top: 20, right: 30, left: 20, bottom: 80 };
+    ? { top: 15, right: 20, left: 20, bottom: 100 }
+    : { top: 25, right: 40, left: 40, bottom: 120 };
 
   return (
     <AreaChart
@@ -662,6 +662,293 @@ const SimpleAreaChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
   );
 });
 
+// Enhanced Composed Chart component for combined visualization
+const SimpleComposedChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, predictionDate, showPredictions, isMobile }: any) => {
+  if (!validateChartData(data)) {
+    return null;
+  }
+
+  // Separate historical and forecast data
+  const historicalData = data.filter((item: any) => !item.isPrediction);
+  const forecastData = data.filter((item: any) => item.isPrediction);
+
+  // Mobile-optimized margins with increased bottom space
+  const margins = isMobile 
+    ? { top: 15, right: 20, left: 20, bottom: 100 }
+    : { top: 25, right: 40, left: 40, bottom: 120 };
+
+  return (
+    <ComposedChart
+      data={data}
+      margin={margins}
+    >
+      <CartesianGrid strokeDasharray="3 3" stroke="rgba(0, 0, 0, 0.1)" />
+      <XAxis
+        dataKey="date"
+        tickFormatter={(value) => {
+          try {
+            return new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          } catch {
+            return value;
+          }
+        }}
+        stroke="rgba(0, 0, 0, 0.6)"
+        label={{ 
+          value: 'Date', 
+          position: 'insideBottom', 
+          offset: -10,
+          style: { textAnchor: 'middle', fontSize: '12px', fill: 'rgba(0, 0, 0, 0.7)' }
+        }}
+      />
+      <YAxis
+        yAxisId="left"
+        stroke="rgba(0, 0, 0, 0.6)"
+        tickFormatter={(value) => `$${value.toLocaleString()}`}
+        label={{ 
+          value: 'Revenue (USD)', 
+          angle: -90, 
+          position: 'insideLeft',
+          style: { textAnchor: 'middle', fontSize: '12px', fill: 'rgba(0, 0, 0, 0.7)' }
+        }}
+      />
+      <YAxis
+        yAxisId="right"
+        orientation="right"
+        stroke="rgba(0, 0, 0, 0.6)"
+        tickFormatter={(value) => value.toLocaleString()}
+        label={{ 
+          value: 'Orders & Conversion (%)', 
+          angle: 90, 
+          position: 'insideRight',
+          style: { textAnchor: 'middle', fontSize: '12px', fill: 'rgba(0, 0, 0, 0.7)' }
+        }}
+      />
+      <Tooltip
+        labelFormatter={(label) => {
+          try {
+            return new Date(label).toLocaleDateString();
+          } catch {
+            return label;
+          }
+        }}
+        formatter={(value: number, name: string, props: any) => {
+          const isPrediction = props.payload?.isPrediction;
+          const prefix = isPrediction ? '🔮 AI Forecast: ' : '📊 Historical: ';
+          if (name.includes('Revenue')) return [`${prefix}$${value.toLocaleString()}`, name];
+          if (name.includes('Orders')) return [`${prefix}${value.toLocaleString()}`, name];
+          if (name.includes('Conversion')) return [`${prefix}${formatConversionRate(value)}%`, name];
+          return [`${prefix}${value.toLocaleString()}`, name];
+        }}
+        contentStyle={{
+          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+          border: '1px solid rgba(0, 0, 0, 0.1)',
+          borderRadius: '8px',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+        }}
+      />
+      <Legend 
+        formatter={(value, entry) => (
+          <span style={{ color: entry.color, fontSize: '12px', fontWeight: 500 }}>
+            {value}
+          </span>
+        )}
+      />
+      
+      {/* Revenue as Area Chart */}
+      {visibleMetrics.revenue && (
+        <Area
+          yAxisId="left"
+          type="monotone"
+          dataKey="revenue"
+          stroke={COLOR_SCHEME.historical.revenue}
+          strokeWidth={3}
+          fill={`${COLOR_SCHEME.historical.revenue}30`}
+          name="Revenue"
+          connectNulls={false}
+          isAnimationActive={false}
+        />
+      )}
+      
+      {/* Orders as Bar Chart */}
+      {visibleMetrics.orders && (
+        <Bar
+          yAxisId="right"
+          dataKey="orders_count"
+          name="Orders"
+          radius={[2, 2, 0, 0]}
+          isAnimationActive={false}
+          shape={(props: any) => {
+            const { payload } = props;
+            const isPrediction = payload?.isPrediction;
+            const fill = isPrediction ? COLOR_SCHEME.forecast.orders : COLOR_SCHEME.historical.orders;
+            const opacity = isPrediction ? 0.7 : 0.9;
+            return (
+              <rect
+                x={props.x}
+                y={props.y}
+                width={props.width}
+                height={props.height}
+                fill={fill}
+                opacity={opacity}
+                rx={2}
+                ry={2}
+              />
+            );
+          }}
+        />
+      )}
+      
+      {/* Conversion Rate as Line Chart */}
+      {visibleMetrics.conversion && (
+        <Line
+          yAxisId="right"
+          type="monotone"
+          dataKey="conversion_rate"
+          stroke={COLOR_SCHEME.historical.conversion}
+          strokeWidth={2}
+          name="Conversion Rate"
+          dot={{ fill: COLOR_SCHEME.historical.conversion, strokeWidth: 2, r: 3 }}
+          connectNulls={false}
+          isAnimationActive={false}
+        />
+      )}
+
+      {/* Prediction separator line */}
+      {shouldShowPredictionLine && predictionDate && showPredictions && (
+        <ReferenceLine
+          x={predictionDate}
+          stroke="#9333ea"
+          strokeWidth={2}
+          strokeDasharray="8 4"
+          opacity={0.8}
+          label={{ value: "AI Forecasts", position: "top" }}
+        />
+      )}
+    </ComposedChart>
+  );
+});
+
+// Enhanced Stacked Chart component with AI data differentiation
+const SimpleStackedChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, predictionDate, showPredictions, isMobile }: any) => {
+  if (!validateChartData(data)) {
+    return null;
+  }
+
+  // Separate historical and forecast data
+  const historicalData = data.filter((item: any) => !item.isPrediction);
+  const forecastData = data.filter((item: any) => item.isPrediction);
+
+  // Mobile-optimized margins with increased bottom space
+  const margins = isMobile 
+    ? { top: 15, right: 20, left: 20, bottom: 100 }
+    : { top: 25, right: 40, left: 40, bottom: 120 };
+
+  return (
+    <AreaChart
+      data={data}
+      stackOffset="expand"
+      margin={margins}
+    >
+      <CartesianGrid strokeDasharray="3 3" stroke="rgba(0, 0, 0, 0.1)" />
+      <XAxis
+        dataKey="date"
+        tickFormatter={(value) => {
+          try {
+            return new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          } catch {
+            return value;
+          }
+        }}
+        stroke="rgba(0, 0, 0, 0.6)"
+        label={{ 
+          value: 'Date', 
+          position: 'insideBottom', 
+          offset: -10,
+          style: { textAnchor: 'middle', fontSize: '12px', fill: 'rgba(0, 0, 0, 0.7)' }
+        }}
+      />
+      <YAxis
+        stroke="rgba(0, 0, 0, 0.6)"
+        tickFormatter={(value) => `${(value * 100).toFixed(0)}%`}
+        label={{ 
+          value: 'Percentage Distribution', 
+          angle: -90, 
+          position: 'insideLeft',
+          style: { textAnchor: 'middle', fontSize: '12px', fill: 'rgba(0, 0, 0, 0.7)' }
+        }}
+      />
+      <Tooltip
+        labelFormatter={(label) => {
+          try {
+            return new Date(label).toLocaleDateString();
+          } catch {
+            return label;
+          }
+        }}
+        formatter={(value: number, name: string, props: any) => {
+          const isPrediction = props.payload?.isPrediction;
+          const prefix = isPrediction ? '🔮 AI Forecast: ' : '📊 Historical: ';
+          const percentage = (value * 100).toFixed(1);
+          return [`${prefix}${percentage}%`, name];
+        }}
+        contentStyle={{
+          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+          border: '1px solid rgba(0, 0, 0, 0.1)',
+          borderRadius: '8px',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+        }}
+      />
+      <Legend 
+        formatter={(value, entry) => (
+          <span style={{ color: entry.color, fontSize: '12px', fontWeight: 500 }}>
+            {value}
+          </span>
+        )}
+      />
+      
+      {/* Stacked areas with AI differentiation through patterns */}
+      {visibleMetrics.revenue && (
+        <Area
+          type="monotone"
+          dataKey="revenue"
+          stackId="1"
+          stroke={COLOR_SCHEME.historical.revenue}
+          strokeWidth={2}
+          fill={COLOR_SCHEME.historical.revenue}
+          name="Revenue Distribution"
+          connectNulls={false}
+          isAnimationActive={false}
+        />
+      )}
+      {visibleMetrics.orders && (
+        <Area
+          type="monotone"
+          dataKey="orders_count"
+          stackId="1"
+          stroke={COLOR_SCHEME.historical.orders}
+          strokeWidth={2}
+          fill={COLOR_SCHEME.historical.orders}
+          name="Orders Distribution"
+          connectNulls={false}
+          isAnimationActive={false}
+        />
+      )}
+
+      {/* Prediction separator line */}
+      {shouldShowPredictionLine && predictionDate && showPredictions && (
+        <ReferenceLine
+          x={predictionDate}
+          stroke="#9333ea"
+          strokeWidth={2}
+          strokeDasharray="8 4"
+          opacity={0.8}
+          label={{ value: "AI Forecasts", position: "top" }}
+        />
+      )}
+    </AreaChart>
+  );
+});
+
 // Enhanced Bar Chart component with historical vs forecast color separation
 const SimpleBarChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, predictionDate, showPredictions, isMobile }: any) => {
   if (!validateChartData(data)) {
@@ -672,10 +959,10 @@ const SimpleBarChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, p
   const historicalData = data.filter((item: any) => !item.isPrediction);
   const forecastData = data.filter((item: any) => item.isPrediction);
 
-  // Mobile-optimized margins
+  // Mobile-optimized margins with increased bottom space
   const margins = isMobile 
-    ? { top: 10, right: 15, left: 15, bottom: 60 }
-    : { top: 20, right: 30, left: 20, bottom: 80 };
+    ? { top: 15, right: 20, left: 20, bottom: 100 }
+    : { top: 25, right: 40, left: 40, bottom: 120 };
 
   return (
     <BarChart
@@ -1142,7 +1429,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
     orders: true,
     conversion: false,
   });
-  const notifications = useNotifications();
+  const { showSuccess, showInfo } = useNotifications();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
@@ -1153,13 +1440,13 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
     setShowPredictions(checked);
     
     if (checked) {
-      notifications.showSuccess('Predictive analytics enabled - AI-powered forecasting is now active', {
+      showSuccess('Predictive analytics enabled - AI-powered forecasting is now active', {
         persistent: true,
         category: 'Predictive Analytics',
         duration: 4000
       });
     } else {
-      notifications.showInfo('Predictive analytics disabled - displaying historical performance data only', {
+      showInfo('Predictive analytics disabled - displaying historical performance data only', {
         persistent: true,
         category: 'Analytics Mode',
         duration: 4000
@@ -1219,25 +1506,6 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
     if (newType && newType !== chartType) {
       debugLog.info('Chart type change', { oldType: chartType, newType }, 'UnifiedAnalyticsChart');
       setChartType(newType);
-      
-      // Show notification for chart type change
-      const chartTypeNames: Partial<Record<ChartType, string>> = {
-        area: 'Area Chart',
-        line: 'Line Chart', 
-        bar: 'Bar Chart',
-        combined: 'Combined Chart',
-        composed: 'Composed Chart',
-        revenue_focus: 'Revenue Focus Chart',
-        candlestick: 'Candlestick Chart',
-        waterfall: 'Waterfall Chart',
-        stacked: 'Stacked Chart'
-      };
-      
-      notifications.showInfo(`Analytics view updated to ${chartTypeNames[newType] || newType} visualization`, {
-        persistent: false,
-        category: 'Analytics View',
-        duration: 2000
-      });
     }
   };
 
@@ -1257,7 +1525,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
     
     const action = newState ? 'enabled' : 'disabled';
     
-    notifications.showInfo(`${metricNames[metric]} tracking ${action} in analytics dashboard`, {
+    showInfo(`${metricNames[metric]} tracking ${action} in analytics dashboard`, {
       persistent: false,
       category: 'Data Visualization',
       duration: 1500
@@ -1352,8 +1620,8 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
           sx={{ 
             alignSelf: isMobile ? 'center' : 'flex-start',
             '& .MuiToggleButton-root': {
-              px: isMobile ? 1 : 2,
-              fontSize: isMobile ? '0.75rem' : '0.875rem',
+              px: isMobile ? 0.5 : 1.5,
+              fontSize: isMobile ? '0.7rem' : '0.8rem',
               transition: 'all 0.2s ease-in-out',
               '&:hover': {
                 transform: 'translateY(-1px)',
@@ -1363,17 +1631,29 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
           }}
         >
           <ToggleButton value="area" aria-label="Area Chart">
-            <Timeline sx={{ fontSize: isMobile ? '1rem' : '1.25rem', mr: isMobile ? 0.5 : 1 }} /> 
+            <Timeline sx={{ fontSize: isMobile ? '0.9rem' : '1rem', mr: isMobile ? 0.25 : 0.5 }} /> 
             {isMobile ? 'Area' : 'Area'}
           </ToggleButton>
           <ToggleButton value="line" aria-label="Line Chart">
-            <ShowChart sx={{ fontSize: isMobile ? '1rem' : '1.25rem', mr: isMobile ? 0.5 : 1 }} /> 
+            <ShowChart sx={{ fontSize: isMobile ? '0.9rem' : '1rem', mr: isMobile ? 0.25 : 0.5 }} /> 
             {isMobile ? 'Line' : 'Line'}
           </ToggleButton>
           <ToggleButton value="bar" aria-label="Bar Chart">
-            <BarChartIcon sx={{ fontSize: isMobile ? '1rem' : '1.25rem', mr: isMobile ? 0.5 : 1 }} /> 
+            <BarChartIcon sx={{ fontSize: isMobile ? '0.9rem' : '1rem', mr: isMobile ? 0.25 : 0.5 }} /> 
             {isMobile ? 'Bar' : 'Bar'}
           </ToggleButton>
+          {!isMobile && (
+            <>
+              <ToggleButton value="composed" aria-label="Combined Chart">
+                <Timeline sx={{ fontSize: '1rem', mr: 0.5 }} /> 
+                Combined
+              </ToggleButton>
+              <ToggleButton value="stacked" aria-label="Stacked Chart">
+                <BarChartIcon sx={{ fontSize: '1rem', mr: 0.5 }} /> 
+                Stacked
+              </ToggleButton>
+            </>
+          )}
         </ToggleButtonGroup>
 
         <FormControlLabel
@@ -1426,9 +1706,17 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         }}
       >
         <Box sx={{ 
-          height: isMobile ? Math.max(chartHeight * 0.8, 300) : chartHeight,
+          height: isMobile ? Math.max(chartHeight, 400) : chartHeight,
           width: '100%',
-          minHeight: isMobile ? 300 : 400,
+          minHeight: isMobile ? 400 : 450,
+          position: 'relative',
+          '& .recharts-wrapper': {
+            width: '100% !important',
+            height: '100% !important',
+          },
+          '& .recharts-surface': {
+            overflow: 'visible',
+          }
         }}>
           <ChartErrorBoundary fallbackHeight={chartHeight}>
             <ResponsiveContainer width="100%" height="100%">
@@ -1448,6 +1736,29 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                   case 'bar':
                     return (
                       <SimpleBarChart
+                        data={chartData}
+                        visibleMetrics={visibleMetrics}
+                        shouldShowPredictionLine={shouldShowPredictionLine}
+                        predictionDate={predictionDate}
+                        showPredictions={showPredictions}
+                        isMobile={isMobile}
+                      />
+                    );
+                  case 'composed':
+                  case 'combined':
+                    return (
+                      <SimpleComposedChart
+                        data={chartData}
+                        visibleMetrics={visibleMetrics}
+                        shouldShowPredictionLine={shouldShowPredictionLine}
+                        predictionDate={predictionDate}
+                        showPredictions={showPredictions}
+                        isMobile={isMobile}
+                      />
+                    );
+                  case 'stacked':
+                    return (
+                      <SimpleStackedChart
                         data={chartData}
                         visibleMetrics={visibleMetrics}
                         shouldShowPredictionLine={shouldShowPredictionLine}

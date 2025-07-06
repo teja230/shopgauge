@@ -381,9 +381,9 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
 
   const renderChart = () => {
     try {
-      // Mobile-optimized margins
-      const mobileMargins = { top: 10, right: 10, left: 10, bottom: 30 };
-      const desktopMargins = { top: 20, right: 30, left: 20, bottom: 20 };
+      // Mobile-optimized margins with increased bottom space for date labels
+      const mobileMargins = { top: 15, right: 15, left: 15, bottom: 80 };
+      const desktopMargins = { top: 25, right: 40, left: 40, bottom: 100 };
       
       const commonProps = {
         data: processedData,
@@ -395,19 +395,22 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
           dataKey="created_at"
           tickFormatter={formatXAxisTick}
           stroke="rgba(0, 0, 0, 0.4)"
-          tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: isMobile ? 10 : 12 }}
+          tick={{ 
+            fill: 'rgba(0, 0, 0, 0.6)', 
+            fontSize: isMobile ? 10 : 12,
+            textAnchor: isMobile ? 'end' : 'middle'
+          }}
           axisLine={{ stroke: 'rgba(0, 0, 0, 0.1)' }}
-          interval={isMobile ? 'preserveStartEnd' : 0}
-          angle={isMobile ? -45 : 0}
-          textAnchor={isMobile ? 'end' : 'middle'}
-          height={isMobile ? 50 : 30}
-          label={!isMobile ? {
+          interval={isMobile ? 'preserveStartEnd' : 'preserveStart'}
+          angle={isMobile ? -45 : -30}
+          height={isMobile ? 70 : 80}
+          label={{
             value: 'Date',
-            position: 'insideBottomRight',
-            offset: -6,
+            position: 'insideBottom',
+            offset: -10,
             fill: 'rgba(0, 0, 0, 0.54)',
             fontSize: 12,
-          } : undefined}
+          }}
         />
       );
 
