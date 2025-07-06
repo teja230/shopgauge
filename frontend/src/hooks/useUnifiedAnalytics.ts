@@ -296,37 +296,112 @@ const useUnifiedAnalytics = (
         const avgRevenue = processedData.reduce((sum, item) => sum + item.revenue, 0) / processedData.length;
         const avgOrders = processedData.reduce((sum, item) => sum + item.orders_count, 0) / processedData.length;
         
-        // Calculate trend for better predictions
-        const recentData = processedData.slice(-7); // Last 7 days
-        const recentAvgRevenue = recentData.reduce((sum, item) => sum + item.revenue, 0) / recentData.length;
-        const trendFactor = recentAvgRevenue > 0 ? recentAvgRevenue / avgRevenue : 1;
+        // Enhanced prediction algorithm with better confidence scoring
+        const recentWindow = Math.min(14, processedData.length); // Use last 14 days for trend analysis
+        const recentData = processedData.slice(-recentWindow);
+        
+        // Calculate variance for confidence scoring
+        const calculateVariance = (data: any[]): number => {
+          if (data.length < 2) return 0;
+          const revenues = data.map(item => item.revenue || 0);
+          const mean = revenues.reduce((sum, val) => sum + val, 0) / revenues.length;
+          return revenues.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / revenues.length;
+        };
+        
+        // Linear regression for better trend calculation
+        let trendFactor = 1.0;
+        let trendStability = 0.5;
+        
+        if (recentData.length >= 7) {
+          const xValues = recentData.map((_, idx) => idx);
+          const yValues = recentData.map(item => item.revenue);
+          
+          const n = recentData.length;
+          const sumX = xValues.reduce((a, b) => a + b, 0);
+          const sumY = yValues.reduce((a, b) => a + b, 0);
+          const sumXY = xValues.reduce((sum, x, idx) => sum + x * yValues[idx], 0);
+          const sumXX = xValues.reduce((sum, x) => sum + x * x, 0);
+          
+          const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+          const avgY = sumY / n;
+          
+          // Convert slope to trend factor
+          trendFactor = 1 + (slope * 7 / Math.max(avgY, 1)); // Weekly trend projection
+          trendFactor = Math.max(0.7, Math.min(1.5, trendFactor)); // Bounded trend
+          
+          // Calculate R-squared for trend stability
+          const yMean = avgY;
+          const ssRes = yValues.reduce((sum, y, idx) => {
+            const predicted = slope * xValues[idx] + (yMean - slope * sumX / n);
+            return sum + Math.pow(y - predicted, 2);
+          }, 0);
+          const ssTot = yValues.reduce((sum, y) => sum + Math.pow(y - yMean, 2), 0);
+          trendStability = Math.max(0.3, Math.min(0.95, 1 - (ssRes / Math.max(ssTot, 1))));
+        }
         
         for (let i = 1; i <= Math.min(days, 60); i++) {
           const futureDate = new Date();
           futureDate.setDate(futureDate.getDate() + i);
           
-          // Enhanced prediction with trend analysis and confidence calculation
-          const timeFactor = 1 - (i / 60); // Decrease confidence over time
-          const baseTrend = 1 + (trendFactor - 1) * 0.5; // Moderate the trend
+          // Weighted average favoring recent data
+          let weightedRevenue = 0;
+          let weightedOrders = 0;
+          let totalWeight = 0;
           
-          // Create more realistic variation for different prediction periods
-          let randomVariation;
-          if (i <= 7) {
-            randomVariation = 1 + (Math.random() - 0.5) * 0.1; // ±5% for 7-day
-          } else if (i <= 30) {
-            randomVariation = 1 + (Math.random() - 0.5) * 0.2; // ±10% for 30-day
-    } else {
-            randomVariation = 1 + (Math.random() - 0.5) * 0.3; // ±15% for 60-day
+          recentData.forEach((item, idx) => {
+            const weight = Math.pow(1.1, idx); // Exponential weighting
+            weightedRevenue += item.revenue * weight;
+            weightedOrders += item.orders_count * weight;
+            totalWeight += weight;
+          });
+          
+          const baseRevenue = weightedRevenue / totalWeight;
+          const baseOrders = weightedOrders / totalWeight;
+          
+          // Apply trend with diminishing effect
+          const trendDecay = Math.pow(0.98, i);
+          const baseTrend = 1 + (trendFactor - 1) * trendDecay;
+          
+          // Seasonal adjustments
+          const dayOfWeek = futureDate.getDay();
+          let seasonalityFactor = 1.0;
+          if (dayOfWeek === 0 || dayOfWeek === 6) {
+            seasonalityFactor = 0.85; // Weekend adjustment
+          } else if (dayOfWeek === 1) {
+            seasonalityFactor = 1.1; // Monday boost
           }
           
-          const predictedRevenue = validateData(avgRevenue * baseTrend * randomVariation);
-          const predictedOrders = validateData(avgOrders * baseTrend * randomVariation);
+          // Monthly seasonality
+          const monthlyFactor = 1 + 0.1 * Math.sin((futureDate.getMonth() + 1) * Math.PI / 6);
           
-          // Calculate confidence score based on data quality and time distance
-          const dataQualityScore = Math.min(1, processedData.length / 30); // More data = higher confidence
-          const timeDecayScore = Math.max(0.3, 1 - (i / 45)); // Confidence decreases over time
-          const trendStabilityScore = Math.max(0.5, 1 - Math.abs(trendFactor - 1)); // Stable trends = higher confidence
-          const confidenceScore = validateData((dataQualityScore * timeDecayScore * trendStabilityScore), 0.3);
+          // Reduced random variation over time
+          const variationAmplitude = 0.12 * Math.pow(0.99, i);
+          const randomVariation = 1 + (Math.random() - 0.5) * 2 * variationAmplitude;
+          
+          const predictedRevenue = validateData(baseRevenue * baseTrend * seasonalityFactor * monthlyFactor * randomVariation);
+          const predictedOrders = validateData(baseOrders * baseTrend * seasonalityFactor * monthlyFactor * randomVariation);
+          
+          // Enhanced confidence calculation
+          const dataQualityScore = Math.min(0.95, Math.pow(processedData.length / 30, 0.7));
+          const timeDecayScore = Math.max(0.25, Math.pow(0.95, i));
+          const trendStabilityScore = trendStability;
+          const dataVarianceScore = Math.max(0.3, 1 - Math.min(0.7, calculateVariance(recentData) / Math.max(baseRevenue, 1)));
+          
+          // Combined confidence with realistic bounds
+          const rawConfidence = dataQualityScore * timeDecayScore * trendStabilityScore * dataVarianceScore;
+          const confidenceScore = Math.max(0.35, Math.min(0.90, rawConfidence));
+          
+          // Debug for first few predictions
+          if (i <= 3) {
+            console.log(`🔍 ENHANCED CONFIDENCE (day ${i}):`, {
+              dataQuality: `${(dataQualityScore * 100).toFixed(1)}%`,
+              timeDecay: `${(timeDecayScore * 100).toFixed(1)}%`,
+              trendStability: `${(trendStabilityScore * 100).toFixed(1)}%`,
+              dataVariance: `${(dataVarianceScore * 100).toFixed(1)}%`,
+              finalConfidence: `${(confidenceScore * 100).toFixed(1)}%`,
+              trendFactor: trendFactor.toFixed(3)
+            });
+          }
           
           predictions.push({
             kind: 'prediction',

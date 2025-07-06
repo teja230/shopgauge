@@ -49,44 +49,185 @@ interface RevenueChartProps {
 
 type ChartType = 'line' | 'area' | 'bar' | 'candlestick' | 'waterfall' | 'stacked' | 'composed';
 
-const CustomTooltip: React.FC<TooltipProps<RevenuePoint>> = ({ active, payload, label }) => {
-  if (active && payload && payload.length) {
-    return (
-      <Paper
-        elevation={8}
-        sx={{
-          p: 2,
-          backgroundColor: 'rgba(255, 255, 255, 0.98)',
-          border: '1px solid rgba(0, 0, 0, 0.1)',
-          borderRadius: 2,
-        }}
-      >
-        <Typography variant="body2" color="text.secondary" gutterBottom>
+// Enhanced tooltip for classic chart
+const EnhancedClassicTooltip: React.FC<TooltipProps<RevenuePoint>> = ({ active, payload, label }) => {
+  if (!active || !payload || !payload.length) return null;
+
+  const data = payload[0];
+  const value = data.value as number;
+
+  return (
+    <Paper
+      elevation={8}
+      sx={{
+        p: 2,
+        backgroundColor: 'rgba(255, 255, 255, 0.98)',
+        backdropFilter: 'blur(8px)',
+        border: '1px solid rgba(0, 0, 0, 0.1)',
+        borderRadius: 2,
+        minWidth: 180,
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
+      }}
+    >
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+        <Typography variant="body2" color="text.secondary" fontWeight={600}>
           {new Date(label as string).toLocaleDateString('en-US', {
             weekday: 'short',
             month: 'short',
             day: 'numeric',
           })}
         </Typography>
-        {(payload as ChartPayload<RevenuePoint>[]).map((entry, index) => (
-          <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-            <Box
-              sx={{
-                width: 12,
-                height: 12,
-                borderRadius: '50%',
-                backgroundColor: entry.color,
-              }}
-            />
-            <Typography variant="body2" fontWeight={600}>
-              {entry.name as string}: ${entry.value?.toLocaleString()}
+        <Chip
+          label="Revenue"
+          size="small"
+          sx={{
+            height: 16,
+            fontSize: '0.6rem',
+            backgroundColor: 'rgba(37, 99, 235, 0.1)',
+            color: '#2563eb',
+            border: '1px solid rgba(37, 99, 235, 0.2)',
+          }}
+        />
+      </Box>
+      
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+        <Box
+          sx={{
+            width: 12,
+            height: 12,
+            borderRadius: '50%',
+            backgroundColor: data.color,
+            animation: 'pulse 2s ease-in-out infinite',
+            '@keyframes pulse': {
+              '0%, 100%': { opacity: 1 },
+              '50%': { opacity: 0.7 },
+            },
+          }}
+        />
+        <Typography variant="body2" fontWeight={600}>
+          ${value.toLocaleString()}
+        </Typography>
+      </Box>
+    </Paper>
+  );
+};
+
+// Performance indicator component
+const PerformanceIndicator: React.FC<{ current: number; previous: number }> = ({ current, previous }) => {
+  const change = current - previous;
+  const changePercent = previous > 0 ? (change / previous) * 100 : 0;
+  const isPositive = change >= 0;
+
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          color: isPositive ? '#10b981' : '#ef4444',
+          fontSize: '0.875rem',
+          fontWeight: 600,
+        }}
+      >
+        {isPositive ? '↗️' : '↘️'}
+        <Typography variant="caption" fontWeight={600} sx={{ ml: 0.5 }}>
+          {Math.abs(changePercent).toFixed(1)}%
+        </Typography>
+      </Box>
+    </Box>
+  );
+};
+
+// Enhanced chart insights for classic view
+const ClassicInsights: React.FC<{ data: RevenueData[] }> = ({ data }) => {
+  if (!data || data.length === 0) return null;
+
+  const totalRevenue = data.reduce((sum, item) => sum + (Number(item.total_price) || 0), 0);
+  const averageRevenue = totalRevenue / data.length;
+  const maxRevenue = Math.max(...data.map(item => Number(item.total_price) || 0));
+  const latestRevenue = Number(data[data.length - 1]?.total_price) || 0;
+  const previousRevenue = Number(data[data.length - 2]?.total_price) || 0;
+
+  const insights = [
+    {
+      label: 'Total Revenue',
+      value: `$${totalRevenue.toLocaleString()}`,
+      icon: '💰',
+    },
+    {
+      label: 'Average Daily',
+      value: `$${averageRevenue.toLocaleString()}`,
+      icon: '📊',
+    },
+    {
+      label: 'Peak Day',
+      value: `$${maxRevenue.toLocaleString()}`,
+      icon: '🏆',
+    },
+    {
+      label: 'Latest',
+      value: `$${latestRevenue.toLocaleString()}`,
+      icon: '📈',
+      change: { current: latestRevenue, previous: previousRevenue },
+    },
+  ];
+
+  return (
+    <Box sx={{ 
+      display: 'flex', 
+      flexWrap: 'wrap', 
+      gap: 2, 
+      justifyContent: 'center',
+      p: 2,
+      backgroundColor: 'rgba(0, 0, 0, 0.02)',
+      borderRadius: 2,
+      mb: 2,
+    }}>
+      {insights.map((insight, index) => (
+        <Box
+          key={index}
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            px: 2,
+            py: 1,
+            backgroundColor: 'white',
+            borderRadius: 1,
+            border: '1px solid rgba(0, 0, 0, 0.1)',
+            minWidth: 120,
+            transition: 'transform 0.2s ease-in-out',
+            '&:hover': {
+              transform: 'translateY(-2px)',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+            }
+          }}
+        >
+          <span style={{ fontSize: '1.2rem' }}>{insight.icon}</span>
+          <Box>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+              {insight.label}
             </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Typography variant="body2" fontWeight={600}>
+                {insight.value}
+              </Typography>
+              {insight.change && (
+                <PerformanceIndicator 
+                  current={insight.change.current} 
+                  previous={insight.change.previous} 
+                />
+              )}
+            </Box>
           </Box>
-        ))}
-      </Paper>
-    );
-  }
-  return <div />;
+        </Box>
+      ))}
+    </Box>
+  );
+};
+
+const CustomTooltip: React.FC<TooltipProps<RevenuePoint>> = ({ active, payload, label }) => {
+  return <EnhancedClassicTooltip active={active} payload={payload} label={label} />;
 };
 
 const formatXAxisTick = (tickItem: string) => {
@@ -562,6 +703,9 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
         flexDirection: 'column',
       }}
     >
+      {/* Enhanced Insights */}
+      <ClassicInsights data={sanitizedData} />
+      
       {/* Header with Dashboard Theme */}
       <Box sx={{ 
         mb: theme.spacing(isMobile ? 1 : 2),

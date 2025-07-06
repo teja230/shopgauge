@@ -226,7 +226,7 @@ const processHistoricalItem = (item: any): any => {
 };
 
 // Enhanced Line Chart component with historical vs forecast color separation
-const SimpleLineChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, predictionDate }: any) => {
+const SimpleLineChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, predictionDate, showPredictions }: any) => {
   if (!validateChartData(data)) {
     return null;
   }
@@ -398,7 +398,7 @@ const SimpleLineChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
       )}
 
       {/* Prediction separator line */}
-      {shouldShowPredictionLine && predictionDate && (
+      {shouldShowPredictionLine && predictionDate && showPredictions && (
         <ReferenceLine
           x={predictionDate}
           stroke="#9333ea"
@@ -413,7 +413,7 @@ const SimpleLineChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
 });
 
 // Enhanced Area Chart component with historical vs forecast color separation
-const SimpleAreaChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, predictionDate }: any) => {
+const SimpleAreaChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, predictionDate, showPredictions }: any) => {
   if (!validateChartData(data)) {
     return null;
   }
@@ -627,7 +627,7 @@ const SimpleAreaChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
       )}
 
       {/* Prediction separator line */}
-      {shouldShowPredictionLine && predictionDate && (
+      {shouldShowPredictionLine && predictionDate && showPredictions && (
         <ReferenceLine
           x={predictionDate}
           stroke="#9333ea"
@@ -642,7 +642,7 @@ const SimpleAreaChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
 });
 
 // Enhanced Bar Chart component with historical vs forecast color separation
-const SimpleBarChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, predictionDate }: any) => {
+const SimpleBarChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, predictionDate, showPredictions }: any) => {
   if (!validateChartData(data)) {
     return null;
   }
@@ -816,7 +816,7 @@ const SimpleBarChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, p
       )}
 
       {/* Prediction separator line */}
-      {shouldShowPredictionLine && predictionDate && (
+      {shouldShowPredictionLine && predictionDate && showPredictions && (
         <ReferenceLine
           x={predictionDate}
           stroke="#9333ea"
@@ -829,6 +829,279 @@ const SimpleBarChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, p
     </BarChart>
   );
 });
+
+// Enhanced UI/UX components and utilities
+const ConfidenceIndicator: React.FC<{ confidence: number }> = ({ confidence }) => {
+  const confidencePercent = Math.round(confidence * 100);
+  const getColor = (confidence: number) => {
+    if (confidence >= 0.7) return '#10b981'; // Green for high confidence
+    if (confidence >= 0.5) return '#f59e0b'; // Orange for medium confidence
+    return '#ef4444'; // Red for low confidence
+  };
+
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+      <Box
+        sx={{
+          width: 8,
+          height: 8,
+          borderRadius: '50%',
+          backgroundColor: getColor(confidence),
+          animation: 'pulse 2s ease-in-out infinite',
+          '@keyframes pulse': {
+            '0%, 100%': { opacity: 1 },
+            '50%': { opacity: 0.5 },
+          },
+        }}
+      />
+      <Typography variant="caption" sx={{ color: getColor(confidence), fontWeight: 600 }}>
+        {confidencePercent}%
+      </Typography>
+    </Box>
+  );
+};
+
+const EnhancedTooltip: React.FC<any> = ({ active, payload, label }) => {
+  if (!active || !payload || !payload.length) return null;
+
+  const data = payload[0]?.payload;
+  const isPrediction = data?.isPrediction;
+  const confidence = data?.confidence_score;
+
+  return (
+    <Paper
+      elevation={8}
+      sx={{
+        p: 2,
+        backgroundColor: 'rgba(255, 255, 255, 0.98)',
+        backdropFilter: 'blur(8px)',
+        border: '1px solid rgba(0, 0, 0, 0.1)',
+        borderRadius: 2,
+        minWidth: 200,
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
+      }}
+    >
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+        <Typography variant="body2" color="text.secondary" fontWeight={600}>
+          {new Date(label).toLocaleDateString('en-US', {
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric',
+          })}
+        </Typography>
+        {isPrediction && confidence && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Typography variant="caption" color="text.secondary">
+              Confidence:
+            </Typography>
+            <ConfidenceIndicator confidence={confidence} />
+          </Box>
+        )}
+      </Box>
+      
+      {payload.map((entry: any, index: number) => (
+        <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.5 }}>
+          <Box
+            sx={{
+              width: 12,
+              height: 12,
+              borderRadius: '50%',
+              backgroundColor: entry.color,
+              border: isPrediction ? '2px dashed rgba(255,255,255,0.8)' : 'none',
+              animation: isPrediction ? 'shimmer 1.5s ease-in-out infinite' : 'none',
+              '@keyframes shimmer': {
+                '0%, 100%': { opacity: 1 },
+                '50%': { opacity: 0.7 },
+              },
+            }}
+          />
+          <Typography variant="body2" fontWeight={600}>
+            {entry.name}: {
+              entry.name.includes('Revenue') 
+                ? `$${entry.value?.toLocaleString()}` 
+                : entry.name.includes('Conversion')
+                ? `${entry.value?.toFixed(2)}%`
+                : entry.value?.toLocaleString()
+            }
+          </Typography>
+          {isPrediction && (
+            <Chip
+              label="Forecast"
+              size="small"
+              sx={{
+                height: 16,
+                fontSize: '0.6rem',
+                backgroundColor: 'rgba(147, 51, 234, 0.1)',
+                color: '#9333ea',
+                border: '1px solid rgba(147, 51, 234, 0.2)',
+              }}
+            />
+          )}
+        </Box>
+      ))}
+      
+      {isPrediction && data?.confidence_interval && (
+        <Box sx={{ mt: 1, pt: 1, borderTop: '1px solid rgba(0,0,0,0.1)' }}>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+            Prediction Range:
+          </Typography>
+          <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>
+            ${data.confidence_interval.revenue_min?.toLocaleString()} - ${data.confidence_interval.revenue_max?.toLocaleString()}
+          </Typography>
+        </Box>
+      )}
+    </Paper>
+  );
+};
+
+const ChartLegend: React.FC<{ visibleMetrics: any; onToggle: (metric: 'revenue' | 'orders' | 'conversion') => void; showPredictions: boolean }> = ({
+  visibleMetrics,
+  onToggle,
+  showPredictions
+}) => {
+  const legendItems = [
+    { key: 'revenue', label: 'Revenue', color: COLOR_SCHEME.historical.revenue, icon: '💰' },
+    { key: 'orders', label: 'Orders', color: COLOR_SCHEME.historical.orders, icon: '📦' },
+    { key: 'conversion', label: 'Conversion Rate', color: COLOR_SCHEME.historical.conversion, icon: '📈' },
+  ];
+
+  return (
+    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, justifyContent: 'center', mt: 2 }}>
+      {legendItems.map((item) => (
+        <Chip
+          key={item.key}
+          label={
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <span>{item.icon}</span>
+              <span>{item.label}</span>
+              {showPredictions && (
+                <Box
+                  sx={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: '50%',
+                    backgroundColor: COLOR_SCHEME.forecast[item.key as keyof typeof COLOR_SCHEME.forecast],
+                    ml: 0.5,
+                  }}
+                />
+              )}
+            </Box>
+          }
+          onClick={() => onToggle(item.key as 'revenue' | 'orders' | 'conversion')}
+          variant={visibleMetrics[item.key] ? 'filled' : 'outlined'}
+          sx={{
+            backgroundColor: visibleMetrics[item.key] ? `${item.color}20` : 'transparent',
+            borderColor: item.color,
+            color: visibleMetrics[item.key] ? item.color : 'text.secondary',
+            '&:hover': {
+              backgroundColor: `${item.color}30`,
+            },
+            transition: 'all 0.2s ease-in-out',
+          }}
+        />
+      ))}
+    </Box>
+  );
+};
+
+const QuickInsights: React.FC<{ data: any; showPredictions: boolean }> = ({ data, showPredictions }) => {
+  if (!data?.historical?.length) return null;
+
+  const historical = data.historical;
+  const predictions = data.predictions || [];
+  
+  const latestRevenue = historical[historical.length - 1]?.revenue || 0;
+  const previousRevenue = historical[historical.length - 2]?.revenue || 0;
+  const revenueChange = latestRevenue - previousRevenue;
+  const revenueChangePercent = previousRevenue > 0 ? (revenueChange / previousRevenue) * 100 : 0;
+  
+  const avgConfidence = predictions.length > 0 
+    ? predictions.reduce((sum: number, p: any) => sum + (p.confidence_score || 0), 0) / predictions.length 
+    : 0;
+
+  const insights = [
+    {
+      label: 'Latest Revenue',
+      value: `$${latestRevenue.toLocaleString()}`,
+      change: revenueChangePercent,
+      icon: '💰',
+    },
+    {
+      label: 'Total Orders',
+      value: data.total_orders?.toLocaleString() || '0',
+      icon: '📦',
+    },
+    {
+      label: 'Data Points',
+      value: historical.length.toString(),
+      icon: '📊',
+    },
+  ];
+
+  if (showPredictions && predictions.length > 0) {
+    insights.push({
+      label: 'Avg Confidence',
+      value: `${Math.round(avgConfidence * 100)}%`,
+      icon: '🎯',
+    });
+  }
+
+  return (
+    <Box sx={{ 
+      display: 'flex', 
+      flexWrap: 'wrap', 
+      gap: 2, 
+      justifyContent: 'center',
+      p: 2,
+      backgroundColor: 'rgba(0, 0, 0, 0.02)',
+      borderRadius: 2,
+      mb: 2,
+    }}>
+      {insights.map((insight, index) => (
+        <Box
+          key={index}
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            px: 2,
+            py: 1,
+            backgroundColor: 'white',
+            borderRadius: 1,
+            border: '1px solid rgba(0, 0, 0, 0.1)',
+            minWidth: 120,
+          }}
+        >
+          <span style={{ fontSize: '1.2rem' }}>{insight.icon}</span>
+          <Box>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+              {insight.label}
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Typography variant="body2" fontWeight={600}>
+                {insight.value}
+              </Typography>
+              {insight.change !== undefined && (
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    color: insight.change >= 0 ? '#10b981' : '#ef4444',
+                  }}
+                >
+                  {insight.change >= 0 ? '↗️' : '↘️'}
+                  <Typography variant="caption" fontWeight={600}>
+                    {Math.abs(insight.change).toFixed(1)}%
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          </Box>
+        </Box>
+      ))}
+    </Box>
+  );
+};
 
 const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
   data,
@@ -998,6 +1271,9 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
 
   return (
     <Box sx={{ width: '100%' }}>
+      {/* Quick Insights */}
+      <QuickInsights data={data} showPredictions={showPredictions} />
+      
       {/* Chart Controls */}
       <Box sx={{ 
         mb: 2, 
@@ -1017,6 +1293,11 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
             '& .MuiToggleButton-root': {
               px: isMobile ? 1 : 2,
               fontSize: isMobile ? '0.75rem' : '0.875rem',
+              transition: 'all 0.2s ease-in-out',
+              '&:hover': {
+                transform: 'translateY(-1px)',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+              }
             }
           }}
         >
@@ -1040,9 +1321,22 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
               checked={showPredictions}
               onChange={(e) => handlePredictionToggle(e.target.checked)}
               size="small"
+              sx={{
+                '& .MuiSwitch-thumb': {
+                  transition: 'all 0.2s ease-in-out',
+                },
+                '& .MuiSwitch-track': {
+                  backgroundColor: showPredictions ? '#9333ea' : undefined,
+                }
+              }}
             />
           }
-          label="Show Predictions"
+          label={
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <span>🔮</span>
+              <span>AI Predictions</span>
+            </Box>
+          }
           sx={{ 
             alignSelf: isMobile ? 'center' : 'flex-start',
             '& .MuiFormControlLabel-label': {
@@ -1050,36 +1344,14 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
             }
           }}
         />
-
-        <Box sx={{ 
-          display: 'flex', 
-          gap: 1, 
-          justifyContent: isMobile ? 'center' : 'flex-start',
-          flexWrap: 'wrap'
-        }}>
-          <Chip
-            label="Revenue"
-            color={visibleMetrics.revenue ? 'primary' : 'default'}
-            onClick={() => handleMetricToggle('revenue')}
-            size="small"
-            sx={{ fontSize: isMobile ? '0.75rem' : '0.875rem' }}
-          />
-          <Chip
-            label="Orders"
-            color={visibleMetrics.orders ? 'primary' : 'default'}
-            onClick={() => handleMetricToggle('orders')}
-            size="small"
-            sx={{ fontSize: isMobile ? '0.75rem' : '0.875rem' }}
-          />
-          <Chip
-            label="Conversion"
-            color={visibleMetrics.conversion ? 'primary' : 'default'}
-            onClick={() => handleMetricToggle('conversion')}
-            size="small"
-            sx={{ fontSize: isMobile ? '0.75rem' : '0.875rem' }}
-          />
-        </Box>
       </Box>
+      
+      {/* Enhanced Legend */}
+      <ChartLegend 
+        visibleMetrics={visibleMetrics} 
+        onToggle={handleMetricToggle} 
+        showPredictions={showPredictions}
+      />
 
       {/* Chart Container */}
       <Paper
@@ -1103,6 +1375,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                         visibleMetrics={visibleMetrics}
                         shouldShowPredictionLine={shouldShowPredictionLine}
                         predictionDate={predictionDate}
+                        showPredictions={showPredictions}
                       />
                     );
                   case 'bar':
@@ -1112,6 +1385,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                         visibleMetrics={visibleMetrics}
                         shouldShowPredictionLine={shouldShowPredictionLine}
                         predictionDate={predictionDate}
+                        showPredictions={showPredictions}
                       />
                     );
                   default:
@@ -1121,6 +1395,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                         visibleMetrics={visibleMetrics}
                         shouldShowPredictionLine={shouldShowPredictionLine}
                         predictionDate={predictionDate}
+                        showPredictions={showPredictions}
                       />
                     );
                 }
