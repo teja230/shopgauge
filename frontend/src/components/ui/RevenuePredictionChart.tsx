@@ -64,6 +64,13 @@ import {
   statChipStyles,
   forecastChipStyles,
   UNIFIED_COLOR_SCHEME,
+  standardTooltipFormatter,
+  standardDateFormatter,
+  mobileScrollingStyles,
+  mobileScrollHint,
+  responsiveMargins,
+  responsiveChartProps,
+  revenueChartTypes,
 } from './ChartStyles';
 
 interface RevenuePredictionData {
@@ -83,7 +90,7 @@ interface RevenuePredictionChartProps {
   showPredictions?: boolean;
 }
 
-type ChartType = 'line' | 'area' | 'bar' | 'candlestick' | 'waterfall' | 'stacked' | 'composed';
+type ChartType = 'line' | 'area' | 'bar' | 'waterfall' | 'composed';
 
 // Use unified color scheme for consistency across all charts
 
@@ -105,9 +112,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
     line: { icon: <ShowChart />, label: 'Line', color: UNIFIED_COLOR_SCHEME.historical.revenue },
     area: { icon: <Timeline />, label: 'Area', color: UNIFIED_COLOR_SCHEME.historical.revenue },
     bar: { icon: <BarChartIcon />, label: 'Bar', color: UNIFIED_COLOR_SCHEME.historical.revenue },
-    candlestick: { icon: <CandlestickChart />, label: 'Candlestick', color: '#10b981' },
     waterfall: { icon: <WaterfallChart />, label: 'Waterfall', color: '#f59e0b' },
-    stacked: { icon: <StackedLineChart />, label: 'Stacked', color: '#8b5cf6' },
     composed: { icon: <Analytics />, label: 'Composed', color: '#ef4444' },
   };
   // Process data for rendering - separate historical and forecast data properly
@@ -246,25 +251,10 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
           label={{ value: 'Revenue (USD)', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fontSize: 12, fill: 'rgba(0, 0, 0, 0.7)' } }}
         />
         <RechartsTooltip
-          labelFormatter={(label) => {
-            try {
-              const date = new Date(label);
-              return date.toLocaleDateString('en-US', { 
-                weekday: 'short',
-                month: 'short', 
-                day: 'numeric',
-                year: 'numeric'
-              });
-            } catch {
-              return label;
-            }
-          }}
-          formatter={(value: number, name: string, props: any) => {
-            const isPrediction = props.payload?.isPrediction;
-            const prefix = isPrediction ? '🔮 Forecast: ' : '📊 Actual: ';
-            // Always show consistent label regardless of dataKey
-            return [`${prefix}${formatCurrency(value)}`, 'Revenue'];
-          }}
+          labelFormatter={standardDateFormatter}
+          formatter={(value: number, name: string, props: any) => 
+            standardTooltipFormatter(value, name, props, 'revenue')
+          }
           contentStyle={{
             backgroundColor: 'rgba(255, 255, 255, 0.95)',
             border: '1px solid rgba(0, 0, 0, 0.1)',
@@ -398,7 +388,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
     
     const commonProps = {
       data: chartData,
-      margin: { top: 10, right: 30, left: 20, bottom: 20 },
+      margin: responsiveMargins(isMobile),
     };
 
     // Separate historical and forecast data for proper rendering
@@ -544,74 +534,6 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
           </AreaChart>
         );
 
-      case 'candlestick':
-        return (
-          <ComposedChart {...commonProps}>
-            <defs>
-              <linearGradient id="candlestickHistoricalGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
-                <stop offset="95%" stopColor="#10b981" stopOpacity={0.6} />
-              </linearGradient>
-              <linearGradient id="candlestickForecastGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#6ee7b7" stopOpacity={0.6} />
-                <stop offset="95%" stopColor="#6ee7b7" stopOpacity={0.3} />
-              </linearGradient>
-            </defs>
-            {commonElements}
-            <Bar
-              dataKey="revenue"
-              name="Revenue"
-              radius={[2, 2, 0, 0]}
-              isAnimationActive={false}
-              shape={(props: any) => {
-                const { payload } = props;
-                const isPrediction = payload?.isPrediction;
-                const fill = isPrediction ? "url(#candlestickForecastGradient)" : "url(#candlestickHistoricalGradient)";
-                const opacity = isPrediction ? 0.7 : 0.9;
-                const strokeDasharray = isPrediction ? "2,2" : "";
-                return (
-                  <rect
-                    x={props.x}
-                    y={props.y}
-                    width={props.width}
-                    height={props.height}
-                    fill={fill}
-                    opacity={opacity}
-                    rx={2}
-                    ry={2}
-                    stroke={isPrediction ? "#6ee7b7" : "#10b981"}
-                    strokeWidth={isPrediction ? 1 : 0}
-                    strokeDasharray={strokeDasharray}
-                  />
-                );
-              }}
-            />
-            <Line
-              type="monotone"
-              dataKey="revenue"
-              stroke="#6b7280"
-              strokeWidth={1}
-              dot={(props: any) => {
-                const { payload } = props;
-                const isPrediction = payload?.isPrediction;
-                return (
-                  <circle
-                    cx={props.cx}
-                    cy={props.cy}
-                    r={isPrediction ? 2 : 3}
-                    fill={isPrediction ? "#6ee7b7" : "#10b981"}
-                    stroke={isPrediction ? "#6ee7b7" : "#10b981"}
-                    strokeWidth={1}
-                    opacity={isPrediction ? 0.8 : 1}
-                  />
-                );
-              }}
-              connectNulls={false}
-              isAnimationActive={false}
-            />
-          </ComposedChart>
-        );
-
       case 'waterfall':
         return (
           <ComposedChart {...commonProps}>
@@ -655,65 +577,6 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
               }}
             />
           </ComposedChart>
-        );
-
-      case 'stacked':
-        return (
-          <AreaChart {...commonProps}>
-            <defs>
-              <linearGradient id="stackedHistoricalGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.8} />
-                <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.4} />
-              </linearGradient>
-              <linearGradient id="stackedForecastGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#c4b5fd" stopOpacity={0.6} />
-                <stop offset="95%" stopColor="#c4b5fd" stopOpacity={0.2} />
-              </linearGradient>
-            </defs>
-            {commonElements}
-            <Area
-              type="monotone"
-              dataKey="revenue"
-              stackId="1"
-              stroke="#8b5cf6"
-              strokeWidth={2}
-              name="Revenue"
-              connectNulls={false}
-              isAnimationActive={false}
-              fill="url(#stackedHistoricalGradient)"
-              dot={(props: any) => {
-                const { payload } = props;
-                const isPrediction = payload?.isPrediction;
-                return (
-                  <circle
-                    cx={props.cx}
-                    cy={props.cy}
-                    r={isPrediction ? 2 : 3}
-                    fill={isPrediction ? "#c4b5fd" : "#8b5cf6"}
-                    stroke={isPrediction ? "#c4b5fd" : "#8b5cf6"}
-                    strokeWidth={1}
-                    opacity={isPrediction ? 0.8 : 1}
-                  />
-                );
-              }}
-            />
-            {/* Add a second area for forecast distinction */}
-            {showPredictions && processedData.hasPredictions && (
-              <Area
-                type="monotone"
-                dataKey="revenue"
-                data={processedData.predicted}
-                stackId="2"
-                stroke="#c4b5fd"
-                strokeWidth={2}
-                strokeDasharray="5,3"
-                fill="url(#stackedForecastGradient)"
-                name="Revenue Forecast"
-                connectNulls={false}
-                isAnimationActive={false}
-              />
-            )}
-          </AreaChart>
         );
 
       case 'composed':
@@ -896,10 +759,20 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
       </Box>
 
       {/* Chart with proper margins */}
-      <Box sx={chartContentStyles(theme, height)}>
+      <Box sx={{
+        ...chartContentStyles(theme, height),
+        ...mobileScrollingStyles(theme, isMobile),
+      }}>
         <ResponsiveContainer width="100%" height="100%">
           {renderChart()}
         </ResponsiveContainer>
+        
+        {/* Mobile scroll hint */}
+        {isMobile && (
+          <Box sx={mobileScrollHint(isMobile)}>
+            💡 Scroll horizontally
+          </Box>
+        )}
       </Box>
     </Box>
   );

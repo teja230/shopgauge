@@ -404,4 +404,142 @@ export const statBoxStyles = (theme: Theme, isForecast = false) => ({
       borderRadius: `${theme.shape.borderRadius}px ${theme.shape.borderRadius}px 0 0`,
     },
   }),
-}); 
+});
+
+// Centralized tooltip formatter to eliminate duplication
+export const standardTooltipFormatter = (
+  value: number,
+  name: string,
+  props: any,
+  metricType: 'revenue' | 'orders' | 'conversion'
+) => {
+  const isPrediction = props.payload?.isPrediction;
+  const prefix = isPrediction ? '🔮 Forecast: ' : '📊 Actual: ';
+  
+  let formattedValue: string;
+  let displayName: string;
+  
+  switch (metricType) {
+    case 'revenue':
+      formattedValue = `$${Math.round(value).toLocaleString()}`;
+      displayName = 'Revenue';
+      break;
+    case 'orders':
+      formattedValue = `${Math.round(value)} orders`;
+      displayName = 'Orders';
+      break;
+    case 'conversion':
+      formattedValue = `${value.toFixed(2)}%`;
+      displayName = 'Conversion Rate';
+      break;
+    default:
+      formattedValue = value.toString();
+      displayName = name;
+  }
+  
+  return [`${prefix}${formattedValue}`, displayName];
+};
+
+// Standard date formatter for tooltip labels
+export const standardDateFormatter = (label: string) => {
+  try {
+    const date = new Date(label);
+    return date.toLocaleDateString('en-US', { 
+      weekday: 'short',
+      month: 'short', 
+      day: 'numeric',
+      year: 'numeric'
+    });
+  } catch {
+    return label;
+  }
+};
+
+// Universal mobile scrolling styles
+export const mobileScrollingStyles = (theme: Theme, isMobile: boolean) => ({
+  overflow: isMobile ? 'auto' : 'hidden',
+  minWidth: isMobile ? '650px' : 'auto',
+  '&::-webkit-scrollbar': {
+    height: '8px',
+  },
+  '&::-webkit-scrollbar-track': {
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    borderRadius: '4px',
+  },
+  '&::-webkit-scrollbar-thumb': {
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    borderRadius: '4px',
+    '&:hover': {
+      backgroundColor: 'rgba(0,0,0,0.3)',
+    },
+  },
+  // Enhanced mobile chart styles
+  ...(isMobile && {
+    '& .recharts-cartesian-axis-tick-value': {
+      fontSize: '10px !important',
+    },
+    '& .recharts-legend-wrapper': {
+      fontSize: '11px !important',
+    },
+    '& .recharts-tooltip-wrapper': {
+      fontSize: '12px !important',
+    },
+  }),
+});
+
+// Mobile scroll hint component
+export const mobileScrollHint = (isMobile: boolean) => 
+  isMobile ? {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    color: 'white',
+    px: 1,
+    py: 0.5,
+    borderRadius: 1,
+    fontSize: '0.75rem',
+    pointerEvents: 'none',
+    zIndex: 1,
+  } : {};
+
+// Common responsive margins for charts
+export const responsiveMargins = (isMobile: boolean) => ({
+  top: isMobile ? 15 : 25,
+  right: isMobile ? 15 : 40,
+  left: isMobile ? 15 : 40,
+  bottom: isMobile ? 50 : 60,
+});
+
+// Common responsive props for charts
+export const responsiveChartProps = (isMobile: boolean) => ({
+  fontSize: isMobile ? 10 : 12,
+  tickFontSize: isMobile ? 10 : 12,
+  legendFontSize: isMobile ? 11 : 12,
+  tooltipFontSize: isMobile ? 12 : 14,
+});
+
+// Metric-specific chart type configurations to reduce overlap
+export const revenueChartTypes = {
+  line: { icon: 'ShowChart', label: 'Line', description: 'Revenue trend line' },
+  area: { icon: 'Timeline', label: 'Area', description: 'Revenue area chart' },
+  bar: { icon: 'BarChart', label: 'Bar', description: 'Daily revenue bars' },
+  waterfall: { icon: 'WaterfallChart', label: 'Waterfall', description: 'Cumulative revenue flow' },
+  composed: { icon: 'Analytics', label: 'Composed', description: 'Multi-layer revenue view' },
+};
+
+export const ordersChartTypes = {
+  line: { icon: 'ShowChart', label: 'Line', description: 'Order count trend' },
+  area: { icon: 'Timeline', label: 'Area', description: 'Order volume area' },
+  bar: { icon: 'BarChart', label: 'Bar', description: 'Daily order bars' },
+  stacked: { icon: 'StackedLineChart', label: 'Stacked', description: 'Order volume layers' },
+  candlestick: { icon: 'CandlestickChart', label: 'Candlestick', description: 'Order pattern analysis' },
+};
+
+export const conversionChartTypes = {
+  line: { icon: 'ShowChart', label: 'Line', description: 'Conversion rate trend' },
+  area: { icon: 'Timeline', label: 'Area', description: 'Conversion rate area' },
+  bar: { icon: 'BarChart', label: 'Bar', description: 'Daily conversion bars' },
+  composed: { icon: 'Analytics', label: 'Composed', description: 'Multi-metric conversion view' },
+  waterfall: { icon: 'WaterfallChart', label: 'Waterfall', description: 'Conversion funnel flow' },
+}; 
