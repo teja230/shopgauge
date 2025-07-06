@@ -47,15 +47,18 @@ import {
   Insights,
   PlayArrow,
   Stop,
+  Share as ShareIcon,
 } from '@mui/icons-material';
 import LoadingIndicator from './LoadingIndicator';
 import ChartErrorBoundary from './ChartErrorBoundary';
+import SimpleShareModal from './SimpleShareModal';
 import type { TooltipProps, ChartPayload, UnifiedDatum, PredictionPoint } from '../../types/charts';
 import { useMediaQuery, useTheme } from '@mui/material';
 import { debugLog } from './DebugPanel';
 import useSize from '../../hooks/useSize';
 import { CHART_DIMENSIONS, SPACING, ensureMinHeight } from '../../utils/dimensionUtils';
 import { useNotifications } from '../../hooks/useNotifications';
+import { useAuth } from '../../context/AuthContext';
 import { UNIFIED_COLOR_SCHEME } from './ChartStyles';
 
 interface HistoricalData {
@@ -2184,9 +2187,12 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
     orders: true,
     conversion: false,
   });
+  const [shareModalOpen, setShareModalOpen] = useState(false);
   const { showSuccess, showInfo } = useNotifications();
+  const { shop } = useAuth();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const chartRef = useRef<HTMLDivElement>(null);
 
   const chartHeight = ensureMinHeight(height);
 
@@ -2287,6 +2293,10 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
     });
   };
 
+  const handleShareChart = () => {
+    setShareModalOpen(true);
+  };
+
   // Render loading state
   if (loading) {
     return <LoadingIndicator height={chartHeight} message="Loading analytics data…" />;
@@ -2357,6 +2367,32 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
     <Box sx={{ width: '100%' }}>
       {/* Quick Insights */}
       <QuickInsights data={data} showPredictions={showPredictions} />
+      
+      {/* Header with Share Button */}
+      <Box sx={{ 
+        mb: 2, 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center' 
+      }}>
+        <Typography variant="h6" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Analytics color="primary" />
+          Advanced Analytics
+        </Typography>
+        <MuiTooltip title="Share Chart">
+          <IconButton
+            onClick={handleShareChart}
+            size="small"
+            sx={{
+              backgroundColor: 'primary.main',
+              color: 'primary.contrastText',
+              '&:hover': { backgroundColor: 'primary.dark' },
+            }}
+          >
+            <ShareIcon fontSize="small" />
+          </IconButton>
+        </MuiTooltip>
+      </Box>
       
       {/* Chart Controls */}
       <Box sx={{ 
@@ -2439,6 +2475,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
 
       {/* Chart Container */}
       <Paper
+        ref={chartRef}
         elevation={0}
         sx={{
           p: isMobile ? 1 : 2,
@@ -2568,6 +2605,20 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
           )}
         </Box>
       </Paper>
+
+      {/* Share Modal */}
+      <SimpleShareModal
+        open={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+        chartRef={chartRef}
+        chartTitle="Advanced Analytics"
+        shopName={shop || undefined}
+        metrics={{
+          revenue: data?.total_revenue,
+          orders: data?.total_orders,
+          timeRange: `${data?.period_days || 60}d`,
+        }}
+      />
     </Box>
   );
 };

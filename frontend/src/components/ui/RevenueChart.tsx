@@ -24,6 +24,7 @@ import {
   useMediaQuery,
   useTheme,
   Tooltip as MuiTooltip,
+  IconButton,
 } from '@mui/material';
 import {
   TrendingUp,
@@ -34,10 +35,13 @@ import {
   WaterfallChart,
   StackedLineChart,
   Analytics,
+  Share as ShareIcon,
 } from '@mui/icons-material';
 import LoadingIndicator from './LoadingIndicator';
+import SimpleShareModal from './SimpleShareModal';
 import type { RevenuePoint, TooltipProps, ChartPayload } from '../../types/charts';
 import { debugLog } from './DebugPanel';
+import { useAuth } from '../../context/AuthContext';
 
 type RevenueData = RevenuePoint;
 
@@ -255,6 +259,9 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
   height = 450,
 }) => {
   const [chartType, setChartType] = useState<ChartType>('area');
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const chartRef = React.useRef<HTMLDivElement>(null);
+  const { shop } = useAuth();
 
   // Responsive helper
   const theme = useTheme();
@@ -354,6 +361,10 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
   const averageRevenue = sanitizedData.length && totalRevenue > 0 ? totalRevenue / sanitizedData.length : 0;
   const maxRevenue = sanitizedData.length ? Math.max(...sanitizedData.map(item => Number(item.total_price) || 0)) : 0;
   const minRevenue = sanitizedData.length ? Math.min(...sanitizedData.map(item => Number(item.total_price) || 0)) : 0;
+
+  const handleShareChart = () => {
+    setShareModalOpen(true);
+  };
 
   const processedData = React.useMemo(() => {
     if (!sanitizedData || sanitizedData.length === 0) return [];
@@ -722,22 +733,39 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
           mb: theme.spacing(isMobile ? 1 : 2),
           gap: theme.spacing(isMobile ? 1 : 0),
         }}>
-          <Typography 
-            variant="h6" 
-            component="h3" 
-            sx={{
-              fontSize: isMobile ? '1rem' : '1.1rem',
-              fontWeight: 600,
-              color: theme.palette.text.primary,
-              display: 'flex',
-              alignItems: 'center',
-              gap: theme.spacing(1),
-              mb: isMobile ? 1 : 0,
-            }}
-          >
-            <TrendingUp color="primary" sx={{ fontSize: isMobile ? 18 : 20 }} />
-            Revenue Chart
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography 
+              variant="h6" 
+              component="h3" 
+              sx={{
+                fontSize: isMobile ? '1rem' : '1.1rem',
+                fontWeight: 600,
+                color: theme.palette.text.primary,
+                display: 'flex',
+                alignItems: 'center',
+                gap: theme.spacing(1),
+                mb: isMobile ? 1 : 0,
+              }}
+            >
+              <TrendingUp color="primary" sx={{ fontSize: isMobile ? 18 : 20 }} />
+              Revenue Chart
+            </Typography>
+            
+            <MuiTooltip title="Share Chart">
+              <IconButton
+                onClick={handleShareChart}
+                size="small"
+                sx={{
+                  backgroundColor: 'primary.main',
+                  color: 'primary.contrastText',
+                  '&:hover': { backgroundColor: 'primary.dark' },
+                  ml: 1,
+                }}
+              >
+                <ShareIcon fontSize="small" />
+              </IconButton>
+            </MuiTooltip>
+          </Box>
           
           {/* Chart Type Toggle with Professional Icons + Tooltips */}
           <ToggleButtonGroup
@@ -798,11 +826,13 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
       </Box>
 
       {/* Chart with proper margins */}
-      <Box sx={{ 
-        flex: 1,
-        minHeight: responsiveHeight - (isMobile ? 100 : 140), // Account for header height, less on mobile
-        overflow: isMobile ? 'auto' : 'hidden', // Enable horizontal scroll on mobile
-        minWidth: isMobile ? '650px' : 'auto', // Set minimum width on mobile to prevent cutoff
+      <Box 
+        ref={chartRef}
+        sx={{ 
+          flex: 1,
+          minHeight: responsiveHeight - (isMobile ? 100 : 140), // Account for header height, less on mobile
+          overflow: isMobile ? 'auto' : 'hidden', // Enable horizontal scroll on mobile
+          minWidth: isMobile ? '650px' : 'auto', // Set minimum width on mobile to prevent cutoff
         '&::-webkit-scrollbar': {
           height: '8px',
         },
@@ -850,6 +880,19 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
           </Typography>
         )}
       </Box>
+
+      {/* Share Modal */}
+      <SimpleShareModal
+        open={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+        chartRef={chartRef}
+        chartTitle="Revenue Chart"
+        shopName={shop || undefined}
+        metrics={{
+          revenue: totalRevenue,
+          timeRange: `${sanitizedData.length}d`,
+        }}
+      />
     </Box>
   );
 };
