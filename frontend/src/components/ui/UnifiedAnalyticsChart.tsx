@@ -1213,6 +1213,444 @@ const SimpleStackedChart = memo(({ data, visibleMetrics, shouldShowPredictionLin
   );
 });
 
+// Enhanced Waterfall Chart component with Classic View logic and forecast distinction
+const SimpleWaterfallChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, predictionDate, showPredictions, isMobile }: any) => {
+  if (!validateChartData(data)) {
+    return null;
+  }
+
+  // Process data to calculate change and cumulative values
+  const processedData = data.map((item: any, index: number) => {
+    const revenue = item.revenue || 0;
+    const prevRevenue = index > 0 ? (data[index - 1].revenue || 0) : 0;
+    const change = revenue - prevRevenue;
+    const cumulative = data.slice(0, index + 1).reduce((sum: number, d: any) => sum + (d.revenue || 0), 0);
+    
+    return {
+      ...item,
+      change,
+      cumulative,
+      positive: change >= 0,
+      negative: change < 0,
+    };
+  });
+
+  const margins = isMobile 
+    ? { top: 15, right: 20, left: 20, bottom: 60 }
+    : { top: 25, right: 40, left: 40, bottom: 70 };
+
+  return (
+    <ComposedChart
+      data={processedData}
+      margin={margins}
+    >
+      <defs>
+        {/* Gradients for positive changes */}
+        <linearGradient id="positiveChangeGradient" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="5%" stopColor="#10b981" stopOpacity={0.9} />
+          <stop offset="95%" stopColor="#10b981" stopOpacity={0.6} />
+        </linearGradient>
+        <linearGradient id="positiveChangeForecastGradient" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="5%" stopColor="#10b981" stopOpacity={0.5} />
+          <stop offset="95%" stopColor="#10b981" stopOpacity={0.3} />
+        </linearGradient>
+        
+        {/* Gradients for negative changes */}
+        <linearGradient id="negativeChangeGradient" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="5%" stopColor="#ef4444" stopOpacity={0.9} />
+          <stop offset="95%" stopColor="#ef4444" stopOpacity={0.6} />
+        </linearGradient>
+        <linearGradient id="negativeChangeForecastGradient" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="5%" stopColor="#ef4444" stopOpacity={0.5} />
+          <stop offset="95%" stopColor="#ef4444" stopOpacity={0.3} />
+        </linearGradient>
+        
+        {/* Cumulative line gradient */}
+        <linearGradient id="cumulativeGradient" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.9} />
+          <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.6} />
+        </linearGradient>
+      </defs>
+      
+      <CartesianGrid strokeDasharray="3 3" stroke="rgba(0, 0, 0, 0.1)" />
+      <XAxis
+        dataKey="date"
+        tickFormatter={(value) => {
+          try {
+            return new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          } catch {
+            return value;
+          }
+        }}
+        stroke="rgba(0, 0, 0, 0.6)"
+        tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: isMobile ? 10 : 12 }}
+        label={{ 
+          value: 'Date', 
+          position: 'insideBottom', 
+          offset: -5,
+          style: { textAnchor: 'middle', fontSize: '12px', fill: 'rgba(0, 0, 0, 0.7)' }
+        }}
+      />
+      <YAxis
+        yAxisId="left"
+        stroke="rgba(0, 0, 0, 0.6)"
+        tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: isMobile ? 10 : 11 }}
+        tickFormatter={(value) => `$${value.toLocaleString()}`}
+        label={{ 
+          value: 'Revenue Change & Cumulative', 
+          angle: -90, 
+          position: 'insideLeft',
+          offset: -10,
+          style: { textAnchor: 'middle', fontSize: '12px', fill: 'rgba(0, 0, 0, 0.7)' }
+        }}
+      />
+      <Tooltip
+        labelFormatter={(label) => {
+          try {
+            return new Date(label).toLocaleDateString();
+          } catch {
+            return label;
+          }
+        }}
+        formatter={standardTooltipFormatter}
+        contentStyle={!isMobile ? {
+          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+          border: '1px solid rgba(0, 0, 0, 0.1)',
+          borderRadius: '8px',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+        } : undefined}
+        allowEscapeViewBox={{ x: true, y: true }}
+        active={true}
+        wrapperStyle={isMobile ? { 
+          pointerEvents: 'none',
+          zIndex: 9999,
+        } : undefined}
+      />
+      <Legend 
+        formatter={(value, entry) => (
+          <span style={{ color: entry.color, fontSize: '12px', fontWeight: 500 }}>
+            {value}
+          </span>
+        )}
+      />
+      
+      {/* Change bars with positive/negative colors and forecast distinction */}
+      <Bar
+        yAxisId="left"
+        dataKey="change"
+        name="Revenue Change"
+        radius={[2, 2, 0, 0]}
+        isAnimationActive={false}
+        shape={(props: any) => {
+          const { payload } = props;
+          const isPrediction = payload?.isPrediction;
+          const isPositive = payload?.positive;
+          
+          let fill;
+          if (isPositive) {
+            fill = isPrediction ? "url(#positiveChangeForecastGradient)" : "url(#positiveChangeGradient)";
+          } else {
+            fill = isPrediction ? "url(#negativeChangeForecastGradient)" : "url(#negativeChangeGradient)";
+          }
+          
+          const opacity = isPrediction ? 0.7 : 0.9;
+          const strokeDasharray = isPrediction ? "2,2" : "";
+          const strokeColor = isPositive ? '#10b981' : '#ef4444';
+          
+          return (
+            <rect
+              x={props.x}
+              y={props.y}
+              width={props.width}
+              height={props.height}
+              fill={fill}
+              opacity={opacity}
+              rx={2}
+              ry={2}
+              stroke={isPrediction ? strokeColor : 'none'}
+              strokeWidth={isPrediction ? 1 : 0}
+              strokeDasharray={strokeDasharray}
+            />
+          );
+        }}
+      />
+      
+      {/* Cumulative line */}
+      <Line
+        yAxisId="left"
+        type="monotone"
+        dataKey="cumulative"
+        stroke="#f59e0b"
+        strokeWidth={3}
+        name="Cumulative Revenue"
+        dot={(props: any) => {
+          const { payload } = props;
+          const isPrediction = payload?.isPrediction;
+          return (
+            <circle
+              cx={props.cx}
+              cy={props.cy}
+              r={isPrediction ? 3 : 4}
+              fill="#f59e0b"
+              stroke="#f59e0b"
+              strokeWidth={isPrediction ? 1 : 2}
+              opacity={isPrediction ? 0.7 : 1}
+            />
+          );
+        }}
+      />
+      
+      {shouldShowPredictionLine && predictionDate && showPredictions && (
+        <ReferenceLine
+          x={predictionDate}
+          stroke="#9333ea"
+          strokeWidth={3}
+          strokeDasharray="10 5"
+          opacity={0.9}
+          label={{ 
+            value: "🔮 AI Forecasts →", 
+            position: "top",
+            style: { 
+              fontSize: '12px', 
+              fontWeight: 600,
+              fill: '#9333ea'
+            }
+          }}
+        />
+      )}
+    </ComposedChart>
+  );
+});
+
+// Enhanced Candlestick Chart component with forecast distinction
+const SimpleCandlestickChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, predictionDate, showPredictions, isMobile }: any) => {
+  if (!validateChartData(data)) {
+    return null;
+  }
+
+  // Process data to calculate OHLC values
+  const processedData = data.map((item: any, index: number) => {
+    const revenue = item.revenue || 0;
+    const prevRevenue = index > 0 ? (data[index - 1].revenue || 0) : revenue;
+    const nextRevenue = index < data.length - 1 ? (data[index + 1].revenue || 0) : revenue;
+    
+    // Simulate high/low based on surrounding values
+    const values = [prevRevenue, revenue, nextRevenue];
+    const high = Math.max(...values) * 1.05; // Add 5% variation
+    const low = Math.min(...values) * 0.95; // Subtract 5% variation
+    
+    return {
+      ...item,
+      open: prevRevenue,
+      close: revenue,
+      high,
+      low,
+      isGreen: revenue >= prevRevenue,
+    };
+  });
+
+  const margins = isMobile 
+    ? { top: 15, right: 20, left: 20, bottom: 60 }
+    : { top: 25, right: 40, left: 40, bottom: 70 };
+
+  return (
+    <ComposedChart
+      data={processedData}
+      margin={margins}
+    >
+      <defs>
+        {/* Green (positive) candlestick gradients */}
+        <linearGradient id="greenCandleGradient" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="5%" stopColor="#10b981" stopOpacity={0.9} />
+          <stop offset="95%" stopColor="#10b981" stopOpacity={0.6} />
+        </linearGradient>
+        <linearGradient id="greenCandleForecastGradient" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="5%" stopColor="#10b981" stopOpacity={0.5} />
+          <stop offset="95%" stopColor="#10b981" stopOpacity={0.3} />
+        </linearGradient>
+        
+        {/* Red (negative) candlestick gradients */}
+        <linearGradient id="redCandleGradient" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="5%" stopColor="#ef4444" stopOpacity={0.9} />
+          <stop offset="95%" stopColor="#ef4444" stopOpacity={0.6} />
+        </linearGradient>
+        <linearGradient id="redCandleForecastGradient" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="5%" stopColor="#ef4444" stopOpacity={0.5} />
+          <stop offset="95%" stopColor="#ef4444" stopOpacity={0.3} />
+        </linearGradient>
+      </defs>
+      
+      <CartesianGrid strokeDasharray="3 3" stroke="rgba(0, 0, 0, 0.1)" />
+      <XAxis
+        dataKey="date"
+        tickFormatter={(value) => {
+          try {
+            return new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          } catch {
+            return value;
+          }
+        }}
+        stroke="rgba(0, 0, 0, 0.6)"
+        tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: isMobile ? 10 : 12 }}
+        label={{ 
+          value: 'Date', 
+          position: 'insideBottom', 
+          offset: -5,
+          style: { textAnchor: 'middle', fontSize: '12px', fill: 'rgba(0, 0, 0, 0.7)' }
+        }}
+      />
+      <YAxis
+        stroke="rgba(0, 0, 0, 0.6)"
+        tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: isMobile ? 10 : 11 }}
+        tickFormatter={(value) => `$${value.toLocaleString()}`}
+        label={{ 
+          value: 'Revenue (USD)', 
+          angle: -90, 
+          position: 'insideLeft',
+          offset: -10,
+          style: { textAnchor: 'middle', fontSize: '12px', fill: 'rgba(0, 0, 0, 0.7)' }
+        }}
+      />
+      <Tooltip
+        labelFormatter={(label) => {
+          try {
+            return new Date(label).toLocaleDateString();
+          } catch {
+            return label;
+          }
+        }}
+        content={({ active, payload, label }) => {
+          if (!active || !payload || !payload.length) return null;
+          const data = payload[0]?.payload;
+          const isPrediction = data?.isPrediction;
+          
+          return (
+            <Paper
+              elevation={8}
+              sx={{
+                p: 2,
+                backgroundColor: 'rgba(255, 255, 255, 0.98)',
+                border: '1px solid rgba(0, 0, 0, 0.1)',
+                borderRadius: 2,
+                minWidth: 200,
+              }}
+            >
+              <Typography variant="body2" color="text.secondary" fontWeight={600} gutterBottom>
+                {new Date(label).toLocaleDateString()}
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                <Typography variant="body2">
+                  {isPrediction ? '🔮' : '📊'} Open: ${data.open?.toLocaleString()}
+                </Typography>
+                <Typography variant="body2">
+                  {isPrediction ? '🔮' : '📊'} Close: ${data.close?.toLocaleString()}
+                </Typography>
+                <Typography variant="body2">
+                  {isPrediction ? '🔮' : '📊'} High: ${data.high?.toLocaleString()}
+                </Typography>
+                <Typography variant="body2">
+                  {isPrediction ? '🔮' : '📊'} Low: ${data.low?.toLocaleString()}
+                </Typography>
+              </Box>
+            </Paper>
+          );
+        }}
+      />
+      <Legend 
+        formatter={(value, entry) => (
+          <span style={{ color: entry.color, fontSize: '12px', fontWeight: 500 }}>
+            {value}
+          </span>
+        )}
+      />
+      
+      {/* Candlestick bars */}
+      <Bar
+        dataKey="close"
+        name="Revenue"
+        radius={[2, 2, 0, 0]}
+        isAnimationActive={false}
+        shape={(props: any) => {
+          const { payload } = props;
+          const isPrediction = payload?.isPrediction;
+          const isGreen = payload?.isGreen;
+          
+          let fill;
+          if (isGreen) {
+            fill = isPrediction ? "url(#greenCandleForecastGradient)" : "url(#greenCandleGradient)";
+          } else {
+            fill = isPrediction ? "url(#redCandleForecastGradient)" : "url(#redCandleGradient)";
+          }
+          
+          const opacity = isPrediction ? 0.7 : 0.9;
+          const strokeDasharray = isPrediction ? "2,2" : "";
+          const strokeColor = isGreen ? '#10b981' : '#ef4444';
+          
+          return (
+            <g>
+              {/* High-Low line */}
+              <line
+                x1={props.x + props.width / 2}
+                y1={props.y - 10}
+                x2={props.x + props.width / 2}
+                y2={props.y + props.height + 10}
+                stroke={strokeColor}
+                strokeWidth={isPrediction ? 1 : 2}
+                strokeDasharray={strokeDasharray}
+                opacity={opacity}
+              />
+              {/* Open-Close rectangle */}
+              <rect
+                x={props.x}
+                y={props.y}
+                width={props.width}
+                height={props.height}
+                fill={fill}
+                opacity={opacity}
+                rx={2}
+                ry={2}
+                stroke={strokeColor}
+                strokeWidth={isPrediction ? 1 : 0}
+                strokeDasharray={strokeDasharray}
+              />
+            </g>
+          );
+        }}
+      />
+      
+      {/* Moving average line */}
+      <Line
+        type="monotone"
+        dataKey="revenue"
+        stroke="#6b7280"
+        strokeWidth={1}
+        dot={false}
+        name="Moving Average"
+        strokeDasharray="3,3"
+      />
+      
+      {shouldShowPredictionLine && predictionDate && showPredictions && (
+        <ReferenceLine
+          x={predictionDate}
+          stroke="#9333ea"
+          strokeWidth={3}
+          strokeDasharray="10 5"
+          opacity={0.9}
+          label={{ 
+            value: "🔮 AI Forecasts →", 
+            position: "top",
+            style: { 
+              fontSize: '12px', 
+              fontWeight: 600,
+              fill: '#9333ea'
+            }
+          }}
+        />
+      )}
+    </ComposedChart>
+  );
+});
+
 // Enhanced Bar Chart component with historical vs forecast color separation
 const SimpleBarChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, predictionDate, showPredictions, isMobile }: any) => {
   if (!validateChartData(data)) {
@@ -1964,12 +2402,20 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
           </ToggleButton>
           {!isMobile && (
             <>
+              <ToggleButton value="waterfall" aria-label="Waterfall Chart">
+                <WaterfallChart sx={{ fontSize: '1rem', mr: 0.5 }} /> 
+                Waterfall
+              </ToggleButton>
+              <ToggleButton value="candlestick" aria-label="Candlestick Chart">
+                <CandlestickChart sx={{ fontSize: '1rem', mr: 0.5 }} /> 
+                Candlestick
+              </ToggleButton>
               <ToggleButton value="composed" aria-label="Combined Chart">
                 <Timeline sx={{ fontSize: '1rem', mr: 0.5 }} /> 
                 Combined
               </ToggleButton>
               <ToggleButton value="stacked" aria-label="Stacked Chart">
-                <BarChartIcon sx={{ fontSize: '1rem', mr: 0.5 }} /> 
+                <StackedLineChart sx={{ fontSize: '1rem', mr: 0.5 }} /> 
                 Stacked
               </ToggleButton>
             </>
@@ -2086,6 +2532,28 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                   case 'bar':
                     return (
                       <SimpleBarChart
+                        data={chartData}
+                        visibleMetrics={visibleMetrics}
+                        shouldShowPredictionLine={shouldShowPredictionLine}
+                        predictionDate={predictionDate}
+                        showPredictions={showPredictions}
+                        isMobile={isMobile}
+                      />
+                    );
+                  case 'waterfall':
+                    return (
+                      <SimpleWaterfallChart
+                        data={chartData}
+                        visibleMetrics={visibleMetrics}
+                        shouldShowPredictionLine={shouldShowPredictionLine}
+                        predictionDate={predictionDate}
+                        showPredictions={showPredictions}
+                        isMobile={isMobile}
+                      />
+                    );
+                  case 'candlestick':
+                    return (
+                      <SimpleCandlestickChart
                         data={chartData}
                         visibleMetrics={visibleMetrics}
                         shouldShowPredictionLine={shouldShowPredictionLine}
