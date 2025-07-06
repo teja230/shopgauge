@@ -89,17 +89,17 @@ export const parseUserAgent = (userAgent: string): DeviceInfo => {
 
   if (userAgent.includes('iPhone')) {
     device = 'iPhone';
-    deviceIcon = '📱';
+    deviceIcon = '📱'; // Phone icon for iPhone
   } else if (userAgent.includes('iPad')) {
     device = 'iPad';
-    deviceIcon = '📱';
+    deviceIcon = '📱'; // Tablet icon for iPad
   } else if (userAgent.includes('Android')) {
     if (isTablet) {
       device = 'Android Tablet';
-      deviceIcon = '📱';
+      deviceIcon = '📱'; // Tablet icon for Android tablets
     } else {
       device = 'Android Phone';
-      deviceIcon = '📱';
+      deviceIcon = '📱'; // Phone icon for Android phones
     }
   } else if (userAgent.includes('Windows')) {
     device = 'Windows PC';

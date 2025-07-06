@@ -10,11 +10,11 @@ import IntelligentLoadingScreen from '../components/ui/IntelligentLoadingScreen'
 const features = [
   'AI-Powered Revenue Forecasting with 7-60 day predictions and confidence intervals',
   'Professional Shareable Charts with PNG, PDF export and social media integration',
-  '9 Advanced Chart Types including Line, Area, Bar, Candlestick, Waterfall, and Composed views',
+      '7 Advanced Chart Types including Line, Area, Bar, Candlestick, Waterfall, and Composed views',
   'Intelligent Color Separation for Historical vs Forecast data visualization',
   'Track up to 10 competitors with intelligent monitoring and price alerts',
   'Real-time price monitoring with automated competitor discovery',
-  'Multi-session concurrent access from any device with team collaboration',
+  'Multi-session concurrent access from up to 5 devices with team collaboration',
   'Session-based notification system with granular privacy controls',
   'Professional Chart Templates for Executive, Investor, and Marketing presentations',
   'Enhanced Mobile Experience with optimized chart loading and responsive design',
@@ -325,7 +325,7 @@ const HomePage = () => {
                 </button>
               )
             )}
-            <p className="text-sm opacity-90 mt-6 text-white">No credit card required • Cancel anytime</p>
+            <p className="text-sm opacity-90 mt-6 text-white">No credit card required for trial • Cancel anytime</p>
           </div>
         </div>
       </section>
@@ -344,7 +344,7 @@ const HomePage = () => {
             </div>
             <h3 className="text-xl font-bold text-blue-900 mb-3">🚀 AI-Powered Forecasting</h3>
             <ul className="text-gray-700 space-y-2">
-              <li>• 9 advanced chart types with predictive analytics</li>
+              <li>• 7 advanced chart types with predictive analytics</li>
               <li>• 7-60 day revenue forecasting with confidence intervals</li>
               <li>• Intelligent color separation for historical vs forecast data</li>
               <li>• Professional shareable charts with PNG/PDF export</li>
@@ -360,7 +360,7 @@ const HomePage = () => {
             </div>
             <h3 className="text-xl font-bold text-green-900 mb-3">Multi-Session Support</h3>
             <ul className="text-gray-700 space-y-2">
-              <li>• Concurrent access from multiple devices</li>
+              <li>• Concurrent access from up to 5 devices</li>
               <li>• Session-based notification privacy</li>
               <li>• Team collaboration without conflicts</li>
               <li>• Secure session isolation & management</li>
@@ -411,6 +411,22 @@ const HomePage = () => {
               <li>• GDPR/CCPA compliance built-in</li>
               <li>• Admin dashboard with full control</li>
               <li>• Advanced debugging & monitoring</li>
+            </ul>
+          </div>
+          
+          <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-xl p-6 border border-indigo-200">
+            <div className="text-indigo-600 mb-4">
+              <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>
+              </svg>
+            </div>
+            <h3 className="text-xl font-bold text-indigo-900 mb-3">📈 Dashboard Experience</h3>
+            <ul className="text-gray-700 space-y-2">
+              <li>• Beautiful, intuitive dashboard with instant insights</li>
+              <li>• Real-time revenue, orders, and conversion tracking</li>
+              <li>• One-click chart switching between 7 visualization types</li>
+              <li>• Mobile-optimized interface for on-the-go monitoring</li>
+              <li>• Smart notifications for important business milestones</li>
             </ul>
           </div>
         </div>
@@ -465,7 +481,7 @@ const HomePage = () => {
           </div>
           <div className="bg-white rounded-lg shadow-lg p-6 border-t-4 border-purple-500">
                             <h3 className="text-lg font-semibold mb-3 text-blue-900">How do the 7 chart types work?</h3>
-            <p className="text-gray-700">Choose from Line, Area, Bar, Candlestick, Waterfall, Stacked, Composed, and more. Each chart type offers unique insights with intelligent color separation between historical (blue/green/amber) and forecast (purple/pink/orange) data.</p>
+            <p className="text-gray-700">Choose from Line, Area, Bar, Candlestick, Waterfall, Stacked, and Composed charts. Each chart type offers unique insights with intelligent color separation between historical (blue/green/amber) and forecast (lighter/dashed) data.</p>
           </div>
           <div className="bg-white rounded-lg shadow-lg p-6 border-t-4 border-orange-500">
             <h3 className="text-lg font-semibold mb-3 text-blue-900">Is my data secure and compliant?</h3>

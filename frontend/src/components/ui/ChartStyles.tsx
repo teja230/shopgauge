@@ -106,14 +106,14 @@ export const tooltipStyles = (theme: Theme) => ({
 });
 
 // Enhanced Color Scheme for Consistent Chart Visualization
-// Historical data: Strong, solid colors for real data
-// Forecast data: Lighter, dashed versions to indicate predictions
+// Recent data (last 60 days): Strong, solid colors for actual Shopify data
+// Forecast data: Lighter, dashed versions to indicate AI predictions
 
 export const UNIFIED_COLOR_SCHEME = {
   historical: {
-    revenue: '#2563eb',      // Strong blue for revenue (primary)
-    orders: '#10b981',       // Strong green for orders  
-    conversion: '#f59e0b',   // Strong amber for conversion
+    revenue: '#2563eb',      // Strong blue for revenue (recent 60 days)
+    orders: '#10b981',       // Strong green for orders (recent 60 days)
+    conversion: '#f59e0b',   // Strong amber for conversion (recent 60 days)
   },
   forecast: {
     revenue: '#93c5fd',      // Light blue for revenue predictions

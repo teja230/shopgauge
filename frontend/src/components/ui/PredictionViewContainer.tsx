@@ -384,6 +384,21 @@ const PredictionViewContainer = memo(({
                 size="small"
                 sx={{ fontWeight: 600, ml: 1 }}
               />
+              <Chip
+                label="Last 60 Days"
+                color="primary"
+                variant="outlined"
+                size="small"
+                sx={{ 
+                  fontWeight: 500, 
+                  ml: 1,
+                  fontSize: '0.7rem',
+                  height: 20,
+                  '& .MuiChip-label': {
+                    px: 1
+                  }
+                }}
+              />
             </CardTitle>
             
             <Tooltip title="Share Chart">
@@ -482,7 +497,7 @@ const PredictionViewContainer = memo(({
                 flex: 1,
               }}>
                 <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, fontSize: isMobile ? '0.7rem' : '0.75rem' }}>
-                  Current {activeView === 'revenue' ? 'Revenue' : activeView === 'orders' ? 'Orders' : 'Conversion'}
+                  Recent {activeView === 'revenue' ? 'Revenue' : activeView === 'orders' ? 'Orders' : 'Conversion'} (7d)
                 </Typography>
                 <Typography variant="h6" fontWeight={700} color="text.primary" sx={{ fontSize: isMobile ? '0.9rem' : '1.25rem' }}>
                                       {(() => {
