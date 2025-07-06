@@ -255,29 +255,54 @@ const SimpleShareModal: React.FC<SimpleShareModalProps> = ({
     const message = createShareMessage(platform);
     const shareableUrl = window.location.href;
     
+    // Create store and ShopGauge links
+    const storeUrl = shopName ? `https://${shopName}.myshopify.com` : '';
+    const shopGaugeUrl = 'https://shopgauge.app';
+    
+    // Enhanced message with links
+    const createEnhancedMessage = (platform: string) => {
+      const baseMessageWithLinks = message;
+      
+      switch (platform) {
+        case 'linkedin':
+          return `${baseMessageWithLinks}\n\n🔗 Store: ${storeUrl}\n🌐 Analytics: ${shopGaugeUrl}`;
+        
+        case 'twitter':
+          return `${baseMessageWithLinks}\n\n🔗 Store: ${storeUrl}\n🌐 Analytics: ${shopGaugeUrl}`;
+        
+        case 'email':
+          return `${baseMessageWithLinks}\n\n🔗 Visit Store: ${storeUrl}\n🌐 Powered by ShopGauge: ${shopGaugeUrl}`;
+        
+        default:
+          return `${baseMessageWithLinks}\n\n🔗 Store: ${storeUrl}\n🌐 Analytics: ${shopGaugeUrl}`;
+      }
+    };
+    
+    const enhancedMessage = createEnhancedMessage(platform);
+    
     try {
       switch (platform) {
         case 'linkedin':
-          window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareableUrl)}&summary=${encodeURIComponent(message)}`);
+          window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareableUrl)}&summary=${encodeURIComponent(enhancedMessage)}`);
           showInfo('Sharing your business insights on LinkedIn...');
-          debugLog.info('LinkedIn share opened', { messageLength: message.length }, 'SimpleShareModal');
+          debugLog.info('LinkedIn share opened', { messageLength: enhancedMessage.length }, 'SimpleShareModal');
           break;
         case 'twitter':
-          window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(message)}&url=${encodeURIComponent(shareableUrl)}`);
+          window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(enhancedMessage)}&url=${encodeURIComponent(shareableUrl)}`);
           showInfo('Sharing your performance insights on Twitter...');
-          debugLog.info('Twitter share opened', { messageLength: message.length }, 'SimpleShareModal');
+          debugLog.info('Twitter share opened', { messageLength: enhancedMessage.length }, 'SimpleShareModal');
           break;
         case 'email':
-          window.open(`mailto:?subject=${encodeURIComponent(`${shopName || 'Store'} Performance Insights - ${chartTitle}`)}&body=${encodeURIComponent(message + '\n\n' + shareableUrl)}`);
+          window.open(`mailto:?subject=${encodeURIComponent(`${shopName || 'Store'} Performance Insights - ${chartTitle}`)}&body=${encodeURIComponent(enhancedMessage + '\n\n' + shareableUrl)}`);
           showInfo('Opening email to share your business insights...');
           debugLog.info('Email share opened', { subject: `${shopName} - ${chartTitle}` }, 'SimpleShareModal');
           break;
         case 'copy':
-          await navigator.clipboard.writeText(message + '\n\n' + shareableUrl);
+          await navigator.clipboard.writeText(enhancedMessage + '\n\n' + shareableUrl);
           setCopiedToClipboard(true);
           setTimeout(() => setCopiedToClipboard(false), 3000);
           showSuccess('Performance insights link copied to clipboard!');
-          debugLog.info('Link copied to clipboard', { messageLength: message.length }, 'SimpleShareModal');
+          debugLog.info('Link copied to clipboard', { messageLength: enhancedMessage.length }, 'SimpleShareModal');
           break;
         default:
           break;
