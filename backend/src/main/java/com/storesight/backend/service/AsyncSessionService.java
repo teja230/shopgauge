@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -38,33 +39,41 @@ public class AsyncSessionService {
   }
 
   /**
-   * Asynchronously update session last accessed time with throttling This method runs in a separate
-   * thread pool to avoid blocking main requests and uses its own transaction context to prevent
-   * read-only transaction violations.
+   * Asynchronously update session last accessed time with throttling and error handling This method
+   * runs in a separate thread pool to avoid blocking main requests and uses its own transaction
+   * context to prevent read-only transaction violations.
    *
    * @param sessionId The session ID to update
    */
-  @Async
-  @Transactional(timeout = 5)
+  @Async("sessionTaskExecutor")
+  @Transactional(timeout = 5, propagation = Propagation.REQUIRES_NEW)
   public void updateSessionLastAccessedAsync(String sessionId) {
     try {
+      // Validate session ID
+      if (sessionId == null || sessionId.trim().isEmpty()) {
+        logger.debug("Skipping session update for null/empty session ID");
+        return;
+      }
+
       // Check if we should throttle this update
       if (shouldThrottleUpdate(sessionId)) {
         logger.debug("Throttling session update for session: {}", sessionId);
         return;
       }
 
-      // Perform the update
+      // Perform the update with error handling
       shopSessionRepository.updateLastAccessedTime(sessionId);
 
       // Record the update time for throttling
       lastUpdateTimes.put(sessionId, LocalDateTime.now());
       logger.debug("Updated last accessed time for session: {}", sessionId);
+
     } catch (Exception e) {
       logger.warn(
           "Failed to update session last accessed time for session {}: {}",
           sessionId,
           e.getMessage());
+      // Don't re-throw the exception to prevent it from bubbling up to the main request
     }
   }
 
@@ -80,8 +89,8 @@ public class AsyncSessionService {
   }
 
   /** Batch update multiple sessions at once to reduce database calls */
-  @Async
-  @Transactional(timeout = 10)
+  @Async("sessionTaskExecutor")
+  @Transactional(timeout = 10, propagation = Propagation.REQUIRES_NEW)
   public void batchUpdateSessionsAsync(List<String> sessionIds) {
     try {
       List<String> sessionsToUpdate =
@@ -104,14 +113,21 @@ public class AsyncSessionService {
       logger.debug("Batch updated {} sessions", sessionsToUpdate.size());
     } catch (Exception e) {
       logger.warn("Failed to batch update sessions: {}", e.getMessage());
+      // Don't re-throw to prevent bubbling up to main request
     }
   }
 
   /** Perform session heartbeat with optimized database access */
-  @Async
-  @Transactional(timeout = 5)
+  @Async("sessionTaskExecutor")
+  @Transactional(timeout = 5, propagation = Propagation.REQUIRES_NEW)
   public void performSessionHeartbeatAsync(String sessionId, String shopDomain) {
     try {
+      // Validate inputs
+      if (sessionId == null || sessionId.trim().isEmpty()) {
+        logger.debug("Skipping heartbeat for null/empty session ID");
+        return;
+      }
+
       // Only update if not throttled
       if (!shouldThrottleUpdate(sessionId)) {
         shopSessionRepository.updateLastAccessedTime(sessionId);
@@ -120,6 +136,7 @@ public class AsyncSessionService {
       }
     } catch (Exception e) {
       logger.warn("Session heartbeat failed for session {}: {}", sessionId, e.getMessage());
+      // Don't re-throw to prevent bubbling up to main request
     }
   }
 

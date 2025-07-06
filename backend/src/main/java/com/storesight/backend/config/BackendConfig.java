@@ -1,10 +1,16 @@
 package com.storesight.backend.config;
 
+import java.util.concurrent.ThreadPoolExecutor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.task.TaskExecutor;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 /**
@@ -14,8 +20,13 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
  * for background tasks
  */
 @Configuration
+@EnableScheduling
 @EnableAsync
+@ComponentScan(basePackages = "com.storesight.backend")
+@EnableJpaRepositories(basePackages = "com.storesight.backend.repository")
 public class BackendConfig {
+
+  private static final Logger logger = LoggerFactory.getLogger(BackendConfig.class);
 
   @Value("${backend.url:http://localhost:8080}")
   private String backendUrl;
@@ -27,19 +38,21 @@ public class BackendConfig {
   private String contextPath;
 
   /**
-   * Task executor for asynchronous session management operations This allows session updates to run
-   * in background threads without blocking main requests
+   * Configure async executor for session management tasks This prevents transaction commit issues
+   * with async operations
    */
-  @Bean(name = "sessionTaskExecutor")
+  @Bean("sessionTaskExecutor")
   public TaskExecutor sessionTaskExecutor() {
     ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
     executor.setCorePoolSize(2);
-    executor.setMaxPoolSize(4);
+    executor.setMaxPoolSize(5);
     executor.setQueueCapacity(100);
-    executor.setThreadNamePrefix("session-async-");
+    executor.setThreadNamePrefix("SessionAsync-");
+    executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
     executor.setWaitForTasksToCompleteOnShutdown(true);
-    executor.setAwaitTerminationSeconds(30);
+    executor.setAwaitTerminationSeconds(20);
     executor.initialize();
+    logger.info("Configured async session task executor with 2-5 threads");
     return executor;
   }
 
