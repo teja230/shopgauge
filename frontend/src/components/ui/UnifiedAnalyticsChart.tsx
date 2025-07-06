@@ -246,10 +246,10 @@ const SimpleLineChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
   const historicalData = data.filter((item: any) => !item.isPrediction);
   const forecastData = data.filter((item: any) => item.isPrediction);
 
-  // Mobile-optimized margins with increased bottom space
+  // Mobile-optimized margins with proportionate bottom space
   const margins = isMobile 
-    ? { top: 15, right: 20, left: 20, bottom: 100 }
-    : { top: 25, right: 40, left: 40, bottom: 120 };
+    ? { top: 15, right: 20, left: 20, bottom: 60 }
+    : { top: 25, right: 40, left: 40, bottom: 70 };
 
   return (
     <LineChart
@@ -267,21 +267,24 @@ const SimpleLineChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
           }
         }}
         stroke="rgba(0, 0, 0, 0.6)"
+        tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: isMobile ? 10 : 12 }}
         label={{ 
           value: 'Date', 
           position: 'insideBottom', 
-          offset: -10,
+          offset: -5,
           style: { textAnchor: 'middle', fontSize: '12px', fill: 'rgba(0, 0, 0, 0.7)' }
         }}
       />
       <YAxis
         yAxisId="left"
         stroke="rgba(0, 0, 0, 0.6)"
+        tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: isMobile ? 10 : 11 }}
         tickFormatter={(value) => `$${value.toLocaleString()}`}
         label={{ 
           value: 'Revenue (USD)', 
           angle: -90, 
           position: 'insideLeft',
+          offset: -10,
           style: { textAnchor: 'middle', fontSize: '12px', fill: 'rgba(0, 0, 0, 0.7)' }
         }}
       />
@@ -289,11 +292,13 @@ const SimpleLineChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
         yAxisId="right"
         orientation="right"
         stroke="rgba(0, 0, 0, 0.6)"
+        tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: isMobile ? 10 : 11 }}
         tickFormatter={(value) => value.toLocaleString()}
         label={{ 
           value: 'Orders & Conversion (%)', 
           angle: 90, 
           position: 'insideRight',
+          offset: 10,
           style: { textAnchor: 'middle', fontSize: '12px', fill: 'rgba(0, 0, 0, 0.7)' }
         }}
       />
@@ -438,10 +443,10 @@ const SimpleAreaChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
   const historicalData = data.filter((item: any) => !item.isPrediction);
   const forecastData = data.filter((item: any) => item.isPrediction);
 
-  // Mobile-optimized margins with increased bottom space
+  // Mobile-optimized margins with proportionate bottom space
   const margins = isMobile 
-    ? { top: 15, right: 20, left: 20, bottom: 100 }
-    : { top: 25, right: 40, left: 40, bottom: 120 };
+    ? { top: 15, right: 20, left: 20, bottom: 60 }
+    : { top: 25, right: 40, left: 40, bottom: 70 };
 
   return (
     <AreaChart
@@ -495,21 +500,24 @@ const SimpleAreaChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
           }
         }}
         stroke="rgba(0, 0, 0, 0.6)"
+        tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: isMobile ? 10 : 12 }}
         label={{ 
           value: 'Date', 
           position: 'insideBottom', 
-          offset: -10,
+          offset: -5,
           style: { textAnchor: 'middle', fontSize: '12px', fill: 'rgba(0, 0, 0, 0.7)' }
         }}
       />
       <YAxis
         yAxisId="left"
         stroke="rgba(0, 0, 0, 0.6)"
+        tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: isMobile ? 10 : 11 }}
         tickFormatter={(value) => `$${value.toLocaleString()}`}
         label={{ 
           value: 'Revenue (USD)', 
           angle: -90, 
           position: 'insideLeft',
+          offset: -10,
           style: { textAnchor: 'middle', fontSize: '12px', fill: 'rgba(0, 0, 0, 0.7)' }
         }}
       />
@@ -517,11 +525,13 @@ const SimpleAreaChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
         yAxisId="right"
         orientation="right"
         stroke="rgba(0, 0, 0, 0.6)"
+        tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: isMobile ? 10 : 11 }}
         tickFormatter={(value) => value.toLocaleString()}
         label={{ 
           value: 'Orders & Conversion (%)', 
           angle: 90, 
           position: 'insideRight',
+          offset: 10,
           style: { textAnchor: 'middle', fontSize: '12px', fill: 'rgba(0, 0, 0, 0.7)' }
         }}
       />
@@ -672,10 +682,10 @@ const SimpleComposedChart = memo(({ data, visibleMetrics, shouldShowPredictionLi
   const historicalData = data.filter((item: any) => !item.isPrediction);
   const forecastData = data.filter((item: any) => item.isPrediction);
 
-  // Mobile-optimized margins with increased bottom space
+  // Mobile-optimized margins with proportionate bottom space
   const margins = isMobile 
-    ? { top: 15, right: 20, left: 20, bottom: 100 }
-    : { top: 25, right: 40, left: 40, bottom: 120 };
+    ? { top: 15, right: 20, left: 20, bottom: 60 }
+    : { top: 25, right: 40, left: 40, bottom: 70 };
 
   return (
     <ComposedChart
@@ -693,21 +703,24 @@ const SimpleComposedChart = memo(({ data, visibleMetrics, shouldShowPredictionLi
           }
         }}
         stroke="rgba(0, 0, 0, 0.6)"
+        tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: isMobile ? 10 : 12 }}
         label={{ 
           value: 'Date', 
           position: 'insideBottom', 
-          offset: -10,
+          offset: -5,
           style: { textAnchor: 'middle', fontSize: '12px', fill: 'rgba(0, 0, 0, 0.7)' }
         }}
       />
       <YAxis
         yAxisId="left"
         stroke="rgba(0, 0, 0, 0.6)"
+        tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: isMobile ? 10 : 11 }}
         tickFormatter={(value) => `$${value.toLocaleString()}`}
         label={{ 
           value: 'Revenue (USD)', 
           angle: -90, 
           position: 'insideLeft',
+          offset: -10,
           style: { textAnchor: 'middle', fontSize: '12px', fill: 'rgba(0, 0, 0, 0.7)' }
         }}
       />
@@ -715,11 +728,13 @@ const SimpleComposedChart = memo(({ data, visibleMetrics, shouldShowPredictionLi
         yAxisId="right"
         orientation="right"
         stroke="rgba(0, 0, 0, 0.6)"
+        tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: isMobile ? 10 : 11 }}
         tickFormatter={(value) => value.toLocaleString()}
         label={{ 
           value: 'Orders & Conversion (%)', 
           angle: 90, 
           position: 'insideRight',
+          offset: 10,
           style: { textAnchor: 'middle', fontSize: '12px', fill: 'rgba(0, 0, 0, 0.7)' }
         }}
       />
@@ -754,7 +769,7 @@ const SimpleComposedChart = memo(({ data, visibleMetrics, shouldShowPredictionLi
         )}
       />
       
-      {/* Revenue as Area Chart */}
+      {/* Revenue as Area Chart with historical/forecast differentiation */}
       {visibleMetrics.revenue && (
         <Area
           yAxisId="left"
@@ -766,10 +781,25 @@ const SimpleComposedChart = memo(({ data, visibleMetrics, shouldShowPredictionLi
           name="Revenue"
           connectNulls={false}
           isAnimationActive={false}
+          dot={(props: any) => {
+            const { payload } = props;
+            const isPrediction = payload?.isPrediction;
+            return (
+              <circle
+                cx={props.cx}
+                cy={props.cy}
+                r={isPrediction && showPredictions ? 3 : 4}
+                fill={isPrediction ? COLOR_SCHEME.forecast.revenue : COLOR_SCHEME.historical.revenue}
+                stroke={isPrediction ? COLOR_SCHEME.forecast.revenue : COLOR_SCHEME.historical.revenue}
+                strokeWidth={isPrediction ? 1 : 2}
+                opacity={isPrediction && !showPredictions ? 0 : 1}
+              />
+            );
+          }}
         />
       )}
       
-      {/* Orders as Bar Chart */}
+      {/* Orders as Bar Chart with historical/forecast differentiation */}
       {visibleMetrics.orders && (
         <Bar
           yAxisId="right"
@@ -798,7 +828,7 @@ const SimpleComposedChart = memo(({ data, visibleMetrics, shouldShowPredictionLi
         />
       )}
       
-      {/* Conversion Rate as Line Chart */}
+            {/* Conversion Rate as Line Chart with historical/forecast differentiation */}
       {visibleMetrics.conversion && (
         <Line
           yAxisId="right"
@@ -807,9 +837,9 @@ const SimpleComposedChart = memo(({ data, visibleMetrics, shouldShowPredictionLi
           stroke={COLOR_SCHEME.historical.conversion}
           strokeWidth={2}
           name="Conversion Rate"
-          dot={{ fill: COLOR_SCHEME.historical.conversion, strokeWidth: 2, r: 3 }}
           connectNulls={false}
           isAnimationActive={false}
+          dot={{ fill: COLOR_SCHEME.historical.conversion, strokeWidth: 2, r: 3 }}
         />
       )}
 
@@ -838,10 +868,10 @@ const SimpleStackedChart = memo(({ data, visibleMetrics, shouldShowPredictionLin
   const historicalData = data.filter((item: any) => !item.isPrediction);
   const forecastData = data.filter((item: any) => item.isPrediction);
 
-  // Mobile-optimized margins with increased bottom space
+  // Mobile-optimized margins with proportionate bottom space
   const margins = isMobile 
-    ? { top: 15, right: 20, left: 20, bottom: 100 }
-    : { top: 25, right: 40, left: 40, bottom: 120 };
+    ? { top: 15, right: 20, left: 20, bottom: 60 }
+    : { top: 25, right: 40, left: 40, bottom: 70 };
 
   return (
     <AreaChart
@@ -860,20 +890,23 @@ const SimpleStackedChart = memo(({ data, visibleMetrics, shouldShowPredictionLin
           }
         }}
         stroke="rgba(0, 0, 0, 0.6)"
+        tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: isMobile ? 10 : 12 }}
         label={{ 
           value: 'Date', 
           position: 'insideBottom', 
-          offset: -10,
+          offset: -5,
           style: { textAnchor: 'middle', fontSize: '12px', fill: 'rgba(0, 0, 0, 0.7)' }
         }}
       />
       <YAxis
         stroke="rgba(0, 0, 0, 0.6)"
+        tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: isMobile ? 10 : 11 }}
         tickFormatter={(value) => `${(value * 100).toFixed(0)}%`}
         label={{ 
           value: 'Percentage Distribution', 
           angle: -90, 
           position: 'insideLeft',
+          offset: -10,
           style: { textAnchor: 'middle', fontSize: '12px', fill: 'rgba(0, 0, 0, 0.7)' }
         }}
       />
@@ -906,7 +939,7 @@ const SimpleStackedChart = memo(({ data, visibleMetrics, shouldShowPredictionLin
         )}
       />
       
-      {/* Stacked areas with AI differentiation through patterns */}
+      {/* Stacked areas with AI differentiation through opacity and patterns */}
       {visibleMetrics.revenue && (
         <Area
           type="monotone"
@@ -915,9 +948,25 @@ const SimpleStackedChart = memo(({ data, visibleMetrics, shouldShowPredictionLin
           stroke={COLOR_SCHEME.historical.revenue}
           strokeWidth={2}
           fill={COLOR_SCHEME.historical.revenue}
+          fillOpacity={0.8}
           name="Revenue Distribution"
           connectNulls={false}
           isAnimationActive={false}
+          dot={(props: any) => {
+            const { payload } = props;
+            const isPrediction = payload?.isPrediction;
+            return (
+              <circle
+                cx={props.cx}
+                cy={props.cy}
+                r={isPrediction && showPredictions ? 2 : 3}
+                fill={isPrediction ? COLOR_SCHEME.forecast.revenue : COLOR_SCHEME.historical.revenue}
+                stroke={isPrediction ? COLOR_SCHEME.forecast.revenue : COLOR_SCHEME.historical.revenue}
+                strokeWidth={1}
+                opacity={isPrediction && !showPredictions ? 0 : 1}
+              />
+            );
+          }}
         />
       )}
       {visibleMetrics.orders && (
@@ -928,9 +977,25 @@ const SimpleStackedChart = memo(({ data, visibleMetrics, shouldShowPredictionLin
           stroke={COLOR_SCHEME.historical.orders}
           strokeWidth={2}
           fill={COLOR_SCHEME.historical.orders}
+          fillOpacity={0.8}
           name="Orders Distribution"
           connectNulls={false}
           isAnimationActive={false}
+          dot={(props: any) => {
+            const { payload } = props;
+            const isPrediction = payload?.isPrediction;
+            return (
+              <circle
+                cx={props.cx}
+                cy={props.cy}
+                r={isPrediction && showPredictions ? 2 : 3}
+                fill={isPrediction ? COLOR_SCHEME.forecast.orders : COLOR_SCHEME.historical.orders}
+                stroke={isPrediction ? COLOR_SCHEME.forecast.orders : COLOR_SCHEME.historical.orders}
+                strokeWidth={1}
+                opacity={isPrediction && !showPredictions ? 0 : 1}
+              />
+            );
+          }}
         />
       )}
 
@@ -959,10 +1024,10 @@ const SimpleBarChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, p
   const historicalData = data.filter((item: any) => !item.isPrediction);
   const forecastData = data.filter((item: any) => item.isPrediction);
 
-  // Mobile-optimized margins with increased bottom space
+  // Mobile-optimized margins with proportionate bottom space
   const margins = isMobile 
-    ? { top: 15, right: 20, left: 20, bottom: 100 }
-    : { top: 25, right: 40, left: 40, bottom: 120 };
+    ? { top: 15, right: 20, left: 20, bottom: 60 }
+    : { top: 25, right: 40, left: 40, bottom: 70 };
 
   return (
     <BarChart
@@ -980,21 +1045,24 @@ const SimpleBarChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, p
           }
         }}
         stroke="rgba(0, 0, 0, 0.6)"
+        tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: isMobile ? 10 : 12 }}
         label={{ 
           value: 'Date', 
           position: 'insideBottom', 
-          offset: -10,
+          offset: -5,
           style: { textAnchor: 'middle', fontSize: '12px', fill: 'rgba(0, 0, 0, 0.7)' }
         }}
       />
       <YAxis
         yAxisId="left"
         stroke="rgba(0, 0, 0, 0.6)"
+        tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: isMobile ? 10 : 11 }}
         tickFormatter={(value) => `$${value.toLocaleString()}`}
         label={{ 
           value: 'Revenue (USD)', 
           angle: -90, 
           position: 'insideLeft',
+          offset: -10,
           style: { textAnchor: 'middle', fontSize: '12px', fill: 'rgba(0, 0, 0, 0.7)' }
         }}
       />
@@ -1002,11 +1070,13 @@ const SimpleBarChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, p
         yAxisId="right"
         orientation="right"
         stroke="rgba(0, 0, 0, 0.6)"
+        tick={{ fill: 'rgba(0, 0, 0, 0.6)', fontSize: isMobile ? 10 : 11 }}
         tickFormatter={(value) => value.toLocaleString()}
         label={{ 
           value: 'Orders & Conversion (%)', 
           angle: 90, 
           position: 'insideRight',
+          offset: 10,
           style: { textAnchor: 'middle', fontSize: '12px', fill: 'rgba(0, 0, 0, 0.7)' }
         }}
       />
