@@ -1971,9 +1971,32 @@ const DashboardPage = () => {
     setIsRefreshing(true);
     
     try {
-      // Clear cache from both state and sessionStorage to force fresh data
+      // Step 1: Clear backend Redis cache first
       if (shop) {
-        console.log('🗑️ Clearing cache to force fresh API calls');
+        try {
+          console.log('🗑️ Clearing backend Redis cache for shop:', shop);
+          const response = await fetchWithAuth('/api/analytics/cache/invalidate', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          if (response.ok) {
+            const result = await response.json();
+            console.log('✅ Backend cache cleared successfully:', result);
+            notifications.showSuccess('🗑️ Backend cache cleared - loading fresh data...', { duration: 2000, category: 'Cache' });
+          } else {
+            console.warn('⚠️ Backend cache clearing failed, continuing with frontend refresh');
+          }
+        } catch (error) {
+          console.warn('⚠️ Backend cache clearing failed:', error, 'continuing with frontend refresh');
+        }
+      }
+      
+      // Step 2: Clear frontend cache from both state and sessionStorage to force fresh data
+      if (shop) {
+        console.log('🗑️ Clearing frontend cache to force fresh API calls');
         const freshCache = invalidateCache(shop);
         if (freshCache) {
           setCache(freshCache);
@@ -2006,7 +2029,7 @@ const DashboardPage = () => {
         abandonedCarts: null
       });
       
-      console.log('Dashboard refresh initiated - cache cleared');
+      console.log('Dashboard refresh initiated - all caches cleared');
       
       // Trigger fresh data fetches for all cards
       await Promise.all([
@@ -2023,7 +2046,7 @@ const DashboardPage = () => {
       console.log('🔄 Force computing unified analytics after dashboard refresh');
       forceComputeUnifiedAnalytics();
       
-      notifications.showSuccess('✅ Dashboard data has been updated.', { duration: 3000, category: 'Dashboard' });
+      notifications.showSuccess('✅ Dashboard data has been updated with fresh information.', { duration: 3000, category: 'Dashboard' });
       setIsRefreshing(false);
     } catch (error) {
       console.error('Error refreshing dashboard:', error);
