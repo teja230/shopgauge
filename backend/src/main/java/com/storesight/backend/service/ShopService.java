@@ -757,7 +757,7 @@ public class ShopService {
 
   /** Enhanced session cleanup with better error handling and monitoring */
   @Transactional(timeout = 10) // Reduced timeout for cleanup operations
-  @Scheduled(fixedRate = 900000) // 15 minutes (aggressive cleanup)
+  @Scheduled(fixedRate = 3600000) // 1 hour (reduced from 15 minutes)
   public void cleanupExpiredSessions() {
     try {
       logger.debug("Starting expired session cleanup");
@@ -789,8 +789,10 @@ public class ShopService {
         logger.info("Cleaned up {} expired sessions", cleanedCount);
       }
 
-      // Also clean up old inactive sessions more frequently
-      cleanupInactiveSessions();
+      // Also clean up old inactive sessions less frequently
+      if (cleanedCount > 0) {
+        cleanupInactiveSessions();
+      }
 
     } catch (Exception e) {
       logger.error("Error during expired session cleanup: {}", e.getMessage(), e);
@@ -964,11 +966,11 @@ public class ShopService {
 
   /** Clean up stale sessions (sessions that haven't sent heartbeat for extended period) */
   @Transactional
-  @Scheduled(fixedRate = 1800000) // 30 minutes
+  @Scheduled(fixedRate = 7200000) // 2 hours (reduced from 30 minutes)
   public void cleanupStaleSessions() {
     try {
-      // Define stale threshold (sessions not accessed for more than 1 hour)
-      LocalDateTime staleThreshold = LocalDateTime.now().minusHours(1);
+      // Define stale threshold (sessions not accessed for more than 2 hours)
+      LocalDateTime staleThreshold = LocalDateTime.now().minusHours(2);
 
       List<ShopSession> staleSessions =
           shopSessionRepository.findInactiveSessionsOlderThan(staleThreshold);
