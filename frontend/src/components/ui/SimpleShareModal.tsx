@@ -196,7 +196,7 @@ const SimpleShareModal: React.FC<SimpleShareModalProps> = ({
       if (exportSettings.includeWatermark) {
         pdf.setFontSize(8);
         pdf.setTextColor(160, 160, 160);
-        pdf.text('🌐 Powered by ShopGauge: https://www.shopgaugeai.com/dashboard', 10, pdfHeight - 10);
+        pdf.text('🌐 Powered by ShopGauge: https://www.shopgaugeai.com', 10, pdfHeight - 10);
       }
       
       setExportProgress(75);
@@ -265,7 +265,7 @@ const SimpleShareModal: React.FC<SimpleShareModalProps> = ({
     
     // Create store and ShopGauge links
     const storeUrl = shopName ? `https://${shopName}.myshopify.com` : '';
-    const shopGaugeUrl = 'https://www.shopgaugeai.com/dashboard';
+    const shopGaugeUrl = 'https://www.shopgaugeai.com';
     
     // Enhanced message with links
     const createEnhancedMessage = (platform: string) => {
