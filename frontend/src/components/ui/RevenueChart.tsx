@@ -381,9 +381,9 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
 
   const renderChart = () => {
     try {
-      // Mobile-optimized margins with increased bottom space for date labels
-      const mobileMargins = { top: 15, right: 15, left: 15, bottom: 80 };
-      const desktopMargins = { top: 25, right: 40, left: 40, bottom: 100 };
+      // Mobile-optimized margins with proportionate bottom space
+      const mobileMargins = { top: 15, right: 15, left: 15, bottom: 50 };
+      const desktopMargins = { top: 25, right: 40, left: 40, bottom: 60 };
       
       const commonProps = {
         data: processedData,
@@ -403,7 +403,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
           axisLine={{ stroke: 'rgba(0, 0, 0, 0.1)' }}
           interval={isMobile ? 'preserveStartEnd' : 'preserveStart'}
           angle={isMobile ? -45 : -30}
-          height={isMobile ? 70 : 80}
+          height={isMobile ? 50 : 60}
           label={{
             value: 'Date',
             position: 'insideBottom',
