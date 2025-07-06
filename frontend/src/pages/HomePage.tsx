@@ -336,6 +336,22 @@ const HomePage = () => {
         
         {/* Feature Categories */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+          <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-xl p-6 border border-indigo-200">
+            <div className="text-indigo-600 mb-4">
+              <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>
+              </svg>
+            </div>
+            <h3 className="text-xl font-bold text-indigo-900 mb-3">📈 Dashboard Experience</h3>
+            <ul className="text-gray-700 space-y-2">
+              <li>• Beautiful, intuitive dashboard with instant insights</li>
+              <li>• Real-time revenue, orders, and conversion tracking</li>
+              <li>• One-click chart switching between 7 visualization types</li>
+              <li>• Mobile-optimized interface for on-the-go monitoring</li>
+              <li>• Smart notifications for important business milestones</li>
+            </ul>
+          </div>
+          
           <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-6 border border-blue-200">
             <div className="text-blue-600 mb-4">
               <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
@@ -349,21 +365,6 @@ const HomePage = () => {
               <li>• Intelligent color separation for historical vs forecast data</li>
               <li>• Professional shareable charts with PNG/PDF export</li>
               <li>• Enhanced mobile experience with optimized loading</li>
-            </ul>
-          </div>
-          
-          <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-6 border border-green-200">
-            <div className="text-green-600 mb-4">
-              <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-              </svg>
-            </div>
-            <h3 className="text-xl font-bold text-green-900 mb-3">Multi-Session Support</h3>
-            <ul className="text-gray-700 space-y-2">
-              <li>• Concurrent access from up to 5 devices</li>
-              <li>• Session-based notification privacy</li>
-              <li>• Team collaboration without conflicts</li>
-              <li>• Secure session isolation & management</li>
             </ul>
           </div>
           
@@ -399,6 +400,21 @@ const HomePage = () => {
             </ul>
           </div>
           
+          <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-6 border border-green-200">
+            <div className="text-green-600 mb-4">
+              <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+            </div>
+            <h3 className="text-xl font-bold text-green-900 mb-3">Multi-Session Support</h3>
+            <ul className="text-gray-700 space-y-2">
+              <li>• Concurrent access from up to 5 devices</li>
+              <li>• Session-based notification privacy</li>
+              <li>• Team collaboration without conflicts</li>
+              <li>• Secure session isolation & management</li>
+            </ul>
+          </div>
+          
           <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-6 border border-purple-200">
             <div className="text-purple-600 mb-4">
               <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
@@ -411,22 +427,6 @@ const HomePage = () => {
               <li>• GDPR/CCPA compliance built-in</li>
               <li>• Admin dashboard with full control</li>
               <li>• Advanced debugging & monitoring</li>
-            </ul>
-          </div>
-          
-          <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-xl p-6 border border-indigo-200">
-            <div className="text-indigo-600 mb-4">
-              <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>
-              </svg>
-            </div>
-            <h3 className="text-xl font-bold text-indigo-900 mb-3">📈 Dashboard Experience</h3>
-            <ul className="text-gray-700 space-y-2">
-              <li>• Beautiful, intuitive dashboard with instant insights</li>
-              <li>• Real-time revenue, orders, and conversion tracking</li>
-              <li>• One-click chart switching between 7 visualization types</li>
-              <li>• Mobile-optimized interface for on-the-go monitoring</li>
-              <li>• Smart notifications for important business milestones</li>
             </ul>
           </div>
         </div>
