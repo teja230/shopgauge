@@ -263,12 +263,12 @@ const useUnifiedAnalytics = (
       // Only use default if conversionRate is undefined, null, or NaN - 0 is a valid conversion rate
       const realConversionRate = (typeof conversionRate === 'number' && !isNaN(conversionRate)) ? conversionRate : 2.5;
       
-      console.log('🔄 UNIFIED_ANALYTICS: Using conversion rate:', {
+      debugLog.info('🔄 UNIFIED_ANALYTICS: Using conversion rate:', {
         passedConversionRate: conversionRate,
         finalConversionRate: realConversionRate,
         isValidNumber: typeof conversionRate === 'number' && !isNaN(conversionRate),
         source: (typeof conversionRate === 'number' && !isNaN(conversionRate)) ? 'dashboard' : 'default'
-      });
+      }, 'useUnifiedAnalytics');
 
       // Use revenue data as primary source
       const processedData = (revenueData || []).map((item, index) => {
@@ -393,14 +393,14 @@ const useUnifiedAnalytics = (
           
           // Debug for first few predictions
           if (i <= 3) {
-            console.log(`🔍 ENHANCED CONFIDENCE (day ${i}):`, {
+            debugLog.debug(`🔍 ENHANCED CONFIDENCE (day ${i}):`, {
               dataQuality: `${(dataQualityScore * 100).toFixed(1)}%`,
               timeDecay: `${(timeDecayScore * 100).toFixed(1)}%`,
               trendStability: `${(trendStabilityScore * 100).toFixed(1)}%`,
               dataVariance: `${(dataVarianceScore * 100).toFixed(1)}%`,
               finalConfidence: `${(confidenceScore * 100).toFixed(1)}%`,
               trendFactor: trendFactor.toFixed(3)
-            });
+            }, 'useUnifiedAnalytics');
           }
           
           predictions.push({
@@ -433,17 +433,17 @@ const useUnifiedAnalytics = (
         total_orders: validateData(totalOrders),
       };
       
-      console.log('🔄 UNIFIED_ANALYTICS: Conversion data summary:', {
+      debugLog.info('🔄 UNIFIED_ANALYTICS: Conversion data summary:', {
         historicalConversionRates: processedData.slice(0, 3).map(d => d.conversion_rate),
         predictionConversionRates: predictions.slice(0, 3).map(d => d.conversion_rate),
         totalHistoricalPoints: processedData.length,
         totalPredictionPoints: predictions.length,
         allUsingSameRate: realConversionRate
-      });
+      }, 'useUnifiedAnalytics');
 
     return result;
     } catch (error) {
-      console.error('Error converting dashboard data:', error);
+      debugLog.error('Error converting dashboard data:', error, 'useUnifiedAnalytics');
       return {
         historical: [],
         predictions: [],

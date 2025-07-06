@@ -37,6 +37,7 @@ import {
 } from '@mui/icons-material';
 import LoadingIndicator from './LoadingIndicator';
 import type { RevenuePoint, TooltipProps, ChartPayload } from '../../types/charts';
+import { debugLog } from './DebugPanel';
 
 type RevenueData = RevenuePoint;
 
@@ -635,7 +636,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
           return <div />;
       }
     } catch (error) {
-      console.error('Error rendering chart:', error);
+              debugLog.error('Error rendering chart:', error, 'RevenueChart');
       return <div />;
     }
   };

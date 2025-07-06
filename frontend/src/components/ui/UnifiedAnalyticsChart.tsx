@@ -110,6 +110,17 @@ type TimeRange = 'all' | 'last30' | 'last7';
 // Use unified color scheme for consistency across all charts
 const COLOR_SCHEME = UNIFIED_COLOR_SCHEME;
 
+// Helper function for conversion rate formatting with proper precision
+const formatConversionRate = (value: number): string => {
+  if (value < 0.1) {
+    return value.toFixed(3);
+  } else if (value < 1) {
+    return value.toFixed(2);
+  } else {
+    return value.toFixed(1);
+  }
+};
+
 // Enhanced SVG-safe number validation
 const safeNumber = (value: any, defaultValue: number = 0): number => {
   if (value === null || value === undefined) {
@@ -226,7 +237,7 @@ const processHistoricalItem = (item: any): any => {
 };
 
 // Enhanced Line Chart component with historical vs forecast color separation
-const SimpleLineChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, predictionDate, showPredictions }: any) => {
+const SimpleLineChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, predictionDate, showPredictions, isMobile }: any) => {
   if (!validateChartData(data)) {
     return null;
   }
@@ -235,10 +246,15 @@ const SimpleLineChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
   const historicalData = data.filter((item: any) => !item.isPrediction);
   const forecastData = data.filter((item: any) => item.isPrediction);
 
+  // Mobile-optimized margins
+  const margins = isMobile 
+    ? { top: 10, right: 15, left: 15, bottom: 60 }
+    : { top: 20, right: 30, left: 20, bottom: 80 };
+
   return (
     <LineChart
       data={data}
-      margin={{ top: 10, right: 10, left: 10, bottom: 50 }}
+      margin={margins}
     >
       <CartesianGrid strokeDasharray="3 3" stroke="rgba(0, 0, 0, 0.1)" />
       <XAxis
@@ -294,7 +310,7 @@ const SimpleLineChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
           const prefix = isPrediction ? '🔮 Forecast: ' : '📊 Actual: ';
           if (name.includes('Revenue')) return [`${prefix}$${value.toLocaleString()}`, name];
           if (name.includes('Orders')) return [`${prefix}${value.toLocaleString()}`, name];
-          if (name.includes('Conversion')) return [`${prefix}${value.toFixed(2)}%`, name];
+          if (name.includes('Conversion')) return [`${prefix}${formatConversionRate(value)}%`, name];
           return [`${prefix}${value.toLocaleString()}`, name];
         }}
         contentStyle={{
@@ -413,7 +429,7 @@ const SimpleLineChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
 });
 
 // Enhanced Area Chart component with historical vs forecast color separation
-const SimpleAreaChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, predictionDate, showPredictions }: any) => {
+const SimpleAreaChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, predictionDate, showPredictions, isMobile }: any) => {
   if (!validateChartData(data)) {
     return null;
   }
@@ -422,10 +438,15 @@ const SimpleAreaChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
   const historicalData = data.filter((item: any) => !item.isPrediction);
   const forecastData = data.filter((item: any) => item.isPrediction);
 
+  // Mobile-optimized margins
+  const margins = isMobile 
+    ? { top: 10, right: 15, left: 15, bottom: 60 }
+    : { top: 20, right: 30, left: 20, bottom: 80 };
+
   return (
     <AreaChart
       data={data}
-      margin={{ top: 10, right: 10, left: 10, bottom: 50 }}
+      margin={margins}
     >
       <defs>
         {/* Historical gradients */}
@@ -517,7 +538,7 @@ const SimpleAreaChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
           const prefix = isPrediction ? '🔮 Forecast: ' : '📊 Actual: ';
           if (name.includes('Revenue')) return [`${prefix}$${value.toLocaleString()}`, name];
           if (name.includes('Orders')) return [`${prefix}${value.toLocaleString()}`, name];
-          if (name.includes('Conversion')) return [`${prefix}${value.toFixed(2)}%`, name];
+          if (name.includes('Conversion')) return [`${prefix}${formatConversionRate(value)}%`, name];
           return [`${prefix}${value.toLocaleString()}`, name];
         }}
         contentStyle={{
@@ -642,7 +663,7 @@ const SimpleAreaChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
 });
 
 // Enhanced Bar Chart component with historical vs forecast color separation
-const SimpleBarChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, predictionDate, showPredictions }: any) => {
+const SimpleBarChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, predictionDate, showPredictions, isMobile }: any) => {
   if (!validateChartData(data)) {
     return null;
   }
@@ -651,10 +672,15 @@ const SimpleBarChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, p
   const historicalData = data.filter((item: any) => !item.isPrediction);
   const forecastData = data.filter((item: any) => item.isPrediction);
 
+  // Mobile-optimized margins
+  const margins = isMobile 
+    ? { top: 10, right: 15, left: 15, bottom: 60 }
+    : { top: 20, right: 30, left: 20, bottom: 80 };
+
   return (
     <BarChart
       data={data}
-      margin={{ top: 10, right: 10, left: 10, bottom: 50 }}
+      margin={margins}
     >
       <CartesianGrid strokeDasharray="3 3" stroke="rgba(0, 0, 0, 0.1)" />
       <XAxis
@@ -710,7 +736,7 @@ const SimpleBarChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, p
           const prefix = isPrediction ? '🔮 Forecast: ' : '📊 Actual: ';
           if (name.includes('Revenue')) return [`${prefix}$${value.toLocaleString()}`, name];
           if (name.includes('Orders')) return [`${prefix}${value.toLocaleString()}`, name];
-          if (name.includes('Conversion')) return [`${prefix}${value.toFixed(2)}%`, name];
+          if (name.includes('Conversion')) return [`${prefix}${formatConversionRate(value)}%`, name];
           return [`${prefix}${value.toLocaleString()}`, name];
         }}
         contentStyle={{
@@ -920,7 +946,7 @@ const EnhancedTooltip: React.FC<any> = ({ active, payload, label }) => {
               entry.name.includes('Revenue') 
                 ? `$${entry.value?.toLocaleString()}` 
                 : entry.name.includes('Conversion')
-                ? `${entry.value?.toFixed(2)}%`
+                ? `${formatConversionRate(entry.value || 0)}%`
                 : entry.value?.toLocaleString()
             }
           </Typography>
@@ -1127,15 +1153,15 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
     setShowPredictions(checked);
     
     if (checked) {
-      notifications.showSuccess('🔮 AI Forecasting enabled - predictions now visible', {
+      notifications.showSuccess('Predictive analytics enabled - AI-powered forecasting is now active', {
         persistent: true,
-        category: 'AI Mode',
+        category: 'Predictive Analytics',
         duration: 4000
       });
     } else {
-      notifications.showInfo('📊 AI Forecasting disabled - showing historical data only', {
+      notifications.showInfo('Predictive analytics disabled - displaying historical performance data only', {
         persistent: true,
-        category: 'AI Mode',
+        category: 'Analytics Mode',
         duration: 4000
       });
     }
@@ -1193,14 +1219,49 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
     if (newType && newType !== chartType) {
       debugLog.info('Chart type change', { oldType: chartType, newType }, 'UnifiedAnalyticsChart');
       setChartType(newType);
+      
+      // Show notification for chart type change
+      const chartTypeNames: Partial<Record<ChartType, string>> = {
+        area: 'Area Chart',
+        line: 'Line Chart', 
+        bar: 'Bar Chart',
+        combined: 'Combined Chart',
+        composed: 'Composed Chart',
+        revenue_focus: 'Revenue Focus Chart',
+        candlestick: 'Candlestick Chart',
+        waterfall: 'Waterfall Chart',
+        stacked: 'Stacked Chart'
+      };
+      
+      notifications.showInfo(`Analytics view updated to ${chartTypeNames[newType] || newType} visualization`, {
+        persistent: false,
+        category: 'Analytics View',
+        duration: 2000
+      });
     }
   };
 
   const handleMetricToggle = (metric: keyof typeof visibleMetrics) => {
+    const newState = !visibleMetrics[metric];
     setVisibleMetrics(prev => ({
       ...prev,
-      [metric]: !prev[metric],
+      [metric]: newState,
     }));
+    
+    // Show notification for metric toggle
+    const metricNames = {
+      revenue: 'Revenue',
+      orders: 'Orders',
+      conversion: 'Conversion Rate'
+    };
+    
+    const action = newState ? 'enabled' : 'disabled';
+    
+    notifications.showInfo(`${metricNames[metric]} tracking ${action} in analytics dashboard`, {
+      persistent: false,
+      category: 'Data Visualization',
+      duration: 1500
+    });
   };
 
   // Render loading state
@@ -1357,13 +1418,18 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
       <Paper
         elevation={0}
         sx={{
-          p: 2,
+          p: isMobile ? 1 : 2,
           backgroundColor: '#fff',
           border: '1px solid rgba(0, 0, 0, 0.05)',
           borderRadius: 2,
+          overflow: 'hidden',
         }}
       >
-        <Box sx={{ height: chartHeight }}>
+        <Box sx={{ 
+          height: isMobile ? Math.max(chartHeight * 0.8, 300) : chartHeight,
+          width: '100%',
+          minHeight: isMobile ? 300 : 400,
+        }}>
           <ChartErrorBoundary fallbackHeight={chartHeight}>
             <ResponsiveContainer width="100%" height="100%">
               {(() => {
@@ -1376,6 +1442,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                         shouldShowPredictionLine={shouldShowPredictionLine}
                         predictionDate={predictionDate}
                         showPredictions={showPredictions}
+                        isMobile={isMobile}
                       />
                     );
                   case 'bar':
@@ -1386,6 +1453,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                         shouldShowPredictionLine={shouldShowPredictionLine}
                         predictionDate={predictionDate}
                         showPredictions={showPredictions}
+                        isMobile={isMobile}
                       />
                     );
                   default:
@@ -1396,6 +1464,7 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                         shouldShowPredictionLine={shouldShowPredictionLine}
                         predictionDate={predictionDate}
                         showPredictions={showPredictions}
+                        isMobile={isMobile}
                       />
                     );
                 }

@@ -22,6 +22,7 @@ import SpeedIcon from '@mui/icons-material/Speed';
 import TimerIcon from '@mui/icons-material/Timer';
 import { getHealthSummary } from '../../api/index';
 import { useServiceStatus } from '../../context/ServiceStatusContext';
+import { debugLog } from './DebugPanel';
 
 interface DatabaseMetrics {
   activeConnections: number;
@@ -224,13 +225,13 @@ const EnhancedHealthSummary: React.FC = () => {
         setDatabaseDetails(data);
       }
     } catch (e: any) {
-      console.warn('Database details not available:', e.message);
+      debugLog.warn('Database details not available:', e.message, 'EnhancedHealthSummary');
     }
   };
 
   const fetchMetrics = async () => {
     if (!isServiceAvailable) {
-      console.log('HealthSummary: Skipping health check - service not available');
+      debugLog.info('HealthSummary: Skipping health check - service not available', {}, 'EnhancedHealthSummary');
       return;
     }
 
@@ -243,7 +244,7 @@ const EnhancedHealthSummary: React.FC = () => {
       // Also fetch detailed database metrics
       await fetchDatabaseDetails();
     } catch (e: any) {
-      console.warn('Health metrics not available:', e.message);
+      debugLog.warn('Health metrics not available:', e.message, 'EnhancedHealthSummary');
       setMetrics({
         backendStatus: 'UNKNOWN',
         redisStatus: 'UNKNOWN',
