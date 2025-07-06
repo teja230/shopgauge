@@ -126,7 +126,8 @@ const formatConversionRate = (value: number): string => {
 // Standardized tooltip formatter to ensure consistent labeling across all chart types
 const standardTooltipFormatter = (value: number, name: string, props: any): [string, string] => {
   const isPrediction = props.payload?.isPrediction;
-  const prefix = isPrediction ? '🔮 AI Forecast: ' : '📊 Historical: ';
+  // Updated terminology: "Recent Data" for last 60 days, "AI Forecast" for predictions
+  const prefix = isPrediction ? '🔮 AI Forecast: ' : '📊 Recent Data: ';
   
   // Standardize display names regardless of dataKey or name prop
   if (name.includes('Revenue') || name === 'revenue') {
@@ -279,30 +280,30 @@ const SimpleLineChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
       <defs>
         {/* Enhanced gradients for better visual distinction */}
         <linearGradient id="revenueLineGradient" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="5%" stopColor={COLOR_SCHEME.historical.revenue} stopOpacity={0.3} />
-          <stop offset="95%" stopColor={COLOR_SCHEME.historical.revenue} stopOpacity={0.05} />
+          <stop offset="5%" stopColor={UNIFIED_COLOR_SCHEME.historical.revenue} stopOpacity={0.3} />
+          <stop offset="95%" stopColor={UNIFIED_COLOR_SCHEME.historical.revenue} stopOpacity={0.05} />
         </linearGradient>
         <linearGradient id="ordersLineGradient" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="5%" stopColor={COLOR_SCHEME.historical.orders} stopOpacity={0.3} />
-          <stop offset="95%" stopColor={COLOR_SCHEME.historical.orders} stopOpacity={0.05} />
+          <stop offset="5%" stopColor={UNIFIED_COLOR_SCHEME.historical.orders} stopOpacity={0.3} />
+          <stop offset="95%" stopColor={UNIFIED_COLOR_SCHEME.historical.orders} stopOpacity={0.05} />
         </linearGradient>
         <linearGradient id="conversionLineGradient" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="5%" stopColor={COLOR_SCHEME.historical.conversion} stopOpacity={0.3} />
-          <stop offset="95%" stopColor={COLOR_SCHEME.historical.conversion} stopOpacity={0.05} />
+          <stop offset="5%" stopColor={UNIFIED_COLOR_SCHEME.historical.conversion} stopOpacity={0.3} />
+          <stop offset="95%" stopColor={UNIFIED_COLOR_SCHEME.historical.conversion} stopOpacity={0.05} />
         </linearGradient>
         
         {/* Forecast gradients with distinct styling */}
         <linearGradient id="revenueForecastGradient" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="5%" stopColor={COLOR_SCHEME.forecast.revenue} stopOpacity={0.2} />
-          <stop offset="95%" stopColor={COLOR_SCHEME.forecast.revenue} stopOpacity={0.03} />
+          <stop offset="5%" stopColor={UNIFIED_COLOR_SCHEME.forecast.revenue} stopOpacity={0.2} />
+          <stop offset="95%" stopColor={UNIFIED_COLOR_SCHEME.forecast.revenue} stopOpacity={0.03} />
         </linearGradient>
         <linearGradient id="ordersForecastGradient" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="5%" stopColor={COLOR_SCHEME.forecast.orders} stopOpacity={0.2} />
-          <stop offset="95%" stopColor={COLOR_SCHEME.forecast.orders} stopOpacity={0.03} />
+          <stop offset="5%" stopColor={UNIFIED_COLOR_SCHEME.forecast.orders} stopOpacity={0.2} />
+          <stop offset="95%" stopColor={UNIFIED_COLOR_SCHEME.forecast.orders} stopOpacity={0.03} />
         </linearGradient>
         <linearGradient id="conversionForecastGradient" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="5%" stopColor={COLOR_SCHEME.forecast.conversion} stopOpacity={0.2} />
-          <stop offset="95%" stopColor={COLOR_SCHEME.forecast.conversion} stopOpacity={0.03} />
+          <stop offset="5%" stopColor={UNIFIED_COLOR_SCHEME.forecast.conversion} stopOpacity={0.2} />
+          <stop offset="95%" stopColor={UNIFIED_COLOR_SCHEME.forecast.conversion} stopOpacity={0.03} />
         </linearGradient>
       </defs>
       
@@ -382,9 +383,10 @@ const SimpleLineChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
           yAxisId="left"
           type="monotone"
           dataKey="revenue"
-          stroke={COLOR_SCHEME.historical.revenue}
+          stroke={UNIFIED_COLOR_SCHEME.historical.revenue}
           strokeWidth={3}
           name="Revenue"
+          strokeDasharray=""
           dot={(props: any) => {
             const { payload } = props;
             const isPrediction = payload?.isPrediction;
@@ -393,8 +395,8 @@ const SimpleLineChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
                 cx={props.cx}
                 cy={props.cy}
                 r={isPrediction ? 3 : 4}
-                fill={isPrediction ? COLOR_SCHEME.forecast.revenue : COLOR_SCHEME.historical.revenue}
-                stroke={isPrediction ? COLOR_SCHEME.forecast.revenue : COLOR_SCHEME.historical.revenue}
+                fill={isPrediction ? UNIFIED_COLOR_SCHEME.forecast.revenue : UNIFIED_COLOR_SCHEME.historical.revenue}
+                stroke={isPrediction ? UNIFIED_COLOR_SCHEME.forecast.revenue : UNIFIED_COLOR_SCHEME.historical.revenue}
                 strokeWidth={isPrediction ? 1 : 2}
                 opacity={isPrediction ? 0.8 : 1}
               />
@@ -409,9 +411,10 @@ const SimpleLineChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
           yAxisId="right"
           type="monotone"
           dataKey="orders_count"
-          stroke={COLOR_SCHEME.historical.orders}
+          stroke={UNIFIED_COLOR_SCHEME.historical.orders}
           strokeWidth={2}
           name="Orders"
+          strokeDasharray=""
           dot={(props: any) => {
             const { payload } = props;
             const isPrediction = payload?.isPrediction;
@@ -420,8 +423,8 @@ const SimpleLineChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
                 cx={props.cx}
                 cy={props.cy}
                 r={isPrediction ? 2.5 : 3}
-                fill={isPrediction ? COLOR_SCHEME.forecast.orders : COLOR_SCHEME.historical.orders}
-                stroke={isPrediction ? COLOR_SCHEME.forecast.orders : COLOR_SCHEME.historical.orders}
+                fill={isPrediction ? UNIFIED_COLOR_SCHEME.forecast.orders : UNIFIED_COLOR_SCHEME.historical.orders}
+                stroke={isPrediction ? UNIFIED_COLOR_SCHEME.forecast.orders : UNIFIED_COLOR_SCHEME.historical.orders}
                 strokeWidth={isPrediction ? 1 : 2}
                 opacity={isPrediction ? 0.8 : 1}
               />
@@ -436,9 +439,10 @@ const SimpleLineChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
           yAxisId="right"
           type="monotone"
           dataKey="conversion_rate"
-          stroke={COLOR_SCHEME.historical.conversion}
+          stroke={UNIFIED_COLOR_SCHEME.historical.conversion}
           strokeWidth={2}
           name="Conversion Rate"
+          strokeDasharray=""
           dot={(props: any) => {
             const { payload } = props;
             const isPrediction = payload?.isPrediction;
@@ -447,8 +451,8 @@ const SimpleLineChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
                 cx={props.cx}
                 cy={props.cy}
                 r={isPrediction ? 2.5 : 3}
-                fill={isPrediction ? COLOR_SCHEME.forecast.conversion : COLOR_SCHEME.historical.conversion}
-                stroke={isPrediction ? COLOR_SCHEME.forecast.conversion : COLOR_SCHEME.historical.conversion}
+                fill={isPrediction ? UNIFIED_COLOR_SCHEME.forecast.conversion : UNIFIED_COLOR_SCHEME.historical.conversion}
+                stroke={isPrediction ? UNIFIED_COLOR_SCHEME.forecast.conversion : UNIFIED_COLOR_SCHEME.historical.conversion}
                 strokeWidth={isPrediction ? 1 : 2}
                 opacity={isPrediction ? 0.8 : 1}
               />
@@ -465,11 +469,11 @@ const SimpleLineChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
           yAxisId="left"
           type="monotone"
           dataKey="revenue"
-          stroke={COLOR_SCHEME.forecast.revenue}
+          stroke={UNIFIED_COLOR_SCHEME.forecast.revenue}
           strokeWidth={3}
           strokeDasharray="8 4"
-          name="Revenue (Forecast)"
-          dot={{ fill: COLOR_SCHEME.forecast.revenue, strokeWidth: 2, r: 4 }}
+          name="Revenue (AI Forecast)"
+          dot={{ fill: UNIFIED_COLOR_SCHEME.forecast.revenue, stroke: '#ffffff', strokeWidth: 2, r: 4 }}
           connectNulls={false}
           isAnimationActive={false}
         />
@@ -479,11 +483,11 @@ const SimpleLineChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
           yAxisId="right"
           type="monotone"
           dataKey="orders_count"
-          stroke={COLOR_SCHEME.forecast.orders}
+          stroke={UNIFIED_COLOR_SCHEME.forecast.orders}
           strokeWidth={2}
           strokeDasharray="8 4"
-          name="Orders (Forecast)"
-          dot={{ fill: COLOR_SCHEME.forecast.orders, strokeWidth: 2, r: 3 }}
+          name="Orders (AI Forecast)"
+          dot={{ fill: UNIFIED_COLOR_SCHEME.forecast.orders, stroke: '#ffffff', strokeWidth: 2, r: 3 }}
           connectNulls={false}
           isAnimationActive={false}
         />
@@ -493,11 +497,11 @@ const SimpleLineChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
           yAxisId="right"
           type="monotone"
           dataKey="conversion_rate"
-          stroke={COLOR_SCHEME.forecast.conversion}
+          stroke={UNIFIED_COLOR_SCHEME.forecast.conversion}
           strokeWidth={2}
           strokeDasharray="8 4"
-          name="Conversion Rate (Forecast)"
-          dot={{ fill: COLOR_SCHEME.forecast.conversion, strokeWidth: 2, r: 3 }}
+          name="Conversion Rate (AI Forecast)"
+          dot={{ fill: UNIFIED_COLOR_SCHEME.forecast.conversion, stroke: '#ffffff', strokeWidth: 2, r: 3 }}
           connectNulls={false}
           isAnimationActive={false}
         />
@@ -508,13 +512,17 @@ const SimpleLineChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
         <ReferenceLine
           x={predictionDate}
           stroke="#9333ea"
-          strokeWidth={2}
-          strokeDasharray="8 4"
-          opacity={0.8}
+          strokeWidth={3}
+          strokeDasharray="10 5"
+          opacity={0.9}
           label={{ 
-            value: "🔮 AI Forecasts", 
+            value: "🔮 AI Forecasts →", 
             position: "top",
-            style: { fill: '#9333ea', fontWeight: 'bold', fontSize: '12px' }
+            style: { 
+              fontSize: '12px', 
+              fontWeight: 600,
+              fill: '#9333ea'
+            }
           }}
         />
       )}
@@ -545,36 +553,36 @@ const SimpleAreaChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
       <defs>
         {/* Historical gradients */}
         <linearGradient id="revenueGradientHistorical" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="5%" stopColor={COLOR_SCHEME.historical.revenue} stopOpacity={0.4} />
-          <stop offset="95%" stopColor={COLOR_SCHEME.historical.revenue} stopOpacity={0.05} />
+          <stop offset="5%" stopColor={UNIFIED_COLOR_SCHEME.historical.revenue} stopOpacity={0.4} />
+          <stop offset="95%" stopColor={UNIFIED_COLOR_SCHEME.historical.revenue} stopOpacity={0.05} />
         </linearGradient>
         <linearGradient id="ordersGradientHistorical" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="5%" stopColor={COLOR_SCHEME.historical.orders} stopOpacity={0.4} />
-          <stop offset="95%" stopColor={COLOR_SCHEME.historical.orders} stopOpacity={0.05} />
+          <stop offset="5%" stopColor={UNIFIED_COLOR_SCHEME.historical.orders} stopOpacity={0.4} />
+          <stop offset="95%" stopColor={UNIFIED_COLOR_SCHEME.historical.orders} stopOpacity={0.05} />
         </linearGradient>
         <linearGradient id="conversionGradientHistorical" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="5%" stopColor={COLOR_SCHEME.historical.conversion} stopOpacity={0.4} />
-          <stop offset="95%" stopColor={COLOR_SCHEME.historical.conversion} stopOpacity={0.05} />
+          <stop offset="5%" stopColor={UNIFIED_COLOR_SCHEME.historical.conversion} stopOpacity={0.4} />
+          <stop offset="95%" stopColor={UNIFIED_COLOR_SCHEME.historical.conversion} stopOpacity={0.05} />
         </linearGradient>
         
         {/* Forecast gradients */}
         <linearGradient id="revenueGradientForecast" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="5%" stopColor={COLOR_SCHEME.forecast.revenue} stopOpacity={0.3} />
-          <stop offset="95%" stopColor={COLOR_SCHEME.forecast.revenue} stopOpacity={0.05} />
+          <stop offset="5%" stopColor={UNIFIED_COLOR_SCHEME.forecast.revenue} stopOpacity={0.3} />
+          <stop offset="95%" stopColor={UNIFIED_COLOR_SCHEME.forecast.revenue} stopOpacity={0.05} />
         </linearGradient>
         <linearGradient id="ordersGradientForecast" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="5%" stopColor={COLOR_SCHEME.forecast.orders} stopOpacity={0.3} />
-          <stop offset="95%" stopColor={COLOR_SCHEME.forecast.orders} stopOpacity={0.05} />
+          <stop offset="5%" stopColor={UNIFIED_COLOR_SCHEME.forecast.orders} stopOpacity={0.3} />
+          <stop offset="95%" stopColor={UNIFIED_COLOR_SCHEME.forecast.orders} stopOpacity={0.05} />
         </linearGradient>
         <linearGradient id="conversionGradientForecast" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="5%" stopColor={COLOR_SCHEME.forecast.conversion} stopOpacity={0.3} />
-          <stop offset="95%" stopColor={COLOR_SCHEME.forecast.conversion} stopOpacity={0.05} />
+          <stop offset="5%" stopColor={UNIFIED_COLOR_SCHEME.forecast.conversion} stopOpacity={0.3} />
+          <stop offset="95%" stopColor={UNIFIED_COLOR_SCHEME.forecast.conversion} stopOpacity={0.05} />
         </linearGradient>
 
         {/* Forecast patterns for better distinction */}
         <pattern id="forecastPattern" patternUnits="userSpaceOnUse" width="4" height="4">
-          <rect width="4" height="4" fill={COLOR_SCHEME.forecast.revenue} fillOpacity="0.05"/>
-          <path d="M 0,4 l 4,-4 M -1,1 l 2,-2 M 3,5 l 2,-2" stroke={COLOR_SCHEME.forecast.revenue} strokeWidth="0.5" strokeOpacity="0.2"/>
+          <rect width="4" height="4" fill={UNIFIED_COLOR_SCHEME.forecast.revenue} fillOpacity="0.05"/>
+          <path d="M 0,4 l 4,-4 M -1,1 l 2,-2 M 3,5 l 2,-2" stroke={UNIFIED_COLOR_SCHEME.forecast.revenue} strokeWidth="0.5" strokeOpacity="0.2"/>
         </pattern>
       </defs>
       
@@ -654,11 +662,11 @@ const SimpleAreaChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
           yAxisId="left"
           type="monotone"
           dataKey="revenue"
-          stroke={COLOR_SCHEME.historical.revenue}
+          stroke={UNIFIED_COLOR_SCHEME.historical.revenue}
           strokeWidth={3}
           fill="url(#revenueGradientHistorical)"
-          name="Revenue (Historical)"
-          dot={{ fill: COLOR_SCHEME.historical.revenue, strokeWidth: 2, r: 4 }}
+          name="Revenue (Recent)"
+          dot={{ fill: UNIFIED_COLOR_SCHEME.historical.revenue, strokeWidth: 2, r: 4 }}
           connectNulls={false}
           isAnimationActive={false}
         />
@@ -668,11 +676,11 @@ const SimpleAreaChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
           yAxisId="right"
           type="monotone"
           dataKey="orders_count"
-          stroke={COLOR_SCHEME.historical.orders}
+          stroke={UNIFIED_COLOR_SCHEME.historical.orders}
           strokeWidth={2}
           fill="url(#ordersGradientHistorical)"
-          name="Orders (Historical)"
-          dot={{ fill: COLOR_SCHEME.historical.orders, strokeWidth: 2, r: 3 }}
+          name="Orders (Recent)"
+          dot={{ fill: UNIFIED_COLOR_SCHEME.historical.orders, strokeWidth: 2, r: 3 }}
           connectNulls={false}
           isAnimationActive={false}
         />
@@ -682,11 +690,11 @@ const SimpleAreaChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
           yAxisId="right"
           type="monotone"
           dataKey="conversion_rate"
-          stroke={COLOR_SCHEME.historical.conversion}
+          stroke={UNIFIED_COLOR_SCHEME.historical.conversion}
           strokeWidth={2}
           fill="url(#conversionGradientHistorical)"
-          name="Conversion Rate (Historical)"
-          dot={{ fill: COLOR_SCHEME.historical.conversion, strokeWidth: 2, r: 3 }}
+          name="Conversion Rate (Recent)"
+          dot={{ fill: UNIFIED_COLOR_SCHEME.historical.conversion, strokeWidth: 2, r: 3 }}
           connectNulls={false}
           isAnimationActive={false}
         />
@@ -698,12 +706,12 @@ const SimpleAreaChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
           yAxisId="left"
           type="monotone"
           dataKey="revenue"
-          stroke={COLOR_SCHEME.forecast.revenue}
+          stroke={UNIFIED_COLOR_SCHEME.forecast.revenue}
           strokeWidth={3}
           strokeDasharray="8 4"
           fill="url(#revenueGradientForecast)"
-          name="Revenue (Forecast)"
-          dot={{ fill: COLOR_SCHEME.forecast.revenue, strokeWidth: 2, r: 4 }}
+          name="Revenue (AI Forecast)"
+          dot={{ fill: UNIFIED_COLOR_SCHEME.forecast.revenue, stroke: '#ffffff', strokeWidth: 2, r: 4 }}
           connectNulls={false}
           isAnimationActive={false}
         />
@@ -713,12 +721,12 @@ const SimpleAreaChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
           yAxisId="right"
           type="monotone"
           dataKey="orders_count"
-          stroke={COLOR_SCHEME.forecast.orders}
+          stroke={UNIFIED_COLOR_SCHEME.forecast.orders}
           strokeWidth={2}
           strokeDasharray="8 4"
           fill="url(#ordersGradientForecast)"
-          name="Orders (Forecast)"
-          dot={{ fill: COLOR_SCHEME.forecast.orders, strokeWidth: 2, r: 3 }}
+          name="Orders (AI Forecast)"
+          dot={{ fill: UNIFIED_COLOR_SCHEME.forecast.orders, stroke: '#ffffff', strokeWidth: 2, r: 3 }}
           connectNulls={false}
           isAnimationActive={false}
         />
@@ -728,12 +736,12 @@ const SimpleAreaChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
           yAxisId="right"
           type="monotone"
           dataKey="conversion_rate"
-          stroke={COLOR_SCHEME.forecast.conversion}
+          stroke={UNIFIED_COLOR_SCHEME.forecast.conversion}
           strokeWidth={2}
           strokeDasharray="8 4"
           fill="url(#conversionGradientForecast)"
-          name="Conversion Rate (Forecast)"
-          dot={{ fill: COLOR_SCHEME.forecast.conversion, strokeWidth: 2, r: 3 }}
+          name="Conversion Rate (AI Forecast)"
+          dot={{ fill: UNIFIED_COLOR_SCHEME.forecast.conversion, stroke: '#ffffff', strokeWidth: 2, r: 3 }}
           connectNulls={false}
           isAnimationActive={false}
         />
@@ -744,10 +752,18 @@ const SimpleAreaChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
         <ReferenceLine
           x={predictionDate}
           stroke="#9333ea"
-          strokeWidth={2}
-          strokeDasharray="8 4"
-          opacity={0.8}
-          label={{ value: "Forecasts", position: "top" }}
+          strokeWidth={3}
+          strokeDasharray="10 5"
+          opacity={0.9}
+          label={{ 
+            value: "🔮 AI Forecasts →", 
+            position: "top",
+            style: { 
+              fontSize: '12px', 
+              fontWeight: 600,
+              fill: '#9333ea'
+            }
+          }}
         />
       )}
     </AreaChart>
@@ -777,12 +793,12 @@ const SimpleComposedChart = memo(({ data, visibleMetrics, shouldShowPredictionLi
       <defs>
         {/* Enhanced gradients for composed chart */}
         <linearGradient id="revenueComposedGradient" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="5%" stopColor={COLOR_SCHEME.historical.revenue} stopOpacity={0.4} />
-          <stop offset="95%" stopColor={COLOR_SCHEME.historical.revenue} stopOpacity={0.05} />
+          <stop offset="5%" stopColor={UNIFIED_COLOR_SCHEME.historical.revenue} stopOpacity={0.4} />
+          <stop offset="95%" stopColor={UNIFIED_COLOR_SCHEME.historical.revenue} stopOpacity={0.05} />
         </linearGradient>
         <linearGradient id="revenueComposedForecastGradient" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="5%" stopColor={COLOR_SCHEME.forecast.revenue} stopOpacity={0.3} />
-          <stop offset="95%" stopColor={COLOR_SCHEME.forecast.revenue} stopOpacity={0.03} />
+          <stop offset="5%" stopColor={UNIFIED_COLOR_SCHEME.forecast.revenue} stopOpacity={0.3} />
+          <stop offset="95%" stopColor={UNIFIED_COLOR_SCHEME.forecast.revenue} stopOpacity={0.03} />
         </linearGradient>
       </defs>
       <CartesianGrid strokeDasharray="3 3" stroke="rgba(0, 0, 0, 0.1)" />
@@ -861,7 +877,7 @@ const SimpleComposedChart = memo(({ data, visibleMetrics, shouldShowPredictionLi
           yAxisId="left"
           type="monotone"
           dataKey="revenue"
-          stroke={COLOR_SCHEME.historical.revenue}
+          stroke={UNIFIED_COLOR_SCHEME.historical.revenue}
           strokeWidth={3}
           fill="url(#revenueComposedGradient)"
           name="Revenue"
@@ -875,8 +891,8 @@ const SimpleComposedChart = memo(({ data, visibleMetrics, shouldShowPredictionLi
                 cx={props.cx}
                 cy={props.cy}
                 r={isPrediction && showPredictions ? 3 : 4}
-                fill={isPrediction ? COLOR_SCHEME.forecast.revenue : COLOR_SCHEME.historical.revenue}
-                stroke={isPrediction ? COLOR_SCHEME.forecast.revenue : COLOR_SCHEME.historical.revenue}
+                fill={isPrediction ? UNIFIED_COLOR_SCHEME.forecast.revenue : UNIFIED_COLOR_SCHEME.historical.revenue}
+                stroke={isPrediction ? UNIFIED_COLOR_SCHEME.forecast.revenue : UNIFIED_COLOR_SCHEME.historical.revenue}
                 strokeWidth={isPrediction ? 1 : 2}
                 opacity={isPrediction ? 0.8 : 1}
               />
@@ -896,7 +912,7 @@ const SimpleComposedChart = memo(({ data, visibleMetrics, shouldShowPredictionLi
           shape={(props: any) => {
             const { payload } = props;
             const isPrediction = payload?.isPrediction;
-            const fill = isPrediction ? COLOR_SCHEME.forecast.orders : COLOR_SCHEME.historical.orders;
+            const fill = isPrediction ? UNIFIED_COLOR_SCHEME.forecast.orders : UNIFIED_COLOR_SCHEME.historical.orders;
             const opacity = isPrediction ? 0.7 : 0.9;
             return (
               <rect
@@ -920,12 +936,12 @@ const SimpleComposedChart = memo(({ data, visibleMetrics, shouldShowPredictionLi
           yAxisId="right"
           type="monotone"
           dataKey="conversion_rate"
-          stroke={COLOR_SCHEME.historical.conversion}
+          stroke={UNIFIED_COLOR_SCHEME.historical.conversion}
           strokeWidth={2}
           name="Conversion Rate"
           connectNulls={false}
           isAnimationActive={false}
-          dot={{ fill: COLOR_SCHEME.historical.conversion, strokeWidth: 2, r: 3 }}
+          dot={{ fill: UNIFIED_COLOR_SCHEME.historical.conversion, strokeWidth: 2, r: 3 }}
         />
       )}
 
@@ -937,7 +953,7 @@ const SimpleComposedChart = memo(({ data, visibleMetrics, shouldShowPredictionLi
           strokeWidth={2}
           strokeDasharray="8 4"
           opacity={0.8}
-          label={{ value: "AI Forecasts", position: "top" }}
+          label={{ value: "🔮 AI Forecasts →", position: "top" }}
         />
       )}
     </ComposedChart>
@@ -968,16 +984,16 @@ const SimpleStackedChart = memo(({ data, visibleMetrics, shouldShowPredictionLin
       <defs>
         {/* Enhanced gradients for stacked chart */}
         <linearGradient id="revenueStackedGradient" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="5%" stopColor={COLOR_SCHEME.historical.revenue} stopOpacity={0.6} />
-          <stop offset="95%" stopColor={COLOR_SCHEME.historical.revenue} stopOpacity={0.1} />
+          <stop offset="5%" stopColor={UNIFIED_COLOR_SCHEME.historical.revenue} stopOpacity={0.6} />
+          <stop offset="95%" stopColor={UNIFIED_COLOR_SCHEME.historical.revenue} stopOpacity={0.1} />
         </linearGradient>
         <linearGradient id="ordersStackedGradient" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="5%" stopColor={COLOR_SCHEME.historical.orders} stopOpacity={0.6} />
-          <stop offset="95%" stopColor={COLOR_SCHEME.historical.orders} stopOpacity={0.1} />
+          <stop offset="5%" stopColor={UNIFIED_COLOR_SCHEME.historical.orders} stopOpacity={0.6} />
+          <stop offset="95%" stopColor={UNIFIED_COLOR_SCHEME.historical.orders} stopOpacity={0.1} />
         </linearGradient>
         <linearGradient id="conversionStackedGradient" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="5%" stopColor={COLOR_SCHEME.historical.conversion} stopOpacity={0.6} />
-          <stop offset="95%" stopColor={COLOR_SCHEME.historical.conversion} stopOpacity={0.1} />
+          <stop offset="5%" stopColor={UNIFIED_COLOR_SCHEME.historical.conversion} stopOpacity={0.6} />
+          <stop offset="95%" stopColor={UNIFIED_COLOR_SCHEME.historical.conversion} stopOpacity={0.1} />
         </linearGradient>
       </defs>
       <CartesianGrid strokeDasharray="3 3" stroke="rgba(0, 0, 0, 0.1)" />
@@ -1021,7 +1037,7 @@ const SimpleStackedChart = memo(({ data, visibleMetrics, shouldShowPredictionLin
         }}
         formatter={(value: number, name: string, props: any) => {
           const isPrediction = props.payload?.isPrediction;
-          const prefix = isPrediction ? '🔮 AI Forecast: ' : '📊 Historical: ';
+          const prefix = isPrediction ? '🔮 AI Forecast: ' : '📊 Recent Data: ';
           const percentage = (value * 100).toFixed(1);
           
           // Standardize display names for stacked chart
@@ -1057,7 +1073,7 @@ const SimpleStackedChart = memo(({ data, visibleMetrics, shouldShowPredictionLin
           type="monotone"
           dataKey="revenue"
           stackId="1"
-          stroke={COLOR_SCHEME.historical.revenue}
+          stroke={UNIFIED_COLOR_SCHEME.historical.revenue}
           strokeWidth={2}
           fill="url(#revenueStackedGradient)"
           name="Revenue Distribution"
@@ -1071,8 +1087,8 @@ const SimpleStackedChart = memo(({ data, visibleMetrics, shouldShowPredictionLin
                 cx={props.cx}
                 cy={props.cy}
                 r={isPrediction && showPredictions ? 2 : 3}
-                fill={isPrediction ? COLOR_SCHEME.forecast.revenue : COLOR_SCHEME.historical.revenue}
-                stroke={isPrediction ? COLOR_SCHEME.forecast.revenue : COLOR_SCHEME.historical.revenue}
+                fill={isPrediction ? UNIFIED_COLOR_SCHEME.forecast.revenue : UNIFIED_COLOR_SCHEME.historical.revenue}
+                stroke={isPrediction ? UNIFIED_COLOR_SCHEME.forecast.revenue : UNIFIED_COLOR_SCHEME.historical.revenue}
                 strokeWidth={isPrediction ? 1 : 2}
                 opacity={isPrediction ? 0.7 : 1}
               />
@@ -1085,7 +1101,7 @@ const SimpleStackedChart = memo(({ data, visibleMetrics, shouldShowPredictionLin
           type="monotone"
           dataKey="orders_count"
           stackId="1"
-          stroke={COLOR_SCHEME.historical.orders}
+          stroke={UNIFIED_COLOR_SCHEME.historical.orders}
           strokeWidth={2}
           fill="url(#ordersStackedGradient)"
           name="Orders Distribution"
@@ -1099,8 +1115,8 @@ const SimpleStackedChart = memo(({ data, visibleMetrics, shouldShowPredictionLin
                 cx={props.cx}
                 cy={props.cy}
                 r={isPrediction && showPredictions ? 2 : 3}
-                fill={isPrediction ? COLOR_SCHEME.forecast.orders : COLOR_SCHEME.historical.orders}
-                stroke={isPrediction ? COLOR_SCHEME.forecast.orders : COLOR_SCHEME.historical.orders}
+                fill={isPrediction ? UNIFIED_COLOR_SCHEME.forecast.orders : UNIFIED_COLOR_SCHEME.historical.orders}
+                stroke={isPrediction ? UNIFIED_COLOR_SCHEME.forecast.orders : UNIFIED_COLOR_SCHEME.historical.orders}
                 strokeWidth={isPrediction ? 1 : 2}
                 opacity={isPrediction ? 0.7 : 1}
               />
@@ -1113,7 +1129,7 @@ const SimpleStackedChart = memo(({ data, visibleMetrics, shouldShowPredictionLin
           type="monotone"
           dataKey="conversion_rate"
           stackId="1"
-          stroke={COLOR_SCHEME.historical.conversion}
+          stroke={UNIFIED_COLOR_SCHEME.historical.conversion}
           strokeWidth={2}
           fill="url(#conversionStackedGradient)"
           name="Conversion Distribution"
@@ -1127,8 +1143,8 @@ const SimpleStackedChart = memo(({ data, visibleMetrics, shouldShowPredictionLin
                 cx={props.cx}
                 cy={props.cy}
                 r={isPrediction && showPredictions ? 2 : 3}
-                fill={isPrediction ? COLOR_SCHEME.forecast.conversion : COLOR_SCHEME.historical.conversion}
-                stroke={isPrediction ? COLOR_SCHEME.forecast.conversion : COLOR_SCHEME.historical.conversion}
+                fill={isPrediction ? UNIFIED_COLOR_SCHEME.forecast.conversion : UNIFIED_COLOR_SCHEME.historical.conversion}
+                stroke={isPrediction ? UNIFIED_COLOR_SCHEME.forecast.conversion : UNIFIED_COLOR_SCHEME.historical.conversion}
                 strokeWidth={isPrediction ? 1 : 2}
                 opacity={isPrediction ? 0.7 : 1}
               />
@@ -1142,10 +1158,18 @@ const SimpleStackedChart = memo(({ data, visibleMetrics, shouldShowPredictionLin
         <ReferenceLine
           x={predictionDate}
           stroke="#9333ea"
-          strokeWidth={2}
-          strokeDasharray="8 4"
-          opacity={0.8}
-          label={{ value: "AI Forecasts", position: "top" }}
+          strokeWidth={3}
+          strokeDasharray="10 5"
+          opacity={0.9}
+          label={{ 
+            value: "🔮 AI Forecasts →", 
+            position: "top",
+            style: { 
+              fontSize: '12px', 
+              fontWeight: 600,
+              fill: '#9333ea'
+            }
+          }}
         />
       )}
     </AreaChart>
@@ -1253,7 +1277,7 @@ const SimpleBarChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, p
           shape={(props: any) => {
             const { payload } = props;
             const isPrediction = payload?.isPrediction;
-            const fill = isPrediction ? COLOR_SCHEME.forecast.revenue : COLOR_SCHEME.historical.revenue;
+            const fill = isPrediction ? UNIFIED_COLOR_SCHEME.forecast.revenue : UNIFIED_COLOR_SCHEME.historical.revenue;
             const opacity = isPrediction ? 0.7 : 0.9;
             return (
               <rect
@@ -1282,7 +1306,7 @@ const SimpleBarChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, p
           shape={(props: any) => {
             const { payload } = props;
             const isPrediction = payload?.isPrediction;
-            const fill = isPrediction ? COLOR_SCHEME.forecast.orders : COLOR_SCHEME.historical.orders;
+            const fill = isPrediction ? UNIFIED_COLOR_SCHEME.forecast.orders : UNIFIED_COLOR_SCHEME.historical.orders;
             const opacity = isPrediction ? 0.7 : 0.9;
             return (
               <rect
@@ -1311,7 +1335,7 @@ const SimpleBarChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, p
           shape={(props: any) => {
             const { payload } = props;
             const isPrediction = payload?.isPrediction;
-            const fill = isPrediction ? COLOR_SCHEME.forecast.conversion : COLOR_SCHEME.historical.conversion;
+            const fill = isPrediction ? UNIFIED_COLOR_SCHEME.forecast.conversion : UNIFIED_COLOR_SCHEME.historical.conversion;
             const opacity = isPrediction ? 0.7 : 0.9;
             return (
               <rect
@@ -1474,9 +1498,9 @@ const ChartLegend: React.FC<{ visibleMetrics: any; onToggle: (metric: 'revenue' 
   showPredictions
 }) => {
   const legendItems = [
-    { key: 'revenue', label: 'Revenue', color: COLOR_SCHEME.historical.revenue, icon: '💰' },
-    { key: 'orders', label: 'Orders', color: COLOR_SCHEME.historical.orders, icon: '📦' },
-    { key: 'conversion', label: 'Conversion Rate', color: COLOR_SCHEME.historical.conversion, icon: '📈' },
+    { key: 'revenue', label: 'Revenue', color: UNIFIED_COLOR_SCHEME.historical.revenue, icon: '💰' },
+    { key: 'orders', label: 'Orders', color: UNIFIED_COLOR_SCHEME.historical.orders, icon: '📦' },
+    { key: 'conversion', label: 'Conversion Rate', color: UNIFIED_COLOR_SCHEME.historical.conversion, icon: '📈' },
   ];
 
   return (
@@ -1494,7 +1518,7 @@ const ChartLegend: React.FC<{ visibleMetrics: any; onToggle: (metric: 'revenue' 
                     width: 6,
                     height: 6,
                     borderRadius: '50%',
-                    backgroundColor: COLOR_SCHEME.forecast[item.key as keyof typeof COLOR_SCHEME.forecast],
+                    backgroundColor: UNIFIED_COLOR_SCHEME.forecast[item.key as keyof typeof UNIFIED_COLOR_SCHEME.forecast],
                     ml: 0.5,
                   }}
                 />

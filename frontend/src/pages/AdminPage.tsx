@@ -88,6 +88,7 @@ import { useAuth } from '../context/AuthContext';
 import { styled } from '@mui/material/styles';
 import { useNotifications } from '../hooks/useNotifications';
 import EnhancedHealthSummary from '../components/ui/EnhancedHealthSummary';
+import { getSessionStatus } from '../utils/sessionUtils';
 import DiffViewerDialog from '../components/ui/DiffViewerDialog';
 import TransactionMonitoring from '../components/ui/TransactionMonitoring';
 
@@ -210,16 +211,31 @@ const StyledTable = styled(Table)(({ theme }) => ({
 }));
 
 const DeviceIcon = ({ userAgent }: { userAgent: string }) => {
-  const ua = userAgent?.toLowerCase() || '';
+  const deviceType = getDeviceType(userAgent);
   
-  if (ua.includes('mobile') || ua.includes('android') || ua.includes('iphone')) {
-    return <PhoneIcon fontSize="small" sx={{ color: 'primary.main' }} />;
-  } else if (ua.includes('tablet') || ua.includes('ipad')) {
-    return <TabletIcon fontSize="small" sx={{ color: 'secondary.main' }} />;
-  } else if (ua.includes('mac')) {
-    return <DesktopIcon fontSize="small" sx={{ color: 'warning.main' }} />;
-  } else {
-    return <ComputerIcon fontSize="small" sx={{ color: 'info.main' }} />;
+  switch (deviceType) {
+    case 'iPhone':
+      return <PhoneIcon fontSize="small" sx={{ color: 'primary.main' }} />;
+    case 'iPad':
+      return <TabletIcon fontSize="small" sx={{ color: 'secondary.main' }} />;
+    case 'Android Phone':
+      return <PhoneIcon fontSize="small" sx={{ color: 'success.main' }} />;
+    case 'Android Tablet':
+      return <TabletIcon fontSize="small" sx={{ color: 'success.main' }} />;
+    case 'Mobile':
+      return <PhoneIcon fontSize="small" sx={{ color: 'primary.main' }} />;
+    case 'Tablet':
+      return <TabletIcon fontSize="small" sx={{ color: 'secondary.main' }} />;
+    case 'Desktop': {
+      const ua = userAgent?.toLowerCase() || '';
+      if (ua.includes('mac')) {
+        return <DesktopIcon fontSize="small" sx={{ color: 'warning.main' }} />;
+      } else {
+        return <ComputerIcon fontSize="small" sx={{ color: 'info.main' }} />;
+      }
+    }
+    default:
+      return <ComputerIcon fontSize="small" sx={{ color: 'text.secondary' }} />;
   }
 };
 
@@ -242,13 +258,39 @@ const getDeviceType = (userAgent: string) => {
   
   const ua = userAgent.toLowerCase();
   
-  if (ua.includes('mobile') || ua.includes('android') || ua.includes('iphone')) {
-    return 'Mobile';
-  } else if (ua.includes('tablet') || ua.includes('ipad')) {
-    return 'Tablet';
-  } else {
-    return 'Desktop';
+  // Enhanced iPad detection - iPads often don't include 'mobile' in user agent
+  if (ua.includes('ipad') || 
+      (ua.includes('macintosh') && ua.includes('safari') && 'ontouchend' in document)) {
+    return 'iPad';
   }
+  
+  // iPhone detection
+  if (ua.includes('iphone')) {
+    return 'iPhone';
+  }
+  
+  // Android tablet detection
+  if (ua.includes('android') && !ua.includes('mobile')) {
+    return 'Android Tablet';
+  }
+  
+  // Android phone detection
+  if (ua.includes('android') && ua.includes('mobile')) {
+    return 'Android Phone';
+  }
+  
+  // Generic mobile detection
+  if (ua.includes('mobile') || ua.includes('phone')) {
+    return 'Mobile';
+  }
+  
+  // Generic tablet detection
+  if (ua.includes('tablet')) {
+    return 'Tablet';
+  }
+  
+  // Desktop detection
+  return 'Desktop';
 };
 
 interface ActiveShop {
@@ -947,16 +989,61 @@ const AdminPage: React.FC = () => {
                 <AssessmentIcon color="primary" />
                 Multi-Session Statistics
               </Typography>
+              
+              {/* Current Session Info */}
+              {(() => {
+                const currentSession = getSessionStatus();
+                return currentSession.sessionInfo ? (
+                  <Alert severity="info" sx={{ mb: 3, borderRadius: 2 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
+                      🔧 Current Admin Session
+                    </Typography>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, fontSize: '0.875rem' }}>
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">Session ID:</Typography>
+                        <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                          {currentSession.sessionInfo.sessionId?.substring(0, 8)}...
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">Shop:</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                          {currentSession.sessionInfo.shop || 'Admin Console'}
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">Last Heartbeat:</Typography>
+                        <Typography variant="body2">
+                          {currentSession.lastHeartbeat 
+                            ? new Date(currentSession.lastHeartbeat).toLocaleTimeString()
+                            : 'N/A'
+                          }
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">Status:</Typography>
+                        <Chip 
+                          label={currentSession.isActive ? "Active" : "Inactive"} 
+                          color={currentSession.isActive ? "success" : "error"} 
+                          size="small" 
+                          sx={{ height: 20, fontSize: '0.75rem' }}
+                        />
+                      </Box>
+                    </Box>
+                  </Alert>
+                ) : null;
+              })()}
+              
               <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr 1fr' }, gap: 3 }}>
-                <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'white', borderRadius: 2 }}>
+                <Paper sx={{ p: 3, textAlign: 'center', bgcolor: 'white', borderRadius: 2, minHeight: 120, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                   <Typography variant="h4" color="primary.main" fontWeight="bold">
                     {sessionStats.currentlyActiveSessions || 0}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     Active Sessions
                   </Typography>
-      </Paper>
-                <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'white', borderRadius: 2 }}>
+                </Paper>
+                <Paper sx={{ p: 3, textAlign: 'center', bgcolor: 'white', borderRadius: 2, minHeight: 120, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                   <Typography variant="h4" color="secondary.main" fontWeight="bold">
                     {sessionStats.shopsWithMultipleSessions || 0}
                   </Typography>
@@ -964,7 +1051,7 @@ const AdminPage: React.FC = () => {
                     Multi-Session Shops
                   </Typography>
                 </Paper>
-                <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'white', borderRadius: 2 }}>
+                <Paper sx={{ p: 3, textAlign: 'center', bgcolor: 'white', borderRadius: 2, minHeight: 120, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                   <Typography variant="h4" color="success.main" fontWeight="bold">
                     {sessionStats.averageSessionsPerShop || 0}
                   </Typography>
@@ -972,7 +1059,7 @@ const AdminPage: React.FC = () => {
                     Avg Sessions/Shop
                   </Typography>
                 </Paper>
-                <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'white', borderRadius: 2 }}>
+                <Paper sx={{ p: 3, textAlign: 'center', bgcolor: 'white', borderRadius: 2, minHeight: 120, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                   <Typography variant="h4" color="info.main" fontWeight="bold">
                     {sessionStats.sessionsActiveLastDay || 0}
                   </Typography>

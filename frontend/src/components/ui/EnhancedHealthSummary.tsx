@@ -10,7 +10,9 @@ import {
   CardContent,
   LinearProgress,
   Tooltip,
-  IconButton
+  IconButton,
+  Button,
+  Stack
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
@@ -20,9 +22,13 @@ import DatabaseIcon from '@mui/icons-material/Storage';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import SpeedIcon from '@mui/icons-material/Speed';
 import TimerIcon from '@mui/icons-material/Timer';
+import ClearIcon from '@mui/icons-material/Clear';
+import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import HealthAndSafetyIcon from '@mui/icons-material/HealthAndSafety';
 import { getHealthSummary } from '../../api/index';
 import { useServiceStatus } from '../../context/ServiceStatusContext';
 import { debugLog } from './DebugPanel';
+import { useNotifications } from '../../hooks/useNotifications';
 
 interface DatabaseMetrics {
   activeConnections: number;
@@ -214,6 +220,7 @@ const EnhancedHealthSummary: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { isServiceAvailable } = useServiceStatus();
+  const { addNotification } = useNotifications();
 
   const fetchDatabaseDetails = async () => {
     try {
@@ -316,6 +323,38 @@ const EnhancedHealthSummary: React.FC = () => {
     return new Date(timestamp).toLocaleTimeString();
   };
 
+  const handleClearCache = async () => {
+    try {
+      const response = await fetch('/api/analytics/cache/invalidate?force=true', {
+        method: 'POST',
+        credentials: 'include'
+      });
+      if (response.ok) {
+        addNotification('Cache cleared successfully', 'success');
+        await fetchMetrics(); // Refresh health data
+      }
+    } catch (e: any) {
+      debugLog.warn('Failed to clear cache:', e.message, 'EnhancedHealthSummary');
+      addNotification('Failed to clear cache', 'error');
+    }
+  };
+
+  const handleForceRedisCheck = async () => {
+    try {
+      const response = await fetch('/api/health/redis/check', {
+        method: 'POST',
+        credentials: 'include'
+      });
+      if (response.ok) {
+        addNotification('Redis health check completed', 'success');
+        await fetchMetrics(); // Refresh health data
+      }
+    } catch (e: any) {
+      debugLog.warn('Failed to force Redis check:', e.message, 'EnhancedHealthSummary');
+      addNotification('Failed to force Redis check', 'error');
+    }
+  };
+
   return (
     <Paper sx={{ p: 3, mb: 3, borderRadius: 3, bgcolor: 'grey.50' }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
@@ -383,6 +422,25 @@ const EnhancedHealthSummary: React.FC = () => {
           Monitoring: Real-time database pool status
         </Typography>
       </Box>
+
+             <Box display="flex" justifyContent="flex-end" gap={2} mt={2}>
+         <Button
+           variant="outlined"
+           color="error"
+           startIcon={<ClearIcon />}
+           onClick={handleClearCache}
+         >
+           Clear Cache
+         </Button>
+         <Button
+           variant="outlined"
+           color="primary"
+           startIcon={<HealthAndSafetyIcon />}
+           onClick={handleForceRedisCheck}
+         >
+           Force Redis Check
+         </Button>
+       </Box>
     </Paper>
   );
 };
