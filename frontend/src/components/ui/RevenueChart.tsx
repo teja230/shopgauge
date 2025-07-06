@@ -106,7 +106,7 @@ const EnhancedClassicTooltip: React.FC<TooltipProps<RevenuePoint>> = ({ active, 
           }}
         />
         <Typography variant="body2" fontWeight={600}>
-          ${value.toLocaleString()}
+          📊 Recent Data: ${value.toLocaleString()}
         </Typography>
       </Box>
     </Paper>
@@ -801,11 +801,53 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
       <Box sx={{ 
         flex: 1,
         minHeight: responsiveHeight - (isMobile ? 100 : 140), // Account for header height, less on mobile
+        overflow: isMobile ? 'auto' : 'hidden', // Enable horizontal scroll on mobile
+        minWidth: isMobile ? '650px' : 'auto', // Set minimum width on mobile to prevent cutoff
+        '&::-webkit-scrollbar': {
+          height: '8px',
+        },
+        '&::-webkit-scrollbar-track': {
+          backgroundColor: 'rgba(0,0,0,0.05)',
+          borderRadius: '4px',
+        },
+        '&::-webkit-scrollbar-thumb': {
+          backgroundColor: 'rgba(0,0,0,0.2)',
+          borderRadius: '4px',
+          '&:hover': {
+            backgroundColor: 'rgba(0,0,0,0.3)',
+          },
+        },
+        // Enhanced mobile chart styles
+        ...(isMobile && {
+          '& .recharts-cartesian-axis-tick-value': {
+            fontSize: '10px !important',
+          },
+          '& .recharts-legend-wrapper': {
+            fontSize: '11px !important',
+          },
+          '& .recharts-tooltip-wrapper': {
+            fontSize: '12px !important',
+          },
+        }),
       }}>
         {containerReady && (
           <ResponsiveContainer width="100%" height={responsiveHeight - (isMobile ? 100 : 140)}>
             {renderChart()}
           </ResponsiveContainer>
+        )}
+        {isMobile && (
+          <Typography 
+            variant="caption" 
+            color="text.secondary" 
+            sx={{ 
+              fontStyle: 'italic', 
+              mt: 1, 
+              display: 'block', 
+              textAlign: 'center' 
+            }}
+          >
+            💡 Scroll horizontally to view full chart
+          </Typography>
         )}
       </Box>
     </Box>
