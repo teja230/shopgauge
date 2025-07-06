@@ -65,14 +65,21 @@ const StyledDialog = styled(Dialog)(({ theme }) => ({
   '& .MuiDialog-paper': {
     borderRadius: 20,
     minWidth: 500,
-    maxWidth: 600,
-    width: '90vw',
-    maxHeight: '85vh',
+    maxWidth: 700,
+    width: '95vw',
+    maxHeight: '90vh',
+    [theme.breakpoints.down('md')]: {
+      minWidth: 400,
+      maxWidth: 600,
+      width: '92vw',
+    },
     [theme.breakpoints.down('sm')]: {
-      margin: theme.spacing(2),
-      width: `calc(100vw - ${theme.spacing(4)})`,
+      margin: theme.spacing(1),
+      width: `calc(100vw - ${theme.spacing(2)})`,
       maxWidth: 'none',
       borderRadius: 16,
+      minWidth: 'auto',
+      maxHeight: '95vh',
     },
   },
 }));
