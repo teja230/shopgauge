@@ -826,7 +826,8 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
         ref={chartRef}
         sx={{ 
           flex: 1,
-          minHeight: responsiveHeight - (isMobile ? 120 : 160), // Account for header and insights height
+          minHeight: responsiveHeight - (isMobile ? 180 : 200), // Adjust account for header and insights height
+          maxHeight: responsiveHeight - (isMobile ? 180 : 200), // Prevent excessive height
           overflow: isMobile ? 'auto' : 'hidden', // Enable horizontal scroll on mobile
           minWidth: isMobile ? '650px' : 'auto', // Set minimum width on mobile to prevent cutoff
         '&::-webkit-scrollbar': {
@@ -857,7 +858,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
         }),
       }}>
         {containerReady && (
-          <ResponsiveContainer width="100%" height={responsiveHeight - (isMobile ? 120 : 160)}>
+          <ResponsiveContainer width="100%" height={responsiveHeight - (isMobile ? 180 : 200)}>
             {renderChart()}
           </ResponsiveContainer>
         )}
@@ -867,9 +868,10 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
             color="text.secondary" 
             sx={{ 
               fontStyle: 'italic', 
-              mt: 1, 
+              mt: 0.5, 
               display: 'block', 
-              textAlign: 'center' 
+              textAlign: 'center',
+              fontSize: '0.7rem',
             }}
           >
             💡 Scroll horizontally to view full chart

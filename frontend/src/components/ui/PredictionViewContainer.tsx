@@ -713,9 +713,52 @@ const PredictionViewContainer = memo(({
         </ToggleButtonGroup>
 
         {/* Chart */}
-        <ChartContainer ref={chartRef}>
-          {renderChart()}
-        </ChartContainer>
+        <Box sx={{ 
+          flex: 1, 
+          position: 'relative',
+          overflow: isMobile ? 'auto' : 'hidden', // Enable horizontal scroll on mobile
+          '&::-webkit-scrollbar': {
+            height: '8px',
+          },
+          '&::-webkit-scrollbar-track': {
+            backgroundColor: 'rgba(0,0,0,0.05)',
+            borderRadius: '4px',
+          },
+          '&::-webkit-scrollbar-thumb': {
+            backgroundColor: 'rgba(0,0,0,0.2)',
+            borderRadius: '4px',
+            '&:hover': {
+              backgroundColor: 'rgba(0,0,0,0.3)',
+            },
+          },
+        }}>
+          <Box sx={{ 
+            minWidth: isMobile ? '650px' : 'auto', // Set minimum width on mobile to prevent cutoff
+            height: '100%',
+            width: '100%',
+          }}>
+            {renderChart()}
+          </Box>
+          
+          {/* Mobile scroll hint */}
+          {isMobile && (
+            <Box sx={{
+              position: 'absolute',
+              bottom: 8,
+              right: 8,
+              backgroundColor: 'rgba(0,0,0,0.6)',
+              color: 'white',
+              px: 1,
+              py: 0.5,
+              borderRadius: 1,
+              fontSize: '0.75rem',
+              pointerEvents: 'none',
+              zIndex: 1,
+            }}>
+              💡 Scroll horizontally
+            </Box>
+          )}
+        </Box>
       </CardContent>
       
       {/* Share Modal */}

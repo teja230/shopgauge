@@ -166,12 +166,14 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
           stroke="rgba(0, 0, 0, 0.6)"
           tick={{ fontSize: 11, fill: 'rgba(0, 0, 0, 0.7)' }}
           axisLine={{ stroke: 'rgba(0, 0, 0, 0.2)' }}
+          label={{ value: 'Date', position: 'insideBottom', offset: -5, style: { textAnchor: 'middle', fontSize: 12, fill: 'rgba(0, 0, 0, 0.7)' } }}
         />
         <YAxis
           tickFormatter={(value) => `${value.toFixed(1)}%`}
           stroke="rgba(0, 0, 0, 0.6)"
           tick={{ fontSize: 11, fill: 'rgba(0, 0, 0, 0.7)' }}
           axisLine={{ stroke: 'rgba(0, 0, 0, 0.2)' }}
+          label={{ value: 'Conversion Rate (%)', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fontSize: 12, fill: 'rgba(0, 0, 0, 0.7)' } }}
         />
         <RechartsTooltip
           labelFormatter={(label) => {
@@ -190,7 +192,7 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
           formatter={(value: number, name: string, props: any) => {
             const isPrediction = props.payload?.isPrediction;
             const prefix = isPrediction ? '🔮 Forecast: ' : '📊 Actual: ';
-            return [`${prefix}${value.toFixed(2)}%`, name];
+            return [`${prefix}${value.toFixed(2)}%`, 'Conversion Rate'];
           }}
           contentStyle={{
             backgroundColor: 'rgba(255, 255, 255, 0.95)',
@@ -482,23 +484,67 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
       case 'candlestick':
         return (
           <ComposedChart {...commonProps}>
+            <defs>
+              <linearGradient id="conversionCandlestickHistoricalGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
+                <stop offset="95%" stopColor="#10b981" stopOpacity={0.6} />
+              </linearGradient>
+              <linearGradient id="conversionCandlestickForecastGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#6ee7b7" stopOpacity={0.6} />
+                <stop offset="95%" stopColor="#6ee7b7" stopOpacity={0.3} />
+              </linearGradient>
+            </defs>
             {commonElements}
             <Bar
               dataKey="conversion_rate"
               name="Conversion Rate"
-              fill="#10b981"
               radius={[2, 2, 0, 0]}
-              opacity={0.8}
               isAnimationActive={false}
+              shape={(props: any) => {
+                const { payload } = props;
+                const isPrediction = payload?.isPrediction;
+                const fill = isPrediction ? "url(#conversionCandlestickForecastGradient)" : "url(#conversionCandlestickHistoricalGradient)";
+                const opacity = isPrediction ? 0.7 : 0.9;
+                const strokeDasharray = isPrediction ? "2,2" : "";
+                return (
+                  <rect
+                    x={props.x}
+                    y={props.y}
+                    width={props.width}
+                    height={props.height}
+                    fill={fill}
+                    opacity={opacity}
+                    rx={2}
+                    ry={2}
+                    stroke={isPrediction ? "#6ee7b7" : "#10b981"}
+                    strokeWidth={isPrediction ? 1 : 0}
+                    strokeDasharray={strokeDasharray}
+                  />
+                );
+              }}
             />
             <Line
               type="monotone"
               dataKey="conversion_rate"
               stroke="#6b7280"
               strokeWidth={1}
-              dot={false}
               connectNulls={false}
               isAnimationActive={false}
+              dot={(props: any) => {
+                const { payload } = props;
+                const isPrediction = payload?.isPrediction;
+                return (
+                  <circle
+                    cx={props.cx}
+                    cy={props.cy}
+                    r={isPrediction ? 2 : 3}
+                    fill={isPrediction ? "#6ee7b7" : "#10b981"}
+                    stroke={isPrediction ? "#6ee7b7" : "#10b981"}
+                    strokeWidth={1}
+                    opacity={isPrediction ? 0.8 : 1}
+                  />
+                );
+              }}
             />
           </ComposedChart>
         );
@@ -506,13 +552,44 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
       case 'waterfall':
         return (
           <ComposedChart {...commonProps}>
+            <defs>
+              <linearGradient id="conversionWaterfallHistoricalGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.8} />
+                <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.6} />
+              </linearGradient>
+              <linearGradient id="conversionWaterfallForecastGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#fbbf24" stopOpacity={0.6} />
+                <stop offset="95%" stopColor="#fbbf24" stopOpacity={0.3} />
+              </linearGradient>
+            </defs>
             {commonElements}
             <Bar
               dataKey="conversion_rate"
               name="Conversion Rate"
-              fill="#f59e0b"
               radius={[2, 2, 0, 0]}
               isAnimationActive={false}
+              shape={(props: any) => {
+                const { payload } = props;
+                const isPrediction = payload?.isPrediction;
+                const fill = isPrediction ? "url(#conversionWaterfallForecastGradient)" : "url(#conversionWaterfallHistoricalGradient)";
+                const opacity = isPrediction ? 0.7 : 0.9;
+                const strokeDasharray = isPrediction ? "2,2" : "";
+                return (
+                  <rect
+                    x={props.x}
+                    y={props.y}
+                    width={props.width}
+                    height={props.height}
+                    fill={fill}
+                    opacity={opacity}
+                    rx={2}
+                    ry={2}
+                    stroke={isPrediction ? "#fbbf24" : "#f59e0b"}
+                    strokeWidth={isPrediction ? 1 : 0}
+                    strokeDasharray={strokeDasharray}
+                  />
+                );
+              }}
             />
           </ComposedChart>
         );
@@ -520,48 +597,120 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
       case 'stacked':
         return (
           <AreaChart {...commonProps}>
+            <defs>
+              <linearGradient id="conversionStackedHistoricalGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.8} />
+                <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.4} />
+              </linearGradient>
+              <linearGradient id="conversionStackedForecastGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#c4b5fd" stopOpacity={0.6} />
+                <stop offset="95%" stopColor="#c4b5fd" stopOpacity={0.2} />
+              </linearGradient>
+            </defs>
             {commonElements}
             <Area
               type="monotone"
               dataKey="conversion_rate"
               stackId="1"
               stroke="#8b5cf6"
-              fill="#8b5cf6"
-              fillOpacity={0.6}
+              strokeWidth={2}
+              fill="url(#conversionStackedHistoricalGradient)"
+              name="Conversion Rate"
+              connectNulls={false}
               isAnimationActive={false}
+              dot={(props: any) => {
+                const { payload } = props;
+                const isPrediction = payload?.isPrediction;
+                return (
+                  <circle
+                    cx={props.cx}
+                    cy={props.cy}
+                    r={isPrediction ? 2 : 3}
+                    fill={isPrediction ? "#c4b5fd" : "#8b5cf6"}
+                    stroke={isPrediction ? "#c4b5fd" : "#8b5cf6"}
+                    strokeWidth={1}
+                    opacity={isPrediction ? 0.8 : 1}
+                  />
+                );
+              }}
             />
-            <Area
-              type="monotone"
-              dataKey="confidence_min"
-              stackId="2"
-              stroke="#8b5cf6"
-              fill="#8b5cf6"
-              fillOpacity={0.3}
-              isAnimationActive={false}
-            />
+            {/* Add overlay for forecast region */}
+            {showPredictions && predictionStartDate && (
+              <ReferenceArea
+                x1={predictionStartDate}
+                x2={processedData[processedData.length - 1]?.date}
+                fill="url(#conversionStackedForecastGradient)"
+                fillOpacity={0.3}
+                strokeWidth={0}
+              />
+            )}
           </AreaChart>
         );
 
       case 'composed':
         return (
           <ComposedChart {...commonProps}>
+            <defs>
+              <linearGradient id="conversionComposedHistoricalGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#ef4444" stopOpacity={0.8} />
+                <stop offset="95%" stopColor="#ef4444" stopOpacity={0.6} />
+              </linearGradient>
+              <linearGradient id="conversionComposedForecastGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#fca5a5" stopOpacity={0.6} />
+                <stop offset="95%" stopColor="#fca5a5" stopOpacity={0.3} />
+              </linearGradient>
+            </defs>
             {commonElements}
             <Bar
               dataKey="conversion_rate"
               name="Conversion Rate"
-              fill="#ef4444"
               radius={[2, 2, 0, 0]}
-              opacity={0.7}
               isAnimationActive={false}
+              shape={(props: any) => {
+                const { payload } = props;
+                const isPrediction = payload?.isPrediction;
+                const fill = isPrediction ? "url(#conversionComposedForecastGradient)" : "url(#conversionComposedHistoricalGradient)";
+                const opacity = isPrediction ? 0.7 : 0.9;
+                const strokeDasharray = isPrediction ? "2,2" : "";
+                return (
+                  <rect
+                    x={props.x}
+                    y={props.y}
+                    width={props.width}
+                    height={props.height}
+                    fill={fill}
+                    opacity={opacity}
+                    rx={2}
+                    ry={2}
+                    stroke={isPrediction ? "#fca5a5" : "#ef4444"}
+                    strokeWidth={isPrediction ? 1 : 0}
+                    strokeDasharray={strokeDasharray}
+                  />
+                );
+              }}
             />
             <Line
               type="monotone"
               dataKey="conversion_rate"
               stroke="#ef4444"
               strokeWidth={2}
-              dot={false}
               connectNulls={false}
               isAnimationActive={false}
+              dot={(props: any) => {
+                const { payload } = props;
+                const isPrediction = payload?.isPrediction;
+                return (
+                  <circle
+                    cx={props.cx}
+                    cy={props.cy}
+                    r={isPrediction ? 2 : 3}
+                    fill={isPrediction ? "#fca5a5" : "#ef4444"}
+                    stroke={isPrediction ? "#fca5a5" : "#ef4444"}
+                    strokeWidth={1}
+                    opacity={isPrediction ? 0.8 : 1}
+                  />
+                );
+              }}
             />
           </ComposedChart>
         );
@@ -636,7 +785,7 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
           color: theme.palette.text.primary,
         }}>
           <AutoAwesome color="secondary" fontSize="small" />
-          Conversion Forecast
+          {showPredictions ? 'Conversion Forecast' : 'Conversion'}
         </Typography>
         
         {/* Chart Type Toggle */}

@@ -189,12 +189,14 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
           stroke="rgba(0, 0, 0, 0.6)"
           tick={{ fontSize: 11, fill: 'rgba(0, 0, 0, 0.7)' }}
           axisLine={{ stroke: 'rgba(0, 0, 0, 0.2)' }}
+          label={{ value: 'Date', position: 'insideBottom', offset: -5, style: { textAnchor: 'middle', fontSize: 12, fill: 'rgba(0, 0, 0, 0.7)' } }}
         />
         <YAxis
           tickFormatter={(value) => Math.round(value).toString()}
           stroke="rgba(0, 0, 0, 0.6)"
           tick={{ fontSize: 11, fill: 'rgba(0, 0, 0, 0.7)' }}
           axisLine={{ stroke: 'rgba(0, 0, 0, 0.2)' }}
+          label={{ value: 'Orders Count', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fontSize: 12, fill: 'rgba(0, 0, 0, 0.7)' } }}
         />
         <RechartsTooltip
           labelFormatter={(label) => {
@@ -213,7 +215,8 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
           formatter={(value: number, name: string, props: any) => {
             const isPrediction = props.payload?.isPrediction;
             const prefix = isPrediction ? '🔮 Forecast: ' : '📊 Actual: ';
-            return [`${prefix}${Math.round(value)} orders`, name];
+            // Always show consistent label regardless of dataKey
+            return [`${prefix}${Math.round(value)} orders`, 'Orders'];
           }}
           contentStyle={{
             backgroundColor: 'rgba(255, 255, 255, 0.95)',
@@ -507,23 +510,67 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
       case 'candlestick':
         return (
           <ComposedChart {...commonProps}>
+            <defs>
+              <linearGradient id="ordersCandlestickHistoricalGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
+                <stop offset="95%" stopColor="#10b981" stopOpacity={0.6} />
+              </linearGradient>
+              <linearGradient id="ordersCandlestickForecastGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#6ee7b7" stopOpacity={0.6} />
+                <stop offset="95%" stopColor="#6ee7b7" stopOpacity={0.3} />
+              </linearGradient>
+            </defs>
             {commonElements}
             <Bar
               dataKey="orders_count"
               name="Orders"
-              fill="#10b981"
               radius={[2, 2, 0, 0]}
-              opacity={0.8}
               isAnimationActive={false}
+              shape={(props: any) => {
+                const { payload } = props;
+                const isPrediction = payload?.isPrediction;
+                const fill = isPrediction ? "url(#ordersCandlestickForecastGradient)" : "url(#ordersCandlestickHistoricalGradient)";
+                const opacity = isPrediction ? 0.7 : 0.9;
+                const strokeDasharray = isPrediction ? "2,2" : "";
+                return (
+                  <rect
+                    x={props.x}
+                    y={props.y}
+                    width={props.width}
+                    height={props.height}
+                    fill={fill}
+                    opacity={opacity}
+                    rx={2}
+                    ry={2}
+                    stroke={isPrediction ? "#6ee7b7" : "#10b981"}
+                    strokeWidth={isPrediction ? 1 : 0}
+                    strokeDasharray={strokeDasharray}
+                  />
+                );
+              }}
             />
             <Line
               type="monotone"
               dataKey="orders_count"
               stroke="#6b7280"
               strokeWidth={1}
-              dot={false}
               connectNulls={false}
               isAnimationActive={false}
+              dot={(props: any) => {
+                const { payload } = props;
+                const isPrediction = payload?.isPrediction;
+                return (
+                  <circle
+                    cx={props.cx}
+                    cy={props.cy}
+                    r={isPrediction ? 2 : 3}
+                    fill={isPrediction ? "#6ee7b7" : "#10b981"}
+                    stroke={isPrediction ? "#6ee7b7" : "#10b981"}
+                    strokeWidth={1}
+                    opacity={isPrediction ? 0.8 : 1}
+                  />
+                );
+              }}
             />
           </ComposedChart>
         );
@@ -531,13 +578,44 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
       case 'waterfall':
         return (
           <ComposedChart {...commonProps}>
+            <defs>
+              <linearGradient id="ordersWaterfallHistoricalGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.8} />
+                <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.6} />
+              </linearGradient>
+              <linearGradient id="ordersWaterfallForecastGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#fbbf24" stopOpacity={0.6} />
+                <stop offset="95%" stopColor="#fbbf24" stopOpacity={0.3} />
+              </linearGradient>
+            </defs>
             {commonElements}
             <Bar
               dataKey="orders_count"
               name="Orders"
-              fill="#f59e0b"
               radius={[2, 2, 0, 0]}
               isAnimationActive={false}
+              shape={(props: any) => {
+                const { payload } = props;
+                const isPrediction = payload?.isPrediction;
+                const fill = isPrediction ? "url(#ordersWaterfallForecastGradient)" : "url(#ordersWaterfallHistoricalGradient)";
+                const opacity = isPrediction ? 0.7 : 0.9;
+                const strokeDasharray = isPrediction ? "2,2" : "";
+                return (
+                  <rect
+                    x={props.x}
+                    y={props.y}
+                    width={props.width}
+                    height={props.height}
+                    fill={fill}
+                    opacity={opacity}
+                    rx={2}
+                    ry={2}
+                    stroke={isPrediction ? "#fbbf24" : "#f59e0b"}
+                    strokeWidth={isPrediction ? 1 : 0}
+                    strokeDasharray={strokeDasharray}
+                  />
+                );
+              }}
             />
           </ComposedChart>
         );
@@ -545,48 +623,120 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
       case 'stacked':
         return (
           <AreaChart {...commonProps}>
+            <defs>
+              <linearGradient id="ordersStackedHistoricalGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.8} />
+                <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.4} />
+              </linearGradient>
+              <linearGradient id="ordersStackedForecastGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#c4b5fd" stopOpacity={0.6} />
+                <stop offset="95%" stopColor="#c4b5fd" stopOpacity={0.2} />
+              </linearGradient>
+            </defs>
             {commonElements}
             <Area
               type="monotone"
               dataKey="orders_count"
               stackId="1"
               stroke="#8b5cf6"
-              fill="#8b5cf6"
-              fillOpacity={0.6}
+              strokeWidth={2}
+              fill="url(#ordersStackedHistoricalGradient)"
+              name="Orders"
+              connectNulls={false}
               isAnimationActive={false}
+              dot={(props: any) => {
+                const { payload } = props;
+                const isPrediction = payload?.isPrediction;
+                return (
+                  <circle
+                    cx={props.cx}
+                    cy={props.cy}
+                    r={isPrediction ? 2 : 3}
+                    fill={isPrediction ? "#c4b5fd" : "#8b5cf6"}
+                    stroke={isPrediction ? "#c4b5fd" : "#8b5cf6"}
+                    strokeWidth={1}
+                    opacity={isPrediction ? 0.8 : 1}
+                  />
+                );
+              }}
             />
-            <Area
-              type="monotone"
-              dataKey="confidence_min"
-              stackId="2"
-              stroke="#8b5cf6"
-              fill="#8b5cf6"
-              fillOpacity={0.3}
-              isAnimationActive={false}
-            />
+            {/* Add overlay for forecast region */}
+            {showPredictions && predictionStartDate && (
+              <ReferenceArea
+                x1={predictionStartDate}
+                x2={processedData.combined[processedData.combined.length - 1]?.date}
+                fill="url(#ordersStackedForecastGradient)"
+                fillOpacity={0.3}
+                strokeWidth={0}
+              />
+            )}
           </AreaChart>
         );
 
       case 'composed':
         return (
           <ComposedChart {...commonProps}>
+            <defs>
+              <linearGradient id="ordersComposedHistoricalGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#ef4444" stopOpacity={0.8} />
+                <stop offset="95%" stopColor="#ef4444" stopOpacity={0.6} />
+              </linearGradient>
+              <linearGradient id="ordersComposedForecastGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#fca5a5" stopOpacity={0.6} />
+                <stop offset="95%" stopColor="#fca5a5" stopOpacity={0.3} />
+              </linearGradient>
+            </defs>
             {commonElements}
             <Bar
               dataKey="orders_count"
               name="Orders"
-              fill="#ef4444"
               radius={[2, 2, 0, 0]}
-              opacity={0.7}
               isAnimationActive={false}
+              shape={(props: any) => {
+                const { payload } = props;
+                const isPrediction = payload?.isPrediction;
+                const fill = isPrediction ? "url(#ordersComposedForecastGradient)" : "url(#ordersComposedHistoricalGradient)";
+                const opacity = isPrediction ? 0.7 : 0.9;
+                const strokeDasharray = isPrediction ? "2,2" : "";
+                return (
+                  <rect
+                    x={props.x}
+                    y={props.y}
+                    width={props.width}
+                    height={props.height}
+                    fill={fill}
+                    opacity={opacity}
+                    rx={2}
+                    ry={2}
+                    stroke={isPrediction ? "#fca5a5" : "#ef4444"}
+                    strokeWidth={isPrediction ? 1 : 0}
+                    strokeDasharray={strokeDasharray}
+                  />
+                );
+              }}
             />
             <Line
               type="monotone"
               dataKey="orders_count"
               stroke="#ef4444"
               strokeWidth={2}
-              dot={false}
               connectNulls={false}
               isAnimationActive={false}
+              dot={(props: any) => {
+                const { payload } = props;
+                const isPrediction = payload?.isPrediction;
+                return (
+                  <circle
+                    cx={props.cx}
+                    cy={props.cy}
+                    r={isPrediction ? 2 : 3}
+                    fill={isPrediction ? "#fca5a5" : "#ef4444"}
+                    stroke={isPrediction ? "#fca5a5" : "#ef4444"}
+                    strokeWidth={1}
+                    opacity={isPrediction ? 0.8 : 1}
+                  />
+                );
+              }}
             />
           </ComposedChart>
         );
@@ -661,7 +811,7 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
           color: theme.palette.text.primary,
         }}>
           <AutoAwesome color="secondary" fontSize="small" />
-          Order Forecast
+          {showPredictions ? 'Order Forecast' : 'Orders'}
         </Typography>
         
         {/* Chart Type Toggle */}
