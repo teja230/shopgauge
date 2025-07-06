@@ -573,9 +573,15 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
           </ComposedChart>
         );
 
-      case 'stacked':
+      case 'stacked': {
+        // Process data for stacked chart - calculate change values for second area
+        const stackedData = processedData.combined.map((item, index) => ({
+          ...item,
+          orders_change: index > 0 ? Math.max(0, item.orders_count - processedData.combined[index - 1].orders_count) : 0
+        }));
+
         return (
-          <AreaChart {...commonProps}>
+          <AreaChart {...commonProps} data={stackedData}>
             <defs>
               <linearGradient id="ordersStackedHistoricalGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.8} />
@@ -621,12 +627,7 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
             {/* Secondary stacked area for order changes/growth (like Classic View) */}
             <Area
               type="monotone"
-              dataKey="orders_count"
-              data={processedData.combined.map((item, index) => ({
-                ...item,
-                // Calculate change from previous day for stacking effect
-                orders_count: index > 0 ? Math.max(0, item.orders_count - processedData.combined[index - 1].orders_count) : 0
-              }))}
+              dataKey="orders_change"
               stackId="2"
               stroke="#10b981"
               strokeWidth={1}
@@ -648,6 +649,7 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
             )}
           </AreaChart>
         );
+      }
 
       default:
         return (

@@ -541,6 +541,7 @@ export const revenueChartTypes = {
   area: { icon: 'Timeline', label: 'Area', description: 'Revenue area chart' },
   bar: { icon: 'BarChart', label: 'Bar', description: 'Daily revenue bars' },
   waterfall: { icon: 'WaterfallChart', label: 'Waterfall', description: 'Cumulative revenue flow' },
+  stacked: { icon: 'StackedLineChart', label: 'Stacked', description: 'Revenue growth layers' },
   composed: { icon: 'Analytics', label: 'Composed', description: 'Multi-layer revenue view' },
 };
 
@@ -556,6 +557,7 @@ export const conversionChartTypes = {
   line: { icon: 'ShowChart', label: 'Line', description: 'Conversion rate trend' },
   area: { icon: 'Timeline', label: 'Area', description: 'Conversion rate area' },
   bar: { icon: 'BarChart', label: 'Bar', description: 'Daily conversion bars' },
-  composed: { icon: 'Analytics', label: 'Composed', description: 'Multi-metric conversion view' },
   waterfall: { icon: 'WaterfallChart', label: 'Waterfall', description: 'Conversion funnel flow' },
+  stacked: { icon: 'StackedLineChart', label: 'Stacked', description: 'Conversion growth layers' },
+  composed: { icon: 'Analytics', label: 'Composed', description: 'Multi-metric conversion view' },
 }; 

@@ -90,7 +90,7 @@ interface RevenuePredictionChartProps {
   showPredictions?: boolean;
 }
 
-type ChartType = 'line' | 'area' | 'bar' | 'waterfall' | 'composed';
+type ChartType = 'line' | 'area' | 'bar' | 'waterfall' | 'stacked' | 'composed';
 
 // Use unified color scheme for consistency across all charts
 
@@ -116,6 +116,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
     area: { icon: <Timeline />, label: 'Area', color: UNIFIED_COLOR_SCHEME.historical.revenue },
     bar: { icon: <BarChartIcon />, label: 'Bar', color: UNIFIED_COLOR_SCHEME.historical.revenue },
     waterfall: { icon: <WaterfallChart />, label: 'Waterfall', color: '#f59e0b' },
+    stacked: { icon: <StackedLineChart />, label: 'Stacked', color: '#8b5cf6' },
     composed: { icon: <Analytics />, label: 'Composed', color: '#ef4444' },
   };
   // Process data for rendering - separate historical and forecast data properly
@@ -537,23 +538,34 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
           </AreaChart>
         );
 
-      case 'waterfall':
+      case 'waterfall': {
+        // Process data for waterfall chart - calculate change and cumulative values
+        const waterfallData = processedData.combined.map((item, index) => {
+          const change = index > 0 ? item.revenue - processedData.combined[index - 1].revenue : item.revenue;
+          const cumulative = processedData.combined.slice(0, index + 1).reduce((sum, d) => sum + d.revenue, 0) / (index + 1);
+          return {
+            ...item,
+            change,
+            cumulative,
+          };
+        });
+
         return (
-          <ComposedChart {...commonProps}>
+          <ComposedChart {...commonProps} data={waterfallData}>
             <defs>
               <linearGradient id="waterfallHistoricalGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.8} />
-                <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.6} />
+                <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
+                <stop offset="95%" stopColor="#10b981" stopOpacity={0.6} />
               </linearGradient>
               <linearGradient id="waterfallForecastGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#fbbf24" stopOpacity={0.6} />
-                <stop offset="95%" stopColor="#fbbf24" stopOpacity={0.3} />
+                <stop offset="5%" stopColor="#34d399" stopOpacity={0.6} />
+                <stop offset="95%" stopColor="#34d399" stopOpacity={0.3} />
               </linearGradient>
             </defs>
             {commonElements}
             {/* Bars for change/difference values (like Classic View) */}
             <Bar
-              dataKey="revenue"
+              dataKey="change"
               name="Revenue Change"
               radius={[2, 2, 0, 0]}
               isAnimationActive={false}
@@ -561,7 +573,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
                 const { payload } = props;
                 const isPrediction = payload?.isPrediction;
                 const fill = isPrediction ? "url(#waterfallForecastGradient)" : "url(#waterfallHistoricalGradient)";
-                const opacity = isPrediction ? 0.7 : 0.9;
+                const opacity = isPrediction ? 0.7 : 0.8;
                 return (
                   <rect
                     x={props.x}
@@ -579,10 +591,9 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
             {/* Cumulative line (like Classic View) */}
             <Line
               type="monotone"
-              dataKey="revenue"
+              dataKey="cumulative"
               stroke="#f59e0b"
               strokeWidth={2}
-              strokeDasharray={showPredictions ? "2,2" : ""}
               dot={(props: any) => {
                 const { payload } = props;
                 const isPrediction = payload?.isPrediction;
@@ -602,6 +613,85 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
             />
           </ComposedChart>
         );
+      }
+
+      case 'stacked': {
+        // Process data for stacked chart - calculate change values for second area
+        const stackedData = processedData.combined.map((item, index) => ({
+          ...item,
+          revenue_change: index > 0 ? Math.max(0, item.revenue - processedData.combined[index - 1].revenue) : 0
+        }));
+
+        return (
+          <AreaChart {...commonProps} data={stackedData}>
+            <defs>
+              <linearGradient id="revenueStackedHistoricalGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={UNIFIED_COLOR_SCHEME.historical.revenue} stopOpacity={0.3} />
+                <stop offset="95%" stopColor={UNIFIED_COLOR_SCHEME.historical.revenue} stopOpacity={0.05} />
+              </linearGradient>
+              <linearGradient id="revenueStackedForecastGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={UNIFIED_COLOR_SCHEME.forecast.revenue} stopOpacity={0.3} />
+                <stop offset="95%" stopColor={UNIFIED_COLOR_SCHEME.forecast.revenue} stopOpacity={0.05} />
+              </linearGradient>
+              <linearGradient id="revenueChangeGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
+                <stop offset="95%" stopColor="#10b981" stopOpacity={0.05} />
+              </linearGradient>
+            </defs>
+            {commonElements}
+            {/* Primary revenue area (like Classic View) */}
+            <Area
+              type="monotone"
+              dataKey="revenue"
+              stackId="1"
+              stroke={UNIFIED_COLOR_SCHEME.historical.revenue}
+              strokeWidth={2}
+              fill="url(#revenueStackedHistoricalGradient)"
+              name="Revenue"
+              connectNulls={false}
+              isAnimationActive={false}
+              dot={(props: any) => {
+                const { payload } = props;
+                const isPrediction = payload?.isPrediction;
+                return (
+                  <circle
+                    cx={props.cx}
+                    cy={props.cy}
+                    r={isPrediction ? 2.5 : 3}
+                    fill={isPrediction ? UNIFIED_COLOR_SCHEME.forecast.revenue : UNIFIED_COLOR_SCHEME.historical.revenue}
+                    stroke={isPrediction ? UNIFIED_COLOR_SCHEME.forecast.revenue : UNIFIED_COLOR_SCHEME.historical.revenue}
+                    strokeWidth={isPrediction ? 1 : 2}
+                    opacity={isPrediction ? 0.8 : 1}
+                  />
+                );
+              }}
+            />
+            {/* Secondary stacked area for revenue changes/growth (like Classic View) */}
+            <Area
+              type="monotone"
+              dataKey="revenue_change"
+              stackId="2"
+              stroke="#10b981"
+              strokeWidth={1}
+              fill="url(#revenueChangeGradient)"
+              name="Revenue Growth"
+              connectNulls={false}
+              isAnimationActive={false}
+            />
+            {/* Prediction separator line */}
+            {showPredictions && predictionStartDate && (
+              <ReferenceLine
+                x={predictionStartDate}
+                stroke={UNIFIED_COLOR_SCHEME.forecast.revenue}
+                strokeWidth={2}
+                strokeDasharray="8 4"
+                opacity={0.8}
+                label={{ value: "🔮 Forecasts", position: "top" }}
+              />
+            )}
+          </AreaChart>
+        );
+      }
 
       case 'composed':
         return (
