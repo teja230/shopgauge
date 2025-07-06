@@ -67,7 +67,6 @@ public interface ShopSessionRepository extends JpaRepository<ShopSession, Long> 
 
   /** Update last accessed time for a session */
   @Modifying
-  @Transactional
   @Query(
       "UPDATE ShopSession ss SET ss.lastAccessedAt = CURRENT_TIMESTAMP, ss.updatedAt = CURRENT_TIMESTAMP WHERE ss.sessionId = :sessionId")
   void updateLastAccessedTime(@Param("sessionId") String sessionId);
