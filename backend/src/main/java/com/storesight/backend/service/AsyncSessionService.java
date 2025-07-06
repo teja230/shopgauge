@@ -1,6 +1,11 @@
 package com.storesight.backend.service;
 
 import com.storesight.backend.repository.ShopSessionRepository;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -8,12 +13,6 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 
 /**
  * Asynchronous session management service to handle session updates without blocking main request
@@ -26,7 +25,7 @@ import java.util.stream.Collectors;
 public class AsyncSessionService {
 
   private static final Logger logger = LoggerFactory.getLogger(AsyncSessionService.class);
-  
+
   // Throttling configuration to reduce database load
   private static final int UPDATE_THROTTLE_MINUTES = 5; // Only update every 5 minutes
   private final Map<String, LocalDateTime> lastUpdateTimes = new ConcurrentHashMap<>();
@@ -39,9 +38,9 @@ public class AsyncSessionService {
   }
 
   /**
-   * Asynchronously update session last accessed time with throttling
-   * This method runs in a separate thread pool to avoid blocking main requests and uses its own 
-   * transaction context to prevent read-only transaction violations.
+   * Asynchronously update session last accessed time with throttling This method runs in a separate
+   * thread pool to avoid blocking main requests and uses its own transaction context to prevent
+   * read-only transaction violations.
    *
    * @param sessionId The session ID to update
    */
@@ -57,39 +56,38 @@ public class AsyncSessionService {
 
       // Perform the update
       shopSessionRepository.updateLastAccessedTime(sessionId);
-      
+
       // Record the update time for throttling
       lastUpdateTimes.put(sessionId, LocalDateTime.now());
       logger.debug("Updated last accessed time for session: {}", sessionId);
     } catch (Exception e) {
-      logger.warn("Failed to update session last accessed time for session {}: {}", 
-                  sessionId, e.getMessage());
+      logger.warn(
+          "Failed to update session last accessed time for session {}: {}",
+          sessionId,
+          e.getMessage());
     }
   }
 
-  /**
-   * Check if we should throttle the session update to reduce database load
-   */
+  /** Check if we should throttle the session update to reduce database load */
   private boolean shouldThrottleUpdate(String sessionId) {
     LocalDateTime lastUpdate = lastUpdateTimes.get(sessionId);
     if (lastUpdate == null) {
       return false; // First update, allow it
     }
-    
+
     LocalDateTime now = LocalDateTime.now();
     return now.isBefore(lastUpdate.plusMinutes(UPDATE_THROTTLE_MINUTES));
   }
 
-  /**
-   * Batch update multiple sessions at once to reduce database calls
-   */
+  /** Batch update multiple sessions at once to reduce database calls */
   @Async
   @Transactional(timeout = 10)
   public void batchUpdateSessionsAsync(List<String> sessionIds) {
     try {
-      List<String> sessionsToUpdate = sessionIds.stream()
-          .filter(sessionId -> !shouldThrottleUpdate(sessionId))
-          .collect(Collectors.toList());
+      List<String> sessionsToUpdate =
+          sessionIds.stream()
+              .filter(sessionId -> !shouldThrottleUpdate(sessionId))
+              .collect(Collectors.toList());
 
       if (sessionsToUpdate.isEmpty()) {
         logger.debug("No sessions need updating due to throttling");
@@ -102,16 +100,14 @@ public class AsyncSessionService {
         shopSessionRepository.updateLastAccessedTime(sessionId);
         lastUpdateTimes.put(sessionId, now);
       }
-      
+
       logger.debug("Batch updated {} sessions", sessionsToUpdate.size());
     } catch (Exception e) {
       logger.warn("Failed to batch update sessions: {}", e.getMessage());
     }
   }
 
-  /**
-   * Perform session heartbeat with optimized database access
-   */
+  /** Perform session heartbeat with optimized database access */
   @Async
   @Transactional(timeout = 5)
   public void performSessionHeartbeatAsync(String sessionId, String shopDomain) {
@@ -127,9 +123,7 @@ public class AsyncSessionService {
     }
   }
 
-  /**
-   * Clean up old throttling entries to prevent memory leaks
-   */
+  /** Clean up old throttling entries to prevent memory leaks */
   @Scheduled(fixedRate = 3600000) // Run every hour
   public void cleanupThrottlingCache() {
     LocalDateTime cutoff = LocalDateTime.now().minusHours(1);

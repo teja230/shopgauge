@@ -438,34 +438,44 @@ public class NotificationService {
           List<String> shops = notificationRepository.findDistinctShops();
           for (String shop : shops) {
             List<Notification> readNotifications =
-                notificationRepository.findByShopAndReadTrueAndDeletedFalseOrderByCreatedAtDesc(shop);
+                notificationRepository.findByShopAndReadTrueAndDeletedFalseOrderByCreatedAtDesc(
+                    shop);
             if (readNotifications.size() > maxReadNotifications) {
-              List<String> idsToDelete = readNotifications.stream()
-                  .skip(maxReadNotifications)
-                  .map(Notification::getId)
-                  .collect(java.util.stream.Collectors.toList());
-              
+              List<String> idsToDelete =
+                  readNotifications.stream()
+                      .skip(maxReadNotifications)
+                      .map(Notification::getId)
+                      .collect(java.util.stream.Collectors.toList());
+
               // Bulk delete excess read notifications
               notificationRepository.deleteByIds(idsToDelete);
               deletedCount += idsToDelete.size();
-              log.info("Bulk deleted {} excess read notifications for shop: {}", idsToDelete.size(), shop);
+              log.info(
+                  "Bulk deleted {} excess read notifications for shop: {}",
+                  idsToDelete.size(),
+                  shop);
             }
           }
 
           // Cleanup unread notifications beyond max limit per shop
           for (String shop : shops) {
             List<Notification> unreadNotifications =
-                notificationRepository.findByShopAndReadFalseAndDeletedFalseOrderByCreatedAtDesc(shop);
+                notificationRepository.findByShopAndReadFalseAndDeletedFalseOrderByCreatedAtDesc(
+                    shop);
             if (unreadNotifications.size() > maxUnreadNotifications) {
-              List<String> idsToDelete = unreadNotifications.stream()
-                  .skip(maxUnreadNotifications)
-                  .map(Notification::getId)
-                  .collect(java.util.stream.Collectors.toList());
-              
+              List<String> idsToDelete =
+                  unreadNotifications.stream()
+                      .skip(maxUnreadNotifications)
+                      .map(Notification::getId)
+                      .collect(java.util.stream.Collectors.toList());
+
               // Bulk delete excess unread notifications
               notificationRepository.deleteByIds(idsToDelete);
               deletedCount += idsToDelete.size();
-              log.info("Bulk deleted {} excess unread notifications for shop: {}", idsToDelete.size(), shop);
+              log.info(
+                  "Bulk deleted {} excess unread notifications for shop: {}",
+                  idsToDelete.size(),
+                  shop);
             }
           }
 
@@ -475,22 +485,24 @@ public class NotificationService {
 
   /** Bulk delete notifications by IDs */
   public Mono<Void> bulkDeleteNotifications(List<String> notificationIds) {
-    return Mono.fromRunnable(() -> {
-      if (notificationIds != null && !notificationIds.isEmpty()) {
-        notificationRepository.deleteByIds(notificationIds);
-        log.info("Bulk deleted {} notifications", notificationIds.size());
-      }
-    });
+    return Mono.fromRunnable(
+        () -> {
+          if (notificationIds != null && !notificationIds.isEmpty()) {
+            notificationRepository.deleteByIds(notificationIds);
+            log.info("Bulk deleted {} notifications", notificationIds.size());
+          }
+        });
   }
 
   /** Bulk soft delete notifications by IDs */
   public Mono<Void> bulkSoftDeleteNotifications(List<String> notificationIds) {
-    return Mono.fromRunnable(() -> {
-      if (notificationIds != null && !notificationIds.isEmpty()) {
-        notificationRepository.softDeleteByIds(notificationIds);
-        log.info("Bulk soft deleted {} notifications", notificationIds.size());
-      }
-    });
+    return Mono.fromRunnable(
+        () -> {
+          if (notificationIds != null && !notificationIds.isEmpty()) {
+            notificationRepository.softDeleteByIds(notificationIds);
+            log.info("Bulk soft deleted {} notifications", notificationIds.size());
+          }
+        });
   }
 
   /** Scheduled cleanup task - runs daily at 2 AM */
