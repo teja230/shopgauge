@@ -378,6 +378,11 @@ const AdminPage: React.FC = () => {
   const [deletedShopsLoading, setDeletedShopsLoading] = useState(false);
   const [deletedShopsError, setDeletedShopsError] = useState<string | null>(null);
 
+  // Emergency mode state
+  const [emergencyMode, setEmergencyMode] = useState(false);
+  const [emergencyStatus, setEmergencyStatus] = useState<any>(null);
+  const [emergencyLoading, setEmergencyLoading] = useState(false);
+
   // Diff viewer state (must be at top level for React rules-of-hooks)
   const [diffOpen, setDiffOpen] = useState(false);
   const [diffBefore, setDiffBefore] = useState('');
@@ -455,6 +460,33 @@ const AdminPage: React.FC = () => {
     }
 
     return response.json();
+  };
+
+  // Emergency mode fetch - uses different endpoints when database is unavailable
+  const fetchEmergencyEndpoint = async (url: string, options: RequestInit = {}) => {
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.shopgaugeai.com';
+    const fullUrl = `${API_BASE_URL}/api/admin/emergency${url}`;
+    
+    try {
+      const response = await fetch(fullUrl, {
+        ...options,
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          ...options.headers,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Emergency endpoint failed: HTTP ${response.status}`);
+      }
+
+      return response.json();
+    } catch (error) {
+      console.error('Emergency endpoint failed:', error);
+      throw error;
+    }
   };
 
   // Check for existing session on mount
@@ -696,11 +728,71 @@ const AdminPage: React.FC = () => {
     } catch (err) {
       console.error('Error fetching audit logs:', err);
       const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
-      setAuditError(`Failed to fetch audit logs: ${errorMessage}`);
+      
+      // Check if this might be a connection pool issue
+      if (errorMessage.includes('HTTP 503') || errorMessage.includes('HTTP 500')) {
+        setEmergencyMode(true);
+        setAuditError(`Database connection issue detected. Switching to emergency mode. Error: ${errorMessage}`);
+        checkEmergencyStatus();
+      } else {
+        setAuditError(`Failed to fetch audit logs: ${errorMessage}`);
+      }
       setAuditLogs([]);
       setAuditTotalCount(0);
     } finally {
       setAuditLoading(false);
+    }
+  };
+
+  // Emergency mode functions
+  const checkEmergencyStatus = async () => {
+    try {
+      setEmergencyLoading(true);
+      const status = await fetchEmergencyEndpoint('/status');
+      setEmergencyStatus(status);
+      setEmergencyMode(status.emergencyMode || false);
+      
+      if (status.emergencyMode) {
+        showError('⚠️ CRITICAL: Connection pool exhausted - Emergency admin mode activated');
+      }
+    } catch (error) {
+      console.error('Emergency status check failed:', error);
+      setEmergencyMode(true); // Assume emergency mode if we can't check
+      showError('Unable to check system status - assuming emergency mode');
+    } finally {
+      setEmergencyLoading(false);
+    }
+  };
+
+  const performEmergencyCleanup = async () => {
+    try {
+      setEmergencyLoading(true);
+      const result = await fetchEmergencyEndpoint('/cleanup-connections', { method: 'POST' });
+      
+      if (result.cleanupPerformed) {
+        showSuccess('✅ Emergency connection cleanup completed');
+        // Re-check status after cleanup
+        setTimeout(() => {
+          checkEmergencyStatus();
+        }, 3000);
+      } else {
+        showError('❌ Emergency cleanup failed: ' + result.message);
+      }
+    } catch (error) {
+      console.error('Emergency cleanup failed:', error);
+      showError('❌ Emergency cleanup failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    } finally {
+      setEmergencyLoading(false);
+    }
+  };
+
+  const getSystemResources = async () => {
+    try {
+      const resources = await fetchEmergencyEndpoint('/system-resources');
+      return resources;
+    } catch (error) {
+      console.error('System resources check failed:', error);
+      throw error;
     }
   };
 
@@ -746,6 +838,9 @@ const AdminPage: React.FC = () => {
       } else if (auditLogType === 'deleted') {
         fetchDeletedShops();
       }
+      
+      // Check for emergency mode on page load
+      checkEmergencyStatus();
     }
   }, [auditPage, auditRowsPerPage, auditLogType, isAuthenticated]);
 
@@ -981,6 +1076,101 @@ const AdminPage: React.FC = () => {
 
           {/* Enhanced Health Summary - Only show for non-monitoring tabs */}
           {auditLogType !== 'monitoring' && <EnhancedHealthSummary />}
+
+          {/* Emergency Mode Alert and Controls */}
+          {emergencyMode && (
+            <Alert 
+              severity="error" 
+              sx={{ 
+                mb: 3, 
+                borderRadius: 2,
+                border: '2px solid #d32f2f',
+                '& .MuiAlert-message': {
+                  fontSize: '1rem'
+                }
+              }}
+              action={
+                <Stack direction="row" spacing={1}>
+                  <Button 
+                    color="inherit" 
+                    size="small" 
+                    onClick={checkEmergencyStatus}
+                    disabled={emergencyLoading}
+                    startIcon={<RefreshIcon />}
+                  >
+                    Check Status
+                  </Button>
+                  <Button 
+                    color="inherit" 
+                    size="small" 
+                    onClick={performEmergencyCleanup}
+                    disabled={emergencyLoading}
+                    startIcon={<SettingsIcon />}
+                  >
+                    Emergency Cleanup
+                  </Button>
+                </Stack>
+              }
+            >
+              <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, color: '#d32f2f' }}>
+                🚨 EMERGENCY MODE ACTIVE
+              </Typography>
+              <Typography variant="body1" sx={{ mb: 2 }}>
+                Connection pool exhausted - Database operations limited. Emergency admin functions available.
+              </Typography>
+              
+              {emergencyStatus && (
+                <Box sx={{ mt: 2, p: 2, bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 1 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                    System Status:
+                  </Typography>
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">Pool Status:</Typography>
+                      <Chip 
+                        label={emergencyStatus.poolStatus} 
+                        color={emergencyStatus.poolStatus === 'CRITICAL' ? 'error' : 'warning'} 
+                        size="small" 
+                        sx={{ ml: 1 }}
+                      />
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">Active Connections:</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 500, ml: 1 }}>
+                        {emergencyStatus.database?.activeConnections || 'N/A'} / {emergencyStatus.database?.maxPoolSize || 'N/A'}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">Memory Usage:</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 500, ml: 1 }}>
+                        {emergencyStatus.jvmMemory?.usedPercentage || 'N/A'}%
+                      </Typography>
+                    </Box>
+                  </Stack>
+                  
+                  {emergencyStatus.recommendations && (
+                    <Box sx={{ mt: 2 }}>
+                      <Typography variant="caption" color="text.secondary">Recommendations:</Typography>
+                      <List dense sx={{ mt: 1 }}>
+                        {emergencyStatus.recommendations.map((rec: string, index: number) => (
+                          <Typography key={index} variant="body2" sx={{ fontSize: '0.85rem', ml: 2 }}>
+                            • {rec}
+                          </Typography>
+                        ))}
+                      </List>
+                    </Box>
+                  )}
+                </Box>
+              )}
+              
+              {emergencyLoading && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 2 }}>
+                  <CircularProgress size={16} />
+                  <Typography variant="body2">Processing emergency operation...</Typography>
+                </Box>
+              )}
+            </Alert>
+          )}
 
           {/* Session Statistics Card */}
           {sessionStats && auditLogType === 'active' && (
@@ -1405,8 +1595,8 @@ const AdminPage: React.FC = () => {
                   </Typography>
                   {deletedShopsError}
                 </Alert>
-                  ) : (
-                    <>
+              ) : (
+                <>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                     Showing {deletedShops.length} deleted shops
                   </Typography>
@@ -1531,9 +1721,9 @@ const AdminPage: React.FC = () => {
                                   {shop.action || 'DELETED'}
                                 </Typography>
                               </Box>
-                </TableCell>
-              </TableRow>
-            ))}
+                            </TableCell>
+                          </TableRow>
+                        ))}
                         {deletedShops.length === 0 && (
                           <TableRow>
                             <TableCell colSpan={7} sx={{ textAlign: 'center', py: 8 }}>
@@ -1593,7 +1783,7 @@ const AdminPage: React.FC = () => {
                     Unable to Load Audit Logs
                   </Typography>
                   {auditError}
-        </Alert>
+                </Alert>
               ) : (
                 <>
                   <TableContainer sx={{ borderRadius: 2, border: '1px solid #e0e0e0' }}>
