@@ -5,10 +5,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.task.TaskExecutor;
-import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
@@ -16,14 +14,12 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 /**
  * Backend configuration for StoreSignt application
  *
- * <p>Features: - Async processing configuration for session management - Thread pool configuration
- * for background tasks
+ * <p>This configuration class provides beans and settings for the backend services including
+ * database configuration, caching, and async task execution.
  */
 @Configuration
 @EnableScheduling
 @EnableAsync
-@ComponentScan(basePackages = "com.storesight.backend")
-@EnableJpaRepositories(basePackages = "com.storesight.backend.repository")
 public class BackendConfig {
 
   private static final Logger logger = LoggerFactory.getLogger(BackendConfig.class);
