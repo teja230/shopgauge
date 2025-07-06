@@ -9,7 +9,7 @@
 [![Redis](https://img.shields.io/badge/Redis-7+-red.svg)](https://redis.io/)
 
 ShopGauge is a comprehensive, enterprise-grade analytics and competitor intelligence platform designed specifically for
-Shopify merchants. It provides AI-powered revenue forecasting, professional shareable charts, 9 advanced chart types, intelligent data visualization, automated competitor discovery, and enterprise-grade team collaboration with comprehensive compliance features.
+Shopify merchants. It provides AI-powered revenue forecasting, professional shareable charts, 3 advanced chart types, intelligent data visualization, automated competitor discovery, and enterprise-grade team collaboration with comprehensive compliance features.
 
 ## 🚀 Key Features
 
@@ -17,7 +17,7 @@ Shopify merchants. It provides AI-powered revenue forecasting, professional shar
 
 - **Revenue Forecasting**: Advanced AI algorithms predict revenue trends 7-60 days ahead with confidence intervals and statistical accuracy
 - **Order Prediction**: Intelligent forecasting for order volumes and conversion rates with trend analysis
-- **9 Advanced Chart Types**: Line, Area, Bar, Candlestick, Waterfall, Stacked, Composed, Combined, and Revenue-Focus charts
+- **3 Advanced Chart Types**: Area, Line, and Bar charts with predictive analytics
 - **Intelligent Color Separation**: Visual distinction between historical data (blue/green/amber) and forecast data (purple/pink/orange)
 - **Professional Chart Templates**: Executive, Investor, Marketing, Social Celebration, and Minimal Professional templates
 - **High-Resolution Exports**: PNG, PDF, and social media-ready formats with automated branding
@@ -34,7 +34,7 @@ Shopify merchants. It provides AI-powered revenue forecasting, professional shar
 
 ### 📊 **Advanced Analytics Dashboard**
 
-- **Unified Analytics & Real-Time Revenue Tracking**: Live sales data with 9 chart types (Area, Bar, Candlestick, Waterfall, Stacked, Composed, Line, Combined, Revenue-Focus) plus AI-powered 7-60 day forecasts with confidence bands
+- **Unified Analytics & Real-Time Revenue Tracking**: Live sales data with 3 chart types (Area, Line, Bar) plus AI-powered 7-60 day forecasts with confidence bands
 - **Professional Shareable Charts**: Export charts as high-resolution PNG images or professional PDF reports with branded templates
 - **Enhanced Mobile Experience**: Optimized chart loading and responsive design for seamless mobile analytics
 - **Intelligent Data Visualization**: Clear color separation between historical and forecast data for intuitive insights
