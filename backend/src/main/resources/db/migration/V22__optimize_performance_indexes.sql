@@ -44,10 +44,6 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_shop_sessions_heartbeat
 ON shop_sessions(session_id, last_accessed_at) 
 WHERE is_active = true;
 
--- Statistics update to help query planner
-ANALYZE shop_sessions;
-ANALYZE notifications;
-
 -- Add comments for documentation
 COMMENT ON INDEX idx_shop_sessions_session_id_covering IS 'Covering index for session ID lookups and updates';
 COMMENT ON INDEX idx_notifications_id_covering IS 'Covering index for notification ID operations';
