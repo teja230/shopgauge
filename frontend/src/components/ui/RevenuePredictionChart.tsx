@@ -282,22 +282,14 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
         
         {/* Stylish separator line between historical and predicted data - only show when predictions are enabled */}
         {showPredictions && separatorDate && (
-          <>
-            {/* Main separator line */}
-            <ReferenceLine
-              x={separatorDate}
-              stroke="#9333ea"
-              strokeWidth={2}
-              strokeDasharray="8 4"
-              opacity={0.8}
-              label={{ value: "Forecasts", position: "top" }}
-            />
-            {/* Subtle background highlight for prediction area */}
-            <ReferenceLine
-              x={separatorDate}
-              stroke="transparent"
-            />
-          </>
+          <ReferenceLine
+            x={separatorDate}
+            stroke="#9333ea"
+            strokeWidth={2}
+            strokeDasharray="8 4"
+            opacity={0.8}
+            label={{ value: "🔮 Forecasts", position: "insideTopRight", offset: 15 }}
+          />
         )}
       </>
     );
@@ -679,17 +671,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
               connectNulls={false}
               isAnimationActive={false}
             />
-            {/* Prediction separator line */}
-            {showPredictions && predictionStartDate && (
-              <ReferenceLine
-                x={predictionStartDate}
-                stroke={UNIFIED_COLOR_SCHEME.forecast.revenue}
-                strokeWidth={2}
-                strokeDasharray="8 4"
-                opacity={0.8}
-                label={{ value: "🔮 Forecasts", position: "top" }}
-              />
-            )}
+            {/* Prediction separator line - removed duplicate label since it's already in commonElements */}
           </AreaChart>
         );
       }
