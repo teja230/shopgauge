@@ -326,7 +326,7 @@ export default function ProfilePage() {
           if (response.ok) {
             const result = await response.json();
             console.log('✅ Backend cache cleared for store stats:', result);
-            notifications.showSuccess('🗑️ Backend cache cleared - loading fresh store data...', { duration: 2000 });
+            // Remove technical notification - users don't need backend details
           } else {
             console.warn('⚠️ Backend cache clearing failed, continuing with frontend refresh');
           }
@@ -339,10 +339,10 @@ export default function ProfilePage() {
       sessionStorage.removeItem(STORE_STATS_CACHE_KEY);
       await loadStoreStats(true);
       
-      notifications.showSuccess('✅ Store statistics updated with fresh data', { duration: 3000 });
+      notifications.showSuccess('Store statistics updated', { duration: 3000 });
     } catch (error) {
       console.error('Failed to refresh store stats:', error);
-      notifications.showError('❌ Failed to refresh store statistics', { duration: 3000 });
+      notifications.showError('Unable to update statistics. Please try again.', { duration: 3000 });
     }
   };
 
@@ -651,7 +651,7 @@ export default function ProfilePage() {
           if (response.ok) {
             const result = await response.json();
             console.log('✅ Backend cache cleared successfully:', result);
-            notifications.showSuccess('🗑️ Backend cache cleared successfully', { duration: 2000 });
+            // Remove technical notification
           } else {
             console.warn('⚠️ Backend cache clearing failed');
           }
@@ -666,9 +666,9 @@ export default function ProfilePage() {
       // Step 3: Clear Profile page cache
       sessionStorage.removeItem(STORE_STATS_CACHE_KEY);
       
-      notifications.showSuccess('✅ All caches cleared! Dashboard and Profile will show the latest information.', {
+      notifications.showSuccess('Data refreshed successfully', {
         category: 'Cache Management',
-        duration: 4000
+        duration: 3000
       });
       
       // Refresh store stats to show updated data
@@ -676,7 +676,7 @@ export default function ProfilePage() {
       
     } catch (error) {
       console.error('Failed to clear cache and refresh:', error);
-      notifications.showError('❌ Failed to clear cache', { duration: 3000 });
+      notifications.showError('Unable to refresh data. Please try again.', { duration: 3000 });
     }
   };
 
