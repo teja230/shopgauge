@@ -319,9 +319,9 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
   const predictionStartDate = processedData.find(d => d.isPrediction)?.date;
 
   const chartTypeConfig = {
-    line: { icon: <ShowChart />, label: 'Line', color: theme.palette.info.main },
-    area: { icon: <Timeline />, label: 'Area', color: theme.palette.info.main },
-    bar: { icon: <BarChartIcon />, label: 'Bar', color: theme.palette.info.main },
+    line: { icon: <ShowChart />, label: 'Line', color: UNIFIED_COLOR_SCHEME.historical.conversion },
+    area: { icon: <Timeline />, label: 'Area', color: UNIFIED_COLOR_SCHEME.historical.conversion },
+    bar: { icon: <BarChartIcon />, label: 'Bar', color: UNIFIED_COLOR_SCHEME.historical.conversion },
     waterfall: { icon: <WaterfallChart />, label: 'Waterfall', color: '#f59e0b' },
     stacked: { icon: <StackedLineChart />, label: 'Stacked', color: '#8b5cf6' },
     composed: { icon: <Analytics />, label: 'Composed', color: '#ef4444' },
@@ -695,30 +695,57 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
           </ComposedChart>
         );
 
-      case 'candlestick':
+      case 'candlestick': {
+        // Process data for candlestick chart - calculate OHLC values with better differentiation
+        const candlestickData = processedData.map((item, index) => {
+          const conversion = item.conversion_rate;
+          const prevConversion = index > 0 ? processedData[index - 1].conversion_rate : conversion;
+          const nextConversion = index < processedData.length - 1 ? processedData[index + 1].conversion_rate : conversion;
+          
+          // Calculate OHLC (Open, High, Low, Close) values with more variation
+          const open = prevConversion;
+          const close = conversion;
+          const high = Math.max(open, close, conversion * 1.05); // More variation for candlestick
+          const low = Math.min(open, close, conversion * 0.95);
+          
+          return {
+            ...item,
+            open,
+            high,
+            low,
+            close: conversion,
+            isPositive: close >= open,
+          };
+        });
+
         return (
-          <ComposedChart {...commonProps}>
+          <ComposedChart {...commonProps} data={candlestickData}>
             <defs>
-              <linearGradient id="conversionCandlestickHistoricalGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#ef4444" stopOpacity={0.8} />
-                <stop offset="95%" stopColor="#ef4444" stopOpacity={0.6} />
+              <linearGradient id="conversionCandlestickPositiveGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#10b981" stopOpacity={0.9} />
+                <stop offset="95%" stopColor="#10b981" stopOpacity={0.7} />
               </linearGradient>
-              <linearGradient id="conversionCandlestickForecastGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#fca5a5" stopOpacity={0.6} />
-                <stop offset="95%" stopColor="#fca5a5" stopOpacity={0.3} />
+              <linearGradient id="conversionCandlestickNegativeGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#ef4444" stopOpacity={0.9} />
+                <stop offset="95%" stopColor="#ef4444" stopOpacity={0.7} />
               </linearGradient>
             </defs>
             {commonElements}
+            {/* Candlestick bodies with clear positive/negative distinction */}
             <Bar
-              dataKey="conversion_rate"
+              dataKey="close"
               name="Conversion Rate"
-              radius={[2, 2, 0, 0]}
+              radius={[1, 1, 1, 1]}
               isAnimationActive={false}
               shape={(props: any) => {
                 const { payload } = props;
                 const isPrediction = payload?.isPrediction;
-                const fill = isPrediction ? "url(#conversionCandlestickForecastGradient)" : "url(#conversionCandlestickHistoricalGradient)";
-                const opacity = isPrediction ? 0.5 : 0.6;
+                const isPositive = payload?.isPositive;
+                const fill = isPrediction 
+                  ? (isPositive ? "#34d399" : "#fca5a5")
+                  : (isPositive ? "url(#conversionCandlestickPositiveGradient)" : "url(#conversionCandlestickNegativeGradient)");
+                const opacity = isPrediction ? 0.7 : 0.9;
+                
                 return (
                   <rect
                     x={props.x}
@@ -727,45 +754,47 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
                     height={props.height}
                     fill={fill}
                     opacity={opacity}
-                    rx={2}
-                    ry={2}
+                    stroke={isPositive ? "#10b981" : "#ef4444"}
+                    strokeWidth={isPrediction ? 2 : 1}
+                    strokeDasharray={isPrediction ? "3,3" : ""}
+                    rx={1}
+                    ry={1}
                   />
                 );
               }}
             />
+            {/* High-Low lines for candlestick wicks */}
             <Line
               type="monotone"
-              dataKey="conversion_rate"
-              stroke="#2563eb"
-              strokeWidth={2}
-              dot={(props: any) => {
-                const { payload } = props;
-                const isPrediction = payload?.isPrediction;
-                return (
-                  <circle
-                    cx={props.cx}
-                    cy={props.cy}
-                    r={isPrediction ? 2 : 3}
-                    fill={isPrediction ? "#93c5fd" : "#2563eb"}
-                    stroke={isPrediction ? "#93c5fd" : "#2563eb"}
-                    strokeWidth={2}
-                  />
-                );
-              }}
+              dataKey="high"
+              stroke="#6b7280"
+              strokeWidth={1}
+              dot={false}
               connectNulls={false}
               isAnimationActive={false}
             />
-            {/* Reference line for average */}
+            {/* Reference lines for support/resistance */}
             {processedData.length > 0 && (
               <ReferenceLine 
-                y={processedData.reduce((sum, d) => sum + d.conversion_rate, 0) / processedData.length}
-                stroke="#6b7280" 
-                strokeDasharray="3 3"
-                label={{ value: "Average", position: "insideTopRight" }}
+                y={Math.max(...processedData.map(d => d.conversion_rate))}
+                stroke="#10b981" 
+                strokeDasharray="5 5"
+                strokeOpacity={0.5}
+                label={{ value: "Resistance", position: "insideTopRight" }}
+              />
+            )}
+            {processedData.length > 0 && (
+              <ReferenceLine 
+                y={Math.min(...processedData.map(d => d.conversion_rate))}
+                stroke="#ef4444" 
+                strokeDasharray="5 5"
+                strokeOpacity={0.5}
+                label={{ value: "Support", position: "insideBottomRight" }}
               />
             )}
           </ComposedChart>
         );
+      }
 
       default:
         return (
@@ -850,6 +879,7 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
             backgroundColor: 'transparent',
             border: 'none',
             gap: 0.5,
+            padding: '4px',
             '& .MuiToggleButton-root': {
               border: '1px solid',
               borderColor: 'info.main',
@@ -862,14 +892,17 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
               fontSize: '0.875rem',
               fontWeight: 500,
               textTransform: 'none',
+              margin: '2px',
               '&:hover': {
                 backgroundColor: 'info.100',
                 borderColor: 'info.main',
+                transform: 'scale(1.02)',
               },
               '&.Mui-selected': {
                 backgroundColor: 'info.main',
                 color: 'info.contrastText',
                 borderColor: 'info.main',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
                 '&:hover': {
                   backgroundColor: 'info.dark',
                 },
@@ -878,6 +911,7 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
                 outline: '2px solid',
                 outlineColor: 'info.main',
                 outlineOffset: '2px',
+                zIndex: 1,
               },
               transition: 'all 0.2s ease-in-out',
             },
