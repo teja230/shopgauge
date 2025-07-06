@@ -72,7 +72,7 @@ interface ConversionPredictionChartProps {
   showPredictions?: boolean;
 }
 
-type ChartType = 'line' | 'area' | 'bar' | 'composed' | 'waterfall';
+type ChartType = 'line' | 'area' | 'bar' | 'waterfall' | 'stacked' | 'composed';
 
 // Use unified color scheme for consistency across all charts
 
@@ -322,8 +322,9 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
     line: { icon: <ShowChart />, label: 'Line', color: theme.palette.info.main },
     area: { icon: <Timeline />, label: 'Area', color: theme.palette.info.main },
     bar: { icon: <BarChartIcon />, label: 'Bar', color: theme.palette.info.main },
-    composed: { icon: <Analytics />, label: 'Composed', color: '#ef4444' },
     waterfall: { icon: <WaterfallChart />, label: 'Waterfall', color: '#f59e0b' },
+    stacked: { icon: <StackedLineChart />, label: 'Stacked', color: '#8b5cf6' },
+    composed: { icon: <Analytics />, label: 'Composed', color: '#ef4444' },
   };
 
   const renderChart = () => {
@@ -477,30 +478,42 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
           </AreaChart>
         );
 
-      case 'waterfall':
+      case 'waterfall': {
+        // Process data for waterfall chart - calculate change and cumulative values
+        const waterfallData = processedData.map((item, index) => {
+          const change = index > 0 ? item.conversion_rate - processedData[index - 1].conversion_rate : item.conversion_rate;
+          const cumulative = processedData.slice(0, index + 1).reduce((sum, d) => sum + d.conversion_rate, 0) / (index + 1);
+          return {
+            ...item,
+            change,
+            cumulative,
+          };
+        });
+
         return (
-          <ComposedChart {...commonProps}>
+          <ComposedChart {...commonProps} data={waterfallData}>
             <defs>
               <linearGradient id="conversionWaterfallHistoricalGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.8} />
-                <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.6} />
+                <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
+                <stop offset="95%" stopColor="#10b981" stopOpacity={0.6} />
               </linearGradient>
               <linearGradient id="conversionWaterfallForecastGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#fbbf24" stopOpacity={0.6} />
-                <stop offset="95%" stopColor="#fbbf24" stopOpacity={0.3} />
+                <stop offset="5%" stopColor="#34d399" stopOpacity={0.6} />
+                <stop offset="95%" stopColor="#34d399" stopOpacity={0.3} />
               </linearGradient>
             </defs>
             {commonElements}
+            {/* Bars for change/difference values (like Classic View) */}
             <Bar
-              dataKey="conversion_rate"
-              name="Conversion Rate"
+              dataKey="change"
+              name="Conversion Rate Change"
               radius={[2, 2, 0, 0]}
               isAnimationActive={false}
               shape={(props: any) => {
                 const { payload } = props;
                 const isPrediction = payload?.isPrediction;
                 const fill = isPrediction ? "url(#conversionWaterfallForecastGradient)" : "url(#conversionWaterfallHistoricalGradient)";
-                const opacity = isPrediction ? 0.7 : 0.9;
+                const opacity = isPrediction ? 0.7 : 0.8;
                 return (
                   <rect
                     x={props.x}
@@ -515,9 +528,10 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
                 );
               }}
             />
+            {/* Cumulative line (like Classic View) */}
             <Line
               type="monotone"
-              dataKey="conversion_rate"
+              dataKey="cumulative"
               stroke="#f59e0b"
               strokeWidth={2}
               dot={(props: any) => {
@@ -539,6 +553,85 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
             />
           </ComposedChart>
         );
+      }
+
+      case 'stacked': {
+        // Process data for stacked chart - calculate change values for second area
+        const stackedData = processedData.map((item, index) => ({
+          ...item,
+          conversion_change: index > 0 ? Math.max(0, item.conversion_rate - processedData[index - 1].conversion_rate) : 0
+        }));
+
+        return (
+          <AreaChart {...commonProps} data={stackedData}>
+            <defs>
+              <linearGradient id="conversionStackedHistoricalGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={UNIFIED_COLOR_SCHEME.historical.conversion} stopOpacity={0.3} />
+                <stop offset="95%" stopColor={UNIFIED_COLOR_SCHEME.historical.conversion} stopOpacity={0.05} />
+              </linearGradient>
+              <linearGradient id="conversionStackedForecastGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={UNIFIED_COLOR_SCHEME.forecast.conversion} stopOpacity={0.3} />
+                <stop offset="95%" stopColor={UNIFIED_COLOR_SCHEME.forecast.conversion} stopOpacity={0.05} />
+              </linearGradient>
+              <linearGradient id="conversionChangeGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
+                <stop offset="95%" stopColor="#10b981" stopOpacity={0.05} />
+              </linearGradient>
+            </defs>
+            {commonElements}
+            {/* Primary conversion area (like Classic View) */}
+            <Area
+              type="monotone"
+              dataKey="conversion_rate"
+              stackId="1"
+              stroke={UNIFIED_COLOR_SCHEME.historical.conversion}
+              strokeWidth={2}
+              fill="url(#conversionStackedHistoricalGradient)"
+              name="Conversion Rate"
+              connectNulls={false}
+              isAnimationActive={false}
+              dot={(props: any) => {
+                const { payload } = props;
+                const isPrediction = payload?.isPrediction;
+                return (
+                  <circle
+                    cx={props.cx}
+                    cy={props.cy}
+                    r={isPrediction ? 2.5 : 3}
+                    fill={isPrediction ? UNIFIED_COLOR_SCHEME.forecast.conversion : UNIFIED_COLOR_SCHEME.historical.conversion}
+                    stroke={isPrediction ? UNIFIED_COLOR_SCHEME.forecast.conversion : UNIFIED_COLOR_SCHEME.historical.conversion}
+                    strokeWidth={isPrediction ? 1 : 2}
+                    opacity={isPrediction ? 0.8 : 1}
+                  />
+                );
+              }}
+            />
+            {/* Secondary stacked area for conversion changes/growth (like Classic View) */}
+            <Area
+              type="monotone"
+              dataKey="conversion_change"
+              stackId="2"
+              stroke="#10b981"
+              strokeWidth={1}
+              fill="url(#conversionChangeGradient)"
+              name="Conversion Growth"
+              connectNulls={false}
+              isAnimationActive={false}
+            />
+            {/* Prediction separator line */}
+            {showPredictions && predictionStartDate && (
+              <ReferenceLine
+                x={predictionStartDate}
+                stroke={UNIFIED_COLOR_SCHEME.forecast.conversion}
+                strokeWidth={2}
+                strokeDasharray="8 4"
+                opacity={0.8}
+                label={{ value: "🔮 Forecasts", position: "top" }}
+              />
+            )}
+          </AreaChart>
+        );
+      }
 
       case 'composed':
         return (
