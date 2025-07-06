@@ -52,8 +52,8 @@ const CardTitle = styled(Typography)(({ theme }) => ({
 
 const ChartContainer = styled(Box)(({ theme }) => ({
   flex: 1,
-  minHeight: 400,
-  height: 400,
+  minHeight: 500, // Fixed minimum height for visibility
+  height: 'auto',
   padding: theme.spacing(1),
   backgroundColor: theme.palette.background.paper,
   borderRadius: theme.shape.borderRadius,
@@ -61,8 +61,7 @@ const ChartContainer = styled(Box)(({ theme }) => ({
   contain: 'layout',
   willChange: 'auto',
   [theme.breakpoints.down('sm')]: {
-    minHeight: 300,
-    height: 300,
+    minHeight: 400, // Smaller but still visible on mobile
   },
 }));
 
@@ -104,7 +103,7 @@ const PredictionViewContainer = memo(({
   data, 
   loading, 
   error, 
-  height = 700,
+  height = 800, // Increased default height
   onPredictionDaysChange,
   predictionDays = 30,
   className = '' 
@@ -123,28 +122,20 @@ const PredictionViewContainer = memo(({
   const chartRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   
-  // Better responsive height calculations
+  // Responsive helpers
   const responsiveHeight = useMemo(() => {
-    // Properly scale heights for different screen sizes
-    if (isMobile) return Math.max(500, height * 0.8); // Minimum 500px on mobile, scale down by 20%
-    if (isTablet) return Math.max(600, height * 0.9); // Minimum 600px on tablet, scale down by 10%
-    return Math.max(700, height); // Minimum 700px on desktop
+    // Use simpler, more reliable height calculations
+    if (isMobile) return Math.max(700, height * 0.9); // Minimum 700px on mobile
+    if (isTablet) return Math.max(800, height * 0.95); // Minimum 800px on tablet
+    return Math.max(900, height); // Minimum 900px on desktop - INCREASED
   }, [height, isMobile, isTablet]);
 
-  // Calculate chart height with better margins
+  // Simplified chart height calculation - FIXED
   const chartHeight = useMemo(() => {
-    // Account for header, controls, stats, and margins
-    const headerHeight = isMobile ? 100 : 140; // Header with controls
-    const statsHeight = isMobile ? 120 : 160; // Stats display area
-    const buttonsHeight = isMobile ? 60 : 80; // View toggle buttons
-    const margins = isMobile ? 30 : 50; // Container margins
-    
-    const totalNonChartHeight = headerHeight + statsHeight + buttonsHeight + margins;
-    const calculatedHeight = responsiveHeight - totalNonChartHeight;
-    
-    // Ensure minimum chart height for good visibility
-    const minHeight = isMobile ? 280 : 400; // Increased minimum heights
-    return Math.max(minHeight, calculatedHeight);
+    // Much simpler calculation to ensure visibility
+    const baseHeight = responsiveHeight * 0.6; // Use 60% of container height for chart
+    const minHeight = isMobile ? 400 : 500; // Guaranteed minimum heights
+    return Math.max(minHeight, baseHeight);
   }, [responsiveHeight, isMobile]);
 
   // Chrome-safe data validation
@@ -716,16 +707,16 @@ const PredictionViewContainer = memo(({
           )}
         </Box>
 
-        {/* View Toggle with Enhanced Modern Design */}
+        {/* View Toggle with Rectangular Design (like stats section) */}
         <Box sx={{ 
           display: 'flex',
           justifyContent: 'center',
           mb: 3,
-          p: 1,
-          background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 250, 252, 0.9) 100%)',
-          borderRadius: 3,
+          p: 1.5,
+          backgroundColor: 'background.default',
+          borderRadius: 2,
           border: `1px solid ${theme.palette.divider}`,
-          boxShadow: '0 2px 12px rgba(0, 0, 0, 0.06)',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
         }}>
           <ToggleButtonGroup
             value={activeView}
@@ -733,113 +724,99 @@ const PredictionViewContainer = memo(({
             onChange={handleViewChange}
             size="medium"
             sx={{
-              background: 'transparent',
-              border: 'none',
-              gap: 1,
+              backgroundColor: 'background.paper',
+              borderRadius: 1.5,
+              border: `1px solid ${theme.palette.divider}`,
+              overflow: 'hidden',
               '& .MuiToggleButton-root': {
                 textTransform: 'none',
                 fontWeight: 600,
-                px: isMobile ? 2 : 3,
-                py: isMobile ? 1 : 1.5,
-                border: '2px solid transparent',
-                borderRadius: 2.5,
-                fontSize: isMobile ? '0.8rem' : '0.95rem',
-                minWidth: isMobile ? 80 : 120,
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                px: isMobile ? 2.5 : 3.5,
+                py: isMobile ? 1.5 : 2,
+                border: 'none',
+                borderRadius: 0, // Remove individual border radius for rectangular look
+                fontSize: isMobile ? '0.875rem' : '1rem',
+                minWidth: isMobile ? 100 : 140,
+                minHeight: isMobile ? 44 : 52, // Ensure good touch targets
+                transition: 'all 0.2s ease-in-out',
                 position: 'relative',
-                overflow: 'hidden',
-                '&::before': {
-                  content: '""',
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  background: 'transparent',
-                  transition: 'all 0.3s ease-in-out',
-                  zIndex: 0,
+                color: 'text.secondary',
+                backgroundColor: 'transparent',
+                
+                // First button - left rounded corners
+                '&:first-of-type': {
+                  borderTopLeftRadius: 1.5,
+                  borderBottomLeftRadius: 1.5,
                 },
-                '& > *': {
-                  position: 'relative',
-                  zIndex: 1,
+                
+                // Last button - right rounded corners  
+                '&:last-of-type': {
+                  borderTopRightRadius: 1.5,
+                  borderBottomRightRadius: 1.5,
                 },
+                
+                // Hover effects
+                '&:hover': {
+                  backgroundColor: 'action.hover',
+                  transform: 'none', // Remove transform for more professional look
+                },
+                
+                // Selected state styling based on metric type
                 '&[value="revenue"]': {
-                  color: UNIFIED_COLOR_SCHEME.historical.revenue,
-                  backgroundColor: `${UNIFIED_COLOR_SCHEME.historical.revenue}08`,
-                  '&:hover': {
-                    backgroundColor: `${UNIFIED_COLOR_SCHEME.historical.revenue}15`,
-                    transform: 'translateY(-2px)',
-                    boxShadow: `0 4px 16px ${UNIFIED_COLOR_SCHEME.historical.revenue}30`,
-                  },
                   '&.Mui-selected': {
-                    background: `linear-gradient(135deg, ${UNIFIED_COLOR_SCHEME.historical.revenue} 0%, ${UNIFIED_COLOR_SCHEME.historical.revenue}dd 100%)`,
+                    backgroundColor: UNIFIED_COLOR_SCHEME.historical.revenue,
                     color: 'white',
-                    borderColor: UNIFIED_COLOR_SCHEME.historical.revenue,
-                    boxShadow: `0 4px 20px ${UNIFIED_COLOR_SCHEME.historical.revenue}40`,
-                    transform: 'translateY(-1px)',
+                    boxShadow: `inset 0 0 0 2px ${UNIFIED_COLOR_SCHEME.historical.revenue}`,
                     '&:hover': {
-                      background: `linear-gradient(135deg, ${UNIFIED_COLOR_SCHEME.historical.revenue}ee 0%, ${UNIFIED_COLOR_SCHEME.historical.revenue}cc 100%)`,
-                      transform: 'translateY(-3px)',
-                      boxShadow: `0 6px 24px ${UNIFIED_COLOR_SCHEME.historical.revenue}50`,
+                      backgroundColor: UNIFIED_COLOR_SCHEME.historical.revenue,
+                      filter: 'brightness(1.1)',
                     },
                   },
                 },
+                
                 '&[value="orders"]': {
-                  color: UNIFIED_COLOR_SCHEME.historical.orders,
-                  backgroundColor: `${UNIFIED_COLOR_SCHEME.historical.orders}08`,
-                  '&:hover': {
-                    backgroundColor: `${UNIFIED_COLOR_SCHEME.historical.orders}15`,
-                    transform: 'translateY(-2px)',
-                    boxShadow: `0 4px 16px ${UNIFIED_COLOR_SCHEME.historical.orders}30`,
-                  },
                   '&.Mui-selected': {
-                    background: `linear-gradient(135deg, ${UNIFIED_COLOR_SCHEME.historical.orders} 0%, ${UNIFIED_COLOR_SCHEME.historical.orders}dd 100%)`,
+                    backgroundColor: UNIFIED_COLOR_SCHEME.historical.orders,
                     color: 'white',
-                    borderColor: UNIFIED_COLOR_SCHEME.historical.orders,
-                    boxShadow: `0 4px 20px ${UNIFIED_COLOR_SCHEME.historical.orders}40`,
-                    transform: 'translateY(-1px)',
+                    boxShadow: `inset 0 0 0 2px ${UNIFIED_COLOR_SCHEME.historical.orders}`,
                     '&:hover': {
-                      background: `linear-gradient(135deg, ${UNIFIED_COLOR_SCHEME.historical.orders}ee 0%, ${UNIFIED_COLOR_SCHEME.historical.orders}cc 100%)`,
-                      transform: 'translateY(-3px)',
-                      boxShadow: `0 6px 24px ${UNIFIED_COLOR_SCHEME.historical.orders}50`,
+                      backgroundColor: UNIFIED_COLOR_SCHEME.historical.orders,
+                      filter: 'brightness(1.1)',
                     },
                   },
                 },
+                
                 '&[value="conversion"]': {
-                  color: UNIFIED_COLOR_SCHEME.historical.conversion,
-                  backgroundColor: `${UNIFIED_COLOR_SCHEME.historical.conversion}08`,
-                  '&:hover': {
-                    backgroundColor: `${UNIFIED_COLOR_SCHEME.historical.conversion}15`,
-                    transform: 'translateY(-2px)',
-                    boxShadow: `0 4px 16px ${UNIFIED_COLOR_SCHEME.historical.conversion}30`,
-                  },
                   '&.Mui-selected': {
-                    background: `linear-gradient(135deg, ${UNIFIED_COLOR_SCHEME.historical.conversion} 0%, ${UNIFIED_COLOR_SCHEME.historical.conversion}dd 100%)`,
+                    backgroundColor: UNIFIED_COLOR_SCHEME.historical.conversion,
                     color: 'white',
-                    borderColor: UNIFIED_COLOR_SCHEME.historical.conversion,
-                    boxShadow: `0 4px 20px ${UNIFIED_COLOR_SCHEME.historical.conversion}40`,
-                    transform: 'translateY(-1px)',
+                    boxShadow: `inset 0 0 0 2px ${UNIFIED_COLOR_SCHEME.historical.conversion}`,
                     '&:hover': {
-                      background: `linear-gradient(135deg, ${UNIFIED_COLOR_SCHEME.historical.conversion}ee 0%, ${UNIFIED_COLOR_SCHEME.historical.conversion}cc 100%)`,
-                      transform: 'translateY(-3px)',
-                      boxShadow: `0 6px 24px ${UNIFIED_COLOR_SCHEME.historical.conversion}50`,
+                      backgroundColor: UNIFIED_COLOR_SCHEME.historical.conversion,
+                      filter: 'brightness(1.1)',
                     },
                   },
+                },
+                
+                // Focus styles for accessibility
+                '&:focus': {
+                  outline: `2px solid ${theme.palette.primary.main}`,
+                  outlineOffset: '2px',
                 },
               },
             }}
           >
             <ToggleButton value="revenue">
               <TrendingUp fontSize="small" sx={{ mr: 1 }} />
-              {isMobile ? 'Revenue' : 'Revenue Analytics'}
+              {isMobile ? 'Revenue' : 'Revenue'}
             </ToggleButton>
             <ToggleButton value="orders">
               <ShoppingCart fontSize="small" sx={{ mr: 1 }} />
-              {isMobile ? 'Orders' : 'Order Analytics'}
+              {isMobile ? 'Orders' : 'Orders'}
             </ToggleButton>
             <ToggleButton value="conversion">
               <Percent fontSize="small" sx={{ mr: 1 }} />
-              {isMobile ? 'Conversion' : 'Conversion Analytics'}
+              {isMobile ? 'Conversion' : 'Conversion'}
             </ToggleButton>
           </ToggleButtonGroup>
         </Box>
