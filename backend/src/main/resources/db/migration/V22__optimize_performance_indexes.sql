@@ -42,13 +42,4 @@ WHERE deleted = false;
 -- This supports frequent last_accessed_at updates
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_shop_sessions_heartbeat 
 ON shop_sessions(session_id, last_accessed_at) 
-WHERE is_active = true;
-
--- Add comments for documentation
-COMMENT ON INDEX idx_shop_sessions_session_id_covering IS 'Covering index for session ID lookups and updates';
-COMMENT ON INDEX idx_notifications_id_covering IS 'Covering index for notification ID operations';
-COMMENT ON INDEX idx_shop_sessions_cleanup_optimized IS 'Optimized index for session cleanup operations';
-COMMENT ON INDEX idx_notifications_cleanup_optimized IS 'Optimized index for notification cleanup operations';
-COMMENT ON INDEX idx_shop_sessions_active_shop_optimized IS 'Optimized index for active session listing';
-COMMENT ON INDEX idx_notifications_session_filtering IS 'Optimized index for session-based notification filtering';
-COMMENT ON INDEX idx_shop_sessions_heartbeat IS 'Optimized index for session heartbeat updates'; 
+WHERE is_active = true; 
