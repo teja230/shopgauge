@@ -369,8 +369,8 @@ const SimpleLineChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
         />
       )}
 
-      {/* Forecast Data Lines - Only show if we have forecast data */}
-      {forecastData.length > 0 && visibleMetrics.revenue && (
+      {/* Forecast Data Lines - Only show if predictions are enabled and we have forecast data */}
+      {showPredictions && forecastData.length > 0 && visibleMetrics.revenue && (
         <Line
           yAxisId="left"
           type="monotone"
@@ -384,7 +384,7 @@ const SimpleLineChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
           isAnimationActive={false}
         />
       )}
-      {forecastData.length > 0 && visibleMetrics.orders && (
+      {showPredictions && forecastData.length > 0 && visibleMetrics.orders && (
         <Line
           yAxisId="right"
           type="monotone"
@@ -398,7 +398,7 @@ const SimpleLineChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
           isAnimationActive={false}
         />
       )}
-      {forecastData.length > 0 && visibleMetrics.conversion && (
+      {showPredictions && forecastData.length > 0 && visibleMetrics.conversion && (
         <Line
           yAxisId="right"
           type="monotone"
@@ -600,8 +600,8 @@ const SimpleAreaChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
         />
       )}
 
-      {/* Forecast Data Areas - Only show if we have forecast data */}
-      {forecastData.length > 0 && visibleMetrics.revenue && (
+      {/* Forecast Data Areas - Only show if predictions are enabled and we have forecast data */}
+      {showPredictions && forecastData.length > 0 && visibleMetrics.revenue && (
         <Area
           yAxisId="left"
           type="monotone"
@@ -616,7 +616,7 @@ const SimpleAreaChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
           isAnimationActive={false}
         />
       )}
-      {forecastData.length > 0 && visibleMetrics.orders && (
+      {showPredictions && forecastData.length > 0 && visibleMetrics.orders && (
         <Area
           yAxisId="right"
           type="monotone"
@@ -631,7 +631,7 @@ const SimpleAreaChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
           isAnimationActive={false}
         />
       )}
-      {forecastData.length > 0 && visibleMetrics.conversion && (
+      {showPredictions && forecastData.length > 0 && visibleMetrics.conversion && (
         <Area
           yAxisId="right"
           type="monotone"
