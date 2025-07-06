@@ -92,7 +92,7 @@ export const parseUserAgent = (userAgent: string): DeviceInfo => {
     deviceIcon = '📱'; // Phone icon for iPhone
   } else if (userAgent.includes('iPad')) {
     device = 'iPad';
-    deviceIcon = '📱'; // Tablet icon for iPad
+    deviceIcon = '📱'; // Tablet icon for iPad (larger than phone)
   } else if (userAgent.includes('Android')) {
     if (isTablet) {
       device = 'Android Tablet';

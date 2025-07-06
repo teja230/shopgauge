@@ -656,7 +656,7 @@ const SimpleAreaChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
         )}
       />
       
-            {/* Historical Data Areas */}
+      {/* Historical Data Areas */}
       {visibleMetrics.revenue && (
         <Area
           yAxisId="left"

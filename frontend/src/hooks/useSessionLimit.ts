@@ -401,9 +401,9 @@ export const useSessionLimit = (): UseSessionLimitReturn => {
   const canProceedWithLogin = useCallback((): boolean => {
     if (!sessionLimitData) return true; // Allow if we haven't checked yet
     
-    // Can proceed if limit is not reached or if current session already exists
-    return !sessionLimitData.limitReached || 
-           sessionLimitData.sessions.some(s => s.isCurrentSession);
+    // Can only proceed if limit is not reached
+    // Don't allow bypassing just because current session exists
+    return !sessionLimitData.limitReached;
   }, [sessionLimitData]);
 
   return {
