@@ -260,12 +260,14 @@ const useUnifiedAnalytics = (
   ): UnifiedAnalyticsData => {
     try {
       // Use the real conversion rate from dashboard, properly handle all values including 0
-      const realConversionRate = typeof conversionRate === 'number' && !isNaN(conversionRate) ? conversionRate : 2.5;
+      // Only use default if conversionRate is undefined, null, or NaN - 0 is a valid conversion rate
+      const realConversionRate = (typeof conversionRate === 'number' && !isNaN(conversionRate)) ? conversionRate : 2.5;
       
       console.log('🔄 UNIFIED_ANALYTICS: Using conversion rate:', {
         passedConversionRate: conversionRate,
         finalConversionRate: realConversionRate,
-        source: conversionRate > 0 ? 'dashboard' : 'default'
+        isValidNumber: typeof conversionRate === 'number' && !isNaN(conversionRate),
+        source: (typeof conversionRate === 'number' && !isNaN(conversionRate)) ? 'dashboard' : 'default'
       });
 
       // Use revenue data as primary source
