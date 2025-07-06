@@ -1966,7 +1966,7 @@ const DashboardPage = () => {
     }
     
     console.log('🔄 MANUAL REFRESH: Forcing fresh API calls for all data');
-    notifications.showInfo('🔄 Refreshing dashboard data...', { duration: 2000, category: 'Dashboard' });
+    notifications.showInfo('Refreshing dashboard data...', { duration: 2000, category: 'Dashboard' });
     setLastRefreshTime(now);
     setIsRefreshing(true);
     
@@ -1985,7 +1985,7 @@ const DashboardPage = () => {
           if (response.ok) {
             const result = await response.json();
             console.log('✅ Backend cache cleared successfully:', result);
-            notifications.showSuccess('🗑️ Backend cache cleared - loading fresh data...', { duration: 2000, category: 'Cache' });
+            // Remove the technical notification - users don't need to know about backend cache
           } else {
             console.warn('⚠️ Backend cache clearing failed, continuing with frontend refresh');
           }
@@ -2046,11 +2046,11 @@ const DashboardPage = () => {
       console.log('🔄 Force computing unified analytics after dashboard refresh');
       forceComputeUnifiedAnalytics();
       
-      notifications.showSuccess('✅ Dashboard data has been updated with fresh information.', { duration: 3000, category: 'Dashboard' });
+      notifications.showSuccess('Dashboard updated successfully', { duration: 3000, category: 'Dashboard' });
       setIsRefreshing(false);
     } catch (error) {
       console.error('Error refreshing dashboard:', error);
-      notifications.showError('❌ Failed to refresh dashboard data.', { persistent: true, category: 'Dashboard' });
+      notifications.showError('Unable to refresh data. Please try again.', { persistent: true, category: 'Dashboard' });
       setIsRefreshing(false);
     }
   }, [
