@@ -718,111 +718,107 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
         flexDirection: 'column',
       }}
     >
+      {/* Card Header with Title and Share Button */}
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        mb: theme.spacing(isMobile ? 1 : 2),
+        pb: theme.spacing(1),
+        borderBottom: `1px solid ${theme.palette.divider}`,
+      }}>
+        <Typography 
+          variant="h6" 
+          component="h3" 
+          sx={{
+            fontSize: isMobile ? '1rem' : '1.1rem',
+            fontWeight: 600,
+            color: theme.palette.text.primary,
+            display: 'flex',
+            alignItems: 'center',
+            gap: theme.spacing(1),
+          }}
+        >
+          <TrendingUp color="primary" sx={{ fontSize: isMobile ? 18 : 20 }} />
+          Revenue Chart
+        </Typography>
+        
+        <MuiTooltip title="Share Chart">
+          <IconButton
+            onClick={handleShareChart}
+            size="small"
+            sx={{
+              backgroundColor: 'primary.main',
+              color: 'primary.contrastText',
+              '&:hover': { backgroundColor: 'primary.dark' },
+            }}
+          >
+            <ShareIcon fontSize="small" />
+          </IconButton>
+        </MuiTooltip>
+      </Box>
+
       {/* Enhanced Insights */}
       <ClassicInsights data={sanitizedData} />
       
-      {/* Header with Dashboard Theme */}
+      {/* Chart Type Toggle */}
       <Box sx={{ 
+        display: 'flex',
+        justifyContent: 'center',
         mb: theme.spacing(isMobile ? 1 : 2),
       }}>
-        <Box sx={{ 
-          display: 'flex', 
-          flexDirection: isMobile ? 'column' : 'row',
-          justifyContent: 'space-between', 
-          alignItems: isMobile ? 'stretch' : 'center', 
-          mb: theme.spacing(isMobile ? 1 : 2),
-          gap: theme.spacing(isMobile ? 1 : 0),
-        }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography 
-              variant="h6" 
-              component="h3" 
-              sx={{
-                fontSize: isMobile ? '1rem' : '1.1rem',
-                fontWeight: 600,
-                color: theme.palette.text.primary,
-                display: 'flex',
-                alignItems: 'center',
-                gap: theme.spacing(1),
-                mb: isMobile ? 1 : 0,
-              }}
-            >
-              <TrendingUp color="primary" sx={{ fontSize: isMobile ? 18 : 20 }} />
-              Revenue Chart
-            </Typography>
-            
-            <MuiTooltip title="Share Chart">
-              <IconButton
-                onClick={handleShareChart}
-                size="small"
-                sx={{
-                  backgroundColor: 'primary.main',
-                  color: 'primary.contrastText',
-                  '&:hover': { backgroundColor: 'primary.dark' },
-                  ml: 1,
-                }}
-              >
-                <ShareIcon fontSize="small" />
-              </IconButton>
-            </MuiTooltip>
-          </Box>
-          
-          {/* Chart Type Toggle with Professional Icons + Tooltips */}
-          <ToggleButtonGroup
-            value={chartType}
-            exclusive
-            onChange={(_, newType) => newType && setChartType(newType)}
-            size="small"
-            sx={{
-              backgroundColor: 'transparent',
-              border: 'none',
-              gap: 0.5,
-              '& .MuiToggleButton-root': {
-                border: '1px solid',
+        <ToggleButtonGroup
+          value={chartType}
+          exclusive
+          onChange={(_, newType) => newType && setChartType(newType)}
+          size="small"
+          sx={{
+            backgroundColor: 'transparent',
+            border: 'none',
+            gap: 0.5,
+            '& .MuiToggleButton-root': {
+              border: '1px solid',
+              borderColor: 'primary.main',
+              borderRadius: 2,
+              px: 1.5,
+              py: 0.75,
+              minWidth: 'auto',
+              color: 'primary.main',
+              backgroundColor: 'primary.50',
+              fontSize: '0.875rem',
+              fontWeight: 500,
+              textTransform: 'none',
+              '&:hover': {
+                backgroundColor: 'primary.100',
                 borderColor: 'primary.main',
-                borderRadius: 2,
-                px: 1.5,
-                py: 0.75,
-                minWidth: 'auto',
-                color: 'primary.main',
-                backgroundColor: 'primary.50',
-                fontSize: '0.875rem',
-                fontWeight: 500,
-                textTransform: 'none',
-                '&:hover': {
-                  backgroundColor: 'primary.100',
-                  borderColor: 'primary.main',
-                },
-                '&.Mui-selected': {
-                  backgroundColor: 'primary.main',
-                  color: 'primary.contrastText',
-                  borderColor: 'primary.main',
-                  '&:hover': {
-                    backgroundColor: 'primary.dark',
-                  },
-                },
-                '&:focus': {
-                  outline: '2px solid',
-                  outlineColor: 'primary.main',
-                  outlineOffset: '2px',
-                },
-                transition: 'all 0.2s ease-in-out',
               },
-            }}
-          >
-            {Object.entries(chartTypeConfig).map(([type, config]) => (
-              <MuiTooltip key={type} title={config.label} arrow placement="top">
-                <ToggleButton value={type} aria-label={`${config.label} chart`}>
-                  {React.cloneElement(config.icon, { 
-                    fontSize: "small"
-                  })}
-                </ToggleButton>
-              </MuiTooltip>
-            ))}
-          </ToggleButtonGroup>
-        </Box>
-
-
+              '&.Mui-selected': {
+                backgroundColor: 'primary.main',
+                color: 'primary.contrastText',
+                borderColor: 'primary.main',
+                '&:hover': {
+                  backgroundColor: 'primary.dark',
+                },
+              },
+              '&:focus': {
+                outline: '2px solid',
+                outlineColor: 'primary.main',
+                outlineOffset: '2px',
+              },
+              transition: 'all 0.2s ease-in-out',
+            },
+          }}
+        >
+          {Object.entries(chartTypeConfig).map(([type, config]) => (
+            <MuiTooltip key={type} title={config.label} arrow placement="top">
+              <ToggleButton value={type} aria-label={`${config.label} chart`}>
+                {React.cloneElement(config.icon, { 
+                  fontSize: "small"
+                })}
+              </ToggleButton>
+            </MuiTooltip>
+          ))}
+        </ToggleButtonGroup>
       </Box>
 
       {/* Chart with proper margins */}
@@ -830,7 +826,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
         ref={chartRef}
         sx={{ 
           flex: 1,
-          minHeight: responsiveHeight - (isMobile ? 100 : 140), // Account for header height, less on mobile
+          minHeight: responsiveHeight - (isMobile ? 120 : 160), // Account for header and insights height
           overflow: isMobile ? 'auto' : 'hidden', // Enable horizontal scroll on mobile
           minWidth: isMobile ? '650px' : 'auto', // Set minimum width on mobile to prevent cutoff
         '&::-webkit-scrollbar': {
@@ -861,7 +857,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
         }),
       }}>
         {containerReady && (
-          <ResponsiveContainer width="100%" height={responsiveHeight - (isMobile ? 100 : 140)}>
+          <ResponsiveContainer width="100%" height={responsiveHeight - (isMobile ? 120 : 160)}>
             {renderChart()}
           </ResponsiveContainer>
         )}
