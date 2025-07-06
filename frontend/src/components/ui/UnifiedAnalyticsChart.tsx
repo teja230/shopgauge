@@ -43,9 +43,6 @@ import {
   InfoOutlined,
   ShowChart,
   BarChart as BarChartIcon,
-  CandlestickChart,
-  WaterfallChart,
-  StackedLineChart,
   AutoFixHigh,
   Insights,
   PlayArrow,
@@ -104,7 +101,7 @@ interface UnifiedAnalyticsChartProps {
   height?: number;
 }
 
-type ChartType = 'combined' | 'revenue_focus' | 'line' | 'area' | 'bar' | 'candlestick' | 'waterfall' | 'stacked' | 'composed';
+type ChartType = 'combined' | 'revenue_focus' | 'line' | 'area' | 'bar';
 type TimeRange = 'all' | 'last30' | 'last7';
 
 // Use unified color scheme for consistency across all charts
@@ -2400,26 +2397,6 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
             <BarChartIcon sx={{ fontSize: isMobile ? '0.9rem' : '1rem', mr: isMobile ? 0.25 : 0.5 }} /> 
             {isMobile ? 'Bar' : 'Bar'}
           </ToggleButton>
-          {!isMobile && (
-            <>
-              <ToggleButton value="waterfall" aria-label="Waterfall Chart">
-                <WaterfallChart sx={{ fontSize: '1rem', mr: 0.5 }} /> 
-                Waterfall
-              </ToggleButton>
-              <ToggleButton value="candlestick" aria-label="Candlestick Chart">
-                <CandlestickChart sx={{ fontSize: '1rem', mr: 0.5 }} /> 
-                Candlestick
-              </ToggleButton>
-              <ToggleButton value="composed" aria-label="Combined Chart">
-                <Timeline sx={{ fontSize: '1rem', mr: 0.5 }} /> 
-                Combined
-              </ToggleButton>
-              <ToggleButton value="stacked" aria-label="Stacked Chart">
-                <StackedLineChart sx={{ fontSize: '1rem', mr: 0.5 }} /> 
-                Stacked
-              </ToggleButton>
-            </>
-          )}
         </ToggleButtonGroup>
 
         <FormControlLabel
@@ -2540,43 +2517,9 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
                         isMobile={isMobile}
                       />
                     );
-                  case 'waterfall':
-                    return (
-                      <SimpleWaterfallChart
-                        data={chartData}
-                        visibleMetrics={visibleMetrics}
-                        shouldShowPredictionLine={shouldShowPredictionLine}
-                        predictionDate={predictionDate}
-                        showPredictions={showPredictions}
-                        isMobile={isMobile}
-                      />
-                    );
-                  case 'candlestick':
-                    return (
-                      <SimpleCandlestickChart
-                        data={chartData}
-                        visibleMetrics={visibleMetrics}
-                        shouldShowPredictionLine={shouldShowPredictionLine}
-                        predictionDate={predictionDate}
-                        showPredictions={showPredictions}
-                        isMobile={isMobile}
-                      />
-                    );
-                  case 'composed':
                   case 'combined':
                     return (
                       <SimpleComposedChart
-                        data={chartData}
-                        visibleMetrics={visibleMetrics}
-                        shouldShowPredictionLine={shouldShowPredictionLine}
-                        predictionDate={predictionDate}
-                        showPredictions={showPredictions}
-                        isMobile={isMobile}
-                      />
-                    );
-                  case 'stacked':
-                    return (
-                      <SimpleStackedChart
                         data={chartData}
                         visibleMetrics={visibleMetrics}
                         shouldShowPredictionLine={shouldShowPredictionLine}

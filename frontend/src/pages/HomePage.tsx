@@ -10,7 +10,7 @@ import IntelligentLoadingScreen from '../components/ui/IntelligentLoadingScreen'
 const features = [
   'AI-Powered Revenue Forecasting with 7-60 day predictions and confidence intervals',
   'Professional Shareable Charts with PNG, PDF export and social media integration',
-      '7 Advanced Chart Types including Line, Area, Bar, Candlestick, Waterfall, and Composed views',
+      '3 Advanced Chart Types including Area, Line, and Bar views with predictive analytics',
   'Intelligent Color Separation for Historical vs Forecast data visualization',
   'Track up to 10 competitors with intelligent monitoring and price alerts',
   'Real-time price monitoring with automated competitor discovery',
@@ -360,7 +360,7 @@ const HomePage = () => {
             </div>
             <h3 className="text-xl font-bold text-blue-900 mb-3">🚀 AI-Powered Forecasting</h3>
             <ul className="text-gray-700 space-y-2">
-              <li>• 7 advanced chart types with predictive analytics</li>
+              <li>• 3 advanced chart types with predictive analytics</li>
               <li>• 7-60 day revenue forecasting with confidence intervals</li>
               <li>• Intelligent color separation for historical vs forecast data</li>
               <li>• Professional shareable charts with PNG/PDF export</li>
