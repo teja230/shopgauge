@@ -243,7 +243,7 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
             strokeWidth={2}
             strokeDasharray="8 4"
             opacity={0.8}
-            label={{ value: "Forecasts", position: "top" }}
+            label={{ value: "Forecasts", position: "insideTopRight", offset: 15 }}
           />
         )}
       </>
@@ -636,17 +636,7 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
               connectNulls={false}
               isAnimationActive={false}
             />
-            {/* Prediction separator line */}
-            {showPredictions && predictionStartDate && (
-              <ReferenceLine
-                x={predictionStartDate}
-                stroke="#9333ea"
-                strokeWidth={2}
-                strokeDasharray="8 4"
-                opacity={0.8}
-                label={{ value: "🔮 Forecasts", position: "top" }}
-              />
-            )}
+            {/* Prediction separator line - removed duplicate label since it's already in commonElements */}
           </AreaChart>
         );
       }
