@@ -48,6 +48,10 @@ interface SimpleShareModalProps {
     orders?: number;
     conversion?: number;
     timeRange?: string;
+    forecastPeriod?: string;
+    forecastRevenue?: number;
+    forecastOrders?: number;
+    confidenceScore?: number;
   };
 }
 
@@ -192,7 +196,7 @@ const SimpleShareModal: React.FC<SimpleShareModalProps> = ({
       if (exportSettings.includeWatermark) {
         pdf.setFontSize(8);
         pdf.setTextColor(160, 160, 160);
-        pdf.text('Powered by ShopGauge - AI-powered analytics for Shopify stores', 10, pdfHeight - 10);
+        pdf.text('🌐 Powered by ShopGauge: https://www.shopgaugeai.com/dashboard', 10, pdfHeight - 10);
       }
       
       setExportProgress(75);
@@ -229,6 +233,10 @@ const SimpleShareModal: React.FC<SimpleShareModalProps> = ({
       const ordersText = metrics?.orders ? `${metrics.orders.toLocaleString()} orders` : '';
       const timeRange = metrics?.timeRange || 'recent period';
       
+      // Add forecast information based on current selection
+      const forecastText = metrics?.forecastPeriod && metrics?.forecastRevenue ? 
+        `\n🔮 AI Forecast (${metrics.forecastPeriod}): $${metrics.forecastRevenue.toLocaleString()}${metrics.forecastOrders ? ` revenue, ${metrics.forecastOrders.toLocaleString()} orders` : ' revenue'}${metrics.confidenceScore ? ` (${Math.round(metrics.confidenceScore * 100)}% confidence)` : ''}` : '';
+      
       const baseMessage = `🚀 ${storeName} Performance Insights`;
       const metricsText = revenueText && ordersText ? 
         `\n💰 Revenue: ${revenueText}\n📦 Orders: ${ordersText}` : 
@@ -239,16 +247,16 @@ const SimpleShareModal: React.FC<SimpleShareModalProps> = ({
       
       switch (platform) {
         case 'linkedin':
-          return `${baseMessage}${metricsText}\n\n📈 ${chartTitle} analysis for ${timeRange}${poweredByText}\n\n#Shopify #Ecommerce #Analytics #BusinessIntelligence`;
+          return `${baseMessage}${metricsText}${forecastText}\n\n📈 ${chartTitle} analysis for ${timeRange}${poweredByText}\n\n#Shopify #Ecommerce #Analytics #BusinessIntelligence #AIForecasting`;
         
         case 'twitter':
-          return `${baseMessage}${metricsText}\n\n📈 ${chartTitle} - ${timeRange}${poweredByText}\n\n#Shopify #Ecommerce #Analytics`;
+          return `${baseMessage}${metricsText}${forecastText}\n\n📈 ${chartTitle} - ${timeRange}${poweredByText}\n\n#Shopify #Ecommerce #Analytics #AIForecasting`;
         
         case 'email':
-          return `${baseMessage}${metricsText}\n\n📈 ${chartTitle} Analysis\n📅 Period: ${timeRange}${poweredByText}`;
+          return `${baseMessage}${metricsText}${forecastText}\n\n📈 ${chartTitle} Analysis\n📅 Period: ${timeRange}${poweredByText}`;
         
         default:
-          return `${baseMessage}${metricsText}\n\n📈 ${chartTitle} - ${timeRange}${poweredByText}`;
+          return `${baseMessage}${metricsText}${forecastText}\n\n📈 ${chartTitle} - ${timeRange}${poweredByText}`;
       }
     };
     
@@ -257,7 +265,7 @@ const SimpleShareModal: React.FC<SimpleShareModalProps> = ({
     
     // Create store and ShopGauge links
     const storeUrl = shopName ? `https://${shopName}.myshopify.com` : '';
-    const shopGaugeUrl = 'https://shopgauge.app';
+    const shopGaugeUrl = 'https://www.shopgaugeai.com/dashboard';
     
     // Enhanced message with links
     const createEnhancedMessage = (platform: string) => {
@@ -265,16 +273,16 @@ const SimpleShareModal: React.FC<SimpleShareModalProps> = ({
       
       switch (platform) {
         case 'linkedin':
-          return `${baseMessageWithLinks}\n\n🔗 Store: ${storeUrl}\n🌐 Analytics: ${shopGaugeUrl}`;
+          return `${baseMessageWithLinks}\n\n🔗 Store: ${storeUrl}\n🌐 Powered by ShopGauge: ${shopGaugeUrl}`;
         
         case 'twitter':
-          return `${baseMessageWithLinks}\n\n🔗 Store: ${storeUrl}\n🌐 Analytics: ${shopGaugeUrl}`;
+          return `${baseMessageWithLinks}\n\n🔗 Store: ${storeUrl}\n🌐 Powered by ShopGauge: ${shopGaugeUrl}`;
         
         case 'email':
           return `${baseMessageWithLinks}\n\n🔗 Visit Store: ${storeUrl}\n🌐 Powered by ShopGauge: ${shopGaugeUrl}`;
         
         default:
-          return `${baseMessageWithLinks}\n\n🔗 Store: ${storeUrl}\n🌐 Analytics: ${shopGaugeUrl}`;
+          return `${baseMessageWithLinks}\n\n🔗 Store: ${storeUrl}\n🌐 Powered by ShopGauge: ${shopGaugeUrl}`;
       }
     };
     

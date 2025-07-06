@@ -2617,6 +2617,13 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
           revenue: data?.total_revenue,
           orders: data?.total_orders,
           timeRange: `${data?.period_days || 60}d`,
+          forecastPeriod: showPredictions ? '30d' : undefined,
+          forecastRevenue: showPredictions && data?.predictions?.length > 0 ? 
+            data.predictions.reduce((sum, pred) => sum + (pred.revenue || 0), 0) : undefined,
+          forecastOrders: showPredictions && data?.predictions?.length > 0 ? 
+            data.predictions.reduce((sum, pred) => sum + (pred.orders_count || 0), 0) : undefined,
+          confidenceScore: showPredictions && data?.predictions?.length > 0 ? 
+            data.predictions.reduce((sum, pred) => sum + (pred.confidence_score || 0.85), 0) / data.predictions.length : undefined,
         }}
       />
     </Box>
