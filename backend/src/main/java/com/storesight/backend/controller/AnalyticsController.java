@@ -20,6 +20,8 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.context.annotation.Profile;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
@@ -38,6 +40,7 @@ public class AnalyticsController {
   private final DataPrivacyService dataPrivacyService;
   private final ShopifyConfig shopifyConfig;
   private final BackendConfig backendConfig;
+  private final CacheManager cacheManager;
   private static final Logger logger = LoggerFactory.getLogger(AnalyticsController.class);
 
   @Autowired
@@ -48,7 +51,8 @@ public class AnalyticsController {
       DashboardCacheService dashboardCacheService,
       DataPrivacyService dataPrivacyService,
       ShopifyConfig shopifyConfig,
-      BackendConfig backendConfig) {
+      BackendConfig backendConfig,
+      CacheManager cacheManager) {
     this.webClient = webClientBuilder.build();
     this.shopService = shopService;
     this.redisTemplate = redisTemplate;
@@ -56,6 +60,7 @@ public class AnalyticsController {
     this.dataPrivacyService = dataPrivacyService;
     this.shopifyConfig = shopifyConfig;
     this.backendConfig = backendConfig;
+    this.cacheManager = cacheManager;
   }
 
   private String getShopifyUrl(String shop, String endpoint) {
@@ -2213,5 +2218,60 @@ public class AnalyticsController {
                         0.0,
                         "shop",
                         shop)));
+  }
+
+  @PostMapping("/cache/invalidate")
+  public ResponseEntity<Map<String, Object>> invalidateCache(
+      @CookieValue(value = "shop", required = false) String shop,
+      @RequestParam(value = "force", defaultValue = "false") boolean force,
+      HttpSession session) {
+
+    if (shop == null) {
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+          .body(Map.of("error", "Not authenticated", "cleared", false));
+    }
+
+    String token = shopService.getTokenForShop(shop, session.getId());
+    if (token == null) {
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+          .body(Map.of("error", "No token for shop", "cleared", false));
+    }
+
+    try {
+      logger.info("Cache invalidation requested for shop: {} (force: {})", shop, force);
+
+      // Clear all Redis cache entries for this shop
+      dashboardCacheService.invalidateShopCache(shop);
+
+      // Clear Spring cache entries
+      if (cacheManager != null) {
+        cacheManager
+            .getCacheNames()
+            .forEach(
+                cacheName -> {
+                  Cache cache = cacheManager.getCache(cacheName);
+                  if (cache != null) {
+                    cache.clear();
+                  }
+                });
+      }
+
+      // Log the cache invalidation
+      dataPrivacyService.logDataAccess("CACHE_INVALIDATION", "Cache cleared for fresh data", shop);
+
+      Map<String, Object> response = new HashMap<>();
+      response.put("cleared", true);
+      response.put("shop", shop);
+      response.put("timestamp", System.currentTimeMillis());
+      response.put("message", "Cache invalidated successfully - fresh data will be loaded");
+
+      logger.info("Cache invalidation completed for shop: {}", shop);
+      return ResponseEntity.ok(response);
+
+    } catch (Exception e) {
+      logger.error("Failed to invalidate cache for shop {}: {}", shop, e.getMessage());
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Cache invalidation failed", "cleared", false));
+    }
   }
 }

@@ -18,10 +18,10 @@ import useSessionLimit from '../hooks/useSessionLimit';
 import SessionLimitDialog from '../components/ui/SessionLimitDialog';
 import { getDeviceDisplay, getRelativeTime } from '../utils/deviceUtils';
 
-// Cache configuration for store stats
-const STORE_STATS_CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
-const STORE_STATS_CACHE_KEY = 'store_stats_cache_v1';
-const REFRESH_DEBOUNCE_MS = 2000; // 2 seconds debounce
+// Cache configuration for store stats - Enhanced to match Dashboard strategy
+const STORE_STATS_CACHE_DURATION = 120 * 60 * 1000; // 120 minutes (match Dashboard)
+const STORE_STATS_CACHE_KEY = 'store_stats_cache_v2'; // Updated version
+const REFRESH_DEBOUNCE_MS = 120000; // 120 seconds (match Dashboard)
 const SESSION_REFRESH_DEBOUNCE_MS = 300000; // 5 minutes for session limit refresh
 
 interface StoreStatsCache {
@@ -29,25 +29,32 @@ interface StoreStatsCache {
   timestamp: number;
   lastUpdated: Date;
   shop: string;
+  version: string;
 }
 
-// Cache management functions
+// Enhanced cache management functions
 const loadStoreStatsFromCache = (shop: string): StoreStatsCache | null => {
   try {
     const stored = sessionStorage.getItem(STORE_STATS_CACHE_KEY);
     if (stored) {
       const parsed = JSON.parse(stored);
-      if (parsed.shop === shop && parsed.lastUpdated) {
+      if (parsed.shop === shop && parsed.lastUpdated && parsed.version === 'v2') {
         parsed.lastUpdated = new Date(parsed.lastUpdated);
         const age = Date.now() - parsed.timestamp;
         if (age < STORE_STATS_CACHE_DURATION) {
           console.log('Loaded store stats from cache, age:', Math.round(age / 1000), 'seconds');
           return parsed;
+        } else {
+          console.log('Store stats cache expired, age:', Math.round(age / (1000 * 60)), 'minutes');
         }
+      } else {
+        console.log('Store stats cache version/shop mismatch, clearing cache');
+        sessionStorage.removeItem(STORE_STATS_CACHE_KEY);
       }
     }
   } catch (error) {
     console.warn('Failed to load store stats cache:', error);
+    sessionStorage.removeItem(STORE_STATS_CACHE_KEY);
   }
   return null;
 };
@@ -58,10 +65,11 @@ const saveStoreStatsToCache = (data: any, shop: string) => {
       data,
       timestamp: Date.now(),
       lastUpdated: new Date(),
-      shop
+      shop,
+      version: 'v2'
     };
     sessionStorage.setItem(STORE_STATS_CACHE_KEY, JSON.stringify(cacheEntry));
-    console.log('Saved store stats to cache');
+    console.log('Saved store stats to cache with version v2');
   } catch (error) {
     console.warn('Failed to save store stats to cache:', error);
   }
@@ -87,6 +95,7 @@ export default function ProfilePage() {
   const [refreshDebounce, setRefreshDebounce] = useState(false);
   const [sessionRefreshDebounce, setSessionRefreshDebounce] = useState(false);
   const [sessionRefreshCountdown, setSessionRefreshCountdown] = useState(0);
+  const [refreshCountdown, setRefreshCountdown] = useState(0);
   const [pastStores, setPastStores] = useState<string[]>([]);
   
   // Confirmation dialog state
@@ -287,9 +296,54 @@ export default function ProfilePage() {
     if (refreshDebounce) return;
     
     setRefreshDebounce(true);
-    setTimeout(() => setRefreshDebounce(false), REFRESH_DEBOUNCE_MS);
+    setRefreshCountdown(Math.ceil(REFRESH_DEBOUNCE_MS / 1000));
     
-    await loadStoreStats(true);
+    // Start countdown timer
+    const countdownInterval = setInterval(() => {
+      setRefreshCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(countdownInterval);
+          setRefreshDebounce(false);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    
+    try {
+      // Clear backend Redis cache first (if available)
+      if (shop) {
+        try {
+          console.log('🗑️ Clearing backend cache for store stats:', shop);
+          const response = await fetch('/api/analytics/cache/invalidate', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include'
+          });
+          
+          if (response.ok) {
+            const result = await response.json();
+            console.log('✅ Backend cache cleared for store stats:', result);
+            notifications.showSuccess('🗑️ Backend cache cleared - loading fresh store data...', { duration: 2000 });
+          } else {
+            console.warn('⚠️ Backend cache clearing failed, continuing with frontend refresh');
+          }
+        } catch (error) {
+          console.warn('⚠️ Backend cache clearing failed:', error, 'continuing with frontend refresh');
+        }
+      }
+      
+      // Clear frontend cache and load fresh data
+      sessionStorage.removeItem(STORE_STATS_CACHE_KEY);
+      await loadStoreStats(true);
+      
+      notifications.showSuccess('✅ Store statistics updated with fresh data', { duration: 3000 });
+    } catch (error) {
+      console.error('Failed to refresh store stats:', error);
+      notifications.showError('❌ Failed to refresh store statistics', { duration: 3000 });
+    }
   };
 
   // FIXED: Use simple return URL format to avoid Chrome phishing warnings
@@ -579,6 +633,53 @@ export default function ProfilePage() {
     console.log('Cleared all dashboard and unified analytics cache keys');
   };
 
+  // Enhanced cache clearing function with backend integration
+  const clearCacheAndRefresh = async () => {
+    try {
+      // Step 1: Clear backend Redis cache
+      if (shop) {
+        try {
+          console.log('🗑️ Clearing backend Redis cache for comprehensive refresh');
+          const response = await fetch('/api/analytics/cache/invalidate', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include'
+          });
+          
+          if (response.ok) {
+            const result = await response.json();
+            console.log('✅ Backend cache cleared successfully:', result);
+            notifications.showSuccess('🗑️ Backend cache cleared successfully', { duration: 2000 });
+          } else {
+            console.warn('⚠️ Backend cache clearing failed');
+          }
+        } catch (error) {
+          console.warn('⚠️ Backend cache clearing failed:', error);
+        }
+      }
+      
+      // Step 2: Clear all frontend dashboard caches
+      clearAllDashboardCache();
+      
+      // Step 3: Clear Profile page cache
+      sessionStorage.removeItem(STORE_STATS_CACHE_KEY);
+      
+      notifications.showSuccess('✅ All caches cleared! Dashboard and Profile will show the latest information.', {
+        category: 'Cache Management',
+        duration: 4000
+      });
+      
+      // Refresh store stats to show updated data
+      await loadStoreStats(true);
+      
+    } catch (error) {
+      console.error('Failed to clear cache and refresh:', error);
+      notifications.showError('❌ Failed to clear cache', { duration: 3000 });
+    }
+  };
+
   // FIXED: Connect new store with Dashboard redirect  
   const handleConnectNewStore = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -640,18 +741,6 @@ export default function ProfilePage() {
     const returnUrl = encodeURIComponent(`${baseUrl}?reconnected=true`);
     
     window.location.href = `${API_BASE_URL}/api/auth/shopify/login?shop=${encodeURIComponent(pastStore)}&return_url=${returnUrl}`;
-  };
-
-  const clearCacheAndRefresh = () => {
-    // Clear all dashboard caches
-    clearAllDashboardCache();
-    
-    notifications.showSuccess('Data refreshed! Dashboard will show the latest information.', {
-      category: 'Operations'
-    });
-    
-    // Refresh store stats to show updated data
-    loadStoreStats(true);
   };
 
   const getConnectionStatusColor = () => {
@@ -748,6 +837,11 @@ export default function ProfilePage() {
                         <div className="w-3 h-3 border border-blue-600 border-t-transparent rounded-full animate-spin"></div>
                         Updating...
                       </>
+                    ) : refreshDebounce ? (
+                      <>
+                        <div className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                        Wait {refreshCountdown}s
+                      </>
                     ) : (
                       <>
                         🔄 Update Stats
@@ -837,7 +931,7 @@ export default function ProfilePage() {
                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
-                Clear Cache & Refresh
+                Clear All Caches & Refresh
               </button>
               </div>
             </div>
