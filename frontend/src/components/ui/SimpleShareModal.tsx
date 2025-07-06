@@ -71,7 +71,7 @@ const SimpleShareModal: React.FC<SimpleShareModalProps> = ({
   metrics,
 }) => {
   const theme = useTheme();
-  const { addNotification } = useNotifications();
+  const { showInfo, showSuccess, showError } = useNotifications();
   
   // State management
   const [isExporting, setIsExporting] = useState(false);
@@ -99,7 +99,7 @@ const SimpleShareModal: React.FC<SimpleShareModalProps> = ({
     setExportProgress(0);
     
     debugLog.info('Starting PNG export', { quality: exportSettings.quality, filename: generateFilename() }, 'SimpleShareModal');
-    addNotification('Generating high-resolution analytics report...', 'info');
+    showInfo('Generating high-resolution analytics report...');
 
     try {
       setExportProgress(25);
@@ -123,17 +123,17 @@ const SimpleShareModal: React.FC<SimpleShareModalProps> = ({
       link.click();
 
       setExportProgress(100);
-      addNotification('Analytics report exported successfully', 'success');
+      showSuccess('Analytics report exported successfully');
       debugLog.info('PNG export completed', { filename: link.download, scale }, 'SimpleShareModal');
 
     } catch (error) {
               debugLog.error('PNG export failed:', error, 'SimpleShareModal');
-      addNotification('Export operation failed. Please contact support if issue persists.', 'error');
+      showError('Export operation failed. Please contact support if issue persists.');
     } finally {
       setIsExporting(false);
       setExportProgress(0);
     }
-  }, [chartRef, exportSettings, generateFilename, theme, addNotification]);
+  }, [chartRef, exportSettings, generateFilename, theme, showInfo, showSuccess, showError]);
 
   // PDF export
   const handleExportPDF = useCallback(async () => {
@@ -143,7 +143,7 @@ const SimpleShareModal: React.FC<SimpleShareModalProps> = ({
     setExportProgress(0);
     
     debugLog.info('Starting PDF export', { filename: generateFilename(), includeWatermark: exportSettings.includeWatermark }, 'SimpleShareModal');
-    addNotification('Generating professional analytics document...', 'info');
+    showInfo('Generating professional analytics document...');
 
     try {
       setExportProgress(25);
@@ -199,17 +199,17 @@ const SimpleShareModal: React.FC<SimpleShareModalProps> = ({
       
       pdf.save(`${generateFilename()}.pdf`);
       setExportProgress(100);
-      addNotification('Professional analytics report generated successfully', 'success');
+      showSuccess('Professional analytics report generated successfully');
       debugLog.info('PDF export completed', { filename: `${generateFilename()}.pdf`, includeWatermark: exportSettings.includeWatermark }, 'SimpleShareModal');
       
     } catch (error) {
               debugLog.error('PDF export failed:', error, 'SimpleShareModal');
-      addNotification('Document generation failed. Please contact support if issue persists.', 'error');
+      showError('Document generation failed. Please contact support if issue persists.');
     } finally {
       setIsExporting(false);
       setExportProgress(0);
     }
-  }, [chartRef, generateFilename, shopName, chartTitle, metrics, exportSettings, theme, addNotification]);
+  }, [chartRef, generateFilename, shopName, chartTitle, metrics, exportSettings, theme, showInfo, showSuccess, showError]);
 
   // Handle export
   const handleExport = useCallback(() => {
@@ -232,24 +232,24 @@ const SimpleShareModal: React.FC<SimpleShareModalProps> = ({
       switch (platform) {
         case 'linkedin':
           window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareableUrl)}&summary=${encodeURIComponent(message)}`);
-          addNotification('Opening LinkedIn business network sharing...', 'info');
+          showInfo('Opening LinkedIn business network sharing...');
           debugLog.info('LinkedIn share opened', { messageLength: message.length }, 'SimpleShareModal');
           break;
         case 'twitter':
           window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(message)}&url=${encodeURIComponent(shareableUrl)}`);
-          addNotification('Opening social media sharing platform...', 'info');
+          showInfo('Opening social media sharing platform...');
           debugLog.info('Twitter share opened', { messageLength: message.length }, 'SimpleShareModal');
           break;
         case 'email':
           window.open(`mailto:?subject=${encodeURIComponent(`${shopName} - ${chartTitle}`)}&body=${encodeURIComponent(message + '\n\n' + shareableUrl)}`);
-          addNotification('Opening email application for report distribution...', 'info');
+          showInfo('Opening email application for report distribution...');
           debugLog.info('Email share opened', { subject: `${shopName} - ${chartTitle}` }, 'SimpleShareModal');
           break;
         case 'copy':
           await navigator.clipboard.writeText(message + '\n\n' + shareableUrl);
           setCopiedToClipboard(true);
           setTimeout(() => setCopiedToClipboard(false), 3000);
-          addNotification('Analytics report link copied to clipboard for sharing', 'success');
+          showSuccess('Analytics report link copied to clipboard for sharing');
           debugLog.info('Link copied to clipboard', { messageLength: message.length }, 'SimpleShareModal');
           break;
         default:
@@ -257,9 +257,9 @@ const SimpleShareModal: React.FC<SimpleShareModalProps> = ({
       }
     } catch (error) {
       debugLog.error('Sharing failed:', error, 'SimpleShareModal');
-      addNotification('Sharing operation failed. Please verify network connectivity and try again.', 'error');
+      showError('Sharing operation failed. Please verify network connectivity and try again.');
     }
-  }, [shopName, chartTitle, metrics, addNotification]);
+  }, [shopName, chartTitle, metrics, showInfo, showSuccess, showError]);
 
   return (
     <>
