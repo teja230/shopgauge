@@ -14,9 +14,9 @@ This document consolidates all Advanced Analytics improvements, fixes, and featu
 - **Weekly Patterns**: Lower predictions for weekends, higher for weekdays with ±10% variation
 
 ### 2. **Advanced Chart Visualization**
-- **5 Chart Types**: Combined, Revenue Focus, Line, Area, and Bar charts with predictive analytics
+- **7 Chart Types**: Line, Area, Bar, Candlestick, Waterfall, Stacked, and Composed charts with predictive analytics
 - **Professional Styling**: Unified color scheme with clear historical vs forecast differentiation
-- **Interactive Features**: Time range filtering (7D, 30D, All), metric visibility controls
+- **Interactive Features**: Chart type switching, AI predictions toggle, metric visibility controls
 - **Mobile Optimization**: Horizontal scrolling, touch-friendly controls, responsive design
 - **Error Handling**: Enterprise-grade error boundaries with automatic recovery
 
@@ -37,8 +37,8 @@ graph TB
     C --> E[AI Prediction Engine]
     D --> F[Unified Data Format]
     E --> F
-    F --> G[UnifiedAnalyticsChart Component]
-    G --> H[Chart Type Rendering]
+    F --> G[PredictionViewContainer]
+    G --> H[Specialized Chart Components]
     H --> I[Professional Export System]
 ```
 
@@ -52,13 +52,19 @@ graph TB
   - Automatic data persistence across component re-renders
   - Comprehensive error handling and retry logic
 
-#### 2. **UnifiedAnalyticsChart Component**
-- **Purpose**: Renders interactive charts with multiple visualization options
+#### 2. **PredictionViewContainer Component**
+- **Purpose**: Provides tabbed interface for switching between different analytics views
 - **Features**:
-  - 5 different chart types with consistent styling
-  - Time range filtering and AI predictions toggle
+  - Revenue, Orders, and Conversion analytics tabs
+  - AI predictions toggle with confidence intervals
   - Professional share functionality with export capabilities
   - Mobile-responsive design with horizontal scrolling
+
+#### 3. **Specialized Chart Components**
+- **RevenuePredictionChart**: Revenue-focused analytics with 7 chart types
+- **OrderPredictionChart**: Order volume analytics with 7 chart types  
+- **ConversionPredictionChart**: Conversion rate analytics with 7 chart types
+- **Chart Types**: Line, Area, Bar, Candlestick, Waterfall, Stacked, Composed
 
 #### 3. **Data Validation & Processing**
 - **SVG-Safe Processing**: Comprehensive validation preventing "Invariant failed" errors
@@ -154,30 +160,47 @@ const generatePredictions = (historicalData: any[], days: number) => {
 
 ## 📊 Chart Types & Features
 
-### 1. **Combined Chart**
-- Multi-metric visualization with revenue, orders, and conversion rate
-- Dual-axis support with proper scaling
-- Unified tooltip formatting with confidence indicators
-
-### 2. **Revenue Focus Chart**
-- Detailed revenue analysis with trend lines
-- Enhanced gradient fills and forecast differentiation
-- Professional styling for executive presentations
-
-### 3. **Line Charts**
+### 1. **Line Charts**
 - Clean line visualization with gradient backgrounds
 - Enhanced dot styling with prediction awareness
 - Dashed lines for forecast data with pattern overlays
+- Visual distinction between historical (solid) and forecast (lighter) data points
 
-### 4. **Area Charts**
+### 2. **Area Charts**
 - Multi-layer gradients with smooth transitions
 - Forecast area overlays with enhanced stroke patterns
 - Consistent opacity control between data types
+- Subtle overlay for forecast regions
 
-### 5. **Bar Charts**
+### 3. **Bar Charts**
 - Gradient fills for all bars with stroke borders for forecasts
 - Enhanced radius and consistent styling
 - Professional appearance for business presentations
+- Solid colors for actual data, lighter colors for forecast data
+
+### 4. **Candlestick Charts**
+- Financial-style visualization with high/low/open/close data representation
+- Enhanced gradient fills with forecast differentiation
+- Moving average overlay for trend analysis
+- Proper actual vs forecast styling with stroke patterns
+
+### 5. **Waterfall Charts**
+- Cumulative change visualization with positive/negative indicators
+- Enhanced gradient fills for change bars
+- Clear differentiation between actual and forecast data
+- Professional styling for executive presentations
+
+### 6. **Stacked Charts**
+- Multi-layer area visualization with stackable data
+- Enhanced gradient definitions for forecast regions
+- Proper opacity control and visual hierarchy
+- Overlay patterns for forecast areas
+
+### 7. **Composed Charts**
+- Combination of bar and line elements
+- Dual-axis support with proper scaling
+- Enhanced gradient fills for both bars and lines
+- Comprehensive forecast differentiation
 
 ## 🎨 Professional Chart Sharing
 
