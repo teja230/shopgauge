@@ -337,7 +337,7 @@ export default function ProfilePage() {
       
       // Clear frontend cache and load fresh data
       sessionStorage.removeItem(STORE_STATS_CACHE_KEY);
-      await loadStoreStats(true);
+    await loadStoreStats(true);
       
       notifications.showSuccess('Store statistics updated', { duration: 3000 });
     } catch (error) {

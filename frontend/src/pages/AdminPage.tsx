@@ -215,9 +215,9 @@ const DeviceIcon = ({ userAgent }: { userAgent: string }) => {
   
   switch (deviceType) {
     case 'iPhone':
-      return <PhoneIcon fontSize="small" sx={{ color: 'primary.main' }} />;
+    return <PhoneIcon fontSize="small" sx={{ color: 'primary.main' }} />;
     case 'iPad':
-      return <TabletIcon fontSize="small" sx={{ color: 'secondary.main' }} />;
+    return <TabletIcon fontSize="small" sx={{ color: 'secondary.main' }} />;
     case 'Android Phone':
       return <PhoneIcon fontSize="small" sx={{ color: 'success.main' }} />;
     case 'Android Tablet':
@@ -229,9 +229,9 @@ const DeviceIcon = ({ userAgent }: { userAgent: string }) => {
     case 'Desktop': {
       const ua = userAgent?.toLowerCase() || '';
       if (ua.includes('mac')) {
-        return <DesktopIcon fontSize="small" sx={{ color: 'warning.main' }} />;
-      } else {
-        return <ComputerIcon fontSize="small" sx={{ color: 'info.main' }} />;
+    return <DesktopIcon fontSize="small" sx={{ color: 'warning.main' }} />;
+  } else {
+    return <ComputerIcon fontSize="small" sx={{ color: 'info.main' }} />;
       }
     }
     default:
@@ -1042,7 +1042,7 @@ const AdminPage: React.FC = () => {
                   <Typography variant="body2" color="text.secondary">
                     Active Sessions
                   </Typography>
-                </Paper>
+      </Paper>
                 <Paper sx={{ p: 3, textAlign: 'center', bgcolor: 'white', borderRadius: 2, minHeight: 120, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                   <Typography variant="h4" color="secondary.main" fontWeight="bold">
                     {sessionStats.shopsWithMultipleSessions || 0}

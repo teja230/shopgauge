@@ -2500,15 +2500,15 @@ const DashboardPage = () => {
                         />
                       </>
                     )}
-                    {cardErrors.products && (
-                      <IconButton 
-                        size="small" 
-                        onClick={() => handleCardLoad('products', true)}
-                        className="text-red-500 hover:text-red-700"
-                      >
-                        <Refresh fontSize="small" />
-                      </IconButton>
-                    )}
+                  {cardErrors.products && (
+                    <IconButton 
+                      size="small" 
+                      onClick={() => handleCardLoad('products', true)}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      <Refresh fontSize="small" />
+                    </IconButton>
+                  )}
                   </Box>
                 </SectionHeader>
                 {cardLoading.products ? (
@@ -2620,15 +2620,15 @@ const DashboardPage = () => {
                         />
                       </>
                     )}
-                    {cardErrors.orders && (
-                      <IconButton 
-                        size="small" 
-                        onClick={() => handleCardLoad('orders')}
-                        className="text-red-500 hover:text-red-700"
-                      >
-                        <Refresh fontSize="small" />
-                      </IconButton>
-                    )}
+                  {cardErrors.orders && (
+                    <IconButton 
+                      size="small" 
+                      onClick={() => handleCardLoad('orders')}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      <Refresh fontSize="small" />
+                    </IconButton>
+                  )}
                   </Box>
                 </SectionHeader>
                 {cardLoading.orders ? (

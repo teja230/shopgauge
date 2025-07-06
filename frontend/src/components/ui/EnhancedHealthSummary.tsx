@@ -440,7 +440,7 @@ const EnhancedHealthSummary: React.FC = () => {
          >
            Force Redis Check
          </Button>
-       </Box>
+      </Box>
     </Paper>
   );
 };
