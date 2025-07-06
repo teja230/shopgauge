@@ -123,6 +123,24 @@ const formatConversionRate = (value: number): string => {
   }
 };
 
+// Standardized tooltip formatter to ensure consistent labeling across all chart types
+const standardTooltipFormatter = (value: number, name: string, props: any): [string, string] => {
+  const isPrediction = props.payload?.isPrediction;
+  const prefix = isPrediction ? '🔮 AI Forecast: ' : '📊 Historical: ';
+  
+  // Standardize display names regardless of dataKey or name prop
+  if (name.includes('Revenue') || name === 'revenue') {
+    return [`${prefix}$${value.toLocaleString()}`, 'Revenue'];
+  }
+  if (name.includes('Orders') || name === 'orders_count') {
+    return [`${prefix}${value.toLocaleString()}`, 'Orders'];
+  }
+  if (name.includes('Conversion') || name === 'conversion_rate') {
+    return [`${prefix}${formatConversionRate(value)}%`, 'Conversion Rate'];
+  }
+  return [`${prefix}${value.toLocaleString()}`, name];
+};
+
 // Enhanced SVG-safe number validation
 const safeNumber = (value: any, defaultValue: number = 0): number => {
   if (value === null || value === undefined) {
@@ -342,14 +360,7 @@ const SimpleLineChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
             return label;
           }
         }}
-        formatter={(value: number, name: string, props: any) => {
-          const isPrediction = props.payload?.isPrediction;
-          const prefix = isPrediction ? '🔮 AI Forecast: ' : '📊 Historical: ';
-          if (name.includes('Revenue')) return [`${prefix}$${value.toLocaleString()}`, name];
-          if (name.includes('Orders')) return [`${prefix}${value.toLocaleString()}`, name];
-          if (name.includes('Conversion')) return [`${prefix}${formatConversionRate(value)}%`, name];
-          return [`${prefix}${value.toLocaleString()}`, name];
-        }}
+        formatter={standardTooltipFormatter}
         contentStyle={{
           backgroundColor: 'rgba(255, 255, 255, 0.95)',
           border: '1px solid rgba(0, 0, 0, 0.1)',
@@ -621,14 +632,7 @@ const SimpleAreaChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
             return label;
           }
         }}
-        formatter={(value: number, name: string, props: any) => {
-          const isPrediction = props.payload?.isPrediction;
-          const prefix = isPrediction ? '🔮 Forecast: ' : '📊 Actual: ';
-          if (name.includes('Revenue')) return [`${prefix}$${value.toLocaleString()}`, name];
-          if (name.includes('Orders')) return [`${prefix}${value.toLocaleString()}`, name];
-          if (name.includes('Conversion')) return [`${prefix}${formatConversionRate(value)}%`, name];
-          return [`${prefix}${value.toLocaleString()}`, name];
-        }}
+        formatter={standardTooltipFormatter}
         contentStyle={{
           backgroundColor: 'rgba(255, 255, 255, 0.95)',
           border: '1px solid rgba(0, 0, 0, 0.1)',
@@ -644,7 +648,7 @@ const SimpleAreaChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
         )}
       />
       
-      {/* Historical Data Areas */}
+            {/* Historical Data Areas */}
       {visibleMetrics.revenue && (
         <Area
           yAxisId="left"
@@ -835,14 +839,7 @@ const SimpleComposedChart = memo(({ data, visibleMetrics, shouldShowPredictionLi
             return label;
           }
         }}
-        formatter={(value: number, name: string, props: any) => {
-          const isPrediction = props.payload?.isPrediction;
-          const prefix = isPrediction ? '🔮 AI Forecast: ' : '📊 Historical: ';
-          if (name.includes('Revenue')) return [`${prefix}$${value.toLocaleString()}`, name];
-          if (name.includes('Orders')) return [`${prefix}${value.toLocaleString()}`, name];
-          if (name.includes('Conversion')) return [`${prefix}${formatConversionRate(value)}%`, name];
-          return [`${prefix}${value.toLocaleString()}`, name];
-        }}
+        formatter={standardTooltipFormatter}
         contentStyle={{
           backgroundColor: 'rgba(255, 255, 255, 0.95)',
           border: '1px solid rgba(0, 0, 0, 0.1)',
@@ -1026,7 +1023,18 @@ const SimpleStackedChart = memo(({ data, visibleMetrics, shouldShowPredictionLin
           const isPrediction = props.payload?.isPrediction;
           const prefix = isPrediction ? '🔮 AI Forecast: ' : '📊 Historical: ';
           const percentage = (value * 100).toFixed(1);
-          return [`${prefix}${percentage}%`, name];
+          
+          // Standardize display names for stacked chart
+          let displayName = name;
+          if (name.includes('Revenue') || name === 'revenue') {
+            displayName = 'Revenue';
+          } else if (name.includes('Orders') || name === 'orders_count') {
+            displayName = 'Orders';
+          } else if (name.includes('Conversion') || name === 'conversion_rate') {
+            displayName = 'Conversion Rate';
+          }
+          
+          return [`${prefix}${percentage}%`, displayName];
         }}
         contentStyle={{
           backgroundColor: 'rgba(255, 255, 255, 0.95)',
@@ -1218,14 +1226,7 @@ const SimpleBarChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, p
             return label;
           }
         }}
-        formatter={(value: number, name: string, props: any) => {
-          const isPrediction = props.payload?.isPrediction;
-          const prefix = isPrediction ? '🔮 Forecast: ' : '📊 Actual: ';
-          if (name.includes('Revenue')) return [`${prefix}$${value.toLocaleString()}`, name];
-          if (name.includes('Orders')) return [`${prefix}${value.toLocaleString()}`, name];
-          if (name.includes('Conversion')) return [`${prefix}${formatConversionRate(value)}%`, name];
-          return [`${prefix}${value.toLocaleString()}`, name];
-        }}
+        formatter={standardTooltipFormatter}
         contentStyle={{
           backgroundColor: 'rgba(255, 255, 255, 0.95)',
           border: '1px solid rgba(0, 0, 0, 0.1)',
