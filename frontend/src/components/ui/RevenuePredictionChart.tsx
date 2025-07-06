@@ -680,10 +680,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
               name="Revenue"
               connectNulls={false}
               isAnimationActive={false}
-              fill={(props: any) => {
-                // This is a workaround since Area doesn't support shape prop like Bar
-                return "url(#stackedHistoricalGradient)";
-              }}
+              fill="url(#stackedHistoricalGradient)"
               dot={(props: any) => {
                 const { payload } = props;
                 const isPrediction = payload?.isPrediction;
