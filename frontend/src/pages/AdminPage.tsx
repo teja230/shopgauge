@@ -260,7 +260,7 @@ const getDeviceType = (userAgent: string) => {
   
   // Enhanced iPad detection - iPads often don't include 'mobile' in user agent
   if (ua.includes('ipad') || 
-      (ua.includes('macintosh') && ua.includes('safari') && 'ontouchend' in document)) {
+      (ua.includes('macintosh') && ua.includes('safari') && typeof document !== 'undefined' && 'ontouchend' in document)) {
     return 'iPad';
   }
   
