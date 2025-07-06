@@ -37,16 +37,13 @@ public class BackendConfig {
    * Configure async executor for session management tasks This prevents transaction commit issues
    * with async operations
    */
-  @Bean("sessionTaskExecutor")
+  @Bean(name = "sessionTaskExecutor")
   public TaskExecutor sessionTaskExecutor() {
     ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
     executor.setCorePoolSize(2);
     executor.setMaxPoolSize(5);
-    executor.setQueueCapacity(100);
-    executor.setThreadNamePrefix("SessionAsync-");
-    executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
-    executor.setWaitForTasksToCompleteOnShutdown(true);
-    executor.setAwaitTerminationSeconds(20);
+    executor.setQueueCapacity(25);
+    executor.setThreadNamePrefix("session-async-");
     executor.initialize();
     logger.info("Configured async session task executor with 2-5 threads");
     return executor;

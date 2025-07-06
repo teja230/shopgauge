@@ -1,11 +1,11 @@
--- Update table statistics to help query planner optimize performance
--- This migration contains non-transactional ANALYZE statements
--- and must be run separately from transactional index creation
+-- Update table statistics for performance optimization
+-- This helps the query planner make better decisions with the new indexes
 
--- Update statistics for shop_sessions table to help query planner
--- This improves performance for session-related queries
+-- Update statistics for shop_sessions table
 ANALYZE shop_sessions;
 
--- Update statistics for notifications table to help query planner  
--- This improves performance for notification-related queries
-ANALYZE notifications; 
+-- Update statistics for notifications table  
+ANALYZE notifications;
+
+-- Update statistics for shops table (may be referenced in joins)
+ANALYZE shops; 
