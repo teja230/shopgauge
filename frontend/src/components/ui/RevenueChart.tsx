@@ -392,9 +392,9 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
 
   const renderChart = () => {
     try {
-      // Mobile-optimized margins with proportionate bottom space
-      const mobileMargins = { top: 15, right: 15, left: 15, bottom: 50 };
-      const desktopMargins = { top: 25, right: 40, left: 40, bottom: 60 };
+      // Reduced bottom margins for better proportion - chart area should be larger than label area
+      const mobileMargins = { top: 15, right: 15, left: 15, bottom: 35 }; // Reduced from 50 to 35
+      const desktopMargins = { top: 25, right: 40, left: 40, bottom: 45 }; // Reduced from 60 to 45
       
       const commonProps = {
         data: processedData,
@@ -414,11 +414,11 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
           axisLine={{ stroke: 'rgba(0, 0, 0, 0.1)' }}
           interval={isMobile ? 'preserveStartEnd' : 'preserveStart'}
           angle={isMobile ? -45 : -30}
-          height={isMobile ? 50 : 60}
+          height={isMobile ? 40 : 45} // Reduced from 50/60 to 40/45
           label={{
             value: 'Date',
             position: 'bottom',
-            offset: 10,
+            offset: -5, // Reduced from 10 to -5 to bring label closer
             fill: 'rgba(0, 0, 0, 0.54)',
             fontSize: 12,
           }}
@@ -826,8 +826,8 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
         ref={chartRef}
         sx={{ 
           flex: 1,
-          minHeight: responsiveHeight - (isMobile ? 180 : 200), // Adjust account for header and insights height
-          maxHeight: responsiveHeight - (isMobile ? 180 : 200), // Prevent excessive height
+          minHeight: responsiveHeight - (isMobile ? 160 : 180), // Reduced from 180/200 to account for smaller margins
+          maxHeight: responsiveHeight - (isMobile ? 160 : 180), // Prevent excessive height
           overflow: isMobile ? 'auto' : 'hidden', // Enable horizontal scroll on mobile
           minWidth: isMobile ? '650px' : 'auto', // Set minimum width on mobile to prevent cutoff
         '&::-webkit-scrollbar': {
@@ -858,7 +858,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
         }),
       }}>
         {containerReady && (
-          <ResponsiveContainer width="100%" height={responsiveHeight - (isMobile ? 180 : 200)}>
+          <ResponsiveContainer width="100%" height={responsiveHeight - (isMobile ? 160 : 180)}>
             {renderChart()}
           </ResponsiveContainer>
         )}
