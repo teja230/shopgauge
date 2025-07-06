@@ -106,7 +106,7 @@ const EnhancedClassicTooltip: React.FC<TooltipProps<RevenuePoint>> = ({ active, 
           }}
         />
         <Typography variant="body2" fontWeight={600}>
-          📊 Recent Data: ${value.toLocaleString()}
+          📊 Revenue: ${value.toLocaleString()}
         </Typography>
       </Box>
     </Paper>
