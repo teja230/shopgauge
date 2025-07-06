@@ -104,7 +104,7 @@ const PredictionViewContainer = memo(({
   data, 
   loading, 
   error, 
-  height = 500,
+  height = 700,
   onPredictionDaysChange,
   predictionDays = 30,
   className = '' 
@@ -125,25 +125,25 @@ const PredictionViewContainer = memo(({
   
   // Better responsive height calculations
   const responsiveHeight = useMemo(() => {
-    // Use mobile-optimized heights that don't require scrolling
-    if (isMobile) return getMobileOptimizedHeight(500, true); // ~350px
-    if (isTablet) return 450;
-    return Math.max(500, height);
+    // Properly scale heights for different screen sizes
+    if (isMobile) return Math.max(500, height * 0.8); // Minimum 500px on mobile, scale down by 20%
+    if (isTablet) return Math.max(600, height * 0.9); // Minimum 600px on tablet, scale down by 10%
+    return Math.max(700, height); // Minimum 700px on desktop
   }, [height, isMobile, isTablet]);
 
   // Calculate chart height with better margins
   const chartHeight = useMemo(() => {
     // Account for header, controls, stats, and margins
-    const headerHeight = isMobile ? 80 : 120; // Reduced header on mobile
-    const statsHeight = isMobile ? 80 : 120; // Reduced stats on mobile
-    const buttonsHeight = isMobile ? 50 : 60; // Reduced buttons on mobile
-    const margins = isMobile ? 20 : 40; // Reduced margins on mobile
+    const headerHeight = isMobile ? 100 : 140; // Header with controls
+    const statsHeight = isMobile ? 120 : 160; // Stats display area
+    const buttonsHeight = isMobile ? 60 : 80; // View toggle buttons
+    const margins = isMobile ? 30 : 50; // Container margins
     
     const totalNonChartHeight = headerHeight + statsHeight + buttonsHeight + margins;
     const calculatedHeight = responsiveHeight - totalNonChartHeight;
     
-    // Ensure minimum chart height with mobile optimization
-    const minHeight = isMobile ? 220 : 300;
+    // Ensure minimum chart height for good visibility
+    const minHeight = isMobile ? 280 : 400; // Increased minimum heights
     return Math.max(minHeight, calculatedHeight);
   }, [responsiveHeight, isMobile]);
 
@@ -366,54 +366,109 @@ const PredictionViewContainer = memo(({
       display: 'flex',
       flexDirection: 'column',
       className,
+      // Enhanced styling for better appearance
+      background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 250, 252, 0.95) 100%)',
+      backdropFilter: 'blur(10px)',
+      border: `1px solid ${theme.palette.divider}`,
+      boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
+      borderRadius: 3,
+      overflow: 'hidden',
     }}>
       <CardContent sx={{ 
         height: '100%', 
         display: 'flex', 
         flexDirection: 'column',
-        p: 2,
+        p: isMobile ? 2 : 3, // Better padding for desktop
+        background: 'transparent',
       }}>
         {/* Header */}
-        <Box sx={{ mb: 2 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <CardTitle>
-              <Analytics color="primary" />
-              Advanced Analytics
-              <Chip
-                icon={<AutoAwesome />}
-                label="AI Forecast"
-                color="secondary"
-                size="small"
-                sx={{ fontWeight: 600, ml: 1 }}
-              />
-              <Chip
-                label="Last 60 Days"
-                color="primary"
-                variant="outlined"
-                size="small"
-                sx={{ 
-                  fontWeight: 500, 
-                  ml: 1,
-                  fontSize: '0.7rem',
-                  height: 20,
-                  '& .MuiChip-label': {
-                    px: 1
-                  }
-                }}
-              />
-            </CardTitle>
+        <Box sx={{ mb: 3 }}>
+          <Box sx={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            mb: 3,
+            pb: 2,
+            borderBottom: `2px solid ${theme.palette.divider}`,
+            background: 'linear-gradient(90deg, rgba(37, 99, 235, 0.05) 0%, rgba(147, 51, 234, 0.05) 100%)',
+            borderRadius: 2,
+            p: 2,
+          }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Box sx={{
+                width: 48,
+                height: 48,
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #2563eb 0%, #9333ea 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)',
+              }}>
+                <Analytics sx={{ color: 'white', fontSize: '1.5rem' }} />
+              </Box>
+              <Box>
+                <Typography variant="h5" fontWeight={700} sx={{ 
+                  background: 'linear-gradient(135deg, #2563eb 0%, #9333ea 100%)',
+                  backgroundClip: 'text',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  fontSize: isMobile ? '1.25rem' : '1.5rem',
+                  mb: 0.5,
+                }}>
+                  Advanced Analytics
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <Chip
+                    icon={<AutoAwesome />}
+                    label="AI Forecast"
+                    color="secondary"
+                    size="small"
+                    sx={{ 
+                      fontWeight: 600,
+                      background: 'linear-gradient(135deg, #9333ea 0%, #c084fc 100%)',
+                      color: 'white',
+                      '& .MuiChip-icon': { color: 'white' },
+                      boxShadow: '0 2px 8px rgba(147, 51, 234, 0.3)',
+                    }}
+                  />
+                  <Chip
+                    label="Last 60 Days"
+                    color="primary"
+                    variant="outlined"
+                    size="small"
+                    sx={{ 
+                      fontWeight: 500,
+                      fontSize: '0.7rem',
+                      height: 24,
+                      borderColor: 'primary.main',
+                      color: 'primary.main',
+                      '& .MuiChip-label': { px: 1 }
+                    }}
+                  />
+                </Box>
+              </Box>
+            </Box>
             
-            <Tooltip title="Share Chart">
+            <Tooltip title="Share Chart" arrow>
               <IconButton
                 onClick={handleShareChart}
-                size="small"
+                size="large"
                 sx={{
-                  backgroundColor: 'primary.main',
-                  color: 'primary.contrastText',
-                  '&:hover': { backgroundColor: 'primary.dark' },
+                  background: 'linear-gradient(135deg, #2563eb 0%, #9333ea 100%)',
+                  color: 'white',
+                  width: 48,
+                  height: 48,
+                  boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)',
+                  '&:hover': { 
+                    background: 'linear-gradient(135deg, #1d4ed8 0%, #7c3aed 100%)',
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 6px 16px rgba(37, 99, 235, 0.4)',
+                  },
+                  transition: 'all 0.3s ease-in-out',
                 }}
               >
-                <ShareIcon fontSize="small" />
+                <ShareIcon fontSize="medium" />
               </IconButton>
             </Tooltip>
           </Box>
@@ -425,7 +480,12 @@ const PredictionViewContainer = memo(({
             alignItems: 'center',
             flexWrap: 'wrap',
             gap: 2,
-            mb: 2,
+            mb: 3,
+            p: 2,
+            background: 'rgba(255, 255, 255, 0.7)',
+            borderRadius: 2,
+            border: `1px solid ${theme.palette.divider}`,
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
           }}>
             <FormControlLabel
               control={
@@ -433,13 +493,28 @@ const PredictionViewContainer = memo(({
                   checked={showPredictions}
                   onChange={(e) => handlePredictionToggle(e.target.checked)}
                   color="secondary"
+                  sx={{
+                    '& .MuiSwitch-track': {
+                      backgroundColor: showPredictions ? 'secondary.light' : 'grey.300',
+                    },
+                    '& .MuiSwitch-thumb': {
+                      boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
+                    },
+                  }}
                 />
               }
               label={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <AutoAwesome sx={{ fontSize: 16, color: 'secondary.main' }} />
-                  <Typography variant="body2" fontWeight={600}>
-                    {showPredictions ? 'Forecasts On' : 'Forecasts Off'}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <AutoAwesome sx={{ 
+                    fontSize: 18, 
+                    color: showPredictions ? 'secondary.main' : 'text.secondary',
+                    transition: 'color 0.3s ease-in-out',
+                  }} />
+                  <Typography variant="body2" fontWeight={600} sx={{
+                    color: showPredictions ? 'secondary.main' : 'text.secondary',
+                    transition: 'color 0.3s ease-in-out',
+                  }}>
+                    {showPredictions ? 'AI Forecasts Active' : 'Historical Data Only'}
                   </Typography>
                 </Box>
               }
@@ -452,22 +527,36 @@ const PredictionViewContainer = memo(({
                 onChange={(_, newDays) => newDays && onPredictionDaysChange(newDays)}
                 size="small"
                 sx={{
+                  background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.1) 0%, rgba(147, 51, 234, 0.1) 100%)',
+                  borderRadius: 2,
+                  border: `1px solid ${theme.palette.primary.main}`,
                   '& .MuiToggleButton-root': {
-                    px: 1.5,
-                    py: 0.5,
+                    px: 2,
+                    py: 1,
                     fontWeight: 600,
+                    fontSize: '0.875rem',
                     border: 'none',
                     borderRadius: 1.5,
+                    color: 'primary.main',
+                    transition: 'all 0.3s ease-in-out',
+                    '&:hover': {
+                      backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                      transform: 'translateY(-1px)',
+                    },
                     '&.Mui-selected': {
-                      backgroundColor: 'primary.main',
-                      color: 'primary.contrastText',
+                      background: 'linear-gradient(135deg, #2563eb 0%, #9333ea 100%)',
+                      color: 'white',
+                      boxShadow: '0 2px 8px rgba(37, 99, 235, 0.3)',
+                      '&:hover': {
+                        background: 'linear-gradient(135deg, #1d4ed8 0%, #7c3aed 100%)',
+                      },
                     },
                   },
                 }}
               >
-                <ToggleButton value={7}>7d</ToggleButton>
-                <ToggleButton value={30}>30d</ToggleButton>
-                <ToggleButton value={60}>60d</ToggleButton>
+                <ToggleButton value={7}>7 Days</ToggleButton>
+                <ToggleButton value={30}>30 Days</ToggleButton>
+                <ToggleButton value={60}>60 Days</ToggleButton>
               </ToggleButtonGroup>
             )}
           </Box>
@@ -627,92 +716,133 @@ const PredictionViewContainer = memo(({
           )}
         </Box>
 
-        {/* View Toggle with Chart Theme Colors - Fixed responsive layout */}
-        <ToggleButtonGroup
-          value={activeView}
-          exclusive
-          onChange={handleViewChange}
-          size="small"
-          sx={{
-            mb: 2,
-            display: 'flex',
-            flexWrap: isMobile ? 'nowrap' : 'nowrap', // Prevent wrapping
-            gap: isMobile ? 0.5 : 1,
-            width: '100%',
-            justifyContent: 'center',
-            '& .MuiToggleButton-root': {
-              textTransform: 'none',
-              fontWeight: 600,
-              px: isMobile ? 1 : 2,
-              py: isMobile ? 0.75 : 1,
-              border: '1px solid',
-              borderRadius: 1.5,
-              fontSize: isMobile ? '0.75rem' : '0.875rem',
-              minWidth: isMobile ? 'auto' : 100,
-              flex: isMobile ? 1 : 'initial', // Equal width on mobile
-              '&[value="revenue"]': {
-                borderColor: UNIFIED_COLOR_SCHEME.historical.revenue,
-                color: UNIFIED_COLOR_SCHEME.historical.revenue,
-                '&.Mui-selected': {
-                  backgroundColor: UNIFIED_COLOR_SCHEME.historical.revenue,
-                  color: 'white',
+        {/* View Toggle with Enhanced Modern Design */}
+        <Box sx={{ 
+          display: 'flex',
+          justifyContent: 'center',
+          mb: 3,
+          p: 1,
+          background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 250, 252, 0.9) 100%)',
+          borderRadius: 3,
+          border: `1px solid ${theme.palette.divider}`,
+          boxShadow: '0 2px 12px rgba(0, 0, 0, 0.06)',
+        }}>
+          <ToggleButtonGroup
+            value={activeView}
+            exclusive
+            onChange={handleViewChange}
+            size="medium"
+            sx={{
+              background: 'transparent',
+              border: 'none',
+              gap: 1,
+              '& .MuiToggleButton-root': {
+                textTransform: 'none',
+                fontWeight: 600,
+                px: isMobile ? 2 : 3,
+                py: isMobile ? 1 : 1.5,
+                border: '2px solid transparent',
+                borderRadius: 2.5,
+                fontSize: isMobile ? '0.8rem' : '0.95rem',
+                minWidth: isMobile ? 80 : 120,
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                position: 'relative',
+                overflow: 'hidden',
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  background: 'transparent',
+                  transition: 'all 0.3s ease-in-out',
+                  zIndex: 0,
+                },
+                '& > *': {
+                  position: 'relative',
+                  zIndex: 1,
+                },
+                '&[value="revenue"]': {
+                  color: UNIFIED_COLOR_SCHEME.historical.revenue,
+                  backgroundColor: `${UNIFIED_COLOR_SCHEME.historical.revenue}08`,
                   '&:hover': {
-                    backgroundColor: UNIFIED_COLOR_SCHEME.historical.revenue,
-                    opacity: 0.9,
+                    backgroundColor: `${UNIFIED_COLOR_SCHEME.historical.revenue}15`,
+                    transform: 'translateY(-2px)',
+                    boxShadow: `0 4px 16px ${UNIFIED_COLOR_SCHEME.historical.revenue}30`,
+                  },
+                  '&.Mui-selected': {
+                    background: `linear-gradient(135deg, ${UNIFIED_COLOR_SCHEME.historical.revenue} 0%, ${UNIFIED_COLOR_SCHEME.historical.revenue}dd 100%)`,
+                    color: 'white',
+                    borderColor: UNIFIED_COLOR_SCHEME.historical.revenue,
+                    boxShadow: `0 4px 20px ${UNIFIED_COLOR_SCHEME.historical.revenue}40`,
+                    transform: 'translateY(-1px)',
+                    '&:hover': {
+                      background: `linear-gradient(135deg, ${UNIFIED_COLOR_SCHEME.historical.revenue}ee 0%, ${UNIFIED_COLOR_SCHEME.historical.revenue}cc 100%)`,
+                      transform: 'translateY(-3px)',
+                      boxShadow: `0 6px 24px ${UNIFIED_COLOR_SCHEME.historical.revenue}50`,
+                    },
                   },
                 },
-                '&:hover': {
-                  backgroundColor: `${UNIFIED_COLOR_SCHEME.historical.revenue}10`,
-                },
-              },
-              '&[value="orders"]': {
-                borderColor: UNIFIED_COLOR_SCHEME.historical.orders,
-                color: UNIFIED_COLOR_SCHEME.historical.orders,
-                '&.Mui-selected': {
-                  backgroundColor: UNIFIED_COLOR_SCHEME.historical.orders,
-                  color: 'white',
+                '&[value="orders"]': {
+                  color: UNIFIED_COLOR_SCHEME.historical.orders,
+                  backgroundColor: `${UNIFIED_COLOR_SCHEME.historical.orders}08`,
                   '&:hover': {
-                    backgroundColor: UNIFIED_COLOR_SCHEME.historical.orders,
-                    opacity: 0.9,
+                    backgroundColor: `${UNIFIED_COLOR_SCHEME.historical.orders}15`,
+                    transform: 'translateY(-2px)',
+                    boxShadow: `0 4px 16px ${UNIFIED_COLOR_SCHEME.historical.orders}30`,
+                  },
+                  '&.Mui-selected': {
+                    background: `linear-gradient(135deg, ${UNIFIED_COLOR_SCHEME.historical.orders} 0%, ${UNIFIED_COLOR_SCHEME.historical.orders}dd 100%)`,
+                    color: 'white',
+                    borderColor: UNIFIED_COLOR_SCHEME.historical.orders,
+                    boxShadow: `0 4px 20px ${UNIFIED_COLOR_SCHEME.historical.orders}40`,
+                    transform: 'translateY(-1px)',
+                    '&:hover': {
+                      background: `linear-gradient(135deg, ${UNIFIED_COLOR_SCHEME.historical.orders}ee 0%, ${UNIFIED_COLOR_SCHEME.historical.orders}cc 100%)`,
+                      transform: 'translateY(-3px)',
+                      boxShadow: `0 6px 24px ${UNIFIED_COLOR_SCHEME.historical.orders}50`,
+                    },
                   },
                 },
-                '&:hover': {
-                  backgroundColor: `${UNIFIED_COLOR_SCHEME.historical.orders}10`,
-                },
-              },
-              '&[value="conversion"]': {
-                borderColor: UNIFIED_COLOR_SCHEME.historical.conversion,
-                color: UNIFIED_COLOR_SCHEME.historical.conversion,
-                '&.Mui-selected': {
-                  backgroundColor: UNIFIED_COLOR_SCHEME.historical.conversion,
-                  color: 'white',
+                '&[value="conversion"]': {
+                  color: UNIFIED_COLOR_SCHEME.historical.conversion,
+                  backgroundColor: `${UNIFIED_COLOR_SCHEME.historical.conversion}08`,
                   '&:hover': {
-                    backgroundColor: UNIFIED_COLOR_SCHEME.historical.conversion,
-                    opacity: 0.9,
+                    backgroundColor: `${UNIFIED_COLOR_SCHEME.historical.conversion}15`,
+                    transform: 'translateY(-2px)',
+                    boxShadow: `0 4px 16px ${UNIFIED_COLOR_SCHEME.historical.conversion}30`,
+                  },
+                  '&.Mui-selected': {
+                    background: `linear-gradient(135deg, ${UNIFIED_COLOR_SCHEME.historical.conversion} 0%, ${UNIFIED_COLOR_SCHEME.historical.conversion}dd 100%)`,
+                    color: 'white',
+                    borderColor: UNIFIED_COLOR_SCHEME.historical.conversion,
+                    boxShadow: `0 4px 20px ${UNIFIED_COLOR_SCHEME.historical.conversion}40`,
+                    transform: 'translateY(-1px)',
+                    '&:hover': {
+                      background: `linear-gradient(135deg, ${UNIFIED_COLOR_SCHEME.historical.conversion}ee 0%, ${UNIFIED_COLOR_SCHEME.historical.conversion}cc 100%)`,
+                      transform: 'translateY(-3px)',
+                      boxShadow: `0 6px 24px ${UNIFIED_COLOR_SCHEME.historical.conversion}50`,
+                    },
                   },
                 },
-                '&:hover': {
-                  backgroundColor: `${UNIFIED_COLOR_SCHEME.historical.conversion}10`,
-                },
               },
-            },
-          }}
-        >
-          <ToggleButton value="revenue">
-            <TrendingUp fontSize="small" sx={{ mr: isMobile ? 0.25 : 0.5 }} />
-            {!isMobile && 'Revenue'}
-            {isMobile && 'Rev'}
-          </ToggleButton>
-          <ToggleButton value="orders">
-            <ShoppingCart fontSize="small" sx={{ mr: isMobile ? 0.25 : 0.5 }} />
-            Orders
-          </ToggleButton>
-          <ToggleButton value="conversion">
-            <Percent fontSize="small" sx={{ mr: isMobile ? 0.25 : 0.5 }} />
-            {!isMobile && 'Conversion'}
-            {isMobile && 'Conv'}
-          </ToggleButton>
-        </ToggleButtonGroup>
+            }}
+          >
+            <ToggleButton value="revenue">
+              <TrendingUp fontSize="small" sx={{ mr: 1 }} />
+              {isMobile ? 'Revenue' : 'Revenue Analytics'}
+            </ToggleButton>
+            <ToggleButton value="orders">
+              <ShoppingCart fontSize="small" sx={{ mr: 1 }} />
+              {isMobile ? 'Orders' : 'Order Analytics'}
+            </ToggleButton>
+            <ToggleButton value="conversion">
+              <Percent fontSize="small" sx={{ mr: 1 }} />
+              {isMobile ? 'Conversion' : 'Conversion Analytics'}
+            </ToggleButton>
+          </ToggleButtonGroup>
+        </Box>
 
         {/* Chart */}
         <Box sx={{ 

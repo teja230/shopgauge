@@ -79,15 +79,15 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
   data,
   loading = false,
   error = null,
-  height = 450,
+  height = 650,
   showPredictions = true,
 }) => {
   const [chartType, setChartType] = useState<ChartType>('area');
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
-  // Use mobile-optimized height
-  const optimizedHeight = getMobileOptimizedHeight(height, isMobile);
+  // Better responsive height calculation
+  const optimizedHeight = isMobile ? Math.max(400, height * 0.75) : height;
 
   const gradientId = useMemo(() => `order-gradient-${Math.random().toString(36).substr(2, 9)}`, []);
   const predictionGradientId = useMemo(() => `order-prediction-gradient-${Math.random().toString(36).substr(2, 9)}`, []);
@@ -779,8 +779,42 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
         </ToggleButtonGroup>
       </Box>
 
-      {/* Chart with mobile-optimized sizing */}
-      <Box sx={mobileOptimizedContainer(theme, isMobile, optimizedHeight)}>
+      {/* Chart with improved responsive sizing */}
+      <Box sx={{
+        width: '100%',
+        height: optimizedHeight,
+        position: 'relative',
+        overflow: 'hidden',
+        // Enhanced styling for better appearance
+        backgroundColor: theme.palette.background.paper,
+        borderRadius: 1,
+        border: `1px solid ${theme.palette.divider}`,
+        // Responsive chart optimizations
+        ...(isMobile && {
+          '& .recharts-cartesian-axis-tick-value': {
+            fontSize: '10px !important',
+          },
+          '& .recharts-legend-wrapper': {
+            fontSize: '11px !important',
+            paddingTop: '8px !important',
+          },
+          '& .recharts-tooltip-wrapper': {
+            fontSize: '12px !important',
+          },
+        }),
+        // Desktop optimizations
+        ...(!isMobile && {
+          '& .recharts-cartesian-axis-tick-value': {
+            fontSize: '12px !important',
+          },
+          '& .recharts-legend-wrapper': {
+            fontSize: '13px !important',
+          },
+          '& .recharts-tooltip-wrapper': {
+            fontSize: '14px !important',
+          },
+        }),
+      }}>
         <ResponsiveContainer width="100%" height="100%">
           {renderChart()}
         </ResponsiveContainer>
