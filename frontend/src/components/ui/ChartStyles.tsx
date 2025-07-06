@@ -455,34 +455,66 @@ export const standardDateFormatter = (label: string) => {
   }
 };
 
-// Universal mobile scrolling styles
-export const mobileScrollingStyles = (theme: Theme, isMobile: boolean) => ({
-  overflow: isMobile ? 'auto' : 'hidden',
-  minWidth: isMobile ? '650px' : 'auto',
-  '&::-webkit-scrollbar': {
-    height: '8px',
-  },
-  '&::-webkit-scrollbar-track': {
-    backgroundColor: 'rgba(0,0,0,0.05)',
-    borderRadius: '4px',
-  },
-  '&::-webkit-scrollbar-thumb': {
-    backgroundColor: 'rgba(0,0,0,0.2)',
-    borderRadius: '4px',
-    '&:hover': {
-      backgroundColor: 'rgba(0,0,0,0.3)',
-    },
-  },
+// Common responsive margins for charts
+export const responsiveMargins = (isMobile: boolean) => ({
+  top: isMobile ? 10 : 25,
+  right: isMobile ? 10 : 40,
+  left: isMobile ? 10 : 40,
+  bottom: isMobile ? 40 : 60,
+});
+
+// Common responsive props for charts
+export const responsiveChartProps = (isMobile: boolean) => ({
+  fontSize: isMobile ? 10 : 12,
+  tickFontSize: isMobile ? 10 : 12,
+  legendFontSize: isMobile ? 11 : 12,
+  tooltipFontSize: isMobile ? 12 : 14,
+});
+
+// Mobile-optimized chart sizing
+export const getMobileOptimizedHeight = (defaultHeight: number, isMobile: boolean) => {
+  if (!isMobile) return defaultHeight;
+  
+  // Reduce height by 30% for mobile, with minimum and maximum bounds
+  const mobileHeight = Math.floor(defaultHeight * 0.7);
+  return Math.max(280, Math.min(mobileHeight, 350)); // Min 280px, max 350px on mobile
+};
+
+// Mobile-friendly container styles that avoid horizontal scrolling
+export const mobileOptimizedContainer = (theme: Theme, isMobile: boolean, height?: number) => ({
+  width: '100%',
+  height: height ? getMobileOptimizedHeight(height, isMobile) : 'auto',
+  overflow: 'hidden', // Remove horizontal scrolling
+  position: 'relative',
   // Enhanced mobile chart styles
   ...(isMobile && {
     '& .recharts-cartesian-axis-tick-value': {
-      fontSize: '10px !important',
+      fontSize: '9px !important',
     },
     '& .recharts-legend-wrapper': {
-      fontSize: '11px !important',
+      fontSize: '10px !important',
+      paddingTop: '5px !important',
     },
     '& .recharts-tooltip-wrapper': {
-      fontSize: '12px !important',
+      fontSize: '11px !important',
+    },
+  }),
+});
+
+// Update mobile scrolling styles to be more conservative
+export const mobileScrollingStyles = (theme: Theme, isMobile: boolean) => ({
+  overflow: 'hidden', // Default to no scrolling
+  width: '100%',
+  // Only enable scrolling for very wide charts if absolutely necessary
+  ...(isMobile && {
+    '& .recharts-cartesian-axis-tick-value': {
+      fontSize: '9px !important',
+    },
+    '& .recharts-legend-wrapper': {
+      fontSize: '10px !important',
+    },
+    '& .recharts-tooltip-wrapper': {
+      fontSize: '11px !important',
     },
   }),
 });
@@ -502,22 +534,6 @@ export const mobileScrollHint = (isMobile: boolean) =>
     pointerEvents: 'none',
     zIndex: 1,
   } : {};
-
-// Common responsive margins for charts
-export const responsiveMargins = (isMobile: boolean) => ({
-  top: isMobile ? 15 : 25,
-  right: isMobile ? 15 : 40,
-  left: isMobile ? 15 : 40,
-  bottom: isMobile ? 50 : 60,
-});
-
-// Common responsive props for charts
-export const responsiveChartProps = (isMobile: boolean) => ({
-  fontSize: isMobile ? 10 : 12,
-  tickFontSize: isMobile ? 10 : 12,
-  legendFontSize: isMobile ? 11 : 12,
-  tooltipFontSize: isMobile ? 12 : 14,
-});
 
 // Metric-specific chart type configurations to reduce overlap
 export const revenueChartTypes = {

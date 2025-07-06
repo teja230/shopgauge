@@ -66,8 +66,8 @@ import {
   UNIFIED_COLOR_SCHEME,
   standardTooltipFormatter,
   standardDateFormatter,
-  mobileScrollingStyles,
-  mobileScrollHint,
+  mobileOptimizedContainer,
+  getMobileOptimizedHeight,
   responsiveMargins,
   responsiveChartProps,
   revenueChartTypes,
@@ -105,6 +105,9 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
+  // Use mobile-optimized height
+  const optimizedHeight = getMobileOptimizedHeight(height, isMobile);
+
   const gradientId = useMemo(() => `revenue-gradient-${Math.random().toString(36).substr(2, 9)}`, []);
   const predictionGradientId = useMemo(() => `prediction-gradient-${Math.random().toString(36).substr(2, 9)}`, []);
   
@@ -438,7 +441,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
               name="Revenue"
               stroke={UNIFIED_COLOR_SCHEME.historical.revenue}
               strokeWidth={3}
-              strokeDasharray="" // Always solid for the main line
+              strokeDasharray={showPredictions ? "2,2" : ""}
               dot={(props: any) => {
                 const { payload } = props;
                 const isPrediction = payload?.isPrediction;
@@ -500,7 +503,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
               name="Revenue"
               stroke={UNIFIED_COLOR_SCHEME.historical.revenue}
               strokeWidth={3}
-              strokeDasharray="" // Always solid stroke
+              strokeDasharray={showPredictions ? "2,2" : ""}
               fill={`url(#${gradientId})`}
               fillOpacity={0.6}
               dot={(props: any) => {
@@ -548,9 +551,10 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
               </linearGradient>
             </defs>
             {commonElements}
+            {/* Bars for change/difference values (like Classic View) */}
             <Bar
               dataKey="revenue"
-              name="Revenue"
+              name="Revenue Change"
               radius={[2, 2, 0, 0]}
               isAnimationActive={false}
               shape={(props: any) => {
@@ -558,7 +562,6 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
                 const isPrediction = payload?.isPrediction;
                 const fill = isPrediction ? "url(#waterfallForecastGradient)" : "url(#waterfallHistoricalGradient)";
                 const opacity = isPrediction ? 0.7 : 0.9;
-                const strokeDasharray = isPrediction ? "2,2" : "";
                 return (
                   <rect
                     x={props.x}
@@ -569,12 +572,33 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
                     opacity={opacity}
                     rx={2}
                     ry={2}
-                    stroke={isPrediction ? "#fbbf24" : "#f59e0b"}
-                    strokeWidth={isPrediction ? 1 : 0}
-                    strokeDasharray={strokeDasharray}
                   />
                 );
               }}
+            />
+            {/* Cumulative line (like Classic View) */}
+            <Line
+              type="monotone"
+              dataKey="revenue"
+              stroke="#f59e0b"
+              strokeWidth={2}
+              strokeDasharray={showPredictions ? "2,2" : ""}
+              dot={(props: any) => {
+                const { payload } = props;
+                const isPrediction = payload?.isPrediction;
+                return (
+                  <circle
+                    cx={props.cx}
+                    cy={props.cy}
+                    r={isPrediction ? 2 : 3}
+                    fill={isPrediction ? "#fbbf24" : "#f59e0b"}
+                    stroke={isPrediction ? "#fbbf24" : "#f59e0b"}
+                    strokeWidth={2}
+                  />
+                );
+              }}
+              connectNulls={false}
+              isAnimationActive={false}
             />
           </ComposedChart>
         );
@@ -593,6 +617,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
               </linearGradient>
             </defs>
             {commonElements}
+            {/* Bars with reduced opacity (like Classic View) */}
             <Bar
               dataKey="revenue"
               name="Revenue"
@@ -602,8 +627,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
                 const { payload } = props;
                 const isPrediction = payload?.isPrediction;
                 const fill = isPrediction ? "url(#composedForecastGradient)" : "url(#composedHistoricalGradient)";
-                const opacity = isPrediction ? 0.7 : 0.9;
-                const strokeDasharray = isPrediction ? "2,2" : "";
+                const opacity = isPrediction ? 0.5 : 0.6; // Reduced opacity like Classic View
                 return (
                   <rect
                     x={props.x}
@@ -614,20 +638,17 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
                     opacity={opacity}
                     rx={2}
                     ry={2}
-                    stroke={isPrediction ? "#fca5a5" : "#ef4444"}
-                    strokeWidth={isPrediction ? 1 : 0}
-                    strokeDasharray={strokeDasharray}
                   />
                 );
               }}
             />
+            {/* Line overlay (like Classic View) */}
             <Line
               type="monotone"
               dataKey="revenue"
-              stroke="#ef4444"
+              stroke="#2563eb"
               strokeWidth={2}
-              connectNulls={false}
-              isAnimationActive={false}
+              strokeDasharray={showPredictions ? "2,2" : ""}
               dot={(props: any) => {
                 const { payload } = props;
                 const isPrediction = payload?.isPrediction;
@@ -636,14 +657,24 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
                     cx={props.cx}
                     cy={props.cy}
                     r={isPrediction ? 2 : 3}
-                    fill={isPrediction ? "#fca5a5" : "#ef4444"}
-                    stroke={isPrediction ? "#fca5a5" : "#ef4444"}
-                    strokeWidth={1}
-                    opacity={isPrediction ? 0.8 : 1}
+                    fill={isPrediction ? "#93c5fd" : "#2563eb"}
+                    stroke={isPrediction ? "#93c5fd" : "#2563eb"}
+                    strokeWidth={2}
                   />
                 );
               }}
+              connectNulls={false}
+              isAnimationActive={false}
             />
+            {/* Reference line for average (like Classic View) */}
+            {processedData.historical.length > 0 && (
+              <ReferenceLine 
+                y={processedData.historical.reduce((sum, d) => sum + d.revenue, 0) / processedData.historical.length}
+                stroke="#6b7280" 
+                strokeDasharray="3 3"
+                label={{ value: "Average", position: "insideTopRight" }}
+              />
+            )}
           </ComposedChart>
         );
 
@@ -658,7 +689,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
               name="Revenue"
               stroke={UNIFIED_COLOR_SCHEME.historical.revenue}
               strokeWidth={3}
-              strokeDasharray="" // Always solid stroke
+              strokeDasharray={showPredictions ? "2,2" : ""}
               fill={`url(#${gradientId})`}
               fillOpacity={0.6}
               dot={(props: any) => {
@@ -758,21 +789,11 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
         </ToggleButtonGroup>
       </Box>
 
-      {/* Chart with proper margins */}
-      <Box sx={{
-        ...chartContentStyles(theme, height),
-        ...mobileScrollingStyles(theme, isMobile),
-      }}>
+      {/* Chart with mobile-optimized sizing */}
+      <Box sx={mobileOptimizedContainer(theme, isMobile, optimizedHeight)}>
         <ResponsiveContainer width="100%" height="100%">
           {renderChart()}
         </ResponsiveContainer>
-        
-        {/* Mobile scroll hint */}
-        {isMobile && (
-          <Box sx={mobileScrollHint(isMobile)}>
-            💡 Scroll horizontally
-          </Box>
-        )}
       </Box>
     </Box>
   );

@@ -34,8 +34,8 @@ import {
   UNIFIED_COLOR_SCHEME,
   standardTooltipFormatter,
   standardDateFormatter,
-  mobileScrollingStyles,
-  mobileScrollHint,
+  mobileOptimizedContainer,
+  getMobileOptimizedHeight,
   responsiveMargins,
   responsiveChartProps,
   ordersChartTypes,
@@ -86,6 +86,9 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
+  // Use mobile-optimized height
+  const optimizedHeight = getMobileOptimizedHeight(height, isMobile);
+
   const gradientId = useMemo(() => `order-gradient-${Math.random().toString(36).substr(2, 9)}`, []);
   const predictionGradientId = useMemo(() => `order-prediction-gradient-${Math.random().toString(36).substr(2, 9)}`, []);
   // Process data for rendering - separate historical and forecast data properly
@@ -582,15 +585,19 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
                 <stop offset="5%" stopColor="#c4b5fd" stopOpacity={0.6} />
                 <stop offset="95%" stopColor="#c4b5fd" stopOpacity={0.2} />
               </linearGradient>
+              <linearGradient id="ordersChangeGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
+                <stop offset="95%" stopColor="#10b981" stopOpacity={0.05} />
+              </linearGradient>
             </defs>
             {commonElements}
-            {/* Single area with proper forecast line styling */}
+            {/* Primary orders data area (like Classic View) */}
             <Area
               type="monotone"
               dataKey="orders_count"
               stackId="1"
               stroke="#8b5cf6"
-              strokeWidth={3}
+              strokeWidth={2}
               fill="url(#ordersStackedHistoricalGradient)"
               name="Orders"
               connectNulls={false}
@@ -598,7 +605,6 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
               dot={(props: any) => {
                 const { payload } = props;
                 const isPrediction = payload?.isPrediction;
-                // Show different dot styles for historical vs forecast
                 return (
                   <circle
                     cx={props.cx}
@@ -612,6 +618,23 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
                 );
               }}
             />
+            {/* Secondary stacked area for order changes/growth (like Classic View) */}
+            <Area
+              type="monotone"
+              dataKey="orders_count"
+              data={processedData.combined.map((item, index) => ({
+                ...item,
+                // Calculate change from previous day for stacking effect
+                orders_count: index > 0 ? Math.max(0, item.orders_count - processedData.combined[index - 1].orders_count) : 0
+              }))}
+              stackId="2"
+              stroke="#10b981"
+              strokeWidth={1}
+              fill="url(#ordersChangeGradient)"
+              name="Order Growth"
+              connectNulls={false}
+              isAnimationActive={false}
+            />
             {/* Prediction separator line */}
             {showPredictions && predictionStartDate && (
               <ReferenceLine
@@ -621,16 +644,6 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
                 strokeDasharray="8 4"
                 opacity={0.8}
                 label={{ value: "🔮 Forecasts", position: "top" }}
-              />
-            )}
-            {/* Forecast region overlay */}
-            {showPredictions && predictionStartDate && (
-              <ReferenceArea
-                x1={predictionStartDate}
-                x2={processedData.combined[processedData.combined.length - 1]?.date}
-                fill="url(#ordersStackedForecastGradient)"
-                fillOpacity={0.3}
-                strokeWidth={0}
               />
             )}
           </AreaChart>
@@ -764,40 +777,11 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
         </ToggleButtonGroup>
       </Box>
 
-      {/* Chart with proper margins */}
-      <Box sx={{ 
-        flex: 1, 
-        minHeight: 300,
-        height: height || 400,
-        width: '100%',
-        position: 'relative',
-        ...mobileScrollingStyles(theme, isMobile),
-        '& .recharts-wrapper': {
-          width: '100% !important',
-          height: '100% !important',
-        },
-        '& .recharts-surface': {
-          overflow: 'visible',
-        },
-        '& .recharts-cartesian-grid-horizontal line': {
-          stroke: theme.palette.divider,
-          strokeOpacity: 0.3,
-        },
-        '& .recharts-cartesian-grid-vertical line': {
-          stroke: theme.palette.divider,
-          strokeOpacity: 0.3,
-        },
-      }}>
+      {/* Chart with mobile-optimized sizing */}
+      <Box sx={mobileOptimizedContainer(theme, isMobile, optimizedHeight)}>
         <ResponsiveContainer width="100%" height="100%">
           {renderChart()}
         </ResponsiveContainer>
-        
-        {/* Mobile scroll hint */}
-        {isMobile && (
-          <Box sx={mobileScrollHint(isMobile)}>
-            💡 Scroll horizontally
-          </Box>
-        )}
       </Box>
     </Box>
   );
