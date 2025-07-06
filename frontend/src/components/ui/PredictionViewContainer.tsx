@@ -122,21 +122,21 @@ const PredictionViewContainer = memo(({
   const chartRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   
-  // Responsive helpers
+  // Responsive helpers - SIMPLIFIED for mobile chart rendering
   const responsiveHeight = useMemo(() => {
-    // Use simpler, more reliable height calculations
-    if (isMobile) return Math.max(700, height * 0.9); // Minimum 700px on mobile
-    if (isTablet) return Math.max(800, height * 0.95); // Minimum 800px on tablet
-    return Math.max(900, height); // Minimum 900px on desktop - INCREASED
+    // Simplified height calculations that work better on mobile browsers
+    if (isMobile) return 600; // Fixed height for mobile for consistency
+    if (isTablet) return 700; // Fixed height for tablet
+    return Math.max(800, height); // Minimum 800px on desktop
   }, [height, isMobile, isTablet]);
 
-  // Simplified chart height calculation - FIXED
+  // Simplified chart height calculation - FIXED for mobile
   const chartHeight = useMemo(() => {
-    // Much simpler calculation to ensure visibility
-    const baseHeight = responsiveHeight * 0.6; // Use 60% of container height for chart
-    const minHeight = isMobile ? 400 : 500; // Guaranteed minimum heights
-    return Math.max(minHeight, baseHeight);
-  }, [responsiveHeight, isMobile]);
+    // Fixed heights that work reliably across mobile browsers
+    if (isMobile) return 350; // Fixed 350px for mobile charts
+    if (isTablet) return 450; // Fixed 450px for tablet charts
+    return 500; // Fixed 500px for desktop charts
+  }, [isMobile, isTablet]);
 
   // Chrome-safe data validation
   const validateNumber = useCallback((value: any, defaultValue: number = 0): number => {
@@ -292,7 +292,7 @@ const PredictionViewContainer = memo(({
     const commonProps = {
       loading: false,
       error: null,
-      height: Math.max(300, chartHeight), // Ensure minimum chart height
+      height: chartHeight, // Use the fixed chart height directly
     };
 
     // Chrome-safe chart rendering with error boundaries
@@ -820,14 +820,28 @@ const PredictionViewContainer = memo(({
         <Box sx={{ 
           flex: 1, 
           position: 'relative',
-          overflow: 'hidden', // Remove horizontal scrolling
+          overflow: 'hidden',
           height: chartHeight,
-          mt: 1, // Reduced top margin for better spacing
+          minHeight: chartHeight, // Ensure minimum height is respected
+          maxHeight: chartHeight, // Prevent height from growing too large
+          mt: 1,
+          // Mobile-specific optimizations
+          ...(isMobile && {
+            width: '100%',
+            maxWidth: '100vw', // Prevent horizontal overflow on mobile
+          }),
         }}>
           <Box sx={{ 
             width: '100%',
             height: '100%',
-            p: 0, // Remove padding that could cause spacing issues
+            minHeight: chartHeight, // Ensure the inner container also respects minimum height
+            p: 0,
+            // Mobile browser compatibility
+            ...(isMobile && {
+              touchAction: 'pan-y', // Allow vertical scrolling but prevent horizontal
+              overflowX: 'hidden',
+              overflowY: 'hidden',
+            }),
           }}>
             {renderChart()}
           </Box>
