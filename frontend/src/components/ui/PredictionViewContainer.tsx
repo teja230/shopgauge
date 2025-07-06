@@ -471,8 +471,8 @@ const PredictionViewContainer = memo(({
             alignItems: 'center',
             flexWrap: 'wrap',
             gap: 2,
-            mb: 3,
-            p: 2,
+            mb: 2,
+            p: 1.5,
             background: 'rgba(255, 255, 255, 0.7)',
             borderRadius: 2,
             border: `1px solid ${theme.palette.divider}`,
@@ -557,9 +557,9 @@ const PredictionViewContainer = memo(({
             <Box sx={{ 
               display: 'flex', 
               flexWrap: 'wrap',
-              gap: isMobile ? 1 : 2, 
-              mb: 3,
-              p: 2,
+              gap: isMobile ? 1 : 1.5, // Reduced gap for tighter spacing
+              mb: 2, // Reduced from 3 to 2 for better spacing
+              p: 1.5, // Reduced from 2 to 1.5 for tighter spacing
               backgroundColor: 'background.default',
               borderRadius: 1.5,
               border: '1px solid',
@@ -711,8 +711,8 @@ const PredictionViewContainer = memo(({
         <Box sx={{ 
           display: 'flex',
           justifyContent: 'center',
-          mb: 3,
-          p: 1.5,
+          mb: 2,
+          p: 1,
           backgroundColor: 'background.default',
           borderRadius: 2,
           border: `1px solid ${theme.palette.divider}`,
@@ -731,37 +731,33 @@ const PredictionViewContainer = memo(({
               '& .MuiToggleButton-root': {
                 textTransform: 'none',
                 fontWeight: 600,
-                px: isMobile ? 2.5 : 3.5,
-                py: isMobile ? 1.5 : 2,
+                px: isMobile ? 2 : 3,
+                py: isMobile ? 1 : 1.5,
                 border: 'none',
-                borderRadius: 0, // Remove individual border radius for rectangular look
+                borderRadius: 0,
                 fontSize: isMobile ? '0.875rem' : '1rem',
-                minWidth: isMobile ? 100 : 140,
-                minHeight: isMobile ? 44 : 52, // Ensure good touch targets
+                minWidth: isMobile ? 90 : 120,
+                minHeight: isMobile ? 40 : 44,
                 transition: 'all 0.2s ease-in-out',
                 position: 'relative',
                 color: 'text.secondary',
                 backgroundColor: 'transparent',
                 
-                // First button - left rounded corners
                 '&:first-of-type': {
                   borderTopLeftRadius: 1.5,
                   borderBottomLeftRadius: 1.5,
                 },
                 
-                // Last button - right rounded corners  
                 '&:last-of-type': {
                   borderTopRightRadius: 1.5,
                   borderBottomRightRadius: 1.5,
                 },
                 
-                // Hover effects
                 '&:hover': {
                   backgroundColor: 'action.hover',
-                  transform: 'none', // Remove transform for more professional look
+                  transform: 'none',
                 },
                 
-                // Selected state styling based on metric type
                 '&[value="revenue"]': {
                   '&.Mui-selected': {
                     backgroundColor: UNIFIED_COLOR_SCHEME.historical.revenue,
@@ -798,7 +794,6 @@ const PredictionViewContainer = memo(({
                   },
                 },
                 
-                // Focus styles for accessibility
                 '&:focus': {
                   outline: `2px solid ${theme.palette.primary.main}`,
                   outlineOffset: '2px',
@@ -827,10 +822,12 @@ const PredictionViewContainer = memo(({
           position: 'relative',
           overflow: 'hidden', // Remove horizontal scrolling
           height: chartHeight,
+          mt: 1, // Reduced top margin for better spacing
         }}>
           <Box sx={{ 
             width: '100%',
             height: '100%',
+            p: 0, // Remove padding that could cause spacing issues
           }}>
             {renderChart()}
           </Box>
