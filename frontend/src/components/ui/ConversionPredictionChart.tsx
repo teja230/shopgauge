@@ -220,7 +220,7 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
             strokeWidth={2}
             strokeDasharray="8 4"
             opacity={0.8}
-            label={{ value: "Forecasts", position: "insideTopRight", offset: 15 }}
+            label={{ value: "📈 Forecasts", position: "insideTopRight", offset: 15 }}
           />
         )}
       </>
