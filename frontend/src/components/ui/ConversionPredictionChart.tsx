@@ -48,8 +48,8 @@ import {
   UNIFIED_COLOR_SCHEME,
   standardTooltipFormatter,
   standardDateFormatter,
-  mobileScrollingStyles,
-  mobileScrollHint,
+  mobileOptimizedContainer,
+  getMobileOptimizedHeight,
   responsiveMargins,
   responsiveChartProps,
   conversionChartTypes,
@@ -87,6 +87,9 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
+  // Use mobile-optimized height
+  const optimizedHeight = getMobileOptimizedHeight(height, isMobile);
+
   const gradientId = useMemo(() => `conversion-gradient-${Math.random().toString(36).substr(2, 9)}`, []);
   const predictionGradientId = useMemo(() => `conversion-prediction-gradient-${Math.random().toString(36).substr(2, 9)}`, []);
   // Process and validate data
@@ -498,7 +501,6 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
                 const isPrediction = payload?.isPrediction;
                 const fill = isPrediction ? "url(#conversionWaterfallForecastGradient)" : "url(#conversionWaterfallHistoricalGradient)";
                 const opacity = isPrediction ? 0.7 : 0.9;
-                const strokeDasharray = isPrediction ? "2,2" : "";
                 return (
                   <rect
                     x={props.x}
@@ -509,12 +511,31 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
                     opacity={opacity}
                     rx={2}
                     ry={2}
-                    stroke={isPrediction ? "#fbbf24" : "#f59e0b"}
-                    strokeWidth={isPrediction ? 1 : 0}
-                    strokeDasharray={strokeDasharray}
                   />
                 );
               }}
+            />
+            <Line
+              type="monotone"
+              dataKey="conversion_rate"
+              stroke="#f59e0b"
+              strokeWidth={2}
+              dot={(props: any) => {
+                const { payload } = props;
+                const isPrediction = payload?.isPrediction;
+                return (
+                  <circle
+                    cx={props.cx}
+                    cy={props.cy}
+                    r={isPrediction ? 2 : 3}
+                    fill={isPrediction ? "#fbbf24" : "#f59e0b"}
+                    stroke={isPrediction ? "#fbbf24" : "#f59e0b"}
+                    strokeWidth={2}
+                  />
+                );
+              }}
+              connectNulls={false}
+              isAnimationActive={false}
             />
           </ComposedChart>
         );
@@ -542,8 +563,7 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
                 const { payload } = props;
                 const isPrediction = payload?.isPrediction;
                 const fill = isPrediction ? "url(#conversionComposedForecastGradient)" : "url(#conversionComposedHistoricalGradient)";
-                const opacity = isPrediction ? 0.7 : 0.9;
-                const strokeDasharray = isPrediction ? "2,2" : "";
+                const opacity = isPrediction ? 0.5 : 0.6;
                 return (
                   <rect
                     x={props.x}
@@ -554,9 +574,6 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
                     opacity={opacity}
                     rx={2}
                     ry={2}
-                    stroke={isPrediction ? "#fca5a5" : "#ef4444"}
-                    strokeWidth={isPrediction ? 1 : 0}
-                    strokeDasharray={strokeDasharray}
                   />
                 );
               }}
@@ -564,10 +581,8 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
             <Line
               type="monotone"
               dataKey="conversion_rate"
-              stroke="#ef4444"
+              stroke="#2563eb"
               strokeWidth={2}
-              connectNulls={false}
-              isAnimationActive={false}
               dot={(props: any) => {
                 const { payload } = props;
                 const isPrediction = payload?.isPrediction;
@@ -576,14 +591,24 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
                     cx={props.cx}
                     cy={props.cy}
                     r={isPrediction ? 2 : 3}
-                    fill={isPrediction ? "#fca5a5" : "#ef4444"}
-                    stroke={isPrediction ? "#fca5a5" : "#ef4444"}
-                    strokeWidth={1}
-                    opacity={isPrediction ? 0.8 : 1}
+                    fill={isPrediction ? "#93c5fd" : "#2563eb"}
+                    stroke={isPrediction ? "#93c5fd" : "#2563eb"}
+                    strokeWidth={2}
                   />
                 );
               }}
+              connectNulls={false}
+              isAnimationActive={false}
             />
+            {/* Reference line for average */}
+            {processedData.length > 0 && (
+              <ReferenceLine 
+                y={processedData.reduce((sum, d) => sum + d.conversion_rate, 0) / processedData.length}
+                stroke="#6b7280" 
+                strokeDasharray="3 3"
+                label={{ value: "Average", position: "insideTopRight" }}
+              />
+            )}
           </ComposedChart>
         );
 
@@ -715,40 +740,11 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
         </ToggleButtonGroup>
       </Box>
 
-      {/* Chart with proper margins */}
-      <Box sx={{ 
-        flex: 1, 
-        minHeight: 300,
-        height: height || 400,
-        width: '100%',
-        position: 'relative',
-        ...mobileScrollingStyles(theme, isMobile),
-        '& .recharts-wrapper': {
-          width: '100% !important',
-          height: '100% !important',
-        },
-        '& .recharts-surface': {
-          overflow: 'visible',
-        },
-        '& .recharts-cartesian-grid-horizontal line': {
-          stroke: theme.palette.divider,
-          strokeOpacity: 0.3,
-        },
-        '& .recharts-cartesian-grid-vertical line': {
-          stroke: theme.palette.divider,
-          strokeOpacity: 0.3,
-        },
-      }}>
+      {/* Chart with mobile-optimized sizing */}
+      <Box sx={mobileOptimizedContainer(theme, isMobile, optimizedHeight)}>
         <ResponsiveContainer width="100%" height="100%">
           {renderChart()}
         </ResponsiveContainer>
-        
-        {/* Mobile scroll hint */}
-        {isMobile && (
-          <Box sx={mobileScrollHint(isMobile)}>
-            💡 Scroll horizontally
-          </Box>
-        )}
       </Box>
     </Box>
   );

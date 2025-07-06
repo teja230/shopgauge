@@ -33,7 +33,7 @@ import OrderPredictionChart from './OrderPredictionChart';
 import ConversionPredictionChart from './ConversionPredictionChart';
 import SimpleShareModal from './SimpleShareModal';
 import { useAuth } from '../../context/AuthContext';
-import { UNIFIED_COLOR_SCHEME } from './ChartStyles';
+import { UNIFIED_COLOR_SCHEME, getMobileOptimizedHeight } from './ChartStyles';
 
 // Simplified styled components for Chrome compatibility
 const StyledCard = styled(Card)(({ theme }) => ({
@@ -125,24 +125,26 @@ const PredictionViewContainer = memo(({
   
   // Better responsive height calculations
   const responsiveHeight = useMemo(() => {
-    if (isMobile) return Math.max(500, height); // Increased from 400
-    if (isTablet) return Math.max(600, height); // Increased from 500
-    return Math.max(700, height); // Increased from 600
+    // Use mobile-optimized heights that don't require scrolling
+    if (isMobile) return getMobileOptimizedHeight(500, true); // ~350px
+    if (isTablet) return 450;
+    return Math.max(500, height);
   }, [height, isMobile, isTablet]);
 
   // Calculate chart height with better margins
   const chartHeight = useMemo(() => {
     // Account for header, controls, stats, and margins
-    const headerHeight = 120; // Header and controls
-    const statsHeight = isMobile ? 100 : 120; // Stats section
-    const buttonsHeight = 60; // View toggle buttons
-    const margins = 40; // Top and bottom margins
+    const headerHeight = isMobile ? 80 : 120; // Reduced header on mobile
+    const statsHeight = isMobile ? 80 : 120; // Reduced stats on mobile
+    const buttonsHeight = isMobile ? 50 : 60; // Reduced buttons on mobile
+    const margins = isMobile ? 20 : 40; // Reduced margins on mobile
     
     const totalNonChartHeight = headerHeight + statsHeight + buttonsHeight + margins;
     const calculatedHeight = responsiveHeight - totalNonChartHeight;
     
-    // Ensure minimum chart height
-    return Math.max(350, calculatedHeight); // Increased from 300
+    // Ensure minimum chart height with mobile optimization
+    const minHeight = isMobile ? 220 : 300;
+    return Math.max(minHeight, calculatedHeight);
   }, [responsiveHeight, isMobile]);
 
   // Chrome-safe data validation
@@ -716,48 +718,15 @@ const PredictionViewContainer = memo(({
         <Box sx={{ 
           flex: 1, 
           position: 'relative',
-          overflow: isMobile ? 'auto' : 'hidden', // Enable horizontal scroll on mobile
-          '&::-webkit-scrollbar': {
-            height: '8px',
-          },
-          '&::-webkit-scrollbar-track': {
-            backgroundColor: 'rgba(0,0,0,0.05)',
-            borderRadius: '4px',
-          },
-          '&::-webkit-scrollbar-thumb': {
-            backgroundColor: 'rgba(0,0,0,0.2)',
-            borderRadius: '4px',
-            '&:hover': {
-              backgroundColor: 'rgba(0,0,0,0.3)',
-            },
-          },
+          overflow: 'hidden', // Remove horizontal scrolling
+          height: chartHeight,
         }}>
           <Box sx={{ 
-            minWidth: isMobile ? '650px' : 'auto', // Set minimum width on mobile to prevent cutoff
-            height: '100%',
             width: '100%',
+            height: '100%',
           }}>
             {renderChart()}
           </Box>
-          
-          {/* Mobile scroll hint */}
-          {isMobile && (
-            <Box sx={{
-              position: 'absolute',
-              bottom: 8,
-              right: 8,
-              backgroundColor: 'rgba(0,0,0,0.6)',
-              color: 'white',
-              px: 1,
-              py: 0.5,
-              borderRadius: 1,
-              fontSize: '0.75rem',
-              pointerEvents: 'none',
-              zIndex: 1,
-            }}>
-              💡 Scroll horizontally
-            </Box>
-          )}
         </Box>
       </CardContent>
       
