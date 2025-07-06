@@ -443,7 +443,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
               name="Revenue"
               stroke={UNIFIED_COLOR_SCHEME.historical.revenue}
               strokeWidth={3}
-              strokeDasharray={showPredictions ? "2,2" : ""}
+              strokeDasharray=""
               dot={(props: any) => {
                 const { payload } = props;
                 const isPrediction = payload?.isPrediction;
@@ -505,7 +505,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
               name="Revenue"
               stroke={UNIFIED_COLOR_SCHEME.historical.revenue}
               strokeWidth={3}
-              strokeDasharray={showPredictions ? "2,2" : ""}
+              strokeDasharray=""
               fill={`url(#${gradientId})`}
               fillOpacity={0.6}
               dot={(props: any) => {
@@ -739,7 +739,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
               dataKey="revenue"
               stroke="#2563eb"
               strokeWidth={2}
-              strokeDasharray={showPredictions ? "2,2" : ""}
+              strokeDasharray=""
               dot={(props: any) => {
                 const { payload } = props;
                 const isPrediction = payload?.isPrediction;
@@ -861,7 +861,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
               name="Revenue"
               stroke={UNIFIED_COLOR_SCHEME.historical.revenue}
               strokeWidth={3}
-              strokeDasharray={showPredictions ? "2,2" : ""}
+              strokeDasharray=""
               fill={`url(#${gradientId})`}
               fillOpacity={0.6}
               dot={(props: any) => {
