@@ -246,14 +246,14 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
           stroke="rgba(0, 0, 0, 0.6)"
           tick={{ fontSize: 11, fill: 'rgba(0, 0, 0, 0.7)' }}
           axisLine={{ stroke: 'rgba(0, 0, 0, 0.2)' }}
-          label={{ value: 'Date', position: 'insideBottom', offset: -5, style: { textAnchor: 'middle', fontSize: 12, fill: 'rgba(0, 0, 0, 0.7)' } }}
+          label={{ value: 'Date', position: 'bottom', offset: 10, style: { textAnchor: 'middle', fontSize: 12, fill: 'rgba(0, 0, 0, 0.7)' } }}
         />
         <YAxis
           tickFormatter={formatCurrency}
           stroke="rgba(0, 0, 0, 0.6)"
           tick={{ fontSize: 11, fill: 'rgba(0, 0, 0, 0.7)' }}
           axisLine={{ stroke: 'rgba(0, 0, 0, 0.2)' }}
-          label={{ value: 'Revenue (USD)', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fontSize: 12, fill: 'rgba(0, 0, 0, 0.7)' } }}
+          label={{ value: 'Revenue (USD)', angle: -90, position: 'left', offset: 10, style: { textAnchor: 'middle', fontSize: 12, fill: 'rgba(0, 0, 0, 0.7)' } }}
         />
         <RechartsTooltip
           labelFormatter={standardDateFormatter}

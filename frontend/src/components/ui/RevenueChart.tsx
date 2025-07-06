@@ -417,8 +417,8 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
           height={isMobile ? 50 : 60}
           label={{
             value: 'Date',
-            position: 'insideBottom',
-            offset: -10,
+            position: 'bottom',
+            offset: 10,
             fill: 'rgba(0, 0, 0, 0.54)',
             fontSize: 12,
           }}
@@ -435,8 +435,8 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
           label={!isMobile ? {
             value: 'Revenue (USD)',
             angle: -90,
-            position: 'insideLeft',
-            offset: -10,
+            position: 'left',
+            offset: 10,
             fill: 'rgba(0, 0, 0, 0.54)',
             fontSize: 12,
           } : undefined}
