@@ -82,7 +82,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Set the global error handler
   useEffect(() => {
     setGlobalServiceErrorHandler(handleAuthError);
-  }, []);
+  }, [handleAuthError]);
 
   // Comprehensive cache clearing function
   const clearAllDashboardCache = () => {

@@ -1,268 +1,395 @@
-// Unit test for useUnifiedAnalytics validation logic
-// This file tests the validation logic that's causing the session storage issues
+import { renderHook, act, waitFor } from '@testing-library/react';
+import useUnifiedAnalytics from '../useUnifiedAnalytics';
 
-// Mock interfaces to match the actual types
-interface UnifiedAnalyticsData {
-  historical: HistoricalData[];
-  predictions: PredictionData[];
-  period_days: number;
-  total_revenue: number;
-  total_orders: number;
-}
-
-interface HistoricalData {
-  kind: 'historical';
-  date: string;
-  revenue: number;
-  orders_count: number;
-  conversion_rate: number;
-  avg_order_value: number;
-  isPrediction: false;
-}
-
-interface PredictionData {
-  kind: 'prediction';
-  date: string;
-  revenue: number;
-  orders_count: number;
-  conversion_rate: number;
-  avg_order_value: number;
-  isPrediction: true;
-  confidence_score: number;
-  confidence_interval?: {
-    revenue_min: number;
-    revenue_max: number;
-    orders_min: number;
-    orders_max: number;
-  };
-}
-
-// Sample data based on the user's session storage structure
-const sampleSessionStorageData: UnifiedAnalyticsData = {
-  historical: [
-    {
-      kind: 'historical',
-      date: '2025-01-01',
-      revenue: 1200.50,
-      orders_count: 15,
-      conversion_rate: 3.2,
-      avg_order_value: 80.03,
-      isPrediction: false,
-    },
-    {
-      kind: 'historical',
-      date: '2025-01-02',
-      revenue: 980.75,
-      orders_count: 12,
-      conversion_rate: 2.8,
-      avg_order_value: 81.73,
-      isPrediction: false,
-    },
-  ],
-  predictions: [
-    {
-      kind: 'prediction',
-      date: '2025-01-03',
-      revenue: 1100.00,
-      orders_count: 13,
-      conversion_rate: 3.0,
-      avg_order_value: 84.62,
-      isPrediction: true,
-      confidence_score: 0.85,
-      confidence_interval: {
-        revenue_min: 770.00,
-        revenue_max: 1430.00,
-        orders_min: 9,
-        orders_max: 17,
-      },
-    },
-  ],
-  period_days: 60,
-  total_revenue: 2181.25,
-  total_orders: 27,
+// Mock dependencies
+const mockFetchWithAuth = jest.fn();
+const mockGetCacheKey = jest.fn((shop: string) => `cache_${shop}`);
+const mockDebugLog = {
+  warn: jest.fn(),
+  error: jest.fn(),
+  info: jest.fn(),
 };
 
-// Sample data missing total_revenue and total_orders (potential issue)
-const sampleSessionStorageDataMissingTotals = {
-  historical: [
-    {
-      kind: 'historical',
-      date: '2025-01-01',
-      revenue: 1200.50,
-      orders_count: 15,
-      conversion_rate: 3.2,
-      avg_order_value: 80.03,
-      isPrediction: false,
-    },
-  ],
-  predictions: [
-    {
-      kind: 'prediction',
-      date: '2025-01-03',
-      revenue: 1100.00,
-      orders_count: 13,
-      conversion_rate: 3.0,
-      avg_order_value: 84.62,
-      isPrediction: true,
-      confidence_score: 0.85,
-    },
-  ],
-  period_days: 60,
-  // Missing total_revenue and total_orders - this is likely the validation issue
+jest.mock('../../api', () => ({
+  fetchWithAuth: mockFetchWithAuth,
+}));
+
+jest.mock('../../utils/cacheUtils', () => ({
+  getCacheKey: mockGetCacheKey,
+  CACHE_VERSION: '1.0.0',
+}));
+
+jest.mock('../../components/ui/DebugPanel', () => ({
+  debugLog: mockDebugLog,
+}));
+
+// Mock sessionStorage
+const mockSessionStorage = {
+  getItem: jest.fn(),
+  setItem: jest.fn(),
+  removeItem: jest.fn(),
+  clear: jest.fn(),
+  length: 0,
+  key: jest.fn(),
 };
 
-// Test functions that replicate the validation logic from useUnifiedAnalytics
-function validateBasicStructure(data: any): boolean {
-  return data && 
-    Array.isArray(data.historical) && 
-    Array.isArray(data.predictions) &&
-    typeof data.total_revenue === 'number' &&
-    typeof data.total_orders === 'number';
-}
+Object.defineProperty(window, 'sessionStorage', {
+  value: mockSessionStorage,
+  writable: true,
+});
 
-function validateHistoricalData(data: any): boolean {
-  if (!data || !Array.isArray(data.historical)) return false;
-  
-  return data.historical.length === 0 || data.historical.every((item: any) => 
-    item && 
-    typeof item.date === 'string' && 
-    typeof item.revenue === 'number' && 
-    typeof item.orders_count === 'number'
-  );
-}
+describe('useUnifiedAnalytics', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockSessionStorage.getItem.mockReturnValue(null);
+  });
 
-function generateStorageKey(shop: string, days: number, includePredictions: boolean): string {
-  return `unified_analytics_${shop}_${days}d_${includePredictions ? 'with' : 'no'}_predictions`;
-}
+  describe('Data Conversion Tests', () => {
+    test('should convert dashboard data to unified analytics format', async () => {
+      const mockRevenueData = [
+        { date: '2025-01-01', revenue: 1000, orders_count: 10 },
+        { date: '2025-01-02', revenue: 1200, orders_count: 12 },
+      ];
 
-// Test runner function
-function runTests() {
-  console.log('=== UNIFIED ANALYTICS VALIDATION TESTS ===\n');
+      const mockOrdersData = [
+        { date: '2025-01-01', orders_count: 10, conversion_rate: 2.5 },
+        { date: '2025-01-02', orders_count: 12, conversion_rate: 3.0 },
+      ];
 
-  // Test 1: Valid data structure
-  console.log('Test 1: Valid data structure');
-  const validResult = validateBasicStructure(sampleSessionStorageData);
-  console.log('Result:', validResult ? 'PASS' : 'FAIL');
-  console.log('Expected: PASS\n');
+      const { result } = renderHook(() =>
+        useUnifiedAnalytics({
+          useDashboardData: true,
+          dashboardRevenueData: mockRevenueData,
+          dashboardOrdersData: mockOrdersData,
+          realConversionRate: 2.75,
+        })
+      );
 
-  // Test 2: Missing total fields (this is the issue)
-  console.log('Test 2: Missing total_revenue and total_orders');
-  const missingTotalsResult = validateBasicStructure(sampleSessionStorageDataMissingTotals);
-  console.log('Result:', missingTotalsResult ? 'PASS' : 'FAIL');
-  console.log('Expected: FAIL (this is the root cause of the issue)');
-  console.log('Has total_revenue:', 'total_revenue' in sampleSessionStorageDataMissingTotals);
-  console.log('Has total_orders:', 'total_orders' in sampleSessionStorageDataMissingTotals);
-  console.log('total_revenue type:', typeof (sampleSessionStorageDataMissingTotals as any).total_revenue);
-  console.log('total_orders type:', typeof (sampleSessionStorageDataMissingTotals as any).total_orders);
-  console.log('');
+      await waitFor(() => {
+        expect(result.current.data).toBeDefined();
+        expect(result.current.data?.historical).toHaveLength(2);
+        expect(result.current.data?.historical[0].revenue).toBe(1000);
+        expect(result.current.data?.historical[0].orders_count).toBe(10);
+        expect(result.current.data?.historical[0].conversion_rate).toBe(2.5);
+      });
+    });
 
-  // Test 3: Historical data validation
-  console.log('Test 3: Historical data validation');
-  const historicalResult = validateHistoricalData(sampleSessionStorageData);
-  console.log('Result:', historicalResult ? 'PASS' : 'FAIL');
-  console.log('Expected: PASS\n');
+    test('should handle missing or invalid data gracefully', async () => {
+      const { result } = renderHook(() =>
+        useUnifiedAnalytics({
+          useDashboardData: true,
+          dashboardRevenueData: [],
+          dashboardOrdersData: [],
+        })
+      );
 
-  // Test 4: Storage key generation
-  console.log('Test 4: Storage key generation');
-  const shop = 'storesight.myshopify.com';
-  const key = generateStorageKey(shop, 60, true);
-  const expectedKey = 'unified_analytics_storesight.myshopify.com_60d_with_predictions';
-  console.log('Generated key:', key);
-  console.log('Expected key:', expectedKey);
-  console.log('Result:', key === expectedKey ? 'PASS' : 'FAIL');
-  console.log('');
+      await waitFor(() => {
+        expect(result.current.data).toBeDefined();
+        expect(result.current.data?.historical).toHaveLength(0);
+        expect(result.current.data?.predictions).toHaveLength(0);
+      });
+    });
 
-  // Test 5: Real-world scenario (user's actual data)
-  console.log('Test 5: Real-world scenario (user\'s actual data)');
-  const userSessionData = {
-    historical: [
-      {
-        kind: 'historical',
-        date: '2025-01-01',
-        revenue: 1200.50,
-        orders_count: 15,
-        conversion_rate: 3.2,
-        avg_order_value: 80.03,
-        isPrediction: false,
-      },
-    ],
-    predictions: Array.from({ length: 30 }, (_, i) => ({
-      kind: 'prediction',
-      date: `2025-01-${String(i + 2).padStart(2, '0')}`,
-      revenue: 1000 + Math.random() * 500,
-      orders_count: 10 + Math.floor(Math.random() * 10),
-      conversion_rate: 2.5 + Math.random() * 2,
-      avg_order_value: 75 + Math.random() * 25,
-      isPrediction: true,
-      confidence_score: 0.7 + Math.random() * 0.2,
-    })),
-    period_days: 60,
-    // Note: Missing total_revenue and total_orders - this is the root cause
-  };
+    test('should validate and sanitize data values', async () => {
+      const mockRevenueData = [
+        { date: '2025-01-01', revenue: -100, orders_count: NaN },
+        { date: '2025-01-02', revenue: 1200, orders_count: 12 },
+      ];
 
-  console.log('Historical count:', userSessionData.historical.length);
-  console.log('Predictions count:', userSessionData.predictions.length);
-  console.log('Keys present:', Object.keys(userSessionData));
-  
-  const userValidationResult = validateBasicStructure(userSessionData);
-  console.log('Validation result:', userValidationResult ? 'PASS' : 'FAIL');
-  console.log('Expected: FAIL (this is why charts show loading)');
-  console.log('Missing total_revenue:', !('total_revenue' in userSessionData));
-  console.log('Missing total_orders:', !('total_orders' in userSessionData));
-  console.log('');
+      const { result } = renderHook(() =>
+        useUnifiedAnalytics({
+          useDashboardData: true,
+          dashboardRevenueData: mockRevenueData,
+          dashboardOrdersData: [],
+        })
+      );
 
-  // Test 6: Auto-fix approach
-  console.log('Test 6: Auto-fix approach');
-  const autoFixedData = {
-    ...userSessionData,
-    total_revenue: userSessionData.historical.reduce((sum, item) => sum + item.revenue, 0),
-    total_orders: userSessionData.historical.reduce((sum, item) => sum + item.orders_count, 0),
-  };
+      await waitFor(() => {
+        expect(result.current.data?.historical[0].revenue).toBe(0); // Should be sanitized to 0
+        expect(result.current.data?.historical[0].orders_count).toBe(0); // Should be sanitized to 0
+        expect(result.current.data?.historical[1].revenue).toBe(1200); // Valid data preserved
+      });
+    });
+  });
 
-  const autoFixedValidation = validateBasicStructure(autoFixedData);
-  console.log('Auto-fixed validation result:', autoFixedValidation ? 'PASS' : 'FAIL');
-  console.log('Expected: PASS');
-  console.log('Calculated total_revenue:', autoFixedData.total_revenue);
-  console.log('Calculated total_orders:', autoFixedData.total_orders);
-  console.log('');
+  describe('Prediction Algorithm Tests', () => {
+    test('should generate predictions with confidence intervals', async () => {
+      const mockRevenueData = [
+        { date: '2025-01-01', revenue: 1000, orders_count: 10 },
+        { date: '2025-01-02', revenue: 1200, orders_count: 12 },
+        { date: '2025-01-03', revenue: 1100, orders_count: 11 },
+      ];
 
-  // Test 7: Proposed lenient validation
-  console.log('Test 7: Proposed lenient validation');
-  function lenientValidation(data: any): boolean {
-    return data && 
-      Array.isArray(data.historical) && 
-      Array.isArray(data.predictions) &&
-      (data.historical.length > 0 || data.predictions.length > 0);
-  }
+      const { result } = renderHook(() =>
+        useUnifiedAnalytics({
+          useDashboardData: true,
+          dashboardRevenueData: mockRevenueData,
+          dashboardOrdersData: [],
+          includePredictions: true,
+        })
+      );
 
-  const lenientResult = lenientValidation(userSessionData);
-  console.log('Lenient validation result:', lenientResult ? 'PASS' : 'FAIL');
-  console.log('Expected: PASS (this would solve the issue)');
-  console.log('');
+      await waitFor(() => {
+        expect(result.current.data?.predictions).toBeDefined();
+        expect(result.current.data?.predictions.length).toBeGreaterThan(0);
+        
+        const prediction = result.current.data?.predictions[0];
+        expect(prediction?.confidence_interval).toBeDefined();
+        expect(prediction?.confidence_score).toBeDefined();
+        expect(prediction?.confidence_score).toBeGreaterThan(0);
+        expect(prediction?.confidence_score).toBeLessThanOrEqual(1);
+      });
+    });
 
-  // Summary
-  console.log('=== SUMMARY ===');
-  console.log('ROOT CAUSE: The validation is failing because session storage data is missing total_revenue and total_orders fields');
-  console.log('SOLUTION OPTIONS:');
-  console.log('1. Auto-calculate missing totals from historical data');
-  console.log('2. Use lenient validation that only checks for data presence');
-  console.log('3. Add total fields when saving data to session storage');
-  console.log('');
-  console.log('RECOMMENDED: Option 1 (auto-calculate) with fallback to Option 2 (lenient validation)');
-}
+    test('should calculate variance correctly for prediction confidence', async () => {
+      const mockRevenueData = [
+        { date: '2025-01-01', revenue: 1000, orders_count: 10 },
+        { date: '2025-01-02', revenue: 1000, orders_count: 10 },
+        { date: '2025-01-03', revenue: 1000, orders_count: 10 },
+      ];
 
-// Export functions for potential use in actual tests
-export {
-  validateBasicStructure,
-  validateHistoricalData,
-  generateStorageKey,
-  runTests,
-  sampleSessionStorageData,
-  sampleSessionStorageDataMissingTotals,
-};
+      const { result } = renderHook(() =>
+        useUnifiedAnalytics({
+          useDashboardData: true,
+          dashboardRevenueData: mockRevenueData,
+          dashboardOrdersData: [],
+          includePredictions: true,
+        })
+      );
 
-// Run tests if this file is executed directly
-if (typeof window === 'undefined') {
-  // Node.js environment
-  runTests();
-}
+      await waitFor(() => {
+        const prediction = result.current.data?.predictions[0];
+        // Low variance data should have high confidence
+        expect(prediction?.confidence_score).toBeGreaterThan(0.8);
+      });
+    });
+
+    test('should handle insufficient data for predictions', async () => {
+      const mockRevenueData = [
+        { date: '2025-01-01', revenue: 1000, orders_count: 10 },
+      ];
+
+      const { result } = renderHook(() =>
+        useUnifiedAnalytics({
+          useDashboardData: true,
+          dashboardRevenueData: mockRevenueData,
+          dashboardOrdersData: [],
+          includePredictions: true,
+        })
+      );
+
+      await waitFor(() => {
+        // Should still generate predictions but with lower confidence
+        expect(result.current.data?.predictions).toBeDefined();
+        expect(result.current.data?.predictions.length).toBeGreaterThan(0);
+      });
+    });
+  });
+
+  describe('Caching Behavior Tests', () => {
+    test('should load data from cache when available and valid', async () => {
+      const mockCachedData = {
+        data: {
+          historical: [{ date: '2025-01-01', revenue: 1000, orders_count: 10, conversion_rate: 2.5, avg_order_value: 100, kind: 'historical', isPrediction: false }],
+          predictions: [],
+          period_days: 60,
+          total_revenue: 1000,
+          total_orders: 10,
+        },
+        timestamp: Date.now() - 1000, // 1 second ago
+        lastUpdated: new Date().toISOString(),
+        version: '1.0.0',
+        shop: 'test-shop',
+        days: 60,
+        includePredictions: false,
+      };
+
+      mockSessionStorage.getItem.mockReturnValue(JSON.stringify({
+        'unified_analytics_test-shop_60d_no_predictions': mockCachedData,
+      }));
+
+      const { result } = renderHook(() =>
+        useUnifiedAnalytics({
+          shop: 'test-shop',
+          days: 60,
+          includePredictions: false,
+        })
+      );
+
+      await waitFor(() => {
+        expect(result.current.isCached).toBe(true);
+        expect(result.current.data).toBeDefined();
+        expect(result.current.data?.historical).toHaveLength(1);
+      });
+    });
+
+    test('should not use expired cache', async () => {
+      const mockExpiredData = {
+        data: {
+          historical: [],
+          predictions: [],
+          period_days: 60,
+          total_revenue: 0,
+          total_orders: 0,
+        },
+        timestamp: Date.now() - (3 * 60 * 60 * 1000), // 3 hours ago (expired)
+        lastUpdated: new Date().toISOString(),
+        version: '1.0.0',
+        shop: 'test-shop',
+        days: 60,
+        includePredictions: false,
+      };
+
+      mockSessionStorage.getItem.mockReturnValue(JSON.stringify({
+        'unified_analytics_test-shop_60d_no_predictions': mockExpiredData,
+      }));
+
+      const { result } = renderHook(() =>
+        useUnifiedAnalytics({
+          shop: 'test-shop',
+          days: 60,
+          includePredictions: false,
+        })
+      );
+
+      await waitFor(() => {
+        expect(result.current.isCached).toBe(false);
+      });
+    });
+
+    test('should save data to cache after successful fetch', async () => {
+      const mockApiResponse = {
+        historical: [{ date: '2025-01-01', revenue: 1000, orders_count: 10, conversion_rate: 2.5, avg_order_value: 100, kind: 'historical', isPrediction: false }],
+        predictions: [],
+        period_days: 60,
+        total_revenue: 1000,
+        total_orders: 10,
+      };
+
+      mockFetchWithAuth.mockResolvedValue(mockApiResponse);
+
+      const { result } = renderHook(() =>
+        useUnifiedAnalytics({
+          shop: 'test-shop',
+          days: 60,
+          includePredictions: false,
+        })
+      );
+
+      await waitFor(() => {
+        expect(mockSessionStorage.setItem).toHaveBeenCalled();
+        const setItemCall = mockSessionStorage.setItem.mock.calls[0];
+        expect(setItemCall[0]).toContain('cache_test-shop');
+        expect(JSON.parse(setItemCall[1])).toHaveProperty('unified_analytics_test-shop_60d_no_predictions');
+      });
+    });
+
+    test('should handle cache key generation correctly', async () => {
+      const { result } = renderHook(() =>
+        useUnifiedAnalytics({
+          shop: 'test-shop',
+          days: 30,
+          includePredictions: true,
+        })
+      );
+
+      await waitFor(() => {
+        expect(result.current.data).toBeDefined();
+      });
+
+      // Verify cache key was generated with correct parameters
+      expect(mockSessionStorage.setItem).toHaveBeenCalledWith(
+        expect.stringContaining('cache_test-shop'),
+        expect.stringContaining('unified_analytics_test-shop_30d_with_predictions')
+      );
+    });
+  });
+
+  describe('Error Handling Tests', () => {
+    test('should handle API errors gracefully', async () => {
+      mockFetchWithAuth.mockRejectedValue(new Error('API Error'));
+
+      const { result } = renderHook(() =>
+        useUnifiedAnalytics({
+          shop: 'test-shop',
+        })
+      );
+
+      await waitFor(() => {
+        expect(result.current.error).toBeDefined();
+        expect(result.current.loading).toBe(false);
+      });
+    });
+
+    test('should handle malformed cache data', async () => {
+      mockSessionStorage.getItem.mockReturnValue('invalid json');
+
+      const { result } = renderHook(() =>
+        useUnifiedAnalytics({
+          shop: 'test-shop',
+        })
+      );
+
+      await waitFor(() => {
+        expect(result.current.data).toBeNull();
+        expect(result.current.error).toBeNull(); // Should not set error for cache issues
+      });
+    });
+  });
+
+  describe('Performance Tests', () => {
+    test('should prevent concurrent fetches', async () => {
+      mockFetchWithAuth.mockImplementation(() => new Promise(resolve => setTimeout(resolve, 100)));
+
+      const { result } = renderHook(() =>
+        useUnifiedAnalytics({
+          shop: 'test-shop',
+        })
+      );
+
+      // Trigger multiple refetch calls
+      act(() => {
+        result.current.refetch();
+        result.current.refetch();
+        result.current.refetch();
+      });
+
+      await waitFor(() => {
+        // Should only make one API call despite multiple refetch calls
+        expect(mockFetchWithAuth).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    test('should update cache age correctly', async () => {
+      const mockCachedData = {
+        data: {
+          historical: [],
+          predictions: [],
+          period_days: 60,
+          total_revenue: 0,
+          total_orders: 0,
+        },
+        timestamp: Date.now() - (30 * 60 * 1000), // 30 minutes ago
+        lastUpdated: new Date().toISOString(),
+        version: '1.0.0',
+        shop: 'test-shop',
+        days: 60,
+        includePredictions: false,
+      };
+
+      mockSessionStorage.getItem.mockReturnValue(JSON.stringify({
+        'unified_analytics_test-shop_60d_no_predictions': mockCachedData,
+      }));
+
+      const { result } = renderHook(() =>
+        useUnifiedAnalytics({
+          shop: 'test-shop',
+        })
+      );
+
+      await waitFor(() => {
+        expect(result.current.cacheAge).toBeCloseTo(30, -1); // Within 10 minutes
+      });
+    });
+  });
+});
