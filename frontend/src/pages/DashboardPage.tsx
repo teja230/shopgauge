@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Box, Typography, Card, CardContent, Alert, CircularProgress, Link as MuiLink, IconButton, Button, ToggleButtonGroup, ToggleButton, useMediaQuery, useTheme } from '@mui/material';
+import { Box, Typography, Card, CardContent, Alert, CircularProgress, Link as MuiLink, IconButton, Button, ToggleButtonGroup, ToggleButton, useMediaQuery, useTheme, Menu, MenuItem, Chip } from '@mui/material';
 import { RevenueChart } from '../components/ui/RevenueChart';
 import PredictionViewContainer from '../components/ui/PredictionViewContainer';
 import useUnifiedAnalytics from '../hooks/useUnifiedAnalytics';
@@ -9,7 +9,7 @@ import { fetchWithAuth, retryWithBackoff } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { styled } from '@mui/material/styles';
-import { OpenInNew, Refresh, Storefront, ListAlt, Inventory2, Analytics, ShowChart } from '@mui/icons-material';
+import { OpenInNew, Refresh, Storefront, ListAlt, Inventory2, Analytics, ShowChart, Sort, ArrowUpward, ArrowDownward } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { useNotifications } from '../hooks/useNotifications';
 import { useSessionNotification } from '../hooks/useSessionNotification';
@@ -963,6 +963,94 @@ const DashboardPage = () => {
     orders: null,
     abandonedCarts: null
   });
+
+  // Sorting state for products and orders
+  const [productsSortBy, setProductsSortBy] = useState<'name' | 'inventory' | 'price'>('name');
+  const [productsSortOrder, setProductsSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [ordersSortBy, setOrdersSortBy] = useState<'date' | 'amount' | 'customer'>('date');
+  const [ordersSortOrder, setOrdersSortOrder] = useState<'asc' | 'desc'>('desc');
+
+  // Sorting functions
+  const sortProducts = useCallback((products: Product[]) => {
+    if (!products || products.length === 0) return products;
+    
+    return [...products].sort((a, b) => {
+      let aValue: any, bValue: any;
+      
+      switch (productsSortBy) {
+        case 'name':
+          aValue = a.title?.toLowerCase() || '';
+          bValue = b.title?.toLowerCase() || '';
+          break;
+        case 'inventory':
+          aValue = a.inventory || 0;
+          bValue = b.inventory || 0;
+          break;
+        case 'price':
+          aValue = parseFloat(a.price?.replace(/[^0-9.]/g, '') || '0');
+          bValue = parseFloat(b.price?.replace(/[^0-9.]/g, '') || '0');
+          break;
+        default:
+          return 0;
+      }
+      
+      if (aValue < bValue) return productsSortOrder === 'asc' ? -1 : 1;
+      if (aValue > bValue) return productsSortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [productsSortBy, productsSortOrder]);
+
+  const sortOrders = useCallback((orders: Order[]) => {
+    if (!orders || orders.length === 0) return orders;
+    
+    return [...orders].sort((a, b) => {
+      let aValue: any, bValue: any;
+      
+      switch (ordersSortBy) {
+        case 'date':
+          aValue = new Date(a.created_at).getTime();
+          bValue = new Date(b.created_at).getTime();
+          break;
+        case 'amount':
+          aValue = a.total_price || 0;
+          bValue = b.total_price || 0;
+          break;
+        case 'customer':
+          aValue = a.customer ? `${a.customer.first_name} ${a.customer.last_name}`.toLowerCase() : '';
+          bValue = b.customer ? `${b.customer.first_name} ${b.customer.last_name}`.toLowerCase() : '';
+          break;
+        default:
+          return 0;
+      }
+      
+      if (aValue < bValue) return ordersSortOrder === 'asc' ? -1 : 1;
+      if (aValue > bValue) return ordersSortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [ordersSortBy, ordersSortOrder]);
+
+  // Sort handlers
+  const handleProductsSort = useCallback((sortBy: 'name' | 'inventory' | 'price') => {
+    if (productsSortBy === sortBy) {
+      setProductsSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setProductsSortBy(sortBy);
+      setProductsSortOrder('asc');
+    }
+  }, [productsSortBy]);
+
+  const handleOrdersSort = useCallback((sortBy: 'date' | 'amount' | 'customer') => {
+    if (ordersSortBy === sortBy) {
+      setOrdersSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setOrdersSortBy(sortBy);
+      setOrdersSortOrder('desc'); // Default to desc for orders
+    }
+  }, [ordersSortBy]);
+
+  // Sorted data
+  const sortedProducts = useMemo(() => sortProducts(insights?.topProducts || []), [insights?.topProducts, sortProducts]);
+  const sortedOrders = useMemo(() => sortOrders(insights?.orders || []), [insights?.orders, sortOrders]);
   
   // Helper function to check if cache entry is fresh (< 120 minutes old)
   const isCacheFresh = useCallback((cacheEntry: CacheEntry<any> | undefined, cacheKey?: string): boolean => {
@@ -2360,15 +2448,45 @@ const DashboardPage = () => {
                     <Inventory2 color="primary" />
                     Top Products
                   </SectionTitle>
-                  {cardErrors.products && (
-                    <IconButton 
-                      size="small" 
-                      onClick={() => handleCardLoad('products', true)}
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      <Refresh fontSize="small" />
-                    </IconButton>
-                  )}
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {!cardLoading.products && !cardErrors.products && insights?.topProducts?.length > 0 && (
+                      <>
+                        <Chip
+                          icon={productsSortBy === 'name' ? (productsSortOrder === 'asc' ? <ArrowUpward /> : <ArrowDownward />) : <Sort />}
+                          label="Name"
+                          variant={productsSortBy === 'name' ? 'filled' : 'outlined'}
+                          size="small"
+                          onClick={() => handleProductsSort('name')}
+                          sx={{ fontSize: '0.75rem' }}
+                        />
+                        <Chip
+                          icon={productsSortBy === 'inventory' ? (productsSortOrder === 'asc' ? <ArrowUpward /> : <ArrowDownward />) : <Sort />}
+                          label="Stock"
+                          variant={productsSortBy === 'inventory' ? 'filled' : 'outlined'}
+                          size="small"
+                          onClick={() => handleProductsSort('inventory')}
+                          sx={{ fontSize: '0.75rem' }}
+                        />
+                        <Chip
+                          icon={productsSortBy === 'price' ? (productsSortOrder === 'asc' ? <ArrowUpward /> : <ArrowDownward />) : <Sort />}
+                          label="Price"
+                          variant={productsSortBy === 'price' ? 'filled' : 'outlined'}
+                          size="small"
+                          onClick={() => handleProductsSort('price')}
+                          sx={{ fontSize: '0.75rem' }}
+                        />
+                      </>
+                    )}
+                    {cardErrors.products && (
+                      <IconButton 
+                        size="small" 
+                        onClick={() => handleCardLoad('products', true)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <Refresh fontSize="small" />
+                      </IconButton>
+                    )}
+                  </Box>
                 </SectionHeader>
                 {cardLoading.products ? (
                   <Box sx={{ p: 3, textAlign: 'center' }}>
@@ -2391,9 +2509,9 @@ const DashboardPage = () => {
                       Retry
                     </Button>
                   </Box>
-                ) : insights?.topProducts?.length ? (
+                ) : sortedProducts?.length ? (
                   <ProductList>
-                    {insights.topProducts.map((product) => (
+                    {sortedProducts.map((product) => (
                       <ProductItem key={`product-${product.id}`}>
                         <ProductInfo>
                           <ProductName>
@@ -2450,15 +2568,45 @@ const DashboardPage = () => {
                     <ListAlt color="primary" />
                     Recent Orders
                   </SectionTitle>
-                  {cardErrors.orders && (
-                    <IconButton 
-                      size="small" 
-                      onClick={() => handleCardLoad('orders')}
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      <Refresh fontSize="small" />
-                    </IconButton>
-                  )}
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {!cardLoading.orders && !cardErrors.orders && insights?.orders?.length > 0 && (
+                      <>
+                        <Chip
+                          icon={ordersSortBy === 'date' ? (ordersSortOrder === 'asc' ? <ArrowUpward /> : <ArrowDownward />) : <Sort />}
+                          label="Date"
+                          variant={ordersSortBy === 'date' ? 'filled' : 'outlined'}
+                          size="small"
+                          onClick={() => handleOrdersSort('date')}
+                          sx={{ fontSize: '0.75rem' }}
+                        />
+                        <Chip
+                          icon={ordersSortBy === 'amount' ? (ordersSortOrder === 'asc' ? <ArrowUpward /> : <ArrowDownward />) : <Sort />}
+                          label="Amount"
+                          variant={ordersSortBy === 'amount' ? 'filled' : 'outlined'}
+                          size="small"
+                          onClick={() => handleOrdersSort('amount')}
+                          sx={{ fontSize: '0.75rem' }}
+                        />
+                        <Chip
+                          icon={ordersSortBy === 'customer' ? (ordersSortOrder === 'asc' ? <ArrowUpward /> : <ArrowDownward />) : <Sort />}
+                          label="Customer"
+                          variant={ordersSortBy === 'customer' ? 'filled' : 'outlined'}
+                          size="small"
+                          onClick={() => handleOrdersSort('customer')}
+                          sx={{ fontSize: '0.75rem' }}
+                        />
+                      </>
+                    )}
+                    {cardErrors.orders && (
+                      <IconButton 
+                        size="small" 
+                        onClick={() => handleCardLoad('orders')}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <Refresh fontSize="small" />
+                      </IconButton>
+                    )}
+                  </Box>
                 </SectionHeader>
                 {cardLoading.orders ? (
                   <Box sx={{ p: 3, textAlign: 'center' }}>
@@ -2481,9 +2629,9 @@ const DashboardPage = () => {
                       Retry
                     </Button>
                   </Box>
-                ) : insights?.orders?.length ? (
+                ) : sortedOrders?.length ? (
                   <OrderList>
-                    {insights.orders.map((order, index) => (
+                    {sortedOrders.map((order, index) => (
                       <OrderItem key={`order-${order.id || `temp-${index}`}`}>
                         <OrderInfo>
                           <OrderTitle>

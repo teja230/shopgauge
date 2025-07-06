@@ -238,7 +238,7 @@ const SimpleLineChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
   return (
     <LineChart
       data={data}
-      margin={{ top: 10, right: 30, left: 20, bottom: 40 }}
+      margin={{ top: 10, right: 10, left: 10, bottom: 50 }}
     >
       <CartesianGrid strokeDasharray="3 3" stroke="rgba(0, 0, 0, 0.1)" />
       <XAxis
@@ -425,7 +425,7 @@ const SimpleAreaChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, 
   return (
     <AreaChart
       data={data}
-      margin={{ top: 10, right: 30, left: 20, bottom: 40 }}
+      margin={{ top: 10, right: 10, left: 10, bottom: 50 }}
     >
       <defs>
         {/* Historical gradients */}
@@ -654,7 +654,7 @@ const SimpleBarChart = memo(({ data, visibleMetrics, shouldShowPredictionLine, p
   return (
     <BarChart
       data={data}
-      margin={{ top: 10, right: 30, left: 20, bottom: 40 }}
+      margin={{ top: 10, right: 10, left: 10, bottom: 50 }}
     >
       <CartesianGrid strokeDasharray="3 3" stroke="rgba(0, 0, 0, 0.1)" />
       <XAxis
@@ -844,6 +844,8 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
     conversion: false,
   });
   const notifications = useNotifications();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   const chartHeight = ensureMinHeight(height);
 
@@ -997,21 +999,38 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
   return (
     <Box sx={{ width: '100%' }}>
       {/* Chart Controls */}
-      <Box sx={{ mb: 3, display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
+      <Box sx={{ 
+        mb: 2, 
+        display: 'flex', 
+        flexDirection: isMobile ? 'column' : 'row',
+        flexWrap: 'wrap', 
+        gap: isMobile ? 1 : 2, 
+        alignItems: isMobile ? 'stretch' : 'center' 
+      }}>
         <ToggleButtonGroup
           value={chartType}
           exclusive
           onChange={(_, value) => value && handleChartTypeChange(value)}
           size="small"
+          sx={{ 
+            alignSelf: isMobile ? 'center' : 'flex-start',
+            '& .MuiToggleButton-root': {
+              px: isMobile ? 1 : 2,
+              fontSize: isMobile ? '0.75rem' : '0.875rem',
+            }
+          }}
         >
           <ToggleButton value="area" aria-label="Area Chart">
-            <Timeline /> Area
+            <Timeline sx={{ fontSize: isMobile ? '1rem' : '1.25rem', mr: isMobile ? 0.5 : 1 }} /> 
+            {isMobile ? 'Area' : 'Area'}
           </ToggleButton>
           <ToggleButton value="line" aria-label="Line Chart">
-            <ShowChart /> Line
+            <ShowChart sx={{ fontSize: isMobile ? '1rem' : '1.25rem', mr: isMobile ? 0.5 : 1 }} /> 
+            {isMobile ? 'Line' : 'Line'}
           </ToggleButton>
           <ToggleButton value="bar" aria-label="Bar Chart">
-            <BarChartIcon /> Bar
+            <BarChartIcon sx={{ fontSize: isMobile ? '1rem' : '1.25rem', mr: isMobile ? 0.5 : 1 }} /> 
+            {isMobile ? 'Bar' : 'Bar'}
           </ToggleButton>
         </ToggleButtonGroup>
 
@@ -1024,26 +1043,40 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
             />
           }
           label="Show Predictions"
+          sx={{ 
+            alignSelf: isMobile ? 'center' : 'flex-start',
+            '& .MuiFormControlLabel-label': {
+              fontSize: isMobile ? '0.875rem' : '1rem',
+            }
+          }}
         />
 
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        <Box sx={{ 
+          display: 'flex', 
+          gap: 1, 
+          justifyContent: isMobile ? 'center' : 'flex-start',
+          flexWrap: 'wrap'
+        }}>
           <Chip
             label="Revenue"
             color={visibleMetrics.revenue ? 'primary' : 'default'}
             onClick={() => handleMetricToggle('revenue')}
             size="small"
+            sx={{ fontSize: isMobile ? '0.75rem' : '0.875rem' }}
           />
           <Chip
             label="Orders"
             color={visibleMetrics.orders ? 'primary' : 'default'}
             onClick={() => handleMetricToggle('orders')}
             size="small"
+            sx={{ fontSize: isMobile ? '0.75rem' : '0.875rem' }}
           />
           <Chip
             label="Conversion"
             color={visibleMetrics.conversion ? 'primary' : 'default'}
             onClick={() => handleMetricToggle('conversion')}
             size="small"
+            sx={{ fontSize: isMobile ? '0.75rem' : '0.875rem' }}
           />
         </Box>
       </Box>
@@ -1097,7 +1130,15 @@ const UnifiedAnalyticsChart: React.FC<UnifiedAnalyticsChartProps> = ({
         </Box>
 
         {/* Chart Summary */}
-        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Box sx={{ 
+          mt: 2, 
+          display: 'flex', 
+          flexDirection: isMobile ? 'column' : 'row',
+          justifyContent: 'space-between', 
+          alignItems: isMobile ? 'center' : 'center',
+          gap: isMobile ? 1 : 0,
+          textAlign: isMobile ? 'center' : 'left'
+        }}>
           <Typography variant="caption" color="text.secondary">
             {chartData.length} data points • Last updated: {new Date().toLocaleString()}
           </Typography>
