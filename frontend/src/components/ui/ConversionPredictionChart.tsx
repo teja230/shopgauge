@@ -87,8 +87,11 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
-  // Better responsive height calculation
-  const optimizedHeight = isMobile ? Math.max(400, height * 0.75) : height;
+  // Better responsive height calculation - FIXED for mobile browsers
+  const optimizedHeight = useMemo(() => {
+    if (isMobile) return Math.max(350, height); // Ensure minimum 350px on mobile
+    return height; // Use provided height on desktop/tablet
+  }, [height, isMobile]);
 
   const gradientId = useMemo(() => `conversion-gradient-${Math.random().toString(36).substr(2, 9)}`, []);
   const predictionGradientId = useMemo(() => `conversion-prediction-gradient-${Math.random().toString(36).substr(2, 9)}`, []);
@@ -933,14 +936,17 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
       <Box sx={{
         width: '100%',
         height: optimizedHeight,
+        minHeight: optimizedHeight, // Ensure minimum height on mobile
         position: 'relative',
         overflow: 'hidden',
         // Enhanced styling for better appearance
         backgroundColor: theme.palette.background.paper,
         borderRadius: 1,
         border: `1px solid ${theme.palette.divider}`,
-        // Responsive chart optimizations
+        // Mobile browser compatibility fixes
         ...(isMobile && {
+          maxWidth: '100vw',
+          touchAction: 'pan-y',
           '& .recharts-cartesian-axis-tick-value': {
             fontSize: '10px !important',
           },
@@ -965,7 +971,11 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
           },
         }),
       }}>
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer 
+          width="100%" 
+          height={optimizedHeight}
+          minHeight={optimizedHeight}
+        >
           {renderChart()}
         </ResponsiveContainer>
       </Box>
