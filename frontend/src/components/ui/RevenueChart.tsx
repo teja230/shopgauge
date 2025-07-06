@@ -794,56 +794,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
           </ToggleButtonGroup>
         </Box>
 
-        {/* Stats Row */}
-        <Box sx={{ 
-          display: 'flex', 
-          gap: theme.spacing(isMobile ? 0.5 : 1), 
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          p: theme.spacing(isMobile ? 1 : 1.5),
-          backgroundColor: theme.palette.background.default,
-          borderRadius: theme.shape.borderRadius,
-        }}>
-          <Box sx={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: 0.5,
-            minWidth: isMobile ? 'auto' : 'fit-content',
-          }}>
-            <Typography variant="body2" color="text.secondary" sx={{ fontSize: isMobile ? '0.75rem' : '0.875rem' }}>
-              Total:
-            </Typography>
-            <Typography variant="body2" fontWeight={600} color="text.primary" sx={{ fontSize: isMobile ? '0.75rem' : '0.875rem' }}>
-              {formatYAxisTick(totalRevenue)}
-            </Typography>
-          </Box>
-          <Box sx={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: 0.5,
-            minWidth: isMobile ? 'auto' : 'fit-content',
-          }}>
-            <Typography variant="body2" color="text.secondary" sx={{ fontSize: isMobile ? '0.75rem' : '0.875rem' }}>
-              Average:
-            </Typography>
-            <Typography variant="body2" fontWeight={600} color="text.primary" sx={{ fontSize: isMobile ? '0.75rem' : '0.875rem' }}>
-              {formatYAxisTick(averageRevenue)}
-            </Typography>
-          </Box>
-          <Box sx={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: 0.5,
-            minWidth: isMobile ? 'auto' : 'fit-content',
-          }}>
-            <Typography variant="body2" color="text.secondary" sx={{ fontSize: isMobile ? '0.75rem' : '0.875rem' }}>
-              Data Points:
-            </Typography>
-            <Typography variant="body2" fontWeight={600} color="text.primary" sx={{ fontSize: isMobile ? '0.75rem' : '0.875rem' }}>
-              {sanitizedData.length}
-            </Typography>
-          </Box>
-        </Box>
+
       </Box>
 
       {/* Chart with proper margins */}
