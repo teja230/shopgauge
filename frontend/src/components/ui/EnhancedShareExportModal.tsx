@@ -201,10 +201,32 @@ const EnhancedShareExportModal: React.FC<EnhancedShareExportModalProps> = ({
 
   // Enhanced PNG export with proper SVG handling
   const handleExportPNG = useCallback(async () => {
-    debugLog.info('handleExportPNG called', { chartRef: chartRef.current }, 'EnhancedShareExportModal');
+    debugLog.info('handleExportPNG called', { 
+      chartRef: chartRef.current,
+      chartRefExists: !!chartRef.current,
+      chartRefType: chartRef.current?.constructor?.name,
+      chartRefChildren: chartRef.current?.children?.length,
+      chartRefInnerHTML: chartRef.current?.innerHTML?.substring(0, 200)
+    }, 'EnhancedShareExportModal');
+    
     if (!chartRef.current) {
-      showError('Chart is not available for export. Please make sure the chart is visible.');
-      debugLog.error('Export PNG failed: chartRef.current is null', {}, 'EnhancedShareExportModal');
+      showError('Chart is not available for export. Please make sure the chart is visible and try again.');
+      debugLog.error('Export PNG failed: chartRef.current is null', {
+        chartRefDefined: !!chartRef,
+        modalOpen: open,
+        chartTitle,
+        chartType
+      }, 'EnhancedShareExportModal');
+      return;
+    }
+
+    // Additional validation: check if chart contains any content
+    if (!chartRef.current.children || chartRef.current.children.length === 0) {
+      showError('Chart content is not ready for export. Please wait for the chart to fully load and try again.');
+      debugLog.error('Export PNG failed: chartRef has no children', {
+        chartRefHTML: chartRef.current.outerHTML.substring(0, 300),
+        childrenLength: chartRef.current.children.length
+      }, 'EnhancedShareExportModal');
       return;
     }
 
@@ -289,10 +311,32 @@ const EnhancedShareExportModal: React.FC<EnhancedShareExportModalProps> = ({
 
   // Enhanced PDF export
   const handleExportPDF = useCallback(async () => {
-    debugLog.info('handleExportPDF called', { chartRef: chartRef.current }, 'EnhancedShareExportModal');
+    debugLog.info('handleExportPDF called', { 
+      chartRef: chartRef.current,
+      chartRefExists: !!chartRef.current,
+      chartRefType: chartRef.current?.constructor?.name,
+      chartRefChildren: chartRef.current?.children?.length,
+      chartRefInnerHTML: chartRef.current?.innerHTML?.substring(0, 200)
+    }, 'EnhancedShareExportModal');
+    
     if (!chartRef.current) {
-      showError('Chart is not available for export. Please make sure the chart is visible.');
-      debugLog.error('Export PDF failed: chartRef.current is null', {}, 'EnhancedShareExportModal');
+      showError('Chart is not available for export. Please make sure the chart is visible and try again.');
+      debugLog.error('Export PDF failed: chartRef.current is null', {
+        chartRefDefined: !!chartRef,
+        modalOpen: open,
+        chartTitle,
+        chartType
+      }, 'EnhancedShareExportModal');
+      return;
+    }
+
+    // Additional validation: check if chart contains any content
+    if (!chartRef.current.children || chartRef.current.children.length === 0) {
+      showError('Chart content is not ready for export. Please wait for the chart to fully load and try again.');
+      debugLog.error('Export PDF failed: chartRef has no children', {
+        chartRefHTML: chartRef.current.outerHTML.substring(0, 300),
+        childrenLength: chartRef.current.children.length
+      }, 'EnhancedShareExportModal');
       return;
     }
 
