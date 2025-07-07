@@ -881,12 +881,7 @@ const EnhancedShareExportModal: React.FC<EnhancedShareExportModalProps> = ({
                   </Button>
                 </Box>
                 
-                <Alert severity="info" sx={{ mb: 2 }}>
-                  <Typography variant="body2">
-                    <strong>Storage:</strong> Shared links are stored securely on our servers with automatic expiration. 
-                    No additional cost for standard sharing. Enterprise plans include extended storage options.
-                  </Typography>
-                </Alert>
+
               </Box>
 
               {/* Social Media Sharing */}
