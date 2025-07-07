@@ -12,7 +12,7 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip as RechartsTooltip,
-  Legend,
+
   ReferenceLine,
   ReferenceArea,
 } from 'recharts';
@@ -184,11 +184,15 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
           label={{ value: 'Date', position: 'bottom', offset: 18, style: { textAnchor: 'middle', fontSize: 12, fill: 'rgba(0, 0, 0, 0.7)' } }}
         />
         <YAxis
-          tickFormatter={(value) => `${value.toFixed(1)}%`}
+          tickFormatter={(value) => {
+            // Use more decimal places for small values to avoid showing 0%
+            if (value < 0.1) return `${value.toFixed(2)}%`;
+            if (value < 1) return `${value.toFixed(1)}%`;
+            return `${value.toFixed(0)}%`;
+          }}
           stroke="rgba(0, 0, 0, 0.6)"
           tick={{ fontSize: 11, fill: 'rgba(0, 0, 0, 0.7)' }}
           axisLine={{ stroke: 'rgba(0, 0, 0, 0.2)' }}
-          label={{ value: 'Conversion Rate (%)', angle: -90, position: 'left', offset: 10, style: { textAnchor: 'middle', fontSize: 12, fill: 'rgba(0, 0, 0, 0.7)' } }}
         />
         <RechartsTooltip
           labelFormatter={standardDateFormatter}
@@ -203,17 +207,7 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
             fontSize: '12px'
           }}
         />
-        <Legend 
-          formatter={(value, entry) => (
-            <span style={{ 
-              color: entry.color, 
-              fontSize: '12px',
-              fontWeight: 500
-            }}>
-              {value}
-            </span>
-          )}
-        />
+
         
         {/* Stylish separator line between historical and predicted data - only show when predictions are enabled */}
         {showPredictions && separatorDate && (
@@ -943,10 +937,7 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
           '& .recharts-cartesian-axis-tick-value': {
             fontSize: '10px !important',
           },
-          '& .recharts-legend-wrapper': {
-            fontSize: '11px !important',
-            paddingTop: '8px !important',
-          },
+
           '& .recharts-tooltip-wrapper': {
             fontSize: '12px !important',
           },
@@ -956,9 +947,7 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
           '& .recharts-cartesian-axis-tick-value': {
             fontSize: '12px !important',
           },
-          '& .recharts-legend-wrapper': {
-            fontSize: '13px !important',
-          },
+
           '& .recharts-tooltip-wrapper': {
             fontSize: '14px !important',
           },

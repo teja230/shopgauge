@@ -12,7 +12,7 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip as RechartsTooltip,
-  Legend,
+
   ReferenceLine,
   ReferenceArea,
 } from 'recharts';
@@ -271,17 +271,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
             fontSize: '12px'
           }}
         />
-        <Legend 
-          formatter={(value, entry) => (
-            <span style={{ 
-              color: entry.color, 
-              fontSize: '12px',
-              fontWeight: 500
-            }}>
-              {value}
-            </span>
-          )}
-        />
+
         
         {/* Stylish separator line between historical and predicted data - only show when predictions are enabled */}
         {showPredictions && separatorDate && (
@@ -972,10 +962,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
           '& .recharts-cartesian-axis-tick-value': {
             fontSize: '10px !important',
           },
-          '& .recharts-legend-wrapper': {
-            fontSize: '11px !important',
-            paddingTop: '8px !important',
-          },
+
           '& .recharts-tooltip-wrapper': {
             fontSize: '12px !important',
           },
@@ -985,9 +972,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
           '& .recharts-cartesian-axis-tick-value': {
             fontSize: '12px !important',
           },
-          '& .recharts-legend-wrapper': {
-            fontSize: '13px !important',
-          },
+
           '& .recharts-tooltip-wrapper': {
             fontSize: '14px !important',
           },
