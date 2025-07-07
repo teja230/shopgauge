@@ -61,7 +61,6 @@ interface ExportSettings {
 interface ShareSettings {
   includeAnalytics: boolean;
   includeForecasts: boolean;
-  publicAccess: boolean;
 }
 
 interface EnhancedShareExportModalProps {
@@ -126,7 +125,6 @@ const EnhancedShareExportModal: React.FC<EnhancedShareExportModalProps> = ({
   const [shareSettings, setShareSettings] = useState({
     includeAnalytics: true,
     includeForecasts: true,
-    publicAccess: false,
   });
 
   // Refs for SVG capture
@@ -796,15 +794,7 @@ const EnhancedShareExportModal: React.FC<EnhancedShareExportModalProps> = ({
                       }
                       label="Include AI forecasts"
                     />
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={shareSettings.publicAccess}
-                          onChange={(e) => setShareSettings(prev => ({ ...prev, publicAccess: e.target.checked }))}
-                        />
-                      }
-                      label="Make link public (no login required)"
-                    />
+
                   </Box>
                 </CardContent>
               </Card>
