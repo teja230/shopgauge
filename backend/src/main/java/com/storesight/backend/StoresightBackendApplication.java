@@ -2,9 +2,10 @@ package com.storesight.backend;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.data.jpa.JpaRepositoriesAutoConfiguration;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
-@SpringBootApplication
+@SpringBootApplication(exclude = {JpaRepositoriesAutoConfiguration.class})
 @EnableScheduling
 public class StoresightBackendApplication {
 
