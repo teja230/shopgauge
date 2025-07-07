@@ -86,6 +86,9 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
+  // Enable animations when forecasts are displayed
+  const animateCharts = showPredictions;
+
   // Better responsive height calculation - UPDATED for better visibility
   const optimizedHeight = useMemo(() => {
     if (isMobile) return Math.max(450, height); // Increased minimum from 350 to 450px on mobile
@@ -370,7 +373,7 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
             <Bar
               dataKey="orders_count"
               radius={[2, 2, 0, 0]}
-              isAnimationActive={false}
+              isAnimationActive={animateCharts}
               shape={(props: any) => {
                 const { payload } = props;
                 const isPrediction = payload?.isPrediction;
@@ -425,7 +428,7 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
                 strokeWidth: 2
               }}
               connectNulls={false}
-              isAnimationActive={false}
+              isAnimationActive={animateCharts}
             />
             {/* Add confidence visualization for predictions */}
             {showPredictions && processedData.hasPredictions && (
@@ -436,7 +439,7 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
                 stroke="none"
                 fill={UNIFIED_COLOR_SCHEME.forecast.orders}
                 fillOpacity={0.1}
-                isAnimationActive={false}
+                isAnimationActive={animateCharts}
               />
             )}
             {showPredictions && processedData.hasPredictions && (
@@ -447,7 +450,7 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
                 stroke="none"
                 fill="#ffffff"
                 fillOpacity={1}
-                isAnimationActive={false}
+                isAnimationActive={animateCharts}
               />
             )}
           </LineChart>
@@ -482,7 +485,7 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
                 );
               }}
               connectNulls={false}
-              isAnimationActive={false}
+              isAnimationActive={animateCharts}
             />
             {/* Subtle overlay for forecast region */}
             {showPredictions && predictionStartDate && (
@@ -526,7 +529,7 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
             <Bar
               dataKey="change"
               radius={[2, 2, 0, 0]}
-              isAnimationActive={false}
+              isAnimationActive={animateCharts}
               shape={(props: any) => {
                 const { payload } = props;
                 const isPrediction = payload?.isPrediction;
@@ -567,7 +570,7 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
                 );
               }}
               connectNulls={false}
-              isAnimationActive={false}
+              isAnimationActive={animateCharts}
             />
           </ComposedChart>
         );
@@ -591,7 +594,7 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
             <Bar
               dataKey="orders_count"
               radius={[2, 2, 0, 0]}
-              isAnimationActive={false}
+              isAnimationActive={animateCharts}
               shape={(props: any) => {
                 const { payload } = props;
                 const isPrediction = payload?.isPrediction;
@@ -633,7 +636,7 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
                 );
               }}
               connectNulls={false}
-              isAnimationActive={false}
+              isAnimationActive={animateCharts}
             />
             {/* Reference line for average */}
             {processedData.historical.length > 0 && (
@@ -687,7 +690,7 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
             <Bar
               dataKey="close"
               radius={[1, 1, 1, 1]}
-              isAnimationActive={false}
+              isAnimationActive={animateCharts}
               shape={(props: any) => {
                 const { payload } = props;
                 const isPrediction = payload?.isPrediction;
@@ -722,7 +725,7 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
               strokeWidth={1}
               dot={false}
               connectNulls={false}
-              isAnimationActive={false}
+              isAnimationActive={animateCharts}
             />
           </ComposedChart>
         );
@@ -761,7 +764,7 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
               strokeWidth={2}
               fill="url(#ordersStackedHistoricalGradient)"
               connectNulls={false}
-              isAnimationActive={false}
+              isAnimationActive={animateCharts}
               dot={(props: any) => {
                 const { payload } = props;
                 const isPrediction = payload?.isPrediction;
@@ -787,7 +790,7 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
               strokeWidth={1}
               fill="url(#ordersChangeGradient)"
               connectNulls={false}
-              isAnimationActive={false}
+              isAnimationActive={animateCharts}
             />
             {/* Prediction separator line - removed duplicate label since it's already in commonElements */}
           </AreaChart>
@@ -823,7 +826,7 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
                 );
               }}
               connectNulls={false}
-              isAnimationActive={false}
+              isAnimationActive={animateCharts}
             />
             {/* Subtle overlay for forecast region */}
             {showPredictions && predictionStartDate && (
