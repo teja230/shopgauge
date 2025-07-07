@@ -106,7 +106,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
   // Enable animation when forecasts are shown or when chart type toggles
-  const animateCharts = showPredictions;
+  const animateCharts = true;
 
   // Better responsive height calculation - UPDATED for better visibility
   const optimizedHeight = useMemo(() => {

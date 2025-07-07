@@ -87,7 +87,7 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
   // Enable animations when forecasts are displayed
-  const animateCharts = showPredictions;
+  const animateCharts = true;
 
   // Better responsive height calculation - UPDATED for better visibility
   const optimizedHeight = useMemo(() => {
