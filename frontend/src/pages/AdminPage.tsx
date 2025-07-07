@@ -362,7 +362,7 @@ const AdminPage: React.FC = () => {
   const [auditSearchTerm, setAuditSearchTerm] = useState('');
   const [auditActionFilter, setAuditActionFilter] = useState<string>('all');
   const [auditCategoryFilter, setAuditCategoryFilter] = useState<string>('all');
-  const [auditLogType, setAuditLogType] = useState<'all' | 'deleted' | 'active' | 'monitoring'>('all');
+  const [auditLogType, setAuditLogType] = useState<'all' | 'deleted' | 'active' | 'monitoring' | 'connection-leak'>('all');
 
   // Active shops state
   const [activeShops, setActiveShops] = useState<ActiveShop[]>([]);
@@ -387,6 +387,14 @@ const AdminPage: React.FC = () => {
   const [diffOpen, setDiffOpen] = useState(false);
   const [diffBefore, setDiffBefore] = useState('');
   const [diffAfter, setDiffAfter] = useState('');
+
+  // Connection Leak Monitoring State
+  const [connectionLeakStatus, setConnectionLeakStatus] = useState<any>(null);
+  const [connectionLeakLoading, setConnectionLeakLoading] = useState(false);
+  const [connectionLeakError, setConnectionLeakError] = useState<string | null>(null);
+  const [emergencyCleanupInProgress, setEmergencyCleanupInProgress] = useState(false);
+  const [connectionHistory, setConnectionHistory] = useState<any[]>([]);
+  const [leakAlerts, setLeakAlerts] = useState<any[]>([]);
 
   // Action categories for audit logs with improved colors and icons
   const actionCategories = {
@@ -553,6 +561,20 @@ const AdminPage: React.FC = () => {
   useEffect(() => {
     if (isAuthenticated) {
       sessionExpiredShownRef.current = false;
+    }
+  }, [isAuthenticated]);
+
+  // Initialize connection leak monitoring when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchConnectionLeakStatus();
+      
+      // Set up real-time monitoring (every 30 seconds)
+      const interval = setInterval(() => {
+        fetchConnectionLeakStatus();
+      }, 30000);
+      
+      return () => clearInterval(interval);
     }
   }, [isAuthenticated]);
 
@@ -860,6 +882,107 @@ const AdminPage: React.FC = () => {
     };
   }, []);
 
+  // Connection Leak Monitoring Functions
+  const fetchConnectionLeakStatus = async () => {
+    setConnectionLeakLoading(true);
+    setConnectionLeakError(null);
+    
+    try {
+      const response = await fetchWithAuth('/api/health/connection-leak-status');
+      if (response.ok) {
+        const data = await response.json();
+        setConnectionLeakStatus(data);
+        
+        // Add to history for trending
+        setConnectionHistory(prev => [
+          ...prev.slice(-19), // Keep last 20 entries
+          {
+            timestamp: new Date().toISOString(),
+            ...data.hikariMetrics,
+            status: data.poolStatus,
+            risk: data.connectionLeakRisk
+          }
+        ]);
+
+        // Check for high risk and create alerts
+        if (data.connectionLeakRisk === 'HIGH' || data.emergencyCleanupNeeded) {
+          const alert = {
+            id: Date.now(),
+            timestamp: new Date().toISOString(),
+            type: 'CONNECTION_LEAK_WARNING',
+            message: `Connection leak risk: ${data.connectionLeakRisk}. Pool usage: ${data.hikariMetrics?.usagePercentage}%`,
+            severity: data.emergencyCleanupNeeded ? 'error' : 'warning',
+            data: data
+          };
+          
+          setLeakAlerts(prev => [alert, ...prev.slice(0, 9)]); // Keep last 10 alerts
+          
+          if (data.emergencyCleanupNeeded) {
+            showError(`🚨 CRITICAL: Emergency cleanup needed! Pool usage: ${data.hikariMetrics?.usagePercentage}%`);
+          }
+        }
+      } else {
+        const errorData = await response.json();
+        setConnectionLeakError(errorData.message || 'Failed to fetch connection leak status');
+      }
+    } catch (error) {
+      console.error('Connection leak status fetch failed:', error);
+      setConnectionLeakError('Network error while fetching connection leak status');
+    } finally {
+      setConnectionLeakLoading(false);
+    }
+  };
+
+  const performEmergencyConnectionCleanup = async () => {
+    setEmergencyCleanupInProgress(true);
+    
+    try {
+      const response = await fetchWithAuth('/api/health/emergency-cleanup', {
+        method: 'POST'
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Show cleanup results
+        const beforeUsage = Math.round(
+          (data.beforeCleanup?.activeConnections / data.beforeCleanup?.maxPoolSize) * 100
+        );
+        const afterUsage = Math.round(
+          (data.afterCleanup?.activeConnections / data.afterCleanup?.maxPoolSize) * 100
+        );
+        
+        showSuccess(`✅ Emergency cleanup completed! Pool usage: ${beforeUsage}% → ${afterUsage}%`);
+        
+        // Add cleanup event to alerts
+        const cleanupAlert = {
+          id: Date.now(),
+          timestamp: new Date().toISOString(),
+          type: 'EMERGENCY_CLEANUP',
+          message: `Emergency cleanup performed. Pool usage reduced from ${beforeUsage}% to ${afterUsage}%`,
+          severity: 'info',
+          data: data
+        };
+        
+        setLeakAlerts(prev => [cleanupAlert, ...prev.slice(0, 9)]);
+        
+        // Refresh connection status
+        setTimeout(() => {
+          fetchConnectionLeakStatus();
+        }, 2000);
+        
+      } else {
+        const errorData = await response.json();
+        showError(`Emergency cleanup failed: ${errorData.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Emergency cleanup failed:', error);
+      showError('Network error during emergency cleanup');
+    } finally {
+      setEmergencyCleanupInProgress(false);
+    }
+  };
+
   // Show password dialog if not authenticated
   if (!isAuthenticated) {
   return (
@@ -1070,6 +1193,18 @@ const AdminPage: React.FC = () => {
                   </Box>
                 } 
                 value="monitoring" 
+              />
+              <Tab 
+                label={
+                  <Box display="flex" alignItems="center" gap={1}>
+                    <SecurityIcon fontSize="small" />
+                    Connection Leak Monitor
+                    {connectionLeakStatus?.connectionLeakRisk === 'HIGH' && (
+                      <Chip label="HIGH RISK" size="small" color="error" />
+                    )}
+                  </Box>
+                } 
+                value="connection-leak" 
               />
             </Tabs>
           </TabsContainer>
@@ -1968,6 +2103,237 @@ const AdminPage: React.FC = () => {
           {/* Transaction Monitoring Tab */}
           {auditLogType === 'monitoring' && (
             <TransactionMonitoring />
+          )}
+
+          {/* Connection Leak Monitoring */}
+          {auditLogType === 'connection-leak' && (
+            <Box sx={{ p: 3 }}>
+              <Typography variant="h6" sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <SecurityIcon color="primary" />
+                Connection Leak Monitoring & Emergency Response
+              </Typography>
+
+                             {/* Connection Status Overview */}
+               <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
+                 <Card sx={{ borderRadius: 2, flex: 1, minWidth: 200 }}>
+                   <CardContent>
+                     <Box display="flex" alignItems="center" gap={2}>
+                       <Box sx={{ 
+                         p: 1, 
+                         borderRadius: 1, 
+                         bgcolor: connectionLeakStatus?.poolStatus === 'HEALTHY' ? '#e8f5e8' : 
+                                 connectionLeakStatus?.poolStatus === 'WARNING' ? '#fff3e0' : '#ffebee'
+                       }}>
+                         <MonitorHeartIcon sx={{ 
+                           color: connectionLeakStatus?.poolStatus === 'HEALTHY' ? '#2e7d32' : 
+                                  connectionLeakStatus?.poolStatus === 'WARNING' ? '#f57c00' : '#d32f2f'
+                         }} />
+                       </Box>
+                       <Box>
+                         <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                           {connectionLeakStatus?.poolStatus || 'Unknown'}
+                         </Typography>
+                         <Typography variant="body2" color="text.secondary">
+                           Pool Status
+                         </Typography>
+                       </Box>
+                     </Box>
+                   </CardContent>
+                 </Card>
+
+                 <Card sx={{ borderRadius: 2, flex: 1, minWidth: 200 }}>
+                   <CardContent>
+                     <Box display="flex" alignItems="center" gap={2}>
+                       <Box sx={{ p: 1, borderRadius: 1, bgcolor: '#e3f2fd' }}>
+                         <AssessmentIcon sx={{ color: '#1976d2' }} />
+                       </Box>
+                       <Box>
+                         <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                           {connectionLeakStatus?.hikariMetrics?.usagePercentage || 0}%
+                         </Typography>
+                         <Typography variant="body2" color="text.secondary">
+                           Pool Usage
+                         </Typography>
+                       </Box>
+                     </Box>
+                   </CardContent>
+                 </Card>
+
+                 <Card sx={{ borderRadius: 2, flex: 1, minWidth: 200 }}>
+                   <CardContent>
+                     <Box display="flex" alignItems="center" gap={2}>
+                       <Box sx={{ p: 1, borderRadius: 1, bgcolor: '#f3e5f5' }}>
+                         <WarningIcon sx={{ color: '#5e35b1' }} />
+                       </Box>
+                       <Box>
+                         <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                           {connectionLeakStatus?.connectionLeakRisk || 'Unknown'}
+                         </Typography>
+                         <Typography variant="body2" color="text.secondary">
+                           Leak Risk
+                         </Typography>
+                       </Box>
+                     </Box>
+                   </CardContent>
+                 </Card>
+               </Box>
+
+              {/* Emergency Actions */}
+              {connectionLeakStatus?.emergencyCleanupNeeded && (
+                <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
+                    🚨 Emergency Cleanup Required
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 2 }}>
+                    Connection pool usage is critical ({connectionLeakStatus?.hikariMetrics?.usagePercentage}%). 
+                    Immediate action required to prevent system failure.
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    color="error"
+                    onClick={performEmergencyConnectionCleanup}
+                    disabled={emergencyCleanupInProgress}
+                    startIcon={emergencyCleanupInProgress ? <CircularProgress size={20} /> : <WarningIcon />}
+                    sx={{ textTransform: 'none' }}
+                  >
+                    {emergencyCleanupInProgress ? 'Performing Cleanup...' : 'Perform Emergency Cleanup'}
+                  </Button>
+                </Alert>
+              )}
+
+              {/* Connection Metrics Details */}
+              {connectionLeakStatus?.hikariMetrics && (
+                <Card sx={{ mb: 3, borderRadius: 2 }}>
+                  <CardHeader 
+                    title="Connection Pool Metrics"
+                    action={
+                      <Button
+                        size="small"
+                        onClick={fetchConnectionLeakStatus}
+                        disabled={connectionLeakLoading}
+                        startIcon={connectionLeakLoading ? <CircularProgress size={16} /> : <RefreshIcon />}
+                      >
+                        Refresh
+                      </Button>
+                    }
+                  />
+                                     <CardContent>
+                     <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 2 }}>
+                       <Box>
+                         <Typography variant="caption" color="text.secondary">Active Connections</Typography>
+                         <Typography variant="h6">
+                           {connectionLeakStatus.hikariMetrics.activeConnections} / {connectionLeakStatus.hikariMetrics.maxPoolSize}
+                         </Typography>
+                       </Box>
+                       <Box>
+                         <Typography variant="caption" color="text.secondary">Idle Connections</Typography>
+                         <Typography variant="h6">{connectionLeakStatus.hikariMetrics.idleConnections}</Typography>
+                       </Box>
+                       <Box>
+                         <Typography variant="caption" color="text.secondary">Pending Threads</Typography>
+                         <Typography variant="h6">{connectionLeakStatus.hikariMetrics.pendingThreads}</Typography>
+                       </Box>
+                       <Box>
+                         <Typography variant="caption" color="text.secondary">Total Connections</Typography>
+                         <Typography variant="h6">{connectionLeakStatus.hikariMetrics.totalConnections}</Typography>
+                       </Box>
+                     </Box>
+                   </CardContent>
+                </Card>
+              )}
+
+              {/* Recent Leak Alerts */}
+              {leakAlerts.length > 0 && (
+                <Card sx={{ mb: 3, borderRadius: 2 }}>
+                  <CardHeader title="Recent Connection Leak Alerts" />
+                  <CardContent>
+                    <List>
+                      {leakAlerts.map((alert, index) => (
+                        <ListItem key={alert.id} sx={{ 
+                          border: '1px solid #e0e0e0', 
+                          borderRadius: 1, 
+                          mb: 1,
+                          bgcolor: alert.severity === 'error' ? '#ffebee' : 
+                                  alert.severity === 'warning' ? '#fff3e0' : '#e3f2fd'
+                        }}>
+                          <ListItemText
+                            primary={
+                              <Box display="flex" alignItems="center" gap={1}>
+                                {alert.severity === 'error' ? <ErrorIcon color="error" /> : 
+                                 alert.severity === 'warning' ? <WarningIcon color="warning" /> : 
+                                 <InfoIcon color="info" />}
+                                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                  {alert.message}
+                                </Typography>
+                              </Box>
+                            }
+                            secondary={
+                              <Typography variant="caption" color="text.secondary">
+                                {new Date(alert.timestamp).toLocaleString()} • {alert.type}
+                              </Typography>
+                            }
+                          />
+                        </ListItem>
+                      ))}
+                    </List>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Connection History Trend */}
+              {connectionHistory.length > 0 && (
+                <Card sx={{ borderRadius: 2 }}>
+                  <CardHeader title="Connection Usage Trend (Last 20 Samples)" />
+                  <CardContent>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      Monitoring connection pool usage over time to identify patterns and potential leaks.
+                    </Typography>
+                    <Box sx={{ 
+                      display: 'grid', 
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', 
+                      gap: 1,
+                      maxHeight: 200,
+                      overflowY: 'auto'
+                    }}>
+                      {connectionHistory.slice(-10).map((entry, index) => (
+                        <Box key={index} sx={{ 
+                          p: 1, 
+                          border: '1px solid #e0e0e0', 
+                          borderRadius: 1,
+                          bgcolor: entry.usagePercentage > 80 ? '#ffebee' : 
+                                  entry.usagePercentage > 60 ? '#fff3e0' : '#e8f5e8'
+                        }}>
+                          <Typography variant="caption" color="text.secondary">
+                            {new Date(entry.timestamp).toLocaleTimeString()}
+                          </Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                            {entry.usagePercentage}%
+                          </Typography>
+                          <Typography variant="caption">
+                            {entry.activeConnections}/{entry.maxPoolSize}
+                          </Typography>
+                        </Box>
+                      ))}
+                    </Box>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Loading/Error States */}
+              {connectionLeakLoading && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                  <CircularProgress />
+                </Box>
+              )}
+
+              {connectionLeakError && (
+                <Alert severity="error" sx={{ borderRadius: 2 }}>
+                  <Typography variant="body2">
+                    Failed to load connection leak monitoring data: {connectionLeakError}
+                  </Typography>
+                </Alert>
+              )}
+            </Box>
           )}
         </Box>
       </SectionCard>
