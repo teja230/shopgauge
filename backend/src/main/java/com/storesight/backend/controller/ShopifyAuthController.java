@@ -1042,26 +1042,26 @@ public class ShopifyAuthController {
     logger.info("Auth: Disconnecting shop: {}", shop);
 
     if (shop != null) {
-              // Enhanced cleanup: Clear current session and optionally all sessions
-        try {
-          String sessionId =
-              request.getSession(false) != null ? request.getSession(false).getId() : null;
-          if (sessionId != null) {
-            // Remove current session from application tracking
-            shopService.removeSession(shop, sessionId);
-            logger.info("Auth: Cleared session for shop: {} and session: {}", shop, sessionId);
+      // Enhanced cleanup: Clear current session and optionally all sessions
+      try {
+        String sessionId =
+            request.getSession(false) != null ? request.getSession(false).getId() : null;
+        if (sessionId != null) {
+          // Remove current session from application tracking
+          shopService.removeSession(shop, sessionId);
+          logger.info("Auth: Cleared session for shop: {} and session: {}", shop, sessionId);
 
-            // Let Spring Session handle session cleanup naturally - no explicit invalidation
-            // This prevents "Session was invalidated" errors during request processing
-            logger.info("Auth: Session cleanup initiated for HTTP session: {}", sessionId);
-          } else {
-            // Fallback: remove all sessions if no current session
-            shopService.removeAllSessionsForShop(shop);
-            logger.info("Auth: Cleared all sessions for shop: {} (no current session found)", shop);
-          }
-        } catch (Exception e) {
-          logger.error("Auth: Error during enhanced disconnect cleanup for shop: {}", shop, e);
+          // Let Spring Session handle session cleanup naturally - no explicit invalidation
+          // This prevents "Session was invalidated" errors during request processing
+          logger.info("Auth: Session cleanup initiated for HTTP session: {}", sessionId);
+        } else {
+          // Fallback: remove all sessions if no current session
+          shopService.removeAllSessionsForShop(shop);
+          logger.info("Auth: Cleared all sessions for shop: {} (no current session found)", shop);
         }
+      } catch (Exception e) {
+        logger.error("Auth: Error during enhanced disconnect cleanup for shop: {}", shop, e);
+      }
 
       // Clear the shop cookie with the correct domain setting
       Cookie shopCookie = new Cookie("shop", "");
@@ -1223,7 +1223,8 @@ public class ShopifyAuthController {
         // Let Spring Session handle session cleanup naturally - no explicit invalidation
         // This prevents "Session was invalidated" errors during request processing
         if (sessionId != null) {
-          logger.info("Auth: Force disconnect session cleanup initiated for HTTP session: {}", sessionId);
+          logger.info(
+              "Auth: Force disconnect session cleanup initiated for HTTP session: {}", sessionId);
         }
 
       } catch (Exception e) {

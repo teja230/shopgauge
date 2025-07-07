@@ -478,7 +478,12 @@ public class ShopService {
 
       logger.info("Session deactivated: {} for shop: {}", sessionId, shopifyDomain);
     } catch (Exception e) {
-      logger.error("Error deactivating session {} for shop {}: {}", sessionId, shopifyDomain, e.getMessage(), e);
+      logger.error(
+          "Error deactivating session {} for shop {}: {}",
+          sessionId,
+          shopifyDomain,
+          e.getMessage(),
+          e);
       // Don't propagate the exception to avoid causing HTTP session issues
     }
   }
@@ -504,7 +509,8 @@ public class ShopService {
         logger.warn("Shop not found for session cleanup: {}", shopifyDomain);
       }
     } catch (Exception e) {
-      logger.error("Error deactivating all sessions for shop {}: {}", shopifyDomain, e.getMessage(), e);
+      logger.error(
+          "Error deactivating all sessions for shop {}: {}", shopifyDomain, e.getMessage(), e);
       // Don't propagate the exception to avoid causing HTTP session issues
     }
   }
@@ -797,7 +803,8 @@ public class ShopService {
             }
           }
         } catch (Exception e) {
-          logger.warn("Failed to cleanup expired session {}: {}", session.getSessionId(), e.getMessage());
+          logger.warn(
+              "Failed to cleanup expired session {}: {}", session.getSessionId(), e.getMessage());
           // Continue with other sessions
         }
       }
@@ -1015,7 +1022,8 @@ public class ShopService {
             }
           }
         } catch (Exception e) {
-          logger.warn("Failed to cleanup stale session {}: {}", session.getSessionId(), e.getMessage());
+          logger.warn(
+              "Failed to cleanup stale session {}: {}", session.getSessionId(), e.getMessage());
           // Continue with other sessions
         }
       }

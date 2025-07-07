@@ -1,10 +1,10 @@
 package com.storesight.backend.controller;
 
+import com.storesight.backend.repository.ShopSessionRepository;
 import com.storesight.backend.service.DatabaseMonitoringService;
 import com.storesight.backend.service.RedisHealthService;
 import com.storesight.backend.service.ShopService;
 import com.storesight.backend.service.TransactionMonitoringService;
-import com.storesight.backend.repository.ShopSessionRepository;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
@@ -332,17 +332,20 @@ public class HealthController {
       try {
         // Count all active sessions across all shops (limited query)
         totalActiveSessions = (int) shopSessionRepository.count();
-        
+
         // Count expired sessions
         expiredSessions = shopSessionRepository.findExpiredSessions().size();
-        
+
         // Count stale sessions (not accessed for > 2 hours)
         LocalDateTime staleThreshold = LocalDateTime.now().minusHours(2);
         staleSessions = shopSessionRepository.findInactiveSessionsOlderThan(staleThreshold).size();
-        
-        logger.debug("Session health check: total={}, expired={}, stale={}", 
-            totalActiveSessions, expiredSessions, staleSessions);
-        
+
+        logger.debug(
+            "Session health check: total={}, expired={}, stale={}",
+            totalActiveSessions,
+            expiredSessions,
+            staleSessions);
+
       } catch (Exception e) {
         logger.warn("Failed to get session statistics: {}", e.getMessage());
         sessionStats.put("error", "Failed to retrieve session statistics");

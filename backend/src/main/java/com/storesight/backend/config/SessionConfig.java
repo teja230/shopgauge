@@ -3,14 +3,14 @@ package com.storesight.backend.config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.session.data.redis.config.annotation.web.http.EnableRedisHttpSession;
+import org.springframework.session.events.SessionDeletedEvent;
 import org.springframework.session.web.http.CookieSerializer;
 import org.springframework.session.web.http.DefaultCookieSerializer;
-import org.springframework.context.ApplicationListener;
-import org.springframework.session.events.SessionDeletedEvent;
 
 @Configuration
 @Profile("!test")
@@ -45,15 +45,15 @@ public class SessionConfig {
   }
 
   /**
-   * Custom session event listener to handle session lifecycle events
-   * This helps prevent race conditions during session cleanup
+   * Custom session event listener to handle session lifecycle events This helps prevent race
+   * conditions during session cleanup
    */
   @Bean
   public ApplicationListener<SessionDeletedEvent> sessionDeletedEventListener() {
     return event -> {
       String sessionId = event.getSessionId();
       logger.debug("Session deleted event received for sessionId: {}", sessionId);
-      
+
       // Note: Additional cleanup can be added here if needed
       // but we should avoid heavy operations in this listener
     };

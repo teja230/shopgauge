@@ -1,5 +1,6 @@
 package com.storesight.backend.config;
 
+import java.util.concurrent.ThreadPoolExecutor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -9,7 +10,6 @@ import org.springframework.core.task.TaskExecutor;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
-import java.util.concurrent.ThreadPoolExecutor;
 
 /**
  * Backend configuration for StoreSignt application
@@ -71,10 +71,7 @@ public class BackendConfig {
     return executor;
   }
 
-  /**
-   * Configure async request processing executor
-   * This helps prevent HTTP async processing errors
-   */
+  /** Configure async request processing executor This helps prevent HTTP async processing errors */
   @Bean(name = "asyncRequestExecutor")
   public TaskExecutor asyncRequestExecutor() {
     ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
