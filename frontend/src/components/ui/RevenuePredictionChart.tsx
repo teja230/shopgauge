@@ -105,10 +105,10 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
-  // Better responsive height calculation - FIXED for mobile browsers
+  // Better responsive height calculation - UPDATED for better visibility
   const optimizedHeight = useMemo(() => {
-    if (isMobile) return Math.max(350, height); // Ensure minimum 350px on mobile
-    return height; // Use provided height on desktop/tablet
+    if (isMobile) return Math.max(450, height); // Increased minimum from 350 to 450px on mobile
+    return Math.max(600, height); // Ensure minimum 600px on desktop/tablet for better visibility
   }, [height, isMobile]);
 
   const gradientId = useMemo(() => `revenue-gradient-${Math.random().toString(36).substr(2, 9)}`, []);
@@ -946,17 +946,19 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
         </ToggleButtonGroup>
       </Box>
 
-      {/* Chart with improved responsive sizing */}
+      {/* Chart with improved responsive sizing - FIXED for cutoff issues */}
       <Box sx={{
         width: '100%',
         height: optimizedHeight,
-        minHeight: optimizedHeight, // Ensure minimum height on mobile
+        minHeight: optimizedHeight,
         position: 'relative',
-        overflow: 'hidden',
+        overflow: 'visible', // Changed from 'hidden' to 'visible' to prevent cutoff
         // Enhanced styling for better appearance
         backgroundColor: theme.palette.background.paper,
         borderRadius: 1,
         border: `1px solid ${theme.palette.divider}`,
+        // Ensure proper padding for chart elements
+        padding: isMobile ? theme.spacing(1) : theme.spacing(2),
         // Mobile browser compatibility fixes
         ...(isMobile && {
           maxWidth: '100vw',
@@ -987,8 +989,8 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
       }}>
         <ResponsiveContainer 
           width="100%" 
-          height={optimizedHeight}
-          minHeight={optimizedHeight}
+          height={optimizedHeight - (isMobile ? 16 : 32)} // Adjust for padding
+          minHeight={optimizedHeight - (isMobile ? 16 : 32)}
         >
           {renderChart()}
         </ResponsiveContainer>

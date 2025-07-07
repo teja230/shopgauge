@@ -52,7 +52,7 @@ const CardTitle = styled(Typography)(({ theme }) => ({
 
 const ChartContainer = styled(Box)(({ theme }) => ({
   flex: 1,
-  minHeight: 500, // Fixed minimum height for visibility
+  minHeight: 600, // Increased from 500 to 600 for better visibility
   height: 'auto',
   padding: theme.spacing(1),
   backgroundColor: theme.palette.background.paper,
@@ -60,8 +60,9 @@ const ChartContainer = styled(Box)(({ theme }) => ({
   // Chrome-specific optimizations
   contain: 'layout',
   willChange: 'auto',
+  overflow: 'visible', // Ensure no clipping
   [theme.breakpoints.down('sm')]: {
-    minHeight: 400, // Smaller but still visible on mobile
+    minHeight: 450, // Increased from 400 to 450 for mobile
   },
 }));
 
@@ -122,20 +123,20 @@ const PredictionViewContainer = memo(({
   const chartRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   
-  // Responsive helpers - SIMPLIFIED for mobile chart rendering
+  // Responsive helpers - UPDATED for better chart visibility
   const responsiveHeight = useMemo(() => {
-    // Simplified height calculations that work better on mobile browsers
-    if (isMobile) return 600; // Fixed height for mobile for consistency
-    if (isTablet) return 700; // Fixed height for tablet
-    return Math.max(800, height); // Minimum 800px on desktop
+    // Increased heights to accommodate all chart elements including legends and axes
+    if (isMobile) return 700; // Increased from 600 to 700 for mobile
+    if (isTablet) return 800; // Increased from 700 to 800 for tablet
+    return Math.max(900, height); // Minimum 900px on desktop (was 800)
   }, [height, isMobile, isTablet]);
 
-  // Simplified chart height calculation - FIXED for mobile
+  // Updated chart height calculation - FIXED for better visibility
   const chartHeight = useMemo(() => {
-    // Fixed heights that work reliably across mobile browsers
-    if (isMobile) return 350; // Fixed 350px for mobile charts
-    if (isTablet) return 450; // Fixed 450px for tablet charts
-    return 500; // Fixed 500px for desktop charts
+    // Increased heights to prevent chart cutoff and accommodate all elements
+    if (isMobile) return 450; // Increased from 350 to 450 for mobile charts
+    if (isTablet) return 550; // Increased from 450 to 550 for tablet charts
+    return 600; // Increased from 500 to 600 for desktop charts
   }, [isMobile, isTablet]);
 
   // Chrome-safe data validation
@@ -816,31 +817,35 @@ const PredictionViewContainer = memo(({
           </ToggleButtonGroup>
         </Box>
 
-        {/* Chart */}
+        {/* Chart - Updated container for better visibility */}
         <Box sx={{ 
           flex: 1, 
           position: 'relative',
-          overflow: 'hidden',
+          overflow: 'visible', // Changed from 'hidden' to 'visible' to prevent cutoff
           height: chartHeight,
-          minHeight: chartHeight, // Ensure minimum height is respected
-          maxHeight: chartHeight, // Prevent height from growing too large
+          minHeight: chartHeight,
+          // Removed maxHeight constraint to allow chart to use full space
           mt: 1,
+          mb: 2, // Add bottom margin for better spacing
           // Mobile-specific optimizations
           ...(isMobile && {
             width: '100%',
-            maxWidth: '100vw', // Prevent horizontal overflow on mobile
+            maxWidth: '100vw',
           }),
         }}>
           <Box sx={{ 
             width: '100%',
             height: '100%',
-            minHeight: chartHeight, // Ensure the inner container also respects minimum height
+            minHeight: chartHeight,
             p: 0,
+            // Ensure chart has enough space to render properly
+            display: 'flex',
+            flexDirection: 'column',
             // Mobile browser compatibility
             ...(isMobile && {
-              touchAction: 'pan-y', // Allow vertical scrolling but prevent horizontal
+              touchAction: 'pan-y',
               overflowX: 'hidden',
-              overflowY: 'hidden',
+              overflowY: 'visible', // Allow vertical overflow for chart elements
             }),
           }}>
             {renderChart()}
