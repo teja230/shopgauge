@@ -425,20 +425,6 @@ const PredictionViewContainer = memo(({
                       boxShadow: '0 2px 8px rgba(147, 51, 234, 0.3)',
                     }}
                   />
-                  <Chip
-                    label="Last 60 Days"
-                    color="primary"
-                    variant="outlined"
-                    size="small"
-                    sx={{ 
-                      fontWeight: 500,
-                      fontSize: '0.7rem',
-                      height: 24,
-                      borderColor: 'primary.main',
-                      color: 'primary.main',
-                      '& .MuiChip-label': { px: 1 }
-                    }}
-                  />
                 </Box>
               </Box>
             </Box>
@@ -832,6 +818,8 @@ const PredictionViewContainer = memo(({
           ...(isMobile && {
             width: '100%',
             maxWidth: '100vw',
+            overflowX: 'auto', // Enable horizontal scrolling on mobile
+            overflowY: 'auto', // Enable vertical scrolling on mobile
           }),
         }}>
           <Box sx={{ 
@@ -845,8 +833,8 @@ const PredictionViewContainer = memo(({
             // Mobile browser compatibility
             ...(isMobile && {
               touchAction: 'pan-y',
-              overflowX: 'hidden',
-              overflowY: 'visible', // Allow vertical overflow for chart elements
+              overflowX: 'auto', // Enable horizontal scrolling inside inner box on mobile
+              overflowY: 'auto', // Enable vertical scrolling inside inner box on mobile
             }),
           }}>
             {renderChart()}

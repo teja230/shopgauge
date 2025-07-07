@@ -211,7 +211,6 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
           stroke="rgba(0, 0, 0, 0.6)"
           tick={{ fontSize: 11, fill: 'rgba(0, 0, 0, 0.7)' }}
           axisLine={{ stroke: 'rgba(0, 0, 0, 0.2)' }}
-          label={{ value: 'Orders Count', angle: -90, position: 'left', offset: 10, style: { textAnchor: 'middle', fontSize: 12, fill: 'rgba(0, 0, 0, 0.7)' } }}
         />
         <RechartsTooltip
           labelFormatter={standardDateFormatter}
@@ -953,6 +952,8 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
         ...(isMobile && {
           maxWidth: '100vw',
           touchAction: 'pan-y',
+          overflowX: 'auto', // Enable horizontal scrolling on mobile
+          overflowY: 'auto', // Enable vertical scrolling on mobile
           '& .recharts-cartesian-axis-tick-value': {
             fontSize: '10px !important',
           },
