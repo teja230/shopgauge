@@ -31,7 +31,7 @@ import { styled } from '@mui/material/styles';
 import RevenuePredictionChart from './RevenuePredictionChart';
 import OrderPredictionChart from './OrderPredictionChart';
 import ConversionPredictionChart from './ConversionPredictionChart';
-import SimpleShareModal from './SimpleShareModal';
+import EnhancedShareExportModal from './EnhancedShareExportModal';
 import { useAuth } from '../../context/AuthContext';
 import { UNIFIED_COLOR_SCHEME, getMobileOptimizedHeight } from './ChartStyles';
 
@@ -842,19 +842,23 @@ const PredictionViewContainer = memo(({
         </Box>
       </CardContent>
       
-      {/* Share Modal */}
-      <SimpleShareModal
+      {/* Enhanced Share & Export Modal */}
+      <EnhancedShareExportModal
         open={shareModalOpen}
         onClose={() => setShareModalOpen(false)}
         chartRef={chartRef}
-        chartData={data}
-        chartType={activeView}
         chartTitle={`${activeView.charAt(0).toUpperCase() + activeView.slice(1)} Analytics`}
+        chartType={activeView}
         shopName={shop || undefined}
+        data={data}
         metrics={{
           revenue: data?.total_revenue,
           orders: data?.total_orders,
           timeRange: `${predictionDays}d`,
+          forecastPeriod: `${predictionDays} days`,
+          forecastRevenue: data?.predictions?.[0]?.revenue,
+          forecastOrders: data?.predictions?.[0]?.orders_count,
+          confidenceScore: data?.predictions?.[0]?.confidence_score,
         }}
       />
     </StyledCard>

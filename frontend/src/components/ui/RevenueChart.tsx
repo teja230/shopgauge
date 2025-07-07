@@ -38,7 +38,7 @@ import {
   Share as ShareIcon,
 } from '@mui/icons-material';
 import LoadingIndicator from './LoadingIndicator';
-import SimpleShareModal from './SimpleShareModal';
+import EnhancedShareExportModal from './EnhancedShareExportModal';
 import type { RevenuePoint, TooltipProps, ChartPayload } from '../../types/charts';
 import { debugLog } from './DebugPanel';
 import { useAuth } from '../../context/AuthContext';
@@ -879,13 +879,15 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
         )}
       </Box>
 
-      {/* Share Modal */}
-      <SimpleShareModal
+      {/* Enhanced Share & Export Modal */}
+      <EnhancedShareExportModal
         open={shareModalOpen}
         onClose={() => setShareModalOpen(false)}
         chartRef={chartRef}
         chartTitle="Revenue Chart"
+        chartType="revenue"
         shopName={shop || undefined}
+        data={sanitizedData}
         metrics={{
           revenue: totalRevenue,
           timeRange: `${sanitizedData.length}d`,
