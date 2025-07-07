@@ -87,6 +87,9 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
+  // Enable animations when forecasts are on
+  const animateCharts = showPredictions;
+
   // Better responsive height calculation - UPDATED for better visibility
   const optimizedHeight = useMemo(() => {
     if (isMobile) return Math.max(450, height); // Increased minimum from 350 to 450px on mobile
@@ -346,7 +349,7 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
             <Bar
               dataKey="conversion_rate"
               radius={[2, 2, 0, 0]}
-              isAnimationActive={false}
+              isAnimationActive={animateCharts}
               shape={(props: any) => {
                 const { payload } = props;
                 const isPrediction = payload?.isPrediction;
@@ -401,7 +404,7 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
                 strokeWidth: 2
               }}
               connectNulls={false}
-              isAnimationActive={false}
+              isAnimationActive={animateCharts}
             />
             {/* Add confidence bounds for predictions */}
             {showPredictions && forecastData.length > 0 && (
@@ -412,7 +415,7 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
                 stroke="none"
                 fill={UNIFIED_COLOR_SCHEME.forecast.conversion}
                 fillOpacity={0.1}
-                isAnimationActive={false}
+                isAnimationActive={animateCharts}
               />
             )}
             {showPredictions && forecastData.length > 0 && (
@@ -423,7 +426,7 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
                 stroke="none"
                 fill="#ffffff"
                 fillOpacity={1}
-                isAnimationActive={false}
+                isAnimationActive={animateCharts}
               />
             )}
           </LineChart>
@@ -458,7 +461,7 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
                 );
               }}
               connectNulls={false}
-              isAnimationActive={false}
+              isAnimationActive={animateCharts}
             />
             {/* Overlay for forecast region */}
             {showPredictions && predictionStartDate && (
@@ -502,7 +505,7 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
             <Bar
               dataKey="change"
               radius={[2, 2, 0, 0]}
-              isAnimationActive={false}
+              isAnimationActive={animateCharts}
               shape={(props: any) => {
                 const { payload } = props;
                 const isPrediction = payload?.isPrediction;
@@ -543,7 +546,7 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
                 );
               }}
               connectNulls={false}
-              isAnimationActive={false}
+              isAnimationActive={animateCharts}
             />
           </ComposedChart>
         );
@@ -581,7 +584,7 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
               stroke={UNIFIED_COLOR_SCHEME.historical.conversion}
               strokeWidth={2}
               fill="url(#conversionStackedHistoricalGradient)"
-              isAnimationActive={false}
+              isAnimationActive={animateCharts}
               dot={(props: any) => {
                 const { payload } = props;
                 const isPrediction = payload?.isPrediction;
@@ -606,7 +609,7 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
               stroke="#10b981"
               strokeWidth={1}
               fill="url(#conversionChangeGradient)"
-              isAnimationActive={false}
+              isAnimationActive={animateCharts}
             />
           </AreaChart>
         );
@@ -629,7 +632,7 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
             <Bar
               dataKey="conversion_rate"
               radius={[2, 2, 0, 0]}
-              isAnimationActive={false}
+              isAnimationActive={animateCharts}
               shape={(props: any) => {
                 const { payload } = props;
                 const isPrediction = payload?.isPrediction;
@@ -669,7 +672,7 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
                 );
               }}
               connectNulls={false}
-              isAnimationActive={false}
+              isAnimationActive={animateCharts}
             />
             {/* Reference line for average */}
             {processedData.length > 0 && (
@@ -723,7 +726,7 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
             <Bar
               dataKey="close"
               radius={[1, 1, 1, 1]}
-              isAnimationActive={false}
+              isAnimationActive={animateCharts}
               shape={(props: any) => {
                 const { payload } = props;
                 const isPrediction = payload?.isPrediction;
@@ -758,7 +761,7 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
               strokeWidth={1}
               dot={false}
               connectNulls={false}
-              isAnimationActive={false}
+              isAnimationActive={animateCharts}
             />
             {/* Reference lines for support/resistance */}
             {processedData.length > 0 && (
@@ -812,7 +815,7 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
                 );
               }}
               connectNulls={false}
-              isAnimationActive={false}
+              isAnimationActive={animateCharts}
             />
             {/* Overlay for forecast region */}
             {showPredictions && predictionStartDate && (

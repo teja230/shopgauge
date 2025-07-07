@@ -105,6 +105,9 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
+  // Enable animation when forecasts are shown or when chart type toggles
+  const animateCharts = showPredictions;
+
   // Better responsive height calculation - UPDATED for better visibility
   const optimizedHeight = useMemo(() => {
     if (isMobile) return Math.max(450, height); // Increased minimum from 350 to 450px on mobile
@@ -393,7 +396,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
             <Bar
               dataKey="revenue"
               radius={[2, 2, 0, 0]}
-              isAnimationActive={false}
+              isAnimationActive={animateCharts}
               shape={(props: any) => {
                 const { payload } = props;
                 const isPrediction = payload?.isPrediction;
@@ -449,7 +452,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
                 strokeWidth: 2,
               }}
               connectNulls={false}
-              isAnimationActive={false}
+              isAnimationActive={animateCharts}
             />
             {/* Add confidence interval area for predictions if enabled */}
             {showPredictions && processedData.hasPredictions && (
@@ -460,7 +463,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
                 stroke="none"
                 fill={UNIFIED_COLOR_SCHEME.forecast.revenue}
                 fillOpacity={0.1}
-                isAnimationActive={false}
+                isAnimationActive={animateCharts}
               />
             )}
             {showPredictions && processedData.hasPredictions && (
@@ -471,7 +474,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
                 stroke="none"
                 fill="#ffffff"
                 fillOpacity={1}
-                isAnimationActive={false}
+                isAnimationActive={animateCharts}
               />
             )}
           </LineChart>
@@ -506,7 +509,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
                 );
               }}
               connectNulls={false}
-              isAnimationActive={false}
+              isAnimationActive={animateCharts}
             />
             {/* Add subtle overlay for forecast region */}
             {showPredictions && predictionStartDate && (
@@ -551,7 +554,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
               dataKey="change"
               name="Revenue Change"
               radius={[2, 2, 0, 0]}
-              isAnimationActive={false}
+              isAnimationActive={animateCharts}
               shape={(props: any) => {
                 const { payload } = props;
                 const isPrediction = payload?.isPrediction;
@@ -592,7 +595,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
                 );
               }}
               connectNulls={false}
-              isAnimationActive={false}
+              isAnimationActive={animateCharts}
             />
           </ComposedChart>
         );
@@ -693,7 +696,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
             <Bar
               dataKey="revenue"
               radius={[2, 2, 0, 0]}
-              isAnimationActive={false}
+              isAnimationActive={animateCharts}
               shape={(props: any) => {
                 const { payload } = props;
                 const isPrediction = payload?.isPrediction;
@@ -735,7 +738,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
                 );
               }}
               connectNulls={false}
-              isAnimationActive={false}
+              isAnimationActive={animateCharts}
             />
             {/* Reference line for average (like Classic View) */}
             {processedData.historical.length > 0 && (
@@ -790,7 +793,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
               dataKey="close"
               name="Revenue"
               radius={[1, 1, 1, 1]}
-              isAnimationActive={false}
+              isAnimationActive={animateCharts}
               shape={(props: any) => {
                 const { payload } = props;
                 const isPrediction = payload?.isPrediction;
@@ -824,7 +827,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
               strokeWidth={1}
               dot={false}
               connectNulls={false}
-              isAnimationActive={false}
+              isAnimationActive={animateCharts}
             />
           </ComposedChart>
         );
@@ -859,7 +862,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
                 );
               }}
               connectNulls={false}
-              isAnimationActive={false}
+              isAnimationActive={animateCharts}
             />
             {/* Add subtle overlay for forecast region */}
             {showPredictions && predictionStartDate && (
