@@ -40,12 +40,6 @@ import {
   Twitter as TwitterIcon,
   Email as EmailIcon,
   ContentCopy as ContentCopyIcon,
-  Link as LinkIcon,
-  Code as CodeIcon,
-
-  CloudUpload as CloudUploadIcon,
-  Info as InfoIcon,
-  Security as SecurityIcon,
   Storage as StorageIcon,
   Notifications as NotificationsIcon,
 } from '@mui/icons-material';
@@ -650,54 +644,7 @@ const EnhancedShareExportModal: React.FC<EnhancedShareExportModalProps> = ({
     }
   }, [shopName, chartTitle, chartType, metrics, showInfo, showSuccess, showError]);
 
-  // Generate public link (placeholder implementation)
-  const handleGeneratePublicLink = useCallback(async () => {
-    setIsProcessing(true);
-    showInfo('Generating public link...');
-    
-    try {
-      // This would typically involve backend API call
-      const publicUrl = `${window.location.origin}/public/chart/${generateFilename()}`;
-      
-      await navigator.clipboard.writeText(publicUrl);
-      setCopiedToClipboard(true);
-      setTimeout(() => setCopiedToClipboard(false), 3000);
-      showSuccess('Public link copied to clipboard!');
-      
-      // Log audit event
-      await logAuditEvent('share', 'public_link', { 
-        chartTitle, 
-        chartType, 
-        expirationDays: shareSettings.expirationDays 
-      });
-      
-    } catch (error) {
-      showError('Failed to generate public link');
-    } finally {
-      setIsProcessing(false);
-    }
-  }, [generateFilename, shareSettings.expirationDays, chartTitle, chartType, showInfo, showSuccess, showError]);
 
-  // Generate embed code
-  const handleGenerateEmbedCode = useCallback(async () => {
-    const embedCode = `<iframe src="${window.location.origin}/embed/chart/${generateFilename()}" width="800" height="600" frameborder="0"></iframe>`;
-    
-    try {
-      await navigator.clipboard.writeText(embedCode);
-      setCopiedToClipboard(true);
-      setTimeout(() => setCopiedToClipboard(false), 3000);
-      showSuccess('Embed code copied to clipboard!');
-      
-      // Log audit event
-      await logAuditEvent('share', 'embed_code', { 
-        chartTitle, 
-        chartType 
-      });
-      
-    } catch (error) {
-      showError('Failed to copy embed code');
-    }
-  }, [generateFilename, chartTitle, chartType, showSuccess, showError]);
 
   // Audit logging function
   const logAuditEvent = useCallback(async (action: string, type: string, details: any) => {
@@ -856,33 +803,7 @@ const EnhancedShareExportModal: React.FC<EnhancedShareExportModalProps> = ({
                 </CardContent>
               </Card>
 
-              {/* Public Link & Embed */}
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-                  Public Link & Embed
-                </Typography>
-                
-                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
-                  <Button
-                    variant="outlined"
-                    startIcon={<LinkIcon />}
-                    onClick={handleGeneratePublicLink}
-                    disabled={isProcessing}
-                  >
-                    Generate Public Link
-                  </Button>
-                  
-                  <Button
-                    variant="outlined"
-                    startIcon={<CodeIcon />}
-                    onClick={handleGenerateEmbedCode}
-                  >
-                    Get Embed Code
-                  </Button>
-                </Box>
-                
-
-              </Box>
+              
 
               {/* Social Media Sharing */}
               <Box>
