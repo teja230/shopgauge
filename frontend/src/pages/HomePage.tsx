@@ -374,13 +374,14 @@ const HomePage = () => {
                 <path d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/>
               </svg>
             </div>
-            <h3 className="text-xl font-bold text-orange-900 mb-3">📊 Professional Sharing</h3>
+            <h3 className="text-xl font-bold text-orange-900 mb-3">📊 Professional Sharing & Export</h3>
             <ul className="text-gray-700 space-y-2">
-              <li>• Executive, Investor, and Marketing chart templates</li>
-              <li>• LinkedIn, Twitter, and Email social integration</li>
-              <li>• High-resolution PNG and professional PDF exports</li>
-              <li>• Auto-generated professional messaging templates</li>
-              <li>• Privacy controls with data anonymization options</li>
+              <li>• <strong>Share Links:</strong> 50 public links with 3-day default expiration</li>
+              <li>• <strong>Export Options:</strong> PNG, PDF, Excel with full chart data</li>
+              <li>• <strong>Social Integration:</strong> LinkedIn, Twitter, Email, Slack, Teams</li>
+              <li>• <strong>Professional Templates:</strong> Executive, Investor, Marketing formats</li>
+              <li>• <strong>Embed Codes:</strong> Iframe integration for websites & presentations</li>
+              <li>• <strong>Zero Storage Costs:</strong> Client-side processing with audit logging</li>
             </ul>
           </div>
           
@@ -476,8 +477,8 @@ const HomePage = () => {
             <p className="text-gray-700">Our AI-powered forecasting uses advanced algorithms with confidence intervals to predict revenue, orders, and conversion rates 7-60 days ahead. Historical accuracy averages 85-95% depending on data quality and market conditions.</p>
           </div>
           <div className="bg-white rounded-lg shadow-lg p-6 border-t-4 border-green-500">
-            <h3 className="text-lg font-semibold mb-3 text-blue-900">What export formats are available?</h3>
-            <p className="text-gray-700">Export your charts as high-resolution PNG images, professional PDF reports, or share directly on LinkedIn and Twitter. Choose from Executive, Investor, and Marketing templates with auto-generated messaging.</p>
+            <h3 className="text-lg font-semibold mb-3 text-blue-900">What export and sharing options are available?</h3>
+            <p className="text-gray-700">Export charts as PNG/PDF/Excel files, create 50 public shared links (3-day default expiration), generate iframe embed codes, and share directly on LinkedIn, Twitter, Email, Slack, and Teams. All processing is client-side with zero storage costs.</p>
           </div>
           <div className="bg-white rounded-lg shadow-lg p-6 border-t-4 border-purple-500">
                             <h3 className="text-lg font-semibold mb-3 text-blue-900">How do the 7 chart types work?</h3>
