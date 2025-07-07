@@ -804,24 +804,27 @@ const PredictionViewContainer = memo(({
         </Box>
 
         {/* Chart - Allow natural sizing to prevent cutoff */}
-        <Box sx={{ 
-          flex: 1, 
-          position: 'relative',
-          overflow: 'visible', // Allow chart to be fully visible
-          height: chartHeight,
-          minHeight: chartHeight,
-          mt: 1,
-          mb: 2, // Restore bottom margin for better spacing
-          backgroundColor: 'background.paper', // Match container background
-          borderRadius: 1,
-          // Mobile-specific optimizations
-          ...(isMobile && {
-            width: '100%',
-            maxWidth: '100%',
-            overflowX: 'auto', // Enable horizontal scrolling on mobile
-            overflowY: 'auto', // Enable vertical scrolling on mobile
-          }),
-        }}>
+        <Box 
+          ref={chartRef}
+          sx={{ 
+            flex: 1, 
+            position: 'relative',
+            overflow: 'visible', // Allow chart to be fully visible
+            height: chartHeight,
+            minHeight: chartHeight,
+            mt: 1,
+            mb: 2, // Restore bottom margin for better spacing
+            backgroundColor: 'background.paper', // Match container background
+            borderRadius: 1,
+            // Mobile-specific optimizations
+            ...(isMobile && {
+              width: '100%',
+              maxWidth: '100%',
+              overflowX: 'auto', // Enable horizontal scrolling on mobile
+              overflowY: 'auto', // Enable vertical scrolling on mobile
+            }),
+          }}
+        >
           <Box sx={{ 
             width: '100%',
             height: '100%',
