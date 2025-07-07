@@ -62,7 +62,6 @@ interface ShareSettings {
   includeAnalytics: boolean;
   includeForecasts: boolean;
   publicAccess: boolean;
-  expirationDays: number;
 }
 
 interface EnhancedShareExportModalProps {
@@ -124,11 +123,10 @@ const EnhancedShareExportModal: React.FC<EnhancedShareExportModalProps> = ({
     includeData: true,
     includeMetadata: true,
   });
-  const [shareSettings, setShareSettings] = useState<ShareSettings>({
+  const [shareSettings, setShareSettings] = useState({
     includeAnalytics: true,
     includeForecasts: true,
     publicAccess: false,
-    expirationDays: 30,
   });
 
   // Refs for SVG capture
@@ -205,7 +203,12 @@ const EnhancedShareExportModal: React.FC<EnhancedShareExportModalProps> = ({
 
   // Enhanced PNG export with proper SVG handling
   const handleExportPNG = useCallback(async () => {
-    if (!chartRef.current) return;
+    debugLog.info('handleExportPNG called', { chartRef: chartRef.current }, 'EnhancedShareExportModal');
+    if (!chartRef.current) {
+      showError('Chart is not available for export. Please make sure the chart is visible.');
+      debugLog.error('Export PNG failed: chartRef.current is null', {}, 'EnhancedShareExportModal');
+      return;
+    }
 
     setIsProcessing(true);
     setProgress(0);
@@ -288,7 +291,12 @@ const EnhancedShareExportModal: React.FC<EnhancedShareExportModalProps> = ({
 
   // Enhanced PDF export
   const handleExportPDF = useCallback(async () => {
-    if (!chartRef.current) return;
+    debugLog.info('handleExportPDF called', { chartRef: chartRef.current }, 'EnhancedShareExportModal');
+    if (!chartRef.current) {
+      showError('Chart is not available for export. Please make sure the chart is visible.');
+      debugLog.error('Export PDF failed: chartRef.current is null', {}, 'EnhancedShareExportModal');
+      return;
+    }
 
     setIsProcessing(true);
     setProgress(0);
@@ -599,10 +607,14 @@ const EnhancedShareExportModal: React.FC<EnhancedShareExportModalProps> = ({
     
     try {
       switch (platform) {
-        case 'linkedin':
-          window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareableUrl)}&summary=${encodeURIComponent(enhancedMessage)}`);
+        case 'linkedin': {
+          // Use LinkedIn's share URL with proper text encoding
+          const linkedinText = encodeURIComponent(enhancedMessage);
+          const linkedinUrl = encodeURIComponent(shareableUrl);
+          window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${linkedinUrl}&title=${encodeURIComponent(chartTitle)}&summary=${linkedinText}`);
           showInfo('Sharing your business insights on LinkedIn...');
           break;
+        }
         case 'twitter':
           window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(enhancedMessage)}&url=${encodeURIComponent(shareableUrl)}`);
           showInfo('Sharing your performance insights on Twitter...');
@@ -611,16 +623,20 @@ const EnhancedShareExportModal: React.FC<EnhancedShareExportModalProps> = ({
           window.open(`mailto:?subject=${encodeURIComponent(`${shopName || 'Store'} ${chartTitle} Insights`)}&body=${encodeURIComponent(enhancedMessage + '\n\n' + shareableUrl)}`);
           showInfo('Opening email to share your business insights...');
           break;
-        case 'slack':
-          // Slack sharing would require Slack app integration
-          await navigator.clipboard.writeText(enhancedMessage + '\n\n' + shareableUrl);
-          showInfo('Message copied to clipboard for Slack sharing');
+        case 'slack': {
+          // Copy formatted message for Slack with instructions
+          const slackMessage = `${enhancedMessage}\n\n${shareableUrl}\n\n💡 Tip: Paste this message in any Slack channel or direct message.`;
+          await navigator.clipboard.writeText(slackMessage);
+          showSuccess('Slack message copied! Paste it in any Slack channel.');
           break;
-        case 'teams':
-          // Teams sharing would require Teams app integration
-          await navigator.clipboard.writeText(enhancedMessage + '\n\n' + shareableUrl);
-          showInfo('Message copied to clipboard for Teams sharing');
+        }
+        case 'teams': {
+          // Copy formatted message for Teams with instructions
+          const teamsMessage = `${enhancedMessage}\n\n${shareableUrl}\n\n💡 Tip: Paste this message in any Teams chat or channel.`;
+          await navigator.clipboard.writeText(teamsMessage);
+          showSuccess('Teams message copied! Paste it in any Teams chat.');
           break;
+        }
         case 'copy':
           await navigator.clipboard.writeText(enhancedMessage + '\n\n' + shareableUrl);
           setCopiedToClipboard(true);
@@ -643,8 +659,6 @@ const EnhancedShareExportModal: React.FC<EnhancedShareExportModalProps> = ({
       showError('Sharing operation failed. Please verify permissions and try again.');
     }
   }, [shopName, chartTitle, chartType, metrics, showInfo, showSuccess, showError]);
-
-
 
   // Audit logging function
   const logAuditEvent = useCallback(async (action: string, type: string, details: any) => {
@@ -763,7 +777,6 @@ const EnhancedShareExportModal: React.FC<EnhancedShareExportModalProps> = ({
                   <Typography variant="subtitle1" fontWeight={600} gutterBottom>
                     Share Settings
                   </Typography>
-                  
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                     <FormControlLabel
                       control={
@@ -774,7 +787,6 @@ const EnhancedShareExportModal: React.FC<EnhancedShareExportModalProps> = ({
                       }
                       label="Include analytics data"
                     />
-                    
                     <FormControlLabel
                       control={
                         <Switch
@@ -784,26 +796,18 @@ const EnhancedShareExportModal: React.FC<EnhancedShareExportModalProps> = ({
                       }
                       label="Include AI forecasts"
                     />
-                    
-                    <FormControl size="small" sx={{ minWidth: 200 }}>
-                      <InputLabel>Link Expiration</InputLabel>
-                      <Select
-                        value={shareSettings.expirationDays}
-                        onChange={(e) => setShareSettings(prev => ({ ...prev, expirationDays: e.target.value as number }))}
-                        label="Link Expiration"
-                      >
-                        {EXPIRATION_OPTIONS.map(option => (
-                          <MenuItem key={option.value} value={option.value}>
-                            {option.label}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={shareSettings.publicAccess}
+                          onChange={(e) => setShareSettings(prev => ({ ...prev, publicAccess: e.target.checked }))}
+                        />
+                      }
+                      label="Make link public (no login required)"
+                    />
                   </Box>
                 </CardContent>
               </Card>
-
-              
 
               {/* Social Media Sharing */}
               <Box>
@@ -976,20 +980,18 @@ const EnhancedShareExportModal: React.FC<EnhancedShareExportModalProps> = ({
                 </CardContent>
               </Card>
 
-              {/* Storage Information */}
+              {/* Privacy & Security Information */}
               <Alert severity="info" sx={{ mb: 2 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                   <StorageIcon sx={{ mr: 1 }} />
                   <Typography variant="subtitle2" fontWeight={600}>
-                    Storage & Costs
+                    Privacy & Security
                   </Typography>
                 </Box>
                 <Typography variant="body2">
-                  • <strong>Local Storage:</strong> Files are downloaded directly to your device. No server storage used.
-                  <br />
-                  • <strong>No Additional Costs:</strong> Export functionality is included in your plan.
-                  <br />
-                  • <strong>Security:</strong> All processing happens client-side. Your data never leaves your browser.
+                  • <strong>Local Processing:</strong> All exports are generated in your browser—no data is sent to our servers.<br />
+                  • <strong>Private by Default:</strong> Your chart data and exports remain private and are never stored or shared unless you choose to share.<br />
+                  • <strong>No Tracking:</strong> We do not track or store your exported files.
                 </Typography>
               </Alert>
 
@@ -1002,11 +1004,8 @@ const EnhancedShareExportModal: React.FC<EnhancedShareExportModalProps> = ({
                   </Typography>
                 </Box>
                 <Typography variant="body2">
-                  • All export actions are automatically logged for audit purposes
-                  <br />
+                  • All export actions are automatically logged for audit purposes<br />
                   • You'll receive notifications for successful exports and any errors
-                  <br />
-                  • Export history is available in your account dashboard
                 </Typography>
               </Alert>
             </Box>
