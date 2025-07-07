@@ -2789,10 +2789,10 @@ const DashboardPage = () => {
 
 
 
-          {/* Chart Container with smooth transitions - UPDATED for better visibility */}
+          {/* Chart Container with smooth transitions - SIGNIFICANTLY INCREASED for chart visibility */}
           <Box sx={{ 
             position: 'relative',
-            minHeight: { xs: 550, sm: 650 }, // Increased from 450/540 to 550/650 for better chart visibility
+            minHeight: { xs: 750, sm: 900 }, // Significantly increased from 550/650 to 750/900 for proper chart display
             transition: 'all 0.3s ease-in-out',
             '& > *': {
               transition: 'opacity 0.3s ease-in-out, transform 0.3s ease-in-out',
@@ -2807,7 +2807,7 @@ const DashboardPage = () => {
                   if (!hasValidData || !unifiedAnalyticsData) {
                     console.log('⚠️ Chrome-safe: No unified analytics data available yet');
                     return (
-                      <StyledCard sx={{ height: isMobile ? 550 : 650 }}>
+                      <StyledCard sx={{ height: isMobile ? 750 : 900 }}>
                         <CardContent sx={{ 
                           height: '100%', 
                           display: 'flex', 
@@ -2918,7 +2918,7 @@ const DashboardPage = () => {
                         data={unifiedAnalyticsData}
                         loading={unifiedAnalyticsLoading}
                         error={unifiedAnalyticsError}
-                        height={isMobile ? 500 : 580}
+                        height={isMobile ? 700 : 800}
                         predictionDays={predictionDays}
                         onPredictionDaysChange={handlePredictionDaysChange}
                       />
@@ -2930,7 +2930,7 @@ const DashboardPage = () => {
                   
                   // Chrome emergency fallback
                   return (
-                    <StyledCard sx={{ height: isMobile ? 550 : 650 }}>
+                    <StyledCard sx={{ height: isMobile ? 750 : 900 }}>
                       <CardContent sx={{ 
                         height: '100%', 
                         display: 'flex', 
@@ -2980,7 +2980,7 @@ const DashboardPage = () => {
               }}
             >
               {/* Revenue Chart Section - Consistent sizing with Advanced Analytics */}
-              <StyledCard sx={{ height: isMobile ? 550 : 650 }}>
+              <StyledCard sx={{ height: isMobile ? 750 : 900 }}>
                 <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                   {/* Only render RevenueChart when we have initialized the dashboard */}
                   {dashboardDataInitialized || stableTimeseriesData.length > 0 ? (
@@ -2989,7 +2989,7 @@ const DashboardPage = () => {
                         data={stableTimeseriesData}
                         loading={cardLoading.revenue}
                         error={cardErrors.revenue}
-                        height={isMobile ? 500 : 580} // Increased height for better visibility
+                        height={isMobile ? 700 : 800} // Consistent height with PredictionViewContainer
                       />
                     </Box>
                   ) : (

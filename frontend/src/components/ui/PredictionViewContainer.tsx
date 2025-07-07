@@ -52,7 +52,7 @@ const CardTitle = styled(Typography)(({ theme }) => ({
 
 const ChartContainer = styled(Box)(({ theme }) => ({
   flex: 1,
-  minHeight: 600, // Increased from 500 to 600 for better visibility
+  minHeight: 700, // Significantly increased from 600 to 700 for better visibility
   height: 'auto',
   padding: theme.spacing(1),
   backgroundColor: theme.palette.background.paper,
@@ -62,7 +62,7 @@ const ChartContainer = styled(Box)(({ theme }) => ({
   willChange: 'auto',
   overflow: 'visible', // Ensure no clipping
   [theme.breakpoints.down('sm')]: {
-    minHeight: 450, // Increased from 400 to 450 for mobile
+    minHeight: 550, // Significantly increased from 450 to 550 for mobile
   },
 }));
 
@@ -123,20 +123,21 @@ const PredictionViewContainer = memo(({
   const chartRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   
-  // Responsive helpers - UPDATED for better chart visibility
+  // Responsive helpers - SIGNIFICANTLY INCREASED for chart visibility
   const responsiveHeight = useMemo(() => {
-    // Increased heights to accommodate all chart elements including legends and axes
-    if (isMobile) return 700; // Increased from 600 to 700 for mobile
-    if (isTablet) return 800; // Increased from 700 to 800 for tablet
-    return Math.max(900, height); // Minimum 900px on desktop (was 800)
+    // Much larger heights to accommodate all UI elements plus proper chart space
+    if (isMobile) return 900; // Increased from 700 to 900 for mobile
+    if (isTablet) return 1000; // Increased from 800 to 1000 for tablet
+    return Math.max(1100, height); // Minimum 1100px on desktop (was 900)
   }, [height, isMobile, isTablet]);
 
-  // Updated chart height calculation - FIXED for better visibility
+  // Chart height calculation - SIGNIFICANTLY INCREASED to prevent cutoff
   const chartHeight = useMemo(() => {
-    // Increased heights to prevent chart cutoff and accommodate all elements
-    if (isMobile) return 450; // Increased from 350 to 450 for mobile charts
-    if (isTablet) return 550; // Increased from 450 to 550 for tablet charts
-    return 600; // Increased from 500 to 600 for desktop charts
+    // Calculate available space after UI elements (header ~150px, controls ~80px, stats ~120px, toggle ~60px = ~410px)
+    // Add buffer for margins and padding
+    if (isMobile) return 480; // Much larger chart area for mobile
+    if (isTablet) return 580; // Much larger chart area for tablet  
+    return 650; // Much larger chart area for desktop
   }, [isMobile, isTablet]);
 
   // Chrome-safe data validation
@@ -559,8 +560,8 @@ const PredictionViewContainer = memo(({
               display: 'flex', 
               flexWrap: 'wrap',
               gap: isMobile ? 1 : 1.5, // Reduced gap for tighter spacing
-              mb: 2, // Reduced from 3 to 2 for better spacing
-              p: 1.5, // Reduced from 2 to 1.5 for tighter spacing
+              mb: 1.5, // Further reduced from 2 to 1.5 for more chart space
+              p: 1, // Further reduced from 1.5 to 1 for tighter spacing
               backgroundColor: 'background.default',
               borderRadius: 1.5,
               border: '1px solid',
@@ -712,7 +713,7 @@ const PredictionViewContainer = memo(({
         <Box sx={{ 
           display: 'flex',
           justifyContent: 'center',
-          mb: 2,
+          mb: 1.5, // Reduced from 2 to 1.5 for more chart space
           p: 1,
           backgroundColor: 'background.default',
           borderRadius: 2,
