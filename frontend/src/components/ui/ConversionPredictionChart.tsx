@@ -88,7 +88,7 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
   // Enable animations when forecasts are on
-  const animateCharts = showPredictions;
+  const animateCharts = true;
 
   // Better responsive height calculation - UPDATED for better visibility
   const optimizedHeight = useMemo(() => {
