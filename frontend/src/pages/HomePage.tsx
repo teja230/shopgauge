@@ -9,14 +9,14 @@ import IntelligentLoadingScreen from '../components/ui/IntelligentLoadingScreen'
 
 const features = [
   'AI-Powered Revenue Forecasting with 7-60 day predictions and confidence intervals',
-  'Professional Shareable Charts with PNG, PDF export and social media integration',
-      '7 Advanced Chart Types including Area, Line, Bar, Candlestick, Waterfall, Stacked, and Composed views with predictive analytics',
+  'Professional Export Options: PNG (3 quality levels), PDF (templates), Excel (full data series)',
+  '7 Advanced Chart Types including Area, Line, Bar, Candlestick, Waterfall, Stacked, and Composed views with predictive analytics',
   'Intelligent Color Separation for Historical vs Forecast data visualization',
   'Track up to 10 competitors with intelligent monitoring and price alerts',
   'Real-time price monitoring with automated competitor discovery',
   'Multi-session concurrent access from up to 5 devices with team collaboration',
   'Session-based notification system with granular privacy controls',
-  'Professional Chart Templates for Executive, Investor, and Marketing presentations',
+  'Social Media Integration: LinkedIn, Twitter, Email, Slack, Teams with chart-relevant messaging',
   'Enhanced Mobile Experience with optimized chart loading and responsive design',
   'Advanced analytics dashboard with intelligent caching and 120-minute retention',
   'AI-powered market intelligence with automated competitor suggestions',
@@ -24,7 +24,7 @@ const features = [
   'Enhanced security with session isolation and enterprise-grade data protection',
   'Full Shopify integration with real-time sync and OAuth 2.0 authentication',
   'GDPR/CCPA compliance with automated data export and privacy reporting',
-  'Priority support with dedicated assistance and comprehensive documentation',
+  'Client-side processing with zero storage costs and complete audit logging',
   'Enterprise-grade session management with automatic cleanup and optimization'
 ];
 
@@ -376,11 +376,12 @@ const HomePage = () => {
             </div>
             <h3 className="text-xl font-bold text-orange-900 mb-3">📊 Professional Sharing & Export</h3>
             <ul className="text-gray-700 space-y-2">
-              <li>• <strong>Share Links:</strong> 50 public links with 3-day expiration</li>
-              <li>• <strong>Export Options:</strong> PNG, PDF, Excel with full chart data</li>
-              <li>• <strong>Social Integration:</strong> LinkedIn, Twitter, Email, Slack, Teams</li>
-              <li>• <strong>Professional Templates:</strong> Executive, Investor, Marketing formats</li>
-              <li>• <strong>Embed Codes:</strong> Iframe integration for websites & presentations</li>
+              <li>• <strong>Export Formats:</strong> PNG (Standard/High/Ultra quality), PDF (professional templates), Excel (full data series)</li>
+              <li>• <strong>Social Media:</strong> LinkedIn, Twitter, Email, Slack, Teams with chart-relevant messaging</li>
+              <li>• <strong>Client-side Processing:</strong> Zero server storage costs, direct downloads</li>
+              <li>• <strong>Audit Logging:</strong> Complete tracking of all export and share actions</li>
+              <li>• <strong>Embed Codes:</strong> Iframe integration for websites and presentations</li>
+              <li>• <strong>Professional Templates:</strong> Executive, Investor, Marketing PDF formats with metadata</li>
             </ul>
           </div>
           
@@ -477,7 +478,7 @@ const HomePage = () => {
           </div>
           <div className="bg-white rounded-lg shadow-lg p-6 border-t-4 border-green-500">
             <h3 className="text-lg font-semibold mb-3 text-blue-900">What export and sharing options are available?</h3>
-            <p className="text-gray-700">Export charts as PNG/PDF/Excel files, create 50 public shared links (3-day default expiration), generate iframe embed codes, and share directly on LinkedIn, Twitter, Email, Slack, and Teams. All processing is client-side. </p>
+            <p className="text-gray-700">Export charts as PNG (3 quality levels), PDF (professional templates with metadata), and Excel (full data series). Share directly on LinkedIn, Twitter, Email, Slack, and Teams with chart-relevant messaging. All processing is client-side with zero storage costs and complete audit logging.</p>
           </div>
           <div className="bg-white rounded-lg shadow-lg p-6 border-t-4 border-purple-500">
                             <h3 className="text-lg font-semibold mb-3 text-blue-900">How do the 7 chart types work?</h3>
