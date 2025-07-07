@@ -268,8 +268,8 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.down('md'));
   
-  // Mobile-optimized dimensions
-  const mobileHeight = Math.min(height * 0.8, 350); // Reduce height by 20% on mobile, cap at 350px
+  // Mobile-optimized dimensions - UPDATED for better visibility
+  const mobileHeight = Math.min(height * 0.9, 450); // Increased cap from 350 to 450px, reduced scaling to 90%
   const responsiveHeight = isMobile ? mobileHeight : height;
 
   const chartTypeConfig = {
