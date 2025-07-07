@@ -920,14 +920,13 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
         width: '100%',
         height: optimizedHeight,
         minHeight: optimizedHeight,
-        maxHeight: optimizedHeight, // Enforce height constraint
         position: 'relative',
-        overflow: 'hidden', // Contain chart within bounds
+        overflow: 'visible', // Allow chart to be fully visible
         // Enhanced styling for better appearance
         backgroundColor: 'transparent', // Use transparent background to match container
         borderRadius: 1,
         // Ensure proper padding for chart elements
-        padding: isMobile ? theme.spacing(0.5) : theme.spacing(1), // Reduced padding
+        padding: isMobile ? theme.spacing(1) : theme.spacing(2), // Restore original padding
         // Mobile browser compatibility fixes
         ...(isMobile && {
           maxWidth: '100vw',
@@ -955,8 +954,8 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
       }}>
         <ResponsiveContainer 
           width="100%" 
-          height={optimizedHeight - (isMobile ? 8 : 16)} // Adjust for reduced padding
-          minHeight={optimizedHeight - (isMobile ? 8 : 16)}
+          height={optimizedHeight - (isMobile ? 16 : 32)} // Adjust for restored padding
+          minHeight={optimizedHeight - (isMobile ? 16 : 32)}
         >
           {renderChart()}
         </ResponsiveContainer>
