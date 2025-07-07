@@ -805,7 +805,6 @@ const PredictionViewContainer = memo(({
 
         {/* Chart - Allow natural sizing to prevent cutoff */}
         <Box 
-          ref={chartRef}
           sx={{ 
             flex: 1, 
             position: 'relative',
@@ -825,21 +824,24 @@ const PredictionViewContainer = memo(({
             }),
           }}
         >
-          <Box sx={{ 
-            width: '100%',
-            height: '100%',
-            p: 1, // Add small padding for better appearance
-            // Ensure chart has enough space to render properly
-            display: 'flex',
-            flexDirection: 'column',
-            backgroundColor: 'background.paper', // Consistent background
-            // Mobile browser compatibility
-            ...(isMobile && {
-              touchAction: 'pan-y',
-              overflowX: 'auto', // Enable horizontal scrolling inside inner box on mobile
-              overflowY: 'auto', // Enable vertical scrolling inside inner box on mobile
-            }),
-          }}>
+          <Box
+            ref={chartRef}
+            sx={{ 
+              width: '100%',
+              height: '100%',
+              p: 1, // Add small padding for better appearance
+              // Ensure chart has enough space to render properly
+              display: 'flex',
+              flexDirection: 'column',
+              backgroundColor: 'background.paper', // Consistent background
+              // Mobile browser compatibility
+              ...(isMobile && {
+                touchAction: 'pan-y',
+                overflowX: 'auto', // Enable horizontal scrolling inside inner box on mobile
+                overflowY: 'auto', // Enable vertical scrolling inside inner box on mobile
+              }),
+            }}
+          >
             {renderChart()}
           </Box>
         </Box>
