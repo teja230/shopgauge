@@ -26,11 +26,13 @@ public class DatabaseMonitoringService {
   private static final long CIRCUIT_BREAKER_TIMEOUT = 300000; // 5 minutes
 
   // Enhanced monitoring thresholds
-  private static final double HIGH_USAGE_THRESHOLD = 0.8; // 80% pool usage
-  private static final double CRITICAL_USAGE_THRESHOLD = 0.95; // 95% pool usage
-  private static final double EMERGENCY_USAGE_THRESHOLD = 0.98; // 98% pool usage - skip monitoring
+  private static final double HIGH_USAGE_THRESHOLD = 0.7; // 70% pool usage
+  private static final double CRITICAL_USAGE_THRESHOLD = 0.85; // 85% pool usage
+  private static final double EMERGENCY_USAGE_THRESHOLD =
+      0.95; // 95% pool usage - emergency cleanup
   private static final int MAX_CONSECUTIVE_FAILURES = 2; // Reduced from 3
   private static final long WARNING_DURATION_MS = 30000; // 30 seconds
+  private static final long CONNECTION_LEAK_THRESHOLD = 15000; // 15 seconds for leak detection
 
   public DatabaseMonitoringService(DataSource dataSource) {
     this.dataSource = dataSource;
@@ -83,33 +85,20 @@ public class DatabaseMonitoringService {
       metrics.put("activeUsageRatio", Math.round(activeUsageRatio * 100.0) / 100.0);
       metrics.put("totalUsageRatio", Math.round(totalUsageRatio * 100.0) / 100.0);
 
-      // EMERGENCY: If pool usage is critical, skip connection testing to avoid competing for
-      // connections
-      if (activeUsageRatio >= EMERGENCY_USAGE_THRESHOLD
-          || idleConnections == 0
-          || threadsAwaiting > 0) {
+      // CRITICAL: Check for emergency cleanup before attempting connection test
+      if (activeUsageRatio >= EMERGENCY_USAGE_THRESHOLD) {
         logger.error(
-            "EMERGENCY: Database pool exhaustion detected - Skipping connection test to avoid competing for connections. Usage: {}%, Idle: {}, Threads waiting: {}",
-            Math.round(activeUsageRatio * 100), idleConnections, threadsAwaiting);
-
-        // Open circuit breaker to prevent further connection attempts
-        circuitBreakerOpen = true;
-        circuitBreakerOpenTime = System.currentTimeMillis();
-
-        // Log metrics without testing connection
-        logger.error("CRITICAL: Pool exhaustion metrics: {}", metrics);
-
-        // Track consecutive failures
-        consecutiveFailures++;
-        if (lastConnectionFailureTime == 0) {
-          lastConnectionFailureTime = System.currentTimeMillis();
-        }
-
+            "EMERGENCY: Connection pool usage at {}% - Triggering emergency cleanup",
+            Math.round(activeUsageRatio * 100));
+        performEmergencyCleanup();
+        // Skip connection test to avoid further strain
+        metrics.put("connectionValid", false);
+        metrics.put("emergencyCleanupTriggered", true);
         return;
       }
 
-      // Only test connection if we have idle connections available
-      if (idleConnections > 0) {
+      // Only test connection if we have idle connections and usage is below emergency threshold
+      if (idleConnections > 0 && activeUsageRatio < EMERGENCY_USAGE_THRESHOLD) {
         try (Connection connection = hikariDataSource.getConnection()) {
           boolean isValid = connection.isValid(3); // Reduced timeout to 3 seconds
           metrics.put("connectionValid", isValid);
@@ -262,5 +251,56 @@ public class DatabaseMonitoringService {
       }
     }
     return "UNKNOWN";
+  }
+
+  /**
+   * Emergency connection cleanup method to handle connection leaks. This should be called when
+   * connection leak detection triggers.
+   */
+  public void performEmergencyCleanup() {
+    if (dataSource instanceof HikariDataSource) {
+      HikariDataSource hikariDataSource = (HikariDataSource) dataSource;
+
+      try {
+        logger.warn("EMERGENCY: Performing connection pool cleanup due to leak detection");
+
+        // Get metrics before cleanup
+        int activeConnectionsBefore = hikariDataSource.getHikariPoolMXBean().getActiveConnections();
+        int idleConnectionsBefore = hikariDataSource.getHikariPoolMXBean().getIdleConnections();
+
+        // Soft evict idle connections
+        hikariDataSource.getHikariPoolMXBean().softEvictConnections();
+
+        // Wait for cleanup to complete
+        Thread.sleep(2000);
+
+        // Get metrics after cleanup
+        int activeConnectionsAfter = hikariDataSource.getHikariPoolMXBean().getActiveConnections();
+        int idleConnectionsAfter = hikariDataSource.getHikariPoolMXBean().getIdleConnections();
+
+        logger.warn(
+            "EMERGENCY CLEANUP COMPLETED - Before: active={}, idle={} | After: active={}, idle={}",
+            activeConnectionsBefore,
+            idleConnectionsBefore,
+            activeConnectionsAfter,
+            idleConnectionsAfter);
+
+      } catch (Exception e) {
+        logger.error("Emergency connection cleanup failed", e);
+      }
+    }
+  }
+
+  /** Check if emergency cleanup is needed based on connection metrics. */
+  public boolean isEmergencyCleanupNeeded() {
+    if (dataSource instanceof HikariDataSource) {
+      HikariDataSource hikariDataSource = (HikariDataSource) dataSource;
+      int activeConnections = hikariDataSource.getHikariPoolMXBean().getActiveConnections();
+      int maxPoolSize = hikariDataSource.getMaximumPoolSize();
+      double usageRatio = (double) activeConnections / maxPoolSize;
+
+      return usageRatio >= EMERGENCY_USAGE_THRESHOLD;
+    }
+    return false;
   }
 }
