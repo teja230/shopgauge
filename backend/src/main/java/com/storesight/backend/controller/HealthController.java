@@ -32,22 +32,26 @@ public class HealthController {
 
   private static final Logger logger = LoggerFactory.getLogger(HealthController.class);
 
-  @Autowired private DataSource dataSource;
-
-  @Autowired private JdbcTemplate jdbcTemplate;
+  private final DataSource dataSource;
+  private final JdbcTemplate jdbcTemplate;
+  private final DatabaseMonitoringService databaseMonitoringService;
 
   @Autowired private StringRedisTemplate redisTemplate;
-
   @Autowired private ShopService shopService;
-
-  @Autowired private DatabaseMonitoringService databaseMonitoringService;
-
   @Autowired private RedisHealthService redisHealthService;
-
   @Autowired private TransactionMonitoringService transactionMonitoringService;
 
   @Value("${spring.application.name:storesight-backend}")
   private String applicationName;
+
+  public HealthController(
+      DataSource dataSource,
+      JdbcTemplate jdbcTemplate,
+      DatabaseMonitoringService databaseMonitoringService) {
+    this.dataSource = dataSource;
+    this.jdbcTemplate = jdbcTemplate;
+    this.databaseMonitoringService = databaseMonitoringService;
+  }
 
   @GetMapping("/summary")
   public ResponseEntity<Map<String, Object>> getHealthSummary() {
@@ -520,6 +524,100 @@ public class HealthController {
       Map<String, Object> error = new HashMap<>();
       error.put("error", e.getMessage());
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+    }
+  }
+
+  @GetMapping("/connection-leak-status")
+  public ResponseEntity<Map<String, Object>> getConnectionLeakStatus() {
+    Map<String, Object> status = new HashMap<>();
+
+    try {
+      // Get comprehensive database metrics
+      Map<String, Object> metrics = databaseMonitoringService.getDatabaseMetrics();
+      status.put("metrics", metrics);
+
+      // Check if emergency cleanup is needed
+      boolean emergencyNeeded = databaseMonitoringService.isEmergencyCleanupNeeded();
+      status.put("emergencyCleanupNeeded", emergencyNeeded);
+
+      // Get pool status
+      String poolStatus = databaseMonitoringService.getPoolStatus();
+      status.put("poolStatus", poolStatus);
+
+      // Add connection leak detection info
+      if (dataSource instanceof com.zaxxer.hikari.HikariDataSource) {
+        com.zaxxer.hikari.HikariDataSource hikariDS =
+            (com.zaxxer.hikari.HikariDataSource) dataSource;
+
+        // Check for potential leaks
+        int activeConnections = hikariDS.getHikariPoolMXBean().getActiveConnections();
+        int maxPoolSize = hikariDS.getMaximumPoolSize();
+        double usageRatio = (double) activeConnections / maxPoolSize;
+
+        status.put(
+            "connectionLeakRisk", usageRatio > 0.8 ? "HIGH" : usageRatio > 0.6 ? "MEDIUM" : "LOW");
+        status.put("leakDetectionThreshold", hikariDS.getLeakDetectionThreshold());
+
+        // Add HikariCP specific metrics
+        status.put(
+            "hikariMetrics",
+            Map.of(
+                "activeConnections", activeConnections,
+                "idleConnections", hikariDS.getHikariPoolMXBean().getIdleConnections(),
+                "totalConnections", hikariDS.getHikariPoolMXBean().getTotalConnections(),
+                "threadsAwaitingConnection",
+                    hikariDS.getHikariPoolMXBean().getThreadsAwaitingConnection(),
+                "maxPoolSize", maxPoolSize,
+                "minimumIdle", hikariDS.getMinimumIdle(),
+                "usagePercentage", Math.round(usageRatio * 100)));
+      }
+
+      status.put("timestamp", System.currentTimeMillis());
+      status.put("status", "healthy");
+
+      return ResponseEntity.ok(status);
+
+    } catch (Exception e) {
+      logger.error("Connection leak status check failed", e);
+      status.put("status", "error");
+      status.put("error", e.getMessage());
+      return ResponseEntity.status(500).body(status);
+    }
+  }
+
+  @PostMapping("/emergency-cleanup")
+  public ResponseEntity<Map<String, Object>> performEmergencyCleanup() {
+    Map<String, Object> result = new HashMap<>();
+
+    try {
+      logger.warn("Manual emergency cleanup triggered via API");
+
+      // Get metrics before cleanup
+      Map<String, Object> beforeMetrics = databaseMonitoringService.getDatabaseMetrics();
+      result.put("beforeCleanup", beforeMetrics);
+
+      // Perform emergency cleanup
+      databaseMonitoringService.performEmergencyCleanup();
+
+      // Wait for cleanup to complete
+      Thread.sleep(3000);
+
+      // Get metrics after cleanup
+      Map<String, Object> afterMetrics = databaseMonitoringService.getDatabaseMetrics();
+      result.put("afterCleanup", afterMetrics);
+
+      result.put("cleanupPerformed", true);
+      result.put("timestamp", System.currentTimeMillis());
+      result.put("message", "Emergency cleanup completed successfully");
+
+      return ResponseEntity.ok(result);
+
+    } catch (Exception e) {
+      logger.error("Emergency cleanup failed", e);
+      result.put("cleanupPerformed", false);
+      result.put("error", e.getMessage());
+      result.put("timestamp", System.currentTimeMillis());
+      return ResponseEntity.status(500).body(result);
     }
   }
 }

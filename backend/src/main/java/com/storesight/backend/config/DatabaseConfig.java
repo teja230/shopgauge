@@ -112,12 +112,16 @@ public class DatabaseConfig {
 
     // Enhanced connection testing and reliability
     config.setConnectionTestQuery("SELECT 1");
+    // CRITICAL FIX: Use autocommit=true for Flyway compatibility
     config.setAutoCommit(true);
     config.setPoolName("StoresightHikariCP" + (isProduction ? "-Prod" : "-Dev"));
 
     // CRITICAL: Disable pool suspension to prevent deadlocks
     config.setAllowPoolSuspension(false);
-    config.setInitializationFailTimeout(10000); // 10 seconds (reduced from 30s)
+    config.setInitializationFailTimeout(5000); // Reduced from 10 seconds
+
+    // CRITICAL: Isolate internal queries for better connection management
+    config.setIsolateInternalQueries(true);
 
     // Connection properties for better performance and reliability
     config.addDataSourceProperty("cachePrepStmts", "true");
