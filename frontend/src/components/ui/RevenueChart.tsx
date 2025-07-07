@@ -256,7 +256,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
   data = [],
   loading = false,
   error = null,
-  height = 450,
+  height = 650,
 }) => {
   const [chartType, setChartType] = useState<ChartType>('area');
   const [shareModalOpen, setShareModalOpen] = useState(false);
@@ -268,8 +268,8 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.down('md'));
   
-  // Mobile-optimized dimensions - UPDATED for better visibility
-  const mobileHeight = Math.min(height * 0.9, 450); // Increased cap from 350 to 450px, reduced scaling to 90%
+  // Mobile-optimized dimensions - SIGNIFICANTLY INCREASED for better visibility
+  const mobileHeight = Math.min(height * 0.95, 480); // Increased cap from 450 to 480px, 95% scaling
   const responsiveHeight = isMobile ? mobileHeight : height;
 
   const chartTypeConfig = {
@@ -723,8 +723,8 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
         display: 'flex', 
         justifyContent: 'space-between', 
         alignItems: 'center',
-        mb: theme.spacing(isMobile ? 1 : 2),
-        pb: theme.spacing(1),
+        mb: theme.spacing(isMobile ? 0.5 : 1.5), // Reduced for more chart space
+        pb: theme.spacing(0.5), // Reduced for more chart space
         borderBottom: `1px solid ${theme.palette.divider}`,
       }}>
         <Typography 
@@ -765,7 +765,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
       <Box sx={{ 
         display: 'flex',
         justifyContent: 'center',
-        mb: theme.spacing(isMobile ? 1 : 2),
+        mb: theme.spacing(isMobile ? 0.5 : 1.5), // Reduced for more chart space
       }}>
         <ToggleButtonGroup
           value={chartType}
@@ -826,39 +826,39 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
         ref={chartRef}
         sx={{ 
           flex: 1,
-          minHeight: responsiveHeight - (isMobile ? 160 : 180), // Reduced from 180/200 to account for smaller margins
-          maxHeight: responsiveHeight - (isMobile ? 160 : 180), // Prevent excessive height
-          overflow: isMobile ? 'auto' : 'hidden', // Enable horizontal scroll on mobile
-          minWidth: isMobile ? '650px' : 'auto', // Set minimum width on mobile to prevent cutoff
-        '&::-webkit-scrollbar': {
-          height: '8px',
-        },
-        '&::-webkit-scrollbar-track': {
-          backgroundColor: 'rgba(0,0,0,0.05)',
-          borderRadius: '4px',
-        },
-        '&::-webkit-scrollbar-thumb': {
-          backgroundColor: 'rgba(0,0,0,0.2)',
-          borderRadius: '4px',
-          '&:hover': {
-            backgroundColor: 'rgba(0,0,0,0.3)',
+          minHeight: responsiveHeight - (isMobile ? 120 : 140), // Increased chart area, reduced deduction
+          maxHeight: responsiveHeight - (isMobile ? 120 : 140),
+          overflow: isMobile ? 'auto' : 'hidden',
+          minWidth: isMobile ? '650px' : 'auto',
+          '&::-webkit-scrollbar': {
+            height: '8px',
           },
-        },
-        // Enhanced mobile chart styles
-        ...(isMobile && {
-          '& .recharts-cartesian-axis-tick-value': {
-            fontSize: '10px !important',
+          '&::-webkit-scrollbar-track': {
+            backgroundColor: 'rgba(0,0,0,0.05)',
+            borderRadius: '4px',
           },
-          '& .recharts-legend-wrapper': {
-            fontSize: '11px !important',
+          '&::-webkit-scrollbar-thumb': {
+            backgroundColor: 'rgba(0,0,0,0.2)',
+            borderRadius: '4px',
+            '&:hover': {
+              backgroundColor: 'rgba(0,0,0,0.3)',
+            },
           },
-          '& .recharts-tooltip-wrapper': {
-            fontSize: '12px !important',
-          },
-        }),
-      }}>
+          ...(isMobile && {
+            '& .recharts-cartesian-axis-tick-value': {
+              fontSize: '10px !important',
+            },
+            '& .recharts-legend-wrapper': {
+              fontSize: '11px !important',
+            },
+            '& .recharts-tooltip-wrapper': {
+              fontSize: '12px !important',
+            },
+          }),
+        }}
+      >
         {containerReady && (
-          <ResponsiveContainer width="100%" height={responsiveHeight - (isMobile ? 160 : 180)}>
+          <ResponsiveContainer width="100%" height={responsiveHeight - (isMobile ? 120 : 140)}>
             {renderChart()}
           </ResponsiveContainer>
         )}
