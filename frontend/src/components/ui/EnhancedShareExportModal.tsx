@@ -162,6 +162,49 @@ const EnhancedShareExportModal: React.FC<EnhancedShareExportModalProps> = ({
     return `${sanitizedShop}_${sanitizedTitle}_${timestamp}`;
   }, [chartTitle, shopName]);
 
+  // Helper to convert the first <svg> inside a container to a canvas (works well with Recharts)
+  const convertContainerSvgToCanvas = async (container: HTMLElement, scale = 2): Promise<HTMLCanvasElement> => {
+    return new Promise((resolve, reject) => {
+      const svgEl = container.querySelector('svg');
+      if (!svgEl) {
+        return reject(new Error('No SVG element found inside chart container'));
+      }
+
+      const clonedSvg = svgEl.cloneNode(true) as SVGSVGElement;
+      // Ensure xmlns attribute present for serialization fidelity
+      clonedSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+
+      const rect = svgEl.getBoundingClientRect();
+      const width = rect.width * scale;
+      const height = rect.height * scale;
+
+      // Serialize SVG to string
+      const serializer = new XMLSerializer();
+      const svgStr = serializer.serializeToString(clonedSvg);
+      const encoded = window.btoa(unescape(encodeURIComponent(svgStr)));
+
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          return reject(new Error('Could not get 2D context for canvas'));
+        }
+
+        // Fill white background to avoid transparency issues when exporting as JPEG/PDF
+        ctx.fillStyle = getComputedStyle(container).backgroundColor || '#ffffff';
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas);
+      };
+      img.onerror = (e) => reject(new Error('Failed loading SVG image for canvas conversion'));
+      img.src = `data:image/svg+xml;base64,${encoded}`;
+    });
+  };
+
   // Enhanced PNG export with proper SVG handling
   const handleExportPNG = useCallback(async () => {
     debugLog.info('handleExportPNG called', { 
@@ -207,28 +250,29 @@ const EnhancedShareExportModal: React.FC<EnhancedShareExportModalProps> = ({
     try {
       setProgress(25);
 
-      // Use html2canvas directly for reliable capture across browsers & SVG content
       const scale = exportSettings.quality === 'ultra' ? 3 : exportSettings.quality === 'high' ? 2 : 1;
-      const canvas = await html2canvas(chartRef.current, {
-        backgroundColor: theme.palette.background.paper,
-        scale,
-        logging: false,
-        useCORS: true,
-        allowTaint: true,
-        foreignObjectRendering: true,
-        imageTimeout: 15000,
-        removeContainer: false,
-        ignoreElements: (element) => {
-          return element.tagName === 'SCRIPT' || element.tagName === 'STYLE';
-        },
-        onclone: (clonedDoc) => {
-          const clonedSvgs = clonedDoc.querySelectorAll('svg');
-          clonedSvgs.forEach(svg => {
-            svg.style.backgroundColor = 'transparent';
-            svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-          });
-        },
-      });
+
+      let canvas: HTMLCanvasElement;
+      try {
+        // Attempt precise SVG capture first
+        canvas = await convertContainerSvgToCanvas(chartRef.current, scale);
+        debugLog.info('SVG -> Canvas conversion succeeded', {}, 'EnhancedShareExportModal');
+      } catch (svgErr) {
+        debugLog.warn('SVG conversion failed, falling back to html2canvas', svgErr, 'EnhancedShareExportModal');
+
+        // Fallback: html2canvas snapshot of the whole container
+        canvas = await html2canvas(chartRef.current, {
+          backgroundColor: theme.palette.background.paper,
+          scale,
+          logging: false,
+          useCORS: true,
+          allowTaint: true,
+          foreignObjectRendering: true,
+          imageTimeout: 15000,
+          removeContainer: false,
+        });
+      }
+
       setProgress(50);
 
       // Create download link
@@ -302,22 +346,18 @@ const EnhancedShareExportModal: React.FC<EnhancedShareExportModalProps> = ({
     try {
       setProgress(25);
 
-      // Get chart canvas
+      const scale = exportSettings.quality === 'ultra' ? 3 : exportSettings.quality === 'high' ? 2 : 1;
+
       let canvas: HTMLCanvasElement;
       try {
+        // Attempt precise SVG capture first
+        canvas = await convertContainerSvgToCanvas(chartRef.current, 2);
+        debugLog.info('SVG -> Canvas conversion succeeded for PDF', {}, 'EnhancedShareExportModal');
+      } catch (svgErr) {
+        debugLog.warn('SVG conversion failed for PDF, falling back to html2canvas', svgErr, 'EnhancedShareExportModal');
         canvas = await html2canvas(chartRef.current, {
           backgroundColor: theme.palette.background.paper,
-          scale: 2, // Always use high quality for PDF
-          logging: false,
-          useCORS: true,
-          allowTaint: true,
-          foreignObjectRendering: true,
-        });
-      } catch (svgError) {
-        const scale = 2; // Always use high quality for PDF
-        canvas = await html2canvas(chartRef.current, {
-          backgroundColor: theme.palette.background.paper,
-          scale,
+          scale: 2, // High resolution for PDF
           logging: false,
           useCORS: true,
           allowTaint: true,
