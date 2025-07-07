@@ -392,9 +392,9 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
 
   const renderChart = () => {
     try {
-      // Reduced bottom margins for better proportion - chart area should be larger than label area
-      const mobileMargins = { top: 15, right: 15, left: 15, bottom: 35 }; // Reduced from 50 to 35
-      const desktopMargins = { top: 25, right: 40, left: 40, bottom: 45 }; // Reduced from 60 to 45
+      // Adjusted bottom margins to prevent label cutoff
+      const mobileMargins = { top: 15, right: 15, left: 15, bottom: 35 }; // Keep mobile margin as is
+      const desktopMargins = { top: 25, right: 40, left: 40, bottom: 80 }; // Increased from 45 to 80 to fix bottom label cutoff
       
       const commonProps = {
         data: processedData,

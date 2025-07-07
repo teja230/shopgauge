@@ -460,7 +460,7 @@ export const responsiveMargins = (isMobile: boolean) => ({
   top: isMobile ? 10 : 25,
   right: isMobile ? 10 : 40,
   left: isMobile ? 10 : 40,
-  bottom: isMobile ? 40 : 60,
+  bottom: isMobile ? 40 : 80, // Increased from 60 to 80 for desktop to fix bottom label cutoff
 });
 
 // Common responsive props for charts
