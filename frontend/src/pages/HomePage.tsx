@@ -376,12 +376,12 @@ const HomePage = () => {
             </div>
             <h3 className="text-xl font-bold text-orange-900 mb-3">📊 Professional Sharing & Export</h3>
             <ul className="text-gray-700 space-y-2">
-              <li>• <strong>Export Formats:</strong> PNG (Standard/High/Ultra quality), PDF (professional templates), Excel (full data series)</li>
-              <li>• <strong>Social Media:</strong> LinkedIn, Twitter, Email, Slack, Teams with chart-relevant messaging</li>
-              <li>• <strong>Instant Downloads:</strong> Direct file generation with no waiting time</li>
-              <li>• <strong>Professional Templates:</strong> Executive, Investor, Marketing PDF formats with metadata</li>
-              <li>• <strong>Embed Codes:</strong> Iframe integration for websites and presentations</li>
-              <li>• <strong>Chart-Relevant Messaging:</strong> Auto-generated professional content for social sharing</li>
+              <li>• Export Formats: PNG (Standard/High/Ultra quality), PDF (professional templates), Excel (full data series)</li>
+              <li>• Social Media: LinkedIn, Twitter, Email, Slack, Teams with chart-relevant messaging</li>
+              <li>• Instant Downloads: Direct file generation with no waiting time</li>
+              <li>• Professional Templates: Executive, Investor, Marketing PDF formats with metadata</li>
+              <li>• Embed Codes: Iframe integration for websites and presentations</li>
+              <li>• Chart-Relevant Messaging: Auto-generated professional content for social sharing</li>
             </ul>
           </div>
           
