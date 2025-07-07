@@ -181,7 +181,7 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
           stroke="rgba(0, 0, 0, 0.6)"
           tick={{ fontSize: 11, fill: 'rgba(0, 0, 0, 0.7)' }}
           axisLine={{ stroke: 'rgba(0, 0, 0, 0.2)' }}
-          label={{ value: 'Date', position: 'bottom', offset: 10, style: { textAnchor: 'middle', fontSize: 12, fill: 'rgba(0, 0, 0, 0.7)' } }}
+          label={{ value: 'Date', position: 'bottom', offset: 18, style: { textAnchor: 'middle', fontSize: 12, fill: 'rgba(0, 0, 0, 0.7)' } }}
         />
         <YAxis
           tickFormatter={(value) => `${value.toFixed(1)}%`}
@@ -351,7 +351,6 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
             {commonElements}
             <Bar
               dataKey="conversion_rate"
-              name="Conversion Rate"
               radius={[2, 2, 0, 0]}
               isAnimationActive={false}
               shape={(props: any) => {
@@ -384,7 +383,6 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
             <Line
               type="monotone"
               dataKey="conversion_rate"
-              name="Conversion Rate"
               stroke={UNIFIED_COLOR_SCHEME.historical.conversion}
               strokeWidth={3}
               strokeDasharray="" // Always solid line
@@ -445,7 +443,6 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
             <Area
               type="monotone"
               dataKey="conversion_rate"
-              name="Conversion Rate"
               stroke={UNIFIED_COLOR_SCHEME.historical.conversion}
               strokeWidth={3}
               strokeDasharray="" // Always solid stroke
@@ -510,7 +507,6 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
             {/* Bars for change/difference values (like Classic View) */}
             <Bar
               dataKey="change"
-              name="Conversion Rate Change"
               radius={[2, 2, 0, 0]}
               isAnimationActive={false}
               shape={(props: any) => {
@@ -591,8 +587,6 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
               stroke={UNIFIED_COLOR_SCHEME.historical.conversion}
               strokeWidth={2}
               fill="url(#conversionStackedHistoricalGradient)"
-              name="Conversion Rate"
-              connectNulls={false}
               isAnimationActive={false}
               dot={(props: any) => {
                 const { payload } = props;
@@ -618,8 +612,6 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
               stroke="#10b981"
               strokeWidth={1}
               fill="url(#conversionChangeGradient)"
-              name="Conversion Growth"
-              connectNulls={false}
               isAnimationActive={false}
             />
           </AreaChart>
@@ -642,7 +634,6 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
             {commonElements}
             <Bar
               dataKey="conversion_rate"
-              name="Conversion Rate"
               radius={[2, 2, 0, 0]}
               isAnimationActive={false}
               shape={(props: any) => {
@@ -737,7 +728,6 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
             {/* Candlestick bodies with clear positive/negative distinction */}
             <Bar
               dataKey="close"
-              name="Conversion Rate"
               radius={[1, 1, 1, 1]}
               isAnimationActive={false}
               shape={(props: any) => {
@@ -807,7 +797,6 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
             <Area
               type="monotone"
               dataKey="conversion_rate"
-              name="Conversion Rate"
               stroke={UNIFIED_COLOR_SCHEME.historical.conversion}
               strokeWidth={3}
               strokeDasharray="" // Always solid stroke

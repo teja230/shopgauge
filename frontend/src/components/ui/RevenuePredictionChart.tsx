@@ -249,7 +249,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
           stroke="rgba(0, 0, 0, 0.6)"
           tick={{ fontSize: 11, fill: 'rgba(0, 0, 0, 0.7)' }}
           axisLine={{ stroke: 'rgba(0, 0, 0, 0.2)' }}
-          label={{ value: 'Date', position: 'bottom', offset: 10, style: { textAnchor: 'middle', fontSize: 12, fill: 'rgba(0, 0, 0, 0.7)' } }}
+          label={{ value: 'Date', position: 'bottom', offset: 18, style: { textAnchor: 'middle', fontSize: 12, fill: 'rgba(0, 0, 0, 0.7)' } }}
         />
         <YAxis
           tickFormatter={formatCurrency}
@@ -402,7 +402,6 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
             {commonElements}
             <Bar
               dataKey="revenue"
-              name="Revenue"
               radius={[2, 2, 0, 0]}
               isAnimationActive={false}
               shape={(props: any) => {
@@ -435,7 +434,6 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
             <Line
               type="monotone"
               dataKey="revenue"
-              name="Revenue"
               stroke={UNIFIED_COLOR_SCHEME.historical.revenue}
               strokeWidth={3}
               strokeDasharray=""
@@ -497,7 +495,6 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
             <Area
               type="monotone"
               dataKey="revenue"
-              name="Revenue"
               stroke={UNIFIED_COLOR_SCHEME.historical.revenue}
               strokeWidth={3}
               strokeDasharray=""
@@ -643,9 +640,6 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
               stroke={UNIFIED_COLOR_SCHEME.historical.revenue}
               strokeWidth={2}
               fill="url(#revenueStackedHistoricalGradient)"
-              name="Revenue"
-              connectNulls={false}
-              isAnimationActive={false}
               dot={(props: any) => {
                 const { payload } = props;
                 const isPrediction = payload?.isPrediction;
@@ -670,9 +664,21 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
               stroke="#10b981"
               strokeWidth={1}
               fill="url(#revenueChangeGradient)"
-              name="Revenue Growth"
-              connectNulls={false}
-              isAnimationActive={false}
+              dot={(props: any) => {
+                const { payload } = props;
+                const isPrediction = payload?.isPrediction;
+                return (
+                  <circle
+                    cx={props.cx}
+                    cy={props.cy}
+                    r={isPrediction ? 2.5 : 3}
+                    fill={isPrediction ? UNIFIED_COLOR_SCHEME.forecast.revenue : UNIFIED_COLOR_SCHEME.historical.revenue}
+                    stroke={isPrediction ? UNIFIED_COLOR_SCHEME.forecast.revenue : UNIFIED_COLOR_SCHEME.historical.revenue}
+                    strokeWidth={isPrediction ? 1 : 2}
+                    opacity={isPrediction ? 0.8 : 1}
+                  />
+                );
+              }}
             />
             {/* Prediction separator line - removed duplicate label since it's already in commonElements */}
           </AreaChart>
@@ -696,7 +702,6 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
             {/* Bars with reduced opacity (like Classic View) */}
             <Bar
               dataKey="revenue"
-              name="Revenue"
               radius={[2, 2, 0, 0]}
               isAnimationActive={false}
               shape={(props: any) => {
@@ -843,7 +848,6 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
             <Area
               type="monotone"
               dataKey="revenue"
-              name="Revenue"
               stroke={UNIFIED_COLOR_SCHEME.historical.revenue}
               strokeWidth={3}
               strokeDasharray=""

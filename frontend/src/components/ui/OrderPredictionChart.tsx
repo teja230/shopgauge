@@ -204,7 +204,7 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
           stroke="rgba(0, 0, 0, 0.6)"
           tick={{ fontSize: 11, fill: 'rgba(0, 0, 0, 0.7)' }}
           axisLine={{ stroke: 'rgba(0, 0, 0, 0.2)' }}
-          label={{ value: 'Date', position: 'bottom', offset: 10, style: { textAnchor: 'middle', fontSize: 12, fill: 'rgba(0, 0, 0, 0.7)' } }}
+          label={{ value: 'Date', position: 'bottom', offset: 18, style: { textAnchor: 'middle', fontSize: 12, fill: 'rgba(0, 0, 0, 0.7)' } }}
         />
         <YAxis
           tickFormatter={(value) => Math.round(value).toString()}
@@ -379,7 +379,6 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
             {commonElements}
             <Bar
               dataKey="orders_count"
-              name="Orders"
               radius={[2, 2, 0, 0]}
               isAnimationActive={false}
               shape={(props: any) => {
@@ -412,7 +411,6 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
             <Line
               type="monotone"
               dataKey="orders_count"
-              name="Orders"
               stroke={UNIFIED_COLOR_SCHEME.historical.orders}
               strokeWidth={3}
               strokeDasharray="" // Always solid line
@@ -472,8 +470,6 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
             {/* Single area with smooth transition */}
             <Area
               type="monotone"
-              dataKey="orders_count"
-              name="Orders"
               stroke={UNIFIED_COLOR_SCHEME.historical.orders}
               strokeWidth={3}
               strokeDasharray="" // Always solid stroke
@@ -538,7 +534,6 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
             {/* Bars for change/difference values */}
             <Bar
               dataKey="change"
-              name="Order Change"
               radius={[2, 2, 0, 0]}
               isAnimationActive={false}
               shape={(props: any) => {
@@ -604,7 +599,6 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
             {/* Bars with reduced opacity */}
             <Bar
               dataKey="orders_count"
-              name="Orders"
               radius={[2, 2, 0, 0]}
               isAnimationActive={false}
               shape={(props: any) => {
@@ -701,7 +695,6 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
             {/* Candlestick bodies with clear positive/negative distinction */}
             <Bar
               dataKey="close"
-              name="Orders"
               radius={[1, 1, 1, 1]}
               isAnimationActive={false}
               shape={(props: any) => {
@@ -776,7 +769,6 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
               stroke="#8b5cf6"
               strokeWidth={2}
               fill="url(#ordersStackedHistoricalGradient)"
-              name="Orders"
               connectNulls={false}
               isAnimationActive={false}
               dot={(props: any) => {
@@ -803,7 +795,6 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
               stroke="#10b981"
               strokeWidth={1}
               fill="url(#ordersChangeGradient)"
-              name="Order Growth"
               connectNulls={false}
               isAnimationActive={false}
             />
@@ -819,8 +810,6 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
             {/* Single area with smooth transition */}
             <Area
               type="monotone"
-              dataKey="orders_count"
-              name="Orders"
               stroke={UNIFIED_COLOR_SCHEME.historical.orders}
               strokeWidth={3}
               strokeDasharray="" // Always solid stroke
