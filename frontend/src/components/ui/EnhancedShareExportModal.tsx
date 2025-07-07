@@ -605,9 +605,9 @@ const EnhancedShareExportModal: React.FC<EnhancedShareExportModalProps> = ({
     try {
       switch (platform) {
         case 'linkedin': {
-          // Use LinkedIn's share URL with proper text encoding
+          // Use LinkedIn's newer sharing approach with text in URL
           const linkedinText = encodeURIComponent(enhancedMessage);
-          window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shopGaugeUrl)}&title=${encodeURIComponent(chartTitle)}&summary=${linkedinText}`);
+          window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shopGaugeUrl)}&title=${encodeURIComponent(chartTitle)}&text=${linkedinText}`);
           showInfo('Sharing your business insights on LinkedIn...');
           break;
         }
@@ -620,17 +620,17 @@ const EnhancedShareExportModal: React.FC<EnhancedShareExportModalProps> = ({
           showInfo('Opening email to share your business insights...');
           break;
         case 'slack': {
-          // Copy formatted message for Slack with instructions
-          const slackMessage = `${enhancedMessage}\n\n💡 Tip: Paste this message in any Slack channel or direct message.`;
-          await navigator.clipboard.writeText(slackMessage);
-          showSuccess('Slack message copied! Paste it in any Slack channel.');
+          // Copy message and open Slack web app
+          await navigator.clipboard.writeText(enhancedMessage);
+          window.open('https://app.slack.com/client');
+          showSuccess('Message copied! Opening Slack...');
           break;
         }
         case 'teams': {
-          // Copy formatted message for Teams with instructions
-          const teamsMessage = `${enhancedMessage}\n\n💡 Tip: Paste this message in any Teams chat or channel.`;
-          await navigator.clipboard.writeText(teamsMessage);
-          showSuccess('Teams message copied! Paste it in any Teams chat.');
+          // Copy message and open Teams web app
+          await navigator.clipboard.writeText(enhancedMessage);
+          window.open('https://teams.microsoft.com');
+          showSuccess('Message copied! Opening Teams...');
           break;
         }
         case 'copy':
