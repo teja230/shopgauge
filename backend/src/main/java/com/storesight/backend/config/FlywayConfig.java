@@ -15,6 +15,8 @@ import org.springframework.context.annotation.Configuration;
  * Custom Flyway configuration to prevent connection leaks during migrations. This configuration
  * creates a dedicated DataSource for Flyway with minimal connection pool to prevent resource
  * exhaustion and connection leaks.
+ *
+ * <p>DISABLED BY DEFAULT - Only enable if specifically needed for debugging connection issues.
  */
 @Configuration
 @ConditionalOnProperty(
