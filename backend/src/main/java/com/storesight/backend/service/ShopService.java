@@ -466,16 +466,21 @@ public class ShopService {
   public void removeSession(String shopifyDomain, String sessionId) {
     logger.info("Deactivating session for shop: {} and session: {}", shopifyDomain, sessionId);
 
-    // Deactivate in database
-    shopSessionRepository.deactivateSession(sessionId);
+    try {
+      // Deactivate in database
+      shopSessionRepository.deactivateSession(sessionId);
 
-    // Remove from Redis cache
-    redisTemplate.delete(SHOP_TOKEN_PREFIX + shopifyDomain + ":" + sessionId);
+      // Remove from Redis cache
+      redisTemplate.delete(SHOP_TOKEN_PREFIX + shopifyDomain + ":" + sessionId);
 
-    // Update active sessions list
-    updateActiveSessionsList(shopifyDomain);
+      // Update active sessions list
+      updateActiveSessionsList(shopifyDomain);
 
-    logger.info("Session deactivated: {} for shop: {}", sessionId, shopifyDomain);
+      logger.info("Session deactivated: {} for shop: {}", sessionId, shopifyDomain);
+    } catch (Exception e) {
+      logger.error("Error deactivating session {} for shop {}: {}", sessionId, shopifyDomain, e.getMessage(), e);
+      // Don't propagate the exception to avoid causing HTTP session issues
+    }
   }
 
   /** Remove/deactivate all sessions for a shop (complete logout) */
@@ -483,17 +488,24 @@ public class ShopService {
   public void removeAllSessionsForShop(String shopifyDomain) {
     logger.info("Deactivating all sessions for shop: {}", shopifyDomain);
 
-    Optional<Shop> shopOpt = shopRepository.findByShopifyDomain(shopifyDomain);
-    if (shopOpt.isPresent()) {
-      Shop shop = shopOpt.get();
+    try {
+      Optional<Shop> shopOpt = shopRepository.findByShopifyDomain(shopifyDomain);
+      if (shopOpt.isPresent()) {
+        Shop shop = shopOpt.get();
 
-      // Deactivate all sessions in database
-      shopSessionRepository.deactivateAllSessionsForShop(shop);
+        // Deactivate all sessions in database
+        shopSessionRepository.deactivateAllSessionsForShop(shop);
 
-      // Clear Redis cache
-      clearShopCache(shopifyDomain);
+        // Clear Redis cache
+        clearShopCache(shopifyDomain);
 
-      logger.info("All sessions deactivated for shop: {}", shopifyDomain);
+        logger.info("All sessions deactivated for shop: {}", shopifyDomain);
+      } else {
+        logger.warn("Shop not found for session cleanup: {}", shopifyDomain);
+      }
+    } catch (Exception e) {
+      logger.error("Error deactivating all sessions for shop {}: {}", shopifyDomain, e.getMessage(), e);
+      // Don't propagate the exception to avoid causing HTTP session issues
     }
   }
 
@@ -758,7 +770,7 @@ public class ShopService {
   /** Enhanced session cleanup with better error handling and monitoring */
   @Transactional(timeout = 10) // Reduced timeout for cleanup operations
   @Scheduled(fixedRate = 3600000) // 1 hour (reduced from 15 minutes)
-  public void cleanupExpiredSessions() {
+  public synchronized void cleanupExpiredSessions() {
     try {
       logger.debug("Starting expired session cleanup");
 
@@ -766,22 +778,27 @@ public class ShopService {
       int cleanedCount = 0;
 
       for (ShopSession session : expiredSessions) {
-        session.deactivate();
-        shopSessionRepository.save(session);
-        cleanedCount++;
+        try {
+          session.deactivate();
+          shopSessionRepository.save(session);
+          cleanedCount++;
 
-        // Clear from cache
-        if (session.getShop() != null) {
-          try {
-            redisTemplate.delete(
-                SHOP_TOKEN_PREFIX
-                    + session.getShop().getShopifyDomain()
-                    + ":"
-                    + session.getSessionId());
-          } catch (Exception e) {
-            logger.warn(
-                "Failed to clear Redis cache during expired session cleanup: {}", e.getMessage());
+          // Clear from cache
+          if (session.getShop() != null) {
+            try {
+              redisTemplate.delete(
+                  SHOP_TOKEN_PREFIX
+                      + session.getShop().getShopifyDomain()
+                      + ":"
+                      + session.getSessionId());
+            } catch (Exception e) {
+              logger.warn(
+                  "Failed to clear Redis cache during expired session cleanup: {}", e.getMessage());
+            }
           }
+        } catch (Exception e) {
+          logger.warn("Failed to cleanup expired session {}: {}", session.getSessionId(), e.getMessage());
+          // Continue with other sessions
         }
       }
 
@@ -967,7 +984,7 @@ public class ShopService {
   /** Clean up stale sessions (sessions that haven't sent heartbeat for extended period) */
   @Transactional
   @Scheduled(fixedRate = 7200000) // 2 hours (reduced from 30 minutes)
-  public void cleanupStaleSessions() {
+  public synchronized void cleanupStaleSessions() {
     try {
       // Define stale threshold (sessions not accessed for more than 2 hours)
       LocalDateTime staleThreshold = LocalDateTime.now().minusHours(2);
@@ -977,24 +994,29 @@ public class ShopService {
       int cleanedCount = 0;
 
       for (ShopSession session : staleSessions) {
-        if (session.getIsActive()) {
-          session.deactivate();
-          shopSessionRepository.save(session);
-          cleanedCount++;
+        try {
+          if (session.getIsActive()) {
+            session.deactivate();
+            shopSessionRepository.save(session);
+            cleanedCount++;
 
-          // Clear from Redis cache
-          if (session.getShop() != null) {
-            try {
-              redisTemplate.delete(
-                  SHOP_TOKEN_PREFIX
-                      + session.getShop().getShopifyDomain()
-                      + ":"
-                      + session.getSessionId());
-            } catch (Exception e) {
-              logger.warn(
-                  "Failed to clear Redis cache during stale session cleanup: {}", e.getMessage());
+            // Clear from Redis cache
+            if (session.getShop() != null) {
+              try {
+                redisTemplate.delete(
+                    SHOP_TOKEN_PREFIX
+                        + session.getShop().getShopifyDomain()
+                        + ":"
+                        + session.getSessionId());
+              } catch (Exception e) {
+                logger.warn(
+                    "Failed to clear Redis cache during stale session cleanup: {}", e.getMessage());
+              }
             }
           }
+        } catch (Exception e) {
+          logger.warn("Failed to cleanup stale session {}: {}", session.getSessionId(), e.getMessage());
+          // Continue with other sessions
         }
       }
 
