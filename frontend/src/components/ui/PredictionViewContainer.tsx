@@ -123,22 +123,25 @@ const PredictionViewContainer = memo(({
   const chartRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   
-  // Responsive helpers - SIGNIFICANTLY INCREASED for chart visibility
+  // Responsive helpers - Properly calculated to fit within container
   const responsiveHeight = useMemo(() => {
-    // Much larger heights to accommodate all UI elements plus proper chart space
-    if (isMobile) return 900; // Increased from 700 to 900 for mobile
-    if (isTablet) return 1000; // Increased from 800 to 1000 for tablet
-    return Math.max(1100, height); // Minimum 1100px on desktop (was 900)
+    // Calculate total container height to accommodate all UI elements
+    if (isMobile) return 800; // Reduced from 900 for better fit
+    if (isTablet) return 850; // Reduced from 1000 for better fit
+    return Math.max(900, height); // Reduced from 1100 to 900 on desktop
   }, [height, isMobile, isTablet]);
 
-  // Chart height calculation - SIGNIFICANTLY INCREASED to prevent cutoff
+  // Chart height calculation - Properly sized to fit within container
   const chartHeight = useMemo(() => {
-    // Calculate available space after UI elements (header ~150px, controls ~80px, stats ~120px, toggle ~60px = ~410px)
-    // Add buffer for margins and padding
-    if (isMobile) return 480; // Much larger chart area for mobile
-    if (isTablet) return 580; // Much larger chart area for tablet  
-    return 650; // Much larger chart area for desktop
-  }, [isMobile, isTablet]);
+    // Calculate available space after UI elements (header ~100px, controls ~80px, stats ~100px, toggle ~60px = ~340px)
+    // Leave buffer for padding and margins
+    const uiElementsHeight = isMobile ? 320 : 360; // Space taken by controls, stats, etc.
+    const availableHeight = responsiveHeight - uiElementsHeight;
+    
+    if (isMobile) return Math.max(400, availableHeight); // Minimum 400px for mobile
+    if (isTablet) return Math.max(450, availableHeight); // Minimum 450px for tablet  
+    return Math.max(500, availableHeight); // Minimum 500px for desktop
+  }, [responsiveHeight, isMobile, isTablet]);
 
   // Chrome-safe data validation
   const validateNumber = useCallback((value: any, defaultValue: number = 0): number => {
@@ -356,6 +359,7 @@ const PredictionViewContainer = memo(({
     <StyledCard sx={{ 
       minHeight: responsiveHeight,
       height: responsiveHeight,
+      maxHeight: responsiveHeight, // Enforce container height limit
       display: 'flex',
       flexDirection: 'column',
       className,
@@ -365,7 +369,7 @@ const PredictionViewContainer = memo(({
       border: `1px solid ${theme.palette.divider}`,
       boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
       borderRadius: 3,
-      overflow: 'hidden',
+      overflow: 'hidden', // Prevent any overflow from the main container
     }}>
       <CardContent sx={{ 
         height: '100%', 
@@ -804,20 +808,22 @@ const PredictionViewContainer = memo(({
           </ToggleButtonGroup>
         </Box>
 
-        {/* Chart - Updated container for better visibility */}
+        {/* Chart - Properly contained within the Advanced Analytics container */}
         <Box sx={{ 
           flex: 1, 
           position: 'relative',
-          overflow: 'visible', // Changed from 'hidden' to 'visible' to prevent cutoff
+          overflow: 'hidden', // Contain chart within container to prevent overflow
           height: chartHeight,
           minHeight: chartHeight,
-          // Removed maxHeight constraint to allow chart to use full space
+          maxHeight: chartHeight, // Enforce height constraint to prevent overflow
           mt: 1,
-          mb: 2, // Add bottom margin for better spacing
+          mb: 1, // Reduced bottom margin
+          backgroundColor: 'background.paper', // Match container background
+          borderRadius: 1,
           // Mobile-specific optimizations
           ...(isMobile && {
             width: '100%',
-            maxWidth: '100vw',
+            maxWidth: '100%',
             overflowX: 'auto', // Enable horizontal scrolling on mobile
             overflowY: 'auto', // Enable vertical scrolling on mobile
           }),
@@ -825,11 +831,12 @@ const PredictionViewContainer = memo(({
           <Box sx={{ 
             width: '100%',
             height: '100%',
-            minHeight: chartHeight,
-            p: 0,
+            maxHeight: '100%', // Ensure inner box respects parent height
+            p: 1, // Add small padding for better appearance
             // Ensure chart has enough space to render properly
             display: 'flex',
             flexDirection: 'column',
+            backgroundColor: 'background.paper', // Consistent background
             // Mobile browser compatibility
             ...(isMobile && {
               touchAction: 'pan-y',

@@ -941,14 +941,14 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
         width: '100%',
         height: optimizedHeight,
         minHeight: optimizedHeight,
+        maxHeight: optimizedHeight, // Enforce height constraint
         position: 'relative',
-        overflow: 'visible', // Changed from 'hidden' to 'visible' to prevent cutoff
+        overflow: 'hidden', // Contain chart within bounds
         // Enhanced styling for better appearance
-        backgroundColor: theme.palette.background.paper,
+        backgroundColor: 'transparent', // Use transparent background to match container
         borderRadius: 1,
-        border: `1px solid ${theme.palette.divider}`,
         // Ensure proper padding for chart elements
-        padding: isMobile ? theme.spacing(1) : theme.spacing(2),
+        padding: isMobile ? theme.spacing(0.5) : theme.spacing(1), // Reduced padding
         // Mobile browser compatibility fixes
         ...(isMobile && {
           maxWidth: '100vw',
@@ -981,8 +981,8 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
       }}>
         <ResponsiveContainer 
           width="100%" 
-          height={optimizedHeight - (isMobile ? 16 : 32)} // Adjust for padding
-          minHeight={optimizedHeight - (isMobile ? 16 : 32)}
+          height={optimizedHeight - (isMobile ? 8 : 16)} // Adjust for reduced padding
+          minHeight={optimizedHeight - (isMobile ? 8 : 16)}
         >
           {renderChart()}
         </ResponsiveContainer>
