@@ -123,25 +123,21 @@ const PredictionViewContainer = memo(({
   const chartRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   
-  // Responsive helpers - Properly calculated to fit within container
+  // Responsive helpers - Increased container size to prevent bottom cutoff
   const responsiveHeight = useMemo(() => {
-    // Calculate total container height to accommodate all UI elements
-    if (isMobile) return 800; // Reduced from 900 for better fit
-    if (isTablet) return 850; // Reduced from 1000 for better fit
-    return Math.max(900, height); // Reduced from 1100 to 900 on desktop
+    // Increased heights to ensure charts are never cut off
+    if (isMobile) return 800; // Keep mobile size reasonable
+    if (isTablet) return 1000; // Increased for iPad to prevent cutoff
+    return Math.max(1200, height); // Significantly increased for desktop to prevent cutoff
   }, [height, isMobile, isTablet]);
 
-  // Chart height calculation - Properly sized to fit within container
+  // Chart height calculation - Generous sizing to prevent cutoff
   const chartHeight = useMemo(() => {
-    // Calculate available space after UI elements (header ~100px, controls ~80px, stats ~100px, toggle ~60px = ~340px)
-    // Leave buffer for padding and margins
-    const uiElementsHeight = isMobile ? 320 : 360; // Space taken by controls, stats, etc.
-    const availableHeight = responsiveHeight - uiElementsHeight;
-    
-    if (isMobile) return Math.max(400, availableHeight); // Minimum 400px for mobile
-    if (isTablet) return Math.max(450, availableHeight); // Minimum 450px for tablet  
-    return Math.max(500, availableHeight); // Minimum 500px for desktop
-  }, [responsiveHeight, isMobile, isTablet]);
+    // More generous chart heights to prevent any cutoff issues
+    if (isMobile) return 480; // Keep mobile reasonable
+    if (isTablet) return 650; // Increased for tablet
+    return 750; // Significantly increased for desktop
+  }, [isMobile, isTablet]);
 
   // Chrome-safe data validation
   const validateNumber = useCallback((value: any, defaultValue: number = 0): number => {
@@ -358,8 +354,7 @@ const PredictionViewContainer = memo(({
   return (
     <StyledCard sx={{ 
       minHeight: responsiveHeight,
-      height: responsiveHeight,
-      maxHeight: responsiveHeight, // Enforce container height limit
+      height: 'auto', // Allow container to grow as needed
       display: 'flex',
       flexDirection: 'column',
       className,
@@ -369,7 +364,7 @@ const PredictionViewContainer = memo(({
       border: `1px solid ${theme.palette.divider}`,
       boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
       borderRadius: 3,
-      overflow: 'hidden', // Prevent any overflow from the main container
+      overflow: 'visible', // Allow content to be visible
     }}>
       <CardContent sx={{ 
         height: '100%', 
@@ -808,16 +803,15 @@ const PredictionViewContainer = memo(({
           </ToggleButtonGroup>
         </Box>
 
-        {/* Chart - Properly contained within the Advanced Analytics container */}
+        {/* Chart - Allow natural sizing to prevent cutoff */}
         <Box sx={{ 
           flex: 1, 
           position: 'relative',
-          overflow: 'hidden', // Contain chart within container to prevent overflow
+          overflow: 'visible', // Allow chart to be fully visible
           height: chartHeight,
           minHeight: chartHeight,
-          maxHeight: chartHeight, // Enforce height constraint to prevent overflow
           mt: 1,
-          mb: 1, // Reduced bottom margin
+          mb: 2, // Restore bottom margin for better spacing
           backgroundColor: 'background.paper', // Match container background
           borderRadius: 1,
           // Mobile-specific optimizations
@@ -831,7 +825,6 @@ const PredictionViewContainer = memo(({
           <Box sx={{ 
             width: '100%',
             height: '100%',
-            maxHeight: '100%', // Ensure inner box respects parent height
             p: 1, // Add small padding for better appearance
             // Ensure chart has enough space to render properly
             display: 'flex',
