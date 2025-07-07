@@ -43,6 +43,7 @@ import {
   Storage as StorageIcon,
   Notifications as NotificationsIcon,
 } from '@mui/icons-material';
+import SvgIcon from '@mui/material/SvgIcon';
 import { useNotifications } from '../../hooks/useNotifications';
 import { debugLog } from './DebugPanel';
 import html2canvas from 'html2canvas-pro';
@@ -95,6 +96,28 @@ const EXPIRATION_OPTIONS = [
   { value: 90, label: '90 days' },
   { value: 365, label: '1 year' },
 ];
+
+// Brand icons for Slack & Teams
+const SlackLogoIcon = (props: any) => (
+  <SvgIcon {...props} viewBox="0 0 122.8 122.8">
+    <path d="M30.6 78.6c0 8.5-6.9 15.4-15.4 15.4S0 87.1 0 78.6s6.9-15.4 15.4-15.4h15.2v15.4z" fill="#e01e5a"/>
+    <path d="M38.2 78.6c0-8.5 6.9-15.4 15.4-15.4s15.4 6.9 15.4 15.4v38.8c0 8.5-6.9 15.4-15.4 15.4-8.5 0-15.4-6.9-15.4-15.4l0.1-38.8z" fill="#e01e5a"/>
+    <path d="M44.8 30.6c-8.5 0-15.4-6.9-15.4-15.4S36.3 0 44.8 0s15.4 6.9 15.4 15.4v15.2H44.8z" fill="#36c5f0"/>
+    <path d="M44.8 38.2c8.5 0 15.4 6.9 15.4 15.4s-6.9 15.4-15.4 15.4H6.1C-2.4 69-9.3 62.1-9.3 53.6c0-8.5 6.9-15.4 15.4-15.4h38.7z" fill="#36c5f0"/>
+    <path d="M92.2 44.2c0-8.5 6.9-15.4 15.4-15.4s15.4 6.9 15.4 15.4-6.9 15.4-15.4 15.4H92.2V44.2z" fill="#2eb67d"/>
+    <path d="M84.6 44.2c0 8.5-6.9 15.4-15.4 15.4S53.8 52.7 53.8 44.2V5.5C53.8-3 60.7-9.9 69.2-9.9s15.4 6.9 15.4 15.4v38.7z" fill="#2eb67d"/>
+    <path d="M78 92.2c8.5 0 15.4 6.9 15.4 15.4s-6.9 15.4-15.4 15.4-15.4-6.9-15.4-15.4V92.2H78z" fill="#ecb22e"/>
+    <path d="M78 84.6c-8.5 0-15.4-6.9-15.4-15.4s6.9-15.4 15.4-15.4h38.8c8.5 0 15.4 6.9 15.4 15.4 0 8.5-6.9 15.4-15.4 15.4H78z" fill="#ecb22e"/>
+  </SvgIcon>
+);
+
+const TeamsLogoIcon = (props: any) => (
+  <SvgIcon {...props} viewBox="0 0 24 24">
+    <path fill="#5059C9" d="M15.75 3.5h4.5A.75.75 0 0121 4.25v9.5a.75.75 0 01-.75.75h-4.5A.75.75 0 0115 13.75v-9.5a.75.75 0 01.75-.75z"/>
+    <path fill="#7B83EB" d="M13 8.5h3v11.25A2.25 2.25 0 0113.75 22H4.25A2.25 2.25 0 012 19.75V8.5h3v6.25c0 .414.336.75.75.75h7.5c.414 0 .75-.336.75-.75V8.5z"/>
+    <path fill="#5059C9" d="M17 4a2 2 0 100 4 2 2 0 000-4zM6.5 4A2.5 2.5 0 104 6.5 2.5 2.5 0 006.5 4z"/>
+  </SvgIcon>
+);
 
 const EnhancedShareExportModal: React.FC<EnhancedShareExportModalProps> = ({
   open,
@@ -810,7 +833,7 @@ const EnhancedShareExportModal: React.FC<EnhancedShareExportModalProps> = ({
                   <Button
                     variant="outlined"
                     size="small"
-                    startIcon={<ContentCopyIcon />}
+                    startIcon={<SlackLogoIcon fontSize="small" />}
                     onClick={() => handleSocialShare('slack')}
                   >
                     Slack
@@ -819,7 +842,7 @@ const EnhancedShareExportModal: React.FC<EnhancedShareExportModalProps> = ({
                   <Button
                     variant="outlined"
                     size="small"
-                    startIcon={<ContentCopyIcon />}
+                    startIcon={<TeamsLogoIcon fontSize="small" />}
                     onClick={() => handleSocialShare('teams')}
                   >
                     Teams
