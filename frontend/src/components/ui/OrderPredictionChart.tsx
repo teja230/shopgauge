@@ -470,6 +470,7 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
             {/* Single area with smooth transition */}
             <Area
               type="monotone"
+              dataKey="orders_count"
               stroke={UNIFIED_COLOR_SCHEME.historical.orders}
               strokeWidth={3}
               strokeDasharray="" // Always solid stroke
@@ -810,6 +811,7 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
             {/* Single area with smooth transition */}
             <Area
               type="monotone"
+              dataKey="orders_count"
               stroke={UNIFIED_COLOR_SCHEME.historical.orders}
               strokeWidth={3}
               strokeDasharray="" // Always solid stroke
