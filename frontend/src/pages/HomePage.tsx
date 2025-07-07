@@ -376,12 +376,11 @@ const HomePage = () => {
             </div>
             <h3 className="text-xl font-bold text-orange-900 mb-3">📊 Professional Sharing & Export</h3>
             <ul className="text-gray-700 space-y-2">
-              <li>• <strong>Share Links:</strong> 50 public links with 3-day default expiration</li>
+              <li>• <strong>Share Links:</strong> 50 public links with 3-day expiration</li>
               <li>• <strong>Export Options:</strong> PNG, PDF, Excel with full chart data</li>
               <li>• <strong>Social Integration:</strong> LinkedIn, Twitter, Email, Slack, Teams</li>
               <li>• <strong>Professional Templates:</strong> Executive, Investor, Marketing formats</li>
               <li>• <strong>Embed Codes:</strong> Iframe integration for websites & presentations</li>
-              <li>• <strong>Zero Storage Costs:</strong> Client-side processing with audit logging</li>
             </ul>
           </div>
           
@@ -478,7 +477,7 @@ const HomePage = () => {
           </div>
           <div className="bg-white rounded-lg shadow-lg p-6 border-t-4 border-green-500">
             <h3 className="text-lg font-semibold mb-3 text-blue-900">What export and sharing options are available?</h3>
-            <p className="text-gray-700">Export charts as PNG/PDF/Excel files, create 50 public shared links (3-day default expiration), generate iframe embed codes, and share directly on LinkedIn, Twitter, Email, Slack, and Teams. All processing is client-side with zero storage costs.</p>
+            <p className="text-gray-700">Export charts as PNG/PDF/Excel files, create 50 public shared links (3-day default expiration), generate iframe embed codes, and share directly on LinkedIn, Twitter, Email, Slack, and Teams. All processing is client-side. </p>
           </div>
           <div className="bg-white rounded-lg shadow-lg p-6 border-t-4 border-purple-500">
                             <h3 className="text-lg font-semibold mb-3 text-blue-900">How do the 7 chart types work?</h3>
