@@ -81,13 +81,16 @@ import {
   Person as PersonIcon,
   Group as GroupIcon,
   Storefront as StorefrontIcon,
+  MonitorHeart as MonitorHeartIcon,
 } from '@mui/icons-material';
 import { fetchWithAuth } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { styled } from '@mui/material/styles';
 import { useNotifications } from '../hooks/useNotifications';
-import HealthSummary from '../components/ui/HealthSummary';
+import EnhancedHealthSummary from '../components/ui/EnhancedHealthSummary';
+import { getSessionStatus } from '../utils/sessionUtils';
 import DiffViewerDialog from '../components/ui/DiffViewerDialog';
+import TransactionMonitoring from '../components/ui/TransactionMonitoring';
 
 interface Secret {
   key: string;
@@ -208,16 +211,31 @@ const StyledTable = styled(Table)(({ theme }) => ({
 }));
 
 const DeviceIcon = ({ userAgent }: { userAgent: string }) => {
-  const ua = userAgent?.toLowerCase() || '';
+  const deviceType = getDeviceType(userAgent);
   
-  if (ua.includes('mobile') || ua.includes('android') || ua.includes('iphone')) {
+  switch (deviceType) {
+    case 'iPhone':
     return <PhoneIcon fontSize="small" sx={{ color: 'primary.main' }} />;
-  } else if (ua.includes('tablet') || ua.includes('ipad')) {
+    case 'iPad':
     return <TabletIcon fontSize="small" sx={{ color: 'secondary.main' }} />;
-  } else if (ua.includes('mac')) {
+    case 'Android Phone':
+      return <PhoneIcon fontSize="small" sx={{ color: 'success.main' }} />;
+    case 'Android Tablet':
+      return <TabletIcon fontSize="small" sx={{ color: 'success.main' }} />;
+    case 'Mobile':
+      return <PhoneIcon fontSize="small" sx={{ color: 'primary.main' }} />;
+    case 'Tablet':
+      return <TabletIcon fontSize="small" sx={{ color: 'secondary.main' }} />;
+    case 'Desktop': {
+      const ua = userAgent?.toLowerCase() || '';
+      if (ua.includes('mac')) {
     return <DesktopIcon fontSize="small" sx={{ color: 'warning.main' }} />;
   } else {
     return <ComputerIcon fontSize="small" sx={{ color: 'info.main' }} />;
+      }
+    }
+    default:
+      return <ComputerIcon fontSize="small" sx={{ color: 'text.secondary' }} />;
   }
 };
 
@@ -240,13 +258,39 @@ const getDeviceType = (userAgent: string) => {
   
   const ua = userAgent.toLowerCase();
   
-  if (ua.includes('mobile') || ua.includes('android') || ua.includes('iphone')) {
-    return 'Mobile';
-  } else if (ua.includes('tablet') || ua.includes('ipad')) {
-    return 'Tablet';
-  } else {
-    return 'Desktop';
+  // Enhanced iPad detection - iPads often don't include 'mobile' in user agent
+  if (ua.includes('ipad') || 
+      (ua.includes('macintosh') && ua.includes('safari') && typeof document !== 'undefined' && 'ontouchend' in document)) {
+    return 'iPad';
   }
+  
+  // iPhone detection
+  if (ua.includes('iphone')) {
+    return 'iPhone';
+  }
+  
+  // Android tablet detection
+  if (ua.includes('android') && !ua.includes('mobile')) {
+    return 'Android Tablet';
+  }
+  
+  // Android phone detection
+  if (ua.includes('android') && ua.includes('mobile')) {
+    return 'Android Phone';
+  }
+  
+  // Generic mobile detection
+  if (ua.includes('mobile') || ua.includes('phone')) {
+    return 'Mobile';
+  }
+  
+  // Generic tablet detection
+  if (ua.includes('tablet')) {
+    return 'Tablet';
+  }
+  
+  // Desktop detection
+  return 'Desktop';
 };
 
 interface ActiveShop {
@@ -300,7 +344,6 @@ const extractShopDomainFromDetails = (details: string): string | null => {
 };
 
 const AdminPage: React.FC = () => {
-  const { shop, isAuthenticated: isShopAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(true);
   const [password, setPassword] = useState('');
@@ -319,7 +362,7 @@ const AdminPage: React.FC = () => {
   const [auditSearchTerm, setAuditSearchTerm] = useState('');
   const [auditActionFilter, setAuditActionFilter] = useState<string>('all');
   const [auditCategoryFilter, setAuditCategoryFilter] = useState<string>('all');
-  const [auditLogType, setAuditLogType] = useState<'all' | 'deleted' | 'active'>('all');
+  const [auditLogType, setAuditLogType] = useState<'all' | 'deleted' | 'active' | 'monitoring' | 'connection-leak'>('all');
 
   // Active shops state
   const [activeShops, setActiveShops] = useState<ActiveShop[]>([]);
@@ -335,10 +378,23 @@ const AdminPage: React.FC = () => {
   const [deletedShopsLoading, setDeletedShopsLoading] = useState(false);
   const [deletedShopsError, setDeletedShopsError] = useState<string | null>(null);
 
+  // Emergency mode state
+  const [emergencyMode, setEmergencyMode] = useState(false);
+  const [emergencyStatus, setEmergencyStatus] = useState<any>(null);
+  const [emergencyLoading, setEmergencyLoading] = useState(false);
+
   // Diff viewer state (must be at top level for React rules-of-hooks)
   const [diffOpen, setDiffOpen] = useState(false);
   const [diffBefore, setDiffBefore] = useState('');
   const [diffAfter, setDiffAfter] = useState('');
+
+  // Connection Leak Monitoring State
+  const [connectionLeakStatus, setConnectionLeakStatus] = useState<any>(null);
+  const [connectionLeakLoading, setConnectionLeakLoading] = useState(false);
+  const [connectionLeakError, setConnectionLeakError] = useState<string | null>(null);
+  const [emergencyCleanupInProgress, setEmergencyCleanupInProgress] = useState(false);
+  const [connectionHistory, setConnectionHistory] = useState<any[]>([]);
+  const [leakAlerts, setLeakAlerts] = useState<any[]>([]);
 
   // Action categories for audit logs with improved colors and icons
   const actionCategories = {
@@ -391,6 +447,55 @@ const AdminPage: React.FC = () => {
   const MAX_ATTEMPTS = 5;
   const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutes
   const SESSION_DURATION = 2 * 60 * 60 * 1000; // 2 hours
+
+  // Custom fetch function for admin endpoints that doesn't require shop authentication
+  const fetchAdminEndpoint = async (url: string, options: RequestInit = {}) => {
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.shopgaugeai.com';
+    const fullUrl = `${API_BASE_URL}${url}`;
+    
+    const response = await fetch(fullUrl, {
+      ...options,
+      credentials: 'include',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    return response.json();
+  };
+
+  // Emergency mode fetch - uses different endpoints when database is unavailable
+  const fetchEmergencyEndpoint = async (url: string, options: RequestInit = {}) => {
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.shopgaugeai.com';
+    const fullUrl = `${API_BASE_URL}/api/admin/emergency${url}`;
+    
+    try {
+      const response = await fetch(fullUrl, {
+        ...options,
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          ...options.headers,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Emergency endpoint failed: HTTP ${response.status}`);
+      }
+
+      return response.json();
+    } catch (error) {
+      console.error('Emergency endpoint failed:', error);
+      throw error;
+    }
+  };
 
   // Check for existing session on mount
   useEffect(() => {
@@ -459,6 +564,20 @@ const AdminPage: React.FC = () => {
     }
   }, [isAuthenticated]);
 
+  // Initialize connection leak monitoring when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchConnectionLeakStatus();
+      
+      // Set up real-time monitoring (every 30 seconds)
+      const interval = setInterval(() => {
+        fetchConnectionLeakStatus();
+      }, 30000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [isAuthenticated]);
+
   // Hash password with salt for security
   const hashPassword = async (password: string): Promise<string> => {
     const encoder = new TextEncoder();
@@ -520,13 +639,7 @@ const AdminPage: React.FC = () => {
       setActiveShopsLoading(true);
       setActiveShopsError(null);
       
-      const response = await fetchWithAuth('/api/admin/active-shops');
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
+      const data = await fetchAdminEndpoint('/api/admin/active-shops');
       
       if (data.active_shops) {
         setActiveShops(data.active_shops);
@@ -552,13 +665,7 @@ const AdminPage: React.FC = () => {
       setDeletedShopsLoading(true);
       setDeletedShopsError(null);
       
-      const response = await fetchWithAuth('/api/admin/deleted-shops');
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
+      const data = await fetchAdminEndpoint('/api/admin/deleted-shops');
       
       if (data.deleted_shops) {
         setDeletedShops(data.deleted_shops);
@@ -584,13 +691,7 @@ const AdminPage: React.FC = () => {
       setSessionStatsLoading(true);
       setSessionStatsError(null);
       
-      const response = await fetchWithAuth('/api/admin/session-statistics');
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
+      const data = await fetchAdminEndpoint('/api/admin/session-statistics');
       
       if (data.statistics) {
         setSessionStats(data.statistics);
@@ -623,13 +724,7 @@ const AdminPage: React.FC = () => {
         endpoint = `/api/admin/audit-logs/active-shops?page=${auditPage}&size=${auditRowsPerPage}`;
       }
       
-      const response = await fetchWithAuth(endpoint);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
+      const data = await fetchAdminEndpoint(endpoint);
       
       if (data.audit_logs) {
         // Map backend fields to frontend expected fields
@@ -655,11 +750,71 @@ const AdminPage: React.FC = () => {
     } catch (err) {
       console.error('Error fetching audit logs:', err);
       const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
-      setAuditError(`Failed to fetch audit logs: ${errorMessage}`);
+      
+      // Check if this might be a connection pool issue
+      if (errorMessage.includes('HTTP 503') || errorMessage.includes('HTTP 500')) {
+        setEmergencyMode(true);
+        setAuditError(`Database connection issue detected. Switching to emergency mode. Error: ${errorMessage}`);
+        checkEmergencyStatus();
+      } else {
+        setAuditError(`Failed to fetch audit logs: ${errorMessage}`);
+      }
       setAuditLogs([]);
       setAuditTotalCount(0);
     } finally {
       setAuditLoading(false);
+    }
+  };
+
+  // Emergency mode functions
+  const checkEmergencyStatus = async () => {
+    try {
+      setEmergencyLoading(true);
+      const status = await fetchEmergencyEndpoint('/status');
+      setEmergencyStatus(status);
+      setEmergencyMode(status.emergencyMode || false);
+      
+      if (status.emergencyMode) {
+        showError('⚠️ CRITICAL: Connection pool exhausted - Emergency admin mode activated');
+      }
+    } catch (error) {
+      console.error('Emergency status check failed:', error);
+      setEmergencyMode(true); // Assume emergency mode if we can't check
+      showError('Unable to check system status - assuming emergency mode');
+    } finally {
+      setEmergencyLoading(false);
+    }
+  };
+
+  const performEmergencyCleanup = async () => {
+    try {
+      setEmergencyLoading(true);
+      const result = await fetchEmergencyEndpoint('/cleanup-connections', { method: 'POST' });
+      
+      if (result.cleanupPerformed) {
+        showSuccess('✅ Emergency connection cleanup completed');
+        // Re-check status after cleanup
+        setTimeout(() => {
+          checkEmergencyStatus();
+        }, 3000);
+      } else {
+        showError('❌ Emergency cleanup failed: ' + result.message);
+      }
+    } catch (error) {
+      console.error('Emergency cleanup failed:', error);
+      showError('❌ Emergency cleanup failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    } finally {
+      setEmergencyLoading(false);
+    }
+  };
+
+  const getSystemResources = async () => {
+    try {
+      const resources = await fetchEmergencyEndpoint('/system-resources');
+      return resources;
+    } catch (error) {
+      console.error('System resources check failed:', error);
+      throw error;
     }
   };
 
@@ -680,7 +835,7 @@ const AdminPage: React.FC = () => {
   const uniqueCategories = Array.from(new Set(auditLogs.map(log => getActionCategory(log.action)))).sort();
 
   useEffect(() => {
-    if (!shop || !isAuthenticated) {
+    if (!isAuthenticated) {
       setAuditLogs([]);
       setAuditLoading(false);
       setAuditError(null);
@@ -693,7 +848,7 @@ const AdminPage: React.FC = () => {
       setAuditLogType('all');
       return;
     }
-  }, [shop, isAuthenticated]);
+  }, [isAuthenticated]);
 
   // Fetch audit logs when pagination or log type changes
   useEffect(() => {
@@ -705,6 +860,9 @@ const AdminPage: React.FC = () => {
       } else if (auditLogType === 'deleted') {
         fetchDeletedShops();
       }
+      
+      // Check for emergency mode on page load
+      checkEmergencyStatus();
     }
   }, [auditPage, auditRowsPerPage, auditLogType, isAuthenticated]);
 
@@ -723,6 +881,107 @@ const AdminPage: React.FC = () => {
       setAuditLogType('all');
     };
   }, []);
+
+  // Connection Leak Monitoring Functions
+  const fetchConnectionLeakStatus = async () => {
+    setConnectionLeakLoading(true);
+    setConnectionLeakError(null);
+    
+    try {
+      const response = await fetchWithAuth('/api/health/connection-leak-status');
+      if (response.ok) {
+        const data = await response.json();
+        setConnectionLeakStatus(data);
+        
+        // Add to history for trending
+        setConnectionHistory(prev => [
+          ...prev.slice(-19), // Keep last 20 entries
+          {
+            timestamp: new Date().toISOString(),
+            ...data.hikariMetrics,
+            status: data.poolStatus,
+            risk: data.connectionLeakRisk
+          }
+        ]);
+
+        // Check for high risk and create alerts
+        if (data.connectionLeakRisk === 'HIGH' || data.emergencyCleanupNeeded) {
+          const alert = {
+            id: Date.now(),
+            timestamp: new Date().toISOString(),
+            type: 'CONNECTION_LEAK_WARNING',
+            message: `Connection leak risk: ${data.connectionLeakRisk}. Pool usage: ${data.hikariMetrics?.usagePercentage}%`,
+            severity: data.emergencyCleanupNeeded ? 'error' : 'warning',
+            data: data
+          };
+          
+          setLeakAlerts(prev => [alert, ...prev.slice(0, 9)]); // Keep last 10 alerts
+          
+          if (data.emergencyCleanupNeeded) {
+            showError(`🚨 CRITICAL: Emergency cleanup needed! Pool usage: ${data.hikariMetrics?.usagePercentage}%`);
+          }
+        }
+      } else {
+        const errorData = await response.json();
+        setConnectionLeakError(errorData.message || 'Failed to fetch connection leak status');
+      }
+    } catch (error) {
+      console.error('Connection leak status fetch failed:', error);
+      setConnectionLeakError('Network error while fetching connection leak status');
+    } finally {
+      setConnectionLeakLoading(false);
+    }
+  };
+
+  const performEmergencyConnectionCleanup = async () => {
+    setEmergencyCleanupInProgress(true);
+    
+    try {
+      const response = await fetchWithAuth('/api/health/emergency-cleanup', {
+        method: 'POST'
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Show cleanup results
+        const beforeUsage = Math.round(
+          (data.beforeCleanup?.activeConnections / data.beforeCleanup?.maxPoolSize) * 100
+        );
+        const afterUsage = Math.round(
+          (data.afterCleanup?.activeConnections / data.afterCleanup?.maxPoolSize) * 100
+        );
+        
+        showSuccess(`✅ Emergency cleanup completed! Pool usage: ${beforeUsage}% → ${afterUsage}%`);
+        
+        // Add cleanup event to alerts
+        const cleanupAlert = {
+          id: Date.now(),
+          timestamp: new Date().toISOString(),
+          type: 'EMERGENCY_CLEANUP',
+          message: `Emergency cleanup performed. Pool usage reduced from ${beforeUsage}% to ${afterUsage}%`,
+          severity: 'info',
+          data: data
+        };
+        
+        setLeakAlerts(prev => [cleanupAlert, ...prev.slice(0, 9)]);
+        
+        // Refresh connection status
+        setTimeout(() => {
+          fetchConnectionLeakStatus();
+        }, 2000);
+        
+      } else {
+        const errorData = await response.json();
+        showError(`Emergency cleanup failed: ${errorData.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Emergency cleanup failed:', error);
+      showError('Network error during emergency cleanup');
+    } finally {
+      setEmergencyCleanupInProgress(false);
+    }
+  };
 
   // Show password dialog if not authenticated
   if (!isAuthenticated) {
@@ -871,12 +1130,8 @@ const AdminPage: React.FC = () => {
                   localStorage.removeItem('admin_session_expiry');
                   showSuccess('Admin session ended securely');
                   
-                  // Redirect based on shop authentication state
-                  if (isShopAuthenticated && shop) {
-                    navigate('/dashboard');
-                  } else {
-                    navigate('/');
-                  }
+                  // Always redirect to home page when logging out of admin
+                  navigate('/');
                 }}
                 sx={{ borderRadius: 2 }}
               >
@@ -930,11 +1185,127 @@ const AdminPage: React.FC = () => {
                 } 
                 value="active" 
               />
+              <Tab 
+                label={
+                  <Box display="flex" alignItems="center" gap={1}>
+                    <MonitorHeartIcon fontSize="small" />
+                    Transaction Monitoring
+                  </Box>
+                } 
+                value="monitoring" 
+              />
+              <Tab 
+                label={
+                  <Box display="flex" alignItems="center" gap={1}>
+                    <SecurityIcon fontSize="small" />
+                    Connection Leak Monitor
+                    {connectionLeakStatus?.connectionLeakRisk === 'HIGH' && (
+                      <Chip label="HIGH RISK" size="small" color="error" />
+                    )}
+                  </Box>
+                } 
+                value="connection-leak" 
+              />
             </Tabs>
           </TabsContainer>
 
-          {/* Health Summary */}
-          <HealthSummary />
+          {/* Enhanced Health Summary - Only show for non-monitoring tabs */}
+          {auditLogType !== 'monitoring' && <EnhancedHealthSummary />}
+
+          {/* Emergency Mode Alert and Controls */}
+          {emergencyMode && (
+            <Alert 
+              severity="error" 
+              sx={{ 
+                mb: 3, 
+                borderRadius: 2,
+                border: '2px solid #d32f2f',
+                '& .MuiAlert-message': {
+                  fontSize: '1rem'
+                }
+              }}
+              action={
+                <Stack direction="row" spacing={1}>
+                  <Button 
+                    color="inherit" 
+                    size="small" 
+                    onClick={checkEmergencyStatus}
+                    disabled={emergencyLoading}
+                    startIcon={<RefreshIcon />}
+                  >
+                    Check Status
+                  </Button>
+                  <Button 
+                    color="inherit" 
+                    size="small" 
+                    onClick={performEmergencyCleanup}
+                    disabled={emergencyLoading}
+                    startIcon={<SettingsIcon />}
+                  >
+                    Emergency Cleanup
+                  </Button>
+                </Stack>
+              }
+            >
+              <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, color: '#d32f2f' }}>
+                🚨 EMERGENCY MODE ACTIVE
+              </Typography>
+              <Typography variant="body1" sx={{ mb: 2 }}>
+                Connection pool exhausted - Database operations limited. Emergency admin functions available.
+              </Typography>
+              
+              {emergencyStatus && (
+                <Box sx={{ mt: 2, p: 2, bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 1 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                    System Status:
+                  </Typography>
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">Pool Status:</Typography>
+                      <Chip 
+                        label={emergencyStatus.poolStatus} 
+                        color={emergencyStatus.poolStatus === 'CRITICAL' ? 'error' : 'warning'} 
+                        size="small" 
+                        sx={{ ml: 1 }}
+                      />
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">Active Connections:</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 500, ml: 1 }}>
+                        {emergencyStatus.database?.activeConnections || 'N/A'} / {emergencyStatus.database?.maxPoolSize || 'N/A'}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">Memory Usage:</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 500, ml: 1 }}>
+                        {emergencyStatus.jvmMemory?.usedPercentage || 'N/A'}%
+                      </Typography>
+                    </Box>
+                  </Stack>
+                  
+                  {emergencyStatus.recommendations && (
+                    <Box sx={{ mt: 2 }}>
+                      <Typography variant="caption" color="text.secondary">Recommendations:</Typography>
+                      <List dense sx={{ mt: 1 }}>
+                        {emergencyStatus.recommendations.map((rec: string, index: number) => (
+                          <Typography key={index} variant="body2" sx={{ fontSize: '0.85rem', ml: 2 }}>
+                            • {rec}
+                          </Typography>
+                        ))}
+                      </List>
+                    </Box>
+                  )}
+                </Box>
+              )}
+              
+              {emergencyLoading && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 2 }}>
+                  <CircularProgress size={16} />
+                  <Typography variant="body2">Processing emergency operation...</Typography>
+                </Box>
+              )}
+            </Alert>
+          )}
 
           {/* Session Statistics Card */}
           {sessionStats && auditLogType === 'active' && (
@@ -943,8 +1314,53 @@ const AdminPage: React.FC = () => {
                 <AssessmentIcon color="primary" />
                 Multi-Session Statistics
               </Typography>
+              
+              {/* Current Session Info */}
+              {(() => {
+                const currentSession = getSessionStatus();
+                return currentSession.sessionInfo ? (
+                  <Alert severity="info" sx={{ mb: 3, borderRadius: 2 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
+                      🔧 Current Admin Session
+                    </Typography>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, fontSize: '0.875rem' }}>
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">Session ID:</Typography>
+                        <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                          {currentSession.sessionInfo.sessionId?.substring(0, 8)}...
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">Shop:</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                          {currentSession.sessionInfo.shop || 'Admin Console'}
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">Last Heartbeat:</Typography>
+                        <Typography variant="body2">
+                          {currentSession.lastHeartbeat 
+                            ? new Date(currentSession.lastHeartbeat).toLocaleTimeString()
+                            : 'N/A'
+                          }
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">Status:</Typography>
+                        <Chip 
+                          label={currentSession.isActive ? "Active" : "Inactive"} 
+                          color={currentSession.isActive ? "success" : "error"} 
+                          size="small" 
+                          sx={{ height: 20, fontSize: '0.75rem' }}
+                        />
+                      </Box>
+                    </Box>
+                  </Alert>
+                ) : null;
+              })()}
+              
               <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr 1fr' }, gap: 3 }}>
-                <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'white', borderRadius: 2 }}>
+                <Paper sx={{ p: 3, textAlign: 'center', bgcolor: 'white', borderRadius: 2, minHeight: 120, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                   <Typography variant="h4" color="primary.main" fontWeight="bold">
                     {sessionStats.currentlyActiveSessions || 0}
                   </Typography>
@@ -952,7 +1368,7 @@ const AdminPage: React.FC = () => {
                     Active Sessions
                   </Typography>
       </Paper>
-                <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'white', borderRadius: 2 }}>
+                <Paper sx={{ p: 3, textAlign: 'center', bgcolor: 'white', borderRadius: 2, minHeight: 120, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                   <Typography variant="h4" color="secondary.main" fontWeight="bold">
                     {sessionStats.shopsWithMultipleSessions || 0}
                   </Typography>
@@ -960,7 +1376,7 @@ const AdminPage: React.FC = () => {
                     Multi-Session Shops
                   </Typography>
                 </Paper>
-                <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'white', borderRadius: 2 }}>
+                <Paper sx={{ p: 3, textAlign: 'center', bgcolor: 'white', borderRadius: 2, minHeight: 120, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                   <Typography variant="h4" color="success.main" fontWeight="bold">
                     {sessionStats.averageSessionsPerShop || 0}
                   </Typography>
@@ -968,7 +1384,7 @@ const AdminPage: React.FC = () => {
                     Avg Sessions/Shop
                   </Typography>
                 </Paper>
-                <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'white', borderRadius: 2 }}>
+                <Paper sx={{ p: 3, textAlign: 'center', bgcolor: 'white', borderRadius: 2, minHeight: 120, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                   <Typography variant="h4" color="info.main" fontWeight="bold">
                     {sessionStats.sessionsActiveLastDay || 0}
                   </Typography>
@@ -981,7 +1397,7 @@ const AdminPage: React.FC = () => {
           )}
 
           {/* Search and Filter Controls */}
-          {auditLogType !== 'active' && (
+          {auditLogType !== 'active' && auditLogType !== 'monitoring' && (
             <FilterContainer elevation={0}>
               <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
                 <FormControl size="small" sx={{ minWidth: 180 }}>
@@ -1062,7 +1478,7 @@ const AdminPage: React.FC = () => {
           )}
 
           {/* Results Summary */}
-          {!auditLoading && !auditError && auditLogType !== 'active' && (
+          {!auditLoading && !auditError && auditLogType !== 'active' && auditLogType !== 'monitoring' && (
             <Box sx={{ mb: 2 }}>
               <Typography variant="body2" color="text.secondary">
                 Showing {filteredAuditLogs.length} of {auditTotalCount} total audit logs
@@ -1314,8 +1730,8 @@ const AdminPage: React.FC = () => {
                   </Typography>
                   {deletedShopsError}
                 </Alert>
-                  ) : (
-                    <>
+              ) : (
+                <>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                     Showing {deletedShops.length} deleted shops
                   </Typography>
@@ -1440,9 +1856,9 @@ const AdminPage: React.FC = () => {
                                   {shop.action || 'DELETED'}
                                 </Typography>
                               </Box>
-                </TableCell>
-              </TableRow>
-            ))}
+                            </TableCell>
+                          </TableRow>
+                        ))}
                         {deletedShops.length === 0 && (
                           <TableRow>
                             <TableCell colSpan={7} sx={{ textAlign: 'center', py: 8 }}>
@@ -1502,7 +1918,7 @@ const AdminPage: React.FC = () => {
                     Unable to Load Audit Logs
                   </Typography>
                   {auditError}
-        </Alert>
+                </Alert>
               ) : (
                 <>
                   <TableContainer sx={{ borderRadius: 2, border: '1px solid #e0e0e0' }}>
@@ -1682,6 +2098,242 @@ const AdminPage: React.FC = () => {
                 </>
               )}
             </>
+          )}
+
+          {/* Transaction Monitoring Tab */}
+          {auditLogType === 'monitoring' && (
+            <TransactionMonitoring />
+          )}
+
+          {/* Connection Leak Monitoring */}
+          {auditLogType === 'connection-leak' && (
+            <Box sx={{ p: 3 }}>
+              <Typography variant="h6" sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <SecurityIcon color="primary" />
+                Connection Leak Monitoring & Emergency Response
+              </Typography>
+
+                             {/* Connection Status Overview */}
+               <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
+                 <Card sx={{ borderRadius: 2, flex: 1, minWidth: 200 }}>
+                   <CardContent>
+                     <Box display="flex" alignItems="center" gap={2}>
+                       <Box sx={{ 
+                         p: 1, 
+                         borderRadius: 1, 
+                         bgcolor: connectionLeakStatus?.poolStatus === 'HEALTHY' ? '#e8f5e8' : 
+                                 connectionLeakStatus?.poolStatus === 'WARNING' ? '#fff3e0' : '#ffebee'
+                       }}>
+                         <MonitorHeartIcon sx={{ 
+                           color: connectionLeakStatus?.poolStatus === 'HEALTHY' ? '#2e7d32' : 
+                                  connectionLeakStatus?.poolStatus === 'WARNING' ? '#f57c00' : '#d32f2f'
+                         }} />
+                       </Box>
+                       <Box>
+                         <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                           {connectionLeakStatus?.poolStatus || 'Unknown'}
+                         </Typography>
+                         <Typography variant="body2" color="text.secondary">
+                           Pool Status
+                         </Typography>
+                       </Box>
+                     </Box>
+                   </CardContent>
+                 </Card>
+
+                 <Card sx={{ borderRadius: 2, flex: 1, minWidth: 200 }}>
+                   <CardContent>
+                     <Box display="flex" alignItems="center" gap={2}>
+                       <Box sx={{ p: 1, borderRadius: 1, bgcolor: '#e3f2fd' }}>
+                         <AssessmentIcon sx={{ color: '#1976d2' }} />
+                       </Box>
+                       <Box>
+                         <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                           {connectionLeakStatus?.hikariMetrics?.usagePercentage || 0}%
+                         </Typography>
+                         <Typography variant="body2" color="text.secondary">
+                           Pool Usage
+                         </Typography>
+                       </Box>
+                     </Box>
+                   </CardContent>
+                 </Card>
+
+                 <Card sx={{ borderRadius: 2, flex: 1, minWidth: 200 }}>
+                   <CardContent>
+                     <Box display="flex" alignItems="center" gap={2}>
+                       <Box sx={{ p: 1, borderRadius: 1, bgcolor: '#f3e5f5' }}>
+                         <WarningIcon sx={{ color: '#5e35b1' }} />
+                       </Box>
+                       <Box>
+                         <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                           {connectionLeakStatus?.connectionLeakRisk || 'Unknown'}
+                         </Typography>
+                         <Typography variant="body2" color="text.secondary">
+                           Leak Risk
+                         </Typography>
+                       </Box>
+                     </Box>
+                   </CardContent>
+                 </Card>
+               </Box>
+
+              {/* Emergency Actions */}
+              {connectionLeakStatus?.emergencyCleanupNeeded && (
+                <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
+                    🚨 Emergency Cleanup Required
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 2 }}>
+                    Connection pool usage is critical ({connectionLeakStatus?.hikariMetrics?.usagePercentage}%). 
+                    Immediate action required to prevent system failure.
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    color="error"
+                    onClick={performEmergencyConnectionCleanup}
+                    disabled={emergencyCleanupInProgress}
+                    startIcon={emergencyCleanupInProgress ? <CircularProgress size={20} /> : <WarningIcon />}
+                    sx={{ textTransform: 'none' }}
+                  >
+                    {emergencyCleanupInProgress ? 'Performing Cleanup...' : 'Perform Emergency Cleanup'}
+                  </Button>
+                </Alert>
+              )}
+
+              {/* Connection Metrics Details */}
+              {connectionLeakStatus?.hikariMetrics && (
+                <Card sx={{ mb: 3, borderRadius: 2 }}>
+                  <CardHeader 
+                    title="Connection Pool Metrics"
+                    action={
+                      <Button
+                        size="small"
+                        onClick={fetchConnectionLeakStatus}
+                        disabled={connectionLeakLoading}
+                        startIcon={connectionLeakLoading ? <CircularProgress size={16} /> : <RefreshIcon />}
+                      >
+                        Refresh
+                      </Button>
+                    }
+                  />
+                                     <CardContent>
+                     <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 2 }}>
+                       <Box>
+                         <Typography variant="caption" color="text.secondary">Active Connections</Typography>
+                         <Typography variant="h6">
+                           {connectionLeakStatus.hikariMetrics.activeConnections} / {connectionLeakStatus.hikariMetrics.maxPoolSize}
+                         </Typography>
+                       </Box>
+                       <Box>
+                         <Typography variant="caption" color="text.secondary">Idle Connections</Typography>
+                         <Typography variant="h6">{connectionLeakStatus.hikariMetrics.idleConnections}</Typography>
+                       </Box>
+                       <Box>
+                         <Typography variant="caption" color="text.secondary">Pending Threads</Typography>
+                         <Typography variant="h6">{connectionLeakStatus.hikariMetrics.pendingThreads}</Typography>
+                       </Box>
+                       <Box>
+                         <Typography variant="caption" color="text.secondary">Total Connections</Typography>
+                         <Typography variant="h6">{connectionLeakStatus.hikariMetrics.totalConnections}</Typography>
+                       </Box>
+                     </Box>
+                   </CardContent>
+                </Card>
+              )}
+
+              {/* Recent Leak Alerts */}
+              {leakAlerts.length > 0 && (
+                <Card sx={{ mb: 3, borderRadius: 2 }}>
+                  <CardHeader title="Recent Connection Leak Alerts" />
+                  <CardContent>
+                    <List>
+                      {leakAlerts.map((alert, index) => (
+                        <ListItem key={alert.id} sx={{ 
+                          border: '1px solid #e0e0e0', 
+                          borderRadius: 1, 
+                          mb: 1,
+                          bgcolor: alert.severity === 'error' ? '#ffebee' : 
+                                  alert.severity === 'warning' ? '#fff3e0' : '#e3f2fd'
+                        }}>
+                          <ListItemText
+                            primary={
+                              <Box display="flex" alignItems="center" gap={1}>
+                                {alert.severity === 'error' ? <ErrorIcon color="error" /> : 
+                                 alert.severity === 'warning' ? <WarningIcon color="warning" /> : 
+                                 <InfoIcon color="info" />}
+                                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                  {alert.message}
+                                </Typography>
+                              </Box>
+                            }
+                            secondary={
+                              <Typography variant="caption" color="text.secondary">
+                                {new Date(alert.timestamp).toLocaleString()} • {alert.type}
+                              </Typography>
+                            }
+                          />
+                        </ListItem>
+                      ))}
+                    </List>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Connection History Trend */}
+              {connectionHistory.length > 0 && (
+                <Card sx={{ borderRadius: 2 }}>
+                  <CardHeader title="Connection Usage Trend (Last 20 Samples)" />
+                  <CardContent>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      Monitoring connection pool usage over time to identify patterns and potential leaks.
+                    </Typography>
+                    <Box sx={{ 
+                      display: 'grid', 
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', 
+                      gap: 1,
+                      maxHeight: 200,
+                      overflowY: 'auto'
+                    }}>
+                      {connectionHistory.slice(-10).map((entry, index) => (
+                        <Box key={index} sx={{ 
+                          p: 1, 
+                          border: '1px solid #e0e0e0', 
+                          borderRadius: 1,
+                          bgcolor: entry.usagePercentage > 80 ? '#ffebee' : 
+                                  entry.usagePercentage > 60 ? '#fff3e0' : '#e8f5e8'
+                        }}>
+                          <Typography variant="caption" color="text.secondary">
+                            {new Date(entry.timestamp).toLocaleTimeString()}
+                          </Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                            {entry.usagePercentage}%
+                          </Typography>
+                          <Typography variant="caption">
+                            {entry.activeConnections}/{entry.maxPoolSize}
+                          </Typography>
+                        </Box>
+                      ))}
+                    </Box>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Loading/Error States */}
+              {connectionLeakLoading && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                  <CircularProgress />
+                </Box>
+              )}
+
+              {connectionLeakError && (
+                <Alert severity="error" sx={{ borderRadius: 2 }}>
+                  <Typography variant="body2">
+                    Failed to load connection leak monitoring data: {connectionLeakError}
+                  </Typography>
+                </Alert>
+              )}
+            </Box>
           )}
         </Box>
       </SectionCard>

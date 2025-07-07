@@ -21,6 +21,9 @@ public interface ShopSessionRepository extends JpaRepository<ShopSession, Long> 
   /** Find all active sessions for a shop */
   List<ShopSession> findByShopAndIsActiveTrueOrderByLastAccessedAtDesc(Shop shop);
 
+  /** Find all sessions for a shop (both active and inactive) */
+  List<ShopSession> findByShop(Shop shop);
+
   /** Find all active sessions for a shop by shop ID */
   @Query(
       "SELECT ss FROM ShopSession ss WHERE ss.shop.id = :shopId AND ss.isActive = true ORDER BY ss.lastAccessedAt DESC")
@@ -64,7 +67,6 @@ public interface ShopSessionRepository extends JpaRepository<ShopSession, Long> 
 
   /** Update last accessed time for a session */
   @Modifying
-  @Transactional
   @Query(
       "UPDATE ShopSession ss SET ss.lastAccessedAt = CURRENT_TIMESTAMP, ss.updatedAt = CURRENT_TIMESTAMP WHERE ss.sessionId = :sessionId")
   void updateLastAccessedTime(@Param("sessionId") String sessionId);

@@ -3,15 +3,19 @@ package com.storesight.backend.config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.session.data.redis.config.annotation.web.http.EnableRedisHttpSession;
+import org.springframework.session.events.SessionDeletedEvent;
 import org.springframework.session.web.http.CookieSerializer;
 import org.springframework.session.web.http.DefaultCookieSerializer;
 
 @Configuration
+@Profile("!test")
 @EnableRedisHttpSession(
-    maxInactiveIntervalInSeconds = 3600, // 1 hour
+    maxInactiveIntervalInSeconds = 14400, // 4 hours (aligned with business app standards)
     redisNamespace = "storesight:sessions")
 public class SessionConfig {
 
@@ -38,6 +42,21 @@ public class SessionConfig {
     }
 
     return serializer;
+  }
+
+  /**
+   * Custom session event listener to handle session lifecycle events This helps prevent race
+   * conditions during session cleanup
+   */
+  @Bean
+  public ApplicationListener<SessionDeletedEvent> sessionDeletedEventListener() {
+    return event -> {
+      String sessionId = event.getSessionId();
+      logger.debug("Session deleted event received for sessionId: {}", sessionId);
+
+      // Note: Additional cleanup can be added here if needed
+      // but we should avoid heavy operations in this listener
+    };
   }
 
   private boolean isProduction() {

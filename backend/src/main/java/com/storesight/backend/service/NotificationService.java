@@ -430,17 +430,9 @@ public class NotificationService {
           LocalDateTime cutoffDate = LocalDateTime.now().minusDays(retentionDays);
           int deletedCount = 0;
 
-          // Delete notifications older than retention period
-          List<Notification> oldNotifications =
-              notificationRepository.findByCreatedAtBefore(cutoffDate);
-          if (!oldNotifications.isEmpty()) {
-            notificationRepository.deleteAll(oldNotifications);
-            deletedCount += oldNotifications.size();
-            log.info(
-                "Cleaned up {} old notifications (older than {} days)",
-                oldNotifications.size(),
-                retentionDays);
-          }
+          // Bulk delete notifications older than retention period
+          notificationRepository.deleteOldNotifications(cutoffDate);
+          log.info("Bulk deleted old notifications (older than {} days)", retentionDays);
 
           // Cleanup read notifications beyond max limit per shop
           List<String> shops = notificationRepository.findDistinctShops();
@@ -449,11 +441,19 @@ public class NotificationService {
                 notificationRepository.findByShopAndReadTrueAndDeletedFalseOrderByCreatedAtDesc(
                     shop);
             if (readNotifications.size() > maxReadNotifications) {
-              List<Notification> toDelete =
-                  readNotifications.subList(maxReadNotifications, readNotifications.size());
-              notificationRepository.deleteAll(toDelete);
-              deletedCount += toDelete.size();
-              log.info("Cleaned up {} read notifications for shop: {}", toDelete.size(), shop);
+              List<String> idsToDelete =
+                  readNotifications.stream()
+                      .skip(maxReadNotifications)
+                      .map(Notification::getId)
+                      .collect(java.util.stream.Collectors.toList());
+
+              // Bulk delete excess read notifications
+              notificationRepository.deleteByIds(idsToDelete);
+              deletedCount += idsToDelete.size();
+              log.info(
+                  "Bulk deleted {} excess read notifications for shop: {}",
+                  idsToDelete.size(),
+                  shop);
             }
           }
 
@@ -463,15 +463,45 @@ public class NotificationService {
                 notificationRepository.findByShopAndReadFalseAndDeletedFalseOrderByCreatedAtDesc(
                     shop);
             if (unreadNotifications.size() > maxUnreadNotifications) {
-              List<Notification> toDelete =
-                  unreadNotifications.subList(maxUnreadNotifications, unreadNotifications.size());
-              notificationRepository.deleteAll(toDelete);
-              deletedCount += toDelete.size();
-              log.info("Cleaned up {} unread notifications for shop: {}", toDelete.size(), shop);
+              List<String> idsToDelete =
+                  unreadNotifications.stream()
+                      .skip(maxUnreadNotifications)
+                      .map(Notification::getId)
+                      .collect(java.util.stream.Collectors.toList());
+
+              // Bulk delete excess unread notifications
+              notificationRepository.deleteByIds(idsToDelete);
+              deletedCount += idsToDelete.size();
+              log.info(
+                  "Bulk deleted {} excess unread notifications for shop: {}",
+                  idsToDelete.size(),
+                  shop);
             }
           }
 
           return deletedCount;
+        });
+  }
+
+  /** Bulk delete notifications by IDs */
+  public Mono<Void> bulkDeleteNotifications(List<String> notificationIds) {
+    return Mono.fromRunnable(
+        () -> {
+          if (notificationIds != null && !notificationIds.isEmpty()) {
+            notificationRepository.deleteByIds(notificationIds);
+            log.info("Bulk deleted {} notifications", notificationIds.size());
+          }
+        });
+  }
+
+  /** Bulk soft delete notifications by IDs */
+  public Mono<Void> bulkSoftDeleteNotifications(List<String> notificationIds) {
+    return Mono.fromRunnable(
+        () -> {
+          if (notificationIds != null && !notificationIds.isEmpty()) {
+            notificationRepository.softDeleteByIds(notificationIds);
+            log.info("Bulk soft deleted {} notifications", notificationIds.size());
+          }
         });
   }
 

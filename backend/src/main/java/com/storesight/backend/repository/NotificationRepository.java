@@ -4,9 +4,11 @@ import com.storesight.backend.model.Notification;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 @Repository
 public interface NotificationRepository extends JpaRepository<Notification, String> {
@@ -60,4 +62,29 @@ public interface NotificationRepository extends JpaRepository<Notification, Stri
   List<Notification> findByShopAndReadTrueAndDeletedFalseOrderByCreatedAtDesc(String shop);
 
   List<Notification> findByShopAndReadFalseAndDeletedFalseOrderByCreatedAtDesc(String shop);
+
+  /** Bulk delete notifications by IDs to reduce individual delete operations */
+  @Modifying
+  @Transactional
+  @Query("DELETE FROM Notification n WHERE n.id IN :ids")
+  void deleteByIds(@Param("ids") List<String> ids);
+
+  /** Bulk soft delete notifications by IDs */
+  @Modifying
+  @Transactional
+  @Query(
+      "UPDATE Notification n SET n.deleted = true, n.deletedAt = CURRENT_TIMESTAMP WHERE n.id IN :ids")
+  void softDeleteByIds(@Param("ids") List<String> ids);
+
+  /** Bulk delete old notifications before a specific date */
+  @Modifying
+  @Transactional
+  @Query("DELETE FROM Notification n WHERE n.createdAt < :cutoffDate")
+  void deleteOldNotifications(@Param("cutoffDate") LocalDateTime cutoffDate);
+
+  /** Find excess read notifications for a shop beyond a certain limit */
+  @Query(
+      "SELECT n FROM Notification n WHERE n.shop = :shop AND n.read = true AND n.deleted = false ORDER BY n.createdAt ASC")
+  List<Notification> findExcessReadNotifications(
+      @Param("shop") String shop, org.springframework.data.domain.Pageable pageable);
 }

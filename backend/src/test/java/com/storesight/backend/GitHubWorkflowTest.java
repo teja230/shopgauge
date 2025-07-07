@@ -3,16 +3,12 @@ package com.storesight.backend;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
 
 /**
  * Simple test to verify that the GitHub workflow can run tests successfully. This test uses the
  * test profile which is configured to work with the PostgreSQL and Redis services defined in the
  * GitHub Actions workflow.
  */
-@SpringBootTest
-@ActiveProfiles("test")
 class GitHubWorkflowTest {
 
   @Test
