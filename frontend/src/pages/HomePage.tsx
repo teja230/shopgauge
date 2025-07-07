@@ -24,7 +24,7 @@ const features = [
   'Enhanced security with session isolation and enterprise-grade data protection',
   'Full Shopify integration with real-time sync and OAuth 2.0 authentication',
   'GDPR/CCPA compliance with automated data export and privacy reporting',
-  'Client-side processing with zero storage costs and complete audit logging',
+  'Instant file downloads with professional templates and auto-generated messaging',
   'Enterprise-grade session management with automatic cleanup and optimization'
 ];
 
@@ -378,10 +378,10 @@ const HomePage = () => {
             <ul className="text-gray-700 space-y-2">
               <li>• <strong>Export Formats:</strong> PNG (Standard/High/Ultra quality), PDF (professional templates), Excel (full data series)</li>
               <li>• <strong>Social Media:</strong> LinkedIn, Twitter, Email, Slack, Teams with chart-relevant messaging</li>
-              <li>• <strong>Client-side Processing:</strong> Zero server storage costs, direct downloads</li>
-              <li>• <strong>Audit Logging:</strong> Complete tracking of all export and share actions</li>
-              <li>• <strong>Embed Codes:</strong> Iframe integration for websites and presentations</li>
+              <li>• <strong>Instant Downloads:</strong> Direct file generation with no waiting time</li>
               <li>• <strong>Professional Templates:</strong> Executive, Investor, Marketing PDF formats with metadata</li>
+              <li>• <strong>Embed Codes:</strong> Iframe integration for websites and presentations</li>
+              <li>• <strong>Chart-Relevant Messaging:</strong> Auto-generated professional content for social sharing</li>
             </ul>
           </div>
           
@@ -478,7 +478,7 @@ const HomePage = () => {
           </div>
           <div className="bg-white rounded-lg shadow-lg p-6 border-t-4 border-green-500">
             <h3 className="text-lg font-semibold mb-3 text-blue-900">What export and sharing options are available?</h3>
-            <p className="text-gray-700">Export charts as PNG (3 quality levels), PDF (professional templates with metadata), and Excel (full data series). Share directly on LinkedIn, Twitter, Email, Slack, and Teams with chart-relevant messaging. All processing is client-side with zero storage costs and complete audit logging.</p>
+            <p className="text-gray-700">Export charts as PNG (3 quality levels), PDF (professional templates with metadata), and Excel (full data series). Share directly on LinkedIn, Twitter, Email, Slack, and Teams with auto-generated professional messaging. All files download instantly with no waiting time.</p>
           </div>
           <div className="bg-white rounded-lg shadow-lg p-6 border-t-4 border-purple-500">
                             <h3 className="text-lg font-semibold mb-3 text-blue-900">How do the 7 chart types work?</h3>
