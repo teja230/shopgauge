@@ -597,7 +597,6 @@ const EnhancedShareExportModal: React.FC<EnhancedShareExportModalProps> = ({
     };
     
     const message = createRelevantMessage(platform);
-    const shareableUrl = window.location.href;
     
     // Single ShopGauge link (no red background)
     const shopGaugeUrl = 'https://www.shopgaugeai.com';
@@ -608,38 +607,37 @@ const EnhancedShareExportModal: React.FC<EnhancedShareExportModalProps> = ({
         case 'linkedin': {
           // Use LinkedIn's share URL with proper text encoding
           const linkedinText = encodeURIComponent(enhancedMessage);
-          const linkedinUrl = encodeURIComponent(shareableUrl);
-          window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${linkedinUrl}&title=${encodeURIComponent(chartTitle)}&summary=${linkedinText}`);
+          window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shopGaugeUrl)}&title=${encodeURIComponent(chartTitle)}&summary=${linkedinText}`);
           showInfo('Sharing your business insights on LinkedIn...');
           break;
         }
         case 'twitter':
-          window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(enhancedMessage)}&url=${encodeURIComponent(shareableUrl)}`);
+          window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(enhancedMessage)}&url=${encodeURIComponent(shopGaugeUrl)}`);
           showInfo('Sharing your performance insights on Twitter...');
           break;
         case 'email':
-          window.open(`mailto:?subject=${encodeURIComponent(`${shopName || 'Store'} ${chartTitle} Insights`)}&body=${encodeURIComponent(enhancedMessage + '\n\n' + shareableUrl)}`);
+          window.open(`mailto:?subject=${encodeURIComponent(`${shopName || 'Store'} ${chartTitle} Insights`)}&body=${encodeURIComponent(enhancedMessage)}`);
           showInfo('Opening email to share your business insights...');
           break;
         case 'slack': {
           // Copy formatted message for Slack with instructions
-          const slackMessage = `${enhancedMessage}\n\n${shareableUrl}\n\n💡 Tip: Paste this message in any Slack channel or direct message.`;
+          const slackMessage = `${enhancedMessage}\n\n💡 Tip: Paste this message in any Slack channel or direct message.`;
           await navigator.clipboard.writeText(slackMessage);
           showSuccess('Slack message copied! Paste it in any Slack channel.');
           break;
         }
         case 'teams': {
           // Copy formatted message for Teams with instructions
-          const teamsMessage = `${enhancedMessage}\n\n${shareableUrl}\n\n💡 Tip: Paste this message in any Teams chat or channel.`;
+          const teamsMessage = `${enhancedMessage}\n\n💡 Tip: Paste this message in any Teams chat or channel.`;
           await navigator.clipboard.writeText(teamsMessage);
           showSuccess('Teams message copied! Paste it in any Teams chat.');
           break;
         }
         case 'copy':
-          await navigator.clipboard.writeText(enhancedMessage + '\n\n' + shareableUrl);
+          await navigator.clipboard.writeText(enhancedMessage);
           setCopiedToClipboard(true);
           setTimeout(() => setCopiedToClipboard(false), 3000);
-          showSuccess('Performance insights link copied to clipboard!');
+          showSuccess('Performance insights copied to clipboard!');
           break;
         default:
           break;
