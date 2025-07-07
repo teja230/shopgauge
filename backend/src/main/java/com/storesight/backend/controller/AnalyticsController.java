@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.storesight.backend.config.BackendConfig;
 import com.storesight.backend.config.ShopifyConfig;
 import com.storesight.backend.model.AuditLog;
+import com.storesight.backend.service.DashboardCacheService;
 import com.storesight.backend.service.DataPrivacyService;
 import com.storesight.backend.service.ShopService;
 import jakarta.servlet.http.HttpSession;
@@ -19,6 +20,8 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.context.annotation.Profile;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
@@ -33,9 +36,11 @@ public class AnalyticsController {
   private final WebClient webClient;
   private final ShopService shopService;
   private final StringRedisTemplate redisTemplate;
+  private final DashboardCacheService dashboardCacheService;
   private final DataPrivacyService dataPrivacyService;
   private final ShopifyConfig shopifyConfig;
   private final BackendConfig backendConfig;
+  private final CacheManager cacheManager;
   private static final Logger logger = LoggerFactory.getLogger(AnalyticsController.class);
 
   @Autowired
@@ -43,15 +48,19 @@ public class AnalyticsController {
       WebClient.Builder webClientBuilder,
       ShopService shopService,
       StringRedisTemplate redisTemplate,
+      DashboardCacheService dashboardCacheService,
       DataPrivacyService dataPrivacyService,
       ShopifyConfig shopifyConfig,
-      BackendConfig backendConfig) {
+      BackendConfig backendConfig,
+      CacheManager cacheManager) {
     this.webClient = webClientBuilder.build();
     this.shopService = shopService;
     this.redisTemplate = redisTemplate;
+    this.dashboardCacheService = dashboardCacheService;
     this.dataPrivacyService = dataPrivacyService;
     this.shopifyConfig = shopifyConfig;
     this.backendConfig = backendConfig;
+    this.cacheManager = cacheManager;
   }
 
   private String getShopifyUrl(String shop, String endpoint) {
@@ -120,6 +129,15 @@ public class AnalyticsController {
       response.put("limit", limit);
       response.put("has_more", false);
       return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response));
+    }
+
+    // Check Redis cache first (only for first page to avoid complex pagination caching)
+    if (page == 1 && pageInfo == null) {
+      var cachedOrders = dashboardCacheService.getCachedOrdersData(shop);
+      if (cachedOrders.isPresent()) {
+        logger.info("Cache hit for orders data for shop: {}", shop);
+        return Mono.just(ResponseEntity.ok((Map<String, Object>) cachedOrders.get()));
+      }
     }
 
     // Get orders from the last `days` days (default 60)
@@ -296,6 +314,12 @@ public class AnalyticsController {
                         result.put("pagination_method", pageInfo != null ? "cursor" : "page");
                         result.put("days_requested", clampedDays);
 
+                        // Cache the result in Redis (only for first page)
+                        if (page == 1 && pageInfo == null) {
+                          dashboardCacheService.cacheOrdersData(shop, result);
+                          logger.info("Cached orders data for shop: {}", shop);
+                        }
+
                         return ResponseEntity.ok(result);
                       });
             })
@@ -372,6 +396,13 @@ public class AnalyticsController {
       response.put("total_products", 0);
       response.put("total_revenue", "$0.00");
       return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response));
+    }
+
+    // Check Redis cache first
+    var cachedProducts = dashboardCacheService.getCachedProductsData(shop);
+    if (cachedProducts.isPresent()) {
+      logger.info("Cache hit for products data for shop: {}", shop);
+      return Mono.just(ResponseEntity.ok((Map<String, Object>) cachedProducts.get()));
     }
 
     String url = getShopifyUrl(shop, "products.json") + "?limit=50";
@@ -452,6 +483,10 @@ public class AnalyticsController {
               response.put("shopify_products_url", getShopifyAdminUrl(shop, "products"));
               response.put("note", "Sales and revenue data requires orders API access approval");
 
+              // Cache the result in Redis
+              dashboardCacheService.cacheProductsData(shop, response);
+              logger.info("Cached products data for shop: {}", shop);
+
               logger.info("Returning real product data for {} products", productAnalytics.size());
               return ResponseEntity.ok(response);
             })
@@ -488,102 +523,110 @@ public class AnalyticsController {
           new AnalyticsResponse(data, "Not authenticated", HttpStatus.UNAUTHORIZED);
       return (Mono<ResponseEntity<Map<String, Object>>>) Mono.just(response.toResponseEntity());
     }
-    String token = shopService.getTokenForShop(shop, session.getId());
-    if (token == null) {
-      Map<String, Object> response = new HashMap<>();
-      response.put("error", "No token for shop");
-      response.put("products", List.of());
-      return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response));
-    }
-    String url = getShopifyUrl(shop, "products.json");
-    return webClient
-        .get()
-        .uri(url)
-        .header("X-Shopify-Access-Token", token)
-        .retrieve()
-        .bodyToMono(Map.class)
-        .map(
-            data -> {
-              var products = (List<Map<String, Object>>) data.get("products");
-              List<Map<String, Object>> lowStock = new java.util.ArrayList<>();
-              if (products != null) {
-                for (var product : products) {
-                  var variants = (List<Map<String, Object>>) product.get("variants");
-                  if (variants != null) {
-                    for (var variant : variants) {
-                      int qty = 9999;
-                      try {
-                        Object inventoryQty = variant.get("inventory_quantity");
-                        if (inventoryQty != null) {
-                          qty = Integer.parseInt(inventoryQty.toString());
-                        }
-                      } catch (Exception ignored) {
-                      }
-                      // Flag products with inventory < 5 OR negative inventory (like gift cards
-                      // with -1)
-                      if (qty < 5 || qty < 0) {
-                        Object productIdObj = product.get("id");
-                        if (productIdObj != null) {
-                          String productId = productIdObj.toString();
-                          String productTitle = (String) product.get("title");
-                          String variantTitle = (String) variant.get("title");
-
-                          logger.debug(
-                              "Low inventory detected: {} (variant: {}) - quantity: {}",
-                              productTitle,
-                              variantTitle,
-                              qty);
-
-                          lowStock.add(
-                              Map.of(
-                                  "title",
-                                  productTitle,
-                                  "variant",
-                                  variantTitle,
-                                  "quantity",
-                                  qty,
-                                  "product_id",
-                                  productId,
-                                  "shopify_url",
-                                  getShopifyAdminUrl(shop, "products/" + productId)));
-                        }
-                      }
-                    }
-                  }
-                }
+    return shopService
+        .getTokenForShopReactive(shop, session.getId())
+        .flatMap(
+            token -> {
+              if (token == null) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("error", "No token for shop");
+                response.put("products", List.of());
+                return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response));
               }
+              String url = getShopifyUrl(shop, "products.json");
+              return webClient
+                  .get()
+                  .uri(url)
+                  .header("X-Shopify-Access-Token", token)
+                  .retrieve()
+                  .bodyToMono(Map.class)
+                  .map(
+                      data -> {
+                        var products = (List<Map<String, Object>>) data.get("products");
+                        List<Map<String, Object>> lowStock = new java.util.ArrayList<>();
+                        if (products != null) {
+                          for (var product : products) {
+                            var variants = (List<Map<String, Object>>) product.get("variants");
+                            if (variants != null) {
+                              for (var variant : variants) {
+                                int qty = 9999;
+                                try {
+                                  Object inventoryQty = variant.get("inventory_quantity");
+                                  if (inventoryQty != null) {
+                                    qty = Integer.parseInt(inventoryQty.toString());
+                                  }
+                                } catch (Exception ignored) {
+                                }
+                                // Flag products with inventory < 5 OR negative inventory (like gift
+                                // cards
+                                // with -1)
+                                if (qty < 5 || qty < 0) {
+                                  Object productIdObj = product.get("id");
+                                  if (productIdObj != null) {
+                                    String productId = productIdObj.toString();
+                                    String productTitle = (String) product.get("title");
+                                    String variantTitle = (String) variant.get("title");
 
-              logger.info(
-                  "Found {} products with low inventory for shop {}", lowStock.size(), shop);
+                                    logger.debug(
+                                        "Low inventory detected: {} (variant: {}) - quantity: {}",
+                                        productTitle,
+                                        variantTitle,
+                                        qty);
 
-              Map<String, Object> response = new HashMap<>();
-              response.put("lowInventory", lowStock);
-              response.put("lowInventoryCount", lowStock.size());
-              response.put(
-                  "shopify_inventory_url",
-                  getShopifyAdminUrl(shop, "products?inventory_status=low"));
-              response.put("shopify_products_url", getShopifyAdminUrl(shop, "products"));
-              return ResponseEntity.ok(response);
-            })
-        .onErrorResume(
-            e -> {
-              logger.error("Failed to fetch low inventory: {}", e.getMessage());
-              Map<String, Object> errorResponse = new HashMap<>();
-              errorResponse.put("lowInventory", List.of());
-              errorResponse.put("lowInventoryCount", 0);
-              if (e.getMessage().contains("403")) {
-                errorResponse.put(
-                    "error",
-                    "Inventory access requires re-authentication. Please reconnect your store.");
-                errorResponse.put("error_code", "INSUFFICIENT_PERMISSIONS");
-              } else if (e.getMessage().contains("429")) {
-                logger.warn("Shopify API rate limit hit - returning empty data");
-                errorResponse.put("rate_limited", true);
-                errorResponse.put("note", "Data temporarily unavailable due to API rate limits");
-              } else {
-                errorResponse.put("error", "Failed to fetch low inventory");
-              }
-              return Mono.just(ResponseEntity.ok().body(errorResponse));
+                                    lowStock.add(
+                                        Map.of(
+                                            "title",
+                                            productTitle,
+                                            "variant",
+                                            variantTitle,
+                                            "quantity",
+                                            qty,
+                                            "product_id",
+                                            productId,
+                                            "shopify_url",
+                                            getShopifyAdminUrl(shop, "products/" + productId)));
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+
+                        logger.info(
+                            "Found {} products with low inventory for shop {}",
+                            lowStock.size(),
+                            shop);
+
+                        Map<String, Object> response = new HashMap<>();
+                        response.put("lowInventory", lowStock);
+                        response.put("lowInventoryCount", lowStock.size());
+                        response.put(
+                            "shopify_inventory_url",
+                            getShopifyAdminUrl(shop, "products?inventory_status=low"));
+                        response.put("shopify_products_url", getShopifyAdminUrl(shop, "products"));
+                        return ResponseEntity.ok(response);
+                      })
+                  .onErrorResume(
+                      e -> {
+                        logger.error("Failed to fetch low inventory: {}", e.getMessage());
+                        Map<String, Object> errorResponse = new HashMap<>();
+                        errorResponse.put("lowInventory", List.of());
+                        errorResponse.put("lowInventoryCount", 0);
+                        if (e.getMessage().contains("403")) {
+                          errorResponse.put(
+                              "error",
+                              "Inventory access requires re-authentication. Please reconnect your store.");
+                          errorResponse.put("error_code", "INSUFFICIENT_PERMISSIONS");
+                        } else if (e.getMessage().contains("429")) {
+                          logger.warn("Shopify API rate limit hit - returning empty data");
+                          errorResponse.put("rate_limited", true);
+                          errorResponse.put(
+                              "note", "Data temporarily unavailable due to API rate limits");
+                        } else {
+                          errorResponse.put("error", "Failed to fetch low inventory");
+                        }
+                        return Mono.just(ResponseEntity.ok().body(errorResponse));
+                      });
             });
   }
 
@@ -599,76 +642,82 @@ public class AnalyticsController {
       return (Mono<ResponseEntity<Map<String, Object>>>) Mono.just(response.toResponseEntity());
     }
 
-    String token = shopService.getTokenForShop(shop, session.getId());
-    if (token == null) {
-      Map<String, Object> response = new HashMap<>();
-      response.put("error", "No token for shop");
-      response.put("products", List.of());
-      return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response));
-    }
-
-    String since = LocalDate.now().minusDays(30).format(DateTimeFormatter.ISO_DATE);
-    // Use proper ISO 8601 format with Z for UTC timezone
-    String url =
-        "https://"
-            + shop
-            + "/admin/api/2023-10/products.json?created_at_min="
-            + since
-            + "T00:00:00Z";
-    return webClient
-        .get()
-        .uri(url)
-        .header("X-Shopify-Access-Token", token)
-        .retrieve()
-        .bodyToMono(Map.class)
-        .map(
-            data -> {
-              var products = (List<Map<String, Object>>) data.get("products");
-              int count = products != null ? products.size() : 0;
-
-              // Add Shopify admin URLs to each product
-              List<Map<String, Object>> enrichedProducts = new ArrayList<>();
-              if (products != null) {
-                for (var product : products) {
-                  Map<String, Object> enrichedProduct = new HashMap<>(product);
-                  Object productIdObj = product.get("id");
-                  if (productIdObj != null) {
-                    String productId = productIdObj.toString();
-                    enrichedProduct.put(
-                        "shopify_url", "https://" + shop + "/admin/products/" + productId);
-                  }
-                  enrichedProducts.add(enrichedProduct);
-                }
+    return shopService
+        .getTokenForShopReactive(shop, session.getId())
+        .flatMap(
+            token -> {
+              if (token == null) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("error", "No token for shop");
+                response.put("products", List.of());
+                return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response));
               }
 
-              Map<String, Object> response = new HashMap<>();
-              response.put("newProducts", count);
-              response.put("products", enrichedProducts);
-              response.put("shopify_products_url", "https://" + shop + "/admin/products");
-              response.put(
-                  "shopify_new_products_url",
-                  "https://" + shop + "/admin/products?sort=created_at&order=desc");
-              return ResponseEntity.ok(response);
-            })
-        .onErrorResume(
-            e -> {
-              logger.error("Failed to fetch new products: {}", e.getMessage());
-              Map<String, Object> errorResponse = new HashMap<>();
-              errorResponse.put("newProducts", 0);
-              errorResponse.put("products", List.of());
-              if (e.getMessage().contains("403")) {
-                errorResponse.put(
-                    "error",
-                    "Products access requires re-authentication. Please reconnect your store.");
-                errorResponse.put("error_code", "INSUFFICIENT_PERMISSIONS");
-              } else if (e.getMessage().contains("429")) {
-                logger.warn("Shopify API rate limit hit - returning empty data");
-                errorResponse.put("rate_limited", true);
-                errorResponse.put("note", "Data temporarily unavailable due to API rate limits");
-              } else {
-                errorResponse.put("error", "Failed to fetch new products");
-              }
-              return Mono.just(ResponseEntity.ok().body(errorResponse));
+              String since = LocalDate.now().minusDays(30).format(DateTimeFormatter.ISO_DATE);
+              // Use proper ISO 8601 format with Z for UTC timezone
+              String url =
+                  "https://"
+                      + shop
+                      + "/admin/api/2023-10/products.json?created_at_min="
+                      + since
+                      + "T00:00:00Z";
+              return webClient
+                  .get()
+                  .uri(url)
+                  .header("X-Shopify-Access-Token", token)
+                  .retrieve()
+                  .bodyToMono(Map.class)
+                  .map(
+                      data -> {
+                        var products = (List<Map<String, Object>>) data.get("products");
+                        int count = products != null ? products.size() : 0;
+
+                        // Add Shopify admin URLs to each product
+                        List<Map<String, Object>> enrichedProducts = new ArrayList<>();
+                        if (products != null) {
+                          for (var product : products) {
+                            Map<String, Object> enrichedProduct = new HashMap<>(product);
+                            Object productIdObj = product.get("id");
+                            if (productIdObj != null) {
+                              String productId = productIdObj.toString();
+                              enrichedProduct.put(
+                                  "shopify_url",
+                                  "https://" + shop + "/admin/products/" + productId);
+                            }
+                            enrichedProducts.add(enrichedProduct);
+                          }
+                        }
+
+                        Map<String, Object> response = new HashMap<>();
+                        response.put("newProducts", count);
+                        response.put("products", enrichedProducts);
+                        response.put("shopify_products_url", "https://" + shop + "/admin/products");
+                        response.put(
+                            "shopify_new_products_url",
+                            "https://" + shop + "/admin/products?sort=created_at&order=desc");
+                        return ResponseEntity.ok(response);
+                      })
+                  .onErrorResume(
+                      e -> {
+                        logger.error("Failed to fetch new products: {}", e.getMessage());
+                        Map<String, Object> errorResponse = new HashMap<>();
+                        errorResponse.put("newProducts", 0);
+                        errorResponse.put("products", List.of());
+                        if (e.getMessage().contains("403")) {
+                          errorResponse.put(
+                              "error",
+                              "Products access requires re-authentication. Please reconnect your store.");
+                          errorResponse.put("error_code", "INSUFFICIENT_PERMISSIONS");
+                        } else if (e.getMessage().contains("429")) {
+                          logger.warn("Shopify API rate limit hit - returning empty data");
+                          errorResponse.put("rate_limited", true);
+                          errorResponse.put(
+                              "note", "Data temporarily unavailable due to API rate limits");
+                        } else {
+                          errorResponse.put("error", "Failed to fetch new products");
+                        }
+                        return Mono.just(ResponseEntity.ok().body(errorResponse));
+                      });
             });
   }
 
@@ -844,6 +893,13 @@ public class AnalyticsController {
       return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response));
     }
 
+    // Check Redis cache first
+    var cachedRevenue = dashboardCacheService.getCachedRevenueData(shop);
+    if (cachedRevenue.isPresent()) {
+      logger.info("Cache hit for revenue data for shop: {}", shop);
+      return Mono.just(ResponseEntity.ok((Map<String, Object>) cachedRevenue.get()));
+    }
+
     // Log the revenue data access
     dataPrivacyService.logDataAccess("REVENUE_DATA_REQUEST", "Revenue data accessed", shop);
 
@@ -988,6 +1044,10 @@ public class AnalyticsController {
               result.put("orders_count", orders != null ? orders.size() : 0);
               result.put("period_days", 60);
               result.put("timeseries", timeseriesData);
+
+              // Cache the result in Redis
+              dashboardCacheService.cacheRevenueData(shop, result);
+              logger.info("Cached revenue data for shop: {}", shop);
 
               return ResponseEntity.ok(result);
             })
@@ -1246,6 +1306,13 @@ public class AnalyticsController {
       return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response));
     }
 
+    // Check Redis cache first
+    var cachedConversion = dashboardCacheService.getCachedAnalyticsData(shop);
+    if (cachedConversion.isPresent()) {
+      logger.info("Cache hit for conversion data for shop: {}", shop);
+      return Mono.just(ResponseEntity.ok((Map<String, Object>) cachedConversion.get()));
+    }
+
     // Calculate conversion rate using available public data
     String since =
         java.time.LocalDate.now().minusDays(30).format(java.time.format.DateTimeFormatter.ISO_DATE);
@@ -1301,6 +1368,10 @@ public class AnalyticsController {
                         result.put("orders_count", totalOrders);
                         result.put("products_count", totalProducts);
                         result.put("period_days", 30);
+
+                        // Cache the result in Redis
+                        dashboardCacheService.cacheAnalyticsData(shop, result);
+                        logger.info("Cached conversion data for shop: {}", shop);
 
                         return ResponseEntity.ok(result);
                       });
@@ -2147,5 +2218,60 @@ public class AnalyticsController {
                         0.0,
                         "shop",
                         shop)));
+  }
+
+  @PostMapping("/cache/invalidate")
+  public ResponseEntity<Map<String, Object>> invalidateCache(
+      @CookieValue(value = "shop", required = false) String shop,
+      @RequestParam(value = "force", defaultValue = "false") boolean force,
+      HttpSession session) {
+
+    if (shop == null) {
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+          .body(Map.of("error", "Not authenticated", "cleared", false));
+    }
+
+    String token = shopService.getTokenForShop(shop, session.getId());
+    if (token == null) {
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+          .body(Map.of("error", "No token for shop", "cleared", false));
+    }
+
+    try {
+      logger.info("Cache invalidation requested for shop: {} (force: {})", shop, force);
+
+      // Clear all Redis cache entries for this shop
+      dashboardCacheService.invalidateShopCache(shop);
+
+      // Clear Spring cache entries
+      if (cacheManager != null) {
+        cacheManager
+            .getCacheNames()
+            .forEach(
+                cacheName -> {
+                  Cache cache = cacheManager.getCache(cacheName);
+                  if (cache != null) {
+                    cache.clear();
+                  }
+                });
+      }
+
+      // Log the cache invalidation
+      dataPrivacyService.logDataAccess("CACHE_INVALIDATION", "Cache cleared for fresh data", shop);
+
+      Map<String, Object> response = new HashMap<>();
+      response.put("cleared", true);
+      response.put("shop", shop);
+      response.put("timestamp", System.currentTimeMillis());
+      response.put("message", "Cache invalidated successfully - fresh data will be loaded");
+
+      logger.info("Cache invalidation completed for shop: {}", shop);
+      return ResponseEntity.ok(response);
+
+    } catch (Exception e) {
+      logger.error("Failed to invalidate cache for shop {}: {}", shop, e.getMessage());
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Cache invalidation failed", "cleared", false));
+    }
   }
 }

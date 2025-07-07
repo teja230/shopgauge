@@ -5,11 +5,15 @@
 /api/*                      /api/:splat                      200!
 
 # Valid application routes - serve main app and let React Router handle them
-# These routes should never show 404.html
+# Use 200! to force override and prevent 404.html from being served
 /dashboard                  /index.html                      200!
+/dashboard/*                /index.html                      200!
 /competitors                /index.html                      200!
+/competitors/*              /index.html                      200!
 /admin                      /index.html                      200!
+/admin/*                    /index.html                      200!
 /profile                    /index.html                      200!
+/profile/*                  /index.html                      200!
 /privacy-policy             /index.html                      200!
 
 # Root routes - serve main app
@@ -20,6 +24,7 @@
 /assets/*                   /assets/:splat                   200
 /vite.svg                   /vite.svg                        200
 /favicon.ico                /favicon.ico                     200
+/manifest.json              /manifest.json                   200
 
-# Catch-all for unknown routes - show 404 page
-/*                          /index.html                     200 
+# Catch-all for unknown routes - let React Router handle 404s
+/*                          /index.html                      200 

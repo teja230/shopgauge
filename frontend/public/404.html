@@ -465,12 +465,13 @@
           if (validRoutes.includes(cleanPath)) {
             // Valid route ended up here - redirect immediately without showing 404
             console.log('404: Valid route detected, redirecting immediately');
+            
             // Hide the 404 content immediately
             if (document.body && document.body.style) {
               document.body.style.display = 'none';
             }
-            // Redirect immediately
-            window.location.replace('/?redirect=' + encodeURIComponent(path));
+            // Redirect immediately to the main app
+            window.location.replace('/');
             return;
           }
           

@@ -3,7 +3,7 @@ import axios from 'axios';
 // Enterprise-grade: never hard-code hostnames. Prefer environment config and, in dev, fallback to relative API proxy.
 export const API_BASE_URL: string = (
   import.meta.env.VITE_API_BASE_URL as string | undefined
-) || '' /* Relative to current origin – vite devServer proxy handles /api */;
+) || 'https://api.shopgaugeai.com'; // Production fallback
 
 if (!import.meta.env.VITE_API_BASE_URL) {
   // Warn during development so engineers remember to configure the variable in production builds
@@ -148,6 +148,27 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
     if (response.status === 401) {
       console.log('API: Unauthorized response detected - updating auth state');
       setApiAuthState(false, null);
+      
+      // Trigger a global authentication state reset
+      if (globalServiceErrorHandler) {
+        const authError = new Error('Authentication required');
+        (authError as any).status = 401;
+        (authError as any).response = { status: 401 };
+        (authError as any).authenticationError = true;
+        
+        const handled = globalServiceErrorHandler(authError);
+        if (handled) {
+          return new Response(JSON.stringify({ 
+            error: 'Authentication required',
+            authenticationError: true,
+            redirectToLogin: true
+          }), { 
+            status: 401,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+      }
+      
       throw new Error('Authentication required');
     }
 
