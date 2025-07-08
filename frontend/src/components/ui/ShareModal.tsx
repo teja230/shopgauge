@@ -119,14 +119,23 @@ const ShareModal: React.FC<ShareModalProps> = ({
       }
       
       const timeRange = metrics?.timeRange || 'recent period';
-      const forecastText = metrics?.forecastPeriod && metrics?.forecastRevenue ? 
-        `\n🔮 AI Forecast (${metrics.forecastPeriod}): $${metrics.forecastRevenue.toLocaleString()}${metrics.confidenceScore ? ` (${Math.round(metrics.confidenceScore * 100)}% confidence)` : ''}` : '';
+      
+      // Create forecast text with proper labels for different metrics
+      let forecastText = '';
+      if (metrics?.forecastPeriod && shareSettings.includeForecasts) {
+        if (currentChart.includes('revenue') && metrics?.forecastRevenue) {
+          forecastText = `\n🔮 Total Revenue Forecast (${metrics.forecastPeriod}): $${metrics.forecastRevenue.toLocaleString()}${metrics.confidenceScore ? ` (${Math.round(metrics.confidenceScore * 100)}% confidence)` : ''}`;
+        } else if (currentChart.includes('order') && metrics?.forecastOrders) {
+          forecastText = `\n🔮 Total Orders Forecast (${metrics.forecastPeriod}): ${metrics.forecastOrders.toLocaleString()} orders${metrics.confidenceScore ? ` (${Math.round(metrics.confidenceScore * 100)}% confidence)` : ''}`;
+        } else if (currentChart.includes('conversion') && metrics?.conversion) {
+          forecastText = `\n🔮 Conversion Rate Forecast (${metrics.forecastPeriod}): ${(metrics.conversion * 100).toFixed(2)}%${metrics.confidenceScore ? ` (${Math.round(metrics.confidenceScore * 100)}% confidence)` : ''}`;
+        }
+      }
       
       const baseMessage = `🚀 ${storeName} ${chartContext}`;
       const analyticsText = shareSettings.includeAnalytics ? `\n📈 Period: ${timeRange}` : '';
-      const forecastTextToInclude = shareSettings.includeForecasts ? forecastText : '';
       
-      return `${baseMessage}${analyticsText}${forecastTextToInclude}\n\n🌐 Powered by ShopGauge: https://www.shopgaugeai.com`;
+      return `${baseMessage}${analyticsText}${forecastText}\n\n🌐 Powered by ShopGauge: https://www.shopgaugeai.com`;
     };
 
     try {
@@ -136,13 +145,13 @@ const ShareModal: React.FC<ShareModalProps> = ({
       
       switch (platform) {
         case 'linkedin': {
-          const linkedInUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent('https://www.shopgaugeai.com')}&title=${encodeURIComponent(chartTitle)}&summary=${encodeURIComponent(enhancedMessage)}`;
+          const linkedInUrl = `https://www.linkedin.com/sharing/share-offsite/?title=${encodeURIComponent(chartTitle)}&summary=${encodeURIComponent(enhancedMessage)}`;
           window.open(linkedInUrl, '_blank', 'width=600,height=400');
           break;
         }
           
         case 'twitter': {
-          const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(enhancedMessage)}&url=${encodeURIComponent('https://www.shopgaugeai.com')}`;
+          const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(enhancedMessage)}`;
           window.open(twitterUrl, '_blank', 'width=600,height=400');
           break;
         }
