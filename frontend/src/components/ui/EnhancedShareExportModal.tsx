@@ -254,6 +254,9 @@ const EnhancedShareExportModal: React.FC<EnhancedShareExportModalProps> = ({
 
       let canvas: HTMLCanvasElement;
       try {
+        // Wait briefly to ensure any animations have finished rendering
+        await new Promise(res => setTimeout(res, 600));
+        
         // Attempt precise SVG capture first
         canvas = await convertContainerSvgToCanvas(chartRef.current, scale);
         debugLog.info('SVG -> Canvas conversion succeeded', {}, 'EnhancedShareExportModal');
@@ -350,7 +353,9 @@ const EnhancedShareExportModal: React.FC<EnhancedShareExportModalProps> = ({
 
       let canvas: HTMLCanvasElement;
       try {
-        // Attempt precise SVG capture first
+        // Wait briefly to ensure animations finished
+        await new Promise(res => setTimeout(res, 600));
+        
         canvas = await convertContainerSvgToCanvas(chartRef.current, 2);
         debugLog.info('SVG -> Canvas conversion succeeded for PDF', {}, 'EnhancedShareExportModal');
       } catch (svgErr) {
