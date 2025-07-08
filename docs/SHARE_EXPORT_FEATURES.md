@@ -60,88 +60,83 @@ This document consolidates all implemented Share & Export functionality in ShopG
   - Configurable dimensions (800x600 default)
   - Direct clipboard integration
 
-### 3. Audit & Logging
+## Architecture
 
-#### Backend Audit System
-- **Endpoint**: `POST /api/audit/log`
+### Component Structure
+
+#### ShareModal
+- **Location**: `frontend/src/components/ui/ShareModal.tsx`
+- **Purpose**: Dedicated social sharing interface
 - **Features**:
-  - Session-based authentication
-  - Export and share action logging
-  - Detailed metadata capture
-  - Error handling and validation
+  - Social platform grid layout
+  - Chart-relevant messaging
+  - Share settings (analytics/forecasts inclusion)
+  - Audit logging
 
-#### Audit Statistics
-- **Endpoint**: `GET /api/audit/export-stats`
+#### ExportModal
+- **Location**: `frontend/src/components/ui/ExportModal.tsx`
+- **Purpose**: Dedicated file export interface
 - **Features**:
-  - Export counts by format
-  - Share counts by platform
-  - Historical usage tracking
+  - Format selection cards (PNG, PDF, Excel)
+  - Quality settings
+  - Export progress tracking
+  - Advanced options
 
-### 4. UI Components
+### Button Implementation
 
-#### EnhancedShareExportModal
-- **Location**: `frontend/src/components/ui/EnhancedShareExportModal.tsx`
-- **Features**:
-  - Tabbed interface (Share/Export)
-  - Progress indicators
-  - Quality and format selection
-  - Settings persistence
-  - Error handling and user feedback
+#### Separate Button Approach
+- **Share Button**: Blue gradient, opens ShareModal directly
+- **Export Button**: Green gradient, opens ExportModal directly
+- **Benefits**:
+  - Eliminates decision fatigue
+  - Clear, predictable interactions
+  - Focused single-purpose functionality
+  - No tabs or modal switching required
 
-#### Integration Points
-- **Classic View**: `RevenueChart.tsx` - Replaced SimpleShareModal
-- **Advanced View**: `PredictionViewContainer.tsx` - Enhanced modal integration
+### Integration Points
 
-## Technical Implementation
+#### Chart Components
+- **RevenueChart**: `frontend/src/components/ui/RevenueChart.tsx`
+- **PredictionViewContainer**: `frontend/src/components/ui/PredictionViewContainer.tsx`
+- **Implementation**: Separate state management for each modal
 
-### Frontend Dependencies
-```json
-{
-  "html2canvas-pro": "Enhanced SVG rendering",
-  "jspdf": "PDF generation",
-  "xlsx": "Excel file creation"
-}
+```typescript
+// Example implementation pattern
+const [shareModalOpen, setShareModalOpen] = useState(false);
+const [exportModalOpen, setExportModalOpen] = useState(false);
+
+// Share button handler
+const handleShare = () => setShareModalOpen(true);
+
+// Export button handler  
+const handleExport = () => setExportModalOpen(true);
 ```
 
-### Export Flow
-```mermaid
-graph TD
-    A[User Clicks Export] --> B[Select Format & Quality]
-    B --> C[Client-side Processing]
-    C --> D{Format Type}
-    D -->|PNG| E[html2canvas-pro]
-    D -->|PDF| F[jsPDF + Chart Canvas]
-    D -->|Excel| G[xlsx + Data Series]
-    E --> H[Direct Download]
-    F --> H
-    G --> H
-    H --> I[Audit Log]
-```
+## User Experience
 
-### Share Flow
-```mermaid
-graph TD
-    A[User Clicks Share] --> B[Select Platform]
-    B --> C[Generate Relevant Message]
-    C --> D[Platform-specific Sharing]
-    D --> E[Audit Log]
-    E --> F[Success Notification]
-```
+### Button Design
+- **Visual Distinction**: Different gradient colors (blue vs green)
+- **Clear Icons**: Share icon vs Download icon
+- **Consistent Placement**: Side-by-side positioning
+- **Hover Effects**: Subtle animations and color changes
 
-## Configuration Options
+### Modal Experience
+- **ShareModal**: Social-focused with platform grid
+- **ExportModal**: File-focused with format cards
+- **No Tab Switching**: Direct access to intended functionality
+- **Consistent Styling**: Matching design language
 
-### Export Settings
-- **Format**: PNG, PDF, Excel
-- **Quality**: Standard, High, Ultra (PNG/PDF only)
-- **Watermark**: ShopGauge branding (single link, no red background)
-- **Metadata**: Include chart information and metrics
-- **Data**: Include all data series (Excel only)
+## Settings & Configuration
 
 ### Share Settings
 - **Analytics**: Include analytics data in shares
 - **Forecasts**: Include AI predictions in shares
-- **Expiration**: 7, 30, 90, or 365 days for public links
-- **Access**: Public vs private sharing options
+
+### Export Settings
+- **Quality**: Standard, High, Ultra for PNG/PDF
+- **Watermark**: Optional ShopGauge branding
+- **Metadata**: Include chart information in exports
+- **Data Inclusion**: Full data series vs visible data only
 
 ## Security & Privacy
 
@@ -154,7 +149,6 @@ graph TD
 ### Privacy Features
 - **Watermark Control**: Optional ShopGauge branding
 - **Data Inclusion**: User controls what data to include
-- **Expiration Control**: Configurable link expiration
 - **Access Logging**: Full audit trail
 
 ## Error Handling
@@ -217,69 +211,25 @@ const exportSettings = {
 
 ### Social Sharing
 ```typescript
-// LinkedIn sharing with relevant message
+// LinkedIn sharing with analytics
 const shareSettings = {
-  platform: 'linkedin',
   includeAnalytics: true,
   includeForecasts: true
 };
 ```
 
-## Audit Logging
+## Migration Notes
 
-### Export Events
-```json
-{
-  "action": "export",
-  "type": "png|pdf|excel",
-  "details": {
-    "chartTitle": "Revenue Analytics",
-    "chartType": "revenue",
-    "quality": "high",
-    "filename": "store_revenue_2024-01-15.png"
-  }
-}
-```
-
-### Share Events
-```json
-{
-  "action": "share",
-  "type": "linkedin|twitter|email|public_link|embed_code",
-  "details": {
-    "chartTitle": "Revenue Analytics",
-    "chartType": "revenue",
-    "expirationDays": 30
-  }
-}
-```
+### From Tabbed Modal to Separate Modals
+- **Old**: Single modal with tabs for Share/Export
+- **New**: Dedicated ShareModal and ExportModal components
+- **Benefits**: Improved UX, clearer purpose, better performance
+- **Breaking Changes**: None - existing functionality preserved
 
 ## Future Enhancements
 
 ### Planned Features
-- **Shared Link Storage**: Backend implementation for public links
-- **Advanced Templates**: Custom PDF layouts and branding
-- **Bulk Operations**: Multi-chart exports and batch sharing
-- **Analytics Dashboard**: Detailed sharing analytics and ROI tracking
-
-### Technical Improvements
-- **Smart Compression**: AI-driven data compression
-- **Advanced Caching**: Intelligent cache invalidation
-- **Performance Monitoring**: Real-time export/share metrics
-- **Error Recovery**: Enhanced retry mechanisms
-
-## Troubleshooting
-
-### Common Issues
-1. **SVG Rendering Problems**: Enhanced html2canvas-pro with multiple fallback strategies
-2. **Large File Sizes**: Quality settings and automatic recommendations
-3. **Browser Compatibility**: Modern browsers (Chrome 80+, Firefox 75+, Safari 13+)
-4. **Permission Errors**: Clear guidance and alternative sharing methods
-
-### Support Resources
-- **Error Messages**: Detailed error descriptions with solutions
-- **User Feedback**: Success/error notifications for all operations
-- **Debug Logging**: Comprehensive logging for troubleshooting
-- **Fallback Mechanisms**: Multiple rendering strategies for reliability
-
-This implementation provides a robust, user-friendly share and export system with zero additional storage costs and comprehensive audit logging for compliance and analytics. 
+- **Template Selection**: Multiple PDF templates
+- **Scheduled Exports**: Automated report generation
+- **Batch Export**: Multiple charts at once
+- **Advanced Sharing**: Team collaboration features 

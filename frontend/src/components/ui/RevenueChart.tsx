@@ -747,19 +747,19 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
         </Typography>
         
         <Box sx={{ display: 'flex', gap: 0.5 }}>
-          <MuiTooltip title="Share Chart">
-            <IconButton
-              onClick={handleShareChart}
-              size="small"
-              sx={{
-                backgroundColor: 'primary.main',
-                color: 'primary.contrastText',
-                '&:hover': { backgroundColor: 'primary.dark' },
-              }}
-            >
-              <ShareIcon fontSize="small" />
-            </IconButton>
-          </MuiTooltip>
+        <MuiTooltip title="Share Chart">
+          <IconButton
+            onClick={handleShareChart}
+            size="small"
+            sx={{
+              backgroundColor: 'primary.main',
+              color: 'primary.contrastText',
+              '&:hover': { backgroundColor: 'primary.dark' },
+            }}
+          >
+            <ShareIcon fontSize="small" />
+          </IconButton>
+        </MuiTooltip>
           
           <MuiTooltip title="Export Chart">
             <IconButton

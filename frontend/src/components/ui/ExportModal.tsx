@@ -511,7 +511,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
           { Property: 'Export Time', Value: new Date().toLocaleString() },
           { Property: 'Sheets Created', Value: sheetsCreated },
           { Property: 'Total Data Points', Value: Array.isArray(data) ? data.length : 'N/A' },
-          { Property: 'Includes Forecasts', Value: data?.predictions ? 'Yes' : 'No' },
+          { Property: 'Includes Forecasts', Value: (data && typeof data === 'object' && !Array.isArray(data) && 'predictions' in data && (data as any).predictions) ? 'Yes' : 'No' },
         ];
         
         const metaWs = XLSX.utils.json_to_sheet(metadataSheet);
