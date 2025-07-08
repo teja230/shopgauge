@@ -139,7 +139,6 @@ const ShareModal: React.FC<ShareModalProps> = ({
     };
 
     try {
-      showInfo('Preparing your share...');
       
       const enhancedMessage = createRelevantMessage(platform);
       
@@ -164,19 +163,20 @@ const ShareModal: React.FC<ShareModalProps> = ({
         }
           
         case 'slack':
-          // Copy formatted message to clipboard for Slack
+          // Copy message and open Slack web app
           await navigator.clipboard.writeText(enhancedMessage);
           setCopiedToClipboard(true);
           showSuccess('Message copied! Paste into Slack');
           setTimeout(() => setCopiedToClipboard(false), 3000);
+          window.open('https://slack.com/app', '_blank');
           break;
-          
         case 'teams':
-          // Copy formatted message to clipboard for Teams
+          // Copy message and open Teams web app
           await navigator.clipboard.writeText(enhancedMessage);
           setCopiedToClipboard(true);
           showSuccess('Message copied! Paste into Teams');
           setTimeout(() => setCopiedToClipboard(false), 3000);
+          window.open('https://teams.microsoft.com/', '_blank');
           break;
           
         case 'copy':
