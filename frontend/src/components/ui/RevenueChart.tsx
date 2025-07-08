@@ -39,7 +39,8 @@ import {
   Download as DownloadIcon,
 } from '@mui/icons-material';
 import LoadingIndicator from './LoadingIndicator';
-import EnhancedShareExportModal from './EnhancedShareExportModal';
+import ShareModal from './ShareModal';
+import ExportModal from './ExportModal';
 import type { RevenuePoint, TooltipProps, ChartPayload } from '../../types/charts';
 import { debugLog } from './DebugPanel';
 import { useAuth } from '../../context/AuthContext';
@@ -898,15 +899,12 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
       </Box>
 
       {/* Share Modal */}
-      <EnhancedShareExportModal
+      <ShareModal
         open={shareModalOpen}
         onClose={() => setShareModalOpen(false)}
-        chartRef={chartRef}
         chartTitle="Revenue Chart"
         chartType="revenue"
         shopName={shop || undefined}
-        data={sanitizedData}
-        initialTab="share"
         metrics={{
           revenue: totalRevenue,
           timeRange: `${sanitizedData.length}d`,
@@ -914,7 +912,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
       />
       
       {/* Export Modal */}
-      <EnhancedShareExportModal
+      <ExportModal
         open={exportModalOpen}
         onClose={() => setExportModalOpen(false)}
         chartRef={chartRef}
@@ -922,7 +920,6 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
         chartType="revenue"
         shopName={shop || undefined}
         data={sanitizedData}
-        initialTab="export"
         metrics={{
           revenue: totalRevenue,
           timeRange: `${sanitizedData.length}d`,

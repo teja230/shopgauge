@@ -32,7 +32,8 @@ import { styled } from '@mui/material/styles';
 import RevenuePredictionChart from './RevenuePredictionChart';
 import OrderPredictionChart from './OrderPredictionChart';
 import ConversionPredictionChart from './ConversionPredictionChart';
-import EnhancedShareExportModal from './EnhancedShareExportModal';
+import ShareModal from './ShareModal';
+import ExportModal from './ExportModal';
 import { useAuth } from '../../context/AuthContext';
 import { UNIFIED_COLOR_SCHEME, getMobileOptimizedHeight } from './ChartStyles';
 
@@ -875,15 +876,12 @@ const PredictionViewContainer = memo(({
       
       {/* Enhanced Share & Export Modal */}
       {/* Share Modal */}
-      <EnhancedShareExportModal
+      <ShareModal
         open={shareModalOpen}
         onClose={() => setShareModalOpen(false)}
-        chartRef={chartRef}
         chartTitle={`${activeView.charAt(0).toUpperCase() + activeView.slice(1)} Analytics`}
         chartType={activeView}
         shopName={shop || undefined}
-        data={data}
-        initialTab="share"
         metrics={{
           revenue: data?.total_revenue,
           orders: data?.total_orders,
@@ -896,7 +894,7 @@ const PredictionViewContainer = memo(({
       />
       
       {/* Export Modal */}
-      <EnhancedShareExportModal
+      <ExportModal
         open={exportModalOpen}
         onClose={() => setExportModalOpen(false)}
         chartRef={chartRef}
@@ -904,7 +902,6 @@ const PredictionViewContainer = memo(({
         chartType={activeView}
         shopName={shop || undefined}
         data={data}
-        initialTab="export"
         metrics={{
           revenue: data?.total_revenue,
           orders: data?.total_orders,
