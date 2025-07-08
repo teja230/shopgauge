@@ -747,7 +747,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
         </Typography>
         
         <Box sx={{ display: 'flex', gap: 0.5 }}>
-        <MuiTooltip title="Share Chart">
+        <MuiTooltip title="Share">
           <IconButton
             onClick={handleShareChart}
             size="small"
@@ -761,7 +761,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
           </IconButton>
         </MuiTooltip>
           
-          <MuiTooltip title="Export Chart">
+          <MuiTooltip title="Export">
             <IconButton
               onClick={() => setExportModalOpen(true)}
               size="small"
