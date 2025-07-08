@@ -887,9 +887,9 @@ const PredictionViewContainer = memo(({
           orders: data?.total_orders,
           timeRange: `${predictionDays}d`,
           forecastPeriod: `${predictionDays} days`,
-          forecastRevenue: data?.predictions?.[0]?.revenue,
-          forecastOrders: data?.predictions?.[0]?.orders_count,
-          confidenceScore: data?.predictions?.[0]?.confidence_score,
+          forecastRevenue: data?.predictions?.slice(0, predictionDays).reduce((sum, p) => sum + (p.revenue || 0), 0),
+          forecastOrders: data?.predictions?.slice(0, predictionDays).reduce((sum, p) => sum + (p.orders_count || 0), 0),
+          confidenceScore: data?.predictions?.length > 0 ? data.predictions.reduce((sum, p) => sum + (p.confidence_score || 0), 0) / data.predictions.length : undefined,
         }}
       />
       
@@ -907,9 +907,9 @@ const PredictionViewContainer = memo(({
           orders: data?.total_orders,
           timeRange: `${predictionDays}d`,
           forecastPeriod: `${predictionDays} days`,
-          forecastRevenue: data?.predictions?.[0]?.revenue,
-          forecastOrders: data?.predictions?.[0]?.orders_count,
-          confidenceScore: data?.predictions?.[0]?.confidence_score,
+          forecastRevenue: data?.predictions?.slice(0, predictionDays).reduce((sum, p) => sum + (p.revenue || 0), 0),
+          forecastOrders: data?.predictions?.slice(0, predictionDays).reduce((sum, p) => sum + (p.orders_count || 0), 0),
+          confidenceScore: data?.predictions?.length > 0 ? data.predictions.reduce((sum, p) => sum + (p.confidence_score || 0), 0) / data.predictions.length : undefined,
         }}
       />
     </StyledCard>

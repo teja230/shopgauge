@@ -88,7 +88,7 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
   
   // Enable animations when forecasts are displayed
   const animateCharts = true;
-
+  
   // Better responsive height calculation - UPDATED for better visibility
   const optimizedHeight = useMemo(() => {
     if (isMobile) return Math.max(450, height); // Increased minimum from 350 to 450px on mobile
