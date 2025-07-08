@@ -371,20 +371,43 @@ const ExportModal: React.FC<ExportModalProps> = ({
 
   // Enhanced Excel export with multi-tab workbook
   const handleExportExcel = useCallback(async () => {
-    if (!data || !Array.isArray(data)) {
+    // Handle different data formats
+    let processedData: any[] = [];
+    
+    if (!data) {
       showError('No data available for Excel export');
+      return;
+    }
+    
+    // If data is an array (from RevenueChart), use it directly
+    if (Array.isArray(data)) {
+      processedData = data;
+    } 
+    // If data is an object with historical and predictions (from PredictionViewContainer)
+    else if (data && typeof data === 'object' && ('historical' in data || 'predictions' in data)) {
+      processedData = [
+        ...(data.historical || []),
+        ...(data.predictions || [])
+      ];
+    } else {
+      showError('Invalid data format for Excel export');
+      return;
+    }
+    
+    if (processedData.length === 0) {
+      showError('No data points available for Excel export');
       return;
     }
 
     setIsProcessing(true);
     setProgress(0);
     
-    debugLog.info('Starting enhanced Excel export', { 
-      filename: generateFilename(),
-      dataLength: data.length,
-      includeData: exportSettings.includeData,
-      includeMetadata: exportSettings.includeMetadata 
-    }, 'ExportModal');
+          debugLog.info('Starting enhanced Excel export', { 
+        filename: generateFilename(),
+        dataLength: processedData.length,
+        includeData: exportSettings.includeData,
+        includeMetadata: exportSettings.includeMetadata 
+      }, 'ExportModal');
     
     showInfo('Generating comprehensive Excel workbook...');
 
@@ -396,7 +419,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
 
       // Main data sheet
       if (exportSettings.includeData) {
-        const mainData = data.map((item: any, index: number) => ({
+        const mainData = processedData.map((item: any, index: number) => ({
           Date: item.date || item.created_at || `Day ${index + 1}`,
           Revenue: item.revenue || item.total_price || 0,
           Orders: item.orders_count || 0,
@@ -419,8 +442,8 @@ const ExportModal: React.FC<ExportModalProps> = ({
       }
 
       // Revenue forecast sheet
-      if (data.some((item: any) => item.isPrediction)) {
-        const revenueData = data
+      if (processedData.some((item: any) => item.isPrediction)) {
+        const revenueData = processedData
           .filter((item: any) => item.isPrediction)
           .map((item: any, index: number) => ({
             Date: item.date || `Forecast Day ${index + 1}`,
@@ -441,8 +464,8 @@ const ExportModal: React.FC<ExportModalProps> = ({
       }
 
       // Orders forecast sheet
-      if (data.some((item: any) => item.isPrediction && item.orders_count)) {
-        const ordersData = data
+      if (processedData.some((item: any) => item.isPrediction && item.orders_count)) {
+        const ordersData = processedData
           .filter((item: any) => item.isPrediction)
           .map((item: any, index: number) => ({
             Date: item.date || `Forecast Day ${index + 1}`,
@@ -463,8 +486,8 @@ const ExportModal: React.FC<ExportModalProps> = ({
       }
 
       // Conversion forecast sheet
-      if (data.some((item: any) => item.isPrediction && item.conversion_rate)) {
-        const conversionData = data
+      if (processedData.some((item: any) => item.isPrediction && item.conversion_rate)) {
+        const conversionData = processedData
           .filter((item: any) => item.isPrediction)
           .map((item: any, index: number) => ({
             Date: item.date || `Forecast Day ${index + 1}`,
@@ -510,8 +533,8 @@ const ExportModal: React.FC<ExportModalProps> = ({
           { Property: 'Export Date', Value: new Date().toISOString() },
           { Property: 'Export Time', Value: new Date().toLocaleString() },
           { Property: 'Sheets Created', Value: sheetsCreated },
-          { Property: 'Total Data Points', Value: Array.isArray(data) ? data.length : 'N/A' },
-          { Property: 'Includes Forecasts', Value: (data && typeof data === 'object' && !Array.isArray(data) && 'predictions' in data && (data as any).predictions) ? 'Yes' : 'No' },
+          { Property: 'Total Data Points', Value: processedData.length },
+          { Property: 'Includes Forecasts', Value: processedData.some((item: any) => item.isPrediction) ? 'Yes' : 'No' },
         ];
         
         const metaWs = XLSX.utils.json_to_sheet(metadataSheet);
