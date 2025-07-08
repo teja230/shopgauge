@@ -72,6 +72,7 @@ interface EnhancedShareExportModalProps {
   chartType?: string;
   shopName?: string;
   data?: any;
+  initialTab?: 'share' | 'export';
   metrics?: {
     revenue?: number;
     orders?: number;
@@ -127,6 +128,7 @@ const EnhancedShareExportModal: React.FC<EnhancedShareExportModalProps> = ({
   chartType = 'chart',
   shopName,
   data,
+  initialTab = 'share',
   metrics,
 }) => {
   const theme = useTheme();
@@ -134,7 +136,7 @@ const EnhancedShareExportModal: React.FC<EnhancedShareExportModalProps> = ({
   const { shop } = useAuth();
   
   // State management
-  const [activeTab, setActiveTab] = useState<'share' | 'export'>('share');
+  const [activeTab, setActiveTab] = useState<'share' | 'export'>(initialTab);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [copiedToClipboard, setCopiedToClipboard] = useState(false);
