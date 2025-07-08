@@ -36,6 +36,7 @@ import {
   StackedLineChart,
   Analytics,
   Share as ShareIcon,
+  Download as DownloadIcon,
 } from '@mui/icons-material';
 import LoadingIndicator from './LoadingIndicator';
 import EnhancedShareExportModal from './EnhancedShareExportModal';
@@ -260,6 +261,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
 }) => {
   const [chartType, setChartType] = useState<ChartType>('area');
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
   const chartRef = React.useRef<HTMLDivElement>(null);
   const { shop } = useAuth();
 
@@ -743,19 +745,35 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
           Revenue Chart
         </Typography>
         
-        <MuiTooltip title="Share Chart">
-          <IconButton
-            onClick={handleShareChart}
-            size="small"
-            sx={{
-              backgroundColor: 'primary.main',
-              color: 'primary.contrastText',
-              '&:hover': { backgroundColor: 'primary.dark' },
-            }}
-          >
-            <ShareIcon fontSize="small" />
-          </IconButton>
-        </MuiTooltip>
+        <Box sx={{ display: 'flex', gap: 0.5 }}>
+          <MuiTooltip title="Share Chart">
+            <IconButton
+              onClick={handleShareChart}
+              size="small"
+              sx={{
+                backgroundColor: 'primary.main',
+                color: 'primary.contrastText',
+                '&:hover': { backgroundColor: 'primary.dark' },
+              }}
+            >
+              <ShareIcon fontSize="small" />
+            </IconButton>
+          </MuiTooltip>
+          
+          <MuiTooltip title="Export Chart">
+            <IconButton
+              onClick={() => setExportModalOpen(true)}
+              size="small"
+              sx={{
+                backgroundColor: 'success.main',
+                color: 'success.contrastText',
+                '&:hover': { backgroundColor: 'success.dark' },
+              }}
+            >
+              <DownloadIcon fontSize="small" />
+            </IconButton>
+          </MuiTooltip>
+        </Box>
       </Box>
 
       {/* Enhanced Insights */}
@@ -879,7 +897,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
         )}
       </Box>
 
-      {/* Enhanced Share & Export Modal */}
+      {/* Share Modal */}
       <EnhancedShareExportModal
         open={shareModalOpen}
         onClose={() => setShareModalOpen(false)}
@@ -888,6 +906,23 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
         chartType="revenue"
         shopName={shop || undefined}
         data={sanitizedData}
+        initialTab="share"
+        metrics={{
+          revenue: totalRevenue,
+          timeRange: `${sanitizedData.length}d`,
+        }}
+      />
+      
+      {/* Export Modal */}
+      <EnhancedShareExportModal
+        open={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        chartRef={chartRef}
+        chartTitle="Revenue Chart"
+        chartType="revenue"
+        shopName={shop || undefined}
+        data={sanitizedData}
+        initialTab="export"
         metrics={{
           revenue: totalRevenue,
           timeRange: `${sanitizedData.length}d`,

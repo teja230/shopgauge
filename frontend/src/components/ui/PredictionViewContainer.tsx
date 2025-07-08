@@ -118,6 +118,7 @@ const PredictionViewContainer = memo(({
   const [activeView, setActiveView] = useState<PredictionView>('revenue');
   const [showPredictions, setShowPredictions] = useState(true);
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
   
   // Refs
   const chartRef = useRef<HTMLDivElement>(null);
@@ -428,27 +429,51 @@ const PredictionViewContainer = memo(({
               </Box>
             </Box>
             
-            <Tooltip title="Share Chart" arrow>
-              <IconButton
-                onClick={handleShareChart}
-                size="large"
-                sx={{
-                  background: 'linear-gradient(135deg, #2563eb 0%, #9333ea 100%)',
-                  color: 'white',
-                  width: 48,
-                  height: 48,
-                  boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)',
-                  '&:hover': { 
-                    background: 'linear-gradient(135deg, #1d4ed8 0%, #7c3aed 100%)',
-                    transform: 'translateY(-2px)',
-                    boxShadow: '0 6px 16px rgba(37, 99, 235, 0.4)',
-                  },
-                  transition: 'all 0.3s ease-in-out',
-                }}
-              >
-                <ShareIcon fontSize="medium" />
-              </IconButton>
-            </Tooltip>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Tooltip title="Share Chart" arrow>
+                <IconButton
+                  onClick={handleShareChart}
+                  size="large"
+                  sx={{
+                    background: 'linear-gradient(135deg, #2563eb 0%, #9333ea 100%)',
+                    color: 'white',
+                    width: 48,
+                    height: 48,
+                    boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)',
+                    '&:hover': { 
+                      background: 'linear-gradient(135deg, #1d4ed8 0%, #7c3aed 100%)',
+                      transform: 'translateY(-2px)',
+                      boxShadow: '0 6px 16px rgba(37, 99, 235, 0.4)',
+                    },
+                    transition: 'all 0.3s ease-in-out',
+                  }}
+                >
+                  <ShareIcon fontSize="medium" />
+                </IconButton>
+              </Tooltip>
+              
+              <Tooltip title="Export Chart" arrow>
+                <IconButton
+                  onClick={() => setExportModalOpen(true)}
+                  size="large"
+                  sx={{
+                    background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+                    color: 'white',
+                    width: 48,
+                    height: 48,
+                    boxShadow: '0 4px 12px rgba(5, 150, 105, 0.3)',
+                    '&:hover': { 
+                      background: 'linear-gradient(135deg, #047857 0%, #059669 100%)',
+                      transform: 'translateY(-2px)',
+                      boxShadow: '0 6px 16px rgba(5, 150, 105, 0.4)',
+                    },
+                    transition: 'all 0.3s ease-in-out',
+                  }}
+                >
+                  <DownloadIcon fontSize="medium" />
+                </IconButton>
+              </Tooltip>
+            </Box>
           </Box>
           
           {/* Controls */}
@@ -848,6 +873,7 @@ const PredictionViewContainer = memo(({
       </CardContent>
       
       {/* Enhanced Share & Export Modal */}
+      {/* Share Modal */}
       <EnhancedShareExportModal
         open={shareModalOpen}
         onClose={() => setShareModalOpen(false)}
@@ -856,6 +882,28 @@ const PredictionViewContainer = memo(({
         chartType={activeView}
         shopName={shop || undefined}
         data={data}
+        initialTab="share"
+        metrics={{
+          revenue: data?.total_revenue,
+          orders: data?.total_orders,
+          timeRange: `${predictionDays}d`,
+          forecastPeriod: `${predictionDays} days`,
+          forecastRevenue: data?.predictions?.[0]?.revenue,
+          forecastOrders: data?.predictions?.[0]?.orders_count,
+          confidenceScore: data?.predictions?.[0]?.confidence_score,
+        }}
+      />
+      
+      {/* Export Modal */}
+      <EnhancedShareExportModal
+        open={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        chartRef={chartRef}
+        chartTitle={`${activeView.charAt(0).toUpperCase() + activeView.slice(1)} Analytics`}
+        chartType={activeView}
+        shopName={shop || undefined}
+        data={data}
+        initialTab="export"
         metrics={{
           revenue: data?.total_revenue,
           orders: data?.total_orders,
