@@ -89,7 +89,7 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
   
   // Enable animations when forecasts are on
   const animateCharts = true;
-
+  
   // Better responsive height calculation - UPDATED for better visibility
   const optimizedHeight = useMemo(() => {
     if (isMobile) return Math.max(450, height); // Increased minimum from 350 to 450px on mobile

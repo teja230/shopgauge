@@ -107,7 +107,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
   
   // Enable animation when forecasts are shown or when chart type toggles
   const animateCharts = true;
-
+  
   // Better responsive height calculation - UPDATED for better visibility
   const optimizedHeight = useMemo(() => {
     if (isMobile) return Math.max(450, height); // Increased minimum from 350 to 450px on mobile

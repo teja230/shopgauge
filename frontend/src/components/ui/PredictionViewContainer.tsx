@@ -432,27 +432,27 @@ const PredictionViewContainer = memo(({
             </Box>
             
             <Box sx={{ display: 'flex', gap: 1 }}>
-              <Tooltip title="Share Chart" arrow>
-                <IconButton
-                  onClick={handleShareChart}
-                  size="large"
-                  sx={{
-                    background: 'linear-gradient(135deg, #2563eb 0%, #9333ea 100%)',
-                    color: 'white',
-                    width: 48,
-                    height: 48,
-                    boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)',
-                    '&:hover': { 
-                      background: 'linear-gradient(135deg, #1d4ed8 0%, #7c3aed 100%)',
-                      transform: 'translateY(-2px)',
-                      boxShadow: '0 6px 16px rgba(37, 99, 235, 0.4)',
-                    },
-                    transition: 'all 0.3s ease-in-out',
-                  }}
-                >
-                  <ShareIcon fontSize="medium" />
-                </IconButton>
-              </Tooltip>
+            <Tooltip title="Share Chart" arrow>
+              <IconButton
+                onClick={handleShareChart}
+                size="large"
+                sx={{
+                  background: 'linear-gradient(135deg, #2563eb 0%, #9333ea 100%)',
+                  color: 'white',
+                  width: 48,
+                  height: 48,
+                  boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)',
+                  '&:hover': { 
+                    background: 'linear-gradient(135deg, #1d4ed8 0%, #7c3aed 100%)',
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 6px 16px rgba(37, 99, 235, 0.4)',
+                  },
+                  transition: 'all 0.3s ease-in-out',
+                }}
+              >
+                <ShareIcon fontSize="medium" />
+              </IconButton>
+            </Tooltip>
               
               <Tooltip title="Export Chart" arrow>
                 <IconButton
@@ -833,40 +833,40 @@ const PredictionViewContainer = memo(({
         {/* Chart - Allow natural sizing to prevent cutoff */}
         <Box 
           sx={{ 
-            flex: 1, 
-            position: 'relative',
+          flex: 1, 
+          position: 'relative',
             overflow: 'visible', // Allow chart to be fully visible
-            height: chartHeight,
-            minHeight: chartHeight,
-            mt: 1,
+          height: chartHeight,
+          minHeight: chartHeight,
+          mt: 1,
             mb: 2, // Restore bottom margin for better spacing
             backgroundColor: 'background.paper', // Match container background
             borderRadius: 1,
-            // Mobile-specific optimizations
-            ...(isMobile && {
-              width: '100%',
+          // Mobile-specific optimizations
+          ...(isMobile && {
+            width: '100%',
               maxWidth: '100%',
               overflowX: 'auto', // Enable horizontal scrolling on mobile
               overflowY: 'auto', // Enable vertical scrolling on mobile
-            }),
+          }),
           }}
         >
           <Box
             ref={chartRef}
             sx={{ 
-              width: '100%',
-              height: '100%',
+            width: '100%',
+            height: '100%',
               p: 1, // Add small padding for better appearance
-              // Ensure chart has enough space to render properly
-              display: 'flex',
-              flexDirection: 'column',
+            // Ensure chart has enough space to render properly
+            display: 'flex',
+            flexDirection: 'column',
               backgroundColor: 'background.paper', // Consistent background
-              // Mobile browser compatibility
-              ...(isMobile && {
-                touchAction: 'pan-y',
+            // Mobile browser compatibility
+            ...(isMobile && {
+              touchAction: 'pan-y',
                 overflowX: 'auto', // Enable horizontal scrolling inside inner box on mobile
                 overflowY: 'auto', // Enable vertical scrolling inside inner box on mobile
-              }),
+            }),
             }}
           >
             {renderChart()}
