@@ -474,7 +474,7 @@ const EnhancedShareExportModal: React.FC<EnhancedShareExportModalProps> = ({
     }
   }, [chartRef, exportSettings, generateFilename, shopName, chartTitle, chartType, metrics, theme, showInfo, showSuccess, showError]);
 
-  // Excel export functionality
+  // Enhanced Excel export with multi-tab support for Revenue, Orders, and Conversion
   const handleExportExcel = useCallback(async () => {
     if (!data) {
       showError('No data available for Excel export');
@@ -484,47 +484,104 @@ const EnhancedShareExportModal: React.FC<EnhancedShareExportModalProps> = ({
     setIsProcessing(true);
     setProgress(0);
     
-    debugLog.info('Starting Excel export', { 
+    debugLog.info('Starting enhanced Excel export', { 
       filename: generateFilename(),
       chartType,
       dataLength: Array.isArray(data) ? data.length : 'unknown'
     }, 'EnhancedShareExportModal');
     
-    showInfo('Generating Excel file with chart data...');
+    showInfo('Generating comprehensive Excel workbook...');
 
     try {
-      setProgress(25);
+      setProgress(20);
 
       // Create workbook
       const wb = XLSX.utils.book_new();
       
-      // Prepare data based on chart type and structure
-      let exportData: any[] = [];
-      let sheetName = 'Chart Data';
-      
-      if (Array.isArray(data)) {
-        exportData = data;
-      } else if (data.historical && Array.isArray(data.historical)) {
-        // Advanced analytics data structure
-        exportData = [...data.historical];
+      // Helper function to create data for each metric type
+      const createMetricData = (metricType: 'revenue' | 'orders' | 'conversion') => {
+        let historicalData: any[] = [];
+        let forecastData: any[] = [];
         
-        if (data.predictions && Array.isArray(data.predictions)) {
-          exportData = [...exportData, ...data.predictions.map((item: any) => ({
-            ...item,
-            isPrediction: true
-          }))];
+        if (Array.isArray(data)) {
+          // Simple array format
+          historicalData = data.map(item => ({
+            date: item.date || item.x,
+            [metricType]: item[metricType] || item.y || item.value || 0,
+            type: 'Historical'
+          }));
+        } else if (data.historical && Array.isArray(data.historical)) {
+          // Advanced analytics format
+          historicalData = data.historical.map((item: any) => ({
+            date: item.date || item.x,
+            [metricType]: item[metricType] || item.y || item.value || 0,
+            type: 'Historical'
+          }));
+          
+          if (data.predictions && Array.isArray(data.predictions)) {
+            forecastData = data.predictions.map((item: any) => ({
+              date: item.date || item.x,
+              [metricType]: item[metricType] || item.y || item.value || 0,
+              type: 'Forecast',
+              confidence: item.confidence_score || item.confidence || 0
+            }));
+          }
         }
         
-        sheetName = 'Analytics Data';
-      } else {
-        throw new Error('Unsupported data format for Excel export');
+        return [...historicalData, ...forecastData];
+      };
+
+      setProgress(40);
+
+      // Create separate sheets for each metric type
+      const metricTypes = ['revenue', 'orders', 'conversion'] as const;
+      let sheetsCreated = 0;
+      
+      for (const metricType of metricTypes) {
+        const metricData = createMetricData(metricType);
+        
+        if (metricData.length > 0) {
+          const sheetName = metricType.charAt(0).toUpperCase() + metricType.slice(1);
+          const ws = XLSX.utils.json_to_sheet(metricData);
+          
+          // Add column headers with better formatting
+          const headers = ['Date', sheetName, 'Type'];
+          if (metricType === 'revenue') headers.push('Forecast Confidence');
+          if (metricType === 'orders') headers.push('Forecast Confidence');
+          if (metricType === 'conversion') headers.push('Forecast Confidence');
+          
+          // Set column widths
+          ws['!cols'] = [
+            { width: 12 }, // Date
+            { width: 15 }, // Metric value
+            { width: 10 }, // Type
+            { width: 18 }  // Confidence
+          ];
+          
+          XLSX.utils.book_append_sheet(wb, ws, sheetName);
+          sheetsCreated++;
+        }
       }
 
-      setProgress(50);
+      setProgress(60);
 
-      // Create main data sheet
-      const ws = XLSX.utils.json_to_sheet(exportData);
-      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      // Create summary sheet with key metrics
+      const summaryData = [
+        { Metric: 'Total Revenue', Value: metrics?.revenue ? `$${metrics.revenue.toLocaleString()}` : 'N/A' },
+        { Metric: 'Total Orders', Value: metrics?.orders ? metrics.orders.toLocaleString() : 'N/A' },
+        { Metric: 'Conversion Rate', Value: metrics?.conversion ? `${(metrics.conversion * 100).toFixed(2)}%` : 'N/A' },
+        { Metric: 'Time Period', Value: metrics?.timeRange || 'N/A' },
+        { Metric: 'Forecast Period', Value: metrics?.forecastPeriod || 'N/A' },
+        { Metric: 'Forecast Revenue', Value: metrics?.forecastRevenue ? `$${metrics.forecastRevenue.toLocaleString()}` : 'N/A' },
+        { Metric: 'Forecast Orders', Value: metrics?.forecastOrders ? metrics.forecastOrders.toLocaleString() : 'N/A' },
+        { Metric: 'AI Confidence', Value: metrics?.confidenceScore ? `${Math.round(metrics.confidenceScore * 100)}%` : 'N/A' },
+      ];
+      
+      const summaryWs = XLSX.utils.json_to_sheet(summaryData);
+      summaryWs['!cols'] = [{ width: 20 }, { width: 25 }];
+      XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary');
+
+      setProgress(75);
 
       // Add metadata sheet if enabled
       if (exportSettings.includeMetadata) {
@@ -533,38 +590,31 @@ const EnhancedShareExportModal: React.FC<EnhancedShareExportModalProps> = ({
           { Property: 'Chart Type', Value: chartType },
           { Property: 'Shop Name', Value: shopName || 'N/A' },
           { Property: 'Export Date', Value: new Date().toISOString() },
-          { Property: 'Time Range', Value: metrics?.timeRange || 'N/A' },
-          { Property: 'Total Records', Value: exportData.length },
+          { Property: 'Export Time', Value: new Date().toLocaleString() },
+          { Property: 'Sheets Created', Value: sheetsCreated },
+          { Property: 'Total Data Points', Value: Array.isArray(data) ? data.length : 'N/A' },
+          { Property: 'Includes Forecasts', Value: data?.predictions ? 'Yes' : 'No' },
         ];
         
-        if (metrics?.revenue) {
-          metadataSheet.push({ Property: 'Total Revenue', Value: `$${metrics.revenue.toLocaleString()}` });
-        }
-        if (metrics?.orders) {
-          metadataSheet.push({ Property: 'Total Orders', Value: metrics.orders.toLocaleString() });
-        }
-        if (metrics?.conversion) {
-          metadataSheet.push({ Property: 'Conversion Rate', Value: `${(metrics.conversion * 100).toFixed(2)}%` });
-        }
-        
         const metaWs = XLSX.utils.json_to_sheet(metadataSheet);
+        metaWs['!cols'] = [{ width: 20 }, { width: 30 }];
         XLSX.utils.book_append_sheet(wb, metaWs, 'Metadata');
       }
 
-      setProgress(75);
+      setProgress(90);
 
       // Save file
-      const filename = `${generateFilename()}.xlsx`;
+      const filename = `${generateFilename()}_comprehensive.xlsx`;
       XLSX.writeFile(wb, filename);
 
       setProgress(100);
-      showSuccess('Excel file exported successfully!');
+      showSuccess(`Excel workbook exported with ${sheetsCreated + 1} sheets!`);
       
       // Log audit event
       await logAuditEvent('export', 'excel', { 
         chartTitle, 
         chartType, 
-        recordCount: exportData.length,
+        sheetsCreated: sheetsCreated + 1,
         filename 
       });
 
@@ -773,202 +823,217 @@ const EnhancedShareExportModal: React.FC<EnhancedShareExportModalProps> = ({
           },
         }}
       >
-        <DialogTitle>
+        <DialogTitle sx={{ 
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          color: 'white',
+          borderRadius: '8px 8px 0 0'
+        }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <ShareIcon sx={{ mr: 1, color: 'primary.main' }} />
-              <Typography variant="h6" fontWeight={600}>
-                Share & Export Chart
-              </Typography>
+              <ShareIcon sx={{ mr: 1.5, fontSize: 28 }} />
+              <Box>
+                <Typography variant="h5" fontWeight={700}>
+                  Share & Export
+                </Typography>
+                <Typography variant="body2" sx={{ opacity: 0.9, mt: 0.5 }}>
+                  {chartTitle} • {shopName || 'Analytics Dashboard'}
+                </Typography>
+              </Box>
             </Box>
-            <IconButton onClick={onClose} size="small">
+            <IconButton 
+              onClick={onClose} 
+              size="small"
+              sx={{ 
+                color: 'white',
+                '&:hover': { backgroundColor: 'rgba(255,255,255,0.1)' }
+              }}
+            >
               <CloseIcon />
             </IconButton>
           </Box>
         </DialogTitle>
 
-        <DialogContent>
+        <DialogContent sx={{ p: 0 }}>
           {/* Tab Navigation */}
           <Tabs 
             value={activeTab} 
             onChange={(_, newValue) => setActiveTab(newValue)}
-            sx={{ mb: 3 }}
+            sx={{ 
+              borderBottom: 1, 
+              borderColor: 'divider',
+              '& .MuiTab-root': {
+                minHeight: 64,
+                fontSize: '1rem',
+                fontWeight: 600,
+                textTransform: 'none',
+                '&.Mui-selected': {
+                  color: 'primary.main',
+                  fontWeight: 700
+                }
+              }
+            }}
           >
             <Tab 
-              label="Share" 
+              label="Share Socially" 
               value="share"
               icon={<ShareIcon />}
               iconPosition="start"
+              sx={{ flex: 1 }}
             />
             <Tab 
-              label="Export" 
+              label="Export Files" 
               value="export"
               icon={<DownloadIcon />}
               iconPosition="start"
+              sx={{ flex: 1 }}
             />
           </Tabs>
-
-          {/* Share Tab */}
-          {activeTab === 'share' && (
-            <Box>
-              {/* Share Settings */}
-              <Card sx={{ mb: 3 }}>
-                <CardContent>
-                  <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-                    Share Settings
-                  </Typography>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={shareSettings.includeAnalytics}
-                          onChange={(e) => setShareSettings(prev => ({ ...prev, includeAnalytics: e.target.checked }))}
-                        />
-                      }
-                      label="Include analytics data"
-                    />
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={shareSettings.includeForecasts}
-                          onChange={(e) => setShareSettings(prev => ({ ...prev, includeForecasts: e.target.checked }))}
-                        />
-                      }
-                      label="Include AI forecasts"
-                    />
-
-                  </Box>
-                </CardContent>
-              </Card>
-
-              {/* Social Media Sharing */}
+          
+          <Box sx={{ p: 3 }}>
+                        {/* Share Tab */}
+            {activeTab === 'share' && (
               <Box>
-                <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-                  Social Media & Platforms
+                {/* Quick Share Options */}
+                <Typography variant="h6" fontWeight={600} gutterBottom sx={{ mb: 2 }}>
+                  Share Your Insights
                 </Typography>
                 
-                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    startIcon={<LinkedInIcon />}
-                    onClick={() => handleSocialShare('linkedin')}
-                  >
-                    LinkedIn
-                  </Button>
-                  
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    startIcon={<TwitterIcon />}
-                    onClick={() => handleSocialShare('twitter')}
-                  >
-                    Twitter
-                  </Button>
-                  
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    startIcon={<EmailIcon />}
-                    onClick={() => handleSocialShare('email')}
-                  >
-                    Email
-                  </Button>
-                  
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    startIcon={<SlackLogoIcon fontSize="small" />}
-                    onClick={() => handleSocialShare('slack')}
-                  >
-                    Slack
-                  </Button>
-                  
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    startIcon={<TeamsLogoIcon fontSize="small" />}
-                    onClick={() => handleSocialShare('teams')}
-                  >
-                    Teams
-                  </Button>
-                  
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    startIcon={copiedToClipboard ? <CheckIcon /> : <ContentCopyIcon />}
-                    onClick={() => handleSocialShare('copy')}
-                    color={copiedToClipboard ? 'success' : 'primary'}
-                  >
-                    {copiedToClipboard ? 'Copied!' : 'Copy Link'}
-                  </Button>
+                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 2, mb: 3 }}>
+                  {[
+                    { platform: 'linkedin', icon: LinkedInIcon, label: 'LinkedIn', color: '#0077B5', desc: 'Professional network' },
+                    { platform: 'twitter', icon: TwitterIcon, label: 'Twitter', color: '#1DA1F2', desc: 'Social media' },
+                    { platform: 'email', icon: EmailIcon, label: 'Email', color: '#EA4335', desc: 'Send via email' },
+                    { platform: 'slack', icon: SlackLogoIcon, label: 'Slack', color: '#4A154B', desc: 'Team workspace' },
+                    { platform: 'teams', icon: TeamsLogoIcon, label: 'Teams', color: '#6264A7', desc: 'Microsoft Teams' },
+                    { platform: 'copy', icon: ContentCopyIcon, label: copiedToClipboard ? 'Copied!' : 'Copy Link', color: '#666', desc: 'Copy to clipboard' }
+                  ].map((item) => (
+                    <Card 
+                      key={item.platform}
+                      sx={{ 
+                        cursor: 'pointer',
+                        '&:hover': { 
+                          transform: 'translateY(-2px)',
+                          boxShadow: 3,
+                          borderColor: item.color
+                        },
+                        transition: 'all 0.2s ease',
+                        border: '1px solid',
+                        borderColor: 'divider'
+                      }}
+                      onClick={() => handleSocialShare(item.platform)}
+                    >
+                      <CardContent sx={{ textAlign: 'center', p: 2 }}>
+                        <item.icon sx={{ fontSize: 32, color: item.color, mb: 1 }} />
+                        <Typography variant="subtitle2" fontWeight={600}>
+                          {item.label}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {item.desc}
+                        </Typography>
+                      </CardContent>
+                    </Card>
+                  ))}
                 </Box>
+
+                {/* Share Settings */}
+                <Card>
+                  <CardContent>
+                    <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+                      Share Settings
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={shareSettings.includeAnalytics}
+                            onChange={(e) => setShareSettings(prev => ({ ...prev, includeAnalytics: e.target.checked }))}
+                          />
+                        }
+                        label="Include analytics data in message"
+                      />
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={shareSettings.includeForecasts}
+                            onChange={(e) => setShareSettings(prev => ({ ...prev, includeForecasts: e.target.checked }))}
+                          />
+                        }
+                        label="Include AI forecasts in message"
+                      />
+                    </Box>
+                  </CardContent>
+                </Card>
               </Box>
-            </Box>
-          )}
+            )}
 
           {/* Export Tab */}
           {activeTab === 'export' && (
             <Box>
-              {/* Export Settings */}
+              {/* Format Selection Cards */}
+              <Typography variant="h6" fontWeight={600} gutterBottom sx={{ mb: 2 }}>
+                Choose Export Format
+              </Typography>
+              
+              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 2, mb: 3 }}>
+                {[
+                  { value: 'png', icon: PhotoCameraIcon, title: 'PNG Image', desc: 'High-quality chart image' },
+                  { value: 'pdf', icon: PdfIcon, title: 'PDF Report', desc: 'Professional business document' },
+                  { value: 'excel', icon: ExcelIcon, title: 'Excel Workbook', desc: 'Multi-tab data analysis' }
+                ].map((format) => (
+                  <Card 
+                    key={format.value}
+                    sx={{ 
+                      cursor: 'pointer',
+                      border: exportSettings.format === format.value ? 2 : 1,
+                      borderColor: exportSettings.format === format.value ? 'primary.main' : 'divider',
+                      '&:hover': { borderColor: 'primary.main', transform: 'translateY(-2px)' },
+                      transition: 'all 0.2s ease'
+                    }}
+                    onClick={() => setExportSettings(prev => ({ ...prev, format: format.value as any }))}
+                  >
+                    <CardContent sx={{ textAlign: 'center', p: 2 }}>
+                      <format.icon sx={{ fontSize: 40, color: 'primary.main', mb: 1 }} />
+                      <Typography variant="subtitle1" fontWeight={600}>
+                        {format.title}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {format.desc}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                ))}
+              </Box>
+
+              {/* Quality Settings */}
+              {(exportSettings.format === 'png' || exportSettings.format === 'pdf') && (
+                <Card sx={{ mb: 3 }}>
+                  <CardContent>
+                    <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+                      Quality Settings
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      {QUALITY_OPTIONS.map(option => (
+                        <Chip
+                          key={option.value}
+                          label={option.label}
+                          variant={exportSettings.quality === option.value ? 'filled' : 'outlined'}
+                          color={exportSettings.quality === option.value ? 'primary' : 'default'}
+                          onClick={() => setExportSettings(prev => ({ ...prev, quality: option.value as any }))}
+                          sx={{ cursor: 'pointer' }}
+                        />
+                      ))}
+                    </Box>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Export Options */}
               <Card sx={{ mb: 3 }}>
                 <CardContent>
                   <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-                    Export Settings
+                    Export Options
                   </Typography>
-                  
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <FormControl size="small" sx={{ minWidth: 200 }}>
-                      <InputLabel>Export Format</InputLabel>
-                      <Select
-                        value={exportSettings.format}
-                        onChange={(e) => setExportSettings(prev => ({ ...prev, format: e.target.value as any }))}
-                        label="Export Format"
-                      >
-                        <MenuItem value="png">
-                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                            <PhotoCameraIcon sx={{ mr: 1 }} />
-                            PNG Image
-                          </Box>
-                        </MenuItem>
-                        <MenuItem value="pdf">
-                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                            <PdfIcon sx={{ mr: 1 }} />
-                            PDF Report
-                          </Box>
-                        </MenuItem>
-                        <MenuItem value="excel">
-                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                            <ExcelIcon sx={{ mr: 1 }} />
-                            Excel Data
-                          </Box>
-                        </MenuItem>
-                      </Select>
-                    </FormControl>
-
-                    {(exportSettings.format === 'png' || exportSettings.format === 'pdf') && (
-                      <FormControl size="small" sx={{ minWidth: 200 }}>
-                        <InputLabel>Quality</InputLabel>
-                        <Select
-                          value={exportSettings.quality}
-                          onChange={(e) => setExportSettings(prev => ({ ...prev, quality: e.target.value as any }))}
-                          label="Quality"
-                        >
-                          {QUALITY_OPTIONS.map(option => (
-                            <MenuItem key={option.value} value={option.value}>
-                              <Box>
-                                <Typography variant="body2" fontWeight={500}>
-                                  {option.label}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                  {option.description}
-                                </Typography>
-                              </Box>
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    )}
+                                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
 
                     <FormControlLabel
                       control={
@@ -1052,11 +1117,24 @@ const EnhancedShareExportModal: React.FC<EnhancedShareExportModalProps> = ({
               <LinearProgress variant="determinate" value={progress} />
             </Box>
           )}
+          </Box>
         </DialogContent>
 
-        <DialogActions sx={{ px: 3, pb: 3 }}>
-          <Button onClick={onClose} color="inherit">
-            Cancel
+        <DialogActions sx={{ 
+          px: 3, 
+          py: 2, 
+          borderTop: 1, 
+          borderColor: 'divider',
+          backgroundColor: 'grey.50',
+          justifyContent: 'space-between'
+        }}>
+          <Button 
+            onClick={onClose} 
+            variant="outlined"
+            color="inherit"
+            sx={{ minWidth: 100 }}
+          >
+            Close
           </Button>
           
           {activeTab === 'export' && (
@@ -1064,10 +1142,24 @@ const EnhancedShareExportModal: React.FC<EnhancedShareExportModalProps> = ({
               variant="contained"
               onClick={handleExport}
               disabled={isProcessing}
-              startIcon={isProcessing ? <CircularProgress size={16} /> : <DownloadIcon />}
+              startIcon={isProcessing ? <CircularProgress size={18} color="inherit" /> : <DownloadIcon />}
+              size="large"
+              sx={{ 
+                minWidth: 180,
+                background: 'linear-gradient(45deg, #667eea 30%, #764ba2 90%)',
+                '&:hover': {
+                  background: 'linear-gradient(45deg, #5a6fd8 30%, #6a4190 90%)',
+                }
+              }}
             >
               {isProcessing ? 'Processing...' : `Export ${exportSettings.format.toUpperCase()}`}
             </Button>
+          )}
+          
+          {activeTab === 'share' && (
+            <Typography variant="body2" color="text.secondary">
+              Select a platform above to share your insights
+            </Typography>
           )}
         </DialogActions>
       </Dialog>
