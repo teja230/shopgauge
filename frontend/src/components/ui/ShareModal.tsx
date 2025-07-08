@@ -260,7 +260,7 @@ const ShareModal: React.FC<ShareModalProps> = ({
               <ShareIcon sx={{ mr: 1.5, fontSize: 28 }} />
               <Box>
                 <Typography variant="h5" fontWeight={700}>
-                  Share Chart
+                  Share
                 </Typography>
                 <Typography variant="body2" sx={{ opacity: 0.9, mt: 0.5 }}>
                   {chartTitle} • {shopName || 'Analytics Dashboard'}

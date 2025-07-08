@@ -432,7 +432,7 @@ const PredictionViewContainer = memo(({
             </Box>
             
             <Box sx={{ display: 'flex', gap: 1 }}>
-            <Tooltip title="Share Chart" arrow>
+            <Tooltip title="Share" arrow>
               <IconButton
                 onClick={handleShareChart}
                 size="large"
@@ -454,7 +454,7 @@ const PredictionViewContainer = memo(({
               </IconButton>
             </Tooltip>
               
-              <Tooltip title="Export Chart" arrow>
+              <Tooltip title="Export" arrow>
                 <IconButton
                   onClick={() => setExportModalOpen(true)}
                   size="large"
