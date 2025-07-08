@@ -25,6 +25,7 @@ import {
   Percent,
   Psychology,
   Share as ShareIcon,
+  Download as DownloadIcon,
   Refresh,
 } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
