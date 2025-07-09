@@ -84,7 +84,7 @@ import {
   Storefront as StorefrontIcon,
   MonitorHeart as MonitorHeartIcon,
 } from '@mui/icons-material';
-import { fetchWithAuth } from '../api';
+
 import { adminLogin, adminLogout, getAdminStatus } from '../api/admin';
 import { useAuth } from '../context/AuthContext';
 import { styled } from '@mui/material/styles';
@@ -371,7 +371,26 @@ const AdminPage: React.FC = () => {
   // Helper functions for admin endpoints
   const fetchAdminEndpoint = async (endpoint: string) => {
     try {
-      const response = await fetchWithAuth(endpoint);
+      // Use admin authentication instead of Shopify authentication
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+      const fullUrl = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
+      
+      const response = await fetch(fullUrl, {
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Admin authentication required');
+        }
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Admin endpoint error: ${response.status}`);
+      }
+      
       return await response.json();
     } catch (error) {
       console.error(`Admin endpoint error (${endpoint}):`, error);
@@ -381,7 +400,28 @@ const AdminPage: React.FC = () => {
 
   const fetchEmergencyEndpoint = async (endpoint: string, options?: RequestInit) => {
     try {
-      const response = await fetchWithAuth(`/api/emergency${endpoint}`, options);
+      // Use admin authentication for emergency endpoints
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+      const fullUrl = `${API_BASE_URL}/api/emergency${endpoint}`;
+      
+      const response = await fetch(fullUrl, {
+        ...options,
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          ...options?.headers,
+        },
+      });
+      
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Admin authentication required');
+        }
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Emergency endpoint error: ${response.status}`);
+      }
+      
       return await response.json();
     } catch (error) {
       console.error(`Emergency endpoint error (${endpoint}):`, error);
@@ -876,7 +916,18 @@ const AdminPage: React.FC = () => {
     setConnectionLeakError(null);
     
     try {
-      const response = await fetchWithAuth('/api/health/connection-leak-status');
+      // Use admin authentication for health endpoints
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+      const fullUrl = `${API_BASE_URL}/api/health/connection-leak-status`;
+      
+      const response = await fetch(fullUrl, {
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+      });
+      
       if (response.ok) {
         const data = await response.json();
         setConnectionLeakStatus(data);
@@ -925,8 +976,17 @@ const AdminPage: React.FC = () => {
     setEmergencyCleanupInProgress(true);
     
     try {
-      const response = await fetchWithAuth('/api/health/emergency-cleanup', {
-        method: 'POST'
+      // Use admin authentication for health endpoints
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+      const fullUrl = `${API_BASE_URL}/api/health/emergency-cleanup`;
+      
+      const response = await fetch(fullUrl, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
       });
       
       if (response.ok) {
