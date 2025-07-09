@@ -108,7 +108,14 @@ services:
     staticPublishPath: dist
     autoDeployTrigger: "on"
     rootDir: frontend
-    # Let _redirects file handle routing instead of render.yaml routes
+    # Configure redirects for SPA routing
+    redirects:
+      - source: "/api/*"
+        destination: "https://storesight-backend.onrender.com/api/:splat"
+        action: "rewrite"
+      - source: "/*"
+        destination: "/index.html"
+        action: "rewrite"
 
   - type: keyvalue
     name: storesight-redis
