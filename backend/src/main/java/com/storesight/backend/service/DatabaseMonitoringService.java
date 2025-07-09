@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Value;
 
 @Service
 public class DatabaseMonitoringService {
@@ -40,6 +41,12 @@ public class DatabaseMonitoringService {
   private static final long WARNING_DURATION_MS = 30000; // 30 seconds
   private static final long CONNECTION_LEAK_THRESHOLD = 15000; // 15 seconds for leak detection
 
+  @Value("${health.database.monitoring.interval:120000}")
+  private long monitoringInterval;
+
+  @Value("${health.database.connection.timeout:5000}")
+  private int connectionTimeout;
+
   @Autowired
   public DatabaseMonitoringService(
       DataSource dataSource,
@@ -52,7 +59,7 @@ public class DatabaseMonitoringService {
     this.notificationService = notificationService;
   }
 
-  @Scheduled(fixedRate = 30000) // Run every 30 seconds
+  @Scheduled(fixedRateString = "${health.database.monitoring.interval:120000}")
   public void monitorDatabaseHealth() {
     // Circuit breaker check
     if (circuitBreakerOpen) {
@@ -114,7 +121,7 @@ public class DatabaseMonitoringService {
       // Only test connection if we have idle connections and usage is below emergency threshold
       if (idleConnections > 0 && activeUsageRatio < EMERGENCY_USAGE_THRESHOLD) {
         try (Connection connection = hikariDataSource.getConnection()) {
-          boolean isValid = connection.isValid(3); // Reduced timeout to 3 seconds
+          boolean isValid = connection.isValid(connectionTimeout / 1000); // Use configurable timeout
           metrics.put("connectionValid", isValid);
 
           if (isValid) {
@@ -170,7 +177,7 @@ public class DatabaseMonitoringService {
 
   private void monitorBasicConnectionHealth() {
     try (Connection connection = dataSource.getConnection()) {
-      boolean isValid = connection.isValid(3); // Reduced timeout
+      boolean isValid = connection.isValid(connectionTimeout / 1000); // Use configurable timeout
       if (isValid) {
         consecutiveFailures = 0;
         if (lastConnectionFailureTime > 0) {

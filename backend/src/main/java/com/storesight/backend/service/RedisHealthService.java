@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Value;
 
 @Service
 public class RedisHealthService {
@@ -25,13 +26,19 @@ public class RedisHealthService {
   private static final int MAX_CONSECUTIVE_FAILURES = 3;
   private static final String HEALTH_CHECK_KEY = "redis:health:check";
 
+  @Value("${health.redis.monitoring.interval:180000}")
+  private long monitoringInterval;
+
+  @Value("${health.redis.connection.timeout:3000}")
+  private int connectionTimeout;
+
   @Autowired
   public RedisHealthService(StringRedisTemplate redisTemplate) {
     this.redisTemplate = redisTemplate;
   }
 
   /** Check Redis health periodically */
-  @Scheduled(fixedRate = 60000) // Every minute
+  @Scheduled(fixedRateString = "${health.redis.monitoring.interval:180000}")
   public void checkRedisHealth() {
     try {
       // Simple ping test
