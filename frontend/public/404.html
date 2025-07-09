@@ -462,9 +462,14 @@
           var validRoutes = ['/dashboard', '/competitors', '/admin', '/profile', '/privacy-policy'];
           var cleanPath = path.split('?')[0].split('#')[0];
           
-          if (validRoutes.includes(cleanPath)) {
+          // Check for valid routes including sub-routes
+          var isValidRoute = validRoutes.some(function(route) {
+            return cleanPath === route || cleanPath.startsWith(route + '/');
+          });
+          
+          if (isValidRoute) {
             // Valid route ended up here - redirect immediately without showing 404
-            console.log('404: Valid route detected, redirecting immediately');
+            console.log('404: Valid route detected, redirecting immediately to main app');
             
             // Hide the 404 content immediately
             if (document.body && document.body.style) {
