@@ -29,6 +29,7 @@ public class ShopService {
   private final ShopSessionRepository shopSessionRepository;
   private final StringRedisTemplate redisTemplate;
   private final AsyncSessionService asyncSessionService;
+  private final TransactionMonitoringService transactionMonitoringService;
 
   // Redis key patterns for backward compatibility and caching
   private static final String SHOP_TOKEN_PREFIX = "shop_token:";
@@ -47,11 +48,13 @@ public class ShopService {
       ShopRepository shopRepository,
       ShopSessionRepository shopSessionRepository,
       StringRedisTemplate redisTemplate,
-      AsyncSessionService asyncSessionService) {
+      AsyncSessionService asyncSessionService,
+      TransactionMonitoringService transactionMonitoringService) {
     this.shopRepository = shopRepository;
     this.shopSessionRepository = shopSessionRepository;
     this.redisTemplate = redisTemplate;
     this.asyncSessionService = asyncSessionService;
+    this.transactionMonitoringService = transactionMonitoringService;
   }
 
   @PostConstruct
@@ -95,40 +98,53 @@ public class ShopService {
   @Transactional(timeout = 10) // Reduced from 15s to 10s for faster connection release
   public ShopSession saveShop(
       String shopifyDomain, String accessToken, String sessionId, HttpServletRequest request) {
-    logger.info("Saving shop: {} for session: {}", shopifyDomain, sessionId);
+    long start = System.currentTimeMillis();
+    try {
+      logger.info("Saving shop: {} for session: {}", shopifyDomain, sessionId);
 
-    // Validate and ensure we have a valid sessionId
-    String validSessionId = sessionId;
-    if (validSessionId == null || validSessionId.trim().isEmpty()) {
-      validSessionId =
-          "fallback_" + System.currentTimeMillis() + "_" + Math.abs(shopifyDomain.hashCode());
-      logger.warn(
-          "Generated fallback sessionId for shop: {} - original was null/empty", shopifyDomain);
+      // Validate and ensure we have a valid sessionId
+      String validSessionId = sessionId;
+      if (validSessionId == null || validSessionId.trim().isEmpty()) {
+        validSessionId =
+            "fallback_" + System.currentTimeMillis() + "_" + Math.abs(shopifyDomain.hashCode());
+        logger.warn(
+            "Generated fallback sessionId for shop: {} - original was null/empty", shopifyDomain);
+      }
+
+      // Find or create shop - optimized single query
+      Shop shop =
+          shopRepository
+              .findByShopifyDomain(shopifyDomain)
+              .orElseGet(
+                  () -> {
+                    Shop newShop = new Shop(shopifyDomain, accessToken);
+                    return shopRepository.save(newShop);
+                  });
+
+      // Update shop's main access token (most recent one)
+      shop.setAccessToken(accessToken);
+      shop = shopRepository.save(shop);
+
+      // CRITICAL: Enforce session limit BEFORE creating new session
+      enforceSessionLimitSync(shop, validSessionId);
+
+      // Create or update session (optimized to minimize transaction time)
+      ShopSession session = createOrUpdateSession(shop, validSessionId, accessToken, request);
+
+      logger.info(
+          "Shop and session saved successfully: {} with session: {}",
+          shopifyDomain,
+          validSessionId);
+      transactionMonitoringService.recordSuccess("saveShop", System.currentTimeMillis() - start);
+      return session;
+    } catch (Exception e) {
+      transactionMonitoringService.recordFailure(
+          "saveShop",
+          e.getClass().getSimpleName(),
+          e.getMessage(),
+          System.currentTimeMillis() - start);
+      throw e;
     }
-
-    // Find or create shop - optimized single query
-    Shop shop =
-        shopRepository
-            .findByShopifyDomain(shopifyDomain)
-            .orElseGet(
-                () -> {
-                  Shop newShop = new Shop(shopifyDomain, accessToken);
-                  return shopRepository.save(newShop);
-                });
-
-    // Update shop's main access token (most recent one)
-    shop.setAccessToken(accessToken);
-    shop = shopRepository.save(shop);
-
-    // CRITICAL: Enforce session limit BEFORE creating new session
-    enforceSessionLimitSync(shop, validSessionId);
-
-    // Create or update session (optimized to minimize transaction time)
-    ShopSession session = createOrUpdateSession(shop, validSessionId, accessToken, request);
-
-    logger.info(
-        "Shop and session saved successfully: {} with session: {}", shopifyDomain, validSessionId);
-    return session;
   }
 
   /**
@@ -207,243 +223,295 @@ public class ShopService {
   /** Backward compatibility method */
   @Transactional
   public void saveShop(String shopifyDomain, String accessToken, String sessionId) {
-    // Validate and ensure we have a valid sessionId
-    String validSessionId = sessionId;
-    if (validSessionId == null || validSessionId.trim().isEmpty()) {
-      validSessionId =
-          "fallback_" + System.currentTimeMillis() + "_" + Math.abs(shopifyDomain.hashCode());
-      logger.warn(
-          "Generated fallback sessionId for shop: {} - original was null/empty", shopifyDomain);
-    }
+    long start = System.currentTimeMillis();
+    try {
+      // Validate and ensure we have a valid sessionId
+      String validSessionId = sessionId;
+      if (validSessionId == null || validSessionId.trim().isEmpty()) {
+        validSessionId =
+            "fallback_" + System.currentTimeMillis() + "_" + Math.abs(shopifyDomain.hashCode());
+        logger.warn(
+            "Generated fallback sessionId for shop: {} - original was null/empty", shopifyDomain);
+      }
 
-    saveShop(shopifyDomain, accessToken, validSessionId, null);
+      saveShop(shopifyDomain, accessToken, validSessionId, null);
+      transactionMonitoringService.recordSuccess(
+          "saveShop_compat", System.currentTimeMillis() - start);
+    } catch (Exception e) {
+      transactionMonitoringService.recordFailure(
+          "saveShop_compat",
+          e.getClass().getSimpleName(),
+          e.getMessage(),
+          System.currentTimeMillis() - start);
+      throw e;
+    }
   }
 
   /** Get access token for a specific shop and session - Reactive version */
   public Mono<String> getTokenForShopReactive(String shopifyDomain, String sessionId) {
-    logger.debug("Getting token for shop: {} and session: {}", shopifyDomain, sessionId);
-
-    if (sessionId == null) {
-      return getTokenForShopFallbackReactive(shopifyDomain);
-    }
-
-    // Try Redis cache first with proper error handling
-    String cachedToken = null;
+    long start = System.currentTimeMillis();
     try {
-      cachedToken =
-          redisTemplate.opsForValue().get(SHOP_TOKEN_PREFIX + shopifyDomain + ":" + sessionId);
-      if (cachedToken != null) {
-        logger.debug(
-            "Found token in Redis cache for shop: {} and session: {}", shopifyDomain, sessionId);
-        // FIXED: Update last accessed time asynchronously to avoid transaction violations
-        updateSessionLastAccessedAsync(sessionId);
-        return Mono.just(cachedToken);
+      logger.debug("Getting token for shop: {} and session: {}", shopifyDomain, sessionId);
+
+      if (sessionId == null) {
+        return getTokenForShopFallbackReactive(shopifyDomain);
       }
+
+      // Try Redis cache first with proper error handling
+      String cachedToken = null;
+      try {
+        cachedToken =
+            redisTemplate.opsForValue().get(SHOP_TOKEN_PREFIX + shopifyDomain + ":" + sessionId);
+        if (cachedToken != null) {
+          logger.debug(
+              "Found token in Redis cache for shop: {} and session: {}", shopifyDomain, sessionId);
+          // FIXED: Update last accessed time asynchronously to avoid transaction violations
+          updateSessionLastAccessedAsync(sessionId);
+          transactionMonitoringService.recordSuccess(
+              "getTokenForShopReactive", System.currentTimeMillis() - start);
+          return Mono.just(cachedToken);
+        }
+      } catch (Exception e) {
+        logger.warn(
+            "Redis unavailable for reactive token lookup - falling back to database: {}",
+            e.getMessage());
+        // Continue to database lookup
+      }
+
+      // Try database using reactive pattern
+      return Mono.fromCallable(
+              () ->
+                  shopSessionRepository.findActiveSessionByShopDomainAndSessionId(
+                      shopifyDomain, sessionId))
+          .publishOn(Schedulers.boundedElastic())
+          .flatMap(
+              sessionOpt -> {
+                if (sessionOpt.isPresent()) {
+                  ShopSession session = sessionOpt.get();
+                  String token = session.getAccessToken();
+
+                  // FIXED: Update last accessed time asynchronously to avoid transaction violations
+                  updateSessionLastAccessedAsync(sessionId);
+
+                  // Cache for future requests
+                  cacheShopSession(shopifyDomain, sessionId, token);
+                  transactionMonitoringService.recordSuccess(
+                      "getTokenForShopReactive", System.currentTimeMillis() - start);
+                  return Mono.just(token);
+                }
+
+                // Fallback to most recent active session for this shop
+                logger.warn(
+                    "No specific session found, trying fallback for shop: {} and session: {}",
+                    shopifyDomain,
+                    sessionId);
+                transactionMonitoringService.recordSuccess(
+                    "getTokenForShopReactive", System.currentTimeMillis() - start);
+                return getTokenForShopFallbackReactive(shopifyDomain);
+              });
     } catch (Exception e) {
-      logger.warn(
-          "Redis unavailable for reactive token lookup - falling back to database: {}",
-          e.getMessage());
-      // Continue to database lookup
+      transactionMonitoringService.recordFailure(
+          "getTokenForShopReactive",
+          e.getClass().getSimpleName(),
+          e.getMessage(),
+          System.currentTimeMillis() - start);
+      throw e;
     }
-
-    // Try database using reactive pattern
-    return Mono.fromCallable(
-            () ->
-                shopSessionRepository.findActiveSessionByShopDomainAndSessionId(
-                    shopifyDomain, sessionId))
-        .publishOn(Schedulers.boundedElastic())
-        .flatMap(
-            sessionOpt -> {
-              if (sessionOpt.isPresent()) {
-                ShopSession session = sessionOpt.get();
-                String token = session.getAccessToken();
-
-                // FIXED: Update last accessed time asynchronously to avoid transaction violations
-                updateSessionLastAccessedAsync(sessionId);
-
-                // Cache for future requests
-                cacheShopSession(shopifyDomain, sessionId, token);
-                return Mono.just(token);
-              }
-
-              // Fallback to most recent active session for this shop
-              logger.warn(
-                  "No specific session found, trying fallback for shop: {} and session: {}",
-                  shopifyDomain,
-                  sessionId);
-              return getTokenForShopFallbackReactive(shopifyDomain);
-            });
   }
 
   /** Enhanced token retrieval with improved Redis caching strategy */
   @Transactional(readOnly = true, timeout = 5) // Reduced timeout for read-only operations
   public String getTokenForShop(String shopifyDomain, String sessionId) {
-    logger.debug("Getting token for shop: {} and session: {}", shopifyDomain, sessionId);
-
-    if (sessionId == null) {
-      return getTokenForShopFallback(shopifyDomain);
-    }
-
-    // Try Redis cache first with improved error handling
-    String cachedToken = null;
+    long start = System.currentTimeMillis();
     try {
-      cachedToken =
-          redisTemplate.opsForValue().get(SHOP_TOKEN_PREFIX + shopifyDomain + ":" + sessionId);
-      if (cachedToken != null) {
-        logger.debug(
-            "Found token in Redis cache for shop: {} and session: {}", shopifyDomain, sessionId);
-        // CRITICAL FIX: Update last accessed time asynchronously OUTSIDE the read-only transaction
-        // This prevents read-only transaction violations
-        updateSessionLastAccessedAsync(sessionId);
-        return cachedToken;
+      logger.debug("Getting token for shop: {} and session: {}", shopifyDomain, sessionId);
+
+      if (sessionId == null) {
+        return getTokenForShopFallback(shopifyDomain);
       }
-    } catch (Exception e) {
+
+      // Try Redis cache first with improved error handling
+      String cachedToken = null;
+      try {
+        cachedToken =
+            redisTemplate.opsForValue().get(SHOP_TOKEN_PREFIX + shopifyDomain + ":" + sessionId);
+        if (cachedToken != null) {
+          logger.debug(
+              "Found token in Redis cache for shop: {} and session: {}", shopifyDomain, sessionId);
+          // CRITICAL FIX: Update last accessed time asynchronously OUTSIDE the read-only
+          // transaction
+          // This prevents read-only transaction violations
+          updateSessionLastAccessedAsync(sessionId);
+          transactionMonitoringService.recordSuccess(
+              "getTokenForShop", System.currentTimeMillis() - start);
+          return cachedToken;
+        }
+      } catch (Exception e) {
+        logger.warn(
+            "Redis unavailable for token lookup - falling back to database: {}", e.getMessage());
+      }
+
+      // Try database with read-only transaction - NO UPDATES ALLOWED HERE
+      Optional<ShopSession> sessionOpt =
+          shopSessionRepository.findActiveSessionByShopDomainAndSessionId(shopifyDomain, sessionId);
+
+      if (sessionOpt.isPresent()) {
+        ShopSession session = sessionOpt.get();
+        String token = session.getAccessToken();
+
+        // CRITICAL FIX: Update last accessed time asynchronously OUTSIDE the read-only transaction
+        // This runs in a separate thread pool and transaction context
+        updateSessionLastAccessedAsync(sessionId);
+
+        // Cache for future requests with extended TTL
+        cacheShopSessionWithExtendedTTL(shopifyDomain, sessionId, token);
+
+        logger.debug(
+            "Found token in database for shop: {} and session: {}", shopifyDomain, sessionId);
+        transactionMonitoringService.recordSuccess(
+            "getTokenForShop", System.currentTimeMillis() - start);
+        return token;
+      }
+
+      // Fallback to most recent active session for this shop
       logger.warn(
-          "Redis unavailable for token lookup - falling back to database: {}", e.getMessage());
+          "No specific session found, trying fallback for shop: {} and session: {}",
+          shopifyDomain,
+          sessionId);
+      transactionMonitoringService.recordSuccess(
+          "getTokenForShop", System.currentTimeMillis() - start);
+      return getTokenForShopFallback(shopifyDomain);
+    } catch (Exception e) {
+      transactionMonitoringService.recordFailure(
+          "getTokenForShop",
+          e.getClass().getSimpleName(),
+          e.getMessage(),
+          System.currentTimeMillis() - start);
+      throw e;
     }
-
-    // Try database with read-only transaction - NO UPDATES ALLOWED HERE
-    Optional<ShopSession> sessionOpt =
-        shopSessionRepository.findActiveSessionByShopDomainAndSessionId(shopifyDomain, sessionId);
-
-    if (sessionOpt.isPresent()) {
-      ShopSession session = sessionOpt.get();
-      String token = session.getAccessToken();
-
-      // CRITICAL FIX: Update last accessed time asynchronously OUTSIDE the read-only transaction
-      // This runs in a separate thread pool and transaction context
-      updateSessionLastAccessedAsync(sessionId);
-
-      // Cache for future requests with extended TTL
-      cacheShopSessionWithExtendedTTL(shopifyDomain, sessionId, token);
-
-      logger.debug(
-          "Found token in database for shop: {} and session: {}", shopifyDomain, sessionId);
-      return token;
-    }
-
-    // Fallback to most recent active session for this shop
-    logger.warn(
-        "No specific session found, trying fallback for shop: {} and session: {}",
-        shopifyDomain,
-        sessionId);
-    return getTokenForShopFallback(shopifyDomain);
   }
 
   /** Get token for shop without specific session (fallback method) - Reactive version */
   private Mono<String> getTokenForShopFallbackReactive(String shopifyDomain) {
-    logger.debug("Getting fallback token for shop: {}", shopifyDomain);
-
-    // Try Redis cache (shop-only key) with proper error handling
+    long start = System.currentTimeMillis();
     try {
-      String cachedToken = redisTemplate.opsForValue().get(SHOP_TOKEN_PREFIX + shopifyDomain);
-      if (cachedToken != null) {
-        logger.debug("Found fallback token in Redis for shop: {}", shopifyDomain);
-        return Mono.just(cachedToken);
+      logger.debug("Getting fallback token for shop: {}", shopifyDomain);
+
+      // Try Redis cache (shop-only key) with proper error handling
+      try {
+        String cachedToken = redisTemplate.opsForValue().get(SHOP_TOKEN_PREFIX + shopifyDomain);
+        if (cachedToken != null) {
+          logger.debug("Found fallback token in Redis for shop: {}", shopifyDomain);
+          transactionMonitoringService.recordSuccess(
+              "getTokenForShopFallbackReactive", System.currentTimeMillis() - start);
+          return Mono.just(cachedToken);
+        }
+      } catch (Exception e) {
+        logger.warn(
+            "Redis unavailable for reactive fallback token lookup - continuing to database: {}",
+            e.getMessage());
+        // Continue to database lookup
       }
-    } catch (Exception e) {
-      logger.warn(
-          "Redis unavailable for reactive fallback token lookup - continuing to database: {}",
-          e.getMessage());
-      // Continue to database lookup
-    }
 
-    // Try most recent active session from database
-    return Mono.fromCallable(
-            () -> shopSessionRepository.findMostRecentActiveSessionByDomain(shopifyDomain))
-        .publishOn(Schedulers.boundedElastic())
-        .flatMap(
-            recentSessionOpt -> {
-              if (recentSessionOpt.isPresent()) {
-                ShopSession session = recentSessionOpt.get();
-                String token = session.getAccessToken();
+      // Try most recent active session from database
+      return Mono.fromCallable(
+              () -> shopSessionRepository.findMostRecentActiveSessionByDomain(shopifyDomain))
+          .publishOn(Schedulers.boundedElastic())
+          .flatMap(
+              recentSessionOpt -> {
+                if (recentSessionOpt.isPresent()) {
+                  ShopSession session = recentSessionOpt.get();
+                  String token = session.getAccessToken();
 
-                // FIXED: Update last accessed time asynchronously to avoid transaction violations
-                updateSessionLastAccessedAsync(session.getSessionId());
+                  // FIXED: Update last accessed time asynchronously to avoid transaction violations
+                  updateSessionLastAccessedAsync(session.getSessionId());
 
-                // Cache for future requests
-                redisTemplate
-                    .opsForValue()
-                    .set(
-                        SHOP_TOKEN_PREFIX + shopifyDomain,
-                        token,
-                        java.time.Duration.ofMinutes(REDIS_CACHE_TTL_MINUTES));
-                return Mono.just(token);
-              }
+                  // Cache for future requests
+                  redisTemplate
+                      .opsForValue()
+                      .set(
+                          SHOP_TOKEN_PREFIX + shopifyDomain,
+                          token,
+                          java.time.Duration.ofMinutes(REDIS_CACHE_TTL_MINUTES));
+                  transactionMonitoringService.recordSuccess(
+                      "getTokenForShopFallbackReactive", System.currentTimeMillis() - start);
+                  return Mono.just(token);
+                }
 
-              // Fallback to shop's main token
-              return Mono.fromCallable(() -> shopRepository.findByShopifyDomain(shopifyDomain))
-                  .publishOn(Schedulers.boundedElastic())
-                  .map(
-                      shopOpt -> {
-                        if (shopOpt.isPresent()) {
-                          String token = shopOpt.get().getAccessToken();
-                          if (token != null) {
-                            // Cache for future requests
-                            redisTemplate
-                                .opsForValue()
-                                .set(
-                                    SHOP_TOKEN_PREFIX + shopifyDomain,
-                                    token,
-                                    java.time.Duration.ofMinutes(REDIS_CACHE_TTL_MINUTES));
+                // Fallback to shop's main token
+                return Mono.fromCallable(() -> shopRepository.findByShopifyDomain(shopifyDomain))
+                    .publishOn(Schedulers.boundedElastic())
+                    .map(
+                        shopOpt -> {
+                          if (shopOpt.isPresent()) {
+                            String token = shopOpt.get().getAccessToken();
+                            if (token != null) {
+                              // Cache for future requests
+                              redisTemplate
+                                  .opsForValue()
+                                  .set(
+                                      SHOP_TOKEN_PREFIX + shopifyDomain,
+                                      token,
+                                      java.time.Duration.ofMinutes(REDIS_CACHE_TTL_MINUTES));
 
-                            logger.debug(
-                                "Found fallback token from shop for shop: {}", shopifyDomain);
-                            return token;
+                              logger.debug(
+                                  "Found fallback token from shop for shop: {}", shopifyDomain);
+                              transactionMonitoringService.recordSuccess(
+                                  "getTokenForShopFallbackReactive",
+                                  System.currentTimeMillis() - start);
+                              return token;
+                            }
                           }
-                        }
-                        logger.warn("No token found for shop: {}", shopifyDomain);
-                        return null;
-                      });
-            });
+                          logger.warn("No token found for shop: {}", shopifyDomain);
+                          transactionMonitoringService.recordSuccess(
+                              "getTokenForShopFallbackReactive",
+                              System.currentTimeMillis() - start);
+                          return null;
+                        });
+              });
+    } catch (Exception e) {
+      transactionMonitoringService.recordFailure(
+          "getTokenForShopFallbackReactive",
+          e.getClass().getSimpleName(),
+          e.getMessage(),
+          System.currentTimeMillis() - start);
+      throw e;
+    }
   }
 
   /** Get token for shop without specific session (fallback method) - Blocking version */
   private String getTokenForShopFallback(String shopifyDomain) {
-    logger.debug("Getting fallback token for shop: {}", shopifyDomain);
-
-    // Try Redis cache (shop-only key) with proper error handling
+    long start = System.currentTimeMillis();
     try {
-      String cachedToken = redisTemplate.opsForValue().get(SHOP_TOKEN_PREFIX + shopifyDomain);
-      if (cachedToken != null) {
-        logger.debug("Found fallback token in Redis for shop: {}", shopifyDomain);
-        return cachedToken;
+      logger.debug("Getting fallback token for shop: {}", shopifyDomain);
+
+      // Try Redis cache (shop-only key) with proper error handling
+      try {
+        String cachedToken = redisTemplate.opsForValue().get(SHOP_TOKEN_PREFIX + shopifyDomain);
+        if (cachedToken != null) {
+          logger.debug("Found fallback token in Redis for shop: {}", shopifyDomain);
+          transactionMonitoringService.recordSuccess(
+              "getTokenForShopFallback", System.currentTimeMillis() - start);
+          return cachedToken;
+        }
+      } catch (Exception e) {
+        logger.warn(
+            "Redis unavailable for fallback token lookup - continuing to database: {}",
+            e.getMessage());
+        // Continue to database lookup
       }
-    } catch (Exception e) {
-      logger.warn(
-          "Redis unavailable for fallback token lookup - continuing to database: {}",
-          e.getMessage());
-      // Continue to database lookup
-    }
 
-    // Try most recent active session from database
-    Optional<ShopSession> recentSessionOpt =
-        shopSessionRepository.findMostRecentActiveSessionByDomain(shopifyDomain);
+      // Try most recent active session from database
+      Optional<ShopSession> recentSessionOpt =
+          shopSessionRepository.findMostRecentActiveSessionByDomain(shopifyDomain);
 
-    if (recentSessionOpt.isPresent()) {
-      ShopSession session = recentSessionOpt.get();
-      String token = session.getAccessToken();
+      if (recentSessionOpt.isPresent()) {
+        ShopSession session = recentSessionOpt.get();
+        String token = session.getAccessToken();
 
-      // FIXED: Update last accessed time asynchronously to avoid read-only transaction violation
-      updateSessionLastAccessedAsync(session.getSessionId());
+        // FIXED: Update last accessed time asynchronously to avoid read-only transaction violation
+        updateSessionLastAccessedAsync(session.getSessionId());
 
-      // Cache for future requests
-      redisTemplate
-          .opsForValue()
-          .set(
-              SHOP_TOKEN_PREFIX + shopifyDomain,
-              token,
-              java.time.Duration.ofMinutes(REDIS_CACHE_TTL_MINUTES));
-
-      logger.debug("Found fallback token from most recent session for shop: {}", shopifyDomain);
-      return token;
-    }
-
-    // Fallback to shop's main token
-    Optional<Shop> shopOpt = shopRepository.findByShopifyDomain(shopifyDomain);
-    if (shopOpt.isPresent()) {
-      String token = shopOpt.get().getAccessToken();
-      if (token != null) {
         // Cache for future requests
         redisTemplate
             .opsForValue()
@@ -452,95 +520,201 @@ public class ShopService {
                 token,
                 java.time.Duration.ofMinutes(REDIS_CACHE_TTL_MINUTES));
 
-        logger.debug("Found fallback token from shop for shop: {}", shopifyDomain);
+        logger.debug("Found fallback token from most recent session for shop: {}", shopifyDomain);
+        transactionMonitoringService.recordSuccess(
+            "getTokenForShopFallback", System.currentTimeMillis() - start);
         return token;
       }
-    }
 
-    logger.warn("No token found for shop: {}", shopifyDomain);
-    return null;
+      // Fallback to shop's main token
+      Optional<Shop> shopOpt = shopRepository.findByShopifyDomain(shopifyDomain);
+      if (shopOpt.isPresent()) {
+        String token = shopOpt.get().getAccessToken();
+        if (token != null) {
+          // Cache for future requests
+          redisTemplate
+              .opsForValue()
+              .set(
+                  SHOP_TOKEN_PREFIX + shopifyDomain,
+                  token,
+                  java.time.Duration.ofMinutes(REDIS_CACHE_TTL_MINUTES));
+
+          logger.debug("Found fallback token from shop for shop: {}", shopifyDomain);
+          transactionMonitoringService.recordSuccess(
+              "getTokenForShopFallback", System.currentTimeMillis() - start);
+          return token;
+        }
+      }
+
+      logger.warn("No token found for shop: {}", shopifyDomain);
+      transactionMonitoringService.recordSuccess(
+          "getTokenForShopFallback", System.currentTimeMillis() - start);
+      return null;
+    } catch (Exception e) {
+      transactionMonitoringService.recordFailure(
+          "getTokenForShopFallback",
+          e.getClass().getSimpleName(),
+          e.getMessage(),
+          System.currentTimeMillis() - start);
+      throw e;
+    }
   }
 
   /** Remove/deactivate a specific session */
   @Transactional
   public void removeSession(String shopifyDomain, String sessionId) {
-    logger.info("Deactivating session for shop: {} and session: {}", shopifyDomain, sessionId);
-
+    long start = System.currentTimeMillis();
     try {
-      // Deactivate in database
-      shopSessionRepository.deactivateSession(sessionId);
+      logger.info("Deactivating session for shop: {} and session: {}", shopifyDomain, sessionId);
 
-      // Remove from Redis cache
-      redisTemplate.delete(SHOP_TOKEN_PREFIX + shopifyDomain + ":" + sessionId);
+      try {
+        // Deactivate in database
+        shopSessionRepository.deactivateSession(sessionId);
 
-      // Update active sessions list
-      updateActiveSessionsList(shopifyDomain);
+        // Remove from Redis cache
+        redisTemplate.delete(SHOP_TOKEN_PREFIX + shopifyDomain + ":" + sessionId);
 
-      logger.info("Session deactivated: {} for shop: {}", sessionId, shopifyDomain);
+        // Update active sessions list
+        updateActiveSessionsList(shopifyDomain);
+
+        logger.info("Session deactivated: {} for shop: {}", sessionId, shopifyDomain);
+        transactionMonitoringService.recordSuccess(
+            "removeSession", System.currentTimeMillis() - start);
+      } catch (Exception e) {
+        logger.error(
+            "Error deactivating session {} for shop {}: {}",
+            sessionId,
+            shopifyDomain,
+            e.getMessage(),
+            e);
+        // Don't propagate the exception to avoid causing HTTP session issues
+        transactionMonitoringService.recordFailure(
+            "removeSession",
+            e.getClass().getSimpleName(),
+            e.getMessage(),
+            System.currentTimeMillis() - start);
+      }
     } catch (Exception e) {
-      logger.error(
-          "Error deactivating session {} for shop {}: {}",
-          sessionId,
-          shopifyDomain,
+      transactionMonitoringService.recordFailure(
+          "removeSession",
+          e.getClass().getSimpleName(),
           e.getMessage(),
-          e);
-      // Don't propagate the exception to avoid causing HTTP session issues
+          System.currentTimeMillis() - start);
+      throw e;
     }
   }
 
   /** Remove/deactivate all sessions for a shop (complete logout) */
   @Transactional
   public void removeAllSessionsForShop(String shopifyDomain) {
-    logger.info("Deactivating all sessions for shop: {}", shopifyDomain);
-
+    long start = System.currentTimeMillis();
     try {
-      Optional<Shop> shopOpt = shopRepository.findByShopifyDomain(shopifyDomain);
-      if (shopOpt.isPresent()) {
-        Shop shop = shopOpt.get();
+      logger.info("Deactivating all sessions for shop: {}", shopifyDomain);
 
-        // Deactivate all sessions in database
-        shopSessionRepository.deactivateAllSessionsForShop(shop);
+      try {
+        Optional<Shop> shopOpt = shopRepository.findByShopifyDomain(shopifyDomain);
+        if (shopOpt.isPresent()) {
+          Shop shop = shopOpt.get();
 
-        // Clear Redis cache
-        clearShopCache(shopifyDomain);
+          // Deactivate all sessions in database
+          shopSessionRepository.deactivateAllSessionsForShop(shop);
 
-        logger.info("All sessions deactivated for shop: {}", shopifyDomain);
-      } else {
-        logger.warn("Shop not found for session cleanup: {}", shopifyDomain);
+          // Clear Redis cache
+          clearShopCache(shopifyDomain);
+
+          logger.info("All sessions deactivated for shop: {}", shopifyDomain);
+          transactionMonitoringService.recordSuccess(
+              "removeAllSessionsForShop", System.currentTimeMillis() - start);
+        } else {
+          logger.warn("Shop not found for session cleanup: {}", shopifyDomain);
+          transactionMonitoringService.recordSuccess(
+              "removeAllSessionsForShop", System.currentTimeMillis() - start);
+        }
+      } catch (Exception e) {
+        logger.error(
+            "Error deactivating all sessions for shop {}: {}", shopifyDomain, e.getMessage(), e);
+        // Don't propagate the exception to avoid causing HTTP session issues
+        transactionMonitoringService.recordFailure(
+            "removeAllSessionsForShop",
+            e.getClass().getSimpleName(),
+            e.getMessage(),
+            System.currentTimeMillis() - start);
       }
     } catch (Exception e) {
-      logger.error(
-          "Error deactivating all sessions for shop {}: {}", shopifyDomain, e.getMessage(), e);
-      // Don't propagate the exception to avoid causing HTTP session issues
+      transactionMonitoringService.recordFailure(
+          "removeAllSessionsForShop",
+          e.getClass().getSimpleName(),
+          e.getMessage(),
+          System.currentTimeMillis() - start);
+      throw e;
     }
   }
 
   /** Get all active sessions for a shop */
   @Transactional(readOnly = true)
   public List<ShopSession> getActiveSessionsForShop(String shopifyDomain) {
-    Optional<Shop> shopOpt = shopRepository.findByShopifyDomain(shopifyDomain);
-    if (shopOpt.isPresent()) {
-      return shopSessionRepository.findByShopAndIsActiveTrueOrderByLastAccessedAtDesc(
-          shopOpt.get());
+    long start = System.currentTimeMillis();
+    try {
+      Optional<Shop> shopOpt = shopRepository.findByShopifyDomain(shopifyDomain);
+      if (shopOpt.isPresent()) {
+        List<ShopSession> result =
+            shopSessionRepository.findByShopAndIsActiveTrueOrderByLastAccessedAtDesc(shopOpt.get());
+        transactionMonitoringService.recordSuccess(
+            "getActiveSessionsForShop", System.currentTimeMillis() - start);
+        return result;
+      }
+      transactionMonitoringService.recordSuccess(
+          "getActiveSessionsForShop", System.currentTimeMillis() - start);
+      return List.of();
+    } catch (Exception e) {
+      transactionMonitoringService.recordFailure(
+          "getActiveSessionsForShop",
+          e.getClass().getSimpleName(),
+          e.getMessage(),
+          System.currentTimeMillis() - start);
+      throw e;
     }
-    return List.of();
   }
 
   /** Get session information for debugging */
   @Transactional(readOnly = true)
   public Optional<ShopSession> getSessionInfo(String sessionId) {
-    return shopSessionRepository.findBySessionId(sessionId);
+    long start = System.currentTimeMillis();
+    try {
+      return shopSessionRepository.findBySessionId(sessionId);
+    } catch (Exception e) {
+      transactionMonitoringService.recordFailure(
+          "getSessionInfo",
+          e.getClass().getSimpleName(),
+          e.getMessage(),
+          System.currentTimeMillis() - start);
+      throw e;
+    }
   }
 
   /** Backward compatibility method */
   @Transactional(readOnly = true)
   public Mono<String> getShopAccessToken(String shopDomain) {
-    String token = getTokenForShop(shopDomain, null);
-    if (token == null) {
-      logger.error("No access token found for shop: {}", shopDomain);
-      return Mono.error(new RuntimeException("No access token found for shop"));
+    long start = System.currentTimeMillis();
+    try {
+      String token = getTokenForShop(shopDomain, null);
+      if (token == null) {
+        logger.error("No access token found for shop: {}", shopDomain);
+        transactionMonitoringService.recordSuccess(
+            "getShopAccessToken", System.currentTimeMillis() - start);
+        return Mono.error(new RuntimeException("No access token found for shop"));
+      }
+      transactionMonitoringService.recordSuccess(
+          "getShopAccessToken", System.currentTimeMillis() - start);
+      return Mono.just(token);
+    } catch (Exception e) {
+      transactionMonitoringService.recordFailure(
+          "getShopAccessToken",
+          e.getClass().getSimpleName(),
+          e.getMessage(),
+          System.currentTimeMillis() - start);
+      throw e;
     }
-    return Mono.just(token);
   }
 
   // Private helper methods
