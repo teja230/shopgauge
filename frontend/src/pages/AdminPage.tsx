@@ -1242,7 +1242,6 @@ const AdminPage: React.FC = () => {
           <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)} sx={{ mb: 3 }}>
             <GeekTab value="health" label={<><span className="tab-index">01</span>System Health</>} />
             <GeekTab value="connection-pool" label={<><span className="tab-index">02</span>Connection Pool</>} />
-            <GeekTab value="transactions" label={<><span className="tab-index">03</span>Transactions</>} />
             <GeekTab value="audit" label={<><span className="tab-index">04</span>Audit Logs</>} />
             <GeekTab value="active" label={<><span className="tab-index">05</span>Active Shops</>} />
             <GeekTab value="sessions" label={<><span className="tab-index">06</span>Sessions</>} />
@@ -1369,13 +1368,6 @@ const AdminPage: React.FC = () => {
                 isEmergencyMode={emergencyStatus?.emergencyMode || false}
                 showActions={true}
               />
-            </Box>
-          )}
-
-          {/* Transaction Monitoring Tab */}
-          {activeTab === 'transactions' && (
-            <Box>
-              <TransactionMonitoring />
             </Box>
           )}
 
