@@ -84,7 +84,8 @@ import {
   Storefront as StorefrontIcon,
   MonitorHeart as MonitorHeartIcon,
 } from '@mui/icons-material';
-import { fetchWithAuth, adminLogin, adminLogout, getAdminStatus } from '../api';
+import { fetchWithAuth } from '../api';
+import { adminLogin, adminLogout, getAdminStatus } from '../api/admin';
 import { useAuth } from '../context/AuthContext';
 import { styled } from '@mui/material/styles';
 import { useNotifications } from '../hooks/useNotifications';
@@ -345,6 +346,11 @@ const extractShopDomainFromDetails = (details: string): string | null => {
   }
 };
 
+// Constants for admin authentication
+const SESSION_DURATION = 2 * 60 * 60 * 1000; // 2 hours
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutes
+
 const AdminPage: React.FC = () => {
   const navigate = useNavigate();
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(true);
@@ -356,8 +362,32 @@ const AdminPage: React.FC = () => {
   const [isLocked, setIsLocked] = useState(false);
   const [attemptCount, setAttemptCount] = useState(0);
   const [sessionInfo, setSessionInfo] = useState<any>(null);
+  const [passwordError, setPasswordError] = useState('');
+  const [sessionExpiry, setSessionExpiry] = useState<number | null>(null);
+  const [lockoutEnd, setLockoutEnd] = useState<number | null>(null);
   
   const { showSuccess, showError } = useNotifications();
+
+  // Helper functions for admin endpoints
+  const fetchAdminEndpoint = async (endpoint: string) => {
+    try {
+      const response = await fetchWithAuth(endpoint);
+      return await response.json();
+    } catch (error) {
+      console.error(`Admin endpoint error (${endpoint}):`, error);
+      throw error;
+    }
+  };
+
+  const fetchEmergencyEndpoint = async (endpoint: string, options?: RequestInit) => {
+    try {
+      const response = await fetchWithAuth(`/api/emergency${endpoint}`, options);
+      return await response.json();
+    } catch (error) {
+      console.error(`Emergency endpoint error (${endpoint}):`, error);
+      throw error;
+    }
+  };
   
   // Audit logs state
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
