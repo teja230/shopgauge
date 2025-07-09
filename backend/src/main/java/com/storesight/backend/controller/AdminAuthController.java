@@ -60,6 +60,7 @@ public class AdminAuthController {
       adminCookie.setMaxAge(60 * 60 * 24 * 7); // 7 days
       adminCookie.setSecure(requireHttps);
       adminCookie.setAttribute("SameSite", "Strict");
+      adminCookie.setDomain(getBaseDomain(request.getServerName()));
       response.addCookie(adminCookie);
 
       // Clear any failed login attempts
@@ -106,6 +107,7 @@ public class AdminAuthController {
     adminCookie.setMaxAge(0); // Expire immediately
     adminCookie.setSecure(requireHttps);
     adminCookie.setAttribute("SameSite", "Strict");
+    adminCookie.setDomain(getBaseDomain(request.getServerName()));
     response.addCookie(adminCookie);
 
     Map<String, Object> result = new HashMap<>();
@@ -164,6 +166,7 @@ public class AdminAuthController {
       adminCookie.setMaxAge(60 * 60 * 24 * 7); // 7 days
       adminCookie.setSecure(requireHttps);
       adminCookie.setAttribute("SameSite", "Strict");
+      adminCookie.setDomain(getBaseDomain(request.getServerName()));
       response.addCookie(adminCookie);
 
       result.put("success", true);
@@ -201,6 +204,18 @@ public class AdminAuthController {
     }
 
     return null;
+  }
+
+  private String getBaseDomain(String host) {
+    if (host == null || host.isBlank()) {
+      return null;
+    }
+    String[] parts = host.split("\\.");
+    if (parts.length < 2) {
+      return host;
+    }
+    // Return eTLD+1 with leading dot so the cookie is shared across sub-domains
+    return "." + parts[parts.length - 2] + "." + parts[parts.length - 1];
   }
 
   private String getClientIpAddress(HttpServletRequest request) {
