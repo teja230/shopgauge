@@ -594,59 +594,8 @@ const AdminPage: React.FC = () => {
     }
   }, [isAuthenticated]);
 
-  // Hash password with salt for security
-  const hashPassword = async (password: string): Promise<string> => {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(password + 'admin_salt_key_2024');
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  };
-
-  const handlePasswordSubmit = async () => {
-    if (isLocked) return;
-    
-    try {
-      const hashedInput = await hashPassword(password);
-      const adminPassword = import.meta.env.VITE_ADMIN_PASSWORD;
-      const hashedAdmin = await hashPassword(adminPassword);
-      
-      if (hashedInput === hashedAdmin) {
-        // Successful login
-        setIsAuthenticated(true);
-        setIsPasswordDialogOpen(false);
-        setPasswordError('');
-        setAttemptCount(0);
-        localStorage.removeItem('admin_attempt_count');
-        
-        // Set session expiry
-        const expiry = Date.now() + SESSION_DURATION;
-        setSessionExpiry(expiry);
-        localStorage.setItem('admin_session_expiry', expiry.toString());
-        
-        showSuccess('Admin access granted. Session valid for 2 hours.');
-      } else {
-        // Failed login
-        const newAttemptCount = attemptCount + 1;
-        setAttemptCount(newAttemptCount);
-        localStorage.setItem('admin_attempt_count', newAttemptCount.toString());
-        
-        if (newAttemptCount >= MAX_ATTEMPTS) {
-          const lockout = Date.now() + LOCKOUT_DURATION;
-          setIsLocked(true);
-          setLockoutEnd(lockout);
-          localStorage.setItem('admin_lockout_end', lockout.toString());
-          setPasswordError('Account locked for 15 minutes due to too many failed attempts.');
-        } else {
-          const remaining = MAX_ATTEMPTS - newAttemptCount;
-          setPasswordError(`Invalid password. ${remaining} attempts remaining.`);
-        }
-      }
-    } catch (error) {
-      console.error('Password verification error:', error);
-      setPasswordError('Authentication error. Please try again.');
-    }
-  };
+  // REMOVED: Frontend-only authentication (insecure)
+  // Admin authentication should only use backend JWT system
 
   const fetchActiveShops = async () => {
     if (!isAuthenticated) return;

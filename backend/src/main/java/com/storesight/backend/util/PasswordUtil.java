@@ -33,27 +33,42 @@ public class PasswordUtil {
   }
 
   /**
-   * Main method to generate a hash for admin password setup. Usage: java PasswordUtil
-   * <plain-password>
+   * Main method to generate a hash for admin password setup and test verification. Usage: java
+   * PasswordUtil <plain-password> [hash-to-verify]
    */
   public static void main(String[] args) {
-    if (args.length != 1) {
-      System.out.println("Usage: java PasswordUtil <plain-password>");
-      System.out.println("Example: java PasswordUtil mySecurePassword123");
-      System.exit(1);
+    if (args.length == 0) {
+      System.out.println("Usage: java PasswordUtil <plain-password> [hash-to-verify]");
+      System.out.println("  - With 1 arg: Generate BCrypt hash for password");
+      System.out.println("  - With 2 args: Verify password against hash");
+      return;
     }
 
     String plainPassword = args[0];
-    String hashedPassword = hashPassword(plainPassword);
 
-    System.out.println("=== Admin Password Setup ===");
-    System.out.println("Plain password: " + plainPassword);
-    System.out.println("BCrypt hash: " + hashedPassword);
-    System.out.println();
-    System.out.println("Set the following environment variable:");
-    System.out.println("ADMIN_PASSWORD=" + hashedPassword);
-    System.out.println();
-    System.out.println("IMPORTANT: Never store the plain password in environment variables!");
-    System.out.println("Only use the BCrypt hash for the ADMIN_PASSWORD environment variable.");
+    if (args.length == 1) {
+      // Generate hash
+      String hash = hashPassword(plainPassword);
+      System.out.println("Plain password: " + plainPassword);
+      System.out.println("BCrypt hash: " + hash);
+    } else if (args.length == 2) {
+      // Verify password against hash
+      String providedHash = args[1];
+      boolean matches = verifyPassword(plainPassword, providedHash);
+
+      System.out.println("Plain password: " + plainPassword);
+      System.out.println("Provided hash: " + providedHash);
+      System.out.println("Password matches: " + matches);
+
+      if (matches) {
+        System.out.println("✅ SUCCESS: Password verification passed!");
+      } else {
+        System.out.println("❌ FAILED: Password does not match the hash");
+
+        // Generate correct hash for comparison
+        String correctHash = hashPassword(plainPassword);
+        System.out.println("Correct hash would be: " + correctHash);
+      }
+    }
   }
 }

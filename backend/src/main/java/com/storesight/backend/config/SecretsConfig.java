@@ -135,13 +135,13 @@ public class SecretsConfig {
     secretService
         .getSecret(secretKey)
         .ifPresentOrElse(
-            secret -> log.info("Secret {} already exists", secretKey),
+            secret -> log.debug("Secret {} already exists", secretKey),
             () -> {
               try {
                 secretService.storeSecret(secretKey, defaultValue);
-                log.info("Initialized secret: {}", secretKey);
+                log.debug("Initialized default secret: {}", secretKey);
               } catch (Exception e) {
-                log.warn("Could not initialize secret {}: {}", secretKey, e.getMessage());
+                log.debug("Could not initialize secret {}: {}", secretKey, e.getMessage());
               }
             });
   }

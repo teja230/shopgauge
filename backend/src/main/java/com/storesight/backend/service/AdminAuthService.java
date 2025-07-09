@@ -25,10 +25,10 @@ public class AdminAuthService {
 
   private static final Logger logger = LoggerFactory.getLogger(AdminAuthService.class);
 
-  @Value("${ADMIN_USERNAME:}")
+  @Value("${admin.username:}")
   private String adminUsername;
 
-  @Value("${ADMIN_PASSWORD:}")
+  @Value("${admin.password:}")
   private String adminPassword;
 
   @Value("${admin.auth.session-timeout:3600}")
@@ -54,6 +54,9 @@ public class AdminAuthService {
   private final SecretKey jwtSecretKey;
 
   public AdminAuthService() {
+    // Admin credentials are loaded via @Value annotations
+    // They can be set via environment variables or application properties
+
     // Generate a secure JWT secret key
     String secret = System.getenv("JWT_SECRET");
     if (secret == null || secret.trim().isEmpty()) {
@@ -68,6 +71,19 @@ public class AdminAuthService {
     }
     this.jwtSecretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     logger.info("Admin JWT secret configured successfully");
+
+    // Log admin configuration status
+    if (adminUsername != null && !adminUsername.trim().isEmpty()) {
+      logger.info("Admin username configured: {}", adminUsername);
+    } else {
+      logger.error("Admin username not configured - set ADMIN_USERNAME environment variable");
+    }
+
+    if (adminPassword != null && !adminPassword.trim().isEmpty()) {
+      logger.info("Admin password hash configured (length: {})", adminPassword.length());
+    } else {
+      logger.error("Admin password hash not configured - set ADMIN_PASSWORD environment variable");
+    }
   }
 
   public boolean validateCredentials(String username, String password) {
@@ -77,21 +93,35 @@ public class AdminAuthService {
         || adminPassword == null
         || adminPassword.trim().isEmpty()) {
       logger.error("Admin credentials not properly configured in environment variables");
+      logger.error("ADMIN_USERNAME: {}", adminUsername != null ? "set" : "null");
+      logger.error(
+          "ADMIN_PASSWORD: {}",
+          adminPassword != null ? "set (length: " + adminPassword.length() + ")" : "null");
       return false;
     }
 
     // Check username
     if (!adminUsername.equals(username)) {
+      logger.debug("Username mismatch - expected: '{}', received: '{}'", adminUsername, username);
       logAuditEvent("LOGIN_FAILED", username, "Invalid username");
       return false;
     }
 
     // Check password using BCrypt
-    if (!passwordEncoder.matches(password, adminPassword)) {
-      logAuditEvent("LOGIN_FAILED", username, "Invalid password");
+    try {
+      boolean passwordMatches = passwordEncoder.matches(password, adminPassword);
+      if (!passwordMatches) {
+        logger.debug("Password verification failed for username: {}", username);
+        logAuditEvent("LOGIN_FAILED", username, "Invalid password");
+        return false;
+      }
+    } catch (Exception e) {
+      logger.error("BCrypt password verification error: {}", e.getMessage(), e);
+      logAuditEvent("LOGIN_FAILED", username, "Password verification error");
       return false;
     }
 
+    logger.info("Admin login successful for username: {}", username);
     logAuditEvent("LOGIN_SUCCESS", username, "Successful login");
     return true;
   }
@@ -146,9 +176,14 @@ public class AdminAuthService {
   }
 
   public boolean isAccountLocked(String ipAddress) {
-    String lockoutKey = "admin:lockout:" + ipAddress;
-    Boolean isLocked = redisTemplate.hasKey(lockoutKey);
-    return isLocked != null && isLocked;
+    try {
+      String lockoutKey = "admin:lockout:" + ipAddress;
+      Boolean isLocked = redisTemplate.hasKey(lockoutKey);
+      return isLocked != null && isLocked;
+    } catch (Exception e) {
+      logger.warn("Redis unavailable for account lockout check: {}", e.getMessage());
+      return false; // Allow login if Redis is unavailable
+    }
   }
 
   public void recordFailedLoginAttempt(String ipAddress, String username) {
@@ -196,9 +231,14 @@ public class AdminAuthService {
       return true;
     }
 
-    String blacklistKey = "admin:blacklist:" + token;
-    Boolean isBlacklisted = redisTemplate.hasKey(blacklistKey);
-    return isBlacklisted != null && isBlacklisted;
+    try {
+      String blacklistKey = "admin:blacklist:" + token;
+      Boolean isBlacklisted = redisTemplate.hasKey(blacklistKey);
+      return isBlacklisted != null && isBlacklisted;
+    } catch (Exception e) {
+      logger.warn("Redis unavailable for token blacklist check: {}", e.getMessage());
+      return false; // Allow token if Redis is unavailable
+    }
   }
 
   public Map<String, Object> getSessionInfo(String token) {
