@@ -428,6 +428,25 @@
 
   <script type="text/javascript">
     (function() {
+      // Immediate redirect for valid routes - no UI shown
+      var path = window.location.pathname + window.location.search + window.location.hash;
+      var cleanPath = path.split('?')[0].split('#')[0];
+      
+      // Valid routes that should redirect to main app
+      var validRoutes = ['/dashboard', '/competitors', '/admin', '/profile', '/privacy-policy'];
+      
+      // Check for valid routes including sub-routes
+      var isValidRoute = validRoutes.some(function(route) {
+        return cleanPath === route || cleanPath.startsWith(route + '/');
+      });
+      
+      if (isValidRoute) {
+        console.log('404: Valid route detected, redirecting immediately to main app');
+        window.location.replace('/');
+        return;
+      }
+      
+      // Only show 404 UI for invalid routes
       // Wait for DOM to be ready
       function domReady(fn) {
         if (document.readyState === 'loading') {
@@ -445,8 +464,6 @@
             return;
           }
           
-          var path = window.location.pathname + window.location.search + window.location.hash;
-          
           // Avoid infinite redirect loops
           if (path === '/' || path.startsWith('/?redirect=') || path === '/index.html') {
             if (path === '/index.html') {
@@ -456,29 +473,7 @@
             return;
           }
           
-          console.log('404: Processing path:', path);
-          
-          // Check if this is a known valid route (shouldn't happen with proper _redirects)
-          var validRoutes = ['/dashboard', '/competitors', '/admin', '/profile', '/privacy-policy'];
-          var cleanPath = path.split('?')[0].split('#')[0];
-          
-          // Check for valid routes including sub-routes
-          var isValidRoute = validRoutes.some(function(route) {
-            return cleanPath === route || cleanPath.startsWith(route + '/');
-          });
-          
-          if (isValidRoute) {
-            // Valid route ended up here - redirect immediately without showing 404
-            console.log('404: Valid route detected, redirecting immediately to main app');
-            
-            // Hide the 404 content immediately
-            if (document.body && document.body.style) {
-              document.body.style.display = 'none';
-            }
-            // Redirect immediately to the main app
-            window.location.replace('/');
-            return;
-          }
+          console.log('404: Processing invalid path:', path);
           
           // Invalid route - show 404 and redirect after delay
           console.log('404: Invalid route, showing 404 page');
