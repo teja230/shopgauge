@@ -35,7 +35,20 @@ import {
   Healing as HealingIcon,
 } from '@mui/icons-material';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell } from 'recharts';
-import { fetchWithAuth } from '../../api';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+const fetchAdminEndpoint = async (endpoint: string, options?: RequestInit) => {
+  const fullUrl = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
+  return fetch(fullUrl, {
+    credentials: 'include',
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      ...(options?.headers || {})
+    },
+    ...options,
+  });
+};
 
 interface PoolMetrics {
   activeConnections: number;
@@ -127,11 +140,11 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
       setError(null);
 
       const [poolResponse, redisResponse, systemResponse, transactionResponse, sessionResponse] = await Promise.all([
-        fetchWithAuth('/api/health/connection-leak-status'),
-        fetchWithAuth('/api/health/redis'),
-        fetchWithAuth('/api/health/system'),
-        fetchWithAuth('/api/health/transactions'),
-        fetchWithAuth('/api/admin/session-statistics').catch(() => ({ ok: false }))
+        fetchAdminEndpoint('/api/health/connection-leak-status'),
+        fetchAdminEndpoint('/api/health/redis'),
+        fetchAdminEndpoint('/api/health/system'),
+        fetchAdminEndpoint('/api/health/transactions'),
+        fetchAdminEndpoint('/api/admin/session-statistics').catch(() => ({ ok: false }))
       ]);
 
       if (!poolResponse.ok) {
@@ -225,7 +238,7 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
 
   const performEmergencyCleanup = async () => {
     try {
-      const response = await fetchWithAuth('/api/health/emergency-cleanup', {
+      const response = await fetchAdminEndpoint('/api/health/emergency-cleanup', {
         method: 'POST',
       });
       
@@ -241,7 +254,7 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
 
   const performComprehensiveCleanup = async () => {
     try {
-      const response = await fetchWithAuth('/api/health/comprehensive-cleanup', {
+      const response = await fetchAdminEndpoint('/api/health/comprehensive-cleanup', {
         method: 'POST',
       });
       

@@ -86,7 +86,6 @@ import {
 } from '@mui/icons-material';
 
 import { adminLogin, adminLogout, getAdminStatus } from '../api/admin';
-import { useAuth } from '../context/AuthContext';
 import { styled } from '@mui/material/styles';
 import { useNotifications } from '../hooks/useNotifications';
 import EnhancedHealthSummary from '../components/ui/EnhancedHealthSummary';
