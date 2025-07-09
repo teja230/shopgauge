@@ -25,10 +25,25 @@ import TimerIcon from '@mui/icons-material/Timer';
 import ClearIcon from '@mui/icons-material/Clear';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import HealthAndSafetyIcon from '@mui/icons-material/HealthAndSafety';
-import { getHealthSummary } from '../../api/index';
 import { useServiceStatus } from '../../context/ServiceStatusContext';
 import { debugLog } from './DebugPanel';
 import { useNotifications } from '../../hooks/useNotifications';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+
+const fetchAdminEndpoint = async (endpoint: string, options?: RequestInit) => {
+  const fullUrl = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
+  return fetch(fullUrl, {
+    credentials: 'include', // Important for sending the admin_token cookie
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      ...(options?.headers || {}),
+    },
+    ...options,
+  });
+};
+
 
 interface DatabaseMetrics {
   activeConnections: number;
@@ -243,8 +258,14 @@ const EnhancedHealthSummary: React.FC = () => {
     }
 
     setLoading(true);
+    setError(null);
     try {
-      const data = await getHealthSummary();
+      const response = await fetchAdminEndpoint('/api/admin/health-summary');
+      if (!response.ok) {
+        throw new Error(`Failed to fetch health summary: ${response.statusText}`);
+      }
+      const data = await response.json();
+
       setMetrics(data);
       setError(null);
       
