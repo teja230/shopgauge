@@ -341,10 +341,11 @@ public class HealthController {
 
       try {
         // Count only active sessions across all shops
-        totalActiveSessions = shopSessionRepository.findAll().stream()
-            .filter(session -> session.getIsActive() && !session.isExpired())
-            .collect(Collectors.toList())
-            .size();
+        totalActiveSessions =
+            shopSessionRepository.findAll().stream()
+                .filter(session -> session.getIsActive() && !session.isExpired())
+                .collect(Collectors.toList())
+                .size();
 
         // Count expired sessions
         expiredSessions = shopSessionRepository.findExpiredSessions().size();
