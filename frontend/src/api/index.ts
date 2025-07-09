@@ -126,12 +126,120 @@ export async function getHealthSummary(): Promise<any> {
     if (import.meta.env.DEV) {
       console.log('API: Health summary response:', data);
     }
-    return data;
+    
+    // Transform the backend response format to match frontend expectations
+    const transformedData = {
+      backendStatus: data.status === 'healthy' ? 'UP' : 
+                    data.status === 'degraded' ? 'DEGRADED' : 'DOWN',
+      redisStatus: data.redis?.status === 'healthy' ? 'UP' : 
+                  data.redis?.status === 'unhealthy' ? 'DOWN' : 'UNKNOWN',
+      databaseStatus: data.database?.status === 'healthy' ? 'UP' : 
+                     data.database?.status === 'unhealthy' ? 'DOWN' : 'UNKNOWN',
+      systemStatus: data.status === 'healthy' ? 'UP' : 
+                   data.status === 'degraded' ? 'DEGRADED' : 'DOWN',
+      lastUpdated: new Date(data.timestamp).getTime(),
+      lastDeployCommit: 'unknown', // Not provided by backend
+      database: data.database ? {
+        activeConnections: data.database.activeConnections || 0,
+        idleConnections: data.database.idleConnections || 0,
+        totalConnections: data.database.totalConnections || 0,
+        threadsAwaitingConnection: data.database.threadsAwaitingConnection || 0,
+        maxPoolSize: data.database.maxPoolSize || 20,
+        minimumIdle: data.database.minimumIdle || 5,
+        activeUsageRatio: data.database.activeUsageRatio || 0,
+        activeUsagePercent: data.database.activeUsagePercent || 0,
+        consecutiveFailures: data.database.consecutiveFailures || 0,
+        lastFailureTime: data.database.lastFailureTime || 0,
+        healthStatus: data.database.status === 'healthy' ? 'HEALTHY' : 'UNHEALTHY',
+        poolStatus: data.database.poolStatus || 'UNKNOWN'
+      } : undefined
+    };
+    
+    if (import.meta.env.DEV) {
+      console.log('API: Transformed health summary:', transformedData);
+    }
+    
+    return transformedData;
   } catch (error) {
     if (import.meta.env.DEV) {
       console.error('API: Failed to fetch health summary', error);
     }
     throw error;
+  }
+}
+
+export async function adminLogin(username: string, password: string): Promise<any> {
+  if (import.meta.env.DEV) {
+    console.log('API: Admin login attempt');
+  }
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/admin/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ username, password }),
+      credentials: 'include'
+    });
+    
+    const data = await response.json();
+    if (import.meta.env.DEV) {
+      console.log('API: Admin login response:', data);
+    }
+    
+    return data;
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      console.error('API: Admin login error:', error);
+    }
+    return { success: false, error: 'Login failed' };
+  }
+}
+
+export async function adminLogout(): Promise<any> {
+  if (import.meta.env.DEV) {
+    console.log('API: Admin logout');
+  }
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/admin/logout`, {
+      method: 'POST',
+      credentials: 'include'
+    });
+    
+    const data = await response.json();
+    if (import.meta.env.DEV) {
+      console.log('API: Admin logout response:', data);
+    }
+    
+    return data;
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      console.error('API: Admin logout error:', error);
+    }
+    return { success: false, error: 'Logout failed' };
+  }
+}
+
+export async function getAdminStatus(): Promise<any> {
+  if (import.meta.env.DEV) {
+    console.log('API: Checking admin status');
+  }
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/admin/status`, {
+      credentials: 'include'
+    });
+    
+    const data = await response.json();
+    if (import.meta.env.DEV) {
+      console.log('API: Admin status response:', data);
+    }
+    
+    return data;
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      console.error('API: Admin status error:', error);
+    }
+    return { authenticated: false, error: 'Status check failed' };
   }
 }
 

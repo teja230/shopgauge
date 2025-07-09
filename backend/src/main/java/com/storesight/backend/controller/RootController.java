@@ -34,4 +34,9 @@ public class RootController {
 
     return ResponseEntity.ok(response);
   }
+
+  @GetMapping("/emergency-admin")
+  public String emergencyAdmin() {
+    return "forward:/emergency-admin.html";
+  }
 }

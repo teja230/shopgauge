@@ -88,6 +88,7 @@ graph TB
 | **Market Intelligence** | 🔗 [Market Intelligence](MARKET_INTELLIGENCE.md) |
 | **AI Market Intelligence** | 🔗 [Competitor Discovery System](MULTI_SESSION_ARCHITECTURE.md#competitor-discovery) |
 | **Notification Centre** | 🔗 [Notification System](NOTIFICATIONS_SYSTEM.md) |
+| **Admin System** | 🔗 [Admin Comprehensive Guide](SHOPGAUGE_ADMIN_COMPREHENSIVE_GUIDE.md) |
 | **Authentication & UI** | 🔗 [Authentication UI Fixes](AUTHENTICATION_UI_FIXES.md) |
 | **Dashboard Performance** | 🔗 [Dashboard Loading Fixes](DASHBOARD_LOADING_FIXES.md) |
 | **OAuth & Database** | 🔗 [OAuth Database Fixes](OAUTH_DATABASE_FIXES.md) |
