@@ -103,19 +103,12 @@ services:
     repo: https://github.com/teja230/storesight
     envVars:
       - key: VITE_API_BASE_URL
-        sync: false
+        value: "https://api.shopgaugeai.com"
     buildCommand: npm ci && npm run build
     staticPublishPath: dist
     autoDeployTrigger: "on"
     rootDir: frontend
-    # Configure redirects for SPA routing
-    redirects:
-      - source: "/api/*"
-        destination: "https://storesight-backend.onrender.com/api/:splat"
-        action: "rewrite"
-      - source: "/*"
-        destination: "/index.html"
-        action: "rewrite"
+    # Let _redirects file handle routing instead of render.yaml routes
 
   - type: keyvalue
     name: storesight-redis
