@@ -168,7 +168,9 @@ const AppContent: React.FC = () => {
   }, [isAuthenticated, hasInitiallyLoaded, authLoading, sessionInitialized, checkSessionLimit]);
 
   // Show global loading state during initial load - always show something to prevent blank pages
-  if (loading || (authLoading && !hasInitiallyLoaded)) {
+  // Skip loading screen for admin pages - they handle their own authentication
+  const currentPath = window.location.pathname;
+  if ((loading || (authLoading && !hasInitiallyLoaded)) && !currentPath.startsWith('/admin')) {
     return <IntelligentLoadingScreen fastMode={true} message="Loading ShopGauge..." />;
   }
   
