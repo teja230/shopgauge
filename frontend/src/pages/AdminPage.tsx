@@ -439,7 +439,7 @@ const AdminPage: React.FC = () => {
       // Emergency endpoints are designed to work without authentication
       // They can function even when the connection pool is exhausted
       const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
-      const fullUrl = `${API_BASE_URL}/api/emergency${endpoint}`;
+      const fullUrl = `${API_BASE_URL}/api/admin/emergency${endpoint}`;
       
       const response = await fetch(fullUrl, {
         ...options,
