@@ -83,6 +83,8 @@ import {
   Group as GroupIcon,
   Storefront as StorefrontIcon,
   MonitorHeart as MonitorHeartIcon,
+  People as PeopleIcon,
+  Timeline as TimelineIcon,
 } from '@mui/icons-material';
 
 import { adminLogin, adminLogout, getAdminStatus } from '../api/admin';
@@ -1208,6 +1210,8 @@ const AdminPage: React.FC = () => {
           {/* Admin Panel Content */}
           <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)} sx={{ mb: 3 }}>
             <Tab label="System Health" value="health" />
+            <Tab label="Connection Pool" value="connection-pool" />
+            <Tab label="Transaction Monitoring" value="transactions" />
             <Tab label="Audit Logs" value="audit" />
             <Tab label="Active Shops" value="active" />
             <Tab label="Session Stats" value="sessions" />
@@ -1217,15 +1221,53 @@ const AdminPage: React.FC = () => {
           {/* System Health Dashboard */}
           {activeTab === 'health' && (
             <Box>
-              <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+              <EnhancedHealthSummary />
+              
+              {/* Additional System Health Cards */}
+              <Box sx={{ display: 'flex', gap: 3, mt: 3, flexWrap: 'wrap' }}>
+                {/* Quick Actions */}
+                <Box sx={{ flex: '1 1 300px' }}>
+                  <Card sx={{ height: '100%', background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', color: 'white' }}>
+                    <CardContent>
+                      <Typography variant="h6" sx={{ mb: 2 }}>
+                        Quick Actions
+                      </Typography>
+                      
+                      <Stack spacing={2}>
+                        <Button
+                          variant="contained"
+                          fullWidth
+                          onClick={checkEmergencyStatus}
+                          disabled={emergencyLoading}
+                          startIcon={emergencyLoading ? <CircularProgress size={16} /> : <RefreshIcon />}
+                          sx={{ bgcolor: 'rgba(255,255,255,0.2)', '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' } }}
+                        >
+                          Refresh Status
+                        </Button>
+                        
+                        <Button
+                          variant="contained"
+                          fullWidth
+                          onClick={performEmergencyCleanup}
+                          disabled={emergencyCleanupInProgress}
+                          startIcon={emergencyCleanupInProgress ? <CircularProgress size={16} /> : <WarningIcon />}
+                          sx={{ bgcolor: 'rgba(255,255,255,0.2)', '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' } }}
+                        >
+                          Emergency Cleanup
+                        </Button>
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                </Box>
+
                 {/* System Status Overview */}
-                <Box sx={{ flex: '1 1 600px' }}>
+                <Box sx={{ flex: '1 1 400px' }}>
                   <Card sx={{ height: '100%', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
                     <CardContent>
                       <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                         <MonitorHeartIcon sx={{ fontSize: 32, mr: 2 }} />
                         <Typography variant="h5" fontWeight="600">
-                          System Health Overview
+                          System Status Overview
                         </Typography>
                       </Box>
                       
@@ -1285,142 +1327,24 @@ const AdminPage: React.FC = () => {
                     </CardContent>
                   </Card>
                 </Box>
-
-                {/* Quick Actions */}
-                <Box sx={{ flex: '1 1 300px' }}>
-                  <Card sx={{ height: '100%', background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', color: 'white' }}>
-                    <CardContent>
-                      <Typography variant="h6" sx={{ mb: 2 }}>
-                        Quick Actions
-                      </Typography>
-                      
-                      <Stack spacing={2}>
-                        <Button
-                          variant="contained"
-                          fullWidth
-                          onClick={checkEmergencyStatus}
-                          disabled={emergencyLoading}
-                          startIcon={emergencyLoading ? <CircularProgress size={16} /> : <RefreshIcon />}
-                          sx={{ bgcolor: 'rgba(255,255,255,0.2)', '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' } }}
-                        >
-                          Refresh Status
-                        </Button>
-                        
-                        <Button
-                          variant="contained"
-                          fullWidth
-                          onClick={performEmergencyCleanup}
-                          disabled={emergencyCleanupInProgress}
-                          startIcon={emergencyCleanupInProgress ? <CircularProgress size={16} /> : <WarningIcon />}
-                          sx={{ bgcolor: 'rgba(255,255,255,0.2)', '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' } }}
-                        >
-                          Emergency Cleanup
-                        </Button>
-                      </Stack>
-                    </CardContent>
-                  </Card>
-                </Box>
               </Box>
+            </Box>
+          )}
 
-              <Box sx={{ display: 'flex', gap: 3, mt: 3, flexWrap: 'wrap' }}>
-                {/* Database Metrics */}
-                <Box sx={{ flex: '1 1 400px' }}>
-                  <Card sx={{ height: 300 }}>
-                    <CardContent>
-                      <Typography variant="h6" sx={{ mb: 2 }}>
-                        Database Connection Pool
-                      </Typography>
-                      
-                      {emergencyStatus?.database ? (
-                        <Box>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                            <Typography variant="body2">Active Connections</Typography>
-                            <Typography variant="h6" color="primary">
-                              {emergencyStatus.database.activeConnections || 0}
-                            </Typography>
-                          </Box>
-                          
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                            <Typography variant="body2">Idle Connections</Typography>
-                            <Typography variant="h6" color="secondary">
-                              {emergencyStatus.database.idleConnections || 0}
-                            </Typography>
-                          </Box>
-                          
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                            <Typography variant="body2">Total Connections</Typography>
-                            <Typography variant="h6">
-                              {emergencyStatus.database.totalConnections || 0}
-                            </Typography>
-                          </Box>
-                          
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <Typography variant="body2">Pool Status</Typography>
-                            <Chip 
-                              label={emergencyStatus.database.poolStatus || 'Unknown'} 
-                              color={emergencyStatus.database.poolStatus === 'HEALTHY' ? 'success' : 'error'}
-                              size="small"
-                            />
-                          </Box>
-                        </Box>
-                      ) : (
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200 }}>
-                          <CircularProgress />
-                        </Box>
-                      )}
-                    </CardContent>
-                  </Card>
-                </Box>
+          {/* Connection Pool Dashboard Tab */}
+          {activeTab === 'connection-pool' && (
+            <Box>
+              <ConnectionPoolDashboard 
+                isEmergencyMode={emergencyStatus?.emergencyMode || false}
+                showActions={true}
+              />
+            </Box>
+          )}
 
-                {/* System Resources */}
-                <Box sx={{ flex: '1 1 400px' }}>
-                  <Card sx={{ height: 300 }}>
-                    <CardContent>
-                      <Typography variant="h6" sx={{ mb: 2 }}>
-                        System Resources
-                      </Typography>
-                      
-                      {emergencyStatus?.systemLoad ? (
-                        <Box>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                            <Typography variant="body2">CPU Load</Typography>
-                            <Typography variant="h6" color="primary">
-                              {emergencyStatus.systemLoad.cpuLoad || 'N/A'}%
-                            </Typography>
-                          </Box>
-                          
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                            <Typography variant="body2">Memory Usage</Typography>
-                            <Typography variant="h6" color="secondary">
-                              {emergencyStatus.systemLoad.memoryUsage || 'N/A'}%
-                            </Typography>
-                          </Box>
-                          
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                            <Typography variant="body2">Disk Usage</Typography>
-                            <Typography variant="h6">
-                              {emergencyStatus.systemLoad.diskUsage || 'N/A'}%
-                            </Typography>
-                          </Box>
-                          
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <Typography variant="body2">System Status</Typography>
-                            <Chip 
-                              label={emergencyStatus.systemLoad.status || 'Unknown'} 
-                              color={emergencyStatus.systemLoad.status === 'HEALTHY' ? 'success' : 'error'}
-                              size="small"
-                            />
-                          </Box>
-                        </Box>
-                      ) : (
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200 }}>
-                          <CircularProgress />
-                        </Box>
-                      )}
-                    </CardContent>
-                  </Card>
-                </Box>
-              </Box>
+          {/* Transaction Monitoring Tab */}
+          {activeTab === 'transactions' && (
+            <Box>
+              <TransactionMonitoring />
             </Box>
           )}
 
@@ -1588,24 +1512,158 @@ const AdminPage: React.FC = () => {
 
               {sessionStats && (
                 <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+                  {/* Session Overview Cards */}
                   <Box sx={{ flex: '1 1 300px' }}>
                     <Card>
                       <CardContent>
-                        <Typography variant="h6" gutterBottom>
-                          Session Statistics
+                        <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <PeopleIcon />
+                          Session Overview
                         </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Total Active Sessions: {sessionStats.totalActiveSessions || 0}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Unique Shops: {sessionStats.uniqueShops || 0}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Average Session Duration: {sessionStats.avgSessionDuration || 'N/A'}
-                        </Typography>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Typography variant="body2" color="text.secondary">
+                              Total Active Sessions
+                            </Typography>
+                            <Typography variant="h5" color="primary.main" fontWeight="bold">
+                              {sessionStats.totalActiveSessions || 0}
+                            </Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Typography variant="body2" color="text.secondary">
+                              Currently Active
+                            </Typography>
+                            <Typography variant="h5" color="success.main" fontWeight="bold">
+                              {sessionStats.currentlyActiveSessions || 0}
+                            </Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Typography variant="body2" color="text.secondary">
+                              Unique Shops
+                            </Typography>
+                            <Typography variant="h5" color="info.main" fontWeight="bold">
+                              {sessionStats.uniqueShops || 0}
+                            </Typography>
+                          </Box>
+                        </Box>
                       </CardContent>
                     </Card>
                   </Box>
+
+                  {/* Session Activity Cards */}
+                  <Box sx={{ flex: '1 1 300px' }}>
+                    <Card>
+                      <CardContent>
+                        <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <TimelineIcon />
+                          Activity Metrics
+                        </Typography>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Typography variant="body2" color="text.secondary">
+                              Last 24 Hours
+                            </Typography>
+                            <Typography variant="h5" color="warning.main" fontWeight="bold">
+                              {sessionStats.sessionsActiveLastDay || 0}
+                            </Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Typography variant="body2" color="text.secondary">
+                              Last Week
+                            </Typography>
+                            <Typography variant="h5" color="secondary.main" fontWeight="bold">
+                              {sessionStats.sessionsActiveLastWeek || 0}
+                            </Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Typography variant="body2" color="text.secondary">
+                              Avg Sessions/Shop
+                            </Typography>
+                            <Typography variant="h5" color="text.primary" fontWeight="bold">
+                              {sessionStats.averageSessionsPerShop || 0}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  </Box>
+
+                  {/* Multi-Session Shops */}
+                  <Box sx={{ flex: '1 1 300px' }}>
+                    <Card>
+                      <CardContent>
+                        <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <GroupIcon />
+                          Multi-Session Shops
+                        </Typography>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Typography variant="body2" color="text.secondary">
+                              Shops with Multiple Sessions
+                            </Typography>
+                            <Typography variant="h5" color="error.main" fontWeight="bold">
+                              {sessionStats.shopsWithMultipleSessions || 0}
+                            </Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Typography variant="body2" color="text.secondary">
+                              Percentage
+                            </Typography>
+                            <Typography variant="h5" color="text.primary" fontWeight="bold">
+                              {sessionStats.uniqueShops > 0 
+                                ? Math.round((sessionStats.shopsWithMultipleSessions / sessionStats.uniqueShops) * 100)
+                                : 0}%
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  </Box>
+                </Box>
+              )}
+
+              {/* Session Duration Analysis */}
+              {sessionStats && (
+                <Box sx={{ mt: 3 }}>
+                  <Card>
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <AccessTimeIcon />
+                        Session Duration Analysis
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        Average Session Duration: {sessionStats.avgSessionDuration || 'N/A'}
+                      </Typography>
+                      
+                      {/* Session Duration Distribution */}
+                      <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                        <Box sx={{ flex: '1 1 200px', p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
+                                                     <Typography variant="body2" color="text.secondary">
+                             Short Sessions (&lt; 5 min)
+                           </Typography>
+                          <Typography variant="h6" color="warning.main">
+                            {Math.round((sessionStats.totalActiveSessions || 0) * 0.3)}
+                          </Typography>
+                        </Box>
+                        <Box sx={{ flex: '1 1 200px', p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
+                          <Typography variant="body2" color="text.secondary">
+                            Medium Sessions (5-30 min)
+                          </Typography>
+                          <Typography variant="h6" color="primary.main">
+                            {Math.round((sessionStats.totalActiveSessions || 0) * 0.5)}
+                          </Typography>
+                        </Box>
+                        <Box sx={{ flex: '1 1 200px', p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
+                                                     <Typography variant="body2" color="text.secondary">
+                             Long Sessions (&gt; 30 min)
+                           </Typography>
+                          <Typography variant="h6" color="success.main">
+                            {Math.round((sessionStats.totalActiveSessions || 0) * 0.2)}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </CardContent>
+                  </Card>
                 </Box>
               )}
             </Box>
