@@ -210,12 +210,26 @@ public class AdminAuthController {
     if (host == null || host.isBlank()) {
       return null;
     }
+
+    // Remove port if present
+    host = host.split(":")[0];
+
     String[] parts = host.split("\\.");
     if (parts.length < 2) {
+      return null; // Don't set domain for localhost or single-part domains
+    }
+
+    // For domains like shopgaugeai.com, just return the full domain
+    if (parts.length == 2) {
       return host;
     }
-    // Return eTLD+1 with leading dot so the cookie is shared across sub-domains
-    return "." + parts[parts.length - 2] + "." + parts[parts.length - 1];
+
+    // For subdomains like api.shopgaugeai.com, return the base domain
+    if (parts.length > 2) {
+      return parts[parts.length - 2] + "." + parts[parts.length - 1];
+    }
+
+    return null;
   }
 
   private String getClientIpAddress(HttpServletRequest request) {
