@@ -134,17 +134,22 @@ const INTEGRATION_CONFIG = {
 // Styled components matching the rest of the website
 const AdminContainer = styled(Container)(({ theme }) => ({
   minHeight: '100vh',
-  backgroundColor: theme.palette.background.default,
-  paddingTop: theme.spacing(4),
-  paddingBottom: theme.spacing(4),
+  backgroundImage: 'linear-gradient(135deg, #f1f5fb 0%, #ffffff 60%)',
+  paddingTop: theme.spacing(6),
+  paddingBottom: theme.spacing(6),
+  [theme.breakpoints.down('sm')]: {
+    paddingTop: theme.spacing(4),
+    paddingBottom: theme.spacing(4),
+  },
 }));
 
 const HeaderCard = styled(Paper)(({ theme }) => ({
-  padding: theme.spacing(3),
-  marginBottom: theme.spacing(3),
-  borderRadius: 12,
-  backgroundColor: theme.palette.background.paper,
-  boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
+  padding: theme.spacing(4),
+  marginBottom: theme.spacing(4),
+  borderRadius: 20,
+  backdropFilter: 'blur(12px)',
+  background: 'rgba(255, 255, 255, 0.8)',
+  boxShadow: '0 10px 25px rgba(0,0,0,0.06)',
   border: `1px solid ${theme.palette.divider}`,
 }));
 
@@ -160,20 +165,22 @@ const AdminHeader = styled(Box)(({ theme }) => ({
 }));
 
 const SectionCard = styled(Paper)(({ theme }) => ({
-  borderRadius: 12,
+  borderRadius: 20,
   overflow: 'hidden',
-  backgroundColor: theme.palette.background.paper,
-  boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
+  background: 'rgba(255, 255, 255, 0.85)',
+  backdropFilter: 'blur(6px)',
+  boxShadow: '0 8px 20px rgba(0,0,0,0.05)',
   border: `1px solid ${theme.palette.divider}`,
-  transition: 'all 0.3s ease',
+  transition: 'transform 0.25s ease, box-shadow 0.25s ease',
   '&:hover': {
-    boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -2px rgb(0 0 0 / 0.1)',
+    transform: 'translateY(-2px)',
+    boxShadow: '0 12px 30px rgba(0,0,0,0.08)',
   },
 }));
 
 const SectionHeader = styled(Box)(({ theme }) => ({
-  padding: theme.spacing(3),
-  backgroundColor: theme.palette.background.paper,
+  padding: theme.spacing(3, 4),
+  backgroundImage: 'linear-gradient(90deg, rgba(37,99,235,0.03) 0%, rgba(37,99,235,0.00) 100%)',
   borderBottom: `1px solid ${theme.palette.divider}`,
 }));
 
@@ -188,9 +195,34 @@ const TabsContainer = styled(Box)(({ theme }) => ({
     fontWeight: 600,
     fontSize: '0.95rem',
     minHeight: 56,
+    transition: 'color 0.2s ease',
     '&.Mui-selected': {
       color: theme.palette.primary.main,
     },
+  },
+  '& .MuiTabs-indicator': {
+    height: 3,
+    borderRadius: 3,
+  },
+}));
+
+// Geeky styled tab with numeric prefix
+const GeekTab = styled(Tab)(({ theme }) => ({
+  textTransform: 'none',
+  fontWeight: 700,
+  fontFamily: `'JetBrains Mono', Menlo, monospace`,
+  letterSpacing: '-0.02em',
+  color: theme.palette.text.secondary,
+  minWidth: 140,
+  display: 'flex',
+  alignItems: 'center',
+  gap: theme.spacing(1),
+  '& .tab-index': {
+    fontSize: '0.75rem',
+    opacity: 0.6,
+  },
+  '&.Mui-selected': {
+    color: theme.palette.primary.main,
   },
 }));
 
@@ -1208,13 +1240,13 @@ const AdminPage: React.FC = () => {
         <Box sx={{ p: 3 }}>
           {/* Admin Panel Content */}
           <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)} sx={{ mb: 3 }}>
-            <Tab label="System Health" value="health" />
-            <Tab label="Connection Pool" value="connection-pool" />
-            <Tab label="Transaction Monitoring" value="transactions" />
-            <Tab label="Audit Logs" value="audit" />
-            <Tab label="Active Shops" value="active" />
-            <Tab label="Session Stats" value="sessions" />
-            <Tab label="Emergency Controls" value="emergency" />
+            <GeekTab value="health" label={<><span className="tab-index">01</span>System Health</>} />
+            <GeekTab value="connection-pool" label={<><span className="tab-index">02</span>Connection Pool</>} />
+            <GeekTab value="transactions" label={<><span className="tab-index">03</span>Transactions</>} />
+            <GeekTab value="audit" label={<><span className="tab-index">04</span>Audit Logs</>} />
+            <GeekTab value="active" label={<><span className="tab-index">05</span>Active Shops</>} />
+            <GeekTab value="sessions" label={<><span className="tab-index">06</span>Sessions</>} />
+            <GeekTab value="emergency" label={<><span className="tab-index">07</span>Emergency</>} />
           </Tabs>
 
           {/* System Health Dashboard */}
