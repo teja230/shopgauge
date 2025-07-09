@@ -143,7 +143,20 @@ const TransactionMonitoring: React.FC = () => {
   const fetchTransactionHealth = async () => {
     try {
       const response = await fetchAdminEndpoint('/api/health/transactions');
-      setHealth(response as unknown as TransactionHealth);
+      
+      // Transform backend response to match frontend interface
+      const transformedHealth: TransactionHealth = {
+        status: response.isHealthy ? 'healthy' : 'critical',
+        readOnlyViolations: response.read_only_violations || 0,
+        totalTransactions: response.total_transactions || 0,
+        successRate: response.success_rate || 0,
+        failureRate: response.failed_transactions ? (response.failed_transactions / response.total_transactions * 100) : 0,
+        avgResponseTime: 0, // Not provided by backend
+        healthScore: response.success_rate || 0,
+        alerts: response.alerts ? Object.keys(response.alerts) : []
+      };
+      
+      setHealth(transformedHealth);
     } catch (err) {
       console.error('Failed to fetch transaction health:', err);
       setError('Failed to fetch transaction health');
@@ -153,7 +166,22 @@ const TransactionMonitoring: React.FC = () => {
   const fetchTransactionMetrics = async () => {
     try {
       const response = await fetchAdminEndpoint('/api/health/metrics/transactions');
-      setMetrics(response as unknown as TransactionMetrics);
+      
+      // Transform backend response to match frontend interface
+      const transformedMetrics: TransactionMetrics = {
+        totalTransactions: response.total_transactions || 0,
+        successfulTransactions: response.successful_transactions || 0,
+        failedTransactions: response.failed_transactions || 0,
+        readOnlyViolations: response.read_only_violations || 0,
+        sessionUpdateFailures: 0, // Not provided by backend
+        avgResponseTime: 0, // Not provided by backend
+        peakResponseTime: 0, // Not provided by backend
+        violationsByType: response.error_counts || {},
+        errorsByCategory: response.error_counts || {},
+        hourlyMetrics: [] // Not provided by backend
+      };
+      
+      setMetrics(transformedMetrics);
     } catch (err) {
       console.error('Failed to fetch transaction metrics:', err);
       setError('Failed to fetch transaction metrics');
@@ -163,7 +191,18 @@ const TransactionMonitoring: React.FC = () => {
   const fetchTransactionAlerts = async () => {
     try {
       const response = await fetchAdminEndpoint('/api/health/alerts/transactions') as any;
-      setAlerts(response.alerts || []);
+      
+      // Transform backend alerts to match frontend interface
+      const transformedAlerts: TransactionAlert[] = Object.entries(response.alerts || {}).map(([key, alert]: [string, any]) => ({
+        id: key,
+        type: alert.severity === 'CRITICAL' ? 'CRITICAL' : alert.severity === 'WARNING' ? 'WARNING' : 'INFO',
+        message: alert.message || 'Unknown alert',
+        timestamp: new Date().toISOString(),
+        resolved: false,
+        category: key
+      }));
+      
+      setAlerts(transformedAlerts);
     } catch (err) {
       console.error('Failed to fetch transaction alerts:', err);
       setError('Failed to fetch transaction alerts');
