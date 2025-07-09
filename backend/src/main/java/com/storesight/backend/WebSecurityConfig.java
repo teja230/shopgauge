@@ -244,7 +244,12 @@ public class WebSecurityConfig implements WebMvcConfigurer {
         .authorizeHttpRequests(
             auth -> {
               auth.requestMatchers(
-                      "/api/auth/shopify/**", "/actuator/**", "/health/**", "/api/health/**", "/")
+                      "/api/auth/shopify/**",
+                      "/actuator/**",
+                      "/health/**",
+                      "/api/health/**",
+                      "/",
+                      "/api/admin/login") // Allow admin login endpoint
                   .permitAll();
 
               auth.anyRequest().authenticated();

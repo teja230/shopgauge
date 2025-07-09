@@ -4,6 +4,7 @@ import com.storesight.backend.model.AdminAuditLog;
 import com.storesight.backend.repository.AdminAuditLogRepository;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -51,16 +52,20 @@ public class AdminAuthService {
   @Autowired private AdminAuditLogRepository adminAuditLogRepository;
 
   private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder(12);
-  private final SecretKey jwtSecretKey;
+  private SecretKey jwtSecretKey;
 
-  public AdminAuthService() {
-    // Admin credentials are loaded via @Value annotations
-    // They can be set via environment variables or application properties
+  @Value("${admin.jwt.secret:}")
+  private String jwtSecret;
 
+  @Value("${admin.jwt.secret.fallback:}")
+  private String jwtSecretFallback;
+
+  @PostConstruct
+  public void initializeJwtSecret() {
     // Generate a secure JWT secret key for HS512 (requires >= 512 bits)
-    String secret = System.getenv("JWT_SECRET");
+    String secret = jwtSecret;
     if (secret == null || secret.trim().isEmpty()) {
-      secret = System.getenv("ADMIN_JWT_SECRET");
+      secret = jwtSecretFallback;
     }
 
     if (secret == null || secret.trim().isEmpty()) {

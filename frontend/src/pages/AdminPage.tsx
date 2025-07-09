@@ -767,7 +767,7 @@ const AdminPage: React.FC = () => {
         setEmergencyStatus(null);
       } else {
         setEmergencyMode(true); // Assume emergency mode only for non-auth errors
-        showError('Unable to check system status - assuming emergency mode');
+      showError('Unable to check system status - assuming emergency mode');
       }
     } finally {
       setEmergencyLoading(false);
