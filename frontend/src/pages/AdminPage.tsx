@@ -842,11 +842,11 @@ const AdminPage: React.FC = () => {
         return;
       }
       
-        setAuditError(`Failed to fetch audit logs: ${errorMessage}`);
+        setAuditLogsError(`Failed to fetch audit logs: ${errorMessage}`);
       setAuditLogs([]);
       setAuditTotalCount(0);
     } finally {
-      setAuditLoading(false);
+      setAuditLogsLoading(false);
     }
   };
 
@@ -938,8 +938,8 @@ const AdminPage: React.FC = () => {
   useEffect(() => {
     if (!isAuthenticated) {
       setAuditLogs([]);
-      setAuditLoading(false);
-      setAuditError(null);
+      setAuditLogsLoading(false);
+      setAuditLogsError(null);
       setAuditPage(0);
       setAuditRowsPerPage(25);
       setAuditTotalCount(0);
@@ -971,8 +971,8 @@ const AdminPage: React.FC = () => {
   useEffect(() => {
     return () => {
       setAuditLogs([]);
-      setAuditLoading(false);
-      setAuditError(null);
+      setAuditLogsLoading(false);
+      setAuditLogsError(null);
       setAuditPage(0);
       setAuditRowsPerPage(25);
       setAuditTotalCount(0);
@@ -1448,16 +1448,16 @@ const AdminPage: React.FC = () => {
                 <Button
                   variant="outlined"
                   onClick={() => { fetchAuditLogs(); setAuditCooldown(120); }}
-                  disabled={auditLoading || auditCooldown > 0}
-                  startIcon={auditLoading ? <CircularProgress size={16} /> : <RefreshIcon />}
+                  disabled={auditLogsLoading || auditCooldown > 0}
+                  startIcon={auditLogsLoading ? <CircularProgress size={16} /> : <RefreshIcon />}
                 >
                   {auditCooldown > 0 ? `Refresh (${auditCooldown}s)` : 'Refresh'}
                 </Button>
               </Box>
 
-              {auditError && (
+              {auditLogsError && (
                 <Alert severity="error" sx={{ mb: 2 }}>
-                  {auditError}
+                  {auditLogsError}
                 </Alert>
               )}
 
@@ -1571,20 +1571,20 @@ const AdminPage: React.FC = () => {
                 <Button
                   variant="outlined"
                   onClick={() => { fetchSessionStatistics(); setSessionStatsCooldown(120); }}
-                  disabled={sessionStatsLoading || sessionStatsCooldown > 0}
-                  startIcon={sessionStatsLoading ? <CircularProgress size={16} /> : <RefreshIcon />}
+                  disabled={sessionStatisticsLoading || sessionStatsCooldown > 0}
+                  startIcon={sessionStatisticsLoading ? <CircularProgress size={16} /> : <RefreshIcon />}
                 >
                   {sessionStatsCooldown > 0 ? `Refresh Session Stats (${sessionStatsCooldown}s)` : 'Refresh Session Stats'}
                 </Button>
               </Box>
 
-              {sessionStatsError && (
+              {sessionStatisticsError && (
                 <Alert severity="error" sx={{ mb: 2 }}>
-                  {sessionStatsError}
+                  {sessionStatisticsError}
                 </Alert>
               )}
 
-              {sessionStats && (
+              {sessionStatistics && (
                 <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
                   {/* Session Overview Cards */}
                   <Box sx={{ flex: '1 1 300px' }}>
@@ -1600,7 +1600,7 @@ const AdminPage: React.FC = () => {
                               Total Sessions
                             </Typography>
                             <Typography variant="h5" color="primary.main" fontWeight="bold">
-                              {sessionStats.totalActiveSessions || 0}
+                              {sessionStatistics.totalActiveSessions || 0}
                             </Typography>
                           </Box>
                           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1608,7 +1608,7 @@ const AdminPage: React.FC = () => {
                               Currently Active
                             </Typography>
                             <Typography variant="h5" color="success.main" fontWeight="bold">
-                              {sessionStats.currentlyActiveSessions || 0}
+                              {sessionStatistics.currentlyActiveSessions || 0}
                             </Typography>
                           </Box>
                           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1616,7 +1616,7 @@ const AdminPage: React.FC = () => {
                               Unique Shops
                             </Typography>
                             <Typography variant="h5" color="info.main" fontWeight="bold">
-                              {sessionStats.uniqueShops || 0}
+                              {sessionStatistics.uniqueShops || 0}
                             </Typography>
                           </Box>
                         </Box>
@@ -1638,7 +1638,7 @@ const AdminPage: React.FC = () => {
                               Last 24 Hours
                             </Typography>
                             <Typography variant="h5" color="warning.main" fontWeight="bold">
-                              {sessionStats.sessionsActiveLastDay || 0}
+                              {sessionStatistics.sessionsActiveLastDay || 0}
                             </Typography>
                           </Box>
                           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1646,7 +1646,7 @@ const AdminPage: React.FC = () => {
                               Last Week
                             </Typography>
                             <Typography variant="h5" color="secondary.main" fontWeight="bold">
-                              {sessionStats.sessionsActiveLastWeek || 0}
+                              {sessionStatistics.sessionsActiveLastWeek || 0}
                             </Typography>
                           </Box>
                           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1654,7 +1654,7 @@ const AdminPage: React.FC = () => {
                               Avg Sessions/Shop
                             </Typography>
                             <Typography variant="h5" color="text.primary" fontWeight="bold">
-                              {sessionStats.averageSessionsPerShop || 0}
+                              {sessionStatistics.averageSessionsPerShop || 0}
                             </Typography>
                           </Box>
                         </Box>
@@ -1676,7 +1676,7 @@ const AdminPage: React.FC = () => {
                               Shops with Multiple Sessions
                             </Typography>
                             <Typography variant="h5" color="error.main" fontWeight="bold">
-                              {sessionStats.shopsWithMultipleSessions || 0}
+                              {sessionStatistics.shopsWithMultipleSessions || 0}
                             </Typography>
                           </Box>
                           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1684,8 +1684,8 @@ const AdminPage: React.FC = () => {
                               Percentage
                             </Typography>
                             <Typography variant="h5" color="text.primary" fontWeight="bold">
-                              {sessionStats.uniqueShops > 0 
-                                ? Math.round((sessionStats.shopsWithMultipleSessions / sessionStats.uniqueShops) * 100)
+                              {sessionStatistics.uniqueShops > 0 
+                                ? Math.round((sessionStatistics.shopsWithMultipleSessions / sessionStatistics.uniqueShops) * 100)
                                 : 0}%
                             </Typography>
                           </Box>
@@ -1697,7 +1697,7 @@ const AdminPage: React.FC = () => {
               )}
 
               {/* Session Duration Analysis */}
-              {sessionStats && (
+              {sessionStatistics && (
                 <Box sx={{ mt: 3 }}>
                   <Card>
                     <CardContent>
@@ -1706,7 +1706,7 @@ const AdminPage: React.FC = () => {
                         Session Duration Analysis
                       </Typography>
                       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                        Average Session Duration: {sessionStats.avgSessionDuration || 'N/A'}
+                        Average Session Duration: {sessionStatistics.avgSessionDuration || 'N/A'}
                       </Typography>
                       
                       {/* Session Duration Distribution */}
@@ -1716,7 +1716,7 @@ const AdminPage: React.FC = () => {
                              Short Sessions (&lt; 5 min)
                            </Typography>
                           <Typography variant="h6" color="warning.main">
-                            {Math.round((sessionStats.totalActiveSessions || 0) * 0.3)}
+                            {Math.round((sessionStatistics.totalActiveSessions || 0) * 0.3)}
                           </Typography>
                         </Box>
                         <Box sx={{ flex: '1 1 200px', p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
@@ -1724,7 +1724,7 @@ const AdminPage: React.FC = () => {
                             Medium Sessions (5-30 min)
                           </Typography>
                           <Typography variant="h6" color="primary.main">
-                            {Math.round((sessionStats.totalActiveSessions || 0) * 0.5)}
+                            {Math.round((sessionStatistics.totalActiveSessions || 0) * 0.5)}
                           </Typography>
                         </Box>
                         <Box sx={{ flex: '1 1 200px', p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
@@ -1732,7 +1732,7 @@ const AdminPage: React.FC = () => {
                              Long Sessions (&gt; 30 min)
                            </Typography>
                           <Typography variant="h6" color="success.main">
-                            {Math.round((sessionStats.totalActiveSessions || 0) * 0.2)}
+                            {Math.round((sessionStatistics.totalActiveSessions || 0) * 0.2)}
                           </Typography>
                         </Box>
                       </Box>
