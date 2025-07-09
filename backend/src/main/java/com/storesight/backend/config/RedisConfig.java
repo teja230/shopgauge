@@ -136,7 +136,7 @@ public class RedisConfig {
         logger.warn("Redis connection test failed - unexpected result: {}", testResult);
       }
     } catch (Exception e) {
-      logger.warn("Redis connection test failed - Redis may be unavailable: {}", e.getMessage());
+      logger.info("Redis connection test failed - Redis may be unavailable: {}", e.getMessage());
       // Don't fail startup, let the application continue with database fallback
     }
 

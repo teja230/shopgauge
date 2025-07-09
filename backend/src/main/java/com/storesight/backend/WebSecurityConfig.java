@@ -251,8 +251,8 @@ public class WebSecurityConfig implements WebMvcConfigurer {
             })
         .sessionManagement(
             session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
-        .addFilterBefore(shopifyAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
         .addFilterBefore(adminAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
+        .addFilterBefore(shopifyAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
         .exceptionHandling(exceptions -> exceptions.accessDeniedHandler(accessDeniedHandler()));
 
     return http.build();
