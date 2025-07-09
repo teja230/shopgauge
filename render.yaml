@@ -108,7 +108,41 @@ services:
     staticPublishPath: dist
     autoDeployTrigger: "on"
     rootDir: frontend
-    # Let _redirects file handle routing instead of render.yaml routes
+    # Configure redirects for SPA routing
+    redirects:
+      - source: "/admin"
+        destination: "/index.html"
+        action: "rewrite"
+      - source: "/admin/*"
+        destination: "/index.html"
+        action: "rewrite"
+      - source: "/dashboard"
+        destination: "/index.html"
+        action: "rewrite"
+      - source: "/dashboard/*"
+        destination: "/index.html"
+        action: "rewrite"
+      - source: "/competitors"
+        destination: "/index.html"
+        action: "rewrite"
+      - source: "/competitors/*"
+        destination: "/index.html"
+        action: "rewrite"
+      - source: "/profile"
+        destination: "/index.html"
+        action: "rewrite"
+      - source: "/profile/*"
+        destination: "/index.html"
+        action: "rewrite"
+      - source: "/privacy-policy"
+        destination: "/index.html"
+        action: "rewrite"
+      - source: "/api/*"
+        destination: "https://api.shopgaugeai.com/api/:splat"
+        action: "rewrite"
+      - source: "/*"
+        destination: "/index.html"
+        action: "rewrite"
 
   - type: keyvalue
     name: storesight-redis
