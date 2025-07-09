@@ -224,8 +224,14 @@ export async function getAdminStatus(): Promise<any> {
   if (import.meta.env.DEV) {
     console.log('API: Checking admin status');
   }
+  
+  // Debug: Log the actual URL being constructed
+  const fullUrl = `${API_BASE_URL}/api/admin/status`;
+  console.log('API: getAdminStatus() - API_BASE_URL:', API_BASE_URL);
+  console.log('API: getAdminStatus() - Full URL:', fullUrl);
+  
   try {
-    const response = await fetch(`${API_BASE_URL}/api/admin/status`, {
+    const response = await fetch(fullUrl, {
       credentials: 'include'
     });
     
