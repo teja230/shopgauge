@@ -1546,7 +1546,7 @@ const AdminPage: React.FC = () => {
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <Typography variant="body2" color="text.secondary">
-                              Total Active Sessions
+                              Total Sessions
                             </Typography>
                             <Typography variant="h5" color="primary.main" fontWeight="bold">
                               {sessionStats.totalActiveSessions || 0}
