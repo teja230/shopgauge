@@ -264,18 +264,18 @@ const EnhancedHealthSummary: React.FC = () => {
       
       // Transform the data to match expected format
       const transformedHealthData = {
-        backendStatus: healthData.status || 'UP',
-        redisStatus: healthData.redis?.status || 'UP',
-        databaseStatus: healthData.database?.status || 'UP',
+        backendStatus: healthData.status === 'healthy' ? 'UP' : 'DOWN',
+        redisStatus: healthData.redis?.status === 'healthy' ? 'UP' : 'DOWN',
+        databaseStatus: healthData.database?.status === 'healthy' ? 'UP' : 'DOWN',
         systemStatus: healthData.status === 'healthy' ? 'UP' : 'DEGRADED',
         lastUpdated: Date.now(),
         lastDeployCommit: healthData.version || 'unknown'
       };
       
       const transformedDbData = {
-        activeConnections: dbDetailsData.activeConnections || dbDetailsData.pool_active_connections || 0,
-        idleConnections: dbDetailsData.idleConnections || dbDetailsData.pool_idle_connections || 0,
-        totalConnections: dbDetailsData.totalConnections || dbDetailsData.pool_total_connections || 0,
+        activeConnections: dbDetailsData.pool_active_connections || 0,
+        idleConnections: dbDetailsData.pool_idle_connections || 0,
+        totalConnections: dbDetailsData.pool_total_connections || 0,
         threadsAwaitingConnection: dbDetailsData.threadsAwaitingConnection || 0,
         maxPoolSize: dbDetailsData.maxPoolSize || 10,
         minimumIdle: dbDetailsData.minimumIdle || 2,
