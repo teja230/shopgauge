@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚨 Emergency Admin - ShopGauge</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+        
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 800px;
+            width: 90%;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            color: #ff6b6b;
+        }
+        
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .status-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .status-card h3 {
+            margin-bottom: 15px;
+            color: #4ecdc4;
+        }
+        
+        .status-value {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .status-value.critical {
+            color: #ff6b6b;
+        }
+        
+        .status-value.warning {
+            color: #ffa726;
+        }
+        
+        .status-value.healthy {
+            color: #4caf50;
+        }
+        
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+            margin-bottom: 30px;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 25px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn-primary {
+            background: #4ecdc4;
+            color: white;
+        }
+        
+        .btn-danger {
+            background: #ff6b6b;
+            color: white;
+        }
+        
+        .btn-warning {
+            background: #ffa726;
+            color: white;
+        }
+        
+        .btn-success {
+            background: #4caf50;
+            color: white;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .log-area {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            line-height: 1.4;
+        }
+        
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 3px solid #4ecdc4;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .emergency-banner {
+            background: rgba(255, 107, 107, 0.2);
+            border: 2px solid #ff6b6b;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .emergency-banner h2 {
+            color: #ff6b6b;
+            margin-bottom: 10px;
+        }
+        
+        .metrics-display {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .metric-item {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .metric-label {
+            font-size: 0.9em;
+            opacity: 0.8;
+            margin-bottom: 5px;
+        }
+        
+        .metric-value {
+            font-size: 1.5em;
+            font-weight: bold;
+        }
+        
+        .charts-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .chart-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .chart-card h3 {
+            margin-bottom: 15px;
+            color: #4ecdc4;
+        }
+        
+        .chart-card canvas {
+            max-width: 100%;
+            height: auto !important;
+        }
+        
+        .health-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+        
+        .health-indicator.healthy {
+            background: rgba(76, 175, 80, 0.2);
+            color: #4caf50;
+        }
+        
+        .health-indicator.warning {
+            background: rgba(255, 152, 0, 0.2);
+            color: #ff9800;
+        }
+        
+        .health-indicator.critical {
+            background: rgba(244, 67, 54, 0.2);
+            color: #f44336;
+        }
+        
+        .trend-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.8em;
+            margin-left: 8px;
+        }
+        
+        .trend-up {
+            color: #f44336;
+        }
+        
+        .trend-down {
+            color: #4caf50;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4caf50, #2196f3, #ff9800, #f44336);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚨 Emergency Admin Panel</h1>
+            <p>Database Connection Pool Recovery System</p>
+        </div>
+        
+        <div class="emergency-banner">
+            <h2>⚠️ SYSTEM ALERT</h2>
+            <p>This emergency interface operates independently of the database connection pool</p>
+        </div>
+        
+        <div class="status-grid">
+            <div class="status-card">
+                <h3>💾 Pool Status</h3>
+                <div class="status-value" id="poolStatus">Loading...</div>
+                <div id="poolDetails">Checking connection pool...</div>
+            </div>
+            
+            <div class="status-card">
+                <h3>🔴 Redis Cache</h3>
+                <div class="status-value" id="redisStatus">--</div>
+                <div id="redisDetails">Redis Health Status</div>
+            </div>
+            
+            <div class="status-card">
+                <h3>🧠 JVM Memory</h3>
+                <div class="status-value" id="memoryUsage">--</div>
+                <div id="memoryDetails">JVM Memory Status</div>
+            </div>
+            
+            <div class="status-card">
+                <h3>📊 Transactions</h3>
+                <div class="status-value" id="transactionStatus">--</div>
+                <div id="transactionDetails">Transaction Health</div>
+            </div>
+            
+            <div class="status-card">
+                <h3>👥 Sessions</h3>
+                <div class="status-value" id="sessionCount">--</div>
+                <div id="sessionDetails">Active Sessions</div>
+            </div>
+            
+            <div class="status-card">
+                <h3>⚡ System Health</h3>
+                <div class="status-value" id="systemHealthStatus">--</div>
+                <div id="systemHealthDetails">Overall Status</div>
+            </div>
+        </div>
+        
+        <div class="metrics-display" id="metricsDisplay">
+            <!-- Dynamic metrics will be populated here -->
+        </div>
+        
+        <!-- Real-time Charts Section -->
+        <div class="charts-section" id="chartsSection" style="display: none;">
+            <div class="chart-card">
+                <h3>Pool Utilization Trend</h3>
+                <canvas id="utilizationChart" width="400" height="200"></canvas>
+            </div>
+            <div class="chart-card">
+                <h3>Connection Distribution</h3>
+                <canvas id="distributionChart" width="300" height="200"></canvas>
+            </div>
+        </div>
+        
+        <div class="actions">
+            <button class="btn btn-primary" onclick="handleManualRefresh()" id="refreshBtn">
+                <span id="statusSpinner" class="spinner" style="display: none;"></span>
+                🔍 Check Status
+            </button>
+            
+            <button class="btn btn-danger" onclick="emergencyCleanup()">
+                <span id="cleanupSpinner" class="spinner" style="display: none;"></span>
+                🧹 Emergency Cleanup
+            </button>
+            
+            <button class="btn btn-danger" onclick="comprehensiveCleanup()">
+                <span id="comprehensiveSpinner" class="spinner" style="display: none;"></span>
+                🚨 Comprehensive Cleanup
+            </button>
+            
+            <button class="btn btn-warning" onclick="killLongRunningQueries()">
+                <span id="killSpinner" class="spinner" style="display: none;"></span>
+                ⚡ Kill Long Queries
+            </button>
+            
+            <button class="btn btn-warning" onclick="getSystemResources()">
+                <span id="resourceSpinner" class="spinner" style="display: none;"></span>
+                📊 System Resources
+            </button>
+            
+            <button class="btn btn-success" onclick="getDatabaseInfo()">
+                <span id="dbSpinner" class="spinner" style="display: none;"></span>
+                🗄️ Database Info
+            </button>
+            
+            <a href="/admin" class="btn btn-primary">
+                🏠 Normal Admin
+            </a>
+        </div>
+        
+        <div class="log-area" id="logArea">
+=== Emergency Admin Console ===
+Ready to perform emergency operations...
+Use the buttons above to check system status and perform recovery operations.
+
+⚠️ IMPORTANT: This interface bypasses normal database connections
+✅ All operations are performed using emergency endpoints
+🔧 Safe to use during connection pool exhaustion
+
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const API_BASE_URL = 'https://api.shopgaugeai.com';
+        const logArea = document.getElementById('logArea');
+        let utilizationChart = null;
+        let distributionChart = null;
+        let historicalData = [];
+        let isChartsVisible = false;
+        let refreshCooldown = 0;
+        let cooldownInterval = null;
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toISOString();
+            const prefix = type === 'error' ? '❌ ERROR' : 
+                          type === 'success' ? '✅ SUCCESS' : 
+                          type === 'warning' ? '⚠️ WARNING' : 'ℹ️ INFO';
+            
+            logArea.textContent += `\n[${timestamp}] ${prefix}: ${message}`;
+            logArea.scrollTop = logArea.scrollHeight;
+        }
+        
+        function showSpinner(spinnerId, show) {
+            const spinner = document.getElementById(spinnerId);
+            if (spinner) {
+                spinner.style.display = show ? 'inline-block' : 'none';
+            }
+        }
+        
+        function handleManualRefresh() {
+            if (refreshCooldown > 0) return;
+            
+            checkStatus();
+            refreshCooldown = 180; // 3 minutes in seconds
+            
+            const refreshBtn = document.getElementById('refreshBtn');
+            refreshBtn.disabled = true;
+            
+            cooldownInterval = setInterval(() => {
+                refreshCooldown--;
+                const minutes = Math.floor(refreshCooldown / 60);
+                const seconds = refreshCooldown % 60;
+                refreshBtn.innerHTML = `
+                    <span id="statusSpinner" class="spinner" style="display: none;"></span>
+                    🔍 Check Status (${minutes}:${seconds.toString().padStart(2, '0')})
+                `;
+                
+                if (refreshCooldown <= 0) {
+                    clearInterval(cooldownInterval);
+                    cooldownInterval = null;
+                    refreshBtn.disabled = false;
+                    refreshBtn.innerHTML = `
+                        <span id="statusSpinner" class="spinner" style="display: none;"></span>
+                        🔍 Check Status
+                    `;
+                }
+            }, 1000);
+        }
+        
+        function updateMetrics(data) {
+            const metricsDisplay = document.getElementById('metricsDisplay');
+            metricsDisplay.innerHTML = '';
+            
+            if (data.database) {
+                const db = data.database;
+                const usage = db.activeUsagePercent || 0;
+                const healthStatus = db.healthStatus || 'Unknown';
+                
+                // Add to historical data
+                historicalData.push({
+                    timestamp: new Date().toLocaleTimeString(),
+                    usage: usage,
+                    active: db.activeConnections || 0,
+                    idle: db.idleConnections || 0
+                });
+                
+                // Keep only last 20 points
+                if (historicalData.length > 20) {
+                    historicalData.shift();
+                }
+                
+                // Determine health indicator class
+                let healthClass = 'healthy';
+                if (healthStatus === 'CRITICAL' || usage > 90) {
+                    healthClass = 'critical';
+                } else if (healthStatus === 'WARNING' || usage > 70) {
+                    healthClass = 'warning';
+                }
+                
+                // Determine trend
+                let trend = '';
+                if (historicalData.length >= 2) {
+                    const current = historicalData[historicalData.length - 1].usage;
+                    const previous = historicalData[historicalData.length - 2].usage;
+                    if (current > previous + 5) {
+                        trend = '<span class="trend-indicator trend-up">↗ Rising</span>';
+                    } else if (current < previous - 5) {
+                        trend = '<span class="trend-indicator trend-down">↘ Falling</span>';
+                    }
+                }
+                
+                const metrics = [
+                    { 
+                        label: 'Pool Usage', 
+                        value: `${usage}%`,
+                        progress: usage,
+                        extra: trend
+                    },
+                    { 
+                        label: 'Active Connections', 
+                        value: `${db.activeConnections || 0}`,
+                        extra: `/ ${db.maxPoolSize || 0} max`
+                    },
+                    { 
+                        label: 'Idle Connections', 
+                        value: db.idleConnections || 0,
+                        extra: `Min: ${db.minimumIdle || 0}`
+                    },
+                    { 
+                        label: 'Threads Waiting', 
+                        value: db.threadsAwaitingConnection || 0,
+                        extra: db.threadsAwaitingConnection > 0 ? '⚠️ Pool exhausted' : '✅ No queue'
+                    },
+                    { 
+                        label: 'Health Status', 
+                        value: `<span class="health-indicator ${healthClass}">${healthStatus}</span>`,
+                        extra: `Last check: ${new Date().toLocaleTimeString()}`
+                    }
+                ];
+                
+                metrics.forEach(metric => {
+                    const metricElement = document.createElement('div');
+                    metricElement.className = 'metric-item';
+                    metricElement.innerHTML = `
+                        <div class="metric-label">${metric.label}</div>
+                        <div class="metric-value">${metric.value}</div>
+                        ${metric.extra ? `<div style="font-size: 0.8em; color: #ccc; margin-top: 4px;">${metric.extra}</div>` : ''}
+                        ${metric.progress ? `<div class="progress-bar"><div class="progress-fill" style="width: ${metric.progress}%"></div></div>` : ''}
+                    `;
+                    metricsDisplay.appendChild(metricElement);
+                });
+                
+                // Initialize charts if not visible
+                if (!isChartsVisible && historicalData.length > 3) {
+                    initCharts();
+                }
+                
+                // Update charts
+                updateCharts();
+            }
+        }
+        
+        function initCharts() {
+            const chartsSection = document.getElementById('chartsSection');
+            chartsSection.style.display = 'grid';
+            isChartsVisible = true;
+            
+            // Initialize utilization chart
+            const utilizationCtx = document.getElementById('utilizationChart').getContext('2d');
+            utilizationChart = new Chart(utilizationCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Pool Usage %',
+                        data: [],
+                        borderColor: '#4ecdc4',
+                        backgroundColor: 'rgba(78, 205, 196, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#fff'
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: {
+                                color: '#fff'
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                color: '#fff'
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Initialize distribution chart
+            const distributionCtx = document.getElementById('distributionChart').getContext('2d');
+            distributionChart = new Chart(distributionCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Active', 'Idle', 'Available'],
+                    datasets: [{
+                        data: [0, 0, 0],
+                        backgroundColor: [
+                            '#ff6b6b',
+                            '#4ecdc4',
+                            '#45b7d1'
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: '#fff',
+                                padding: 20
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function updateCharts() {
+            if (!isChartsVisible) return;
+            
+            if (utilizationChart && historicalData.length > 0) {
+                utilizationChart.data.labels = historicalData.map(d => d.timestamp);
+                utilizationChart.data.datasets[0].data = historicalData.map(d => d.usage);
+                utilizationChart.update();
+            }
+            
+            if (distributionChart && historicalData.length > 0) {
+                const latest = historicalData[historicalData.length - 1];
+                const maxPool = 20; // Default max pool size
+                const available = maxPool - latest.active - latest.idle;
+                
+                distributionChart.data.datasets[0].data = [
+                    latest.active,
+                    latest.idle,
+                    Math.max(0, available)
+                ];
+                distributionChart.update();
+            }
+        }
+        
+                async function checkStatus() {
+            showSpinner('statusSpinner', true);
+            log('Checking comprehensive system status...');
+            
+            try {
+                // Fetch comprehensive system metrics
+                const [statusResponse, redisResponse, transactionResponse, sessionResponse] = await Promise.all([
+                    fetch(`${API_BASE_URL}/api/admin/emergency/status`, {
+                        method: 'GET',
+                        credentials: 'include'
+                    }),
+                    fetch(`${API_BASE_URL}/api/health/redis`, {
+                        method: 'GET',
+                        credentials: 'include'
+                    }).catch(() => ({ ok: false })),
+                    fetch(`${API_BASE_URL}/api/health/transactions`, {
+                        method: 'GET',
+                        credentials: 'include'
+                    }).catch(() => ({ ok: false })),
+                    fetch(`${API_BASE_URL}/api/admin/session-statistics`, {
+                        method: 'GET',
+                        credentials: 'include'
+                    }).catch(() => ({ ok: false }))
+                ]);
+                
+                if (!statusResponse.ok) {
+                    throw new Error(`HTTP ${statusResponse.status}: ${statusResponse.statusText}`);
+                }
+
+                const data = await statusResponse.json();
+                const redisData = redisResponse.ok ? await redisResponse.json() : null;
+                const transactionData = transactionResponse.ok ? await transactionResponse.json() : null;
+                const sessionData = sessionResponse.ok ? await sessionResponse.json() : null;
+                
+                // Update Pool Status
+                document.getElementById('poolStatus').textContent = data.poolStatus || 'Unknown';
+                document.getElementById('poolStatus').className = 'status-value ' + 
+                    (data.poolStatus === 'CRITICAL' ? 'critical' : 
+                     data.poolStatus === 'WARNING' ? 'warning' : 'healthy');
+                document.getElementById('poolDetails').textContent = 
+                    `${data.database?.activeConnections || 0} / ${data.database?.maxPoolSize || 0} active`;
+                
+                // Update Redis Status
+                if (redisData) {
+                    const redisHealthy = redisData.healthy;
+                    const redisPerf = redisData.performanceStatus || 'unknown';
+                    document.getElementById('redisStatus').textContent = redisHealthy ? 'HEALTHY' : 'UNHEALTHY';
+                    document.getElementById('redisStatus').className = 'status-value ' + 
+                        (redisHealthy ? 'healthy' : 'critical');
+                    document.getElementById('redisDetails').textContent = 
+                        `${redisData.responseTimeMs || 0}ms - ${redisPerf}`;
+                } else {
+                    document.getElementById('redisStatus').textContent = 'UNAVAILABLE';
+                    document.getElementById('redisStatus').className = 'status-value critical';
+                    document.getElementById('redisDetails').textContent = 'Redis health unavailable';
+                }
+                
+                // Update JVM Memory
+                if (data.jvmMemory) {
+                    document.getElementById('memoryUsage').textContent = `${data.jvmMemory.usedPercentage || 0}%`;
+                    document.getElementById('memoryUsage').className = 'status-value ' + 
+                        (data.jvmMemory.usedPercentage > 90 ? 'critical' : 
+                         data.jvmMemory.usedPercentage > 70 ? 'warning' : 'healthy');
+                    document.getElementById('memoryDetails').textContent = 
+                        `${Math.round((data.jvmMemory.usedMemory || 0) / 1024 / 1024)} MB used`;
+                }
+                
+                // Update Transaction Status
+                if (transactionData) {
+                    const successRate = transactionData.success_rate || 0;
+                    document.getElementById('transactionStatus').textContent = `${Math.round(successRate)}%`;
+                    document.getElementById('transactionStatus').className = 'status-value ' + 
+                        (successRate > 95 ? 'healthy' : successRate > 85 ? 'warning' : 'critical');
+                    document.getElementById('transactionDetails').textContent = 
+                        `${transactionData.total_transactions || 0} total, ${transactionData.failed_transactions || 0} failed`;
+                } else {
+                    document.getElementById('transactionStatus').textContent = 'UNAVAILABLE';
+                    document.getElementById('transactionStatus').className = 'status-value critical';
+                    document.getElementById('transactionDetails').textContent = 'Transaction metrics unavailable';
+                }
+                
+                // Update Session Status
+                if (sessionData) {
+                    const activeSessions = sessionData.currentlyActiveSessions || 0;
+                    document.getElementById('sessionCount').textContent = activeSessions;
+                    document.getElementById('sessionCount').className = 'status-value ' + 
+                        (activeSessions > 100 ? 'warning' : 'healthy');
+                    document.getElementById('sessionDetails').textContent = 
+                        `${sessionData.shopsWithMultipleSessions || 0} multi-session shops`;
+                } else {
+                    document.getElementById('sessionCount').textContent = 'UNAVAILABLE';
+                    document.getElementById('sessionCount').className = 'status-value critical';
+                    document.getElementById('sessionDetails').textContent = 'Session metrics unavailable';
+                }
+                
+                // Update Overall System Health
+                let systemHealth = 'HEALTHY';
+                if (data.poolStatus === 'CRITICAL' || !redisData?.healthy || 
+                    (transactionData && transactionData.success_rate < 85)) {
+                    systemHealth = 'CRITICAL';
+                } else if (data.poolStatus === 'WARNING' || 
+                           (transactionData && transactionData.success_rate < 95)) {
+                    systemHealth = 'DEGRADED';
+                }
+                
+                document.getElementById('systemHealthStatus').textContent = systemHealth;
+                document.getElementById('systemHealthStatus').className = 'status-value ' + 
+                    (systemHealth === 'HEALTHY' ? 'healthy' : 
+                     systemHealth === 'DEGRADED' ? 'warning' : 'critical');
+                document.getElementById('systemHealthDetails').textContent = 
+                    `Last check: ${new Date().toLocaleTimeString()}`;
+                
+                updateMetrics(data);
+                
+                log(`System status check complete. Pool: ${data.poolStatus}, Redis: ${redisData?.healthy ? 'Healthy' : 'Unhealthy'}, System: ${systemHealth}`, 'success');
+                
+                if (data.emergencyMode) {
+                    log('⚠️ EMERGENCY MODE ACTIVE - Connection pool exhausted!', 'warning');
+                }
+                
+            } catch (error) {
+                log(`Status check failed: ${error.message}`, 'error');
+                document.getElementById('poolStatus').textContent = 'ERROR';
+                document.getElementById('poolStatus').className = 'status-value critical';
+                document.getElementById('systemHealthStatus').textContent = 'ERROR';
+                document.getElementById('systemHealthStatus').className = 'status-value critical';
+            } finally {
+                showSpinner('statusSpinner', false);
+            }
+        }
+        
+        async function emergencyCleanup() {
+            showSpinner('cleanupSpinner', true);
+            log('Performing emergency connection cleanup...');
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/admin/emergency/cleanup-connections`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.cleanupPerformed) {
+                    log('✅ Emergency cleanup completed successfully!', 'success');
+                    
+                    if (data.beforeCleanup && data.afterCleanup) {
+                        log(`Before: ${data.beforeCleanup.activeConnections} active, ${data.beforeCleanup.idleConnections} idle`);
+                        log(`After:  ${data.afterCleanup.activeConnections} active, ${data.afterCleanup.idleConnections} idle`);
+                    }
+                    
+                    // Auto-refresh status after cleanup
+                    setTimeout(() => checkStatus(), 2000);
+                } else {
+                    log(`Cleanup failed: ${data.message}`, 'error');
+                }
+                
+            } catch (error) {
+                log(`Emergency cleanup failed: ${error.message}`, 'error');
+            } finally {
+                showSpinner('cleanupSpinner', false);
+            }
+        }
+        
+        async function comprehensiveCleanup() {
+            showSpinner('comprehensiveSpinner', true);
+            log('🚨 Performing COMPREHENSIVE emergency cleanup...');
+            log('This includes: connection cleanup, session cleanup, Redis cleanup, and query killing');
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/admin/emergency/comprehensive-cleanup`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.cleanupPerformed) {
+                    log('✅ Comprehensive cleanup completed successfully!', 'success');
+                    
+                    if (data.beforeCleanup && data.afterCleanup) {
+                        log(`Before: ${data.beforeCleanup.activeConnections} active, ${data.beforeCleanup.idleConnections} idle`);
+                        log(`After:  ${data.afterCleanup.activeConnections} active, ${data.afterCleanup.idleConnections} idle`);
+                        log(`Connections freed: ${data.connectionsSaved || 0}`);
+                    }
+                    
+                    if (data.queryKillResult && data.queryKillResult.killedQueries) {
+                        log(`Killed ${data.queryKillResult.killedQueries.length} long-running queries/connections`);
+                    }
+                    
+                    // Auto-refresh status after cleanup
+                    setTimeout(() => checkStatus(), 3000);
+                } else {
+                    log(`Comprehensive cleanup failed: ${data.message}`, 'error');
+                }
+                
+            } catch (error) {
+                log(`Comprehensive cleanup failed: ${error.message}`, 'error');
+            } finally {
+                showSpinner('comprehensiveSpinner', false);
+            }
+        }
+        
+        async function killLongRunningQueries() {
+            showSpinner('killSpinner', true);
+            log('⚡ Killing long-running database queries and idle connections...');
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/admin/emergency/kill-long-running-queries`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.cleanupPerformed) {
+                    log('✅ Long-running query cleanup completed!', 'success');
+                    
+                    if (data.killedQueries && data.killedQueries.length > 0) {
+                        log(`Killed ${data.killedQueries.length} queries/connections:`);
+                        data.killedQueries.forEach(query => {
+                            if (query.killed) {
+                                log(`  - PID ${query.pid}: ${query.state} (${query.duration || query.idle_duration})`);
+                            }
+                        });
+                    } else {
+                        log('No long-running queries found to kill', 'info');
+                    }
+                    
+                    if (data.beforeCleanup && data.afterCleanup) {
+                        log(`Before: ${data.beforeCleanup.activeConnections} active`);
+                        log(`After:  ${data.afterCleanup.activeConnections} active`);
+                    }
+                    
+                    // Auto-refresh status after cleanup
+                    setTimeout(() => checkStatus(), 2000);
+                } else {
+                    log(`Query cleanup failed: ${data.message}`, 'error');
+                }
+                
+            } catch (error) {
+                log(`Long-running query cleanup failed: ${error.message}`, 'error');
+            } finally {
+                showSpinner('killSpinner', false);
+            }
+        }
+        
+        async function getSystemResources() {
+            showSpinner('resourceSpinner', true);
+            log('Fetching system resources...');
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/admin/emergency/system-resources`, {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.jvmMemory) {
+                    log(`JVM Memory: ${data.jvmMemory.usedPercentage}% used (${Math.round(data.jvmMemory.usedMemory / 1024 / 1024)} MB)`);
+                }
+                
+                if (data.systemLoad) {
+                    log(`System Load: ${data.systemLoad.systemLoadAverage}, CPUs: ${data.systemLoad.availableProcessors}`);
+                }
+                
+                if (data.threads) {
+                    log(`Threads: ${data.threads.threadCount} active, ${data.threads.peakThreadCount} peak`);
+                }
+                
+                log('System resources fetched successfully', 'success');
+                
+            } catch (error) {
+                log(`System resources fetch failed: ${error.message}`, 'error');
+            } finally {
+                showSpinner('resourceSpinner', false);
+            }
+        }
+        
+        async function getDatabaseInfo() {
+            showSpinner('dbSpinner', true);
+            log('Fetching database information...');
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/admin/emergency/database-info`, {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.databaseAccessible) {
+                    log(`Database Version: ${data.databaseVersion?.substring(0, 50)}...`);
+                    log(`Active DB Connections: ${data.activeDatabaseConnections}`);
+                    
+                    if (data.largestTables) {
+                        log('Largest Tables:');
+                        data.largestTables.forEach(table => {
+                            log(`  - ${table.table}: ${table.size}`);
+                        });
+                    }
+                    
+                    log('Database information fetched successfully', 'success');
+                } else {
+                    log(`Database not accessible: ${data.databaseError}`, 'error');
+                }
+                
+            } catch (error) {
+                log(`Database info fetch failed: ${error.message}`, 'error');
+            } finally {
+                showSpinner('dbSpinner', false);
+            }
+        }
+        
+        // Auto-check status on page load
+        window.addEventListener('load', () => {
+            log('Emergency Admin Console loaded');
+            log('Performing initial status check...');
+            setTimeout(checkStatus, 1000);
+        });
+    </script>
+</body>
+</html> 

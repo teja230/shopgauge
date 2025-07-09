@@ -9,6 +9,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -536,6 +537,196 @@ public class AdminController {
       logger.error("System resources check failed", e);
       resources.put("error", "System resources check failed: " + e.getMessage());
       return ResponseEntity.status(500).body(resources);
+    }
+  }
+
+  /** EMERGENCY ENDPOINT: Kill long-running database queries and connections */
+  @PostMapping("/emergency/kill-long-running-queries")
+  public ResponseEntity<Map<String, Object>> killLongRunningQueries() {
+    Map<String, Object> result = new HashMap<>();
+    result.put("timestamp", LocalDateTime.now().toString());
+
+    try {
+      // Get metrics before cleanup
+      Map<String, Object> beforeMetrics = databaseMonitoringService.getDatabaseMetrics();
+      result.put("beforeCleanup", beforeMetrics);
+
+      // Kill long-running queries (> 2 minutes)
+      List<Map<String, Object>> killedQueries = new ArrayList<>();
+
+      try (Connection conn = dataSource.getConnection()) {
+        conn.setAutoCommit(true);
+
+        // Find long-running queries
+        String findLongRunningQueries =
+            """
+            SELECT pid, usename, application_name, client_addr, state,
+                   query_start, NOW() - query_start as duration,
+                   LEFT(query, 100) as query_snippet
+            FROM pg_stat_activity
+            WHERE state = 'active'
+              AND query_start < NOW() - INTERVAL '2 minutes'
+              AND query NOT LIKE '%pg_stat_activity%'
+              AND pid != pg_backend_pid()
+            ORDER BY query_start ASC
+            """;
+
+        try (PreparedStatement stmt = conn.prepareStatement(findLongRunningQueries);
+            ResultSet rs = stmt.executeQuery()) {
+
+          while (rs.next()) {
+            Map<String, Object> queryInfo = new HashMap<>();
+            int pid = rs.getInt("pid");
+            queryInfo.put("pid", pid);
+            queryInfo.put("username", rs.getString("usename"));
+            queryInfo.put("application_name", rs.getString("application_name"));
+            queryInfo.put("client_addr", rs.getString("client_addr"));
+            queryInfo.put("state", rs.getString("state"));
+            queryInfo.put("query_start", rs.getTimestamp("query_start").toString());
+            queryInfo.put("duration", rs.getString("duration"));
+            queryInfo.put("query_snippet", rs.getString("query_snippet"));
+
+            // Kill the query
+            try (PreparedStatement killStmt =
+                conn.prepareStatement("SELECT pg_terminate_backend(?)")) {
+              killStmt.setInt(1, pid);
+              killStmt.executeQuery();
+              queryInfo.put("killed", true);
+              logger.warn(
+                  "EMERGENCY: Killed long-running query PID {} duration {}",
+                  pid,
+                  rs.getString("duration"));
+            } catch (Exception e) {
+              queryInfo.put("killed", false);
+              queryInfo.put("kill_error", e.getMessage());
+            }
+
+            killedQueries.add(queryInfo);
+          }
+        }
+
+        // Also kill idle connections that have been idle for > 5 minutes
+        String findIdleConnections =
+            """
+            SELECT pid, usename, application_name, client_addr, state,
+                   state_change, NOW() - state_change as idle_duration
+            FROM pg_stat_activity
+            WHERE state = 'idle'
+              AND state_change < NOW() - INTERVAL '5 minutes'
+              AND pid != pg_backend_pid()
+            ORDER BY state_change ASC
+            """;
+
+        try (PreparedStatement stmt = conn.prepareStatement(findIdleConnections);
+            ResultSet rs = stmt.executeQuery()) {
+
+          while (rs.next()) {
+            Map<String, Object> connInfo = new HashMap<>();
+            int pid = rs.getInt("pid");
+            connInfo.put("pid", pid);
+            connInfo.put("username", rs.getString("usename"));
+            connInfo.put("application_name", rs.getString("application_name"));
+            connInfo.put("client_addr", rs.getString("client_addr"));
+            connInfo.put("state", rs.getString("state"));
+            connInfo.put("idle_duration", rs.getString("idle_duration"));
+
+            // Kill the idle connection
+            try (PreparedStatement killStmt =
+                conn.prepareStatement("SELECT pg_terminate_backend(?)")) {
+              killStmt.setInt(1, pid);
+              killStmt.executeQuery();
+              connInfo.put("killed", true);
+              logger.warn(
+                  "EMERGENCY: Killed idle connection PID {} idle for {}",
+                  pid,
+                  rs.getString("idle_duration"));
+            } catch (Exception e) {
+              connInfo.put("killed", false);
+              connInfo.put("kill_error", e.getMessage());
+            }
+
+            killedQueries.add(connInfo);
+          }
+        }
+
+      } catch (Exception dbError) {
+        logger.error("Database query killing failed", dbError);
+        result.put("databaseError", dbError.getMessage());
+      }
+
+      // Wait for cleanup to complete
+      Thread.sleep(3000);
+
+      // Get metrics after cleanup
+      Map<String, Object> afterMetrics = databaseMonitoringService.getDatabaseMetrics();
+      result.put("afterCleanup", afterMetrics);
+
+      result.put("killedQueries", killedQueries);
+      result.put("cleanupPerformed", true);
+      result.put("message", "Database query cleanup completed");
+
+      return ResponseEntity.ok(result);
+
+    } catch (Exception e) {
+      logger.error("Emergency database cleanup failed", e);
+      result.put("error", "Emergency database cleanup failed: " + e.getMessage());
+      result.put("cleanupPerformed", false);
+      return ResponseEntity.status(500).body(result);
+    }
+  }
+
+  /** EMERGENCY ENDPOINT: Comprehensive cleanup combining all strategies */
+  @PostMapping("/emergency/comprehensive-cleanup")
+  public ResponseEntity<Map<String, Object>> comprehensiveEmergencyCleanup() {
+    Map<String, Object> result = new HashMap<>();
+    result.put("timestamp", LocalDateTime.now().toString());
+
+    try {
+      logger.warn("COMPREHENSIVE EMERGENCY CLEANUP: Starting all cleanup strategies");
+
+      // Get metrics before cleanup
+      Map<String, Object> beforeMetrics = databaseMonitoringService.getDatabaseMetrics();
+      result.put("beforeCleanup", beforeMetrics);
+
+      // Step 1: Standard connection pool cleanup
+      logger.info("Step 1: Standard connection pool cleanup");
+      databaseMonitoringService.performEmergencyCleanup();
+      Thread.sleep(2000);
+
+      // Step 2: Kill long-running queries
+      logger.info("Step 2: Killing long-running database queries");
+      ResponseEntity<Map<String, Object>> queryKillResult = killLongRunningQueries();
+      result.put("queryKillResult", queryKillResult.getBody());
+      Thread.sleep(2000);
+
+      // Step 3: Force garbage collection
+      logger.info("Step 3: Forcing garbage collection");
+      System.gc();
+      Thread.sleep(1000);
+
+      // Get final metrics
+      Map<String, Object> afterMetrics = databaseMonitoringService.getDatabaseMetrics();
+      result.put("afterCleanup", afterMetrics);
+
+      // Calculate improvement
+      int activeConnectionsBefore = (Integer) beforeMetrics.get("activeConnections");
+      int activeConnectionsAfter = (Integer) afterMetrics.get("activeConnections");
+      int connectionsSaved = activeConnectionsBefore - activeConnectionsAfter;
+
+      result.put("connectionsSaved", connectionsSaved);
+      result.put("cleanupPerformed", true);
+      result.put("message", "Comprehensive emergency cleanup completed");
+
+      logger.warn(
+          "COMPREHENSIVE EMERGENCY CLEANUP COMPLETED: {} connections freed", connectionsSaved);
+
+      return ResponseEntity.ok(result);
+
+    } catch (Exception e) {
+      logger.error("Comprehensive emergency cleanup failed", e);
+      result.put("error", "Comprehensive emergency cleanup failed: " + e.getMessage());
+      result.put("cleanupPerformed", false);
+      return ResponseEntity.status(500).body(result);
     }
   }
 

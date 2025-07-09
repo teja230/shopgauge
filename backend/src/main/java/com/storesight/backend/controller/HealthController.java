@@ -139,12 +139,6 @@ public class HealthController {
     return ResponseEntity.ok(poolInfo);
   }
 
-  @GetMapping("/redis")
-  public ResponseEntity<Map<String, Object>> getRedisHealthLegacy() {
-    Map<String, Object> health = checkRedisHealth();
-    return ResponseEntity.ok(health);
-  }
-
   private Map<String, Object> checkDatabaseHealth() {
     Map<String, Object> health = new HashMap<>();
 
@@ -313,7 +307,7 @@ public class HealthController {
   }
 
   /** Enhanced health check with session management metrics */
-  @GetMapping("/health/sessions")
+  @GetMapping("/sessions")
   public ResponseEntity<Map<String, Object>> getSessionHealth() {
     Map<String, Object> health = new HashMap<>();
 
@@ -402,7 +396,7 @@ public class HealthController {
   }
 
   /** Redis health check endpoint */
-  @GetMapping("/health/redis")
+  @GetMapping("/redis")
   public ResponseEntity<Map<String, Object>> getRedisHealth() {
     try {
       Map<String, Object> redisHealth = redisHealthService.getRedisHealthMetrics();
@@ -423,7 +417,7 @@ public class HealthController {
   }
 
   /** Comprehensive system health check */
-  @GetMapping("/health/system")
+  @GetMapping("/system")
   public ResponseEntity<Map<String, Object>> getSystemHealth() {
     Map<String, Object> systemHealth = new HashMap<>();
     boolean overallHealthy = true;
@@ -477,7 +471,7 @@ public class HealthController {
   }
 
   /** Force Redis health check (for testing) */
-  @PostMapping("/health/redis/check")
+  @PostMapping("/redis/check")
   public ResponseEntity<Map<String, Object>> forceRedisHealthCheck() {
     try {
       redisHealthService.forceHealthCheck();
@@ -495,7 +489,7 @@ public class HealthController {
   }
 
   /** Transaction monitoring health check */
-  @GetMapping("/health/transactions")
+  @GetMapping("/transactions")
   public ResponseEntity<Map<String, Object>> getTransactionHealth() {
     try {
       Map<String, Object> transactionHealth = transactionMonitoringService.getHealthMetrics();

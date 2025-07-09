@@ -17,6 +17,7 @@ import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
 @Configuration
@@ -139,6 +140,25 @@ public class RedisConfig {
       // Don't fail startup, let the application continue with database fallback
     }
 
+    return template;
+  }
+
+  @Bean
+  public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory) {
+    RedisTemplate<String, Object> template = new RedisTemplate<>();
+    template.setConnectionFactory(connectionFactory);
+    template.setEnableTransactionSupport(
+        false); // Disable transaction support for better performance
+
+    // Use String serializer for keys
+    template.setKeySerializer(template.getStringSerializer());
+    template.setHashKeySerializer(template.getStringSerializer());
+
+    // Use Jackson2JsonRedisSerializer for values
+    template.setValueSerializer(template.getStringSerializer());
+    template.setHashValueSerializer(template.getStringSerializer());
+
+    template.afterPropertiesSet();
     return template;
   }
 

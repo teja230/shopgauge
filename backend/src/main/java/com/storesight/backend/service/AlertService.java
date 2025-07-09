@@ -194,19 +194,64 @@ public class AlertService implements StreamListener<String, MapRecord<String, St
               headers.setContentType(
                   org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED);
             })
-        .bodyValue(
-            "To="
-                + phoneNumber
-                + "&From="
-                + twilioFromNumber
-                + "&Body="
-                + java.net.URLEncoder.encode(message, java.nio.charset.StandardCharsets.UTF_8))
+        .bodyValue("To=" + phoneNumber + "&From=" + twilioFromNumber + "&Body=" + message)
         .retrieve()
         .bodyToMono(String.class)
         .subscribe(
             response -> log.info("SMS alert sent successfully to: {}", phoneNumber),
             error ->
                 log.error("Failed to send SMS alert to {}: {}", phoneNumber, error.getMessage()));
+  }
+
+  /**
+   * Generic alert method that handles different alert types and severities
+   *
+   * @param subject The alert subject/title
+   * @param message The alert message content
+   * @param severity The alert severity (INFO, WARNING, ERROR, CRITICAL)
+   */
+  public void sendAlert(String subject, String message, String severity) {
+    log.info("Sending alert - Subject: {}, Severity: {}, Message: {}", subject, severity, message);
+
+    // Format the alert message with severity
+    String formattedMessage = String.format("[%s] %s\n\n%s", severity, subject, message);
+    String logMessage = String.format("ALERT [%s] %s: %s", severity, subject, message);
+
+    // Always log the alert
+    switch (severity.toUpperCase()) {
+      case "CRITICAL":
+        log.error(logMessage);
+        break;
+      case "ERROR":
+        log.error(logMessage);
+        break;
+      case "WARNING":
+        log.warn(logMessage);
+        break;
+      case "INFO":
+      default:
+        log.info(logMessage);
+        break;
+    }
+
+    // Send email alert for WARNING, ERROR, and CRITICAL
+    if (severity.equals("WARNING") || severity.equals("ERROR") || severity.equals("CRITICAL")) {
+      sendEmailAlert("admin@shopgaugeai.com", subject, formattedMessage);
+    }
+
+    // Send SMS for CRITICAL alerts
+    if (severity.equals("CRITICAL")) {
+      sendSmsAlert("+18329872361", subject + ": " + message);
+    }
+
+    // Store alert in Redis for monitoring dashboard
+    try {
+      Alert alert = new Alert(subject, message, severity, System.currentTimeMillis());
+      redisTemplate.opsForList().leftPush("alerts:recent", alert);
+      redisTemplate.expire("alerts:recent", java.time.Duration.ofHours(24));
+    } catch (Exception e) {
+      log.error("Failed to store alert in Redis: {}", e.getMessage());
+    }
   }
 
   public void triggerBusinessEvent(String shop, String eventType, String message) {
@@ -290,5 +335,53 @@ public class AlertService implements StreamListener<String, MapRecord<String, St
 
   public boolean isTwilioEnabled() {
     return twilioEnabled;
+  }
+
+  /** Alert data class for storing alert information */
+  public static class Alert {
+    private String subject;
+    private String message;
+    private String severity;
+    private long timestamp;
+
+    public Alert(String subject, String message, String severity, long timestamp) {
+      this.subject = subject;
+      this.message = message;
+      this.severity = severity;
+      this.timestamp = timestamp;
+    }
+
+    // Getters and setters
+    public String getSubject() {
+      return subject;
+    }
+
+    public void setSubject(String subject) {
+      this.subject = subject;
+    }
+
+    public String getMessage() {
+      return message;
+    }
+
+    public void setMessage(String message) {
+      this.message = message;
+    }
+
+    public String getSeverity() {
+      return severity;
+    }
+
+    public void setSeverity(String severity) {
+      this.severity = severity;
+    }
+
+    public long getTimestamp() {
+      return timestamp;
+    }
+
+    public void setTimestamp(long timestamp) {
+      this.timestamp = timestamp;
+    }
   }
 }
