@@ -864,10 +864,33 @@ const AdminPage: React.FC = () => {
     try {
       setEmergencyLoading(true);
       const status = await fetchEmergencyEndpoint('/status');
-      setEmergencyStatus(status);
-      setEmergencyMode(status.emergencyMode || false);
       
-      if (status.emergencyMode) {
+      // Transform the backend response to match frontend expectations
+      const transformedStatus = {
+        ...status,
+        emergencyMode: status.emergencyMode || false,
+        poolUsage: status.database?.usagePercentage || status.database?.activeUsagePercent || 0,
+        database: {
+          status: status.database?.status || 'unknown',
+          activeConnections: status.database?.activeConnections || 0,
+          maxPoolSize: status.database?.maxPoolSize || 10,
+          usagePercentage: status.database?.usagePercentage || status.database?.activeUsagePercent || 0
+        },
+        redis: {
+          status: status.redis?.status || 'unknown',
+          memory: status.redis?.memory || 'N/A'
+        },
+        jvmMemory: status.jvmMemory || {
+          used: 'N/A',
+          max: 'N/A',
+          usage: 'N/A'
+        }
+      };
+      
+      setEmergencyStatus(transformedStatus);
+      setEmergencyMode(transformedStatus.emergencyMode);
+      
+      if (transformedStatus.emergencyMode) {
         showError('⚠️ CRITICAL: Connection pool exhausted - Emergency admin mode activated');
       }
     } catch (error) {
@@ -880,7 +903,7 @@ const AdminPage: React.FC = () => {
         setEmergencyStatus(null);
       } else {
         setEmergencyMode(true); // Assume emergency mode only for non-auth errors
-      showError('Unable to check system status - assuming emergency mode');
+        showError('Unable to check system status - assuming emergency mode');
       }
     } finally {
       setEmergencyLoading(false);
