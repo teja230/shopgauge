@@ -31,9 +31,10 @@ import { useNotifications } from '../../hooks/useNotifications';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
+// Centralized admin fetcher
 const fetchAdminEndpoint = async (endpoint: string, options?: RequestInit) => {
   const fullUrl = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
-  return fetch(fullUrl, {
+  const response = await fetch(fullUrl, {
     credentials: 'include', // Important for sending the admin_token cookie
     headers: {
       'Accept': 'application/json',
@@ -42,6 +43,13 @@ const fetchAdminEndpoint = async (endpoint: string, options?: RequestInit) => {
     },
     ...options,
   });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    console.error(`Admin endpoint ${endpoint} failed with status ${response.status}:`, errorBody);
+    throw new Error(`Request failed: ${response.statusText}`);
+  }
+  return response.json();
 };
 
 
@@ -232,76 +240,49 @@ const PerformanceMetricsCard: React.FC<{ metrics: DatabaseMetrics }> = ({ metric
 const EnhancedHealthSummary: React.FC = () => {
   const [metrics, setMetrics] = useState<HealthMetrics | null>(null);
   const [databaseDetails, setDatabaseDetails] = useState<DatabaseMetrics | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // Start loading initially
   const [error, setError] = useState<string | null>(null);
   const { isServiceAvailable } = useServiceStatus();
   const { addNotification } = useNotifications();
 
-  const fetchDatabaseDetails = async () => {
-    try {
-      const response = await fetch('/api/health/database-pool', {
-        credentials: 'include'
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setDatabaseDetails(data);
-      }
-    } catch (e: any) {
-      debugLog.warn('Database details not available:', e.message, 'EnhancedHealthSummary');
-    }
-  };
-
-  const fetchMetrics = async () => {
+  // Unified fetch function
+  const fetchAllMetrics = React.useCallback(async () => {
     if (!isServiceAvailable) {
       debugLog.info('HealthSummary: Skipping health check - service not available', {}, 'EnhancedHealthSummary');
+      setLoading(false);
       return;
     }
 
     setLoading(true);
     setError(null);
-    try {
-      const response = await fetchAdminEndpoint('/api/admin/health-summary');
-      if (!response.ok) {
-        throw new Error(`Failed to fetch health summary: ${response.statusText}`);
-      }
-      const data = await response.json();
 
-      setMetrics(data);
-      setError(null);
+    try {
+      const [healthData, dbDetailsData] = await Promise.all([
+        fetchAdminEndpoint('/api/admin/health-summary'),
+        fetchAdminEndpoint('/api/admin/health/database-pool') 
+      ]);
       
-      // Also fetch detailed database metrics
-      await fetchDatabaseDetails();
+      setMetrics(healthData);
+      setDatabaseDetails(dbDetailsData);
+      
     } catch (e: any) {
-      debugLog.warn('Health metrics not available:', e.message, 'EnhancedHealthSummary');
-      setMetrics({
-        backendStatus: 'UNKNOWN',
-        redisStatus: 'UNKNOWN',
-        databaseStatus: 'UNKNOWN',
-        systemStatus: 'UNKNOWN',
-        lastUpdated: Date.now(),
-        lastDeployCommit: 'unknown'
-      });
-      setError(null);
+      console.error('Failed to fetch enhanced health metrics:', e);
+      setError('Failed to load system health. Please try again.');
+      setMetrics(null);
+      setDatabaseDetails(null);
     } finally {
       setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (isServiceAvailable) {
-      fetchMetrics();
     }
   }, [isServiceAvailable]);
 
   useEffect(() => {
-    if (!isServiceAvailable || !metrics) {
-      return;
-    }
-
-    // Refresh every 1 minute for real-time monitoring
-    const interval = setInterval(fetchMetrics, 60_000);
+    fetchAllMetrics();
+    
+    // Set up an interval for subsequent refreshes
+    const interval = setInterval(fetchAllMetrics, 60000); // 1 minute
     return () => clearInterval(interval);
-  }, [isServiceAvailable, metrics]);
+  }, [fetchAllMetrics]);
+
 
   if (!isServiceAvailable) {
     return (
@@ -329,7 +310,7 @@ const EnhancedHealthSummary: React.FC = () => {
   if (error) {
     return (
       <Alert severity="error" action={
-        <IconButton color="inherit" size="small" onClick={fetchMetrics}>
+        <IconButton color="inherit" size="small" onClick={fetchAllMetrics}>
           <RefreshIcon />
         </IconButton>
       }>
@@ -346,14 +327,10 @@ const EnhancedHealthSummary: React.FC = () => {
 
   const handleClearCache = async () => {
     try {
-      const response = await fetch('/api/analytics/cache/invalidate?force=true', {
-        method: 'POST',
-        credentials: 'include'
-      });
-      if (response.ok) {
-        addNotification('Cache cleared successfully', 'success');
-        await fetchMetrics(); // Refresh health data
-      }
+      // Use the admin endpoint for this action
+      await fetchAdminEndpoint('/api/admin/cache/invalidate', { method: 'POST' });
+      addNotification('Cache cleared successfully', 'success');
+      await fetchAllMetrics(); // Refresh health data
     } catch (e: any) {
       debugLog.warn('Failed to clear cache:', e.message, 'EnhancedHealthSummary');
       addNotification('Failed to clear cache', 'error');
@@ -362,14 +339,10 @@ const EnhancedHealthSummary: React.FC = () => {
 
   const handleForceRedisCheck = async () => {
     try {
-      const response = await fetch('/api/health/redis/check', {
-        method: 'POST',
-        credentials: 'include'
-      });
-      if (response.ok) {
-        addNotification('Redis health check completed', 'success');
-        await fetchMetrics(); // Refresh health data
-      }
+      // Use the admin endpoint for this action
+      await fetchAdminEndpoint('/api/admin/health/redis-check', { method: 'POST' });
+      addNotification('Redis health check completed', 'success');
+      await fetchAllMetrics(); // Refresh health data
     } catch (e: any) {
       debugLog.warn('Failed to force Redis check:', e.message, 'EnhancedHealthSummary');
       addNotification('Failed to force Redis check', 'error');
@@ -388,7 +361,7 @@ const EnhancedHealthSummary: React.FC = () => {
             Last updated: {formatTime(metrics.lastUpdated)}
           </Typography>
           <Tooltip title="Refresh health metrics">
-            <IconButton size="small" onClick={fetchMetrics} disabled={loading}>
+            <IconButton size="small" onClick={fetchAllMetrics} disabled={loading}>
               <RefreshIcon />
             </IconButton>
           </Tooltip>
