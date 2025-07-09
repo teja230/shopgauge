@@ -189,21 +189,36 @@ public class HealthController {
     Map<String, Object> health = new HashMap<>();
 
     try {
-      // Test Redis connection with timeout
-      CompletableFuture<String> future =
+      // Test Redis connection with a proper read/write test
+      CompletableFuture<Boolean> future =
           CompletableFuture.supplyAsync(
               () -> {
                 try {
-                  return redisTemplate.opsForValue().get("health_check");
+                  String testKey = "health_check_" + System.currentTimeMillis();
+                  String testValue = "test_" + System.currentTimeMillis();
+
+                  // Test write
+                  redisTemplate
+                      .opsForValue()
+                      .set(testKey, testValue, java.time.Duration.ofSeconds(10));
+
+                  // Test read
+                  String retrievedValue = redisTemplate.opsForValue().get(testKey);
+
+                  // Clean up
+                  redisTemplate.delete(testKey);
+
+                  // Verify the test
+                  return testValue.equals(retrievedValue);
                 } catch (Exception e) {
                   throw new RuntimeException(e);
                 }
               });
 
-      String result = future.get(5, TimeUnit.SECONDS);
+      Boolean testResult = future.get(5, TimeUnit.SECONDS);
       health.put("connection", "healthy");
-      health.put("test_result", result);
-      health.put("status", "healthy");
+      health.put("test_result", testResult ? "PASS" : "FAIL");
+      health.put("status", testResult ? "healthy" : "unhealthy");
 
     } catch (Exception e) {
       logger.error("Redis health check failed: {}", e.getMessage(), e);
