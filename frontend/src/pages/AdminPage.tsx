@@ -404,19 +404,17 @@ const AdminPage: React.FC = () => {
 
   const fetchEmergencyEndpoint = async (endpoint: string, options?: RequestInit) => {
     try {
-      // Emergency endpoints require admin authentication for security
+      // Emergency endpoints are designed to work without authentication
+      // They can function even when the connection pool is exhausted
       const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
       const fullUrl = `${API_BASE_URL}/api/emergency${endpoint}`;
       
-      // Add admin authentication headers
       const response = await fetch(fullUrl, {
         ...options,
         credentials: 'include',
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
-          // Add admin session cookie if available
-          ...(sessionInfo?.sessionId && { 'X-Admin-Session': sessionInfo.sessionId }),
           ...options?.headers,
         },
       });
@@ -824,7 +822,7 @@ const AdminPage: React.FC = () => {
         setEmergencyStatus(null);
       } else {
         setEmergencyMode(true); // Assume emergency mode only for non-auth errors
-        showError('Unable to check system status - assuming emergency mode');
+      showError('Unable to check system status - assuming emergency mode');
       }
     } finally {
       setEmergencyLoading(false);
@@ -1050,7 +1048,7 @@ const AdminPage: React.FC = () => {
 
   // Enhanced admin authentication dialog
   if (!isAuthenticated) {
-    return (
+  return (
       <Dialog 
         open={isPasswordDialogOpen} 
         onClose={() => {}} 
@@ -1729,7 +1727,7 @@ const AdminPage: React.FC = () => {
               </Box>
             </Box>
           )}
-        </Box>
+                  </Box>
       </HeaderCard>
       
       {/* Debug Panel - Controllable visibility */}

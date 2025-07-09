@@ -152,7 +152,7 @@ const TransactionMonitoring: React.FC = () => {
 
   const fetchTransactionMetrics = async () => {
     try {
-      const response = await fetchAdminEndpoint('/api/metrics/transactions');
+      const response = await fetchAdminEndpoint('/api/health/metrics/transactions');
       setMetrics(response as unknown as TransactionMetrics);
     } catch (err) {
       console.error('Failed to fetch transaction metrics:', err);
@@ -162,7 +162,7 @@ const TransactionMonitoring: React.FC = () => {
 
   const fetchTransactionAlerts = async () => {
     try {
-      const response = await fetchAdminEndpoint('/api/alerts/transactions') as any;
+      const response = await fetchAdminEndpoint('/api/health/alerts/transactions') as any;
       setAlerts(response.alerts || []);
     } catch (err) {
       console.error('Failed to fetch transaction alerts:', err);
@@ -172,7 +172,7 @@ const TransactionMonitoring: React.FC = () => {
 
   const resetMetrics = async () => {
     try {
-      await fetchAdminEndpoint('/api/metrics/transactions/reset', {
+      await fetchAdminEndpoint('/api/health/metrics/transactions/reset', {
         method: 'POST',
       });
       await refreshAll();
