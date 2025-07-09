@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import javax.sql.DataSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -339,8 +340,11 @@ public class HealthController {
       int staleSessions = 0;
 
       try {
-        // Count all active sessions across all shops (limited query)
-        totalActiveSessions = (int) shopSessionRepository.count();
+        // Count only active sessions across all shops
+        totalActiveSessions = shopSessionRepository.findAll().stream()
+            .filter(session -> session.getIsActive() && !session.isExpired())
+            .collect(Collectors.toList())
+            .size();
 
         // Count expired sessions
         expiredSessions = shopSessionRepository.findExpiredSessions().size();
