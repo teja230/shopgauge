@@ -258,8 +258,8 @@ const EnhancedHealthSummary: React.FC = () => {
 
     try {
       const [healthData, dbDetailsData] = await Promise.all([
-        fetchAdminEndpoint('/api/admin/health-summary'),
-        fetchAdminEndpoint('/api/admin/health/database-pool') 
+        fetchAdminEndpoint('/api/health/summary'),
+        fetchAdminEndpoint('/api/health/database-pool') 
       ]);
       
       setMetrics(healthData);
