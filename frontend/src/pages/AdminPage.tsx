@@ -43,7 +43,7 @@ import {
   DialogContent,
   DialogActions,
   Container,
-  Stack,
+  Stack
 } from '@mui/material';
 import { 
   Delete as DeleteIcon, 
@@ -365,6 +365,7 @@ const AdminPage: React.FC = () => {
   const [passwordError, setPasswordError] = useState('');
   const [sessionExpiry, setSessionExpiry] = useState<number | null>(null);
   const [lockoutEnd, setLockoutEnd] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState('audit');
   
   const { showSuccess, showError } = useNotifications();
 
@@ -1200,9 +1201,261 @@ const AdminPage: React.FC = () => {
         </SectionHeader>
 
         <Box sx={{ p: 3 }}>
-          {/* Rest of the admin panel content */}
-          {/* ... existing tabs and content ... */}
+          {/* Admin Panel Content */}
+          <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)} sx={{ mb: 3 }}>
+            <Tab label="Audit Logs" value="audit" />
+            <Tab label="Active Shops" value="active" />
+            <Tab label="Session Stats" value="sessions" />
+            <Tab label="Emergency Controls" value="emergency" />
+          </Tabs>
+
+          {/* Audit Logs Tab */}
+          {activeTab === 'audit' && (
+            <Box>
+              <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center' }}>
+                <FormControl size="small" sx={{ minWidth: 200 }}>
+                  <InputLabel>Log Type</InputLabel>
+                  <Select
+                    value={auditLogType}
+                    onChange={(e) => setAuditLogType(e.target.value as any)}
+                    label="Log Type"
+                  >
+                    <MenuItem value="all">All Logs</MenuItem>
+                    <MenuItem value="deleted">Deleted Shops</MenuItem>
+                    <MenuItem value="active">Active Shops</MenuItem>
+                  </Select>
+                </FormControl>
+                <TextField
+                  size="small"
+                  placeholder="Search logs..."
+                  value={auditSearchTerm}
+                  onChange={(e) => setAuditSearchTerm(e.target.value)}
+                  sx={{ minWidth: 200 }}
+                />
+                <Button
+                  variant="outlined"
+                  onClick={fetchAuditLogs}
+                  disabled={auditLoading}
+                  startIcon={auditLoading ? <CircularProgress size={16} /> : <RefreshIcon />}
+                >
+                  Refresh
+                </Button>
+              </Box>
+
+              {auditError && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                  {auditError}
+                </Alert>
+              )}
+
+              <TableContainer component={Paper}>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Shop Domain</TableCell>
+                      <TableCell>Action</TableCell>
+                      <TableCell>Details</TableCell>
+                      <TableCell>Timestamp</TableCell>
+                      <TableCell>IP Address</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {auditLogs.map((log) => (
+                      <TableRow key={log.id}>
+                        <TableCell>{log.shopDomain}</TableCell>
+                        <TableCell>
+                          <Chip
+                            label={log.action}
+                            size="small"
+                            sx={{
+                              backgroundColor: getActionBgColor(log.action),
+                              color: getActionColor(log.action),
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell>{log.details}</TableCell>
+                        <TableCell>{new Date(log.timestamp).toLocaleString()}</TableCell>
+                        <TableCell>{log.ipAddress || 'N/A'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+
+              <TablePagination
+                component="div"
+                count={auditTotalCount}
+                page={auditPage}
+                onPageChange={(e, newPage) => setAuditPage(newPage)}
+                rowsPerPage={auditRowsPerPage}
+                onRowsPerPageChange={(e) => {
+                  setAuditRowsPerPage(parseInt(e.target.value, 10));
+                  setAuditPage(0);
+                }}
+              />
+            </Box>
+          )}
+
+          {/* Active Shops Tab */}
+          {activeTab === 'active' && (
+            <Box>
+              <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center' }}>
+                <Button
+                  variant="outlined"
+                  onClick={fetchActiveShops}
+                  disabled={activeShopsLoading}
+                  startIcon={activeShopsLoading ? <CircularProgress size={16} /> : <RefreshIcon />}
+                >
+                  Refresh Active Shops
+                </Button>
+              </Box>
+
+              {activeShopsError && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                  {activeShopsError}
+                </Alert>
+              )}
+
+              <TableContainer component={Paper}>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Shop Domain</TableCell>
+                      <TableCell>Last Activity</TableCell>
+                      <TableCell>IP Address</TableCell>
+                      <TableCell>Device</TableCell>
+                      <TableCell>Status</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {activeShops.map((shop, index) => (
+                      <TableRow key={index}>
+                        <TableCell>{shop.shopDomain}</TableCell>
+                        <TableCell>{new Date(shop.lastActivity).toLocaleString()}</TableCell>
+                        <TableCell>{shop.ipAddress || 'N/A'}</TableCell>
+                        <TableCell>
+                          <DeviceIcon userAgent={shop.userAgent || ''} />
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={shop.isActive ? 'Active' : 'Inactive'}
+                            color={shop.isActive ? 'success' : 'default'}
+                            size="small"
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
+          )}
+
+          {/* Session Statistics Tab */}
+          {activeTab === 'sessions' && (
+            <Box>
+              <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center' }}>
+                <Button
+                  variant="outlined"
+                  onClick={fetchSessionStatistics}
+                  disabled={sessionStatsLoading}
+                  startIcon={sessionStatsLoading ? <CircularProgress size={16} /> : <RefreshIcon />}
+                >
+                  Refresh Session Stats
+                </Button>
+              </Box>
+
+              {sessionStatsError && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                  {sessionStatsError}
+                </Alert>
+              )}
+
+              {sessionStats && (
+                <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+                  <Box sx={{ flex: '1 1 300px' }}>
+                    <Card>
+                      <CardContent>
+                        <Typography variant="h6" gutterBottom>
+                          Session Statistics
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Total Active Sessions: {sessionStats.totalActiveSessions || 0}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Unique Shops: {sessionStats.uniqueShops || 0}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Average Session Duration: {sessionStats.avgSessionDuration || 'N/A'}
+                        </Typography>
+                      </CardContent>
+                    </Card>
                   </Box>
+                </Box>
+              )}
+            </Box>
+          )}
+
+          {/* Emergency Controls Tab */}
+          {activeTab === 'emergency' && (
+            <Box>
+              <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+                <Box sx={{ flex: '1 1 300px' }}>
+                  <Card>
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom>
+                        Emergency Status
+                      </Typography>
+                      <Box sx={{ mb: 2 }}>
+                        <Button
+                          variant="outlined"
+                          onClick={checkEmergencyStatus}
+                          disabled={emergencyLoading}
+                          startIcon={emergencyLoading ? <CircularProgress size={16} /> : <RefreshIcon />}
+                        >
+                          Check Emergency Status
+                        </Button>
+                      </Box>
+                      {emergencyStatus && (
+                        <Box>
+                          <Typography variant="body2" color="text.secondary">
+                            Emergency Mode: {emergencyStatus.emergencyMode ? 'ACTIVE' : 'Inactive'}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Pool Usage: {emergencyStatus.poolUsage || 'N/A'}%
+                          </Typography>
+                        </Box>
+                      )}
+                    </CardContent>
+                  </Card>
+                </Box>
+                <Box sx={{ flex: '1 1 300px' }}>
+                  <Card>
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom>
+                        Emergency Actions
+                      </Typography>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        <Button
+                          variant="contained"
+                          color="error"
+                          onClick={performEmergencyCleanup}
+                          disabled={emergencyCleanupInProgress}
+                          startIcon={emergencyCleanupInProgress ? <CircularProgress size={16} /> : <WarningIcon />}
+                        >
+                          {emergencyCleanupInProgress ? 'Cleaning Up...' : 'Emergency Cleanup'}
+                        </Button>
+                        <Typography variant="caption" color="text.secondary">
+                          Force cleanup of connection pool and reset emergency state
+                        </Typography>
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Box>
+              </Box>
+            </Box>
+          )}
+        </Box>
       </HeaderCard>
       
       {/* Debug Panel - Always visible on admin page */}
