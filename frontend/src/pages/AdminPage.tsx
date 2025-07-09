@@ -523,12 +523,14 @@ const AdminPage: React.FC = () => {
         setSessionInfo(status);
         showSuccess('Admin session restored successfully');
       } else {
+        // Not authenticated - show login dialog
         setIsAuthenticated(false);
         setIsPasswordDialogOpen(true);
         setSessionInfo(null);
       }
     } catch (error) {
       console.error('Auth status check failed:', error);
+      // Any error (network, 404, etc.) - show login dialog
       setIsAuthenticated(false);
       setIsPasswordDialogOpen(true);
       setSessionInfo(null);
@@ -610,6 +612,13 @@ const AdminPage: React.FC = () => {
   useEffect(() => {
     checkAuthStatus();
   }, []);
+
+  // Ensure password dialog is always open when not authenticated
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setIsPasswordDialogOpen(true);
+    }
+  }, [isAuthenticated]);
 
   // Auto-refresh session status every 5 minutes
   useEffect(() => {
@@ -1032,7 +1041,7 @@ const AdminPage: React.FC = () => {
 
   // Enhanced admin authentication dialog
   if (!isAuthenticated) {
-  return (
+    return (
       <Dialog 
         open={isPasswordDialogOpen} 
         onClose={() => {}} 

@@ -239,7 +239,9 @@ export async function getAdminStatus(): Promise<any> {
     if (import.meta.env.DEV) {
       console.error('API: Admin status error:', error);
     }
-    return { authenticated: false, error: 'Status check failed' };
+    // Always throw the error instead of returning a fallback object
+    // This ensures the AdminPage catch block is hit for network errors
+    throw error;
   }
 }
 
