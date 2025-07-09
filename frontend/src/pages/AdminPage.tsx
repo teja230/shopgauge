@@ -479,7 +479,7 @@ const AdminPage: React.FC = () => {
   const [emergencyCleanupInProgress, setEmergencyCleanupInProgress] = useState(false);
   const [connectionHistory, setConnectionHistory] = useState<any[]>([]);
   const [leakAlerts, setLeakAlerts] = useState<any[]>([]);
-  const [debugPanelVisible, setDebugPanelVisible] = useState(true);
+  const [debugPanelVisible, setDebugPanelVisible] = useState(false);
 
   // Action categories for audit logs with improved colors and icons
   const actionCategories = {
