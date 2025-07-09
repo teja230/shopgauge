@@ -99,7 +99,6 @@ import TransactionMonitoring from '../components/ui/TransactionMonitoring';
 import ConnectionPoolDashboard from '../components/ui/ConnectionPoolDashboard';
 import { DebugPanel } from '../components/ui/DebugPanel';
 import { NotificationCenter } from '../components/ui/NotificationCenter';
-import NavBar from '../components/NavBar';
 
 interface Secret {
   key: string;
@@ -1246,7 +1245,6 @@ const AdminPage: React.FC = () => {
 
   return (
     <>
-      <NavBar />
       <Box sx={{ position: 'fixed', top: 16, right: 32, zIndex: 1301 }}>
         <NotificationCenter />
       </Box>

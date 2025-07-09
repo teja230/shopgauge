@@ -88,6 +88,8 @@ const NavBar: React.FC = () => {
     }
   }, [isAuthenticated]); // Removed polling dependencies
 
+  const showAdmin = location.pathname.startsWith('/admin');
+
   const menuItems = isAuthenticated ? [
     {
       text: 'Home',
@@ -112,7 +114,14 @@ const NavBar: React.FC = () => {
       icon: <PersonIcon />,
       path: '/profile',
       badge: 0
-    }
+    },
+    // Only show Admin link when on /admin
+    ...(showAdmin ? [{
+      text: 'Admin',
+      icon: <InsightsIcon />,
+      path: '/admin',
+      badge: 0
+    }] : [])
   ] : [];
 
   const MobileDrawer = () => (
