@@ -94,6 +94,7 @@ import DiffViewerDialog from '../components/ui/DiffViewerDialog';
 import TransactionMonitoring from '../components/ui/TransactionMonitoring';
 import ConnectionPoolDashboard from '../components/ui/ConnectionPoolDashboard';
 import { DebugPanel } from '../components/ui/DebugPanel';
+import { NotificationCenter } from '../components/ui/NotificationCenter';
 
 interface Secret {
   key: string;
@@ -401,16 +402,19 @@ const AdminPage: React.FC = () => {
 
   const fetchEmergencyEndpoint = async (endpoint: string, options?: RequestInit) => {
     try {
-      // Use admin authentication for emergency endpoints
+      // Emergency endpoints require admin authentication for security
       const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
       const fullUrl = `${API_BASE_URL}/api/emergency${endpoint}`;
       
+      // Add admin authentication headers
       const response = await fetch(fullUrl, {
         ...options,
         credentials: 'include',
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
+          // Add admin session cookie if available
+          ...(sessionInfo?.sessionId && { 'X-Admin-Session': sessionInfo.sessionId }),
           ...options?.headers,
         },
       });
@@ -789,7 +793,7 @@ const AdminPage: React.FC = () => {
 
   // Emergency mode functions
   const checkEmergencyStatus = async () => {
-    // FIXED: Only check emergency status if authenticated
+    // Only check emergency status if authenticated
     if (!isAuthenticated) {
       console.log('Skipping emergency status check - not authenticated');
       setEmergencyMode(false);
@@ -809,7 +813,7 @@ const AdminPage: React.FC = () => {
       }
     } catch (error) {
       console.error('Emergency status check failed:', error);
-      // FIXED: Don't assume emergency mode on auth failure
+      // Don't assume emergency mode on auth failure
       const errorMessage = error instanceof Error ? error.message : String(error);
       if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
         console.log('Emergency status check failed due to authentication - will retry after login');
@@ -817,7 +821,7 @@ const AdminPage: React.FC = () => {
         setEmergencyStatus(null);
       } else {
         setEmergencyMode(true); // Assume emergency mode only for non-auth errors
-      showError('Unable to check system status - assuming emergency mode');
+        showError('Unable to check system status - assuming emergency mode');
       }
     } finally {
       setEmergencyLoading(false);
@@ -1203,11 +1207,222 @@ const AdminPage: React.FC = () => {
         <Box sx={{ p: 3 }}>
           {/* Admin Panel Content */}
           <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)} sx={{ mb: 3 }}>
+            <Tab label="System Health" value="health" />
             <Tab label="Audit Logs" value="audit" />
             <Tab label="Active Shops" value="active" />
             <Tab label="Session Stats" value="sessions" />
             <Tab label="Emergency Controls" value="emergency" />
           </Tabs>
+
+          {/* System Health Dashboard */}
+          {activeTab === 'health' && (
+            <Box>
+              <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+                {/* System Status Overview */}
+                <Box sx={{ flex: '1 1 600px' }}>
+                  <Card sx={{ height: '100%', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
+                    <CardContent>
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                        <MonitorHeartIcon sx={{ fontSize: 32, mr: 2 }} />
+                        <Typography variant="h5" fontWeight="600">
+                          System Health Overview
+                        </Typography>
+                      </Box>
+                      
+                      <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                        <Box sx={{ flex: '1 1 200px', p: 2, bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 2 }}>
+                          <Typography variant="h6" sx={{ mb: 1 }}>
+                            Database Status
+                          </Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Box sx={{ 
+                              width: 12, 
+                              height: 12, 
+                              borderRadius: '50%', 
+                              bgcolor: emergencyStatus?.database?.status === 'healthy' ? '#4caf50' : '#f44336' 
+                            }} />
+                            <Typography variant="body2">
+                              {emergencyStatus?.database?.status === 'healthy' ? 'Healthy' : 'Unhealthy'}
+                            </Typography>
+                          </Box>
+                          <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                            Pool: {emergencyStatus?.database?.activeConnections || 0} active
+                          </Typography>
+                        </Box>
+                        
+                        <Box sx={{ flex: '1 1 200px', p: 2, bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 2 }}>
+                          <Typography variant="h6" sx={{ mb: 1 }}>
+                            Redis Status
+                          </Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Box sx={{ 
+                              width: 12, 
+                              height: 12, 
+                              borderRadius: '50%', 
+                              bgcolor: emergencyStatus?.redis?.status === 'healthy' ? '#4caf50' : '#f44336' 
+                            }} />
+                            <Typography variant="body2">
+                              {emergencyStatus?.redis?.status === 'healthy' ? 'Connected' : 'Disconnected'}
+                            </Typography>
+                          </Box>
+                          <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                            Cache: {emergencyStatus?.redis?.memory || 'N/A'}
+                          </Typography>
+                        </Box>
+                        
+                        <Box sx={{ flex: '1 1 200px', p: 2, bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 2 }}>
+                          <Typography variant="h6" sx={{ mb: 1 }}>
+                            JVM Memory
+                          </Typography>
+                          <Typography variant="body2">
+                            {emergencyStatus?.jvmMemory?.used || 'N/A'} / {emergencyStatus?.jvmMemory?.max || 'N/A'}
+                          </Typography>
+                          <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                            {emergencyStatus?.jvmMemory?.usage || 'N/A'}% used
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Box>
+
+                {/* Quick Actions */}
+                <Box sx={{ flex: '1 1 300px' }}>
+                  <Card sx={{ height: '100%', background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', color: 'white' }}>
+                    <CardContent>
+                      <Typography variant="h6" sx={{ mb: 2 }}>
+                        Quick Actions
+                      </Typography>
+                      
+                      <Stack spacing={2}>
+                        <Button
+                          variant="contained"
+                          fullWidth
+                          onClick={checkEmergencyStatus}
+                          disabled={emergencyLoading}
+                          startIcon={emergencyLoading ? <CircularProgress size={16} /> : <RefreshIcon />}
+                          sx={{ bgcolor: 'rgba(255,255,255,0.2)', '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' } }}
+                        >
+                          Refresh Status
+                        </Button>
+                        
+                        <Button
+                          variant="contained"
+                          fullWidth
+                          onClick={performEmergencyCleanup}
+                          disabled={emergencyCleanupInProgress}
+                          startIcon={emergencyCleanupInProgress ? <CircularProgress size={16} /> : <WarningIcon />}
+                          sx={{ bgcolor: 'rgba(255,255,255,0.2)', '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' } }}
+                        >
+                          Emergency Cleanup
+                        </Button>
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                </Box>
+              </Box>
+
+              <Box sx={{ display: 'flex', gap: 3, mt: 3, flexWrap: 'wrap' }}>
+                {/* Database Metrics */}
+                <Box sx={{ flex: '1 1 400px' }}>
+                  <Card sx={{ height: 300 }}>
+                    <CardContent>
+                      <Typography variant="h6" sx={{ mb: 2 }}>
+                        Database Connection Pool
+                      </Typography>
+                      
+                      {emergencyStatus?.database ? (
+                        <Box>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                            <Typography variant="body2">Active Connections</Typography>
+                            <Typography variant="h6" color="primary">
+                              {emergencyStatus.database.activeConnections || 0}
+                            </Typography>
+                          </Box>
+                          
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                            <Typography variant="body2">Idle Connections</Typography>
+                            <Typography variant="h6" color="secondary">
+                              {emergencyStatus.database.idleConnections || 0}
+                            </Typography>
+                          </Box>
+                          
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                            <Typography variant="body2">Total Connections</Typography>
+                            <Typography variant="h6">
+                              {emergencyStatus.database.totalConnections || 0}
+                            </Typography>
+                          </Box>
+                          
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Typography variant="body2">Pool Status</Typography>
+                            <Chip 
+                              label={emergencyStatus.database.poolStatus || 'Unknown'} 
+                              color={emergencyStatus.database.poolStatus === 'HEALTHY' ? 'success' : 'error'}
+                              size="small"
+                            />
+                          </Box>
+                        </Box>
+                      ) : (
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200 }}>
+                          <CircularProgress />
+                        </Box>
+                      )}
+                    </CardContent>
+                  </Card>
+                </Box>
+
+                {/* System Resources */}
+                <Box sx={{ flex: '1 1 400px' }}>
+                  <Card sx={{ height: 300 }}>
+                    <CardContent>
+                      <Typography variant="h6" sx={{ mb: 2 }}>
+                        System Resources
+                      </Typography>
+                      
+                      {emergencyStatus?.systemLoad ? (
+                        <Box>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                            <Typography variant="body2">CPU Load</Typography>
+                            <Typography variant="h6" color="primary">
+                              {emergencyStatus.systemLoad.cpuLoad || 'N/A'}%
+                            </Typography>
+                          </Box>
+                          
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                            <Typography variant="body2">Memory Usage</Typography>
+                            <Typography variant="h6" color="secondary">
+                              {emergencyStatus.systemLoad.memoryUsage || 'N/A'}%
+                            </Typography>
+                          </Box>
+                          
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                            <Typography variant="body2">Disk Usage</Typography>
+                            <Typography variant="h6">
+                              {emergencyStatus.systemLoad.diskUsage || 'N/A'}%
+                            </Typography>
+                          </Box>
+                          
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Typography variant="body2">System Status</Typography>
+                            <Chip 
+                              label={emergencyStatus.systemLoad.status || 'Unknown'} 
+                              color={emergencyStatus.systemLoad.status === 'HEALTHY' ? 'success' : 'error'}
+                              size="small"
+                            />
+                          </Box>
+                        </Box>
+                      ) : (
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200 }}>
+                          <CircularProgress />
+                        </Box>
+                      )}
+                    </CardContent>
+                  </Card>
+                </Box>
+              </Box>
+            </Box>
+          )}
 
           {/* Audit Logs Tab */}
           {activeTab === 'audit' && (
@@ -1460,6 +1675,9 @@ const AdminPage: React.FC = () => {
       
       {/* Debug Panel - Always visible on admin page */}
       <DebugPanel isVisible={true} />
+      
+      {/* Notification Center - Always visible on admin page */}
+      <NotificationCenter />
     </AdminContainer>
   );
 };
