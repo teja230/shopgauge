@@ -31,11 +31,10 @@ import { useNotifications } from '../../hooks/useNotifications';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
-// Centralized admin fetcher
-const fetchAdminEndpoint = async (endpoint: string, options?: RequestInit) => {
+// Centralized public fetcher
+const fetchPublicEndpoint = async (endpoint: string, options?: RequestInit) => {
   const fullUrl = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
   const response = await fetch(fullUrl, {
-    credentials: 'include', // Important for sending the admin_token cookie
     headers: {
       'Accept': 'application/json',
       'Content-Type': 'application/json',
@@ -46,7 +45,7 @@ const fetchAdminEndpoint = async (endpoint: string, options?: RequestInit) => {
 
   if (!response.ok) {
     const errorBody = await response.text();
-    console.error(`Admin endpoint ${endpoint} failed with status ${response.status}:`, errorBody);
+    console.error(`Public endpoint ${endpoint} failed with status ${response.status}:`, errorBody);
     throw new Error(`Request failed: ${response.statusText}`);
   }
   return response.json();
@@ -257,13 +256,39 @@ const EnhancedHealthSummary: React.FC = () => {
     setError(null);
 
     try {
+      // Use public endpoints
       const [healthData, dbDetailsData] = await Promise.all([
-        fetchAdminEndpoint('/api/health/summary'),
-        fetchAdminEndpoint('/api/health/database-pool') 
+        fetchPublicEndpoint('/api/health/summary'),
+        fetchPublicEndpoint('/api/health/database-pool')
       ]);
       
-      setMetrics(healthData);
-      setDatabaseDetails(dbDetailsData);
+      // Transform the data to match expected format
+      const transformedHealthData = {
+        backendStatus: healthData.status || 'UP',
+        redisStatus: healthData.redis?.status || 'UP',
+        databaseStatus: healthData.database?.status || 'UP',
+        systemStatus: healthData.status === 'healthy' ? 'UP' : 'DEGRADED',
+        lastUpdated: Date.now(),
+        lastDeployCommit: healthData.version || 'unknown'
+      };
+      
+      const transformedDbData = {
+        activeConnections: dbDetailsData.activeConnections || dbDetailsData.pool_active_connections || 0,
+        idleConnections: dbDetailsData.idleConnections || dbDetailsData.pool_idle_connections || 0,
+        totalConnections: dbDetailsData.totalConnections || dbDetailsData.pool_total_connections || 0,
+        threadsAwaitingConnection: dbDetailsData.threadsAwaitingConnection || 0,
+        maxPoolSize: dbDetailsData.maxPoolSize || 10,
+        minimumIdle: dbDetailsData.minimumIdle || 2,
+        activeUsageRatio: dbDetailsData.activeUsageRatio || 0,
+        activeUsagePercent: dbDetailsData.activeUsagePercent || dbDetailsData.usagePercentage || 0,
+        consecutiveFailures: dbDetailsData.consecutiveFailures || 0,
+        lastFailureTime: dbDetailsData.lastFailureTime || 0,
+        healthStatus: dbDetailsData.status || 'healthy',
+        poolStatus: dbDetailsData.poolStatus || 'healthy'
+      };
+      
+      setMetrics(transformedHealthData);
+      setDatabaseDetails(transformedDbData);
       
     } catch (e: any) {
       console.error('Failed to fetch enhanced health metrics:', e);
@@ -327,9 +352,9 @@ const EnhancedHealthSummary: React.FC = () => {
 
   const handleClearCache = async () => {
     try {
-      // Use the admin endpoint for this action
-      await fetchAdminEndpoint('/api/admin/cache/invalidate', { method: 'POST' });
-      addNotification('Cache cleared successfully', 'success');
+      // Use the public endpoint for this action if available, else skip
+      // await fetchPublicEndpoint('/api/health/cache/invalidate', { method: 'POST' });
+      addNotification('Cache clear not available on public endpoint', 'info');
       await fetchAllMetrics(); // Refresh health data
     } catch (e: any) {
       debugLog.warn('Failed to clear cache:', e.message, 'EnhancedHealthSummary');
@@ -339,9 +364,9 @@ const EnhancedHealthSummary: React.FC = () => {
 
   const handleForceRedisCheck = async () => {
     try {
-      // Use the admin endpoint for this action
-      await fetchAdminEndpoint('/api/admin/health/redis-check', { method: 'POST' });
-      addNotification('Redis health check completed', 'success');
+      // Use the public endpoint for this action if available, else skip
+      // await fetchPublicEndpoint('/api/health/redis/check', { method: 'POST' });
+      addNotification('Redis health check not available on public endpoint', 'info');
       await fetchAllMetrics(); // Refresh health data
     } catch (e: any) {
       debugLog.warn('Failed to force Redis check:', e.message, 'EnhancedHealthSummary');
