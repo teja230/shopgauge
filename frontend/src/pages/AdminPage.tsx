@@ -43,7 +43,9 @@ import {
   DialogContent,
   DialogActions,
   Container,
-  Stack
+  Stack,
+  FormControlLabel,
+  Switch
 } from '@mui/material';
 import { 
   Delete as DeleteIcon, 
@@ -97,6 +99,7 @@ import TransactionMonitoring from '../components/ui/TransactionMonitoring';
 import ConnectionPoolDashboard from '../components/ui/ConnectionPoolDashboard';
 import { DebugPanel } from '../components/ui/DebugPanel';
 import { NotificationCenter } from '../components/ui/NotificationCenter';
+import NavBar from '../components/NavBar';
 
 interface Secret {
   key: string;
@@ -138,8 +141,8 @@ const AdminContainer = styled(Container)(({ theme }) => ({
   paddingTop: theme.spacing(6),
   paddingBottom: theme.spacing(6),
   [theme.breakpoints.down('sm')]: {
-    paddingTop: theme.spacing(4),
-    paddingBottom: theme.spacing(4),
+  paddingTop: theme.spacing(4),
+  paddingBottom: theme.spacing(4),
   },
 }));
 
@@ -388,20 +391,99 @@ const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutes
 
 const AdminPage: React.FC = () => {
   const navigate = useNavigate();
-  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(true);
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('');
+  
+  // Authentication state
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [authError, setAuthError] = useState('');
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+  const [sessionInfo, setSessionInfo] = useState<any>(null);
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
+  const [username, setUsername] = useState('admin');
+  const [authError, setAuthError] = useState('');
   const [attemptCount, setAttemptCount] = useState(0);
-  const [sessionInfo, setSessionInfo] = useState<any>(null);
-  const [passwordError, setPasswordError] = useState('');
-  const [sessionExpiry, setSessionExpiry] = useState<number | null>(null);
-  const [lockoutEnd, setLockoutEnd] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState('audit');
-  
+
+  // UI state
+  const [activeTab, setActiveTab] = useState('health');
+  const [geekMode, setGeekMode] = useState(true);
+
+  // Data state
+  const [activeShops, setActiveShops] = useState<ActiveShop[]>([]);
+  const [activeShopsLoading, setActiveShopsLoading] = useState(false);
+  const [activeShopsError, setActiveShopsError] = useState<string | null>(null);
+
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [auditLogsLoading, setAuditLogsLoading] = useState(false);
+  const [auditLogsError, setAuditLogsError] = useState<string | null>(null);
+
+  const [sessionStatistics, setSessionStatistics] = useState<any>(null);
+  const [sessionStatisticsLoading, setSessionStatisticsLoading] = useState(false);
+  const [sessionStatisticsError, setSessionStatisticsError] = useState<string | null>(null);
+
+  const [emergencyStatus, setEmergencyStatus] = useState<any>(null);
+  const [emergencyLoading, setEmergencyLoading] = useState(false);
+  const [emergencyError, setEmergencyError] = useState<string | null>(null);
+  const [emergencyCleanupInProgress, setEmergencyCleanupInProgress] = useState(false);
+  const [emergencyMode, setEmergencyMode] = useState(false);
+
+  // Cooldown state for refresh buttons
+  const [auditCooldown, setAuditCooldown] = useState(0);
+  const [activeShopsCooldown, setActiveShopsCooldown] = useState(0);
+  const [sessionStatsCooldown, setSessionStatsCooldown] = useState(0);
+
+  // Check authentication status on component mount
+  useEffect(() => {
+    checkAuthStatus();
+  }, []);
+
+  // Ensure password dialog is always open when not authenticated
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setIsPasswordDialogOpen(true);
+    }
+  }, [isAuthenticated]);
+
+  // Initialize connection leak monitoring when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchConnectionLeakStatus();
+      
+      // Set up real-time monitoring (every 5 minutes)
+      const interval = setInterval(() => {
+        fetchConnectionLeakStatus();
+      }, 5 * 60 * 1000); // 5 minutes instead of 30 seconds
+      
+      return () => clearInterval(interval);
+    }
+  }, [isAuthenticated]);
+
+  // Auto-fetch data on tab switch
+  useEffect(() => {
+    if (activeTab === 'active') fetchActiveShops();
+    if (activeTab === 'audit-logs') fetchAuditLogs();
+    if (activeTab === 'sessions') fetchSessionStatistics();
+  }, [activeTab]);
+
+  // Cooldown timers
+  useEffect(() => {
+    if (auditCooldown > 0) {
+      const timer = setTimeout(() => setAuditCooldown(auditCooldown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [auditCooldown]);
+  useEffect(() => {
+    if (activeShopsCooldown > 0) {
+      const timer = setTimeout(() => setActiveShopsCooldown(activeShopsCooldown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [activeShopsCooldown]);
+  useEffect(() => {
+    if (sessionStatsCooldown > 0) {
+      const timer = setTimeout(() => setSessionStatsCooldown(sessionStatsCooldown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [sessionStatsCooldown]);
+
   const { showSuccess, showError } = useNotifications();
 
   // Helper functions for admin endpoints
@@ -467,9 +549,6 @@ const AdminPage: React.FC = () => {
   };
   
   // Audit logs state
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
-  const [auditLoading, setAuditLoading] = useState(false);
-  const [auditError, setAuditError] = useState<string | null>(null);
   const [auditPage, setAuditPage] = useState(0);
   const [auditRowsPerPage, setAuditRowsPerPage] = useState(25);
   const [auditTotalCount, setAuditTotalCount] = useState(0);
@@ -479,34 +558,14 @@ const AdminPage: React.FC = () => {
   const [auditLogType, setAuditLogType] = useState<'all' | 'deleted' | 'active' | 'monitoring' | 'connection-leak' | 'pool-dashboard'>('all');
 
   // Active shops state
-  const [activeShops, setActiveShops] = useState<ActiveShop[]>([]);
-  const [activeShopsLoading, setActiveShopsLoading] = useState(false);
-  const [activeShopsError, setActiveShopsError] = useState<string | null>(null);
-  
-  // Session statistics state
-  const [sessionStats, setSessionStats] = useState<any>(null);
-  const [sessionStatsLoading, setSessionStatsLoading] = useState(false);
-  const [sessionStatsError, setSessionStatsError] = useState<string | null>(null);
-  
   const [deletedShops, setDeletedShops] = useState<DeletedShop[]>([]);
   const [deletedShopsLoading, setDeletedShopsLoading] = useState(false);
   const [deletedShopsError, setDeletedShopsError] = useState<string | null>(null);
 
   // Emergency mode state
-  const [emergencyMode, setEmergencyMode] = useState(false);
-  const [emergencyStatus, setEmergencyStatus] = useState<any>(null);
-  const [emergencyLoading, setEmergencyLoading] = useState(false);
-
-  // Diff viewer state (must be at top level for React rules-of-hooks)
-  const [diffOpen, setDiffOpen] = useState(false);
-  const [diffBefore, setDiffBefore] = useState('');
-  const [diffAfter, setDiffAfter] = useState('');
-
-  // Connection Leak Monitoring State
   const [connectionLeakStatus, setConnectionLeakStatus] = useState<any>(null);
   const [connectionLeakLoading, setConnectionLeakLoading] = useState(false);
   const [connectionLeakError, setConnectionLeakError] = useState<string | null>(null);
-  const [emergencyCleanupInProgress, setEmergencyCleanupInProgress] = useState(false);
   const [connectionHistory, setConnectionHistory] = useState<any[]>([]);
   const [leakAlerts, setLeakAlerts] = useState<any[]>([]);
   const [debugPanelVisible, setDebugPanelVisible] = useState(false);
@@ -560,7 +619,8 @@ const AdminPage: React.FC = () => {
         setIsAuthenticated(true);
         setIsPasswordDialogOpen(false);
         setSessionInfo(status);
-        showSuccess('Admin session restored successfully');
+        // Removed: showSuccess('Admin session restored successfully');
+        // Only show notifications for actual login/logout events, not session checks
       } else {
         // Not authenticated - show login dialog
         setIsAuthenticated(false);
@@ -647,40 +707,6 @@ const AdminPage: React.FC = () => {
     }
   };
 
-  // Check authentication status on component mount
-  useEffect(() => {
-    checkAuthStatus();
-  }, []);
-
-  // Ensure password dialog is always open when not authenticated
-  useEffect(() => {
-    if (!isAuthenticated) {
-      setIsPasswordDialogOpen(true);
-    }
-  }, [isAuthenticated]);
-
-  // Auto-refresh session status every 5 minutes
-  useEffect(() => {
-    if (isAuthenticated) {
-      const interval = setInterval(checkAuthStatus, 5 * 60 * 1000);
-      return () => clearInterval(interval);
-    }
-  }, [isAuthenticated]);
-
-  // Initialize connection leak monitoring when authenticated
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchConnectionLeakStatus();
-      
-      // Set up real-time monitoring (every 30 seconds)
-      const interval = setInterval(() => {
-        fetchConnectionLeakStatus();
-      }, 30000);
-      
-      return () => clearInterval(interval);
-    }
-  }, [isAuthenticated]);
-
   // REMOVED: Frontend-only authentication (insecure)
   // Admin authentication should only use backend JWT system
 
@@ -740,23 +766,23 @@ const AdminPage: React.FC = () => {
     if (!isAuthenticated) return;
     
     try {
-      setSessionStatsLoading(true);
-      setSessionStatsError(null);
+      setSessionStatisticsLoading(true);
+      setSessionStatisticsError(null);
       
       const data = await fetchAdminEndpoint('/api/admin/session-statistics');
       
       if (data.statistics) {
-        setSessionStats(data.statistics);
+        setSessionStatistics(data.statistics);
       } else {
-        setSessionStats(null);
+        setSessionStatistics(null);
       }
     } catch (err) {
       console.error('Error fetching session statistics:', err);
       const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
-      setSessionStatsError(`Failed to fetch session statistics: ${errorMessage}`);
-      setSessionStats(null);
+      setSessionStatisticsError(`Failed to fetch session statistics: ${errorMessage}`);
+      setSessionStatistics(null);
     } finally {
-      setSessionStatsLoading(false);
+      setSessionStatisticsLoading(false);
     }
   };
 
@@ -764,8 +790,8 @@ const AdminPage: React.FC = () => {
     if (!isAuthenticated) return;
     
     try {
-      setAuditLoading(true);
-      setAuditError(null);
+      setAuditLogsLoading(true);
+      setAuditLogsError(null);
       
       // Fix: Use the correct endpoints available in the backend
       let endpoint = `/api/admin/audit-logs/all?page=${auditPage}&size=${auditRowsPerPage}`;
@@ -1196,59 +1222,79 @@ const AdminPage: React.FC = () => {
   }
 
   return (
-    <AdminContainer maxWidth="xl">
-      <HeaderCard>
-        <SectionHeader>
-          <AdminHeader>
-            <Stack direction="row" alignItems="center" spacing={2}>
-              <AdminIcon sx={{ fontSize: 32, color: 'primary.main' }} />
-              <Box>
-                <Typography variant="h4" fontWeight="700" sx={{ mb: 0.5 }}>
-                  Enterprise Admin Panel
+    <>
+      <NavBar />
+      <Box sx={{ position: 'fixed', top: 16, right: 32, zIndex: 1301 }}>
+        <NotificationCenter />
+      </Box>
+      <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
+        {/* Remove HeaderCard and SectionHeader, flatten UI */}
+        <Box sx={{ mb: 4 }}>
+          <Stack direction="row" alignItems="center" spacing={2}>
+            <AdminIcon sx={{ fontSize: 32, color: 'primary.main' }} />
+            <Box>
+              <Typography variant="h4" fontWeight="700" sx={{ mb: 0.5 }}>
+                Enterprise Admin Panel
+              </Typography>
+              <Typography variant="body1" color="text.secondary">
+                Secure administration and monitoring dashboard
+              </Typography>
+              {sessionInfo && (
+                <Typography variant="body2" color="success.main" sx={{ mt: 0.5 }}>
+                  Authenticated as: {sessionInfo.username} | Session expires: {new Date(sessionInfo.expiresAt).toLocaleString()}
                 </Typography>
-                <Typography variant="body1" color="text.secondary">
-                  Secure administration and monitoring dashboard
-                </Typography>
-                {sessionInfo && (
-                  <Typography variant="body2" color="success.main" sx={{ mt: 0.5 }}>
-                    Authenticated as: {sessionInfo.username} | Session expires: {new Date(sessionInfo.expiresAt).toLocaleString()}
-                  </Typography>
-                )}
+              )}
+            </Box>
+            <Box sx={{ flexGrow: 1 }} />
+            <Button
+              variant="outlined"
+              startIcon={<RefreshIcon />}
+              onClick={checkAuthStatus}
+              sx={{ borderRadius: 2 }}
+            >
+              Refresh Session
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<LogoutIcon />}
+              onClick={handleAdminLogout}
+              sx={{ borderRadius: 2 }}
+            >
+              Logout Admin
+            </Button>
+            <FormControlLabel
+              control={<Switch checked={geekMode} onChange={() => setGeekMode(v => !v)} color="primary" />}
+              label="Geek Mode"
+            />
+          </Stack>
         </Box>
-            </Stack>
-            <Stack direction="row" spacing={2}>
-              <Button
-                variant="outlined"
-                startIcon={<RefreshIcon />}
-                onClick={checkAuthStatus}
-                sx={{ borderRadius: 2 }}
-              >
-                Refresh Session
-              </Button>
-              <Button
-                variant="outlined"
-                startIcon={<LogoutIcon />}
-                onClick={handleAdminLogout}
-                sx={{ borderRadius: 2 }}
-              >
-                Logout Admin
-              </Button>
-            </Stack>
-          </AdminHeader>
-        </SectionHeader>
-
-        <Box sx={{ p: 3 }}>
-          {/* Admin Panel Content */}
+        <Box>
           <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)} sx={{ mb: 3 }}>
-            <GeekTab value="health" label={<><span className="tab-index">01</span>System Health</>} />
-            <GeekTab value="connection-pool" label={<><span className="tab-index">02</span>Connection Pool</>} />
-            <GeekTab value="transactions" label={<><span className="tab-index">03</span>Transactions</>} />
-            <GeekTab value="audit" label={<><span className="tab-index">04</span>Audit Logs</>} />
-            <GeekTab value="active" label={<><span className="tab-index">05</span>Active Shops</>} />
-            <GeekTab value="sessions" label={<><span className="tab-index">06</span>Sessions</>} />
-            <GeekTab value="emergency" label={<><span className="tab-index">07</span>Emergency</>} />
+            {[
+              { value: 'health', label: 'System Health' },
+              { value: 'connection-pool', label: 'Connection Pool' },
+              { value: 'transactions', label: 'Transactions' },
+              { value: 'audit-logs', label: 'Audit Logs' },
+              { value: 'active', label: 'Active Shops' },
+              { value: 'sessions', label: 'Sessions' },
+              { value: 'emergency', label: 'Emergency' },
+            ].map((tab, idx) =>
+              geekMode ? (
+                <GeekTab
+                  key={tab.value}
+                  value={tab.value}
+                  label={<><span className="tab-index">{`0${idx + 1}`.slice(-2)}</span>{tab.label}</>}
+                />
+              ) : (
+                <Tab
+                  key={tab.value}
+                  value={tab.value}
+                  label={tab.label}
+                />
+              )
+            )}
           </Tabs>
-
+          {/* Tab content remains unchanged, but remove extra Paper/Card wrappers where possible */}
           {/* System Health Dashboard */}
           {activeTab === 'health' && (
             <Box>
@@ -1377,7 +1423,7 @@ const AdminPage: React.FC = () => {
           )}
 
           {/* Audit Logs Tab */}
-          {activeTab === 'audit' && (
+          {activeTab === 'audit-logs' && (
             <Box>
               <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center' }}>
                 <FormControl size="small" sx={{ minWidth: 200 }}>
@@ -1401,11 +1447,11 @@ const AdminPage: React.FC = () => {
                 />
                 <Button
                   variant="outlined"
-                  onClick={fetchAuditLogs}
-                  disabled={auditLoading}
+                  onClick={() => { fetchAuditLogs(); setAuditCooldown(120); }}
+                  disabled={auditLoading || auditCooldown > 0}
                   startIcon={auditLoading ? <CircularProgress size={16} /> : <RefreshIcon />}
                 >
-                  Refresh
+                  {auditCooldown > 0 ? `Refresh (${auditCooldown}s)` : 'Refresh'}
                 </Button>
               </Box>
 
@@ -1469,11 +1515,11 @@ const AdminPage: React.FC = () => {
               <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center' }}>
                 <Button
                   variant="outlined"
-                  onClick={fetchActiveShops}
-                  disabled={activeShopsLoading}
+                  onClick={() => { fetchActiveShops(); setActiveShopsCooldown(120); }}
+                  disabled={activeShopsLoading || activeShopsCooldown > 0}
                   startIcon={activeShopsLoading ? <CircularProgress size={16} /> : <RefreshIcon />}
                 >
-                  Refresh Active Shops
+                  {activeShopsCooldown > 0 ? `Refresh Active Shops (${activeShopsCooldown}s)` : 'Refresh Active Shops'}
                 </Button>
               </Box>
 
@@ -1524,11 +1570,11 @@ const AdminPage: React.FC = () => {
               <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center' }}>
                 <Button
                   variant="outlined"
-                  onClick={fetchSessionStatistics}
-                  disabled={sessionStatsLoading}
+                  onClick={() => { fetchSessionStatistics(); setSessionStatsCooldown(120); }}
+                  disabled={sessionStatsLoading || sessionStatsCooldown > 0}
                   startIcon={sessionStatsLoading ? <CircularProgress size={16} /> : <RefreshIcon />}
                 >
-                  Refresh Session Stats
+                  {sessionStatsCooldown > 0 ? `Refresh Session Stats (${sessionStatsCooldown}s)` : 'Refresh Session Stats'}
                 </Button>
               </Box>
 
@@ -1756,18 +1802,15 @@ const AdminPage: React.FC = () => {
               </Box>
             </Box>
           )}
-                  </Box>
-      </HeaderCard>
-      
+        </Box>
+      </Container>
       {/* Debug Panel - Controllable visibility */}
       <DebugPanel 
         isVisible={debugPanelVisible} 
         onToggleVisibility={setDebugPanelVisible}
       />
-      
-      {/* Notification Center - Always visible on admin page */}
-      <NotificationCenter />
-    </AdminContainer>
+      {/* Remove NotificationCenter from bottom, now at top-right */}
+    </>
   );
 };
 
