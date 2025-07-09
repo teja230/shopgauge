@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { debugLog } from '../components/ui/DebugPanel';
 
 const API_BASE_URL: string = (
   import.meta.env.VITE_API_BASE_URL as string | undefined
@@ -221,14 +222,12 @@ export async function adminLogout(): Promise<any> {
 }
 
 export async function getAdminStatus(): Promise<any> {
-  if (import.meta.env.DEV) {
-    console.log('API: Checking admin status');
-  }
+  debugLog.info('API: Checking admin status', null, 'API');
   
   // Debug: Log the actual URL being constructed
   const fullUrl = `${API_BASE_URL}/api/admin/status`;
-  console.log('API: getAdminStatus() - API_BASE_URL:', API_BASE_URL);
-  console.log('API: getAdminStatus() - Full URL:', fullUrl);
+  debugLog.info('API: getAdminStatus() - API_BASE_URL', API_BASE_URL, 'API');
+  debugLog.info('API: getAdminStatus() - Full URL', fullUrl, 'API');
   
   try {
     const response = await fetch(fullUrl, {
@@ -236,15 +235,11 @@ export async function getAdminStatus(): Promise<any> {
     });
     
     const data = await response.json();
-    if (import.meta.env.DEV) {
-      console.log('API: Admin status response:', data);
-    }
+    debugLog.info('API: Admin status response', data, 'API');
     
     return data;
   } catch (error) {
-    if (import.meta.env.DEV) {
-      console.error('API: Admin status error:', error);
-    }
+    debugLog.error('API: Admin status error', error, 'API');
     // Always throw the error instead of returning a fallback object
     // This ensures the AdminPage catch block is hit for network errors
     throw error;

@@ -93,6 +93,7 @@ import { getSessionStatus } from '../utils/sessionUtils';
 import DiffViewerDialog from '../components/ui/DiffViewerDialog';
 import TransactionMonitoring from '../components/ui/TransactionMonitoring';
 import ConnectionPoolDashboard from '../components/ui/ConnectionPoolDashboard';
+import { DebugPanel } from '../components/ui/DebugPanel';
 
 interface Secret {
   key: string;
@@ -1203,6 +1204,9 @@ const AdminPage: React.FC = () => {
           {/* ... existing tabs and content ... */}
                   </Box>
       </HeaderCard>
+      
+      {/* Debug Panel - Always visible on admin page */}
+      <DebugPanel isVisible={true} />
     </AdminContainer>
   );
 };
