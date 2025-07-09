@@ -113,6 +113,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const checkAuth = async () => {
     console.log('AuthContext: Starting authentication check');
     
+    // Skip Shopify authentication on admin pages
+    const currentPath = window.location.pathname;
+    if (currentPath.startsWith('/admin')) {
+      console.log('AuthContext: Skipping Shopify auth check on admin page');
+      setShop(null);
+      setIsAuthenticated(false);
+      setIsAuthReady(true);
+      setHasInitiallyLoaded(true);
+      setApiAuthState(false, null);
+      return;
+    }
+    
     try {
       setAuthLoading(true);
       setLoading(true);
