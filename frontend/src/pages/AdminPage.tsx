@@ -479,6 +479,7 @@ const AdminPage: React.FC = () => {
   const [emergencyCleanupInProgress, setEmergencyCleanupInProgress] = useState(false);
   const [connectionHistory, setConnectionHistory] = useState<any[]>([]);
   const [leakAlerts, setLeakAlerts] = useState<any[]>([]);
+  const [debugPanelVisible, setDebugPanelVisible] = useState(true);
 
   // Action categories for audit logs with improved colors and icons
   const actionCategories = {
@@ -1731,8 +1732,11 @@ const AdminPage: React.FC = () => {
         </Box>
       </HeaderCard>
       
-      {/* Debug Panel - Always visible on admin page */}
-      <DebugPanel isVisible={true} />
+      {/* Debug Panel - Controllable visibility */}
+      <DebugPanel 
+        isVisible={debugPanelVisible} 
+        onToggleVisibility={setDebugPanelVisible}
+      />
       
       {/* Notification Center - Always visible on admin page */}
       <NotificationCenter />
