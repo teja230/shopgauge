@@ -739,6 +739,15 @@ const AdminPage: React.FC = () => {
 
   // Emergency mode functions
   const checkEmergencyStatus = async () => {
+    // FIXED: Only check emergency status if authenticated
+    if (!isAuthenticated) {
+      console.log('Skipping emergency status check - not authenticated');
+      setEmergencyMode(false);
+      setEmergencyStatus(null);
+      setEmergencyLoading(false);
+      return;
+    }
+
     try {
       setEmergencyLoading(true);
       const status = await fetchEmergencyEndpoint('/status');
@@ -750,8 +759,16 @@ const AdminPage: React.FC = () => {
       }
     } catch (error) {
       console.error('Emergency status check failed:', error);
-      setEmergencyMode(true); // Assume emergency mode if we can't check
-      showError('Unable to check system status - assuming emergency mode');
+      // FIXED: Don't assume emergency mode on auth failure
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
+        console.log('Emergency status check failed due to authentication - will retry after login');
+        setEmergencyMode(false);
+        setEmergencyStatus(null);
+      } else {
+        setEmergencyMode(true); // Assume emergency mode only for non-auth errors
+        showError('Unable to check system status - assuming emergency mode');
+      }
     } finally {
       setEmergencyLoading(false);
     }
@@ -832,7 +849,7 @@ const AdminPage: React.FC = () => {
         fetchDeletedShops();
       }
       
-      // Check for emergency mode on page load
+      // FIXED: Only check emergency mode after authentication
       checkEmergencyStatus();
     }
   }, [auditPage, auditRowsPerPage, auditLogType, isAuthenticated]);
