@@ -16,7 +16,7 @@ interface DebugPanelProps {
 }
 
 // Environment variable controls
-const DEBUG_PANEL_ENABLED = import.meta.env.VITE_DEBUG_PANEL_ENABLED === 'true';
+const DEBUG_PANEL_ENABLED = import.meta.env.VITE_DEBUG_PANEL_ENABLED === 'true' || window.location.pathname.includes('/admin');
 const DEBUG_PANEL_STORE = (import.meta.env.VITE_DEBUG_PANEL_STORE as string) || '';
 
 // Global debug state
