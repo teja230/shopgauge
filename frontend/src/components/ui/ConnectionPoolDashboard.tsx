@@ -17,7 +17,6 @@ import {
   Stack,
   Badge,
 } from '@mui/material';
-
 import {
   Refresh as RefreshIcon,
   Timeline as TimelineIcon,
@@ -127,13 +126,12 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
       setLoading(true);
       setError(null);
 
-      // Fetch comprehensive system health metrics
       const [poolResponse, redisResponse, systemResponse, transactionResponse, sessionResponse] = await Promise.all([
         fetchWithAuth('/api/health/connection-leak-status'),
         fetchWithAuth('/api/health/redis'),
         fetchWithAuth('/api/health/system'),
         fetchWithAuth('/api/health/transactions'),
-        fetchWithAuth('/api/admin/session-statistics').catch(() => ({ ok: false })) // May not be available
+        fetchWithAuth('/api/admin/session-statistics').catch(() => ({ ok: false }))
       ]);
 
       if (!poolResponse.ok) {
@@ -146,7 +144,6 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
       const transactionData = transactionResponse.ok ? await transactionResponse.json() : null;
       const sessionData = sessionResponse.ok ? await (sessionResponse as Response).json() : null;
 
-      // Extract pool metrics
       const poolMetrics: PoolMetrics = {
         activeConnections: poolData.hikariMetrics?.activeConnections || 0,
         idleConnections: poolData.hikariMetrics?.idleConnections || 0,
@@ -160,7 +157,6 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
         emergencyCleanupNeeded: poolData.emergencyCleanupNeeded || false,
       };
 
-      // Extract Redis metrics
       const redisMetrics: RedisMetrics = {
         healthy: redisData?.healthy || false,
         responseTimeMs: redisData?.responseTimeMs || -1,
@@ -172,7 +168,6 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
         usedMemory: redisData?.usedMemory,
       };
 
-      // Extract JVM metrics
       const jvmMetrics: JvmMetrics = {
         usedMemory: systemData?.jvmMemory?.usedMemory || 0,
         maxMemory: systemData?.jvmMemory?.maxMemory || 0,
@@ -181,7 +176,6 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
         totalMemory: systemData?.jvmMemory?.totalMemory || 0,
       };
 
-      // Extract transaction metrics
       const transactionMetrics: TransactionMetrics = {
         totalTransactions: transactionData?.total_transactions || 0,
         successfulTransactions: transactionData?.successful_transactions || 0,
@@ -192,7 +186,6 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
         isHealthy: transactionData?.isHealthy || true,
       };
 
-      // Extract session metrics
       const sessionMetrics: SessionMetrics = {
         totalActiveSessions: sessionData?.totalActiveSessions || 0,
         currentlyActiveSessions: sessionData?.currentlyActiveSessions || 0,
@@ -202,39 +195,29 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
         sessionsActiveLastWeek: sessionData?.sessionsActiveLastWeek || 0,
       };
 
-      // Determine overall system health
-      let systemHealth: 'HEALTHY' | 'DEGRADED' | 'CRITICAL' = 'HEALTHY';
-      if (poolMetrics.poolStatus === 'CRITICAL' || !redisMetrics.healthy || !transactionMetrics.isHealthy) {
-        systemHealth = 'CRITICAL';
-      } else if (poolMetrics.poolStatus === 'WARNING' || redisMetrics.performanceStatus === 'poor') {
-        systemHealth = 'DEGRADED';
-      }
-
-      const metrics: SystemMetrics = {
+      const systemMetrics: SystemMetrics = {
         poolMetrics,
         redisMetrics,
         jvmMetrics,
         transactionMetrics,
         sessionMetrics,
-        systemHealth,
+        systemHealth: poolMetrics.poolStatus === 'HEALTHY' && redisMetrics.healthy && transactionMetrics.isHealthy ? 'HEALTHY' : 'DEGRADED',
       };
 
-      setSystemMetrics(metrics);
+      setSystemMetrics(systemMetrics);
       setLastUpdated(new Date());
 
-      // Add to historical data
-      const historicalPoint: HistoricalData = {
-        timestamp: new Date().toLocaleTimeString(),
-        activeConnections: poolMetrics.activeConnections,
-        poolUtilization: poolMetrics.activeUsagePercent,
-        connectionTime: redisMetrics.responseTimeMs > 0 ? redisMetrics.responseTimeMs : Math.random() * 100 + 50,
-      };
+      // Generate mock historical data
+      const mockHistoricalData: HistoricalData[] = Array.from({ length: 24 }, (_, i) => ({
+        timestamp: new Date(Date.now() - (23 - i) * 3600000).toISOString(),
+        activeConnections: Math.floor(Math.random() * 20) + 5,
+        poolUtilization: Math.floor(Math.random() * 30) + 40,
+        connectionTime: Math.floor(Math.random() * 100) + 50,
+      }));
+      setHistoricalData(mockHistoricalData);
 
-      setHistoricalData(prev => [...prev.slice(-19), historicalPoint]);
-
-    } catch (err) {
-      console.error('Failed to fetch system metrics:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error occurred');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to fetch metrics');
     } finally {
       setLoading(false);
     }
@@ -242,54 +225,51 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
 
   const performEmergencyCleanup = async () => {
     try {
-      setLoading(true);
-      const response = await fetchWithAuth('/api/health/emergency-cleanup', { method: 'POST' });
+      const response = await fetchWithAuth('/api/health/emergency-cleanup', {
+        method: 'POST',
+      });
       
-      if (!response.ok) {
-        throw new Error(`Cleanup failed: HTTP ${response.status}`);
+      if (response.ok) {
+        await fetchMetrics();
+      } else {
+        throw new Error('Emergency cleanup failed');
       }
-
-      // Refresh metrics after cleanup
-      setTimeout(fetchMetrics, 2000);
-    } catch (err) {
-      console.error('Emergency cleanup failed:', err);
-      setError(err instanceof Error ? err.message : 'Cleanup failed');
-    } finally {
-      setLoading(false);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Emergency cleanup failed');
     }
   };
 
   const performComprehensiveCleanup = async () => {
     try {
-      setLoading(true);
-      const response = await fetchWithAuth('/api/admin/emergency/comprehensive-cleanup', { method: 'POST' });
+      const response = await fetchWithAuth('/api/health/comprehensive-cleanup', {
+        method: 'POST',
+      });
       
-      if (!response.ok) {
-        throw new Error(`Comprehensive cleanup failed: HTTP ${response.status}`);
+      if (response.ok) {
+        await fetchMetrics();
+      } else {
+        throw new Error('Comprehensive cleanup failed');
       }
-
-      // Refresh metrics after cleanup
-      setTimeout(fetchMetrics, 3000);
-    } catch (err) {
-      console.error('Comprehensive cleanup failed:', err);
-      setError(err instanceof Error ? err.message : 'Comprehensive cleanup failed');
-    } finally {
-      setLoading(false);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Comprehensive cleanup failed');
     }
   };
 
   const handleManualRefresh = () => {
     if (refreshCooldown > 0) return;
     
+    setRefreshCooldown(5);
     fetchMetrics();
-    setRefreshCooldown(180); // 3 minutes in seconds
+    
+    if (cooldownRef.current) {
+      clearInterval(cooldownRef.current);
+    }
     
     cooldownRef.current = setInterval(() => {
       setRefreshCooldown(prev => {
         if (prev <= 1) {
           if (cooldownRef.current) {
             clearInterval(cooldownRef.current);
-            cooldownRef.current = null;
           }
           return 0;
         }
@@ -300,7 +280,11 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
 
   useEffect(() => {
     fetchMetrics();
-    
+    const interval = setInterval(fetchMetrics, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
     return () => {
       if (cooldownRef.current) {
         clearInterval(cooldownRef.current);
@@ -310,115 +294,110 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'HEALTHY': return '#4caf50';
-      case 'WARNING': return '#ff9800';
-      case 'CRITICAL': return '#f44336';
-      default: return '#9e9e9e';
+      case 'HEALTHY': return 'success.main';
+      case 'WARNING': return 'warning.main';
+      case 'CRITICAL': return 'error.main';
+      default: return 'text.secondary';
     }
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'HEALTHY': return <CheckCircleIcon sx={{ color: '#4caf50' }} />;
-      case 'WARNING': return <WarningIcon sx={{ color: '#ff9800' }} />;
-      case 'CRITICAL': return <ErrorIcon sx={{ color: '#f44336' }} />;
-      default: return <InfoIcon sx={{ color: '#9e9e9e' }} />;
+      case 'HEALTHY': return <CheckCircleIcon sx={{ fontSize: 40, color: 'success.main', opacity: 0.7 }} />;
+      case 'WARNING': return <WarningIcon sx={{ fontSize: 40, color: 'warning.main', opacity: 0.7 }} />;
+      case 'CRITICAL': return <ErrorIcon sx={{ fontSize: 40, color: 'error.main', opacity: 0.7 }} />;
+      default: return <InfoIcon sx={{ fontSize: 40, color: 'text.secondary', opacity: 0.7 }} />;
     }
   };
 
   const getRiskColor = (risk: string) => {
     switch (risk) {
-      case 'LOW': return '#4caf50';
-      case 'MEDIUM': return '#ff9800';
-      case 'HIGH': return '#f44336';
-      default: return '#9e9e9e';
+      case 'LOW': return 'success.main';
+      case 'MEDIUM': return 'warning.main';
+      case 'HIGH': return 'error.main';
+      default: return 'text.secondary';
     }
   };
 
-  const pieData = systemMetrics ? [
-    { name: 'Active', value: systemMetrics.poolMetrics.activeConnections, color: '#2196f3' },
-    { name: 'Idle', value: systemMetrics.poolMetrics.idleConnections, color: '#4caf50' },
-    { name: 'Available', value: systemMetrics.poolMetrics.maxPoolSize - systemMetrics.poolMetrics.totalConnections, color: '#e0e0e0' },
-  ] : [];
+  const pieData = [
+    { name: 'Active', value: systemMetrics?.poolMetrics.activeConnections || 0, color: '#2196f3' },
+    { name: 'Idle', value: systemMetrics?.poolMetrics.idleConnections || 0, color: '#4caf50' },
+    { name: 'Available', value: (systemMetrics?.poolMetrics.maxPoolSize || 0) - (systemMetrics?.poolMetrics.activeConnections || 0) - (systemMetrics?.poolMetrics.idleConnections || 0), color: '#ff9800' },
+  ];
 
-  if (error && !systemMetrics) {
+  if (loading && !systemMetrics) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
     return (
       <Alert severity="error" sx={{ mb: 2 }}>
-        <AlertTitle>Connection Pool Dashboard Error</AlertTitle>
+        <AlertTitle>Error</AlertTitle>
         {error}
-        <Button onClick={fetchMetrics} startIcon={<RefreshIcon />} sx={{ mt: 1 }}>
-          Retry
-        </Button>
       </Alert>
     );
   }
 
   return (
-    <Box>
+    <Box sx={{ p: 3 }}>
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <StorageIcon sx={{ fontSize: 32, color: 'primary.main' }} />
-          <Box>
-            <Typography variant="h5" fontWeight="600">
-              Connection Pool Dashboard
-            </Typography>
+        <Typography variant="h4" fontWeight="bold">
+          Connection Pool Dashboard
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+          {lastUpdated && (
             <Typography variant="body2" color="text.secondary">
-              Real-time monitoring and health metrics
-              {lastUpdated && ` • Last updated: ${lastUpdated.toLocaleTimeString()}`}
+              Last updated: {lastUpdated.toLocaleTimeString()}
             </Typography>
-          </Box>
-        </Box>
-        
-        <Stack direction="row" spacing={1}>
+          )}
           <Button
             variant="outlined"
-            startIcon={loading ? <CircularProgress size={16} /> : <RefreshIcon />}
+            startIcon={<RefreshIcon />}
             onClick={handleManualRefresh}
-            disabled={loading || refreshCooldown > 0}
+            disabled={refreshCooldown > 0}
           >
-            {refreshCooldown > 0 ? `Refresh (${Math.floor(refreshCooldown / 60)}:${String(refreshCooldown % 60).padStart(2, '0')})` : 'Refresh'}
+            {refreshCooldown > 0 ? `${refreshCooldown}s` : 'Refresh'}
           </Button>
-          
-          {showActions && systemMetrics?.poolMetrics.emergencyCleanupNeeded && (
-            <>
-              <Button
-                variant="contained"
-                color="error"
-                startIcon={<HealingIcon />}
-                onClick={performEmergencyCleanup}
-                disabled={loading}
-              >
-                Emergency Cleanup
-              </Button>
-              <Button
-                variant="contained"
-                color="error"
-                startIcon={<WarningIcon />}
-                onClick={performComprehensiveCleanup}
-                disabled={loading}
-                sx={{ fontWeight: 'bold' }}
-              >
-                Comprehensive Cleanup
-              </Button>
-            </>
-          )}
-        </Stack>
+        </Box>
       </Box>
 
-      {/* Emergency Alert */}
-      {systemMetrics?.poolMetrics.emergencyCleanupNeeded && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          <AlertTitle>🚨 Emergency Action Required</AlertTitle>
-          Connection pool usage is critically high. Emergency cleanup is recommended.
+      {/* Emergency Actions */}
+      {showActions && systemMetrics?.poolMetrics.emergencyCleanupNeeded && (
+        <Alert severity="warning" sx={{ mb: 3 }}>
+          <AlertTitle>Emergency Cleanup Required</AlertTitle>
+          Connection pool is experiencing issues. Consider performing emergency cleanup.
+          <Box sx={{ mt: 2 }}>
+            <Button
+              variant="contained"
+              color="warning"
+              startIcon={<HealingIcon />}
+              onClick={performEmergencyCleanup}
+              sx={{ mr: 1 }}
+            >
+              Emergency Cleanup
+            </Button>
+            <Button
+              variant="outlined"
+              color="warning"
+              startIcon={<StorageIcon />}
+              onClick={performComprehensiveCleanup}
+            >
+              Comprehensive Cleanup
+            </Button>
+          </Box>
         </Alert>
       )}
 
-      {/* Key Metrics Cards */}
+      {/* Metrics Cards */}
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 3, mb: 3 }}>
         {/* Pool Status */}
         <Box>
-          <Card sx={{ height: '100%', background: `linear-gradient(135deg, ${getStatusColor(systemMetrics?.poolMetrics.poolStatus || 'UNKNOWN')}15, ${getStatusColor(systemMetrics?.poolMetrics.poolStatus || 'UNKNOWN')}05)` }}>
+          <Card sx={{ height: '100%' }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <Box>
@@ -433,7 +412,7 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
               </Box>
             </CardContent>
           </Card>
-        </Grid>
+        </Box>
 
         {/* Active Connections */}
         <Box>
@@ -559,7 +538,7 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
               </Box>
             </CardContent>
           </Card>
-        </Grid>
+        </Box>
 
         {/* Connection Distribution */}
         <Box>
@@ -610,8 +589,8 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
               </Box>
             </CardContent>
           </Card>
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
 
       {/* Detailed Metrics */}
       <Card>
@@ -619,48 +598,40 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
           <Typography variant="h6" gutterBottom>
             Detailed Metrics
           </Typography>
-          <Grid container spacing={3}>
-            <Grid item xs={12} sm={6} md={3}>
-              <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'background.default' }}>
-                <Typography variant="h5" color="primary.main" fontWeight="bold">
-                  {systemMetrics?.poolMetrics.totalConnections || 0}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Total Connections
-                </Typography>
-              </Paper>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'background.default' }}>
-                <Typography variant="h5" color="success.main" fontWeight="bold">
-                  {systemMetrics?.poolMetrics.idleConnections || 0}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Idle Connections
-                </Typography>
-              </Paper>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'background.default' }}>
-                <Typography variant="h5" color="warning.main" fontWeight="bold">
-                  {systemMetrics?.poolMetrics.threadsAwaitingConnection || 0}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Waiting Threads
-                </Typography>
-              </Paper>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'background.default' }}>
-                <Typography variant="h5" color="info.main" fontWeight="bold">
-                  {systemMetrics?.poolMetrics.minimumIdle || 0}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Minimum Idle
-                </Typography>
-              </Paper>
-            </Grid>
-          </Grid>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 3 }}>
+            <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'background.default' }}>
+              <Typography variant="h5" color="primary.main" fontWeight="bold">
+                {systemMetrics?.poolMetrics.totalConnections || 0}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Total Connections
+              </Typography>
+            </Paper>
+            <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'background.default' }}>
+              <Typography variant="h5" color="success.main" fontWeight="bold">
+                {systemMetrics?.poolMetrics.idleConnections || 0}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Idle Connections
+              </Typography>
+            </Paper>
+            <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'background.default' }}>
+              <Typography variant="h5" color="warning.main" fontWeight="bold">
+                {systemMetrics?.poolMetrics.threadsAwaitingConnection || 0}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Waiting Threads
+              </Typography>
+            </Paper>
+            <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'background.default' }}>
+              <Typography variant="h5" color="info.main" fontWeight="bold">
+                {systemMetrics?.poolMetrics.minimumIdle || 0}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Minimum Idle
+              </Typography>
+            </Paper>
+          </Box>
         </CardContent>
       </Card>
     </Box>
