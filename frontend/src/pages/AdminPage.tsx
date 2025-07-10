@@ -1288,49 +1288,16 @@ const AdminPage: React.FC = () => {
   return (
     <>
       <Container maxWidth="xl" sx={{ mt: 4, mb: 4, px: { xs: 0.5, sm: 2, md: 4 } }}>
-        {/* Remove HeaderCard and SectionHeader, flatten UI */}
+        {/* Admin page title */}
         <Box sx={{ mb: 4 }}>
-          <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={2} flexWrap="wrap">
-            <AdminIcon sx={{ fontSize: 32, color: 'primary.main', mb: { xs: 1, sm: 0 } }} />
-              <Box>
-              <Typography variant="h4" fontWeight="700" sx={{ mb: 0.5, fontSize: { xs: '1.3rem', sm: '2rem' } }}>
-                  Enterprise Admin Panel
-                </Typography>
-              <Typography variant="body1" color="text.secondary" sx={{ fontSize: { xs: '0.95rem', sm: '1rem' } }}>
-                  Secure administration and monitoring dashboard
-                </Typography>
-                {sessionInfo && (
-                <Typography variant="body2" color="success.main" sx={{ mt: 0.5, fontSize: { xs: '0.85rem', sm: '1rem' } }}>
-                    Authenticated as: {sessionInfo.username} | Session expires: {formatTimestamp(sessionInfo.expiresAt)}
-                  </Typography>
-                )}
+          <Typography variant="h4" fontWeight="700" sx={{ mb: 0.5, fontSize: { xs: '1.3rem', sm: '2rem' } }}>
+            Enterprise Admin Panel
+          </Typography>
+          <Typography variant="body1" color="text.secondary" sx={{ fontSize: { xs: '0.95rem', sm: '1rem' } }}>
+            Secure administration and monitoring dashboard
+          </Typography>
         </Box>
-            <Box sx={{ flexGrow: 1, display: { xs: 'none', sm: 'block' } }} />
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ width: { xs: '100%', sm: 'auto' } }}>
-              {/* Notification Center */}
-              <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
-                <NotificationCenter />
-              </Box>
-              <Button
-                variant="outlined"
-                startIcon={<RefreshIcon />}
-                onClick={checkAuthStatus}
-                sx={{ borderRadius: 2, width: { xs: '100%', sm: 'auto' } }}
-              >
-                Refresh Session
-              </Button>
-              <Button
-                variant="outlined"
-                startIcon={<LogoutIcon />}
-                onClick={handleAdminLogout}
-                sx={{ borderRadius: 2, width: { xs: '100%', sm: 'auto' } }}
-              >
-                Logout Admin
-              </Button>
-              {/* Remove Geek Mode toggle - not providing much value */}
-            </Stack>
-          </Stack>
-        </Box>
+        
         <Box>
           <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)} sx={{ mb: 3, minHeight: 40, '& .MuiTab-root': { minWidth: { xs: 80, sm: 140 } } }} variant="scrollable" scrollButtons="auto">
             {[
