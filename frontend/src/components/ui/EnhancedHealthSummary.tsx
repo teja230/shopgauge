@@ -375,9 +375,9 @@ const EnhancedHealthSummary: React.FC = () => {
   };
 
   return (
-    <Paper sx={{ p: 3, mb: 3, borderRadius: 3, bgcolor: 'grey.50' }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+    <Paper sx={{ p: { xs: 1.5, sm: 3 }, mb: 3, borderRadius: 3, bgcolor: 'grey.50' }}>
+      <Box display="flex" flexDirection={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} mb={3} gap={2}>
+        <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
           <SpeedIcon color="primary" />
           System Health & Performance
         </Typography>
@@ -392,23 +392,18 @@ const EnhancedHealthSummary: React.FC = () => {
           </Tooltip>
         </Box>
       </Box>
-      
-      {/* Overall Status Chips */}
-      {/* Remove the block rendering the StatusChip components for System, Backend, Redis, Database */}
-
       {/* Enhanced Database Monitoring */}
       {databaseDetails && (
         <Box display="flex" gap={3} sx={{ flexDirection: { xs: 'column', md: 'row' } }}>
-          <Box flex={1}>
+          <Box flex={1} minWidth={0} mb={{ xs: 2, md: 0 }}>
             <DatabaseConnectionsCard metrics={databaseDetails} />
           </Box>
-          <Box flex={1}>
+          <Box flex={1} minWidth={0}>
             <PerformanceMetricsCard metrics={databaseDetails} />
           </Box>
         </Box>
       )}
-      
-      <Box display="flex" alignItems="center" gap={1} mt={2}>
+      <Box display="flex" alignItems="center" gap={1} mt={2} flexWrap="wrap">
         <Typography variant="caption" color="text.secondary">
           Deploy: {metrics.lastDeployCommit?.substring(0, 7) || 'unknown'}
         </Typography>
@@ -419,24 +414,25 @@ const EnhancedHealthSummary: React.FC = () => {
           Monitoring: Real-time database pool status
         </Typography>
       </Box>
-
-             <Box display="flex" justifyContent="flex-end" gap={2} mt={2}>
-         <Button
-           variant="outlined"
-           color="error"
-           startIcon={<ClearIcon />}
-           onClick={handleClearCache}
-         >
-           Clear Cache
-         </Button>
-         <Button
-           variant="outlined"
-           color="primary"
-           startIcon={<HealthAndSafetyIcon />}
-           onClick={handleForceRedisCheck}
-         >
-           Force Redis Check
-         </Button>
+      <Box display="flex" justifyContent="flex-end" gap={2} mt={2} flexDirection={{ xs: 'column', sm: 'row' }}>
+        <Button
+          variant="outlined"
+          color="error"
+          startIcon={<ClearIcon />}
+          onClick={handleClearCache}
+          sx={{ width: { xs: '100%', sm: 'auto' } }}
+        >
+          Clear Cache
+        </Button>
+        <Button
+          variant="outlined"
+          color="primary"
+          startIcon={<HealthAndSafetyIcon />}
+          onClick={handleForceRedisCheck}
+          sx={{ width: { xs: '100%', sm: 'auto' } }}
+        >
+          Force Redis Check
+        </Button>
       </Box>
     </Paper>
   );
