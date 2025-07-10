@@ -81,6 +81,33 @@ interface HealthMetrics {
   database?: DatabaseMetrics;
 }
 
+// Utility function for better timestamp formatting
+const formatTimestamp = (timestamp: number) => {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+  
+  // Show relative time for recent timestamps
+  if (diffInMinutes < 1) {
+    return 'Just now';
+  } else if (diffInMinutes < 60) {
+    return `${diffInMinutes} minute${diffInMinutes > 1 ? 's' : ''} ago`;
+  } else if (diffInMinutes < 1440) { // Less than 24 hours
+    const hours = Math.floor(diffInMinutes / 60);
+    return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+  } else {
+    // For older timestamps, show full date and time in local timezone
+    return date.toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZoneName: 'short'
+    });
+  }
+};
+
 const StatusChip: React.FC<{
   status: string;
   label: string;
@@ -242,7 +269,7 @@ const PerformanceMetricsCard: React.FC<{ metrics: DatabaseMetrics }> = ({ metric
       {metrics.lastFailureTime > 0 && (
         <Alert severity="warning" sx={{ mt: 2, py: 0.5 }}>
           <Typography variant="body2">
-            Last failure: {new Date(metrics.lastFailureTime).toLocaleString()}
+            Last failure: {formatTimestamp(metrics.lastFailureTime)}
           </Typography>
         </Alert>
       )}
@@ -397,7 +424,7 @@ const EnhancedHealthSummary: React.FC = () => {
         </Typography>
         <Box display="flex" alignItems="center" gap={2}>
           <Typography variant="caption" color="text.secondary">
-            Last updated: {formatTime(metrics.lastUpdated)}
+            Last updated: {formatTimestamp(metrics.lastUpdated)}
           </Typography>
           <Tooltip title="Refresh health metrics">
             <IconButton size="small" onClick={fetchAllMetrics} disabled={loading}>
