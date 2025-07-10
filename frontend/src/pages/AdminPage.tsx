@@ -1312,7 +1312,6 @@ const AdminPage: React.FC = () => {
 
   return (
     <>
-      <NavBar />
       <Container maxWidth="xl" sx={{ mt: 4, mb: 4, px: { xs: 0.5, sm: 2, md: 4 } }}>
         {/* Admin page title */}
         <Box sx={{ mb: 4 }}>
