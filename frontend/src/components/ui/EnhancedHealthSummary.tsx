@@ -14,17 +14,21 @@ import {
   Button,
   Stack
 } from '@mui/material';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
-import WarningIcon from '@mui/icons-material/Warning';
+import {
+  Speed as SpeedIcon,
+  Refresh as RefreshIcon,
+  Warning as WarningIcon,
+  CheckCircle as CheckCircleIcon,
+  Error as ErrorIcon,
+  Info as InfoIcon,
+  Timer as TimerIcon,
+  RestartAlt as RestartAltIcon,
+  HealthAndSafety as HealthAndSafetyIcon,
+  TrendingUp as TrendingUpIcon,
+  Clear as ClearIcon
+} from '@mui/icons-material';
 import StorageIcon from '@mui/icons-material/Storage';
 import DatabaseIcon from '@mui/icons-material/Storage';
-import RefreshIcon from '@mui/icons-material/Refresh';
-import SpeedIcon from '@mui/icons-material/Speed';
-import TimerIcon from '@mui/icons-material/Timer';
-import ClearIcon from '@mui/icons-material/Clear';
-import RestartAltIcon from '@mui/icons-material/RestartAlt';
-import HealthAndSafetyIcon from '@mui/icons-material/HealthAndSafety';
 import { useServiceStatus } from '../../context/ServiceStatusContext';
 import { debugLog } from './DebugPanel';
 import { useNotifications } from '../../hooks/useNotifications';
@@ -190,23 +194,42 @@ const DatabaseConnectionsCard: React.FC<{ metrics: DatabaseMetrics }> = ({ metri
 };
 
 const PerformanceMetricsCard: React.FC<{ metrics: DatabaseMetrics }> = ({ metrics }) => (
-  <Card sx={{ height: '100%' }}>
+  <Card sx={{ height: '100%', bgcolor: 'background.paper', borderRadius: 2 }}>
     <CardContent>
-      <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-        <TimerIcon color="primary" />
+      <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+        <TrendingUpIcon color="primary" />
         Performance Metrics
       </Typography>
       
       <Box display="flex" gap={2} mb={2}>
-        <Box flex={1} textAlign="center" sx={{ p: 2, bgcolor: 'rgba(46, 125, 50, 0.1)', borderRadius: 2 }}>
-          <Typography variant="h5" color="success.main" fontWeight="bold">
-            {metrics.totalConnections}
+        <Box flex={1} textAlign="center">
+          <Typography variant="h5" color="info.main" fontWeight="bold">
+            {metrics.activeUsagePercent.toFixed(1)}%
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Total Connections
+            Pool Usage
           </Typography>
         </Box>
-        <Box flex={1} textAlign="center" sx={{ p: 2, bgcolor: 'rgba(2, 136, 209, 0.1)', borderRadius: 2 }}>
+        <Box flex={1} textAlign="center">
+          <Typography variant="h5" color="warning.main" fontWeight="bold">
+            {metrics.consecutiveFailures}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Failures
+          </Typography>
+        </Box>
+      </Box>
+
+      <Box display="flex" gap={2}>
+        <Box flex={1} textAlign="center">
+          <Typography variant="h5" color="success.main" fontWeight="bold">
+            {metrics.maxPoolSize}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Max Pool
+          </Typography>
+        </Box>
+        <Box flex={1} textAlign="center">
           <Typography variant="h5" color="info.main" fontWeight="bold">
             {metrics.minimumIdle}
           </Typography>
@@ -214,15 +237,6 @@ const PerformanceMetricsCard: React.FC<{ metrics: DatabaseMetrics }> = ({ metric
             Min Idle
           </Typography>
         </Box>
-      </Box>
-
-      <Box sx={{ mt: 2 }}>
-        <Typography variant="body2" sx={{ mb: 1 }}>Health Status</Typography>
-        <Chip 
-          label={metrics.healthStatus}
-          color={metrics.healthStatus === 'HEALTHY' ? 'success' : 'error'}
-          sx={{ width: '100%', fontWeight: 'bold' }}
-        />
       </Box>
 
       {metrics.lastFailureTime > 0 && (
