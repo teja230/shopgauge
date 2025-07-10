@@ -1359,8 +1359,9 @@ const AdminPage: React.FC = () => {
               </Typography>
             </Box>
             
-            {/* Admin Action Buttons */}
-            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            {/* Admin Action Buttons with Notification Center */}
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+              <NotificationCenter />
               <Button
                 variant="outlined"
                 startIcon={<RefreshIcon />}
