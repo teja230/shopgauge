@@ -97,6 +97,7 @@ import TransactionMonitoring from '../components/ui/TransactionMonitoring';
 import ConnectionPoolDashboard from '../components/ui/ConnectionPoolDashboard';
 import { DebugPanel } from '../components/ui/DebugPanel';
 import { NotificationCenter } from '../components/ui/NotificationCenter';
+import NavBar from '../components/NavBar';
 
 interface Secret {
   key: string;
@@ -1311,6 +1312,7 @@ const AdminPage: React.FC = () => {
 
   return (
     <>
+      <NavBar />
       <Container maxWidth="xl" sx={{ mt: 4, mb: 4, px: { xs: 0.5, sm: 2, md: 4 } }}>
         {/* Admin page title */}
         <Box sx={{ mb: 4 }}>
