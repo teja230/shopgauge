@@ -1445,7 +1445,7 @@ const AdminPage: React.FC = () => {
                               </Typography>
                             </Box>
                             <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                              Pool: {healthSummary?.database?.activeConnections || healthSummary?.database?.pool_active_connections || 'N/A'} active
+                              Pool: {healthSummary?.database?.activeConnections !== undefined ? healthSummary.database.activeConnections : healthSummary?.database?.pool_active_connections !== undefined ? healthSummary.database.pool_active_connections : 'N/A'} active / {healthSummary?.database?.totalConnections || healthSummary?.database?.maxPoolSize || 'N/A'} total
                             </Typography>
                           </Box>
 
