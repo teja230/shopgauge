@@ -1800,7 +1800,20 @@ const AdminPage: React.FC = () => {
                         Session Duration Analysis
                       </Typography>
                       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                        Average Session Duration: {sessionStatistics.avgSessionDuration || 'N/A'}
+                        Average Session Duration: {sessionStatistics.avgSessionDuration 
+                          ? (() => {
+                              const minutes = sessionStatistics.avgSessionDuration;
+                              if (minutes < 60) {
+                                return `${Math.round(minutes)} minutes`;
+                              } else {
+                                const hours = Math.floor(minutes / 60);
+                                const remainingMinutes = Math.round(minutes % 60);
+                                return remainingMinutes > 0 
+                                  ? `${hours}h ${remainingMinutes}m` 
+                                  : `${hours}h`;
+                              }
+                            })()
+                          : 'N/A'}
                       </Typography>
                       
                       {/* Session Duration Distribution */}

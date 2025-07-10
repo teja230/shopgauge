@@ -7,6 +7,7 @@ import com.storesight.backend.repository.AuditLogRepository;
 import com.storesight.backend.repository.ShopRepository;
 import com.storesight.backend.repository.ShopSessionRepository;
 import jakarta.servlet.http.HttpServletRequest;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -584,6 +585,22 @@ public class DataPrivacyService {
               .mapToLong(session -> session.getLastAccessedAt().isAfter(oneWeekAgo) ? 1 : 0)
               .sum();
       stats.put("sessionsActiveLastWeek", sessionsLastWeek);
+
+      // Calculate average session duration
+      double avgSessionDuration = 0.0;
+      if (!activeSessions.isEmpty()) {
+        long totalDurationMinutes =
+            activeSessions.stream()
+                .mapToLong(
+                    session -> {
+                      Duration duration =
+                          Duration.between(session.getCreatedAt(), session.getLastAccessedAt());
+                      return duration.toMinutes();
+                    })
+                .sum();
+        avgSessionDuration = (double) totalDurationMinutes / activeSessions.size();
+      }
+      stats.put("avgSessionDuration", Math.round(avgSessionDuration * 100.0) / 100.0);
 
       // Top IP addresses (for security monitoring)
       Map<String, Long> ipCounts =
