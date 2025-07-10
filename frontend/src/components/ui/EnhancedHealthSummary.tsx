@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { 
   Paper, 
   Typography, 
@@ -284,6 +284,8 @@ const EnhancedHealthSummary: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const { isServiceAvailable } = useServiceStatus();
   const { addNotification } = useNotifications();
+  const [refreshCooldown, setRefreshCooldown] = useState(0);
+  const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Unified fetch function
   const fetchAllMetrics = React.useCallback(async () => {
@@ -349,6 +351,19 @@ const EnhancedHealthSummary: React.FC = () => {
     return () => clearInterval(interval);
   }, [fetchAllMetrics]);
 
+  // Cooldown timer for Refresh
+  useEffect(() => {
+    if (refreshCooldown > 0) {
+      const timer = setTimeout(() => setRefreshCooldown(refreshCooldown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [refreshCooldown]);
+
+  const fetchAllMetricsWithCooldown = async () => {
+    if (refreshCooldown > 0) return;
+    setRefreshCooldown(5);
+    await fetchAllMetrics();
+  };
 
   if (!isServiceAvailable) {
     return (
@@ -427,7 +442,7 @@ const EnhancedHealthSummary: React.FC = () => {
             Last updated: {formatTimestamp(metrics.lastUpdated)}
           </Typography>
           <Tooltip title="Refresh health metrics">
-            <IconButton size="small" onClick={fetchAllMetrics} disabled={loading}>
+            <IconButton size="small" onClick={fetchAllMetricsWithCooldown} disabled={loading || refreshCooldown > 0}>
               <RefreshIcon />
             </IconButton>
           </Tooltip>

@@ -436,6 +436,8 @@ const AdminPage: React.FC = () => {
   const [auditCooldown, setAuditCooldown] = useState(0);
   const [activeShopsCooldown, setActiveShopsCooldown] = useState(0);
   const [sessionStatsCooldown, setSessionStatsCooldown] = useState(0);
+  const [refreshAllCooldown, setRefreshAllCooldown] = useState(0);
+  const refreshAllTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Check authentication status on component mount
   useEffect(() => {
@@ -489,6 +491,12 @@ const AdminPage: React.FC = () => {
       return () => clearTimeout(timer);
     }
   }, [sessionStatsCooldown]);
+  useEffect(() => {
+    if (refreshAllCooldown > 0) {
+      const timer = setTimeout(() => setRefreshAllCooldown(refreshAllCooldown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [refreshAllCooldown]);
   
   const { showSuccess, showError } = useNotifications();
 
@@ -1196,6 +1204,8 @@ const AdminPage: React.FC = () => {
 
   // Comprehensive refresh function for all admin data
   const refreshAllData = async () => {
+    if (refreshAllCooldown > 0) return;
+    setRefreshAllCooldown(1);
     try {
       showSuccess('Refreshing all admin data...');
       
@@ -1355,13 +1365,14 @@ const AdminPage: React.FC = () => {
                 variant="outlined"
                 startIcon={<RefreshIcon />}
                 onClick={refreshAllData}
+                disabled={refreshAllCooldown > 0}
                 sx={{
                   borderRadius: 2,
                   textTransform: 'none',
                   fontWeight: 600,
                 }}
               >
-                Refresh All
+                {refreshAllCooldown > 0 ? `Refreshing...` : 'Refresh All'}
               </Button>
               <Button
                 variant="outlined"
