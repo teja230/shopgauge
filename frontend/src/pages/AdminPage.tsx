@@ -925,14 +925,38 @@ const AdminPage: React.FC = () => {
       setHealthSummaryLoading(true);
       setHealthSummaryError(null);
       
-      // Use public health endpoint that includes Redis status
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/health/summary`);
-      if (!response.ok) {
-        throw new Error(`Health check failed: ${response.statusText}`);
+      // Fetch health summary, detailed database pool info, and Redis health
+      const [summaryResponse, poolResponse, redisResponse] = await Promise.all([
+        fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/health/summary`),
+        fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/health/database-pool`),
+        fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/health/redis`)
+      ]);
+      
+      if (!summaryResponse.ok) {
+        throw new Error(`Health check failed: ${summaryResponse.statusText}`);
       }
       
-      const data = await response.json();
-      setHealthSummary(data);
+      const summaryData = await summaryResponse.json();
+      const poolData = poolResponse.ok ? await poolResponse.json() : null;
+      const redisData = redisResponse.ok ? await redisResponse.json() : null;
+      
+      // Merge pool data into the summary
+      if (poolData && summaryData.database) {
+        summaryData.database = {
+          ...summaryData.database,
+          ...poolData
+        };
+      }
+      
+      // Merge Redis data into the summary
+      if (redisData && summaryData.redis) {
+        summaryData.redis = {
+          ...summaryData.redis,
+          ...redisData
+        };
+      }
+      
+      setHealthSummary(summaryData);
       
     } catch (error) {
       console.error('Health summary check failed:', error);
@@ -1376,6 +1400,14 @@ const AdminPage: React.FC = () => {
                           }}
                           disabled={emergencyLoading || healthSummaryLoading}
                           startIcon={(emergencyLoading || healthSummaryLoading) ? <CircularProgress size={16} /> : <RefreshIcon />}
+                          sx={{ 
+                            color: 'white', 
+                            borderColor: 'rgba(255,255,255,0.5)',
+                            '&:hover': { 
+                              borderColor: 'white',
+                              backgroundColor: 'rgba(255,255,255,0.1)'
+                            }
+                          }}
                         >
                           {(emergencyLoading || healthSummaryLoading) ? 'Refreshing...' : 'Refresh'}
                         </Button>
@@ -1413,7 +1445,7 @@ const AdminPage: React.FC = () => {
                               </Typography>
                             </Box>
                             <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                              Pool: {healthSummary?.database?.pool_active_connections ?? 'N/A'} active
+                              Pool: {healthSummary?.database?.activeConnections || healthSummary?.database?.pool_active_connections || 'N/A'} active
                             </Typography>
                           </Box>
 
@@ -1434,7 +1466,7 @@ const AdminPage: React.FC = () => {
                               </Typography>
                             </Box>
                             <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                              Cache: {healthSummary?.redis?.memory || 'N/A'}
+                              Cache: {healthSummary?.redis?.responseTimeMs ? `${healthSummary.redis.responseTimeMs}ms` : healthSummary?.redis?.performanceStatus ? healthSummary.redis.performanceStatus : healthSummary?.redis?.status === 'healthy' ? 'Connected' : 'N/A'}
                             </Typography>
                           </Box>
 
