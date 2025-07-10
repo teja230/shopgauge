@@ -1307,6 +1307,10 @@ const AdminPage: React.FC = () => {
         </Box>
             <Box sx={{ flexGrow: 1, display: { xs: 'none', sm: 'block' } }} />
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ width: { xs: '100%', sm: 'auto' } }}>
+              {/* Notification Center */}
+              <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+                <NotificationCenter />
+              </Box>
               <Button
                 variant="outlined"
                 startIcon={<RefreshIcon />}
