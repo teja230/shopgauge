@@ -874,20 +874,54 @@ const AdminPage: React.FC = () => {
       }
     } catch (error) {
       console.error('Emergency status check failed:', error);
-      // Don't assume emergency mode on auth failure
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
-        console.log('Emergency status check failed due to authentication - will retry after login');
-        setEmergencyMode(false);
-        setEmergencyStatus(null);
-      } else {
-        setEmergencyMode(true); // Assume emergency mode only for non-auth errors
-        showError('Unable to check system status - assuming emergency mode');
-      }
+      setEmergencyError('Failed to check emergency status');
+      setEmergencyStatus(null);
     } finally {
       setEmergencyLoading(false);
     }
   };
+
+  // Health summary functions for System Status Overview
+  const [healthSummary, setHealthSummary] = useState<any>(null);
+  const [healthSummaryLoading, setHealthSummaryLoading] = useState(false);
+  const [healthSummaryError, setHealthSummaryError] = useState<string | null>(null);
+
+  const fetchHealthSummary = async () => {
+    if (!isAuthenticated) {
+      console.log('Skipping health summary check - not authenticated');
+      setHealthSummary(null);
+      setHealthSummaryLoading(false);
+      return;
+    }
+
+    try {
+      setHealthSummaryLoading(true);
+      setHealthSummaryError(null);
+      
+      // Use public health endpoint that includes Redis status
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/health/summary`);
+      if (!response.ok) {
+        throw new Error(`Health check failed: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      setHealthSummary(data);
+      
+    } catch (error) {
+      console.error('Health summary check failed:', error);
+      setHealthSummaryError('Failed to fetch health summary');
+      setHealthSummary(null);
+    } finally {
+      setHealthSummaryLoading(false);
+    }
+  };
+
+  // Fetch health summary on component mount and when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchHealthSummary();
+    }
+  }, [isAuthenticated]);
 
   const performEmergencyCleanup = async () => {
     try {
@@ -1333,66 +1367,87 @@ const AdminPage: React.FC = () => {
                 <Box sx={{ flex: '1 1 400px', minWidth: 0 }}>
                   <Card sx={{ height: '100%', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
                     <CardContent>
-                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                        <MonitorHeartIcon sx={{ fontSize: 32, mr: 2 }} />
-                        <Typography variant="h5" fontWeight="600">
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                        <Typography variant="h5" sx={{ fontWeight: 600 }}>
                           System Status Overview
                         </Typography>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          onClick={fetchHealthSummary}
+                          disabled={healthSummaryLoading}
+                          startIcon={healthSummaryLoading ? <CircularProgress size={16} /> : <RefreshIcon />}
+                        >
+                          {healthSummaryLoading ? 'Refreshing...' : 'Refresh'}
+                        </Button>
                       </Box>
-                      <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                        {/* Database Status */}
-                        <Box sx={{ flex: '1 1 200px', p: 2, bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 2 }}>
-                          <Typography variant="h6" sx={{ mb: 1 }}>
-                            Database Status
-                          </Typography>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Box sx={{
-                              width: 12,
-                              height: 12,
-                              borderRadius: '50%',
-                              bgcolor: emergencyStatus?.database?.healthStatus === 'HEALTHY' ? '#4caf50' : '#f44336'
-                            }} />
-                            <Typography variant="body2">
-                              {emergencyStatus?.database?.healthStatus === 'HEALTHY' ? 'Healthy' : 'Unhealthy'}
+                      
+                      {healthSummaryError && (
+                        <Alert severity="error" sx={{ mb: 2 }}>
+                          {healthSummaryError}
+                        </Alert>
+                      )}
+                      
+                      {healthSummaryLoading ? (
+                        <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+                          <CircularProgress />
+                        </Box>
+                      ) : (
+                        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                          {/* Database Status */}
+                          <Box sx={{ flex: '1 1 200px', p: 2, bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 2 }}>
+                            <Typography variant="h6" sx={{ mb: 1 }}>
+                              Database Status
+                            </Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Box sx={{
+                                width: 12,
+                                height: 12,
+                                borderRadius: '50%',
+                                bgcolor: healthSummary?.database?.status === 'healthy' ? '#4caf50' : '#f44336'
+                              }} />
+                              <Typography variant="body2">
+                                {healthSummary?.database?.status === 'healthy' ? 'Healthy' : 'Unhealthy'}
+                              </Typography>
+                            </Box>
+                            <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                              Pool: {healthSummary?.database?.activeConnections ?? 'N/A'} active
                             </Typography>
                           </Box>
-                          <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                            Pool: {emergencyStatus?.database?.activeConnections ?? 'N/A'} active
-                          </Typography>
-                        </Box>
-                        {/* Redis Status */}
-                        <Box sx={{ flex: '1 1 200px', p: 2, bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 2 }}>
-                          <Typography variant="h6" sx={{ mb: 1 }}>
-                            Redis Status
-                          </Typography>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Box sx={{
-                              width: 12,
-                              height: 12,
-                              borderRadius: '50%',
-                              bgcolor: '#bdbdbd' // Always gray since Redis status not available in emergency endpoint
-                            }} />
-                            <Typography variant="body2">
-                              N/A
+                          {/* Redis Status */}
+                          <Box sx={{ flex: '1 1 200px', p: 2, bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 2 }}>
+                            <Typography variant="h6" sx={{ mb: 1 }}>
+                              Redis Status
+                            </Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Box sx={{
+                                width: 12,
+                                height: 12,
+                                borderRadius: '50%',
+                                bgcolor: healthSummary?.redis?.status === 'HEALTHY' ? '#4caf50' : '#f44336'
+                              }} />
+                              <Typography variant="body2">
+                                {healthSummary?.redis?.status === 'HEALTHY' ? 'Healthy' : 'Unhealthy'}
+                              </Typography>
+                            </Box>
+                            <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                              Cache: {healthSummary?.redis?.memory || 'N/A'}
                             </Typography>
                           </Box>
-                          <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                            Cache: N/A
-                          </Typography>
+                          {/* JVM Memory */}
+                          <Box sx={{ flex: '1 1 200px', p: 2, bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 2 }}>
+                            <Typography variant="h6" sx={{ mb: 1 }}>
+                              JVM Memory
+                            </Typography>
+                            <Typography variant="body2">
+                              {healthSummary?.jvmMemory?.usedMemory ? `${(healthSummary.jvmMemory.usedMemory / 1024 / 1024).toFixed(0)} MB` : 'N/A'} / {healthSummary?.jvmMemory?.maxMemory ? `${(healthSummary.jvmMemory.maxMemory / 1024 / 1024).toFixed(0)} MB` : 'N/A'}
+                            </Typography>
+                            <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                              {healthSummary?.jvmMemory?.usedPercentage ?? 'N/A'}% used
+                            </Typography>
+                          </Box>
                         </Box>
-                        {/* JVM Memory */}
-                        <Box sx={{ flex: '1 1 200px', p: 2, bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 2 }}>
-                          <Typography variant="h6" sx={{ mb: 1 }}>
-                            JVM Memory
-                          </Typography>
-                          <Typography variant="body2">
-                            {emergencyStatus?.jvmMemory?.usedMemory ? `${(emergencyStatus.jvmMemory.usedMemory / 1024 / 1024).toFixed(0)} MB` : 'N/A'} / {emergencyStatus?.jvmMemory?.maxMemory ? `${(emergencyStatus.jvmMemory.maxMemory / 1024 / 1024).toFixed(0)} MB` : 'N/A'}
-                          </Typography>
-                          <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                            {emergencyStatus?.jvmMemory?.usedPercentage ?? 'N/A'}% used
-                          </Typography>
-                        </Box>
-                      </Box>
+                      )}
                       {/* Remove the geek mode raw JSON display since we removed the toggle */}
                     </CardContent>
                   </Card>
