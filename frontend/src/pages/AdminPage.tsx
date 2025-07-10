@@ -363,6 +363,33 @@ const extractShopDomainFromDetails = (details: string): string | null => {
   }
 };
 
+// Utility function for better timestamp formatting
+const formatTimestamp = (timestamp: string | number) => {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+  
+  // Show relative time for recent timestamps
+  if (diffInMinutes < 1) {
+    return 'Just now';
+  } else if (diffInMinutes < 60) {
+    return `${diffInMinutes} minute${diffInMinutes > 1 ? 's' : ''} ago`;
+  } else if (diffInMinutes < 1440) { // Less than 24 hours
+    const hours = Math.floor(diffInMinutes / 60);
+    return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+  } else {
+    // For older timestamps, show full date and time in local timezone
+    return date.toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZoneName: 'short'
+    });
+  }
+};
+
 // Constants for admin authentication
 const SESSION_DURATION = 2 * 60 * 60 * 1000; // 2 hours
 const MAX_ATTEMPTS = 5;
@@ -1274,7 +1301,7 @@ const AdminPage: React.FC = () => {
                 </Typography>
                 {sessionInfo && (
                 <Typography variant="body2" color="success.main" sx={{ mt: 0.5, fontSize: { xs: '0.85rem', sm: '1rem' } }}>
-                    Authenticated as: {sessionInfo.username} | Session expires: {new Date(sessionInfo.expiresAt).toLocaleString()}
+                    Authenticated as: {sessionInfo.username} | Session expires: {formatTimestamp(sessionInfo.expiresAt)}
                   </Typography>
                 )}
         </Box>
@@ -1554,7 +1581,7 @@ const AdminPage: React.FC = () => {
                           />
                         </TableCell>
                         <TableCell>{log.details}</TableCell>
-                        <TableCell>{new Date(log.timestamp).toLocaleString()}</TableCell>
+                        <TableCell>{formatTimestamp(log.timestamp)}</TableCell>
                         <TableCell>{log.ipAddress || 'N/A'}</TableCell>
                       </TableRow>
                     ))}
@@ -1611,7 +1638,7 @@ const AdminPage: React.FC = () => {
                     {activeShops.map((shop, index) => (
                       <TableRow key={index}>
                         <TableCell>{shop.shopDomain}</TableCell>
-                        <TableCell>{new Date(shop.lastActivity).toLocaleString()}</TableCell>
+                        <TableCell>{formatTimestamp(shop.lastActivity)}</TableCell>
                         <TableCell>{shop.ipAddress || 'N/A'}</TableCell>
                         <TableCell>
                           <DeviceIcon userAgent={shop.userAgent || ''} />
