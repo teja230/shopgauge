@@ -405,12 +405,6 @@ const EnhancedHealthSummary: React.FC = () => {
       )}
       <Box display="flex" alignItems="center" gap={1} mt={2} flexWrap="wrap">
         <Typography variant="caption" color="text.secondary">
-          Deploy: {metrics.lastDeployCommit?.substring(0, 7) || 'unknown'}
-        </Typography>
-        <Typography variant="caption" color="text.secondary">
-          •
-        </Typography>
-        <Typography variant="caption" color="text.secondary">
           Monitoring: Real-time database pool status
         </Typography>
       </Box>
