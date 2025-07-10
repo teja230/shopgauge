@@ -1876,7 +1876,13 @@ const AdminPage: React.FC = () => {
                             Emergency Mode: {emergencyStatus.emergencyMode ? 'ACTIVE' : 'Inactive'}
                           </Typography>
                           <Typography variant="body2" color="text.secondary">
-                            Pool Usage: {emergencyStatus.poolUsage || 'N/A'}%
+                            Pool Usage: {emergencyStatus.database?.activeUsagePercent || 'N/A'}%
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Active Connections: {emergencyStatus.database?.activeConnections || 'N/A'} / {emergencyStatus.database?.maxPoolSize || 'N/A'}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Pool Status: {emergencyStatus.poolStatus || 'Unknown'}
                           </Typography>
                         </Box>
                       )}
