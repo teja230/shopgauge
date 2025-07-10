@@ -832,6 +832,7 @@ const PredictionViewContainer = memo(({
 
         {/* Chart - Allow natural sizing to prevent cutoff */}
         <Box 
+          ref={chartRef}
           sx={{ 
           flex: 1, 
           position: 'relative',
@@ -852,7 +853,6 @@ const PredictionViewContainer = memo(({
           }}
         >
           <Box
-            ref={chartRef}
             sx={{ 
             width: '100%',
             height: '100%',

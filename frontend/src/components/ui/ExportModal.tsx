@@ -173,6 +173,26 @@ const ExportModal: React.FC<ExportModalProps> = ({
       return;
     }
 
+    // Enhanced SVG detection for nested chart structures (Advanced View)
+    const svgElement = chartRef.current.querySelector('svg');
+    if (!svgElement) {
+      showError('Chart visualization is not ready for export. Please wait for the chart to fully render and try again.');
+      debugLog.error('Export PNG failed: No SVG element found in chart container', {
+        chartRefHTML: chartRef.current.outerHTML.substring(0, 500),
+        chartTitle,
+        chartType
+      }, 'ExportModal');
+      return;
+    }
+
+    debugLog.info('SVG element found for export', {
+      svgWidth: svgElement.getAttribute('width'),
+      svgHeight: svgElement.getAttribute('height'),
+      svgViewBox: svgElement.getAttribute('viewBox'),
+      chartTitle,
+      chartType
+    }, 'ExportModal');
+
     setIsProcessing(true);
     setProgress(0);
     
@@ -271,6 +291,26 @@ const ExportModal: React.FC<ExportModalProps> = ({
       }, 'ExportModal');
       return;
     }
+
+    // Enhanced SVG detection for nested chart structures (Advanced View)
+    const svgElement = chartRef.current.querySelector('svg');
+    if (!svgElement) {
+      showError('Chart visualization is not ready for export. Please wait for the chart to fully render and try again.');
+      debugLog.error('Export PDF failed: No SVG element found in chart container', {
+        chartRefHTML: chartRef.current.outerHTML.substring(0, 500),
+        chartTitle,
+        chartType
+      }, 'ExportModal');
+      return;
+    }
+
+    debugLog.info('SVG element found for PDF export', {
+      svgWidth: svgElement.getAttribute('width'),
+      svgHeight: svgElement.getAttribute('height'),
+      svgViewBox: svgElement.getAttribute('viewBox'),
+      chartTitle,
+      chartType
+    }, 'ExportModal');
 
     setIsProcessing(true);
     setProgress(0);
