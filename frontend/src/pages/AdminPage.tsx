@@ -1361,7 +1361,18 @@ const AdminPage: React.FC = () => {
             
             {/* Admin Action Buttons with Notification Center */}
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-              <NotificationCenter />
+              <Box className="admin-notification-center" sx={{
+                '.NotificationCenter-root': {
+                  color: '#2563eb',
+                  background: 'rgba(255,255,255,0.95)',
+                  borderRadius: 2,
+                  boxShadow: 2,
+                  p: 0.5,
+                },
+                mr: 1
+              }}>
+                <NotificationCenter />
+              </Box>
               <Button
                 variant="outlined"
                 startIcon={<RefreshIcon />}
