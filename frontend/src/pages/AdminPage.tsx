@@ -43,9 +43,7 @@ import {
   DialogContent,
   DialogActions,
   Container,
-  Stack,
-  FormControlLabel,
-  Switch
+  Stack
 } from '@mui/material';
 import { 
   Delete as DeleteIcon, 
@@ -208,25 +206,7 @@ const TabsContainer = styled(Box)(({ theme }) => ({
   },
 }));
 
-// Geeky styled tab with numeric prefix
-const GeekTab = styled(Tab)(({ theme }) => ({
-  textTransform: 'none',
-  fontWeight: 700,
-  fontFamily: `'JetBrains Mono', Menlo, monospace`,
-  letterSpacing: '-0.02em',
-  color: theme.palette.text.secondary,
-  minWidth: 140,
-  display: 'flex',
-  alignItems: 'center',
-  gap: theme.spacing(1),
-  '& .tab-index': {
-    fontSize: '0.75rem',
-    opacity: 0.6,
-  },
-  '&.Mui-selected': {
-    color: theme.palette.primary.main,
-  },
-}));
+// Remove GeekTab styled component since we removed Geek Mode functionality
 
 const FilterContainer = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(2),
@@ -404,7 +384,7 @@ const AdminPage: React.FC = () => {
 
   // UI state
   const [activeTab, setActiveTab] = useState('health');
-  const [geekMode, setGeekMode] = useState(true);
+  // Remove geekMode state since we removed the toggle
 
   // Data state
   const [activeShops, setActiveShops] = useState<ActiveShop[]>([]);
@@ -1284,11 +1264,7 @@ const AdminPage: React.FC = () => {
               >
                 Logout Admin
               </Button>
-              <FormControlLabel
-                control={<Switch checked={geekMode} onChange={() => setGeekMode(v => !v)} color="primary" />}
-                label="Geek Mode"
-                sx={{ ml: { xs: 0, sm: 2 }, width: { xs: '100%', sm: 'auto' } }}
-              />
+              {/* Remove Geek Mode toggle - not providing much value */}
             </Stack>
           </Stack>
         </Box>
@@ -1302,21 +1278,13 @@ const AdminPage: React.FC = () => {
               { value: 'active', label: 'Active Shops' },
               { value: 'sessions', label: 'Sessions' },
               { value: 'emergency', label: 'Emergency' },
-            ].map((tab, idx) =>
-              geekMode ? (
-                <GeekTab
-                  key={tab.value}
-                  value={tab.value}
-                  label={<><span className="tab-index">{`0${idx + 1}`.slice(-2)}</span>{tab.label}</>}
-                />
-              ) : (
-                <Tab
-                  key={tab.value}
-                  value={tab.value}
-                  label={tab.label}
-                />
-              )
-            )}
+            ].map((tab, idx) => (
+              <Tab
+                key={tab.value}
+                value={tab.value}
+                label={tab.label}
+              />
+            ))}
           </Tabs>
           {/* Tab content remains unchanged, but remove extra Paper/Card wrappers where possible */}
           {/* System Health Dashboard */}
@@ -1391,11 +1359,6 @@ const AdminPage: React.FC = () => {
                           <Typography variant="caption" sx={{ opacity: 0.8 }}>
                             Pool: {emergencyStatus?.database?.activeConnections ?? 'N/A'} active
                           </Typography>
-                          {geekMode && (
-                            <Typography variant="caption" sx={{ opacity: 0.8, display: 'block' }}>
-                              Max Pool: {emergencyStatus?.database?.maxPoolSize ?? 'N/A'} | Usage: {emergencyStatus?.database?.activeUsagePercent ?? 'N/A'}%
-                            </Typography>
-                          )}
                         </Box>
                         {/* Redis Status */}
                         <Box sx={{ flex: '1 1 200px', p: 2, bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 2 }}>
@@ -1407,14 +1370,14 @@ const AdminPage: React.FC = () => {
                               width: 12,
                               height: 12,
                               borderRadius: '50%',
-                              bgcolor: emergencyStatus?.redis?.status === 'healthy' ? '#4caf50' : '#bdbdbd'
+                              bgcolor: '#bdbdbd' // Always gray since Redis status not available in emergency endpoint
                             }} />
                             <Typography variant="body2">
-                              {emergencyStatus?.redis?.status ? (emergencyStatus.redis.status === 'healthy' ? 'Connected' : 'Disconnected') : 'N/A'}
+                              N/A
                             </Typography>
                           </Box>
                           <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                            Cache: {emergencyStatus?.redis?.memory ?? 'N/A'}
+                            Cache: N/A
                           </Typography>
                         </Box>
                         {/* JVM Memory */}
@@ -1430,16 +1393,7 @@ const AdminPage: React.FC = () => {
                           </Typography>
                         </Box>
                       </Box>
-                      {geekMode && emergencyStatus && (
-                        <Box mt={2}>
-                          <Typography variant="caption" color="secondary" sx={{ display: 'block', mb: 1 }}>
-                            Raw Emergency Status JSON:
-                          </Typography>
-                          <pre style={{ fontSize: 12, background: 'rgba(0,0,0,0.1)', padding: 8, borderRadius: 4, color: '#fff', overflowX: 'auto' }}>
-                            {JSON.stringify(emergencyStatus, null, 2)}
-                          </pre>
-                        </Box>
-                      )}
+                      {/* Remove the geek mode raw JSON display since we removed the toggle */}
                     </CardContent>
                   </Card>
                 </Box>
