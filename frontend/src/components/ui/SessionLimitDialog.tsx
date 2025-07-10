@@ -23,6 +23,8 @@ import {
   useMediaQuery,
   Divider,
   LinearProgress,
+  Avatar,
+  Stack,
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -34,6 +36,11 @@ import {
   Warning as WarningIcon,
   AccessTime as AccessTimeIcon,
   LocationOn as LocationIcon,
+  Security as SecurityIcon,
+  People as PeopleIcon,
+  Settings as SettingsIcon,
+  Info as InfoIcon,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
 import { getDeviceDisplay, getRelativeTime, isCurrentDevice, getLocationFromIP } from '../../utils/deviceUtils';
@@ -59,6 +66,7 @@ interface SessionLimitDialogProps {
   sessions: SessionInfo[];
   loading?: boolean;
   maxSessions?: number;
+  limitReached?: boolean;
 }
 
 const StyledDialog = styled(Dialog)(({ theme }) => ({
@@ -115,21 +123,16 @@ const SessionCard = styled(Card)(({ theme }) => ({
   },
 }));
 
-const DeviceIcon = styled(Box)(({ theme }) => ({
-  fontSize: '2rem',
-  marginRight: theme.spacing(1.5),
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
+const DeviceAvatar = styled(Avatar)(({ theme }) => ({
   width: 48,
   height: 48,
-  borderRadius: 12,
   backgroundColor: theme.palette.action.hover,
+  color: theme.palette.text.secondary,
+  fontSize: '1.25rem',
   [theme.breakpoints.down('sm')]: {
     width: 40,
     height: 40,
-    fontSize: '1.5rem',
-    marginRight: theme.spacing(1),
+    fontSize: '1rem',
   },
 }));
 
@@ -154,15 +157,15 @@ const StatusChip = styled(Chip)(({ theme }) => ({
   },
 }));
 
-const HeaderIcon = styled(Box)(({ theme }) => ({
+const HeaderIcon = styled(Box)<{ $color: string; $bgColor: string }>(({ theme, $color, $bgColor }) => ({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
   width: 56,
   height: 56,
   borderRadius: 16,
-  backgroundColor: `${theme.palette.warning.main}20`,
-  color: theme.palette.warning.main,
+  backgroundColor: $bgColor,
+  color: $color,
   marginBottom: theme.spacing(2),
   fontSize: '1.75rem',
 }));
@@ -176,6 +179,7 @@ export const SessionLimitDialog: React.FC<SessionLimitDialogProps> = ({
   sessions,
   loading = false,
   maxSessions = 5,
+  limitReached = false,
 }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -241,6 +245,51 @@ export const SessionLimitDialog: React.FC<SessionLimitDialogProps> = ({
     }
   };
 
+  // Determine dialog content based on state
+  const isLimitReached = limitReached || sessions.length >= maxSessions;
+  const currentSessionCount = sessions.length;
+  const availableSlots = maxSessions - currentSessionCount;
+
+  const getDialogTitle = () => {
+    if (isLimitReached) {
+      return "Session Limit Reached";
+    } else {
+      return "Manage Active Sessions";
+    }
+  };
+
+  const getDialogDescription = () => {
+    if (isLimitReached) {
+      return `You can only have ${maxSessions} active sessions. Please remove some sessions to continue.`;
+    } else {
+      return `You have ${currentSessionCount} active sessions. You can manage them here.`;
+    }
+  };
+
+  const getHeaderIcon = () => {
+    if (isLimitReached) {
+      return <WarningIcon />;
+    } else {
+      return <PeopleIcon />;
+    }
+  };
+
+  const getHeaderIconColor = () => {
+    if (isLimitReached) {
+      return theme.palette.warning.main;
+    } else {
+      return theme.palette.info.main;
+    }
+  };
+
+  const getHeaderIconBg = () => {
+    if (isLimitReached) {
+      return `${theme.palette.warning.main}20`;
+    } else {
+      return `${theme.palette.info.main}20`;
+    }
+  };
+
   const renderSessionItem = (session: SessionInfo) => {
     const device = getDeviceDisplay(session.userAgent);
     const isSelected = selectedSessions.has(session.sessionId);
@@ -257,6 +306,16 @@ export const SessionLimitDialog: React.FC<SessionLimitDialogProps> = ({
       return <ComputerIcon />;
     };
 
+    const getDeviceColor = () => {
+      if (device.name.includes('iPad') || device.name.includes('Tablet')) {
+        return theme.palette.secondary.main;
+      } else if (device.name.includes('iPhone') || device.name.includes('Android')) {
+        return theme.palette.info.main;
+      } else {
+        return theme.palette.primary.main;
+      }
+    };
+
     const cardClass = isCurrent ? 'current-session' : isSelected ? 'selected-for-deletion' : '';
 
     return (
@@ -264,15 +323,24 @@ export const SessionLimitDialog: React.FC<SessionLimitDialogProps> = ({
         <SessionCard className={cardClass}>
           <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
             <Box display="flex" alignItems="flex-start">
-              <DeviceIcon>
+              <DeviceAvatar sx={{ 
+                bgcolor: getDeviceColor() + '20', 
+                color: getDeviceColor(),
+                mr: 2 
+              }}>
                 {getDeviceIcon()}
-              </DeviceIcon>
+              </DeviceAvatar>
 
               <Box flex={1} minWidth={0}>
                 <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
-                  <Typography variant="h6" fontWeight={600} noWrap>
-                    {device.name}
-                  </Typography>
+                  <Box>
+                    <Typography variant="h6" fontWeight={600} noWrap>
+                      {device.name}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                      {device.subtitle}
+                    </Typography>
+                  </Box>
                   
                   <Box display="flex" alignItems="center" gap={1}>
                     {isCurrent && (
@@ -307,11 +375,7 @@ export const SessionLimitDialog: React.FC<SessionLimitDialogProps> = ({
                   </Box>
                 </Box>
 
-                <Typography variant="body2" color="text.secondary" gutterBottom>
-                  {device.subtitle}
-                </Typography>
-
-                <SessionDetails>
+                <Stack direction="row" spacing={1} flexWrap="wrap" gap={1}>
                   <Chip
                     icon={<AccessTimeIcon sx={{ fontSize: '0.875rem !important' }} />}
                     label={relativeTime}
@@ -329,11 +393,14 @@ export const SessionLimitDialog: React.FC<SessionLimitDialogProps> = ({
                   )}
 
                   {session.ipAddress && !session.ipAddress.startsWith('192.168.') && (
-                    <Typography variant="caption" color="text.secondary">
-                      IP: {session.ipAddress}
-                    </Typography>
+                    <Chip
+                      icon={<SecurityIcon sx={{ fontSize: '0.875rem !important' }} />}
+                      label={`IP: ${session.ipAddress}`}
+                      size="small"
+                      variant="outlined"
+                    />
                   )}
-                </SessionDetails>
+                </Stack>
               </Box>
             </Box>
           </CardContent>
@@ -353,14 +420,14 @@ export const SessionLimitDialog: React.FC<SessionLimitDialogProps> = ({
       <StyledDialogTitle>
         <Box display="flex" alignItems="center" justifyContent="space-between">
           <Box>
-            <HeaderIcon>
-              <WarningIcon />
+            <HeaderIcon $color={getHeaderIconColor()} $bgColor={getHeaderIconBg()}>
+              {getHeaderIcon()}
             </HeaderIcon>
             <Typography variant="h5" fontWeight={700} gutterBottom>
-              Session Limit Reached
+              {getDialogTitle()}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              You can only have {maxSessions} active sessions. Please remove some sessions to continue.
+              {getDialogDescription()}
             </Typography>
           </Box>
           
@@ -383,14 +450,26 @@ export const SessionLimitDialog: React.FC<SessionLimitDialogProps> = ({
 
       <DialogContent sx={{ p: 3, pt: 2 }}>
         <Alert 
-          severity="info" 
+          severity={isLimitReached ? "warning" : "info"}
           sx={{ mb: 3, borderRadius: 2 }}
-          icon={<WarningIcon />}
+          icon={isLimitReached ? <WarningIcon /> : <InfoIcon />}
         >
           <Typography variant="body2">
             <strong>Active Sessions: {sessions.length}/{maxSessions}</strong>
-            <br />
-            Select sessions to remove. You cannot remove your current session.
+            {isLimitReached ? (
+              <>
+                <br />
+                Select sessions to remove. You cannot remove your current session.
+              </>
+            ) : (
+              <>
+                <br />
+                {availableSlots > 0 
+                  ? `You have ${availableSlots} session slot${availableSlots !== 1 ? 's' : ''} remaining.`
+                  : 'You are at the session limit.'
+                }
+              </>
+            )}
           </Typography>
         </Alert>
 
@@ -429,7 +508,7 @@ export const SessionLimitDialog: React.FC<SessionLimitDialogProps> = ({
           variant="outlined"
           size="large"
         >
-          Cancel
+          {isLimitReached ? 'Cancel' : 'Close'}
         </Button>
         
         <Box display="flex" gap={2}>
@@ -453,14 +532,17 @@ export const SessionLimitDialog: React.FC<SessionLimitDialogProps> = ({
             </Button>
           )}
           
-          <Button
-            onClick={onContinue}
-            variant="contained"
-            size="large"
-            disabled={sessions.length >= maxSessions}
-          >
-            Continue
-          </Button>
+          {isLimitReached && (
+            <Button
+              onClick={onContinue}
+              variant="contained"
+              size="large"
+              disabled={sessions.length >= maxSessions}
+              startIcon={<RefreshIcon />}
+            >
+              Continue
+            </Button>
+          )}
         </Box>
       </DialogActions>
     </StyledDialog>
