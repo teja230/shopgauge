@@ -97,7 +97,6 @@ import TransactionMonitoring from '../components/ui/TransactionMonitoring';
 import ConnectionPoolDashboard from '../components/ui/ConnectionPoolDashboard';
 import { DebugPanel } from '../components/ui/DebugPanel';
 import { NotificationCenter } from '../components/ui/NotificationCenter';
-import NavBar from '../components/NavBar';
 
 interface Secret {
   key: string;
@@ -704,6 +703,7 @@ const AdminPage: React.FC = () => {
       
       showSuccess('Admin session ended securely');
       navigate('/');
+      setTimeout(() => { window.location.href = '/'; }, 200);
     } catch (error) {
       console.error('Logout error:', error);
       // Force logout even if API call fails
@@ -711,6 +711,7 @@ const AdminPage: React.FC = () => {
         setIsPasswordDialogOpen(true);
       setSessionInfo(null);
       navigate('/');
+      setTimeout(() => { window.location.href = '/'; }, 200);
     }
   };
 
@@ -1335,7 +1336,6 @@ const AdminPage: React.FC = () => {
 
   return (
     <>
-      <NavBar />
       <Container maxWidth="xl" sx={{ mt: 4, mb: 4, px: { xs: 0.5, sm: 2, md: 4 } }}>
         {/* Admin page title with Refresh and Logout buttons */}
         <Box sx={{ mb: 4 }}>
