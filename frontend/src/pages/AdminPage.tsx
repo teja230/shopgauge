@@ -1781,8 +1781,8 @@ const AdminPage: React.FC = () => {
                               Percentage
                             </Typography>
                             <Typography variant="h5" color="text.primary" fontWeight="bold">
-                              {sessionStatistics.uniqueShops > 0 
-                                ? Math.round((sessionStatistics.shopsWithMultipleSessions / sessionStatistics.uniqueShops) * 100)
+                              {sessionStatistics.totalUniqueShops > 0 
+                                ? Math.round((sessionStatistics.shopsWithMultipleSessions / sessionStatistics.totalUniqueShops) * 100)
                                 : 0}%
                             </Typography>
                           </Box>
