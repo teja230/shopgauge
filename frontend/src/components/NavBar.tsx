@@ -1,36 +1,39 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { 
-  AppBar, 
-  Toolbar, 
-  Typography, 
-  Box, 
-  Button, 
-  Badge, 
+import {
+  AppBar,
+  Toolbar,
+  Typography,
+  Button,
   IconButton,
+  Box,
   Drawer,
   List,
   ListItem,
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  Badge,
+  Divider,
   useTheme,
   useMediaQuery,
-  Divider
 } from '@mui/material';
 import {
-  Menu as MenuIcon,
-  Close as CloseIcon,
   Insights as InsightsIcon,
+  Home as HomeIcon,
   Dashboard as DashboardIcon,
   Business as BusinessIcon,
   Person as PersonIcon,
+  Menu as MenuIcon,
+  Close as CloseIcon,
   Logout as LogoutIcon,
-  Home as HomeIcon
+  Refresh as RefreshIcon,
+  AdminPanelSettings as AdminIcon,
 } from '@mui/icons-material';
-import { getSuggestionCount } from '../api';
+import { useAuth } from '../context/AuthContext';
 import { NotificationCenter } from './ui/NotificationCenter';
+import { adminLogout, getAdminStatus } from '../api/admin';
+import { getSuggestionCount } from '../api';
 
 const NavBar: React.FC = () => {
   const { isAuthenticated, logout } = useAuth();
@@ -44,8 +47,27 @@ const NavBar: React.FC = () => {
   const [lastFetchTime, setLastFetchTime] = useState<number>(0);
 
   const handleLogout = () => {
+    // Handle regular logout
     logout();
-    setMobileMenuOpen(false);
+  };
+
+  // Admin-specific functions
+  const checkAuthStatus = async () => {
+    try {
+      const status = await getAdminStatus();
+      console.log('Admin auth status:', status);
+    } catch (error) {
+      console.error('Failed to check admin auth status:', error);
+    }
+  };
+
+  const handleAdminLogout = async () => {
+    try {
+      await adminLogout();
+      navigate('/');
+    } catch (error) {
+      console.error('Failed to logout admin:', error);
+    }
   };
 
   const handleNavigation = (path: string) => {
@@ -206,6 +228,40 @@ const NavBar: React.FC = () => {
           </Box>
         </>
       )}
+      
+      {/* Admin-specific buttons in mobile menu */}
+      {showAdmin && (
+        <>
+          <Divider />
+          <Box sx={{ p: 2 }}>
+            <Button
+              fullWidth
+              variant="outlined"
+              startIcon={<RefreshIcon />}
+              onClick={checkAuthStatus}
+              sx={{ mb: 1 }}
+            >
+              Refresh Session
+            </Button>
+            <Button
+              fullWidth
+              variant="outlined"
+              startIcon={<LogoutIcon />}
+              onClick={handleAdminLogout}
+              sx={{
+                borderColor: theme.palette.error.main,
+                color: theme.palette.error.main,
+                '&:hover': {
+                  borderColor: theme.palette.error.dark,
+                  backgroundColor: `${theme.palette.error.main}10`,
+                },
+              }}
+            >
+              Logout Admin
+            </Button>
+          </Box>
+        </>
+      )}
     </Drawer>
   );
 
@@ -297,8 +353,38 @@ const NavBar: React.FC = () => {
               >
                 Profile
               </Button>
-                
-                              {/* Notification Center positioned near Profile */}
+              
+              {/* Admin-specific buttons */}
+              {showAdmin && (
+                <>
+                  <Button
+                    color="inherit"
+                    onClick={checkAuthStatus}
+                    startIcon={<RefreshIcon />}
+                    sx={{
+                      '&:hover': {
+                        backgroundColor: 'rgba(255, 255, 255, 0.12)'
+                      }
+                    }}
+                  >
+                    Refresh Session
+                  </Button>
+                  <Button
+                    color="inherit"
+                    onClick={handleAdminLogout}
+                    startIcon={<LogoutIcon />}
+                    sx={{
+                      '&:hover': {
+                        backgroundColor: 'rgba(255, 255, 255, 0.12)'
+                      }
+                    }}
+                  >
+                    Logout Admin
+                  </Button>
+                </>
+              )}
+              
+              {/* Notification Center positioned near Profile */}
               <Box sx={{ ml: 1 }}>
                 <NotificationCenter 
                   onNotificationCountChange={(count) => setNotificationCount(count)}
