@@ -394,29 +394,7 @@ const EnhancedHealthSummary: React.FC = () => {
       </Box>
       
       {/* Overall Status Chips */}
-      <Box display="flex" flexWrap="wrap" gap={2} mb={3}>
-        <StatusChip
-          status={metrics.systemStatus}
-          label="System"
-          icon={metrics.systemStatus === 'UP' ? <CheckCircleIcon /> : 
-                metrics.systemStatus === 'DEGRADED' ? <WarningIcon /> : <ErrorOutlineIcon />}
-        />
-        <StatusChip
-          status={metrics.backendStatus}
-          label="Backend"
-          icon={metrics.backendStatus === 'UP' ? <CheckCircleIcon /> : <ErrorOutlineIcon />}
-        />
-        <StatusChip
-          status={metrics.redisStatus}
-          label="Redis"
-          icon={<StorageIcon />}
-        />
-        <StatusChip
-          status={metrics.databaseStatus}
-          label="Database"
-          icon={<DatabaseIcon />}
-        />
-      </Box>
+      {/* Remove the block rendering the StatusChip components for System, Backend, Redis, Database */}
 
       {/* Enhanced Database Monitoring */}
       {databaseDetails && (
