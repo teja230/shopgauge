@@ -1408,14 +1408,14 @@ const AdminPage: React.FC = () => {
                                 width: 12,
                                 height: 12,
                                 borderRadius: '50%',
-                                bgcolor: emergencyStatus?.database?.healthStatus === 'HEALTHY' ? '#4caf50' : '#f44336'
+                                bgcolor: healthSummary?.database?.status === 'healthy' ? '#4caf50' : '#f44336'
                               }} />
                               <Typography variant="body2">
-                                {emergencyStatus?.database?.healthStatus === 'HEALTHY' ? 'Healthy' : 'Unhealthy'}
+                                {healthSummary?.database?.status === 'healthy' ? 'Healthy' : 'Unhealthy'}
                               </Typography>
                             </Box>
                             <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                              Pool: {emergencyStatus?.database?.activeConnections ?? 'N/A'} active
+                              Pool: {healthSummary?.database?.pool_active_connections ?? 'N/A'} active
                             </Typography>
                           </Box>
 
@@ -1450,6 +1450,19 @@ const AdminPage: React.FC = () => {
                             </Typography>
                             <Typography variant="caption" sx={{ opacity: 0.8 }}>
                               {emergencyStatus?.jvmMemory?.usedPercentage ?? 'N/A'}% used
+                            </Typography>
+                          </Box>
+
+                          {/* System Load */}
+                          <Box sx={{ flex: '1 1 200px', p: 2, bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 2 }}>
+                            <Typography variant="h6" sx={{ mb: 1 }}>
+                              System Load
+                            </Typography>
+                            <Typography variant="body2">
+                              {emergencyStatus?.systemLoad?.systemLoadAverage ? emergencyStatus.systemLoad.systemLoadAverage.toFixed(2) : 'N/A'}
+                            </Typography>
+                            <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                              {emergencyStatus?.systemLoad?.availableProcessors ?? 'N/A'} processors
                             </Typography>
                           </Box>
                         </Box>
