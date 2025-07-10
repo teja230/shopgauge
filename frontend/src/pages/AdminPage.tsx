@@ -1368,60 +1368,75 @@ const AdminPage: React.FC = () => {
                           System Status Overview
                         </Typography>
                       </Box>
-                      
                       <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                        {/* Database Status */}
                         <Box sx={{ flex: '1 1 200px', p: 2, bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 2 }}>
                           <Typography variant="h6" sx={{ mb: 1 }}>
                             Database Status
                           </Typography>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Box sx={{ 
-                              width: 12, 
-                              height: 12, 
-                              borderRadius: '50%', 
-                              bgcolor: emergencyStatus?.database?.status === 'healthy' ? '#4caf50' : '#f44336' 
+                            <Box sx={{
+                              width: 12,
+                              height: 12,
+                              borderRadius: '50%',
+                              bgcolor: emergencyStatus?.database?.healthStatus === 'HEALTHY' ? '#4caf50' : '#f44336'
                             }} />
                             <Typography variant="body2">
-                              {emergencyStatus?.database?.status === 'healthy' ? 'Healthy' : 'Unhealthy'}
+                              {emergencyStatus?.database?.healthStatus === 'HEALTHY' ? 'Healthy' : 'Unhealthy'}
                             </Typography>
                           </Box>
                           <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                            Pool: {emergencyStatus?.database?.activeConnections || 0} active
+                            Pool: {emergencyStatus?.database?.activeConnections ?? 'N/A'} active
                           </Typography>
+                          {geekMode && (
+                            <Typography variant="caption" sx={{ opacity: 0.8, display: 'block' }}>
+                              Max Pool: {emergencyStatus?.database?.maxPoolSize ?? 'N/A'} | Usage: {emergencyStatus?.database?.activeUsagePercent ?? 'N/A'}%
+                            </Typography>
+                          )}
                         </Box>
-                        
+                        {/* Redis Status */}
                         <Box sx={{ flex: '1 1 200px', p: 2, bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 2 }}>
                           <Typography variant="h6" sx={{ mb: 1 }}>
                             Redis Status
                           </Typography>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Box sx={{ 
-                              width: 12, 
-                              height: 12, 
-                              borderRadius: '50%', 
-                              bgcolor: emergencyStatus?.redis?.status === 'healthy' ? '#4caf50' : '#f44336' 
+                            <Box sx={{
+                              width: 12,
+                              height: 12,
+                              borderRadius: '50%',
+                              bgcolor: emergencyStatus?.redis?.status === 'healthy' ? '#4caf50' : '#bdbdbd'
                             }} />
                             <Typography variant="body2">
-                              {emergencyStatus?.redis?.status === 'healthy' ? 'Connected' : 'Disconnected'}
+                              {emergencyStatus?.redis?.status ? (emergencyStatus.redis.status === 'healthy' ? 'Connected' : 'Disconnected') : 'N/A'}
                             </Typography>
                           </Box>
                           <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                            Cache: {emergencyStatus?.redis?.memory || 'N/A'}
+                            Cache: {emergencyStatus?.redis?.memory ?? 'N/A'}
                           </Typography>
                         </Box>
-                        
+                        {/* JVM Memory */}
                         <Box sx={{ flex: '1 1 200px', p: 2, bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 2 }}>
                           <Typography variant="h6" sx={{ mb: 1 }}>
                             JVM Memory
                           </Typography>
                           <Typography variant="body2">
-                            {emergencyStatus?.jvmMemory?.used || 'N/A'} / {emergencyStatus?.jvmMemory?.max || 'N/A'}
+                            {emergencyStatus?.jvmMemory?.usedMemory ? `${(emergencyStatus.jvmMemory.usedMemory / 1024 / 1024).toFixed(0)} MB` : 'N/A'} / {emergencyStatus?.jvmMemory?.maxMemory ? `${(emergencyStatus.jvmMemory.maxMemory / 1024 / 1024).toFixed(0)} MB` : 'N/A'}
                           </Typography>
                           <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                            {emergencyStatus?.jvmMemory?.usage || 'N/A'}% used
+                            {emergencyStatus?.jvmMemory?.usedPercentage ?? 'N/A'}% used
                           </Typography>
                         </Box>
                       </Box>
+                      {geekMode && emergencyStatus && (
+                        <Box mt={2}>
+                          <Typography variant="caption" color="secondary" sx={{ display: 'block', mb: 1 }}>
+                            Raw Emergency Status JSON:
+                          </Typography>
+                          <pre style={{ fontSize: 12, background: 'rgba(0,0,0,0.1)', padding: 8, borderRadius: 4, color: '#fff', overflowX: 'auto' }}>
+                            {JSON.stringify(emergencyStatus, null, 2)}
+                          </pre>
+                        </Box>
+                      )}
                     </CardContent>
                   </Card>
                 </Box>
