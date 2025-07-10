@@ -462,7 +462,7 @@ const AdminPage: React.FC = () => {
       return () => clearTimeout(timer);
     }
   }, [sessionStatsCooldown]);
-
+  
   const { showSuccess, showError } = useNotifications();
 
   // Helper functions for admin endpoints
@@ -875,7 +875,7 @@ const AdminPage: React.FC = () => {
     } catch (error) {
       console.error('Emergency status check failed:', error);
       setEmergencyError('Failed to check emergency status');
-      setEmergencyStatus(null);
+        setEmergencyStatus(null);
     } finally {
       setEmergencyLoading(false);
     }
@@ -1259,27 +1259,24 @@ const AdminPage: React.FC = () => {
 
   return (
     <>
-      <Box sx={{ position: 'fixed', top: 16, right: 32, zIndex: 1301 }}>
-        <NotificationCenter />
-      </Box>
       <Container maxWidth="xl" sx={{ mt: 4, mb: 4, px: { xs: 0.5, sm: 2, md: 4 } }}>
         {/* Remove HeaderCard and SectionHeader, flatten UI */}
         <Box sx={{ mb: 4 }}>
           <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={2} flexWrap="wrap">
             <AdminIcon sx={{ fontSize: 32, color: 'primary.main', mb: { xs: 1, sm: 0 } }} />
-            <Box>
+              <Box>
               <Typography variant="h4" fontWeight="700" sx={{ mb: 0.5, fontSize: { xs: '1.3rem', sm: '2rem' } }}>
-                Enterprise Admin Panel
-              </Typography>
-              <Typography variant="body1" color="text.secondary" sx={{ fontSize: { xs: '0.95rem', sm: '1rem' } }}>
-                Secure administration and monitoring dashboard
-              </Typography>
-              {sessionInfo && (
-                <Typography variant="body2" color="success.main" sx={{ mt: 0.5, fontSize: { xs: '0.85rem', sm: '1rem' } }}>
-                  Authenticated as: {sessionInfo.username} | Session expires: {new Date(sessionInfo.expiresAt).toLocaleString()}
+                  Enterprise Admin Panel
                 </Typography>
-              )}
-            </Box>
+              <Typography variant="body1" color="text.secondary" sx={{ fontSize: { xs: '0.95rem', sm: '1rem' } }}>
+                  Secure administration and monitoring dashboard
+                </Typography>
+                {sessionInfo && (
+                <Typography variant="body2" color="success.main" sx={{ mt: 0.5, fontSize: { xs: '0.85rem', sm: '1rem' } }}>
+                    Authenticated as: {sessionInfo.username} | Session expires: {new Date(sessionInfo.expiresAt).toLocaleString()}
+                  </Typography>
+                )}
+        </Box>
             <Box sx={{ flexGrow: 1, display: { xs: 'none', sm: 'block' } }} />
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ width: { xs: '100%', sm: 'auto' } }}>
               <Button
@@ -1361,7 +1358,7 @@ const AdminPage: React.FC = () => {
                       </Stack>
                     </CardContent>
                   </Card>
-                </Box>
+                  </Box>
 
                 {/* System Status Overview */}
                 <Box sx={{ flex: '1 1 400px', minWidth: 0 }}>
