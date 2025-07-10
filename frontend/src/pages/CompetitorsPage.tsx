@@ -1572,7 +1572,7 @@ export default function CompetitorsPage() {
               {suggestionCount > 0 && (
                 <button
                   onClick={() => setShowSuggestions(true)}
-                  className="relative flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-all shadow-md"
+                  className="relative flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-all shadow-md suggestions-button"
                 >
                   <SparklesIcon className="h-4 w-4" />
                   <span>{suggestionCount} New</span>
@@ -1583,7 +1583,7 @@ export default function CompetitorsPage() {
               {/* Add Competitor Button */}
               <button
                 onClick={() => setShowAddForm(!showAddForm)}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-all shadow-md"
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-all shadow-md add-competitor-button"
               >
                 <PlusIcon className="h-4 w-4" />
                 Add
@@ -1672,7 +1672,7 @@ export default function CompetitorsPage() {
               )}
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto competitor-table">
               <CompetitorTable data={filteredCompetitors} onDelete={handleDelete} />
             </div>
           )}
