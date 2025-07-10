@@ -99,6 +99,55 @@ const ExportModal: React.FC<ExportModalProps> = ({
     return `${sanitizedShop}_${sanitizedTitle}_${timestamp}`;
   }, [chartTitle, shopName]);
 
+  // Enhanced chart readiness detection
+  const waitForChartReadiness = useCallback(async (maxWaitTime = 5000): Promise<boolean> => {
+    const startTime = Date.now();
+    
+    while (Date.now() - startTime < maxWaitTime) {
+      if (!chartRef.current) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        continue;
+      }
+      
+      // Check for SVG elements (works for both Classic and Advanced views)
+      const svgElements = chartRef.current.querySelectorAll('svg');
+      if (svgElements.length === 0) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        continue;
+      }
+      
+      // Check if SVG has actual content (paths, circles, etc.)
+      let hasContent = false;
+      svgElements.forEach(svg => {
+        const paths = svg.querySelectorAll('path, circle, rect, line');
+        if (paths.length > 0) {
+          hasContent = true;
+        }
+      });
+      
+      if (!hasContent) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        continue;
+      }
+      
+      // Chart appears ready
+      debugLog.info('Chart readiness confirmed', {
+        svgCount: svgElements.length,
+        hasContent,
+        waitTime: Date.now() - startTime
+      }, 'ExportModal');
+      
+      return true;
+    }
+    
+    debugLog.warn('Chart readiness timeout', {
+      waitTime: Date.now() - startTime,
+      maxWaitTime
+    }, 'ExportModal');
+    
+    return false;
+  }, [chartRef]);
+
   // Helper to convert the first <svg> inside a container to a canvas (works well with Recharts)
   const convertContainerSvgToCanvas = async (container: HTMLElement, scale = 2): Promise<HTMLCanvasElement> => {
     return new Promise((resolve, reject) => {
@@ -163,60 +212,74 @@ const ExportModal: React.FC<ExportModalProps> = ({
       return;
     }
 
-    // Additional validation: check if chart contains any content
-    if (!chartRef.current.children || chartRef.current.children.length === 0) {
-      showError('Chart content is not ready for export. Please wait for the chart to fully load and try again.');
-      debugLog.error('Export PNG failed: chartRef has no children', {
-        chartRefHTML: chartRef.current.outerHTML.substring(0, 300),
-        childrenLength: chartRef.current.children.length
-      }, 'ExportModal');
-      return;
-    }
-
-    // Enhanced SVG detection for nested chart structures (Advanced View)
-    const svgElement = chartRef.current.querySelector('svg');
-    if (!svgElement) {
-      showError('Chart visualization is not ready for export. Please wait for the chart to fully render and try again.');
-      debugLog.error('Export PNG failed: No SVG element found in chart container', {
-        chartRefHTML: chartRef.current.outerHTML.substring(0, 500),
-        chartTitle,
-        chartType
-      }, 'ExportModal');
-      return;
-    }
-
-    debugLog.info('SVG element found for export', {
-      svgWidth: svgElement.getAttribute('width'),
-      svgHeight: svgElement.getAttribute('height'),
-      svgViewBox: svgElement.getAttribute('viewBox'),
-      chartTitle,
-      chartType
-    }, 'ExportModal');
-
     setIsProcessing(true);
     setProgress(0);
     
-    debugLog.info('Starting enhanced PNG export', { 
+    debugLog.info('Starting enhanced PNG export with chart readiness check', { 
       quality: exportSettings.quality, 
       filename: generateFilename(),
       chartType 
     }, 'ExportModal');
     
-    showInfo('Generating high-quality chart image...');
+    showInfo('Preparing chart for export...');
 
     try {
+      setProgress(10);
+
+      // Wait for chart to be fully ready
+      const isReady = await waitForChartReadiness(5000);
+      if (!isReady) {
+        showError('Chart is not ready for export. Please wait for the chart to fully load and try again.');
+        debugLog.error('Export PNG failed: Chart readiness timeout', {
+          chartRefHTML: chartRef.current?.outerHTML?.substring(0, 500),
+          chartTitle,
+          chartType
+        }, 'ExportModal');
+        return;
+      }
+
       setProgress(25);
+      showInfo('Generating high-quality chart image...');
+
+      // Enhanced SVG detection for nested chart structures (Advanced View)
+      const svgElements = chartRef.current.querySelectorAll('svg');
+      if (svgElements.length === 0) {
+        showError('Chart visualization is not ready for export. Please wait for the chart to fully render and try again.');
+        debugLog.error('Export PNG failed: No SVG elements found after readiness check', {
+          chartRefHTML: chartRef.current.outerHTML.substring(0, 500),
+          chartTitle,
+          chartType
+        }, 'ExportModal');
+        return;
+      }
+
+      debugLog.info('SVG elements found for export', {
+        svgCount: svgElements.length,
+        firstSvgWidth: svgElements[0]?.getAttribute('width'),
+        firstSvgHeight: svgElements[0]?.getAttribute('height'),
+        firstSvgViewBox: svgElements[0]?.getAttribute('viewBox'),
+        chartTitle,
+        chartType
+      }, 'ExportModal');
 
       const scale = exportSettings.quality === 'ultra' ? 3 : exportSettings.quality === 'high' ? 2 : 1;
 
       let canvas: HTMLCanvasElement;
       try {
+        // Use the first (and usually only) SVG element
+        const targetSvg = svgElements[0];
+        
         // Wait briefly to ensure any animations have finished rendering
-        await new Promise(res => setTimeout(res, 600));
+        await new Promise(res => setTimeout(res, 300));
+        setProgress(50);
         
         // Attempt precise SVG capture first
         canvas = await convertContainerSvgToCanvas(chartRef.current, scale);
-        debugLog.info('SVG -> Canvas conversion succeeded', {}, 'ExportModal');
+        debugLog.info('SVG -> Canvas conversion succeeded', {
+          canvasWidth: canvas.width,
+          canvasHeight: canvas.height,
+          scale
+        }, 'ExportModal');
       } catch (svgErr) {
         debugLog.warn('SVG conversion failed, falling back to html2canvas', svgErr, 'ExportModal');
 
@@ -230,10 +293,17 @@ const ExportModal: React.FC<ExportModalProps> = ({
           foreignObjectRendering: true,
           imageTimeout: 15000,
           removeContainer: false,
+          height: chartRef.current.offsetHeight,
+          width: chartRef.current.offsetWidth,
         });
+        
+        debugLog.info('html2canvas fallback succeeded', {
+          canvasWidth: canvas.width,
+          canvasHeight: canvas.height
+        }, 'ExportModal');
       }
 
-      setProgress(50);
+      setProgress(75);
 
       // Create download link
       const link = document.createElement('a');
@@ -249,7 +319,8 @@ const ExportModal: React.FC<ExportModalProps> = ({
         chartTitle, 
         chartType, 
         quality: exportSettings.quality,
-        filename: link.download 
+        filename: link.download,
+        canvasSize: `${canvas.width}x${canvas.height}`
       });
 
     } catch (error) {
@@ -259,7 +330,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
       setIsProcessing(false);
       setProgress(0);
     }
-  }, [chartRef, exportSettings, generateFilename, theme, showInfo, showSuccess, showError, chartTitle, chartType]);
+  }, [chartRef, exportSettings, generateFilename, theme, showInfo, showSuccess, showError, chartTitle, chartType, waitForChartReadiness]);
 
   // Enhanced PDF export
   const handleExportPDF = useCallback(async () => {
@@ -282,59 +353,69 @@ const ExportModal: React.FC<ExportModalProps> = ({
       return;
     }
 
-    // Additional validation: check if chart contains any content
-    if (!chartRef.current.children || chartRef.current.children.length === 0) {
-      showError('Chart content is not ready for export. Please wait for the chart to fully load and try again.');
-      debugLog.error('Export PDF failed: chartRef has no children', {
-        chartRefHTML: chartRef.current.outerHTML.substring(0, 300),
-        childrenLength: chartRef.current.children.length
-      }, 'ExportModal');
-      return;
-    }
-
-    // Enhanced SVG detection for nested chart structures (Advanced View)
-    const svgElement = chartRef.current.querySelector('svg');
-    if (!svgElement) {
-      showError('Chart visualization is not ready for export. Please wait for the chart to fully render and try again.');
-      debugLog.error('Export PDF failed: No SVG element found in chart container', {
-        chartRefHTML: chartRef.current.outerHTML.substring(0, 500),
-        chartTitle,
-        chartType
-      }, 'ExportModal');
-      return;
-    }
-
-    debugLog.info('SVG element found for PDF export', {
-      svgWidth: svgElement.getAttribute('width'),
-      svgHeight: svgElement.getAttribute('height'),
-      svgViewBox: svgElement.getAttribute('viewBox'),
-      chartTitle,
-      chartType
-    }, 'ExportModal');
-
     setIsProcessing(true);
     setProgress(0);
     
-    debugLog.info('Starting enhanced PDF export', { 
+    debugLog.info('Starting enhanced PDF export with chart readiness check', { 
       filename: generateFilename(), 
       includeWatermark: exportSettings.includeWatermark,
       includeMetadata: exportSettings.includeMetadata 
     }, 'ExportModal');
     
-    showInfo('Generating professional PDF report...');
+    showInfo('Preparing chart for PDF export...');
 
     try {
+      setProgress(10);
+
+      // Wait for chart to be fully ready
+      const isReady = await waitForChartReadiness(5000);
+      if (!isReady) {
+        showError('Chart is not ready for export. Please wait for the chart to fully load and try again.');
+        debugLog.error('Export PDF failed: Chart readiness timeout', {
+          chartRefHTML: chartRef.current?.outerHTML?.substring(0, 500),
+          chartTitle,
+          chartType
+        }, 'ExportModal');
+        return;
+      }
+
       setProgress(25);
+      showInfo('Generating professional PDF report...');
+
+      // Enhanced SVG detection for nested chart structures (Advanced View)
+      const svgElements = chartRef.current.querySelectorAll('svg');
+      if (svgElements.length === 0) {
+        showError('Chart visualization is not ready for export. Please wait for the chart to fully render and try again.');
+        debugLog.error('Export PDF failed: No SVG elements found after readiness check', {
+          chartRefHTML: chartRef.current.outerHTML.substring(0, 500),
+          chartTitle,
+          chartType
+        }, 'ExportModal');
+        return;
+      }
+
+      debugLog.info('SVG elements found for PDF export', {
+        svgCount: svgElements.length,
+        firstSvgWidth: svgElements[0]?.getAttribute('width'),
+        firstSvgHeight: svgElements[0]?.getAttribute('height'),
+        firstSvgViewBox: svgElements[0]?.getAttribute('viewBox'),
+        chartTitle,
+        chartType
+      }, 'ExportModal');
 
       const scale = exportSettings.quality === 'ultra' ? 3 : exportSettings.quality === 'high' ? 2 : 1;
 
       let canvas: HTMLCanvasElement;
       try {
         // Wait briefly to ensure animations finished
-        await new Promise(res => setTimeout(res, 600));
+        await new Promise(res => setTimeout(res, 300));
+        setProgress(50);
         
         canvas = await convertContainerSvgToCanvas(chartRef.current, 2);
-        debugLog.info('SVG -> Canvas conversion succeeded for PDF', {}, 'ExportModal');
+        debugLog.info('SVG -> Canvas conversion succeeded for PDF', {
+          canvasWidth: canvas.width,
+          canvasHeight: canvas.height
+        }, 'ExportModal');
       } catch (svgErr) {
         debugLog.warn('SVG conversion failed for PDF, falling back to html2canvas', svgErr, 'ExportModal');
         canvas = await html2canvas(chartRef.current, {
@@ -344,10 +425,17 @@ const ExportModal: React.FC<ExportModalProps> = ({
           useCORS: true,
           allowTaint: true,
           foreignObjectRendering: true,
+          height: chartRef.current.offsetHeight,
+          width: chartRef.current.offsetWidth,
         });
+        
+        debugLog.info('html2canvas fallback succeeded for PDF', {
+          canvasWidth: canvas.width,
+          canvasHeight: canvas.height
+        }, 'ExportModal');
       }
 
-      setProgress(50);
+      setProgress(60);
 
       // Create PDF
       const pdf = new jsPDF({
@@ -374,9 +462,12 @@ const ExportModal: React.FC<ExportModalProps> = ({
       if (metrics?.timeRange) {
         pdf.text(`Period: ${metrics.timeRange}`, 10, 35);
       }
+      if (metrics?.confidenceScore) {
+        pdf.text(`Confidence: ${Math.round(metrics.confidenceScore * 100)}%`, 10, 40);
+      }
       
       // Add chart
-      const yPosition = Math.min(45, pdfHeight - imgHeight - 20);
+      const yPosition = Math.min(50, pdfHeight - imgHeight - 20);
       pdf.addImage(imgData, 'PNG', 10, yPosition, imgWidth, Math.min(imgHeight, pdfHeight - yPosition - 15));
       
       // Add footer with branding if enabled
@@ -386,7 +477,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
         pdf.text('🌐 Powered by ShopGauge: https://www.shopgaugeai.com', 10, pdfHeight - 10);
       }
       
-      setProgress(75);
+      setProgress(90);
       
       pdf.save(`${generateFilename()}.pdf`);
       setProgress(100);
@@ -397,7 +488,9 @@ const ExportModal: React.FC<ExportModalProps> = ({
         chartTitle, 
         chartType, 
         includeWatermark: exportSettings.includeWatermark,
-        filename: `${generateFilename()}.pdf` 
+        filename: `${generateFilename()}.pdf`,
+        canvasSize: `${canvas.width}x${canvas.height}`,
+        pdfSize: `${pdfWidth}x${pdfHeight}mm`
       });
 
     } catch (error) {
@@ -407,7 +500,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
       setIsProcessing(false);
       setProgress(0);
     }
-  }, [chartRef, exportSettings, generateFilename, shopName, chartTitle, metrics, theme, showInfo, showSuccess, showError, chartType]);
+  }, [chartRef, exportSettings, generateFilename, shopName, chartTitle, metrics, theme, showInfo, showSuccess, showError, chartType, waitForChartReadiness]);
 
   // Enhanced Excel export with multi-tab workbook
   const handleExportExcel = useCallback(async () => {
