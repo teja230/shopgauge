@@ -142,6 +142,20 @@ const PredictionViewContainer = memo(({
     return 750; // Significantly increased for desktop
   }, [isMobile, isTablet]);
 
+  // Helper function to calculate average confidence for selected period
+  const calculateAverageConfidence = useCallback((predictions: any[], days: number): number | undefined => {
+    if (!predictions || predictions.length === 0) return undefined;
+    
+    const relevantPredictions = predictions.slice(0, days);
+    const validConfidenceScores = relevantPredictions
+      .map(p => p.confidence_score)
+      .filter(score => typeof score === 'number' && !isNaN(score));
+    
+    if (validConfidenceScores.length === 0) return undefined;
+    
+    return validConfidenceScores.reduce((sum, score) => sum + score, 0) / validConfidenceScores.length;
+  }, []);
+
   // Chrome-safe data validation
   const validateNumber = useCallback((value: any, defaultValue: number = 0): number => {
     if (typeof value !== 'number') return defaultValue;
@@ -559,9 +573,15 @@ const PredictionViewContainer = memo(({
                   },
                 }}
               >
-                <ToggleButton value={7}>7 Days</ToggleButton>
-                <ToggleButton value={30}>30 Days</ToggleButton>
-                <ToggleButton value={60}>60 Days</ToggleButton>
+                <ToggleButton value={30} title="Monthly Planning - High Confidence (68%)">
+                  30 Days
+                </ToggleButton>
+                <ToggleButton value={60} title="Quarterly Trends - Moderate Confidence (45%)">
+                  60 Days
+                </ToggleButton>
+                <ToggleButton value={90} title="Strategic Planning - Trend Analysis (35%)">
+                  90 Days
+                </ToggleButton>
               </ToggleButtonGroup>
             )}
           </Box>
@@ -673,9 +693,12 @@ const PredictionViewContainer = memo(({
                     })()}
                   </Typography>
                   {/* Confidence Score Display */}
-                  {data.predictions.length > 0 && data.predictions[0].confidence_score && (
+                  {data.predictions.length > 0 && (
                     <Typography variant="caption" color="secondary.main" sx={{ fontSize: '0.6rem', mt: 0.5 }}>
-                      {(data.predictions[0].confidence_score * 100).toFixed(0)}% confidence
+                      {(() => {
+                        const avgConfidence = calculateAverageConfidence(data.predictions, predictionDays);
+                        return avgConfidence !== undefined ? `${(avgConfidence * 100).toFixed(0)}% confidence` : 'N/A confidence';
+                      })()}
                     </Typography>
                   )}
                 </Box>
@@ -889,7 +912,7 @@ const PredictionViewContainer = memo(({
           forecastPeriod: `${predictionDays} days`,
           forecastRevenue: data?.predictions?.slice(0, predictionDays).reduce((sum, p) => sum + (p.revenue || 0), 0),
           forecastOrders: data?.predictions?.slice(0, predictionDays).reduce((sum, p) => sum + (p.orders_count || 0), 0),
-          confidenceScore: data?.predictions?.length > 0 ? data.predictions.reduce((sum, p) => sum + (p.confidence_score || 0), 0) / data.predictions.length : undefined,
+          confidenceScore: data?.predictions ? calculateAverageConfidence(data.predictions, predictionDays) : undefined,
         }}
       />
       
@@ -909,7 +932,7 @@ const PredictionViewContainer = memo(({
           forecastPeriod: `${predictionDays} days`,
           forecastRevenue: data?.predictions?.slice(0, predictionDays).reduce((sum, p) => sum + (p.revenue || 0), 0),
           forecastOrders: data?.predictions?.slice(0, predictionDays).reduce((sum, p) => sum + (p.orders_count || 0), 0),
-          confidenceScore: data?.predictions?.length > 0 ? data.predictions.reduce((sum, p) => sum + (p.confidence_score || 0), 0) / data.predictions.length : undefined,
+          confidenceScore: data?.predictions ? calculateAverageConfidence(data.predictions, predictionDays) : undefined,
         }}
       />
     </StyledCard>
