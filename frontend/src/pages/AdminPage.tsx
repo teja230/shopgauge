@@ -920,6 +920,7 @@ const AdminPage: React.FC = () => {
   useEffect(() => {
     if (isAuthenticated) {
       fetchHealthSummary();
+      checkEmergencyStatus();
     }
   }, [isAuthenticated]);
 
@@ -1371,21 +1372,27 @@ const AdminPage: React.FC = () => {
                         <Button
                           variant="outlined"
                           size="small"
-                          onClick={fetchHealthSummary}
-                          disabled={healthSummaryLoading}
-                          startIcon={healthSummaryLoading ? <CircularProgress size={16} /> : <RefreshIcon />}
+                          onClick={() => {
+                            checkEmergencyStatus();
+                            fetchHealthSummary();
+                          }}
+                          disabled={emergencyLoading || healthSummaryLoading}
+                          startIcon={(emergencyLoading || healthSummaryLoading) ? <CircularProgress size={16} /> : <RefreshIcon />}
                         >
-                          {healthSummaryLoading ? 'Refreshing...' : 'Refresh'}
+                          {(emergencyLoading || healthSummaryLoading) ? 'Refreshing...' : 'Refresh'}
                         </Button>
                       </Box>
                       
-                      {healthSummaryError && (
+                      {(emergencyError || healthSummaryError) && (
                         <Alert severity="error" sx={{ mb: 2 }}>
-                          {healthSummaryError}
+                          {emergencyError && healthSummaryError 
+                            ? `Emergency: ${emergencyError} | Health: ${healthSummaryError}`
+                            : emergencyError || healthSummaryError
+                          }
                         </Alert>
                       )}
                       
-                      {healthSummaryLoading ? (
+                      {(emergencyLoading || healthSummaryLoading) ? (
                         <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
                           <CircularProgress />
                         </Box>
@@ -1401,16 +1408,17 @@ const AdminPage: React.FC = () => {
                                 width: 12,
                                 height: 12,
                                 borderRadius: '50%',
-                                bgcolor: healthSummary?.database?.status === 'healthy' ? '#4caf50' : '#f44336'
+                                bgcolor: emergencyStatus?.database?.healthStatus === 'HEALTHY' ? '#4caf50' : '#f44336'
                               }} />
                               <Typography variant="body2">
-                                {healthSummary?.database?.status === 'healthy' ? 'Healthy' : 'Unhealthy'}
+                                {emergencyStatus?.database?.healthStatus === 'HEALTHY' ? 'Healthy' : 'Unhealthy'}
                               </Typography>
                             </Box>
                             <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                              Pool: {healthSummary?.database?.activeConnections ?? 'N/A'} active
+                              Pool: {emergencyStatus?.database?.activeConnections ?? 'N/A'} active
                             </Typography>
                           </Box>
+
                           {/* Redis Status */}
                           <Box sx={{ flex: '1 1 200px', p: 2, bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 2 }}>
                             <Typography variant="h6" sx={{ mb: 1 }}>
@@ -1421,26 +1429,27 @@ const AdminPage: React.FC = () => {
                                 width: 12,
                                 height: 12,
                                 borderRadius: '50%',
-                                bgcolor: healthSummary?.redis?.status === 'HEALTHY' ? '#4caf50' : '#f44336'
+                                bgcolor: healthSummary?.redis?.status === 'healthy' ? '#4caf50' : '#f44336'
                               }} />
                               <Typography variant="body2">
-                                {healthSummary?.redis?.status === 'HEALTHY' ? 'Healthy' : 'Unhealthy'}
+                                {healthSummary?.redis?.status === 'healthy' ? 'Healthy' : 'Unhealthy'}
                               </Typography>
                             </Box>
                             <Typography variant="caption" sx={{ opacity: 0.8 }}>
                               Cache: {healthSummary?.redis?.memory || 'N/A'}
                             </Typography>
                           </Box>
+
                           {/* JVM Memory */}
                           <Box sx={{ flex: '1 1 200px', p: 2, bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 2 }}>
                             <Typography variant="h6" sx={{ mb: 1 }}>
                               JVM Memory
                             </Typography>
                             <Typography variant="body2">
-                              {healthSummary?.jvmMemory?.usedMemory ? `${(healthSummary.jvmMemory.usedMemory / 1024 / 1024).toFixed(0)} MB` : 'N/A'} / {healthSummary?.jvmMemory?.maxMemory ? `${(healthSummary.jvmMemory.maxMemory / 1024 / 1024).toFixed(0)} MB` : 'N/A'}
+                              {emergencyStatus?.jvmMemory?.usedMemory ? `${(emergencyStatus.jvmMemory.usedMemory / 1024 / 1024).toFixed(0)} MB` : 'N/A'} / {emergencyStatus?.jvmMemory?.maxMemory ? `${(emergencyStatus.jvmMemory.maxMemory / 1024 / 1024).toFixed(0)} MB` : 'N/A'}
                             </Typography>
                             <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                              {healthSummary?.jvmMemory?.usedPercentage ?? 'N/A'}% used
+                              {emergencyStatus?.jvmMemory?.usedPercentage ?? 'N/A'}% used
                             </Typography>
                           </Box>
                         </Box>
