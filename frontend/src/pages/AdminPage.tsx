@@ -1193,6 +1193,29 @@ const AdminPage: React.FC = () => {
     }
   };
 
+  // Comprehensive refresh function for all admin data
+  const refreshAllData = async () => {
+    try {
+      showSuccess('Refreshing all admin data...');
+      
+      // Refresh all data in parallel for better performance
+      await Promise.all([
+        checkEmergencyStatus(),
+        fetchHealthSummary(),
+        fetchActiveShops(),
+        fetchDeletedShops(),
+        fetchSessionStatistics(),
+        fetchAuditLogs(),
+        fetchConnectionLeakStatus()
+      ]);
+      
+      showSuccess('All admin data refreshed successfully');
+    } catch (error) {
+      console.error('Error refreshing admin data:', error);
+      showError('Some data failed to refresh. Please try again.');
+    }
+  };
+
   // Enhanced admin authentication dialog
   if (!isAuthenticated) {
   return (
@@ -1312,15 +1335,49 @@ const AdminPage: React.FC = () => {
 
   return (
     <>
+      <NavBar />
       <Container maxWidth="xl" sx={{ mt: 4, mb: 4, px: { xs: 0.5, sm: 2, md: 4 } }}>
-        {/* Admin page title */}
+        {/* Admin page title with Refresh and Logout buttons */}
         <Box sx={{ mb: 4 }}>
-          <Typography variant="h4" fontWeight="700" sx={{ mb: 0.5, fontSize: { xs: '1.3rem', sm: '2rem' } }}>
-            Enterprise Admin Panel
-          </Typography>
-          <Typography variant="body1" color="text.secondary" sx={{ fontSize: { xs: '0.95rem', sm: '1rem' } }}>
-            Secure administration and monitoring dashboard
-          </Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2 }}>
+            <Box>
+              <Typography variant="h4" fontWeight="700" sx={{ mb: 0.5, fontSize: { xs: '1.3rem', sm: '2rem' } }}>
+                Enterprise Admin Panel
+              </Typography>
+              <Typography variant="body1" color="text.secondary" sx={{ fontSize: { xs: '0.95rem', sm: '1rem' } }}>
+                Secure administration and monitoring dashboard
+              </Typography>
+            </Box>
+            
+            {/* Admin Action Buttons */}
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              <Button
+                variant="outlined"
+                startIcon={<RefreshIcon />}
+                onClick={refreshAllData}
+                sx={{
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                }}
+              >
+                Refresh All
+              </Button>
+              <Button
+                variant="outlined"
+                color="error"
+                startIcon={<LogoutIcon />}
+                onClick={handleAdminLogout}
+                sx={{
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                }}
+              >
+                Logout Admin
+              </Button>
+            </Box>
+          </Box>
         </Box>
         
         <Box>
