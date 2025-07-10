@@ -1248,49 +1248,52 @@ const AdminPage: React.FC = () => {
       <Box sx={{ position: 'fixed', top: 16, right: 32, zIndex: 1301 }}>
         <NotificationCenter />
       </Box>
-      <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
+      <Container maxWidth="xl" sx={{ mt: 4, mb: 4, px: { xs: 0.5, sm: 2, md: 4 } }}>
         {/* Remove HeaderCard and SectionHeader, flatten UI */}
         <Box sx={{ mb: 4 }}>
-          <Stack direction="row" alignItems="center" spacing={2}>
-            <AdminIcon sx={{ fontSize: 32, color: 'primary.main' }} />
+          <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={2} flexWrap="wrap">
+            <AdminIcon sx={{ fontSize: 32, color: 'primary.main', mb: { xs: 1, sm: 0 } }} />
             <Box>
-              <Typography variant="h4" fontWeight="700" sx={{ mb: 0.5 }}>
+              <Typography variant="h4" fontWeight="700" sx={{ mb: 0.5, fontSize: { xs: '1.3rem', sm: '2rem' } }}>
                 Enterprise Admin Panel
               </Typography>
-              <Typography variant="body1" color="text.secondary">
+              <Typography variant="body1" color="text.secondary" sx={{ fontSize: { xs: '0.95rem', sm: '1rem' } }}>
                 Secure administration and monitoring dashboard
               </Typography>
               {sessionInfo && (
-                <Typography variant="body2" color="success.main" sx={{ mt: 0.5 }}>
+                <Typography variant="body2" color="success.main" sx={{ mt: 0.5, fontSize: { xs: '0.85rem', sm: '1rem' } }}>
                   Authenticated as: {sessionInfo.username} | Session expires: {new Date(sessionInfo.expiresAt).toLocaleString()}
                 </Typography>
               )}
             </Box>
-            <Box sx={{ flexGrow: 1 }} />
-            <Button
-              variant="outlined"
-              startIcon={<RefreshIcon />}
-              onClick={checkAuthStatus}
-              sx={{ borderRadius: 2 }}
-            >
-              Refresh Session
-            </Button>
-            <Button
-              variant="outlined"
-              startIcon={<LogoutIcon />}
-              onClick={handleAdminLogout}
-              sx={{ borderRadius: 2 }}
-            >
-              Logout Admin
-            </Button>
-            <FormControlLabel
-              control={<Switch checked={geekMode} onChange={() => setGeekMode(v => !v)} color="primary" />}
-              label="Geek Mode"
-            />
+            <Box sx={{ flexGrow: 1, display: { xs: 'none', sm: 'block' } }} />
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ width: { xs: '100%', sm: 'auto' } }}>
+              <Button
+                variant="outlined"
+                startIcon={<RefreshIcon />}
+                onClick={checkAuthStatus}
+                sx={{ borderRadius: 2, width: { xs: '100%', sm: 'auto' } }}
+              >
+                Refresh Session
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<LogoutIcon />}
+                onClick={handleAdminLogout}
+                sx={{ borderRadius: 2, width: { xs: '100%', sm: 'auto' } }}
+              >
+                Logout Admin
+              </Button>
+              <FormControlLabel
+                control={<Switch checked={geekMode} onChange={() => setGeekMode(v => !v)} color="primary" />}
+                label="Geek Mode"
+                sx={{ ml: { xs: 0, sm: 2 }, width: { xs: '100%', sm: 'auto' } }}
+              />
+            </Stack>
           </Stack>
         </Box>
         <Box>
-          <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)} sx={{ mb: 3 }}>
+          <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)} sx={{ mb: 3, minHeight: 40, '& .MuiTab-root': { minWidth: { xs: 80, sm: 140 } } }} variant="scrollable" scrollButtons="auto">
             {[
               { value: 'health', label: 'System Health' },
               { value: 'connection-pool', label: 'Connection Pool' },
@@ -1322,9 +1325,9 @@ const AdminPage: React.FC = () => {
               <EnhancedHealthSummary />
               
               {/* Additional System Health Cards */}
-              <Box sx={{ display: 'flex', gap: 3, mt: 3, flexWrap: 'wrap' }}>
+              <Box sx={{ display: 'flex', gap: 3, mt: 3, flexWrap: 'wrap', flexDirection: { xs: 'column', md: 'row' } }}>
                 {/* Quick Actions */}
-                <Box sx={{ flex: '1 1 300px' }}>
+                <Box sx={{ flex: '1 1 300px', minWidth: 0, mb: { xs: 2, md: 0 } }}>
                   <Card sx={{ height: '100%', background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', color: 'white' }}>
                     <CardContent>
                       <Typography variant="h6" sx={{ mb: 2 }}>
@@ -1359,7 +1362,7 @@ const AdminPage: React.FC = () => {
                 </Box>
 
                 {/* System Status Overview */}
-                <Box sx={{ flex: '1 1 400px' }}>
+                <Box sx={{ flex: '1 1 400px', minWidth: 0 }}>
                   <Card sx={{ height: '100%', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
                     <CardContent>
                       <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
@@ -1846,6 +1849,17 @@ const AdminPage: React.FC = () => {
         onToggleVisibility={setDebugPanelVisible}
       />
       {/* Remove NotificationCenter from bottom, now at top-right */}
+      <style>{`
+        @media (max-width: 600px) {
+          .MuiTableContainer-root {
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch;
+          }
+          .MuiTable-root {
+            min-width: 600px;
+          }
+        }
+      `}</style>
     </>
   );
 };
