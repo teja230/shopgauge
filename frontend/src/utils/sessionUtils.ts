@@ -112,6 +112,17 @@ class SessionManager {
   }
 
   private async sendHeartbeat(): Promise<void> {
+    // Only send heartbeat if authenticated
+    let isAuthenticated = false;
+    try {
+      // Try to read from localStorage or a global variable (adjust as needed for your app)
+      isAuthenticated = JSON.parse(localStorage.getItem('isAuthenticated') || 'false');
+    } catch (e) { /* ignore - fallback to unauthenticated */ }
+    if (!isAuthenticated) {
+      // Suppress heartbeat if not authenticated
+      console.log('🔕 Skipping heartbeat: user not authenticated');
+      return;
+    }
     try {
       const response = await fetch('/api/sessions/heartbeat', {
         method: 'POST',
@@ -120,20 +131,16 @@ class SessionManager {
         },
         credentials: 'include', // Include cookies
       });
-
       if (response.ok) {
         const data: SessionHeartbeatResponse = await response.json();
-        
         if (data.success) {
           console.log('💓 Session heartbeat successful:', {
             sessionId: data.sessionId,
             shop: data.shop,
             activeSessionCount: data.activeSessionCount
           });
-          
           this.lastHeartbeatTime = Date.now();
           this.retryCount = 0; // Reset retry count on success
-          
           // Store session info in localStorage for debugging
           if (data.sessionId && data.shop) {
             localStorage.setItem('session_info', JSON.stringify({
