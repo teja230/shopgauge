@@ -114,14 +114,7 @@ const NavBar: React.FC = () => {
       icon: <PersonIcon />,
       path: '/profile',
       badge: 0
-    },
-    // Only show Admin link when on /admin
-    ...(showAdmin ? [{
-      text: 'Admin',
-      icon: <InsightsIcon />,
-      path: '/admin',
-      badge: 0
-    }] : [])
+    }
   ] : [];
 
   const MobileDrawer = () => (
