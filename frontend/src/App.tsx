@@ -203,6 +203,7 @@ const AppContent: React.FC = () => {
         sessions={sessionLimitData?.sessions || []}
         loading={sessionLimitLoading}
         maxSessions={sessionLimitData?.maxSessions || 5}
+        limitReached={sessionLimitData?.limitReached || false}
       />
       
       <main className="flex-1">
