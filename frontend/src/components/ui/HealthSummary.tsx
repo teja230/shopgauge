@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { 
   Paper, 
   Typography, 
@@ -240,6 +240,8 @@ const HealthSummary: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { isServiceAvailable } = useServiceStatus();
+  const [refreshCooldown, setRefreshCooldown] = useState(0);
+  const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchDatabaseDetails = async () => {
     try {
@@ -301,6 +303,20 @@ const HealthSummary: React.FC = () => {
     return () => clearInterval(interval);
   }, [isServiceAvailable, metrics]);
 
+  // Cooldown timer for Refresh
+  useEffect(() => {
+    if (refreshCooldown > 0) {
+      const timer = setTimeout(() => setRefreshCooldown(refreshCooldown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [refreshCooldown]);
+
+  const fetchMetricsWithCooldown = async () => {
+    if (refreshCooldown > 0) return;
+    setRefreshCooldown(5);
+    await fetchMetrics();
+  };
+
   if (!isServiceAvailable) {
     return (
       <Paper sx={{ p: 3, mb: 3, borderRadius: 3, bgcolor: 'grey.50' }}>
@@ -327,7 +343,7 @@ const HealthSummary: React.FC = () => {
   if (error) {
     return (
       <Alert severity="error" action={
-        <IconButton color="inherit" size="small" onClick={fetchMetrics}>
+        <IconButton color="inherit" size="small" onClick={fetchMetricsWithCooldown}>
           <RefreshIcon />
         </IconButton>
       }>
@@ -354,7 +370,7 @@ const HealthSummary: React.FC = () => {
             Last updated: {formatTimestamp(metrics.lastUpdated)}
           </Typography>
           <Tooltip title="Refresh health metrics">
-            <IconButton size="small" onClick={fetchMetrics} disabled={loading}>
+            <IconButton size="small" onClick={fetchMetricsWithCooldown} disabled={loading || refreshCooldown > 0}>
               <RefreshIcon />
             </IconButton>
           </Tooltip>

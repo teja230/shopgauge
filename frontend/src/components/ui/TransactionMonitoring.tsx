@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -139,6 +139,8 @@ const TransactionMonitoring: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  const [refreshCooldown, setRefreshCooldown] = useState(0);
+  const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchTransactionHealth = async () => {
     try {
@@ -222,6 +224,8 @@ const TransactionMonitoring: React.FC = () => {
   };
 
   const refreshAll = async () => {
+    if (refreshCooldown > 0) return;
+    setRefreshCooldown(5);
     setLoading(true);
     setError(null);
     try {
@@ -237,6 +241,14 @@ const TransactionMonitoring: React.FC = () => {
       setLoading(false);
     }
   };
+
+  // Cooldown timer for Refresh
+  useEffect(() => {
+    if (refreshCooldown > 0) {
+      const timer = setTimeout(() => setRefreshCooldown(refreshCooldown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [refreshCooldown]);
 
   useEffect(() => {
     refreshAll();
@@ -281,11 +293,11 @@ const TransactionMonitoring: React.FC = () => {
             variant="contained"
             startIcon={<RefreshIcon />}
             onClick={refreshAll}
-            disabled={loading}
+            disabled={loading || refreshCooldown > 0}
             size="small"
             sx={{ borderRadius: 2 }}
           >
-            Refresh
+            {refreshCooldown > 0 ? `Refresh (${refreshCooldown}s)` : 'Refresh'}
           </Button>
         </Stack>
       </Stack>
