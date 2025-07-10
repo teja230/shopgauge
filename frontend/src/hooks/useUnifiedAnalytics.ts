@@ -69,7 +69,7 @@ interface UseUnifiedAnalyticsOptions {
   dashboardOrdersData?: any[];
   // Real conversion rate from dashboard
   realConversionRate?: number;
-  // Note: Always computes max 60 days of predictions, filtering done in UI
+  // Note: Always computes max 90 days of predictions, filtering done in UI based on user selection
 }
 
 interface UseUnifiedAnalyticsReturn {
@@ -95,7 +95,7 @@ const useUnifiedAnalytics = (
   options: UseUnifiedAnalyticsOptions = {}
 ): UseUnifiedAnalyticsReturn => {
   const {
-    days = 60,
+    days = 90, // Changed from 60 to 90 to support 90-day forecasts
     includePredictions = true,
     autoRefresh = false,
     refreshInterval = 300000, // 5 minutes
@@ -339,7 +339,7 @@ const useUnifiedAnalytics = (
           trendStability = Math.max(0.3, Math.min(0.95, 1 - (ssRes / Math.max(ssTot, 1))));
         }
         
-        for (let i = 1; i <= Math.min(days, 60); i++) {
+        for (let i = 1; i <= days; i++) { // Removed Math.min(days, 60) limit to support full 90-day forecasts
           const futureDate = new Date();
           futureDate.setDate(futureDate.getDate() + i);
           
@@ -1159,9 +1159,8 @@ const useUnifiedAnalytics = (
              const converted = convertDashboardData(
          dashboardRevenueData || [],
          dashboardOrdersData || [],
-         realConversionRate,
-         60 // Always compute max 60 days for filtering
-       );
+         realConversionRate
+        );
 
       if (converted && Array.isArray(converted.historical) && converted.historical.length > 0) {
         debugLog.info('✅ UNIFIED_ANALYTICS: Successfully converted dashboard data', {

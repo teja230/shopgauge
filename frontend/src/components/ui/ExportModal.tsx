@@ -99,9 +99,10 @@ const ExportModal: React.FC<ExportModalProps> = ({
     return `${sanitizedShop}_${sanitizedTitle}_${timestamp}`;
   }, [chartTitle, shopName]);
 
-  // Enhanced chart readiness detection
-  const waitForChartReadiness = useCallback(async (maxWaitTime = 5000): Promise<boolean> => {
+  // Enhanced chart readiness detection with better timing and validation
+  const waitForChartReadiness = useCallback(async (maxWaitTime = 8000): Promise<boolean> => {
     const startTime = Date.now();
+    let lastCheckInfo = '';
     
     while (Date.now() - startTime < maxWaitTime) {
       if (!chartRef.current) {
@@ -112,20 +113,33 @@ const ExportModal: React.FC<ExportModalProps> = ({
       // Check for SVG elements (works for both Classic and Advanced views)
       const svgElements = chartRef.current.querySelectorAll('svg');
       if (svgElements.length === 0) {
+        lastCheckInfo = 'No SVG elements found';
         await new Promise(resolve => setTimeout(resolve, 100));
         continue;
       }
       
       // Check if SVG has actual content (paths, circles, etc.)
       let hasContent = false;
-      svgElements.forEach(svg => {
-        const paths = svg.querySelectorAll('path, circle, rect, line');
+      let contentInfo = '';
+      svgElements.forEach((svg, index) => {
+        const paths = svg.querySelectorAll('path, circle, rect, line, text');
         if (paths.length > 0) {
           hasContent = true;
+          contentInfo += `SVG${index}: ${paths.length} elements; `;
         }
       });
       
       if (!hasContent) {
+        lastCheckInfo = `Found ${svgElements.length} SVG(s) but no content: ${contentInfo}`;
+        await new Promise(resolve => setTimeout(resolve, 100));
+        continue;
+      }
+      
+      // Additional validation: check if SVG has proper dimensions
+      const firstSvg = svgElements[0];
+      const svgRect = firstSvg.getBoundingClientRect();
+      if (svgRect.width === 0 || svgRect.height === 0) {
+        lastCheckInfo = `SVG has zero dimensions: ${svgRect.width}x${svgRect.height}`;
         await new Promise(resolve => setTimeout(resolve, 100));
         continue;
       }
@@ -134,15 +148,19 @@ const ExportModal: React.FC<ExportModalProps> = ({
       debugLog.info('Chart readiness confirmed', {
         svgCount: svgElements.length,
         hasContent,
+        contentInfo,
+        svgDimensions: `${svgRect.width}x${svgRect.height}`,
         waitTime: Date.now() - startTime
       }, 'ExportModal');
       
       return true;
     }
     
-    debugLog.warn('Chart readiness timeout', {
+    debugLog.error('Chart readiness timeout', {
       waitTime: Date.now() - startTime,
-      maxWaitTime
+      maxWaitTime,
+      lastCheckInfo,
+      chartRefHTML: chartRef.current?.outerHTML?.substring(0, 500) || 'No chart ref'
     }, 'ExportModal');
     
     return false;
@@ -226,8 +244,8 @@ const ExportModal: React.FC<ExportModalProps> = ({
     try {
       setProgress(10);
 
-      // Wait for chart to be fully ready
-      const isReady = await waitForChartReadiness(5000);
+      // Wait for chart to be fully ready (increased timeout)
+      const isReady = await waitForChartReadiness(8000);
       if (!isReady) {
         showError('Chart is not ready for export. Please wait for the chart to fully load and try again.');
         debugLog.error('Export PNG failed: Chart readiness timeout', {
@@ -265,42 +283,82 @@ const ExportModal: React.FC<ExportModalProps> = ({
       const scale = exportSettings.quality === 'ultra' ? 3 : exportSettings.quality === 'high' ? 2 : 1;
 
       let canvas: HTMLCanvasElement;
+      let exportMethod = 'unknown';
+      
       try {
-        // Use the first (and usually only) SVG element
-        const targetSvg = svgElements[0];
-        
-        // Wait briefly to ensure any animations have finished rendering
-        await new Promise(res => setTimeout(res, 300));
+        // Wait longer to ensure any animations have finished rendering
+        await new Promise(res => setTimeout(res, 500));
         setProgress(50);
         
         // Attempt precise SVG capture first
         canvas = await convertContainerSvgToCanvas(chartRef.current, scale);
+        exportMethod = 'svg-conversion';
         debugLog.info('SVG -> Canvas conversion succeeded', {
           canvasWidth: canvas.width,
           canvasHeight: canvas.height,
-          scale
+          scale,
+          method: exportMethod
         }, 'ExportModal');
       } catch (svgErr) {
         debugLog.warn('SVG conversion failed, falling back to html2canvas', svgErr, 'ExportModal');
 
-        // Fallback: html2canvas snapshot of the whole container
-        canvas = await html2canvas(chartRef.current, {
-          backgroundColor: theme.palette.background.paper,
-          scale,
-          logging: false,
-          useCORS: true,
-          allowTaint: true,
-          foreignObjectRendering: true,
-          imageTimeout: 15000,
-          removeContainer: false,
-          height: chartRef.current.offsetHeight,
-          width: chartRef.current.offsetWidth,
-        });
-        
-        debugLog.info('html2canvas fallback succeeded', {
-          canvasWidth: canvas.width,
-          canvasHeight: canvas.height
-        }, 'ExportModal');
+        try {
+          // Fallback: html2canvas snapshot of the whole container with enhanced options
+          canvas = await html2canvas(chartRef.current, {
+            backgroundColor: theme.palette.background.paper,
+            scale,
+            logging: false,
+            useCORS: true,
+            allowTaint: true,
+            foreignObjectRendering: true,
+            imageTimeout: 15000,
+            removeContainer: false,
+            height: chartRef.current.offsetHeight,
+            width: chartRef.current.offsetWidth,
+            ignoreElements: (element) => {
+              // Ignore problematic elements that might cause issues
+              return element.tagName === 'SCRIPT' || element.tagName === 'STYLE';
+            },
+            onclone: (clonedDoc) => {
+              // Ensure all styles are properly applied to the cloned document
+              const clonedElement = clonedDoc.querySelector('[data-chart-container]') || clonedDoc.body;
+              if (clonedElement instanceof HTMLElement) {
+                clonedElement.style.background = theme.palette.background.paper;
+              }
+            }
+          });
+          exportMethod = 'html2canvas';
+          
+          debugLog.info('html2canvas fallback succeeded', {
+            canvasWidth: canvas.width,
+            canvasHeight: canvas.height,
+            method: exportMethod
+          }, 'ExportModal');
+        } catch (html2canvasErr) {
+          debugLog.error('Both SVG and html2canvas methods failed', {
+            svgError: svgErr,
+            html2canvasError: html2canvasErr
+          }, 'ExportModal');
+          
+          // Final fallback: Create a simple canvas with error message
+          canvas = document.createElement('canvas');
+          canvas.width = 800;
+          canvas.height = 600;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.fillStyle = theme.palette.background.paper;
+            ctx.fillRect(0, 0, 800, 600);
+            ctx.fillStyle = theme.palette.text.primary;
+            ctx.font = '24px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Export failed - Chart not ready', 400, 300);
+            ctx.font = '16px Arial';
+            ctx.fillText('Please try again after the chart fully loads', 400, 330);
+          }
+          exportMethod = 'error-canvas';
+          
+          showError('Chart export partially failed. A placeholder image has been created. Please try again once the chart is fully loaded.');
+        }
       }
 
       setProgress(75);
@@ -312,7 +370,12 @@ const ExportModal: React.FC<ExportModalProps> = ({
       link.click();
 
       setProgress(100);
-      showSuccess('Chart exported successfully as PNG!');
+      
+      if (exportMethod === 'error-canvas') {
+        showError('Chart export completed with errors. Please try again for better results.');
+      } else {
+        showSuccess('Chart exported successfully as PNG!');
+      }
       
       // Log audit event
       await logAuditEvent('export', 'png', { 
@@ -320,7 +383,9 @@ const ExportModal: React.FC<ExportModalProps> = ({
         chartType, 
         quality: exportSettings.quality,
         filename: link.download,
-        canvasSize: `${canvas.width}x${canvas.height}`
+        canvasSize: `${canvas.width}x${canvas.height}`,
+        method: exportMethod,
+        success: exportMethod !== 'error-canvas'
       });
 
     } catch (error) {
@@ -367,8 +432,8 @@ const ExportModal: React.FC<ExportModalProps> = ({
     try {
       setProgress(10);
 
-      // Wait for chart to be fully ready
-      const isReady = await waitForChartReadiness(5000);
+      // Wait for chart to be fully ready (increased timeout)
+      const isReady = await waitForChartReadiness(8000);
       if (!isReady) {
         showError('Chart is not ready for export. Please wait for the chart to fully load and try again.');
         debugLog.error('Export PDF failed: Chart readiness timeout', {
@@ -406,33 +471,75 @@ const ExportModal: React.FC<ExportModalProps> = ({
       const scale = exportSettings.quality === 'ultra' ? 3 : exportSettings.quality === 'high' ? 2 : 1;
 
       let canvas: HTMLCanvasElement;
+      let exportMethod = 'unknown';
+      
       try {
-        // Wait briefly to ensure animations finished
-        await new Promise(res => setTimeout(res, 300));
+        // Wait longer to ensure animations finished
+        await new Promise(res => setTimeout(res, 500));
         setProgress(50);
         
         canvas = await convertContainerSvgToCanvas(chartRef.current, 2);
+        exportMethod = 'svg-conversion';
         debugLog.info('SVG -> Canvas conversion succeeded for PDF', {
           canvasWidth: canvas.width,
-          canvasHeight: canvas.height
+          canvasHeight: canvas.height,
+          method: exportMethod
         }, 'ExportModal');
       } catch (svgErr) {
         debugLog.warn('SVG conversion failed for PDF, falling back to html2canvas', svgErr, 'ExportModal');
-        canvas = await html2canvas(chartRef.current, {
-          backgroundColor: theme.palette.background.paper,
-          scale: 2, // High resolution for PDF
-          logging: false,
-          useCORS: true,
-          allowTaint: true,
-          foreignObjectRendering: true,
-          height: chartRef.current.offsetHeight,
-          width: chartRef.current.offsetWidth,
-        });
         
-        debugLog.info('html2canvas fallback succeeded for PDF', {
-          canvasWidth: canvas.width,
-          canvasHeight: canvas.height
-        }, 'ExportModal');
+        try {
+          canvas = await html2canvas(chartRef.current, {
+            backgroundColor: theme.palette.background.paper,
+            scale: 2, // High resolution for PDF
+            logging: false,
+            useCORS: true,
+            allowTaint: true,
+            foreignObjectRendering: true,
+            height: chartRef.current.offsetHeight,
+            width: chartRef.current.offsetWidth,
+            ignoreElements: (element) => {
+              return element.tagName === 'SCRIPT' || element.tagName === 'STYLE';
+            },
+            onclone: (clonedDoc) => {
+              const clonedElement = clonedDoc.querySelector('[data-chart-container]') || clonedDoc.body;
+              if (clonedElement instanceof HTMLElement) {
+                clonedElement.style.background = theme.palette.background.paper;
+              }
+            }
+          });
+          exportMethod = 'html2canvas';
+          
+          debugLog.info('html2canvas fallback succeeded for PDF', {
+            canvasWidth: canvas.width,
+            canvasHeight: canvas.height,
+            method: exportMethod
+          }, 'ExportModal');
+        } catch (html2canvasErr) {
+          debugLog.error('Both SVG and html2canvas methods failed for PDF', {
+            svgError: svgErr,
+            html2canvasError: html2canvasErr
+          }, 'ExportModal');
+          
+          // Final fallback: Create a simple canvas with error message for PDF
+          canvas = document.createElement('canvas');
+          canvas.width = 800;
+          canvas.height = 600;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.fillStyle = theme.palette.background.paper;
+            ctx.fillRect(0, 0, 800, 600);
+            ctx.fillStyle = theme.palette.text.primary;
+            ctx.font = '24px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Export failed - Chart not ready', 400, 300);
+            ctx.font = '16px Arial';
+            ctx.fillText('Please try again after the chart fully loads', 400, 330);
+          }
+          exportMethod = 'error-canvas';
+          
+          showError('Chart export partially failed. A placeholder PDF has been created. Please try again once the chart is fully loaded.');
+        }
       }
 
       setProgress(60);
@@ -481,7 +588,12 @@ const ExportModal: React.FC<ExportModalProps> = ({
       
       pdf.save(`${generateFilename()}.pdf`);
       setProgress(100);
-      showSuccess('Professional PDF report generated successfully!');
+      
+      if (exportMethod === 'error-canvas') {
+        showError('PDF export completed with errors. Please try again for better results.');
+      } else {
+        showSuccess('Professional PDF report generated successfully!');
+      }
       
       // Log audit event
       await logAuditEvent('export', 'pdf', { 
@@ -490,7 +602,9 @@ const ExportModal: React.FC<ExportModalProps> = ({
         includeWatermark: exportSettings.includeWatermark,
         filename: `${generateFilename()}.pdf`,
         canvasSize: `${canvas.width}x${canvas.height}`,
-        pdfSize: `${pdfWidth}x${pdfHeight}mm`
+        pdfSize: `${pdfWidth}x${pdfHeight}mm`,
+        method: exportMethod,
+        success: exportMethod !== 'error-canvas'
       });
 
     } catch (error) {
