@@ -564,6 +564,10 @@ public class DataPrivacyService {
               .sum();
       stats.put("shopsWithMultipleSessions", shopsWithMultipleSessions);
 
+      // Total unique shops with active sessions
+      long totalUniqueShops = sessionsByShop.size();
+      stats.put("totalUniqueShops", totalUniqueShops);
+
       // Average sessions per shop
       double avgSessionsPerShop =
           sessionsByShop.isEmpty() ? 0 : (double) activeSessions.size() / sessionsByShop.size();
