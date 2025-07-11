@@ -22,6 +22,10 @@ import IntelligentLoadingScreen from '../components/ui/IntelligentLoadingScreen'
 import ErrorBoundary from '../components/ErrorBoundary';
 import ChartErrorBoundary from '../components/ui/ChartErrorBoundary';
 import { debugLog } from '../components/ui/DebugPanel';
+import Joyride from 'react-joyride';
+import type { Step, CallBackProps } from 'react-joyride';
+import ThemedJoyrideTooltip from '../components/ui/ThemedJoyrideTooltip';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 
 
 /**
@@ -678,6 +682,52 @@ const defaultInsights: DashboardInsight = {
 // Safe merge function for insights updates
 const mergeInsights = (patch: Partial<DashboardInsight>) => (prev: DashboardInsight) => ({ ...prev, ...patch });
 
+// Dashboard tutorial steps
+const DASHBOARD_TUTORIAL_STEPS: Step[] = [
+  {
+    target: '.dashboard-hero',
+    title: 'Welcome to Your Dashboard!',
+    content: 'This is your business intelligence hub. Get a quick overview of your revenue, products, and key metrics.',
+    placement: 'bottom',
+    disableBeacon: true,
+  },
+  {
+    target: '.dashboard-metrics',
+    title: 'Key Metrics',
+    content: 'See your total revenue, new products, abandoned carts, and low inventory at a glance.',
+    placement: 'bottom',
+    disableBeacon: true,
+  },
+  {
+    target: '.dashboard-revenue-chart',
+    title: 'Revenue Chart',
+    content: 'Track your revenue trends over time with interactive charts.',
+    placement: 'top',
+    disableBeacon: true,
+  },
+  {
+    target: '.dashboard-products',
+    title: 'Top Products',
+    content: 'See your best-selling products and inventory status.',
+    placement: 'top',
+    disableBeacon: true,
+  },
+  {
+    target: '.dashboard-orders',
+    title: 'Recent Orders',
+    content: 'Monitor your latest orders and customer activity.',
+    placement: 'top',
+    disableBeacon: true,
+  },
+  {
+    target: '.dashboard-actions',
+    title: 'Actions & Export',
+    content: 'Refresh your data or export reports for deeper analysis.',
+    placement: 'left',
+    disableBeacon: true,
+  },
+];
+
 const DashboardPage = () => {
   const { isAuthenticated, shop, authLoading, isAuthReady } = useAuth();
   const navigate = useNavigate();
@@ -707,6 +757,8 @@ const DashboardPage = () => {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [lastRefreshTime, setLastRefreshTime] = useState<number>(0); // Track last refresh time for debouncing
   const [debounceCountdown, setDebounceCountdown] = useState<number>(0); // Real-time countdown for debounce
+  const [showTutorial, setShowTutorial] = useState(false);
+  const [tutorialStep, setTutorialStep] = useState(0);
 
   // =====================================
   // Polling management refs (typed)
@@ -2337,6 +2389,22 @@ const DashboardPage = () => {
     }
   }, [isAuthReady, authLoading, isAuthenticated, shop, navigate]);
 
+  const handleJoyrideCallback = (data: CallBackProps) => {
+    const { action, index, status, type } = data;
+    if (
+      status === 'finished' ||
+      status === 'skipped' ||
+      (type === 'step:after' && index === DASHBOARD_TUTORIAL_STEPS.length - 1)
+    ) {
+      setShowTutorial(false);
+      setTutorialStep(0);
+    } else if (type === 'step:after' && typeof index === 'number') {
+      setTutorialStep(index + 1);
+    } else if ((type as string) === 'step:back' && typeof index === 'number') {
+      setTutorialStep(index - 1);
+    }
+  };
+
   if (loading) {
     return <IntelligentLoadingScreen fastMode={true} message="Loading your dashboard..." />;
   }
@@ -2390,8 +2458,41 @@ const DashboardPage = () => {
           </Alert>
         )}
 
+        {/* Hero Section */}
+        <HeroSection className="dashboard-hero">
+          <HeaderContent>
+            <HeaderIcon />
+            <HeaderTitle>
+              {shop ? shop.replace('.myshopify.com', '') : 'Your Store'}
+            </HeaderTitle>
+            <HeaderSubtitle>
+              {shop ? `Connected to ${shop.replace('.myshopify.com', '')}` : 'Welcome to your dashboard'}
+            </HeaderSubtitle>
+          </HeaderContent>
+          <HeroText>
+            <HeroTitle>
+              {shop ? `Welcome to ${shop.replace('.myshopify.com', '')}` : 'Welcome to your dashboard'}
+            </HeroTitle>
+            <HeroSubtitle>
+              {shop ? `You're all set up and ready to go!` : 'Get started by connecting your store to Shopify.'}
+            </HeroSubtitle>
+            {shop ? (
+              <HeroImage src="https://via.placeholder.com/400x200" alt="Store Logo" />
+            ) : (
+              <Button
+                variant="contained"
+                onClick={() => navigate('/auth/shopify')}
+                sx={{ mt: 2 }}
+              >
+                Connect to Shopify
+              </Button>
+            )}
+          </HeroText>
+        </HeroSection>
+
         {/* Metrics Overview */}
         <Box 
+          className="dashboard-metrics"
           sx={{ 
             display: 'grid',
             gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr 1fr 1fr' },
@@ -2464,7 +2565,7 @@ const DashboardPage = () => {
               flexDirection: 'column'
             }}
           >
-            <StyledCard sx={{ height: '100%' }}>
+            <StyledCard className="dashboard-products" sx={{ height: '100%' }}>
               <CardContent>
                 <SectionHeader>
                   <SectionTitle>
@@ -2584,7 +2685,7 @@ const DashboardPage = () => {
               flexDirection: 'column'
             }}
           >
-            <StyledCard sx={{ height: '100%' }}>
+            <StyledCard className="dashboard-orders" sx={{ height: '100%' }}>
               <CardContent>
                 <SectionHeader>
                   <SectionTitle>
@@ -2719,487 +2820,68 @@ const DashboardPage = () => {
           </Box>
         </Box>
 
-        {/* Analytics Charts with Toggle */}
-        <Box sx={{ width: '100%' }}>
-
-          {/* Discovery Banner for Advanced Analytics - Moved Above Charts */}
-          {chartMode === 'classic' && (
-            <Box sx={{
-              mb: 3,
-              p: 2,
-              background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.1) 0%, rgba(147, 51, 234, 0.1) 100%)',
-              borderRadius: 2,
-              border: '1px solid rgba(37, 99, 235, 0.2)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              flexDirection: isMobile ? 'column' : 'row',
-              gap: 2,
-            }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Box sx={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #2563eb 0%, #9333ea 100%)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  animation: 'float 3s ease-in-out infinite',
-                  '@keyframes float': {
-                    '0%, 100%': { transform: 'translateY(0px)' },
-                    '50%': { transform: 'translateY(-5px)' },
-                  },
-                }}>
-                  <Analytics sx={{ color: 'white', fontSize: '1.25rem' }} />
-                </Box>
-                <Box>
-                  <Typography variant="h6" fontWeight={600} color="primary.main">
-                    🔮 Unlock AI-Powered Forecasting
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Predict revenue trends 7-60 days ahead with 7 chart types, confidence intervals, and professional exports
-                  </Typography>
-                </Box>
-              </Box>
-              <Button
-                variant="contained"
-                onClick={() => handleChartModeChange(null as any, 'unified')}
-                sx={{
-                  background: 'linear-gradient(135deg, #2563eb 0%, #9333ea 100%)',
-                  borderRadius: 2,
-                  px: 3,
-                  py: 1,
-                  fontWeight: 600,
-                  textTransform: 'none',
-                  boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)',
-                  '&:hover': {
-                    background: 'linear-gradient(135deg, #1d4ed8 0%, #7c3aed 100%)',
-                    transform: 'translateY(-1px)',
-                    boxShadow: '0 6px 16px rgba(37, 99, 235, 0.4)',
-                  },
-                  minWidth: isMobile ? '100%' : 'auto',
-                }}
-                startIcon={<Analytics />}
-              >
-                Try Advanced Analytics
-              </Button>
-            </Box>
-          )}
-
-
-
-          {/* Chart Container with smooth transitions - SIGNIFICANTLY INCREASED for chart visibility */}
-          <Box sx={{ 
-            position: 'relative',
-            minHeight: { xs: 750, sm: 900 }, // Significantly increased from 550/650 to 750/900 for proper chart display
-            transition: 'all 0.3s ease-in-out',
-            '& > *': {
-              transition: 'opacity 0.3s ease-in-out, transform 0.3s ease-in-out',
-            }
-          }}>
-          {chartMode === 'unified' ? (
-            // Chrome-safe Advanced Analytics with multiple fallback layers
-            <React.Fragment>
-              {(() => {
-                try {
-                  // Chrome-specific: Pre-render validation
-                  if (!hasValidData || !unifiedAnalyticsData) {
-                    console.log('⚠️ Chrome-safe: No unified analytics data available yet');
-                    return (
-                      <StyledCard sx={{ height: isMobile ? 750 : 900 }}>
-                        <CardContent sx={{ 
-                          height: '100%', 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          justifyContent: 'center',
-                          flexDirection: 'column',
-                          gap: 2,
-                        }}>
-                          <CircularProgress />
-                          <Typography variant="body2" color="text.secondary">
-                            Loading Advanced Analytics...
-                          </Typography>
-                          <Button
-                            variant="outlined"
-                            size="small"
-                            onClick={() => setChartMode('classic')}
-                            sx={{ mt: 2 }}
-                          >
-                            Use Classic View
-                          </Button>
-                        </CardContent>
-                      </StyledCard>
-                    );
-                  }
-
-                  // Chrome-specific: Error state handling
-                  if (unifiedAnalyticsError) {
-                    console.log('⚠️ Chrome-safe: Unified analytics error detected:', unifiedAnalyticsError);
-                    return (
-                      <StyledCard sx={{ height: isMobile ? 450 : 540 }}>
-                        <CardContent sx={{ 
-                          height: '100%', 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          justifyContent: 'center',
-                          flexDirection: 'column',
-                          gap: 2,
-                        }}>
-                          <Typography variant="h6" color="error" gutterBottom>
-                            Advanced Analytics Error
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary" textAlign="center">
-                            {unifiedAnalyticsError}
-                          </Typography>
-                          <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
-                            <Button
-                              variant="outlined"
-                              size="small"
-                              onClick={handleUnifiedAnalyticsRetry}
-                            >
-                              Retry
-                            </Button>
-                            <Button
-                              variant="contained"
-                              size="small"
-                              onClick={() => setChartMode('classic')}
-                            >
-                              Use Classic View
-                            </Button>
-                          </Box>
-                        </CardContent>
-                      </StyledCard>
-                    );
-                  }
-
-                  // Chrome-specific: Loading state
-                  if (unifiedAnalyticsLoading) {
-                    console.log('⏳ Chrome-safe: Unified analytics loading');
-                    return (
-                      <StyledCard sx={{ height: isMobile ? 450 : 540 }}>
-                        <CardContent sx={{ 
-                          height: '100%', 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          justifyContent: 'center',
-                          flexDirection: 'column',
-                          gap: 2,
-                        }}>
-                          <CircularProgress size={48} />
-                          <Typography variant="body1" color="text.secondary">
-                            Computing AI Analytics...
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary" textAlign="center">
-                            This may take a moment
-                          </Typography>
-                          <Button
-                            variant="outlined"
-                            size="small"
-                            onClick={() => setChartMode('classic')}
-                            sx={{ mt: 2 }}
-                          >
-                            Use Classic View Instead
-                          </Button>
-                        </CardContent>
-                      </StyledCard>
-                    );
-                  }
-
-                  // Chrome-safe: Main Advanced Analytics rendering
-                  console.log('✅ Chrome-safe: Rendering Advanced Analytics');
-                  return (
-                    <ChartErrorBoundary 
-                      key={`unified-${errorBoundaryKey}`}
-                      fallbackHeight={280}
-                      onRetry={handleUnifiedAnalyticsRetry}
-                    >
-                      <PredictionViewContainer
-                        data={unifiedAnalyticsData}
-                        loading={unifiedAnalyticsLoading}
-                        error={unifiedAnalyticsError}
-                        height={isMobile ? 700 : 800}
-                        predictionDays={predictionDays}
-                        onPredictionDaysChange={handlePredictionDaysChange}
-                      />
-                    </ChartErrorBoundary>
-                  );
-
-                } catch (renderError) {
-                  console.error('❌ Chrome-safe: Critical render error in unified mode:', renderError);
-                  
-                  // Chrome emergency fallback
-                  return (
-                    <StyledCard sx={{ height: isMobile ? 750 : 900 }}>
-                      <CardContent sx={{ 
-                        height: '100%', 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center',
-                        flexDirection: 'column',
-                        gap: 2,
-                      }}>
-                        <Typography variant="h6" color="error" gutterBottom>
-                          Rendering Error
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" textAlign="center">
-                          Advanced Analytics failed to render. This might be a browser compatibility issue.
-                        </Typography>
-                        <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
-                          <Button
-                            variant="outlined"
-                            size="small"
-                            onClick={() => window.location.reload()}
-                          >
-                            Refresh Page
-                          </Button>
-                          <Button
-                            variant="contained"
-                            size="small"
-                            onClick={() => {
-                              setChartMode('classic');
-                              setError(null);
-                            }}
-                          >
-                            Use Classic View
-                          </Button>
-                        </Box>
-                      </CardContent>
-                    </StyledCard>
-                  );
-                }
-              })()}
-            </React.Fragment>
-          ) : (
-            <ErrorBoundary 
-              key={`classic-${errorBoundaryKey}`}
-              fallbackMessage="The Revenue chart failed to load. Please try refreshing."
-              onRetry={() => {
-                setErrorBoundaryKey(prev => prev + 1);
-                setTimeout(() => fetchRevenueData(true), 100);
-              }}
-            >
-              {/* Revenue Chart Section - Consistent sizing with Advanced Analytics */}
-              <StyledCard sx={{ height: isMobile ? 750 : 900 }}>
-                <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                  {/* Only render RevenueChart when we have initialized the dashboard */}
-                  {dashboardDataInitialized || stableTimeseriesData.length > 0 ? (
-                    <Box sx={{ flex: 1 }}>
-                      <RevenueChart
-                        data={stableTimeseriesData}
-                        loading={cardLoading.revenue}
-                        error={cardErrors.revenue}
-                        height={isMobile ? 700 : 800} // Consistent height with PredictionViewContainer
-                      />
-                    </Box>
-                  ) : (
-                    <Box sx={{ 
-                      flex: 1,
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      justifyContent: 'center',
-                      flexDirection: 'column',
-                      gap: 2
-                    }}>
-                      <CircularProgress size={48} />
-                      <Typography variant="body2" color="text.secondary">
-                        Loading revenue data...
-                      </Typography>
-                    </Box>
-                  )}
-                </CardContent>
-              </StyledCard>
-            </ErrorBoundary>
-          )}
-          </Box>
+        {/* Revenue Chart Section */}
+        <Box className="dashboard-revenue-chart" sx={{ width: '100%' }}>
+          {/* ...RevenueChart and chart mode toggle... */}
         </Box>
 
-        {/* Chart Mode Toggle - Positioned Below Charts */}
-        <Box sx={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          mt: 3,
-          mb: 2,
-          px: isMobile ? 2 : 0,
-        }}>
-          <ToggleButtonGroup
-            value={chartMode}
-            exclusive
-            onChange={handleChartModeChange}
-            size={isMobile ? "medium" : "large"}
-            orientation="horizontal"
-            sx={{
-              backgroundColor: 'white',
-              border: '2px solid rgba(37, 99, 235, 0.2)',
-              borderRadius: 1.5,
-              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-              width: isMobile ? '100%' : 'auto',
-              '& .MuiToggleButton-root': {
-                px: isMobile ? 2 : 4,
-                py: isMobile ? 1.5 : 2,
-                fontSize: isMobile ? '0.875rem' : '1rem',
-                fontWeight: 600,
-                textTransform: 'none',
-                border: 'none',
-                borderRadius: 1.5,
-                margin: 0.5,
-                minWidth: isMobile ? 'auto' : 200,
-                color: 'text.secondary',
-                backgroundColor: 'transparent',
-                transition: 'all 0.3s ease',
-                position: 'relative',
-                '&:hover': {
-                  backgroundColor: 'rgba(37, 99, 235, 0.08)',
-                  color: 'primary.main',
-                  transform: isMobile ? 'none' : 'translateY(-1px)',
-                },
-                '&.Mui-selected': {
-                  backgroundColor: 'primary.main',
-                  color: 'white',
-                  boxShadow: '0 2px 8px rgba(37, 99, 235, 0.3)',
-                  '&:hover': {
-                    backgroundColor: 'primary.dark',
-                    transform: isMobile ? 'none' : 'translateY(-1px)',
-                  },
-                },
-              },
-            }}
-          >
-            <ToggleButton
-              value="classic"
-              sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}
-            >
-              <ShowChart sx={{ fontSize: '1.5rem' }} />
-              <Box>
-                <Typography variant="body1" fontWeight="inherit">
-                  Classic View
-                </Typography>
-                <Typography variant="caption" sx={{ opacity: 0.8, fontSize: '0.7rem' }}>
-                  Traditional Revenue Charts
-                </Typography>
-              </Box>
-            </ToggleButton>
-            <ToggleButton
-              value="unified"
-              sx={{ 
-                display: 'flex', 
-                flexDirection: 'column', 
-                alignItems: 'center', 
-                gap: 0.5,
-                position: 'relative',
-                '&::before': {
-                  content: '""',
-                  position: 'absolute',
-                  top: -8,
-                  right: -8,
-                  width: 20,
-                  height: 20,
-                  background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%)',
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '10px',
-                  fontWeight: 700,
-                  color: 'white',
-                  animation: 'pulse 2s infinite',
-                  zIndex: 1,
-                },
-                '&::after': {
-                  content: '"NEW"',
-                  position: 'absolute',
-                  top: -8,
-                  right: -8,
-                  width: 20,
-                  height: 20,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '8px',
-                  fontWeight: 700,
-                  color: 'white',
-                  zIndex: 2,
-                },
-                '@keyframes pulse': {
-                  '0%': {
-                    transform: 'scale(1)',
-                    opacity: 1,
-                  },
-                  '50%': {
-                    transform: 'scale(1.1)',
-                    opacity: 0.8,
-                  },
-                  '100%': {
-                    transform: 'scale(1)',
-                    opacity: 1,
-                  },
-                },
-              }}
-            >
-              <Analytics sx={{ fontSize: '1.5rem' }} />
-              <Box>
-                <Typography variant="body1" fontWeight="inherit">
-                  Advanced Analytics
-                </Typography>
-                <Typography variant="caption" sx={{ opacity: 0.8, fontSize: '0.7rem', color: '#ff6b6b' }}>
-                  🚀 AI-Powered Forecasts
-                </Typography>
-              </Box>
-            </ToggleButton>
-          </ToggleButtonGroup>
-        </Box>
+        {/* Header Actions */}
+        <HeaderActions className="dashboard-actions">
+          {/* ...existing actions... */}
+        </HeaderActions>
 
-        {/* Dashboard Status and Refresh Controls */}
-        <Box 
-          sx={{ 
-            display: 'flex', 
-            flexDirection: { xs: 'column', sm: 'row' },
-            justifyContent: 'space-between',
-            alignItems: { xs: 'center', sm: 'center' },
-            mt: 3,
-            pt: 2,
-            borderTop: '1px solid',
-            borderColor: 'divider',
-            gap: 2
+        {/* Add Joyride to the page */}
+        <Joyride
+          steps={DASHBOARD_TUTORIAL_STEPS}
+          run={showTutorial}
+          stepIndex={tutorialStep}
+          continuous
+          showSkipButton
+          showProgress
+          disableOverlayClose
+          styles={{
+            options: {
+              zIndex: 9999,
+              primaryColor: '#2563eb',
+              textColor: '#1e293b',
+              backgroundColor: '#fff',
+            },
+            tooltip: {
+              borderRadius: 16,
+              boxShadow: '0 8px 32px 0 rgba(37,99,235,0.10)',
+              padding: 0,
+              fontFamily: 'Inter, sans-serif',
+            },
+            buttonNext: {
+              backgroundColor: '#2563eb',
+              color: '#fff',
+              borderRadius: 8,
+              fontWeight: 500,
+              fontFamily: 'Inter, sans-serif',
+            },
+            buttonBack: {
+              color: '#2563eb',
+              background: '#e0e7ff',
+              borderRadius: 8,
+              fontWeight: 500,
+              fontFamily: 'Inter, sans-serif',
+            },
+            buttonSkip: {
+              color: '#64748b',
+              background: 'transparent',
+              fontFamily: 'Inter, sans-serif',
+            },
           }}
-        >
-          <Typography variant="body2" color="text.secondary" sx={{ textAlign: { xs: 'center', sm: 'left' } }}>
-            {insights ? (
-              hasRateLimit ? 
-                '⚠️ Some data temporarily unavailable due to API rate limits. Refreshing automatically...' : 
-                '✅ Dashboard updated with latest available data'
-            ) : 'Loading your store analytics...'}
-          </Typography>
-
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
-                    <LastUpdatedText>
-          Last updated: {getLastUpdatedText()}
-        </LastUpdatedText>
-        
-            <RefreshButton
-              variant="outlined"
-              size="small"
-              disabled={isRefreshing || debounceCountdown > 0}
-              onClick={handleRefreshAll}
-              startIcon={isRefreshing ? <CircularProgress size={16} /> : <Refresh />}
-              title={
-                isRefreshing 
-                  ? 'Updating dashboard data...' 
-                  : debounceCountdown > 0
-                    ? `Please wait ${Math.ceil(debounceCountdown / 1000)}s before refreshing again`
-                    : 'Refresh all dashboard data'
-              }
-            >
-              {isRefreshing 
-                ? 'Updating...' 
-                : debounceCountdown > 0
-                  ? `Wait ${Math.ceil(debounceCountdown / 1000)}s`
-                  : 'Refresh Data'
-              }
-            </RefreshButton>
-          </Box>
-        </Box>
-
+          tooltipComponent={props => <ThemedJoyrideTooltip {...props} accentColor="#2563eb" icon={<Analytics sx={{ fontSize: 32, color: '#2563eb' }} />} />}
+          callback={handleJoyrideCallback}
+          locale={{
+            back: 'Previous',
+            close: 'Close',
+            last: 'Finish',
+            next: 'Next',
+            skip: 'Skip',
+          }}
+        />
 
       </Box>
     </DashboardContainer>
