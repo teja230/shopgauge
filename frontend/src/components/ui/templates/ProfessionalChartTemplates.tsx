@@ -10,6 +10,13 @@ import {
   ShowChart,
 } from '@mui/icons-material';
 
+// Helper function to format conversion percentages with proper precision for small values
+const formatConversionPercentage = (value: number): string => {
+  if (value < 1) return `${value.toFixed(2)}%`;
+  if (value < 10) return `${value.toFixed(1)}%`;
+  return `${value.toFixed(0)}%`;
+};
+
 interface TemplateProps {
   title: string;
   shopName: string;
@@ -130,7 +137,7 @@ export const ExecutiveSummaryTemplate: React.FC<TemplateProps> = ({
               textAlign: 'center',
             }}>
               <Typography variant="h5" fontWeight={600} color="warning.main">
-                {metrics.conversion.toFixed(1)}%
+                {formatConversionPercentage(metrics.conversion)}
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Conversion Rate
@@ -372,7 +379,7 @@ export const InvestorUpdateTemplate: React.FC<TemplateProps> = ({
         </Box>
         <Box sx={{ textAlign: 'center' }}>
           <Typography variant="h6" fontWeight={600} color="warning.main">
-            {metrics?.conversion ? `${metrics.conversion.toFixed(1)}%` : 'N/A'}
+            {metrics?.conversion ? formatConversionPercentage(metrics.conversion) : 'N/A'}
           </Typography>
           <Typography variant="caption" color="text.secondary">
             Conversion

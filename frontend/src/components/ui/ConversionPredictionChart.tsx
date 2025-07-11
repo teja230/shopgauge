@@ -137,9 +137,7 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
     };
   }, [processedData]);
 
-  const formatPercentage = (value: number) => {
-    return `${value.toFixed(1)}%`;
-  };
+
 
   // Common chart elements with enhanced visual separation - moved before early returns
   const commonElements = useMemo(() => {
