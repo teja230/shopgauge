@@ -685,45 +685,45 @@ const mergeInsights = (patch: Partial<DashboardInsight>) => (prev: DashboardInsi
 // Dashboard tutorial steps
 const DASHBOARD_TUTORIAL_STEPS: Step[] = [
   {
-    target: '.dashboard-hero',
+    target: 'body',
     title: 'Welcome to Your Dashboard!',
     content: 'This is your business intelligence hub. Get a quick overview of your revenue, products, and key metrics.',
-    placement: 'bottom',
+    placement: 'center',
     disableBeacon: true,
   },
   {
     target: '.dashboard-metrics',
     title: 'Key Metrics',
-    content: 'See your total revenue, new products, abandoned carts, and low inventory at a glance.',
+    content: 'See your total revenue, conversion rate, abandoned carts, low inventory, and new products at a glance.',
     placement: 'bottom',
-    disableBeacon: true,
-  },
-  {
-    target: '.dashboard-revenue-chart',
-    title: 'Revenue Chart',
-    content: 'Track your revenue trends over time with interactive charts.',
-    placement: 'top',
     disableBeacon: true,
   },
   {
     target: '.dashboard-products',
     title: 'Top Products',
-    content: 'See your best-selling products and inventory status.',
+    content: 'See your best-selling products and inventory status. Click on product names to view them in Shopify.',
     placement: 'top',
     disableBeacon: true,
   },
   {
     target: '.dashboard-orders',
     title: 'Recent Orders',
-    content: 'Monitor your latest orders and customer activity.',
+    content: 'Monitor your latest orders and customer activity. Click on order numbers to view them in Shopify.',
     placement: 'top',
     disableBeacon: true,
   },
   {
-    target: '.dashboard-actions',
-    title: 'Actions & Export',
-    content: 'Refresh your data or export reports for deeper analysis.',
-    placement: 'left',
+    target: 'body',
+    title: 'Advanced Analytics',
+    content: 'Switch between Classic View and Advanced Analytics to access AI-powered revenue forecasting with 7-60 day predictions.',
+    placement: 'center',
+    disableBeacon: true,
+  },
+  {
+    target: 'body',
+    title: 'Data Refresh',
+    content: 'Use the "Refresh Data" button to get the latest information from your Shopify store.',
+    placement: 'center',
     disableBeacon: true,
   },
 ];
@@ -2398,6 +2398,19 @@ const DashboardPage = () => {
     ) {
       setShowTutorial(false);
       setTutorialStep(0);
+      
+      // Show completion notification
+      if (status === 'finished') {
+        notifications.showSuccess('Tutorial completed! You\'re ready to explore your dashboard.', {
+          category: 'Tutorial',
+          duration: 4000
+        });
+      } else if (status === 'skipped') {
+        notifications.showInfo('Tutorial skipped. You can restart it anytime using the Tutorial button.', {
+          category: 'Tutorial',
+          duration: 3000
+        });
+      }
     } else if (type === 'step:after' && typeof index === 'number') {
       setTutorialStep(index + 1);
     } else if ((type as string) === 'step:back' && typeof index === 'number') {
@@ -2457,6 +2470,44 @@ const DashboardPage = () => {
             {error}
           </Alert>
         )}
+
+        {/* Dashboard Header with Tutorial Button */}
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            mb: 3,
+            pb: 2,
+            borderBottom: '1px solid',
+            borderColor: 'divider',
+          }}
+        >
+          <Box>
+            <Typography variant="h4" component="h1" sx={{ fontWeight: 600, color: 'text.primary' }}>
+              Dashboard
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {shop ? `Store: ${shop.replace('.myshopify.com', '')}` : 'Loading store...'}
+            </Typography>
+          </Box>
+          <Button
+            variant="outlined"
+            startIcon={<HelpOutlineIcon />}
+            onClick={() => {
+              setShowTutorial(true);
+              setTutorialStep(0);
+            }}
+            sx={{
+              borderRadius: 2,
+              textTransform: 'none',
+              fontWeight: 500,
+            }}
+            title="Start Dashboard Tutorial"
+          >
+            Tutorial
+          </Button>
+        </Box>
 
         {/* Metrics Overview */}
         <Box
@@ -3087,10 +3138,32 @@ const DashboardPage = () => {
         <Box sx={{
           display: 'flex',
           justifyContent: 'center',
+          alignItems: 'center',
           mt: 3,
           mb: 2,
           px: isMobile ? 2 : 0,
+          gap: 2,
         }}>
+          <Button
+            variant="text"
+            size="small"
+            startIcon={<HelpOutlineIcon />}
+            onClick={() => {
+              setShowTutorial(true);
+              setTutorialStep(4); // Jump to Advanced Analytics step
+            }}
+            sx={{
+              textTransform: 'none',
+              fontWeight: 500,
+              color: 'text.secondary',
+              '&:hover': {
+                color: 'primary.main',
+              },
+            }}
+            title="Learn about Advanced Analytics"
+          >
+            Learn More
+          </Button>
           <ToggleButtonGroup
             value={chartMode}
             exclusive
@@ -3269,6 +3342,94 @@ const DashboardPage = () => {
           </Box>
         </Box>
 
+        {/* Tutorial Trigger Button - Floating Action Button */}
+        <Box
+          sx={{
+            position: 'fixed',
+            bottom: { xs: 20, sm: 30 },
+            right: { xs: 20, sm: 30 },
+            zIndex: 1000,
+          }}
+        >
+          <Button
+            variant="contained"
+            onClick={() => {
+              setShowTutorial(true);
+              setTutorialStep(0);
+            }}
+            sx={{
+              borderRadius: '50%',
+              width: 56,
+              height: 56,
+              minWidth: 'unset',
+              boxShadow: '0 4px 20px rgba(37, 99, 235, 0.3)',
+              background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%)',
+                transform: 'translateY(-2px)',
+                boxShadow: '0 6px 24px rgba(37, 99, 235, 0.4)',
+              },
+              transition: 'all 0.3s ease',
+            }}
+            title="Start Dashboard Tutorial"
+            aria-label="Start Dashboard Tutorial"
+          >
+            <HelpOutlineIcon sx={{ fontSize: 24 }} />
+          </Button>
+        </Box>
+
+        {/* Joyride Tutorial Component */}
+        <Joyride
+          steps={DASHBOARD_TUTORIAL_STEPS}
+          run={showTutorial}
+          stepIndex={tutorialStep}
+          continuous
+          showSkipButton
+          showProgress
+          disableOverlayClose
+          styles={{
+            options: {
+              zIndex: 9999,
+              primaryColor: '#2563eb',
+              textColor: '#1e293b',
+              backgroundColor: '#fff',
+            },
+            tooltip: {
+              borderRadius: 16,
+              boxShadow: '0 8px 32px 0 rgba(37,99,235,0.10)',
+              padding: 0,
+              fontFamily: 'Inter, sans-serif',
+            },
+            buttonNext: {
+              backgroundColor: '#2563eb',
+              color: '#fff',
+              borderRadius: 8,
+              fontWeight: 500,
+              fontFamily: 'Inter, sans-serif',
+            },
+            buttonBack: {
+              color: '#2563eb',
+              background: '#e0e7ff',
+              borderRadius: 8,
+              fontWeight: 500,
+              fontFamily: 'Inter, sans-serif',
+            },
+            buttonSkip: {
+              color: '#64748b',
+              background: 'transparent',
+              fontFamily: 'Inter, sans-serif',
+            },
+          }}
+          tooltipComponent={props => <ThemedJoyrideTooltip {...props} accentColor="#2563eb" />}
+          callback={handleJoyrideCallback}
+          locale={{
+            back: 'Previous',
+            close: 'Close',
+            last: 'Finish',
+            next: 'Next',
+            skip: 'Skip',
+          }}
+        />
 
       </Box>
     </DashboardContainer>

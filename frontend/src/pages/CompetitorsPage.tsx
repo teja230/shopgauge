@@ -1999,6 +1999,21 @@ export default function CompetitorsPage() {
           </div>
         </div>
       )}
+
+      {/* Tutorial Trigger Button - Floating Action Button */}
+      <div className="fixed bottom-5 right-5 z-50">
+        <button
+          onClick={() => {
+            setShowTutorial(true);
+            setTutorialStep(0);
+          }}
+          className="w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
+          title="Start Market Intelligence Tutorial"
+          aria-label="Start Market Intelligence Tutorial"
+        >
+          <QuestionMarkCircleIcon className="h-6 w-6" />
+        </button>
+      </div>
     </div>
   );
 }
