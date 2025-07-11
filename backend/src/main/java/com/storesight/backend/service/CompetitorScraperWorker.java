@@ -191,9 +191,11 @@ public class CompetitorScraperWorker {
             60L,
             TimeUnit.SECONDS,
             new LinkedBlockingQueue<>());
-    
-    log.info("[Worker] Initialized ThreadPoolExecutor with maxConcurrentScrapers={}, maxConcurrentScrapersLimit={}", 
-             maxConcurrentScrapers, maxConcurrentScrapersLimit);
+
+    log.info(
+        "[Worker] Initialized ThreadPoolExecutor with maxConcurrentScrapers={}, maxConcurrentScrapersLimit={}",
+        maxConcurrentScrapers,
+        maxConcurrentScrapersLimit);
   }
 
   /** Scheduled task to scrape competitor prices (runs every 4 hours) */
