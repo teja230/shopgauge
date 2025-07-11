@@ -1,5 +1,6 @@
 package com.storesight.backend.service;
 
+import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import java.math.BigDecimal;
 import java.util.HashMap;
@@ -177,6 +178,12 @@ public class CompetitorScraperWorker {
   }
 
   public CompetitorScraperWorker() {
+    // Constructor left empty - ThreadPoolExecutor will be initialized in @PostConstruct
+  }
+
+  /** Initialize ThreadPoolExecutor after @Value fields are injected */
+  @PostConstruct
+  public void initializeExecutor() {
     this.scrapeExecutor =
         new ThreadPoolExecutor(
             1,
@@ -184,6 +191,9 @@ public class CompetitorScraperWorker {
             60L,
             TimeUnit.SECONDS,
             new LinkedBlockingQueue<>());
+    
+    log.info("[Worker] Initialized ThreadPoolExecutor with maxConcurrentScrapers={}, maxConcurrentScrapersLimit={}", 
+             maxConcurrentScrapers, maxConcurrentScrapersLimit);
   }
 
   /** Scheduled task to scrape competitor prices (runs every 4 hours) */

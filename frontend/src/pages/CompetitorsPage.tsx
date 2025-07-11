@@ -1438,11 +1438,11 @@ export default function CompetitorsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
+        {/* Limit Display */}
+        <LimitDisplay />
+        
         {/* Market Insights Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 market-insights-cards">
-          
-          {/* Limit Display */}
-          <LimitDisplay />
           <div className="bg-white rounded-xl shadow p-4">
             <div className="flex items-center justify-between">
               <div>
