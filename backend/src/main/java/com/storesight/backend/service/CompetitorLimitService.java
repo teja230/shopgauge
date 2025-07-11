@@ -169,12 +169,14 @@ public class CompetitorLimitService {
           maxTotalSuggestions,
           planType.getDisplayName());
 
-      return new LimitCheckResult(canAdd, currentSuggestions, maxTotalSuggestions, remaining, planType);
+      return new LimitCheckResult(
+          canAdd, currentSuggestions, maxTotalSuggestions, remaining, planType);
 
     } catch (Exception e) {
       log.error("Error checking suggestion limit for shop {}: {}", shopId, e.getMessage());
       // Fail safe - allow suggestions if we can't check
-      return new LimitCheckResult(true, 0, maxTotalSuggestions, maxTotalSuggestions, PlanType.CURRENT);
+      return new LimitCheckResult(
+          true, 0, maxTotalSuggestions, maxTotalSuggestions, PlanType.CURRENT);
     }
   }
 
