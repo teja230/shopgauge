@@ -9,6 +9,7 @@ import {
   getDebouncedSuggestionCount,
   refreshSuggestionCount as refreshSuggestionCountAPI
 } from '../api';
+import { marketIntelligenceAPI } from '../api/marketIntelligence';
 import { useAuth } from '../context/AuthContext';
 import { 
   SparklesIcon, 
@@ -501,6 +502,7 @@ export default function CompetitorsPage() {
   });
   const [interactiveDemoActive, setInteractiveDemoActive] = useState(false);
   const [demoStartTime, setDemoStartTime] = useState<number>(0);
+  const [limits, setLimits] = useState<any>(null);
   
   // Refs to prevent unnecessary re-renders and API calls
   const lastFetchTimeRef = useRef<number>(0);
@@ -533,6 +535,18 @@ export default function CompetitorsPage() {
       // No fallback - server-side is the source of truth for cross-device consistency
     }
   }, [shop]);
+
+  // Fetch limits for the current shop
+  const fetchLimits = useCallback(async () => {
+    if (!shop || !isAuthenticated) return;
+    
+    try {
+      const limitsData = await marketIntelligenceAPI.checkLimits();
+      setLimits(limitsData);
+    } catch (error) {
+      console.log('Could not fetch limits from server');
+    }
+  }, [shop, isAuthenticated]);
 
   // Optimized data fetching with authentication checks
   const fetchData = useCallback(async (forceRefresh = false) => {
@@ -635,6 +649,9 @@ export default function CompetitorsPage() {
       // Fetch discovery status from server (cross-device consistency)
       fetchDiscoveryStatus();
       
+      // Fetch limits for the current shop
+      fetchLimits();
+      
       // Check if user explicitly disabled demo mode for this shop
       const demoDisabled = localStorage.getItem(`demoDisabled_${shop}`);
       if (demoDisabled === 'true') {
@@ -642,7 +659,7 @@ export default function CompetitorsPage() {
         console.log(`Demo mode disabled by user for shop: ${shop}`);
       }
     }
-  }, [shop]);
+  }, [shop, fetchLimits]);
 
   // Initial data load - ON-DEMAND ONLY (no polling)
   useEffect(() => {
@@ -712,6 +729,16 @@ export default function CompetitorsPage() {
     setIsAdding(true);
     try {
       let newCompetitor: Competitor;
+      
+      // Check limits before adding competitor (only in live mode)
+      if (!isDemoMode && limits) {
+        if (!limits.competitorLimit.canAdd) {
+          notifications.showError(limits.competitorLimit.message || 'Competitor limit reached', {
+            category: 'Competitors'
+          });
+          return;
+        }
+      }
       
       if (isDemoMode) {
         // Demo mode logic
@@ -935,6 +962,59 @@ export default function CompetitorsPage() {
       }
     }
   }, [isDemoMode, shop]);
+
+  // Limit display component
+  const LimitDisplay = () => {
+    if (isDemoMode || !limits) return null;
+
+    const { competitorLimit, suggestionLimit, discoveryLimit } = limits;
+    
+    return (
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <InformationCircleIcon className="h-5 w-5 text-blue-600" />
+            <h3 className="text-sm font-medium text-blue-900">Usage Limits</h3>
+          </div>
+          <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">
+            {competitorLimit.tier.toUpperCase()} TIER
+          </span>
+        </div>
+        
+        <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="text-center">
+            <div className="text-2xl font-bold text-blue-900">
+              {competitorLimit.currentCount}/{competitorLimit.limit}
+            </div>
+            <div className="text-xs text-blue-600">Competitors</div>
+            {competitorLimit.message && (
+              <div className="text-xs text-blue-500 mt-1">{competitorLimit.message}</div>
+            )}
+          </div>
+          
+          <div className="text-center">
+            <div className="text-2xl font-bold text-blue-900">
+              {suggestionLimit.currentCount}/{suggestionLimit.limit}
+            </div>
+            <div className="text-xs text-blue-600">Suggestions</div>
+          </div>
+          
+          <div className="text-center">
+            <div className="text-2xl font-bold text-blue-900">
+              {discoveryLimit.productCount}/{discoveryLimit.maxProducts}
+            </div>
+            <div className="text-xs text-blue-600">Products</div>
+          </div>
+        </div>
+        
+        {competitorLimit.currentCount >= competitorLimit.limit * 0.8 && (
+          <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
+            ⚠️ You're approaching your competitor limit. Consider upgrading for unlimited tracking.
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const toggleDemoMode = useCallback(() => {
     console.log(`Demo Mode Toggle: Current state: ${isDemoMode ? 'Demo' : 'Live'}, switching to: ${isDemoMode ? 'Live' : 'Demo'}`);
@@ -1360,6 +1440,9 @@ export default function CompetitorsPage() {
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Market Insights Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 market-insights-cards">
+          
+          {/* Limit Display */}
+          <LimitDisplay />
           <div className="bg-white rounded-xl shadow p-4">
             <div className="flex items-center justify-between">
               <div>

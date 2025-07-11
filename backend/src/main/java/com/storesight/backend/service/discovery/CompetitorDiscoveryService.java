@@ -41,7 +41,7 @@ public class CompetitorDiscoveryService {
 
   @Autowired private SearchClient searchClient;
 
-  @Autowired private KeywordBuilder keywordBuilder;
+  @Autowired private ProductAwareKeywordBuilder keywordBuilder;
 
   /** Scheduled task to discover competitors for all active shops */
   @Scheduled(cron = "0 45 3 * * *") // Default: daily at 3:45 AM
@@ -149,8 +149,8 @@ public class CompetitorDiscoveryService {
 
     log.debug("Discovering competitors for product: {} (ID: {})", productTitle, productId);
 
-    // Build search keywords
-    String keywords = keywordBuilder.buildCompetitorKeywords(productTitle, null, null);
+    // Build search keywords using product-aware approach
+    String keywords = keywordBuilder.buildProductAwareKeywords(shopDomain, null);
 
     if (keywords.trim().isEmpty()) {
       log.warn("No valid keywords generated for product: {}", productTitle);

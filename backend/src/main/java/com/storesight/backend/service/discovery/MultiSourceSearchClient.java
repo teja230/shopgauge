@@ -1,6 +1,8 @@
 package com.storesight.backend.service.discovery;
 
+import com.storesight.backend.service.CostOptimizationService;
 import jakarta.annotation.PostConstruct;
+import java.math.BigDecimal;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -10,10 +12,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
-/** Multi-source search client that intelligently routes requests to the best available provider */
+/**
+ * Multi-source search client that intelligently routes requests to the best available provider with
+ * cost optimization
+ */
 @Service
 @ConditionalOnProperty(name = "discovery.enabled", havingValue = "true", matchIfMissing = true)
 public class MultiSourceSearchClient implements SearchClient {
@@ -29,7 +33,11 @@ public class MultiSourceSearchClient implements SearchClient {
   @Value("${discovery.multi-source.max-providers:3}")
   private int maxProvidersToTry;
 
+  @Value("${discovery.multi-source.cost-optimization:true}")
+  private boolean costOptimizationEnabled;
+
   @Autowired private List<SearchClient> searchClients;
+  @Autowired private CostOptimizationService costOptimizationService;
 
   private List<SearchClient> sortedProviders;
 
@@ -89,6 +97,7 @@ public class MultiSourceSearchClient implements SearchClient {
     config.put("enabled", isEnabled());
     config.put("fallbackEnabled", fallbackEnabled);
     config.put("maxProviders", maxProvidersToTry);
+    config.put("costOptimizationEnabled", costOptimizationEnabled);
     config.put(
         "providers",
         sortedProviders.stream().map(SearchClient::getProviderConfig).collect(Collectors.toList()));
@@ -96,23 +105,41 @@ public class MultiSourceSearchClient implements SearchClient {
   }
 
   @Override
-  @Cacheable(
-      value = "searchResults",
-      key = "#keywords + '_' + #maxResults",
-      unless = "#result.isEmpty()")
   public List<SearchResult> search(String keywords, int maxResults) {
     if (!isEnabled()) {
       log.warn("MultiSourceSearchClient is not enabled");
       return List.of();
     }
 
+    // Check cache first if cost optimization is enabled
+    String cacheKey = null;
+    if (costOptimizationEnabled) {
+      cacheKey = costOptimizationService.generateCacheKey("multi-source", keywords, maxResults);
+      Optional<List<SearchResult>> cachedResults =
+          costOptimizationService.getCachedResults(cacheKey);
+      if (cachedResults.isPresent()) {
+        log.info("Returning cached results for keywords: '{}'", keywords);
+        return cachedResults.get();
+      }
+    }
+
     List<SearchResult> allResults = new ArrayList<>();
     Set<String> seenUrls = new HashSet<>();
     int providersUsed = 0;
+    BigDecimal totalCost = BigDecimal.ZERO;
+    int totalRequests = 0;
 
     for (SearchClient provider : sortedProviders) {
       if (providersUsed >= maxProvidersToTry) {
         break;
+      }
+
+      // Check budget before making request
+      BigDecimal estimatedCost = BigDecimal.valueOf(provider.getCostPerSearch());
+      if (costOptimizationEnabled
+          && !costOptimizationService.canMakeRequest(provider.getProviderName(), estimatedCost)) {
+        log.warn("Skipping provider {} due to budget constraints", provider.getProviderName());
+        continue;
       }
 
       try {
@@ -129,9 +156,17 @@ public class MultiSourceSearchClient implements SearchClient {
           results = provider.search(keywords, maxResults);
         }
 
+        // Track cost
+        if (costOptimizationEnabled) {
+          totalCost = totalCost.add(estimatedCost);
+          totalRequests++;
+          costOptimizationService.trackApiCost(provider.getProviderName(), estimatedCost, 1);
+        }
+
         // Deduplicate results by URL
         for (SearchResult result : results) {
           if (seenUrls.add(result.getUrl().toLowerCase())) {
+            result.setProvider(provider.getProviderName());
             allResults.add(result);
           }
         }
@@ -139,7 +174,10 @@ public class MultiSourceSearchClient implements SearchClient {
         providersUsed++;
 
         log.info(
-            "Provider {} returned {} unique results", provider.getProviderName(), results.size());
+            "Provider {} returned {} unique results (cost: ${})",
+            provider.getProviderName(),
+            results.size(),
+            estimatedCost);
 
         // If we have enough results, we can stop
         if (allResults.size() >= maxResults) {
@@ -170,11 +208,17 @@ public class MultiSourceSearchClient implements SearchClient {
     List<SearchResult> finalResults =
         allResults.stream().limit(maxResults).collect(Collectors.toList());
 
+    // Cache results if cost optimization is enabled
+    if (costOptimizationEnabled && cacheKey != null && !finalResults.isEmpty()) {
+      costOptimizationService.cacheResults(cacheKey, finalResults);
+    }
+
     log.info(
-        "Multi-source search for '{}' returned {} results from {} providers",
+        "Multi-source search for '{}' returned {} results from {} providers (total cost: ${})",
         keywords,
         finalResults.size(),
-        providersUsed);
+        providersUsed,
+        totalCost);
 
     return finalResults;
   }
@@ -191,6 +235,39 @@ public class MultiSourceSearchClient implements SearchClient {
         sortedProviders.stream()
             .collect(
                 Collectors.toMap(SearchClient::getProviderName, SearchClient::getCostPerSearch)));
+
+    // Add cost optimization stats
+    if (costOptimizationEnabled) {
+      CostOptimizationService.CostAnalytics analytics = costOptimizationService.getCostAnalytics();
+      stats.put(
+          "costAnalytics",
+          Map.of(
+              "dailyCost", analytics.getTotalDailyCost(),
+              "monthlyCost", analytics.getTotalMonthlyCost(),
+              "dailyRequests", analytics.getTotalDailyRequests(),
+              "monthlyRequests", analytics.getTotalMonthlyRequests(),
+              "estimatedSavings", analytics.getEstimatedSavings(),
+              "dailyUsagePercentage", analytics.getDailyUsagePercentage(),
+              "monthlyUsagePercentage", analytics.getMonthlyUsagePercentage()));
+    }
+
     return stats;
+  }
+
+  /** Get cost optimization recommendations */
+  public List<CostOptimizationService.CostOptimizationRecommendation>
+      getCostOptimizationRecommendations() {
+    if (!costOptimizationEnabled) {
+      return List.of();
+    }
+
+    return costOptimizationService.getOptimizationRecommendations();
+  }
+
+  /** Reset cost tracking (for testing) */
+  public void resetCostTracking() {
+    if (costOptimizationEnabled) {
+      costOptimizationService.resetDailyCosts();
+    }
   }
 }
