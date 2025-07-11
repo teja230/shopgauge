@@ -74,7 +74,7 @@ const sampleSessionStorageData: TestUnifiedAnalyticsData = {
       },
     },
   ],
-  period_days: 60,
+  period_days: 90,
   // Note: total_revenue and total_orders are missing - this is the issue!
 };
 
@@ -111,7 +111,7 @@ export const testValidation = () => {
     ...sampleSessionStorageData,
     total_revenue: calculatedTotalRevenue,
     total_orders: calculatedTotalOrders,
-    period_days: sampleSessionStorageData.period_days || 60
+    period_days: sampleSessionStorageData.period_days || 90
   };
   
   console.log('Original data totals:', {
@@ -193,7 +193,7 @@ export const simulateCompleteFlow = () => {
     ...storageData,
     total_revenue: calculatedTotalRevenue,
     total_orders: calculatedTotalOrders,
-    period_days: storageData.period_days || 60
+    period_days: storageData.period_days || 90
   };
   
   console.log('Auto-fix applied:', {
