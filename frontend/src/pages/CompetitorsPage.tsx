@@ -25,7 +25,8 @@ import {
   AcademicCapIcon,
   CogIcon,
   InformationCircleIcon,
-  XMarkIcon
+  XMarkIcon,
+  QuestionMarkCircleIcon
 } from '@heroicons/react/24/outline';
 import type { CompetitorSuggestion } from '../api';
 import { useNotifications } from '../hooks/useNotifications';
@@ -34,7 +35,8 @@ import { getSuggestionCount } from '../api';
 import { useNavigate } from 'react-router-dom';
 import IntelligentLoadingScreen from '../components/ui/IntelligentLoadingScreen';
 import Joyride from 'react-joyride';
-import type { CallBackProps, Step } from 'react-joyride';
+import type { CallBackProps, Step, TooltipRenderProps } from 'react-joyride';
+import ThemedJoyrideTooltip from '../components/ui/ThemedJoyrideTooltip';
 
 // Tutorial step types
 interface TutorialStep {
@@ -1763,7 +1765,20 @@ export default function CompetitorsPage() {
         <div className="bg-white rounded-xl shadow overflow-hidden">
           <div className="p-6 border-b border-gray-200">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-gray-800">Market Intelligence</h2>
+              <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
+                Market Intelligence
+                <button
+                  onClick={() => {
+                    setShowTutorial(true);
+                    setTutorialStep(0);
+                  }}
+                  className="ml-2 p-1 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  title="Show Tutorial"
+                  aria-label="Show Tutorial"
+                >
+                  <QuestionMarkCircleIcon className="h-6 w-6" />
+                </button>
+              </h2>
               <div className="text-sm text-gray-500">
                 {filteredCompetitors.length} of {competitors.length} competitor{competitors.length !== 1 ? 's' : ''}
               </div>
@@ -1830,11 +1845,36 @@ export default function CompetitorsPage() {
           options: {
             zIndex: 9999,
             primaryColor: '#2563eb',
-            textColor: '#222',
-            arrowColor: '#fff',
+            textColor: '#1e293b',
             backgroundColor: '#fff',
           },
+          tooltip: {
+            borderRadius: 16,
+            boxShadow: '0 8px 32px 0 rgba(37,99,235,0.10)',
+            padding: 0,
+            fontFamily: 'Inter, sans-serif',
+          },
+          buttonNext: {
+            backgroundColor: '#2563eb',
+            color: '#fff',
+            borderRadius: 8,
+            fontWeight: 500,
+            fontFamily: 'Inter, sans-serif',
+          },
+          buttonBack: {
+            color: '#2563eb',
+            background: '#e0e7ff',
+            borderRadius: 8,
+            fontWeight: 500,
+            fontFamily: 'Inter, sans-serif',
+          },
+          buttonSkip: {
+            color: '#64748b',
+            background: 'transparent',
+            fontFamily: 'Inter, sans-serif',
+          },
         }}
+        tooltipComponent={props => <ThemedJoyrideTooltip {...props} accentColor="#2563eb" />}
         callback={handleJoyrideCallback}
         locale={{
           back: 'Previous',
