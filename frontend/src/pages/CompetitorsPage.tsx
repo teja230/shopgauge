@@ -733,7 +733,7 @@ export default function CompetitorsPage() {
       // Check limits before adding competitor (only in live mode)
       if (!isDemoMode && limits) {
         if (!limits.competitorLimit.canAdd) {
-          notifications.showError(limits.competitorLimit.message || 'Competitor limit reached', {
+          notifications.showError(limits.competitorLimit.upgradeMessage || 'Competitor limit reached', {
             category: 'Competitors'
           });
           return;
