@@ -2001,17 +2001,36 @@ export default function CompetitorsPage() {
       )}
 
       {/* Tutorial Trigger Button - Floating Action Button */}
-      <div className="fixed bottom-5 right-5 z-50">
+      <div
+        className="fixed z-50"
+        style={{
+          bottom: '30px',
+          right: '30px',
+          // Hide on mobile, show on sm+
+          display: 'none',
+        }}
+      >
+        {/* Use Tailwind for sm+ screens, inline style for gradient */}
         <button
           onClick={() => {
             setShowTutorial(true);
             setTutorialStep(0);
           }}
-          className="w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
-          title="Start Market Intelligence Tutorial"
           aria-label="Start Market Intelligence Tutorial"
+          title="Start Market Intelligence Tutorial"
+          className="hidden sm:flex items-center justify-center rounded-full shadow-xl focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
+          style={{
+            width: 56,
+            height: 56,
+            minWidth: 56,
+            minHeight: 56,
+            background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+            color: 'white',
+            boxShadow: '0 4px 20px rgba(37, 99, 235, 0.3)',
+            transition: 'all 0.3s ease',
+          }}
         >
-          <QuestionMarkCircleIcon className="h-6 w-6" />
+          <QuestionMarkCircleIcon style={{ fontSize: 28 }} />
         </button>
       </div>
     </div>
