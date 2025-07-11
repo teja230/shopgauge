@@ -143,13 +143,50 @@ public class CompetitorLimitService {
     }
   }
 
+  /** Check suggestion limits for a shop */
+  public LimitCheckResult checkSuggestionLimit(Long shopId) {
+    try {
+      // Get current suggestion count for this shop (all suggestions, not just pending)
+      Integer currentSuggestions =
+          jdbcTemplate.queryForObject(
+              "SELECT COUNT(*) FROM competitor_suggestions WHERE shop_id = ?",
+              Integer.class,
+              shopId);
+
+      if (currentSuggestions == null) {
+        currentSuggestions = 0;
+      }
+
+      // Use the same limit as discovery (maxTotalSuggestions)
+      PlanType planType = getCurrentPlanType(shopId);
+      boolean canAdd = currentSuggestions < maxTotalSuggestions;
+      int remaining = Math.max(0, maxTotalSuggestions - currentSuggestions);
+
+      log.debug(
+          "Shop {} has {}/{} total suggestions (plan: {})",
+          shopId,
+          currentSuggestions,
+          maxTotalSuggestions,
+          planType.getDisplayName());
+
+      return new LimitCheckResult(canAdd, currentSuggestions, maxTotalSuggestions, remaining, planType);
+
+    } catch (Exception e) {
+      log.error("Error checking suggestion limit for shop {}: {}", shopId, e.getMessage());
+      // Fail safe - allow suggestions if we can't check
+      return new LimitCheckResult(true, 0, maxTotalSuggestions, maxTotalSuggestions, PlanType.CURRENT);
+    }
+  }
+
   /** Get comprehensive limits for a shop */
   public LimitsResponse getShopLimits(Long shopId) {
     LimitCheckResult competitorLimit = checkCompetitorLimit(shopId);
+    LimitCheckResult suggestionLimit = checkSuggestionLimit(shopId);
     DiscoveryLimitResult discoveryLimit = checkDiscoveryLimit(shopId);
 
     return new LimitsResponse(
         competitorLimit,
+        suggestionLimit,
         discoveryLimit,
         maxSuggestionsPerProduct,
         maxProductsPerShop,
@@ -274,6 +311,7 @@ public class CompetitorLimitService {
 
   public static class LimitsResponse {
     private final LimitCheckResult competitorLimit;
+    private final LimitCheckResult suggestionLimit;
     private final DiscoveryLimitResult discoveryLimit;
     private final int maxSuggestionsPerProduct;
     private final int maxProductsPerShop;
@@ -283,6 +321,7 @@ public class CompetitorLimitService {
 
     public LimitsResponse(
         LimitCheckResult competitorLimit,
+        LimitCheckResult suggestionLimit,
         DiscoveryLimitResult discoveryLimit,
         int maxSuggestionsPerProduct,
         int maxProductsPerShop,
@@ -290,6 +329,7 @@ public class CompetitorLimitService {
         int maxConcurrentScrapers,
         String upgradeMessage) {
       this.competitorLimit = competitorLimit;
+      this.suggestionLimit = suggestionLimit;
       this.discoveryLimit = discoveryLimit;
       this.maxSuggestionsPerProduct = maxSuggestionsPerProduct;
       this.maxProductsPerShop = maxProductsPerShop;
@@ -300,6 +340,10 @@ public class CompetitorLimitService {
 
     public LimitCheckResult getCompetitorLimit() {
       return competitorLimit;
+    }
+
+    public LimitCheckResult getSuggestionLimit() {
+      return suggestionLimit;
     }
 
     public DiscoveryLimitResult getDiscoveryLimit() {

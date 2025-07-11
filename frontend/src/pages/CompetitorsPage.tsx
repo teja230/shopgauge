@@ -9,7 +9,7 @@ import {
   getDebouncedSuggestionCount,
   refreshSuggestionCount as refreshSuggestionCountAPI
 } from '../api';
-import { marketIntelligenceAPI } from '../api/marketIntelligence';
+import { marketIntelligenceAPI, type LimitsResponse } from '../api/marketIntelligence';
 import { useAuth } from '../context/AuthContext';
 import { 
   SparklesIcon, 
@@ -502,12 +502,7 @@ export default function CompetitorsPage() {
   });
   const [interactiveDemoActive, setInteractiveDemoActive] = useState(false);
   const [demoStartTime, setDemoStartTime] = useState<number>(0);
-  interface Limits {
-    maxCompetitors: number;
-    maxSuggestions: number;
-    remainingSuggestions: number;
-  }
-  const [limits, setLimits] = useState<Limits | null>(null);
+  const [limits, setLimits] = useState<LimitsResponse | null>(null);
   
   // Refs to prevent unnecessary re-renders and API calls
   const lastFetchTimeRef = useRef<number>(0);
@@ -738,7 +733,7 @@ export default function CompetitorsPage() {
       // Check limits before adding competitor (only in live mode)
       if (!isDemoMode && limits) {
         if (!limits.competitorLimit.canAdd) {
-          notifications.showError(limits.competitorLimit.upgradeMessage || 'Competitor limit reached', {
+          notifications.showError(limits.competitorLimit.message || 'Competitor limit reached', {
             category: 'Competitors'
           });
           return;
@@ -999,7 +994,7 @@ export default function CompetitorsPage() {
           
           <div className="text-center">
             <div className="text-2xl font-bold text-blue-900">
-              {suggestionLimit.current}/{suggestionLimit.limit}
+              {suggestionLimit.currentCount}/{suggestionLimit.limit}
             </div>
             <div className="text-xs text-blue-600">Suggestions</div>
           </div>

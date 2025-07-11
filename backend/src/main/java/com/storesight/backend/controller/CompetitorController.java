@@ -763,11 +763,23 @@ public class CompetitorController {
           "competitorLimit",
           Map.of(
               "canAdd", competitorLimit.isCanAdd(),
-              "current", competitorLimit.getCurrent(),
+              "currentCount", competitorLimit.getCurrent(),
               "limit", competitorLimit.getLimit(),
               "remaining", competitorLimit.getRemaining(),
               "tier", competitorLimit.getPlanType().getDisplayName(),
-              "planType", competitorLimit.getPlanType().getCode()));
+              "message", limitsResponse.getUpgradeMessage()));
+
+      // Suggestion limits
+      CompetitorLimitService.LimitCheckResult suggestionLimit = limitsResponse.getSuggestionLimit();
+      response.put(
+          "suggestionLimit",
+          Map.of(
+              "canAdd", suggestionLimit.isCanAdd(),
+              "currentCount", suggestionLimit.getCurrent(),
+              "limit", suggestionLimit.getLimit(),
+              "remaining", suggestionLimit.getRemaining(),
+              "tier", suggestionLimit.getPlanType().getDisplayName(),
+              "message", limitsResponse.getUpgradeMessage()));
 
       // Discovery limits
       CompetitorLimitService.DiscoveryLimitResult discoveryLimit =
@@ -776,9 +788,10 @@ public class CompetitorController {
           "discoveryLimit",
           Map.of(
               "canDiscover", discoveryLimit.isCanDiscover(),
-              "current", discoveryLimit.getCurrent(),
-              "limit", discoveryLimit.getLimit(),
-              "remaining", discoveryLimit.getRemaining()));
+              "productCount", discoveryLimit.getCurrent(),
+              "competitorCount", competitorLimit.getCurrent(),
+              "maxProducts", limitsResponse.getMaxProductsPerShop(),
+              "maxCompetitors", competitorLimit.getLimit()));
 
       // Additional limits
       response.put("maxSuggestionsPerProduct", limitsResponse.getMaxSuggestionsPerProduct());
