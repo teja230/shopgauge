@@ -713,17 +713,17 @@ const DASHBOARD_TUTORIAL_STEPS: Step[] = [
     disableBeacon: true,
   },
   {
-    target: 'body',
+    target: '.dashboard-chart-toggle',
     title: 'Advanced Analytics',
     content: 'Switch between Classic View and Advanced Analytics to access AI-powered revenue forecasting with 7-60 day predictions.',
-    placement: 'center',
+    placement: 'top',
     disableBeacon: true,
   },
   {
-    target: 'body',
+    target: '.dashboard-refresh-button',
     title: 'Data Refresh',
     content: 'Use the "Refresh Data" button to get the latest information from your Shopify store.',
-    placement: 'center',
+    placement: 'left',
     disableBeacon: true,
   },
 ];
@@ -3097,15 +3097,17 @@ const DashboardPage = () => {
         </Box>
 
         {/* Chart Mode Toggle - Positioned Below Charts */}
-        <Box sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          mt: 3,
-          mb: 2,
-          px: isMobile ? 2 : 0,
-          gap: 2,
-        }}>
+        <Box 
+          className="dashboard-chart-toggle"
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            mt: 3,
+            mb: 2,
+            px: isMobile ? 2 : 0,
+            gap: 2,
+          }}>
           <Button
             variant="text"
             size="small"
@@ -3281,6 +3283,7 @@ const DashboardPage = () => {
         </LastUpdatedText>
 
             <RefreshButton
+              className="dashboard-refresh-button"
               variant="outlined"
               size="small"
               disabled={isRefreshing || debounceCountdown > 0}
