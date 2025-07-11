@@ -220,9 +220,9 @@ public class CompetitorDiscoveryService {
   private String getValidSessionIdForShop(String shopDomain) {
     try {
       // Try to get the most recent active session for this shop
-      Optional<ShopSession> mostRecentSession = 
+      Optional<ShopSession> mostRecentSession =
           shopSessionRepository.findMostRecentActiveSessionByDomain(shopDomain);
-      
+
       if (mostRecentSession.isPresent()) {
         String sessionId = mostRecentSession.get().getSessionId();
         log.debug("Using most recent active session for shop {}: {}", shopDomain, sessionId);
@@ -233,7 +233,8 @@ public class CompetitorDiscoveryService {
         return "discovery_" + System.currentTimeMillis() + "_" + Math.abs(shopDomain.hashCode());
       }
     } catch (Exception e) {
-      log.warn("Error getting session ID for shop {}: {}, using fallback", shopDomain, e.getMessage());
+      log.warn(
+          "Error getting session ID for shop {}: {}, using fallback", shopDomain, e.getMessage());
       // Generate a fallback session ID for background service use
       return "discovery_" + System.currentTimeMillis() + "_" + Math.abs(shopDomain.hashCode());
     }
