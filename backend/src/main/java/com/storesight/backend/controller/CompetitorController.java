@@ -2,6 +2,7 @@ package com.storesight.backend.controller;
 
 import com.storesight.backend.model.CompetitorSuggestion;
 import com.storesight.backend.repository.CompetitorSuggestionRepository;
+import com.storesight.backend.service.CompetitorLimitService;
 import com.storesight.backend.service.discovery.CompetitorDiscoveryService;
 import com.storesight.backend.service.discovery.MultiSourceSearchClient;
 import jakarta.servlet.http.Cookie;
@@ -35,6 +36,7 @@ public class CompetitorController {
 
   @Autowired private JdbcTemplate jdbcTemplate;
   @Autowired private CompetitorSuggestionRepository suggestionRepository;
+  @Autowired private CompetitorLimitService limitService;
 
   @Autowired(required = false)
   private CompetitorDiscoveryService discoveryService;
@@ -120,6 +122,19 @@ public class CompetitorController {
 
     if (request.url == null || request.url.trim().isEmpty()) {
       return ResponseEntity.badRequest().body(Map.of("error", "URL is required"));
+    }
+
+    // Check competitor limits before adding
+    CompetitorLimitService.LimitCheckResult limitCheck = limitService.checkCompetitorLimit(shopId);
+    if (!limitCheck.isCanAdd()) {
+      return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+          .body(
+              Map.of(
+                  "error", "COMPETITOR_LIMIT_REACHED",
+                  "message", "Competitor limit reached for your plan",
+                  "currentCount", limitCheck.getCurrent(),
+                  "limit", limitCheck.getLimit(),
+                  "tier", limitCheck.getPlanType().getDisplayName()));
     }
 
     try {
@@ -635,6 +650,20 @@ public class CompetitorController {
           .body(Map.of("error", "Discovery service not available"));
     }
 
+    // Check discovery limits before triggering
+    CompetitorLimitService.DiscoveryLimitResult discoveryLimit =
+        limitService.checkDiscoveryLimit(shopId);
+    if (!discoveryLimit.isCanDiscover()) {
+      return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+          .body(
+              Map.of(
+                  "error", "DISCOVERY_LIMIT_REACHED",
+                  "message", "Discovery limit reached. Please try again later.",
+                  "current", discoveryLimit.getCurrent(),
+                  "limit", discoveryLimit.getLimit(),
+                  "remaining", discoveryLimit.getRemaining()));
+    }
+
     try {
       // Check server-side discovery cooldown (24 hours)
       try {
@@ -710,6 +739,73 @@ public class CompetitorController {
     } catch (Exception e) {
       logger.error("Error triggering discovery for shop {}: {}", shopId, e.getMessage(), e);
       return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+    }
+  }
+
+  /** Check competitor tracking limits for the current shop */
+  @GetMapping("/competitors/limits")
+  public ResponseEntity<Map<String, Object>> checkLimits(HttpServletRequest request) {
+    Long shopId = getShopIdFromRequest(request);
+    if (shopId == null) {
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+          .body(Map.of("error", "Authentication required"));
+    }
+
+    try {
+      // Use the comprehensive limits response that includes all limit information
+      CompetitorLimitService.LimitsResponse limitsResponse = limitService.getShopLimits(shopId);
+
+      Map<String, Object> response = new HashMap<>();
+
+      // Competitor limits
+      CompetitorLimitService.LimitCheckResult competitorLimit = limitsResponse.getCompetitorLimit();
+      response.put(
+          "competitorLimit",
+          Map.of(
+              "canAdd", competitorLimit.isCanAdd(),
+              "currentCount", competitorLimit.getCurrent(),
+              "limit", competitorLimit.getLimit(),
+              "remaining", competitorLimit.getRemaining(),
+              "tier", competitorLimit.getPlanType().getDisplayName(),
+              "message", limitsResponse.getUpgradeMessage()));
+
+      // Suggestion limits
+      CompetitorLimitService.LimitCheckResult suggestionLimit = limitsResponse.getSuggestionLimit();
+      response.put(
+          "suggestionLimit",
+          Map.of(
+              "canAdd", suggestionLimit.isCanAdd(),
+              "currentCount", suggestionLimit.getCurrent(),
+              "limit", suggestionLimit.getLimit(),
+              "remaining", suggestionLimit.getRemaining(),
+              "tier", suggestionLimit.getPlanType().getDisplayName(),
+              "message", limitsResponse.getUpgradeMessage()));
+
+      // Discovery limits
+      CompetitorLimitService.DiscoveryLimitResult discoveryLimit =
+          limitsResponse.getDiscoveryLimit();
+      response.put(
+          "discoveryLimit",
+          Map.of(
+              "canDiscover", discoveryLimit.isCanDiscover(),
+              "productCount", discoveryLimit.getCurrent(),
+              "competitorCount", competitorLimit.getCurrent(),
+              "maxProducts", limitsResponse.getMaxProductsPerShop(),
+              "maxCompetitors", competitorLimit.getLimit()));
+
+      // Additional limits
+      response.put("maxSuggestionsPerProduct", limitsResponse.getMaxSuggestionsPerProduct());
+      response.put("maxProductsPerShop", limitsResponse.getMaxProductsPerShop());
+      response.put("maxUrlsPerShop", limitsResponse.getMaxUrlsPerShop());
+      response.put("maxConcurrentScrapers", limitsResponse.getMaxConcurrentScrapers());
+      response.put("upgradeMessage", limitsResponse.getUpgradeMessage());
+
+      return ResponseEntity.ok(response);
+
+    } catch (Exception e) {
+      logger.error("Error checking limits for shop {}: {}", shopId, e.getMessage());
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to check limits"));
     }
   }
 

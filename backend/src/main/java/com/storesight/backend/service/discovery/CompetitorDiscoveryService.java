@@ -1,13 +1,16 @@
 package com.storesight.backend.service.discovery;
 
 import com.storesight.backend.model.CompetitorSuggestion;
+import com.storesight.backend.model.ShopSession;
 import com.storesight.backend.repository.CompetitorSuggestionRepository;
+import com.storesight.backend.repository.ShopSessionRepository;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
@@ -41,7 +44,9 @@ public class CompetitorDiscoveryService {
 
   @Autowired private SearchClient searchClient;
 
-  @Autowired private KeywordBuilder keywordBuilder;
+  @Autowired private ProductAwareKeywordBuilder keywordBuilder;
+
+  @Autowired private ShopSessionRepository shopSessionRepository;
 
   /** Scheduled task to discover competitors for all active shops */
   @Scheduled(cron = "0 45 3 * * *") // Default: daily at 3:45 AM
@@ -149,8 +154,11 @@ public class CompetitorDiscoveryService {
 
     log.debug("Discovering competitors for product: {} (ID: {})", productTitle, productId);
 
-    // Build search keywords
-    String keywords = keywordBuilder.buildCompetitorKeywords(productTitle, null, null);
+    // Get a valid session ID for this shop to ensure proper authentication
+    String sessionId = getValidSessionIdForShop(shopDomain);
+
+    // Build search keywords using product-aware approach
+    String keywords = keywordBuilder.buildProductAwareKeywords(shopDomain, sessionId);
 
     if (keywords.trim().isEmpty()) {
       log.warn("No valid keywords generated for product: {}", productTitle);
@@ -206,6 +214,30 @@ public class CompetitorDiscoveryService {
 
     log.debug("Added {} competitor suggestions for product: {}", suggestionsAdded, productTitle);
     return suggestionsAdded;
+  }
+
+  /** Get a valid session ID for a shop to ensure proper authentication */
+  private String getValidSessionIdForShop(String shopDomain) {
+    try {
+      // Try to get the most recent active session for this shop
+      Optional<ShopSession> mostRecentSession =
+          shopSessionRepository.findMostRecentActiveSessionByDomain(shopDomain);
+
+      if (mostRecentSession.isPresent()) {
+        String sessionId = mostRecentSession.get().getSessionId();
+        log.debug("Using most recent active session for shop {}: {}", shopDomain, sessionId);
+        return sessionId;
+      } else {
+        log.debug("No active sessions found for shop {}, using fallback session ID", shopDomain);
+        // Generate a fallback session ID for background service use
+        return "discovery_" + System.currentTimeMillis() + "_" + Math.abs(shopDomain.hashCode());
+      }
+    } catch (Exception e) {
+      log.warn(
+          "Error getting session ID for shop {}: {}, using fallback", shopDomain, e.getMessage());
+      // Generate a fallback session ID for background service use
+      return "discovery_" + System.currentTimeMillis() + "_" + Math.abs(shopDomain.hashCode());
+    }
   }
 
   /** Check if a URL belongs to the merchant's own domain */
