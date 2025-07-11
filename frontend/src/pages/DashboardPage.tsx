@@ -2471,44 +2471,6 @@ const DashboardPage = () => {
           </Alert>
         )}
 
-        {/* Dashboard Header with Tutorial Button */}
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            mb: 3,
-            pb: 2,
-            borderBottom: '1px solid',
-            borderColor: 'divider',
-          }}
-        >
-          <Box>
-            <Typography variant="h4" component="h1" sx={{ fontWeight: 600, color: 'text.primary' }}>
-              Dashboard
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {shop ? `Store: ${shop.replace('.myshopify.com', '')}` : 'Loading store...'}
-            </Typography>
-          </Box>
-          <Button
-            variant="outlined"
-            startIcon={<HelpOutlineIcon />}
-            onClick={() => {
-              setShowTutorial(true);
-              setTutorialStep(0);
-            }}
-            sx={{
-              borderRadius: 2,
-              textTransform: 'none',
-              fontWeight: 500,
-            }}
-            title="Start Dashboard Tutorial"
-          >
-            Tutorial
-          </Button>
-        </Box>
-
         {/* Metrics Overview */}
         <Box
           className="dashboard-metrics"
