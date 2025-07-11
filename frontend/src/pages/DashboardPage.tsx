@@ -2458,37 +2458,23 @@ const DashboardPage = () => {
           </Alert>
         )}
 
-        {/* Hero Section */}
-        <HeroSection className="dashboard-hero">
+        {/* Dashboard Header (restored) */}
+        <DashboardHeader>
           <HeaderContent>
             <HeaderIcon />
-            <HeaderTitle>
-              {shop ? shop.replace('.myshopify.com', '') : 'Your Store'}
-            </HeaderTitle>
-            <HeaderSubtitle>
-              {shop ? `Connected to ${shop.replace('.myshopify.com', '')}` : 'Welcome to your dashboard'}
-            </HeaderSubtitle>
+            <Box>
+              <HeaderTitle>
+                {shop ? shop.replace('.myshopify.com', '') : 'Your Store'}
+              </HeaderTitle>
+              <HeaderSubtitle>
+                {shop ? `Connected to ${shop.replace('.myshopify.com', '')}` : 'Welcome to your dashboard'}
+              </HeaderSubtitle>
+            </Box>
           </HeaderContent>
-          <HeroText>
-            <HeroTitle>
-              {shop ? `Welcome to ${shop.replace('.myshopify.com', '')}` : 'Welcome to your dashboard'}
-            </HeroTitle>
-            <HeroSubtitle>
-              {shop ? `You're all set up and ready to go!` : 'Get started by connecting your store to Shopify.'}
-            </HeroSubtitle>
-            {shop ? (
-              <HeroImage src="https://via.placeholder.com/400x200" alt="Store Logo" />
-            ) : (
-              <Button
-                variant="contained"
-                onClick={() => navigate('/auth/shopify')}
-                sx={{ mt: 2 }}
-              >
-                Connect to Shopify
-              </Button>
-            )}
-          </HeroText>
-        </HeroSection>
+          <HeaderActions className="dashboard-actions">
+            {/* ...existing actions, including the tutorial button... */}
+          </HeaderActions>
+        </DashboardHeader>
 
         {/* Metrics Overview */}
         <Box 
