@@ -994,7 +994,7 @@ export default function CompetitorsPage() {
           
           <div className="text-center">
             <div className="text-2xl font-bold text-blue-900">
-              {suggestionLimit.currentCount}/{suggestionLimit.limit}
+              {suggestionLimit.current}/{suggestionLimit.limit}
             </div>
             <div className="text-xs text-blue-600">Suggestions</div>
           </div>
