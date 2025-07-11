@@ -79,10 +79,10 @@ public class CompetitorLimitService {
    */
   public LimitCheckResult checkCompetitorLimit(Long shopId) {
     try {
-      // Get current competitor count for this shop
+      // Get current competitor count for this shop by joining with products table
       Integer currentCount =
           jdbcTemplate.queryForObject(
-              "SELECT COUNT(*) FROM competitor_urls WHERE shop_id = ? AND deleted_at IS NULL",
+              "SELECT COUNT(*) FROM competitor_urls cu JOIN products p ON cu.product_id = p.id WHERE p.shop_id = ?",
               Integer.class,
               shopId);
 
@@ -116,10 +116,10 @@ public class CompetitorLimitService {
   /** Check if a shop can discover more competitors */
   public DiscoveryLimitResult checkDiscoveryLimit(Long shopId) {
     try {
-      // Get current suggestion count for this shop
+      // Get current suggestion count for this shop (NEW status means not processed)
       Integer currentSuggestions =
           jdbcTemplate.queryForObject(
-              "SELECT COUNT(*) FROM competitor_suggestions WHERE shop_id = ? AND processed = false",
+              "SELECT COUNT(*) FROM competitor_suggestions WHERE shop_id = ? AND status = 'NEW'",
               Integer.class,
               shopId);
 

@@ -33,6 +33,8 @@ import { fetchWithAuth } from '../api/index';
 import { getSuggestionCount } from '../api';
 import { useNavigate } from 'react-router-dom';
 import IntelligentLoadingScreen from '../components/ui/IntelligentLoadingScreen';
+import Joyride from 'react-joyride';
+import type { CallBackProps, Step } from 'react-joyride';
 
 // Tutorial step types
 interface TutorialStep {
@@ -467,6 +469,25 @@ const fetchWithCache = async <T,>(
 const getDemoData = (category: DemoPreferences['category']) => {
   return DEMO_DATA_BY_CATEGORY[category] || DEMO_DATA_BY_CATEGORY.electronics;
 };
+
+// Helper to map position to Joyride's placement
+const mapPositionToPlacement = (position: string) => {
+  switch (position) {
+    case 'top': return 'top';
+    case 'bottom': return 'bottom';
+    case 'left': return 'left';
+    case 'right': return 'right';
+    default: return 'bottom';
+  }
+};
+
+const JOYRIDE_STEPS: Step[] = TUTORIAL_STEPS.map(step => ({
+  target: step.target,
+  title: step.title,
+  content: step.description,
+  placement: mapPositionToPlacement(step.position),
+  disableBeacon: true,
+}));
 
 export default function CompetitorsPage() {
   const { shop, isAuthenticated, authLoading, isAuthReady } = useAuth();
@@ -1435,6 +1456,33 @@ export default function CompetitorsPage() {
     };
   }, [demoStartTime, endDemoSession]);
 
+  // Joyride callback handler
+  const handleJoyrideCallback = (data: CallBackProps) => {
+    const { action, index, status, type } = data;
+    if (
+      status === 'finished' ||
+      status === 'skipped' ||
+      (type === 'step:after' && index === JOYRIDE_STEPS.length - 1)
+    ) {
+      setShowTutorial(false);
+      setTutorialStep(0);
+      setDemoAnalytics(prev => ({
+        ...prev,
+        tutorialCompleted: true
+      }));
+      if (shop) {
+        localStorage.setItem(`tutorialCompleted_${shop}`, 'true');
+      }
+      notifications.showSuccess('Tutorial completed! You\'re ready to explore Market Intelligence.', {
+        category: 'Tutorial'
+      });
+    } else if (type === 'step:after' && typeof index === 'number') {
+      setTutorialStep(index + 1);
+    } else if ((type as string) === 'step:back' && typeof index === 'number') {
+      setTutorialStep(index - 1);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -1770,57 +1818,32 @@ export default function CompetitorsPage() {
         demoSuggestions={getDemoData(demoPreferences.category).suggestions}
       />
 
-      {/* Tutorial Overlay */}
-      {showTutorial && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-xl p-6 max-w-md mx-4 relative">
-            <button
-              onClick={skipTutorial}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
-            >
-              <XMarkIcon className="h-6 w-6" />
-            </button>
-            
-            <div className="text-center mb-6">
-              <AcademicCapIcon className="h-12 w-12 text-blue-600 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                {TUTORIAL_STEPS[tutorialStep].title}
-              </h3>
-              <p className="text-gray-600">
-                {TUTORIAL_STEPS[tutorialStep].description}
-              </p>
-            </div>
-            
-            <div className="flex justify-between items-center">
-              <button
-                onClick={previousTutorialStep}
-                disabled={tutorialStep === 0}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Previous
-              </button>
-              
-              <div className="flex space-x-2">
-                {TUTORIAL_STEPS.map((_, index) => (
-                  <div
-                    key={index}
-                    className={`w-2 h-2 rounded-full ${
-                      index === tutorialStep ? 'bg-blue-600' : 'bg-gray-300'
-                    }`}
-                  />
-                ))}
-              </div>
-              
-              <button
-                onClick={nextTutorialStep}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                {tutorialStep === TUTORIAL_STEPS.length - 1 ? 'Finish' : 'Next'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Joyride
+        steps={JOYRIDE_STEPS}
+        run={showTutorial}
+        stepIndex={tutorialStep}
+        continuous
+        showSkipButton
+        showProgress
+        disableOverlayClose
+        styles={{
+          options: {
+            zIndex: 9999,
+            primaryColor: '#2563eb',
+            textColor: '#222',
+            arrowColor: '#fff',
+            backgroundColor: '#fff',
+          },
+        }}
+        callback={handleJoyrideCallback}
+        locale={{
+          back: 'Previous',
+          close: 'Close',
+          last: 'Finish',
+          next: 'Next',
+          skip: 'Skip',
+        }}
+      />
 
       {/* Demo Settings Modal */}
       {showDemoSettings && (
