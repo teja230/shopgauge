@@ -502,7 +502,12 @@ export default function CompetitorsPage() {
   });
   const [interactiveDemoActive, setInteractiveDemoActive] = useState(false);
   const [demoStartTime, setDemoStartTime] = useState<number>(0);
-  const [limits, setLimits] = useState<any>(null);
+  interface Limits {
+    maxCompetitors: number;
+    maxSuggestions: number;
+    remainingSuggestions: number;
+  }
+  const [limits, setLimits] = useState<Limits | null>(null);
   
   // Refs to prevent unnecessary re-renders and API calls
   const lastFetchTimeRef = useRef<number>(0);
