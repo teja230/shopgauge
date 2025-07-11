@@ -156,6 +156,13 @@ const PredictionViewContainer = memo(({
     return validConfidenceScores.reduce((sum, score) => sum + score, 0) / validConfidenceScores.length;
   }, []);
 
+  // Helper function to format conversion percentages with proper precision for small values
+  const formatConversionPercentage = useCallback((value: number): string => {
+    if (value < 1) return `${value.toFixed(2)}%`;
+    if (value < 10) return `${value.toFixed(1)}%`;
+    return `${value.toFixed(0)}%`;
+  }, []);
+
   // Chrome-safe data validation
   const validateNumber = useCallback((value: any, defaultValue: number = 0): number => {
     if (typeof value !== 'number') return defaultValue;
@@ -630,7 +637,7 @@ const PredictionViewContainer = memo(({
                         case 'conversion': {
                           const avgConversion = recentData.length > 0 ? 
                             recentData.reduce((sum, d) => sum + (d.conversion_rate || 0), 0) / recentData.length : 0;
-                          return `${avgConversion.toFixed(1)}%`;
+                          return formatConversionPercentage(avgConversion);
                         }
                         default:
                           return 'N/A';
@@ -685,7 +692,7 @@ const PredictionViewContainer = memo(({
                         case 'conversion': {
                           const avgConversion = predictionData.length > 0 ? 
                             predictionData.reduce((sum, d) => sum + (d.conversion_rate || 0), 0) / predictionData.length : 0;
-                          return `${avgConversion.toFixed(1)}%`;
+                          return formatConversionPercentage(avgConversion);
                         }
                         default:
                           return 'N/A';
@@ -732,7 +739,7 @@ const PredictionViewContainer = memo(({
                       case 'conversion': {
                         const avgConversion = data.historical.length > 0 ? 
                           data.historical.reduce((sum, d) => sum + (d.conversion_rate || 0), 0) / data.historical.length : 0;
-                        return `${avgConversion.toFixed(1)}%`;
+                        return formatConversionPercentage(avgConversion);
                       }
                       default:
                         return 'N/A';
