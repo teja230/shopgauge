@@ -775,7 +775,7 @@ const DashboardPage = () => {
     isCached: unifiedAnalyticsIsCached,
     cacheAge: unifiedAnalyticsCacheAge,
   } = useUnifiedAnalytics({
-    days: 60,
+    days: 90,
     includePredictions: true,
     autoRefresh: false,
     shop: shop && shop.trim() ? shop : undefined,
@@ -783,7 +783,7 @@ const DashboardPage = () => {
     dashboardRevenueData: stableTimeseriesData, // Use stable reference
     dashboardOrdersData: stableTimeseriesData, // Use stable reference
     realConversionRate: insights?.conversionRate, // Pass real conversion rate from dashboard
-    // Note: Always computes 60 days max, filtering done in PredictionViewContainer
+    // Note: Always computes 90 days max, filtering done in PredictionViewContainer
   });
 
   // Clear unified analytics storage when shop changes (following dashboard pattern)

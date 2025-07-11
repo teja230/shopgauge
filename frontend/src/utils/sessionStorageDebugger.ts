@@ -95,6 +95,60 @@ export const debugSessionStorage = () => {
   console.log('\n=== END SESSION STORAGE DEBUG ===');
 };
 
+// Function to clear all unified analytics session storage (for fixing stale 60-day data)
+export const clearUnifiedAnalyticsStorage = () => {
+  console.log('=== CLEARING UNIFIED ANALYTICS STORAGE ===');
+  
+  const unifiedAnalyticsKeys = [];
+  const cacheKeys = [];
+  
+  // Get all keys related to unified analytics and caching
+  for (let i = 0; i < sessionStorage.length; i++) {
+    const key = sessionStorage.key(i);
+    if (key) {
+      if (key.includes('unified_analytics')) {
+        unifiedAnalyticsKeys.push(key);
+      } else if (key.includes('cache_') || key.includes('dashboard_')) {
+        cacheKeys.push(key);
+      }
+    }
+  }
+  
+  console.log('Found unified analytics keys:', unifiedAnalyticsKeys);
+  console.log('Found cache keys:', cacheKeys);
+  
+  // Clear unified analytics storage
+  let clearedCount = 0;
+  unifiedAnalyticsKeys.forEach(key => {
+    try {
+      sessionStorage.removeItem(key);
+      clearedCount++;
+      console.log(`Cleared: ${key}`);
+    } catch (error) {
+      console.error(`Failed to clear ${key}:`, error);
+    }
+  });
+  
+  // Clear cache storage (optional - only if needed)
+  let clearedCacheCount = 0;
+  cacheKeys.forEach(key => {
+    try {
+      sessionStorage.removeItem(key);
+      clearedCacheCount++;
+      console.log(`Cleared cache: ${key}`);
+    } catch (error) {
+      console.error(`Failed to clear cache ${key}:`, error);
+    }
+  });
+  
+  console.log(`\n=== CLEARING COMPLETE ===`);
+  console.log(`Cleared ${clearedCount} unified analytics keys`);
+  console.log(`Cleared ${clearedCacheCount} cache keys`);
+  console.log('Session storage has been cleared. Please refresh the page to generate new 90-day data.');
+  
+  return { clearedCount, clearedCacheCount };
+};
+
 // Function to fix session storage data
 export const fixSessionStorageData = () => {
   console.log('=== FIXING SESSION STORAGE DATA ===');
@@ -127,7 +181,7 @@ export const fixSessionStorageData = () => {
           ...parsed,
           total_revenue: calculatedTotalRevenue,
           total_orders: calculatedTotalOrders,
-          period_days: parsed.period_days || 60
+          period_days: parsed.period_days || 90
         };
         
         sessionStorage.setItem(key, JSON.stringify(fixedData));
@@ -152,5 +206,6 @@ export const fixSessionStorageData = () => {
 // Add to window for easy access in browser console
 if (typeof window !== 'undefined') {
   (window as any).debugSessionStorage = debugSessionStorage;
+  (window as any).clearUnifiedAnalyticsStorage = clearUnifiedAnalyticsStorage;
   (window as any).fixSessionStorageData = fixSessionStorageData;
 } 
