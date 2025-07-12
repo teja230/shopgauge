@@ -1769,16 +1769,6 @@ export default function CompetitorsPage() {
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
                 Market Intelligence
-                <button
-                  onClick={() => {
-                    setShowTutorial(true);
-                  }}
-                  className="ml-2 p-1 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                  title="Show Tutorial"
-                  aria-label="Show Tutorial"
-                >
-                  <HelpOutlineIcon sx={{ fontSize: 24 }} />
-                </button>
               </h2>
               <div className="text-sm text-gray-500">
                 {filteredCompetitors.length} of {competitors.length} competitor{competitors.length !== 1 ? 's' : ''}
