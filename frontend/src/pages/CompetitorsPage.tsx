@@ -1464,6 +1464,7 @@ export default function CompetitorsPage() {
     if (
       status === 'finished' ||
       status === 'skipped' ||
+      action === 'close' || // Treat close as skip
       (type === 'step:after' && index === JOYRIDE_STEPS.length - 1)
     ) {
       setShowTutorial(false);
@@ -1475,9 +1476,15 @@ export default function CompetitorsPage() {
       if (shop) {
         localStorage.setItem(`tutorialCompleted_${shop}`, 'true');
       }
-      notifications.showSuccess('Tutorial completed! You\'re ready to explore Market Intelligence.', {
-        category: 'Tutorial'
-      });
+      if (status === 'finished') {
+        notifications.showSuccess('Tutorial completed! You\'re ready to explore Market Intelligence.', {
+          category: 'Tutorial'
+        });
+      } else if (status === 'skipped' || action === 'close') {
+        notifications.showInfo('Tutorial skipped. You can restart it anytime from the tutorial button.', {
+          category: 'Tutorial'
+        });
+      }
     } else if (type === 'step:after' && typeof index === 'number') {
       setTutorialStep(index + 1);
     } else if ((type as string) === 'step:back' && typeof index === 'number') {
@@ -2001,16 +2008,8 @@ export default function CompetitorsPage() {
       )}
 
       {/* Tutorial Trigger Button - Floating Action Button */}
-      <div
-        className="fixed z-50"
-        style={{
-          bottom: '30px',
-          right: '30px',
-          // Hide on mobile, show on sm+
-          display: 'none',
-        }}
-      >
-        {/* Use Tailwind for sm+ screens, inline style for gradient */}
+      {/* Visible on desktop (sm+), hidden on mobile */}
+      <div className="fixed bottom-8 right-8 z-50">
         <button
           onClick={() => {
             setShowTutorial(true);
