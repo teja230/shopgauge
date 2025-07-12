@@ -226,6 +226,39 @@ public class MarketIntelligenceAdminController {
     }
   }
 
+  /** Get historical cost data for a shop */
+  @GetMapping("/cost-history")
+  public ResponseEntity<Map<String, Object>> getCostHistory(
+      @RequestParam(defaultValue = "30") int days, @RequestParam(required = false) Long shopId) {
+
+    try {
+      if (shopId == null) {
+        return ResponseEntity.badRequest().body(Map.of("error", "Shop ID is required"));
+      }
+
+      // Get historical cost data
+      List<Map<String, Object>> historicalData =
+          costOptimizationService.getHistoricalCostData(shopId, days);
+
+      // Get provider-specific data
+      Map<String, Object> providerData = costOptimizationService.getProviderCostData(shopId, days);
+
+      Map<String, Object> response = new HashMap<>();
+      response.put("historicalData", historicalData);
+      response.put("providerData", providerData);
+      response.put("days", days);
+      response.put("shopId", shopId);
+      response.put("totalDays", historicalData.size());
+
+      return ResponseEntity.ok(response);
+
+    } catch (Exception e) {
+      log.error("Error getting cost history for shop {}: {}", shopId, e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to load cost history: " + e.getMessage()));
+    }
+  }
+
   /** Get system health check */
   @GetMapping("/health")
   public ResponseEntity<Map<String, Object>> getHealth() {

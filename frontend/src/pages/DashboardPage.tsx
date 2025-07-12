@@ -1,7 +1,7 @@
 // @ts-nocheck
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Box, Typography, Card, CardContent, Alert, CircularProgress, Link as MuiLink, IconButton, Button, ToggleButtonGroup, ToggleButton, useMediaQuery, useTheme, Menu, MenuItem, Chip } from '@mui/material';
-import { RevenueChart } from '../components/ui/RevenueChart';
+        if (status === 'finished') {
 import PredictionViewContainer from '../components/ui/PredictionViewContainer';
 import useUnifiedAnalytics from '../hooks/useUnifiedAnalytics';
 import { MetricCard } from '../components/ui/MetricCard';
@@ -13,6 +13,16 @@ import { OpenInNew, Refresh, Storefront, ListAlt, Inventory2, Analytics, ShowCha
 import { format } from 'date-fns';
 import { useNotifications } from '../hooks/useNotifications';
 import { useSessionNotification } from '../hooks/useSessionNotification';
+      return;
+    }
+
+    // Handle step progression - only update stepIndex if tutorial is still running
+    if (action === 'next' && typeof index === 'number' && index < lastStep) {
+      console.log('➡️ Moving to next step:', index + 1);
+      setTutorialStep(index + 1);
+    } else if (action === 'prev' && typeof index === 'number' && index > 0) {
+      console.log('⬅️ Moving to previous step:', index - 1);
+      setTutorialStep(index - 1);
 import {
   getCacheKey,
   invalidateCache,
@@ -497,7 +507,7 @@ const OrderList = styled(Box)(({ theme }) => ({
     borderRadius: '3px',
   },
   '&::-webkit-scrollbar-thumb': {
-    background: theme.palette.grey[400],
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
     borderRadius: '3px',
     '&:hover': {
       background: theme.palette.grey[500],
@@ -2396,27 +2406,15 @@ const DashboardPage = () => {
     setTutorialRunning(showTutorial);
   }, [showTutorial]);
 
+  // Joyride callback handler
   const handleJoyrideCallback = (data: CallBackProps) => {
     const { action, index, status, type } = data;
     const lastStep = DASHBOARD_TUTORIAL_STEPS.length - 1;
     
     console.log('🎯 Dashboard Tutorial callback:', { action, index, status, type, lastStep, currentStep: tutorialStep });
     
-    // Handle step progression first
-    if (action === 'next' || (type === 'step:after' && typeof index === 'number' && action !== 'prev')) {
-      console.log('➡️ Moving to next step:', index + 1);
-      setTutorialStep(index + 1);
-    } else if (action === 'prev' || (type === 'step:back' && typeof index === 'number')) {
-      console.log('⬅️ Moving to previous step:', index - 1);
-      setTutorialStep(index - 1);
-    }
-    
-    // Handle tutorial completion only when appropriate
-    if (
-      (status === 'finished' && action === 'next' && index === lastStep) ||
-      status === 'skipped' ||
-      action === 'close'
-    ) {
+    // Handle tutorial completion conditions first
+    if (status === 'finished' || status === 'skipped' || action === 'close') {
       console.log('✅ Dashboard Tutorial completion triggered:', { status, action, index, lastStep });
       setShowTutorial(false);
       setTutorialStep(0);
