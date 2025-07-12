@@ -1468,9 +1468,8 @@ export default function CompetitorsPage() {
   // Joyride callback handler
   const handleJoyrideCallback = (data: CallBackProps) => {
     const { action, index, status, type } = data;
-    const lastStep = JOYRIDE_STEPS.length - 1;
     if (
-      (status === 'finished' && action === 'next' && index === lastStep) ||
+      status === 'finished' ||
       status === 'skipped' ||
       action === 'close'
     ) {
@@ -1484,7 +1483,7 @@ export default function CompetitorsPage() {
         localStorage.setItem(`tutorialCompleted_${shop}`, 'true');
       }
       if (tutorialRunning) {
-        if (status === 'finished' && action === 'next' && index === lastStep) {
+        if (status === 'finished') {
           notifications.showSuccess('Tutorial completed! You\'re ready to explore Market Intelligence.', {
             category: 'Tutorial'
           });
@@ -1494,9 +1493,9 @@ export default function CompetitorsPage() {
           });
         }
       }
-    } else if ((type === 'step:after' && typeof index === 'number' && action !== 'prev') || action === 'next') {
+    } else if (action === 'next' || (type === 'step:after' && typeof index === 'number' && action !== 'prev')) {
       setTutorialStep(index + 1);
-    } else if (((type as string) === 'step:back' || action === 'prev') && typeof index === 'number') {
+    } else if (action === 'prev' || ((type as string) === 'step:back' && typeof index === 'number')) {
       setTutorialStep(index - 1);
     }
   };
