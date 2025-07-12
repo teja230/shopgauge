@@ -1469,6 +1469,8 @@ export default function CompetitorsPage() {
   const handleJoyrideCallback = (data: CallBackProps) => {
     const { action, index, status, type } = data;
     
+    console.log('Joyride callback:', { action, index, status, type, tutorialStep });
+    
     // Handle tutorial completion
     if (
       status === 'finished' ||
@@ -1499,14 +1501,22 @@ export default function CompetitorsPage() {
     } 
     // Handle step navigation
     else if (type === 'step:after' && typeof index === 'number') {
+      console.log('Moving to next step:', index + 1);
       setTutorialStep(index + 1);
     } 
+    // Handle step:before for previous navigation
+    else if (type === 'step:before' && typeof index === 'number') {
+      console.log('Step before event:', index);
+      setTutorialStep(index);
+    }
     // Handle previous button - properly handle the back action
     else if (action === 'prev' && typeof index === 'number' && index > 0) {
+      console.log('Moving to previous step:', index - 1);
       setTutorialStep(index - 1);
     }
     // Handle step:back event type as well
     else if ((type as string) === 'step:back' && typeof index === 'number' && index > 0) {
+      console.log('Moving to previous step (step:back):', index - 1);
       setTutorialStep(index - 1);
     }
   };
@@ -1863,10 +1873,10 @@ export default function CompetitorsPage() {
         steps={JOYRIDE_STEPS}
         run={showTutorial}
         stepIndex={tutorialStep}
-        continuous
-        showSkipButton
-        showProgress
-        disableOverlayClose
+        continuous={true}
+        showSkipButton={true}
+        showProgress={true}
+        disableOverlayClose={true}
         styles={{
           options: {
             zIndex: 9999,

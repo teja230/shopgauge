@@ -43,7 +43,19 @@ const ThemedJoyrideTooltip: React.FC<ThemedJoyrideTooltipProps> = ({
       <button {...skipProps} className="text-sm text-gray-500 hover:text-gray-700 px-2 py-1 rounded focus:outline-none">Skip</button>
       <div className="flex gap-2">
         {index > 0 && (
-          <button {...backProps} className="px-4 py-2 text-sm font-medium" style={{ color: accentColor, background: '#e0e7ff', borderRadius: 8, fontWeight: 500, fontFamily: 'Inter, sans-serif' }}>Previous</button>
+          <button 
+            {...backProps} 
+            className="px-4 py-2 text-sm font-medium" 
+            style={{ color: accentColor, background: '#e0e7ff', borderRadius: 8, fontWeight: 500, fontFamily: 'Inter, sans-serif' }}
+            onClick={(e) => {
+              console.log('Previous button clicked, index:', index);
+              if (backProps.onClick) {
+                backProps.onClick(e);
+              }
+            }}
+          >
+            Previous
+          </button>
         )}
         <button
           {...primaryProps}
