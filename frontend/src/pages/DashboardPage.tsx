@@ -2398,16 +2398,15 @@ const DashboardPage = () => {
 
   const handleJoyrideCallback = (data: CallBackProps) => {
     const { action, index, status, type } = data;
-    const lastStep = DASHBOARD_TUTORIAL_STEPS.length - 1;
     if (
-      (status === 'finished' && action === 'next' && index === lastStep) ||
+      status === 'finished' ||
       status === 'skipped' ||
       action === 'close'
     ) {
       setShowTutorial(false);
       setTutorialStep(0);
       if (tutorialRunning) {
-        if (status === 'finished' && action === 'next' && index === lastStep) {
+        if (status === 'finished') {
           notifications.showSuccess('Tutorial completed! You\'re ready to explore your dashboard.', {
             category: 'Tutorial',
             duration: 4000
@@ -2419,9 +2418,9 @@ const DashboardPage = () => {
           });
         }
       }
-    } else if ((type === 'step:after' && typeof index === 'number' && action !== 'prev') || action === 'next') {
+    } else if (action === 'next' || (type === 'step:after' && typeof index === 'number' && action !== 'prev')) {
       setTutorialStep(index + 1);
-    } else if ((type === 'step:back' || action === 'prev') && typeof index === 'number') {
+    } else if (action === 'prev' || (type === 'step:back' && typeof index === 'number')) {
       setTutorialStep(index - 1);
     }
   };
