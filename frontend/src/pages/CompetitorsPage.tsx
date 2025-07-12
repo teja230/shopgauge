@@ -82,6 +82,13 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     position: 'bottom'
   },
   {
+    id: 'filters',
+    title: 'Filter & Search',
+    description: 'Use filters to focus on specific competitors or search for particular products.',
+    target: '.filter-controls',
+    position: 'bottom'
+  },
+  {
     id: 'demo-toggle',
     title: 'Demo Mode',
     description: 'Switch between demo and live modes. Demo mode shows sample data for exploration.',
@@ -107,13 +114,6 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     title: 'Add Competitors',
     description: 'Manually add competitors by entering their product URLs.',
     target: '.add-competitor-button',
-    position: 'bottom'
-  },
-  {
-    id: 'filters',
-    title: 'Filter & Search',
-    description: 'Use filters to focus on specific competitors or search for particular products.',
-    target: '.filter-controls',
     position: 'bottom'
   },
   {
