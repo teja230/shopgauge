@@ -513,7 +513,7 @@ export default function CompetitorsPage() {
   
   // New state for enhanced demo features
   const [showTutorial, setShowTutorial] = useState(false);
-  const [tutorialStep, setTutorialStep] = useState(0);
+
   const [showDemoSettings, setShowDemoSettings] = useState(false);
   const [demoPreferences, setDemoPreferences] = useState<DemoPreferences>(DEFAULT_DEMO_PREFERENCES);
   const [demoAnalytics, setDemoAnalytics] = useState<DemoAnalytics>({
@@ -1323,52 +1323,11 @@ export default function CompetitorsPage() {
   // Tutorial management functions
   const startTutorial = useCallback(() => {
     setShowTutorial(true);
-    setTutorialStep(0);
     setDemoAnalytics(prev => ({
       ...prev,
       tutorialCompleted: false
     }));
   }, []);
-
-  const nextTutorialStep = useCallback(() => {
-    if (tutorialStep < TUTORIAL_STEPS.length - 1) {
-      setTutorialStep(prev => prev + 1);
-    } else {
-      completeTutorial();
-    }
-  }, [tutorialStep]);
-
-  const previousTutorialStep = useCallback(() => {
-    if (tutorialStep > 0) {
-      setTutorialStep(prev => prev - 1);
-    }
-  }, [tutorialStep]);
-
-  const completeTutorial = useCallback(() => {
-    setShowTutorial(false);
-    setTutorialStep(0);
-    setDemoAnalytics(prev => ({
-      ...prev,
-      tutorialCompleted: true
-    }));
-    
-    // Save tutorial completion to localStorage
-    if (shop) {
-      localStorage.setItem(`tutorialCompleted_${shop}`, 'true');
-    }
-    
-    notifications.showSuccess('Tutorial completed! You\'re ready to explore Market Intelligence.', {
-      category: 'Tutorial'
-    });
-  }, [shop, notifications]);
-
-  const skipTutorial = useCallback(() => {
-    setShowTutorial(false);
-    setTutorialStep(0);
-    notifications.showInfo('Tutorial skipped. You can restart it anytime from the demo settings.', {
-      category: 'Tutorial'
-    });
-  }, [notifications]);
 
   // Demo analytics tracking
   const trackDemoInteraction = useCallback((feature: string) => {
@@ -1469,7 +1428,7 @@ export default function CompetitorsPage() {
   const handleJoyrideCallback = (data: CallBackProps) => {
     const { action, index, status, type } = data;
     
-    console.log('Joyride callback:', { action, index, status, type, tutorialStep });
+    console.log('Joyride callback:', { action, index, status, type });
     
     // Handle tutorial completion
     if (
@@ -1479,7 +1438,6 @@ export default function CompetitorsPage() {
       (type === 'step:after' && index === JOYRIDE_STEPS.length - 1)
     ) {
       setShowTutorial(false);
-      setTutorialStep(0);
       setDemoAnalytics(prev => ({
         ...prev,
         tutorialCompleted: true
@@ -1498,26 +1456,6 @@ export default function CompetitorsPage() {
           category: 'Tutorial'
         });
       }
-    } 
-    // Handle step navigation
-    else if (type === 'step:after' && typeof index === 'number') {
-      console.log('Moving to next step:', index + 1);
-      setTutorialStep(index + 1);
-    } 
-    // Handle step:before for previous navigation
-    else if (type === 'step:before' && typeof index === 'number') {
-      console.log('Step before event:', index);
-      setTutorialStep(index);
-    }
-    // Handle previous button - properly handle the back action
-    else if (action === 'prev' && typeof index === 'number') {
-      console.log('Previous button clicked, moving to step:', index);
-      setTutorialStep(index);
-    }
-    // Handle step:back event type as well
-    else if ((type as string) === 'step:back' && typeof index === 'number') {
-      console.log('Moving to previous step (step:back):', index);
-      setTutorialStep(index);
     }
   };
 
@@ -1806,7 +1744,6 @@ export default function CompetitorsPage() {
                 <button
                   onClick={() => {
                     setShowTutorial(true);
-                    setTutorialStep(0);
                   }}
                   className="ml-2 p-1 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400"
                   title="Show Tutorial"
@@ -2041,7 +1978,6 @@ export default function CompetitorsPage() {
         <button
           onClick={() => {
             setShowTutorial(true);
-            setTutorialStep(0);
           }}
           aria-label="Start Market Intelligence Tutorial"
           title="Start Market Intelligence Tutorial"
