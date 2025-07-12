@@ -246,4 +246,29 @@ export async function getAdminStatus(): Promise<any> {
   }
 }
 
+export async function fetchWithAdminAuth(endpoint: string, options?: RequestInit) {
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+  const fullUrl = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
+
+  const response = await fetch(fullUrl, {
+    credentials: 'include',
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      ...(options?.headers || {})
+    },
+    ...options,
+  });
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error('Admin authentication required');
+    }
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || `Admin endpoint error: ${response.status}`);
+  }
+
+  return response.json();
+}
+
 export { fetchWithAuth }; 
