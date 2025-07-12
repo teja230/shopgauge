@@ -2391,27 +2391,29 @@ const DashboardPage = () => {
   const handleJoyrideCallback = (data: CallBackProps) => {
     const { action, index, status, type } = data;
     
-    // Handle tutorial completion
-    if (
-      status === 'finished' ||
-      status === 'skipped' ||
-      action === 'close' || // Treat close as skip
-      (type === 'step:after' && index === DASHBOARD_TUTORIAL_STEPS.length - 1)
-    ) {
+    // Handle tutorial completion - only show one notification
+    if (status === 'finished') {
       setShowTutorial(false);
-      // Show completion notification
-      if (status === 'finished') {
-        notifications.showSuccess('Tutorial completed! You\'re ready to explore your dashboard.', {
-          category: 'Tutorial',
-          duration: 4000
-        });
-      } else if (status === 'skipped') {
-        notifications.showInfo('Tutorial skipped. You can restart it anytime using the Tutorial button.', {
-          category: 'Tutorial',
-          duration: 3000
-        });
-      }
-    } 
+      notifications.showSuccess('Tutorial completed! You\'re ready to explore your dashboard.', {
+        category: 'Tutorial',
+        duration: 4000
+      });
+    } else if (status === 'skipped') {
+      setShowTutorial(false);
+      notifications.showInfo('Tutorial skipped. You can restart it anytime using the Tutorial button.', {
+        category: 'Tutorial',
+        duration: 3000
+      });
+    } else if (action === 'close') {
+      setShowTutorial(false);
+      // Don't show notification for close action to avoid duplicates
+    } else if (type === 'step:after' && index === DASHBOARD_TUTORIAL_STEPS.length - 1) {
+      setShowTutorial(false);
+      notifications.showSuccess('Tutorial completed! You\'re ready to explore your dashboard.', {
+        category: 'Tutorial',
+        duration: 4000
+      });
+    }
     // Handle step navigation
     else if (type === 'step:after' && typeof index === 'number') {
       // Handle step navigation
