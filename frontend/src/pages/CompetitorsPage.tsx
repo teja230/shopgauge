@@ -44,7 +44,7 @@ interface TutorialStep {
   title: string;
   description: string;
   target: string; // CSS selector for highlighting
-  position: 'top' | 'bottom' | 'left' | 'right';
+  position: 'top' | 'bottom' | 'left' | 'right' | 'center';
   action?: () => void;
 }
 
@@ -71,8 +71,8 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     id: 'welcome',
     title: 'Welcome to Market Intelligence!',
     description: 'This feature helps you monitor your competitors\' pricing and discover new market opportunities.',
-    target: '.market-insights-cards',
-    position: 'bottom'
+    target: 'body', // Changed from '.market-insights-cards' to 'body' for no highlight
+    position: 'center' // Changed from 'bottom' to 'center' for modal style
   },
   {
     id: 'insights',
@@ -479,6 +479,7 @@ const mapPositionToPlacement = (position: string) => {
     case 'bottom': return 'bottom';
     case 'left': return 'left';
     case 'right': return 'right';
+    case 'center': return 'center';
     default: return 'bottom';
   }
 };
