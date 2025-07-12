@@ -2394,6 +2394,7 @@ const DashboardPage = () => {
     if (
       status === 'finished' ||
       status === 'skipped' ||
+      action === 'close' || // Treat close as skip
       (type === 'step:after' && index === DASHBOARD_TUTORIAL_STEPS.length - 1)
     ) {
       setShowTutorial(false);
@@ -2405,7 +2406,7 @@ const DashboardPage = () => {
           category: 'Tutorial',
           duration: 4000
         });
-      } else if (status === 'skipped') {
+      } else if (status === 'skipped' || action === 'close') {
         notifications.showInfo('Tutorial skipped. You can restart it anytime using the Tutorial button.', {
           category: 'Tutorial',
           duration: 3000
