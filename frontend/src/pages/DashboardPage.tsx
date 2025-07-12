@@ -3128,25 +3128,6 @@ const DashboardPage = () => {
             px: isMobile ? 2 : 0,
             gap: 2,
           }}>
-          <Button
-            variant="text"
-            size="small"
-            startIcon={<HelpOutlineIcon />}
-            onClick={() => {
-              setShowTutorial(true);
-            }}
-            sx={{
-              textTransform: 'none',
-              fontWeight: 500,
-              color: 'text.secondary',
-              '&:hover': {
-                color: 'primary.main',
-              },
-            }}
-            title="Learn about Advanced Analytics"
-          >
-            Learn More
-          </Button>
           <ToggleButtonGroup
             value={chartMode}
             exclusive
