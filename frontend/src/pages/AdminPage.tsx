@@ -97,6 +97,7 @@ import TransactionMonitoring from '../components/ui/TransactionMonitoring';
 import ConnectionPoolDashboard from '../components/ui/ConnectionPoolDashboard';
 import { DebugPanel } from '../components/ui/DebugPanel';
 import { NotificationCenter } from '../components/ui/NotificationCenter';
+import MarketIntelligenceDashboard from '../components/ui/MarketIntelligenceDashboard';
 
 interface Secret {
   key: string;
@@ -1938,23 +1939,10 @@ const AdminPage: React.FC = () => {
           {/* Market Intelligence Tab */}
           {activeTab === 'market-intelligence' && (
             <Box>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" gutterBottom>
-                    Market Intelligence Dashboard
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Market Intelligence admin features are available. The backend controller provides comprehensive analytics, cost optimization, and provider management.
-                  </Typography>
-                  <Box sx={{ mt: 2 }}>
-                    <Alert severity="info">
-                      <Typography variant="body2">
-                        Market Intelligence admin endpoints are available at <code>/api/admin/market-intelligence/*</code>
-                      </Typography>
-                    </Alert>
-                  </Box>
-                </CardContent>
-              </Card>
+              <MarketIntelligenceDashboard 
+                showActions={true}
+                showTestSearch={true}
+              />
             </Box>
           )}
 
