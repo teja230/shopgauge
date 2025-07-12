@@ -513,6 +513,8 @@ export default function CompetitorsPage() {
   
   // New state for enhanced demo features
   const [showTutorial, setShowTutorial] = useState(false);
+  // Add a ref to prevent duplicate notifications
+  const notificationShownRef = useRef(false);
 
   const [showDemoSettings, setShowDemoSettings] = useState(false);
   const [demoPreferences, setDemoPreferences] = useState<DemoPreferences>(DEFAULT_DEMO_PREFERENCES);
@@ -539,6 +541,13 @@ export default function CompetitorsPage() {
 
   useEffect(() => {
     setTutorialRunning(showTutorial);
+  }, [showTutorial]);
+
+  // Reset notification flag when tutorial is started
+  useEffect(() => {
+    if (showTutorial) {
+      notificationShownRef.current = false;
+    }
   }, [showTutorial]);
 
   // Fetch discovery status from server for cross-device consistency
@@ -1427,9 +1436,11 @@ export default function CompetitorsPage() {
   // Joyride callback handler
   const handleJoyrideCallback = (data: CallBackProps) => {
     const { action, index, status, type } = data;
-    
     console.log('Market Intelligence Joyride callback:', { action, index, status, type });
-    
+
+    // Prevent duplicate notifications
+    if (notificationShownRef.current) return;
+
     // Handle tutorial completion - only show one notification
     if (status === 'finished') {
       setShowTutorial(false);
@@ -1440,6 +1451,7 @@ export default function CompetitorsPage() {
       if (shop) {
         localStorage.setItem(`tutorialCompleted_${shop}`, 'true');
       }
+      notificationShownRef.current = true;
       notifications.showSuccess('Tutorial completed! You\'re ready to explore Market Intelligence.', {
         category: 'Tutorial'
       });
@@ -1452,6 +1464,7 @@ export default function CompetitorsPage() {
       if (shop) {
         localStorage.setItem(`tutorialCompleted_${shop}`, 'true');
       }
+      notificationShownRef.current = true;
       notifications.showInfo('Tutorial skipped. You can restart it anytime from the tutorial button.', {
         category: 'Tutorial'
       });
@@ -1464,6 +1477,7 @@ export default function CompetitorsPage() {
       if (shop) {
         localStorage.setItem(`tutorialCompleted_${shop}`, 'true');
       }
+      notificationShownRef.current = true;
       // Don't show notification for close action to avoid duplicates
     }
     // Handle step navigation - let Joyride handle navigation internally

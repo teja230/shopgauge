@@ -758,6 +758,15 @@ const DashboardPage = () => {
   const [lastRefreshTime, setLastRefreshTime] = useState<number>(0); // Track last refresh time for debouncing
   const [debounceCountdown, setDebounceCountdown] = useState<number>(0); // Real-time countdown for debounce
   const [showTutorial, setShowTutorial] = useState(false);
+  // Use a separate ref for tutorial notification deduplication
+  const tutorialNotificationShownRef = useRef(false);
+
+  // Reset tutorial notification flag when tutorial is started
+  useEffect(() => {
+    if (showTutorial) {
+      tutorialNotificationShownRef.current = false;
+    }
+  }, [showTutorial]);
 
   // =====================================
   // Polling management refs (typed)
@@ -2390,30 +2399,35 @@ const DashboardPage = () => {
 
   const handleJoyrideCallback = (data: CallBackProps) => {
     const { action, index, status, type } = data;
-    
     console.log('Dashboard Joyride callback:', { action, index, status, type });
-    
+
+    // Prevent duplicate notifications for tutorial
+    if (tutorialNotificationShownRef.current) return;
+
     // Handle tutorial completion - only show one notification
     if (status === 'finished') {
       setShowTutorial(false);
+      tutorialNotificationShownRef.current = true;
       notifications.showSuccess('Tutorial completed! You\'re ready to explore your dashboard.', {
         category: 'Tutorial',
         duration: 4000
       });
     } else if (status === 'skipped') {
       setShowTutorial(false);
+      tutorialNotificationShownRef.current = true;
       notifications.showInfo('Tutorial skipped. You can restart it anytime using the Tutorial button.', {
         category: 'Tutorial',
         duration: 3000
       });
     } else if (action === 'close') {
       setShowTutorial(false);
+      tutorialNotificationShownRef.current = true;
       // Don't show notification for close action to avoid duplicates
     }
     // Handle step navigation - let Joyride handle navigation internally
     else if (type === 'step:after' && typeof index === 'number') {
       // Let Joyride handle step navigation - don't interfere
-    } 
+    }
     // Handle previous button - properly handle the back action
     else if (action === 'prev' && typeof index === 'number' && index > 0) {
       // Handle previous button - properly handle the back action
