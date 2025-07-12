@@ -48,7 +48,7 @@ const ThemedJoyrideTooltip: React.FC<ThemedJoyrideTooltipProps> = ({
             className="px-4 py-2 text-sm font-medium" 
             style={{ color: accentColor, background: '#e0e7ff', borderRadius: 8, fontWeight: 500, fontFamily: 'Inter, sans-serif' }}
             onClick={(e) => {
-              console.log('Previous button clicked, index:', index);
+              console.log('Previous button clicked, index:', index, 'backProps:', backProps);
               if (backProps.onClick) {
                 backProps.onClick(e);
               }

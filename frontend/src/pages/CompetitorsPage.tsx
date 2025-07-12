@@ -1510,14 +1510,14 @@ export default function CompetitorsPage() {
       setTutorialStep(index);
     }
     // Handle previous button - properly handle the back action
-    else if (action === 'prev' && typeof index === 'number' && index > 0) {
-      console.log('Moving to previous step:', index - 1);
-      setTutorialStep(index - 1);
+    else if (action === 'prev' && typeof index === 'number') {
+      console.log('Previous button clicked, moving to step:', index);
+      setTutorialStep(index);
     }
     // Handle step:back event type as well
-    else if ((type as string) === 'step:back' && typeof index === 'number' && index > 0) {
-      console.log('Moving to previous step (step:back):', index - 1);
-      setTutorialStep(index - 1);
+    else if ((type as string) === 'step:back' && typeof index === 'number') {
+      console.log('Moving to previous step (step:back):', index);
+      setTutorialStep(index);
     }
   };
 
@@ -1872,7 +1872,6 @@ export default function CompetitorsPage() {
       <Joyride
         steps={JOYRIDE_STEPS}
         run={showTutorial}
-        stepIndex={tutorialStep}
         continuous={true}
         showSkipButton={true}
         showProgress={true}
