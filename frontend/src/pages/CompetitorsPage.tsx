@@ -1428,7 +1428,7 @@ export default function CompetitorsPage() {
   const handleJoyrideCallback = (data: CallBackProps) => {
     const { action, index, status, type } = data;
     
-    console.log('Joyride callback:', { action, index, status, type });
+    console.log('Market Intelligence Joyride callback:', { action, index, status, type });
     
     // Handle tutorial completion - only show one notification
     if (status === 'finished') {
@@ -1465,18 +1465,10 @@ export default function CompetitorsPage() {
         localStorage.setItem(`tutorialCompleted_${shop}`, 'true');
       }
       // Don't show notification for close action to avoid duplicates
-    } else if (type === 'step:after' && index === JOYRIDE_STEPS.length - 1) {
-      setShowTutorial(false);
-      setDemoAnalytics(prev => ({
-        ...prev,
-        tutorialCompleted: true
-      }));
-      if (shop) {
-        localStorage.setItem(`tutorialCompleted_${shop}`, 'true');
-      }
-      notifications.showSuccess('Tutorial completed! You\'re ready to explore Market Intelligence.', {
-        category: 'Tutorial'
-      });
+    }
+    // Handle step navigation - let Joyride handle navigation internally
+    else if (type === 'step:after' && typeof index === 'number') {
+      // Let Joyride handle step navigation - don't interfere
     }
   };
 
