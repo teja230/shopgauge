@@ -1446,12 +1446,12 @@ export default function CompetitorsPage() {
         localStorage.setItem(`tutorialCompleted_${shop}`, 'true');
       }
       
-      // Show completion notification only once
-      if (status === 'finished' && !tutorialRunning) {
+      // Show completion notification
+      if (status === 'finished') {
         notifications.showSuccess('Tutorial completed! You\'re ready to explore Market Intelligence.', {
           category: 'Tutorial'
         });
-      } else if ((status === 'skipped' || action === 'close') && !tutorialRunning) {
+      } else if (status === 'skipped') {
         notifications.showInfo('Tutorial skipped. You can restart it anytime from the tutorial button.', {
           category: 'Tutorial'
         });
