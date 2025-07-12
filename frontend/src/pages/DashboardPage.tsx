@@ -2391,6 +2391,8 @@ const DashboardPage = () => {
   const handleJoyrideCallback = (data: CallBackProps) => {
     const { action, index, status, type } = data;
     
+    console.log('Dashboard Joyride callback:', { action, index, status, type });
+    
     // Handle tutorial completion - only show one notification
     if (status === 'finished') {
       setShowTutorial(false);
@@ -2407,16 +2409,10 @@ const DashboardPage = () => {
     } else if (action === 'close') {
       setShowTutorial(false);
       // Don't show notification for close action to avoid duplicates
-    } else if (type === 'step:after' && index === DASHBOARD_TUTORIAL_STEPS.length - 1) {
-      setShowTutorial(false);
-      notifications.showSuccess('Tutorial completed! You\'re ready to explore your dashboard.', {
-        category: 'Tutorial',
-        duration: 4000
-      });
     }
-    // Handle step navigation
+    // Handle step navigation - let Joyride handle navigation internally
     else if (type === 'step:after' && typeof index === 'number') {
-      // Handle step navigation
+      // Let Joyride handle step navigation - don't interfere
     } 
     // Handle previous button - properly handle the back action
     else if (action === 'prev' && typeof index === 'number' && index > 0) {
