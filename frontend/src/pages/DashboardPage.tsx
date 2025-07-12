@@ -1,7 +1,6 @@
 // @ts-nocheck
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Box, Typography, Card, CardContent, Alert, CircularProgress, Link as MuiLink, IconButton, Button, ToggleButtonGroup, ToggleButton, useMediaQuery, useTheme, Menu, MenuItem, Chip } from '@mui/material';
-        if (status === 'finished') {
 import PredictionViewContainer from '../components/ui/PredictionViewContainer';
 import useUnifiedAnalytics from '../hooks/useUnifiedAnalytics';
 import { MetricCard } from '../components/ui/MetricCard';
@@ -13,16 +12,6 @@ import { OpenInNew, Refresh, Storefront, ListAlt, Inventory2, Analytics, ShowCha
 import { format } from 'date-fns';
 import { useNotifications } from '../hooks/useNotifications';
 import { useSessionNotification } from '../hooks/useSessionNotification';
-      return;
-    }
-
-    // Handle step progression - only update stepIndex if tutorial is still running
-    if (action === 'next' && typeof index === 'number' && index < lastStep) {
-      console.log('➡️ Moving to next step:', index + 1);
-      setTutorialStep(index + 1);
-    } else if (action === 'prev' && typeof index === 'number' && index > 0) {
-      console.log('⬅️ Moving to previous step:', index - 1);
-      setTutorialStep(index - 1);
 import {
   getCacheKey,
   invalidateCache,
@@ -507,7 +496,6 @@ const OrderList = styled(Box)(({ theme }) => ({
     borderRadius: '3px',
   },
   '&::-webkit-scrollbar-thumb': {
-                          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
     borderRadius: '3px',
     '&:hover': {
       background: theme.palette.grey[500],
