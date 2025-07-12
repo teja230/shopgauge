@@ -534,6 +534,13 @@ export default function CompetitorsPage() {
   // Discovery cooldown (24 hours per store) - now managed server-side
   const DISCOVERY_COOLDOWN = 24 * 60 * 60 * 1000; // 24 hours
 
+  // Track if tutorial is running to prevent duplicate notifications
+  const [tutorialRunning, setTutorialRunning] = useState(false);
+
+  useEffect(() => {
+    setTutorialRunning(showTutorial);
+  }, [showTutorial]);
+
   // Fetch discovery status from server for cross-device consistency
   const fetchDiscoveryStatus = useCallback(async () => {
     if (!shop) return;
@@ -1476,18 +1483,20 @@ export default function CompetitorsPage() {
       if (shop) {
         localStorage.setItem(`tutorialCompleted_${shop}`, 'true');
       }
-      if (status === 'finished') {
-        notifications.showSuccess('Tutorial completed! You\'re ready to explore Market Intelligence.', {
-          category: 'Tutorial'
-        });
-      } else if (status === 'skipped' || action === 'close') {
-        notifications.showInfo('Tutorial skipped. You can restart it anytime from the tutorial button.', {
-          category: 'Tutorial'
-        });
+      if (tutorialRunning) {
+        if (status === 'finished') {
+          notifications.showSuccess('Tutorial completed! You\'re ready to explore Market Intelligence.', {
+            category: 'Tutorial'
+          });
+        } else if (status === 'skipped' || action === 'close') {
+          notifications.showInfo('Tutorial skipped. You can restart it anytime from the tutorial button.', {
+            category: 'Tutorial'
+          });
+        }
       }
-    } else if (type === 'step:after' && typeof index === 'number') {
+    } else if ((type === 'step:after' && typeof index === 'number' && action !== 'prev') || action === 'next') {
       setTutorialStep(index + 1);
-    } else if ((type as string) === 'step:back' && typeof index === 'number') {
+    } else if (((type as string) === 'step:back' || action === 'prev') && typeof index === 'number') {
       setTutorialStep(index - 1);
     }
   };
@@ -2029,7 +2038,8 @@ export default function CompetitorsPage() {
             transition: 'all 0.3s ease',
           }}
         >
-          <QuestionMarkCircleIcon style={{ fontSize: 28 }} />
+          {/* Increased icon size for better match with Dashboard */}
+          <QuestionMarkCircleIcon style={{ fontSize: 40 }} />
         </button>
       </div>
     </div>

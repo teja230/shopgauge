@@ -2389,6 +2389,13 @@ const DashboardPage = () => {
     }
   }, [isAuthReady, authLoading, isAuthenticated, shop, navigate]);
 
+  // Track if tutorial is running to prevent duplicate notifications
+  const [tutorialRunning, setTutorialRunning] = useState(false);
+
+  useEffect(() => {
+    setTutorialRunning(showTutorial);
+  }, [showTutorial]);
+
   const handleJoyrideCallback = (data: CallBackProps) => {
     const { action, index, status, type } = data;
     if (
@@ -2399,22 +2406,23 @@ const DashboardPage = () => {
     ) {
       setShowTutorial(false);
       setTutorialStep(0);
-      
-      // Show completion notification
-      if (status === 'finished') {
-        notifications.showSuccess('Tutorial completed! You\'re ready to explore your dashboard.', {
-          category: 'Tutorial',
-          duration: 4000
-        });
-      } else if (status === 'skipped' || action === 'close') {
-        notifications.showInfo('Tutorial skipped. You can restart it anytime using the Tutorial button.', {
-          category: 'Tutorial',
-          duration: 3000
-        });
+      if (tutorialRunning) {
+        // Show completion notification
+        if (status === 'finished') {
+          notifications.showSuccess('Tutorial completed! You\'re ready to explore your dashboard.', {
+            category: 'Tutorial',
+            duration: 4000
+          });
+        } else if (status === 'skipped' || action === 'close') {
+          notifications.showInfo('Tutorial skipped. You can restart it anytime using the Tutorial button.', {
+            category: 'Tutorial',
+            duration: 3000
+          });
+        }
       }
-    } else if (type === 'step:after' && typeof index === 'number') {
+    } else if ((type === 'step:after' && typeof index === 'number' && action !== 'prev') || action === 'next') {
       setTutorialStep(index + 1);
-    } else if ((type as string) === 'step:back' && typeof index === 'number') {
+    } else if ((type === 'step:back' || action === 'prev') && typeof index === 'number') {
       setTutorialStep(index - 1);
     }
   };
