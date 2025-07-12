@@ -26,7 +26,6 @@ import {
   CogIcon,
   InformationCircleIcon,
   XMarkIcon,
-  QuestionMarkCircleIcon
 } from '@heroicons/react/24/outline';
 import type { CompetitorSuggestion } from '../api';
 import { useNotifications } from '../hooks/useNotifications';
@@ -37,6 +36,7 @@ import IntelligentLoadingScreen from '../components/ui/IntelligentLoadingScreen'
 import Joyride from 'react-joyride';
 import type { CallBackProps, Step, TooltipRenderProps } from 'react-joyride';
 import ThemedJoyrideTooltip from '../components/ui/ThemedJoyrideTooltip';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 
 // Tutorial step types
 interface TutorialStep {
@@ -1471,8 +1471,7 @@ export default function CompetitorsPage() {
     if (
       status === 'finished' ||
       status === 'skipped' ||
-      action === 'close' || // Treat close as skip
-      (type === 'step:after' && index === JOYRIDE_STEPS.length - 1)
+      action === 'close' // Treat close as skip
     ) {
       setShowTutorial(false);
       setTutorialStep(0);
@@ -1792,7 +1791,7 @@ export default function CompetitorsPage() {
                   title="Show Tutorial"
                   aria-label="Show Tutorial"
                 >
-                  <QuestionMarkCircleIcon className="h-6 w-6" />
+                  <HelpOutlineIcon sx={{ fontSize: 24 }} />
                 </button>
               </h2>
               <div className="text-sm text-gray-500">
@@ -2038,8 +2037,8 @@ export default function CompetitorsPage() {
             transition: 'all 0.3s ease',
           }}
         >
-          {/* Increased icon size for better match with Dashboard */}
-          <QuestionMarkCircleIcon style={{ fontSize: 40 }} />
+          {/* Use Material-UI HelpOutlineIcon for perfect match with Dashboard */}
+          <HelpOutlineIcon sx={{ fontSize: 24 }} />
         </button>
       </div>
     </div>
