@@ -1430,13 +1430,8 @@ export default function CompetitorsPage() {
     
     console.log('Joyride callback:', { action, index, status, type });
     
-    // Handle tutorial completion
-    if (
-      status === 'finished' ||
-      status === 'skipped' ||
-      action === 'close' || // Treat close as skip
-      (type === 'step:after' && index === JOYRIDE_STEPS.length - 1)
-    ) {
+    // Handle tutorial completion - only show one notification
+    if (status === 'finished') {
       setShowTutorial(false);
       setDemoAnalytics(prev => ({
         ...prev,
@@ -1445,17 +1440,43 @@ export default function CompetitorsPage() {
       if (shop) {
         localStorage.setItem(`tutorialCompleted_${shop}`, 'true');
       }
-      
-      // Show completion notification
-      if (status === 'finished') {
-        notifications.showSuccess('Tutorial completed! You\'re ready to explore Market Intelligence.', {
-          category: 'Tutorial'
-        });
-      } else if (status === 'skipped') {
-        notifications.showInfo('Tutorial skipped. You can restart it anytime from the tutorial button.', {
-          category: 'Tutorial'
-        });
+      notifications.showSuccess('Tutorial completed! You\'re ready to explore Market Intelligence.', {
+        category: 'Tutorial'
+      });
+    } else if (status === 'skipped') {
+      setShowTutorial(false);
+      setDemoAnalytics(prev => ({
+        ...prev,
+        tutorialCompleted: true
+      }));
+      if (shop) {
+        localStorage.setItem(`tutorialCompleted_${shop}`, 'true');
       }
+      notifications.showInfo('Tutorial skipped. You can restart it anytime from the tutorial button.', {
+        category: 'Tutorial'
+      });
+    } else if (action === 'close') {
+      setShowTutorial(false);
+      setDemoAnalytics(prev => ({
+        ...prev,
+        tutorialCompleted: true
+      }));
+      if (shop) {
+        localStorage.setItem(`tutorialCompleted_${shop}`, 'true');
+      }
+      // Don't show notification for close action to avoid duplicates
+    } else if (type === 'step:after' && index === JOYRIDE_STEPS.length - 1) {
+      setShowTutorial(false);
+      setDemoAnalytics(prev => ({
+        ...prev,
+        tutorialCompleted: true
+      }));
+      if (shop) {
+        localStorage.setItem(`tutorialCompleted_${shop}`, 'true');
+      }
+      notifications.showSuccess('Tutorial completed! You\'re ready to explore Market Intelligence.', {
+        category: 'Tutorial'
+      });
     }
   };
 
