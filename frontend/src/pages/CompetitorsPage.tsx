@@ -82,10 +82,10 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     position: 'bottom'
   },
   {
-    id: 'filters',
-    title: 'Filter & Search',
-    description: 'Use filters to focus on specific competitors or search for particular products.',
-    target: '.filter-controls',
+    id: 'demo-toggle',
+    title: 'Demo Mode',
+    description: 'Switch between demo and live modes. Demo mode shows sample data for exploration.',
+    target: '.demo-toggle-button',
     position: 'bottom'
   },
   {
@@ -110,18 +110,18 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     position: 'bottom'
   },
   {
+    id: 'filters',
+    title: 'Filter & Search',
+    description: 'Use filters to focus on specific competitors or search for particular products.',
+    target: '.filter-controls',
+    position: 'bottom'
+  },
+  {
     id: 'table',
     title: 'Competitor Table',
     description: 'View detailed pricing information, stock status, and price changes for all your competitors.',
     target: '.competitor-table',
     position: 'top'
-  },
-  {
-    id: 'demo-toggle',
-    title: 'Demo Mode',
-    description: 'Switch between demo and live modes. Demo mode shows sample data for exploration.',
-    target: '.demo-toggle-button',
-    position: 'bottom'
   }
 ];
 
@@ -1468,6 +1468,8 @@ export default function CompetitorsPage() {
   // Joyride callback handler
   const handleJoyrideCallback = (data: CallBackProps) => {
     const { action, index, status, type } = data;
+    
+    // Handle tutorial completion
     if (
       status === 'finished' ||
       status === 'skipped' ||
@@ -1483,18 +1485,28 @@ export default function CompetitorsPage() {
       if (shop) {
         localStorage.setItem(`tutorialCompleted_${shop}`, 'true');
       }
-      if (status === 'finished') {
+      
+      // Show completion notification only once
+      if (status === 'finished' && !tutorialRunning) {
         notifications.showSuccess('Tutorial completed! You\'re ready to explore Market Intelligence.', {
           category: 'Tutorial'
         });
-      } else if (status === 'skipped' || action === 'close') {
+      } else if ((status === 'skipped' || action === 'close') && !tutorialRunning) {
         notifications.showInfo('Tutorial skipped. You can restart it anytime from the tutorial button.', {
           category: 'Tutorial'
         });
       }
-    } else if (type === 'step:after' && typeof index === 'number') {
+    } 
+    // Handle step navigation
+    else if (type === 'step:after' && typeof index === 'number') {
       setTutorialStep(index + 1);
-    } else if ((action === 'prev' || (type as string) === 'step:back') && typeof index === 'number') {
+    } 
+    // Handle previous button - properly handle the back action
+    else if (action === 'prev' && typeof index === 'number' && index > 0) {
+      setTutorialStep(index - 1);
+    }
+    // Handle step:back event type as well
+    else if ((type as string) === 'step:back' && typeof index === 'number' && index > 0) {
       setTutorialStep(index - 1);
     }
   };
