@@ -221,16 +221,27 @@ const MarketIntelligenceDashboard: React.FC<MarketIntelligenceDashboardProps> = 
         // Fetch real historical cost data
         try {
           const costHistory = await marketIntelligenceAdminAPI.getCostHistory(1, 30);
-          const historicalData: HistoricalData[] = costHistory.historicalData.map(item => ({
-            timestamp: item.timestamp,
-            dailyCost: item.dailyCost,
-            requests: item.requests,
-            discoveries: item.discoveries,
-          }));
+          let historicalData: HistoricalData[] = [];
+          if (Array.isArray(costHistory?.historicalData)) {
+            historicalData = costHistory.historicalData.map(item => ({
+              timestamp: item.timestamp,
+              dailyCost: item.dailyCost,
+              requests: item.requests,
+              discoveries: item.discoveries,
+            }));
+          } else {
+            // fallback to sample data
+            historicalData = Array.from({ length: 30 }, (_, i) => ({
+              timestamp: new Date(Date.now() - (29 - i) * 24 * 60 * 60 * 1000).toISOString(),
+              dailyCost: Math.random() * 10 + 2,
+              requests: Math.floor(Math.random() * 1000) + 100,
+              discoveries: Math.floor(Math.random() * 50) + 10,
+            }));
+          }
           setHistoricalData(historicalData);
-        } catch (error) {
-          console.warn('Failed to fetch historical cost data, using sample data:', error);
-          // Fallback to sample data if historical data fetch fails
+        } catch (error: any) {
+          setError('Failed to load historical cost data. Please try again later.');
+          // Fallback to sample data for display
           const sampleHistoricalData: HistoricalData[] = Array.from({ length: 30 }, (_, i) => ({
             timestamp: new Date(Date.now() - (29 - i) * 24 * 60 * 60 * 1000).toISOString(),
             dailyCost: Math.random() * 10 + 2,
@@ -355,10 +366,12 @@ const MarketIntelligenceDashboard: React.FC<MarketIntelligenceDashboardProps> = 
 
   if (error) {
     return (
-      <Alert severity="error" sx={{ mb: 2 }}>
-        <AlertTitle>Error</AlertTitle>
-        {error}
-      </Alert>
+      <Box sx={{ p: 4, textAlign: 'center' }}>
+        <Alert severity="error">
+          <AlertTitle>Error</AlertTitle>
+          {error}
+        </Alert>
+      </Box>
     );
   }
 
