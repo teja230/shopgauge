@@ -758,7 +758,6 @@ const DashboardPage = () => {
   const [lastRefreshTime, setLastRefreshTime] = useState<number>(0); // Track last refresh time for debouncing
   const [debounceCountdown, setDebounceCountdown] = useState<number>(0); // Real-time countdown for debounce
   const [showTutorial, setShowTutorial] = useState(false);
-  const [tutorialStep, setTutorialStep] = useState(0);
 
   // =====================================
   // Polling management refs (typed)
@@ -2400,8 +2399,6 @@ const DashboardPage = () => {
       (type === 'step:after' && index === DASHBOARD_TUTORIAL_STEPS.length - 1)
     ) {
       setShowTutorial(false);
-      setTutorialStep(0);
-
       // Show completion notification
       if (status === 'finished') {
         notifications.showSuccess('Tutorial completed! You\'re ready to explore your dashboard.', {
@@ -2417,15 +2414,15 @@ const DashboardPage = () => {
     } 
     // Handle step navigation
     else if (type === 'step:after' && typeof index === 'number') {
-      setTutorialStep(index + 1);
+      // Handle step navigation
     } 
     // Handle previous button - properly handle the back action
     else if (action === 'prev' && typeof index === 'number' && index > 0) {
-      setTutorialStep(index - 1);
+      // Handle previous button - properly handle the back action
     }
     // Handle step:back event type as well
     else if ((type as string) === 'step:back' && typeof index === 'number' && index > 0) {
-      setTutorialStep(index - 1);
+      // Handle step:back event type as well
     }
   };
 
@@ -3125,7 +3122,6 @@ const DashboardPage = () => {
             startIcon={<HelpOutlineIcon />}
             onClick={() => {
               setShowTutorial(true);
-              setTutorialStep(4); // Jump to Advanced Analytics step
             }}
             sx={{
               textTransform: 'none',
@@ -3331,7 +3327,6 @@ const DashboardPage = () => {
             variant="contained"
             onClick={() => {
               setShowTutorial(true);
-              setTutorialStep(0);
             }}
             sx={{
               borderRadius: '50%',
@@ -3358,7 +3353,6 @@ const DashboardPage = () => {
         <Joyride
           steps={DASHBOARD_TUTORIAL_STEPS}
           run={showTutorial}
-          stepIndex={tutorialStep}
           continuous
           showSkipButton
           showProgress
