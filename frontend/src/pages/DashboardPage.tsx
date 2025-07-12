@@ -2391,6 +2391,8 @@ const DashboardPage = () => {
 
   const handleJoyrideCallback = (data: CallBackProps) => {
     const { action, index, status, type } = data;
+    
+    // Handle tutorial completion
     if (
       status === 'finished' ||
       status === 'skipped' ||
@@ -2412,9 +2414,17 @@ const DashboardPage = () => {
           duration: 3000
         });
       }
-    } else if (type === 'step:after' && typeof index === 'number') {
+    } 
+    // Handle step navigation
+    else if (type === 'step:after' && typeof index === 'number') {
       setTutorialStep(index + 1);
-    } else if ((action === 'prev' || (type as string) === 'step:back') && typeof index === 'number') {
+    } 
+    // Handle previous button - properly handle the back action
+    else if (action === 'prev' && typeof index === 'number' && index > 0) {
+      setTutorialStep(index - 1);
+    }
+    // Handle step:back event type as well
+    else if ((type as string) === 'step:back' && typeof index === 'number' && index > 0) {
       setTutorialStep(index - 1);
     }
   };

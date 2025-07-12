@@ -619,33 +619,38 @@ public class SessionManagementController {
             "Current session {} not found in database for shop {}, adding to response for UI highlighting",
             currentSessionId,
             shop);
-        
+
         Map<String, Object> currentSessionInfo = new HashMap<>();
         currentSessionInfo.put("sessionId", currentSessionId);
         currentSessionInfo.put("isCurrentSession", true);
-        currentSessionInfo.put("createdAt", LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
-        currentSessionInfo.put("lastAccessedAt", LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+        currentSessionInfo.put(
+            "createdAt", LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+        currentSessionInfo.put(
+            "lastAccessedAt", LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
         currentSessionInfo.put("lastUsedFormatted", "Just now");
         currentSessionInfo.put("ipAddress", getClientIpAddress(request));
-        currentSessionInfo.put("userAgent", request.getHeader("User-Agent") != null ? request.getHeader("User-Agent") : "Unknown Browser");
+        currentSessionInfo.put(
+            "userAgent",
+            request.getHeader("User-Agent") != null
+                ? request.getHeader("User-Agent")
+                : "Unknown Browser");
         currentSessionInfo.put("isExpired", false);
-        currentSessionInfo.put("expiresAt", LocalDateTime.now().plusHours(4).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
-        
+        currentSessionInfo.put(
+            "expiresAt",
+            LocalDateTime.now().plusHours(4).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+
         // Add current session to the beginning of the list
         sessionDetails.add(0, currentSessionInfo);
-        
+
         // Update session count to include current session
         response.put("currentSessionCount", activeSessions.size() + 1);
-        
+
         logger.info(
             "Added current session to response. Total sessions: {}, Current session count: {}",
             sessionDetails.size(),
             activeSessions.size() + 1);
       } else {
-        logger.debug(
-            "Current session {} found in database for shop {}",
-            currentSessionId,
-            shop);
+        logger.debug("Current session {} found in database for shop {}", currentSessionId, shop);
       }
 
       response.put("sessions", sessionDetails);
