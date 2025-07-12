@@ -1468,10 +1468,11 @@ export default function CompetitorsPage() {
   // Joyride callback handler
   const handleJoyrideCallback = (data: CallBackProps) => {
     const { action, index, status, type } = data;
+    const lastStep = JOYRIDE_STEPS.length - 1;
     if (
-      status === 'finished' ||
+      (status === 'finished' && action === 'next' && index === lastStep) ||
       status === 'skipped' ||
-      action === 'close' // Treat close as skip
+      action === 'close'
     ) {
       setShowTutorial(false);
       setTutorialStep(0);
@@ -1483,7 +1484,7 @@ export default function CompetitorsPage() {
         localStorage.setItem(`tutorialCompleted_${shop}`, 'true');
       }
       if (tutorialRunning) {
-        if (status === 'finished') {
+        if (status === 'finished' && action === 'next' && index === lastStep) {
           notifications.showSuccess('Tutorial completed! You\'re ready to explore Market Intelligence.', {
             category: 'Tutorial'
           });

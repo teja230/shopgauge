@@ -2398,16 +2398,16 @@ const DashboardPage = () => {
 
   const handleJoyrideCallback = (data: CallBackProps) => {
     const { action, index, status, type } = data;
+    const lastStep = DASHBOARD_TUTORIAL_STEPS.length - 1;
     if (
-      status === 'finished' ||
+      (status === 'finished' && action === 'next' && index === lastStep) ||
       status === 'skipped' ||
-      action === 'close' // Treat close as skip
+      action === 'close'
     ) {
       setShowTutorial(false);
       setTutorialStep(0);
       if (tutorialRunning) {
-        // Show completion notification
-        if (status === 'finished') {
+        if (status === 'finished' && action === 'next' && index === lastStep) {
           notifications.showSuccess('Tutorial completed! You\'re ready to explore your dashboard.', {
             category: 'Tutorial',
             duration: 4000
