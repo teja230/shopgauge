@@ -64,8 +64,8 @@ import {
   ShowChart as ShowChartIcon,
 } from '@mui/icons-material';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell, BarChart, Bar } from 'recharts';
-import marketIntelligenceAPI from '../../api/marketIntelligence';
-import type { MarketIntelligenceDashboard as MIDashboard, CostAnalytics, ProviderStats } from '../../api/marketIntelligence';
+import marketIntelligenceAdminAPI from '../../api/marketIntelligenceAdmin';
+import type { MarketIntelligenceDashboard as MIDashboard, CostAnalytics, ProviderStats } from '../../api/marketIntelligenceAdmin';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 const fetchAdminEndpoint = async (endpoint: string, options?: RequestInit) => {
@@ -156,7 +156,7 @@ const MarketIntelligenceDashboard: React.FC<MarketIntelligenceDashboardProps> = 
       setLoading(true);
       setError(null);
 
-      const dashboardResponse = await marketIntelligenceAPI.getAdminDashboard();
+      const dashboardResponse = await marketIntelligenceAdminAPI.getAdminDashboard();
       
       const metrics: MarketIntelligenceMetrics = {
         systemStatus: dashboardResponse.systemStatus || {
@@ -233,7 +233,7 @@ const MarketIntelligenceDashboard: React.FC<MarketIntelligenceDashboardProps> = 
     
     try {
       setTestLoading(true);
-      const results = await marketIntelligenceAPI.testSearch(testKeywords);
+      const results = await marketIntelligenceAdminAPI.testSearch(testKeywords);
       setTestResults(results.results || []);
     } catch (error) {
       console.error('Error testing search:', error);
@@ -246,7 +246,7 @@ const MarketIntelligenceDashboard: React.FC<MarketIntelligenceDashboardProps> = 
   const handleResetCosts = async () => {
     try {
       setResetLoading(true);
-      await marketIntelligenceAPI.resetCosts();
+      await marketIntelligenceAdminAPI.resetCosts();
       await fetchMetrics(); // Refresh metrics after reset
       setResetCostsDialog(false);
     } catch (error) {
