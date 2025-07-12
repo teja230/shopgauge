@@ -2401,8 +2401,7 @@ const DashboardPage = () => {
     if (
       status === 'finished' ||
       status === 'skipped' ||
-      action === 'close' || // Treat close as skip
-      (type === 'step:after' && index === DASHBOARD_TUTORIAL_STEPS.length - 1)
+      action === 'close' // Treat close as skip
     ) {
       setShowTutorial(false);
       setTutorialStep(0);
