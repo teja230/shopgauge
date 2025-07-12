@@ -1468,11 +1468,26 @@ export default function CompetitorsPage() {
   // Joyride callback handler
   const handleJoyrideCallback = (data: CallBackProps) => {
     const { action, index, status, type } = data;
+    const lastStep = JOYRIDE_STEPS.length - 1;
+    
+    console.log('🎯 Tutorial callback:', { action, index, status, type, lastStep, currentStep: tutorialStep });
+    
+    // Handle step progression first
+    if (action === 'next' || (type === 'step:after' && typeof index === 'number' && action !== 'prev')) {
+      console.log('➡️ Moving to next step:', index + 1);
+      setTutorialStep(index + 1);
+    } else if (action === 'prev' || ((type as string) === 'step:back' && typeof index === 'number')) {
+      console.log('⬅️ Moving to previous step:', index - 1);
+      setTutorialStep(index - 1);
+    }
+    
+    // Handle tutorial completion only when appropriate
     if (
-      status === 'finished' ||
+      (status === 'finished' && action === 'next' && index === lastStep) ||
       status === 'skipped' ||
       action === 'close'
     ) {
+      console.log('✅ Tutorial completion triggered:', { status, action, index, lastStep });
       setShowTutorial(false);
       setTutorialStep(0);
       setDemoAnalytics(prev => ({
@@ -1483,7 +1498,7 @@ export default function CompetitorsPage() {
         localStorage.setItem(`tutorialCompleted_${shop}`, 'true');
       }
       if (tutorialRunning) {
-        if (status === 'finished') {
+        if (status === 'finished' && action === 'next' && index === lastStep) {
           notifications.showSuccess('Tutorial completed! You\'re ready to explore Market Intelligence.', {
             category: 'Tutorial'
           });
@@ -1493,10 +1508,6 @@ export default function CompetitorsPage() {
           });
         }
       }
-    } else if (action === 'next' || (type === 'step:after' && typeof index === 'number' && action !== 'prev')) {
-      setTutorialStep(index + 1);
-    } else if (action === 'prev' || ((type as string) === 'step:back' && typeof index === 'number')) {
-      setTutorialStep(index - 1);
     }
   };
 
