@@ -2389,51 +2389,33 @@ const DashboardPage = () => {
     }
   }, [isAuthReady, authLoading, isAuthenticated, shop, navigate]);
 
-  // Track if tutorial is running to prevent duplicate notifications
-  const [tutorialRunning, setTutorialRunning] = useState(false);
-
-  useEffect(() => {
-    setTutorialRunning(showTutorial);
-  }, [showTutorial]);
-
-  // Joyride callback handler
   const handleJoyrideCallback = (data: CallBackProps) => {
     const { action, index, status, type } = data;
-    const lastStep = DASHBOARD_TUTORIAL_STEPS.length - 1;
-    
-    console.log('🎯 Dashboard Tutorial callback:', { action, index, status, type, lastStep, currentStep: tutorialStep });
-    
-    // Handle step progression first
-    if (action === 'next' || (type === 'step:after' && typeof index === 'number' && action !== 'prev')) {
-      console.log('➡️ Moving to next step:', index + 1);
-      setTutorialStep(index + 1);
-    } else if (action === 'prev' || (type === 'step:back' && typeof index === 'number')) {
-      console.log('⬅️ Moving to previous step:', index - 1);
-      setTutorialStep(index - 1);
-    }
-    
-    // Handle tutorial completion only when appropriate
     if (
-      (status === 'finished' && action === 'next' && index === lastStep) ||
+      status === 'finished' ||
       status === 'skipped' ||
-      action === 'close'
+      action === 'close' || // Treat close as skip
+      (type === 'step:after' && index === DASHBOARD_TUTORIAL_STEPS.length - 1)
     ) {
-      console.log('✅ Dashboard Tutorial completion triggered:', { status, action, index, lastStep });
       setShowTutorial(false);
       setTutorialStep(0);
-      if (tutorialRunning) {
-        if (status === 'finished' && action === 'next' && index === lastStep) {
-          notifications.showSuccess('Tutorial completed! You\'re ready to explore your dashboard.', {
-            category: 'Tutorial',
-            duration: 4000
-          });
-        } else if (status === 'skipped' || action === 'close') {
-          notifications.showInfo('Tutorial skipped. You can restart it anytime using the Tutorial button.', {
-            category: 'Tutorial',
-            duration: 3000
-          });
-        }
+
+      // Show completion notification
+      if (status === 'finished') {
+        notifications.showSuccess('Tutorial completed! You\'re ready to explore your dashboard.', {
+          category: 'Tutorial',
+          duration: 4000
+        });
+      } else if (status === 'skipped' || action === 'close') {
+        notifications.showInfo('Tutorial skipped. You can restart it anytime using the Tutorial button.', {
+          category: 'Tutorial',
+          duration: 3000
+        });
       }
+    } else if (type === 'step:after' && typeof index === 'number') {
+      setTutorialStep(index + 1);
+    } else if ((type as string) === 'step:back' && typeof index === 'number') {
+      setTutorialStep(index - 1);
     }
   };
 
