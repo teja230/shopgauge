@@ -532,9 +532,10 @@ public class SessionManagementController {
     }
 
     try {
-      String currentSessionId = request.getSession().getId();
+      // Use getSession(false) to avoid creating a new session if it doesn't exist
+      jakarta.servlet.http.HttpSession sessionObj = request.getSession(false);
+      String currentSessionId = (sessionObj != null) ? sessionObj.getId() : null;
 
-      // Retry mechanism to handle session commit timing during login
       List<ShopSession> activeSessions = null;
       boolean currentSessionFound = false;
       int maxRetries = 3;
@@ -543,8 +544,9 @@ public class SessionManagementController {
       for (int attempt = 0; attempt < maxRetries; attempt++) {
         activeSessions = shopService.getActiveSessionsForShop(shop);
         currentSessionFound =
-            activeSessions.stream()
-                .anyMatch(session -> session.getSessionId().equals(currentSessionId));
+            currentSessionId != null
+                && activeSessions.stream()
+                    .anyMatch(session -> session.getSessionId().equals(currentSessionId));
 
         if (currentSessionFound || attempt == maxRetries - 1) {
           break; // Found current session or exhausted retries
@@ -566,7 +568,6 @@ public class SessionManagementController {
             currentSessionId);
       }
 
-      // Check if limit would be exceeded
       boolean limitReached = activeSessions.size() >= 5; // MAX_SESSIONS_PER_SHOP
 
       response.put("limitReached", limitReached);
@@ -576,7 +577,6 @@ public class SessionManagementController {
       response.put("currentSessionId", currentSessionId);
       response.put("currentSessionFound", currentSessionFound);
 
-      // Include detailed session information for UI
       List<Map<String, Object>> sessionDetails =
           activeSessions.stream()
               .map(
@@ -584,7 +584,9 @@ public class SessionManagementController {
                     Map<String, Object> sessionInfo = new HashMap<>();
                     sessionInfo.put("sessionId", session.getSessionId());
                     sessionInfo.put(
-                        "isCurrentSession", session.getSessionId().equals(currentSessionId));
+                        "isCurrentSession",
+                        currentSessionId != null
+                            && session.getSessionId().equals(currentSessionId));
                     sessionInfo.put(
                         "createdAt",
                         session.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
@@ -613,8 +615,8 @@ public class SessionManagementController {
                   })
               .collect(Collectors.toList());
 
-      // If current session is not in database, add it to the response for UI highlighting
-      if (!currentSessionFound) {
+      // Only add current session if it exists and is not found in DB
+      if (currentSessionId != null && !currentSessionFound) {
         logger.info(
             "Current session {} not found in database for shop {}, adding to response for UI highlighting",
             currentSessionId,
@@ -649,7 +651,7 @@ public class SessionManagementController {
             "Added current session to response. Total sessions: {}, Current session count: {}",
             sessionDetails.size(),
             activeSessions.size() + 1);
-      } else {
+      } else if (currentSessionId != null) {
         logger.debug("Current session {} found in database for shop {}", currentSessionId, shop);
       }
 
