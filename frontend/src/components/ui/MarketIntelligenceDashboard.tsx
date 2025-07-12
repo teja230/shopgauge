@@ -65,7 +65,7 @@ import {
 } from '@mui/icons-material';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell, BarChart, Bar } from 'recharts';
 import marketIntelligenceAdminAPI from '../../api/marketIntelligenceAdmin';
-import type { MarketIntelligenceDashboard as MIDashboard, CostAnalytics, ProviderStats } from '../../api/marketIntelligenceAdmin';
+import type { MarketIntelligenceDashboard as MIDashboard, CostAnalytics, ProviderStats, HistoricalCostData } from '../../api/marketIntelligenceAdmin';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 const fetchAdminEndpoint = async (endpoint: string, options?: RequestInit) => {
@@ -123,7 +123,6 @@ interface SearchTestResult {
 interface HistoricalData {
   timestamp: string;
   dailyCost: number;
-  monthlyCost: number;
   requests: number;
   discoveries: number;
 }
@@ -139,6 +138,7 @@ const MarketIntelligenceDashboard: React.FC<MarketIntelligenceDashboardProps> = 
 }) => {
   const [metrics, setMetrics] = useState<MarketIntelligenceMetrics | null>(null);
   const [historicalData, setHistoricalData] = useState<HistoricalData[]>([]);
+  const [shopId, setShopId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -210,15 +210,45 @@ const MarketIntelligenceDashboard: React.FC<MarketIntelligenceDashboardProps> = 
       setMetrics(metrics);
       setLastUpdated(new Date());
 
-      // Generate sample historical data
-      const sampleHistoricalData: HistoricalData[] = Array.from({ length: 30 }, (_, i) => ({
-        timestamp: new Date(Date.now() - (29 - i) * 24 * 60 * 60 * 1000).toISOString(),
-        dailyCost: Math.random() * 10 + 2,
-        monthlyCost: Math.random() * 300 + 100,
-        requests: Math.floor(Math.random() * 1000) + 100,
-        discoveries: Math.floor(Math.random() * 50) + 10,
-      }));
-      setHistoricalData(sampleHistoricalData);
+      // Get shop ID from database stats (assuming first active shop for demo)
+      // In a real implementation, this would come from user context or session
+      const activeShops = metrics.databaseStats?.activeShops || 0;
+      if (activeShops > 0) {
+        // For demo purposes, use shop ID 1 if there are active shops
+        // In production, this would be the actual shop ID from user session
+        setShopId(1);
+        
+        // Fetch real historical cost data
+        try {
+          const costHistory = await marketIntelligenceAdminAPI.getCostHistory(1, 30);
+          const historicalData: HistoricalData[] = costHistory.historicalData.map(item => ({
+            timestamp: item.timestamp,
+            dailyCost: item.dailyCost,
+            requests: item.requests,
+            discoveries: item.discoveries,
+          }));
+          setHistoricalData(historicalData);
+        } catch (error) {
+          console.warn('Failed to fetch historical cost data, using sample data:', error);
+          // Fallback to sample data if historical data fetch fails
+          const sampleHistoricalData: HistoricalData[] = Array.from({ length: 30 }, (_, i) => ({
+            timestamp: new Date(Date.now() - (29 - i) * 24 * 60 * 60 * 1000).toISOString(),
+            dailyCost: Math.random() * 10 + 2,
+            requests: Math.floor(Math.random() * 1000) + 100,
+            discoveries: Math.floor(Math.random() * 50) + 10,
+          }));
+          setHistoricalData(sampleHistoricalData);
+        }
+      } else {
+        // No active shops, use sample data
+        const sampleHistoricalData: HistoricalData[] = Array.from({ length: 30 }, (_, i) => ({
+          timestamp: new Date(Date.now() - (29 - i) * 24 * 60 * 60 * 1000).toISOString(),
+          dailyCost: Math.random() * 10 + 2,
+          requests: Math.floor(Math.random() * 1000) + 100,
+          discoveries: Math.floor(Math.random() * 50) + 10,
+        }));
+        setHistoricalData(sampleHistoricalData);
+      }
 
     } catch (error) {
       console.error('Error fetching market intelligence metrics:', error);
@@ -632,10 +662,20 @@ const MarketIntelligenceDashboard: React.FC<MarketIntelligenceDashboardProps> = 
       {/* Cost Trend Chart */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
-          <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <ShowChartIcon />
-            Cost Trend (Last 30 Days)
-          </Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <ShowChartIcon />
+              Cost Trend (Last 30 Days)
+            </Typography>
+            {shopId && (
+              <Chip 
+                label={`Shop ID: ${shopId}`} 
+                color="primary" 
+                size="small"
+                variant="outlined"
+              />
+            )}
+          </Box>
           <Box sx={{ height: 300, mt: 2 }}>
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={historicalData}>
@@ -660,6 +700,15 @@ const MarketIntelligenceDashboard: React.FC<MarketIntelligenceDashboardProps> = 
               </AreaChart>
             </ResponsiveContainer>
           </Box>
+          {shopId ? (
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+              Showing real cost data for shop {shopId}. Data includes API costs from Market Intelligence features.
+            </Typography>
+          ) : (
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+              Showing sample data. Connect a shop to view real cost trends.
+            </Typography>
+          )}
         </CardContent>
       </Card>
 

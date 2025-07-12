@@ -63,6 +63,25 @@ export interface MarketIntelligenceDashboard {
   };
 }
 
+export interface HistoricalCostData {
+  timestamp: string;
+  dailyCost: number;
+  requests: number;
+  discoveries: number;
+}
+
+export interface CostHistoryResponse {
+  historicalData: HistoricalCostData[];
+  providerData: {
+    providerCosts: Record<string, number>;
+    providerRequests: Record<string, number>;
+    providerDiscoveries: Record<string, number>;
+  };
+  days: number;
+  shopId: number;
+  totalDays: number;
+}
+
 export interface SearchTestResult {
   url: string;
   title: string;
@@ -130,6 +149,12 @@ export const marketIntelligenceAdminAPI = {
   async getLogs(limit = 100, level = 'INFO'): Promise<any> {
     return await fetchWithAdminAuth(
       `/api/admin/market-intelligence/logs?limit=${limit}&level=${level}`
+    );
+  },
+
+  async getCostHistory(shopId: number, days = 30): Promise<CostHistoryResponse> {
+    return await fetchWithAdminAuth(
+      `/api/admin/market-intelligence/cost-history?shopId=${shopId}&days=${days}`
     );
   }
 };

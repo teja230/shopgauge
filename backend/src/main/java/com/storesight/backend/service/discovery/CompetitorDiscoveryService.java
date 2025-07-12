@@ -4,6 +4,7 @@ import com.storesight.backend.model.CompetitorSuggestion;
 import com.storesight.backend.model.ShopSession;
 import com.storesight.backend.repository.CompetitorSuggestionRepository;
 import com.storesight.backend.repository.ShopSessionRepository;
+import com.storesight.backend.service.CostOptimizationService;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -47,6 +48,8 @@ public class CompetitorDiscoveryService {
   @Autowired private ProductAwareKeywordBuilder keywordBuilder;
 
   @Autowired private ShopSessionRepository shopSessionRepository;
+
+  @Autowired private CostOptimizationService costOptimizationService;
 
   /** Scheduled task to discover competitors for all active shops */
   @Scheduled(cron = "0 45 3 * * *") // Default: daily at 3:45 AM
@@ -168,6 +171,18 @@ public class CompetitorDiscoveryService {
     // Search for competitors
     List<SearchClient.SearchResult> searchResults =
         searchClient.search(keywords, maxResultsPerProduct);
+
+    // Track cost for this discovery request
+    if (searchResults.size() > 0) {
+      BigDecimal cost = BigDecimal.valueOf(searchClient.getCostPerSearch());
+      costOptimizationService.trackApiCost(
+          shopId, searchClient.getProviderName(), cost, 1, searchResults.size());
+      log.debug(
+          "Tracked discovery cost for shop {}: ${} for {} results",
+          shopId,
+          cost,
+          searchResults.size());
+    }
 
     if (searchResults.isEmpty()) {
       log.debug("No search results found for product: {}", productTitle);

@@ -160,6 +160,7 @@ public class MultiSourceSearchClient implements SearchClient {
         if (costOptimizationEnabled) {
           totalCost = totalCost.add(estimatedCost);
           totalRequests++;
+          // Track cost without shop ID for global tracking
           costOptimizationService.trackApiCost(provider.getProviderName(), estimatedCost, 1);
         }
 

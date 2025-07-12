@@ -1472,21 +1472,8 @@ export default function CompetitorsPage() {
     
     console.log('🎯 Tutorial callback:', { action, index, status, type, lastStep, currentStep: tutorialStep });
     
-    // Handle step progression first
-    if (action === 'next' || (type === 'step:after' && typeof index === 'number' && action !== 'prev')) {
-      console.log('➡️ Moving to next step:', index + 1);
-      setTutorialStep(index + 1);
-    } else if (action === 'prev' || ((type as string) === 'step:back' && typeof index === 'number')) {
-      console.log('⬅️ Moving to previous step:', index - 1);
-      setTutorialStep(index - 1);
-    }
-    
-    // Handle tutorial completion only when appropriate
-    if (
-      (status === 'finished' && action === 'next' && index === lastStep) ||
-      status === 'skipped' ||
-      action === 'close'
-    ) {
+    // Handle tutorial completion conditions first
+    if (status === 'finished' || status === 'skipped' || action === 'close') {
       console.log('✅ Tutorial completion triggered:', { status, action, index, lastStep });
       setShowTutorial(false);
       setTutorialStep(0);
@@ -1498,7 +1485,7 @@ export default function CompetitorsPage() {
         localStorage.setItem(`tutorialCompleted_${shop}`, 'true');
       }
       if (tutorialRunning) {
-        if (status === 'finished' && action === 'next' && index === lastStep) {
+        if (status === 'finished') {
           notifications.showSuccess('Tutorial completed! You\'re ready to explore Market Intelligence.', {
             category: 'Tutorial'
           });
@@ -1508,6 +1495,16 @@ export default function CompetitorsPage() {
           });
         }
       }
+      return;
+    }
+
+    // Handle step progression - only update stepIndex if tutorial is still running
+    if (action === 'next' && typeof index === 'number' && index < lastStep) {
+      console.log('➡️ Moving to next step:', index + 1);
+      setTutorialStep(index + 1);
+    } else if (action === 'prev' && typeof index === 'number' && index > 0) {
+      console.log('⬅️ Moving to previous step:', index - 1);
+      setTutorialStep(index - 1);
     }
   };
 

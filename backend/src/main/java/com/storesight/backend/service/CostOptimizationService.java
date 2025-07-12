@@ -1,8 +1,11 @@
 package com.storesight.backend.service;
 
+import com.storesight.backend.model.MarketIntelligenceCost;
+import com.storesight.backend.repository.MarketIntelligenceCostRepository;
 import com.storesight.backend.service.discovery.SearchClient;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -27,6 +30,7 @@ public class CostOptimizationService {
 
   @Autowired private RedisTemplate<String, Object> redisTemplate;
   @Autowired private JdbcTemplate jdbcTemplate;
+  @Autowired private MarketIntelligenceCostRepository costRepository;
 
   @Value("${cost.optimization.enabled:true}")
   private boolean costOptimizationEnabled;
@@ -54,6 +58,12 @@ public class CostOptimizationService {
 
   /** Track API cost for a search request */
   public void trackApiCost(String provider, BigDecimal cost, int requests) {
+    trackApiCost(null, provider, cost, requests, 0);
+  }
+
+  /** Track API cost for a search request with shop-specific tracking */
+  public void trackApiCost(
+      Long shopId, String provider, BigDecimal cost, int requests, int discoveries) {
     if (!costOptimizationEnabled) {
       return;
     }
@@ -79,10 +89,16 @@ public class CostOptimizationService {
     redisTemplate.opsForValue().set("requests_daily_" + dailyKey, requests, 25, TimeUnit.HOURS);
     redisTemplate.opsForValue().set("requests_monthly_" + monthlyKey, requests, 32, TimeUnit.DAYS);
 
+    // Store shop-specific cost data in database
+    if (shopId != null) {
+      storeShopCostData(shopId, provider, cost, requests, discoveries);
+    }
+
     // Check budget alerts
     checkBudgetAlerts(provider, today, month);
 
-    log.debug("Tracked API cost: {} - ${} ({} requests)", provider, cost, requests);
+    log.debug(
+        "Tracked API cost: {} - ${} ({} requests) for shop: {}", provider, cost, requests, shopId);
   }
 
   /** Check if we can make an API request within budget */
@@ -162,6 +178,42 @@ public class CostOptimizationService {
   /** Generate cache key for search request */
   public String generateCacheKey(String provider, String keywords, int maxResults) {
     return String.format("%s_%s_%d", provider, keywords.hashCode(), maxResults);
+  }
+
+  /** Store shop-specific cost data in database */
+  private void storeShopCostData(
+      Long shopId, String provider, BigDecimal cost, int requests, int discoveries) {
+    try {
+      LocalDate today = LocalDate.now();
+
+      // Check if we already have an entry for today
+      Optional<MarketIntelligenceCost> existingCost =
+          costRepository.findByShopIdAndDateAndProvider(shopId, today, provider);
+
+      if (existingCost.isPresent()) {
+        // Update existing entry
+        MarketIntelligenceCost costData = existingCost.get();
+        costData.setDailyCost(costData.getDailyCost().add(cost));
+        costData.setDailyRequests(costData.getDailyRequests() + requests);
+        costData.setDailyDiscoveries(costData.getDailyDiscoveries() + discoveries);
+        costRepository.save(costData);
+      } else {
+        // Create new entry
+        MarketIntelligenceCost costData =
+            new MarketIntelligenceCost(shopId, today, provider, cost, requests, discoveries);
+        costRepository.save(costData);
+      }
+
+      log.debug(
+          "Stored shop cost data: shopId={}, provider={}, cost={}, requests={}, discoveries={}",
+          shopId,
+          provider,
+          cost,
+          requests,
+          discoveries);
+    } catch (Exception e) {
+      log.warn("Error storing shop cost data: {}", e.getMessage());
+    }
   }
 
   /** Check budget alerts */
@@ -333,6 +385,105 @@ public class CostOptimizationService {
     dailyRequests.entrySet().removeIf(entry -> entry.getKey().endsWith("_" + yesterday));
 
     log.info("Reset daily costs for new day");
+  }
+
+  /** Get historical cost data for a shop */
+  public List<Map<String, Object>> getHistoricalCostData(Long shopId, int days) {
+    try {
+      LocalDate endDate = LocalDate.now();
+      LocalDate startDate = endDate.minusDays(days - 1);
+
+      List<Object[]> aggregatedData =
+          costRepository.getDailyAggregatedCosts(shopId, startDate, endDate);
+
+      List<Map<String, Object>> historicalData = new ArrayList<>();
+
+      for (Object[] row : aggregatedData) {
+        Map<String, Object> dayData = new HashMap<>();
+        dayData.put("timestamp", row[0].toString()); // date
+        dayData.put("dailyCost", ((Number) row[1]).doubleValue()); // totalCost
+        dayData.put("requests", ((Number) row[2]).intValue()); // totalRequests
+        dayData.put("discoveries", ((Number) row[3]).intValue()); // totalDiscoveries
+        historicalData.add(dayData);
+      }
+
+      // Fill in missing days with zero values
+      List<Map<String, Object>> completeData = fillMissingDays(historicalData, startDate, endDate);
+
+      log.debug("Retrieved historical cost data for shop {}: {} days", shopId, completeData.size());
+      return completeData;
+
+    } catch (Exception e) {
+      log.warn("Error retrieving historical cost data for shop {}: {}", shopId, e.getMessage());
+      return new ArrayList<>();
+    }
+  }
+
+  /** Get provider-specific cost data for a shop */
+  public Map<String, Object> getProviderCostData(Long shopId, int days) {
+    try {
+      LocalDate endDate = LocalDate.now();
+      LocalDate startDate = endDate.minusDays(days - 1);
+
+      List<Object[]> providerData = costRepository.getProviderCosts(shopId, startDate, endDate);
+
+      Map<String, Object> result = new HashMap<>();
+      Map<String, Double> providerCosts = new HashMap<>();
+      Map<String, Integer> providerRequests = new HashMap<>();
+      Map<String, Integer> providerDiscoveries = new HashMap<>();
+
+      for (Object[] row : providerData) {
+        String provider = (String) row[0];
+        providerCosts.put(provider, ((Number) row[1]).doubleValue());
+        providerRequests.put(provider, ((Number) row[2]).intValue());
+        providerDiscoveries.put(provider, ((Number) row[3]).intValue());
+      }
+
+      result.put("providerCosts", providerCosts);
+      result.put("providerRequests", providerRequests);
+      result.put("providerDiscoveries", providerDiscoveries);
+
+      return result;
+
+    } catch (Exception e) {
+      log.warn("Error retrieving provider cost data for shop {}: {}", shopId, e.getMessage());
+      return new HashMap<>();
+    }
+  }
+
+  /** Fill missing days with zero values */
+  private List<Map<String, Object>> fillMissingDays(
+      List<Map<String, Object>> existingData, LocalDate startDate, LocalDate endDate) {
+    List<Map<String, Object>> completeData = new ArrayList<>();
+    Map<String, Map<String, Object>> dataMap = new HashMap<>();
+
+    // Create map of existing data by date
+    for (Map<String, Object> dayData : existingData) {
+      dataMap.put(dayData.get("timestamp").toString(), dayData);
+    }
+
+    // Fill all days in range
+    LocalDate currentDate = startDate;
+    while (!currentDate.isAfter(endDate)) {
+      String dateKey = currentDate.toString();
+      Map<String, Object> dayData = dataMap.get(dateKey);
+
+      if (dayData != null) {
+        completeData.add(dayData);
+      } else {
+        // Create zero-value entry for missing day
+        Map<String, Object> zeroDay = new HashMap<>();
+        zeroDay.put("timestamp", dateKey);
+        zeroDay.put("dailyCost", 0.0);
+        zeroDay.put("requests", 0);
+        zeroDay.put("discoveries", 0);
+        completeData.add(zeroDay);
+      }
+
+      currentDate = currentDate.plusDays(1);
+    }
+
+    return completeData;
   }
 
   /** Cost analytics data class */
