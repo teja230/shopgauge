@@ -2414,7 +2414,7 @@ const DashboardPage = () => {
       }
     } else if (type === 'step:after' && typeof index === 'number') {
       setTutorialStep(index + 1);
-    } else if ((type as string) === 'step:back' && typeof index === 'number') {
+    } else if ((action === 'prev' || (type as string) === 'step:back') && typeof index === 'number') {
       setTutorialStep(index - 1);
     }
   };
