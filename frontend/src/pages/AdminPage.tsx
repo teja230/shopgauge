@@ -1412,6 +1412,7 @@ const AdminPage: React.FC = () => {
               { value: 'audit-logs', label: 'Audit Logs' },
               { value: 'active', label: 'Active Shops' },
               { value: 'sessions', label: 'Sessions' },
+              { value: 'market-intelligence', label: 'Market Intelligence' },
               { value: 'emergency', label: 'Emergency' },
             ].map((tab, idx) => (
               <Tab
@@ -1931,6 +1932,29 @@ const AdminPage: React.FC = () => {
                   </Card>
                 </Box>
               )}
+            </Box>
+          )}
+
+          {/* Market Intelligence Tab */}
+          {activeTab === 'market-intelligence' && (
+            <Box>
+              <Card>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>
+                    Market Intelligence Dashboard
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Market Intelligence admin features are available. The backend controller provides comprehensive analytics, cost optimization, and provider management.
+                  </Typography>
+                  <Box sx={{ mt: 2 }}>
+                    <Alert severity="info">
+                      <Typography variant="body2">
+                        Market Intelligence admin endpoints are available at <code>/api/admin/market-intelligence/*</code>
+                      </Typography>
+                    </Alert>
+                  </Box>
+                </CardContent>
+              </Card>
             </Box>
           )}
 
