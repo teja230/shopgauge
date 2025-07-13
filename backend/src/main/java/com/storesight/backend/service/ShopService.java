@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,6 +36,7 @@ public class ShopService {
   private static final String SHOP_TOKEN_PREFIX = "shop_token:";
   private static final String SHOP_SESSION_PREFIX = "shop_session:";
   private static final String ACTIVE_SESSIONS_PREFIX = "active_sessions:";
+  private static final String INVALID_SESSION_PREFIX = "invalid_session:";
 
   // TTL values - Optimized for better resource management and reduced DB load
   private static final int REDIS_CACHE_TTL_MINUTES = 120; // Increased from 30 to 120 minutes
@@ -42,6 +44,7 @@ public class ShopService {
   private static final int SESSION_INACTIVITY_HOURS = 4; // 4 hours (business app standard)
   private static final int SESSION_CLEANUP_DAYS = 2; // 2 days
   private static final int MAX_SESSIONS_PER_SHOP = 5; // Limit concurrent sessions per shop
+  private static final int INVALID_SESSION_CACHE_MINUTES = 15; // Cache invalid sessions for 15 minutes
 
   @Autowired
   public ShopService(
@@ -330,6 +333,21 @@ public class ShopService {
         return getTokenForShopFallback(shopifyDomain);
       }
 
+      // Check if this session was recently marked as invalid
+      try {
+        String invalidSessionKey = INVALID_SESSION_PREFIX + shopifyDomain + ":" + sessionId;
+        String invalidSession = redisTemplate.opsForValue().get(invalidSessionKey);
+        if (invalidSession != null) {
+          logger.debug(
+              "Session {} for shop {} was recently marked as invalid, using fallback",
+              sessionId,
+              shopifyDomain);
+          return getTokenForShopFallback(shopifyDomain);
+        }
+      } catch (Exception e) {
+        logger.debug("Redis unavailable for invalid session check: {}", e.getMessage());
+      }
+
       // Try Redis cache first with improved error handling
       String cachedToken = null;
       try {
@@ -342,6 +360,10 @@ public class ShopService {
           // transaction
           // This prevents read-only transaction violations
           updateSessionLastAccessedAsync(sessionId);
+
+          // Clear invalid session cache since we found a valid session
+          clearInvalidSessionCache(shopifyDomain, sessionId);
+
           transactionMonitoringService.recordSuccess(
               "getTokenForShop", System.currentTimeMillis() - start);
           return cachedToken;
@@ -366,6 +388,9 @@ public class ShopService {
         // Cache for future requests with extended TTL
         cacheShopSessionWithExtendedTTL(shopifyDomain, sessionId, token);
 
+        // Clear invalid session cache since we found a valid session
+        clearInvalidSessionCache(shopifyDomain, sessionId);
+
         logger.debug(
             "Found token in database for shop: {} and session: {}", shopifyDomain, sessionId);
         transactionMonitoringService.recordSuccess(
@@ -373,9 +398,26 @@ public class ShopService {
         return token;
       }
 
+      // Cache this invalid session to prevent repeated database lookups
+      try {
+        String invalidSessionKey = INVALID_SESSION_PREFIX + shopifyDomain + ":" + sessionId;
+        redisTemplate
+            .opsForValue()
+            .set(
+                invalidSessionKey,
+                "invalid",
+                java.time.Duration.ofMinutes(INVALID_SESSION_CACHE_MINUTES));
+        logger.debug(
+            "Cached invalid session {} for shop {} to prevent repeated lookups",
+            sessionId,
+            shopifyDomain);
+      } catch (Exception e) {
+        logger.debug("Failed to cache invalid session: {}", e.getMessage());
+      }
+
       // Fallback to most recent active session for this shop
-      logger.warn(
-          "No specific session found, trying fallback for shop: {} and session: {}",
+      logger.debug(
+          "No specific session found, using fallback for shop: {} and session: {}",
           shopifyDomain,
           sessionId);
       transactionMonitoringService.recordSuccess(
@@ -577,6 +619,9 @@ public class ShopService {
         // Update active sessions list
         updateActiveSessionsList(shopifyDomain);
 
+        // Clear invalid session cache
+        clearInvalidSessionCache(shopifyDomain, sessionId);
+
         logger.info("Session deactivated: {} for shop: {}", sessionId, shopifyDomain);
         transactionMonitoringService.recordSuccess(
             "removeSession", System.currentTimeMillis() - start);
@@ -757,6 +802,9 @@ public class ShopService {
     // Set expiration time (optional)
     session.setExpiresAt(LocalDateTime.now().plusHours(SESSION_INACTIVITY_HOURS));
 
+    // Clear invalid session cache since we now have a valid session
+    clearInvalidSessionCache(shop.getShopifyDomain(), sessionId);
+
     return shopSessionRepository.save(session);
   }
 
@@ -835,18 +883,41 @@ public class ShopService {
 
   private void clearShopCache(String shopifyDomain) {
     try {
-      // Get all Redis keys for this shop
-      var keys = redisTemplate.keys(SHOP_TOKEN_PREFIX + shopifyDomain + "*");
+      // Clear all shop-related cache keys
+      String pattern = SHOP_TOKEN_PREFIX + shopifyDomain + "*";
+      Set<String> keys = redisTemplate.keys(pattern);
       if (keys != null && !keys.isEmpty()) {
         redisTemplate.delete(keys);
+        logger.debug("Cleared {} cache keys for shop: {}", keys.size(), shopifyDomain);
       }
 
       // Clear active sessions list
-      redisTemplate.delete(ACTIVE_SESSIONS_PREFIX + shopifyDomain);
+      String activeSessionsKey = ACTIVE_SESSIONS_PREFIX + shopifyDomain;
+      redisTemplate.delete(activeSessionsKey);
 
-      logger.debug("Cleared cache for shop: {}", shopifyDomain);
+      // Clear invalid session cache for this shop
+      String invalidSessionPattern = INVALID_SESSION_PREFIX + shopifyDomain + "*";
+      Set<String> invalidKeys = redisTemplate.keys(invalidSessionPattern);
+      if (invalidKeys != null && !invalidKeys.isEmpty()) {
+        redisTemplate.delete(invalidKeys);
+        logger.debug(
+            "Cleared {} invalid session cache keys for shop: {}",
+            invalidKeys.size(),
+            shopifyDomain);
+      }
     } catch (Exception e) {
       logger.warn("Failed to clear cache for shop {}: {}", shopifyDomain, e.getMessage());
+    }
+  }
+
+  private void clearInvalidSessionCache(String shopifyDomain, String sessionId) {
+    try {
+      String invalidSessionKey = INVALID_SESSION_PREFIX + shopifyDomain + ":" + sessionId;
+      redisTemplate.delete(invalidSessionKey);
+      logger.debug(
+          "Cleared invalid session cache for shop: {} and session: {}", shopifyDomain, sessionId);
+    } catch (Exception e) {
+      logger.debug("Failed to clear invalid session cache: {}", e.getMessage());
     }
   }
 
@@ -1044,6 +1115,14 @@ public class ShopService {
         logger.debug("Found {} Redis token keys for potential cleanup", allTokenKeys.size());
         // For now, just log the count. More sophisticated cleanup can be added later.
       }
+
+      // Clean up old invalid session cache entries
+      var allInvalidSessionKeys = redisTemplate.keys(INVALID_SESSION_PREFIX + "*");
+      if (allInvalidSessionKeys != null && !allInvalidSessionKeys.isEmpty()) {
+        logger.debug(
+            "Found {} invalid session cache keys for cleanup", allInvalidSessionKeys.size());
+        // The invalid session cache has TTL, so it will auto-expire, but we can log for monitoring
+      }
     } catch (Exception e) {
       logger.warn("Error during Redis key cleanup: {}", e.getMessage());
     }
@@ -1068,6 +1147,8 @@ public class ShopService {
         // Remove inactive sessions from Redis
         for (String sessionId : inactiveSessionIds) {
           redisTemplate.delete(SHOP_TOKEN_PREFIX + shopifyDomain + ":" + sessionId);
+          // Also clear any invalid session cache for this session
+          redisTemplate.delete(INVALID_SESSION_PREFIX + shopifyDomain + ":" + sessionId);
         }
 
         if (!inactiveSessionIds.isEmpty()) {
@@ -1186,6 +1267,12 @@ public class ShopService {
               try {
                 redisTemplate.delete(
                     SHOP_TOKEN_PREFIX
+                        + session.getShop().getShopifyDomain()
+                        + ":"
+                        + session.getSessionId());
+                // Also clear invalid session cache
+                redisTemplate.delete(
+                    INVALID_SESSION_PREFIX
                         + session.getShop().getShopifyDomain()
                         + ":"
                         + session.getSessionId());
