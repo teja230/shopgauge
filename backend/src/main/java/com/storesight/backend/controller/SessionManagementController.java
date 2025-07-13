@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -251,49 +252,108 @@ public class SessionManagementController {
     }
   }
 
-  /** Session health check and diagnostics */
-  @GetMapping("/health")
+  /** Session health check endpoint */
+  @GetMapping("/health-check")
   public ResponseEntity<Map<String, Object>> sessionHealthCheck(
       @CookieValue(value = "shop", required = false) String shop, HttpServletRequest request) {
 
     Map<String, Object> response = new HashMap<>();
 
+    if (shop == null) {
+      response.put("error", "No shop authentication found");
+      response.put("healthy", false);
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+    }
+
     try {
       String sessionId = request.getSession().getId();
 
-      // Basic session info
-      response.put("sessionId", sessionId);
-      response.put("shop", shop);
-      response.put("authenticated", shop != null);
+      // Get current session info
+      Optional<ShopSession> sessionOpt = shopService.getSessionInfo(sessionId);
 
-      if (shop != null) {
-        // Check token availability
-        String token = shopService.getTokenForShop(shop, sessionId);
-        response.put("hasToken", token != null);
+      if (sessionOpt.isPresent()) {
+        ShopSession session = sessionOpt.get();
 
-        // Check active sessions count
-        List<ShopSession> activeSessions = shopService.getActiveSessionsForShop(shop);
-        response.put("activeSessionsCount", activeSessions.size());
+        // Calculate session age and time until expiration
+        LocalDateTime now = LocalDateTime.now();
+        long sessionAgeMinutes = ChronoUnit.MINUTES.between(session.getCreatedAt(), now);
+        long timeUntilExpirationMinutes = 0;
 
-        // Check if current session is in database
-        Optional<ShopSession> currentSessionOpt = shopService.getSessionInfo(sessionId);
-        response.put("sessionInDatabase", currentSessionOpt.isPresent());
-
-        if (currentSessionOpt.isPresent()) {
-          ShopSession currentSession = currentSessionOpt.get();
-          response.put("sessionActive", currentSession.getIsActive());
-          response.put("sessionExpired", currentSession.isExpired());
+        if (session.getExpiresAt() != null) {
+          timeUntilExpirationMinutes = ChronoUnit.MINUTES.between(now, session.getExpiresAt());
         }
+
+        // Determine session health status
+        boolean isHealthy = session.getIsActive() && !session.isExpired();
+        boolean needsRefresh = session.isExpired();
+        boolean isExpiringSoon =
+            timeUntilExpirationMinutes > 0 && timeUntilExpirationMinutes < 30; // 30 minutes
+
+        response.put("healthy", isHealthy);
+        response.put("sessionId", sessionId);
+        response.put("shop", shop);
+        response.put("isActive", session.getIsActive());
+        response.put("isExpired", session.isExpired());
+        response.put("needsRefresh", needsRefresh);
+        response.put("isExpiringSoon", isExpiringSoon);
+        response.put("sessionAgeMinutes", sessionAgeMinutes);
+        response.put("timeUntilExpirationMinutes", timeUntilExpirationMinutes);
+        response.put(
+            "createdAt", session.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+        response.put(
+            "lastAccessedAt",
+            session.getLastAccessedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+
+        if (session.getExpiresAt() != null) {
+          response.put(
+              "expiresAt", session.getExpiresAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+        }
+
+        // Get active session count for this shop
+        List<ShopSession> activeSessions = shopService.getActiveSessionsForShop(shop);
+        response.put("activeSessionCount", activeSessions.size());
+        response.put("maxSessionsPerShop", 5); // From ShopService constant
+
+        // Add recommendations
+        List<String> recommendations = new ArrayList<>();
+        if (needsRefresh) {
+          recommendations.add("Session is expired and needs refresh");
+        }
+        if (isExpiringSoon) {
+          recommendations.add("Session will expire soon, consider refreshing");
+        }
+        if (activeSessions.size() >= 5) {
+          recommendations.add("Maximum sessions reached, consider terminating old sessions");
+        }
+
+        response.put("recommendations", recommendations);
+        response.put("success", true);
+
+        logger.debug(
+            "Session health check for shop: {} and session: {} - healthy: {}",
+            shop,
+            sessionId,
+            isHealthy);
+        return ResponseEntity.ok(response);
+
+      } else {
+        response.put("healthy", false);
+        response.put("error", "Session not found in database");
+        response.put("sessionId", sessionId);
+        response.put("shop", shop);
+        response.put("success", true);
+
+        logger.warn(
+            "Session health check failed - session not found: shop={}, session={}",
+            shop,
+            sessionId);
+        return ResponseEntity.ok(response);
       }
 
-      response.put("timestamp", System.currentTimeMillis());
-      response.put("success", true);
-
-      return ResponseEntity.ok(response);
-
     } catch (Exception e) {
-      logger.error("Error in session health check: {}", e.getMessage(), e);
-      response.put("error", "Session health check failed");
+      logger.error("Error during session health check for shop {}: {}", shop, e.getMessage(), e);
+      response.put("error", "Internal server error during health check");
+      response.put("healthy", false);
       response.put("success", false);
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
     }
@@ -383,7 +443,7 @@ public class SessionManagementController {
     }
   }
 
-  /** Session heartbeat endpoint to detect browser closure and maintain session activity */
+  /** Session heartbeat endpoint */
   @PostMapping("/heartbeat")
   public ResponseEntity<Map<String, Object>> sessionHeartbeat(
       @CookieValue(value = "shop", required = false) String shop, HttpServletRequest request) {
@@ -392,36 +452,122 @@ public class SessionManagementController {
 
     if (shop == null) {
       response.put("error", "No shop authentication found");
+      response.put("sessionInvalidated", true);
       return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
     }
 
     try {
       String sessionId = request.getSession().getId();
 
-      // Update session last accessed time
-      boolean sessionUpdated = shopService.updateSessionHeartbeat(shop, sessionId);
+      // Check if current session is valid
+      Optional<ShopSession> sessionOpt = shopService.getSessionInfo(sessionId);
 
-      if (sessionUpdated) {
-        response.put("success", true);
-        response.put("message", "Session heartbeat recorded");
-        response.put("sessionId", sessionId);
-        response.put("shop", shop);
-        response.put("timestamp", System.currentTimeMillis());
+      if (sessionOpt.isPresent()) {
+        ShopSession session = sessionOpt.get();
 
-        // Return active session count for client-side monitoring
-        List<ShopSession> activeSessions = shopService.getActiveSessionsForShop(shop);
-        response.put("activeSessionCount", activeSessions.size());
+        if (!session.getIsActive()) {
+          logger.warn("Session {} is inactive for shop {}", sessionId, shop);
+          response.put("sessionInvalidated", true);
+          response.put("error", "Session is inactive");
+          response.put("success", false);
+          return ResponseEntity.ok(response);
+        }
 
-        return ResponseEntity.ok(response);
+        if (session.isExpired()) {
+          logger.warn("Session {} is expired for shop {}", sessionId, shop);
+          response.put("needsRefresh", true);
+          response.put("error", "Session is expired");
+          response.put("success", false);
+          return ResponseEntity.ok(response);
+        }
+
+        // Update session heartbeat
+        boolean heartbeatSuccess = shopService.updateSessionHeartbeat(shop, sessionId);
+
+        if (heartbeatSuccess) {
+          List<ShopSession> activeSessions = shopService.getActiveSessionsForShop(shop);
+
+          response.put("success", true);
+          response.put("sessionId", sessionId);
+          response.put("shop", shop);
+          response.put("activeSessionCount", activeSessions.size());
+          response.put("timestamp", System.currentTimeMillis());
+
+          logger.debug(
+              "Session heartbeat successful for shop: {} and session: {}", shop, sessionId);
+          return ResponseEntity.ok(response);
+        } else {
+          response.put("sessionInvalidated", true);
+          response.put("error", "Failed to update session heartbeat");
+          response.put("success", false);
+          return ResponseEntity.ok(response);
+        }
       } else {
-        response.put("error", "Session not found or inactive");
+        logger.warn("Session {} not found for shop {}", sessionId, shop);
+        response.put("sessionInvalidated", true);
+        response.put("error", "Session not found");
         response.put("success", false);
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+        return ResponseEntity.ok(response);
       }
 
     } catch (Exception e) {
-      logger.error("Error processing session heartbeat for shop {}: {}", shop, e.getMessage(), e);
-      response.put("error", "Failed to process session heartbeat");
+      logger.error("Error during session heartbeat for shop {}: {}", shop, e.getMessage(), e);
+      response.put("error", "Internal server error during heartbeat");
+      response.put("success", false);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+    }
+  }
+
+  /** Session refresh endpoint */
+  @PostMapping("/refresh")
+  public ResponseEntity<Map<String, Object>> refreshSession(
+      @CookieValue(value = "shop", required = false) String shop, HttpServletRequest request) {
+
+    Map<String, Object> response = new HashMap<>();
+
+    if (shop == null) {
+      response.put("error", "No shop authentication found");
+      response.put("success", false);
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+    }
+
+    try {
+      String sessionId = request.getSession().getId();
+
+      // Use the ShopService to refresh the session
+      boolean refreshSuccess = shopService.refreshExpiredSession(shop, sessionId);
+
+      if (refreshSuccess) {
+        // Get updated session info
+        Optional<ShopSession> sessionOpt = shopService.getSessionInfo(sessionId);
+
+        if (sessionOpt.isPresent()) {
+          ShopSession session = sessionOpt.get();
+
+          response.put("success", true);
+          response.put("message", "Session refreshed successfully");
+          response.put("sessionId", sessionId);
+          response.put("shop", shop);
+          response.put(
+              "expiresAt", session.getExpiresAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+
+          logger.info("Session {} refreshed for shop: {}", sessionId, shop);
+          return ResponseEntity.ok(response);
+        } else {
+          response.put("error", "Session not found after refresh");
+          response.put("success", false);
+          return ResponseEntity.ok(response);
+        }
+      } else {
+        logger.warn("Failed to refresh session {} for shop {}", sessionId, shop);
+        response.put("error", "Failed to refresh session");
+        response.put("success", false);
+        return ResponseEntity.ok(response);
+      }
+
+    } catch (Exception e) {
+      logger.error("Error refreshing session for shop {}: {}", shop, e.getMessage(), e);
+      response.put("error", "Failed to refresh session");
       response.put("success", false);
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
     }
