@@ -44,7 +44,8 @@ public class ShopService {
   private static final int SESSION_INACTIVITY_HOURS = 4; // 4 hours (business app standard)
   private static final int SESSION_CLEANUP_DAYS = 2; // 2 days
   private static final int MAX_SESSIONS_PER_SHOP = 5; // Limit concurrent sessions per shop
-  private static final int INVALID_SESSION_CACHE_MINUTES = 15; // Cache invalid sessions for 15 minutes
+  private static final int INVALID_SESSION_CACHE_MINUTES =
+      15; // Cache invalid sessions for 15 minutes
 
   @Autowired
   public ShopService(
@@ -1214,6 +1215,65 @@ public class ShopService {
     } catch (Exception e) {
       logger.error(
           "Error updating session heartbeat for shop {}: {}", shopifyDomain, e.getMessage(), e);
+      return false;
+    }
+  }
+
+  /** Refresh an expired session by extending its expiration time */
+  @Transactional(timeout = 5)
+  public boolean refreshExpiredSession(String shopifyDomain, String sessionId) {
+    try {
+      Optional<ShopSession> sessionOpt =
+          shopSessionRepository.findActiveSessionByShopDomainAndSessionId(shopifyDomain, sessionId);
+
+      if (sessionOpt.isPresent()) {
+        ShopSession session = sessionOpt.get();
+
+        // Check if session is actually expired
+        if (session.isExpired()) {
+          // Extend session expiration by 4 hours
+          session.setExpiresAt(LocalDateTime.now().plusHours(SESSION_INACTIVITY_HOURS));
+          session.markAsAccessed();
+
+          // Save the updated session
+          shopSessionRepository.save(session);
+
+          // Update Redis cache TTL
+          try {
+            String cachedToken =
+                redisTemplate
+                    .opsForValue()
+                    .get(SHOP_TOKEN_PREFIX + shopifyDomain + ":" + sessionId);
+            if (cachedToken != null) {
+              redisTemplate
+                  .opsForValue()
+                  .set(
+                      SHOP_TOKEN_PREFIX + shopifyDomain + ":" + sessionId,
+                      cachedToken,
+                      java.time.Duration.ofMinutes(REDIS_CACHE_TTL_MINUTES));
+            }
+          } catch (Exception e) {
+            logger.warn("Failed to update Redis TTL during session refresh: {}", e.getMessage());
+          }
+
+          // Clear invalid session cache since session is now valid
+          clearInvalidSessionCache(shopifyDomain, sessionId);
+
+          logger.info("Session refreshed for shop: {} and session: {}", shopifyDomain, sessionId);
+          return true;
+        } else {
+          logger.debug(
+              "Session not expired, no refresh needed: shop={}, session={}",
+              shopifyDomain,
+              sessionId);
+          return true; // Session is still valid
+        }
+      } else {
+        logger.warn("Session not found for refresh: shop={}, session={}", shopifyDomain, sessionId);
+        return false;
+      }
+    } catch (Exception e) {
+      logger.error("Error refreshing session for shop {}: {}", shopifyDomain, e.getMessage(), e);
       return false;
     }
   }

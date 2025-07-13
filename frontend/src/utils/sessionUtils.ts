@@ -11,6 +11,8 @@ interface SessionHeartbeatResponse {
   activeSessionCount?: number;
   timestamp?: number;
   error?: string;
+  sessionInvalidated?: boolean; // New field to indicate session invalidation
+  needsRefresh?: boolean; // New field to indicate session needs refresh
 }
 
 interface SessionConfig {
@@ -18,6 +20,8 @@ interface SessionConfig {
   enabled: boolean;
   maxRetries: number;
   retryDelay: number;
+  autoRefreshOnInvalidation?: boolean; // Optional config option
+  refreshRetryAttempts?: number; // Optional config option
 }
 
 class SessionManager {
@@ -29,16 +33,22 @@ class SessionManager {
   private retryDelay: number;
   private lastHeartbeatTime: number = 0;
   private sessionInvalidatedCallback: (() => void) | null = null;
+  private autoRefreshOnInvalidation: boolean;
+  private refreshRetryAttempts: number;
 
   constructor(config: SessionConfig = {
     heartbeatInterval: 60000, // 1 minute
     enabled: true,
     maxRetries: 3,
-    retryDelay: 5000 // 5 seconds
+    retryDelay: 5000, // 5 seconds
+    autoRefreshOnInvalidation: true, // Default to true
+    refreshRetryAttempts: 3 // Default to 3
   }) {
     this.heartbeatInterval = config.heartbeatInterval;
     this.maxRetries = config.maxRetries;
     this.retryDelay = config.retryDelay;
+    this.autoRefreshOnInvalidation = config.autoRefreshOnInvalidation || true;
+    this.refreshRetryAttempts = config.refreshRetryAttempts || 3;
 
     if (config.enabled) {
       this.initialize();
@@ -141,6 +151,21 @@ class SessionManager {
           });
           this.lastHeartbeatTime = Date.now();
           this.retryCount = 0; // Reset retry count on success
+          
+          // Handle session invalidation
+          if (data.sessionInvalidated) {
+            console.warn('🚨 Session invalidated by server');
+            this.handleSessionInvalidation();
+            return;
+          }
+          
+          // Handle session refresh needed
+          if (data.needsRefresh) {
+            console.warn('🔄 Session needs refresh');
+            this.handleSessionRefresh();
+            return;
+          }
+          
           // Store session info in localStorage for debugging
           if (data.sessionId && data.shop) {
             localStorage.setItem('session_info', JSON.stringify({
@@ -161,6 +186,61 @@ class SessionManager {
     } catch (error) {
       console.error('❌ Session heartbeat network error:', error);
       this.handleHeartbeatFailure('Network error');
+    }
+  }
+
+  private handleSessionInvalidation(): void {
+    console.warn('🚨 Session invalidated - cleaning up and notifying');
+    
+    // Clear session info
+    this.clearSessionInfo();
+    
+    // Stop heartbeat
+    this.stopHeartbeat();
+    
+    // Notify callback
+    if (this.sessionInvalidatedCallback) {
+      this.sessionInvalidatedCallback();
+    }
+    
+    // Trigger page refresh if auto-refresh is enabled
+    if (this.autoRefreshOnInvalidation) {
+      console.log('🔄 Auto-refreshing page due to session invalidation');
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000); // 1 second delay
+    }
+  }
+
+  private async handleSessionRefresh(): Promise<void> {
+    console.log('🔄 Attempting session refresh');
+    
+    try {
+      const response = await fetch('/api/sessions/refresh', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          console.log('✅ Session refreshed successfully');
+          // Continue with normal heartbeat
+          return;
+        } else {
+          console.warn('⚠️ Session refresh failed:', data.error);
+          this.handleSessionInvalidation();
+        }
+      } else {
+        console.error('❌ Session refresh HTTP error:', response.status);
+        this.handleSessionInvalidation();
+      }
+    } catch (error) {
+      console.error('❌ Session refresh network error:', error);
+      this.handleSessionInvalidation();
     }
   }
 
