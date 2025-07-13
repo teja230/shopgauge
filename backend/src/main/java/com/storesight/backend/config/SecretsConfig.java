@@ -28,8 +28,8 @@ public class SecretsConfig {
     log.info("Initializing default secrets...");
 
     // SHOPIFY
-    initializeSecret("shopify.client.id", "dummy_shopify_client_id");
-    initializeSecret("shopify.client.secret", "dummy_shopify_client_secret");
+    initializeSecret("shopify.api.key", "dummy_shopify_client_id");
+    initializeSecret("shopify.api.secret", "dummy_shopify_client_secret");
 
     // JWT
     initializeSecret("jwt.secret.key", generateJwtSecret());
