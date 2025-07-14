@@ -465,57 +465,67 @@ public class SessionManagementController {
       if (sessionOpt.isPresent()) {
         ShopSession session = sessionOpt.get();
 
-        if (!session.getIsActive()) {
-          logger.warn("Session {} is inactive for shop {}", sessionId, shop);
-          response.put("sessionInvalidated", true);
-          response.put("error", "Session is inactive");
+        // Check if session is expired
+        if (session.isExpired()) {
           response.put("success", false);
+          response.put("error", "Session has expired");
+          response.put("sessionInvalidated", true);
           return ResponseEntity.ok(response);
         }
 
-        if (session.isExpired()) {
-          logger.warn("Session {} is expired for shop {}", sessionId, shop);
-          response.put("needsRefresh", true);
-          response.put("error", "Session is expired");
-          response.put("success", false);
-          return ResponseEntity.ok(response);
-        }
+        // Calculate time until expiration
+        long expiresInMinutes =
+            java.time.Duration.between(LocalDateTime.now(), session.getExpiresAt()).toMinutes();
+
+        // Check if session is expiring soon (within 10 minutes)
+        boolean sessionExpiring = expiresInMinutes <= 10;
 
         // Update session heartbeat
         boolean heartbeatSuccess = shopService.updateSessionHeartbeat(shop, sessionId);
 
         if (heartbeatSuccess) {
-          List<ShopSession> activeSessions = shopService.getActiveSessionsForShop(shop);
-
           response.put("success", true);
           response.put("sessionId", sessionId);
           response.put("shop", shop);
-          response.put("activeSessionCount", activeSessions.size());
+          response.put("activeSessionCount", shopService.getActiveSessionsForShop(shop).size());
           response.put("timestamp", System.currentTimeMillis());
 
-          logger.debug(
-              "Session heartbeat successful for shop: {} and session: {}", shop, sessionId);
-          return ResponseEntity.ok(response);
+          // Add session health information
+          response.put("sessionExpiring", sessionExpiring);
+          response.put("expiresInMinutes", expiresInMinutes);
+          response.put("needsManualRefresh", sessionExpiring && expiresInMinutes <= 5);
+
+          // Add recommendations based on session health
+          List<String> recommendations = new ArrayList<>();
+          if (sessionExpiring) {
+            recommendations.add(
+                "Your session will expire soon. Please save your work and refresh the page.");
+          }
+          if (expiresInMinutes <= 5) {
+            recommendations.add(
+                "Session expires in less than 5 minutes. Manual refresh recommended.");
+          }
+          response.put("recommendations", recommendations);
+
         } else {
-          response.put("sessionInvalidated", true);
-          response.put("error", "Failed to update session heartbeat");
           response.put("success", false);
-          return ResponseEntity.ok(response);
+          response.put("error", "Failed to update session heartbeat");
+          response.put("needsManualRefresh", true);
         }
+
       } else {
-        logger.warn("Session {} not found for shop {}", sessionId, shop);
-        response.put("sessionInvalidated", true);
-        response.put("error", "Session not found");
         response.put("success", false);
-        return ResponseEntity.ok(response);
+        response.put("error", "Session not found");
+        response.put("sessionInvalidated", true);
       }
 
     } catch (Exception e) {
-      logger.error("Error during session heartbeat for shop {}: {}", shop, e.getMessage(), e);
-      response.put("error", "Internal server error during heartbeat");
+      logger.error("Error during session heartbeat", e);
       response.put("success", false);
-      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+      response.put("error", "Internal server error during heartbeat");
     }
+
+    return ResponseEntity.ok(response);
   }
 
   /** Session refresh endpoint */
