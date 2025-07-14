@@ -1183,26 +1183,46 @@ public class SessionManagementController {
       // Get all sessions for the shop
       List<ShopSession> allSessions = shopService.getActiveSessionsForShop(shopDomain);
 
-      // Remove all sessions
+      // Remove all sessions with better error handling
+      int successfullyInvalidated = 0;
       for (ShopSession session : allSessions) {
-        shopService.removeSession(shopDomain, session.getSessionId());
+        try {
+          shopService.removeSession(shopDomain, session.getSessionId());
+          successfullyInvalidated++;
+        } catch (Exception e) {
+          logger.warn(
+              "Failed to remove session {} for shop {}: {}",
+              session.getSessionId(),
+              shopDomain,
+              e.getMessage());
+          // Continue with other sessions even if one fails
+        }
       }
 
       // Clear shop cookie for this domain to force frontend logout
       clearShopCookie(httpResponse, shopDomain);
 
       response.put("shopDomain", shopDomain);
-      response.put("invalidatedSessions", allSessions.size());
+      response.put("invalidatedSessions", successfullyInvalidated);
+      response.put("totalSessions", allSessions.size());
       response.put("success", true);
       response.put("message", "All sessions for shop invalidated successfully");
       response.put("cookieCleared", true);
 
       logger.info(
-          "Admin invalidated all {} sessions for shop: {} and cleared cookies",
+          "Admin invalidated {} of {} sessions for shop: {} and cleared cookies",
+          successfullyInvalidated,
           allSessions.size(),
           shopDomain);
 
-      broadcastSessionInvalidated(shopDomain);
+      // Broadcast session invalidation asynchronously to prevent blocking
+      try {
+        broadcastSessionInvalidated(shopDomain);
+      } catch (Exception e) {
+        logger.warn(
+            "Failed to broadcast session invalidation for shop {}: {}", shopDomain, e.getMessage());
+        // Don't fail the entire operation if SSE broadcast fails
+      }
 
       return ResponseEntity.ok(response);
 
@@ -1334,44 +1354,99 @@ public class SessionManagementController {
   @GetMapping("/events/{shopDomain}")
   public SseEmitter subscribeToSessionEvents(@PathVariable String shopDomain) {
     SseEmitter emitter = new SseEmitter(0L); // No timeout
+
     sseEmitters.computeIfAbsent(shopDomain, k -> new CopyOnWriteArrayList<>()).add(emitter);
-    emitter.onCompletion(() -> removeEmitter(shopDomain, emitter));
-    emitter.onTimeout(() -> removeEmitter(shopDomain, emitter));
-    emitter.onError(e -> removeEmitter(shopDomain, emitter));
+
+    emitter.onCompletion(
+        () -> {
+          logger.debug("SSE connection completed for shop: {}", shopDomain);
+          removeEmitter(shopDomain, emitter);
+        });
+
+    emitter.onTimeout(
+        () -> {
+          logger.debug("SSE connection timed out for shop: {}", shopDomain);
+          removeEmitter(shopDomain, emitter);
+        });
+
+    emitter.onError(
+        e -> {
+          logger.warn("SSE connection error for shop {}: {}", shopDomain, e.getMessage());
+          removeEmitter(shopDomain, emitter);
+        });
+
     try {
+      // Set proper headers for SSE
       emitter.send(
           SseEmitter.event()
               .name("connected")
-              .data("Subscribed to session events for shop: " + shopDomain));
-    } catch (Exception ignored) {
+              .data("Subscribed to session events for shop: " + shopDomain)
+              .id(String.valueOf(System.currentTimeMillis()))
+              .reconnectTime(3000));
+    } catch (Exception e) {
+      logger.warn("Failed to send initial SSE event for shop {}: {}", shopDomain, e.getMessage());
+      removeEmitter(shopDomain, emitter);
     }
+
     return emitter;
   }
 
   private void removeEmitter(String shopDomain, SseEmitter emitter) {
-    CopyOnWriteArrayList<SseEmitter> emitters = sseEmitters.get(shopDomain);
-    if (emitters != null) {
-      emitters.remove(emitter);
-      if (emitters.isEmpty()) {
-        sseEmitters.remove(shopDomain);
+    try {
+      CopyOnWriteArrayList<SseEmitter> emitters = sseEmitters.get(shopDomain);
+      if (emitters != null) {
+        emitters.remove(emitter);
+        if (emitters.isEmpty()) {
+          sseEmitters.remove(shopDomain);
+        }
       }
+    } catch (Exception e) {
+      logger.warn("Error removing SSE emitter for shop {}: {}", shopDomain, e.getMessage());
     }
   }
 
   private void broadcastSessionInvalidated(String shopDomain) {
     CopyOnWriteArrayList<SseEmitter> emitters = sseEmitters.get(shopDomain);
-    if (emitters != null) {
-      for (SseEmitter emitter : emitters) {
+    if (emitters != null && !emitters.isEmpty()) {
+      logger.info(
+          "Broadcasting session invalidation to {} SSE clients for shop: {}",
+          emitters.size(),
+          shopDomain);
+
+      // Create a copy to avoid concurrent modification issues
+      List<SseEmitter> emittersCopy = new ArrayList<>(emitters);
+
+      for (SseEmitter emitter : emittersCopy) {
         try {
+          // Send the event asynchronously to prevent blocking
           emitter.send(
               SseEmitter.event()
                   .name("session_invalidated")
                   .data(
-                      "{\"event\":\"session_invalidated\",\"message\":\"Your session has been invalidated by an administrator.\"}"));
+                      "{\"event\":\"session_invalidated\",\"message\":\"Your session has been invalidated by an administrator.\"}")
+                  .id(String.valueOf(System.currentTimeMillis())));
+
+          logger.debug(
+              "Successfully sent session invalidation event to SSE client for shop: {}",
+              shopDomain);
         } catch (Exception e) {
-          emitter.completeWithError(e);
+          logger.warn(
+              "Failed to send session invalidation event to SSE client for shop {}: {}",
+              shopDomain,
+              e.getMessage());
+          // Remove the failed emitter
+          try {
+            emitters.remove(emitter);
+            if (emitters.isEmpty()) {
+              sseEmitters.remove(shopDomain);
+            }
+          } catch (Exception removeEx) {
+            logger.warn("Error removing failed SSE emitter: {}", removeEx.getMessage());
+          }
         }
       }
+    } else {
+      logger.debug("No SSE clients connected for shop: {}", shopDomain);
     }
   }
 }

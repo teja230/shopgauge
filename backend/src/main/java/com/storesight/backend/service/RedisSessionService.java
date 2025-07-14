@@ -191,20 +191,49 @@ public class RedisSessionService {
     try {
       // Remove session data
       String sessionDataKey = SESSION_DATA_PREFIX + shopDomain + ":" + sessionId;
-      redisTemplate.delete(sessionDataKey);
+      try {
+        Boolean deleted = redisTemplate.delete(sessionDataKey);
+        if (deleted != null && deleted) {
+          logger.debug("Successfully removed session data from Redis: {}", sessionDataKey);
+        } else {
+          logger.debug("Session data key not found in Redis (already removed): {}", sessionDataKey);
+        }
+      } catch (Exception e) {
+        logger.warn(
+            "Failed to remove session data from Redis: {} - {}", sessionDataKey, e.getMessage());
+      }
 
       // Remove session token
       String tokenKey = SESSION_TOKEN_PREFIX + shopDomain + ":" + sessionId;
-      redisTemplate.delete(tokenKey);
+      try {
+        Boolean deleted = redisTemplate.delete(tokenKey);
+        if (deleted != null && deleted) {
+          logger.debug("Successfully removed session token from Redis: {}", tokenKey);
+        } else {
+          logger.debug("Session token key not found in Redis (already removed): {}", tokenKey);
+        }
+      } catch (Exception e) {
+        logger.warn("Failed to remove session token from Redis: {} - {}", tokenKey, e.getMessage());
+      }
 
       // Mark as invalid to prevent repeated lookups
       String invalidKey = INVALID_SESSION_PREFIX + shopDomain + ":" + sessionId;
-      redisTemplate.opsForValue().set(invalidKey, "invalid", INVALID_SESSION_TTL);
+      try {
+        redisTemplate.opsForValue().set(invalidKey, "invalid", INVALID_SESSION_TTL);
+        logger.debug("Marked session as invalid in Redis: {}", invalidKey);
+      } catch (Exception e) {
+        logger.warn(
+            "Failed to mark session as invalid in Redis: {} - {}", invalidKey, e.getMessage());
+      }
 
       // Update shop sessions list
-      updateShopSessionsList(shopDomain);
+      try {
+        updateShopSessionsList(shopDomain);
+      } catch (Exception e) {
+        logger.warn("Failed to update shop sessions list for {}: {}", shopDomain, e.getMessage());
+      }
 
-      logger.debug("Removed session from Redis cache: {}:{}", shopDomain, sessionId);
+      logger.debug("Completed session removal from Redis cache: {}:{}", shopDomain, sessionId);
     } catch (Exception e) {
       logger.warn("Failed to remove session from Redis cache: {}", e.getMessage());
     }
