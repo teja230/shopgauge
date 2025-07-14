@@ -32,6 +32,7 @@ import DatabaseIcon from '@mui/icons-material/Storage';
 import { useServiceStatus } from '../../context/ServiceStatusContext';
 import { debugLog } from './DebugPanel';
 import { useNotifications } from '../../hooks/useNotifications';
+import RefreshHeader from './RefreshHeader';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
@@ -534,25 +535,24 @@ const EnhancedHealthSummary: React.FC = () => {
           <SpeedIcon color="primary" />
           System Health & Performance
         </Typography>
-        <Box display="flex" alignItems="center" gap={2}>
-          <Typography variant="caption" color="text.secondary">
-            Last updated: {formatTimestamp(metrics.lastUpdated)}
-          </Typography>
-          <Tooltip title="Refresh health metrics">
-            <IconButton size="small" onClick={fetchAllMetricsWithCooldown} disabled={loading || refreshCooldown > 0}>
-              <RefreshIcon />
-            </IconButton>
-          </Tooltip>
-        </Box>
+        <RefreshHeader
+          lastUpdated={formatTimestamp(metrics.lastUpdated)}
+          onRefresh={fetchAllMetricsWithCooldown}
+          loading={loading}
+          cooldown={refreshCooldown > 0}
+          cooldownRemaining={refreshCooldown}
+          label="Refresh health metrics"
+          tooltip="Refresh health metrics"
+        />
       </Box>
       {/* Enhanced Database Monitoring */}
       {databaseDetails && (
         <Box display="flex" gap={3} sx={{ flexDirection: { xs: 'column', md: 'row' } }}>
           <Box flex={1} minWidth={0} mb={{ xs: 2, md: 0 }}>
-            <DatabaseConnectionsCard metrics={databaseDetails} />
+            {databaseDetails && <DatabaseConnectionsCard metrics={databaseDetails} />}
           </Box>
           <Box flex={1} minWidth={0}>
-            <PerformanceMetricsCard metrics={databaseDetails} />
+            {databaseDetails && <PerformanceMetricsCard metrics={databaseDetails} />}
           </Box>
         </Box>
       )}
@@ -560,7 +560,7 @@ const EnhancedHealthSummary: React.FC = () => {
       {/* Cache Statistics */}
       {cacheMetrics && (
         <Box mt={3}>
-          <CacheStatisticsCard metrics={cacheMetrics} />
+          {cacheMetrics && <CacheStatisticsCard metrics={cacheMetrics} />}
         </Box>
       )}
       <Box display="flex" alignItems="center" gap={1} mt={2} flexWrap="wrap">

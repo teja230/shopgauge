@@ -31,6 +31,7 @@ public class ShopService {
   private final StringRedisTemplate redisTemplate;
   private final AsyncSessionService asyncSessionService;
   private final TransactionMonitoringService transactionMonitoringService;
+  private final RedisSessionService redisSessionService; // Added RedisSessionService
 
   // Redis key patterns for backward compatibility and caching
   private static final String SHOP_TOKEN_PREFIX = "shop_token:";
@@ -53,12 +54,14 @@ public class ShopService {
       ShopSessionRepository shopSessionRepository,
       StringRedisTemplate redisTemplate,
       AsyncSessionService asyncSessionService,
-      TransactionMonitoringService transactionMonitoringService) {
+      TransactionMonitoringService transactionMonitoringService,
+      RedisSessionService redisSessionService) { // Added RedisSessionService to constructor
     this.shopRepository = shopRepository;
     this.shopSessionRepository = shopSessionRepository;
     this.redisTemplate = redisTemplate;
     this.asyncSessionService = asyncSessionService;
     this.transactionMonitoringService = transactionMonitoringService;
+    this.redisSessionService = redisSessionService; // Initialize RedisSessionService
   }
 
   @PostConstruct
@@ -427,6 +430,40 @@ public class ShopService {
     } catch (Exception e) {
       transactionMonitoringService.recordFailure(
           "getTokenForShop",
+          e.getClass().getSimpleName(),
+          e.getMessage(),
+          System.currentTimeMillis() - start);
+      throw e;
+    }
+  }
+
+  /** Enhanced token retrieval with Redis-first approach */
+  @Transactional(readOnly = true, timeout = 5)
+  public String getTokenForShopRedisFirst(String shopifyDomain, String sessionId) {
+    long start = System.currentTimeMillis();
+    try {
+      logger.debug("Getting token for shop: {} and session: {} (Redis-first)", shopifyDomain, sessionId);
+
+      if (sessionId == null) {
+        return getTokenForShopFallback(shopifyDomain);
+      }
+
+      // Try Redis-first approach
+      Optional<String> redisToken = redisSessionService.getSessionToken(shopifyDomain, sessionId);
+      if (redisToken.isPresent()) {
+        logger.debug("Found token via Redis-first approach for shop: {} and session: {}", shopifyDomain, sessionId);
+        transactionMonitoringService.recordSuccess(
+            "getTokenForShopRedisFirst", System.currentTimeMillis() - start);
+        return redisToken.get();
+      }
+
+      // Fallback to original method if Redis-first fails
+      logger.debug("Redis-first approach failed, falling back to database for shop: {} and session: {}", shopifyDomain, sessionId);
+      return getTokenForShop(shopifyDomain, sessionId);
+      
+    } catch (Exception e) {
+      transactionMonitoringService.recordFailure(
+          "getTokenForShopRedisFirst",
           e.getClass().getSimpleName(),
           e.getMessage(),
           System.currentTimeMillis() - start);

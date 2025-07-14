@@ -84,23 +84,17 @@ graph TB
 
 | Area | Documentation |
 |------|---------------|
-| **Environment & Deployment** | 🔗 [Environment Setup](ENVIRONMENT_SETUP.md) |
+| **Setup & Compliance** | 🔗 [Setup & Compliance](SETUP_AND_COMPLIANCE.md) |
 | **Market Intelligence** | 🔗 [Market Intelligence](MARKET_INTELLIGENCE.md) |
-| **AI Market Intelligence** | 🔗 [Competitor Discovery System](MULTI_SESSION_ARCHITECTURE.md#competitor-discovery) |
-| **Notification Centre** | 🔗 [Notification System](NOTIFICATIONS_SYSTEM.md) |
-| **Admin System** | 🔗 [Admin Comprehensive Guide](SHOPGAUGE_ADMIN_COMPREHENSIVE_GUIDE.md) |
-| **Authentication & UI** | 🔗 [Authentication UI Fixes](AUTHENTICATION_UI_FIXES.md) |
-| **Dashboard Performance** | 🔗 [Dashboard Loading Fixes](DASHBOARD_LOADING_FIXES.md) |
-| **OAuth & Database** | 🔗 [OAuth Database Fixes](OAUTH_DATABASE_FIXES.md) |
-| **Security & Compliance** | 🔗 [Privacy Policy](PRIVACY_POLICY.md) <br/> 🔗 [Shopify Protected Data Request](SHOPIFY_PROTECTED_DATA_REQUEST.md) |
-| **Contribution Guide** | 🔗 [CONTRIBUTING](CONTRIBUTING.md) |
-| **Architecture & Security** | 🔗 [Architecture & Security](ARCHITECTURE_SECURITY.md) |
+| **Analytics & Dashboard** | 🔗 [Analytics & Dashboard](ANALYTICS_AND_DASHBOARD.md) |
+| **Session & Shop Management** | 🔗 [Session & Shop Management](SESSION_AND_SHOP_MANAGEMENT.md) |
+| **Admin & Security** | 🔗 [Admin & Security](ADMIN_AND_SECURITY.md) |
+| **Notification System** | 🔗 [Notification System](NOTIFICATIONS_SYSTEM.md) |
+| **Mobile Enhancements** | 🔗 [Mobile Enhancements](MOBILE_ENHANCEMENTS.md) |
 | **Features Overview** | 🔗 [Features Overview](FEATURES_OVERVIEW.md) |
-| **Setup & Operations** | 🔗 [Setup & Operations Guide](SETUP_OPERATIONS.md) |
-| **Compliance & Privacy** | 🔗 [Compliance & Privacy](COMPLIANCE_PRIVACY.md) |
+| **Contribution Guide** | 🔗 [CONTRIBUTING](CONTRIBUTING.md) |
 
-> Historical or one-off enhancement documents have been consolidated under the relevant feature areas above for easy
-> discovery.
+> All documentation has been consolidated into logical groups for easier discovery and maintenance.
 
 ---
 

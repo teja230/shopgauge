@@ -26,15 +26,33 @@ public class AuditLogService {
       String shopDomain, String action, String type, Map<String, Object> details) {
     try {
       Optional<Shop> shopOpt = shopRepository.findByShopifyDomain(shopDomain);
+      Long shopId;
+      String resolvedShopDomain;
+      
       if (shopOpt.isPresent()) {
-        AuditLog auditLog = new AuditLog();
-        auditLog.setShopId(shopOpt.get().getId());
-        auditLog.setAction(action + "_" + type);
-        auditLog.setDetails(details != null ? details.toString() : null);
-        auditLog.setCreatedAt(LocalDateTime.now());
-
-        auditLogRepository.save(auditLog);
+        shopId = shopOpt.get().getId();
+        resolvedShopDomain = shopDomain;
+      } else {
+        // Use system shop for unknown domains
+        Optional<Shop> systemShop = shopRepository.findByShopifyDomain("system");
+        if (systemShop.isPresent()) {
+          shopId = systemShop.get().getId();
+          resolvedShopDomain = "system";
+          System.err.println("No shop found for domain: " + shopDomain + ", using system shop");
+        } else {
+          System.err.println("System shop not found, cannot create audit log");
+          return;
+        }
       }
+      
+      AuditLog auditLog = new AuditLog();
+      auditLog.setShopId(shopId);
+      auditLog.setAction(action + "_" + type);
+      auditLog.setDetails(details != null ? details.toString() : null);
+      auditLog.setCreatedAt(LocalDateTime.now());
+
+      auditLogRepository.save(auditLog);
+      System.err.println("Audit log created for domain: " + resolvedShopDomain);
     } catch (Exception e) {
       // Log error but don't fail the operation
       System.err.println("Failed to log audit action: " + e.getMessage());
