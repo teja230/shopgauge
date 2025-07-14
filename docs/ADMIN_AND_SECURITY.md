@@ -442,6 +442,58 @@ logging:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
 ```
 
+## 🔐 Admin Session Management & Security Fixes
+
+### Admin Session Invalidation Fix
+
+**Issue**: Admin session invalidation was not working properly, causing users to remain logged in even after clicking the logout button on the admin screen.
+
+**Root Causes**:
+1. **Frontend Race Condition**: Logout function was redirecting immediately without waiting for backend response
+2. **Incomplete State Cleanup**: Not all admin-related state was being cleared properly
+3. **Cookie Cleanup Issues**: Frontend wasn't ensuring the admin token cookie was properly cleared
+4. **Backend Edge Cases**: Backend logout endpoint didn't handle null/invalid tokens gracefully
+5. **Missing Periodic Checks**: No periodic authentication validation to detect expired sessions
+
+**Fixes Implemented**:
+
+#### Frontend Improvements (`AdminPage.tsx`)
+- **Enhanced Logout Function**: Wait for backend response, clear all state, force cookie clearing
+- **Improved Authentication Status Check**: More robust state cleanup and error handling
+- **Periodic Authentication Check**: 5-minute interval to detect expired sessions
+- **Better State Management**: Ensure password dialog is always open when not authenticated
+
+#### Backend Improvements (`AdminAuthController.java`)
+- **Robust Logout Endpoint**: Handle null/invalid tokens gracefully
+- **Enhanced Cookie Cleanup**: Clear cookies for both production and development environments
+- **Multiple Cookie Clearing Strategies**: Ensure cleanup across different domains
+
+#### Service Layer Improvements (`AdminAuthService.java`)
+- **Improved Token Invalidation**: Better error handling, don't throw exceptions that prevent logout
+- **Enhanced Token Blacklist Check**: Better handling of null/empty tokens, graceful Redis fallback
+
+**Expected Behavior After Fix**:
+1. **Immediate Logout**: When user clicks logout, they are immediately logged out and redirected
+2. **Complete State Cleanup**: All admin-related state and cached data are cleared
+3. **Cookie Cleanup**: Admin token cookie is properly cleared from browser
+4. **Session Invalidation**: Backend properly invalidates the JWT token
+5. **Periodic Validation**: Expired sessions are automatically detected and logged out
+6. **Error Resilience**: Logout works even if backend is temporarily unavailable
+
+**Verification Steps**:
+1. Log into admin panel
+2. Click logout button
+3. Verify user is immediately logged out and redirected to home page
+4. Try to access admin panel again - should require re-authentication
+5. Check browser cookies - admin_token should be cleared
+6. Wait for session expiration (if configured) - should auto-logout
+
+**Files Modified**:
+- `frontend/src/pages/AdminPage.tsx` - Enhanced logout and authentication logic
+- `backend/src/main/java/com/storesight/backend/controller/AdminAuthController.java` - Improved logout endpoint
+- `backend/src/main/java/com/storesight/backend/service/AdminAuthService.java` - Enhanced token management
+- `backend/src/test/java/com/storesight/backend/AdminLogoutTest.java` - Added test coverage
+
 ## 🚀 Production Deployment
 
 ### 1. **Environment Variables**

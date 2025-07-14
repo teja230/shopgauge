@@ -110,6 +110,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [hasInitiallyLoaded]);
 
+  // Periodic check for shop cookie to detect admin-invalidated sessions
+  useEffect(() => {
+    if (isAuthenticated && shop) {
+      const cookieCheckInterval = setInterval(() => {
+        // Check if shop cookie still exists
+        const cookies = document.cookie.split(';');
+        const shopCookie = cookies.find(cookie => 
+          cookie.trim().startsWith('shop=')
+        );
+        
+        if (!shopCookie) {
+          console.warn('AuthContext: Shop cookie missing, forcing logout');
+          // Force logout when cookie is cleared
+          setIsAuthenticated(false);
+          setShop(null);
+          setApiAuthState(false, null);
+          setIsAuthReady(true);
+          
+          // Clear all cache
+          clearAllDashboardCache();
+          
+          // Show notification using a custom event
+          const event = new CustomEvent('sessionInvalidated', {
+            detail: {
+              message: 'Your session has been invalidated by an administrator. Please log in again.',
+              action: 'logout'
+            }
+          });
+          window.dispatchEvent(event);
+        }
+      }, 10000); // Check every 10 seconds
+      
+      return () => clearInterval(cookieCheckInterval);
+    }
+  }, [isAuthenticated, shop]);
+
   const checkAuth = async () => {
     console.log('AuthContext: Starting authentication check');
     

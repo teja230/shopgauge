@@ -309,6 +309,79 @@ public class RedisHealthService {
 }
 ```
 
+## 🔐 Shop Session Invalidation Fix
+
+### Issue Description
+When an admin invalidates shop sessions from the "Shops with Active Sessions" panel, the shop users remain logged in on the frontend even though their sessions have been removed from the backend.
+
+### Root Causes Identified
+1. **Frontend Cookie Persistence**: The `shop` cookie was not being cleared when sessions were invalidated
+2. **No Real-time Detection**: The frontend had no mechanism to detect when sessions were invalidated by admin
+3. **Backend-only Invalidation**: Session invalidation only happened on the server side without frontend notification
+4. **Missing Periodic Validation**: No periodic checks to validate session status
+
+### Fixes Implemented
+
+#### Backend Improvements (`SessionManagementController.java`)
+- **Enhanced Session Invalidation Endpoint**: Added `HttpServletResponse` parameter to clear cookies
+- **Robust Cookie Clearing**: Clear shop cookie with immediate expiration, handle both production and development environments
+- **Multiple Domain Variations**: Clear cookies for all subdomains in production, add Set-Cookie header for better browser compatibility
+
+#### Frontend Improvements (`sessionUtils.ts`)
+- **Session Validation System**: Added `checkSessionValidity()` method to verify session status
+- **Real-time Session Detection**: Periodic API calls to `/api/auth/shopify/me` to check authentication (every 30 seconds)
+- **Automatic Logout**: Force logout when session becomes invalid, proper cleanup of validation intervals
+
+#### Authentication Context Improvements (`AuthContext.tsx`)
+- **Cookie Monitoring**: Added periodic check for shop cookie existence (every 10 seconds)
+- **Force Logout**: Force logout when cookie is cleared by admin
+- **Cache Cleanup**: Clear all dashboard cache when session is invalidated
+- **Event Dispatch**: Dispatch custom events for UI notification
+
+#### App Integration (`App.tsx`)
+- **Session Management Integration**: Start session validation when user is authenticated
+- **Cleanup**: Stop session validation when user logs out, proper cleanup of validation intervals
+
+### Expected Behavior After Fix
+1. **Immediate Logout**: When admin invalidates sessions, users are immediately logged out
+2. **Cookie Cleanup**: Shop cookie is properly cleared from browser
+3. **Cache Invalidation**: All cached data is cleared when sessions are invalidated
+4. **Real-time Detection**: Frontend detects session invalidation within 10-30 seconds
+5. **User Notification**: Users receive notification that their session was invalidated
+6. **Automatic Cleanup**: All session-related data is properly cleaned up
+
+### Technical Details
+
+#### Cookie Clearing Strategy
+- Clear cookies with `MaxAge=0` for immediate expiration
+- Use multiple domain variations for production/development
+- Add Set-Cookie header for better browser compatibility
+- Handle both secure and non-secure environments
+
+#### Session Validation Frequency
+- **Cookie check**: Every 10 seconds in AuthContext
+- **Session validation**: Every 30 seconds in SessionManager
+- **Heartbeat**: Every 60 seconds (existing functionality)
+
+#### Error Handling
+- Network errors don't trigger logout (only auth failures)
+- Graceful fallback when validation fails
+- Proper cleanup of intervals and timers
+
+### Verification Steps
+1. Log into a shop account
+2. Open admin panel and go to "Shops with Active Sessions"
+3. Click "Invalidate All Sessions" for the shop
+4. Verify that the shop user is immediately logged out
+5. Check browser cookies - shop cookie should be cleared
+6. Try to access dashboard - should require re-authentication
+
+### Files Modified
+- `backend/src/main/java/com/storesight/backend/controller/SessionManagementController.java` - Enhanced session invalidation
+- `frontend/src/utils/sessionUtils.ts` - Added session validation system
+- `frontend/src/context/AuthContext.tsx` - Added cookie monitoring
+- `frontend/src/App.tsx` - Integrated session validation
+
 ## ✅ Implementation Checklist
 
 - [x] **Multi-Session Architecture** with concurrent user support
@@ -321,6 +394,7 @@ public class RedisHealthService {
 - [x] **Audit Log Analysis** with null shop ID resolution
 - [x] **Database Optimizations** with connection pool tuning
 - [x] **Admin Interface** with unified session and shop management
+- [x] **Shop Session Invalidation Fix** with real-time detection and automatic logout
 
 ## 🚀 Future Enhancements
 
