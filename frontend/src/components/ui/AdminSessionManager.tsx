@@ -674,31 +674,46 @@ const AdminSessionManager: React.FC = () => {
                               <VisibilityIcon />
                             </IconButton>
                           </Tooltip>
-                          <Tooltip title="Refresh Sessions">
-                            <IconButton
-                              size="small"
-                              color="primary"
-                              onClick={() => {
-                                const currentCooldown = shopRefreshCooldowns[shop.shopDomain] || 0;
-                                if (currentCooldown > 0) {
-                                  addNotification(`Please wait ${currentCooldown}s before refreshing ${shop.shopDomain} again`, 'warning');
-                                  return;
-                                }
-                                setConfirmAction({ type: 'refresh', shopDomain: shop.shopDomain });
-                                setShowConfirmDialog(true);
-                              }}
-                              disabled={actionLoading === `refresh-${shop.shopDomain}` || (shopRefreshCooldowns[shop.shopDomain] || 0) > 0}
-                            >
-                              {actionLoading === `refresh-${shop.shopDomain}` ? (
-                                <CircularProgress size={16} />
-                              ) : (shopRefreshCooldowns[shop.shopDomain] || 0) > 0 ? (
-                                <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>
-                                  {shopRefreshCooldowns[shop.shopDomain]}s
-                                </Typography>
-                              ) : (
-                                <RestartAltIcon />
-                              )}
-                            </IconButton>
+                          <Tooltip
+                            title={
+                              actionLoading === `refresh-${shop.shopDomain}`
+                                ? 'Refreshing...'
+                                : (shopRefreshCooldowns[shop.shopDomain] || 0) > 0
+                                  ? `Please wait ${shopRefreshCooldowns[shop.shopDomain]}s before refreshing again`
+                                  : 'Refresh Sessions'
+                            }
+                          >
+                            <span>
+                              <IconButton
+                                size="small"
+                                color="primary"
+                                onClick={() => {
+                                  const currentCooldown = shopRefreshCooldowns[shop.shopDomain] || 0;
+                                  if (currentCooldown > 0) {
+                                    addNotification(`Please wait ${currentCooldown}s before refreshing ${shop.shopDomain} again`, 'warning');
+                                    return;
+                                  }
+                                  setConfirmAction({ type: 'refresh', shopDomain: shop.shopDomain });
+                                  setShowConfirmDialog(true);
+                                }}
+                                disabled={actionLoading === `refresh-${shop.shopDomain}` || (shopRefreshCooldowns[shop.shopDomain] || 0) > 0}
+                                aria-label={`Refresh sessions for ${shop.shopDomain}`}
+                              >
+                                {actionLoading === `refresh-${shop.shopDomain}` ? (
+                                  <CircularProgress size={16} />
+                                ) : (shopRefreshCooldowns[shop.shopDomain] || 0) > 0 ? (
+                                  <Badge
+                                    badgeContent={`${shopRefreshCooldowns[shop.shopDomain]}s`}
+                                    color="secondary"
+                                    anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+                                  >
+                                    <RestartAltIcon />
+                                  </Badge>
+                                ) : (
+                                  <RestartAltIcon />
+                                )}
+                              </IconButton>
+                            </span>
                           </Tooltip>
                           <Tooltip title="Invalidate All Sessions">
                             <IconButton
