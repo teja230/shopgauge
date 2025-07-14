@@ -688,15 +688,7 @@ const MarketIntelligenceDashboard: React.FC<MarketIntelligenceDashboardProps> = 
                 )}
                 
                 {/* System Status Indicators */}
-                <Divider sx={{ my: 1 }} />
-                <Box>
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
-                    System Status
-                  </Typography>
-                  <Stack direction="row" spacing={1} flexWrap="wrap">
-                    
-                  </Stack>
-                </Box>
+                {/* Removed empty System Status section from Performance Metrics */}
               </Stack>
             </CardContent>
           </Card>
