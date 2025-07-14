@@ -98,6 +98,7 @@ import ConnectionPoolDashboard from '../components/ui/ConnectionPoolDashboard';
 import { DebugPanel } from '../components/ui/DebugPanel';
 import { NotificationCenter } from '../components/ui/NotificationCenter';
 import MarketIntelligenceDashboard from '../components/ui/MarketIntelligenceDashboard';
+import SessionHealthMonitor from '../components/ui/SessionHealthMonitor';
 
 interface Secret {
   key: string;
@@ -1933,6 +1934,28 @@ const AdminPage: React.FC = () => {
                   </Card>
                 </Box>
               )}
+
+              {/* Session Health Monitor */}
+              <Box sx={{ mt: 3 }}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <SecurityIcon />
+                      Session Health Monitoring
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      Monitor session health across all shops and detect potential issues.
+                    </Typography>
+                    <SessionHealthMonitor 
+                      shop={undefined} // Admin is not tied to a specific shop
+                      onRefresh={() => {
+                        fetchSessionStatistics();
+                        setSessionStatsCooldown(120);
+                      }}
+                    />
+                  </CardContent>
+                </Card>
+              </Box>
             </Box>
           )}
 
