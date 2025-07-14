@@ -1139,7 +1139,21 @@ const DashboardPage = () => {
   // Create a cache instance that prevents concurrent fetches for the same key
   const activeFetches = useRef<Map<string, Promise<any>>>(new Map());
   
-  // Stable cache check function that doesn't cause fetch function recreation
+  // Track if this is a fresh login (for optimal cache strategy)
+  const isFreshLoginRef = useRef(false);
+  
+  // Set fresh login flag when shop changes (indicating new login)
+  useEffect(() => {
+    if (shop && isAuthenticated) {
+      isFreshLoginRef.current = true;
+      // Reset after a short delay to allow initial data loading
+      setTimeout(() => {
+        isFreshLoginRef.current = false;
+      }, 5000); // 5 seconds should be enough for initial load
+    }
+  }, [shop, isAuthenticated]);
+
+  // Stable cache check function with optimal strategy
   const checkCacheAndFetch = useCallback(async (
     cacheKey: keyof DashboardCache,
     fetchFunction: () => Promise<any>,
@@ -1159,25 +1173,40 @@ const DashboardPage = () => {
     const sessionCache = JSON.parse(sessionStorage.getItem(getCacheKey(shop || '')) || '{}');
     const cachedEntry = sessionCache[cacheKey] as CacheEntry<any> | undefined;
     
-    // Check if cache is fresh
-    const isFresh = cachedEntry && 
+    // Check if session cache is fresh
+    const isSessionFresh = cachedEntry && 
       (Date.now() - cachedEntry.timestamp) < CACHE_DURATION && 
       cachedEntry.version === CACHE_VERSION &&
       cachedEntry.shop === shop;
     
-    // Use cached data if available, fresh, and not forcing refresh
-    if (!forceRefresh && isFresh) {
-      const ageMinutes = Math.round((Date.now() - cachedEntry.timestamp) / (1000 * 60));
-      console.log(`✅ ${cacheKey.toUpperCase()}: Using cached data (${ageMinutes}min old)`);
-      // Update React state with cached data without triggering a full re-render of everything
-      setCache(prev => ({ ...prev, [cacheKey]: cachedEntry }));
-      return cachedEntry.data;
+    // OPTIMAL STRATEGY: Different cache check order based on context
+    const isFreshLogin = isFreshLoginRef.current;
+    
+    if (isFreshLogin) {
+      // LOGIN STRATEGY: Redis Cache First, Session Second
+      console.log(`🔄 ${cacheKey.toUpperCase()}: Fresh login detected - checking Redis cache first`);
+      
+      // For fresh login, skip session cache and go directly to backend (which checks Redis first)
+      // This ensures we get the most up-to-date data from Redis cache
+    } else {
+      // NORMAL STRATEGY: Session First, Redis Second (to prevent continuous Redis hits)
+      if (!forceRefresh && isSessionFresh) {
+        const ageMinutes = Math.round((Date.now() - cachedEntry.timestamp) / (1000 * 60));
+        console.log(`✅ ${cacheKey.toUpperCase()}: Using session cached data (${ageMinutes}min old)`);
+        setCache(prev => ({ ...prev, [cacheKey]: cachedEntry }));
+        return cachedEntry.data;
+      }
+      
+      if (!forceRefresh && !isSessionFresh && cachedEntry) {
+        console.log(`🔄 ${cacheKey.toUpperCase()}: Session cache expired, checking Redis cache...`);
+      }
     }
     
     // Create and track the fetch promise to prevent concurrent fetches
     const fetchPromise = (async () => {
       try {
-        console.log(`🔄 ${cacheKey.toUpperCase()}: Fetching fresh data from API`);
+        const context = isFreshLogin ? 'fresh login' : 'normal action';
+        console.log(`🔄 ${cacheKey.toUpperCase()}: Fetching data from API (${context} - backend will check Redis cache first)`);
         const freshData = await fetchFunction();
         const now = new Date();
         const newCacheEntry = {
@@ -2031,10 +2060,10 @@ const DashboardPage = () => {
     setIsRefreshing(true);
     
     try {
-      // Step 1: Clear backend Redis cache first
+      // Step 1: Clear backend Redis cache ONLY for manual refresh (not shop switching)
       if (shop) {
         try {
-          console.log('🗑️ Clearing backend Redis cache for shop:', shop);
+          console.log('🗑️ Clearing backend Redis cache for manual refresh:', shop);
           const response = await fetchWithAuth('/api/analytics/cache/invalidate', {
             method: 'POST',
             headers: {
@@ -2045,7 +2074,6 @@ const DashboardPage = () => {
           if (response.ok) {
             const result = await response.json();
             console.log('✅ Backend cache cleared successfully:', result);
-            // Remove the technical notification - users don't need to know about backend cache
           } else {
             console.warn('⚠️ Backend cache clearing failed, continuing with frontend refresh');
           }

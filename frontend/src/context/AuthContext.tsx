@@ -232,6 +232,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const shopToClear = shop; // Capture shop name before it's cleared
 
     try {
+      // Use session-aware cache invalidation instead of clearing all cache
+      if (shopToClear) {
+        try {
+          console.log('AuthContext: Using session-aware cache invalidation for logout');
+          const response = await fetch(`${API_BASE_URL}/api/analytics/cache/invalidate-session`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include'
+          });
+          
+          if (response.ok) {
+            const result = await response.json();
+            console.log('AuthContext: Session-aware cache invalidation result:', result);
+            if (result.cleared) {
+              console.log('AuthContext: Cache cleared - this was the last session for this shop');
+            } else {
+              console.log('AuthContext: Cache preserved - other sessions are still active for this shop');
+            }
+          } else {
+            console.warn('AuthContext: Session-aware cache invalidation failed, falling back to manual clear');
+            invalidateCache(shopToClear);
+          }
+        } catch (error) {
+          console.warn('AuthContext: Session-aware cache invalidation failed:', error, 'falling back to manual clear');
+          invalidateCache(shopToClear);
+        }
+      }
+
       await axios.post(`${API_BASE_URL}/api/auth/shopify/profile/disconnect`, {}, {
         withCredentials: true
       });
@@ -240,10 +270,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('AuthContext: Logout API failed:', error);
     } finally {
       clearAllSessionCookies();
-      // Clear dashboard cache for the specific shop on logout
+      
+      // Clear unified analytics storage on logout
       if (shopToClear) {
-        invalidateCache(shopToClear);
-        // Clear unified analytics storage on logout
         try {
           const unifiedAnalyticsKeys = [
             `unified_analytics_${shopToClear}_60d_with_predictions`,
@@ -261,6 +290,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.warn('AuthContext: Error clearing unified analytics storage:', error);
         }
       }
+      
       // Clear auth state
       setIsAuthenticated(false);
       setShop(null);

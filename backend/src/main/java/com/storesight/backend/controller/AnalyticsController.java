@@ -523,11 +523,27 @@ public class AnalyticsController {
           new AnalyticsResponse(data, "Not authenticated", HttpStatus.UNAUTHORIZED);
       return (Mono<ResponseEntity<Map<String, Object>>>) Mono.just(response.toResponseEntity());
     }
+
+    String token = shopService.getTokenForShop(shop, session.getId());
+    if (token == null) {
+      Map<String, Object> response = new HashMap<>();
+      response.put("error", "No token for shop");
+      response.put("products", List.of());
+      return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response));
+    }
+
+    // Check Redis cache first
+    var cachedInventory = dashboardCacheService.getCachedInventoryData(shop);
+    if (cachedInventory.isPresent()) {
+      logger.info("Cache hit for inventory data for shop: {}", shop);
+      return Mono.just(ResponseEntity.ok((Map<String, Object>) cachedInventory.get()));
+    }
+
     return shopService
         .getTokenForShopReactive(shop, session.getId())
         .flatMap(
-            token -> {
-              if (token == null) {
+            reactiveToken -> {
+              if (reactiveToken == null) {
                 Map<String, Object> response = new HashMap<>();
                 response.put("error", "No token for shop");
                 response.put("products", List.of());
@@ -537,7 +553,7 @@ public class AnalyticsController {
               return webClient
                   .get()
                   .uri(url)
-                  .header("X-Shopify-Access-Token", token)
+                  .header("X-Shopify-Access-Token", reactiveToken)
                   .retrieve()
                   .bodyToMono(Map.class)
                   .map(
@@ -604,6 +620,11 @@ public class AnalyticsController {
                             "shopify_inventory_url",
                             getShopifyAdminUrl(shop, "products?inventory_status=low"));
                         response.put("shopify_products_url", getShopifyAdminUrl(shop, "products"));
+
+                        // Cache the result in Redis
+                        dashboardCacheService.cacheInventoryData(shop, response);
+                        logger.info("Cached inventory data for shop: {}", shop);
+
                         return ResponseEntity.ok(response);
                       })
                   .onErrorResume(
@@ -642,11 +663,26 @@ public class AnalyticsController {
       return (Mono<ResponseEntity<Map<String, Object>>>) Mono.just(response.toResponseEntity());
     }
 
+    String token = shopService.getTokenForShop(shop, session.getId());
+    if (token == null) {
+      Map<String, Object> response = new HashMap<>();
+      response.put("error", "No token for shop");
+      response.put("products", List.of());
+      return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response));
+    }
+
+    // Check Redis cache first
+    var cachedNewProducts = dashboardCacheService.getCachedNewProductsData(shop);
+    if (cachedNewProducts.isPresent()) {
+      logger.info("Cache hit for new products data for shop: {}", shop);
+      return Mono.just(ResponseEntity.ok((Map<String, Object>) cachedNewProducts.get()));
+    }
+
     return shopService
         .getTokenForShopReactive(shop, session.getId())
         .flatMap(
-            token -> {
-              if (token == null) {
+            reactiveToken -> {
+              if (reactiveToken == null) {
                 Map<String, Object> response = new HashMap<>();
                 response.put("error", "No token for shop");
                 response.put("products", List.of());
@@ -695,6 +731,11 @@ public class AnalyticsController {
                         response.put(
                             "shopify_new_products_url",
                             "https://" + shop + "/admin/products?sort=created_at&order=desc");
+
+                        // Cache the result in Redis
+                        dashboardCacheService.cacheNewProductsData(shop, response);
+                        logger.info("Cached new products data for shop: {}", shop);
+
                         return ResponseEntity.ok(response);
                       })
                   .onErrorResume(
@@ -738,6 +779,13 @@ public class AnalyticsController {
       response.put("error", "No token for shop");
       response.put("carts", List.of());
       return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response));
+    }
+
+    // Check Redis cache first
+    var cachedAbandonedCarts = dashboardCacheService.getCachedAbandonedCartsData(shop);
+    if (cachedAbandonedCarts.isPresent()) {
+      logger.info("Cache hit for abandoned carts data for shop: {}", shop);
+      return Mono.just(ResponseEntity.ok((Map<String, Object>) cachedAbandonedCarts.get()));
     }
 
     // Try to fetch abandoned checkouts from Shopify API
@@ -787,6 +835,10 @@ public class AnalyticsController {
               result.put("abandonedCarts", abandonedCount);
               result.put("checkouts_count", checkouts != null ? checkouts.size() : 0);
               result.put("period_days", 60);
+
+              // Cache the result in Redis
+              dashboardCacheService.cacheAbandonedCartsData(shop, result);
+              logger.info("Cached abandoned carts data for shop: {}", shop);
 
               return ResponseEntity.ok(result);
             })
@@ -897,6 +949,8 @@ public class AnalyticsController {
     var cachedRevenue = dashboardCacheService.getCachedRevenueData(shop);
     if (cachedRevenue.isPresent()) {
       logger.info("Cache hit for revenue data for shop: {}", shop);
+      // Register this session as using cache for this shop
+      dashboardCacheService.registerSession(shop, session.getId());
       return Mono.just(ResponseEntity.ok((Map<String, Object>) cachedRevenue.get()));
     }
 
@@ -2272,6 +2326,65 @@ public class AnalyticsController {
       logger.error("Failed to invalidate cache for shop {}: {}", shop, e.getMessage());
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
           .body(Map.of("error", "Cache invalidation failed", "cleared", false));
+    }
+  }
+
+  @PostMapping("/cache/invalidate-session")
+  public ResponseEntity<Map<String, Object>> invalidateCacheForSession(
+      @CookieValue(value = "shop", required = false) String shop, HttpSession session) {
+
+    if (shop == null) {
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+          .body(Map.of("error", "Not authenticated", "cleared", false));
+    }
+
+    String token = shopService.getTokenForShop(shop, session.getId());
+    if (token == null) {
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+          .body(Map.of("error", "No token for shop", "cleared", false));
+    }
+
+    try {
+      String sessionId = session.getId();
+      logger.info(
+          "Session-aware cache invalidation requested for shop: {} (session: {})", shop, sessionId);
+
+      // Use session-aware cache invalidation
+      boolean cacheCleared = dashboardCacheService.invalidateCacheForSession(shop, sessionId);
+
+      // Log the cache invalidation
+      dataPrivacyService.logDataAccess(
+          "SESSION_CACHE_INVALIDATION",
+          "Session cache invalidation - cleared: " + cacheCleared,
+          shop);
+
+      Map<String, Object> response = new HashMap<>();
+      response.put("cleared", cacheCleared);
+      response.put("shop", shop);
+      response.put("sessionId", sessionId);
+      response.put("timestamp", System.currentTimeMillis());
+      response.put("remainingSessions", dashboardCacheService.getSessionCount(shop));
+
+      if (cacheCleared) {
+        response.put("message", "Cache cleared - this was the last session for this shop");
+      } else {
+        response.put("message", "Cache preserved - other sessions are still active for this shop");
+      }
+
+      logger.info(
+          "Session-aware cache invalidation completed for shop: {} (cleared: {})",
+          shop,
+          cacheCleared);
+      return ResponseEntity.ok(response);
+
+    } catch (Exception e) {
+      logger.error(
+          "Failed to invalidate cache for session {} shop {}: {}",
+          session.getId(),
+          shop,
+          e.getMessage());
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Session cache invalidation failed", "cleared", false));
     }
   }
 }
