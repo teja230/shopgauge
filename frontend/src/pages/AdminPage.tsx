@@ -1645,7 +1645,7 @@ const AdminPage: React.FC = () => {
           {/* Audit Logs Tab */}
           {activeTab === 'audit-logs' && (
             <Box>
-              <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center' }}>
+              <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
                 <FormControl size="small" sx={{ minWidth: 200 }}>
                   <InputLabel>Log Type</InputLabel>
                   <Select
@@ -1656,6 +1656,34 @@ const AdminPage: React.FC = () => {
                     <MenuItem value="all">All Logs</MenuItem>
                     <MenuItem value="deleted">Deleted Shops</MenuItem>
                     <MenuItem value="active">Active Shops</MenuItem>
+                  </Select>
+                </FormControl>
+                <FormControl size="small" sx={{ minWidth: 150 }}>
+                  <InputLabel>Action</InputLabel>
+                  <Select
+                    value={auditActionFilter}
+                    onChange={(e) => setAuditActionFilter(e.target.value)}
+                    label="Action"
+                  >
+                    <MenuItem value="all">All Actions</MenuItem>
+                    {uniqueActions.map((action) => (
+                      <MenuItem key={action} value={action}>{action}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <FormControl size="small" sx={{ minWidth: 150 }}>
+                  <InputLabel>Category</InputLabel>
+                  <Select
+                    value={auditCategoryFilter}
+                    onChange={(e) => setAuditCategoryFilter(e.target.value)}
+                    label="Category"
+                  >
+                    <MenuItem value="all">All Categories</MenuItem>
+                    {uniqueCategories.map((category) => (
+                      <MenuItem key={category} value={category}>
+                        {actionCategories[category as keyof typeof actionCategories]?.label || category}
+                      </MenuItem>
+                    ))}
                   </Select>
                 </FormControl>
                 <TextField
@@ -1687,6 +1715,29 @@ const AdminPage: React.FC = () => {
                 </Alert>
               )}
 
+              {/* Search Results Summary */}
+              {(auditSearchTerm || auditActionFilter !== 'all' || auditCategoryFilter !== 'all') && (
+                <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Showing {filteredAuditLogs.length} of {auditLogs.length} logs
+                  </Typography>
+                  {(auditSearchTerm || auditActionFilter !== 'all' || auditCategoryFilter !== 'all') && (
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={() => {
+                        setAuditSearchTerm('');
+                        setAuditActionFilter('all');
+                        setAuditCategoryFilter('all');
+                      }}
+                      sx={{ ml: 1 }}
+                    >
+                      Clear Filters
+                    </Button>
+                  )}
+                </Box>
+              )}
+
               <TableContainer component={Paper}>
                 <Table>
                   <TableHead>
@@ -1699,7 +1750,7 @@ const AdminPage: React.FC = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {auditLogs.map((log) => (
+                    {filteredAuditLogs.map((log) => (
                       <TableRow key={log.id}>
                         <TableCell>{log.shopDomain}</TableCell>
                         <TableCell>
@@ -1723,7 +1774,7 @@ const AdminPage: React.FC = () => {
 
               <TablePagination
                 component="div"
-                count={auditTotalCount}
+                count={filteredAuditLogs.length}
                 page={auditPage}
                 onPageChange={(e, newPage) => setAuditPage(newPage)}
                 rowsPerPage={auditRowsPerPage}
