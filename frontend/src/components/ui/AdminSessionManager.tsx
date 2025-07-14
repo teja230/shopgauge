@@ -277,15 +277,20 @@ const AdminSessionManager: React.FC = () => {
   const fetchShopSessions = useCallback(async (shopDomain: string) => {
     setSessionsLoading(true);
     try {
+      console.log('Fetching shop sessions for:', shopDomain);
       const response = await getAdminShopSessions(shopDomain);
+      console.log('Shop sessions response:', response);
+      
       if (response.success) {
         setShopSessions(response.sessions || []);
         setSelectedShop(shopDomain);
         setShowShopDetails(true);
+        console.log('Successfully opened shop sessions dialog');
       } else {
         throw new Error(response.error || 'Failed to fetch shop sessions');
       }
     } catch (error) {
+      console.error('Error fetching shop sessions:', error);
       addNotification(
         error instanceof Error ? error.message : 'Failed to fetch shop sessions',
         'error'
