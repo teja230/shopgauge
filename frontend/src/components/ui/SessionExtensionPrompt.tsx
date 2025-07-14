@@ -1,5 +1,31 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { toast } from 'react-hot-toast';
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  Typography,
+  Box,
+  IconButton,
+  CircularProgress,
+  Chip,
+  Alert,
+  Fade,
+  Slide,
+  useTheme,
+  useMediaQuery,
+} from '@mui/material';
+import {
+  Close as CloseIcon,
+  Warning as WarningIcon,
+  Timer as TimerIcon,
+  CheckCircle as CheckCircleIcon,
+  Error as ErrorIcon,
+  Logout as LogoutIcon,
+  Refresh as RefreshIcon,
+} from '@mui/icons-material';
+import { styled } from '@mui/material/styles';
 import { useNotifications } from '../../hooks/useNotifications';
 
 interface SessionExtensionPromptProps {
@@ -19,6 +45,91 @@ interface SessionExtensionPromptState {
   extensionSuccess: boolean | null;
 }
 
+const StyledDialog = styled(Dialog)(({ theme }) => ({
+  '& .MuiDialog-paper': {
+    borderRadius: 20,
+    minWidth: 400,
+    maxWidth: 500,
+    width: '95vw',
+    maxHeight: '90vh',
+    [theme.breakpoints.down('sm')]: {
+      margin: theme.spacing(1),
+      width: `calc(100vw - ${theme.spacing(2)})`,
+      maxWidth: 'none',
+      borderRadius: 16,
+      minWidth: 'auto',
+      maxHeight: '95vh',
+    },
+  },
+}));
+
+const StyledDialogTitle = styled(DialogTitle)(({ theme }) => ({
+  padding: theme.spacing(3),
+  paddingBottom: theme.spacing(2),
+  position: 'relative',
+  background: `linear-gradient(135deg, ${theme.palette.primary.main}15 0%, ${theme.palette.secondary.main}10 100%)`,
+  borderBottom: `1px solid ${theme.palette.divider}`,
+  textAlign: 'center',
+  [theme.breakpoints.down('sm')]: {
+    padding: theme.spacing(2.5),
+    paddingBottom: theme.spacing(1.5),
+  },
+}));
+
+const HeaderIcon = styled(Box)<{ $color: string; $bgColor: string }>(({ theme, $color, $bgColor }) => ({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: 64,
+  height: 64,
+  borderRadius: 20,
+  backgroundColor: $bgColor,
+  color: $color,
+  margin: '0 auto',
+  marginBottom: theme.spacing(2),
+  fontSize: '2rem',
+  [theme.breakpoints.down('sm')]: {
+    width: 56,
+    height: 56,
+    fontSize: '1.75rem',
+  },
+}));
+
+const CountdownChip = styled(Chip)(({ theme }) => ({
+  fontSize: '0.875rem',
+  height: 32,
+  fontWeight: 600,
+  '&.critical': {
+    backgroundColor: theme.palette.error.main,
+    color: theme.palette.error.contrastText,
+    animation: 'pulse 1s infinite',
+  },
+  '&.warning': {
+    backgroundColor: theme.palette.warning.main,
+    color: theme.palette.warning.contrastText,
+  },
+  '@keyframes pulse': {
+    '0%, 100%': {
+      opacity: 1,
+    },
+    '50%': {
+      opacity: 0.7,
+    },
+  },
+}));
+
+const ActionButton = styled(Button)(({ theme }) => ({
+  borderRadius: 12,
+  textTransform: 'none',
+  fontWeight: 600,
+  padding: theme.spacing(1.5, 3),
+  minWidth: 120,
+  [theme.breakpoints.down('sm')]: {
+    padding: theme.spacing(1.25, 2.5),
+    minWidth: 100,
+  },
+}));
+
 const SessionExtensionPrompt: React.FC<SessionExtensionPromptProps> = ({
   expiresInMinutes,
   gracePeriodMinutes = 2,
@@ -26,6 +137,8 @@ const SessionExtensionPrompt: React.FC<SessionExtensionPromptProps> = ({
   onDismiss,
   onLogout
 }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [state, setState] = useState<SessionExtensionPromptState>({
     isVisible: true,
     expiresInMinutes,
@@ -148,155 +261,175 @@ const SessionExtensionPrompt: React.FC<SessionExtensionPromptProps> = ({
   const isInGracePeriod = state.expiresInMinutes <= 0;
   const isCritical = state.countdown <= 30; // Last 30 seconds
 
+  // Get theme colors based on state
+  const getThemeColors = () => {
+    if (isCritical) {
+      return {
+        primary: theme.palette.error.main,
+        secondary: theme.palette.error.light,
+        background: theme.palette.error.light + '15',
+        text: theme.palette.error.dark,
+        icon: ErrorIcon,
+      };
+    } else if (isInGracePeriod) {
+      return {
+        primary: theme.palette.warning.main,
+        secondary: theme.palette.warning.light,
+        background: theme.palette.warning.light + '15',
+        text: theme.palette.warning.dark,
+        icon: WarningIcon,
+      };
+    } else {
+      return {
+        primary: theme.palette.info.main,
+        secondary: theme.palette.info.light,
+        background: theme.palette.info.light + '15',
+        text: theme.palette.info.dark,
+        icon: TimerIcon,
+      };
+    }
+  };
+
+  const colors = getThemeColors();
+  const IconComponent = colors.icon;
+
   if (!state.isVisible) {
     return null;
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className={`relative max-w-md w-full mx-4 p-6 rounded-lg shadow-xl transition-all duration-300 ${
-        isCritical 
-          ? 'bg-red-50 border-2 border-red-300' 
-          : isInGracePeriod 
-            ? 'bg-orange-50 border-2 border-orange-300'
-            : 'bg-blue-50 border-2 border-blue-300'
-      }`}>
-        {/* Close button */}
-        <button
+    <StyledDialog
+      open={state.isVisible}
+      onClose={handleDismiss}
+      TransitionComponent={Slide}
+      transitionDuration={300}
+      maxWidth="sm"
+      fullWidth
+    >
+      <StyledDialogTitle>
+        <IconButton
           onClick={handleDismiss}
-          className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 transition-colors"
           disabled={state.isExtending}
+          sx={{
+            position: 'absolute',
+            right: theme.spacing(2),
+            top: theme.spacing(2),
+            color: theme.palette.text.secondary,
+            '&:hover': {
+              color: theme.palette.text.primary,
+            },
+          }}
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
+          <CloseIcon />
+        </IconButton>
 
-        {/* Header */}
-        <div className="text-center mb-4">
-          <div className={`inline-flex items-center justify-center w-12 h-12 rounded-full mb-3 ${
-            isCritical 
-              ? 'bg-red-100 text-red-600' 
-              : isInGracePeriod 
-                ? 'bg-orange-100 text-orange-600'
-                : 'bg-blue-100 text-blue-600'
-          }`}>
-            {isCritical ? (
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-              </svg>
-            ) : (
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            )}
-          </div>
-          
-          <h3 className={`text-lg font-semibold ${
-            isCritical ? 'text-red-800' : isInGracePeriod ? 'text-orange-800' : 'text-blue-800'
-          }`}>
-            {isCritical 
-              ? 'Session Expiring Soon!' 
-              : isInGracePeriod 
-                ? 'Session Expired' 
-                : 'Session Extension Required'
-            }
-          </h3>
-        </div>
+        <HeaderIcon $color={colors.primary} $bgColor={colors.background}>
+          <IconComponent />
+        </HeaderIcon>
 
-        {/* Message */}
-        <div className="text-center mb-6">
-          <p className={`text-sm ${
-            isCritical ? 'text-red-700' : isInGracePeriod ? 'text-orange-700' : 'text-blue-700'
-          }`}>
-            {isCritical 
-              ? `Your session will expire in ${formatCountdown(state.countdown)}. Extend now to continue working.`
-              : isInGracePeriod 
-                ? `Your session has expired. You will be logged out in ${formatCountdown(state.countdown)} unless you extend your session.`
-                : `Your session will expire in ${state.expiresInMinutes} minutes. Would you like to extend it?`
-            }
-          </p>
-        </div>
+        <Typography variant="h5" component="h2" sx={{ fontWeight: 600, color: colors.text }}>
+          {isCritical 
+            ? 'Session Expiring Soon!' 
+            : isInGracePeriod 
+              ? 'Session Expired' 
+              : 'Session Extension Required'
+          }
+        </Typography>
+      </StyledDialogTitle>
+
+      <DialogContent sx={{ p: 3, textAlign: 'center' }}>
+        <Typography variant="body1" sx={{ mb: 2, color: theme.palette.text.secondary }}>
+          {isCritical 
+            ? `Your session will expire in ${formatCountdown(state.countdown)}. Extend now to continue working.`
+            : isInGracePeriod 
+              ? `Your session has expired. You will be logged out in ${formatCountdown(state.countdown)} unless you extend your session.`
+              : `Your session will expire in ${state.expiresInMinutes} minutes. Would you like to extend it?`
+          }
+        </Typography>
 
         {/* Countdown display */}
         {isInGracePeriod && (
-          <div className="text-center mb-4">
-            <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-              isCritical 
-                ? 'bg-red-100 text-red-800' 
-                : 'bg-orange-100 text-orange-800'
-            }`}>
-              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              {formatCountdown(state.countdown)} remaining
-            </div>
-          </div>
+          <Box sx={{ mb: 3 }}>
+            <CountdownChip
+              label={`${formatCountdown(state.countdown)} remaining`}
+              className={isCritical ? 'critical' : 'warning'}
+              icon={<TimerIcon />}
+            />
+          </Box>
         )}
-
-        {/* Action buttons */}
-        <div className="flex flex-col space-y-3">
-          <button
-            onClick={handleExtend}
-            disabled={state.isExtending}
-            className={`w-full py-2 px-4 rounded-md font-medium transition-colors ${
-              state.isExtending
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : isCritical
-                  ? 'bg-red-600 hover:bg-red-700 text-white'
-                  : isInGracePeriod
-                    ? 'bg-orange-600 hover:bg-orange-700 text-white'
-                    : 'bg-blue-600 hover:bg-blue-700 text-white'
-            }`}
-          >
-            {state.isExtending ? (
-              <div className="flex items-center justify-center">
-                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Extending...
-              </div>
-            ) : (
-              'Extend Session'
-            )}
-          </button>
-
-          {isInGracePeriod && (
-            <button
-              onClick={handleLogout}
-              className="w-full py-2 px-4 rounded-md font-medium bg-gray-600 hover:bg-gray-700 text-white transition-colors"
-            >
-              Logout Now
-            </button>
-          )}
-
-          {!isInGracePeriod && (
-            <button
-              onClick={handleDismiss}
-              disabled={state.isExtending}
-              className="w-full py-2 px-4 rounded-md font-medium bg-gray-200 hover:bg-gray-300 text-gray-700 transition-colors disabled:opacity-50"
-            >
-              Dismiss
-            </button>
-          )}
-        </div>
 
         {/* Success/Error message */}
         {state.extensionSuccess !== null && (
-          <div className={`mt-4 p-3 rounded-md text-sm ${
-            state.extensionSuccess 
-              ? 'bg-green-100 text-green-800' 
-              : 'bg-red-100 text-red-800'
-          }`}>
+          <Alert
+            severity={state.extensionSuccess ? 'success' : 'error'}
+            sx={{ mb: 2 }}
+            icon={state.extensionSuccess ? <CheckCircleIcon /> : <ErrorIcon />}
+          >
             {state.extensionSuccess 
-              ? '✅ Session extended successfully!' 
-              : '❌ Failed to extend session. Please try again.'
+              ? 'Session extended successfully!' 
+              : 'Failed to extend session. Please try again.'
             }
-          </div>
+          </Alert>
         )}
-      </div>
-    </div>
+      </DialogContent>
+
+      <DialogActions sx={{ p: 3, pt: 1, gap: 2, justifyContent: 'center' }}>
+        {isInGracePeriod && (
+          <ActionButton
+            variant="outlined"
+            onClick={handleLogout}
+            disabled={state.isExtending}
+            startIcon={<LogoutIcon />}
+            sx={{
+              borderColor: theme.palette.grey[400],
+              color: theme.palette.text.secondary,
+              '&:hover': {
+                borderColor: theme.palette.grey[600],
+                color: theme.palette.text.primary,
+              },
+            }}
+          >
+            Logout Now
+          </ActionButton>
+        )}
+
+        {!isInGracePeriod && (
+          <ActionButton
+            variant="outlined"
+            onClick={handleDismiss}
+            disabled={state.isExtending}
+            sx={{
+              borderColor: theme.palette.grey[400],
+              color: theme.palette.text.secondary,
+              '&:hover': {
+                borderColor: theme.palette.grey[600],
+                color: theme.palette.text.primary,
+              },
+            }}
+          >
+            Dismiss
+          </ActionButton>
+        )}
+
+        <ActionButton
+          variant="contained"
+          onClick={handleExtend}
+          disabled={state.isExtending}
+          startIcon={state.isExtending ? <CircularProgress size={16} /> : <RefreshIcon />}
+          sx={{
+            backgroundColor: colors.primary,
+            '&:hover': {
+              backgroundColor: colors.secondary,
+            },
+            '&:disabled': {
+              backgroundColor: theme.palette.action.disabled,
+            },
+          }}
+        >
+          {state.isExtending ? 'Extending...' : 'Extend Session'}
+        </ActionButton>
+      </DialogActions>
+    </StyledDialog>
   );
 };
 
