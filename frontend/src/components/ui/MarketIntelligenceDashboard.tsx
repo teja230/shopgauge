@@ -735,28 +735,43 @@ const MarketIntelligenceDashboard: React.FC<MarketIntelligenceDashboardProps> = 
             )}
           </Box>
           <Box sx={{ height: 300, mt: 2 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={historicalData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="timestamp" 
-                  tickFormatter={(value) => new Date(value).toLocaleDateString()}
-                />
-                <YAxis />
-                <RechartsTooltip 
-                  formatter={(value: number) => [formatCurrency(value), 'Cost']}
-                  labelFormatter={(label) => new Date(label).toLocaleDateString()}
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="dailyCost" 
-                  stroke="#2196f3" 
-                  fill="#2196f3" 
-                  fillOpacity={0.3}
-                  name="Daily Cost"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            {historicalData.length === 0 ? (
+              <Box sx={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Typography variant="body2" color="text.secondary">
+                  No cost data available for the selected period.
+                </Typography>
+              </Box>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={historicalData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="timestamp"
+                    tickFormatter={(value) => {
+                      const date = new Date(value);
+                      return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                    }}
+                    interval={4} // Show every 5th tick (0-based)
+                    angle={30}
+                    textAnchor="start"
+                    height={50}
+                  />
+                  <YAxis />
+                  <RechartsTooltip
+                    formatter={(value: number) => [formatCurrency(value), 'Cost']}
+                    labelFormatter={(label) => new Date(label).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="dailyCost"
+                    stroke="#2196f3"
+                    fill="#2196f3"
+                    fillOpacity={0.3}
+                    name="Daily Cost"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
           </Box>
           {shopId ? (
             <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
