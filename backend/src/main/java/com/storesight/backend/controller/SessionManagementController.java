@@ -1209,7 +1209,7 @@ public class SessionManagementController {
 
   private void clearShopCookie(HttpServletResponse response, String shopDomain) {
     try {
-      // Clear shop cookie with multiple domain variations to ensure it's cleared
+      // Clear shop cookie without domain first (works for all cases)
       Cookie shopCookie = new Cookie("shop", "");
       shopCookie.setPath("/");
       shopCookie.setMaxAge(0); // Expire immediately
@@ -1217,21 +1217,34 @@ public class SessionManagementController {
       shopCookie.setSecure(true);
       response.addCookie(shopCookie);
 
-      // Also clear with domain for production
-      if (shopDomain != null && !shopDomain.contains("localhost")) {
-        Cookie domainCookie = new Cookie("shop", "");
-        domainCookie.setPath("/");
-        domainCookie.setMaxAge(0);
-        domainCookie.setHttpOnly(false);
-        domainCookie.setSecure(true);
-        domainCookie.setDomain(".shopgaugeai.com"); // Clear for all subdomains
-        response.addCookie(domainCookie);
+      // For Shopify domains, we need to clear the cookie with the myshopify.com domain
+      if (shopDomain != null && shopDomain.contains("myshopify.com")) {
+        try {
+          Cookie myshopifyCookie = new Cookie("shop", "");
+          myshopifyCookie.setPath("/");
+          myshopifyCookie.setMaxAge(0);
+          myshopifyCookie.setHttpOnly(false);
+          myshopifyCookie.setSecure(true);
+          myshopifyCookie.setDomain("myshopify.com");
+          response.addCookie(myshopifyCookie);
+          logger.debug("Added myshopify.com domain cookie clear for: {}", shopDomain);
+        } catch (Exception e) {
+          logger.warn(
+              "Failed to clear myshopify.com domain cookie for {}: {}", shopDomain, e.getMessage());
+        }
       }
 
-      // Add Set-Cookie header to ensure cookie is cleared
+      // Add Set-Cookie header to ensure cookie is cleared (without domain)
       response.addHeader(
           "Set-Cookie",
           "shop=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; HttpOnly=false; Secure");
+
+      // Also add Set-Cookie header with myshopify.com domain for Shopify stores
+      if (shopDomain != null && shopDomain.contains("myshopify.com")) {
+        response.addHeader(
+            "Set-Cookie",
+            "shop=; Path=/; Domain=myshopify.com; Expires=Thu, 01 Jan 1970 00:00:01 GMT; HttpOnly=false; Secure");
+      }
 
       logger.info("Cleared shop cookie for domain: {}", shopDomain);
     } catch (Exception e) {
