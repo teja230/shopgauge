@@ -1289,6 +1289,71 @@ public class ShopService {
     }
   }
 
+  /**
+   * Extend a session by adding additional time - follows industry standards for session management
+   */
+  @Transactional(timeout = 5)
+  public boolean extendSession(String shopifyDomain, String sessionId) {
+    try {
+      Optional<ShopSession> sessionOpt =
+          shopSessionRepository.findActiveSessionByShopDomainAndSessionId(shopifyDomain, sessionId);
+
+      if (sessionOpt.isPresent()) {
+        ShopSession session = sessionOpt.get();
+
+        // Check if session is still active (not expired or deactivated)
+        if (!session.getIsActive() || session.isExpired()) {
+          logger.warn(
+              "Cannot extend inactive or expired session: shop={}, session={}",
+              shopifyDomain,
+              sessionId);
+          return false;
+        }
+
+        // Extend session expiration by 4 hours from current time
+        LocalDateTime newExpiration = LocalDateTime.now().plusHours(SESSION_INACTIVITY_HOURS);
+        session.setExpiresAt(newExpiration);
+        session.markAsAccessed();
+
+        // Save the updated session
+        shopSessionRepository.save(session);
+
+        // Update Redis cache TTL
+        try {
+          String cachedToken =
+              redisTemplate.opsForValue().get(SHOP_TOKEN_PREFIX + shopifyDomain + ":" + sessionId);
+          if (cachedToken != null) {
+            redisTemplate
+                .opsForValue()
+                .set(
+                    SHOP_TOKEN_PREFIX + shopifyDomain + ":" + sessionId,
+                    cachedToken,
+                    java.time.Duration.ofMinutes(REDIS_CACHE_TTL_MINUTES));
+          }
+        } catch (Exception e) {
+          logger.warn("Failed to update Redis TTL during session extension: {}", e.getMessage());
+        }
+
+        // Clear invalid session cache since session is now valid
+        clearInvalidSessionCache(shopifyDomain, sessionId);
+
+        logger.info(
+            "Session extended for shop: {} and session: {} until {}",
+            shopifyDomain,
+            sessionId,
+            newExpiration);
+        return true;
+      } else {
+        logger.warn(
+            "Session not found for extension: shop={}, session={}", shopifyDomain, sessionId);
+        return false;
+      }
+    } catch (Exception e) {
+      logger.error("Error extending session for shop {}: {}", shopifyDomain, e.getMessage(), e);
+      return false;
+    }
+  }
+
   /** Get stale sessions for a shop (sessions that haven't been accessed recently) */
   @Transactional(readOnly = true)
   public List<ShopSession> getStaleSessionsForShop(String shopifyDomain) {

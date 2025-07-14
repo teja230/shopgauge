@@ -494,6 +494,8 @@ public class SessionManagementController {
           response.put("sessionExpiring", sessionExpiring);
           response.put("expiresInMinutes", expiresInMinutes);
           response.put("needsManualRefresh", sessionExpiring && expiresInMinutes <= 5);
+          response.put("canExtend", true); // Session can be extended
+          response.put("extensionAvailable", true); // Extension is available
 
           // Add recommendations based on session health
           List<String> recommendations = new ArrayList<>();
@@ -578,6 +580,70 @@ public class SessionManagementController {
     } catch (Exception e) {
       logger.error("Error refreshing session for shop {}: {}", shop, e.getMessage(), e);
       response.put("error", "Failed to refresh session");
+      response.put("success", false);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+    }
+  }
+
+  /** Session extension endpoint - follows industry standards for session management */
+  @PostMapping("/extend")
+  public ResponseEntity<Map<String, Object>> extendSession(
+      @CookieValue(value = "shop", required = false) String shop, HttpServletRequest request) {
+
+    Map<String, Object> response = new HashMap<>();
+
+    if (shop == null) {
+      response.put("error", "No shop authentication found");
+      response.put("success", false);
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+    }
+
+    try {
+      String sessionId = request.getSession().getId();
+
+      // Use the ShopService to extend the session
+      boolean extendSuccess = shopService.extendSession(shop, sessionId);
+
+      if (extendSuccess) {
+        // Get updated session info
+        Optional<ShopSession> sessionOpt = shopService.getSessionInfo(sessionId);
+
+        if (sessionOpt.isPresent()) {
+          ShopSession session = sessionOpt.get();
+
+          // Calculate time until expiration
+          long expiresInMinutes = 0;
+          if (session.getExpiresAt() != null) {
+            expiresInMinutes =
+                java.time.Duration.between(LocalDateTime.now(), session.getExpiresAt()).toMinutes();
+          }
+
+          response.put("success", true);
+          response.put("message", "Session extended successfully");
+          response.put("sessionId", sessionId);
+          response.put("shop", shop);
+          response.put(
+              "expiresAt", session.getExpiresAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+          response.put("expiresInMinutes", expiresInMinutes);
+          response.put("extensionDuration", "4 hours"); // Standard extension duration
+
+          logger.info("Session {} extended for shop: {}", sessionId, shop);
+          return ResponseEntity.ok(response);
+        } else {
+          response.put("error", "Session not found after extension");
+          response.put("success", false);
+          return ResponseEntity.ok(response);
+        }
+      } else {
+        logger.warn("Failed to extend session {} for shop {}", sessionId, shop);
+        response.put("error", "Failed to extend session");
+        response.put("success", false);
+        return ResponseEntity.ok(response);
+      }
+
+    } catch (Exception e) {
+      logger.error("Error extending session for shop {}: {}", shop, e.getMessage(), e);
+      response.put("error", "Failed to extend session");
       response.put("success", false);
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
     }

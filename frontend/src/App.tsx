@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -25,6 +25,8 @@ import { DebugPanel, debugLog } from './components/ui/DebugPanel';
 import { sessionManager, getSessionStatus } from './utils/sessionUtils';
 import SessionLimitDialog from './components/ui/SessionLimitDialog';
 import useSessionLimit from './hooks/useSessionLimit';
+import SessionExtensionPrompt from './components/ui/SessionExtensionPrompt';
+import { useNotifications } from './hooks/useNotifications';
 
 // Simple Protected Route for shop authentication
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -91,6 +93,7 @@ const RouteErrorCleaner: React.FC = () => {
 const AppContent: React.FC = () => {
   const { isAuthenticated, authLoading, loading, hasInitiallyLoaded, shop } = useAuth();
   const { handleServiceError } = useServiceStatus();
+  const { addNotification } = useNotifications();
   const [showDebugPanel, setShowDebugPanel] = React.useState(false);
   
   // Session limit management
@@ -106,28 +109,142 @@ const AppContent: React.FC = () => {
   
   // Track session initialization to prevent repeated calls
   const [sessionInitialized, setSessionInitialized] = useState(false);
-  
-  debugLog.debug('AppContent: Current state', {
-    pathname: window.location.pathname,
-    isAuthenticated,
-    authLoading,
-    loading,
-    hasInitiallyLoaded,
-    sessionInitialized
-  }, 'AppContent');
+  const [showSessionExtensionPrompt, setShowSessionExtensionPrompt] = useState(false);
+  const [sessionExtensionData, setSessionExtensionData] = useState<{
+    expiresInMinutes: number;
+    gracePeriodMinutes: number;
+  } | null>(null);
 
-  // Set up global service error handler
-  useEffect(() => {
-    setGlobalServiceErrorHandler(handleServiceError);
-  }, [handleServiceError]);
-
-  // Set current store for debug panel
-  useEffect(() => {
-    debugLog.setStore(shop);
-    if (shop) {
-      debugLog.info('🏪 Store set for debug panel', { shop }, 'App');
+  // Session extension handlers
+  const handleSessionExtension = useCallback(async (): Promise<boolean> => {
+    try {
+      const success = await sessionManager.extendSession();
+      if (success) {
+        // Clear any existing extension prompt
+        setShowSessionExtensionPrompt(false);
+        setSessionExtensionData(null);
+      }
+      return success;
+    } catch (error) {
+      console.error('Session extension failed:', error);
+      return false;
     }
-  }, [shop]);
+  }, []);
+
+  const handleSessionExtensionDismiss = useCallback(() => {
+    setShowSessionExtensionPrompt(false);
+    setSessionExtensionData(null);
+    sessionManager.clearExtensionPrompt();
+  }, []);
+
+  const handleSessionLogout = useCallback(() => {
+    // Clear session data and redirect to home
+    sessionManager.clearSessionInfo();
+    window.location.href = '/';
+  }, []);
+
+  // Session event listeners
+  useEffect(() => {
+    const handleSessionExtensionPrompt = (event: CustomEvent) => {
+      console.log('Session extension prompt received:', event.detail);
+      setSessionExtensionData({
+        expiresInMinutes: event.detail.expiresInMinutes || 0,
+        gracePeriodMinutes: 2 // Default grace period
+      });
+      setShowSessionExtensionPrompt(true);
+    };
+
+    const handleSessionExpired = (event: CustomEvent) => {
+      console.log('Session expired event received:', event.detail);
+      setSessionExtensionData({
+        expiresInMinutes: 0, // Already expired
+        gracePeriodMinutes: event.detail.gracePeriodMinutes || 2
+      });
+      setShowSessionExtensionPrompt(true);
+    };
+
+    const handleSessionExtended = (event: CustomEvent) => {
+      console.log('Session extended event received:', event.detail);
+      addNotification('Session extended successfully!', 'success', {
+        duration: 5000,
+        category: 'Authentication'
+      });
+    };
+
+    const handleSessionExpiring = (event: CustomEvent) => {
+      console.log('Session expiring event received:', event.detail);
+      if (event.detail.canExtend && event.detail.extensionAvailable) {
+        // Show extension prompt for expiring sessions
+        setSessionExtensionData({
+          expiresInMinutes: event.detail.expiresInMinutes || 0,
+          gracePeriodMinutes: 2
+        });
+        setShowSessionExtensionPrompt(true);
+      } else {
+        // Show regular warning notification
+        addNotification(event.detail.message, 'warning', {
+          persistent: true,
+          category: 'Authentication',
+          action: {
+            label: 'Extend Session',
+            onClick: () => handleSessionExtension()
+          }
+        });
+      }
+    };
+
+    const handleSessionRefreshNeeded = (event: CustomEvent) => {
+      console.log('Session refresh needed event received:', event.detail);
+      addNotification(event.detail.message, 'info', {
+        persistent: true,
+        category: 'Authentication',
+        action: {
+          label: 'Refresh Session',
+          onClick: () => handleSessionExtension()
+        }
+      });
+    };
+
+    const handleSessionError = (event: CustomEvent) => {
+      console.log('Session error event received:', event.detail);
+      addNotification(event.detail.message, 'error', {
+        persistent: true,
+        category: 'Authentication'
+      });
+    };
+
+    const handleSessionInvalidated = (event: CustomEvent) => {
+      console.log('Session invalidated event received:', event.detail);
+      addNotification(event.detail.message, 'error', {
+        persistent: true,
+        category: 'Authentication',
+        action: {
+          label: 'Logout',
+          onClick: () => handleSessionLogout()
+        }
+      });
+    };
+
+    // Add event listeners
+    window.addEventListener('sessionExtensionPrompt', handleSessionExtensionPrompt as EventListener);
+    window.addEventListener('sessionExpired', handleSessionExpired as EventListener);
+    window.addEventListener('sessionExtended', handleSessionExtended as EventListener);
+    window.addEventListener('sessionExpiring', handleSessionExpiring as EventListener);
+    window.addEventListener('sessionRefreshNeeded', handleSessionRefreshNeeded as EventListener);
+    window.addEventListener('sessionError', handleSessionError as EventListener);
+    window.addEventListener('sessionInvalidated', handleSessionInvalidated as EventListener);
+
+    // Cleanup function
+    return () => {
+      window.removeEventListener('sessionExtensionPrompt', handleSessionExtensionPrompt as EventListener);
+      window.removeEventListener('sessionExpired', handleSessionExpired as EventListener);
+      window.removeEventListener('sessionExtended', handleSessionExtended as EventListener);
+      window.removeEventListener('sessionExpiring', handleSessionExpiring as EventListener);
+      window.removeEventListener('sessionRefreshNeeded', handleSessionRefreshNeeded as EventListener);
+      window.removeEventListener('sessionError', handleSessionError as EventListener);
+      window.removeEventListener('sessionInvalidated', handleSessionInvalidated as EventListener);
+    };
+  }, [handleSessionExtension, handleSessionLogout]);
 
   // Initialize session management for authenticated users
   useEffect(() => {
@@ -200,6 +317,17 @@ const AppContent: React.FC = () => {
         maxSessions={sessionLimitData?.maxSessions || 5}
         limitReached={sessionLimitData?.limitReached || false}
       />
+      
+      {/* Session Extension Prompt */}
+      {showSessionExtensionPrompt && sessionExtensionData && (
+        <SessionExtensionPrompt
+          expiresInMinutes={sessionExtensionData.expiresInMinutes}
+          gracePeriodMinutes={sessionExtensionData.gracePeriodMinutes}
+          onExtend={handleSessionExtension}
+          onDismiss={handleSessionExtensionDismiss}
+          onLogout={handleSessionLogout}
+        />
+      )}
       
       <main className="flex-1">
         <Routes>

@@ -15,6 +15,8 @@ interface SessionHeartbeatResponse {
   sessionExpiring?: boolean; // New field to indicate session is expiring soon
   expiresInMinutes?: number; // Time until session expires
   needsManualRefresh?: boolean; // New field to indicate manual refresh is needed
+  canExtend?: boolean; // New field to indicate if session can be extended
+  extensionAvailable?: boolean; // New field to indicate if extension is available
 }
 
 interface SessionConfig {
@@ -25,6 +27,9 @@ interface SessionConfig {
   showExpirationWarnings?: boolean; // Show warnings when session is expiring
   expirationWarningMinutes?: number; // Minutes before expiration to show warning
   manualRefreshEnabled?: boolean; // Enable manual refresh option
+  autoExtendEnabled?: boolean; // Enable automatic session extension
+  extensionPromptMinutes?: number; // Minutes before expiration to prompt for extension
+  extensionGracePeriod?: number; // Grace period in minutes after expiration before logout
 }
 
 class SessionManager {
@@ -34,9 +39,14 @@ class SessionManager {
   private showExpirationWarnings: boolean;
   private expirationWarningMinutes: number;
   private manualRefreshEnabled: boolean;
+  private autoExtendEnabled: boolean;
+  private extensionPromptMinutes: number;
+  private extensionGracePeriod: number;
   private intervalId: NodeJS.Timeout | null = null;
   private retryCount = 0;
   private isInitialized = false;
+  private extensionPromptShown = false;
+  private extensionGraceTimer: NodeJS.Timeout | null = null;
 
   constructor(config: SessionConfig = {
     heartbeatInterval: 60000, // 1 minute
@@ -45,7 +55,10 @@ class SessionManager {
     retryDelay: 5000, // 5 seconds
     showExpirationWarnings: true, // Default to true
     expirationWarningMinutes: 10, // Default to 10 minutes
-    manualRefreshEnabled: true // Default to true
+    manualRefreshEnabled: true, // Default to true
+    autoExtendEnabled: true, // Default to true
+    extensionPromptMinutes: 5, // Default to 5 minutes before expiration
+    extensionGracePeriod: 2 // Default to 2 minutes grace period
   }) {
     this.heartbeatInterval = config.heartbeatInterval;
     this.maxRetries = config.maxRetries;
@@ -53,6 +66,9 @@ class SessionManager {
     this.showExpirationWarnings = config.showExpirationWarnings ?? true;
     this.expirationWarningMinutes = config.expirationWarningMinutes ?? 10;
     this.manualRefreshEnabled = config.manualRefreshEnabled ?? true;
+    this.autoExtendEnabled = config.autoExtendEnabled ?? true;
+    this.extensionPromptMinutes = config.extensionPromptMinutes ?? 5;
+    this.extensionGracePeriod = config.extensionGracePeriod ?? 2;
 
     if (config.enabled) {
       this.initialize();
@@ -161,6 +177,11 @@ class SessionManager {
             this.handleSessionExpirationWarning(data.expiresInMinutes || 0);
           }
           
+          // Handle session expired (grace period)
+          if (data.expiresInMinutes !== undefined && data.expiresInMinutes <= 0) {
+            this.handleSessionExpired();
+          }
+          
           // Handle manual refresh needed
           if (data.needsManualRefresh && this.manualRefreshEnabled) {
             this.handleManualRefreshNeeded();
@@ -176,21 +197,115 @@ class SessionManager {
       }
     } catch (error) {
       console.error('❌ Session heartbeat network error:', error);
-      this.handleSessionError('Network error during heartbeat');
+      this.handleHeartbeatFailure('Network error during heartbeat');
     }
   }
 
   private handleSessionExpirationWarning(expiresInMinutes: number): void {
     console.warn(`⏰ Session expires in ${expiresInMinutes} minutes`);
     
-    // Dispatch custom event for UI to handle
-    const event = new CustomEvent('sessionExpiring', {
+    // Show extension prompt if within extension prompt window and not already shown
+    if (expiresInMinutes <= this.extensionPromptMinutes && !this.extensionPromptShown) {
+      this.showSessionExtensionPrompt(expiresInMinutes);
+    } else if (expiresInMinutes <= this.expirationWarningMinutes) {
+      // Show regular warning
+      const event = new CustomEvent('sessionExpiring', {
+        detail: {
+          expiresInMinutes,
+          message: `Your session will expire in ${expiresInMinutes} minutes. Please save your work and refresh the page.`,
+          canExtend: true,
+          extensionAvailable: true
+        }
+      });
+      window.dispatchEvent(event);
+    }
+  }
+
+  private showSessionExtensionPrompt(expiresInMinutes: number): void {
+    this.extensionPromptShown = true;
+    
+    const event = new CustomEvent('sessionExtensionPrompt', {
       detail: {
         expiresInMinutes,
-        message: `Your session will expire in ${expiresInMinutes} minutes. Please save your work and refresh the page.`
+        message: `Your session will expire in ${expiresInMinutes} minutes. Would you like to extend your session?`,
+        canExtend: true,
+        extensionAvailable: true,
+        promptType: 'extension'
       }
     });
     window.dispatchEvent(event);
+  }
+
+  private handleSessionExpired(): void {
+    console.warn('⏰ Session has expired, starting grace period');
+    
+    // Start grace period timer
+    this.extensionGraceTimer = setTimeout(() => {
+      console.warn('⏰ Grace period expired, logging out user');
+      this.handleSessionInvalidation();
+    }, this.extensionGracePeriod * 60 * 1000);
+    
+    // Show expired notification with grace period
+    const event = new CustomEvent('sessionExpired', {
+      detail: {
+        message: `Your session has expired. You will be logged out in ${this.extensionGracePeriod} minutes unless you extend your session.`,
+        gracePeriodMinutes: this.extensionGracePeriod,
+        canExtend: true,
+        extensionAvailable: true
+      }
+    });
+    window.dispatchEvent(event);
+  }
+
+  private async handleSessionExtension(): Promise<boolean> {
+    console.log('🔄 Attempting session extension');
+    
+    try {
+      const response = await fetch('/api/sessions/extend', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          console.log('✅ Session extended successfully');
+          
+          // Clear grace period timer if active
+          if (this.extensionGraceTimer) {
+            clearTimeout(this.extensionGraceTimer);
+            this.extensionGraceTimer = null;
+          }
+          
+          // Reset extension prompt flag
+          this.extensionPromptShown = false;
+          
+          // Dispatch success event
+          const event = new CustomEvent('sessionExtended', {
+            detail: {
+              message: 'Session extended successfully',
+              newExpiresAt: data.expiresAt,
+              expiresInMinutes: data.expiresInMinutes
+            }
+          });
+          window.dispatchEvent(event);
+          
+          return true;
+        } else {
+          console.warn('⚠️ Session extension failed:', data.error);
+          return false;
+        }
+      } else {
+        console.error('❌ Session extension HTTP error:', response.status);
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Session extension network error:', error);
+      return false;
+    }
   }
 
   private handleManualRefreshNeeded(): void {
@@ -200,7 +315,9 @@ class SessionManager {
     const event = new CustomEvent('sessionRefreshNeeded', {
       detail: {
         message: 'Your session needs to be refreshed. Please click "Refresh Session" to continue.',
-        action: 'refresh'
+        action: 'refresh',
+        canExtend: true,
+        extensionAvailable: true
       }
     });
     window.dispatchEvent(event);
@@ -378,6 +495,26 @@ class SessionManager {
       console.error('❌ Stale session check error:', error);
       return null;
     }
+  }
+
+  public async extendSession(): Promise<boolean> {
+    return await this.handleSessionExtension();
+  }
+
+  public clearExtensionPrompt(): void {
+    this.extensionPromptShown = false;
+  }
+
+  public getExtensionStatus(): {
+    promptShown: boolean;
+    gracePeriodActive: boolean;
+    gracePeriodMinutes: number;
+  } {
+    return {
+      promptShown: this.extensionPromptShown,
+      gracePeriodActive: this.extensionGraceTimer !== null,
+      gracePeriodMinutes: this.extensionGracePeriod
+    };
   }
 }
 
