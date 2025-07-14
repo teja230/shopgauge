@@ -159,7 +159,7 @@ const AdminSessionManager: React.FC = () => {
   const [healthRefreshCooldown, setHealthRefreshCooldown] = useState(0);
   const [shopsRefreshCooldown, setShopsRefreshCooldown] = useState(0);
   const [shopRefreshCooldowns, setShopRefreshCooldowns] = useState<Record<string, number>>({});
-  const [isRefreshing, setIsRefreshing] = useState(false);
+
   
   // Debounce refs
   const healthRefreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -576,46 +576,20 @@ const AdminSessionManager: React.FC = () => {
               <StoreIcon color="primary" />
               Shops with Active Sessions
             </Typography>
-            <Stack direction="row" spacing={2}>
-              <RefreshHeader
-                lastUpdated={shopsLastUpdated ? (() => {
-                  const diff = Math.floor((Date.now() - shopsLastUpdated.getTime()) / 1000);
-                  if (diff < 60) return 'Just now';
-                  if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
-                  return shopsLastUpdated.toLocaleString();
-                })() : 'Never'}
-                onRefresh={fetchShopsWithSessionsWithUpdate}
-                loading={shopsLoading}
-                cooldown={shopsRefreshCooldown > 0}
-                cooldownRemaining={shopsRefreshCooldown}
-                label="Refresh Shops"
-                tooltip="Refresh shops with sessions"
-              />
-              <ActionButton
-                variant="contained"
-                color="primary"
-                onClick={async () => {
-                  if (isRefreshing) return;
-                  setIsRefreshing(true);
-                  try {
-                    // Refresh all shops in parallel with debouncing
-                    const refreshPromises = shopsWithSessions.map(shop => 
-                      debouncedShopRefresh(shop.shopDomain)
-                    );
-                    await Promise.all(refreshPromises);
-                    addNotification('All shop sessions refreshed successfully', 'success');
-                  } catch (error) {
-                    addNotification('Some shop refreshes failed', 'error');
-                  } finally {
-                    setIsRefreshing(false);
-                  }
-                }}
-                disabled={isRefreshing || shopsWithSessions.length === 0}
-                startIcon={isRefreshing ? <CircularProgress size={16} /> : <RestartAltIcon />}
-              >
-                {isRefreshing ? 'Refreshing All...' : 'Refresh All Sessions'}
-              </ActionButton>
-            </Stack>
+            <RefreshHeader
+              lastUpdated={shopsLastUpdated ? (() => {
+                const diff = Math.floor((Date.now() - shopsLastUpdated.getTime()) / 1000);
+                if (diff < 60) return 'Just now';
+                if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+                return shopsLastUpdated.toLocaleString();
+              })() : 'Never'}
+              onRefresh={fetchShopsWithSessionsWithUpdate}
+              loading={shopsLoading}
+              cooldown={shopsRefreshCooldown > 0}
+              cooldownRemaining={shopsRefreshCooldown}
+              label="Refresh Shops"
+              tooltip="Refresh shops with sessions"
+            />
           </Box>
 
           {shopsWithSessions.length > 0 ? (
