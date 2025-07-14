@@ -28,7 +28,6 @@ import {
   Close as CloseIcon,
   Logout as LogoutIcon,
   Refresh as RefreshIcon,
-  AdminPanelSettings as AdminIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { NotificationCenter } from './ui/NotificationCenter';

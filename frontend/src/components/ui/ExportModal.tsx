@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -8,7 +8,6 @@ import {
   Typography,
   Box,
   IconButton,
-  Snackbar,
   LinearProgress,
   FormControlLabel,
   Switch,

@@ -28,9 +28,6 @@ import {
   Tooltip,
 } from '@mui/material';
 import { 
-  TrendingUp, 
-  TrendingDown, 
-  AttachMoney,
   AutoAwesome,
   ShowChart,
   Timeline,
@@ -42,35 +39,15 @@ import {
 } from '@mui/icons-material';
 import {
   chartContainerStyles,
-  chartContentStyles,
   chartHeaderStyles,
   chartTitleStyles,
-  toggleButtonGroupStyles,
-  statsRowStyles,
   loadingContainerStyles,
   errorContainerStyles,
   tooltipStyles,
-  chartTypeConfig,
-  chartCommonProps,
-  createGradientDefs,
-  axisStyles,
-  gridStyles,
-  dotStyles,
-  activeDotStyles,
-  barStyles,
-  lineStyles,
-  areaStyles,
-  referenceLineStyles,
-  statChipStyles,
-  forecastChipStyles,
   UNIFIED_COLOR_SCHEME,
   standardTooltipFormatter,
   standardDateFormatter,
-  mobileOptimizedContainer,
-  getMobileOptimizedHeight,
   responsiveMargins,
-  responsiveChartProps,
-  revenueChartTypes,
 } from './ChartStyles';
 
 interface RevenuePredictionData {
