@@ -1937,11 +1937,11 @@ const AdminPage: React.FC = () => {
                 </Box>
               )}
 
-              {/* Active Shops Table */}
+              {/* Enhanced Active Shops Table with Session Details */}
               <Box sx={{ mb: 4 }}>
                 <Typography variant="h5" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
                   <StoreIcon color="primary" />
-                  Active Shops ({activeShops.length})
+                  Active Shops with Session Details ({activeShops.length})
                 </Typography>
                 
                 {activeShops.length > 0 ? (
@@ -1955,6 +1955,7 @@ const AdminPage: React.FC = () => {
                           <TableCell align="center"><strong>Device</strong></TableCell>
                           <TableCell align="center"><strong>Session Count</strong></TableCell>
                           <TableCell align="center"><strong>Status</strong></TableCell>
+                          <TableCell align="center"><strong>Actions</strong></TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -1966,9 +1967,19 @@ const AdminPage: React.FC = () => {
                               </Typography>
                             </TableCell>
                             <TableCell align="center">
-                              <Typography variant="body2" color="text.secondary">
-                                {formatTimestamp(shop.lastActivity)}
-                              </Typography>
+                              <Tooltip title={new Date(shop.lastActivity).toLocaleString('en-US', {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit',
+                                timeZoneName: 'long'
+                              })}>
+                                <Typography variant="body2" color="text.secondary">
+                                  {formatTimestamp(shop.lastActivity)}
+                                </Typography>
+                              </Tooltip>
                             </TableCell>
                             <TableCell align="center">
                               <Typography variant="body2" fontFamily="monospace">
@@ -1995,6 +2006,21 @@ const AdminPage: React.FC = () => {
                                 color={shop.isActive ? 'success' : 'default'}
                                 size="small"
                               />
+                            </TableCell>
+                            <TableCell align="center">
+                              <Tooltip title="View detailed session information">
+                                <IconButton
+                                  size="small"
+                                  color="primary"
+                                  onClick={() => {
+                                    // This would open the AdminSessionManager for this shop
+                                    // For now, we'll show a notification
+                                    showSuccess(`Viewing sessions for ${shop.shopDomain} - Use Advanced Session Management for detailed view`);
+                                  }}
+                                >
+                                  <VisibilityIcon />
+                                </IconButton>
+                              </Tooltip>
                             </TableCell>
                           </TableRow>
                         ))}
@@ -2067,6 +2093,15 @@ const AdminPage: React.FC = () => {
                   </Card>
                 </Box>
               )}
+
+              {/* Integration Note */}
+              <Alert severity="info" sx={{ mb: 4 }}>
+                <Typography variant="body2">
+                  <strong>💡 Pro Tip:</strong> For detailed session management, individual shop session viewing, 
+                  and advanced session operations (refresh, invalidate), use the 
+                  <strong> Advanced Session Management</strong> section below.
+                </Typography>
+              </Alert>
 
               {/* Advanced Session Management */}
               <Box sx={{ mb: 4 }}>
