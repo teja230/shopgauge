@@ -1,4 +1,4 @@
-import { fetchWithAuth } from './index';
+import { fetchWithAdminAuth } from './index';
 
 const API_BASE_URL: string = (
   import.meta.env.VITE_API_BASE_URL as string | undefined
@@ -85,15 +85,10 @@ export const getAdminSessionHealth = async (): Promise<any> => {
     console.log('API: Getting admin session health');
   }
   try {
-    const response = await fetch(`${API_BASE_URL}/api/sessions/admin/health`, {
-      credentials: 'include'
-    });
-    
-    const data = await response.json();
+    const data = await fetchWithAdminAuth('/api/sessions/admin/health');
     if (import.meta.env.DEV) {
       console.log('API: Admin session health response:', data);
     }
-    
     return data;
   } catch (error) {
     if (import.meta.env.DEV) {
@@ -108,15 +103,10 @@ export const getAdminShopsWithSessions = async (): Promise<any> => {
     console.log('API: Getting admin shops with sessions');
   }
   try {
-    const response = await fetch(`${API_BASE_URL}/api/sessions/admin/shops`, {
-      credentials: 'include'
-    });
-    
-    const data = await response.json();
+    const data = await fetchWithAdminAuth('/api/sessions/admin/shops');
     if (import.meta.env.DEV) {
       console.log('API: Admin shops with sessions response:', data);
     }
-    
     return data;
   } catch (error) {
     if (import.meta.env.DEV) {
@@ -131,15 +121,10 @@ export const getAdminShopSessions = async (shopDomain: string): Promise<any> => 
     console.log('API: Getting admin shop sessions for:', shopDomain);
   }
   try {
-    const response = await fetch(`${API_BASE_URL}/api/sessions/admin/shop/${encodeURIComponent(shopDomain)}/sessions`, {
-      credentials: 'include'
-    });
-    
-    const data = await response.json();
+    const data = await fetchWithAdminAuth(`/api/sessions/admin/shop/${encodeURIComponent(shopDomain)}/sessions`);
     if (import.meta.env.DEV) {
       console.log('API: Admin shop sessions response:', data);
     }
-    
     return data;
   } catch (error) {
     if (import.meta.env.DEV) {
@@ -154,16 +139,12 @@ export const refreshAdminShopSessions = async (shopDomain: string): Promise<any>
     console.log('API: Refreshing admin shop sessions for:', shopDomain);
   }
   try {
-    const response = await fetch(`${API_BASE_URL}/api/sessions/admin/shop/${encodeURIComponent(shopDomain)}/refresh`, {
-      method: 'POST',
-      credentials: 'include'
+    const data = await fetchWithAdminAuth(`/api/sessions/admin/shop/${encodeURIComponent(shopDomain)}/refresh`, {
+      method: 'POST'
     });
-    
-    const data = await response.json();
     if (import.meta.env.DEV) {
       console.log('API: Admin shop sessions refresh response:', data);
     }
-    
     return data;
   } catch (error) {
     if (import.meta.env.DEV) {
@@ -178,16 +159,12 @@ export const invalidateAdminShopSessions = async (shopDomain: string): Promise<a
     console.log('API: Invalidating admin shop sessions for:', shopDomain);
   }
   try {
-    const response = await fetch(`${API_BASE_URL}/api/sessions/admin/shop/${encodeURIComponent(shopDomain)}/invalidate`, {
-      method: 'POST',
-      credentials: 'include'
+    const data = await fetchWithAdminAuth(`/api/sessions/admin/shop/${encodeURIComponent(shopDomain)}/invalidate`, {
+      method: 'POST'
     });
-    
-    const data = await response.json();
     if (import.meta.env.DEV) {
       console.log('API: Admin shop sessions invalidate response:', data);
     }
-    
     return data;
   } catch (error) {
     if (import.meta.env.DEV) {
