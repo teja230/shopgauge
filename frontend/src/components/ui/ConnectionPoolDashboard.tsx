@@ -512,7 +512,15 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={historicalData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
-                    <XAxis dataKey="timestamp" stroke="#666" fontSize={12} />
+                    <XAxis
+                      dataKey="timestamp"
+                      stroke="#666"
+                      fontSize={12}
+                      tickFormatter={(value) => {
+                        const date = new Date(value);
+                        return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                      }}
+                    />
                     <YAxis stroke="#666" fontSize={12} />
                     <RechartsTooltip
                       contentStyle={{

@@ -1955,7 +1955,6 @@ const AdminPage: React.FC = () => {
                           <TableCell align="center"><strong>Device</strong></TableCell>
                           <TableCell align="center"><strong>Session Count</strong></TableCell>
                           <TableCell align="center"><strong>Status</strong></TableCell>
-                          <TableCell align="center"><strong>Actions</strong></TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -2006,21 +2005,6 @@ const AdminPage: React.FC = () => {
                                 color={shop.isActive ? 'success' : 'default'}
                                 size="small"
                               />
-                            </TableCell>
-                            <TableCell align="center">
-                              <Tooltip title="View detailed session information">
-                                <IconButton
-                                  size="small"
-                                  color="primary"
-                                  onClick={() => {
-                                    // This would open the AdminSessionManager for this shop
-                                    // For now, we'll show a notification
-                                    showSuccess(`Viewing sessions for ${shop.shopDomain} - Use Advanced Session Management for detailed view`);
-                                  }}
-                                >
-                                  <VisibilityIcon />
-                                </IconButton>
-                              </Tooltip>
                             </TableCell>
                           </TableRow>
                         ))}
