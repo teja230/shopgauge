@@ -134,11 +134,6 @@ const AppContent: React.FC = () => {
     if (isAuthenticated && hasInitiallyLoaded && !authLoading && !sessionInitialized) {
       debugLog.info('🔧 Initializing session management for authenticated user', {}, 'SessionManager');
       
-      // Set up session invalidation callback
-      sessionManager.setSessionInvalidatedCallback(() => {
-        debugLog.warn('🚨 Session invalidated - auth context will handle cleanup', {}, 'SessionManager');
-      });
-
       // Start heartbeat if not already active
       if (!sessionManager.isHeartbeatActive()) {
         sessionManager.startHeartbeat();

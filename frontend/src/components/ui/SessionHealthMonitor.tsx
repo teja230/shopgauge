@@ -1,40 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-  Card,
-  CardContent,
-  Typography,
-  Box,
-  Button,
-  Alert,
-  Chip,
-  LinearProgress,
-  IconButton,
-  Tooltip,
-  Stack,
-  Divider,
-  CircularProgress,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
-} from '@mui/material';
-import {
-  Security as SecurityIcon,
-  Refresh as RefreshIcon,
-  Warning as WarningIcon,
-  CheckCircle as CheckCircleIcon,
-  Error as ErrorIcon,
-  Info as InfoIcon,
-  Timer as TimerIcon,
-  AccessTime as AccessTimeIcon,
-  Computer as ComputerIcon,
-  LocationOn as LocationIcon,
-  Close as CloseIcon,
-} from '@mui/icons-material';
 import { useNotifications } from '../../hooks/useNotifications';
 
 interface SessionHealthData {
@@ -218,15 +182,21 @@ const SessionHealthMonitor: React.FC<SessionHealthMonitorProps> = ({
   }, [fetchSessionHealth]);
 
   const getHealthColor = (score: number) => {
-    if (score >= 80) return 'success';
-    if (score >= 60) return 'warning';
-    return 'error';
+    if (score >= 80) return 'text-green-600';
+    if (score >= 60) return 'text-yellow-600';
+    return 'text-red-600';
+  };
+
+  const getHealthBgColor = (score: number) => {
+    if (score >= 80) return 'bg-green-100';
+    if (score >= 60) return 'bg-yellow-100';
+    return 'bg-red-100';
   };
 
   const getHealthIcon = (score: number) => {
-    if (score >= 80) return <CheckCircleIcon color="success" />;
-    if (score >= 60) return <WarningIcon color="warning" />;
-    return <ErrorIcon color="error" />;
+    if (score >= 80) return '✅';
+    if (score >= 60) return '⚠️';
+    return '❌';
   };
 
   const formatTime = (timestamp: string) => {
@@ -235,10 +205,10 @@ const SessionHealthMonitor: React.FC<SessionHealthMonitorProps> = ({
 
   const getDeviceIcon = (deviceType: string) => {
     switch (deviceType.toLowerCase()) {
-      case 'mobile': return <ComputerIcon />;
-      case 'tablet': return <ComputerIcon />;
-      case 'desktop': return <ComputerIcon />;
-      default: return <ComputerIcon />;
+      case 'mobile': return '📱';
+      case 'tablet': return '📱';
+      case 'desktop': return '💻';
+      default: return '💻';
     }
   };
 
@@ -248,244 +218,240 @@ const SessionHealthMonitor: React.FC<SessionHealthMonitorProps> = ({
 
   return (
     <>
-      <Card sx={{ mb: 2 }}>
-        <CardContent>
-          <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-            <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <SecurityIcon color="primary" />
-              Session Health
-            </Typography>
-            <Box display="flex" gap={1}>
-              <Tooltip title="Refresh session health">
-                <IconButton 
-                  size="small" 
-                  onClick={fetchSessionHealth}
-                  disabled={loading}
+      <div className="space-y-4">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold text-gray-900 flex items-center">
+            <span className="mr-2">🔒</span>
+            Session Health
+          </h3>
+          <div className="flex gap-2">
+            <button
+              onClick={fetchSessionHealth}
+              disabled={loading}
+              className="p-2 text-gray-500 hover:text-gray-700 disabled:opacity-50 transition-colors"
+              title="Refresh session health"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </button>
+            <button
+              onClick={() => setShowDetails(true)}
+              className="p-2 text-gray-500 hover:text-gray-700 transition-colors"
+              title="View details"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {loading && !sessionData ? (
+          <div className="flex justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          </div>
+        ) : error ? (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="text-red-800 text-sm">{error}</div>
+          </div>
+        ) : sessionData ? (
+          <div className="space-y-4">
+            {/* Health Score */}
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm text-gray-600">Session Health</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">{getHealthIcon(sessionData.healthScore)}</span>
+                  <span className={`text-sm font-bold ${getHealthColor(sessionData.healthScore)}`}>
+                    {sessionData.healthScore}%
+                  </span>
+                </div>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  className={`h-2 rounded-full transition-all duration-300 ${
+                    sessionData.healthScore >= 80 ? 'bg-green-500' : 
+                    sessionData.healthScore >= 60 ? 'bg-yellow-500' : 'bg-red-500'
+                  }`}
+                  style={{ width: `${sessionData.healthScore}%` }}
+                ></div>
+              </div>
+            </div>
+
+            {/* Status Indicators */}
+            <div className="flex flex-wrap gap-2">
+              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                sessionData.isActive 
+                  ? 'bg-green-100 text-green-800' 
+                  : 'bg-red-100 text-red-800'
+              }`}>
+                {sessionData.isActive ? '✅ Active' : '❌ Inactive'}
+              </span>
+              {sessionData.isExpired && (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                  ⚠️ Expired
+                </span>
+              )}
+              {sessionData.needsRefresh && (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                  🔄 Needs Refresh
+                </span>
+              )}
+              {sessionData.expiresInMinutes <= 10 && (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                  ⏰ Expires in {sessionData.expiresInMinutes}m
+                </span>
+              )}
+            </div>
+
+            {/* Session Info */}
+            <div className="space-y-2 text-sm">
+              <div className="text-gray-600">
+                <span className="font-medium">Session ID:</span> {sessionData.sessionId.substring(0, 8)}...
+              </div>
+              <div className="text-gray-600">
+                <span className="font-medium">Created:</span> {formatTime(sessionData.createdAt)}
+              </div>
+              <div className="text-gray-600">
+                <span className="font-medium">Last Active:</span> {formatTime(sessionData.lastAccessedAt)}
+              </div>
+              <div className="text-gray-600">
+                <span className="font-medium">Expires:</span> {formatTime(sessionData.expiresAt)}
+              </div>
+            </div>
+
+            {/* Action Button */}
+            <button
+              onClick={handleManualRefresh}
+              disabled={loading || refreshCooldown > 0}
+              className="w-full inline-flex items-center justify-center px-4 py-3 border border-blue-300 text-sm font-medium rounded-lg text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors"
+            >
+              {refreshCooldown > 0 
+                ? `Refresh (${refreshCooldown}s)` 
+                : 'Refresh Session'
+              }
+            </button>
+
+            {/* Recommendations */}
+            {sessionData.recommendations.length > 0 && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="text-sm font-medium text-blue-800 mb-2">Recommendations:</div>
+                <ul className="space-y-1 text-sm text-blue-700">
+                  {sessionData.recommendations.map((rec, index) => (
+                    <li key={index} className="flex items-start">
+                      <span className="mr-2 text-blue-600">•</span>
+                      {rec}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="text-center py-4 text-gray-500">
+            No session data available
+          </div>
+        )}
+      </div>
+
+      {/* Details Modal */}
+      {showDetails && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-lg font-semibold text-gray-900">Session Details</h3>
+                <button
+                  onClick={() => setShowDetails(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
                 >
-                  <RefreshIcon />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="View details">
-                <IconButton 
-                  size="small" 
-                  onClick={() => setShowDetails(true)}
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {sessionData && (
+                <div className="space-y-6">
+                  {/* Session Information */}
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-500 mb-3">Session Information</h4>
+                    <div className="space-y-2 text-sm">
+                      <div><span className="font-medium">ID:</span> {sessionData.sessionId}</div>
+                      <div><span className="font-medium">Shop:</span> {sessionData.shop}</div>
+                      <div><span className="font-medium">Status:</span> {sessionData.isActive ? 'Active' : 'Inactive'}</div>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-gray-200"></div>
+
+                  {/* Timing */}
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-500 mb-3">Timing</h4>
+                    <div className="space-y-2 text-sm">
+                      <div><span className="font-medium">Created:</span> {formatTime(sessionData.createdAt)}</div>
+                      <div><span className="font-medium">Last Active:</span> {formatTime(sessionData.lastAccessedAt)}</div>
+                      <div><span className="font-medium">Expires:</span> {formatTime(sessionData.expiresAt)}</div>
+                      <div><span className="font-medium">Time Remaining:</span> {sessionData.expiresInMinutes} minutes</div>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-gray-200"></div>
+
+                  {/* Device Information */}
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-500 mb-3">Device Information</h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center gap-2">
+                        <span>{getDeviceIcon(sessionData.deviceType)}</span>
+                        <span>{sessionData.deviceType}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span>📍</span>
+                        <span>{sessionData.location}</span>
+                      </div>
+                      <div><span className="font-medium">IP:</span> {sessionData.ipAddress}</div>
+                      <div className="text-xs text-gray-500 break-all">
+                        <span className="font-medium">User Agent:</span> {sessionData.userAgent}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-gray-200"></div>
+
+                  {/* Health Metrics */}
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-500 mb-3">Health Metrics</h4>
+                    <div className="space-y-2 text-sm">
+                      <div><span className="font-medium">Health Score:</span> {sessionData.healthScore}%</div>
+                      <div><span className="font-medium">Expired:</span> {sessionData.isExpired ? 'Yes' : 'No'}</div>
+                      <div><span className="font-medium">Needs Refresh:</span> {sessionData.needsRefresh ? 'Yes' : 'No'}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
+                <button
+                  onClick={() => setShowDetails(false)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
                 >
-                  <InfoIcon />
-                </IconButton>
-              </Tooltip>
-            </Box>
-          </Box>
-
-          {loading && !sessionData ? (
-            <Box display="flex" justifyContent="center" py={2}>
-              <CircularProgress size={24} />
-            </Box>
-          ) : error ? (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          ) : sessionData ? (
-            <Stack spacing={2}>
-              {/* Health Score */}
-              <Box>
-                <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-                  <Typography variant="body2">Session Health</Typography>
-                  <Box display="flex" alignItems="center" gap={1}>
-                    {getHealthIcon(sessionData.healthScore)}
-                    <Typography variant="body2" fontWeight="bold">
-                      {sessionData.healthScore}%
-                    </Typography>
-                  </Box>
-                </Box>
-                <LinearProgress
-                  variant="determinate"
-                  value={sessionData.healthScore}
-                  color={getHealthColor(sessionData.healthScore) as any}
-                  sx={{ height: 8, borderRadius: 4 }}
-                />
-              </Box>
-
-              {/* Status Indicators */}
-              <Box display="flex" gap={1} flexWrap="wrap">
-                <Chip
-                  icon={sessionData.isActive ? <CheckCircleIcon /> : <ErrorIcon />}
-                  label={sessionData.isActive ? 'Active' : 'Inactive'}
-                  color={sessionData.isActive ? 'success' : 'error'}
-                  size="small"
-                />
-                {sessionData.isExpired && (
-                  <Chip
-                    icon={<WarningIcon />}
-                    label="Expired"
-                    color="warning"
-                    size="small"
-                  />
-                )}
-                {sessionData.needsRefresh && (
-                  <Chip
-                    icon={<RefreshIcon />}
-                    label="Needs Refresh"
-                    color="warning"
-                    size="small"
-                  />
-                )}
-                {sessionData.expiresInMinutes <= 10 && (
-                  <Chip
-                    icon={<TimerIcon />}
-                    label={`Expires in ${sessionData.expiresInMinutes}m`}
-                    color="warning"
-                    size="small"
-                  />
-                )}
-              </Box>
-
-              {/* Session Info */}
-              <Box>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
-                  Session ID: {sessionData.sessionId.substring(0, 8)}...
-                </Typography>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
-                  Created: {formatTime(sessionData.createdAt)}
-                </Typography>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
-                  Last Active: {formatTime(sessionData.lastAccessedAt)}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Expires: {formatTime(sessionData.expiresAt)}
-                </Typography>
-              </Box>
-
-              {/* Action Button */}
-              <Box>
-                <Button
-                  variant="outlined"
-                  startIcon={<RefreshIcon />}
+                  Close
+                </button>
+                <button 
                   onClick={handleManualRefresh}
                   disabled={loading || refreshCooldown > 0}
-                  fullWidth
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg transition-colors"
                 >
-                  {refreshCooldown > 0 
-                    ? `Refresh (${refreshCooldown}s)` 
-                    : 'Refresh Session'
-                  }
-                </Button>
-              </Box>
-
-              {/* Recommendations */}
-              {sessionData.recommendations.length > 0 && (
-                <Alert severity="info" sx={{ mt: 1 }}>
-                  <Typography variant="body2" fontWeight="bold" gutterBottom>
-                    Recommendations:
-                  </Typography>
-                  <List dense sx={{ py: 0 }}>
-                    {sessionData.recommendations.map((rec, index) => (
-                      <ListItem key={index} sx={{ py: 0.5 }}>
-                        <ListItemIcon sx={{ minWidth: 24 }}>
-                          <InfoIcon fontSize="small" />
-                        </ListItemIcon>
-                        <ListItemText 
-                          primary={rec}
-                          primaryTypographyProps={{ variant: 'body2' }}
-                        />
-                      </ListItem>
-                    ))}
-                  </List>
-                </Alert>
-              )}
-            </Stack>
-          ) : (
-            <Alert severity="info">
-              No session data available
-            </Alert>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Details Dialog */}
-      <Dialog 
-        open={showDetails} 
-        onClose={() => setShowDetails(false)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>
-          <Box display="flex" justifyContent="space-between" alignItems="center">
-            <Typography variant="h6">Session Details</Typography>
-            <IconButton onClick={() => setShowDetails(false)}>
-              <CloseIcon />
-            </IconButton>
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          {sessionData && (
-            <Stack spacing={2}>
-              <Box>
-                <Typography variant="subtitle2" color="text.secondary">
-                  Session Information
-                </Typography>
-                <Typography variant="body2">ID: {sessionData.sessionId}</Typography>
-                <Typography variant="body2">Shop: {sessionData.shop}</Typography>
-                <Typography variant="body2">Status: {sessionData.isActive ? 'Active' : 'Inactive'}</Typography>
-              </Box>
-
-              <Divider />
-
-              <Box>
-                <Typography variant="subtitle2" color="text.secondary">
-                  Timing
-                </Typography>
-                <Typography variant="body2">Created: {formatTime(sessionData.createdAt)}</Typography>
-                <Typography variant="body2">Last Active: {formatTime(sessionData.lastAccessedAt)}</Typography>
-                <Typography variant="body2">Expires: {formatTime(sessionData.expiresAt)}</Typography>
-                <Typography variant="body2">Time Remaining: {sessionData.expiresInMinutes} minutes</Typography>
-              </Box>
-
-              <Divider />
-
-              <Box>
-                <Typography variant="subtitle2" color="text.secondary">
-                  Device Information
-                </Typography>
-                <Box display="flex" alignItems="center" gap={1} mb={1}>
-                  {getDeviceIcon(sessionData.deviceType)}
-                  <Typography variant="body2">{sessionData.deviceType}</Typography>
-                </Box>
-                <Box display="flex" alignItems="center" gap={1} mb={1}>
-                  <LocationIcon fontSize="small" />
-                  <Typography variant="body2">{sessionData.location}</Typography>
-                </Box>
-                <Typography variant="body2" sx={{ wordBreak: 'break-all' }}>
-                  IP: {sessionData.ipAddress}
-                </Typography>
-                <Typography variant="body2" sx={{ wordBreak: 'break-all', fontSize: '0.75rem' }}>
-                  User Agent: {sessionData.userAgent}
-                </Typography>
-              </Box>
-
-              <Divider />
-
-              <Box>
-                <Typography variant="subtitle2" color="text.secondary">
-                  Health Metrics
-                </Typography>
-                <Typography variant="body2">Health Score: {sessionData.healthScore}%</Typography>
-                <Typography variant="body2">Expired: {sessionData.isExpired ? 'Yes' : 'No'}</Typography>
-                <Typography variant="body2">Needs Refresh: {sessionData.needsRefresh ? 'Yes' : 'No'}</Typography>
-              </Box>
-            </Stack>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowDetails(false)}>Close</Button>
-          <Button 
-            variant="contained" 
-            onClick={handleManualRefresh}
-            disabled={loading || refreshCooldown > 0}
-          >
-            Refresh Session
-          </Button>
-        </DialogActions>
-      </Dialog>
+                  Refresh Session
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };
