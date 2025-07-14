@@ -19,9 +19,7 @@ interface AuthContextType {
   isAuthReady: boolean;
   loading: boolean;
   hasInitiallyLoaded: boolean;
-  debugPanelEnabled: boolean;
   logout: () => void;
-  toggleDebugPanel: (enabled: boolean) => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -33,8 +31,6 @@ const AuthContext = createContext<AuthContextType>({
   setShop: () => {},
   isAuthReady: false,
   hasInitiallyLoaded: false,
-  debugPanelEnabled: false,
-  toggleDebugPanel: () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -46,16 +42,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
   const [isAuthReady, setIsAuthReady] = useState(false);
-  const [debugPanelEnabled, setDebugPanelEnabled] = useState(false);
 
-  // Load debug panel setting from localStorage
-  useEffect(() => {
-    const savedDebugSetting = localStorage.getItem('debugPanelEnabled');
-    if (savedDebugSetting === 'true') {
-      setDebugPanelEnabled(true);
-      debugLog.enable();
-    }
-  }, []);
+
 
   // Enhanced authentication error handling
   const handleAuthError = (error: any) => {
@@ -282,17 +270,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const toggleDebugPanel = () => {
-    const newEnabled = !debugPanelEnabled;
-    setDebugPanelEnabled(newEnabled);
-    localStorage.setItem('debugPanelEnabled', newEnabled.toString());
-    if (newEnabled) {
-      debugLog.enable();
-    } else {
-      debugLog.disable();
-    }
-  };
-
   return (
     <AuthContext.Provider value={{ 
       isAuthenticated, 
@@ -303,8 +280,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setShop,
       isAuthReady,
       hasInitiallyLoaded,
-      debugPanelEnabled,
-      toggleDebugPanel
     }}>
       {children}
     </AuthContext.Provider>
