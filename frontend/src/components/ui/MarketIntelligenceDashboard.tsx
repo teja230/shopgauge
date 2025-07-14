@@ -98,9 +98,13 @@ interface MarketIntelligenceMetrics {
   };
   performanceMetrics: {
     avgResponseTime: string;
-    cacheHitRate: string;
     errorRate: string;
     uptime: string;
+    totalTransactions?: number;
+    failedTransactions?: number;
+    databaseStatus?: string;
+    redisStatus?: string;
+    transactionStatus?: string;
   };
   discoveryStats: {
     totalDiscoveries: number;
@@ -648,12 +652,7 @@ const MarketIntelligenceDashboard: React.FC<MarketIntelligenceDashboardProps> = 
                     {metrics?.performanceMetrics.avgResponseTime || '0ms'}
                   </Typography>
                 </Box>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Typography variant="body2">Cache Hit Rate</Typography>
-                  <Typography variant="h6" color="success.main" fontWeight="bold">
-                    {metrics?.performanceMetrics.cacheHitRate || '0%'}
-                  </Typography>
-                </Box>
+
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Typography variant="body2">Error Rate</Typography>
                   <Typography variant="h6" color="error.main" fontWeight="bold">
@@ -665,6 +664,49 @@ const MarketIntelligenceDashboard: React.FC<MarketIntelligenceDashboardProps> = 
                   <Typography variant="h6" color="success.main" fontWeight="bold">
                     {metrics?.performanceMetrics.uptime || '0%'}
                   </Typography>
+                </Box>
+                
+
+                
+                {metrics?.performanceMetrics.totalTransactions !== undefined && (
+                  <Box>
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      Transaction Statistics
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 2 }}>
+                      <Typography variant="caption" color="text.secondary">
+                        Total: {metrics.performanceMetrics.totalTransactions}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Failed: {metrics.performanceMetrics.failedTransactions}
+                      </Typography>
+                    </Box>
+                  </Box>
+                )}
+                
+                {/* System Status Indicators */}
+                <Divider sx={{ my: 1 }} />
+                <Box>
+                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                    System Status
+                  </Typography>
+                  <Stack direction="row" spacing={1} flexWrap="wrap">
+                    <Chip 
+                      size="small" 
+                      label={`DB: ${metrics?.performanceMetrics.databaseStatus || 'Unknown'}`}
+                      color={metrics?.performanceMetrics.databaseStatus === 'HEALTHY' ? 'success' : 'error'}
+                    />
+                    <Chip 
+                      size="small" 
+                      label={`Redis: ${metrics?.performanceMetrics.redisStatus || 'Unknown'}`}
+                      color={metrics?.performanceMetrics.redisStatus === 'healthy' ? 'success' : 'error'}
+                    />
+                    <Chip 
+                      size="small" 
+                      label={`Tx: ${metrics?.performanceMetrics.transactionStatus || 'Unknown'}`}
+                      color={metrics?.performanceMetrics.transactionStatus === 'healthy' ? 'success' : 'error'}
+                    />
+                  </Stack>
                 </Box>
               </Stack>
             </CardContent>

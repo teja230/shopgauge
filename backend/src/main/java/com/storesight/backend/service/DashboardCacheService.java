@@ -3,7 +3,11 @@ package com.storesight.backend.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,6 +45,11 @@ public class DashboardCacheService {
 
   private final StringRedisTemplate redisTemplate;
   private final ObjectMapper objectMapper;
+
+  // Cache statistics tracking
+  private final AtomicLong cacheHits = new AtomicLong(0);
+  private final AtomicLong cacheMisses = new AtomicLong(0);
+  private final AtomicLong cacheEvictions = new AtomicLong(0);
 
   @Autowired
   public DashboardCacheService(StringRedisTemplate redisTemplate, ObjectMapper objectMapper) {
@@ -227,6 +236,7 @@ public class DashboardCacheService {
 
       if (serializedData == null) {
         logger.debug("No cached data found for key: {}", key);
+        recordCacheMiss(); // Track cache miss
         return Optional.empty();
       }
 
@@ -237,20 +247,24 @@ public class DashboardCacheService {
       if (entry.isExpired()) {
         logger.debug(
             "Cache entry expired for key: {} (age: {} minutes)", key, entry.getAgeMinutes());
+        recordCacheMiss(); // Track cache miss
         invalidateCache(key);
         return Optional.empty();
       }
 
       logger.debug("Cache hit for key: {} (age: {} minutes)", key, entry.getAgeMinutes());
+      recordCacheHit(); // Track cache hit
       return Optional.of(entry.getData());
 
     } catch (JsonProcessingException e) {
       logger.error("Failed to deserialize cached data for key: {} - {}", key, e.getMessage());
+      recordCacheMiss(); // Track cache miss
       invalidateCache(key); // Remove corrupted cache
       return Optional.empty();
     } catch (Exception e) {
       logger.warn(
           "Redis unavailable for cache retrieval - falling back to fresh data: {}", e.getMessage());
+      recordCacheMiss(); // Track cache miss
       return Optional.empty();
     }
   }
@@ -363,5 +377,48 @@ public class DashboardCacheService {
       logger.warn("Failed to get cache stats for shop: {} - {}", shopDomain, e.getMessage());
       return "Cache stats unavailable";
     }
+  }
+
+  /** Get cache hit rate statistics */
+  public Map<String, Object> getCacheStatistics() {
+    Map<String, Object> stats = new HashMap<>();
+
+    long hits = cacheHits.get();
+    long misses = cacheMisses.get();
+    long total = hits + misses;
+
+    double hitRate = total > 0 ? (double) hits / total * 100 : 0.0;
+
+    stats.put("hits", hits);
+    stats.put("misses", misses);
+    stats.put("total", total);
+    stats.put("hitRate", hitRate);
+    stats.put("evictions", cacheEvictions.get());
+    stats.put("timestamp", LocalDateTime.now());
+
+    return stats;
+  }
+
+  /** Record a cache hit */
+  public void recordCacheHit() {
+    cacheHits.incrementAndGet();
+  }
+
+  /** Record a cache miss */
+  public void recordCacheMiss() {
+    cacheMisses.incrementAndGet();
+  }
+
+  /** Record a cache eviction */
+  public void recordCacheEviction() {
+    cacheEvictions.incrementAndGet();
+  }
+
+  /** Reset cache statistics (useful for testing or periodic resets) */
+  public void resetCacheStatistics() {
+    cacheHits.set(0);
+    cacheMisses.set(0);
+    cacheEvictions.set(0);
+    logger.info("Cache statistics reset");
   }
 }

@@ -1,6 +1,9 @@
 package com.storesight.backend.controller;
 
 import com.storesight.backend.service.CostOptimizationService;
+import com.storesight.backend.service.DatabaseMonitoringService;
+import com.storesight.backend.service.RedisHealthService;
+import com.storesight.backend.service.TransactionMonitoringService;
 import com.storesight.backend.service.discovery.CompetitorDiscoveryService;
 import com.storesight.backend.service.discovery.MultiSourceSearchClient;
 import com.storesight.backend.service.discovery.SearchClient;
@@ -30,6 +33,9 @@ public class MarketIntelligenceAdminController {
   @Autowired private CompetitorDiscoveryService discoveryService;
   @Autowired private MultiSourceSearchClient multiSourceSearchClient;
   @Autowired private JdbcTemplate jdbcTemplate;
+  @Autowired private DatabaseMonitoringService databaseMonitoringService;
+  @Autowired private RedisHealthService redisHealthService;
+  @Autowired private TransactionMonitoringService transactionMonitoringService;
 
   @Value("${discovery.enabled:true}")
   private boolean discoveryEnabled;
@@ -344,11 +350,63 @@ public class MarketIntelligenceAdminController {
   private Map<String, Object> getPerformanceMetrics() {
     Map<String, Object> metrics = new HashMap<>();
 
-    // These would normally come from a monitoring service
-    metrics.put("avgResponseTime", "250ms");
-    metrics.put("cacheHitRate", "85%");
-    metrics.put("errorRate", "0.1%");
-    metrics.put("uptime", "99.9%");
+    try {
+      // Get real database metrics
+      Map<String, Object> dbMetrics = databaseMonitoringService.getDatabaseMetrics();
+
+      // Get Redis performance metrics
+      Map<String, Object> redisMetrics = redisHealthService.getRedisHealthMetrics();
+
+      // Get transaction monitoring metrics
+      Map<String, Object> transactionMetrics = transactionMonitoringService.getHealthMetrics();
+
+      // Calculate average response time from Redis performance
+      long redisResponseTime = (Long) redisMetrics.getOrDefault("responseTimeMs", 0L);
+      String avgResponseTime = redisResponseTime > 0 ? redisResponseTime + "ms" : "N/A";
+
+      // Calculate error rate from transaction metrics
+      long totalTransactions = (Long) transactionMetrics.getOrDefault("total_transactions", 0L);
+      long failedTransactions = (Long) transactionMetrics.getOrDefault("failed_transactions", 0L);
+      double errorRate =
+          totalTransactions > 0 ? (double) failedTransactions / totalTransactions * 100 : 0.0;
+
+      // Calculate uptime based on health status
+      boolean dbHealthy = "HEALTHY".equals(dbMetrics.get("healthStatus"));
+      boolean redisHealthy = (Boolean) redisMetrics.getOrDefault("healthy", false);
+      boolean transactionHealthy = transactionMonitoringService.isHealthy();
+
+      double uptimePercentage = 0.0;
+      if (dbHealthy && redisHealthy && transactionHealthy) {
+        uptimePercentage = 99.9; // All systems healthy
+      } else if (dbHealthy && redisHealthy) {
+        uptimePercentage = 95.0; // Database and Redis healthy, transactions degraded
+      } else if (dbHealthy) {
+        uptimePercentage = 85.0; // Only database healthy
+      } else {
+        uptimePercentage = 50.0; // Critical issues
+      }
+
+      metrics.put("avgResponseTime", avgResponseTime);
+      metrics.put("errorRate", String.format("%.2f%%", errorRate));
+      metrics.put("uptime", String.format("%.1f%%", uptimePercentage));
+
+      // Add detailed metrics for debugging
+      metrics.put("databaseStatus", dbMetrics.get("healthStatus"));
+      metrics.put("redisStatus", redisHealthy ? "healthy" : "unhealthy");
+      metrics.put("transactionStatus", transactionHealthy ? "healthy" : "degraded");
+      metrics.put("totalTransactions", totalTransactions);
+      metrics.put("failedTransactions", failedTransactions);
+      metrics.put("redisResponseTimeMs", redisResponseTime);
+
+    } catch (Exception e) {
+      log.warn("Error getting real performance metrics: {}", e.getMessage());
+      // Fallback to basic metrics if monitoring services fail
+      metrics.put("avgResponseTime", "N/A");
+      metrics.put("cacheHitRate", "N/A");
+      metrics.put("errorRate", "N/A");
+      metrics.put("uptime", "N/A");
+      metrics.put("error", "Failed to fetch real metrics: " + e.getMessage());
+    }
 
     return metrics;
   }

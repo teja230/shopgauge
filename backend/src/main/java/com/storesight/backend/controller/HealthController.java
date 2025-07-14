@@ -1,6 +1,7 @@
 package com.storesight.backend.controller;
 
 import com.storesight.backend.repository.ShopSessionRepository;
+import com.storesight.backend.service.DashboardCacheService;
 import com.storesight.backend.service.DatabaseMonitoringService;
 import com.storesight.backend.service.RedisHealthService;
 import com.storesight.backend.service.ShopService;
@@ -43,6 +44,7 @@ public class HealthController {
   @Autowired private RedisHealthService redisHealthService;
   @Autowired private TransactionMonitoringService transactionMonitoringService;
   @Autowired private ShopSessionRepository shopSessionRepository;
+  @Autowired private DashboardCacheService dashboardCacheService;
 
   @Value("${spring.application.name:storesight-backend}")
   private String applicationName;
@@ -320,6 +322,20 @@ public class HealthController {
   @GetMapping("/database-metrics")
   public Map<String, Object> getDatabaseMetrics() {
     return databaseMonitoringService.getDatabaseMetrics();
+  }
+
+  /** Get cache statistics */
+  @GetMapping("/cache-statistics")
+  public ResponseEntity<Map<String, Object>> getCacheStatistics() {
+    try {
+      Map<String, Object> cacheStats = dashboardCacheService.getCacheStatistics();
+      return ResponseEntity.ok(cacheStats);
+    } catch (Exception e) {
+      logger.error("Failed to get cache statistics: {}", e.getMessage(), e);
+      Map<String, Object> error = new HashMap<>();
+      error.put("error", e.getMessage());
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+    }
   }
 
   /** Enhanced health check with session management metrics */
