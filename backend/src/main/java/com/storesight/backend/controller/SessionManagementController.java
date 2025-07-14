@@ -13,6 +13,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,8 +25,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 @RestController
 @RequestMapping("/api/sessions")
@@ -33,7 +33,8 @@ public class SessionManagementController {
   private static final Logger logger = LoggerFactory.getLogger(SessionManagementController.class);
   private final ShopService shopService;
   private final RedisTemplate<String, String> redisTemplate;
-  private final ConcurrentHashMap<String, CopyOnWriteArrayList<SseEmitter>> sseEmitters = new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<String, CopyOnWriteArrayList<SseEmitter>> sseEmitters =
+      new ConcurrentHashMap<>();
 
   @Autowired
   public SessionManagementController(
@@ -1326,45 +1327,51 @@ public class SessionManagementController {
   }
 
   /**
-   * SSE endpoint for shop session events.
-   * Clients should connect to /api/sessions/events/{shopDomain} to receive real-time session events.
-   * Event format: { "event": "session_invalidated", "message": "Your session has been invalidated by an administrator." }
+   * SSE endpoint for shop session events. Clients should connect to
+   * /api/sessions/events/{shopDomain} to receive real-time session events. Event format: { "event":
+   * "session_invalidated", "message": "Your session has been invalidated by an administrator." }
    */
   @GetMapping("/events/{shopDomain}")
   public SseEmitter subscribeToSessionEvents(@PathVariable String shopDomain) {
-      SseEmitter emitter = new SseEmitter(0L); // No timeout
-      sseEmitters.computeIfAbsent(shopDomain, k -> new CopyOnWriteArrayList<>()).add(emitter);
-      emitter.onCompletion(() -> removeEmitter(shopDomain, emitter));
-      emitter.onTimeout(() -> removeEmitter(shopDomain, emitter));
-      emitter.onError(e -> removeEmitter(shopDomain, emitter));
-      try {
-          emitter.send(SseEmitter.event().name("connected").data("Subscribed to session events for shop: " + shopDomain));
-      } catch (Exception ignored) {}
-      return emitter;
+    SseEmitter emitter = new SseEmitter(0L); // No timeout
+    sseEmitters.computeIfAbsent(shopDomain, k -> new CopyOnWriteArrayList<>()).add(emitter);
+    emitter.onCompletion(() -> removeEmitter(shopDomain, emitter));
+    emitter.onTimeout(() -> removeEmitter(shopDomain, emitter));
+    emitter.onError(e -> removeEmitter(shopDomain, emitter));
+    try {
+      emitter.send(
+          SseEmitter.event()
+              .name("connected")
+              .data("Subscribed to session events for shop: " + shopDomain));
+    } catch (Exception ignored) {
+    }
+    return emitter;
   }
 
   private void removeEmitter(String shopDomain, SseEmitter emitter) {
-      CopyOnWriteArrayList<SseEmitter> emitters = sseEmitters.get(shopDomain);
-      if (emitters != null) {
-          emitters.remove(emitter);
-          if (emitters.isEmpty()) {
-              sseEmitters.remove(shopDomain);
-          }
+    CopyOnWriteArrayList<SseEmitter> emitters = sseEmitters.get(shopDomain);
+    if (emitters != null) {
+      emitters.remove(emitter);
+      if (emitters.isEmpty()) {
+        sseEmitters.remove(shopDomain);
       }
+    }
   }
 
   private void broadcastSessionInvalidated(String shopDomain) {
-      CopyOnWriteArrayList<SseEmitter> emitters = sseEmitters.get(shopDomain);
-      if (emitters != null) {
-          for (SseEmitter emitter : emitters) {
-              try {
-                  emitter.send(SseEmitter.event()
-                      .name("session_invalidated")
-                      .data("{\"event\":\"session_invalidated\",\"message\":\"Your session has been invalidated by an administrator.\"}"));
-              } catch (Exception e) {
-                  emitter.completeWithError(e);
-              }
-          }
+    CopyOnWriteArrayList<SseEmitter> emitters = sseEmitters.get(shopDomain);
+    if (emitters != null) {
+      for (SseEmitter emitter : emitters) {
+        try {
+          emitter.send(
+              SseEmitter.event()
+                  .name("session_invalidated")
+                  .data(
+                      "{\"event\":\"session_invalidated\",\"message\":\"Your session has been invalidated by an administrator.\"}"));
+        } catch (Exception e) {
+          emitter.completeWithError(e);
+        }
       }
+    }
   }
 }
