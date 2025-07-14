@@ -69,6 +69,7 @@ import {
   invalidateAdminShopSessions 
 } from '../../api/admin';
 import RefreshHeader from './RefreshHeader';
+import { debugLog } from './DebugPanel';
 
 interface SessionHealthData {
   totalSessions: number;
@@ -275,21 +276,40 @@ const AdminSessionManager: React.FC = () => {
   }, [addNotification, shopsLoading, shopsRefreshCooldown]);
 
   const fetchShopSessions = useCallback(async (shopDomain: string) => {
+    debugLog.info(`View Session button clicked for shop: ${shopDomain}`, { shopDomain }, 'AdminSessionManager');
     setSessionsLoading(true);
+    
     try {
-      console.log('Fetching shop sessions for:', shopDomain);
+      debugLog.debug(`Starting API call to getAdminShopSessions for: ${shopDomain}`, { shopDomain }, 'AdminSessionManager');
       const response = await getAdminShopSessions(shopDomain);
-      console.log('Shop sessions response:', response);
+      debugLog.info(`API response received for shop sessions`, { 
+        shopDomain, 
+        success: response.success, 
+        sessionCount: response.sessions?.length || 0,
+        hasError: !!response.error 
+      }, 'AdminSessionManager');
       
       if (response.success) {
         setShopSessions(response.sessions || []);
         setSelectedShop(shopDomain);
         setShowShopDetails(true);
-        console.log('Successfully opened shop sessions dialog');
+        debugLog.info(`Successfully opened shop sessions dialog for: ${shopDomain}`, { 
+          shopDomain, 
+          sessionCount: response.sessions?.length || 0 
+        }, 'AdminSessionManager');
       } else {
+        debugLog.error(`API returned error for shop sessions`, { 
+          shopDomain, 
+          error: response.error 
+        }, 'AdminSessionManager');
         throw new Error(response.error || 'Failed to fetch shop sessions');
       }
     } catch (error) {
+      debugLog.error(`Exception occurred while fetching shop sessions`, { 
+        shopDomain, 
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      }, 'AdminSessionManager');
       console.error('Error fetching shop sessions:', error);
       addNotification(
         error instanceof Error ? error.message : 'Failed to fetch shop sessions',
@@ -297,6 +317,7 @@ const AdminSessionManager: React.FC = () => {
       );
     } finally {
       setSessionsLoading(false);
+      debugLog.debug(`fetchShopSessions completed for: ${shopDomain}`, { shopDomain }, 'AdminSessionManager');
     }
   }, [addNotification]);
 

@@ -1,4 +1,5 @@
 import { fetchWithAdminAuth } from './index';
+import { debugLog } from '../components/ui/DebugPanel';
 
 const API_BASE_URL: string = (
   import.meta.env.VITE_API_BASE_URL as string | undefined
@@ -117,13 +118,22 @@ export const getAdminShopsWithSessions = async (): Promise<any> => {
 };
 
 export const getAdminShopSessions = async (shopDomain: string): Promise<any> => {
-  console.log('API: Getting admin shop sessions for:', shopDomain);
+  debugLog.info(`API: Getting admin shop sessions for: ${shopDomain}`, { shopDomain }, 'AdminAPI');
   try {
     const data = await fetchWithAdminAuth(`/api/sessions/admin/shop/${encodeURIComponent(shopDomain)}/sessions`);
-    console.log('API: Admin shop sessions response:', data);
+    debugLog.info(`API: Admin shop sessions response received`, { 
+      shopDomain, 
+      success: data.success, 
+      sessionCount: data.sessions?.length || 0,
+      hasError: !!data.error 
+    }, 'AdminAPI');
     return data;
   } catch (error) {
-    console.error('API: Admin shop sessions error:', error);
+    debugLog.error(`API: Admin shop sessions error`, { 
+      shopDomain, 
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    }, 'AdminAPI');
     return { success: false, error: 'Failed to get shop sessions' };
   }
 };
