@@ -1358,6 +1358,9 @@ const AdminPage: React.FC = () => {
 
   // Update lastUpdated on successful fetch
   const fetchAuditLogsWithUpdate = async () => {
+    if (auditCooldown > 0) return;
+    
+    setAuditCooldown(30); // 30 second cooldown
     await fetchAuditLogs();
     setAuditLogsLastUpdated(new Date());
   };
@@ -1365,6 +1368,10 @@ const AdminPage: React.FC = () => {
   // Handle sessions and shops refresh
   const handleSessionsShopsRefresh = async () => {
     if (activeShopsCooldown > 0 || sessionStatsCooldown > 0) return;
+    
+    // Set cooldowns
+    setActiveShopsCooldown(30); // 30 second cooldown
+    setSessionStatsCooldown(30); // 30 second cooldown
     
     try {
       await Promise.all([

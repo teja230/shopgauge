@@ -272,24 +272,8 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
   const handleManualRefresh = () => {
     if (refreshCooldown > 0) return;
     
-    setRefreshCooldown(5);
+    setRefreshCooldown(30); // 30 second cooldown
     fetchMetrics();
-    
-    if (cooldownRef.current) {
-      clearInterval(cooldownRef.current);
-    }
-    
-    cooldownRef.current = setInterval(() => {
-      setRefreshCooldown(prev => {
-        if (prev <= 1) {
-          if (cooldownRef.current) {
-            clearInterval(cooldownRef.current);
-          }
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
   };
 
   useEffect(() => {
@@ -297,6 +281,14 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
     const interval = setInterval(fetchMetrics, 30000);
     return () => clearInterval(interval);
   }, []);
+
+  // Cooldown timer
+  useEffect(() => {
+    if (refreshCooldown > 0) {
+      const timer = setTimeout(() => setRefreshCooldown(refreshCooldown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [refreshCooldown]);
 
   useEffect(() => {
     return () => {
@@ -370,7 +362,7 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
             if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
             return lastUpdated.toLocaleString();
           })() : 'Never'}
-          onRefresh={fetchMetrics}
+          onRefresh={handleManualRefresh}
           loading={loading}
           cooldown={refreshCooldown > 0}
           cooldownRemaining={refreshCooldown}
