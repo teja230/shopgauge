@@ -2,7 +2,9 @@ package com.storesight.backend.controller;
 
 import com.storesight.backend.model.ShopSession;
 import com.storesight.backend.service.ShopService;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
@@ -1166,7 +1168,9 @@ public class SessionManagementController {
   /** Admin: Invalidate all sessions for a specific shop */
   @PostMapping("/admin/shop/{shopDomain}/invalidate")
   public ResponseEntity<Map<String, Object>> adminInvalidateShopSessions(
-      @PathVariable String shopDomain, HttpServletRequest request) {
+      @PathVariable String shopDomain,
+      HttpServletRequest request,
+      HttpServletResponse httpResponse) {
 
     Map<String, Object> response = new HashMap<>();
 
@@ -1179,12 +1183,19 @@ public class SessionManagementController {
         shopService.removeSession(shopDomain, session.getSessionId());
       }
 
+      // Clear shop cookie for this domain to force frontend logout
+      clearShopCookie(httpResponse, shopDomain);
+
       response.put("shopDomain", shopDomain);
       response.put("invalidatedSessions", allSessions.size());
       response.put("success", true);
       response.put("message", "All sessions for shop invalidated successfully");
+      response.put("cookieCleared", true);
 
-      logger.info("Admin invalidated all {} sessions for shop: {}", allSessions.size(), shopDomain);
+      logger.info(
+          "Admin invalidated all {} sessions for shop: {} and cleared cookies",
+          allSessions.size(),
+          shopDomain);
 
       return ResponseEntity.ok(response);
 
@@ -1193,6 +1204,38 @@ public class SessionManagementController {
       response.put("error", "Failed to invalidate shop sessions");
       response.put("success", false);
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+    }
+  }
+
+  private void clearShopCookie(HttpServletResponse response, String shopDomain) {
+    try {
+      // Clear shop cookie with multiple domain variations to ensure it's cleared
+      Cookie shopCookie = new Cookie("shop", "");
+      shopCookie.setPath("/");
+      shopCookie.setMaxAge(0); // Expire immediately
+      shopCookie.setHttpOnly(false);
+      shopCookie.setSecure(true);
+      response.addCookie(shopCookie);
+
+      // Also clear with domain for production
+      if (shopDomain != null && !shopDomain.contains("localhost")) {
+        Cookie domainCookie = new Cookie("shop", "");
+        domainCookie.setPath("/");
+        domainCookie.setMaxAge(0);
+        domainCookie.setHttpOnly(false);
+        domainCookie.setSecure(true);
+        domainCookie.setDomain(".shopgaugeai.com"); // Clear for all subdomains
+        response.addCookie(domainCookie);
+      }
+
+      // Add Set-Cookie header to ensure cookie is cleared
+      response.addHeader(
+          "Set-Cookie",
+          "shop=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; HttpOnly=false; Secure");
+
+      logger.info("Cleared shop cookie for domain: {}", shopDomain);
+    } catch (Exception e) {
+      logger.warn("Failed to clear shop cookie for {}: {}", shopDomain, e.getMessage());
     }
   }
 

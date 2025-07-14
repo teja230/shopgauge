@@ -451,13 +451,6 @@ const AdminPage: React.FC = () => {
     checkAuthStatus();
   }, []);
 
-  // Ensure password dialog is always open when not authenticated
-  useEffect(() => {
-    if (!isAuthenticated) {
-      setIsPasswordDialogOpen(true);
-    }
-  }, [isAuthenticated]);
-
   // Initialize connection leak monitoring when authenticated
   useEffect(() => {
     if (isAuthenticated) {
@@ -508,6 +501,45 @@ const AdminPage: React.FC = () => {
   }, [refreshAllCooldown]);
   
   const { showSuccess, showError } = useNotifications();
+
+  // Periodic authentication check when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      const authCheckInterval = setInterval(async () => {
+        try {
+          const status = await getAdminStatus();
+          if (!status.authenticated) {
+            console.log('Admin session expired, logging out');
+            setIsAuthenticated(false);
+            setIsPasswordDialogOpen(true);
+            setSessionInfo(null);
+            setPassword('');
+            setAuthError('');
+            setAttemptCount(0);
+            setIsLocked(false);
+            
+            // Clear cached data
+            sessionStorage.removeItem('admin_session_info');
+            sessionStorage.removeItem('admin_auth_status');
+            
+            showError('Admin session expired. Please log in again.');
+          }
+        } catch (error) {
+          console.error('Periodic auth check failed:', error);
+          // Don't logout on network errors, only on auth failures
+        }
+      }, 5 * 60 * 1000); // Check every 5 minutes
+      
+      return () => clearInterval(authCheckInterval);
+    }
+  }, [isAuthenticated, showError]);
+
+  // Ensure password dialog is always open when not authenticated
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setIsPasswordDialogOpen(true);
+    }
+  }, [isAuthenticated]);
 
   // Helper functions for admin endpoints
   const fetchAdminEndpoint = async (endpoint: string) => {
@@ -642,20 +674,39 @@ const AdminPage: React.FC = () => {
         setIsAuthenticated(true);
         setIsPasswordDialogOpen(false);
         setSessionInfo(status);
+        setAuthError('');
+        setAttemptCount(0);
+        setIsLocked(false);
         // Removed: showSuccess('Admin session restored successfully');
         // Only show notifications for actual login/logout events, not session checks
       } else {
-        // Not authenticated - show login dialog
+        // Not authenticated - show login dialog and clear any stale state
         setIsAuthenticated(false);
         setIsPasswordDialogOpen(true);
         setSessionInfo(null);
+        setPassword('');
+        setAuthError('');
+        setAttemptCount(0);
+        setIsLocked(false);
+        
+        // Clear any cached admin data
+        sessionStorage.removeItem('admin_session_info');
+        sessionStorage.removeItem('admin_auth_status');
       }
     } catch (error) {
       console.error('Auth status check failed:', error);
-      // Any error (network, 404, etc.) - show login dialog
+      // Any error (network, 404, etc.) - show login dialog and clear state
       setIsAuthenticated(false);
       setIsPasswordDialogOpen(true);
       setSessionInfo(null);
+      setPassword('');
+      setAuthError('');
+      setAttemptCount(0);
+      setIsLocked(false);
+      
+      // Clear cached data
+      sessionStorage.removeItem('admin_session_info');
+      sessionStorage.removeItem('admin_auth_status');
     }
   };
 
@@ -711,24 +762,64 @@ const AdminPage: React.FC = () => {
 
   const handleAdminLogout = async () => {
     try {
-      await adminLogout();
+      // First, attempt to logout via backend
+      const logoutResult = await adminLogout();
+      
+      if (logoutResult.success) {
+        showSuccess('Admin session ended securely');
+      } else {
+        console.warn('Backend logout failed, but proceeding with frontend cleanup:', logoutResult.error);
+        showError('Backend logout failed, but session has been cleared locally');
+      }
+      
+      // Clear all admin-related state regardless of backend response
       setIsAuthenticated(false);
       setIsPasswordDialogOpen(true);
       setSessionInfo(null);
       setPassword('');
       setAuthError('');
+      setAttemptCount(0);
+      setIsLocked(false);
       
-      showSuccess('Admin session ended securely');
+      // Clear any cached admin data
+      sessionStorage.removeItem('admin_session_info');
+      sessionStorage.removeItem('admin_auth_status');
+      
+      // Force clear admin token cookie on frontend as well
+      document.cookie = 'admin_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; HttpOnly; Secure; SameSite=Strict';
+      
+      // Navigate away from admin page
       navigate('/');
-      setTimeout(() => { window.location.href = '/'; }, 200);
+      
+      // Force page reload to ensure complete cleanup
+      setTimeout(() => { 
+        window.location.href = '/'; 
+      }, 100);
+      
     } catch (error) {
       console.error('Logout error:', error);
-      // Force logout even if API call fails
-        setIsAuthenticated(false);
-        setIsPasswordDialogOpen(true);
+      
+      // Even if API call fails, force logout and cleanup
+      setIsAuthenticated(false);
+      setIsPasswordDialogOpen(true);
       setSessionInfo(null);
+      setPassword('');
+      setAuthError('');
+      setAttemptCount(0);
+      setIsLocked(false);
+      
+      // Clear cached data
+      sessionStorage.removeItem('admin_session_info');
+      sessionStorage.removeItem('admin_auth_status');
+      
+      // Force clear admin token cookie
+      document.cookie = 'admin_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; HttpOnly; Secure; SameSite=Strict';
+      
+      showError('Logout completed locally (backend unavailable)');
       navigate('/');
-      setTimeout(() => { window.location.href = '/'; }, 200);
+      setTimeout(() => { 
+        window.location.href = '/'; 
+      }, 100);
     }
   };
 

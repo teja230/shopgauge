@@ -243,24 +243,49 @@ public class AdminAuthService {
 
   public void invalidateToken(String token) {
     if (token != null && !token.trim().isEmpty()) {
-      String blacklistKey = "admin:blacklist:" + token;
-      redisTemplate.opsForValue().set(blacklistKey, "invalidated", tokenExpiry, TimeUnit.SECONDS);
-      logAuditEvent("TOKEN_INVALIDATED", getUsernameFromToken(token), "Token invalidated");
+      try {
+        String blacklistKey = "admin:blacklist:" + token;
+        redisTemplate.opsForValue().set(blacklistKey, "invalidated", tokenExpiry, TimeUnit.SECONDS);
+
+        String username = getUsernameFromToken(token);
+        logAuditEvent(
+            "TOKEN_INVALIDATED", username != null ? username : "unknown", "Token invalidated");
+
+        logger.info(
+            "Admin token invalidated successfully for token: {}",
+            token.substring(0, Math.min(10, token.length())) + "...");
+      } catch (Exception e) {
+        logger.error("Failed to invalidate admin token: {}", e.getMessage(), e);
+        // Don't throw the exception to prevent logout failures
+        // The token will still be considered invalid due to the exception
+      }
+    } else {
+      logger.warn("Attempted to invalidate null or empty admin token");
     }
   }
 
   public boolean isTokenBlacklisted(String token) {
     if (token == null || token.trim().isEmpty()) {
+      logger.debug("Token is null or empty, considering as blacklisted");
       return true;
     }
 
     try {
       String blacklistKey = "admin:blacklist:" + token;
       Boolean isBlacklisted = redisTemplate.hasKey(blacklistKey);
-      return isBlacklisted != null && isBlacklisted;
+      boolean result = isBlacklisted != null && isBlacklisted;
+
+      if (result) {
+        logger.debug(
+            "Token is blacklisted: {}", token.substring(0, Math.min(10, token.length())) + "...");
+      }
+
+      return result;
     } catch (Exception e) {
       logger.warn("Redis unavailable for token blacklist check: {}", e.getMessage());
-      return false; // Allow token if Redis is unavailable
+      // Allow token if Redis is unavailable to prevent authentication failures
+      // This is a fallback mechanism for when Redis is down
+      return false;
     }
   }
 

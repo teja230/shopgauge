@@ -47,6 +47,8 @@ class SessionManager {
   private isInitialized = false;
   private extensionPromptShown = false;
   private extensionGraceTimer: NodeJS.Timeout | null = null;
+  private sessionValidationInterval: NodeJS.Timeout | null = null;
+  private apiBaseUrl: string = '';
 
   constructor(config: SessionConfig = {
     heartbeatInterval: 60000, // 1 minute
@@ -69,6 +71,9 @@ class SessionManager {
     this.autoExtendEnabled = config.autoExtendEnabled ?? true;
     this.extensionPromptMinutes = config.extensionPromptMinutes ?? 5;
     this.extensionGracePeriod = config.extensionGracePeriod ?? 2;
+    
+    // Initialize API base URL
+    this.apiBaseUrl = (import.meta.env.VITE_API_BASE_URL as string) || '';
 
     if (config.enabled) {
       this.initialize();
@@ -347,6 +352,72 @@ class SessionManager {
       }
     });
     window.dispatchEvent(event);
+  }
+
+  /**
+   * Check if the current session is still valid by making a lightweight API call
+   * This is used to detect when sessions are invalidated by admin
+   */
+  public async checkSessionValidity(): Promise<boolean> {
+    try {
+      const response = await fetch(`${this.apiBaseUrl}/api/auth/shopify/me`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        cache: 'no-cache',
+      });
+
+      if (response.status === 401) {
+        console.warn('Session validation failed - user logged out');
+        this.handleSessionInvalidation();
+        return false;
+      }
+
+      if (response.ok) {
+        const data = await response.json();
+        return data.authenticated === true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Session validation error:', error);
+      // Don't invalidate session on network errors
+      return true;
+    }
+  }
+
+  /**
+   * Start periodic session validation to detect admin-invalidated sessions
+   */
+  public startSessionValidation(): void {
+    if (this.sessionValidationInterval) {
+      clearInterval(this.sessionValidationInterval);
+    }
+
+    // Check session validity every 30 seconds
+    this.sessionValidationInterval = setInterval(async () => {
+      const isValid = await this.checkSessionValidity();
+      if (!isValid) {
+        console.log('Session validation detected invalid session, clearing interval');
+        this.stopSessionValidation();
+      }
+    }, 30000); // 30 seconds
+
+    console.log('Started periodic session validation');
+  }
+
+  /**
+   * Stop periodic session validation
+   */
+  public stopSessionValidation(): void {
+    if (this.sessionValidationInterval) {
+      clearInterval(this.sessionValidationInterval);
+      this.sessionValidationInterval = null;
+      console.log('Stopped periodic session validation');
+    }
   }
 
   private async handleSessionRefresh(): Promise<void> {

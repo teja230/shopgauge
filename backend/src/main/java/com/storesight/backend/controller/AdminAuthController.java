@@ -95,24 +95,29 @@ public class AdminAuthController {
 
     String clientIp = getClientIpAddress(request);
     String token = getAdminTokenFromRequest(request);
-    String username = adminAuthService.getUsernameFromToken(token);
+    String username = token != null ? adminAuthService.getUsernameFromToken(token) : "unknown";
 
-    // Invalidate the token
-    adminAuthService.invalidateToken(token);
+    // Always attempt to invalidate the token, even if it's null or invalid
+    if (token != null && !token.trim().isEmpty()) {
+      adminAuthService.invalidateToken(token);
+      logger.info("Admin token invalidated for user: {} from IP: {}", username, clientIp);
+    } else {
+      logger.info("Admin logout requested without valid token from IP: {}", clientIp);
+    }
 
-    // Clear admin token cookie
-    Cookie adminCookie = new Cookie("admin_token", "");
-    adminCookie.setPath("/");
-    adminCookie.setHttpOnly(true);
-    adminCookie.setMaxAge(0); // Expire immediately
-    adminCookie.setSecure(requireHttps);
-    adminCookie.setAttribute("SameSite", "Strict");
-    adminCookie.setDomain(getBaseDomain(request.getServerName()));
-    response.addCookie(adminCookie);
+    // Clear admin token cookie with multiple domain variations to ensure it's cleared
+    clearAdminCookie(response, request.getServerName());
+
+    // Also clear with null domain for localhost/development
+    if (request.getServerName().contains("localhost")
+        || request.getServerName().contains("127.0.0.1")) {
+      clearAdminCookie(response, null);
+    }
 
     Map<String, Object> result = new HashMap<>();
     result.put("success", true);
     result.put("message", "Admin logout successful");
+    result.put("username", username);
 
     logger.info("Admin logout successful for user: {} from IP: {}", username, clientIp);
     adminAuthService.logAuditEvent("LOGOUT", username, "Logout from IP: " + clientIp, clientIp);
@@ -244,5 +249,18 @@ public class AdminAuthController {
     }
 
     return request.getRemoteAddr();
+  }
+
+  private void clearAdminCookie(HttpServletResponse response, String domain) {
+    Cookie adminCookie = new Cookie("admin_token", "");
+    adminCookie.setPath("/");
+    adminCookie.setHttpOnly(true);
+    adminCookie.setMaxAge(0); // Expire immediately
+    adminCookie.setSecure(requireHttps);
+    adminCookie.setAttribute("SameSite", "Strict");
+    if (domain != null) {
+      adminCookie.setDomain(getBaseDomain(domain));
+    }
+    response.addCookie(adminCookie);
   }
 }
