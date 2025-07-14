@@ -1937,11 +1937,11 @@ const AdminPage: React.FC = () => {
                 </Box>
               )}
 
-              {/* Enhanced Active Shops Table with Session Details */}
+              {/* Active Shops Table */}
               <Box sx={{ mb: 4 }}>
                 <Typography variant="h5" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
                   <StoreIcon color="primary" />
-                  Active Shops with Session Details ({activeShops.length})
+                  Active Shops ({activeShops.length})
                 </Typography>
                 
                 {activeShops.length > 0 ? (
@@ -2077,15 +2077,6 @@ const AdminPage: React.FC = () => {
                   </Card>
                 </Box>
               )}
-
-              {/* Integration Note */}
-              <Alert severity="info" sx={{ mb: 4 }}>
-                <Typography variant="body2">
-                  <strong>💡 Pro Tip:</strong> For detailed session management, individual shop session viewing, 
-                  and advanced session operations (refresh, invalidate), use the 
-                  <strong> Advanced Session Management</strong> section below.
-                </Typography>
-              </Alert>
 
               {/* Advanced Session Management */}
               <Box sx={{ mb: 4 }}>
