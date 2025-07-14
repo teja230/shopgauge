@@ -117,19 +117,13 @@ export const getAdminShopsWithSessions = async (): Promise<any> => {
 };
 
 export const getAdminShopSessions = async (shopDomain: string): Promise<any> => {
-  if (import.meta.env.DEV) {
-    console.log('API: Getting admin shop sessions for:', shopDomain);
-  }
+  console.log('API: Getting admin shop sessions for:', shopDomain);
   try {
     const data = await fetchWithAdminAuth(`/api/sessions/admin/shop/${encodeURIComponent(shopDomain)}/sessions`);
-    if (import.meta.env.DEV) {
-      console.log('API: Admin shop sessions response:', data);
-    }
+    console.log('API: Admin shop sessions response:', data);
     return data;
   } catch (error) {
-    if (import.meta.env.DEV) {
-      console.error('API: Admin shop sessions error:', error);
-    }
+    console.error('API: Admin shop sessions error:', error);
     return { success: false, error: 'Failed to get shop sessions' };
   }
 };
