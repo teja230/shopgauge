@@ -103,13 +103,13 @@ const SessionHealthMonitor: React.FC<SessionHealthMonitorProps> = ({
   }, [addNotification]);
 
   const fetchSessionHealth = useCallback(async () => {
-    if (!shop) return;
-
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch('/api/sessions/health-check', {
+      // For admin users, use admin endpoint; for shop users, use shop-specific endpoint
+      const endpoint = shop ? '/api/sessions/health-check' : '/api/admin/session-health';
+      const response = await fetch(endpoint, {
         method: 'GET',
         credentials: 'include',
       });
@@ -134,7 +134,9 @@ const SessionHealthMonitor: React.FC<SessionHealthMonitorProps> = ({
     setLoading(true);
 
     try {
-      const response = await fetch('/api/sessions/refresh', {
+      // For admin users, use admin endpoint; for shop users, use shop-specific endpoint
+      const endpoint = shop ? '/api/sessions/refresh' : '/api/admin/session-refresh';
+      const response = await fetch(endpoint, {
         method: 'POST',
         credentials: 'include',
       });
@@ -143,7 +145,7 @@ const SessionHealthMonitor: React.FC<SessionHealthMonitorProps> = ({
         const data = await response.json();
         if (data.success) {
           addNotification(
-            'Your session has been successfully refreshed.',
+            'Session health has been successfully refreshed.',
             'success',
             { duration: 5000 }
           );
@@ -157,7 +159,7 @@ const SessionHealthMonitor: React.FC<SessionHealthMonitorProps> = ({
       }
     } catch (err) {
       addNotification(
-        err instanceof Error ? err.message : 'Failed to refresh session',
+        err instanceof Error ? err.message : 'Failed to refresh session health',
         'error',
         { duration: 5000 }
       );
@@ -212,7 +214,11 @@ const SessionHealthMonitor: React.FC<SessionHealthMonitorProps> = ({
     }
   };
 
-  if (!shop) {
+  // For admin users, we don't need a shop to show the component
+  // For shop users, we need a shop to proceed
+  if (!shop && window.location.pathname.startsWith('/admin')) {
+    // Admin user - show component
+  } else if (!shop) {
     return null;
   }
 

@@ -16,7 +16,7 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import IntelligentLoadingScreen from '../components/ui/IntelligentLoadingScreen';
 import useSessionLimit from '../hooks/useSessionLimit';
 import SessionLimitDialog from '../components/ui/SessionLimitDialog';
-import SessionHealthMonitor from '../components/ui/SessionHealthMonitor';
+
 import { getDeviceDisplay, getRelativeTime } from '../utils/deviceUtils';
 
 // Cache configuration for store stats - Enhanced to match Dashboard strategy
@@ -1516,7 +1516,7 @@ export default function ProfilePage() {
           Manage your active sessions across different devices and browsers. You can have up to 5 active sessions at once.
         </p>
         
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-2 gap-4 lg:gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
           {/* Session Status */}
           <div className="bg-white p-4 lg:p-5 rounded-xl shadow-sm">
             <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
@@ -1621,17 +1621,6 @@ export default function ProfilePage() {
                 </div>
               )}
             </div>
-          </div>
-
-          {/* Session Health Monitor */}
-          <div className="bg-white p-4 lg:p-5 rounded-xl shadow-sm">
-            <SessionHealthMonitor 
-              shop={shop || undefined} 
-              onRefresh={() => {
-                checkSessionLimit();
-                loadStoreStats(true);
-              }}
-            />
           </div>
           
           {/* Session Actions */}
