@@ -313,7 +313,7 @@ const HealthSummary: React.FC = () => {
 
   const fetchMetricsWithCooldown = async () => {
     if (refreshCooldown > 0) return;
-    setRefreshCooldown(5);
+    setRefreshCooldown(120); // 2 minutes (increased from 5 seconds)
     await fetchMetrics();
   };
 
