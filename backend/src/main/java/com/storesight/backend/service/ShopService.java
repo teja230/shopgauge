@@ -658,8 +658,23 @@ public class ShopService {
         // Deactivate in database
         shopSessionRepository.deactivateSession(sessionId);
 
-        // Remove from Redis cache
-        redisTemplate.delete(SHOP_TOKEN_PREFIX + shopifyDomain + ":" + sessionId);
+        // Remove from Redis cache with error handling
+        try {
+          String redisKey = SHOP_TOKEN_PREFIX + shopifyDomain + ":" + sessionId;
+          Boolean deleted = redisTemplate.delete(redisKey);
+          if (deleted != null && deleted) {
+            logger.debug("Successfully removed session from Redis: {}", redisKey);
+          } else {
+            logger.debug("Session key not found in Redis (already removed): {}", redisKey);
+          }
+        } catch (Exception redisEx) {
+          logger.warn(
+              "Failed to remove session from Redis cache for {}:{} - {}",
+              shopifyDomain,
+              sessionId,
+              redisEx.getMessage());
+          // Continue with other cleanup operations even if Redis fails
+        }
 
         // Update active sessions list
         updateActiveSessionsList(shopifyDomain);
