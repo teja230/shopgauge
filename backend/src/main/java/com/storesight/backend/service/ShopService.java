@@ -699,26 +699,37 @@ public class ShopService {
   /** Get all active sessions for a shop */
   @Transactional(readOnly = true)
   public List<ShopSession> getActiveSessionsForShop(String shopifyDomain) {
-    long start = System.currentTimeMillis();
     try {
       Optional<Shop> shopOpt = shopRepository.findByShopifyDomain(shopifyDomain);
       if (shopOpt.isPresent()) {
-        List<ShopSession> result =
-            shopSessionRepository.findByShopAndIsActiveTrueOrderByLastAccessedAtDesc(shopOpt.get());
-        transactionMonitoringService.recordSuccess(
-            "getActiveSessionsForShop", System.currentTimeMillis() - start);
-        return result;
+        return shopSessionRepository.findByShopAndIsActiveTrueOrderByLastAccessedAtDesc(
+            shopOpt.get());
       }
-      transactionMonitoringService.recordSuccess(
-          "getActiveSessionsForShop", System.currentTimeMillis() - start);
-      return List.of();
+      return new ArrayList<>();
     } catch (Exception e) {
-      transactionMonitoringService.recordFailure(
-          "getActiveSessionsForShop",
-          e.getClass().getSimpleName(),
-          e.getMessage(),
-          System.currentTimeMillis() - start);
-      throw e;
+      logger.error(
+          "Error getting active sessions for shop {}: {}", shopifyDomain, e.getMessage(), e);
+      return new ArrayList<>();
+    }
+  }
+
+  @Transactional(readOnly = true)
+  public List<ShopSession> getAllActiveSessions() {
+    try {
+      // Get all shops first, then get their active sessions
+      List<Shop> allShops = shopRepository.findAll();
+      List<ShopSession> allActiveSessions = new ArrayList<>();
+
+      for (Shop shop : allShops) {
+        List<ShopSession> shopSessions =
+            shopSessionRepository.findByShopAndIsActiveTrueOrderByLastAccessedAtDesc(shop);
+        allActiveSessions.addAll(shopSessions);
+      }
+
+      return allActiveSessions;
+    } catch (Exception e) {
+      logger.error("Error getting all active sessions: {}", e.getMessage(), e);
+      return new ArrayList<>();
     }
   }
 
