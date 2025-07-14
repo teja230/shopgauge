@@ -787,13 +787,14 @@ const DashboardPage = () => {
     }
   }, [cache, shop]);
 
-  // Track previous shop to detect actual changes
+  // Track previous shop to detect actual changes and fresh logins
   const prevShopRef = useRef<string | null>(null);
+  const hasInitializedRef = useRef(false);
   
-  // Effect to handle shop changes and cache invalidation
+  // Effect to handle shop changes, cache invalidation, and fresh login detection
   useEffect(() => {
     if (shop && isAuthReady) {
-      // Only invalidate cache if shop actually changed from one valid shop to another
+      // Check if this is a new shop login (not just a page refresh)
       if (prevShopRef.current && prevShopRef.current !== shop) {
         console.log(`🔄 Shop changed from "${prevShopRef.current}" to "${shop}" - Invalidating cache`);
         const freshCache = invalidateCache(shop);
@@ -801,7 +802,13 @@ const DashboardPage = () => {
           setCache(freshCache);
         }
         setIsInitialLoad(true); // This will trigger a full data reload for the new shop
+        hasInitializedRef.current = false; // Reset initialization flag for new shop
+      } else if (!hasInitializedRef.current) {
+        // This is a page refresh or re-authentication for the same shop
+        console.log(`🔄 Same shop re-authentication detected: ${shop}`);
+        hasInitializedRef.current = true;
       }
+      
       // Update the ref for the next render
       prevShopRef.current = shop;
     }
@@ -1142,14 +1149,24 @@ const DashboardPage = () => {
   // Track if this is a fresh login (for optimal cache strategy)
   const isFreshLoginRef = useRef(false);
   
-  // Set fresh login flag when shop changes (indicating new login)
+  // Fresh login detection: only set fresh login flag on actual new shop logins
   useEffect(() => {
     if (shop && isAuthenticated) {
-      isFreshLoginRef.current = true;
-      // Reset after a short delay to allow initial data loading
-      setTimeout(() => {
+      // Check if this is a new shop login (not just a page refresh)
+      if (prevShopRef.current && prevShopRef.current !== shop) {
+        console.log(`🆕 Fresh login detected for shop: ${shop} (previous: ${prevShopRef.current})`);
+        isFreshLoginRef.current = true;
+        
+        // Reset fresh login flag after initial data loading
+        setTimeout(() => {
+          isFreshLoginRef.current = false;
+          console.log(`✅ Fresh login period ended for shop: ${shop}`);
+        }, 3000); // 3 seconds should be enough for initial load
+      } else if (!hasInitializedRef.current) {
+        // This is a page refresh or re-authentication for the same shop
+        console.log(`🔄 Same shop re-authentication detected: ${shop}`);
         isFreshLoginRef.current = false;
-      }, 5000); // 5 seconds should be enough for initial load
+      }
     }
   }, [shop, isAuthenticated]);
 
