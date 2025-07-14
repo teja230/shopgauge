@@ -1568,7 +1568,7 @@ const AdminPage: React.FC = () => {
                               </Typography>
                             </Box>
                             <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                              Pool: {healthSummary?.database?.activeConnections !== undefined ? healthSummary.database.activeConnections : healthSummary?.database?.pool_active_connections !== undefined ? healthSummary.database.pool_active_connections : 'N/A'} active / {healthSummary?.database?.totalConnections || healthSummary?.database?.maxPoolSize || 'N/A'} total
+                              Pool: {healthSummary?.database?.activeConnections ?? healthSummary?.database?.pool_active_connections ?? 0} active / {healthSummary?.database?.totalConnections ?? healthSummary?.database?.maxPoolSize ?? 20} total
                             </Typography>
                           </Box>
 
@@ -2064,10 +2064,10 @@ const AdminPage: React.FC = () => {
                             Emergency Mode: {emergencyStatus.emergencyMode ? 'ACTIVE' : 'Inactive'}
                           </Typography>
                           <Typography variant="body2" color="text.secondary">
-                            Pool Usage: {emergencyStatus.database?.activeUsagePercent || 'N/A'}%
+                            Pool Usage: {emergencyStatus.database?.activeUsagePercent ?? 0}%
                           </Typography>
                           <Typography variant="body2" color="text.secondary">
-                            Active Connections: {emergencyStatus.database?.activeConnections || 'N/A'} / {emergencyStatus.database?.maxPoolSize || 'N/A'}
+                            Active Connections: {emergencyStatus.database?.activeConnections ?? 0} / {emergencyStatus.database?.maxPoolSize ?? 20}
                           </Typography>
                           <Typography variant="body2" color="text.secondary">
                             Pool Status: {emergencyStatus.poolStatus || 'Unknown'}
