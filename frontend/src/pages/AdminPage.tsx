@@ -95,11 +95,13 @@ import { getSessionStatus } from '../utils/sessionUtils';
 import DiffViewerDialog from '../components/ui/DiffViewerDialog';
 import TransactionMonitoring from '../components/ui/TransactionMonitoring';
 import ConnectionPoolDashboard from '../components/ui/ConnectionPoolDashboard';
-import { DebugPanel } from '../components/ui/DebugPanel';
 import { NotificationCenter } from '../components/ui/NotificationCenter';
 import MarketIntelligenceDashboard from '../components/ui/MarketIntelligenceDashboard';
 import AdminSessionManager from '../components/ui/AdminSessionManager';
 import RefreshHeader from '../components/ui/RefreshHeader';
+import { useAuth } from '../context/AuthContext';
+import { debugLog } from '../components/ui/DebugPanel';
+import DebugPanel from '../components/ui/DebugPanel';
 
 interface Secret {
   key: string;
@@ -209,7 +211,7 @@ const TabsContainer = styled(Box)(({ theme }) => ({
   },
 }));
 
-// Remove GeekTab styled component since we removed Geek Mode functionality
+// Remove GeekTab styled component since we removed the Geek Mode functionality
 
 const FilterContainer = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(2),
@@ -400,6 +402,8 @@ const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutes
 
 const AdminPage: React.FC = () => {
   const navigate = useNavigate();
+  const { debugPanelEnabled, toggleDebugPanel } = useAuth();
+  const [showDebugPanel, setShowDebugPanel] = useState(false);
   
   // Authentication state
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -623,7 +627,7 @@ const AdminPage: React.FC = () => {
   const [connectionLeakError, setConnectionLeakError] = useState<string | null>(null);
   const [connectionHistory, setConnectionHistory] = useState<any[]>([]);
   const [leakAlerts, setLeakAlerts] = useState<any[]>([]);
-  const [debugPanelVisible, setDebugPanelVisible] = useState(false);
+
 
   // Action categories for audit logs with improved colors and icons
   const actionCategories = {
@@ -1506,6 +1510,40 @@ const AdminPage: React.FC = () => {
               }}>
                 <NotificationCenter />
               </Box>
+              
+              {/* Debug Panel Controls */}
+              <Button
+                variant="outlined"
+                onClick={() => toggleDebugPanel(!debugPanelEnabled)}
+                sx={{
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  backgroundColor: debugPanelEnabled ? 'rgba(25, 118, 210, 0.1)' : 'transparent',
+                  borderColor: debugPanelEnabled ? 'primary.main' : 'divider',
+                  color: debugPanelEnabled ? 'primary.main' : 'text.primary',
+                  '&:hover': {
+                    backgroundColor: debugPanelEnabled ? 'rgba(25, 118, 210, 0.2)' : 'action.hover',
+                  }
+                }}
+              >
+                🐛 Debug {debugPanelEnabled ? 'ON' : 'OFF'}
+              </Button>
+              
+              {debugPanelEnabled && (
+                <Button
+                  variant="outlined"
+                  onClick={() => setShowDebugPanel(!showDebugPanel)}
+                  sx={{
+                    borderRadius: 2,
+                    textTransform: 'none',
+                    fontWeight: 600,
+                  }}
+                >
+                  📊 Panel
+                </Button>
+              )}
+              
               <Button
                 variant="outlined"
                 startIcon={<RefreshIcon />}
@@ -2257,11 +2295,6 @@ const AdminPage: React.FC = () => {
           )}
         </Box>
       </Container>
-      {/* Debug Panel - Controllable visibility */}
-      <DebugPanel 
-        isVisible={debugPanelVisible} 
-        onToggleVisibility={setDebugPanelVisible}
-      />
       {/* Remove NotificationCenter from bottom, now at top-right */}
       <style>{`
         @media (max-width: 600px) {
@@ -2274,6 +2307,13 @@ const AdminPage: React.FC = () => {
           }
         }
       `}</style>
+      {/* Debug Panel */}
+      {debugPanelEnabled && (
+        <DebugPanel 
+          isVisible={showDebugPanel} 
+          onToggleVisibility={setShowDebugPanel} 
+        />
+      )}
     </>
   );
 };

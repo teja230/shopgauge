@@ -3,6 +3,7 @@ import axios from 'axios';
 import { setApiAuthState, setGlobalServiceErrorHandler, API_BASE_URL } from '../api';
 import { invalidateCache } from '../utils/cacheUtils';
 import { clearAllSessionCookies, subscribeToSessionEvents, unsubscribeFromSessionEvents } from '../utils/sessionUtils';
+import { debugLog } from '../components/ui/DebugPanel';
 
 // Types
 interface Shop {
@@ -18,7 +19,9 @@ interface AuthContextType {
   isAuthReady: boolean;
   loading: boolean;
   hasInitiallyLoaded: boolean;
+  debugPanelEnabled: boolean;
   logout: () => void;
+  toggleDebugPanel: (enabled: boolean) => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -30,6 +33,8 @@ const AuthContext = createContext<AuthContextType>({
   setShop: () => {},
   isAuthReady: false,
   hasInitiallyLoaded: false,
+  debugPanelEnabled: false,
+  toggleDebugPanel: () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -41,6 +46,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
   const [isAuthReady, setIsAuthReady] = useState(false);
+  const [debugPanelEnabled, setDebugPanelEnabled] = useState(false);
+
+  // Load debug panel setting from localStorage
+  useEffect(() => {
+    const savedDebugSetting = localStorage.getItem('debugPanelEnabled');
+    if (savedDebugSetting === 'true') {
+      setDebugPanelEnabled(true);
+      debugLog.enable();
+    }
+  }, []);
 
   // Enhanced authentication error handling
   const handleAuthError = (error: any) => {
@@ -107,11 +122,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let unsubscribe: (() => void) | null = null;
     if (isAuthenticated && shop) {
-      console.log('AuthContext: Setting up SSE for shop:', shop);
+      debugLog.info('Setting up SSE for shop', { shop }, 'AuthContext');
       unsubscribe = subscribeToSessionEvents(shop, (data, event) => {
-        console.log('AuthContext: Received SSE event:', data, event);
+        debugLog.debug('Received SSE event', { data, eventType: event.type }, 'AuthContext');
         if (data && data.event === 'session_invalidated') {
-          console.warn('AuthContext: Received session_invalidated SSE event, forcing logout');
+          debugLog.warn('Received session_invalidated SSE event, forcing logout', { shop }, 'AuthContext');
           clearAllSessionCookies();
           setIsAuthenticated(false);
           setShop(null);
@@ -122,20 +137,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Show notification using a custom event
           const evt = new CustomEvent('sessionInvalidated', {
             detail: {
-              message: 'Your session has been invalidated by an administrator. Please log in again.',
-              action: 'logout'
+              message: 'Your session has been invalidated by an administrator.',
+              timestamp: new Date().toISOString(),
+              shop: shop
             }
           });
-          console.log('AuthContext: Dispatching sessionInvalidated event');
           window.dispatchEvent(evt);
         }
       });
     }
+
     return () => {
       if (unsubscribe) {
-        console.log('AuthContext: Cleaning up SSE subscription');
+        debugLog.info('Cleaning up SSE subscription', { shop }, 'AuthContext');
         unsubscribe();
-        unsubscribeFromSessionEvents();
       }
     };
   }, [isAuthenticated, shop]);
@@ -267,6 +282,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const toggleDebugPanel = () => {
+    const newEnabled = !debugPanelEnabled;
+    setDebugPanelEnabled(newEnabled);
+    localStorage.setItem('debugPanelEnabled', newEnabled.toString());
+    if (newEnabled) {
+      debugLog.enable();
+    } else {
+      debugLog.disable();
+    }
+  };
+
   return (
     <AuthContext.Provider value={{ 
       isAuthenticated, 
@@ -276,7 +302,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       logout, 
       setShop,
       isAuthReady,
-      hasInitiallyLoaded
+      hasInitiallyLoaded,
+      debugPanelEnabled,
+      toggleDebugPanel
     }}>
       {children}
     </AuthContext.Provider>
