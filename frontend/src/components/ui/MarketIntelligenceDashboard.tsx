@@ -7,15 +7,11 @@ import {
   LinearProgress,
   Chip,
   Button,
-  IconButton,
   Alert,
   AlertTitle,
-  Tooltip,
   CircularProgress,
   Paper,
-  Divider,
   Stack,
-  Badge,
   Table,
   TableBody,
   TableCell,
@@ -27,45 +23,25 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Grid,
 } from '@mui/material';
 import {
   Refresh as RefreshIcon,
   Timeline as TimelineIcon,
   Speed as SpeedIcon,
-  Memory as MemoryIcon,
   Storage as StorageIcon,
-  Warning as WarningIcon,
   CheckCircle as CheckCircleIcon,
   Error as ErrorIcon,
-  Info as InfoIcon,
   TrendingUp as TrendingUpIcon,
-  TrendingDown as TrendingDownIcon,
-  PlayArrow as PlayArrowIcon,
-  Pause as PauseIcon,
-  BugReport as BugReportIcon,
-  Healing as HealingIcon,
   Search as SearchIcon,
-  Assessment as AssessmentIcon,
   Storefront as StorefrontIcon,
   MonetizationOn as MonetizationOnIcon,
   Analytics as AnalyticsIcon,
-  Security as SecurityIcon,
   Settings as SettingsIcon,
-  CloudDownload as CloudDownloadIcon,
-  CloudUpload as CloudUploadIcon,
-  Timeline as TimelineIcon2,
-  BarChart as BarChartIcon,
-  PieChart as PieChartIcon,
   ShowChart as ShowChartIcon,
 } from '@mui/icons-material';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell, BarChart, Bar } from 'recharts';
+import { XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import marketIntelligenceAdminAPI from '../../api/marketIntelligenceAdmin';
-import type { MarketIntelligenceDashboard as MIDashboard, CostAnalytics, ProviderStats, HistoricalCostData } from '../../api/marketIntelligenceAdmin';
+import type { CostAnalytics, ProviderStats } from '../../api/marketIntelligenceAdmin';
 import RefreshHeader from './RefreshHeader';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';

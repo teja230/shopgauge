@@ -604,12 +604,17 @@ export function subscribeToSessionEvents(
   shopDomain: string,
   onEvent: (data: any, event: MessageEvent | Event) => void
 ): () => void {
+  console.log('[SSE] Setting up session events for shop:', shopDomain);
+  
   if (sessionEventSource) {
+    console.log('[SSE] Closing existing connection');
     sessionEventSource.close();
     sessionEventSource = null;
   }
   const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
   const url = `${apiBaseUrl}/api/sessions/events/${encodeURIComponent(shopDomain)}`;
+  console.log('[SSE] Connecting to:', url);
+  
   function connect() {
     sessionEventSource = new window.EventSource(url, { withCredentials: true } as any);
     sessionEventSource.onopen = () => {
@@ -617,18 +622,24 @@ export function subscribeToSessionEvents(
       console.log('[SSE] Connected to session events for', shopDomain);
     };
     sessionEventSource.onmessage = (event: MessageEvent) => {
+      console.log('[SSE] Received message event:', event.data);
       try {
         const data = JSON.parse(event.data);
+        console.log('[SSE] Parsed data:', data);
         onEvent(data, event);
       } catch (e) {
+        console.log('[SSE] Failed to parse data, sending raw:', event.data);
         onEvent(event.data, event);
       }
     };
     sessionEventSource.addEventListener('session_invalidated', (event: MessageEvent) => {
+      console.log('[SSE] Received session_invalidated event:', event.data);
       try {
         const data = JSON.parse(event.data);
+        console.log('[SSE] Parsed session_invalidated data:', data);
         onEvent(data, event);
       } catch (e) {
+        console.log('[SSE] Failed to parse session_invalidated data, sending raw:', event.data);
         onEvent(event.data, event);
       }
     });
@@ -642,10 +653,17 @@ export function subscribeToSessionEvents(
     };
   }
   connect();
+  
   return () => {
-    if (sessionEventSource) sessionEventSource.close();
-    sessionEventSource = null;
-    if (reconnectTimeout) clearTimeout(reconnectTimeout);
+    console.log('[SSE] Unsubscribing from session events for', shopDomain);
+    if (sessionEventSource) {
+      sessionEventSource.close();
+      sessionEventSource = null;
+    }
+    if (reconnectTimeout) {
+      clearTimeout(reconnectTimeout);
+      reconnectTimeout = null;
+    }
   };
 }
 
