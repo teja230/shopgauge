@@ -171,7 +171,7 @@ const AdminSessionManager: React.FC = () => {
   const [shopsLastUpdated, setShopsLastUpdated] = useState<Date | null>(null);
 
   // Constants for refresh optimization
-  const HEALTH_REFRESH_COOLDOWN = 30; // 30 seconds
+  const HEALTH_REFRESH_COOLDOWN = 120; // 2 minutes (increased from 30 seconds)
   const SHOPS_REFRESH_COOLDOWN = 60; // 60 seconds
   const SHOP_REFRESH_COOLDOWN = 45; // 45 seconds
   const DEBOUNCE_DELAY = 300; // 300ms debounce
@@ -436,10 +436,17 @@ const AdminSessionManager: React.FC = () => {
     await fetchSessionHealth();
     setSessionHealthLastUpdated(new Date());
   }, [fetchSessionHealth]);
+  
   const fetchShopsWithSessionsWithUpdate = useCallback(async () => {
     await fetchShopsWithSessions();
     setShopsLastUpdated(new Date());
   }, [fetchShopsWithSessions]);
+
+  // Initialize data on component mount only
+  useEffect(() => {
+    fetchSessionHealthWithUpdate();
+    fetchShopsWithSessionsWithUpdate();
+  }, []); // Empty dependency array to run only on mount
 
   useEffect(() => {
     fetchSessionHealth();
@@ -459,8 +466,7 @@ const AdminSessionManager: React.FC = () => {
             <RefreshHeader
               lastUpdated={sessionHealthLastUpdated ? (() => {
                 const diff = Math.floor((Date.now() - sessionHealthLastUpdated.getTime()) / 1000);
-                if (diff < 5) return 'Just now';
-                if (diff < 60) return `${diff}s ago`;
+                if (diff < 60) return 'Just now';
                 if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
                 return sessionHealthLastUpdated.toLocaleString();
               })() : 'Never'}
@@ -570,8 +576,7 @@ const AdminSessionManager: React.FC = () => {
               <RefreshHeader
                 lastUpdated={shopsLastUpdated ? (() => {
                   const diff = Math.floor((Date.now() - shopsLastUpdated.getTime()) / 1000);
-                  if (diff < 5) return 'Just now';
-                  if (diff < 60) return `${diff}s ago`;
+                  if (diff < 60) return 'Just now';
                   if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
                   return shopsLastUpdated.toLocaleString();
                 })() : 'Never'}

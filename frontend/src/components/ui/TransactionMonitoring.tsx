@@ -32,6 +32,7 @@ import {
   RestartAlt as RestartAltIcon,
 } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
+import RefreshHeader from './RefreshHeader';
 // Custom fetch function for admin endpoints that doesn't require shop authentication
 const fetchAdminEndpoint = async (url: string, options: RequestInit = {}) => {
   const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) || 'https://api.shopgaugeai.com';
@@ -225,7 +226,7 @@ const TransactionMonitoring: React.FC = () => {
 
   const refreshAll = async () => {
     if (refreshCooldown > 0) return;
-    setRefreshCooldown(5);
+    setRefreshCooldown(180); // 3 minutes (increased from 5 seconds)
     setLoading(true);
     setError(null);
     try {
@@ -289,16 +290,20 @@ const TransactionMonitoring: React.FC = () => {
           >
             Reset Metrics
           </Button>
-          <Button
-            variant="contained"
-            startIcon={<RefreshIcon />}
-            onClick={refreshAll}
-            disabled={loading || refreshCooldown > 0}
-            size="small"
-            sx={{ borderRadius: 2 }}
-          >
-            {refreshCooldown > 0 ? `Refresh (${refreshCooldown}s)` : 'Refresh'}
-          </Button>
+          <RefreshHeader
+            lastUpdated={lastRefresh ? (() => {
+              const diff = Math.floor((Date.now() - lastRefresh.getTime()) / 1000);
+              if (diff < 60) return 'Just now';
+              if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+              return lastRefresh.toLocaleString();
+            })() : 'Never'}
+            onRefresh={refreshAll}
+            loading={loading}
+            cooldown={refreshCooldown > 0}
+            cooldownRemaining={refreshCooldown}
+            label="Refresh"
+            tooltip="Refresh transaction monitoring data"
+          />
         </Stack>
       </Stack>
 
