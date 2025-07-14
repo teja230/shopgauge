@@ -1149,10 +1149,10 @@ const DashboardPage = () => {
   // Track if this is a fresh login (for optimal cache strategy)
   const isFreshLoginRef = useRef(false);
   
-  // Fresh login detection: only set fresh login flag on actual new shop logins
+  // Fresh login detection: handles both shop changes and new browser sessions
   useEffect(() => {
     if (shop && isAuthenticated) {
-      // Check if this is a new shop login (not just a page refresh)
+      // Check if this is a new shop login (shop change)
       if (prevShopRef.current && prevShopRef.current !== shop) {
         console.log(`🆕 Fresh login detected for shop: ${shop} (previous: ${prevShopRef.current})`);
         isFreshLoginRef.current = true;
@@ -1163,9 +1163,26 @@ const DashboardPage = () => {
           console.log(`✅ Fresh login period ended for shop: ${shop}`);
         }, 3000); // 3 seconds should be enough for initial load
       } else if (!hasInitializedRef.current) {
-        // This is a page refresh or re-authentication for the same shop
-        console.log(`🔄 Same shop re-authentication detected: ${shop}`);
-        isFreshLoginRef.current = false;
+        // This could be a page refresh, re-authentication, or new browser session
+        // Check if we have session cache for this shop to determine if it's a fresh session
+        const sessionCache = JSON.parse(sessionStorage.getItem(getCacheKey(shop)) || '{}');
+        const hasSessionCache = Object.keys(sessionCache).length > 2; // More than just version and shop
+        
+        if (hasSessionCache) {
+          // We have session cache, so this is likely a page refresh or re-authentication
+          console.log(`🔄 Same shop re-authentication detected: ${shop} (with session cache)`);
+          isFreshLoginRef.current = false;
+        } else {
+          // No session cache, so this is likely a new browser session
+          console.log(`🆕 Fresh login detected for shop: ${shop} (new browser session, no session cache)`);
+          isFreshLoginRef.current = true;
+          
+          // Reset fresh login flag after initial data loading
+          setTimeout(() => {
+            isFreshLoginRef.current = false;
+            console.log(`✅ Fresh login period ended for shop: ${shop}`);
+          }, 3000);
+        }
       }
     }
   }, [shop, isAuthenticated]);
