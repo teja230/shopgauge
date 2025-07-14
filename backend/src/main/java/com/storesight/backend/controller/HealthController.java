@@ -1,9 +1,11 @@
 package com.storesight.backend.controller;
 
+import com.storesight.backend.model.ShopSession;
 import com.storesight.backend.repository.ShopSessionRepository;
 import com.storesight.backend.service.DashboardCacheService;
 import com.storesight.backend.service.DatabaseMonitoringService;
 import com.storesight.backend.service.RedisHealthService;
+import com.storesight.backend.service.RedisSessionService;
 import com.storesight.backend.service.ShopService;
 import com.storesight.backend.service.TransactionMonitoringService;
 import java.sql.Connection;
@@ -28,8 +30,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import com.storesight.backend.service.RedisSessionService;
-import com.storesight.backend.model.ShopSession;
 
 @RestController
 @RequestMapping("/api/health")
@@ -416,49 +416,66 @@ public class HealthController {
       Map<String, Object> performanceMetrics = new HashMap<>();
       try {
         // Get a sample shop for performance testing (use first available shop)
-        List<String> availableShops = shopSessionRepository.findAll().stream()
-            .map(session -> session.getShop().getShopifyDomain())
-            .distinct()
-            .limit(1)
-            .collect(Collectors.toList());
+        List<String> availableShops =
+            shopSessionRepository.findAll().stream()
+                .map(session -> session.getShop().getShopifyDomain())
+                .distinct()
+                .limit(1)
+                .collect(Collectors.toList());
 
         if (!availableShops.isEmpty()) {
           String testShop = availableShops.get(0);
-          
+
           // Test Redis-first approach
           long redisStart = System.currentTimeMillis();
-          List<RedisSessionService.SessionData> redisSessions = redisSessionService.getActiveSessionsForShop(testShop);
+          List<RedisSessionService.SessionData> redisSessions =
+              redisSessionService.getActiveSessionsForShop(testShop);
           long redisTime = System.currentTimeMillis() - redisStart;
-          
+
           // Test Database-first approach (original method)
           long dbStart = System.currentTimeMillis();
           List<ShopSession> dbSessions = shopService.getActiveSessionsForShop(testShop);
           long dbTime = System.currentTimeMillis() - dbStart;
-          
-          performanceMetrics.put("redisFirst", Map.of(
-              "timeMs", redisTime,
-              "sessionCount", redisSessions.size(),
-              "approach", "Redis-first"
-          ));
-          
-          performanceMetrics.put("databaseFirst", Map.of(
-              "timeMs", dbTime,
-              "sessionCount", dbSessions.size(),
-              "approach", "Database-first"
-          ));
-          
-          performanceMetrics.put("performanceImprovement", Map.of(
-              "fasterByMs", dbTime - redisTime,
-              "percentageFaster", dbTime > 0 ? ((double)(dbTime - redisTime) / dbTime) * 100 : 0,
-              "testShop", testShop
-          ));
-          
+
+          performanceMetrics.put(
+              "redisFirst",
+              Map.of(
+                  "timeMs",
+                  redisTime,
+                  "sessionCount",
+                  redisSessions.size(),
+                  "approach",
+                  "Redis-first"));
+
+          performanceMetrics.put(
+              "databaseFirst",
+              Map.of(
+                  "timeMs",
+                  dbTime,
+                  "sessionCount",
+                  dbSessions.size(),
+                  "approach",
+                  "Database-first"));
+
+          performanceMetrics.put(
+              "performanceImprovement",
+              Map.of(
+                  "fasterByMs",
+                  dbTime - redisTime,
+                  "percentageFaster",
+                  dbTime > 0 ? ((double) (dbTime - redisTime) / dbTime) * 100 : 0,
+                  "testShop",
+                  testShop));
+
           // Redis statistics
           Map<String, Object> redisStats = redisSessionService.getSessionStatistics();
           performanceMetrics.put("redisStats", redisStats);
-          
-          logger.info("Performance comparison for shop {}: Redis-first {}ms, Database-first {}ms", 
-              testShop, redisTime, dbTime);
+
+          logger.info(
+              "Performance comparison for shop {}: Redis-first {}ms, Database-first {}ms",
+              testShop,
+              redisTime,
+              dbTime);
         } else {
           performanceMetrics.put("note", "No shops available for performance testing");
         }
@@ -498,11 +515,12 @@ public class HealthController {
 
     try {
       // Get available shops for testing
-      List<String> availableShops = shopSessionRepository.findAll().stream()
-          .map(session -> session.getShop().getShopifyDomain())
-          .distinct()
-          .limit(3) // Test with up to 3 shops
-          .collect(Collectors.toList());
+      List<String> availableShops =
+          shopSessionRepository.findAll().stream()
+              .map(session -> session.getShop().getShopifyDomain())
+              .distinct()
+              .limit(3) // Test with up to 3 shops
+              .collect(Collectors.toList());
 
       if (availableShops.isEmpty()) {
         response.put("error", "No shops available for performance testing");
@@ -512,7 +530,7 @@ public class HealthController {
 
       Map<String, Object> comparisonResults = new HashMap<>();
       Map<String, Object> summary = new HashMap<>();
-      
+
       long totalRedisTime = 0;
       long totalDbTime = 0;
       int testCount = 0;
@@ -521,44 +539,53 @@ public class HealthController {
         try {
           // Test Redis-first approach
           long redisStart = System.currentTimeMillis();
-          List<RedisSessionService.SessionData> redisSessions = redisSessionService.getActiveSessionsForShop(shop);
+          List<RedisSessionService.SessionData> redisSessions =
+              redisSessionService.getActiveSessionsForShop(shop);
           long redisTime = System.currentTimeMillis() - redisStart;
-          
+
           // Test Database-first approach
           long dbStart = System.currentTimeMillis();
           List<ShopSession> dbSessions = shopService.getActiveSessionsForShop(shop);
           long dbTime = System.currentTimeMillis() - dbStart;
-          
-          Map<String, Object> shopResult = Map.of(
-              "shop", shop,
-              "redisFirst", Map.of(
-                  "timeMs", redisTime,
-                  "sessionCount", redisSessions.size(),
-                  "approach", "Redis-first"
-              ),
-              "databaseFirst", Map.of(
-                  "timeMs", dbTime,
-                  "sessionCount", dbSessions.size(),
-                  "approach", "Database-first"
-              ),
-              "improvement", Map.of(
-                  "fasterByMs", dbTime - redisTime,
-                  "percentageFaster", dbTime > 0 ? ((double)(dbTime - redisTime) / dbTime) * 100 : 0
-              )
-          );
-          
+
+          Map<String, Object> shopResult =
+              Map.of(
+                  "shop", shop,
+                  "redisFirst",
+                      Map.of(
+                          "timeMs",
+                          redisTime,
+                          "sessionCount",
+                          redisSessions.size(),
+                          "approach",
+                          "Redis-first"),
+                  "databaseFirst",
+                      Map.of(
+                          "timeMs",
+                          dbTime,
+                          "sessionCount",
+                          dbSessions.size(),
+                          "approach",
+                          "Database-first"),
+                  "improvement",
+                      Map.of(
+                          "fasterByMs",
+                          dbTime - redisTime,
+                          "percentageFaster",
+                          dbTime > 0 ? ((double) (dbTime - redisTime) / dbTime) * 100 : 0));
+
           comparisonResults.put(shop, shopResult);
           totalRedisTime += redisTime;
           totalDbTime += dbTime;
           testCount++;
-          
-          logger.debug("Performance test for shop {}: Redis {}ms, DB {}ms", shop, redisTime, dbTime);
-          
+
+          logger.debug(
+              "Performance test for shop {}: Redis {}ms, DB {}ms", shop, redisTime, dbTime);
+
         } catch (Exception e) {
           logger.warn("Performance test failed for shop {}: {}", shop, e.getMessage());
-          comparisonResults.put(shop, Map.of(
-              "error", "Performance test failed: " + e.getMessage()
-          ));
+          comparisonResults.put(
+              shop, Map.of("error", "Performance test failed: " + e.getMessage()));
         }
       }
 
@@ -567,7 +594,7 @@ public class HealthController {
         double avgRedisTime = (double) totalRedisTime / testCount;
         double avgDbTime = (double) totalDbTime / testCount;
         double avgImprovement = avgDbTime > 0 ? ((avgDbTime - avgRedisTime) / avgDbTime) * 100 : 0;
-        
+
         summary.put("totalTests", testCount);
         summary.put("averageRedisTimeMs", Math.round(avgRedisTime * 100.0) / 100.0);
         summary.put("averageDatabaseTimeMs", Math.round(avgDbTime * 100.0) / 100.0);
@@ -584,8 +611,11 @@ public class HealthController {
       response.put("success", true);
       response.put("timestamp", System.currentTimeMillis());
 
-      logger.info("Performance comparison completed: {} tests, avg Redis {}ms, avg DB {}ms", 
-          testCount, summary.get("averageRedisTimeMs"), summary.get("averageDatabaseTimeMs"));
+      logger.info(
+          "Performance comparison completed: {} tests, avg Redis {}ms, avg DB {}ms",
+          testCount,
+          summary.get("averageRedisTimeMs"),
+          summary.get("averageDatabaseTimeMs"));
 
       return ResponseEntity.ok(response);
 
