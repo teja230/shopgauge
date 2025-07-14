@@ -131,6 +131,9 @@ public class AnalyticsController {
       return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response));
     }
 
+    // Register this session for cache tracking (regardless of cache hit/miss)
+    dashboardCacheService.registerSession(shop, session.getId());
+
     // Check Redis cache first (only for first page to avoid complex pagination caching)
     if (page == 1 && pageInfo == null) {
       var cachedOrders = dashboardCacheService.getCachedOrdersData(shop);
@@ -398,6 +401,9 @@ public class AnalyticsController {
       return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response));
     }
 
+    // Register this session for cache tracking (regardless of cache hit/miss)
+    dashboardCacheService.registerSession(shop, session.getId());
+
     // Check Redis cache first
     var cachedProducts = dashboardCacheService.getCachedProductsData(shop);
     if (cachedProducts.isPresent()) {
@@ -531,6 +537,9 @@ public class AnalyticsController {
       response.put("products", List.of());
       return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response));
     }
+
+    // Register this session for cache tracking (regardless of cache hit/miss)
+    dashboardCacheService.registerSession(shop, session.getId());
 
     // Check Redis cache first
     var cachedInventory = dashboardCacheService.getCachedInventoryData(shop);
@@ -671,6 +680,9 @@ public class AnalyticsController {
       return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response));
     }
 
+    // Register this session for cache tracking (regardless of cache hit/miss)
+    dashboardCacheService.registerSession(shop, session.getId());
+
     // Check Redis cache first
     var cachedNewProducts = dashboardCacheService.getCachedNewProductsData(shop);
     if (cachedNewProducts.isPresent()) {
@@ -780,6 +792,9 @@ public class AnalyticsController {
       response.put("carts", List.of());
       return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response));
     }
+
+    // Register this session for cache tracking (regardless of cache hit/miss)
+    dashboardCacheService.registerSession(shop, session.getId());
 
     // Check Redis cache first
     var cachedAbandonedCarts = dashboardCacheService.getCachedAbandonedCartsData(shop);
@@ -945,12 +960,13 @@ public class AnalyticsController {
       return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response));
     }
 
+    // Register this session for cache tracking (regardless of cache hit/miss)
+    dashboardCacheService.registerSession(shop, session.getId());
+
     // Check Redis cache first
     var cachedRevenue = dashboardCacheService.getCachedRevenueData(shop);
     if (cachedRevenue.isPresent()) {
       logger.info("Cache hit for revenue data for shop: {}", shop);
-      // Register this session as using cache for this shop
-      dashboardCacheService.registerSession(shop, session.getId());
       return Mono.just(ResponseEntity.ok((Map<String, Object>) cachedRevenue.get()));
     }
 
@@ -1359,6 +1375,9 @@ public class AnalyticsController {
       response.put("orders", 0);
       return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response));
     }
+
+    // Register this session for cache tracking (regardless of cache hit/miss)
+    dashboardCacheService.registerSession(shop, session.getId());
 
     // Check Redis cache first
     var cachedConversion = dashboardCacheService.getCachedAnalyticsData(shop);
@@ -2209,6 +2228,9 @@ public class AnalyticsController {
           ResponseEntity.status(HttpStatus.UNAUTHORIZED)
               .body(Map.of("error", "No token for shop")));
     }
+
+    // Register this session for cache tracking (regardless of cache hit/miss)
+    dashboardCacheService.registerSession(shop, session.getId());
 
     dataPrivacyService.logDataAccess("STORE_STATS_REQUEST", "Store statistics accessed", shop);
 
