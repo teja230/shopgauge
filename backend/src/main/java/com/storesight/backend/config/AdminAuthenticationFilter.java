@@ -30,7 +30,7 @@ public class AdminAuthenticationFilter extends OncePerRequestFilter {
     String path = request.getRequestURI();
 
     // Only apply admin auth to admin endpoints
-    if (!path.startsWith("/api/admin/")) {
+    if (!path.startsWith("/api/admin/") && !path.startsWith("/api/sessions/admin/")) {
       filterChain.doFilter(request, response);
       return;
     }

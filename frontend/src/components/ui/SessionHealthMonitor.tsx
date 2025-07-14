@@ -108,7 +108,7 @@ const SessionHealthMonitor: React.FC<SessionHealthMonitorProps> = ({
 
     try {
       // For admin users, use admin endpoint; for shop users, use shop-specific endpoint
-      const endpoint = shop ? '/api/sessions/health-check' : '/api/admin/session-health';
+      const endpoint = shop ? '/api/sessions/health-check' : '/api/sessions/admin/health';
       const response = await fetch(endpoint, {
         method: 'GET',
         credentials: 'include',
@@ -116,7 +116,31 @@ const SessionHealthMonitor: React.FC<SessionHealthMonitorProps> = ({
 
       if (response.ok) {
         const data = await response.json();
-        setSessionData(data);
+        
+        // Transform admin data to match expected format
+        if (!shop && data.success) {
+          // Admin session health data
+          const adminData = {
+            sessionId: 'admin-system',
+            shop: 'System-wide',
+            isActive: data.activeSessions > 0,
+            createdAt: new Date().toISOString(),
+            lastAccessedAt: new Date().toISOString(),
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours from now
+            expiresInMinutes: 24 * 60,
+            ipAddress: 'System',
+            userAgent: 'Admin System',
+            deviceType: 'System',
+            location: 'System',
+            isExpired: false,
+            needsRefresh: data.healthScore < 80,
+            healthScore: data.healthScore || 100,
+            recommendations: data.recommendations || []
+          };
+          setSessionData(adminData);
+        } else {
+          setSessionData(data);
+        }
       } else {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
@@ -135,9 +159,9 @@ const SessionHealthMonitor: React.FC<SessionHealthMonitorProps> = ({
 
     try {
       // For admin users, use admin endpoint; for shop users, use shop-specific endpoint
-      const endpoint = shop ? '/api/sessions/refresh' : '/api/admin/session-refresh';
+      const endpoint = shop ? '/api/sessions/refresh' : '/api/sessions/admin/health';
       const response = await fetch(endpoint, {
-        method: 'POST',
+        method: 'GET', // Admin refresh is just a health check refresh
         credentials: 'include',
       });
 

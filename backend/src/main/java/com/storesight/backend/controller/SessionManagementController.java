@@ -919,22 +919,281 @@ public class SessionManagementController {
   }
 
   private String getClientIpAddress(HttpServletRequest request) {
-    String ipAddress = request.getHeader("X-Forwarded-For");
-    if (ipAddress == null || ipAddress.isEmpty() || "unknown".equalsIgnoreCase(ipAddress)) {
-      ipAddress = request.getHeader("Proxy-Client-IP");
+    String xForwardedFor = request.getHeader("X-Forwarded-For");
+    if (xForwardedFor != null
+        && !xForwardedFor.isEmpty()
+        && !"unknown".equalsIgnoreCase(xForwardedFor)) {
+      return xForwardedFor.split(",")[0].trim();
     }
-    if (ipAddress == null || ipAddress.isEmpty() || "unknown".equalsIgnoreCase(ipAddress)) {
-      ipAddress = request.getHeader("WL-Proxy-Client-IP");
+
+    String xRealIp = request.getHeader("X-Real-IP");
+    if (xRealIp != null && !xRealIp.isEmpty() && !"unknown".equalsIgnoreCase(xRealIp)) {
+      return xRealIp;
     }
-    if (ipAddress == null || ipAddress.isEmpty() || "unknown".equalsIgnoreCase(ipAddress)) {
-      ipAddress = request.getHeader("HTTP_CLIENT_IP");
+
+    return request.getRemoteAddr();
+  }
+
+  // ==================== ADMIN SESSION ENDPOINTS ====================
+
+  /** Admin: Get session health for all shops */
+  @GetMapping("/admin/health")
+  public ResponseEntity<Map<String, Object>> adminSessionHealth(HttpServletRequest request) {
+    Map<String, Object> response = new HashMap<>();
+
+    try {
+      // Get all active sessions across all shops
+      List<ShopSession> allActiveSessions = shopService.getAllActiveSessions();
+
+      // Calculate system-wide health metrics
+      long totalSessions = allActiveSessions.size();
+      long expiredSessions = allActiveSessions.stream().filter(ShopSession::isExpired).count();
+      long activeSessions = totalSessions - expiredSessions;
+
+      // Calculate health score (0-100)
+      int healthScore = totalSessions > 0 ? (int) ((activeSessions * 100) / totalSessions) : 100;
+
+      // Get unique shops
+      long uniqueShops =
+          allActiveSessions.stream()
+              .map(session -> session.getShop().getShopifyDomain())
+              .distinct()
+              .count();
+
+      // Calculate average sessions per shop
+      double avgSessionsPerShop = uniqueShops > 0 ? (double) totalSessions / uniqueShops : 0;
+
+      // Generate recommendations
+      List<String> recommendations = new ArrayList<>();
+      if (expiredSessions > 0) {
+        recommendations.add("Clean up " + expiredSessions + " expired sessions");
+      }
+      if (avgSessionsPerShop > 3) {
+        recommendations.add("Some shops have high session counts - consider cleanup");
+      }
+      if (healthScore < 80) {
+        recommendations.add("Session health is below optimal - investigate issues");
+      }
+
+      response.put("totalSessions", totalSessions);
+      response.put("activeSessions", activeSessions);
+      response.put("expiredSessions", expiredSessions);
+      response.put("uniqueShops", uniqueShops);
+      response.put("avgSessionsPerShop", Math.round(avgSessionsPerShop * 100.0) / 100.0);
+      response.put("healthScore", healthScore);
+      response.put("recommendations", recommendations);
+      response.put("success", true);
+
+      logger.info(
+          "Admin session health check: {} total sessions, {} active, {} expired, {} shops",
+          totalSessions,
+          activeSessions,
+          expiredSessions,
+          uniqueShops);
+
+      return ResponseEntity.ok(response);
+
+    } catch (Exception e) {
+      logger.error("Error in admin session health check: {}", e.getMessage(), e);
+      response.put("error", "Failed to retrieve session health");
+      response.put("success", false);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
     }
-    if (ipAddress == null || ipAddress.isEmpty() || "unknown".equalsIgnoreCase(ipAddress)) {
-      ipAddress = request.getHeader("HTTP_X_FORWARDED_FOR");
+  }
+
+  /** Admin: Get sessions for a specific shop */
+  @GetMapping("/admin/shop/{shopDomain}/sessions")
+  public ResponseEntity<Map<String, Object>> adminGetShopSessions(
+      @PathVariable String shopDomain, HttpServletRequest request) {
+
+    Map<String, Object> response = new HashMap<>();
+
+    try {
+      List<ShopSession> shopSessions = shopService.getActiveSessionsForShop(shopDomain);
+
+      List<Map<String, Object>> sessionData =
+          shopSessions.stream()
+              .map(
+                  session -> {
+                    Map<String, Object> sessionInfo = new HashMap<>();
+                    sessionInfo.put("sessionId", session.getSessionId());
+                    sessionInfo.put(
+                        "createdAt",
+                        session.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+                    sessionInfo.put(
+                        "lastAccessedAt",
+                        session.getLastAccessedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+                    sessionInfo.put("ipAddress", session.getIpAddress());
+                    sessionInfo.put("userAgent", session.getUserAgent());
+                    sessionInfo.put("isActive", session.getIsActive());
+                    sessionInfo.put("isExpired", session.isExpired());
+                    if (session.getExpiresAt() != null) {
+                      sessionInfo.put(
+                          "expiresAt",
+                          session.getExpiresAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+                    }
+                    return sessionInfo;
+                  })
+              .collect(Collectors.toList());
+
+      response.put("shopDomain", shopDomain);
+      response.put("sessionCount", shopSessions.size());
+      response.put("sessions", sessionData);
+      response.put("success", true);
+
+      logger.info("Admin retrieved {} sessions for shop: {}", shopSessions.size(), shopDomain);
+
+      return ResponseEntity.ok(response);
+
+    } catch (Exception e) {
+      logger.error("Error retrieving sessions for shop {}: {}", shopDomain, e.getMessage(), e);
+      response.put("error", "Failed to retrieve shop sessions");
+      response.put("success", false);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
     }
-    if (ipAddress == null || ipAddress.isEmpty() || "unknown".equalsIgnoreCase(ipAddress)) {
-      ipAddress = request.getRemoteAddr();
+  }
+
+  /** Admin: Refresh sessions for a specific shop */
+  @PostMapping("/admin/shop/{shopDomain}/refresh")
+  public ResponseEntity<Map<String, Object>> adminRefreshShopSessions(
+      @PathVariable String shopDomain, HttpServletRequest request) {
+
+    Map<String, Object> response = new HashMap<>();
+
+    try {
+      // Get current sessions for the shop
+      List<ShopSession> currentSessions = shopService.getActiveSessionsForShop(shopDomain);
+
+      // Remove expired sessions
+      List<ShopSession> expiredSessions =
+          currentSessions.stream().filter(ShopSession::isExpired).collect(Collectors.toList());
+
+      for (ShopSession expiredSession : expiredSessions) {
+        shopService.removeSession(shopDomain, expiredSession.getSessionId());
+      }
+
+      // Get updated session count
+      List<ShopSession> updatedSessions = shopService.getActiveSessionsForShop(shopDomain);
+
+      response.put("shopDomain", shopDomain);
+      response.put("removedExpiredSessions", expiredSessions.size());
+      response.put("remainingSessions", updatedSessions.size());
+      response.put("success", true);
+      response.put("message", "Shop sessions refreshed successfully");
+
+      logger.info(
+          "Admin refreshed sessions for shop {}: removed {} expired, {} remaining",
+          shopDomain,
+          expiredSessions.size(),
+          updatedSessions.size());
+
+      return ResponseEntity.ok(response);
+
+    } catch (Exception e) {
+      logger.error("Error refreshing sessions for shop {}: {}", shopDomain, e.getMessage(), e);
+      response.put("error", "Failed to refresh shop sessions");
+      response.put("success", false);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
     }
-    return ipAddress;
+  }
+
+  /** Admin: Invalidate all sessions for a specific shop */
+  @PostMapping("/admin/shop/{shopDomain}/invalidate")
+  public ResponseEntity<Map<String, Object>> adminInvalidateShopSessions(
+      @PathVariable String shopDomain, HttpServletRequest request) {
+
+    Map<String, Object> response = new HashMap<>();
+
+    try {
+      // Get all sessions for the shop
+      List<ShopSession> allSessions = shopService.getActiveSessionsForShop(shopDomain);
+
+      // Remove all sessions
+      for (ShopSession session : allSessions) {
+        shopService.removeSession(shopDomain, session.getSessionId());
+      }
+
+      response.put("shopDomain", shopDomain);
+      response.put("invalidatedSessions", allSessions.size());
+      response.put("success", true);
+      response.put("message", "All sessions for shop invalidated successfully");
+
+      logger.info("Admin invalidated all {} sessions for shop: {}", allSessions.size(), shopDomain);
+
+      return ResponseEntity.ok(response);
+
+    } catch (Exception e) {
+      logger.error("Error invalidating sessions for shop {}: {}", shopDomain, e.getMessage(), e);
+      response.put("error", "Failed to invalidate shop sessions");
+      response.put("success", false);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+    }
+  }
+
+  /** Admin: Get list of all shops with active sessions */
+  @GetMapping("/admin/shops")
+  public ResponseEntity<Map<String, Object>> adminGetShopsWithSessions(HttpServletRequest request) {
+
+    Map<String, Object> response = new HashMap<>();
+
+    try {
+      List<ShopSession> allActiveSessions = shopService.getAllActiveSessions();
+
+      // Group sessions by shop
+      Map<String, List<ShopSession>> sessionsByShop =
+          allActiveSessions.stream()
+              .collect(Collectors.groupingBy(session -> session.getShop().getShopifyDomain()));
+
+      List<Map<String, Object>> shopData =
+          sessionsByShop.entrySet().stream()
+              .map(
+                  entry -> {
+                    Map<String, Object> shopInfo = new HashMap<>();
+                    String shopDomain = entry.getKey();
+                    List<ShopSession> sessions = entry.getValue();
+
+                    long activeSessions = sessions.stream().filter(s -> !s.isExpired()).count();
+                    long expiredSessions = sessions.size() - activeSessions;
+
+                    shopInfo.put("shopDomain", shopDomain);
+                    shopInfo.put("totalSessions", sessions.size());
+                    shopInfo.put("activeSessions", activeSessions);
+                    shopInfo.put("expiredSessions", expiredSessions);
+                    shopInfo.put(
+                        "lastActivity",
+                        sessions.stream()
+                            .map(ShopSession::getLastAccessedAt)
+                            .max(LocalDateTime::compareTo)
+                            .map(date -> date.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
+                            .orElse(null));
+
+                    return shopInfo;
+                  })
+              .sorted(
+                  (a, b) -> {
+                    // Sort by total sessions descending, then by shop domain
+                    int aTotal = (Integer) a.get("totalSessions");
+                    int bTotal = (Integer) b.get("totalSessions");
+                    if (aTotal != bTotal) {
+                      return Integer.compare(bTotal, aTotal);
+                    }
+                    return ((String) a.get("shopDomain")).compareTo((String) b.get("shopDomain"));
+                  })
+              .collect(Collectors.toList());
+
+      response.put("shops", shopData);
+      response.put("totalShops", shopData.size());
+      response.put("success", true);
+
+      logger.info("Admin retrieved {} shops with active sessions", shopData.size());
+
+      return ResponseEntity.ok(response);
+
+    } catch (Exception e) {
+      logger.error("Error retrieving shops with sessions: {}", e.getMessage(), e);
+      response.put("error", "Failed to retrieve shops with sessions");
+      response.put("success", false);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+    }
   }
 }
