@@ -13,13 +13,11 @@ import {
   CardContent,
   FormControlLabel,
   Switch,
-  Alert,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import {
   Share as ShareIcon,
   Close as CloseIcon,
-  Check as CheckIcon,
   LinkedIn as LinkedInIcon,
   Twitter as TwitterIcon,
   Email as EmailIcon,

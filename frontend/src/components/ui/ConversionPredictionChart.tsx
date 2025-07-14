@@ -19,26 +19,19 @@ import {
 import {
   Box,
   Typography,
-  Card,
-  CardContent,
   Chip,
   ToggleButton,
   ToggleButtonGroup,
   useTheme,
   useMediaQuery,
   Paper,
-  Badge,
   Tooltip,
 } from '@mui/material';
 import { 
-  TrendingUp, 
-  TrendingDown, 
-  Percent,
   AutoAwesome,
   ShowChart,
   Timeline,
   BarChart as BarChartIcon,
-  Speed,
   CandlestickChart,
   WaterfallChart,
   StackedLineChart,
@@ -48,11 +41,7 @@ import {
   UNIFIED_COLOR_SCHEME,
   standardTooltipFormatter,
   standardDateFormatter,
-  mobileOptimizedContainer,
-  getMobileOptimizedHeight,
   responsiveMargins,
-  responsiveChartProps,
-  conversionChartTypes,
 } from './ChartStyles';
 
 interface ConversionPredictionData {

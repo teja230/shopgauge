@@ -720,11 +720,11 @@ const MarketIntelligenceDashboard: React.FC<MarketIntelligenceDashboardProps> = 
                 </Typography>
               </Box>
             ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={historicalData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis
-                    dataKey="timestamp"
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={historicalData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis 
+                  dataKey="timestamp" 
                     tickFormatter={(value) => {
                       const date = new Date(value);
                       return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
@@ -733,22 +733,22 @@ const MarketIntelligenceDashboard: React.FC<MarketIntelligenceDashboardProps> = 
                     angle={30}
                     textAnchor="start"
                     height={50}
-                  />
-                  <YAxis />
-                  <RechartsTooltip
-                    formatter={(value: number) => [formatCurrency(value), 'Cost']}
+                />
+                <YAxis />
+                <RechartsTooltip 
+                  formatter={(value: number) => [formatCurrency(value), 'Cost']}
                     labelFormatter={(label) => new Date(label).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="dailyCost"
-                    stroke="#2196f3"
-                    fill="#2196f3"
-                    fillOpacity={0.3}
-                    name="Daily Cost"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="dailyCost" 
+                  stroke="#2196f3" 
+                  fill="#2196f3" 
+                  fillOpacity={0.3}
+                  name="Daily Cost"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
             )}
           </Box>
           {shopId ? (

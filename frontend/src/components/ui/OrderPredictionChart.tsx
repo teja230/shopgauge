@@ -19,31 +19,21 @@ import {
 import {
   Box,
   Typography,
-  Card,
-  CardContent,
   Chip,
   ToggleButton,
   ToggleButtonGroup,
   useTheme,
   useMediaQuery,
   Paper,
-  Badge,
   Tooltip,
 } from '@mui/material';
 import { 
   UNIFIED_COLOR_SCHEME,
   standardTooltipFormatter,
   standardDateFormatter,
-  mobileOptimizedContainer,
-  getMobileOptimizedHeight,
   responsiveMargins,
-  responsiveChartProps,
-  ordersChartTypes,
 } from './ChartStyles';
 import { 
-  TrendingUp, 
-  TrendingDown, 
-  ShoppingCart,
   AutoAwesome,
   ShowChart,
   Timeline,

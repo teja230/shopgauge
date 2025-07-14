@@ -4,10 +4,7 @@ import {
   TrendingUp, 
   Business, 
   Analytics, 
-  AutoAwesome,
-  Timeline,
   BarChart,
-  ShowChart,
 } from '@mui/icons-material';
 
 // Helper function to format conversion percentages with proper precision for small values

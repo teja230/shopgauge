@@ -11,10 +11,6 @@ import {
   CardContent,
   Chip,
   IconButton,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemSecondaryAction,
   Skeleton,
   Alert,
   Fade,
@@ -38,12 +34,11 @@ import {
   LocationOn as LocationIcon,
   Security as SecurityIcon,
   People as PeopleIcon,
-  Settings as SettingsIcon,
   Info as InfoIcon,
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
-import { getDeviceDisplay, getRelativeTime, isCurrentDevice, getLocationFromIP } from '../../utils/deviceUtils';
+import { getDeviceDisplay, getRelativeTime, getLocationFromIP } from '../../utils/deviceUtils';
 
 interface SessionInfo {
   sessionId: string;

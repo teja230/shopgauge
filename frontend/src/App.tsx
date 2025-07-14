@@ -4,7 +4,6 @@ import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ServiceStatusProvider, useServiceStatus } from './context/ServiceStatusContext';
 import { NotificationSettingsProvider } from './context/NotificationSettingsContext';
-import { setGlobalServiceErrorHandler } from './api';
 import HomePage from './pages/HomePage';
 import DashboardPage from './pages/DashboardPage';
 import CompetitorsPage from './pages/CompetitorsPage';
