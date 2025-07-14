@@ -227,7 +227,7 @@ const AdminSessionManager: React.FC = () => {
     return () => timers.forEach(timer => clearTimeout(timer));
   }, [shopRefreshCooldowns]);
 
-  const fetchSessionHealth = useCallback(async () => {
+  const fetchSessionHealth = useCallback(async (showNotification = false) => {
     if (healthLoading || healthRefreshCooldown > 0) return;
     
     setHealthLoading(true);
@@ -235,15 +235,19 @@ const AdminSessionManager: React.FC = () => {
       const response = await getAdminSessionHealth();
       if (response.success) {
         setSessionHealth(response);
-        addNotification('Session health data updated successfully', 'success');
+        if (showNotification) {
+          addNotification('Session health data updated successfully', 'success');
+        }
       } else {
         throw new Error(response.error || 'Failed to fetch session health');
       }
     } catch (error) {
-      addNotification(
-        error instanceof Error ? error.message : 'Failed to fetch session health',
-        'error'
-      );
+      if (showNotification) {
+        addNotification(
+          error instanceof Error ? error.message : 'Failed to fetch session health',
+          'error'
+        );
+      }
     } finally {
       setHealthLoading(false);
     }
@@ -373,7 +377,7 @@ const AdminSessionManager: React.FC = () => {
       if (healthRefreshCooldown > 0) return;
       
       setHealthRefreshCooldown(HEALTH_REFRESH_COOLDOWN);
-      await fetchSessionHealth();
+      await fetchSessionHealth(true); // Show notification for user-triggered refresh
     }, DEBOUNCE_DELAY);
   }, [healthRefreshCooldown, fetchSessionHealth]);
 
@@ -433,7 +437,7 @@ const AdminSessionManager: React.FC = () => {
 
   // Update lastUpdated on successful fetch
   const fetchSessionHealthWithUpdate = useCallback(async () => {
-    await fetchSessionHealth();
+    await fetchSessionHealth(true); // Show notification for user-triggered refresh
     setSessionHealthLastUpdated(new Date());
   }, [fetchSessionHealth]);
   
@@ -442,16 +446,11 @@ const AdminSessionManager: React.FC = () => {
     setShopsLastUpdated(new Date());
   }, [fetchShopsWithSessions]);
 
-  // Initialize data on component mount only
+  // Initialize data on component mount only (no notifications)
   useEffect(() => {
-    fetchSessionHealthWithUpdate();
-    fetchShopsWithSessionsWithUpdate();
-  }, []); // Empty dependency array to run only on mount
-
-  useEffect(() => {
-    fetchSessionHealth();
+    fetchSessionHealth(false); // No notification for initial load
     fetchShopsWithSessions();
-  }, [fetchSessionHealth, fetchShopsWithSessions]);
+  }, []); // Empty dependency array to run only on mount
 
   return (
     <Box>
