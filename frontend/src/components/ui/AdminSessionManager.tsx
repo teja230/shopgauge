@@ -354,34 +354,41 @@ const AdminSessionManager: React.FC = () => {
   const handleInvalidateShopSessions = useCallback(async (shopDomain: string) => {
     setActionLoading(`invalidate-${shopDomain}`);
     try {
-      console.log('AdminSessionManager: Starting session invalidation for:', shopDomain);
+      debugLog.info('Starting session invalidation', { shopDomain }, 'AdminSessionManager');
       const response = await invalidateAdminShopSessions(shopDomain);
-      console.log('AdminSessionManager: Invalidation response:', response);
+      debugLog.info('Invalidation response received', { response, shopDomain }, 'AdminSessionManager');
       
       if (response.success) {
         const message = `Invalidated all ${response.invalidatedSessions} sessions for ${shopDomain}`;
-        console.log('AdminSessionManager: Success -', message);
+        debugLog.info('Session invalidation successful', { 
+          shopDomain, 
+          invalidatedCount: response.invalidatedSessions,
+          message 
+        }, 'AdminSessionManager');
         addNotification(message, 'success');
         // Refresh data
         await fetchShopsWithSessions();
         if (selectedShop === shopDomain) {
           setShowShopDetails(false);
           setSelectedShop(null);
-          setShopSessions([]);
         }
       } else {
-        const errorMessage = response.error || 'Failed to invalidate shop sessions';
-        console.error('AdminSessionManager: Backend returned error -', errorMessage);
-        throw new Error(errorMessage);
+        debugLog.error('Session invalidation failed', { 
+          shopDomain, 
+          response 
+        }, 'AdminSessionManager');
+        addNotification(`Failed to invalidate sessions for ${shopDomain}`, 'error');
       }
     } catch (error) {
-      console.error('AdminSessionManager: Invalidation failed:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to invalidate shop sessions';
-      addNotification(errorMessage, 'error');
+      debugLog.error('Session invalidation error', { 
+        shopDomain, 
+        error: error instanceof Error ? error.message : String(error) 
+      }, 'AdminSessionManager');
+      addNotification(`Error invalidating sessions for ${shopDomain}`, 'error');
     } finally {
       setActionLoading(null);
     }
-  }, [addNotification, selectedShop, fetchShopsWithSessions]);
+  }, [addNotification, fetchShopsWithSessions, selectedShop]);
 
   const handleConfirmAction = useCallback(async () => {
     if (!confirmAction) return;

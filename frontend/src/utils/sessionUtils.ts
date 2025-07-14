@@ -590,6 +590,8 @@ export function clearAllSessionCookies() {
   console.log('🔑 Cleared all session cookies and local/session storage');
 } 
 
+import { debugLog } from '../components/ui/DebugPanel';
+
 /**
  * SSE client for real-time session events.
  * Usage:
@@ -604,65 +606,89 @@ export function subscribeToSessionEvents(
   shopDomain: string,
   onEvent: (data: any, event: MessageEvent | Event) => void
 ): () => void {
-  console.log('[SSE] Setting up session events for shop:', shopDomain);
+  debugLog.info('Setting up session events for shop', { shopDomain }, 'SSE');
   
   if (sessionEventSource) {
-    console.log('[SSE] Closing existing connection');
+    debugLog.info('Closing existing SSE connection', null, 'SSE');
     sessionEventSource.close();
     sessionEventSource = null;
   }
   const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
   const url = `${apiBaseUrl}/api/sessions/events/${encodeURIComponent(shopDomain)}`;
-  console.log('[SSE] Connecting to:', url);
+  debugLog.info('Connecting to SSE endpoint', { url }, 'SSE');
   
   function connect() {
     sessionEventSource = new window.EventSource(url, { withCredentials: true } as any);
     sessionEventSource.onopen = () => {
       reconnectDelay = 2000;
-      console.log('[SSE] Connected to session events for', shopDomain);
+      debugLog.info('SSE connection opened', { shopDomain }, 'SSE');
     };
-    sessionEventSource.onmessage = (event: MessageEvent) => {
-      console.log('[SSE] Received message event:', event.data);
+    
+    sessionEventSource.onmessage = (event) => {
+      debugLog.debug('SSE message received', { 
+        shopDomain, 
+        data: event.data,
+        eventType: event.type 
+      }, 'SSE');
+      
       try {
         const data = JSON.parse(event.data);
-        console.log('[SSE] Parsed data:', data);
         onEvent(data, event);
-      } catch (e) {
-        console.log('[SSE] Failed to parse data, sending raw:', event.data);
-        onEvent(event.data, event);
+      } catch (error) {
+        debugLog.error('Failed to parse SSE message', { 
+          error: error instanceof Error ? error.message : String(error), 
+          data: event.data 
+        }, 'SSE');
       }
     };
+    
     sessionEventSource.addEventListener('session_invalidated', (event: MessageEvent) => {
-      console.log('[SSE] Received session_invalidated event:', event.data);
+      debugLog.warn('Received session_invalidated event', { 
+        shopDomain, 
+        data: event.data 
+      }, 'SSE');
       try {
         const data = JSON.parse(event.data);
-        console.log('[SSE] Parsed session_invalidated data:', data);
         onEvent(data, event);
-      } catch (e) {
-        console.log('[SSE] Failed to parse session_invalidated data, sending raw:', event.data);
-        onEvent(event.data, event);
-      }
+              } catch (e) {
+          debugLog.error('Failed to parse session_invalidated data', { 
+            error: e instanceof Error ? e.message : String(e), 
+            data: event.data 
+          }, 'SSE');
+        }
     });
-    sessionEventSource.onerror = (err: Event) => {
-      console.warn('[SSE] Session events error:', err);
-      sessionEventSource?.close();
-      sessionEventSource = null;
-      if (reconnectTimeout) clearTimeout(reconnectTimeout);
-      reconnectTimeout = setTimeout(connect, reconnectDelay);
-      reconnectDelay = Math.min(reconnectDelay * 2, 60000); // Exponential backoff up to 60s
+    
+    sessionEventSource.onerror = (error) => {
+      debugLog.error('SSE connection error', { 
+        shopDomain, 
+        error: error.toString() 
+      }, 'SSE');
+      
+      if (sessionEventSource) {
+        sessionEventSource.close();
+        sessionEventSource = null;
+        
+        // Attempt to reconnect
+        setTimeout(() => {
+          debugLog.info('Attempting SSE reconnection', { 
+            shopDomain, 
+            delay: reconnectDelay 
+          }, 'SSE');
+          connect();
+        }, reconnectDelay);
+        
+        reconnectDelay = Math.min(reconnectDelay * 2, 30000); // Max 30 seconds
+      }
     };
   }
+  
   connect();
   
   return () => {
-    console.log('[SSE] Unsubscribing from session events for', shopDomain);
+    debugLog.info('Cleaning up SSE connection', { shopDomain }, 'SSE');
     if (sessionEventSource) {
       sessionEventSource.close();
       sessionEventSource = null;
-    }
-    if (reconnectTimeout) {
-      clearTimeout(reconnectTimeout);
-      reconnectTimeout = null;
     }
   };
 }
