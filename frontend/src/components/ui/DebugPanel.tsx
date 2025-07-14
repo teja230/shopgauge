@@ -22,7 +22,6 @@ const DEBUG_PANEL_STORE = (import.meta.env.VITE_DEBUG_PANEL_STORE as string) || 
 // Global debug state
 let debugLogs: LogEntry[] = [];
 let debugSubscribers: ((logs: LogEntry[]) => void)[] = [];
-let isDebugEnabled = DEBUG_PANEL_ENABLED;
 let currentStore: string | null = null;
 
 // Helper functions
@@ -31,7 +30,7 @@ const setCurrentStore = (store: string | null) => {
 };
 
 const shouldDebugForStore = (): boolean => {
-  return DEBUG_PANEL_ENABLED; // Simplified for now - can enhance with store filtering later
+  return DEBUG_PANEL_ENABLED; // Only controlled by environment variable
 };
 
 // Debug logging functions
@@ -70,12 +69,6 @@ export const debugLog = {
     debugLogs = [];
     debugSubscribers.forEach(callback => callback([...debugLogs]));
   },
-  enable: () => {
-    isDebugEnabled = true;
-  },
-  disable: () => {
-    isDebugEnabled = false;
-  },
   getLogs: () => [...debugLogs],
   setStore: setCurrentStore,
   isEnabled: () => shouldDebugForStore(),
@@ -112,12 +105,7 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({
     }
   }, [logs]);
 
-  // Enable debug logging when panel is visible
-  useEffect(() => {
-    if (isVisible) {
-      debugLog.enable();
-    }
-  }, [isVisible]);
+
 
   // Don't render anything if debug panel is not enabled via environment variable
   if (!DEBUG_PANEL_ENABLED) {

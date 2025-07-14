@@ -99,8 +99,6 @@ import { NotificationCenter } from '../components/ui/NotificationCenter';
 import MarketIntelligenceDashboard from '../components/ui/MarketIntelligenceDashboard';
 import AdminSessionManager from '../components/ui/AdminSessionManager';
 import RefreshHeader from '../components/ui/RefreshHeader';
-import { useAuth } from '../context/AuthContext';
-import { debugLog } from '../components/ui/DebugPanel';
 import DebugPanel from '../components/ui/DebugPanel';
 
 interface Secret {
@@ -402,7 +400,7 @@ const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutes
 
 const AdminPage: React.FC = () => {
   const navigate = useNavigate();
-  const { debugPanelEnabled, toggleDebugPanel } = useAuth();
+
   const [showDebugPanel, setShowDebugPanel] = useState(false);
   
   // Authentication state
@@ -1511,39 +1509,6 @@ const AdminPage: React.FC = () => {
                 <NotificationCenter />
               </Box>
               
-              {/* Debug Panel Controls */}
-              <Button
-                variant="outlined"
-                onClick={() => toggleDebugPanel(!debugPanelEnabled)}
-                sx={{
-                  borderRadius: 2,
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  backgroundColor: debugPanelEnabled ? 'rgba(25, 118, 210, 0.1)' : 'transparent',
-                  borderColor: debugPanelEnabled ? 'primary.main' : 'divider',
-                  color: debugPanelEnabled ? 'primary.main' : 'text.primary',
-                  '&:hover': {
-                    backgroundColor: debugPanelEnabled ? 'rgba(25, 118, 210, 0.2)' : 'action.hover',
-                  }
-                }}
-              >
-                🐛 Debug {debugPanelEnabled ? 'ON' : 'OFF'}
-              </Button>
-              
-              {debugPanelEnabled && (
-                <Button
-                  variant="outlined"
-                  onClick={() => setShowDebugPanel(!showDebugPanel)}
-                  sx={{
-                    borderRadius: 2,
-                    textTransform: 'none',
-                    fontWeight: 600,
-                  }}
-                >
-                  📊 Panel
-                </Button>
-              )}
-              
               <Button
                 variant="outlined"
                 startIcon={<RefreshIcon />}
@@ -2308,12 +2273,10 @@ const AdminPage: React.FC = () => {
         }
       `}</style>
       {/* Debug Panel */}
-      {debugPanelEnabled && (
-        <DebugPanel 
-          isVisible={showDebugPanel} 
-          onToggleVisibility={setShowDebugPanel} 
-        />
-      )}
+      <DebugPanel 
+        isVisible={showDebugPanel} 
+        onToggleVisibility={setShowDebugPanel} 
+      />
     </>
   );
 };
