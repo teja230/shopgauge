@@ -871,13 +871,21 @@ public class CompetitorController {
     }
   }
 
-  /** Extract shop ID from session cookie */
+  /** Extract shop ID from session cookie with caching */
   private Long getShopIdFromRequest(HttpServletRequest request) {
     if (request.getCookies() != null) {
       for (Cookie cookie : request.getCookies()) {
         if ("shop".equals(cookie.getName())) {
           String shopDomain = cookie.getValue();
-          System.out.println("Looking for shop ID for domain: " + shopDomain);
+          logger.debug("Looking for shop ID for domain: {}", shopDomain);
+
+          // Check cache first
+          String cacheKey = "shop_id:" + shopDomain;
+          Long cachedShopId = getCachedShopId(cacheKey);
+          if (cachedShopId != null) {
+            logger.debug("Found cached shop ID: {} for domain: {}", cachedShopId, shopDomain);
+            return cachedShopId;
+          }
 
           try {
             // Get shop ID from domain
@@ -886,25 +894,63 @@ public class CompetitorController {
                     "SELECT id FROM shops WHERE shopify_domain = ?", shopDomain);
             if (!shops.isEmpty()) {
               Long shopId = ((Number) shops.get(0).get("id")).longValue();
-              System.out.println("Found shop ID: " + shopId + " for domain: " + shopDomain);
+              logger.debug("Found shop ID: {} for domain: {}", shopId, shopDomain);
+
+              // Cache the result for 5 minutes
+              cacheShopId(cacheKey, shopId);
+
               return shopId;
             } else {
-              System.out.println("No shop found in database for domain: " + shopDomain);
+              logger.warn("No shop found in database for domain: {}", shopDomain);
 
-              // Log all shops in database for debugging
-              List<Map<String, Object>> allShops =
-                  jdbcTemplate.queryForList("SELECT id, shopify_domain FROM shops");
-              System.out.println("All shops in database: " + allShops);
+              // Log all shops in database for debugging (only in debug mode)
+              if (logger.isDebugEnabled()) {
+                List<Map<String, Object>> allShops =
+                    jdbcTemplate.queryForList("SELECT id, shopify_domain FROM shops");
+                logger.debug("All shops in database: {}", allShops);
+              }
             }
           } catch (Exception e) {
-            System.err.println("Database error getting shop ID: " + e.getMessage());
-            e.printStackTrace();
+            logger.error(
+                "Database error getting shop ID for domain {}: {}", shopDomain, e.getMessage(), e);
           }
         }
       }
     }
-    System.out.println("No shop cookie found or no matching shop in database");
+    logger.debug("No shop cookie found or no matching shop in database");
     return null;
+  }
+
+  /** Cache for shop ID lookups */
+  private final Map<String, CachedShopId> shopIdCache = new ConcurrentHashMap<>();
+
+  private static class CachedShopId {
+    final Long shopId;
+    final long timestamp;
+
+    CachedShopId(Long shopId) {
+      this.shopId = shopId;
+      this.timestamp = System.currentTimeMillis();
+    }
+
+    boolean isExpired(int cacheMinutes) {
+      return System.currentTimeMillis() - timestamp > (cacheMinutes * 60 * 1000L);
+    }
+  }
+
+  private Long getCachedShopId(String cacheKey) {
+    CachedShopId cached = shopIdCache.get(cacheKey);
+    if (cached != null && !cached.isExpired(5)) { // 5 minute cache
+      return cached.shopId;
+    }
+    if (cached != null && cached.isExpired(5)) {
+      shopIdCache.remove(cacheKey);
+    }
+    return null;
+  }
+
+  private void cacheShopId(String cacheKey, Long shopId) {
+    shopIdCache.put(cacheKey, new CachedShopId(shopId));
   }
 
   /** Helper method to extract title from URL */
