@@ -34,6 +34,11 @@ public class DashboardCacheService {
   private static final String INSIGHTS_CACHE_PREFIX = "dashboard:insights:";
   private static final String ANALYTICS_CACHE_PREFIX = "dashboard:analytics:";
   private static final String ABANDONED_CARTS_CACHE_PREFIX = "dashboard:abandoned_carts:";
+  private static final String NEW_PRODUCTS_CACHE_PREFIX = "dashboard:new_products:";
+
+  // Session tracking prefixes
+  private static final String SESSION_TRACKING_PREFIX = "dashboard:sessions:";
+  private static final String SESSION_COUNT_PREFIX = "dashboard:session_count:";
 
   // Cache TTL configuration (same as frontend session storage)
   private static final Duration DEFAULT_TTL = Duration.ofMinutes(120); // 2 hours
@@ -205,6 +210,16 @@ public class DashboardCacheService {
     return getCachedData(ABANDONED_CARTS_CACHE_PREFIX + shopDomain, Object.class);
   }
 
+  /** Cache new products data for a specific shop */
+  public void cacheNewProductsData(String shopDomain, Object data) {
+    cacheData(NEW_PRODUCTS_CACHE_PREFIX + shopDomain, data, shopDomain, DEFAULT_TTL);
+  }
+
+  /** Get cached new products data for a shop */
+  public Optional<Object> getCachedNewProductsData(String shopDomain) {
+    return getCachedData(NEW_PRODUCTS_CACHE_PREFIX + shopDomain, Object.class);
+  }
+
   /** Generic method to cache data with TTL */
   private void cacheData(String key, Object data, String shopDomain, Duration ttl) {
     try {
@@ -352,7 +367,8 @@ public class DashboardCacheService {
         INVENTORY_CACHE_PREFIX,
         INSIGHTS_CACHE_PREFIX,
         ANALYTICS_CACHE_PREFIX,
-        ABANDONED_CARTS_CACHE_PREFIX
+        ABANDONED_CARTS_CACHE_PREFIX,
+        NEW_PRODUCTS_CACHE_PREFIX
       };
 
       for (String prefix : prefixes) {
@@ -420,5 +436,142 @@ public class DashboardCacheService {
     cacheMisses.set(0);
     cacheEvictions.set(0);
     logger.info("Cache statistics reset");
+  }
+
+  // =====================================
+  // SESSION-AWARE CACHE MANAGEMENT
+  // =====================================
+
+  /**
+   * Register a session for a shop (called when session starts using cache)
+   *
+   * @param shopDomain The shop domain
+   * @param sessionId The session ID
+   */
+  public void registerSession(String shopDomain, String sessionId) {
+    try {
+      String sessionKey = SESSION_TRACKING_PREFIX + shopDomain + ":" + sessionId;
+      String countKey = SESSION_COUNT_PREFIX + shopDomain;
+
+      // Register this session
+      redisTemplate.opsForValue().set(sessionKey, "active", Duration.ofHours(24));
+
+      // Increment session count for this shop
+      redisTemplate.opsForValue().increment(countKey);
+      redisTemplate.expire(countKey, Duration.ofHours(24));
+
+      logger.debug(
+          "Registered session {} for shop: {} (total sessions: {})",
+          sessionId,
+          shopDomain,
+          getSessionCount(shopDomain));
+    } catch (Exception e) {
+      logger.warn(
+          "Failed to register session {} for shop {}: {}", sessionId, shopDomain, e.getMessage());
+    }
+  }
+
+  /**
+   * Unregister a session for a shop (called when session logs out)
+   *
+   * @param shopDomain The shop domain
+   * @param sessionId The session ID
+   * @return true if this was the last session (cache should be cleared)
+   */
+  public boolean unregisterSession(String shopDomain, String sessionId) {
+    try {
+      String sessionKey = SESSION_TRACKING_PREFIX + shopDomain + ":" + sessionId;
+      String countKey = SESSION_COUNT_PREFIX + shopDomain;
+
+      // Remove this session
+      redisTemplate.delete(sessionKey);
+
+      // Decrement session count
+      Long remainingSessions = redisTemplate.opsForValue().decrement(countKey);
+
+      // If count becomes null or 0, this was the last session
+      boolean isLastSession = remainingSessions == null || remainingSessions <= 0;
+
+      if (isLastSession) {
+        logger.info(
+            "Last session {} logged out for shop: {} - clearing cache", sessionId, shopDomain);
+        // Clear all cache for this shop since no sessions remain
+        invalidateShopCache(shopDomain);
+        // Clean up session tracking keys
+        redisTemplate.delete(countKey);
+      } else {
+        logger.debug(
+            "Session {} logged out for shop: {} (remaining sessions: {})",
+            sessionId,
+            shopDomain,
+            remainingSessions);
+      }
+
+      return isLastSession;
+    } catch (Exception e) {
+      logger.warn(
+          "Failed to unregister session {} for shop {}: {}", sessionId, shopDomain, e.getMessage());
+      return false;
+    }
+  }
+
+  /**
+   * Get the number of active sessions for a shop
+   *
+   * @param shopDomain The shop domain
+   * @return Number of active sessions
+   */
+  public long getSessionCount(String shopDomain) {
+    try {
+      String countKey = SESSION_COUNT_PREFIX + shopDomain;
+      String count = redisTemplate.opsForValue().get(countKey);
+      return count != null ? Long.parseLong(count) : 0;
+    } catch (Exception e) {
+      logger.warn("Failed to get session count for shop {}: {}", shopDomain, e.getMessage());
+      return 0;
+    }
+  }
+
+  /**
+   * Check if a session is registered for a shop
+   *
+   * @param shopDomain The shop domain
+   * @param sessionId The session ID
+   * @return true if session is registered
+   */
+  public boolean isSessionRegistered(String shopDomain, String sessionId) {
+    try {
+      String sessionKey = SESSION_TRACKING_PREFIX + shopDomain + ":" + sessionId;
+      return Boolean.TRUE.equals(redisTemplate.hasKey(sessionKey));
+    } catch (Exception e) {
+      logger.warn(
+          "Failed to check session registration for {}:{}: {}",
+          shopDomain,
+          sessionId,
+          e.getMessage());
+      return false;
+    }
+  }
+
+  /**
+   * Session-aware cache invalidation - only clears cache if this is the last session
+   *
+   * @param shopDomain The shop domain
+   * @param sessionId The session ID
+   * @return true if cache was cleared (was last session)
+   */
+  public boolean invalidateCacheForSession(String shopDomain, String sessionId) {
+    boolean isLastSession = unregisterSession(shopDomain, sessionId);
+
+    if (isLastSession) {
+      logger.info("Cache invalidated for shop: {} (last session: {})", shopDomain, sessionId);
+    } else {
+      logger.debug(
+          "Cache preserved for shop: {} (remaining sessions: {})",
+          shopDomain,
+          getSessionCount(shopDomain));
+    }
+
+    return isLastSession;
   }
 }

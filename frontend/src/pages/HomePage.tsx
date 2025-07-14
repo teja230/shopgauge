@@ -34,7 +34,7 @@ const HomePage = () => {
   const [errorMessage, setErrorMessage] = useState('');
   const [errorCode, setErrorCode] = useState('');
   const [showConnectForm, setShowConnectForm] = useState(false);
-  const { isAuthenticated, authLoading, logout, setShop, hasInitiallyLoaded } = useAuth();
+  const { isAuthenticated, shop, authLoading, logout, setShop, hasInitiallyLoaded } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const notifications = useNotifications();
@@ -130,8 +130,18 @@ const HomePage = () => {
 
     setIsLoading(true);
     try {
-      // Clear any existing dashboard cache before switching stores
-      clearAllDashboardCache();
+      // Smart cache preservation: Preserve session storage for optimal cache strategy
+      const currentShop = shop; // From AuthContext
+      if (currentShop && currentShop !== cleanDomain) {
+        console.log(`🔄 Switching from ${currentShop} to ${cleanDomain} - clearing session storage for new shop`);
+        clearAllDashboardCache(); // Clear sessionStorage for different shop
+      } else if (currentShop === cleanDomain) {
+        console.log(`✅ Same shop (${cleanDomain}) - preserving session storage for optimal cache strategy`);
+        // Don't clear session storage for same shop login - let the optimal strategy handle it
+      } else {
+        console.log(`🆕 New shop login (${cleanDomain}) - preserving session storage for optimal cache strategy`);
+        // Don't clear session storage for new shop login - let the optimal strategy handle it
+      }
 
       // Build return URL for post-OAuth loading
       const baseUrl = `${window.location.origin}/dashboard`;
