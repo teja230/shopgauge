@@ -213,7 +213,7 @@ const AppContent: React.FC = () => {
     };
 
     const handleSessionInvalidated = (event: CustomEvent) => {
-      console.log('Session invalidated event received:', event.detail);
+      console.log('App: Session invalidated event received:', event.detail);
       addNotification(event.detail.message, 'error', {
         persistent: true,
         category: 'Authentication',

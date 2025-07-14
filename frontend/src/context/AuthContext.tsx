@@ -107,7 +107,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let unsubscribe: (() => void) | null = null;
     if (isAuthenticated && shop) {
+      console.log('AuthContext: Setting up SSE for shop:', shop);
       unsubscribe = subscribeToSessionEvents(shop, (data, event) => {
+        console.log('AuthContext: Received SSE event:', data, event);
         if (data && data.event === 'session_invalidated') {
           console.warn('AuthContext: Received session_invalidated SSE event, forcing logout');
           clearAllSessionCookies();
@@ -124,13 +126,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               action: 'logout'
             }
           });
+          console.log('AuthContext: Dispatching sessionInvalidated event');
           window.dispatchEvent(evt);
         }
       });
     }
     return () => {
-      if (unsubscribe) unsubscribe();
-      unsubscribeFromSessionEvents();
+      if (unsubscribe) {
+        console.log('AuthContext: Cleaning up SSE subscription');
+        unsubscribe();
+        unsubscribeFromSessionEvents();
+      }
     };
   }, [isAuthenticated, shop]);
 

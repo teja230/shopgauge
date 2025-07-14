@@ -800,8 +800,8 @@ const AdminPage: React.FC = () => {
       console.error('Logout error:', error);
       
       // Even if API call fails, force logout and cleanup
-      setIsAuthenticated(false);
-      setIsPasswordDialogOpen(true);
+        setIsAuthenticated(false);
+        setIsPasswordDialogOpen(true);
       setSessionInfo(null);
       setPassword('');
       setAuthError('');

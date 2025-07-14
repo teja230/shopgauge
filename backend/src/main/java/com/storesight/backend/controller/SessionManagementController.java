@@ -1353,9 +1353,14 @@ public class SessionManagementController {
    */
   @GetMapping("/events/{shopDomain}")
   public SseEmitter subscribeToSessionEvents(@PathVariable String shopDomain) {
+    logger.info("SSE connection request for shop: {}", shopDomain);
     SseEmitter emitter = new SseEmitter(0L); // No timeout
 
     sseEmitters.computeIfAbsent(shopDomain, k -> new CopyOnWriteArrayList<>()).add(emitter);
+    logger.info(
+        "SSE emitter added for shop: {} (total emitters: {})",
+        shopDomain,
+        sseEmitters.get(shopDomain).size());
 
     emitter.onCompletion(
         () -> {
@@ -1383,6 +1388,7 @@ public class SessionManagementController {
               .data("Subscribed to session events for shop: " + shopDomain)
               .id(String.valueOf(System.currentTimeMillis()))
               .reconnectTime(3000));
+      logger.info("SSE connection established for shop: {}", shopDomain);
     } catch (Exception e) {
       logger.warn("Failed to send initial SSE event for shop {}: {}", shopDomain, e.getMessage());
       removeEmitter(shopDomain, emitter);
@@ -1446,7 +1452,10 @@ public class SessionManagementController {
         }
       }
     } else {
-      logger.debug("No SSE clients connected for shop: {}", shopDomain);
+      logger.info(
+          "No SSE clients connected for shop: {} (emitters: {})",
+          shopDomain,
+          emitters != null ? emitters.size() : "null");
     }
   }
 }
