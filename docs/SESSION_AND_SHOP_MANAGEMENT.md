@@ -414,4 +414,49 @@ When an admin invalidates shop sessions from the "Shops with Active Sessions" pa
 
 ---
 
+## Real-Time Session Invalidation with SSE
+
+**Overview:**  
+ShopGauge now supports instant, real-time logout of all shop users when an admin invalidates sessions, using Server-Sent Events (SSE).
+
+**How it works:**
+- The backend exposes an SSE endpoint:  
+  `GET /api/sessions/events/{shopDomain}`
+- The frontend connects to this endpoint when a shop user is authenticated.
+- When an admin invalidates all sessions for a shop, the backend broadcasts a `session_invalidated` event to all connected clients for that shop.
+- On receiving this event, the frontend:
+  - Clears all session cookies (`shop`, `SESSION`, `JSESSIONID`) for all domains/paths.
+  - Clears all local/session storage.
+  - Resets authentication state and redirects the user to the login page.
+  - Shows a notification: “Your session has been invalidated by an administrator. Please log in again.”
+
+**Benefits:**
+- No more polling or periodic session checks.
+- Instant, reliable logout for all affected users.
+- Robust against browser/network interruptions (auto-reconnects).
+
+**Technical Details:**
+- See `SessionManagementController.java` for backend SSE logic.
+- See `sessionUtils.ts` and `AuthContext.tsx` for frontend SSE client and handling.
+
+---
+
+## Further Improvements (Optional/Future)
+
+- **Security:**
+  - Consider encrypting or authenticating SSE connections if sensitive data is ever sent.
+  - Optionally, add a JWT or session token check on the SSE endpoint.
+
+- **Scalability:**
+  - If you scale to multiple backend instances, use Redis Pub/Sub or a similar mechanism to broadcast events across all nodes.
+
+- **User Experience:**
+  - Add a more user-friendly modal or banner on forced logout.
+  - Optionally, allow the user to “reconnect” or “refresh” their session if possible.
+
+- **Monitoring:**
+  - Add metrics/logging for SSE connections and events for observability.
+
+---
+
 The Session & Shop Management system provides enterprise-grade multi-session support with intelligent performance optimizations, comprehensive monitoring, and robust shop lifecycle management. 

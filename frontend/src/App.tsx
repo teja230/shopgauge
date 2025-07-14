@@ -256,9 +256,6 @@ const AppContent: React.FC = () => {
         sessionManager.startHeartbeat();
       }
 
-      // Start session validation to detect admin-invalidated sessions
-      sessionManager.startSessionValidation();
-
       // Check session limit - with delay to prevent race conditions
       setTimeout(() => {
         checkSessionLimit().then(() => {
@@ -277,7 +274,6 @@ const AppContent: React.FC = () => {
     } else if (!isAuthenticated && sessionManager.isHeartbeatActive()) {
       debugLog.info('🛑 User not authenticated - stopping session heartbeat', {}, 'SessionManager');
       sessionManager.stopHeartbeat();
-      sessionManager.stopSessionValidation();
       sessionManager.clearSessionInfo();
       setSessionInitialized(false);
     }

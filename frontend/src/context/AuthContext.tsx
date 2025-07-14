@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, type ReactNode }
 import axios from 'axios';
 import { setApiAuthState, setGlobalServiceErrorHandler, API_BASE_URL } from '../api';
 import { invalidateCache } from '../utils/cacheUtils';
+import { clearAllSessionCookies, subscribeToSessionEvents, unsubscribeFromSessionEvents } from '../utils/sessionUtils';
 
 // Types
 interface Shop {
@@ -104,47 +105,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
-    // Only run initial auth check on mount
-    if (!hasInitiallyLoaded) {
-      checkAuth();
-    }
-  }, [hasInitiallyLoaded]);
-
-  // Periodic check for shop cookie to detect admin-invalidated sessions
-  useEffect(() => {
+    let unsubscribe: (() => void) | null = null;
     if (isAuthenticated && shop) {
-      const cookieCheckInterval = setInterval(() => {
-        // Check if shop cookie still exists
-        const cookies = document.cookie.split(';');
-        const shopCookie = cookies.find(cookie => 
-          cookie.trim().startsWith('shop=')
-        );
-        
-        if (!shopCookie) {
-          console.warn('AuthContext: Shop cookie missing, forcing logout');
-          // Force logout when cookie is cleared
+      unsubscribe = subscribeToSessionEvents(shop, (data, event) => {
+        if (data && data.event === 'session_invalidated') {
+          console.warn('AuthContext: Received session_invalidated SSE event, forcing logout');
+          clearAllSessionCookies();
           setIsAuthenticated(false);
           setShop(null);
           setApiAuthState(false, null);
           setIsAuthReady(true);
-          
           // Clear all cache
           clearAllDashboardCache();
-          
           // Show notification using a custom event
-          const event = new CustomEvent('sessionInvalidated', {
+          const evt = new CustomEvent('sessionInvalidated', {
             detail: {
               message: 'Your session has been invalidated by an administrator. Please log in again.',
               action: 'logout'
             }
           });
-          window.dispatchEvent(event);
+          window.dispatchEvent(evt);
         }
-      }, 10000); // Check every 10 seconds
-      
-      return () => clearInterval(cookieCheckInterval);
+      });
     }
+    return () => {
+      if (unsubscribe) unsubscribe();
+      unsubscribeFromSessionEvents();
+    };
   }, [isAuthenticated, shop]);
+
+  useEffect(() => {
+    // Only run initial auth check on mount
+    if (!hasInitiallyLoaded) {
+      checkAuth();
+    }
+  }, [hasInitiallyLoaded]);
 
   const checkAuth = async () => {
     console.log('AuthContext: Starting authentication check');
@@ -231,15 +226,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await axios.post(`${API_BASE_URL}/api/auth/shopify/profile/disconnect`, {}, {
         withCredentials: true
       });
-      
       console.log('AuthContext: Logout API call successful');
     } catch (error) {
       console.error('AuthContext: Logout API failed:', error);
     } finally {
+      clearAllSessionCookies();
       // Clear dashboard cache for the specific shop on logout
       if (shopToClear) {
         invalidateCache(shopToClear);
-        
         // Clear unified analytics storage on logout
         try {
           const unifiedAnalyticsKeys = [
@@ -250,23 +244,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             `unified_analytics_${shopToClear}_90d_with_predictions`,
             `unified_analytics_${shopToClear}_90d_no_predictions`,
           ];
-          
           unifiedAnalyticsKeys.forEach(key => {
             sessionStorage.removeItem(key);
           });
-          
           console.log('AuthContext: Cleared unified analytics storage on logout');
         } catch (error) {
           console.warn('AuthContext: Error clearing unified analytics storage:', error);
         }
       }
-      
       // Clear auth state
       setIsAuthenticated(false);
       setShop(null);
       setApiAuthState(false, null);
       setIsAuthReady(true);
-      
       console.log('AuthContext: Logout completed');
     }
   };

@@ -47,7 +47,6 @@ class SessionManager {
   private isInitialized = false;
   private extensionPromptShown = false;
   private extensionGraceTimer: NodeJS.Timeout | null = null;
-  private sessionValidationInterval: NodeJS.Timeout | null = null;
   private apiBaseUrl: string = '';
 
   constructor(config: SessionConfig = {
@@ -354,72 +353,6 @@ class SessionManager {
     window.dispatchEvent(event);
   }
 
-  /**
-   * Check if the current session is still valid by making a lightweight API call
-   * This is used to detect when sessions are invalidated by admin
-   */
-  public async checkSessionValidity(): Promise<boolean> {
-    try {
-      const response = await fetch(`${this.apiBaseUrl}/api/auth/shopify/me`, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        cache: 'no-cache',
-      });
-
-      if (response.status === 401) {
-        console.warn('Session validation failed - user logged out');
-        this.handleSessionInvalidation();
-        return false;
-      }
-
-      if (response.ok) {
-        const data = await response.json();
-        return data.authenticated === true;
-      }
-
-      return false;
-    } catch (error) {
-      console.error('Session validation error:', error);
-      // Don't invalidate session on network errors
-      return true;
-    }
-  }
-
-  /**
-   * Start periodic session validation to detect admin-invalidated sessions
-   */
-  public startSessionValidation(): void {
-    if (this.sessionValidationInterval) {
-      clearInterval(this.sessionValidationInterval);
-    }
-
-    // Check session validity every 30 seconds
-    this.sessionValidationInterval = setInterval(async () => {
-      const isValid = await this.checkSessionValidity();
-      if (!isValid) {
-        console.log('Session validation detected invalid session, clearing interval');
-        this.stopSessionValidation();
-      }
-    }, 30000); // 30 seconds
-
-    console.log('Started periodic session validation');
-  }
-
-  /**
-   * Stop periodic session validation
-   */
-  public stopSessionValidation(): void {
-    if (this.sessionValidationInterval) {
-      clearInterval(this.sessionValidationInterval);
-      this.sessionValidationInterval = null;
-      console.log('Stopped periodic session validation');
-    }
-  }
-
   private async handleSessionRefresh(): Promise<void> {
     console.log('🔄 Attempting session refresh');
     
@@ -618,3 +551,106 @@ export const initializeSessionManagement = (config?: Partial<SessionConfig>) => 
   }
   return sessionManager;
 }; 
+
+/**
+ * Clears all session-related cookies for all likely domain/path combinations.
+ * This should be called on logout or session invalidation.
+ */
+export function clearAllSessionCookies() {
+  const cookieNames = ['shop', 'SESSION', 'JSESSIONID'];
+  const domains = [
+    '', // current domain
+    window.location.hostname,
+    window.location.hostname.replace(/^www\./, ''),
+    '.shopgaugeai.com',
+    '.myshopify.com',
+  ];
+  const paths = ['/', ''];
+
+  const expires = 'Thu, 01 Jan 1970 00:00:01 GMT';
+
+  cookieNames.forEach((name) => {
+    domains.forEach((domain) => {
+      paths.forEach((path) => {
+        let cookie = `${name}=; Expires=${expires}; Path=${path || '/'};`;
+        if (domain) cookie += ` Domain=${domain};`;
+        cookie += ' Secure;';
+        document.cookie = cookie;
+      });
+    });
+  });
+  // Also try without domain for good measure
+  cookieNames.forEach((name) => {
+    document.cookie = `${name}=; Expires=${expires}; Path=/; Secure;`;
+  });
+  // Optionally, clear from localStorage/sessionStorage if used
+  localStorage.removeItem('session_info');
+  localStorage.removeItem('isAuthenticated');
+  sessionStorage.removeItem('session_info');
+  console.log('🔑 Cleared all session cookies and local/session storage');
+} 
+
+/**
+ * SSE client for real-time session events.
+ * Usage:
+ *   const unsubscribe = subscribeToSessionEvents(shopDomain, (event) => { ... });
+ *   // To unsubscribe: unsubscribe();
+ */
+let sessionEventSource: EventSource | null = null;
+let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+let reconnectDelay = 2000;
+
+export function subscribeToSessionEvents(
+  shopDomain: string,
+  onEvent: (data: any, event: MessageEvent | Event) => void
+): () => void {
+  if (sessionEventSource) {
+    sessionEventSource.close();
+    sessionEventSource = null;
+  }
+  const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+  const url = `${apiBaseUrl}/api/sessions/events/${encodeURIComponent(shopDomain)}`;
+  function connect() {
+    sessionEventSource = new window.EventSource(url, { withCredentials: true } as any);
+    sessionEventSource.onopen = () => {
+      reconnectDelay = 2000;
+      console.log('[SSE] Connected to session events for', shopDomain);
+    };
+    sessionEventSource.onmessage = (event: MessageEvent) => {
+      try {
+        const data = JSON.parse(event.data);
+        onEvent(data, event);
+      } catch (e) {
+        onEvent(event.data, event);
+      }
+    };
+    sessionEventSource.addEventListener('session_invalidated', (event: MessageEvent) => {
+      try {
+        const data = JSON.parse(event.data);
+        onEvent(data, event);
+      } catch (e) {
+        onEvent(event.data, event);
+      }
+    });
+    sessionEventSource.onerror = (err: Event) => {
+      console.warn('[SSE] Session events error:', err);
+      sessionEventSource?.close();
+      sessionEventSource = null;
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      reconnectTimeout = setTimeout(connect, reconnectDelay);
+      reconnectDelay = Math.min(reconnectDelay * 2, 60000); // Exponential backoff up to 60s
+    };
+  }
+  connect();
+  return () => {
+    if (sessionEventSource) sessionEventSource.close();
+    sessionEventSource = null;
+    if (reconnectTimeout) clearTimeout(reconnectTimeout);
+  };
+}
+
+export function unsubscribeFromSessionEvents() {
+  if (sessionEventSource) sessionEventSource.close();
+  sessionEventSource = null;
+  if (reconnectTimeout) clearTimeout(reconnectTimeout);
+} 
