@@ -1661,8 +1661,7 @@ const AdminPage: React.FC = () => {
                 <RefreshHeader
                   lastUpdated={auditLogsLastUpdated ? (() => {
                     const diff = Math.floor((Date.now() - auditLogsLastUpdated.getTime()) / 1000);
-                    if (diff < 5) return 'Just now';
-                    if (diff < 60) return `${diff}s ago`;
+                    if (diff < 60) return 'Just now';
                     if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
                     return auditLogsLastUpdated.toLocaleString();
                   })() : 'Never'}

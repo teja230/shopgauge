@@ -35,6 +35,7 @@ import {
   Healing as HealingIcon,
 } from '@mui/icons-material';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell } from 'recharts';
+import RefreshHeader from './RefreshHeader';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 const fetchAdminEndpoint = async (endpoint: string, options?: RequestInit) => {
@@ -362,21 +363,20 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
         <Typography variant="h4" fontWeight="bold">
           Connection Pool Dashboard
         </Typography>
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          {lastUpdated && (
-            <Typography variant="body2" color="text.secondary">
-              Last updated: {lastUpdated.toLocaleTimeString()}
-            </Typography>
-          )}
-          <Button
-            variant="outlined"
-            startIcon={<RefreshIcon />}
-            onClick={handleManualRefresh}
-            disabled={refreshCooldown > 0}
-          >
-            {refreshCooldown > 0 ? `${refreshCooldown}s` : 'Refresh'}
-          </Button>
-        </Box>
+        <RefreshHeader
+          lastUpdated={lastUpdated ? (() => {
+            const diff = Math.floor((Date.now() - lastUpdated.getTime()) / 1000);
+            if (diff < 60) return 'Just now';
+            if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+            return lastUpdated.toLocaleString();
+          })() : 'Never'}
+          onRefresh={fetchMetrics}
+          loading={loading}
+          cooldown={refreshCooldown > 0}
+          cooldownRemaining={refreshCooldown}
+          label="Refresh Metrics"
+          tooltip="Refresh connection pool metrics"
+        />
       </Box>
 
       {/* Emergency Actions */}
