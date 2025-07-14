@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -99,6 +99,7 @@ import { DebugPanel } from '../components/ui/DebugPanel';
 import { NotificationCenter } from '../components/ui/NotificationCenter';
 import MarketIntelligenceDashboard from '../components/ui/MarketIntelligenceDashboard';
 import AdminSessionManager from '../components/ui/AdminSessionManager';
+import RefreshHeader from '../components/ui/RefreshHeader';
 
 interface Secret {
   key: string;
@@ -439,7 +440,11 @@ const AdminPage: React.FC = () => {
   const [activeShopsCooldown, setActiveShopsCooldown] = useState(0);
   const [sessionStatsCooldown, setSessionStatsCooldown] = useState(0);
   const [refreshAllCooldown, setRefreshAllCooldown] = useState(0);
-  const refreshAllTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // Removed unused useRef - timeout management handled differently
+
+  // Add state for lastUpdated and cooldown for session stats and active shops
+  const [sessionStatsLastUpdated, setSessionStatsLastUpdated] = useState<Date | null>(null);
+  const [activeShopsLastUpdated, setActiveShopsLastUpdated] = useState<Date | null>(null);
 
   // Check authentication status on component mount
   useEffect(() => {
@@ -469,9 +474,11 @@ const AdminPage: React.FC = () => {
 
   // Auto-fetch data on tab switch
   useEffect(() => {
-    if (activeTab === 'active') fetchActiveShops();
     if (activeTab === 'audit-logs') fetchAuditLogs();
-    if (activeTab === 'sessions') fetchSessionStatistics();
+    if (activeTab === 'sessions-shops') {
+      fetchActiveShops();
+      fetchSessionStatistics();
+    }
   }, [activeTab]);
 
   // Cooldown timers
@@ -482,17 +489,17 @@ const AdminPage: React.FC = () => {
     }
   }, [auditCooldown]);
   useEffect(() => {
-    if (activeShopsCooldown > 0) {
-      const timer = setTimeout(() => setActiveShopsCooldown(activeShopsCooldown - 1), 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [activeShopsCooldown]);
-  useEffect(() => {
     if (sessionStatsCooldown > 0) {
       const timer = setTimeout(() => setSessionStatsCooldown(sessionStatsCooldown - 1), 1000);
       return () => clearTimeout(timer);
     }
   }, [sessionStatsCooldown]);
+  useEffect(() => {
+    if (activeShopsCooldown > 0) {
+      const timer = setTimeout(() => setActiveShopsCooldown(activeShopsCooldown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [activeShopsCooldown]);
   useEffect(() => {
     if (refreshAllCooldown > 0) {
       const timer = setTimeout(() => setRefreshAllCooldown(refreshAllCooldown - 1), 1000);
@@ -1346,6 +1353,32 @@ const AdminPage: React.FC = () => {
     );
   }
 
+  // Add state for lastUpdated for audit logs
+  const [auditLogsLastUpdated, setAuditLogsLastUpdated] = useState<Date | null>(null);
+
+  // Update lastUpdated on successful fetch
+  const fetchAuditLogsWithUpdate = async () => {
+    await fetchAuditLogs();
+    setAuditLogsLastUpdated(new Date());
+  };
+
+  // Handle sessions and shops refresh
+  const handleSessionsShopsRefresh = async () => {
+    if (activeShopsCooldown > 0 || sessionStatsCooldown > 0) return;
+    
+    try {
+      await Promise.all([
+        fetchActiveShops(),
+        fetchSessionStatistics()
+      ]);
+      
+      setActiveShopsLastUpdated(new Date());
+      setSessionStatsLastUpdated(new Date());
+    } catch (error) {
+      console.error('Error refreshing sessions and shops:', error);
+    }
+  };
+
   return (
     <>
       <Container maxWidth="xl" sx={{ mt: 4, mb: 4, px: { xs: 0.5, sm: 2, md: 4 } }}>
@@ -1412,8 +1445,7 @@ const AdminPage: React.FC = () => {
               { value: 'connection-pool', label: 'Connection Pool' },
               { value: 'transactions', label: 'Transactions' },
               { value: 'audit-logs', label: 'Audit Logs' },
-              { value: 'active', label: 'Active Shops' },
-              { value: 'sessions', label: 'Sessions' },
+              { value: 'sessions-shops', label: 'Sessions & Shops' },
               { value: 'market-intelligence', label: 'Market Intelligence' },
               { value: 'emergency', label: 'Emergency' },
             ].map((tab, idx) => (
@@ -1626,14 +1658,21 @@ const AdminPage: React.FC = () => {
                   onChange={(e) => setAuditSearchTerm(e.target.value)}
                   sx={{ minWidth: 200 }}
                 />
-                <Button
-                  variant="outlined"
-                  onClick={() => { fetchAuditLogs(); setAuditCooldown(120); }}
-                  disabled={auditLogsLoading || auditCooldown > 0}
-                  startIcon={auditLogsLoading ? <CircularProgress size={16} /> : <RefreshIcon />}
-                >
-                  {auditCooldown > 0 ? `Refresh (${auditCooldown}s)` : 'Refresh'}
-                </Button>
+                <RefreshHeader
+                  lastUpdated={auditLogsLastUpdated ? (() => {
+                    const diff = Math.floor((Date.now() - auditLogsLastUpdated.getTime()) / 1000);
+                    if (diff < 5) return 'Just now';
+                    if (diff < 60) return `${diff}s ago`;
+                    if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+                    return auditLogsLastUpdated.toLocaleString();
+                  })() : 'Never'}
+                  onRefresh={fetchAuditLogsWithUpdate}
+                  loading={auditLogsLoading}
+                  cooldown={auditCooldown > 0}
+                  cooldownRemaining={auditCooldown}
+                  label="Refresh Audit Logs"
+                  tooltip="Refresh audit logs"
+                />
               </Box>
 
               {auditLogsError && (
@@ -1690,202 +1729,239 @@ const AdminPage: React.FC = () => {
             </Box>
           )}
 
-          {/* Active Shops Tab */}
-          {activeTab === 'active' && (
+          {/* Consolidated Sessions & Shops Tab */}
+          {activeTab === 'sessions-shops' && (
             <Box>
-              <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center' }}>
-                <Button
-                  variant="outlined"
-                  onClick={() => { fetchActiveShops(); setActiveShopsCooldown(120); }}
-                  disabled={activeShopsLoading || activeShopsCooldown > 0}
-                  startIcon={activeShopsLoading ? <CircularProgress size={16} /> : <RefreshIcon />}
-                >
-                  {activeShopsCooldown > 0 ? `Refresh Active Shops (${activeShopsCooldown}s)` : 'Refresh Active Shops'}
-                </Button>
+              <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                <RefreshHeader
+                  lastUpdated={(() => {
+                    if (!activeShopsLastUpdated && !sessionStatsLastUpdated) return 'Never';
+                    const latest = [activeShopsLastUpdated, sessionStatsLastUpdated].filter(Boolean).sort((a, b) => (b as Date).getTime() - (a as Date).getTime())[0] as Date;
+                    const diff = Math.floor((Date.now() - latest.getTime()) / 1000);
+                    if (diff < 5) return 'Just now';
+                    if (diff < 60) return `${diff}s ago`;
+                    if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+                    return latest.toLocaleString();
+                  })()}
+                  onRefresh={handleSessionsShopsRefresh}
+                  loading={activeShopsCooldown > 0 && sessionStatsCooldown > 0 && (activeShopsCooldown === 30 || sessionStatsCooldown === 30)}
+                  cooldown={activeShopsCooldown > 0 || sessionStatsCooldown > 0}
+                  cooldownRemaining={Math.max(activeShopsCooldown, sessionStatsCooldown)}
+                  label="Refresh Sessions & Shops"
+                  tooltip="Refresh session statistics and active shops"
+                />
               </Box>
 
-              {activeShopsError && (
+              {(activeShopsError || sessionStatisticsError) && (
                 <Alert severity="error" sx={{ mb: 2 }}>
-                  {activeShopsError}
+                  {activeShopsError && sessionStatisticsError 
+                    ? `Active Shops: ${activeShopsError} | Sessions: ${sessionStatisticsError}`
+                    : activeShopsError || sessionStatisticsError
+                  }
                 </Alert>
               )}
 
-              <TableContainer component={Paper}>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Shop Domain</TableCell>
-                      <TableCell>Last Activity</TableCell>
-                      <TableCell>IP Address</TableCell>
-                      <TableCell>Device</TableCell>
-                      <TableCell>Status</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {activeShops.map((shop, index) => (
-                      <TableRow key={index}>
-                        <TableCell>{shop.shopDomain}</TableCell>
-                        <TableCell>{formatTimestamp(shop.lastActivity)}</TableCell>
-                        <TableCell>{shop.ipAddress || 'N/A'}</TableCell>
-                        <TableCell>
-                          <DeviceIcon userAgent={shop.userAgent || ''} />
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={shop.isActive ? 'Active' : 'Inactive'}
-                            color={shop.isActive ? 'success' : 'default'}
-                            size="small"
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            </Box>
-          )}
-
-          {/* Session Statistics Tab */}
-          {activeTab === 'sessions' && (
-            <Box>
-              <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center' }}>
-                <Button
-                  variant="outlined"
-                  onClick={() => { fetchSessionStatistics(); setSessionStatsCooldown(120); }}
-                  disabled={sessionStatisticsLoading || sessionStatsCooldown > 0}
-                  startIcon={sessionStatisticsLoading ? <CircularProgress size={16} /> : <RefreshIcon />}
-                >
-                  {sessionStatsCooldown > 0 ? `Refresh Session Stats (${sessionStatsCooldown}s)` : 'Refresh Session Stats'}
-                </Button>
-              </Box>
-
-              {sessionStatisticsError && (
-                <Alert severity="error" sx={{ mb: 2 }}>
-                  {sessionStatisticsError}
-                </Alert>
-              )}
-
+              {/* Session Statistics Overview */}
               {sessionStatistics && (
-                <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
-                  {/* Session Overview Cards */}
-                  <Box sx={{ flex: '1 1 300px' }}>
-                    <Card>
-                      <CardContent>
-                        <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <PeopleIcon />
-                          Session Overview
-                        </Typography>
-                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Typography variant="body2" color="text.secondary">
-                              Total Sessions
-                            </Typography>
-                            <Typography variant="h5" color="primary.main" fontWeight="bold">
-                              {sessionStatistics.totalActiveSessions || 0}
-                            </Typography>
+                <Box sx={{ mb: 4 }}>
+                  <Typography variant="h5" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+                    <PeopleIcon color="primary" />
+                    Session Statistics Overview
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+                    {/* Session Overview Cards */}
+                    <Box sx={{ flex: '1 1 300px' }}>
+                      <Card>
+                        <CardContent>
+                          <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <PeopleIcon />
+                            Session Overview
+                          </Typography>
+                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <Typography variant="body2" color="text.secondary">
+                                Total Sessions
+                              </Typography>
+                              <Typography variant="h5" color="primary.main" fontWeight="bold">
+                                {sessionStatistics.totalActiveSessions || 0}
+                              </Typography>
+                            </Box>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <Typography variant="body2" color="text.secondary">
+                                Currently Active
+                              </Typography>
+                              <Typography variant="h5" color="success.main" fontWeight="bold">
+                                {sessionStatistics.currentlyActiveSessions || 0}
+                              </Typography>
+                            </Box>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <Typography variant="body2" color="text.secondary">
+                                Unique Shops
+                              </Typography>
+                              <Typography variant="h5" color="info.main" fontWeight="bold">
+                                {sessionStatistics.uniqueShops || 0}
+                              </Typography>
+                            </Box>
                           </Box>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Typography variant="body2" color="text.secondary">
-                              Currently Active
-                            </Typography>
-                            <Typography variant="h5" color="success.main" fontWeight="bold">
-                              {sessionStatistics.currentlyActiveSessions || 0}
-                            </Typography>
-                          </Box>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Typography variant="body2" color="text.secondary">
-                              Unique Shops
-                            </Typography>
-                            <Typography variant="h5" color="info.main" fontWeight="bold">
-                              {sessionStatistics.uniqueShops || 0}
-                            </Typography>
-                          </Box>
-                        </Box>
-                      </CardContent>
-                    </Card>
-                  </Box>
+                        </CardContent>
+                      </Card>
+                    </Box>
 
-                  {/* Session Activity Cards */}
-                  <Box sx={{ flex: '1 1 300px' }}>
-                    <Card>
-                      <CardContent>
-                        <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <TimelineIcon />
-                          Activity Metrics
-                        </Typography>
-                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Typography variant="body2" color="text.secondary">
-                              Last 24 Hours
-                            </Typography>
-                            <Typography variant="h5" color="warning.main" fontWeight="bold">
-                              {sessionStatistics.sessionsActiveLastDay || 0}
-                            </Typography>
+                    {/* Session Activity Cards */}
+                    <Box sx={{ flex: '1 1 300px' }}>
+                      <Card>
+                        <CardContent>
+                          <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <TimelineIcon />
+                            Activity Metrics
+                          </Typography>
+                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <Typography variant="body2" color="text.secondary">
+                                Last 24 Hours
+                              </Typography>
+                              <Typography variant="h5" color="warning.main" fontWeight="bold">
+                                {sessionStatistics.sessionsActiveLastDay || 0}
+                              </Typography>
+                            </Box>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <Typography variant="body2" color="text.secondary">
+                                Last Week
+                              </Typography>
+                              <Typography variant="h5" color="secondary.main" fontWeight="bold">
+                                {sessionStatistics.sessionsActiveLastWeek || 0}
+                              </Typography>
+                            </Box>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <Typography variant="body2" color="text.secondary">
+                                Avg Sessions/Shop
+                              </Typography>
+                              <Typography variant="h5" color="text.primary" fontWeight="bold">
+                                {sessionStatistics.averageSessionsPerShop || 0}
+                              </Typography>
+                            </Box>
                           </Box>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Typography variant="body2" color="text.secondary">
-                              Last Week
-                            </Typography>
-                            <Typography variant="h5" color="secondary.main" fontWeight="bold">
-                              {sessionStatistics.sessionsActiveLastWeek || 0}
-                            </Typography>
-                          </Box>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Typography variant="body2" color="text.secondary">
-                              Avg Sessions/Shop
-                            </Typography>
-                            <Typography variant="h5" color="text.primary" fontWeight="bold">
-                              {sessionStatistics.averageSessionsPerShop || 0}
-                            </Typography>
-                          </Box>
-                        </Box>
-                      </CardContent>
-                    </Card>
-                  </Box>
+                        </CardContent>
+                      </Card>
+                    </Box>
 
-                  {/* Multi-Session Shops */}
-                  <Box sx={{ flex: '1 1 300px' }}>
-                    <Card>
-                      <CardContent>
-                        <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <GroupIcon />
-                          Multi-Session Shops
-                        </Typography>
-                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Typography variant="body2" color="text.secondary">
-                              Shops with Multiple Sessions
-                            </Typography>
-                            <Typography variant="h5" color="error.main" fontWeight="bold">
-                              {sessionStatistics.shopsWithMultipleSessions || 0}
-                            </Typography>
+                    {/* Multi-Session Shops */}
+                    <Box sx={{ flex: '1 1 300px' }}>
+                      <Card>
+                        <CardContent>
+                          <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <GroupIcon />
+                            Multi-Session Shops
+                          </Typography>
+                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <Typography variant="body2" color="text.secondary">
+                                Shops with Multiple Sessions
+                              </Typography>
+                              <Typography variant="h5" color="error.main" fontWeight="bold">
+                                {sessionStatistics.shopsWithMultipleSessions || 0}
+                              </Typography>
+                            </Box>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <Typography variant="body2" color="text.secondary">
+                                Percentage
+                              </Typography>
+                              <Typography variant="h5" color="text.primary" fontWeight="bold">
+                                {sessionStatistics.totalUniqueShops > 0 
+                                  ? Math.round((sessionStatistics.shopsWithMultipleSessions / sessionStatistics.totalUniqueShops) * 100)
+                                  : 0}%
+                              </Typography>
+                            </Box>
                           </Box>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Typography variant="body2" color="text.secondary">
-                              Percentage
-                            </Typography>
-                            <Typography variant="h5" color="text.primary" fontWeight="bold">
-                              {sessionStatistics.totalUniqueShops > 0 
-                                ? Math.round((sessionStatistics.shopsWithMultipleSessions / sessionStatistics.totalUniqueShops) * 100)
-                                : 0}%
-                            </Typography>
-                          </Box>
-                        </Box>
-                      </CardContent>
-                    </Card>
+                        </CardContent>
+                      </Card>
+                    </Box>
                   </Box>
                 </Box>
               )}
 
+              {/* Active Shops Table */}
+              <Box sx={{ mb: 4 }}>
+                <Typography variant="h5" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+                  <StoreIcon color="primary" />
+                  Active Shops ({activeShops.length})
+                </Typography>
+                
+                {activeShops.length > 0 ? (
+                  <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
+                    <Table>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell><strong>Shop Domain</strong></TableCell>
+                          <TableCell align="center"><strong>Last Activity</strong></TableCell>
+                          <TableCell align="center"><strong>IP Address</strong></TableCell>
+                          <TableCell align="center"><strong>Device</strong></TableCell>
+                          <TableCell align="center"><strong>Session Count</strong></TableCell>
+                          <TableCell align="center"><strong>Status</strong></TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {activeShops.map((shop, index) => (
+                          <TableRow key={index} hover>
+                            <TableCell>
+                              <Typography variant="body2" fontWeight="bold">
+                                {shop.shopDomain}
+                              </Typography>
+                            </TableCell>
+                            <TableCell align="center">
+                              <Typography variant="body2" color="text.secondary">
+                                {formatTimestamp(shop.lastActivity)}
+                              </Typography>
+                            </TableCell>
+                            <TableCell align="center">
+                              <Typography variant="body2" fontFamily="monospace">
+                                {shop.ipAddress || 'N/A'}
+                              </Typography>
+                            </TableCell>
+                            <TableCell align="center">
+                              <Tooltip title={shop.userAgent || 'Unknown device'}>
+                                <IconButton size="small">
+                                  <DeviceIcon userAgent={shop.userAgent || ''} />
+                                </IconButton>
+                              </Tooltip>
+                            </TableCell>
+                            <TableCell align="center">
+                              <Chip
+                                label={shop.activeSessionCount || 1}
+                                color="primary"
+                                size="small"
+                              />
+                            </TableCell>
+                            <TableCell align="center">
+                              <Chip
+                                label={shop.isActive ? 'Active' : 'Inactive'}
+                                color={shop.isActive ? 'success' : 'default'}
+                                size="small"
+                              />
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                ) : (
+                  <Box sx={{ textAlign: 'center', py: 4 }}>
+                    <Typography variant="body1" color="text.secondary">
+                      No active shops found
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+
               {/* Session Duration Analysis */}
               {sessionStatistics && (
-                <Box sx={{ mt: 3 }}>
+                <Box sx={{ mb: 4 }}>
+                  <Typography variant="h5" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+                    <AccessTimeIcon color="primary" />
+                    Session Duration Analysis
+                  </Typography>
                   <Card>
                     <CardContent>
-                      <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <AccessTimeIcon />
-                        Session Duration Analysis
-                      </Typography>
                       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                         Average Session Duration: {sessionStatistics.avgSessionDuration 
                           ? (() => {
@@ -1906,9 +1982,9 @@ const AdminPage: React.FC = () => {
                       {/* Session Duration Distribution */}
                       <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                         <Box sx={{ flex: '1 1 200px', p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
-                                                     <Typography variant="body2" color="text.secondary">
-                             Short Sessions (&lt; 5 min)
-                           </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Short Sessions (&lt; 5 min)
+                          </Typography>
                           <Typography variant="h6" color="warning.main">
                             {Math.round((sessionStatistics.totalActiveSessions || 0) * 0.3)}
                           </Typography>
@@ -1922,9 +1998,9 @@ const AdminPage: React.FC = () => {
                           </Typography>
                         </Box>
                         <Box sx={{ flex: '1 1 200px', p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
-                                                     <Typography variant="body2" color="text.secondary">
-                             Long Sessions (&gt; 30 min)
-                           </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Long Sessions (&gt; 30 min)
+                          </Typography>
                           <Typography variant="h6" color="success.main">
                             {Math.round((sessionStatistics.totalActiveSessions || 0) * 0.2)}
                           </Typography>
@@ -1935,8 +2011,12 @@ const AdminPage: React.FC = () => {
                 </Box>
               )}
 
-              {/* Admin Session Manager */}
-              <Box sx={{ mt: 3 }}>
+              {/* Advanced Session Management */}
+              <Box sx={{ mb: 4 }}>
+                <Typography variant="h5" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+                  <SettingsIcon color="primary" />
+                  Advanced Session Management
+                </Typography>
                 <AdminSessionManager />
               </Box>
             </Box>

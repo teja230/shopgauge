@@ -66,6 +66,7 @@ import {
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell, BarChart, Bar } from 'recharts';
 import marketIntelligenceAdminAPI from '../../api/marketIntelligenceAdmin';
 import type { MarketIntelligenceDashboard as MIDashboard, CostAnalytics, ProviderStats, HistoricalCostData } from '../../api/marketIntelligenceAdmin';
+import RefreshHeader from './RefreshHeader';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 const fetchAdminEndpoint = async (endpoint: string, options?: RequestInit) => {
@@ -387,19 +388,21 @@ const MarketIntelligenceDashboard: React.FC<MarketIntelligenceDashboardProps> = 
           Market Intelligence Dashboard
         </Typography>
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          {lastUpdated && (
-            <Typography variant="body2" color="text.secondary">
-              Last updated: {lastUpdated.toLocaleTimeString()}
-            </Typography>
-          )}
-          <Button
-            variant="outlined"
-            startIcon={<RefreshIcon />}
-            onClick={handleManualRefresh}
-            disabled={refreshCooldown > 0}
-          >
-            {refreshCooldown > 0 ? `${refreshCooldown}s` : 'Refresh'}
-          </Button>
+          <RefreshHeader
+            lastUpdated={lastUpdated ? (() => {
+              const diff = Math.floor((Date.now() - lastUpdated.getTime()) / 1000);
+              if (diff < 5) return 'Just now';
+              if (diff < 60) return `${diff}s ago`;
+              if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+              return lastUpdated.toLocaleString();
+            })() : 'Never'}
+            onRefresh={handleManualRefresh}
+            loading={loading}
+            cooldown={refreshCooldown > 0}
+            cooldownRemaining={refreshCooldown}
+            label="Refresh Market Intelligence"
+            tooltip="Refresh market intelligence metrics"
+          />
         </Box>
       </Box>
 

@@ -102,19 +102,38 @@ public class DataPrivacyService {
   public void logDataAccess(String action, String details, String shopDomain) {
     try {
       final Long shopId;
-      if (shopDomain != null) {
+      final String resolvedShopDomain;
+      
+      if (shopDomain != null && !shopDomain.trim().isEmpty()) {
         logger.debug("Looking up shop for domain: {}", shopDomain);
         Optional<Shop> shopOptional = shopRepository.findByShopifyDomain(shopDomain);
         if (shopOptional.isPresent()) {
           shopId = shopOptional.get().getId();
+          resolvedShopDomain = shopDomain;
           logger.debug("Found shop with ID: {} for domain: {}", shopId, shopDomain);
         } else {
-          shopId = null;
-          logger.warn("No shop found for domain: {}", shopDomain);
+          // Use system shop for unknown domains instead of null
+          Optional<Shop> systemShop = shopRepository.findByShopifyDomain("system");
+          if (systemShop.isPresent()) {
+            shopId = systemShop.get().getId();
+            resolvedShopDomain = "system";
+            logger.warn("No shop found for domain: {}, using system shop", shopDomain);
+          } else {
+            logger.error("System shop not found, cannot create audit log for domain: {}", shopDomain);
+            return; // Don't create audit log if system shop doesn't exist
+          }
         }
       } else {
-        shopId = null;
-        logger.debug("No shop domain provided for audit log");
+        // Use system shop for admin/system actions
+        Optional<Shop> systemShop = shopRepository.findByShopifyDomain("system");
+        if (systemShop.isPresent()) {
+          shopId = systemShop.get().getId();
+          resolvedShopDomain = "system";
+          logger.debug("Using system shop for admin/system action");
+        } else {
+          logger.error("System shop not found, cannot create audit log for admin action");
+          return; // Don't create audit log if system shop doesn't exist
+        }
       }
 
       // Get request context for additional audit information
@@ -138,11 +157,12 @@ public class DataPrivacyService {
 
       // Also log to application logs for immediate visibility
       logger.info(
-          "Data Privacy Audit: {} - {} - {} - Shop ID: {}",
+          "Data Privacy Audit: {} - {} - {} - Shop ID: {} - Domain: {}",
           auditLog.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
           action,
           details,
-          shopId);
+          shopId,
+          resolvedShopDomain);
 
     } catch (Exception e) {
       logger.error("Failed to save audit log: {}", e.getMessage(), e);
@@ -369,112 +389,79 @@ public class DataPrivacyService {
     cleanupOldAuditLogs();
   }
 
-  /** Enhanced method to get active shops using the new multi-session architecture */
+  /** Get system shop ID for admin actions */
+  private Optional<Long> getSystemShopId() {
+    return shopRepository.findByShopifyDomain("system").map(Shop::getId);
+  }
+
+  /** Get active shops with proper handling of system shop */
   public List<Map<String, Object>> getActiveShops() {
     try {
-      LocalDateTime twentyFourHoursAgo = LocalDateTime.now().minusDays(1);
+      // Get recent audit logs (last 24 hours) to identify active shops
+      LocalDateTime twentyFourHoursAgo = LocalDateTime.now().minusHours(24);
+      List<AuditLog> recentLogs = auditLogRepository.findByCreatedAtAfterOrderByCreatedAtDesc(twentyFourHoursAgo);
 
-      // Get recent audit logs that have shop activity
-      List<AuditLog> recentLogs =
-          auditLogRepository.findByCreatedAtAfterOrderByCreatedAtDesc(twentyFourHoursAgo);
+      // Group by shop ID and get unique shops
+      Map<Long, List<AuditLog>> logsByShop = recentLogs.stream()
+          .filter(log -> log.getShopId() != null)
+          .collect(Collectors.groupingBy(AuditLog::getShopId));
 
-      // Group by shop domain and get the most recent activity for each shop
-      Map<String, Map<String, Object>> activeShopsMap = new HashMap<>();
+      List<Map<String, Object>> activeShops = new ArrayList<>();
 
-      for (AuditLog log : recentLogs) {
-        String shopDomain = getShopDomainFromLog(log);
-        if (shopDomain != null && !activeShopsMap.containsKey(shopDomain)) {
-          Map<String, Object> shopInfo = new HashMap<>();
-          shopInfo.put("shopDomain", shopDomain);
-          shopInfo.put("lastActivity", log.getCreatedAt().toString());
-          shopInfo.put("ipAddress", log.getIpAddress());
-          shopInfo.put("userAgent", log.getUserAgent());
-          shopInfo.put("sessionId", "audit_" + log.getId()); // Audit-based session reference
-          shopInfo.put("isActive", true);
-          shopInfo.put("source", "audit_logs");
+      for (Map.Entry<Long, List<AuditLog>> entry : logsByShop.entrySet()) {
+        Long shopId = entry.getKey();
+        List<AuditLog> shopLogs = entry.getValue();
 
-          activeShopsMap.put(shopDomain, shopInfo);
-        }
-      }
+        // Get shop information
+        Optional<Shop> shopOpt = shopRepository.findById(shopId);
+        if (shopOpt.isPresent()) {
+          Shop shop = shopOpt.get();
+          
+          // Skip system shop from regular shop listings
+          if ("system".equals(shop.getShopifyDomain())) {
+            continue;
+          }
 
-      // Enhanced: Add shops from the database with their actual active sessions
-      List<Shop> allShops = shopRepository.findAll();
-      for (Shop shop : allShops) {
-        String shopDomain = shop.getShopifyDomain();
-        if (shopDomain != null) {
-          // Get active sessions for this shop
-          List<ShopSession> activeSessions =
-              shopSessionRepository.findByShopAndIsActiveTrueOrderByLastAccessedAtDesc(shop);
+          // Get most recent log for this shop
+          AuditLog mostRecentLog = shopLogs.stream()
+              .max(Comparator.comparing(AuditLog::getCreatedAt))
+              .orElse(null);
 
-          if (!activeSessions.isEmpty()) {
-            // Use the most recent active session as the primary representation
-            ShopSession mostRecentSession = activeSessions.get(0);
+          if (mostRecentLog != null) {
+            Map<String, Object> shopInfo = new HashMap<>();
+            shopInfo.put("shopDomain", shop.getShopifyDomain());
+            shopInfo.put("lastActivity", mostRecentLog.getCreatedAt().toString());
+            shopInfo.put("ipAddress", mostRecentLog.getIpAddress());
+            shopInfo.put("userAgent", mostRecentLog.getUserAgent());
+            shopInfo.put("sessionId", "audit_" + mostRecentLog.getId());
+            shopInfo.put("isActive", true);
+            shopInfo.put("action", mostRecentLog.getAction());
+            shopInfo.put("details", mostRecentLog.getDetails());
+            shopInfo.put("category", "AUDIT_LOG");
 
-            if (!activeShopsMap.containsKey(shopDomain)) {
-              Map<String, Object> shopInfo = new HashMap<>();
-              shopInfo.put("shopDomain", shopDomain);
-              shopInfo.put("lastActivity", mostRecentSession.getLastAccessedAt().toString());
-              shopInfo.put("ipAddress", mostRecentSession.getIpAddress());
-              shopInfo.put("userAgent", mostRecentSession.getUserAgent());
-              shopInfo.put("sessionId", mostRecentSession.getSessionId());
-              shopInfo.put("isActive", true);
-              shopInfo.put("source", "database_sessions");
-              shopInfo.put("activeSessionCount", activeSessions.size());
-              shopInfo.put("sessionCreatedAt", mostRecentSession.getCreatedAt().toString());
-
-              activeShopsMap.put(shopDomain, shopInfo);
-            } else {
-              // Update existing entry with session information
-              Map<String, Object> existingInfo = activeShopsMap.get(shopDomain);
-              existingInfo.put("activeSessionCount", activeSessions.size());
-              existingInfo.put("databaseSessionId", mostRecentSession.getSessionId());
-              existingInfo.put("sessionCreatedAt", mostRecentSession.getCreatedAt().toString());
-              existingInfo.put("source", "audit_and_sessions");
-            }
-          } else {
-            // Fallback: Check if shop has active token in Redis (legacy support)
-            String token = redisTemplate.opsForValue().get("shop_token:" + shopDomain);
-            if (token != null && !activeShopsMap.containsKey(shopDomain)) {
-              Map<String, Object> shopInfo = new HashMap<>();
-              shopInfo.put("shopDomain", shopDomain);
-              shopInfo.put(
-                  "lastActivity",
-                  shop.getUpdatedAt() != null ? shop.getUpdatedAt().toString() : null);
-              shopInfo.put("ipAddress", "N/A");
-              shopInfo.put("userAgent", "N/A");
-              shopInfo.put("sessionId", "legacy_" + shop.getId());
-              shopInfo.put("isActive", true);
-              shopInfo.put("source", "redis_fallback");
-              shopInfo.put("activeSessionCount", 0);
-
-              activeShopsMap.put(shopDomain, shopInfo);
-            }
+            activeShops.add(shopInfo);
           }
         }
       }
 
-      List<Map<String, Object>> result = new ArrayList<>(activeShopsMap.values());
-
       // Sort by last activity (most recent first)
-      result.sort(
-          (a, b) -> {
-            String aTime = (String) a.get("lastActivity");
-            String bTime = (String) b.get("lastActivity");
-            if (aTime == null && bTime == null) return 0;
-            if (aTime == null) return 1;
-            if (bTime == null) return -1;
-            return bTime.compareTo(aTime);
-          });
+      activeShops.sort((a, b) -> {
+        String aTime = (String) a.get("lastActivity");
+        String bTime = (String) b.get("lastActivity");
+        if (aTime == null && bTime == null) return 0;
+        if (aTime == null) return 1;
+        if (bTime == null) return -1;
+        return bTime.compareTo(aTime);
+      });
 
-      logger.info("Found {} active shops using multi-session architecture", result.size());
-      logDataAccess(
-          "ACTIVE_SHOPS_RETRIEVED",
-          "Retrieved " + result.size() + " active shops with session information");
+      logger.info("Found {} active shops from audit logs", activeShops.size());
+      logDataAccess("ACTIVE_SHOPS_RETRIEVED", "Retrieved " + activeShops.size() + " active shops");
 
-      return result;
+      return activeShops;
+
     } catch (Exception e) {
       logger.error("Error retrieving active shops: {}", e.getMessage(), e);
-      return Collections.emptyList();
+      return new ArrayList<>();
     }
   }
 
@@ -647,7 +634,14 @@ public class DataPrivacyService {
       if (log.getShopId() != null) {
         Optional<Shop> shop = shopRepository.findById(log.getShopId());
         if (shop.isPresent()) {
-          return shop.get().getShopifyDomain();
+          String domain = shop.get().getShopifyDomain();
+          // Special handling for system shop
+          if ("system".equals(domain)) {
+            return "System (Admin Action)";
+          }
+          return domain;
+        } else {
+          logger.debug("Shop ID {} exists in audit log but shop not found in database (likely deleted)", log.getShopId());
         }
       }
 
@@ -656,37 +650,29 @@ public class DataPrivacyService {
       if (details != null) {
         // First try to find .myshopify.com domains
         if (details.contains(".myshopify.com")) {
-          java.util.regex.Pattern pattern =
-              java.util.regex.Pattern.compile("([a-zA-Z0-9-]+\\.myshopify\\.com)");
-          java.util.regex.Matcher matcher = pattern.matcher(details);
+          java.util.regex.Pattern myshopifyPattern = java.util.regex.Pattern.compile("([a-zA-Z0-9-]+\\.myshopify\\.com)");
+          java.util.regex.Matcher matcher = myshopifyPattern.matcher(details);
           if (matcher.find()) {
-            return matcher.group(1);
+            String domain = matcher.group(1);
+            logger.debug("Extracted myshopify domain '{}' from audit log details", domain);
+            return domain;
           }
         }
 
-        // Try to extract from common patterns in audit logs
-        String[] patterns = {
-          "shop:\\s*([a-zA-Z0-9-]+\\.myshopify\\.com)",
-          "domain:\\s*([a-zA-Z0-9-]+\\.myshopify\\.com)",
-          "for shop ([a-zA-Z0-9-]+\\.myshopify\\.com)",
-          "Shop ([a-zA-Z0-9-]+\\.myshopify\\.com)",
-          "from ([a-zA-Z0-9-]+\\.myshopify\\.com)",
-          "\"shop_domain\":\\s*\"([a-zA-Z0-9-]+\\.myshopify\\.com)\"",
-          "shop_domain=([a-zA-Z0-9-]+\\.myshopify\\.com)"
-        };
-
-        for (String patternStr : patterns) {
-          java.util.regex.Pattern pattern =
-              java.util.regex.Pattern.compile(patternStr, java.util.regex.Pattern.CASE_INSENSITIVE);
-          java.util.regex.Matcher matcher = pattern.matcher(details);
-          if (matcher.find()) {
-            return matcher.group(1);
+        // Try to find other shop domains
+        java.util.regex.Pattern shopPattern = java.util.regex.Pattern.compile("([a-zA-Z0-9-]+\\.[a-zA-Z]{2,})");
+        java.util.regex.Matcher shopMatcher = shopPattern.matcher(details);
+        if (shopMatcher.find()) {
+          String domain = shopMatcher.group(1);
+          // Only return if it looks like a shop domain
+          if (domain.contains("shop") || domain.contains("store") || details.toLowerCase().contains("shopify")) {
+            logger.debug("Extracted shop domain '{}' from audit log details", domain);
+            return domain;
           }
         }
 
-        // If no .myshopify.com found, try to extract any domain-like pattern
-        java.util.regex.Pattern generalPattern =
-            java.util.regex.Pattern.compile("([a-zA-Z0-9-]+\\.[a-zA-Z]{2,})");
+        // Try to find general domains
+        java.util.regex.Pattern generalPattern = java.util.regex.Pattern.compile("([a-zA-Z0-9-]+\\.[a-zA-Z]{2,})");
         java.util.regex.Matcher generalMatcher = generalPattern.matcher(details);
         if (generalMatcher.find()) {
           String domain = generalMatcher.group(1);
@@ -694,16 +680,61 @@ public class DataPrivacyService {
           if (domain.contains("shop")
               || domain.contains("store")
               || details.toLowerCase().contains("shopify")) {
+            logger.debug("Extracted general domain '{}' from audit log details", domain);
             return domain;
           }
         }
+        
+        logger.debug("No recognizable domain pattern found in audit log details: {}", details.substring(0, Math.min(100, details.length())));
+      } else {
+        logger.debug("Audit log has no details field for domain extraction");
       }
 
-      return "Unknown Domain";
+      // Provide more informative fallback based on context
+      if (log.getShopId() == null) {
+        logger.debug("Returning 'Unknown Domain (Deleted Shop)' for audit log {}", log.getId());
+        return "Unknown Domain (Deleted Shop)";
+      } else {
+        logger.debug("Returning 'Unknown Domain' for audit log {} with shop ID {}", log.getId(), log.getShopId());
+        return "Unknown Domain";
+      }
     } catch (Exception e) {
       logger.warn(
           "Error extracting shop domain from audit log {}: {}", log.getId(), e.getMessage());
-      return "Unknown Domain";
+      return "Unknown Domain (Error)";
+    }
+  }
+
+  /** Get system shop audit logs for admin monitoring */
+  public List<Map<String, Object>> getSystemShopAuditLogs(int page, int size) {
+    try {
+      Optional<Shop> systemShop = shopRepository.findByShopifyDomain("system");
+      if (systemShop.isPresent()) {
+        org.springframework.data.domain.Page<AuditLog> systemLogsPage = auditLogRepository.findByShopIdOrderByCreatedAtDesc(
+            systemShop.get().getId(), 
+            org.springframework.data.domain.PageRequest.of(page, size)
+        );
+
+        return systemLogsPage.getContent().stream()
+            .map(log -> {
+              Map<String, Object> logMap = new HashMap<>();
+              logMap.put("id", log.getId());
+              logMap.put("action", log.getAction());
+              logMap.put("details", log.getDetails());
+              logMap.put("userAgent", log.getUserAgent());
+              logMap.put("ipAddress", log.getIpAddress());
+              logMap.put("createdAt", log.getCreatedAt());
+              logMap.put("shopDomain", "System (Admin Action)");
+              return logMap;
+            })
+            .collect(Collectors.toList());
+      } else {
+        logger.warn("System shop not found");
+        return new ArrayList<>();
+      }
+    } catch (Exception e) {
+      logger.error("Error retrieving system shop audit logs: {}", e.getMessage(), e);
+      return new ArrayList<>();
     }
   }
 

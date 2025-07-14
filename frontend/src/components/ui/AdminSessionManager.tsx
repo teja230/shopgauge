@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -68,6 +68,7 @@ import {
   refreshAdminShopSessions, 
   invalidateAdminShopSessions 
 } from '../../api/admin';
+import RefreshHeader from './RefreshHeader';
 
 interface SessionHealthData {
   totalSessions: number;
@@ -154,7 +155,81 @@ const AdminSessionManager: React.FC = () => {
     shopDomain: string;
   } | null>(null);
 
+  // Optimized refresh state management
+  const [healthRefreshCooldown, setHealthRefreshCooldown] = useState(0);
+  const [shopsRefreshCooldown, setShopsRefreshCooldown] = useState(0);
+  const [shopRefreshCooldowns, setShopRefreshCooldowns] = useState<Record<string, number>>({});
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  // Debounce refs
+  const healthRefreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const shopsRefreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const shopRefreshTimeoutsRef = useRef<Record<string, NodeJS.Timeout>>({});
+
+  // Add state for lastUpdated
+  const [sessionHealthLastUpdated, setSessionHealthLastUpdated] = useState<Date | null>(null);
+  const [shopsLastUpdated, setShopsLastUpdated] = useState<Date | null>(null);
+
+  // Constants for refresh optimization
+  const HEALTH_REFRESH_COOLDOWN = 30; // 30 seconds
+  const SHOPS_REFRESH_COOLDOWN = 60; // 60 seconds
+  const SHOP_REFRESH_COOLDOWN = 45; // 45 seconds
+  const DEBOUNCE_DELAY = 300; // 300ms debounce
+
+
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (healthRefreshTimeoutRef.current) {
+        clearTimeout(healthRefreshTimeoutRef.current);
+      }
+      if (shopsRefreshTimeoutRef.current) {
+        clearTimeout(shopsRefreshTimeoutRef.current);
+      }
+      Object.values(shopRefreshTimeoutsRef.current).forEach(timeout => {
+        if (timeout) clearTimeout(timeout);
+      });
+    };
+  }, []);
+
+  // Cooldown timers
+  useEffect(() => {
+    if (healthRefreshCooldown > 0) {
+      const timer = setTimeout(() => setHealthRefreshCooldown(healthRefreshCooldown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [healthRefreshCooldown]);
+
+  useEffect(() => {
+    if (shopsRefreshCooldown > 0) {
+      const timer = setTimeout(() => setShopsRefreshCooldown(shopsRefreshCooldown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [shopsRefreshCooldown]);
+
+  // Shop-specific cooldown timers
+  useEffect(() => {
+    const timers: NodeJS.Timeout[] = [];
+    
+    Object.entries(shopRefreshCooldowns).forEach(([shopDomain, cooldown]) => {
+      if (cooldown > 0) {
+        const timer = setTimeout(() => {
+          setShopRefreshCooldowns(prev => ({
+            ...prev,
+            [shopDomain]: prev[shopDomain] - 1
+          }));
+        }, 1000);
+        timers.push(timer);
+      }
+    });
+    
+    return () => timers.forEach(timer => clearTimeout(timer));
+  }, [shopRefreshCooldowns]);
+
   const fetchSessionHealth = useCallback(async () => {
+    if (healthLoading || healthRefreshCooldown > 0) return;
+    
     setHealthLoading(true);
     try {
       const response = await getAdminSessionHealth();
@@ -172,9 +247,11 @@ const AdminSessionManager: React.FC = () => {
     } finally {
       setHealthLoading(false);
     }
-  }, [addNotification]);
+  }, [addNotification, healthLoading, healthRefreshCooldown]);
 
   const fetchShopsWithSessions = useCallback(async () => {
+    if (shopsLoading || shopsRefreshCooldown > 0) return;
+    
     setShopsLoading(true);
     try {
       const response = await getAdminShopsWithSessions();
@@ -191,7 +268,7 @@ const AdminSessionManager: React.FC = () => {
     } finally {
       setShopsLoading(false);
     }
-  }, [addNotification]);
+  }, [addNotification, shopsLoading, shopsRefreshCooldown]);
 
   const fetchShopSessions = useCallback(async (shopDomain: string) => {
     setSessionsLoading(true);
@@ -215,6 +292,9 @@ const AdminSessionManager: React.FC = () => {
   }, [addNotification]);
 
   const handleRefreshShopSessions = useCallback(async (shopDomain: string) => {
+    const currentCooldown = shopRefreshCooldowns[shopDomain] || 0;
+    if (actionLoading || currentCooldown > 0) return;
+    
     setActionLoading(`refresh-${shopDomain}`);
     try {
       const response = await refreshAdminShopSessions(shopDomain);
@@ -239,7 +319,7 @@ const AdminSessionManager: React.FC = () => {
     } finally {
       setActionLoading(null);
     }
-  }, [addNotification, selectedShop, fetchShopsWithSessions, fetchShopSessions]);
+  }, [addNotification, selectedShop, fetchShopsWithSessions, fetchShopSessions, actionLoading, shopRefreshCooldowns]);
 
   const handleInvalidateShopSessions = useCallback(async (shopDomain: string) => {
     setActionLoading(`invalidate-${shopDomain}`);
@@ -283,6 +363,51 @@ const AdminSessionManager: React.FC = () => {
     setConfirmAction(null);
   }, [confirmAction, handleRefreshShopSessions, handleInvalidateShopSessions]);
 
+  // Debounced refresh functions - defined after all handlers
+  const debouncedHealthRefresh = useCallback(() => {
+    if (healthRefreshTimeoutRef.current) {
+      clearTimeout(healthRefreshTimeoutRef.current);
+    }
+    
+    healthRefreshTimeoutRef.current = setTimeout(async () => {
+      if (healthRefreshCooldown > 0) return;
+      
+      setHealthRefreshCooldown(HEALTH_REFRESH_COOLDOWN);
+      await fetchSessionHealth();
+    }, DEBOUNCE_DELAY);
+  }, [healthRefreshCooldown, fetchSessionHealth]);
+
+  const debouncedShopsRefresh = useCallback(() => {
+    if (shopsRefreshTimeoutRef.current) {
+      clearTimeout(shopsRefreshTimeoutRef.current);
+    }
+    
+    shopsRefreshTimeoutRef.current = setTimeout(async () => {
+      if (shopsRefreshCooldown > 0) return;
+      
+      setShopsRefreshCooldown(SHOPS_REFRESH_COOLDOWN);
+      await fetchShopsWithSessions();
+    }, DEBOUNCE_DELAY);
+  }, [shopsRefreshCooldown, fetchShopsWithSessions]);
+
+  const debouncedShopRefresh = useCallback((shopDomain: string) => {
+    if (shopRefreshTimeoutsRef.current[shopDomain]) {
+      clearTimeout(shopRefreshTimeoutsRef.current[shopDomain]);
+    }
+    
+    shopRefreshTimeoutsRef.current[shopDomain] = setTimeout(async () => {
+      const currentCooldown = shopRefreshCooldowns[shopDomain] || 0;
+      if (currentCooldown > 0) return;
+      
+      setShopRefreshCooldowns(prev => ({
+        ...prev,
+        [shopDomain]: SHOP_REFRESH_COOLDOWN
+      }));
+      
+      await handleRefreshShopSessions(shopDomain);
+    }, DEBOUNCE_DELAY);
+  }, [shopRefreshCooldowns, handleRefreshShopSessions]);
+
   const getHealthColor = (score: number) => {
     if (score >= 80) return 'success';
     if (score >= 60) return 'warning';
@@ -306,6 +431,16 @@ const AdminSessionManager: React.FC = () => {
     return <WarningIcon color="warning" />;
   };
 
+  // Update lastUpdated on successful fetch
+  const fetchSessionHealthWithUpdate = useCallback(async () => {
+    await fetchSessionHealth();
+    setSessionHealthLastUpdated(new Date());
+  }, [fetchSessionHealth]);
+  const fetchShopsWithSessionsWithUpdate = useCallback(async () => {
+    await fetchShopsWithSessions();
+    setShopsLastUpdated(new Date());
+  }, [fetchShopsWithSessions]);
+
   useEffect(() => {
     fetchSessionHealth();
     fetchShopsWithSessions();
@@ -321,14 +456,21 @@ const AdminSessionManager: React.FC = () => {
               <MonitorHeartIcon color="primary" />
               Session Health Overview
             </Typography>
-            <ActionButton
-              variant="outlined"
-              onClick={fetchSessionHealth}
-              disabled={healthLoading}
-              startIcon={healthLoading ? <CircularProgress size={16} /> : <RefreshIcon />}
-            >
-              Refresh Health
-            </ActionButton>
+            <RefreshHeader
+              lastUpdated={sessionHealthLastUpdated ? (() => {
+                const diff = Math.floor((Date.now() - sessionHealthLastUpdated.getTime()) / 1000);
+                if (diff < 5) return 'Just now';
+                if (diff < 60) return `${diff}s ago`;
+                if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+                return sessionHealthLastUpdated.toLocaleString();
+              })() : 'Never'}
+              onRefresh={fetchSessionHealthWithUpdate}
+              loading={healthLoading}
+              cooldown={healthRefreshCooldown > 0}
+              cooldownRemaining={healthRefreshCooldown}
+              label="Refresh Health"
+              tooltip="Refresh session health metrics"
+            />
           </Box>
 
                      {sessionHealth ? (
@@ -424,14 +566,47 @@ const AdminSessionManager: React.FC = () => {
               <StoreIcon color="primary" />
               Shops with Active Sessions
             </Typography>
-            <ActionButton
-              variant="outlined"
-              onClick={fetchShopsWithSessions}
-              disabled={shopsLoading}
-              startIcon={shopsLoading ? <CircularProgress size={16} /> : <RefreshIcon />}
-            >
-              Refresh Shops
-            </ActionButton>
+            <Stack direction="row" spacing={2}>
+              <RefreshHeader
+                lastUpdated={shopsLastUpdated ? (() => {
+                  const diff = Math.floor((Date.now() - shopsLastUpdated.getTime()) / 1000);
+                  if (diff < 5) return 'Just now';
+                  if (diff < 60) return `${diff}s ago`;
+                  if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+                  return shopsLastUpdated.toLocaleString();
+                })() : 'Never'}
+                onRefresh={fetchShopsWithSessionsWithUpdate}
+                loading={shopsLoading}
+                cooldown={shopsRefreshCooldown > 0}
+                cooldownRemaining={shopsRefreshCooldown}
+                label="Refresh Shops"
+                tooltip="Refresh shops with sessions"
+              />
+              <ActionButton
+                variant="contained"
+                color="primary"
+                onClick={async () => {
+                  if (isRefreshing) return;
+                  setIsRefreshing(true);
+                  try {
+                    // Refresh all shops in parallel with debouncing
+                    const refreshPromises = shopsWithSessions.map(shop => 
+                      debouncedShopRefresh(shop.shopDomain)
+                    );
+                    await Promise.all(refreshPromises);
+                    addNotification('All shop sessions refreshed successfully', 'success');
+                  } catch (error) {
+                    addNotification('Some shop refreshes failed', 'error');
+                  } finally {
+                    setIsRefreshing(false);
+                  }
+                }}
+                disabled={isRefreshing || shopsWithSessions.length === 0}
+                startIcon={isRefreshing ? <CircularProgress size={16} /> : <RestartAltIcon />}
+              >
+                {isRefreshing ? 'Refreshing All...' : 'Refresh All Sessions'}
+              </ActionButton>
+            </Stack>
           </Box>
 
           {shopsWithSessions.length > 0 ? (
@@ -497,13 +672,22 @@ const AdminSessionManager: React.FC = () => {
                               size="small"
                               color="primary"
                               onClick={() => {
+                                const currentCooldown = shopRefreshCooldowns[shop.shopDomain] || 0;
+                                if (currentCooldown > 0) {
+                                  addNotification(`Please wait ${currentCooldown}s before refreshing ${shop.shopDomain} again`, 'warning');
+                                  return;
+                                }
                                 setConfirmAction({ type: 'refresh', shopDomain: shop.shopDomain });
                                 setShowConfirmDialog(true);
                               }}
-                              disabled={actionLoading === `refresh-${shop.shopDomain}`}
+                              disabled={actionLoading === `refresh-${shop.shopDomain}` || (shopRefreshCooldowns[shop.shopDomain] || 0) > 0}
                             >
                               {actionLoading === `refresh-${shop.shopDomain}` ? (
                                 <CircularProgress size={16} />
+                              ) : (shopRefreshCooldowns[shop.shopDomain] || 0) > 0 ? (
+                                <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>
+                                  {shopRefreshCooldowns[shop.shopDomain]}s
+                                </Typography>
                               ) : (
                                 <RestartAltIcon />
                               )}
