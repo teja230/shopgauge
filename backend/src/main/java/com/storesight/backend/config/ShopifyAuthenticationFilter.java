@@ -41,6 +41,8 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
         || path.startsWith("/api/health/")
         || path.startsWith(
             "/api/admin/") // Skip admin endpoints - handled by AdminAuthenticationFilter
+        || path.startsWith("/api/sessions/admin/") // Skip admin session endpoints - handled by
+        // AdminAuthenticationFilter
         || path.equals("/")
         || path.equals("/health")
         || path.equals("/api/health")
