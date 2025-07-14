@@ -94,7 +94,7 @@ interface DetailedSessionData {
   createdAt: string;
   lastAccessedAt: string;
   ipAddress: string;
-  userAgent: string;
+  userAgent: string | null;
   isActive: boolean;
   isExpired: boolean;
   expiresAt?: string;
@@ -444,7 +444,10 @@ const AdminSessionManager: React.FC = () => {
     return 'error';
   };
 
-  const getDeviceIcon = (userAgent: string) => {
+  const getDeviceIcon = (userAgent: string | null | undefined) => {
+    if (!userAgent) {
+      return <ComputerIcon />; // Default icon for unknown/null user agent
+    }
     const ua = userAgent.toLowerCase();
     if (ua.includes('mobile')) return <PhoneIcon />;
     if (ua.includes('tablet')) return <TabletIcon />;
