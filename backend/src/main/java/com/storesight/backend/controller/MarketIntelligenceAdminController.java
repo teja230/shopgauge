@@ -1,6 +1,7 @@
 package com.storesight.backend.controller;
 
 import com.storesight.backend.service.CostOptimizationService;
+import com.storesight.backend.service.DataPrivacyService;
 import com.storesight.backend.service.DatabaseMonitoringService;
 import com.storesight.backend.service.RedisHealthService;
 import com.storesight.backend.service.TransactionMonitoringService;
@@ -36,6 +37,7 @@ public class MarketIntelligenceAdminController {
   @Autowired private DatabaseMonitoringService databaseMonitoringService;
   @Autowired private RedisHealthService redisHealthService;
   @Autowired private TransactionMonitoringService transactionMonitoringService;
+  @Autowired private DataPrivacyService dataPrivacyService;
 
   @Value("${discovery.enabled:true}")
   private boolean discoveryEnabled;
@@ -335,9 +337,9 @@ public class MarketIntelligenceAdminController {
           jdbcTemplate.queryForObject("SELECT COUNT(*) FROM price_snapshots", Integer.class);
       stats.put("priceSnapshots", snapshotsCount);
 
-      // Get active shops count
-      Integer shopsCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM shops", Integer.class);
-      stats.put("activeShops", shopsCount);
+      // Use DataPrivacyService to get real-time active shops (Redis-first, DB fallback)
+      List<Map<String, Object>> activeShops = dataPrivacyService.getActiveShops();
+      stats.put("activeShops", activeShops.size());
 
     } catch (Exception e) {
       log.warn("Error getting database stats: {}", e.getMessage());
