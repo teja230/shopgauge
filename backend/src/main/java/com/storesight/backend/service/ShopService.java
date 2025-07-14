@@ -442,7 +442,8 @@ public class ShopService {
   public String getTokenForShopRedisFirst(String shopifyDomain, String sessionId) {
     long start = System.currentTimeMillis();
     try {
-      logger.debug("Getting token for shop: {} and session: {} (Redis-first)", shopifyDomain, sessionId);
+      logger.debug(
+          "Getting token for shop: {} and session: {} (Redis-first)", shopifyDomain, sessionId);
 
       if (sessionId == null) {
         return getTokenForShopFallback(shopifyDomain);
@@ -451,16 +452,22 @@ public class ShopService {
       // Try Redis-first approach
       Optional<String> redisToken = redisSessionService.getSessionToken(shopifyDomain, sessionId);
       if (redisToken.isPresent()) {
-        logger.debug("Found token via Redis-first approach for shop: {} and session: {}", shopifyDomain, sessionId);
+        logger.debug(
+            "Found token via Redis-first approach for shop: {} and session: {}",
+            shopifyDomain,
+            sessionId);
         transactionMonitoringService.recordSuccess(
             "getTokenForShopRedisFirst", System.currentTimeMillis() - start);
         return redisToken.get();
       }
 
       // Fallback to original method if Redis-first fails
-      logger.debug("Redis-first approach failed, falling back to database for shop: {} and session: {}", shopifyDomain, sessionId);
+      logger.debug(
+          "Redis-first approach failed, falling back to database for shop: {} and session: {}",
+          shopifyDomain,
+          sessionId);
       return getTokenForShop(shopifyDomain, sessionId);
-      
+
     } catch (Exception e) {
       transactionMonitoringService.recordFailure(
           "getTokenForShopRedisFirst",

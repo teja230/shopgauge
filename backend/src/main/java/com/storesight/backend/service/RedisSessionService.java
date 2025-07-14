@@ -16,14 +16,13 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Redis-first session service for high-performance session management
- * 
- * This service prioritizes Redis for all session operations, only hitting the database
- * when Redis is unavailable or when data needs to be persisted. This significantly
- * improves performance by reducing database load.
+ *
+ * <p>This service prioritizes Redis for all session operations, only hitting the database when
+ * Redis is unavailable or when data needs to be persisted. This significantly improves performance
+ * by reducing database load.
  */
 @Service
 public class RedisSessionService {
@@ -48,23 +47,19 @@ public class RedisSessionService {
 
   @Autowired
   public RedisSessionService(
-      StringRedisTemplate redisTemplate, 
-      ObjectMapper objectMapper,
-      ShopService shopService) {
+      StringRedisTemplate redisTemplate, ObjectMapper objectMapper, ShopService shopService) {
     this.redisTemplate = redisTemplate;
     this.objectMapper = objectMapper;
     this.shopService = shopService;
   }
 
-  /**
-   * Get session data from Redis first, fallback to database
-   */
+  /** Get session data from Redis first, fallback to database */
   public Optional<SessionData> getSessionData(String shopDomain, String sessionId) {
     try {
       // Try Redis first
       String sessionDataKey = SESSION_DATA_PREFIX + shopDomain + ":" + sessionId;
       String cachedData = redisTemplate.opsForValue().get(sessionDataKey);
-      
+
       if (cachedData != null) {
         try {
           SessionData sessionData = objectMapper.readValue(cachedData, SessionData.class);
@@ -78,18 +73,17 @@ public class RedisSessionService {
       }
 
       // Fallback to database
-      logger.debug("Session data not found in Redis, checking database for {}:{}", shopDomain, sessionId);
+      logger.debug(
+          "Session data not found in Redis, checking database for {}:{}", shopDomain, sessionId);
       return getSessionDataFromDatabase(shopDomain, sessionId);
-      
+
     } catch (Exception e) {
       logger.warn("Redis unavailable for session data lookup: {}", e.getMessage());
       return getSessionDataFromDatabase(shopDomain, sessionId);
     }
   }
 
-  /**
-   * Get session token from Redis first, fallback to database
-   */
+  /** Get session token from Redis first, fallback to database */
   public Optional<String> getSessionToken(String shopDomain, String sessionId) {
     try {
       // Check invalid session cache first
@@ -103,36 +97,40 @@ public class RedisSessionService {
       // Try Redis token cache
       String tokenKey = SESSION_TOKEN_PREFIX + shopDomain + ":" + sessionId;
       String cachedToken = redisTemplate.opsForValue().get(tokenKey);
-      
+
       if (cachedToken != null) {
         logger.debug("Session token found in Redis for {}:{}", shopDomain, sessionId);
         return Optional.of(cachedToken);
       }
 
       // Fallback to database
-      logger.debug("Session token not found in Redis, checking database for {}:{}", shopDomain, sessionId);
+      logger.debug(
+          "Session token not found in Redis, checking database for {}:{}", shopDomain, sessionId);
       return getSessionTokenFromDatabase(shopDomain, sessionId);
-      
+
     } catch (Exception e) {
       logger.warn("Redis unavailable for session token lookup: {}", e.getMessage());
       return getSessionTokenFromDatabase(shopDomain, sessionId);
     }
   }
 
-  /**
-   * Get all active sessions for a shop from Redis first, fallback to database
-   */
+  /** Get all active sessions for a shop from Redis first, fallback to database */
   public List<SessionData> getActiveSessionsForShop(String shopDomain) {
     try {
       // Try Redis first
       String shopSessionsKey = SHOP_SESSIONS_PREFIX + shopDomain;
       String cachedSessions = redisTemplate.opsForValue().get(shopSessionsKey);
-      
+
       if (cachedSessions != null) {
         try {
-          List<SessionData> sessions = objectMapper.readValue(cachedSessions, 
-              objectMapper.getTypeFactory().constructCollectionType(List.class, SessionData.class));
-          logger.debug("Found {} active sessions in Redis for shop: {}", sessions.size(), shopDomain);
+          List<SessionData> sessions =
+              objectMapper.readValue(
+                  cachedSessions,
+                  objectMapper
+                      .getTypeFactory()
+                      .constructCollectionType(List.class, SessionData.class));
+          logger.debug(
+              "Found {} active sessions in Redis for shop: {}", sessions.size(), shopDomain);
           return sessions;
         } catch (JsonProcessingException e) {
           logger.warn("Failed to deserialize sessions from Redis: {}", e.getMessage());
@@ -142,40 +140,37 @@ public class RedisSessionService {
       }
 
       // Fallback to database
-      logger.debug("Active sessions not found in Redis, checking database for shop: {}", shopDomain);
+      logger.debug(
+          "Active sessions not found in Redis, checking database for shop: {}", shopDomain);
       return getActiveSessionsFromDatabase(shopDomain);
-      
+
     } catch (Exception e) {
       logger.warn("Redis unavailable for active sessions lookup: {}", e.getMessage());
       return getActiveSessionsFromDatabase(shopDomain);
     }
   }
 
-  /**
-   * Cache session data in Redis
-   */
+  /** Cache session data in Redis */
   public void cacheSessionData(String shopDomain, String sessionId, SessionData sessionData) {
     try {
       String sessionDataKey = SESSION_DATA_PREFIX + shopDomain + ":" + sessionId;
       String serializedData = objectMapper.writeValueAsString(sessionData);
-      
+
       redisTemplate.opsForValue().set(sessionDataKey, serializedData, SESSION_DATA_TTL);
       logger.debug("Cached session data in Redis for {}:{}", shopDomain, sessionId);
-      
+
       // Also cache token separately for faster access
       cacheSessionToken(shopDomain, sessionId, sessionData.getAccessToken());
-      
+
       // Update shop sessions list
       updateShopSessionsList(shopDomain);
-      
+
     } catch (Exception e) {
       logger.warn("Failed to cache session data in Redis: {}", e.getMessage());
     }
   }
 
-  /**
-   * Cache session token in Redis
-   */
+  /** Cache session token in Redis */
   public void cacheSessionToken(String shopDomain, String sessionId, String token) {
     try {
       String tokenKey = SESSION_TOKEN_PREFIX + shopDomain + ":" + sessionId;
@@ -186,35 +181,31 @@ public class RedisSessionService {
     }
   }
 
-  /**
-   * Remove session from Redis cache
-   */
+  /** Remove session from Redis cache */
   public void removeSessionFromCache(String shopDomain, String sessionId) {
     try {
       // Remove session data
       String sessionDataKey = SESSION_DATA_PREFIX + shopDomain + ":" + sessionId;
       redisTemplate.delete(sessionDataKey);
-      
+
       // Remove session token
       String tokenKey = SESSION_TOKEN_PREFIX + shopDomain + ":" + sessionId;
       redisTemplate.delete(tokenKey);
-      
+
       // Mark as invalid to prevent repeated lookups
       String invalidKey = INVALID_SESSION_PREFIX + shopDomain + ":" + sessionId;
       redisTemplate.opsForValue().set(invalidKey, "invalid", INVALID_SESSION_TTL);
-      
+
       // Update shop sessions list
       updateShopSessionsList(shopDomain);
-      
+
       logger.debug("Removed session from Redis cache: {}:{}", shopDomain, sessionId);
     } catch (Exception e) {
       logger.warn("Failed to remove session from Redis cache: {}", e.getMessage());
     }
   }
 
-  /**
-   * Update session last accessed time in Redis
-   */
+  /** Update session last accessed time in Redis */
   public void updateSessionLastAccessed(String shopDomain, String sessionId) {
     try {
       Optional<SessionData> sessionDataOpt = getSessionData(shopDomain, sessionId);
@@ -229,33 +220,31 @@ public class RedisSessionService {
     }
   }
 
-  /**
-   * Get session statistics from Redis
-   */
+  /** Get session statistics from Redis */
   public Map<String, Object> getSessionStatistics() {
     try {
       Map<String, Object> stats = new java.util.HashMap<>();
-      
+
       // Count active sessions in Redis
       Set<String> sessionKeys = redisTemplate.keys(SESSION_DATA_PREFIX + "*");
       int totalSessions = sessionKeys != null ? sessionKeys.size() : 0;
-      
+
       // Count active tokens
       Set<String> tokenKeys = redisTemplate.keys(SESSION_TOKEN_PREFIX + "*");
       int activeTokens = tokenKeys != null ? tokenKeys.size() : 0;
-      
+
       // Count shops with sessions
       Set<String> shopKeys = redisTemplate.keys(SHOP_SESSIONS_PREFIX + "*");
       int shopsWithSessions = shopKeys != null ? shopKeys.size() : 0;
-      
+
       stats.put("totalSessionsInRedis", totalSessions);
       stats.put("activeTokensInRedis", activeTokens);
       stats.put("shopsWithSessionsInRedis", shopsWithSessions);
       stats.put("redisAvailable", true);
-      
+
       logger.debug("Session statistics from Redis: {}", stats);
       return stats;
-      
+
     } catch (Exception e) {
       logger.warn("Failed to get session statistics from Redis: {}", e.getMessage());
       return Map.of("redisAvailable", false, "error", e.getMessage());
@@ -269,7 +258,7 @@ public class RedisSessionService {
       if (sessionOpt.isPresent()) {
         ShopSession session = sessionOpt.get();
         SessionData sessionData = SessionData.fromShopSession(session);
-        
+
         // Cache in Redis for future requests
         cacheSessionData(shopDomain, sessionId, sessionData);
         return Optional.of(sessionData);
@@ -300,19 +289,19 @@ public class RedisSessionService {
     try {
       List<ShopSession> sessions = shopService.getActiveSessionsForShop(shopDomain);
       List<SessionData> sessionDataList = new ArrayList<>();
-      
+
       for (ShopSession session : sessions) {
         SessionData sessionData = SessionData.fromShopSession(session);
         sessionDataList.add(sessionData);
-        
+
         // Cache individual session data
         cacheSessionData(shopDomain, session.getSessionId(), sessionData);
       }
-      
+
       // Cache the list
       cacheShopSessionsList(shopDomain, sessionDataList);
       return sessionDataList;
-      
+
     } catch (Exception e) {
       logger.warn("Failed to get active sessions from database: {}", e.getMessage());
       return new ArrayList<>();
@@ -341,9 +330,7 @@ public class RedisSessionService {
 
   // Removed duplicate updateSessionLastAccessedAsync method - using ShopService's implementation
 
-  /**
-   * Session data wrapper for Redis caching
-   */
+  /** Session data wrapper for Redis caching */
   public static class SessionData {
     private String sessionId;
     private String shopDomain;
@@ -374,34 +361,84 @@ public class RedisSessionService {
     }
 
     // Getters and setters
-    public String getSessionId() { return sessionId; }
-    public void setSessionId(String sessionId) { this.sessionId = sessionId; }
+    public String getSessionId() {
+      return sessionId;
+    }
 
-    public String getShopDomain() { return shopDomain; }
-    public void setShopDomain(String shopDomain) { this.shopDomain = shopDomain; }
+    public void setSessionId(String sessionId) {
+      this.sessionId = sessionId;
+    }
 
-    public String getAccessToken() { return accessToken; }
-    public void setAccessToken(String accessToken) { this.accessToken = accessToken; }
+    public String getShopDomain() {
+      return shopDomain;
+    }
 
-    public String getIpAddress() { return ipAddress; }
-    public void setIpAddress(String ipAddress) { this.ipAddress = ipAddress; }
+    public void setShopDomain(String shopDomain) {
+      this.shopDomain = shopDomain;
+    }
 
-    public String getUserAgent() { return userAgent; }
-    public void setUserAgent(String userAgent) { this.userAgent = userAgent; }
+    public String getAccessToken() {
+      return accessToken;
+    }
 
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public void setAccessToken(String accessToken) {
+      this.accessToken = accessToken;
+    }
 
-    public LocalDateTime getLastAccessedAt() { return lastAccessedAt; }
-    public void setLastAccessedAt(LocalDateTime lastAccessedAt) { this.lastAccessedAt = lastAccessedAt; }
+    public String getIpAddress() {
+      return ipAddress;
+    }
 
-    public LocalDateTime getExpiresAt() { return expiresAt; }
-    public void setExpiresAt(LocalDateTime expiresAt) { this.expiresAt = expiresAt; }
+    public void setIpAddress(String ipAddress) {
+      this.ipAddress = ipAddress;
+    }
 
-    public boolean isActive() { return isActive; }
-    public void setActive(boolean active) { isActive = active; }
+    public String getUserAgent() {
+      return userAgent;
+    }
 
-    public boolean isExpired() { return isExpired; }
-    public void setExpired(boolean expired) { isExpired = expired; }
+    public void setUserAgent(String userAgent) {
+      this.userAgent = userAgent;
+    }
+
+    public LocalDateTime getCreatedAt() {
+      return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+      this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getLastAccessedAt() {
+      return lastAccessedAt;
+    }
+
+    public void setLastAccessedAt(LocalDateTime lastAccessedAt) {
+      this.lastAccessedAt = lastAccessedAt;
+    }
+
+    public LocalDateTime getExpiresAt() {
+      return expiresAt;
+    }
+
+    public void setExpiresAt(LocalDateTime expiresAt) {
+      this.expiresAt = expiresAt;
+    }
+
+    public boolean isActive() {
+      return isActive;
+    }
+
+    public void setActive(boolean active) {
+      isActive = active;
+    }
+
+    public boolean isExpired() {
+      return isExpired;
+    }
+
+    public void setExpired(boolean expired) {
+      isExpired = expired;
+    }
   }
-} 
+}

@@ -1236,6 +1236,9 @@ const AdminPage: React.FC = () => {
     }
   };
 
+  // Add state for lastUpdated for audit logs
+  const [auditLogsLastUpdated, setAuditLogsLastUpdated] = useState<Date | null>(null);
+
   // Enhanced admin authentication dialog
   if (!isAuthenticated) {
   return (
@@ -1352,9 +1355,6 @@ const AdminPage: React.FC = () => {
       </Dialog>
     );
   }
-
-  // Add state for lastUpdated for audit logs
-  const [auditLogsLastUpdated, setAuditLogsLastUpdated] = useState<Date | null>(null);
 
   // Update lastUpdated on successful fetch
   const fetchAuditLogsWithUpdate = async () => {

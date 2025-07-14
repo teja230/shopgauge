@@ -28,7 +28,7 @@ public class AuditLogService {
       Optional<Shop> shopOpt = shopRepository.findByShopifyDomain(shopDomain);
       Long shopId;
       String resolvedShopDomain;
-      
+
       if (shopOpt.isPresent()) {
         shopId = shopOpt.get().getId();
         resolvedShopDomain = shopDomain;
@@ -44,7 +44,7 @@ public class AuditLogService {
           return;
         }
       }
-      
+
       AuditLog auditLog = new AuditLog();
       auditLog.setShopId(shopId);
       auditLog.setAction(action + "_" + type);

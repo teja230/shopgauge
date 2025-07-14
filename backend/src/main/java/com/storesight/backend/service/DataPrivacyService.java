@@ -103,7 +103,7 @@ public class DataPrivacyService {
     try {
       final Long shopId;
       final String resolvedShopDomain;
-      
+
       if (shopDomain != null && !shopDomain.trim().isEmpty()) {
         logger.debug("Looking up shop for domain: {}", shopDomain);
         Optional<Shop> shopOptional = shopRepository.findByShopifyDomain(shopDomain);
@@ -119,7 +119,8 @@ public class DataPrivacyService {
             resolvedShopDomain = "system";
             logger.warn("No shop found for domain: {}, using system shop", shopDomain);
           } else {
-            logger.error("System shop not found, cannot create audit log for domain: {}", shopDomain);
+            logger.error(
+                "System shop not found, cannot create audit log for domain: {}", shopDomain);
             return; // Don't create audit log if system shop doesn't exist
           }
         }
@@ -399,12 +400,14 @@ public class DataPrivacyService {
     try {
       // Get recent audit logs (last 24 hours) to identify active shops
       LocalDateTime twentyFourHoursAgo = LocalDateTime.now().minusHours(24);
-      List<AuditLog> recentLogs = auditLogRepository.findByCreatedAtAfterOrderByCreatedAtDesc(twentyFourHoursAgo);
+      List<AuditLog> recentLogs =
+          auditLogRepository.findByCreatedAtAfterOrderByCreatedAtDesc(twentyFourHoursAgo);
 
       // Group by shop ID and get unique shops
-      Map<Long, List<AuditLog>> logsByShop = recentLogs.stream()
-          .filter(log -> log.getShopId() != null)
-          .collect(Collectors.groupingBy(AuditLog::getShopId));
+      Map<Long, List<AuditLog>> logsByShop =
+          recentLogs.stream()
+              .filter(log -> log.getShopId() != null)
+              .collect(Collectors.groupingBy(AuditLog::getShopId));
 
       List<Map<String, Object>> activeShops = new ArrayList<>();
 
@@ -416,16 +419,15 @@ public class DataPrivacyService {
         Optional<Shop> shopOpt = shopRepository.findById(shopId);
         if (shopOpt.isPresent()) {
           Shop shop = shopOpt.get();
-          
+
           // Skip system shop from regular shop listings
           if ("system".equals(shop.getShopifyDomain())) {
             continue;
           }
 
           // Get most recent log for this shop
-          AuditLog mostRecentLog = shopLogs.stream()
-              .max(Comparator.comparing(AuditLog::getCreatedAt))
-              .orElse(null);
+          AuditLog mostRecentLog =
+              shopLogs.stream().max(Comparator.comparing(AuditLog::getCreatedAt)).orElse(null);
 
           if (mostRecentLog != null) {
             Map<String, Object> shopInfo = new HashMap<>();
@@ -445,14 +447,15 @@ public class DataPrivacyService {
       }
 
       // Sort by last activity (most recent first)
-      activeShops.sort((a, b) -> {
-        String aTime = (String) a.get("lastActivity");
-        String bTime = (String) b.get("lastActivity");
-        if (aTime == null && bTime == null) return 0;
-        if (aTime == null) return 1;
-        if (bTime == null) return -1;
-        return bTime.compareTo(aTime);
-      });
+      activeShops.sort(
+          (a, b) -> {
+            String aTime = (String) a.get("lastActivity");
+            String bTime = (String) b.get("lastActivity");
+            if (aTime == null && bTime == null) return 0;
+            if (aTime == null) return 1;
+            if (bTime == null) return -1;
+            return bTime.compareTo(aTime);
+          });
 
       logger.info("Found {} active shops from audit logs", activeShops.size());
       logDataAccess("ACTIVE_SHOPS_RETRIEVED", "Retrieved " + activeShops.size() + " active shops");
@@ -641,7 +644,9 @@ public class DataPrivacyService {
           }
           return domain;
         } else {
-          logger.debug("Shop ID {} exists in audit log but shop not found in database (likely deleted)", log.getShopId());
+          logger.debug(
+              "Shop ID {} exists in audit log but shop not found in database (likely deleted)",
+              log.getShopId());
         }
       }
 
@@ -650,7 +655,8 @@ public class DataPrivacyService {
       if (details != null) {
         // First try to find .myshopify.com domains
         if (details.contains(".myshopify.com")) {
-          java.util.regex.Pattern myshopifyPattern = java.util.regex.Pattern.compile("([a-zA-Z0-9-]+\\.myshopify\\.com)");
+          java.util.regex.Pattern myshopifyPattern =
+              java.util.regex.Pattern.compile("([a-zA-Z0-9-]+\\.myshopify\\.com)");
           java.util.regex.Matcher matcher = myshopifyPattern.matcher(details);
           if (matcher.find()) {
             String domain = matcher.group(1);
@@ -660,19 +666,23 @@ public class DataPrivacyService {
         }
 
         // Try to find other shop domains
-        java.util.regex.Pattern shopPattern = java.util.regex.Pattern.compile("([a-zA-Z0-9-]+\\.[a-zA-Z]{2,})");
+        java.util.regex.Pattern shopPattern =
+            java.util.regex.Pattern.compile("([a-zA-Z0-9-]+\\.[a-zA-Z]{2,})");
         java.util.regex.Matcher shopMatcher = shopPattern.matcher(details);
         if (shopMatcher.find()) {
           String domain = shopMatcher.group(1);
           // Only return if it looks like a shop domain
-          if (domain.contains("shop") || domain.contains("store") || details.toLowerCase().contains("shopify")) {
+          if (domain.contains("shop")
+              || domain.contains("store")
+              || details.toLowerCase().contains("shopify")) {
             logger.debug("Extracted shop domain '{}' from audit log details", domain);
             return domain;
           }
         }
 
         // Try to find general domains
-        java.util.regex.Pattern generalPattern = java.util.regex.Pattern.compile("([a-zA-Z0-9-]+\\.[a-zA-Z]{2,})");
+        java.util.regex.Pattern generalPattern =
+            java.util.regex.Pattern.compile("([a-zA-Z0-9-]+\\.[a-zA-Z]{2,})");
         java.util.regex.Matcher generalMatcher = generalPattern.matcher(details);
         if (generalMatcher.find()) {
           String domain = generalMatcher.group(1);
@@ -684,8 +694,10 @@ public class DataPrivacyService {
             return domain;
           }
         }
-        
-        logger.debug("No recognizable domain pattern found in audit log details: {}", details.substring(0, Math.min(100, details.length())));
+
+        logger.debug(
+            "No recognizable domain pattern found in audit log details: {}",
+            details.substring(0, Math.min(100, details.length())));
       } else {
         logger.debug("Audit log has no details field for domain extraction");
       }
@@ -695,7 +707,10 @@ public class DataPrivacyService {
         logger.debug("Returning 'Unknown Domain (Deleted Shop)' for audit log {}", log.getId());
         return "Unknown Domain (Deleted Shop)";
       } else {
-        logger.debug("Returning 'Unknown Domain' for audit log {} with shop ID {}", log.getId(), log.getShopId());
+        logger.debug(
+            "Returning 'Unknown Domain' for audit log {} with shop ID {}",
+            log.getId(),
+            log.getShopId());
         return "Unknown Domain";
       }
     } catch (Exception e) {
@@ -710,23 +725,24 @@ public class DataPrivacyService {
     try {
       Optional<Shop> systemShop = shopRepository.findByShopifyDomain("system");
       if (systemShop.isPresent()) {
-        org.springframework.data.domain.Page<AuditLog> systemLogsPage = auditLogRepository.findByShopIdOrderByCreatedAtDesc(
-            systemShop.get().getId(), 
-            org.springframework.data.domain.PageRequest.of(page, size)
-        );
+        org.springframework.data.domain.Page<AuditLog> systemLogsPage =
+            auditLogRepository.findByShopIdOrderByCreatedAtDesc(
+                systemShop.get().getId(),
+                org.springframework.data.domain.PageRequest.of(page, size));
 
         return systemLogsPage.getContent().stream()
-            .map(log -> {
-              Map<String, Object> logMap = new HashMap<>();
-              logMap.put("id", log.getId());
-              logMap.put("action", log.getAction());
-              logMap.put("details", log.getDetails());
-              logMap.put("userAgent", log.getUserAgent());
-              logMap.put("ipAddress", log.getIpAddress());
-              logMap.put("createdAt", log.getCreatedAt());
-              logMap.put("shopDomain", "System (Admin Action)");
-              return logMap;
-            })
+            .map(
+                log -> {
+                  Map<String, Object> logMap = new HashMap<>();
+                  logMap.put("id", log.getId());
+                  logMap.put("action", log.getAction());
+                  logMap.put("details", log.getDetails());
+                  logMap.put("userAgent", log.getUserAgent());
+                  logMap.put("ipAddress", log.getIpAddress());
+                  logMap.put("createdAt", log.getCreatedAt());
+                  logMap.put("shopDomain", "System (Admin Action)");
+                  return logMap;
+                })
             .collect(Collectors.toList());
       } else {
         logger.warn("System shop not found");
