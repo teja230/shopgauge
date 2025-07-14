@@ -12,7 +12,9 @@ interface SessionHeartbeatResponse {
   timestamp?: number;
   error?: string;
   sessionInvalidated?: boolean; // New field to indicate session invalidation
-  needsRefresh?: boolean; // New field to indicate session needs refresh
+  sessionExpiring?: boolean; // New field to indicate session is expiring soon
+  expiresInMinutes?: number; // Time until session expires
+  needsManualRefresh?: boolean; // New field to indicate manual refresh is needed
 }
 
 interface SessionConfig {
@@ -20,35 +22,37 @@ interface SessionConfig {
   enabled: boolean;
   maxRetries: number;
   retryDelay: number;
-  autoRefreshOnInvalidation?: boolean; // Optional config option
-  refreshRetryAttempts?: number; // Optional config option
+  showExpirationWarnings?: boolean; // Show warnings when session is expiring
+  expirationWarningMinutes?: number; // Minutes before expiration to show warning
+  manualRefreshEnabled?: boolean; // Enable manual refresh option
 }
 
 class SessionManager {
   private heartbeatInterval: number;
-  private heartbeatTimer: NodeJS.Timeout | null = null;
-  private isActive: boolean = false;
-  private retryCount: number = 0;
   private maxRetries: number;
   private retryDelay: number;
-  private lastHeartbeatTime: number = 0;
-  private sessionInvalidatedCallback: (() => void) | null = null;
-  private autoRefreshOnInvalidation: boolean;
-  private refreshRetryAttempts: number;
+  private showExpirationWarnings: boolean;
+  private expirationWarningMinutes: number;
+  private manualRefreshEnabled: boolean;
+  private intervalId: NodeJS.Timeout | null = null;
+  private retryCount = 0;
+  private isInitialized = false;
 
   constructor(config: SessionConfig = {
     heartbeatInterval: 60000, // 1 minute
     enabled: true,
     maxRetries: 3,
     retryDelay: 5000, // 5 seconds
-    autoRefreshOnInvalidation: true, // Default to true
-    refreshRetryAttempts: 3 // Default to 3
+    showExpirationWarnings: true, // Default to true
+    expirationWarningMinutes: 10, // Default to 10 minutes
+    manualRefreshEnabled: true // Default to true
   }) {
     this.heartbeatInterval = config.heartbeatInterval;
     this.maxRetries = config.maxRetries;
     this.retryDelay = config.retryDelay;
-    this.autoRefreshOnInvalidation = config.autoRefreshOnInvalidation || true;
-    this.refreshRetryAttempts = config.refreshRetryAttempts || 3;
+    this.showExpirationWarnings = config.showExpirationWarnings ?? true;
+    this.expirationWarningMinutes = config.expirationWarningMinutes ?? 10;
+    this.manualRefreshEnabled = config.manualRefreshEnabled ?? true;
 
     if (config.enabled) {
       this.initialize();
@@ -100,8 +104,8 @@ class SessionManager {
 
   private handleWindowFocus(): void {
     console.log('🎯 Window focused - ensuring heartbeat is active');
-    if (!this.isActive) {
-      this.startHeartbeat();
+    if (!this.isInitialized) {
+      this.initialize(); // Re-initialize if not initialized
     }
   }
 
@@ -143,73 +147,89 @@ class SessionManager {
       });
       if (response.ok) {
         const data: SessionHeartbeatResponse = await response.json();
+        
         if (data.success) {
-          console.log('💓 Session heartbeat successful:', {
+          console.log('💓 Session heartbeat successful', {
             sessionId: data.sessionId,
             shop: data.shop,
             activeSessionCount: data.activeSessionCount
           });
-          this.lastHeartbeatTime = Date.now();
           this.retryCount = 0; // Reset retry count on success
           
-          // Handle session invalidation
-          if (data.sessionInvalidated) {
-            console.warn('🚨 Session invalidated by server');
-            this.handleSessionInvalidation();
-            return;
+          // Handle session expiration warnings
+          if (data.sessionExpiring && this.showExpirationWarnings) {
+            this.handleSessionExpirationWarning(data.expiresInMinutes || 0);
           }
           
-          // Handle session refresh needed
-          if (data.needsRefresh) {
-            console.warn('🔄 Session needs refresh');
-            this.handleSessionRefresh();
-            return;
+          // Handle manual refresh needed
+          if (data.needsManualRefresh && this.manualRefreshEnabled) {
+            this.handleManualRefreshNeeded();
           }
           
-          // Store session info in localStorage for debugging
-          if (data.sessionId && data.shop) {
-            localStorage.setItem('session_info', JSON.stringify({
-              sessionId: data.sessionId,
-              shop: data.shop,
-              lastHeartbeat: this.lastHeartbeatTime,
-              activeSessionCount: data.activeSessionCount
-            }));
-          }
         } else {
           console.warn('⚠️ Session heartbeat failed:', data.error);
-          this.handleHeartbeatFailure(data.error || 'Unknown error');
+          this.handleSessionError(data.error || 'Session heartbeat failed');
         }
       } else {
         console.error('❌ Session heartbeat HTTP error:', response.status);
-        this.handleHeartbeatFailure(`HTTP ${response.status}`);
+        this.handleSessionError(`HTTP ${response.status}: ${response.statusText}`);
       }
     } catch (error) {
       console.error('❌ Session heartbeat network error:', error);
-      this.handleHeartbeatFailure('Network error');
+      this.handleSessionError('Network error during heartbeat');
     }
   }
 
+  private handleSessionExpirationWarning(expiresInMinutes: number): void {
+    console.warn(`⏰ Session expires in ${expiresInMinutes} minutes`);
+    
+    // Dispatch custom event for UI to handle
+    const event = new CustomEvent('sessionExpiring', {
+      detail: {
+        expiresInMinutes,
+        message: `Your session will expire in ${expiresInMinutes} minutes. Please save your work and refresh the page.`
+      }
+    });
+    window.dispatchEvent(event);
+  }
+
+  private handleManualRefreshNeeded(): void {
+    console.warn('🔄 Manual session refresh required');
+    
+    // Dispatch custom event for UI to handle
+    const event = new CustomEvent('sessionRefreshNeeded', {
+      detail: {
+        message: 'Your session needs to be refreshed. Please click "Refresh Session" to continue.',
+        action: 'refresh'
+      }
+    });
+    window.dispatchEvent(event);
+  }
+
+  private handleSessionError(error: string): void {
+    console.error('❌ Session error:', error);
+    
+    // Dispatch custom event for UI to handle
+    const event = new CustomEvent('sessionError', {
+      detail: {
+        error,
+        message: 'Session error occurred. Please refresh the page or log in again.'
+      }
+    });
+    window.dispatchEvent(event);
+  }
+
   private handleSessionInvalidation(): void {
-    console.warn('🚨 Session invalidated - cleaning up and notifying');
+    console.warn('🚨 Session invalidated by server');
     
-    // Clear session info
-    this.clearSessionInfo();
-    
-    // Stop heartbeat
-    this.stopHeartbeat();
-    
-    // Notify callback
-    if (this.sessionInvalidatedCallback) {
-      this.sessionInvalidatedCallback();
-    }
-    
-    // Trigger page refresh if auto-refresh is enabled
-    if (this.autoRefreshOnInvalidation) {
-      console.log('🔄 Auto-refreshing page due to session invalidation');
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000); // 1 second delay
-    }
+    // Dispatch custom event for UI to handle
+    const event = new CustomEvent('sessionInvalidated', {
+      detail: {
+        message: 'Your session has been invalidated. Please log in again.',
+        action: 'logout'
+      }
+    });
+    window.dispatchEvent(event);
   }
 
   private async handleSessionRefresh(): Promise<void> {
@@ -252,9 +272,9 @@ class SessionManager {
       this.stopHeartbeat();
       
       // Notify callback if session is invalidated
-      if (this.sessionInvalidatedCallback) {
-        this.sessionInvalidatedCallback();
-      }
+      // if (this.sessionInvalidatedCallback) { // This line is removed
+      //   this.sessionInvalidatedCallback();
+      // }
     } else {
       console.warn(`🔄 Session heartbeat retry ${this.retryCount}/${this.maxRetries} after error:`, error);
       
@@ -266,37 +286,37 @@ class SessionManager {
   }
 
   private reduceHeartbeatFrequency(): void {
-    if (this.heartbeatTimer) {
-      clearInterval(this.heartbeatTimer);
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
       // Reduce frequency to 5 minutes when page is hidden
-      this.heartbeatTimer = setInterval(() => {
+      this.intervalId = setInterval(() => {
         this.sendHeartbeat();
       }, 300000); // 5 minutes
     }
   }
 
   private restoreHeartbeatFrequency(): void {
-    if (this.heartbeatTimer) {
-      clearInterval(this.heartbeatTimer);
-      this.heartbeatTimer = setInterval(() => {
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+      this.intervalId = setInterval(() => {
         this.sendHeartbeat();
       }, this.heartbeatInterval);
     }
   }
 
   public startHeartbeat(): void {
-    if (this.isActive) {
+    if (this.isInitialized) {
       return;
     }
 
-    this.isActive = true;
+    this.isInitialized = true;
     this.retryCount = 0;
     
     // Send initial heartbeat
     this.sendHeartbeat();
     
     // Set up recurring heartbeat
-    this.heartbeatTimer = setInterval(() => {
+    this.intervalId = setInterval(() => {
       this.sendHeartbeat();
     }, this.heartbeatInterval);
 
@@ -304,26 +324,26 @@ class SessionManager {
   }
 
   public stopHeartbeat(): void {
-    if (this.heartbeatTimer) {
-      clearInterval(this.heartbeatTimer);
-      this.heartbeatTimer = null;
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+      this.intervalId = null;
     }
     
-    this.isActive = false;
+    this.isInitialized = false;
     console.log('🔴 Session heartbeat stopped');
   }
 
   public isHeartbeatActive(): boolean {
-    return this.isActive;
+    return this.isInitialized;
   }
 
-  public getLastHeartbeatTime(): number {
-    return this.lastHeartbeatTime;
-  }
+  // public getLastHeartbeatTime(): number { // This line is removed
+  //   return this.lastHeartbeatTime;
+  // }
 
-  public setSessionInvalidatedCallback(callback: () => void): void {
-    this.sessionInvalidatedCallback = callback;
-  }
+  // public setSessionInvalidatedCallback(callback: () => void): void { // This line is removed
+  //   this.sessionInvalidatedCallback = callback;
+  // }
 
   public getSessionInfo(): any {
     try {
@@ -372,7 +392,7 @@ export type { SessionHeartbeatResponse, SessionConfig };
 export const getSessionStatus = () => {
   return {
     isActive: sessionManager.isHeartbeatActive(),
-    lastHeartbeat: sessionManager.getLastHeartbeatTime(),
+    // lastHeartbeat: sessionManager.getLastHeartbeatTime(), // This line is removed
     sessionInfo: sessionManager.getSessionInfo()
   };
 };
