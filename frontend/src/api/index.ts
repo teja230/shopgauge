@@ -250,25 +250,61 @@ export async function fetchWithAdminAuth(endpoint: string, options?: RequestInit
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
   const fullUrl = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
 
-  const response = await fetch(fullUrl, {
-    credentials: 'include',
-    headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-      ...(options?.headers || {})
-    },
-    ...options,
-  });
+  debugLog.info(`fetchWithAdminAuth: Making request to ${endpoint}`, { 
+    endpoint, 
+    fullUrl, 
+    method: options?.method || 'GET',
+    hasBody: !!options?.body 
+  }, 'API');
 
-  if (!response.ok) {
-    if (response.status === 401) {
-      throw new Error('Admin authentication required');
+  try {
+    const response = await fetch(fullUrl, {
+      credentials: 'include',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        ...(options?.headers || {})
+      },
+      ...options,
+    });
+
+    debugLog.info(`fetchWithAdminAuth: Response received for ${endpoint}`, { 
+      endpoint, 
+      status: response.status, 
+      statusText: response.statusText,
+      ok: response.ok 
+    }, 'API');
+
+    if (!response.ok) {
+      debugLog.error(`fetchWithAdminAuth: Error response for ${endpoint}`, { 
+        endpoint, 
+        status: response.status, 
+        statusText: response.statusText 
+      }, 'API');
+      
+      if (response.status === 401) {
+        throw new Error('Admin authentication required');
+      }
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Admin endpoint error: ${response.status}`);
     }
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || `Admin endpoint error: ${response.status}`);
-  }
 
-  return response.json();
+    const data = await response.json();
+    debugLog.info(`fetchWithAdminAuth: Success response for ${endpoint}`, { 
+      endpoint, 
+      hasData: !!data,
+      dataKeys: data ? Object.keys(data) : []
+    }, 'API');
+
+    return data;
+  } catch (error) {
+    debugLog.error(`fetchWithAdminAuth: Exception for ${endpoint}`, { 
+      endpoint, 
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    }, 'API');
+    throw error;
+  }
 }
 
 export { fetchWithAuth }; 
