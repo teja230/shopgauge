@@ -71,6 +71,15 @@ interface DatabaseMetrics {
   poolStatus: string;
 }
 
+interface CacheMetrics {
+  hits: number;
+  misses: number;
+  total: number;
+  hitRate: number;
+  evictions: number;
+  timestamp: string;
+}
+
 interface HealthMetrics {
   backendStatus: string;
   redisStatus: string;
@@ -277,9 +286,85 @@ const PerformanceMetricsCard: React.FC<{ metrics: DatabaseMetrics }> = ({ metric
   </Card>
 );
 
+const CacheStatisticsCard: React.FC<{ metrics: CacheMetrics }> = ({ metrics }) => (
+  <Card sx={{ height: '100%', bgcolor: 'background.paper', borderRadius: 2 }}>
+    <CardContent>
+      <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+        <StorageIcon color="primary" />
+        Cache Statistics
+      </Typography>
+      
+      <Box display="flex" gap={2} mb={2}>
+        <Box flex={1} textAlign="center">
+          <Typography variant="h5" color="success.main" fontWeight="bold">
+            {metrics.hitRate.toFixed(1)}%
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Hit Rate
+          </Typography>
+        </Box>
+        <Box flex={1} textAlign="center">
+          <Typography variant="h5" color="info.main" fontWeight="bold">
+            {metrics.total}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Total Requests
+          </Typography>
+        </Box>
+      </Box>
+
+      <Box display="flex" gap={2} mb={2}>
+        <Box flex={1} textAlign="center">
+          <Typography variant="h5" color="success.main" fontWeight="bold">
+            {metrics.hits}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Hits
+          </Typography>
+        </Box>
+        <Box flex={1} textAlign="center">
+          <Typography variant="h5" color="warning.main" fontWeight="bold">
+            {metrics.misses}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Misses
+          </Typography>
+        </Box>
+      </Box>
+
+      <Box sx={{ mt: 2 }}>
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+          <Typography variant="body2">Cache Performance</Typography>
+          <Typography variant="body2" fontWeight="bold">
+            {metrics.hitRate.toFixed(1)}%
+          </Typography>
+        </Box>
+        <LinearProgress 
+          variant="determinate" 
+          value={metrics.hitRate} 
+          color={metrics.hitRate >= 80 ? 'success' : metrics.hitRate >= 60 ? 'warning' : 'error'}
+          sx={{ height: 8, borderRadius: 4 }}
+        />
+        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+          {metrics.hits} hits / {metrics.total} requests
+        </Typography>
+      </Box>
+
+      {metrics.evictions > 0 && (
+        <Alert severity="info" sx={{ mt: 2, py: 0.5 }}>
+          <Typography variant="body2">
+            {metrics.evictions} cache evictions
+          </Typography>
+        </Alert>
+      )}
+    </CardContent>
+  </Card>
+);
+
 const EnhancedHealthSummary: React.FC = () => {
   const [metrics, setMetrics] = useState<HealthMetrics | null>(null);
   const [databaseDetails, setDatabaseDetails] = useState<DatabaseMetrics | null>(null);
+  const [cacheMetrics, setCacheMetrics] = useState<CacheMetrics | null>(null);
   const [loading, setLoading] = useState(true); // Start loading initially
   const [error, setError] = useState<string | null>(null);
   const { isServiceAvailable } = useServiceStatus();
@@ -300,9 +385,10 @@ const EnhancedHealthSummary: React.FC = () => {
 
     try {
       // Use public endpoints
-      const [healthData, dbDetailsData] = await Promise.all([
+      const [healthData, dbDetailsData, cacheData] = await Promise.all([
         fetchPublicEndpoint('/api/health/summary'),
-        fetchPublicEndpoint('/api/health/database-pool')
+        fetchPublicEndpoint('/api/health/database-pool'),
+        fetchPublicEndpoint('/api/health/cache-statistics').catch(() => ({ hits: 0, misses: 0, total: 0, hitRate: 0, evictions: 0 }))
       ]);
       
       // Transform the data to match expected format
@@ -330,8 +416,19 @@ const EnhancedHealthSummary: React.FC = () => {
         poolStatus: dbDetailsData.poolStatus || 'healthy'
       };
       
+      // Transform cache data
+      const transformedCacheData: CacheMetrics = {
+        hits: cacheData.hits || 0,
+        misses: cacheData.misses || 0,
+        total: cacheData.total || 0,
+        hitRate: cacheData.hitRate || 0,
+        evictions: cacheData.evictions || 0,
+        timestamp: new Date().toISOString()
+      };
+      
       setMetrics(transformedHealthData);
       setDatabaseDetails(transformedDbData);
+      setCacheMetrics(transformedCacheData);
       
     } catch (e: any) {
       console.error('Failed to fetch enhanced health metrics:', e);
@@ -457,6 +554,13 @@ const EnhancedHealthSummary: React.FC = () => {
           <Box flex={1} minWidth={0}>
             <PerformanceMetricsCard metrics={databaseDetails} />
           </Box>
+        </Box>
+      )}
+      
+      {/* Cache Statistics */}
+      {cacheMetrics && (
+        <Box mt={3}>
+          <CacheStatisticsCard metrics={cacheMetrics} />
         </Box>
       )}
       <Box display="flex" alignItems="center" gap={1} mt={2} flexWrap="wrap">
