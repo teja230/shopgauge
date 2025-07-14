@@ -694,21 +694,7 @@ const MarketIntelligenceDashboard: React.FC<MarketIntelligenceDashboardProps> = 
                     System Status
                   </Typography>
                   <Stack direction="row" spacing={1} flexWrap="wrap">
-                    <Chip 
-                      size="small" 
-                      label={`DB: ${metrics?.performanceMetrics.databaseStatus || 'Unknown'}`}
-                      color={metrics?.performanceMetrics.databaseStatus === 'HEALTHY' ? 'success' : 'error'}
-                    />
-                    <Chip 
-                      size="small" 
-                      label={`Redis: ${metrics?.performanceMetrics.redisStatus || 'Unknown'}`}
-                      color={metrics?.performanceMetrics.redisStatus === 'healthy' ? 'success' : 'error'}
-                    />
-                    <Chip 
-                      size="small" 
-                      label={`Tx: ${metrics?.performanceMetrics.transactionStatus || 'Unknown'}`}
-                      color={metrics?.performanceMetrics.transactionStatus === 'healthy' ? 'success' : 'error'}
-                    />
+                    
                   </Stack>
                 </Box>
               </Stack>

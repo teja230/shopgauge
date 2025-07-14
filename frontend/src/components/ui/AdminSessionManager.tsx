@@ -647,7 +647,6 @@ const AdminSessionManager: React.FC = () => {
                     <TableCell align="center"><strong>Active Sessions</strong></TableCell>
                     <TableCell align="center"><strong>Expired Sessions</strong></TableCell>
                     <TableCell align="center"><strong>Last Activity</strong></TableCell>
-                    <TableCell align="center"><strong>Actions</strong></TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -683,77 +682,6 @@ const AdminSessionManager: React.FC = () => {
                         <Typography variant="body2" color="text.secondary">
                           {formatTimestamp(shop.lastActivity)}
                         </Typography>
-                      </TableCell>
-                      <TableCell align="center">
-                        <Stack direction="row" spacing={1} justifyContent="center">
-                          <Tooltip title="View Sessions">
-                            <IconButton
-                              size="small"
-                              onClick={() => fetchShopSessions(shop.shopDomain)}
-                              disabled={sessionsLoading}
-                            >
-                              <VisibilityIcon />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip
-                            title={
-                              actionLoading === `refresh-${shop.shopDomain}`
-                                ? 'Refreshing...'
-                                : (shopRefreshCooldowns[shop.shopDomain] || 0) > 0
-                                  ? `Please wait ${shopRefreshCooldowns[shop.shopDomain]}s before refreshing again`
-                                  : 'Refresh Sessions'
-                            }
-                          >
-                            <span>
-                              <IconButton
-                                size="small"
-                                color="primary"
-                                onClick={() => {
-                                  const currentCooldown = shopRefreshCooldowns[shop.shopDomain] || 0;
-                                  if (currentCooldown > 0) {
-                                    addNotification(`Please wait ${currentCooldown}s before refreshing ${shop.shopDomain} again`, 'warning');
-                                    return;
-                                  }
-                                  setConfirmAction({ type: 'refresh', shopDomain: shop.shopDomain });
-                                  setShowConfirmDialog(true);
-                                }}
-                                disabled={actionLoading === `refresh-${shop.shopDomain}` || (shopRefreshCooldowns[shop.shopDomain] || 0) > 0}
-                                aria-label={`Refresh sessions for ${shop.shopDomain}`}
-                              >
-                                {actionLoading === `refresh-${shop.shopDomain}` ? (
-                                  <CircularProgress size={16} />
-                                ) : (shopRefreshCooldowns[shop.shopDomain] || 0) > 0 ? (
-                                  <Badge
-                                    badgeContent={`${shopRefreshCooldowns[shop.shopDomain]}s`}
-                                    color="secondary"
-                                    anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-                                  >
-                                    <RestartAltIcon />
-                                  </Badge>
-                                ) : (
-                                  <RestartAltIcon />
-                                )}
-                              </IconButton>
-                            </span>
-                          </Tooltip>
-                          <Tooltip title="Invalidate All Sessions">
-                            <IconButton
-                              size="small"
-                              color="error"
-                              onClick={() => {
-                                setConfirmAction({ type: 'invalidate', shopDomain: shop.shopDomain });
-                                setShowConfirmDialog(true);
-                              }}
-                              disabled={actionLoading === `invalidate-${shop.shopDomain}`}
-                            >
-                              {actionLoading === `invalidate-${shop.shopDomain}` ? (
-                                <CircularProgress size={16} />
-                              ) : (
-                                <BlockIcon />
-                              )}
-                            </IconButton>
-                          </Tooltip>
-                        </Stack>
                       </TableCell>
                     </TableRow>
                   ))}
