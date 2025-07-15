@@ -256,7 +256,8 @@ public class WebSecurityConfig implements WebMvcConfigurer {
                       "/api/admin/login") // Allow admin login endpoint
                   .permitAll();
 
-              auth.anyRequest().authenticated();
+              auth.requestMatchers("/api/**")
+                  .authenticated(); // Only API endpoints require authentication
             })
         .sessionManagement(
             session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
