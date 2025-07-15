@@ -966,8 +966,13 @@ public class AnalyticsController {
     // Check Redis cache first
     var cachedRevenue = dashboardCacheService.getCachedRevenueData(shop);
     if (cachedRevenue.isPresent()) {
-      logger.info("Cache hit for revenue data for shop: {}", shop);
+      logger.info("Cache hit for revenue data for shop: {} (session: {})", shop, session.getId());
       return Mono.just(ResponseEntity.ok((Map<String, Object>) cachedRevenue.get()));
+    } else {
+      logger.info(
+          "Cache miss for revenue data for shop: {} (session: {}) - making API call",
+          shop,
+          session.getId());
     }
 
     // Log the revenue data access
