@@ -1495,14 +1495,30 @@ const AdminPage: React.FC = () => {
       
       if (response.ok) {
         const result = await response.json();
-        showSuccess(`Found ${result.count || result.totalStuckSessions} stuck sessions`);
-        return result;
+        console.log('Stuck sessions response:', result);
+        
+        // Handle both single shop and all shops response formats
+        if (shopDomain) {
+          // Single shop response
+          const count = result.count || 0;
+          const stuckSessions = result.stuckSessions || [];
+          showSuccess(`Found ${count} stuck sessions for ${shopDomain}`);
+          return { shopDomain, stuckSessions, count };
+        } else {
+          // All shops response
+          const totalStuckSessions = result.totalStuckSessions || 0;
+          const totalShops = result.totalShops || 0;
+          const stuckSessionsByShop = result.stuckSessionsByShop || {};
+          showSuccess(`Found ${totalStuckSessions} stuck sessions across ${totalShops} shops`);
+          return { totalStuckSessions, totalShops, stuckSessionsByShop };
+        }
       } else {
         const error = await response.json().catch(() => ({}));
         showError(error.error || 'Failed to get stuck sessions');
         throw new Error(error.error || 'Failed to get stuck sessions');
       }
     } catch (error) {
+      console.error('Error getting stuck sessions:', error);
       showError('Error getting stuck sessions');
       throw error;
     }

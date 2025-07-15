@@ -957,6 +957,11 @@ public class AdminController {
       Set<String> sessionKeys = redisTemplate.keys("*" + shopDomain + "*");
       List<Map<String, Object>> stuckSessions = new ArrayList<>();
 
+      logger.info(
+          "Found {} Redis keys for shop {}",
+          sessionKeys != null ? sessionKeys.size() : 0,
+          shopDomain);
+
       if (sessionKeys != null) {
         for (String key : sessionKeys) {
           try {
@@ -970,6 +975,7 @@ public class AdminController {
               sessionInfo.put("value", value);
               sessionInfo.put("type", getSessionKeyType(key));
               stuckSessions.add(sessionInfo);
+              logger.debug("Found stuck session: {} = {}", key, value);
             }
           } catch (Exception e) {
             logger.warn("Error reading Redis key {}: {}", key, e.getMessage());
@@ -983,10 +989,11 @@ public class AdminController {
       result.put("count", stuckSessions.size());
       result.put("timestamp", LocalDateTime.now().toString());
 
+      logger.info("Returning {} stuck sessions for shop {}", stuckSessions.size(), shopDomain);
       return ResponseEntity.ok(result);
 
     } catch (Exception e) {
-      logger.error("Failed to get stuck sessions for shop {}: {}", shopDomain, e.getMessage());
+      logger.error("Failed to get stuck sessions for shop {}: {}", shopDomain, e.getMessage(), e);
       result.put("success", false);
       result.put("error", "Failed to get stuck sessions: " + e.getMessage());
       result.put("shopDomain", shopDomain);
