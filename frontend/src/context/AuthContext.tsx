@@ -2,7 +2,8 @@ import React, { createContext, useContext, useState, useEffect, type ReactNode }
 import axios from 'axios';
 import { setApiAuthState, setGlobalServiceErrorHandler, API_BASE_URL } from '../api';
 import { invalidateCache } from '../utils/cacheUtils';
-import { clearAllSessionCookies, subscribeToSessionEvents, unsubscribeFromSessionEvents } from '../utils/sessionUtils';
+import { clearAllSessionCookies } from '../utils/sessionUtils';
+import { useEnterpriseSse } from '../hooks/useEnterpriseSse';
 import { debugLog } from '../components/ui/DebugPanel';
 
 // Types
@@ -107,41 +108,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log('AuthContext: Cleared all dashboard and unified analytics cache keys');
   };
 
-  useEffect(() => {
-    let unsubscribe: (() => void) | null = null;
-    if (isAuthenticated && shop) {
-      debugLog.info('Setting up SSE for shop', { shop }, 'AuthContext');
-      unsubscribe = subscribeToSessionEvents(shop, (data, event) => {
-        debugLog.debug('Received SSE event', { data, eventType: event.type }, 'AuthContext');
-        if (data && data.event === 'session_invalidated') {
-          debugLog.warn('Received session_invalidated SSE event, forcing logout', { shop }, 'AuthContext');
-          clearAllSessionCookies();
-          setIsAuthenticated(false);
-          setShop(null);
-          setApiAuthState(false, null);
-          setIsAuthReady(true);
-          // Clear all cache
-          clearAllDashboardCache();
-          // Show notification using a custom event
-          const evt = new CustomEvent('sessionInvalidated', {
-            detail: {
-              message: 'Your session has been invalidated by an administrator.',
-              timestamp: new Date().toISOString(),
-              shop: shop
-            }
-          });
-          window.dispatchEvent(evt);
-        }
-      });
-    }
-
-    return () => {
-      if (unsubscribe) {
-        debugLog.info('Cleaning up SSE subscription', { shop }, 'AuthContext');
-        unsubscribe();
-      }
-    };
-  }, [isAuthenticated, shop]);
+  // Use enterprise SSE hook
+  const { isConnected, isReconnecting, isPolling, isRateLimited } = useEnterpriseSse({
+    autoConnect: true,
+    enableNotifications: false, // We handle notifications manually
+    enableDebug: import.meta.env.DEV
+  });
 
   useEffect(() => {
     // Only run initial auth check on mount

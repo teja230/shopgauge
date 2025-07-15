@@ -176,4 +176,22 @@ export const invalidateAdminShopSessions = async (shopDomain: string): Promise<a
     }
     return { success: false, error: 'Failed to invalidate shop sessions' };
   }
+};
+
+export const getAdminSseStats = async (): Promise<any> => {
+  if (import.meta.env.DEV) {
+    console.log('API: Getting admin SSE statistics');
+  }
+  try {
+    const data = await fetchWithAdminAuth('/api/sessions/admin/sse/stats');
+    if (import.meta.env.DEV) {
+      console.log('API: Admin SSE stats response:', data);
+    }
+    return data;
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      console.error('API: Admin SSE stats error:', error);
+    }
+    return { success: false, error: 'Failed to get SSE statistics' };
+  }
 }; 

@@ -1225,10 +1225,10 @@ const DashboardPage = () => {
     } else {
       // NORMAL STRATEGY: Session First, Redis Second (to prevent continuous Redis hits)
       if (!forceRefresh && isSessionFresh) {
-        const ageMinutes = Math.round((Date.now() - cachedEntry.timestamp) / (1000 * 60));
+      const ageMinutes = Math.round((Date.now() - cachedEntry.timestamp) / (1000 * 60));
         console.log(`✅ ${cacheKey.toUpperCase()}: Using session cached data (${ageMinutes}min old)`);
-        setCache(prev => ({ ...prev, [cacheKey]: cachedEntry }));
-        return cachedEntry.data;
+      setCache(prev => ({ ...prev, [cacheKey]: cachedEntry }));
+      return cachedEntry.data;
       }
       
       if (!forceRefresh && !isSessionFresh && cachedEntry) {
