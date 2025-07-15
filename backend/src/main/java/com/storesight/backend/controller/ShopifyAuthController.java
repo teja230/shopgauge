@@ -432,9 +432,28 @@ public class ShopifyAuthController {
         shopService.postSaveShopOperations(shop, sessionId, accessToken);
         logger.debug("Post-save operations completed for shop: {}", shop);
       } catch (Exception saveError) {
-        logger.error("Failed to save shop data to Redis/database: {}", saveError.getMessage());
-        // Continue with cookie setting even if save fails
+        logger.error(
+            "Failed to save shop data to Redis/database: {}", saveError.getMessage(), saveError);
+
+        // SECURE: Handle session creation failures appropriately
+        if (saveError.getMessage() != null
+            && saveError.getMessage().contains("Failed to save session")) {
+          // Session creation failed - this is a critical error that should prevent login
+          logger.error("Critical session creation failure for shop: {} - preventing login", shop);
+          String redirectUrl =
+              frontendUrl
+                  + "/?error=session_creation_failed&error_message="
+                  + java.net.URLEncoder.encode(
+                      "Session creation failed. Please try again or contact support if the problem persists.",
+                      "UTF-8");
+          response.sendRedirect(redirectUrl);
+          return;
+        }
+
+        // For other save errors, continue with cookie setting but log the issue
         // The token exchange was successful, so we can still set the cookie
+        logger.warn(
+            "Non-critical save error - continuing with login process: {}", saveError.getMessage());
       }
 
       // Set the shop cookie with proper domain configuration for Render

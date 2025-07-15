@@ -921,6 +921,8 @@ public class ShopService {
     clearInvalidSessionCache(shop.getShopifyDomain(), sessionId);
 
     logger.info("Saving session to database: {} for shop: {}", sessionId, shop.getShopifyDomain());
+
+    // SECURE: Attempt to save session with proper error handling
     try {
       ShopSession savedSession = shopSessionRepository.save(session);
       logger.info(
@@ -933,10 +935,14 @@ public class ShopService {
           shop.getShopifyDomain(),
           e.getMessage(),
           e);
-      // Don't throw the exception to prevent session invalidation errors
-      // Instead, return the session object without saving to database
-      logger.warn("Returning unsaved session object to prevent session invalidation error");
-      return session;
+
+      // SECURE: Instead of returning unsaved session, throw a specific exception
+      // This ensures the transaction is properly rolled back and the error is handled appropriately
+      throw new RuntimeException(
+          String.format(
+              "Failed to save session %s for shop %s: %s",
+              sessionId, shop.getShopifyDomain(), e.getMessage()),
+          e);
     }
   }
 
@@ -1640,6 +1646,66 @@ public class ShopService {
     } catch (Exception e) {
       logger.warn(
           "Error validating session {} for shop {}: {}", sessionId, shopifyDomain, e.getMessage());
+      return false;
+    }
+  }
+
+  /**
+   * Secure session validation that ensures session state consistency This method validates that a
+   * session exists in the database and is in a valid state
+   */
+  public boolean validateSessionState(String shopifyDomain, String sessionId) {
+    try {
+      if (sessionId == null || sessionId.trim().isEmpty()) {
+        logger.warn(
+            "Session validation failed: null or empty sessionId for shop: {}", shopifyDomain);
+        return false;
+      }
+
+      // Check if session exists in database
+      Optional<ShopSession> sessionOpt = shopSessionRepository.findBySessionId(sessionId);
+      if (sessionOpt.isEmpty()) {
+        logger.warn(
+            "Session validation failed: session {} not found in database for shop: {}",
+            sessionId,
+            shopifyDomain);
+        return false;
+      }
+
+      ShopSession session = sessionOpt.get();
+
+      // Validate session is active
+      if (!session.getIsActive()) {
+        logger.warn(
+            "Session validation failed: session {} is inactive for shop: {}",
+            sessionId,
+            shopifyDomain);
+        return false;
+      }
+
+      // Validate session belongs to correct shop
+      if (!session.getShop().getShopifyDomain().equals(shopifyDomain)) {
+        logger.warn(
+            "Session validation failed: session {} belongs to different shop: {}",
+            sessionId,
+            session.getShop().getShopifyDomain());
+        return false;
+      }
+
+      // Validate session hasn't expired
+      if (session.getExpiresAt() != null && session.getExpiresAt().isBefore(LocalDateTime.now())) {
+        logger.warn(
+            "Session validation failed: session {} has expired for shop: {}",
+            sessionId,
+            shopifyDomain);
+        return false;
+      }
+
+      logger.debug("Session validation successful: {} for shop: {}", sessionId, shopifyDomain);
+      return true;
+    } catch (Exception e) {
+      logger.error(
+          "Session validation error for {}:{}: {}", shopifyDomain, sessionId, e.getMessage());
       return false;
     }
   }
