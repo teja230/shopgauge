@@ -7,18 +7,12 @@ import {
   LinearProgress,
   Chip,
   Button,
-  IconButton,
   Alert,
   AlertTitle,
-  Tooltip,
   CircularProgress,
   Paper,
-  Divider,
-  Stack,
-  Badge,
 } from '@mui/material';
 import {
-  Refresh as RefreshIcon,
   Timeline as TimelineIcon,
   Speed as SpeedIcon,
   Memory as MemoryIcon,
@@ -28,13 +22,10 @@ import {
   Error as ErrorIcon,
   Info as InfoIcon,
   TrendingUp as TrendingUpIcon,
-  TrendingDown as TrendingDownIcon,
-  PlayArrow as PlayArrowIcon,
-  Pause as PauseIcon,
   BugReport as BugReportIcon,
   Healing as HealingIcon,
 } from '@mui/icons-material';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import RefreshHeader from './RefreshHeader';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
