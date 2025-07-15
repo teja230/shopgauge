@@ -15,10 +15,12 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.sql.DataSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -34,6 +36,7 @@ public class AdminController {
   private final DataSource dataSource;
   private final SessionSynchronizationService sessionSynchronizationService;
   private final ShopService shopService;
+  private final RedisTemplate<String, String> redisTemplate;
 
   @Autowired
   public AdminController(
@@ -43,7 +46,8 @@ public class AdminController {
       DatabaseMonitoringService databaseMonitoringService,
       DataSource dataSource,
       SessionSynchronizationService sessionSynchronizationService,
-      ShopService shopService) {
+      ShopService shopService,
+      RedisTemplate<String, String> redisTemplate) {
     this.secretService = secretService;
     this.notificationService = notificationService;
     this.dataPrivacyService = dataPrivacyService;
@@ -51,6 +55,7 @@ public class AdminController {
     this.dataSource = dataSource;
     this.sessionSynchronizationService = sessionSynchronizationService;
     this.shopService = shopService;
+    this.redisTemplate = redisTemplate;
   }
 
   @PostMapping("/secrets")
@@ -882,5 +887,257 @@ public class AdminController {
       result.put("error", "Emergency session cleanup failed: " + e.getMessage());
       return ResponseEntity.status(500).body(result);
     }
+  }
+
+  /** EMERGENCY ENDPOINT: Clear stuck session markers for a specific session */
+  @PostMapping("/sessions/clear-stuck-markers/{sessionId}")
+  public ResponseEntity<Map<String, Object>> clearStuckSessionMarkers(
+      @PathVariable String sessionId) {
+    Map<String, Object> result = new HashMap<>();
+
+    try {
+      logger.warn("ADMIN: Clearing stuck session markers for session: {}", sessionId);
+
+      shopService.clearStuckSessionMarkers(sessionId);
+
+      result.put("success", true);
+      result.put("message", "Stuck session markers cleared for session: " + sessionId);
+      result.put("sessionId", sessionId);
+      result.put("timestamp", LocalDateTime.now().toString());
+
+      return ResponseEntity.ok(result);
+
+    } catch (Exception e) {
+      logger.error(
+          "Failed to clear stuck session markers for session {}: {}", sessionId, e.getMessage());
+      result.put("success", false);
+      result.put("error", "Failed to clear stuck session markers: " + e.getMessage());
+      result.put("sessionId", sessionId);
+      return ResponseEntity.status(500).body(result);
+    }
+  }
+
+  /** EMERGENCY ENDPOINT: Clear all stuck session markers for a shop */
+  @PostMapping("/sessions/clear-stuck-markers/shop/{shopDomain}")
+  public ResponseEntity<Map<String, Object>> clearStuckSessionMarkersForShop(
+      @PathVariable String shopDomain) {
+    Map<String, Object> result = new HashMap<>();
+
+    try {
+      logger.warn("ADMIN: Clearing all stuck session markers for shop: {}", shopDomain);
+
+      shopService.clearStuckSessionMarkersForShop(shopDomain);
+
+      result.put("success", true);
+      result.put("message", "All stuck session markers cleared for shop: " + shopDomain);
+      result.put("shopDomain", shopDomain);
+      result.put("timestamp", LocalDateTime.now().toString());
+
+      return ResponseEntity.ok(result);
+
+    } catch (Exception e) {
+      logger.error(
+          "Failed to clear stuck session markers for shop {}: {}", shopDomain, e.getMessage());
+      result.put("success", false);
+      result.put("error", "Failed to clear stuck session markers: " + e.getMessage());
+      result.put("shopDomain", shopDomain);
+      return ResponseEntity.status(500).body(result);
+    }
+  }
+
+  /** EMERGENCY ENDPOINT: Get all stuck sessions for a shop */
+  @GetMapping("/sessions/stuck-sessions/{shopDomain}")
+  public ResponseEntity<Map<String, Object>> getStuckSessions(@PathVariable String shopDomain) {
+    Map<String, Object> result = new HashMap<>();
+
+    try {
+      logger.warn("ADMIN: Getting stuck sessions for shop: {}", shopDomain);
+
+      // Get all session-related Redis keys for this shop
+      Set<String> sessionKeys = redisTemplate.keys("*" + shopDomain + "*");
+      List<Map<String, Object>> stuckSessions = new ArrayList<>();
+
+      if (sessionKeys != null) {
+        for (String key : sessionKeys) {
+          try {
+            String value = redisTemplate.opsForValue().get(key);
+            if (value != null
+                && (value.contains("invalid")
+                    || value.contains("stuck")
+                    || value.contains("cleanup"))) {
+              Map<String, Object> sessionInfo = new HashMap<>();
+              sessionInfo.put("key", key);
+              sessionInfo.put("value", value);
+              sessionInfo.put("type", getSessionKeyType(key));
+              stuckSessions.add(sessionInfo);
+            }
+          } catch (Exception e) {
+            logger.warn("Error reading Redis key {}: {}", key, e.getMessage());
+          }
+        }
+      }
+
+      result.put("success", true);
+      result.put("shopDomain", shopDomain);
+      result.put("stuckSessions", stuckSessions);
+      result.put("count", stuckSessions.size());
+      result.put("timestamp", LocalDateTime.now().toString());
+
+      return ResponseEntity.ok(result);
+
+    } catch (Exception e) {
+      logger.error("Failed to get stuck sessions for shop {}: {}", shopDomain, e.getMessage());
+      result.put("success", false);
+      result.put("error", "Failed to get stuck sessions: " + e.getMessage());
+      result.put("shopDomain", shopDomain);
+      return ResponseEntity.status(500).body(result);
+    }
+  }
+
+  /** EMERGENCY ENDPOINT: Get all stuck sessions across all shops */
+  @GetMapping("/sessions/stuck-sessions")
+  public ResponseEntity<Map<String, Object>> getAllStuckSessions() {
+    Map<String, Object> result = new HashMap<>();
+
+    try {
+      logger.warn("ADMIN: Getting all stuck sessions across all shops");
+
+      // Get all session-related Redis keys
+      Set<String> sessionKeys = redisTemplate.keys("*session*");
+      Map<String, List<Map<String, Object>>> stuckSessionsByShop = new HashMap<>();
+
+      if (sessionKeys != null) {
+        for (String key : sessionKeys) {
+          try {
+            String value = redisTemplate.opsForValue().get(key);
+            if (value != null
+                && (value.contains("invalid")
+                    || value.contains("stuck")
+                    || value.contains("cleanup"))) {
+              String shopDomain = extractShopDomainFromKey(key);
+              if (shopDomain != null) {
+                Map<String, Object> sessionInfo = new HashMap<>();
+                sessionInfo.put("key", key);
+                sessionInfo.put("value", value);
+                sessionInfo.put("type", getSessionKeyType(key));
+
+                stuckSessionsByShop
+                    .computeIfAbsent(shopDomain, k -> new ArrayList<>())
+                    .add(sessionInfo);
+              }
+            }
+          } catch (Exception e) {
+            logger.warn("Error reading Redis key {}: {}", key, e.getMessage());
+          }
+        }
+      }
+
+      result.put("success", true);
+      result.put("stuckSessionsByShop", stuckSessionsByShop);
+      result.put("totalShops", stuckSessionsByShop.size());
+      result.put(
+          "totalStuckSessions", stuckSessionsByShop.values().stream().mapToInt(List::size).sum());
+      result.put("timestamp", LocalDateTime.now().toString());
+
+      return ResponseEntity.ok(result);
+
+    } catch (Exception e) {
+      logger.error("Failed to get all stuck sessions: {}", e.getMessage());
+      result.put("success", false);
+      result.put("error", "Failed to get stuck sessions: " + e.getMessage());
+      return ResponseEntity.status(500).body(result);
+    }
+  }
+
+  /** EMERGENCY ENDPOINT: Clear all stuck sessions for a shop */
+  @PostMapping("/sessions/clear-stuck-sessions/{shopDomain}")
+  public ResponseEntity<Map<String, Object>> clearAllStuckSessionsForShop(
+      @PathVariable String shopDomain) {
+    Map<String, Object> result = new HashMap<>();
+
+    try {
+      logger.warn("ADMIN: Clearing all stuck sessions for shop: {}", shopDomain);
+
+      // Clear all session-related Redis keys for this shop
+      Set<String> sessionKeys = redisTemplate.keys("*" + shopDomain + "*");
+      int clearedCount = 0;
+
+      if (sessionKeys != null) {
+        for (String key : sessionKeys) {
+          try {
+            String value = redisTemplate.opsForValue().get(key);
+            if (value != null
+                && (value.contains("invalid")
+                    || value.contains("stuck")
+                    || value.contains("cleanup"))) {
+              redisTemplate.delete(key);
+              clearedCount++;
+              logger.info("Cleared stuck session key: {}", key);
+            }
+          } catch (Exception e) {
+            logger.warn("Error clearing Redis key {}: {}", key, e.getMessage());
+          }
+        }
+      }
+
+      // Also clear session synchronization markers for this shop
+      shopService.clearStuckSessionMarkersForShop(shopDomain);
+
+      result.put("success", true);
+      result.put("shopDomain", shopDomain);
+      result.put("clearedCount", clearedCount);
+      result.put(
+          "message", "Cleared " + clearedCount + " stuck session markers for shop: " + shopDomain);
+      result.put("timestamp", LocalDateTime.now().toString());
+
+      return ResponseEntity.ok(result);
+
+    } catch (Exception e) {
+      logger.error("Failed to clear stuck sessions for shop {}: {}", shopDomain, e.getMessage());
+      result.put("success", false);
+      result.put("error", "Failed to clear stuck sessions: " + e.getMessage());
+      result.put("shopDomain", shopDomain);
+      return ResponseEntity.status(500).body(result);
+    }
+  }
+
+  /** Helper method to extract shop domain from Redis key */
+  private String extractShopDomainFromKey(String key) {
+    try {
+      // Look for shop domain patterns in the key
+      if (key.contains("shop_token:")) {
+        String[] parts = key.split("shop_token:");
+        if (parts.length > 1) {
+          String[] shopSession = parts[1].split(":");
+          if (shopSession.length > 0) {
+            return shopSession[0];
+          }
+        }
+      }
+      if (key.contains("invalid_session:")) {
+        String[] parts = key.split("invalid_session:");
+        if (parts.length > 1) {
+          String[] shopSession = parts[1].split(":");
+          if (shopSession.length > 0) {
+            return shopSession[0];
+          }
+        }
+      }
+      return null;
+    } catch (Exception e) {
+      logger.warn("Error extracting shop domain from key {}: {}", key, e.getMessage());
+      return null;
+    }
+  }
+
+  /** Helper method to get session key type */
+  private String getSessionKeyType(String key) {
+    if (key.contains("shop_token:")) return "session_token";
+    if (key.contains("invalid_session:")) return "invalid_marker";
+    if (key.contains("validation_failure_count:")) return "failure_count";
+    if (key.contains("session_invalidation:")) return "invalidation_marker";
+    if (key.contains("session_state:")) return "state_marker";
+    if (key.contains("session_lock:")) return "lock_marker";
+    return "unknown";
   }
 }

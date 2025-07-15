@@ -1480,26 +1480,74 @@ const AdminPage: React.FC = () => {
 
 
 
-  // Session Management Functions
-  const handleClearStuckSession = async (sessionId: string) => {
-    if (!sessionId.trim()) return;
-    
+  // Session Management Functions - Updated to use shop domains
+  const handleGetStuckSessions = async (shopDomain?: string) => {
     try {
-      const response = await fetchEmergencyEndpoint(`/api/admin/sessions/clear-stuck/${sessionId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+      const endpoint = shopDomain 
+        ? `/api/admin/sessions/stuck-sessions/${shopDomain}`
+        : '/api/admin/sessions/stuck-sessions';
+      
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
       });
       
       if (response.ok) {
         const result = await response.json();
-        console.log('Stuck session cleared:', result);
+        showSuccess(`Found ${result.count || result.totalStuckSessions} stuck sessions`);
+        return result;
       } else {
-        throw new Error(`Failed to clear stuck session: ${response.statusText}`);
+        const error = await response.json().catch(() => ({}));
+        showError(error.error || 'Failed to get stuck sessions');
+        throw new Error(error.error || 'Failed to get stuck sessions');
       }
     } catch (error) {
-      console.error('Error clearing stuck session:', error);
+      showError('Error getting stuck sessions');
       throw error;
     }
+  };
+
+  const handleClearStuckSessionsForShop = async (shopDomain: string) => {
+    if (!shopDomain.trim()) return;
+    
+    try {
+      const response = await fetch(`/api/admin/sessions/clear-stuck-sessions/${shopDomain}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        showSuccess(result.message || `Cleared stuck sessions for ${shopDomain}`);
+        return result;
+      } else {
+        const error = await response.json().catch(() => ({}));
+        showError(error.error || 'Failed to clear stuck sessions');
+        throw new Error(error.error || 'Failed to clear stuck sessions');
+      }
+    } catch (error) {
+      showError('Error clearing stuck sessions');
+      throw error;
+    }
+  };
+
+  // Legacy function for backward compatibility (now uses shop domain)
+  const handleClearStuckSession = async (sessionId: string) => {
+    // Extract shop domain from session ID or use a default
+    // For now, we'll use the shop from active shops if available
+    const shopDomain = activeShops.find(shop => 
+      shop.sessionId === sessionId
+    )?.shopDomain || 'unknown';
+    
+    return handleClearStuckSessionsForShop(shopDomain);
+  };
+
+  const handleCheckSessionSyncStatus = async (sessionId: string) => {
+    // This endpoint might not exist yet, so we'll show a placeholder
+    showError('Session sync status endpoint not implemented yet');
+    throw new Error('Session sync status endpoint not implemented yet');
   };
 
   const handleEmergencySessionCleanup = async () => {
@@ -1517,25 +1565,6 @@ const AdminPage: React.FC = () => {
       }
     } catch (error) {
       console.error('Error performing emergency session cleanup:', error);
-      throw error;
-    }
-  };
-
-  const handleCheckSessionSyncStatus = async (sessionId: string) => {
-    if (!sessionId.trim()) return;
-    
-    try {
-      const response = await fetchEmergencyEndpoint(`/api/admin/sessions/sync-status/${sessionId}`);
-      
-      if (response.ok) {
-        const result = await response.json();
-        console.log('Session sync status:', result);
-        return result;
-      } else {
-        throw new Error(`Failed to get session status: ${response.statusText}`);
-      }
-    } catch (error) {
-      console.error('Error checking session sync status:', error);
       throw error;
     }
   };
@@ -2258,6 +2287,8 @@ const AdminPage: React.FC = () => {
 
               <SessionManagementTools
                 onClearStuckSession={handleClearStuckSession}
+                onClearStuckSessionsForShop={handleClearStuckSessionsForShop}
+                onGetStuckSessions={handleGetStuckSessions}
                 onEmergencySessionCleanup={handleEmergencySessionCleanup}
                 onCheckSessionSyncStatus={handleCheckSessionSyncStatus}
                 onRefreshSessionSyncStatus={handleRefreshSessionSyncStatus}
