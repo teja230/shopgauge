@@ -365,9 +365,9 @@ const App: React.FC = () => {
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <Router>
-          <AuthProvider>
+          <NotificationSettingsProvider>
             <ServiceStatusProvider>
-              <NotificationSettingsProvider>
+              <AuthProvider>
                 <Toaster 
                   position="top-center"
                   toastOptions={{
@@ -397,9 +397,9 @@ const App: React.FC = () => {
                   }}
                 />
                 <AppContent />
-              </NotificationSettingsProvider>
+              </AuthProvider>
             </ServiceStatusProvider>
-          </AuthProvider>
+          </NotificationSettingsProvider>
         </Router>
       </ThemeProvider>
     </ErrorBoundary>
