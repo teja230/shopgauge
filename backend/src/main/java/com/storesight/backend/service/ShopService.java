@@ -838,6 +838,11 @@ public class ShopService {
   private ShopSession createOrUpdateSession(
       Shop shop, String sessionId, String accessToken, HttpServletRequest request) {
 
+    logger.info(
+        "Creating/updating session for shop: {} with sessionId: {}",
+        shop.getShopifyDomain(),
+        sessionId);
+
     // Final validation to ensure sessionId is never null
     if (sessionId == null || sessionId.trim().isEmpty()) {
       sessionId =
@@ -850,24 +855,62 @@ public class ShopService {
           shop.getShopifyDomain());
     }
 
-    Optional<ShopSession> existingOpt =
-        shopSessionRepository.findByShopAndSessionIdAndIsActiveTrue(shop, sessionId);
+    // First check for any existing session (active or inactive) with this sessionId
+    Optional<ShopSession> existingSessionOpt = shopSessionRepository.findBySessionId(sessionId);
+    logger.info(
+        "Checking for existing session with ID: {} - found: {}",
+        sessionId,
+        existingSessionOpt.isPresent());
 
     ShopSession session;
-    if (existingOpt.isPresent()) {
-      // Update existing session
-      session = existingOpt.get();
-      session.setAccessToken(accessToken);
-      session.markAsAccessed();
-      logger.debug("Updated existing session: {} for shop: {}", sessionId, shop.getShopifyDomain());
+    if (existingSessionOpt.isPresent()) {
+      // Session exists - check if it's for the same shop and reactivate if needed
+      ShopSession existingSession = existingSessionOpt.get();
+      logger.info(
+          "Existing session found - shop: {}, isActive: {}",
+          existingSession.getShop().getShopifyDomain(),
+          existingSession.getIsActive());
+
+      if (existingSession.getShop().getId().equals(shop.getId())) {
+        // Same shop - reactivate and update the session
+        existingSession.setIsActive(true);
+        existingSession.setAccessToken(accessToken);
+        existingSession.markAsAccessed();
+        if (request != null) {
+          existingSession.setUserAgent(request.getHeader("User-Agent"));
+          existingSession.setIpAddress(getClientIpAddress(request));
+        }
+        session = existingSession;
+        logger.info(
+            "Reactivated existing session: {} for shop: {}", sessionId, shop.getShopifyDomain());
+      } else {
+        // Different shop - this shouldn't happen with unique session IDs, but handle gracefully
+        logger.warn(
+            "Session ID {} already exists for different shop, generating new session ID",
+            sessionId);
+        sessionId =
+            "conflict_"
+                + System.currentTimeMillis()
+                + "_"
+                + Math.abs(shop.getShopifyDomain().hashCode());
+        session = new ShopSession(shop, sessionId, accessToken);
+        if (request != null) {
+          session.setUserAgent(request.getHeader("User-Agent"));
+          session.setIpAddress(getClientIpAddress(request));
+        }
+        logger.info(
+            "Created new session with conflict resolution: {} for shop: {}",
+            sessionId,
+            shop.getShopifyDomain());
+      }
     } else {
-      // Create new session
+      // No existing session - create new one
       session = new ShopSession(shop, sessionId, accessToken);
       if (request != null) {
         session.setUserAgent(request.getHeader("User-Agent"));
         session.setIpAddress(getClientIpAddress(request));
       }
-      logger.debug("Created new session: {} for shop: {}", sessionId, shop.getShopifyDomain());
+      logger.info("Creating new session: {} for shop: {}", sessionId, shop.getShopifyDomain());
     }
 
     // Set expiration time (optional)
@@ -876,7 +919,20 @@ public class ShopService {
     // Clear invalid session cache since we now have a valid session
     clearInvalidSessionCache(shop.getShopifyDomain(), sessionId);
 
-    return shopSessionRepository.save(session);
+    logger.info("Saving session to database: {} for shop: {}", sessionId, shop.getShopifyDomain());
+    try {
+      ShopSession savedSession = shopSessionRepository.save(session);
+      logger.info(
+          "Successfully saved session: {} for shop: {}", sessionId, shop.getShopifyDomain());
+      return savedSession;
+    } catch (Exception e) {
+      logger.error(
+          "Failed to save session: {} for shop: {} - Error: {}",
+          sessionId,
+          shop.getShopifyDomain(),
+          e.getMessage());
+      throw e;
+    }
   }
 
   private void cacheShopSession(String shopifyDomain, String sessionId, String accessToken) {
