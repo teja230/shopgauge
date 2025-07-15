@@ -416,44 +416,37 @@ public class ShopifyAuthController {
           sessionId,
           sessionCreated);
 
-      // Store shop in session as a fallback authentication mechanism BEFORE saving to database
-      // This ensures the session is properly initialized
-      if (request.getSession(false) != null) {
-        request.getSession().setAttribute("shopDomain", shop);
-        logger.info("Stored shop domain in session: {}", shop);
-      }
+      // SECURE: Don't store business data in Spring Session to avoid conflicts
+      // Spring Session should only handle HTTP session state, not business logic
+      // Our custom session layer (PostgreSQL + Redis) handles business data
 
       try {
-        // Save shop data with session ID
+        // Save shop data with session ID using our custom session layer
         shopService.saveShop(shop, accessToken, sessionId, request);
-        logger.info("Shop data saved successfully");
+        logger.info("Shop data saved successfully to custom session layer");
 
         // Execute post-save operations (caching, cleanup) outside transaction
         shopService.postSaveShopOperations(shop, sessionId, accessToken);
         logger.debug("Post-save operations completed for shop: {}", shop);
       } catch (Exception saveError) {
-        logger.error(
-            "Failed to save shop data to Redis/database: {}", saveError.getMessage(), saveError);
+        logger.error("Failed to save shop data: {}", saveError.getMessage(), saveError);
 
         // SECURE: Handle session creation failures appropriately
         if (saveError.getMessage() != null
             && saveError.getMessage().contains("Failed to save session")) {
-          // Session creation failed - this is a critical error that should prevent login
-          logger.error("Critical session creation failure for shop: {} - preventing login", shop);
-          String redirectUrl =
-              frontendUrl
-                  + "/?error=session_creation_failed&error_message="
-                  + java.net.URLEncoder.encode(
-                      "Session creation failed. Please try again or contact support if the problem persists.",
-                      "UTF-8");
-          response.sendRedirect(redirectUrl);
+          // Session creation failed - this is a critical error
+          logger.error("Critical: Session creation failed for shop: {}", shop);
+          response.sendError(
+              HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+              "Failed to create session. Please try again.");
           return;
         }
 
-        // For other save errors, continue with cookie setting but log the issue
-        // The token exchange was successful, so we can still set the cookie
-        logger.warn(
-            "Non-critical save error - continuing with login process: {}", saveError.getMessage());
+        // Other save errors - still critical for business logic
+        response.sendError(
+            HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+            "Failed to save shop data. Please try again.");
+        return;
       }
 
       // Set the shop cookie with proper domain configuration for Render

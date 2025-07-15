@@ -98,18 +98,19 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
           // Get session ID for multi-session support with safe session access
           String sessionId = null;
           try {
+            // Use Spring Session only for session ID, not business data
             if (request.getSession(false) != null) {
               sessionId = request.getSession(false).getId();
             }
           } catch (Exception sessionEx) {
-            logger.warn("Error accessing session: {}", sessionEx.getMessage());
+            logger.warn("Error accessing Spring Session: {}", sessionEx.getMessage());
             // Continue without session ID - will use fallback token lookup
           }
 
-          // Verify shop exists and has valid token
+          // Verify shop exists and has valid token using our custom session layer
           String token = shopService.getTokenForShop(shopDomain, sessionId);
           if (token != null) {
-            // Additional validation: check if session is in valid state
+            // Additional validation: check if session is in valid state in our custom layer
             if (sessionId != null && !shopService.isSessionValid(shopDomain, sessionId)) {
               logger.warn("Session {} is in invalid state for shop: {}", sessionId, shopDomain);
               // Perform safe cleanup and return authentication failure
