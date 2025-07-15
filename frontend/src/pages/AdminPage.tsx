@@ -100,6 +100,7 @@ import MarketIntelligenceDashboard from '../components/ui/MarketIntelligenceDash
 import AdminSessionManager from '../components/ui/AdminSessionManager';
 import RefreshHeader from '../components/ui/RefreshHeader';
 import DebugPanel from '../components/ui/DebugPanel';
+import SseStatsCard from '../components/ui/SseStatsCard';
 
 interface Secret {
   key: string;
@@ -2171,6 +2172,11 @@ const AdminPage: React.FC = () => {
                   </Card>
                 </Box>
               )}
+
+              {/* SSE Statistics */}
+              <Box sx={{ mb: 4 }}>
+                <SseStatsCard />
+              </Box>
 
               {/* Advanced Session Management */}
               <Box sx={{ mb: 4 }}>

@@ -1,5 +1,6 @@
 package com.storesight.backend.config;
 
+import com.storesight.backend.service.SessionSynchronizationService;
 import com.storesight.backend.service.ShopService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -22,9 +23,12 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
 
   private static final Logger logger = LoggerFactory.getLogger(ShopifyAuthenticationFilter.class);
   private final ShopService shopService;
+  private final SessionSynchronizationService sessionSynchronizationService;
 
-  public ShopifyAuthenticationFilter(ShopService shopService) {
+  public ShopifyAuthenticationFilter(
+      ShopService shopService, SessionSynchronizationService sessionSynchronizationService) {
     this.shopService = shopService;
+    this.sessionSynchronizationService = sessionSynchronizationService;
   }
 
   @Override
@@ -114,6 +118,17 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
             // This prevents authentication with invalid sessions
             if (sessionId != null) {
               try {
+                // Check if session operation should be allowed (prevents race conditions)
+                if (!sessionSynchronizationService.shouldAllowSessionOperation(sessionId)) {
+                  logger.warn(
+                      "Session {} is being invalidated for shop: {} - blocking authentication",
+                      sessionId,
+                      shopDomain);
+                  handleAuthenticationFailure(
+                      response, "Session is being invalidated. Please re-authenticate.");
+                  return;
+                }
+
                 if (!shopService.isSessionValid(shopDomain, sessionId)) {
                   logger.warn(
                       "Session {} validation failed for shop: {} - blocking authentication",

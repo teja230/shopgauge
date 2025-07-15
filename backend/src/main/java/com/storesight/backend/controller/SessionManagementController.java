@@ -1,7 +1,9 @@
 package com.storesight.backend.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.storesight.backend.model.ShopSession;
 import com.storesight.backend.service.ShopService;
+import com.storesight.backend.service.SseService;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -13,8 +15,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,14 +33,21 @@ public class SessionManagementController {
   private static final Logger logger = LoggerFactory.getLogger(SessionManagementController.class);
   private final ShopService shopService;
   private final RedisTemplate<String, String> redisTemplate;
-  private final ConcurrentHashMap<String, CopyOnWriteArrayList<SseEmitter>> sseEmitters =
-      new ConcurrentHashMap<>();
+  private final SseService sseService;
+
+  private static final ObjectMapper objectMapper = new ObjectMapper();
+
+  /** Get SSE connection statistics for monitoring */
+  public Map<String, Object> getSseStats() {
+    return sseService.getStatistics();
+  }
 
   @Autowired
   public SessionManagementController(
-      ShopService shopService, RedisTemplate<String, String> redisTemplate) {
+      ShopService shopService, RedisTemplate<String, String> redisTemplate, SseService sseService) {
     this.shopService = shopService;
     this.redisTemplate = redisTemplate;
+    this.sseService = sseService;
   }
 
   /** Get active sessions for the current shop */
@@ -1346,6 +1353,44 @@ public class SessionManagementController {
     }
   }
 
+  /** Admin endpoint to get SSE connection statistics and health */
+  @GetMapping("/admin/sse/stats")
+  public ResponseEntity<Map<String, Object>> getSseStatistics(HttpServletRequest request) {
+    Map<String, Object> response = new HashMap<>();
+
+    try {
+      Map<String, Object> stats = getSseStats();
+      response.put("success", true);
+      response.put("data", stats);
+      response.put("timestamp", LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+
+      // Add health indicators
+      int activeConnections = (Integer) stats.get("activeConnections");
+      int maxGlobal = (Integer) stats.get("maxGlobalConnections");
+      double connectionUtilization = (double) activeConnections / maxGlobal * 100;
+
+      response.put(
+          "health",
+          Map.of(
+              "connectionUtilization", String.format("%.1f%%", connectionUtilization),
+              "status", connectionUtilization > 80 ? "WARNING" : "HEALTHY",
+              "recommendation",
+                  connectionUtilization > 80
+                      ? "Consider increasing limits or investigating connection leaks"
+                      : "Normal operation"));
+
+      logger.info("Admin retrieved SSE statistics: {} active connections", activeConnections);
+
+      return ResponseEntity.ok(response);
+
+    } catch (Exception e) {
+      logger.error("Error retrieving SSE statistics: {}", e.getMessage(), e);
+      response.put("success", false);
+      response.put("error", "Failed to retrieve SSE statistics");
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+    }
+  }
+
   /**
    * SSE endpoint for shop session events. Clients should connect to
    * /api/sessions/events/{shopDomain} to receive real-time session events. Event format: { "event":
@@ -1366,127 +1411,119 @@ public class SessionManagementController {
       logger.warn("Error accessing Spring Session for SSE: {}", sessionEx.getMessage());
     }
 
+    // --- SSE Rate Limiting ---
+    if (sessionId != null) {
+      String sseFailKey = "sse_validation_fail:" + shopDomain + ":" + sessionId;
+      try {
+        String failCountStr = redisTemplate.opsForValue().get(sseFailKey);
+        int failCount = 0;
+        if (failCountStr != null) {
+          try {
+            failCount = Integer.parseInt(failCountStr);
+          } catch (NumberFormatException ignore) {
+          }
+        }
+        if (failCount >= 3) {
+          logger.warn(
+              "SSE rate limit exceeded for session {} shop {}. Blocking for 10 minutes.",
+              sessionId,
+              shopDomain);
+          SseEmitter emitter = new SseEmitter(120_000L);
+          sseService.sendMinimalEvent(
+              emitter, "rate_limited", "Too many failed attempts. Please wait 10 minutes.", 60000);
+          emitter.complete();
+          return emitter;
+        }
+      } catch (Exception e) {
+        logger.warn("Error checking SSE rate limit: {}", e.getMessage());
+      }
+    }
+    // --- END SSE Rate Limiting ---
+
     // Validate session before allowing SSE connection
     if (sessionId != null && !shopService.isSessionValid(shopDomain, sessionId)) {
       logger.warn(
           "SSE connection rejected - invalid session {} for shop: {}", sessionId, shopDomain);
-      SseEmitter emitter = new SseEmitter(0L);
+      // Increment SSE failure count in Redis (10 min TTL)
       try {
-        emitter.send(
-            SseEmitter.event()
-                .name("error")
-                .data(
-                    "{\"event\":\"session_invalidated\",\"message\":\"Your session has been invalidated. Please re-authenticate.\"}")
-                .id(String.valueOf(System.currentTimeMillis())));
+        String sseFailKey = "sse_validation_fail:" + shopDomain + ":" + sessionId;
+        Long fails = redisTemplate.opsForValue().increment(sseFailKey);
+        redisTemplate.expire(sseFailKey, java.time.Duration.ofMinutes(10));
+        logger.debug("SSE validation fail count for {}: {}", sessionId, fails);
+        SseEmitter emitter = new SseEmitter(120_000L);
+        sseService.sendMinimalEvent(
+            emitter,
+            "rate_limited",
+            "Your session has been invalidated. Please re-authenticate.",
+            60000);
         emitter.complete();
+        return emitter;
       } catch (Exception e) {
-        logger.warn("Failed to send error event to SSE client: {}", e.getMessage());
+        logger.warn("Failed to increment SSE validation fail count: {}", e.getMessage());
       }
+      SseEmitter emitter = new SseEmitter(120_000L);
+      sseService.sendMinimalEvent(
+          emitter,
+          "session_invalidated",
+          "Your session has been invalidated. Please re-authenticate.",
+          10000);
+      emitter.complete();
       return emitter;
     }
 
-    SseEmitter emitter = new SseEmitter(0L); // No timeout
-
-    sseEmitters.computeIfAbsent(shopDomain, k -> new CopyOnWriteArrayList<>()).add(emitter);
-    logger.info(
-        "SSE emitter added for shop: {} (total emitters: {})",
-        shopDomain,
-        sseEmitters.get(shopDomain).size());
-
-    emitter.onCompletion(
-        () -> {
-          logger.debug("SSE connection completed for shop: {}", shopDomain);
-          removeEmitter(shopDomain, emitter);
-        });
-
-    emitter.onTimeout(
-        () -> {
-          logger.debug("SSE connection timed out for shop: {}", shopDomain);
-          removeEmitter(shopDomain, emitter);
-        });
-
-    emitter.onError(
-        e -> {
-          logger.warn("SSE connection error for shop {}: {}", shopDomain, e.getMessage());
-          removeEmitter(shopDomain, emitter);
-        });
-
-    try {
-      // Set proper headers for SSE
-      emitter.send(
-          SseEmitter.event()
-              .name("connected")
-              .data("Subscribed to session events for shop: " + shopDomain)
-              .id(String.valueOf(System.currentTimeMillis()))
-              .reconnectTime(3000));
-      logger.info("SSE connection established for shop: {}", shopDomain);
-    } catch (Exception e) {
-      logger.warn("Failed to send initial SSE event for shop {}: {}", shopDomain, e.getMessage());
-      removeEmitter(shopDomain, emitter);
-    }
-
-    return emitter;
+    // Create SSE connection using the service
+    return sseService.createConnection(shopDomain, sessionId);
   }
 
-  private void removeEmitter(String shopDomain, SseEmitter emitter) {
+  /**
+   * Force close all SSE connections for a specific session This is called when a session is
+   * invalidated to prevent continued validation attempts
+   */
+  public void forceCloseSseConnectionsForSession(String shopDomain, String sessionId) {
     try {
-      CopyOnWriteArrayList<SseEmitter> emitters = sseEmitters.get(shopDomain);
-      if (emitters != null) {
-        emitters.remove(emitter);
-        if (emitters.isEmpty()) {
-          sseEmitters.remove(shopDomain);
-        }
-      }
+      logger.info("Force closing SSE connections for session {} shop {}", sessionId, shopDomain);
+      sseService.forceCloseConnectionsForShop(shopDomain);
     } catch (Exception e) {
-      logger.warn("Error removing SSE emitter for shop {}: {}", shopDomain, e.getMessage());
+      logger.error(
+          "Error force closing SSE connections for session {}:{}: {}",
+          shopDomain,
+          sessionId,
+          e.getMessage());
     }
   }
 
   private void broadcastSessionInvalidated(String shopDomain) {
-    CopyOnWriteArrayList<SseEmitter> emitters = sseEmitters.get(shopDomain);
-    if (emitters != null && !emitters.isEmpty()) {
-      logger.info(
-          "Broadcasting session invalidation to {} SSE clients for shop: {}",
-          emitters.size(),
-          shopDomain);
+    sseService.broadcastToShop(
+        shopDomain,
+        "session_invalidated",
+        "Your session has been invalidated by an administrator.",
+        10000);
+  }
 
-      // Create a copy to avoid concurrent modification issues
-      List<SseEmitter> emittersCopy = new ArrayList<>(emitters);
+  /** Production-ready SSE batching endpoint */
+  @GetMapping("/events/batch/{shopDomain}")
+  public SseEmitter batchEvents(@PathVariable String shopDomain) {
+    SseEmitter emitter = new SseEmitter(10000L);
 
-      for (SseEmitter emitter : emittersCopy) {
-        try {
-          // Send the event asynchronously to prevent blocking
-          emitter.send(
-              SseEmitter.event()
-                  .name("session_invalidated")
-                  .data(
-                      "{\"event\":\"session_invalidated\",\"message\":\"Your session has been invalidated by an administrator.\"}")
-                  .id(String.valueOf(System.currentTimeMillis())));
+    // Create sample events for demonstration
+    List<SseService.SseEvent> events = new ArrayList<>();
+    for (int i = 1; i <= 3; i++) {
+      Map<String, Object> metadata = new HashMap<>();
+      metadata.put("sequence", i);
+      metadata.put("timestamp", System.currentTimeMillis());
 
-          logger.debug(
-              "Successfully sent session invalidation event to SSE client for shop: {}",
-              shopDomain);
-        } catch (Exception e) {
-          logger.warn(
-              "Failed to send session invalidation event to SSE client for shop {}: {}",
-              shopDomain,
-              e.getMessage());
-          // Remove the failed emitter
-          try {
-            emitters.remove(emitter);
-            if (emitters.isEmpty()) {
-              sseEmitters.remove(shopDomain);
-            }
-          } catch (Exception removeEx) {
-            logger.warn("Error removing failed SSE emitter: {}", removeEx.getMessage());
-          }
-        }
-      }
-    } else {
-      logger.info(
-          "No SSE clients connected for shop: {} (emitters: {})",
-          shopDomain,
-          emitters != null ? emitters.size() : "null");
+      events.add(new SseService.SseEvent("demo", "Production batch event " + i, null, metadata));
     }
+
+    // Queue events for batching
+    for (SseService.SseEvent event : events) {
+      sseService.queueEventForBatching(shopDomain, event);
+    }
+
+    // Send the batch immediately
+    sseService.sendBatch(shopDomain);
+    emitter.complete();
+
+    return emitter;
   }
 }
