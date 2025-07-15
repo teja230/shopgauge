@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -82,7 +82,6 @@ import {
   Person as PersonIcon,
   Group as GroupIcon,
   Storefront as StorefrontIcon,
-  MonitorHeart as MonitorHeartIcon,
   People as PeopleIcon,
   Timeline as TimelineIcon,
 } from '@mui/icons-material';
@@ -98,6 +97,7 @@ import ConnectionPoolDashboard from '../components/ui/ConnectionPoolDashboard';
 import { NotificationCenter } from '../components/ui/NotificationCenter';
 import MarketIntelligenceDashboard from '../components/ui/MarketIntelligenceDashboard';
 import AdminSessionManager from '../components/ui/AdminSessionManager';
+import SessionManagementTools from '../components/ui/SessionManagementTools';
 import RefreshHeader from '../components/ui/RefreshHeader';
 import DebugPanel from '../components/ui/DebugPanel';
 import SseStatsCard from '../components/ui/SseStatsCard';
@@ -468,14 +468,16 @@ const AdminPage: React.FC = () => {
     }
   }, [isAuthenticated]);
 
-  // Auto-fetch data on tab switch
+  // Auto-fetch data on tab switch only when data is not already present
   useEffect(() => {
-    if (activeTab === 'audit-logs') fetchAuditLogs();
-    if (activeTab === 'sessions-shops') {
+    if (activeTab === 'audit-logs' && auditLogs.length === 0) {
+      fetchAuditLogs();
+    }
+    if (activeTab === 'sessions-shops' && activeShops.length === 0 && !sessionStatistics) {
       fetchActiveShops();
       fetchSessionStatistics();
     }
-  }, [activeTab]);
+  }, [activeTab, auditLogs.length, activeShops.length, sessionStatistics]);
 
   // Cooldown timers
   useEffect(() => {
@@ -503,7 +505,7 @@ const AdminPage: React.FC = () => {
     }
   }, [refreshAllCooldown]);
   
-  const { showSuccess, showError } = useNotifications();
+  const { showSuccess, showError, addNotification } = useNotifications();
 
   // Periodic authentication check when authenticated
   useEffect(() => {
@@ -1463,21 +1465,88 @@ const AdminPage: React.FC = () => {
   const handleSessionsShopsRefresh = async () => {
     if (activeShopsCooldown > 0 || sessionStatsCooldown > 0) return;
     
-    // Set cooldowns
-    setActiveShopsCooldown(30); // 30 second cooldown
-    setSessionStatsCooldown(30); // 30 second cooldown
+    setActiveShopsCooldown(30);
+    setSessionStatsCooldown(30);
     
     try {
       await Promise.all([
         fetchActiveShops(),
         fetchSessionStatistics()
       ]);
-      
-      setActiveShopsLastUpdated(new Date());
-      setSessionStatsLastUpdated(new Date());
     } catch (error) {
       console.error('Error refreshing sessions and shops:', error);
     }
+  };
+
+
+
+  // Session Management Functions
+  const handleClearStuckSession = async (sessionId: string) => {
+    if (!sessionId.trim()) return;
+    
+    try {
+      const response = await fetchEmergencyEndpoint(`/api/admin/sessions/clear-stuck/${sessionId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Stuck session cleared:', result);
+      } else {
+        throw new Error(`Failed to clear stuck session: ${response.statusText}`);
+      }
+    } catch (error) {
+      console.error('Error clearing stuck session:', error);
+      throw error;
+    }
+  };
+
+  const handleEmergencySessionCleanup = async () => {
+    try {
+      const response = await fetchEmergencyEndpoint('/api/admin/sessions/emergency-cleanup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Emergency session cleanup result:', result);
+      } else {
+        throw new Error(`Failed to perform emergency cleanup: ${response.statusText}`);
+      }
+    } catch (error) {
+      console.error('Error performing emergency session cleanup:', error);
+      throw error;
+    }
+  };
+
+  const handleCheckSessionSyncStatus = async (sessionId: string) => {
+    if (!sessionId.trim()) return;
+    
+    try {
+      const response = await fetchEmergencyEndpoint(`/api/admin/sessions/sync-status/${sessionId}`);
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Session sync status:', result);
+        return result;
+      } else {
+        throw new Error(`Failed to get session status: ${response.statusText}`);
+      }
+    } catch (error) {
+      console.error('Error checking session sync status:', error);
+      throw error;
+    }
+  };
+
+  const handleRefreshSessionSyncStatus = async () => {
+    // This handler is called by SessionManagementTools component
+    // It can be used for any global session sync operations if needed
+    console.log('Session sync status refresh requested from SessionManagementTools');
+    
+    // Optionally trigger any global session sync operations here
+    // For now, the component handles its own refresh logic
   };
 
   return (
@@ -2186,6 +2255,13 @@ const AdminPage: React.FC = () => {
                 </Typography>
                 <AdminSessionManager />
               </Box>
+
+              <SessionManagementTools
+                onClearStuckSession={handleClearStuckSession}
+                onEmergencySessionCleanup={handleEmergencySessionCleanup}
+                onCheckSessionSyncStatus={handleCheckSessionSyncStatus}
+                onRefreshSessionSyncStatus={handleRefreshSessionSyncStatus}
+              />
             </Box>
           )}
 

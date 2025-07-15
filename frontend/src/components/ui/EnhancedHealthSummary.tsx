@@ -1,61 +1,50 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { 
-  Paper, 
-  Typography, 
-  Box, 
-  CircularProgress, 
-  Alert, 
-  Chip, 
-  Card,
-  CardContent,
-  LinearProgress,
-  Tooltip,
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+import {
+  Box,
+  Typography,
+  Paper,
+  Alert,
+  CircularProgress,
   IconButton,
   Button,
-  Stack
+  LinearProgress,
+  Chip,
+  Card,
+  CardContent,
 } from '@mui/material';
+import Grid from '@mui/material/Grid2';
 import {
   Speed as SpeedIcon,
   Refresh as RefreshIcon,
-  Warning as WarningIcon,
+  Clear as ClearIcon,
+  HealthAndSafety as HealthAndSafetyIcon,
   CheckCircle as CheckCircleIcon,
   Error as ErrorIcon,
+  Warning as WarningIcon,
   Info as InfoIcon,
-  Timer as TimerIcon,
-  RestartAlt as RestartAltIcon,
-  HealthAndSafety as HealthAndSafetyIcon,
-  TrendingUp as TrendingUpIcon,
-  Clear as ClearIcon
 } from '@mui/icons-material';
-import StorageIcon from '@mui/icons-material/Storage';
-import DatabaseIcon from '@mui/icons-material/Storage';
 import { useServiceStatus } from '../../context/ServiceStatusContext';
-import { debugLog } from './DebugPanel';
 import { useNotifications } from '../../hooks/useNotifications';
 import RefreshHeader from './RefreshHeader';
+import { debugLog } from './DebugPanel';
+import StorageIcon from '@mui/icons-material/Storage';
+import DatabaseIcon from '@mui/icons-material/Storage';
+import { TrendingUp as TrendingUpIcon } from '@mui/icons-material';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
-// Centralized public fetcher
 const fetchPublicEndpoint = async (endpoint: string, options?: RequestInit) => {
   const fullUrl = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
-  const response = await fetch(fullUrl, {
+  return fetch(fullUrl, {
+    credentials: 'include',
     headers: {
       'Accept': 'application/json',
       'Content-Type': 'application/json',
-      ...(options?.headers || {}),
+      ...(options?.headers || {})
     },
     ...options,
   });
-
-  if (!response.ok) {
-    const errorBody = await response.text();
-    console.error(`Public endpoint ${endpoint} failed with status ${response.status}:`, errorBody);
-    throw new Error(`Request failed: ${response.statusText}`);
-  }
-  return response.json();
 };
-
 
 interface DatabaseMetrics {
   activeConnections: number;
@@ -91,30 +80,20 @@ interface HealthMetrics {
   database?: DatabaseMetrics;
 }
 
-// Utility function for better timestamp formatting
 const formatTimestamp = (timestamp: number) => {
-  const date = new Date(timestamp);
-  const now = new Date();
-  const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+  const now = Date.now();
+  const diff = now - timestamp;
   
-  // Show relative time for recent timestamps
-  if (diffInMinutes < 1) {
+  if (diff < 60000) { // Less than 1 minute
     return 'Just now';
-  } else if (diffInMinutes < 60) {
-    return `${diffInMinutes} minute${diffInMinutes > 1 ? 's' : ''} ago`;
-  } else if (diffInMinutes < 1440) { // Less than 24 hours
-    const hours = Math.floor(diffInMinutes / 60);
-    return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+  } else if (diff < 3600000) { // Less than 1 hour
+    const minutes = Math.floor(diff / 60000);
+    return `${minutes}m ago`;
+  } else if (diff < 86400000) { // Less than 1 day
+    const hours = Math.floor(diff / 3600000);
+    return `${hours}h ago`;
   } else {
-    // For older timestamps, show full date and time in local timezone
-    return date.toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZoneName: 'short'
-    });
+    return new Date(timestamp).toLocaleString();
   }
 };
 
@@ -124,15 +103,15 @@ const StatusChip: React.FC<{
   icon: React.ReactElement;
 }> = ({ status, label, icon }) => {
   const getStatusColor = (status: string) => {
-    switch (status.toUpperCase()) {
-      case 'UP':
-      case 'HEALTHY':
+    switch (status.toLowerCase()) {
+      case 'up':
+      case 'healthy':
         return 'success';
-      case 'DOWN':
-      case 'CRITICAL':
+      case 'down':
+      case 'unhealthy':
         return 'error';
-      case 'DEGRADED':
-      case 'WARNING':
+      case 'degraded':
+      case 'warning':
         return 'warning';
       default:
         return 'default';
@@ -142,144 +121,118 @@ const StatusChip: React.FC<{
   return (
     <Chip
       icon={icon}
-      label={`${label}: ${status}`}
-      color={getStatusColor(status) as any}
-      variant="outlined"
-      sx={{ minWidth: 120 }}
+      label={label}
+      color={getStatusColor(status)}
+      variant="filled"
+      size="small"
+      sx={{ fontWeight: 500 }}
     />
   );
 };
 
 const DatabaseConnectionsCard: React.FC<{ metrics: DatabaseMetrics }> = ({ metrics }) => {
   const getProgressColor = (percentage: number) => {
-    if (percentage >= 95) return 'error';
-    if (percentage >= 80) return 'warning';
+    if (percentage > 85) return 'error';
+    if (percentage > 70) return 'warning';
     return 'success';
   };
+
+  const activeUsagePercent = metrics.activeUsagePercent || 0;
+  const progressColor = getProgressColor(activeUsagePercent);
 
   return (
     <Card sx={{ height: '100%' }}>
       <CardContent>
-        <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
-          <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <DatabaseIcon color="primary" />
-            Connection Pool
-          </Typography>
-          <Chip 
-            label={metrics.poolStatus} 
-            color={getProgressColor(metrics.activeUsagePercent) as any}
-            size="small"
-            sx={{ fontWeight: 'bold' }}
-          />
-        </Box>
+        <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <DatabaseIcon color="primary" />
+          Database Connections
+        </Typography>
         
-        <Box display="flex" gap={2} mb={2}>
-          <Box flex={1} textAlign="center">
-            <Typography variant="h4" color="primary.main" fontWeight="bold">
-              {metrics.activeConnections}
-            </Typography>
+        <Box sx={{ mb: 2 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
             <Typography variant="body2" color="text.secondary">
-              Active
+              Active Connections
             </Typography>
-          </Box>
-          <Box flex={1} textAlign="center">
-            <Typography variant="h4" color="info.main" fontWeight="bold">
-              {metrics.idleConnections}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Idle
-            </Typography>
-          </Box>
-        </Box>
-
-        <Box sx={{ mt: 2 }}>
-          <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-            <Typography variant="body2">Pool Usage</Typography>
             <Typography variant="body2" fontWeight="bold">
-              {metrics.activeUsagePercent}%
+              {metrics.activeConnections} / {metrics.maxPoolSize}
             </Typography>
           </Box>
-          <LinearProgress 
-            variant="determinate" 
-            value={metrics.activeUsagePercent} 
-            color={getProgressColor(metrics.activeUsagePercent) as any}
+          <LinearProgress
+            variant="determinate"
+            value={activeUsagePercent}
+            color={progressColor}
             sx={{ height: 8, borderRadius: 4 }}
           />
           <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-            {metrics.activeConnections} / {metrics.maxPoolSize} connections in use
+            {activeUsagePercent.toFixed(1)}% utilization
           </Typography>
         </Box>
 
-        {metrics.threadsAwaitingConnection > 0 && (
-          <Alert severity="warning" sx={{ mt: 2, py: 0.5 }}>
-            <Typography variant="body2">
-              {metrics.threadsAwaitingConnection} threads waiting for connections
-            </Typography>
-          </Alert>
-        )}
+        <Grid container spacing={2}>
+          <Grid xs={6}>
+            <Box>
+              <Typography variant="caption" color="text.secondary">Idle</Typography>
+              <Typography variant="body2" fontWeight="bold">{metrics.idleConnections}</Typography>
+            </Box>
+          </Grid>
+          <Grid xs={6}>
+            <Box>
+              <Typography variant="caption" color="text.secondary">Awaiting</Typography>
+              <Typography variant="body2" fontWeight="bold">{metrics.threadsAwaitingConnection}</Typography>
+            </Box>
+          </Grid>
+        </Grid>
 
-        {metrics.consecutiveFailures > 0 && (
-          <Alert severity="error" sx={{ mt: 2, py: 0.5 }}>
-            <Typography variant="body2">
-              {metrics.consecutiveFailures} consecutive connection failures
-            </Typography>
-          </Alert>
-        )}
+        <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <StatusChip
+            status={metrics.healthStatus}
+            label={metrics.healthStatus === 'healthy' ? 'Healthy' : 'Issues Detected'}
+            icon={metrics.healthStatus === 'healthy' ? <CheckCircleIcon /> : <WarningIcon />}
+          />
+        </Box>
       </CardContent>
     </Card>
   );
 };
 
 const PerformanceMetricsCard: React.FC<{ metrics: DatabaseMetrics }> = ({ metrics }) => (
-  <Card sx={{ height: '100%', bgcolor: 'background.paper', borderRadius: 2 }}>
+  <Card sx={{ height: '100%' }}>
     <CardContent>
-      <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-        <TrendingUpIcon color="primary" />
+      <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <SpeedIcon color="primary" />
         Performance Metrics
       </Typography>
       
-      <Box display="flex" gap={2} mb={2}>
-        <Box flex={1} textAlign="center">
-          <Typography variant="h5" color="info.main" fontWeight="bold">
-            {metrics.activeUsagePercent.toFixed(1)}%
-          </Typography>
+      <Box sx={{ mb: 2 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
           <Typography variant="body2" color="text.secondary">
-            Pool Usage
+            Pool Status
           </Typography>
-        </Box>
-        <Box flex={1} textAlign="center">
-          <Typography variant="h5" color="warning.main" fontWeight="bold">
-            {metrics.consecutiveFailures}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Failures
+          <Typography variant="body2" fontWeight="bold" sx={{ textTransform: 'capitalize' }}>
+            {metrics.poolStatus}
           </Typography>
         </Box>
       </Box>
 
-      <Box display="flex" gap={2}>
-        <Box flex={1} textAlign="center">
-          <Typography variant="h5" color="success.main" fontWeight="bold">
-            {metrics.maxPoolSize}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Max Pool
-          </Typography>
-        </Box>
-        <Box flex={1} textAlign="center">
-          <Typography variant="h5" color="info.main" fontWeight="bold">
-            {metrics.minimumIdle}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Min Idle
-          </Typography>
-        </Box>
-      </Box>
+      <Grid container spacing={2}>
+        <Grid xs={6}>
+          <Box>
+            <Typography variant="caption" color="text.secondary">Min Idle</Typography>
+            <Typography variant="body2" fontWeight="bold">{metrics.minimumIdle}</Typography>
+          </Box>
+        </Grid>
+        <Grid xs={6}>
+          <Box>
+            <Typography variant="caption" color="text.secondary">Max Pool</Typography>
+            <Typography variant="body2" fontWeight="bold">{metrics.maxPoolSize}</Typography>
+          </Box>
+        </Grid>
+      </Grid>
 
-      {metrics.lastFailureTime > 0 && (
-        <Alert severity="warning" sx={{ mt: 2, py: 0.5 }}>
-          <Typography variant="body2">
-            Last failure: {formatTimestamp(metrics.lastFailureTime)}
+      {metrics.consecutiveFailures > 0 && (
+        <Alert severity="warning" sx={{ mt: 2, py: 0 }}>
+          <Typography variant="caption">
+            {metrics.consecutiveFailures} consecutive failures
           </Typography>
         </Alert>
       )}
@@ -287,91 +240,87 @@ const PerformanceMetricsCard: React.FC<{ metrics: DatabaseMetrics }> = ({ metric
   </Card>
 );
 
-const CacheStatisticsCard: React.FC<{ metrics: CacheMetrics }> = ({ metrics }) => (
-  <Card sx={{ height: '100%', bgcolor: 'background.paper', borderRadius: 2 }}>
-    <CardContent>
-      <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-        <StorageIcon color="primary" />
-        Cache Statistics
-      </Typography>
-      
-      <Box display="flex" gap={2} mb={2}>
-        <Box flex={1} textAlign="center">
-          <Typography variant="h5" color="success.main" fontWeight="bold">
-            {metrics.hitRate.toFixed(1)}%
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Hit Rate
-          </Typography>
-        </Box>
-        <Box flex={1} textAlign="center">
-          <Typography variant="h5" color="info.main" fontWeight="bold">
-            {metrics.total}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Total Requests
-          </Typography>
-        </Box>
-      </Box>
+const CacheStatisticsCard: React.FC<{ metrics: CacheMetrics }> = ({ metrics }) => {
+  const hitRatePercent = metrics.hitRate || 0;
+  const getHitRateColor = (rate: number) => {
+    if (rate > 80) return 'success';
+    if (rate > 60) return 'warning';
+    return 'error';
+  };
 
-      <Box display="flex" gap={2} mb={2}>
-        <Box flex={1} textAlign="center">
-          <Typography variant="h5" color="success.main" fontWeight="bold">
-            {metrics.hits}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Hits
-          </Typography>
-        </Box>
-        <Box flex={1} textAlign="center">
-          <Typography variant="h5" color="warning.main" fontWeight="bold">
-            {metrics.misses}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Misses
-          </Typography>
-        </Box>
-      </Box>
-
-      <Box sx={{ mt: 2 }}>
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-          <Typography variant="body2">Cache Performance</Typography>
-          <Typography variant="body2" fontWeight="bold">
-            {metrics.hitRate.toFixed(1)}%
-          </Typography>
-        </Box>
-        <LinearProgress 
-          variant="determinate" 
-          value={metrics.hitRate} 
-          color={metrics.hitRate >= 80 ? 'success' : metrics.hitRate >= 60 ? 'warning' : 'error'}
-          sx={{ height: 8, borderRadius: 4 }}
-        />
-        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-          {metrics.hits} hits / {metrics.total} requests
+  return (
+    <Card>
+      <CardContent>
+        <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <StorageIcon color="primary" />
+          Cache Performance
         </Typography>
-      </Box>
-
-      {metrics.evictions > 0 && (
-        <Alert severity="info" sx={{ mt: 2, py: 0.5 }}>
-          <Typography variant="body2">
-            {metrics.evictions} cache evictions
-          </Typography>
-        </Alert>
-      )}
-    </CardContent>
-  </Card>
-);
+        
+        <Grid container spacing={3}>
+          <Grid xs={12} sm={6}>
+            <Box>
+              <Typography variant="h4" fontWeight="bold" color={getHitRateColor(hitRatePercent)}>
+                {hitRatePercent.toFixed(1)}%
+              </Typography>
+              <Typography variant="body2" color="text.secondary">Hit Rate</Typography>
+              <LinearProgress
+                variant="determinate"
+                value={hitRatePercent}
+                color={getHitRateColor(hitRatePercent)}
+                sx={{ mt: 1, height: 6, borderRadius: 3 }}
+              />
+            </Box>
+          </Grid>
+          
+          <Grid xs={12} sm={6}>
+            <Box>
+              <Typography variant="h4" fontWeight="bold">
+                {metrics.total.toLocaleString()}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">Total Requests</Typography>
+            </Box>
+          </Grid>
+          
+          <Grid xs={6}>
+            <Box>
+              <Typography variant="h6" color="success.main" fontWeight="bold">
+                {metrics.hits.toLocaleString()}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">Cache Hits</Typography>
+            </Box>
+          </Grid>
+          
+          <Grid xs={6}>
+            <Box>
+              <Typography variant="h6" color="error.main" fontWeight="bold">
+                {metrics.misses.toLocaleString()}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">Cache Misses</Typography>
+            </Box>
+          </Grid>
+        </Grid>
+      </CardContent>
+    </Card>
+  );
+};
 
 const EnhancedHealthSummary: React.FC = () => {
   const [metrics, setMetrics] = useState<HealthMetrics | null>(null);
   const [databaseDetails, setDatabaseDetails] = useState<DatabaseMetrics | null>(null);
   const [cacheMetrics, setCacheMetrics] = useState<CacheMetrics | null>(null);
-  const [loading, setLoading] = useState(true); // Start loading initially
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { isServiceAvailable } = useServiceStatus();
-  const { addNotification } = useNotifications();
   const [refreshCooldown, setRefreshCooldown] = useState(0);
-  const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [isServiceAvailable, setIsServiceAvailable] = useState(true);
+  const isMountedRef = useRef(true);
+  const { addNotification } = useNotifications();
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // Unified fetch function
   const fetchAllMetrics = React.useCallback(async () => {
@@ -442,11 +391,10 @@ const EnhancedHealthSummary: React.FC = () => {
   }, [isServiceAvailable]);
 
   useEffect(() => {
-    fetchAllMetrics();
-    
-    // Set up an interval for subsequent refreshes
-    const interval = setInterval(fetchAllMetrics, 60000); // 1 minute
-    return () => clearInterval(interval);
+    // Only fetch data if we don't have any data yet
+    if (!metrics && !databaseDetails && !cacheMetrics) {
+      fetchAllMetrics();
+    }
   }, [fetchAllMetrics]);
 
   // Cooldown timer for Refresh

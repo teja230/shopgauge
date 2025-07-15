@@ -1649,8 +1649,8 @@ public class ShopService {
   }
 
   /**
-   * Force invalidate a session - used when session validation fails This method ensures the session
-   * is properly cleaned up and marked as invalid with proper synchronization
+   * Force invalidate a session with proper error handling and cleanup
+   * This method ensures that sessions are properly invalidated even if they're already being processed
    */
   public void forceInvalidateSession(String shopifyDomain, String sessionId) {
     try {
@@ -1660,7 +1660,7 @@ public class ShopService {
       sessionSynchronizationService.safeInvalidateSession(sessionId, "force_invalidation");
 
       // Execute the actual invalidation with proper locking
-      sessionSynchronizationService.executeWithSessionLock(
+      Object result = sessionSynchronizationService.executeWithSessionLock(
           sessionId,
           () -> {
             // Mark as invalid in Redis immediately
@@ -1734,6 +1734,12 @@ public class ShopService {
             return null;
           });
 
+      // If the session was already being invalidated, perform cleanup anyway
+      if (result == null) {
+        logger.warn("Session {} was already being invalidated, performing cleanup", sessionId);
+        performSessionCleanup(shopifyDomain, sessionId);
+      }
+
     } catch (Exception e) {
       logger.error(
           "Error during force session invalidation for {}:{}: {}",
@@ -1743,6 +1749,49 @@ public class ShopService {
 
       // Clear invalidation markers on error to allow retry
       sessionSynchronizationService.clearSessionInvalidationMarkers(sessionId);
+      
+      // Perform cleanup even if synchronization failed
+      performSessionCleanup(shopifyDomain, sessionId);
+    }
+  }
+
+  /**
+   * Perform the actual session cleanup operations
+   * This method handles the core cleanup logic without synchronization
+   */
+  public void performSessionCleanup(String shopifyDomain, String sessionId) {
+    try {
+      // Mark as invalid in Redis
+      String invalidKey = INVALID_SESSION_PREFIX + shopifyDomain + ":" + sessionId;
+      redisTemplate
+          .opsForValue()
+          .set(invalidKey, "force_invalidated", Duration.ofMinutes(INVALID_SESSION_CACHE_MINUTES));
+      
+      // Clear cached tokens
+      String tokenKey = SHOP_TOKEN_PREFIX + shopifyDomain + ":" + sessionId;
+      redisTemplate.delete(tokenKey);
+      
+      // Deactivate in database
+      Optional<ShopSession> sessionOpt = shopSessionRepository.findBySessionId(sessionId);
+      if (sessionOpt.isPresent()) {
+        ShopSession session = sessionOpt.get();
+        if (session.getIsActive() != null && session.getIsActive()) {
+          session.deactivate();
+          shopSessionRepository.save(session);
+        }
+      }
+      
+      // Remove from active sessions list
+      String activeSessionsKey = ACTIVE_SESSIONS_PREFIX + shopifyDomain;
+      redisTemplate.opsForSet().remove(activeSessionsKey, sessionId);
+      
+      // Force close SSE connections
+      sseService.forceCloseConnectionsForShop(shopifyDomain);
+      
+      logger.warn("Session cleanup completed for session {} and shop: {}", sessionId, shopifyDomain);
+      
+    } catch (Exception e) {
+      logger.error("Error during session cleanup for {}:{}: {}", shopifyDomain, sessionId, e.getMessage());
     }
   }
 

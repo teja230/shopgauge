@@ -5,6 +5,8 @@ import com.storesight.backend.service.DataPrivacyService;
 import com.storesight.backend.service.DatabaseMonitoringService;
 import com.storesight.backend.service.NotificationService;
 import com.storesight.backend.service.SecretService;
+import com.storesight.backend.service.SessionSynchronizationService;
+import com.storesight.backend.service.ShopService;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -30,6 +32,8 @@ public class AdminController {
   private final DataPrivacyService dataPrivacyService;
   private final DatabaseMonitoringService databaseMonitoringService;
   private final DataSource dataSource;
+  private final SessionSynchronizationService sessionSynchronizationService;
+  private final ShopService shopService;
 
   @Autowired
   public AdminController(
@@ -37,12 +41,16 @@ public class AdminController {
       NotificationService notificationService,
       DataPrivacyService dataPrivacyService,
       DatabaseMonitoringService databaseMonitoringService,
-      DataSource dataSource) {
+      DataSource dataSource,
+      SessionSynchronizationService sessionSynchronizationService,
+      ShopService shopService) {
     this.secretService = secretService;
     this.notificationService = notificationService;
     this.dataPrivacyService = dataPrivacyService;
     this.databaseMonitoringService = databaseMonitoringService;
     this.dataSource = dataSource;
+    this.sessionSynchronizationService = sessionSynchronizationService;
+    this.shopService = shopService;
   }
 
   @PostMapping("/secrets")
@@ -783,5 +791,94 @@ public class AdminController {
     }
 
     return gc;
+  }
+
+  // Session Management Endpoints
+
+  /**
+   * Clear stuck session markers for a specific session
+   * This endpoint allows admins to manually clear stuck session invalidation markers
+   */
+  @PostMapping("/sessions/clear-stuck/{sessionId}")
+  public ResponseEntity<Map<String, Object>> clearStuckSession(@PathVariable String sessionId) {
+    Map<String, Object> result = new HashMap<>();
+    
+    try {
+      logger.warn("Admin clearing stuck session markers for session: {}", sessionId);
+      
+      // Clear stuck session markers
+      sessionSynchronizationService.clearStuckSessionMarkers(sessionId);
+      
+      // Also perform cleanup in case the session is still in the system
+      shopService.performSessionCleanup("unknown", sessionId);
+      
+      result.put("success", true);
+      result.put("sessionId", sessionId);
+      result.put("message", "Stuck session markers cleared successfully");
+      result.put("timestamp", LocalDateTime.now().toString());
+      
+      return ResponseEntity.ok(result);
+      
+    } catch (Exception e) {
+      logger.error("Failed to clear stuck session {}: {}", sessionId, e.getMessage());
+      result.put("success", false);
+      result.put("sessionId", sessionId);
+      result.put("error", "Failed to clear stuck session: " + e.getMessage());
+      return ResponseEntity.status(500).body(result);
+    }
+  }
+
+  /**
+   * Get session synchronization status
+   * This endpoint provides information about session synchronization state
+   */
+  @GetMapping("/sessions/sync-status/{sessionId}")
+  public ResponseEntity<Map<String, Object>> getSessionSyncStatus(@PathVariable String sessionId) {
+    Map<String, Object> result = new HashMap<>();
+    
+    try {
+      boolean isInvalidating = sessionSynchronizationService.isSessionInvalidating(sessionId);
+      
+      result.put("sessionId", sessionId);
+      result.put("isInvalidating", isInvalidating);
+      result.put("shouldAllowOperation", sessionSynchronizationService.shouldAllowSessionOperation(sessionId));
+      result.put("timestamp", LocalDateTime.now().toString());
+      
+      return ResponseEntity.ok(result);
+      
+    } catch (Exception e) {
+      logger.error("Failed to get session sync status for {}: {}", sessionId, e.getMessage());
+      result.put("sessionId", sessionId);
+      result.put("error", "Failed to get session sync status: " + e.getMessage());
+      return ResponseEntity.status(500).body(result);
+    }
+  }
+
+  /**
+   * Force cleanup all stuck session markers
+   * This is an emergency endpoint to clear all stuck session markers
+   */
+  @PostMapping("/sessions/emergency-cleanup")
+  public ResponseEntity<Map<String, Object>> emergencySessionCleanup() {
+    Map<String, Object> result = new HashMap<>();
+    
+    try {
+      logger.warn("EMERGENCY SESSION CLEANUP: Clearing all stuck session markers");
+      
+      // This would require implementing a method to find and clear all stuck markers
+      // For now, we'll just log the action
+      result.put("success", true);
+      result.put("message", "Emergency session cleanup initiated");
+      result.put("timestamp", LocalDateTime.now().toString());
+      result.put("note", "This endpoint is a placeholder for comprehensive session cleanup");
+      
+      return ResponseEntity.ok(result);
+      
+    } catch (Exception e) {
+      logger.error("Emergency session cleanup failed: {}", e.getMessage());
+      result.put("success", false);
+      result.put("error", "Emergency session cleanup failed: " + e.getMessage());
+      return ResponseEntity.status(500).body(result);
+    }
   }
 }

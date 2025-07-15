@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -95,17 +95,56 @@ const SseStatsCard: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [refreshCooldown, setRefreshCooldown] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Refs to prevent unnecessary re-renders and track state
+  const isMountedRef = useRef(true);
+  const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const cooldownTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const initialFetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const REFRESH_COOLDOWN = 30; // 30 seconds
+  const DEBOUNCE_DELAY = 300; // 300ms debounce
+  const RAPID_CLICK_DELAY = 100; // 100ms to prevent rapid clicking
+
+  // Cleanup function
+  const cleanup = useCallback(() => {
+    if (refreshTimeoutRef.current) {
+      clearTimeout(refreshTimeoutRef.current);
+      refreshTimeoutRef.current = null;
+    }
+    if (cooldownTimeoutRef.current) {
+      clearTimeout(cooldownTimeoutRef.current);
+      cooldownTimeoutRef.current = null;
+    }
+    if (initialFetchTimeoutRef.current) {
+      clearTimeout(initialFetchTimeoutRef.current);
+      initialFetchTimeoutRef.current = null;
+    }
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+      cleanup();
+    };
+  }, [cleanup]);
 
   const fetchSseStats = useCallback(async (showNotification = false) => {
-    if (loading || refreshCooldown > 0) return;
+    // Prevent multiple simultaneous requests
+    if (isRefreshing || !isMountedRef.current) return;
     
+    setIsRefreshing(true);
     setLoading(true);
     setError(null);
     
     try {
       const response = await getAdminSseStats();
+      
+      // Check if component is still mounted before updating state
+      if (!isMountedRef.current) return;
+      
       if (response.success) {
         setSseStats(response.data);
         setSseHealth(response.health);
@@ -117,35 +156,81 @@ const SseStatsCard: React.FC = () => {
         throw new Error(response.error || 'Failed to fetch SSE statistics');
       }
     } catch (error) {
+      // Check if component is still mounted before updating state
+      if (!isMountedRef.current) return;
+      
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch SSE statistics';
       setError(errorMessage);
       if (showNotification) {
         addNotification(errorMessage, 'error');
       }
     } finally {
-      setLoading(false);
+      // Check if component is still mounted before updating state
+      if (isMountedRef.current) {
+        setLoading(false);
+        setIsRefreshing(false);
+      }
     }
-  }, [addNotification, loading, refreshCooldown]);
+  }, [addNotification]); // Removed loading and refreshCooldown dependencies
 
   const handleRefresh = useCallback(() => {
-    if (refreshCooldown > 0) return;
+    if (refreshCooldown > 0 || isRefreshing || !isMountedRef.current) return;
     
     setRefreshCooldown(REFRESH_COOLDOWN);
     fetchSseStats(true);
-  }, [fetchSseStats, refreshCooldown]);
+  }, [fetchSseStats, refreshCooldown, isRefreshing, REFRESH_COOLDOWN]);
 
-  // Cooldown timer
+  // Cooldown timer with proper cleanup
   useEffect(() => {
-    if (refreshCooldown > 0) {
-      const timer = setTimeout(() => setRefreshCooldown(refreshCooldown - 1), 1000);
-      return () => clearTimeout(timer);
+    if (refreshCooldown > 0 && isMountedRef.current) {
+      cooldownTimeoutRef.current = setTimeout(() => {
+        if (isMountedRef.current) {
+          setRefreshCooldown(refreshCooldown - 1);
+        }
+      }, 1000);
     }
+    
+    return () => {
+      if (cooldownTimeoutRef.current) {
+        clearTimeout(cooldownTimeoutRef.current);
+        cooldownTimeoutRef.current = null;
+      }
+    };
   }, [refreshCooldown]);
 
-  // Initial fetch
+  // Initial fetch with debouncing and proper cleanup
   useEffect(() => {
-    fetchSseStats();
-  }, [fetchSseStats]);
+    initialFetchTimeoutRef.current = setTimeout(() => {
+      if (isMountedRef.current) {
+        fetchSseStats();
+      }
+    }, DEBOUNCE_DELAY);
+    
+    return () => {
+      if (initialFetchTimeoutRef.current) {
+        clearTimeout(initialFetchTimeoutRef.current);
+        initialFetchTimeoutRef.current = null;
+      }
+    };
+  }, []); // Empty dependency array to run only once on mount
+
+  // Prevent unnecessary re-renders by memoizing the refresh handler
+  const debouncedRefresh = useCallback(() => {
+    if (refreshCooldown > 0 || isRefreshing || !isMountedRef.current) return;
+    
+    // Clear any existing timeout
+    if (refreshTimeoutRef.current) {
+      clearTimeout(refreshTimeoutRef.current);
+    }
+    
+    // Add a small delay to prevent rapid clicking
+    refreshTimeoutRef.current = setTimeout(() => {
+      if (isMountedRef.current) {
+        setRefreshCooldown(REFRESH_COOLDOWN);
+        fetchSseStats(true);
+      }
+    }, RAPID_CLICK_DELAY);
+  }, [fetchSseStats, refreshCooldown, isRefreshing, REFRESH_COOLDOWN, RAPID_CLICK_DELAY]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -192,7 +277,7 @@ const SseStatsCard: React.FC = () => {
             {error}
           </Alert>
           <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-            <IconButton onClick={handleRefresh} disabled={loading || refreshCooldown > 0}>
+            <IconButton onClick={debouncedRefresh} disabled={loading || isRefreshing || refreshCooldown > 0}>
               <RefreshIcon />
             </IconButton>
           </Box>
@@ -216,8 +301,8 @@ const SseStatsCard: React.FC = () => {
               if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
               return lastUpdated.toLocaleString();
             })() : 'Never'}
-            onRefresh={handleRefresh}
-            loading={loading}
+            onRefresh={debouncedRefresh}
+            loading={loading || isRefreshing}
             cooldown={refreshCooldown > 0}
             cooldownRemaining={refreshCooldown}
             label="Refresh SSE Stats"
