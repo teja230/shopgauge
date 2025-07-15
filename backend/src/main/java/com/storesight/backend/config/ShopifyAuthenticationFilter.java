@@ -110,25 +110,36 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
           // Verify shop exists and has valid token using our custom session layer
           String token = shopService.getTokenForShop(shopDomain, sessionId);
           if (token != null) {
-            // Additional validation: check if session is in valid state in our custom layer
-            // Make this validation non-blocking to prevent login failures due to validation errors
+            // CRITICAL FIX: Validate session state BEFORE allowing authentication
+            // This prevents authentication with invalid sessions
             if (sessionId != null) {
               try {
                 if (!shopService.isSessionValid(shopDomain, sessionId)) {
                   logger.warn(
-                      "Session {} validation failed for shop: {} - but continuing with login",
+                      "Session {} validation failed for shop: {} - blocking authentication",
                       sessionId,
                       shopDomain);
-                  // Don't block login for validation failures - just log the warning
-                  // The session might still be valid but validation failed due to database issues
+
+                  // SECURE: Block authentication when session validation fails
+                  // This prevents authentication with invalid sessions
+                  shopService.forceInvalidateSession(shopDomain, sessionId);
+                  handleAuthenticationFailure(
+                      response, "Session validation failed. Please re-authenticate.");
+                  return;
                 }
               } catch (Exception validationError) {
-                logger.warn(
-                    "Session validation error for {}:{} - continuing with login: {}",
+                logger.error(
+                    "Session validation error for {}:{} - blocking authentication: {}",
                     shopDomain,
                     sessionId,
                     validationError.getMessage());
-                // Don't block login for validation errors
+
+                // SECURE: Block authentication when validation throws exceptions
+                // This prevents authentication with potentially compromised sessions
+                shopService.forceInvalidateSession(shopDomain, sessionId);
+                handleAuthenticationFailure(
+                    response, "Session validation error. Please re-authenticate.");
+                return;
               }
             }
 
