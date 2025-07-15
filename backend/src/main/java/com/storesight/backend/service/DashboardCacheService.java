@@ -250,7 +250,7 @@ public class DashboardCacheService {
       String serializedData = redisTemplate.opsForValue().get(key);
 
       if (serializedData == null) {
-        logger.debug("No cached data found for key: {}", key);
+        logger.info("No cached data found for key: {} (cache miss)", key);
         recordCacheMiss(); // Track cache miss
         return Optional.empty();
       }
@@ -267,7 +267,7 @@ public class DashboardCacheService {
         return Optional.empty();
       }
 
-      logger.debug("Cache hit for key: {} (age: {} minutes)", key, entry.getAgeMinutes());
+      logger.info("Cache hit for key: {} (age: {} minutes)", key, entry.getAgeMinutes());
       recordCacheHit(); // Track cache hit
       return Optional.of(entry.getData());
 
