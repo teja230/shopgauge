@@ -1602,7 +1602,8 @@ public class ShopService {
 
   /**
    * Validate if a session is in a valid state for operations This helps prevent session
-   * invalidation errors FIXED: Avoids Hibernate lazy loading issues by using direct queries
+   * invalidation errors FIXED: Avoids Hibernate lazy loading issues by using direct queries SECURE:
+   * Uses Redis cache fallback when database validation fails
    */
   public boolean isSessionValid(String shopifyDomain, String sessionId) {
     try {
@@ -1624,33 +1625,90 @@ public class ShopService {
       // without triggering lazy loading of the Shop entity
       Optional<ShopSession> sessionOpt =
           shopSessionRepository.findActiveSessionByShopDomainAndSessionId(shopifyDomain, sessionId);
-      if (sessionOpt.isEmpty()) {
-        logger.debug("Session {} not found or inactive for shop: {}", sessionId, shopifyDomain);
-        return false;
+      if (sessionOpt.isPresent()) {
+        // Database validation successful
+        ShopSession session = sessionOpt.get();
+
+        // Additional validation: check if session hasn't expired
+        if (session.getExpiresAt() != null
+            && session.getExpiresAt().isBefore(LocalDateTime.now())) {
+          logger.debug("Session {} has expired for shop: {}", sessionId, shopifyDomain);
+          return false;
+        }
+
+        logger.debug("Session {} is valid for shop: {}", sessionId, shopifyDomain);
+        return true;
       }
 
-      // Additional validation: check if session hasn't expired
-      ShopSession session = sessionOpt.get();
-      if (session.getExpiresAt() != null && session.getExpiresAt().isBefore(LocalDateTime.now())) {
-        logger.debug("Session {} has expired for shop: {}", sessionId, shopifyDomain);
-        return false;
-      }
+      // Session not found in database - check Redis cache as fallback
+      logger.debug(
+          "Session {} not found in database, checking Redis cache for shop: {}",
+          sessionId,
+          shopifyDomain);
+      return isSessionValidInRedis(shopifyDomain, sessionId);
 
-      logger.debug("Session {} is valid for shop: {}", sessionId, shopifyDomain);
-      return true;
     } catch (Exception e) {
       logger.warn(
           "Error validating session {} for shop {}: {}", sessionId, shopifyDomain, e.getMessage());
-      // Don't mark session as invalid due to validation errors
-      // This prevents false positives from database connection issues
-      return true; // Assume valid if we can't validate due to errors
+
+      // SECURE: When database validation fails, check Redis cache instead of assuming valid
+      // This provides a security fallback while maintaining reliability
+      try {
+        return isSessionValidInRedis(shopifyDomain, sessionId);
+      } catch (Exception redisError) {
+        logger.error(
+            "Both database and Redis validation failed for session {}:{} - marking as invalid for security",
+            shopifyDomain,
+            sessionId);
+        // SECURE: Mark as invalid when both database and Redis validation fail
+        // This prevents security bypass through validation failures
+        return false;
+      }
+    }
+  }
+
+  /**
+   * Check if session is valid in Redis cache This provides a secure fallback when database
+   * validation fails
+   */
+  private boolean isSessionValidInRedis(String shopifyDomain, String sessionId) {
+    try {
+      // Check if session token exists in Redis
+      String tokenKey = SHOP_TOKEN_PREFIX + shopifyDomain + ":" + sessionId;
+      String cachedToken = redisTemplate.opsForValue().get(tokenKey);
+
+      if (cachedToken != null && !cachedToken.trim().isEmpty()) {
+        logger.debug(
+            "Session {} found valid in Redis cache for shop: {}", sessionId, shopifyDomain);
+        return true;
+      }
+
+      // Check if session is marked as invalid in Redis
+      String invalidKey = INVALID_SESSION_PREFIX + shopifyDomain + ":" + sessionId;
+      Boolean isInvalid = redisTemplate.hasKey(invalidKey);
+      if (isInvalid != null && isInvalid) {
+        logger.debug(
+            "Session {} marked as invalid in Redis for shop: {}", sessionId, shopifyDomain);
+        return false;
+      }
+
+      logger.debug("Session {} not found in Redis cache for shop: {}", sessionId, shopifyDomain);
+      return false;
+
+    } catch (Exception e) {
+      logger.warn(
+          "Redis validation failed for session {}:{}: {}",
+          shopifyDomain,
+          sessionId,
+          e.getMessage());
+      return false; // SECURE: Assume invalid when Redis validation fails
     }
   }
 
   /**
    * Secure session validation that ensures session state consistency This method validates that a
    * session exists in the database and is in a valid state FIXED: Avoids Hibernate lazy loading
-   * issues by using direct queries
+   * issues by using direct queries SECURE: Uses Redis cache fallback when database validation fails
    */
   public boolean validateSessionState(String shopifyDomain, String sessionId) {
     try {
@@ -1665,33 +1723,48 @@ public class ShopService {
       // without triggering lazy loading of the Shop entity
       Optional<ShopSession> sessionOpt =
           shopSessionRepository.findActiveSessionByShopDomainAndSessionId(shopifyDomain, sessionId);
-      if (sessionOpt.isEmpty()) {
-        logger.warn(
-            "Session validation failed: session {} not found or inactive for shop: {}",
-            sessionId,
-            shopifyDomain);
-        return false;
+      if (sessionOpt.isPresent()) {
+        // Database validation successful
+        ShopSession session = sessionOpt.get();
+
+        // Validate session hasn't expired
+        if (session.getExpiresAt() != null
+            && session.getExpiresAt().isBefore(LocalDateTime.now())) {
+          logger.warn(
+              "Session validation failed: session {} has expired for shop: {}",
+              sessionId,
+              shopifyDomain);
+          return false;
+        }
+
+        logger.debug("Session validation successful: {} for shop: {}", sessionId, shopifyDomain);
+        return true;
       }
 
-      ShopSession session = sessionOpt.get();
+      // Session not found in database - check Redis cache as fallback
+      logger.debug(
+          "Session {} not found in database, checking Redis cache for shop: {}",
+          sessionId,
+          shopifyDomain);
+      return isSessionValidInRedis(shopifyDomain, sessionId);
 
-      // Validate session hasn't expired
-      if (session.getExpiresAt() != null && session.getExpiresAt().isBefore(LocalDateTime.now())) {
-        logger.warn(
-            "Session validation failed: session {} has expired for shop: {}",
-            sessionId,
-            shopifyDomain);
-        return false;
-      }
-
-      logger.debug("Session validation successful: {} for shop: {}", sessionId, shopifyDomain);
-      return true;
     } catch (Exception e) {
       logger.error(
           "Session validation error for {}:{}: {}", shopifyDomain, sessionId, e.getMessage());
-      // Don't mark session as invalid due to validation errors
-      // This prevents false positives from database connection issues
-      return true; // Assume valid if we can't validate due to errors
+
+      // SECURE: When database validation fails, check Redis cache instead of assuming valid
+      // This provides a security fallback while maintaining reliability
+      try {
+        return isSessionValidInRedis(shopifyDomain, sessionId);
+      } catch (Exception redisError) {
+        logger.error(
+            "Both database and Redis validation failed for session {}:{} - marking as invalid for security",
+            shopifyDomain,
+            sessionId);
+        // SECURE: Mark as invalid when both database and Redis validation fail
+        // This prevents security bypass through validation failures
+        return false;
+      }
     }
   }
 }
