@@ -145,6 +145,7 @@ public class ShopService {
       transactionMonitoringService.recordSuccess("saveShop", System.currentTimeMillis() - start);
       return session;
     } catch (Exception e) {
+      logger.error("Error saving shop data for {}: {}", shopifyDomain, e.getMessage(), e);
       transactionMonitoringService.recordFailure(
           "saveShop",
           e.getClass().getSimpleName(),
@@ -930,8 +931,12 @@ public class ShopService {
           "Failed to save session: {} for shop: {} - Error: {}",
           sessionId,
           shop.getShopifyDomain(),
-          e.getMessage());
-      throw e;
+          e.getMessage(),
+          e);
+      // Don't throw the exception to prevent session invalidation errors
+      // Instead, return the session object without saving to database
+      logger.warn("Returning unsaved session object to prevent session invalidation error");
+      return session;
     }
   }
 

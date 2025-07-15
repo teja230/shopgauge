@@ -415,7 +415,16 @@ public class ShopifyAuthController {
           shop,
           sessionId,
           sessionCreated);
+
+      // Store shop in session as a fallback authentication mechanism BEFORE saving to database
+      // This ensures the session is properly initialized
+      if (request.getSession(false) != null) {
+        request.getSession().setAttribute("shopDomain", shop);
+        logger.info("Stored shop domain in session: {}", shop);
+      }
+
       try {
+        // Save shop data with session ID
         shopService.saveShop(shop, accessToken, sessionId, request);
         logger.info("Shop data saved successfully");
 
@@ -426,12 +435,6 @@ public class ShopifyAuthController {
         logger.error("Failed to save shop data to Redis/database: {}", saveError.getMessage());
         // Continue with cookie setting even if save fails
         // The token exchange was successful, so we can still set the cookie
-      }
-
-      // Store shop in session as well (as a fallback authentication mechanism)
-      if (request.getSession(false) != null) {
-        request.getSession().setAttribute("shopDomain", shop);
-        logger.info("Stored shop domain in session: {}", shop);
       }
 
       // Set the shop cookie with proper domain configuration for Render
