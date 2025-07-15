@@ -18,6 +18,7 @@ import {
   Info as InfoIcon,
   Refresh as RefreshIcon,
   Settings as SettingsIcon,
+  Search as SearchIcon,
 } from '@mui/icons-material';
 import { useNotifications } from '../../hooks/useNotifications';
 
@@ -29,13 +30,17 @@ interface SessionSyncStatus {
 
 interface SessionManagementToolsProps {
   onClearStuckSession: (sessionId: string) => Promise<void>;
+  onClearStuckSessionsForShop: (shopDomain: string) => Promise<void>;
+  onGetStuckSessions: (shopDomain?: string) => Promise<any>;
   onEmergencySessionCleanup: () => Promise<void>;
-  onCheckSessionSyncStatus: (sessionId: string) => Promise<SessionSyncStatus | null>;
+  onCheckSessionSyncStatus: (sessionId: string) => Promise<void>;
   onRefreshSessionSyncStatus: () => Promise<void>;
 }
 
 const SessionManagementTools: React.FC<SessionManagementToolsProps> = ({
   onClearStuckSession,
+  onClearStuckSessionsForShop,
+  onGetStuckSessions,
   onEmergencySessionCleanup,
   onCheckSessionSyncStatus,
   onRefreshSessionSyncStatus,
@@ -49,7 +54,10 @@ const SessionManagementTools: React.FC<SessionManagementToolsProps> = ({
   const [sessionSyncStatusLoading, setSessionSyncStatusLoading] = useState(false);
   const [sessionSyncStatus, setSessionSyncStatus] = useState<SessionSyncStatus | null>(null);
   const [manualSessionId, setManualSessionId] = useState('');
+  const [manualShopDomain, setManualShopDomain] = useState('');
   const [sessionSyncRefreshCooldown, setSessionSyncRefreshCooldown] = useState(0);
+  const [stuckSessionsData, setStuckSessionsData] = useState<any>(null);
+  const [stuckSessionsLoading, setStuckSessionsLoading] = useState(false);
   const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Cooldown timer effect
@@ -83,7 +91,6 @@ const SessionManagementTools: React.FC<SessionManagementToolsProps> = ({
   // Wrapper handlers with local loading states
   const handleClearStuckSession = async (sessionId: string) => {
     if (!sessionId.trim()) return;
-    
     setStuckSessionLoading(true);
     try {
       await onClearStuckSession(sessionId);
@@ -97,13 +104,45 @@ const SessionManagementTools: React.FC<SessionManagementToolsProps> = ({
     }
   };
 
+  const handleClearStuckSessionsForShop = async (shopDomain: string) => {
+    if (!shopDomain.trim()) return;
+    setStuckSessionLoading(true);
+    try {
+      await onClearStuckSessionsForShop(shopDomain);
+      addNotification(`Stuck sessions cleared for ${shopDomain}`, 'success');
+      // Refresh stuck sessions data
+      await handleGetStuckSessions(shopDomain);
+    } catch (error) {
+      addNotification('Failed to clear stuck sessions', 'error');
+    } finally {
+      if (isMountedRef.current) {
+        setStuckSessionLoading(false);
+      }
+    }
+  };
+
+  const handleGetStuckSessions = async (shopDomain?: string) => {
+    setStuckSessionsLoading(true);
+    try {
+      const result = await onGetStuckSessions(shopDomain);
+      setStuckSessionsData(result);
+      addNotification('Stuck sessions retrieved successfully', 'success');
+    } catch (error) {
+      addNotification('Failed to get stuck sessions', 'error');
+    } finally {
+      if (isMountedRef.current) {
+        setStuckSessionsLoading(false);
+      }
+    }
+  };
+
   const handleEmergencySessionCleanup = async () => {
     setEmergencySessionCleanupLoading(true);
     try {
       await onEmergencySessionCleanup();
       addNotification('Emergency session cleanup completed', 'success');
     } catch (error) {
-      addNotification('Emergency session cleanup failed', 'error');
+      addNotification('Failed to perform emergency session cleanup', 'error');
     } finally {
       if (isMountedRef.current) {
         setEmergencySessionCleanupLoading(false);
@@ -113,23 +152,12 @@ const SessionManagementTools: React.FC<SessionManagementToolsProps> = ({
 
   const handleCheckSessionSyncStatus = async (sessionId: string) => {
     if (!sessionId.trim()) return;
-    
     setSessionSyncStatusLoading(true);
     try {
-      const result = await onCheckSessionSyncStatus(sessionId);
-      if (isMountedRef.current) {
-        setSessionSyncStatus(result);
-        if (result) {
-          addNotification('Session status retrieved successfully', 'success');
-        } else {
-          addNotification('Session not found or invalid', 'warning');
-        }
-      }
+      await onCheckSessionSyncStatus(sessionId);
+      addNotification('Session sync status checked', 'success');
     } catch (error) {
-      if (isMountedRef.current) {
-        setSessionSyncStatus(null);
-        addNotification('Failed to check session status', 'error');
-      }
+      addNotification('Failed to check session sync status', 'error');
     } finally {
       if (isMountedRef.current) {
         setSessionSyncStatusLoading(false);
@@ -138,44 +166,19 @@ const SessionManagementTools: React.FC<SessionManagementToolsProps> = ({
   };
 
   const handleRefreshSessionSyncStatus = async () => {
-    // Prevent refresh if already loading, in cooldown, or component unmounted
-    if (sessionSyncStatusLoading || sessionSyncRefreshCooldown > 0 || !isMountedRef.current) {
-      return;
-    }
-
-    // Clear any existing timeout
-    if (refreshTimeoutRef.current) {
-      clearTimeout(refreshTimeoutRef.current);
-    }
-
-    // Debounce the refresh with 300ms delay
-    refreshTimeoutRef.current = setTimeout(async () => {
-      if (!isMountedRef.current) return;
-
-      setSessionSyncStatusLoading(true);
-      try {
-        // Set cooldown to prevent rapid successive calls
-        setSessionSyncRefreshCooldown(30); // 30 second cooldown
-
-        // Call the parent refresh handler
-        await onRefreshSessionSyncStatus();
-        
-        // Refresh current session status if available
-        if (sessionSyncStatus && sessionSyncStatus.sessionId) {
-          await handleCheckSessionSyncStatus(sessionSyncStatus.sessionId);
-        } else if (manualSessionId.trim()) {
-          await handleCheckSessionSyncStatus(manualSessionId.trim());
-        }
-        
-        addNotification('Session sync status refreshed', 'success');
-      } catch (error) {
-        addNotification('Failed to refresh session sync status', 'error');
-      } finally {
-        if (isMountedRef.current) {
-          setSessionSyncStatusLoading(false);
-        }
+    if (sessionSyncRefreshCooldown > 0) return;
+    setSessionSyncRefreshCooldown(30);
+    setSessionSyncStatusLoading(true);
+    try {
+      await onRefreshSessionSyncStatus();
+      addNotification('Session sync status refreshed', 'success');
+    } catch (error) {
+      addNotification('Failed to refresh session sync status', 'error');
+    } finally {
+      if (isMountedRef.current) {
+        setSessionSyncStatusLoading(false);
       }
-    }, 300); // 300ms debounce delay
+    }
   };
 
   return (
@@ -192,26 +195,26 @@ const SessionManagementTools: React.FC<SessionManagementToolsProps> = ({
             <CardContent>
               <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <ClearIcon />
-                Stuck Session Management
+                Stuck Session Discovery
               </Typography>
               <Typography variant="body2" sx={{ mb: 3, opacity: 0.9 }}>
-                Clear stuck session markers and resolve invalidation loops
+                Find and clear stuck session markers by shop domain
               </Typography>
               
               <Stack spacing={2}>
                 <Button
                   variant="contained"
                   fullWidth
-                  onClick={() => handleClearStuckSession('88f94376-48fb-4cee-974f-d3dfcb2f2793')}
-                  disabled={stuckSessionLoading}
-                  startIcon={stuckSessionLoading ? <CircularProgress size={16} /> : <ClearIcon />}
+                  onClick={() => handleGetStuckSessions()}
+                  disabled={stuckSessionsLoading}
+                  startIcon={stuckSessionsLoading ? <CircularProgress size={16} /> : <SearchIcon />}
                   sx={{ 
                     bgcolor: 'rgba(255,255,255,0.2)', 
                     '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' },
                     color: 'white'
                   }}
                 >
-                  {stuckSessionLoading ? 'Clearing...' : 'Clear Stuck Session'}
+                  {stuckSessionsLoading ? 'Searching...' : 'Find All Stuck Sessions'}
                 </Button>
                 
                 <Button
@@ -236,192 +239,129 @@ const SessionManagementTools: React.FC<SessionManagementToolsProps> = ({
           </Card>
         </Box>
 
-        {/* Session Synchronization Status */}
+        {/* Session Management Actions */}
         <Box sx={{ flex: '1 1 400px', minWidth: 0 }}>
-          <Card sx={{ height: '100%', background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', color: 'white' }}>
+          <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <MonitorHeartIcon />
-                Session Sync Status
-              </Typography>
-              <Typography variant="body2" sx={{ mb: 3, opacity: 0.9 }}>
-                Monitor session synchronization and invalidation state
+                <SettingsIcon color="primary" />
+                Session Management Actions
               </Typography>
               
-              <Stack spacing={2}>
-                <Button
-                  variant="contained"
-                  fullWidth
-                  onClick={() => handleCheckSessionSyncStatus('88f94376-48fb-4cee-974f-d3dfcb2f2793')}
-                  disabled={sessionSyncStatusLoading}
-                  startIcon={sessionSyncStatusLoading ? <CircularProgress size={16} /> : <InfoIcon />}
-                  sx={{ 
-                    bgcolor: 'rgba(255,255,255,0.2)', 
-                    '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' },
-                    color: 'white'
-                  }}
-                >
-                  {sessionSyncStatusLoading ? 'Checking...' : 'Check Session Status'}
-                </Button>
-                
-                <Button
-                  variant="outlined"
-                  fullWidth
-                  onClick={handleRefreshSessionSyncStatus}
-                  disabled={sessionSyncStatusLoading || sessionSyncRefreshCooldown > 0}
-                  startIcon={sessionSyncStatusLoading ? <CircularProgress size={16} /> : <RefreshIcon />}
-                  sx={{ 
-                    color: 'white', 
-                    borderColor: 'rgba(255,255,255,0.5)',
-                    '&:hover': { 
-                      borderColor: 'white',
-                      backgroundColor: 'rgba(255,255,255,0.1)'
-                    }
-                  }}
-                >
-                  {sessionSyncStatusLoading ? 'Refreshing...' : 
-                   sessionSyncRefreshCooldown > 0 ? `Wait ${sessionSyncRefreshCooldown}s` : 
-                   'Refresh Status'}
-                </Button>
-              </Stack>
+              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                <Box sx={{ flex: '1 1 400px', minWidth: 0 }}>
+                  <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 2 }}>
+                    <Typography variant="subtitle2" gutterBottom>
+                      Shop Domain Input
+                    </Typography>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      placeholder="Enter shop domain (e.g., mystore.myshopify.com)"
+                      value={manualShopDomain}
+                      onChange={(e) => setManualShopDomain(e.target.value)}
+                      sx={{ mb: 2 }}
+                    />
+                    <Stack direction="row" spacing={1}>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        onClick={() => handleGetStuckSessions(manualShopDomain)}
+                        disabled={!manualShopDomain.trim() || stuckSessionsLoading}
+                        startIcon={<SearchIcon />}
+                      >
+                        Find Stuck Sessions
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        color="error"
+                        size="small"
+                        onClick={() => handleClearStuckSessionsForShop(manualShopDomain)}
+                        disabled={!manualShopDomain.trim() || stuckSessionLoading}
+                        startIcon={<ClearIcon />}
+                      >
+                        Clear Stuck Sessions
+                      </Button>
+                    </Stack>
+                  </Box>
+                </Box>
+              </Box>
             </CardContent>
           </Card>
         </Box>
       </Box>
 
-      {/* Session Status Display */}
-      {sessionSyncStatus && (
+      {/* Display Stuck Sessions Results */}
+      {stuckSessionsData && (
         <Box sx={{ mt: 3 }}>
-          <Card sx={{ background: 'rgba(255, 255, 255, 0.95)', backdropFilter: 'blur(10px)' }}>
+          <Card>
             <CardContent>
-              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <InfoIcon color="primary" />
-                Session Synchronization Status
+              <Typography variant="h6" gutterBottom>
+                Stuck Sessions Found
               </Typography>
               
-              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                <Box sx={{ flex: '1 1 300px', minWidth: 0 }}>
-                  <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 2 }}>
-                    <Typography variant="body2" color="text.secondary">
-                      Session ID
-                    </Typography>
-                    <Typography variant="body1" fontFamily="monospace" sx={{ wordBreak: 'break-all' }}>
-                      {sessionSyncStatus.sessionId}
-                    </Typography>
+              {stuckSessionsData.stuckSessionsByShop ? (
+                // All shops view
+                <Box>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    Found {stuckSessionsData.totalStuckSessions} stuck sessions across {stuckSessionsData.totalShops} shops
+                  </Typography>
+                  {Object.entries(stuckSessionsData.stuckSessionsByShop).map(([shopDomain, sessions]: [string, any]) => (
+                    <Box key={shopDomain} sx={{ mb: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+                      <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                        {shopDomain} ({sessions.length} stuck sessions)
+                      </Typography>
+                      <Button
+                        variant="outlined"
+                        color="error"
+                        size="small"
+                        onClick={() => handleClearStuckSessionsForShop(shopDomain)}
+                        disabled={stuckSessionLoading}
+                        startIcon={<ClearIcon />}
+                        sx={{ mr: 1 }}
+                      >
+                        Clear All for {shopDomain}
+                      </Button>
+                      <Box sx={{ mt: 1 }}>
+                        {sessions.map((session: any, index: number) => (
+                          <Typography key={index} variant="caption" sx={{ display: 'block', fontFamily: 'monospace' }}>
+                            {session.key}: {session.value} ({session.type})
+                          </Typography>
+                        ))}
+                      </Box>
+                    </Box>
+                  ))}
+                </Box>
+              ) : (
+                // Single shop view
+                <Box>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    Found {stuckSessionsData.count} stuck sessions for {stuckSessionsData.shopDomain}
+                  </Typography>
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    size="small"
+                    onClick={() => handleClearStuckSessionsForShop(stuckSessionsData.shopDomain)}
+                    disabled={stuckSessionLoading}
+                    startIcon={<ClearIcon />}
+                    sx={{ mb: 2 }}
+                  >
+                    Clear All for {stuckSessionsData.shopDomain}
+                  </Button>
+                  <Box>
+                    {stuckSessionsData.stuckSessions?.map((session: any, index: number) => (
+                      <Typography key={index} variant="caption" sx={{ display: 'block', fontFamily: 'monospace' }}>
+                        {session.key}: {session.value} ({session.type})
+                      </Typography>
+                    ))}
                   </Box>
                 </Box>
-                <Box sx={{ flex: '1 1 300px', minWidth: 0 }}>
-                  <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 2 }}>
-                    <Typography variant="body2" color="text.secondary">
-                      Is Invalidating
-                    </Typography>
-                    <Chip
-                      label={sessionSyncStatus.isInvalidating ? 'Yes' : 'No'}
-                      color={sessionSyncStatus.isInvalidating ? 'error' : 'success'}
-                      size="small"
-                    />
-                  </Box>
-                </Box>
-                <Box sx={{ flex: '1 1 300px', minWidth: 0 }}>
-                  <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 2 }}>
-                    <Typography variant="body2" color="text.secondary">
-                      Allow Operations
-                    </Typography>
-                    <Chip
-                      label={sessionSyncStatus.shouldAllowOperation ? 'Yes' : 'No'}
-                      color={sessionSyncStatus.shouldAllowOperation ? 'success' : 'error'}
-                      size="small"
-                    />
-                  </Box>
-                </Box>
-              </Box>
+              )}
             </CardContent>
           </Card>
         </Box>
       )}
-
-      {/* Session Management Actions */}
-      <Box sx={{ mt: 3 }}>
-        <Card sx={{ background: 'rgba(255, 255, 255, 0.95)', backdropFilter: 'blur(10px)' }}>
-          <CardContent>
-            <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <SettingsIcon color="primary" />
-              Session Management Actions
-            </Typography>
-            
-            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-              <Box sx={{ flex: '1 1 400px', minWidth: 0 }}>
-                <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 2 }}>
-                  <Typography variant="subtitle2" gutterBottom>
-                    Manual Session Input
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    placeholder="Enter session ID to manage"
-                    value={manualSessionId}
-                    onChange={(e) => setManualSessionId(e.target.value)}
-                    sx={{ mb: 2 }}
-                  />
-                  <Stack direction="row" spacing={1}>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      onClick={() => handleCheckSessionSyncStatus(manualSessionId)}
-                      disabled={!manualSessionId.trim() || sessionSyncStatusLoading}
-                      startIcon={<InfoIcon />}
-                    >
-                      Check Status
-                    </Button>
-                    <Button
-                      variant="outlined"
-                      color="error"
-                      size="small"
-                      onClick={() => handleClearStuckSession(manualSessionId)}
-                      disabled={!manualSessionId.trim() || stuckSessionLoading}
-                      startIcon={<ClearIcon />}
-                    >
-                      Clear Stuck
-                    </Button>
-                  </Stack>
-                </Box>
-              </Box>
-              
-              <Box sx={{ flex: '1 1 400px', minWidth: 0 }}>
-                <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 2 }}>
-                  <Typography variant="subtitle2" gutterBottom>
-                    Bulk Operations
-                  </Typography>
-                  <Stack spacing={1}>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      onClick={handleEmergencySessionCleanup}
-                      disabled={emergencySessionCleanupLoading}
-                      startIcon={emergencySessionCleanupLoading ? <CircularProgress size={16} /> : <RestartAltIcon />}
-                      fullWidth
-                    >
-                      {emergencySessionCleanupLoading ? 'Emergency Cleanup...' : 'Emergency Session Cleanup'}
-                    </Button>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      onClick={handleRefreshSessionSyncStatus}
-                      disabled={sessionSyncStatusLoading || sessionSyncRefreshCooldown > 0}
-                      startIcon={sessionSyncStatusLoading ? <CircularProgress size={16} /> : <RefreshIcon />}
-                      fullWidth
-                    >
-                      {sessionSyncStatusLoading ? 'Refreshing...' : 
-                       sessionSyncRefreshCooldown > 0 ? `Wait ${sessionSyncRefreshCooldown}s` : 
-                       'Refresh All Status'}
-                    </Button>
-                  </Stack>
-                </Box>
-              </Box>
-            </Box>
-          </CardContent>
-        </Card>
-      </Box>
     </Box>
   );
 };
