@@ -796,29 +796,29 @@ public class AdminController {
   // Session Management Endpoints
 
   /**
-   * Clear stuck session markers for a specific session
-   * This endpoint allows admins to manually clear stuck session invalidation markers
+   * Clear stuck session markers for a specific session This endpoint allows admins to manually
+   * clear stuck session invalidation markers
    */
   @PostMapping("/sessions/clear-stuck/{sessionId}")
   public ResponseEntity<Map<String, Object>> clearStuckSession(@PathVariable String sessionId) {
     Map<String, Object> result = new HashMap<>();
-    
+
     try {
       logger.warn("Admin clearing stuck session markers for session: {}", sessionId);
-      
+
       // Clear stuck session markers
       sessionSynchronizationService.clearStuckSessionMarkers(sessionId);
-      
+
       // Also perform cleanup in case the session is still in the system
       shopService.performSessionCleanup("unknown", sessionId);
-      
+
       result.put("success", true);
       result.put("sessionId", sessionId);
       result.put("message", "Stuck session markers cleared successfully");
       result.put("timestamp", LocalDateTime.now().toString());
-      
+
       return ResponseEntity.ok(result);
-      
+
     } catch (Exception e) {
       logger.error("Failed to clear stuck session {}: {}", sessionId, e.getMessage());
       result.put("success", false);
@@ -829,23 +829,25 @@ public class AdminController {
   }
 
   /**
-   * Get session synchronization status
-   * This endpoint provides information about session synchronization state
+   * Get session synchronization status This endpoint provides information about session
+   * synchronization state
    */
   @GetMapping("/sessions/sync-status/{sessionId}")
   public ResponseEntity<Map<String, Object>> getSessionSyncStatus(@PathVariable String sessionId) {
     Map<String, Object> result = new HashMap<>();
-    
+
     try {
       boolean isInvalidating = sessionSynchronizationService.isSessionInvalidating(sessionId);
-      
+
       result.put("sessionId", sessionId);
       result.put("isInvalidating", isInvalidating);
-      result.put("shouldAllowOperation", sessionSynchronizationService.shouldAllowSessionOperation(sessionId));
+      result.put(
+          "shouldAllowOperation",
+          sessionSynchronizationService.shouldAllowSessionOperation(sessionId));
       result.put("timestamp", LocalDateTime.now().toString());
-      
+
       return ResponseEntity.ok(result);
-      
+
     } catch (Exception e) {
       logger.error("Failed to get session sync status for {}: {}", sessionId, e.getMessage());
       result.put("sessionId", sessionId);
@@ -855,25 +857,25 @@ public class AdminController {
   }
 
   /**
-   * Force cleanup all stuck session markers
-   * This is an emergency endpoint to clear all stuck session markers
+   * Force cleanup all stuck session markers This is an emergency endpoint to clear all stuck
+   * session markers
    */
   @PostMapping("/sessions/emergency-cleanup")
   public ResponseEntity<Map<String, Object>> emergencySessionCleanup() {
     Map<String, Object> result = new HashMap<>();
-    
+
     try {
       logger.warn("EMERGENCY SESSION CLEANUP: Clearing all stuck session markers");
-      
+
       // This would require implementing a method to find and clear all stuck markers
       // For now, we'll just log the action
       result.put("success", true);
       result.put("message", "Emergency session cleanup initiated");
       result.put("timestamp", LocalDateTime.now().toString());
       result.put("note", "This endpoint is a placeholder for comprehensive session cleanup");
-      
+
       return ResponseEntity.ok(result);
-      
+
     } catch (Exception e) {
       logger.error("Emergency session cleanup failed: {}", e.getMessage());
       result.put("success", false);

@@ -159,8 +159,8 @@ public class SessionSynchronizationService {
   }
 
   /**
-   * Clear stuck session invalidation markers for a specific session
-   * This is used to recover from stuck sessions that are preventing authentication
+   * Clear stuck session invalidation markers for a specific session This is used to recover from
+   * stuck sessions that are preventing authentication
    *
    * @param sessionId The session ID to clear stuck markers for
    */
@@ -236,7 +236,8 @@ public class SessionSynchronizationService {
     try {
       // Check if session is already being invalidated
       if (isSessionInvalidating(sessionId)) {
-        logger.warn("Session {} is already being invalidated, skipping duplicate invalidation", sessionId);
+        logger.warn(
+            "Session {} is already being invalidated, skipping duplicate invalidation", sessionId);
         return;
       }
 
@@ -304,8 +305,8 @@ public class SessionSynchronizationService {
   }
 
   /**
-   * Scheduled cleanup of stuck session markers
-   * Runs every 5 minutes to prevent sessions from getting permanently stuck
+   * Scheduled cleanup of stuck session markers Runs every 5 minutes to prevent sessions from
+   * getting permanently stuck
    */
   @Scheduled(fixedRate = 300000) // 5 minutes
   public void cleanupStuckSessionMarkers() {
@@ -313,10 +314,10 @@ public class SessionSynchronizationService {
       // This is a more aggressive cleanup to prevent stuck sessions
       // We'll clear any invalidation markers that have been around for too long
       logger.debug("Running stuck session markers cleanup");
-      
+
       // Note: In a production environment, you might want to add more sophisticated
       // logic here to identify and clean up specific stuck sessions
-      
+
     } catch (Exception e) {
       logger.warn("Error during stuck session markers cleanup: {}", e.getMessage());
     }
