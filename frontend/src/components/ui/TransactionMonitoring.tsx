@@ -142,6 +142,17 @@ const TransactionMonitoring: React.FC = () => {
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const [refreshCooldown, setRefreshCooldown] = useState(0);
   const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isMountedRef = useRef(true);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const fetchTransactionHealth = async () => {
     try {
@@ -159,10 +170,14 @@ const TransactionMonitoring: React.FC = () => {
         alerts: response.alerts ? Object.keys(response.alerts) : []
       };
       
-      setHealth(transformedHealth);
+      if (isMountedRef.current) {
+        setHealth(transformedHealth);
+      }
     } catch (err) {
       console.error('Failed to fetch transaction health:', err);
-      setError('Failed to fetch transaction health');
+      if (isMountedRef.current) {
+        setError('Failed to fetch transaction health');
+      }
     }
   };
 
@@ -184,10 +199,14 @@ const TransactionMonitoring: React.FC = () => {
         hourlyMetrics: [] // Not provided by backend
       };
       
-      setMetrics(transformedMetrics);
+      if (isMountedRef.current) {
+        setMetrics(transformedMetrics);
+      }
     } catch (err) {
       console.error('Failed to fetch transaction metrics:', err);
-      setError('Failed to fetch transaction metrics');
+      if (isMountedRef.current) {
+        setError('Failed to fetch transaction metrics');
+      }
     }
   };
 
@@ -205,41 +224,57 @@ const TransactionMonitoring: React.FC = () => {
         category: key
       }));
       
-      setAlerts(transformedAlerts);
+      if (isMountedRef.current) {
+        setAlerts(transformedAlerts);
+      }
     } catch (err) {
       console.error('Failed to fetch transaction alerts:', err);
-      setError('Failed to fetch transaction alerts');
+      if (isMountedRef.current) {
+        setError('Failed to fetch transaction alerts');
+      }
     }
   };
 
   const resetMetrics = async () => {
+    if (!isMountedRef.current) return;
+    
     try {
       await fetchAdminEndpoint('/api/health/metrics/transactions/reset', {
         method: 'POST',
       });
-      await refreshAll();
+      if (isMountedRef.current) {
+        await refreshAll();
+      }
     } catch (err) {
       console.error('Failed to reset metrics:', err);
-      setError('Failed to reset metrics');
+      if (isMountedRef.current) {
+        setError('Failed to reset metrics');
+      }
     }
   };
 
   const refreshAll = async () => {
-    if (refreshCooldown > 0) return;
+    if (refreshCooldown > 0 || !isMountedRef.current) return;
     setRefreshCooldown(180); // 3 minutes (increased from 5 seconds)
-    setLoading(true);
-    setError(null);
+    if (isMountedRef.current) {
+      setLoading(true);
+      setError(null);
+    }
     try {
       await Promise.all([
         fetchTransactionHealth(),
         fetchTransactionMetrics(),
         fetchTransactionAlerts(),
       ]);
-      setLastRefresh(new Date());
+      if (isMountedRef.current) {
+        setLastRefresh(new Date());
+      }
     } catch (err) {
       console.error('Failed to refresh monitoring data:', err);
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -251,13 +286,13 @@ const TransactionMonitoring: React.FC = () => {
     }
   }, [refreshCooldown]);
 
+  // Load data only on component mount when there is no data
   useEffect(() => {
-    refreshAll();
-    
-    // Auto-refresh every 30 seconds
-    const interval = setInterval(refreshAll, 30000);
-    return () => clearInterval(interval);
-  }, []);
+    // Only fetch data if we don't have any data yet
+    if (!health && !metrics && !alerts.length) {
+      refreshAll();
+    }
+  }, []); // Empty dependency array - only run on mount
 
   if (loading && !health) {
     return (

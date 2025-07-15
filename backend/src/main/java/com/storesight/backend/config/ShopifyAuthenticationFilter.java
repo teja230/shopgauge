@@ -124,6 +124,10 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
                       "Session {} is being invalidated for shop: {} - blocking authentication",
                       sessionId,
                       shopDomain);
+                  
+                  // Clear stuck session markers to prevent infinite loops
+                  sessionSynchronizationService.clearStuckSessionMarkers(sessionId);
+                  
                   handleAuthenticationFailure(
                       response, "Session is being invalidated. Please re-authenticate.");
                   return;

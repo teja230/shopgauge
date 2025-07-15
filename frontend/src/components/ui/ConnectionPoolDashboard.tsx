@@ -134,11 +134,26 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [refreshCooldown, setRefreshCooldown] = useState(0);
   const cooldownRef = useRef<NodeJS.Timeout | null>(null);
+  const isMountedRef = useRef(true);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+      if (cooldownRef.current) {
+        clearTimeout(cooldownRef.current);
+      }
+    };
+  }, []);
 
   const fetchMetrics = async () => {
+    if (!isMountedRef.current) return;
+    
     try {
-      setLoading(true);
-      setError(null);
+      if (isMountedRef.current) {
+        setLoading(true);
+        setError(null);
+      }
 
       const [poolResponse, redisResponse, systemResponse, transactionResponse, sessionResponse] = await Promise.all([
         fetchAdminEndpoint('/api/health/connection-leak-status'),
@@ -209,31 +224,29 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
         sessionsActiveLastWeek: sessionData?.sessionsActiveLastWeek || 0,
       };
 
-      const systemMetrics: SystemMetrics = {
+      const combinedMetrics: SystemMetrics = {
         poolMetrics,
         redisMetrics,
         jvmMetrics,
         transactionMetrics,
         sessionMetrics,
-        systemHealth: poolMetrics.poolStatus === 'HEALTHY' && redisMetrics.healthy && transactionMetrics.isHealthy ? 'HEALTHY' : 'DEGRADED',
+        systemHealth: poolMetrics.poolStatus === 'HEALTHY' && redisMetrics.healthy ? 'HEALTHY' : 
+                     poolMetrics.poolStatus === 'CRITICAL' || !redisMetrics.healthy ? 'CRITICAL' : 'DEGRADED'
       };
 
-      setSystemMetrics(systemMetrics);
-      setLastUpdated(new Date());
-
-      // Generate mock historical data
-      const mockHistoricalData: HistoricalData[] = Array.from({ length: 24 }, (_, i) => ({
-        timestamp: new Date(Date.now() - (23 - i) * 3600000).toISOString(),
-        activeConnections: Math.floor(Math.random() * 20) + 5,
-        poolUtilization: Math.floor(Math.random() * 30) + 40,
-        connectionTime: Math.floor(Math.random() * 100) + 50,
-      }));
-      setHistoricalData(mockHistoricalData);
-
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to fetch metrics');
+      if (isMountedRef.current) {
+        setSystemMetrics(combinedMetrics);
+        setLastUpdated(new Date());
+      }
+    } catch (err) {
+      console.error('Failed to fetch connection pool metrics:', err);
+      if (isMountedRef.current) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch metrics');
+      }
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -277,9 +290,9 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
   };
 
   useEffect(() => {
-    fetchMetrics();
-    const interval = setInterval(fetchMetrics, 30000);
-    return () => clearInterval(interval);
+    if (isMountedRef.current) {
+      fetchMetrics();
+    }
   }, []);
 
   // Cooldown timer
