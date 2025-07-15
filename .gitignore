@@ -2,6 +2,7 @@
 *.class
 .idea/
 .vscode/
+.kiro/
 logs
 node_modules
 target
