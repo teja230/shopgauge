@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -19,17 +19,13 @@ import {
   Clear as ClearIcon,
   HealthAndSafety as HealthAndSafetyIcon,
   CheckCircle as CheckCircleIcon,
-  Error as ErrorIcon,
   Warning as WarningIcon,
-  Info as InfoIcon,
 } from '@mui/icons-material';
-import { useServiceStatus } from '../../context/ServiceStatusContext';
 import { useNotifications } from '../../hooks/useNotifications';
 import RefreshHeader from './RefreshHeader';
 import { debugLog } from './DebugPanel';
 import StorageIcon from '@mui/icons-material/Storage';
 import DatabaseIcon from '@mui/icons-material/Storage';
-import { TrendingUp as TrendingUpIcon } from '@mui/icons-material';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
