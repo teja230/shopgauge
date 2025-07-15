@@ -1656,8 +1656,15 @@ public class ShopService {
     try {
       logger.warn("Force invalidating session {} for shop: {}", sessionId, shopifyDomain);
 
-      // Use session synchronization service to prevent race conditions
-      sessionSynchronizationService.safeInvalidateSession(sessionId, "force_invalidation");
+      // Check if session is already being invalidated to prevent loops
+      if (sessionSynchronizationService.isSessionInvalidating(sessionId)) {
+        logger.warn(
+            "Session {} is already being invalidated, skipping duplicate invalidation", sessionId);
+        return;
+      }
+
+      // Mark session as invalidating first
+      sessionSynchronizationService.markSessionAsInvalidating(sessionId, "force_invalidation");
 
       // Execute the actual invalidation with proper locking
       Object result =
@@ -1759,6 +1766,9 @@ public class ShopService {
             sessionId,
             shopifyDomain);
       }
+
+      // Clear invalidation markers after successful completion
+      sessionSynchronizationService.clearSessionInvalidationMarkers(sessionId);
 
     } catch (Exception e) {
       logger.error(
@@ -2305,12 +2315,15 @@ public class ShopService {
     try {
       logger.warn("Clearing all stuck session markers for shop: {}", shopifyDomain);
 
+      int clearedCount = 0;
+
       // Clear Redis cache entries for this shop
       try {
         // Find all Redis keys related to this shop
         Set<String> keys = redisTemplate.keys("*" + shopifyDomain + "*");
         if (keys != null && !keys.isEmpty()) {
           redisTemplate.delete(keys);
+          clearedCount += keys.size();
           logger.info("Cleared {} Redis keys for shop: {}", keys.size(), shopifyDomain);
         }
       } catch (Exception redisError) {
@@ -2318,7 +2331,59 @@ public class ShopService {
             "Failed to clear Redis keys for shop {}: {}", shopifyDomain, redisError.getMessage());
       }
 
-      logger.info("Successfully cleared all stuck session markers for shop: {}", shopifyDomain);
+      // Clear session synchronization markers for this shop
+      try {
+        Set<String> syncKeys = redisTemplate.keys("*session*" + shopifyDomain + "*");
+        if (syncKeys != null && !syncKeys.isEmpty()) {
+          redisTemplate.delete(syncKeys);
+          clearedCount += syncKeys.size();
+          logger.info("Cleared {} session sync keys for shop: {}", syncKeys.size(), shopifyDomain);
+        }
+      } catch (Exception syncError) {
+        logger.warn(
+            "Failed to clear session sync keys for shop {}: {}",
+            shopifyDomain,
+            syncError.getMessage());
+      }
+
+      // Clear session locks for this shop
+      try {
+        Set<String> lockKeys = redisTemplate.keys("*session_lock*" + shopifyDomain + "*");
+        if (lockKeys != null && !lockKeys.isEmpty()) {
+          redisTemplate.delete(lockKeys);
+          clearedCount += lockKeys.size();
+          logger.info("Cleared {} session lock keys for shop: {}", lockKeys.size(), shopifyDomain);
+        }
+      } catch (Exception lockError) {
+        logger.warn(
+            "Failed to clear session lock keys for shop {}: {}",
+            shopifyDomain,
+            lockError.getMessage());
+      }
+
+      // Clear invalidation markers for this shop
+      try {
+        Set<String> invalidationKeys =
+            redisTemplate.keys("*session_invalidation*" + shopifyDomain + "*");
+        if (invalidationKeys != null && !invalidationKeys.isEmpty()) {
+          redisTemplate.delete(invalidationKeys);
+          clearedCount += invalidationKeys.size();
+          logger.info(
+              "Cleared {} session invalidation keys for shop: {}",
+              invalidationKeys.size(),
+              shopifyDomain);
+        }
+      } catch (Exception invalidationError) {
+        logger.warn(
+            "Failed to clear session invalidation keys for shop {}: {}",
+            shopifyDomain,
+            invalidationError.getMessage());
+      }
+
+      logger.info(
+          "Successfully cleared {} total stuck session markers for shop: {}",
+          clearedCount,
+          shopifyDomain);
     } catch (Exception e) {
       logger.error(
           "Error clearing stuck session markers for shop {}: {}", shopifyDomain, e.getMessage());
