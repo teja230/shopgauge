@@ -126,8 +126,9 @@ const SessionManagementTools: React.FC<SessionManagementToolsProps> = ({
     try {
       const result = await onGetStuckSessions(shopDomain);
       setStuckSessionsData(result);
-      addNotification('Stuck sessions retrieved successfully', 'success');
+      // Success notification is handled by the parent component
     } catch (error) {
+      console.error('Error in handleGetStuckSessions:', error);
       addNotification('Failed to get stuck sessions', 'error');
     } finally {
       if (isMountedRef.current) {
