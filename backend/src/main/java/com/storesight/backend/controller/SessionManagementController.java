@@ -1352,8 +1352,39 @@ public class SessionManagementController {
    * "session_invalidated", "message": "Your session has been invalidated by an administrator." }
    */
   @GetMapping("/events/{shopDomain}")
-  public SseEmitter subscribeToSessionEvents(@PathVariable String shopDomain) {
+  public SseEmitter subscribeToSessionEvents(
+      @PathVariable String shopDomain, HttpServletRequest request) {
     logger.info("SSE connection request for shop: {}", shopDomain);
+
+    // CRITICAL FIX: Validate session before allowing SSE connection
+    String sessionId = null;
+    try {
+      if (request.getSession(false) != null) {
+        sessionId = request.getSession(false).getId();
+      }
+    } catch (Exception sessionEx) {
+      logger.warn("Error accessing Spring Session for SSE: {}", sessionEx.getMessage());
+    }
+
+    // Validate session before allowing SSE connection
+    if (sessionId != null && !shopService.isSessionValid(shopDomain, sessionId)) {
+      logger.warn(
+          "SSE connection rejected - invalid session {} for shop: {}", sessionId, shopDomain);
+      SseEmitter emitter = new SseEmitter(0L);
+      try {
+        emitter.send(
+            SseEmitter.event()
+                .name("error")
+                .data(
+                    "{\"event\":\"session_invalidated\",\"message\":\"Your session has been invalidated. Please re-authenticate.\"}")
+                .id(String.valueOf(System.currentTimeMillis())));
+        emitter.complete();
+      } catch (Exception e) {
+        logger.warn("Failed to send error event to SSE client: {}", e.getMessage());
+      }
+      return emitter;
+    }
+
     SseEmitter emitter = new SseEmitter(0L); // No timeout
 
     sseEmitters.computeIfAbsent(shopDomain, k -> new CopyOnWriteArrayList<>()).add(emitter);
