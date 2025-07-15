@@ -6,6 +6,7 @@ import com.storesight.backend.repository.ShopRepository;
 import com.storesight.backend.repository.ShopSessionRepository;
 import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.HttpServletRequest;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -1603,13 +1604,23 @@ public class ShopService {
   /**
    * Validate if a session is in a valid state for operations This helps prevent session
    * invalidation errors FIXED: Avoids Hibernate lazy loading issues by using direct queries SECURE:
-   * Uses Redis cache fallback when database validation fails
+   * Uses Redis cache fallback when database validation fails OPTIMIZED: Checks Redis first for
+   * better performance
    */
   public boolean isSessionValid(String shopifyDomain, String sessionId) {
     try {
       if (sessionId == null || sessionId.trim().isEmpty()) {
         logger.debug("Session ID is null or empty for shop: {}", shopifyDomain);
         return false;
+      }
+
+      // OPTIMIZED: Check Redis first for better performance
+      // Redis is much faster than database queries
+      boolean redisResult = isSessionValidInRedis(shopifyDomain, sessionId);
+      if (redisResult) {
+        logger.debug(
+            "Session {} validated successfully in Redis for shop: {}", sessionId, shopifyDomain);
+        return true;
       }
 
       // Check if session is marked as invalid in cache
@@ -1619,6 +1630,13 @@ public class ShopService {
         logger.debug("Session {} is marked as invalid for shop: {}", sessionId, shopifyDomain);
         return false;
       }
+
+      // Only check database if Redis validation failed and session not marked as invalid
+      // This reduces database load significantly
+      logger.debug(
+          "Session {} not found in Redis, checking database for shop: {}",
+          sessionId,
+          shopifyDomain);
 
       // Use a direct query to avoid lazy loading issues
       // This query checks if the session exists, is active, and belongs to the correct shop
@@ -1636,16 +1654,27 @@ public class ShopService {
           return false;
         }
 
+        // OPTIMIZED: Cache the valid session in Redis for future fast lookups
+        try {
+          String tokenKey = SHOP_TOKEN_PREFIX + shopifyDomain + ":" + sessionId;
+          String accessToken = session.getAccessToken();
+          if (accessToken != null && !accessToken.trim().isEmpty()) {
+            redisTemplate.opsForValue().set(tokenKey, accessToken, Duration.ofHours(4));
+            logger.debug("Cached session {} in Redis for future fast lookups", sessionId);
+          }
+        } catch (Exception cacheError) {
+          logger.warn(
+              "Failed to cache session {} in Redis: {}", sessionId, cacheError.getMessage());
+          // Don't fail validation if caching fails
+        }
+
         logger.debug("Session {} is valid for shop: {}", sessionId, shopifyDomain);
         return true;
       }
 
-      // Session not found in database - check Redis cache as fallback
-      logger.debug(
-          "Session {} not found in database, checking Redis cache for shop: {}",
-          sessionId,
-          shopifyDomain);
-      return isSessionValidInRedis(shopifyDomain, sessionId);
+      // Session not found in either Redis or database
+      logger.debug("Session {} not found in database for shop: {}", sessionId, shopifyDomain);
+      return false;
 
     } catch (Exception e) {
       logger.warn(
@@ -1709,6 +1738,7 @@ public class ShopService {
    * Secure session validation that ensures session state consistency This method validates that a
    * session exists in the database and is in a valid state FIXED: Avoids Hibernate lazy loading
    * issues by using direct queries SECURE: Uses Redis cache fallback when database validation fails
+   * OPTIMIZED: Checks Redis first for better performance
    */
   public boolean validateSessionState(String shopifyDomain, String sessionId) {
     try {
@@ -1717,6 +1747,22 @@ public class ShopService {
             "Session validation failed: null or empty sessionId for shop: {}", shopifyDomain);
         return false;
       }
+
+      // OPTIMIZED: Check Redis first for better performance
+      // Redis is much faster than database queries
+      boolean redisResult = isSessionValidInRedis(shopifyDomain, sessionId);
+      if (redisResult) {
+        logger.debug(
+            "Session {} validated successfully in Redis for shop: {}", sessionId, shopifyDomain);
+        return true;
+      }
+
+      // Only check database if Redis validation failed
+      // This reduces database load significantly
+      logger.debug(
+          "Session {} not found in Redis, checking database for shop: {}",
+          sessionId,
+          shopifyDomain);
 
       // Use a direct query to avoid lazy loading issues
       // This query checks if the session exists, is active, and belongs to the correct shop
@@ -1737,16 +1783,27 @@ public class ShopService {
           return false;
         }
 
+        // OPTIMIZED: Cache the valid session in Redis for future fast lookups
+        try {
+          String tokenKey = SHOP_TOKEN_PREFIX + shopifyDomain + ":" + sessionId;
+          String accessToken = session.getAccessToken();
+          if (accessToken != null && !accessToken.trim().isEmpty()) {
+            redisTemplate.opsForValue().set(tokenKey, accessToken, Duration.ofHours(4));
+            logger.debug("Cached session {} in Redis for future fast lookups", sessionId);
+          }
+        } catch (Exception cacheError) {
+          logger.warn(
+              "Failed to cache session {} in Redis: {}", sessionId, cacheError.getMessage());
+          // Don't fail validation if caching fails
+        }
+
         logger.debug("Session validation successful: {} for shop: {}", sessionId, shopifyDomain);
         return true;
       }
 
-      // Session not found in database - check Redis cache as fallback
-      logger.debug(
-          "Session {} not found in database, checking Redis cache for shop: {}",
-          sessionId,
-          shopifyDomain);
-      return isSessionValidInRedis(shopifyDomain, sessionId);
+      // Session not found in either Redis or database
+      logger.debug("Session {} not found in database for shop: {}", sessionId, shopifyDomain);
+      return false;
 
     } catch (Exception e) {
       logger.error(
