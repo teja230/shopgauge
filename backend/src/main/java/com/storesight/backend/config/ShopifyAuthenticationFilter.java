@@ -95,13 +95,30 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
       if (shopDomain != null && !shopDomain.trim().isEmpty()) {
         // Validate shop domain format
         if (isValidShopDomain(shopDomain)) {
-          // Get session ID for multi-session support
-          String sessionId =
-              request.getSession(false) != null ? request.getSession(false).getId() : null;
+          // Get session ID for multi-session support with safe session access
+          String sessionId = null;
+          try {
+            if (request.getSession(false) != null) {
+              sessionId = request.getSession(false).getId();
+            }
+          } catch (Exception sessionEx) {
+            logger.warn("Error accessing session: {}", sessionEx.getMessage());
+            // Continue without session ID - will use fallback token lookup
+          }
 
           // Verify shop exists and has valid token
           String token = shopService.getTokenForShop(shopDomain, sessionId);
           if (token != null) {
+            // Additional validation: check if session is in valid state
+            if (sessionId != null && !shopService.isSessionValid(shopDomain, sessionId)) {
+              logger.warn("Session {} is in invalid state for shop: {}", sessionId, shopDomain);
+              // Perform safe cleanup and return authentication failure
+              shopService.safeSessionCleanup(shopDomain, sessionId);
+              handleAuthenticationFailure(
+                  response, "Session is in invalid state. Please re-authenticate.");
+              return;
+            }
+
             // Set authentication context
             UsernamePasswordAuthenticationToken authentication =
                 new UsernamePasswordAuthenticationToken(
@@ -111,6 +128,10 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
             logger.debug("Authentication set for shop: {} with session: {}", shopDomain, sessionId);
           } else {
             logger.warn("No valid token found for shop: {} and session: {}", shopDomain, sessionId);
+            // Perform safe cleanup before authentication failure
+            if (sessionId != null) {
+              shopService.safeSessionCleanup(shopDomain, sessionId);
+            }
             handleAuthenticationFailure(response, "Session expired. Please re-authenticate.");
             return;
           }
@@ -134,6 +155,10 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
           request.getRequestURI(),
           e.getMessage(),
           e);
+
+      // Clear authentication context to prevent session issues
+      SecurityContextHolder.clearContext();
+
       handleAuthenticationFailure(response, "Authentication error occurred. Please try again.");
     }
   }
@@ -244,6 +269,9 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
 
   private void handleAuthenticationFailure(HttpServletResponse response, String message)
       throws IOException {
+    // Clear any authentication context to prevent session issues
+    SecurityContextHolder.clearContext();
+
     response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
     response.setContentType("application/json");
     response.setCharacterEncoding("UTF-8");

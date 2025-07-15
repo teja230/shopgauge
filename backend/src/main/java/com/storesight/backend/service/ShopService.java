@@ -1547,4 +1547,95 @@ public class ShopService {
       logger.error("Error during stale session cleanup: {}", e.getMessage(), e);
     }
   }
+
+  /**
+   * Safely handle session cleanup to prevent session invalidation errors This method should be
+   * called when sessions need to be cleaned up
+   */
+  public void safeSessionCleanup(String shopifyDomain, String sessionId) {
+    try {
+      logger.debug(
+          "Performing safe session cleanup for shop: {} session: {}", shopifyDomain, sessionId);
+
+      // Remove from Redis cache with error handling
+      try {
+        String redisKey = SHOP_TOKEN_PREFIX + shopifyDomain + ":" + sessionId;
+        Boolean deleted = redisTemplate.delete(redisKey);
+        if (deleted != null && deleted) {
+          logger.debug("Successfully removed session from Redis: {}", redisKey);
+        } else {
+          logger.debug("Session key not found in Redis (already removed): {}", redisKey);
+        }
+      } catch (Exception redisEx) {
+        logger.warn(
+            "Failed to remove session from Redis cache for {}:{} - {}",
+            shopifyDomain,
+            sessionId,
+            redisEx.getMessage());
+      }
+
+      // Clear invalid session cache
+      clearInvalidSessionCache(shopifyDomain, sessionId);
+
+      logger.debug(
+          "Safe session cleanup completed for shop: {} session: {}", shopifyDomain, sessionId);
+    } catch (Exception e) {
+      logger.warn(
+          "Error during safe session cleanup for shop: {} session: {} - {}",
+          shopifyDomain,
+          sessionId,
+          e.getMessage());
+      // Don't throw exception to prevent session invalidation errors
+    }
+  }
+
+  /**
+   * Validate if a session is in a valid state for operations This helps prevent session
+   * invalidation errors
+   */
+  public boolean isSessionValid(String shopifyDomain, String sessionId) {
+    try {
+      if (sessionId == null || sessionId.trim().isEmpty()) {
+        logger.debug("Session ID is null or empty for shop: {}", shopifyDomain);
+        return false;
+      }
+
+      // Check if session is marked as invalid in cache
+      String invalidKey = INVALID_SESSION_PREFIX + shopifyDomain + ":" + sessionId;
+      Boolean isInvalid = redisTemplate.hasKey(invalidKey);
+      if (isInvalid != null && isInvalid) {
+        logger.debug("Session {} is marked as invalid for shop: {}", sessionId, shopifyDomain);
+        return false;
+      }
+
+      // Check if session exists in database
+      Optional<ShopSession> sessionOpt = shopSessionRepository.findBySessionId(sessionId);
+      if (sessionOpt.isEmpty()) {
+        logger.debug("Session {} not found in database for shop: {}", sessionId, shopifyDomain);
+        return false;
+      }
+
+      ShopSession session = sessionOpt.get();
+      if (!session.getIsActive()) {
+        logger.debug("Session {} is inactive for shop: {}", sessionId, shopifyDomain);
+        return false;
+      }
+
+      // Check if session belongs to the correct shop
+      if (!session.getShop().getShopifyDomain().equals(shopifyDomain)) {
+        logger.debug(
+            "Session {} belongs to different shop: {}",
+            sessionId,
+            session.getShop().getShopifyDomain());
+        return false;
+      }
+
+      logger.debug("Session {} is valid for shop: {}", sessionId, shopifyDomain);
+      return true;
+    } catch (Exception e) {
+      logger.warn(
+          "Error validating session {} for shop {}: {}", sessionId, shopifyDomain, e.getMessage());
+      return false;
+    }
+  }
 }
