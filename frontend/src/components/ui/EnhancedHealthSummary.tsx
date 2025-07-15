@@ -12,7 +12,7 @@ import {
   Card,
   CardContent,
 } from '@mui/material';
-import Grid from '@mui/material/Grid2';
+import Grid from '@mui/material/Grid';
 import {
   Speed as SpeedIcon,
   Refresh as RefreshIcon,
@@ -169,13 +169,13 @@ const DatabaseConnectionsCard: React.FC<{ metrics: DatabaseMetrics }> = ({ metri
         </Box>
 
         <Grid container spacing={2}>
-          <Grid xs={6}>
+          <Grid size={6}>
             <Box>
               <Typography variant="caption" color="text.secondary">Idle</Typography>
               <Typography variant="body2" fontWeight="bold">{metrics.idleConnections}</Typography>
             </Box>
           </Grid>
-          <Grid xs={6}>
+          <Grid size={6}>
             <Box>
               <Typography variant="caption" color="text.secondary">Awaiting</Typography>
               <Typography variant="body2" fontWeight="bold">{metrics.threadsAwaitingConnection}</Typography>
@@ -215,13 +215,13 @@ const PerformanceMetricsCard: React.FC<{ metrics: DatabaseMetrics }> = ({ metric
       </Box>
 
       <Grid container spacing={2}>
-        <Grid xs={6}>
+        <Grid size={6}>
           <Box>
             <Typography variant="caption" color="text.secondary">Min Idle</Typography>
             <Typography variant="body2" fontWeight="bold">{metrics.minimumIdle}</Typography>
           </Box>
         </Grid>
-        <Grid xs={6}>
+        <Grid size={6}>
           <Box>
             <Typography variant="caption" color="text.secondary">Max Pool</Typography>
             <Typography variant="body2" fontWeight="bold">{metrics.maxPoolSize}</Typography>
@@ -257,7 +257,7 @@ const CacheStatisticsCard: React.FC<{ metrics: CacheMetrics }> = ({ metrics }) =
         </Typography>
         
         <Grid container spacing={3}>
-          <Grid xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <Box>
               <Typography variant="h4" fontWeight="bold" color={getHitRateColor(hitRatePercent)}>
                 {hitRatePercent.toFixed(1)}%
@@ -272,7 +272,7 @@ const CacheStatisticsCard: React.FC<{ metrics: CacheMetrics }> = ({ metrics }) =
             </Box>
           </Grid>
           
-          <Grid xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <Box>
               <Typography variant="h4" fontWeight="bold">
                 {metrics.total.toLocaleString()}
@@ -281,7 +281,7 @@ const CacheStatisticsCard: React.FC<{ metrics: CacheMetrics }> = ({ metrics }) =
             </Box>
           </Grid>
           
-          <Grid xs={6}>
+          <Grid size={6}>
             <Box>
               <Typography variant="h6" color="success.main" fontWeight="bold">
                 {metrics.hits.toLocaleString()}
@@ -290,7 +290,7 @@ const CacheStatisticsCard: React.FC<{ metrics: CacheMetrics }> = ({ metrics }) =
             </Box>
           </Grid>
           
-          <Grid xs={6}>
+          <Grid size={6}>
             <Box>
               <Typography variant="h6" color="error.main" fontWeight="bold">
                 {metrics.misses.toLocaleString()}
@@ -336,17 +336,17 @@ const EnhancedHealthSummary: React.FC = () => {
     try {
       // Use public endpoints
       const [healthData, dbDetailsData, cacheData] = await Promise.all([
-        fetchPublicEndpoint('/api/health/summary'),
-        fetchPublicEndpoint('/api/health/database-pool'),
-        fetchPublicEndpoint('/api/health/cache-statistics').catch(() => ({ hits: 0, misses: 0, total: 0, hitRate: 0, evictions: 0 }))
+        fetchPublicEndpoint('/api/health/summary').then(res => res.json()),
+        fetchPublicEndpoint('/api/health/database-pool').then(res => res.json()),
+        fetchPublicEndpoint('/api/health/cache-statistics').then(res => res.json()).catch(() => ({ hits: 0, misses: 0, total: 0, hitRate: 0, evictions: 0 }))
       ]);
       
       // Transform the data to match expected format
       const transformedHealthData = {
-        backendStatus: healthData.status === 'healthy' ? 'UP' : 'DOWN',
-        redisStatus: healthData.redis?.status === 'healthy' ? 'UP' : 'DOWN',
-        databaseStatus: healthData.database?.status === 'healthy' ? 'UP' : 'DOWN',
-        systemStatus: healthData.status === 'healthy' ? 'UP' : 'DEGRADED',
+        backendStatus: healthData.status == 'healthy' ? 'UP' : 'DOWN',
+        redisStatus: healthData.redis?.status == 'healthy' ? 'UP' : 'DOWN',
+        databaseStatus: healthData.database?.status == 'healthy' ? 'UP' : 'DOWN',
+        systemStatus: healthData.status == 'healthy' ? 'UP' : 'DEGRADED',
         lastUpdated: Date.now(),
         lastDeployCommit: healthData.version || 'unknown'
       };
