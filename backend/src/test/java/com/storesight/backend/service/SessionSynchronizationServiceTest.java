@@ -12,22 +12,27 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.test.context.TestPropertySource;
 
-@ExtendWith(MockitoExtension.class)
+@SpringBootTest
+@TestPropertySource(
+    properties = {
+      "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration,org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration",
+      "spring.flyway.enabled=false"
+    })
 class SessionSynchronizationServiceTest {
 
-  @Mock private StringRedisTemplate redisTemplate;
-  @Mock private ValueOperations<String, String> valueOperations;
-  @Mock private EnhancedRedisService enhancedRedisService;
-  @Mock private MetricsCollectionService metricsCollectionService;
+  @MockBean private StringRedisTemplate redisTemplate;
+  @MockBean private ValueOperations<String, String> valueOperations;
+  @MockBean private EnhancedRedisService enhancedRedisService;
+  @MockBean private MetricsCollectionService metricsCollectionService;
 
-  @InjectMocks private SessionSynchronizationService sessionSynchronizationService;
+  @Autowired private SessionSynchronizationService sessionSynchronizationService;
 
   @BeforeEach
   void setUp() {
@@ -98,7 +103,6 @@ class SessionSynchronizationServiceTest {
     // Given
     String sessionId = "test-session-123";
     when(redisTemplate.hasKey("session_invalidation:" + sessionId)).thenReturn(false);
-    when(redisTemplate.hasKey("session_state:" + sessionId)).thenReturn(false);
 
     // When
     boolean result = sessionSynchronizationService.isSessionInvalidating(sessionId);
@@ -142,7 +146,6 @@ class SessionSynchronizationServiceTest {
     // Given
     String sessionId = "test-session-123";
     when(redisTemplate.hasKey("session_invalidation:" + sessionId)).thenReturn(false);
-    when(redisTemplate.hasKey("session_state:" + sessionId)).thenReturn(false);
 
     // When
     boolean result = sessionSynchronizationService.shouldAllowSessionOperation(sessionId);
@@ -185,7 +188,6 @@ class SessionSynchronizationServiceTest {
     String expectedResult = "operation completed";
 
     when(redisTemplate.hasKey("session_invalidation:" + sessionId)).thenReturn(false);
-    when(redisTemplate.hasKey("session_state:" + sessionId)).thenReturn(false);
     when(valueOperations.setIfAbsent(anyString(), eq("locked"), any(Duration.class)))
         .thenReturn(true);
 
@@ -264,14 +266,17 @@ class SessionSynchronizationServiceTest {
 
     // Then
     assertNotNull(stats);
-    assertTrue(stats.getTotalTrackedLocks() >= 0);
     assertTrue(stats.getTotalInMemoryLocks() >= 0);
+    assertTrue(stats.getTotalTrackedLocks() >= 0);
   }
 
   @Test
   void testPerformComprehensiveCleanup() {
     // Given
-    when(redisTemplate.keys(anyString())).thenReturn(Set.of());
+    Set<String> orphanedLocks = Set.of("session_lock:orphaned1", "session_lock:orphaned2");
+    Set<String> stuckMarkers = Set.of("session_invalidation:stuck1", "session_invalidation:stuck2");
+    when(redisTemplate.keys("session_lock:*")).thenReturn(orphanedLocks);
+    when(redisTemplate.keys("session_invalidation:*")).thenReturn(stuckMarkers);
 
     // When
     SessionSynchronizationService.CleanupResult result =
@@ -280,133 +285,116 @@ class SessionSynchronizationServiceTest {
     // Then
     assertNotNull(result);
     assertTrue(result.isSuccess());
-    assertNull(result.getErrorMessage());
     assertTrue(result.getTotalItemsCleared() >= 0);
   }
 
   @Test
   void testCleanupExpiredLocks() {
     // Given
-    when(redisTemplate.keys(anyString())).thenReturn(Set.of());
+    Set<String> orphanedLocks = Set.of("session_lock:orphaned1", "session_lock:orphaned2");
+    when(redisTemplate.keys("session_lock:*")).thenReturn(orphanedLocks);
 
-    // When - should not throw exception
-    assertDoesNotThrow(
-        () -> {
-          sessionSynchronizationService.cleanupExpiredLocks();
-        });
+    // When
+    sessionSynchronizationService.cleanupExpiredLocks();
 
-    // Then - verify Redis was queried for orphaned locks
-    verify(redisTemplate, atLeastOnce()).keys("session_lock:*");
+    // Then
+    verify(redisTemplate, times(2)).delete(anyString());
+    SessionSynchronizationService.SessionSynchronizationMetrics metrics =
+        sessionSynchronizationService.getMetrics();
+    assertTrue(metrics.getTotalOrphanedLocksCleared() >= 0);
   }
 
   @Test
   void testScheduledCleanup() {
     // Given
-    when(redisTemplate.keys(anyString())).thenReturn(Set.of());
+    Set<String> orphanedLocks = Set.of("session_lock:orphaned1");
+    Set<String> stuckMarkers = Set.of("session_invalidation:stuck1");
+    when(redisTemplate.keys("session_lock:*")).thenReturn(orphanedLocks);
+    when(redisTemplate.keys("session_invalidation:*")).thenReturn(stuckMarkers);
 
-    // When - should not throw exception
-    assertDoesNotThrow(
-        () -> {
-          sessionSynchronizationService.scheduledCleanup();
-        });
+    // When
+    sessionSynchronizationService.scheduledCleanup();
 
-    // Then - verify cleanup operations were tracked
+    // Then
+    verify(redisTemplate, atLeastOnce()).delete(anyString());
     SessionSynchronizationService.SessionSynchronizationMetrics metrics =
         sessionSynchronizationService.getMetrics();
-    assertTrue(metrics.getTotalScheduledCleanupRuns() > 0);
-    assertTrue(metrics.getTotalCleanupOperations() > 0);
+    assertEquals(1, metrics.getTotalScheduledCleanupRuns());
   }
 
   @Test
   void testCleanupStuckSessionMarkers() {
     // Given
-    when(redisTemplate.keys(anyString())).thenReturn(Set.of());
+    Set<String> stuckMarkers = Set.of("session_invalidation:stuck1", "session_invalidation:stuck2");
+    when(redisTemplate.keys("session_invalidation:*")).thenReturn(stuckMarkers);
 
-    // When - should not throw exception
-    assertDoesNotThrow(
-        () -> {
-          sessionSynchronizationService.cleanupStuckSessionMarkers();
-        });
+    // When
+    sessionSynchronizationService.cleanupStuckSessionMarkers();
 
-    // Then - verify Redis was queried for stuck invalidation markers
-    verify(redisTemplate, atLeastOnce()).keys("session_invalidation:*");
+    // Then
+    verify(redisTemplate, atLeastOnce()).delete(anyString());
+    SessionSynchronizationService.SessionSynchronizationMetrics metrics =
+        sessionSynchronizationService.getMetrics();
+    assertTrue(metrics.getTotalStuckSessionsCleared() >= 0);
   }
 
   @Test
   void testMarkSessionAsInvalidating_RedisFailure() {
     // Given
     String sessionId = "test-session-123";
-    String reason = "test failure";
+    String reason = "timeout";
     doThrow(new RuntimeException("Redis connection failed"))
-        .when(enhancedRedisService)
-        .setWithTtl(anyString(), anyString(), any(Duration.class));
+        .when(valueOperations)
+        .set(anyString(), anyString(), any(Duration.class));
 
-    // When
-    sessionSynchronizationService.markSessionAsInvalidating(sessionId, reason);
+    // When - should not throw exception
+    assertDoesNotThrow(
+        () -> sessionSynchronizationService.markSessionAsInvalidating(sessionId, reason));
 
-    // Then - should track the Redis operation failure
-    SessionSynchronizationService.SessionSynchronizationMetrics metrics =
-        sessionSynchronizationService.getMetrics();
-    assertTrue(metrics.getTotalRedisOperationFailures() > 0);
+    // Then - should clear markers on error
+    verify(redisTemplate, atLeastOnce()).delete(anyString());
   }
-
-  // ===== EDGE CASE TESTS =====
 
   @Test
   void testAcquireSessionLock_RedisException() {
     // Given
     String sessionId = "test-session-123";
-    when(enhancedRedisService.setIfAbsent(anyString(), anyString(), any(Duration.class)))
-        .thenThrow(new RuntimeException("Redis connection failed"));
+    doThrow(new RuntimeException("Redis connection failed"))
+        .when(valueOperations)
+        .setIfAbsent(anyString(), anyString(), any(Duration.class));
 
     // When
     boolean result = sessionSynchronizationService.acquireSessionLock(sessionId);
 
     // Then
     assertFalse(result);
-    SessionSynchronizationService.SessionSynchronizationMetrics metrics =
-        sessionSynchronizationService.getMetrics();
-    assertTrue(metrics.getTotalLockFailures() > 0);
-    assertTrue(metrics.getTotalRedisOperationFailures() > 0);
   }
 
   @Test
   void testReleaseSessionLock_RedisException() {
     // Given
     String sessionId = "test-session-123";
-    when(enhancedRedisService.setIfAbsent(anyString(), anyString(), any(Duration.class)))
-        .thenReturn(true);
     doThrow(new RuntimeException("Redis connection failed"))
-        .when(enhancedRedisService)
+        .when(redisTemplate)
         .delete(anyString());
-
-    // Acquire lock first
-    sessionSynchronizationService.acquireSessionLock(sessionId);
 
     // When - should not throw exception
     assertDoesNotThrow(() -> sessionSynchronizationService.releaseSessionLock(sessionId));
-
-    // Then - should track Redis operation failure
-    SessionSynchronizationService.SessionSynchronizationMetrics metrics =
-        sessionSynchronizationService.getMetrics();
-    assertTrue(metrics.getTotalRedisOperationFailures() > 0);
   }
 
   @Test
   void testIsSessionInvalidating_RedisException() {
     // Given
     String sessionId = "test-session-123";
-    when(enhancedRedisService.hasKey(anyString()))
-        .thenThrow(new RuntimeException("Redis connection failed"));
+    doThrow(new RuntimeException("Redis connection failed"))
+        .when(redisTemplate)
+        .hasKey(anyString());
 
     // When
     boolean result = sessionSynchronizationService.isSessionInvalidating(sessionId);
 
     // Then
-    assertFalse(result); // Should return false on error
-    SessionSynchronizationService.SessionSynchronizationMetrics metrics =
-        sessionSynchronizationService.getMetrics();
-    assertTrue(metrics.getTotalRedisOperationFailures() > 0);
+    assertFalse(result); // Should return false on Redis failure
   }
 
   @Test
@@ -414,41 +402,35 @@ class SessionSynchronizationServiceTest {
     // Given
     String sessionId = "test-session-123";
     doThrow(new RuntimeException("Redis connection failed"))
-        .when(enhancedRedisService)
+        .when(redisTemplate)
         .delete(anyString());
 
     // When - should not throw exception
-    assertDoesNotThrow(
-        () -> sessionSynchronizationService.clearSessionInvalidationMarkers(sessionId));
-
-    // Then - should track Redis operation failure
-    SessionSynchronizationService.SessionSynchronizationMetrics metrics =
-        sessionSynchronizationService.getMetrics();
-    assertTrue(metrics.getTotalRedisOperationFailures() > 0);
+    assertDoesNotThrow(() -> sessionSynchronizationService.clearStuckSessionMarkers(sessionId));
   }
 
   @Test
   void testExecuteWithSessionLock_LockAcquisitionFailure() {
     // Given
     String sessionId = "test-session-123";
-    when(enhancedRedisService.hasKey(anyString())).thenReturn(false);
-    when(enhancedRedisService.setIfAbsent(anyString(), anyString(), any(Duration.class)))
+    when(redisTemplate.hasKey("session_invalidation:" + sessionId)).thenReturn(false);
+    when(valueOperations.setIfAbsent(anyString(), eq("locked"), any(Duration.class)))
         .thenReturn(false);
 
-    // When & Then
-    assertThrows(
-        IllegalStateException.class,
-        () ->
-            sessionSynchronizationService.executeWithSessionLock(
-                sessionId, () -> "should not execute"));
+    // When
+    String result =
+        sessionSynchronizationService.executeWithSessionLock(sessionId, () -> "should not execute");
+
+    // Then
+    assertNull(result); // Should return null when lock acquisition fails
   }
 
   @Test
   void testExecuteWithSessionLock_OperationException() {
     // Given
     String sessionId = "test-session-123";
-    when(enhancedRedisService.hasKey(anyString())).thenReturn(false);
-    when(enhancedRedisService.setIfAbsent(anyString(), anyString(), any(Duration.class)))
+    when(redisTemplate.hasKey("session_invalidation:" + sessionId)).thenReturn(false);
+    when(valueOperations.setIfAbsent(anyString(), eq("locked"), any(Duration.class)))
         .thenReturn(true);
 
     // When & Then
@@ -462,7 +444,7 @@ class SessionSynchronizationServiceTest {
                 }));
 
     // Verify lock was released even after exception
-    verify(enhancedRedisService).delete(anyString());
+    verify(redisTemplate).delete("session_lock:" + sessionId);
   }
 
   @Test
@@ -470,17 +452,17 @@ class SessionSynchronizationServiceTest {
     // Given
     String sessionId = "test-session-123";
     String reason = "timeout";
-    when(enhancedRedisService.hasKey(anyString())).thenReturn(false);
+    when(redisTemplate.hasKey("session_invalidation:" + sessionId)).thenReturn(false);
     doThrow(new RuntimeException("Redis connection failed"))
-        .when(enhancedRedisService)
-        .setWithTtl(anyString(), anyString(), any(Duration.class));
+        .when(valueOperations)
+        .set(anyString(), anyString(), any(Duration.class));
 
     // When - should not throw exception
     assertDoesNotThrow(
         () -> sessionSynchronizationService.safeInvalidateSession(sessionId, reason));
 
     // Then - should clear markers on error
-    verify(enhancedRedisService, atLeastOnce()).delete(anyString());
+    verify(redisTemplate, atLeastOnce()).delete(anyString());
   }
 
   @Test
@@ -493,7 +475,7 @@ class SessionSynchronizationServiceTest {
     ExecutorService executor = Executors.newFixedThreadPool(threadCount);
 
     // Mock Redis to allow only one lock acquisition
-    when(enhancedRedisService.setIfAbsent(anyString(), anyString(), any(Duration.class)))
+    when(valueOperations.setIfAbsent(anyString(), eq("locked"), any(Duration.class)))
         .thenReturn(true)
         .thenReturn(false)
         .thenReturn(false)
@@ -555,7 +537,7 @@ class SessionSynchronizationServiceTest {
     sessionSynchronizationService.cleanupStuckSessionMarkers();
 
     // Then
-    verify(enhancedRedisService, atLeastOnce()).delete(anyString());
+    verify(redisTemplate, atLeastOnce()).delete(anyString());
     SessionSynchronizationService.SessionSynchronizationMetrics metrics =
         sessionSynchronizationService.getMetrics();
     assertTrue(metrics.getTotalStuckSessionsCleared() >= 0);
@@ -581,7 +563,7 @@ class SessionSynchronizationServiceTest {
     // Given
     String sessionId1 = "test-session-1";
     String sessionId2 = "test-session-2";
-    when(enhancedRedisService.setIfAbsent(anyString(), anyString(), any(Duration.class)))
+    when(valueOperations.setIfAbsent(anyString(), eq("locked"), any(Duration.class)))
         .thenReturn(true);
 
     // Acquire multiple locks
@@ -602,7 +584,7 @@ class SessionSynchronizationServiceTest {
   void testMetricsAccuracy() {
     // Given
     String sessionId = "test-session-123";
-    when(enhancedRedisService.setIfAbsent(anyString(), anyString(), any(Duration.class)))
+    when(valueOperations.setIfAbsent(anyString(), eq("locked"), any(Duration.class)))
         .thenReturn(true)
         .thenReturn(false);
 

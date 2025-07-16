@@ -5,69 +5,64 @@
 -- SHOP SESSIONS TABLE OPTIMIZATIONS
 -- ============================================================================
 
--- Composite index for session heartbeat operations (most frequent)
--- Optimizes: UPDATE shop_sessions SET last_accessed_at = CURRENT_TIMESTAMP WHERE session_id = ?
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_shop_sessions_heartbeat_optimized 
-ON shop_sessions(session_id, is_active) 
-WHERE is_active = true;
+-- Index for heartbeat monitoring
+-- Optimizes: SELECT * FROM shop_sessions WHERE last_heartbeat < ?
+CREATE INDEX IF NOT EXISTS idx_shop_sessions_heartbeat_optimized 
+ON shop_sessions(last_heartbeat) 
+WHERE last_heartbeat IS NOT NULL;
 
--- Covering index for session lookup with all commonly accessed fields
--- Optimizes: SELECT * FROM shop_sessions WHERE session_id = ? AND is_active = true
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_shop_sessions_lookup_covering 
-ON shop_sessions(session_id, is_active) 
-INCLUDE (shop_id, access_token, last_accessed_at, expires_at, created_at);
+-- Covering index for session lookups
+-- Optimizes: SELECT * FROM shop_sessions WHERE shop_id = ? AND session_id = ?
+CREATE INDEX IF NOT EXISTS idx_shop_sessions_lookup_covering 
+ON shop_sessions(shop_id, session_id) 
+INCLUDE (created_at, last_heartbeat, user_agent, ip_address);
 
--- Optimized index for shop-based session queries
--- Optimizes: SELECT * FROM shop_sessions WHERE shop_id = ? AND is_active = true ORDER BY last_accessed_at DESC
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_shop_sessions_shop_active_optimized 
-ON shop_sessions(shop_id, is_active, last_accessed_at DESC) 
-WHERE is_active = true;
+-- Index for active shop sessions
+-- Optimizes: SELECT * FROM shop_sessions WHERE shop_id = ? AND last_heartbeat > ?
+CREATE INDEX IF NOT EXISTS idx_shop_sessions_shop_active_optimized 
+ON shop_sessions(shop_id, last_heartbeat DESC) 
+WHERE last_heartbeat IS NOT NULL;
 
--- Index for security monitoring queries by IP address
--- Optimizes: SELECT * FROM shop_sessions WHERE ip_address = ? AND is_active = true
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_shop_sessions_security_ip 
-ON shop_sessions(ip_address, is_active, created_at DESC) 
-WHERE is_active = true;
+-- Index for security monitoring (IP-based)
+-- Optimizes: SELECT * FROM shop_sessions WHERE ip_address = ? ORDER BY created_at DESC
+CREATE INDEX IF NOT EXISTS idx_shop_sessions_security_ip 
+ON shop_sessions(ip_address, created_at DESC);
 
--- Index for user agent pattern matching (security monitoring)
--- Optimizes: SELECT * FROM shop_sessions WHERE user_agent LIKE '%pattern%' AND is_active = true
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_shop_sessions_security_ua 
-ON shop_sessions(user_agent, is_active, created_at DESC) 
-WHERE is_active = true;
+-- Index for security monitoring (User Agent-based)
+-- Optimizes: SELECT * FROM shop_sessions WHERE user_agent = ? ORDER BY created_at DESC
+CREATE INDEX IF NOT EXISTS idx_shop_sessions_security_ua 
+ON shop_sessions(user_agent, created_at DESC);
 
 -- ============================================================================
 -- NOTIFICATIONS TABLE OPTIMIZATIONS
 -- ============================================================================
 
--- Composite index for session-specific notification queries
--- Optimizes: SELECT * FROM notifications WHERE shop = ? AND session_id = ? AND deleted = false
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_notifications_shop_session_optimized 
-ON notifications(shop, session_id, deleted, created_at DESC) 
-WHERE deleted = false;
+-- Index for shop and session-based queries
+-- Optimizes: SELECT * FROM notifications WHERE shop_id = ? AND session_id = ? ORDER BY created_at DESC
+CREATE INDEX IF NOT EXISTS idx_notifications_shop_session_optimized 
+ON notifications(shop_id, session_id, created_at DESC);
 
--- Index for unread notification counting
--- Optimizes: SELECT COUNT(*) FROM notifications WHERE shop = ? AND read = false AND deleted = false
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_notifications_unread_count 
-ON notifications(shop, read, deleted) 
-WHERE read = false AND deleted = false;
+-- Index for unread count queries
+-- Optimizes: SELECT COUNT(*) FROM notifications WHERE shop_id = ? AND read_at IS NULL
+CREATE INDEX IF NOT EXISTS idx_notifications_unread_count 
+ON notifications(shop_id, read_at) 
+WHERE read_at IS NULL;
 
--- Covering index for notification listing with all fields
--- Optimizes: SELECT * FROM notifications WHERE shop = ? AND deleted = false ORDER BY created_at DESC
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_notifications_listing_covering 
-ON notifications(shop, deleted, created_at DESC) 
-INCLUDE (id, session_id, title, message, category, read, scope);
+-- Covering index for notification listing
+-- Optimizes: SELECT * FROM notifications WHERE shop_id = ? ORDER BY created_at DESC LIMIT ?
+CREATE INDEX IF NOT EXISTS idx_notifications_listing_covering 
+ON notifications(shop_id, created_at DESC) 
+INCLUDE (id, title, message, type, read_at, session_id);
 
--- Index for notification cleanup by creation date
+-- Index for cleanup operations
 -- Optimizes: DELETE FROM notifications WHERE created_at < ?
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_notifications_cleanup_date 
-ON notifications(created_at) 
-WHERE deleted = false;
+CREATE INDEX IF NOT EXISTS idx_notifications_cleanup_date 
+ON notifications(created_at);
 
 -- Index for category-based filtering
--- Optimizes: SELECT * FROM notifications WHERE shop = ? AND category = ? AND deleted = false
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_notifications_category_filter 
-ON notifications(shop, category, deleted, created_at DESC) 
-WHERE deleted = false;
+-- Optimizes: SELECT * FROM notifications WHERE shop_id = ? AND type = ? ORDER BY created_at DESC
+CREATE INDEX IF NOT EXISTS idx_notifications_category_filter 
+ON notifications(shop_id, type, created_at DESC);
 
 -- ============================================================================
 -- AUDIT LOGS TABLE OPTIMIZATIONS
@@ -75,27 +70,27 @@ WHERE deleted = false;
 
 -- Composite index for shop-based audit log queries
 -- Optimizes: SELECT * FROM audit_logs WHERE shop_id = ? ORDER BY created_at DESC
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_logs_shop_date_optimized 
+CREATE INDEX IF NOT EXISTS idx_audit_logs_shop_date_optimized 
 ON audit_logs(shop_id, created_at DESC);
 
 -- Index for action-based filtering
 -- Optimizes: SELECT * FROM audit_logs WHERE shop_id = ? AND action = ? ORDER BY created_at DESC
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_logs_shop_action 
+CREATE INDEX IF NOT EXISTS idx_audit_logs_shop_action 
 ON audit_logs(shop_id, action, created_at DESC);
 
 -- Index for date range queries
 -- Optimizes: SELECT * FROM audit_logs WHERE created_at BETWEEN ? AND ? ORDER BY created_at DESC
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_logs_date_range 
+CREATE INDEX IF NOT EXISTS idx_audit_logs_date_range 
 ON audit_logs(created_at DESC);
 
 -- Index for cleanup operations
 -- Optimizes: DELETE FROM audit_logs WHERE created_at < ?
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_logs_cleanup 
+CREATE INDEX IF NOT EXISTS idx_audit_logs_cleanup 
 ON audit_logs(created_at);
 
 -- Index for orphaned audit logs (from deleted shops)
 -- Optimizes: SELECT * FROM audit_logs WHERE shop_id IS NULL
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_logs_orphaned 
+CREATE INDEX IF NOT EXISTS idx_audit_logs_orphaned 
 ON audit_logs(shop_id, created_at DESC) 
 WHERE shop_id IS NULL;
 
@@ -105,20 +100,20 @@ WHERE shop_id IS NULL;
 
 -- Index for shopify domain lookups (most common)
 -- Optimizes: SELECT * FROM shops WHERE shopify_domain = ?
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_shops_domain_optimized 
+CREATE INDEX IF NOT EXISTS idx_shops_domain_optimized 
 ON shops(shopify_domain) 
 WHERE deleted_at IS NULL;
 
 -- Covering index for active shop queries
 -- Optimizes: SELECT * FROM shops WHERE deleted_at IS NULL
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_shops_active_covering 
+CREATE INDEX IF NOT EXISTS idx_shops_active_covering 
 ON shops(deleted_at) 
 INCLUDE (id, shopify_domain, shop_name, access_token, created_at, updated_at) 
 WHERE deleted_at IS NULL;
 
 -- Index for shop cleanup operations
 -- Optimizes: SELECT * FROM shops WHERE deleted_at IS NOT NULL AND deleted_at < ?
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_shops_cleanup 
+CREATE INDEX IF NOT EXISTS idx_shops_cleanup 
 ON shops(deleted_at) 
 WHERE deleted_at IS NOT NULL;
 
@@ -128,17 +123,17 @@ WHERE deleted_at IS NOT NULL;
 
 -- Index for admin action queries
 -- Optimizes: SELECT * FROM admin_audit_logs ORDER BY created_at DESC
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_admin_audit_logs_date 
+CREATE INDEX IF NOT EXISTS idx_admin_audit_logs_date 
 ON admin_audit_logs(created_at DESC);
 
 -- Index for action-based filtering
 -- Optimizes: SELECT * FROM admin_audit_logs WHERE action = ? ORDER BY created_at DESC
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_admin_audit_logs_action 
+CREATE INDEX IF NOT EXISTS idx_admin_audit_logs_action 
 ON admin_audit_logs(action, created_at DESC);
 
 -- Index for IP-based security monitoring
 -- Optimizes: SELECT * FROM admin_audit_logs WHERE ip_address = ? ORDER BY created_at DESC
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_admin_audit_logs_ip 
+CREATE INDEX IF NOT EXISTS idx_admin_audit_logs_ip 
 ON admin_audit_logs(ip_address, created_at DESC);
 
 -- ============================================================================
@@ -147,17 +142,17 @@ ON admin_audit_logs(ip_address, created_at DESC);
 
 -- Index for shop-based cost queries
 -- Optimizes: SELECT * FROM market_intelligence_costs WHERE shop_id = ? ORDER BY created_at DESC
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_mi_costs_shop_date 
+CREATE INDEX IF NOT EXISTS idx_mi_costs_shop_date 
 ON market_intelligence_costs(shop_id, created_at DESC);
 
 -- Index for cost aggregation queries
 -- Optimizes: SELECT SUM(cost) FROM market_intelligence_costs WHERE created_at >= ?
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_mi_costs_aggregation 
+CREATE INDEX IF NOT EXISTS idx_mi_costs_aggregation 
 ON market_intelligence_costs(created_at, cost);
 
 -- Index for provider-based analysis
 -- Optimizes: SELECT * FROM market_intelligence_costs WHERE provider = ? ORDER BY created_at DESC
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_mi_costs_provider 
+CREATE INDEX IF NOT EXISTS idx_mi_costs_provider 
 ON market_intelligence_costs(provider, created_at DESC);
 
 -- ============================================================================
@@ -166,17 +161,17 @@ ON market_intelligence_costs(provider, created_at DESC);
 
 -- Index for shop-based competitor queries
 -- Optimizes: SELECT * FROM competitor_suggestions WHERE shop_id = ? ORDER BY created_at DESC
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_competitor_suggestions_shop 
+CREATE INDEX IF NOT EXISTS idx_competitor_suggestions_shop 
 ON competitor_suggestions(shop_id, created_at DESC);
 
 -- Index for URL-based deduplication
 -- Optimizes: SELECT * FROM competitor_suggestions WHERE competitor_url = ?
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_competitor_suggestions_url 
+CREATE INDEX IF NOT EXISTS idx_competitor_suggestions_url 
 ON competitor_suggestions(competitor_url);
 
 -- Index for product-based filtering
 -- Optimizes: SELECT * FROM competitor_suggestions WHERE shop_id = ? AND product_title = ?
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_competitor_suggestions_product 
+CREATE INDEX IF NOT EXISTS idx_competitor_suggestions_product 
 ON competitor_suggestions(shop_id, product_title, created_at DESC);
 
 -- ============================================================================
