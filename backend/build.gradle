@@ -81,6 +81,7 @@ dependencies {
     implementation 'io.jsonwebtoken:jjwt-jackson:0.11.5'
     implementation 'com.github.vladimir-bukhtoyarov:bucket4j-core:7.6.0'
     implementation 'com.github.vladimir-bukhtoyarov:bucket4j-redis:7.6.0'
+    implementation 'net.logstash.logback:logstash-logback-encoder:7.4'
 }
 
 tasks.named('test') {
