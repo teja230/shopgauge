@@ -5,7 +5,6 @@ import {
   Card,
   CardContent,
   CardHeader,
-  Grid,
   Alert,
   Chip,
   Button,
@@ -272,8 +271,8 @@ const SessionSecurityManager: React.FC = () => {
       <SecurityCard sx={{ mb: 3 }}>
         <CardHeader title="Session Selection" />
         <CardContent>
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={4}>
+          <Box display="flex" flexWrap="wrap" gap={3}>
+            <Box flex="1" minWidth="300px">
               <TextField
                 fullWidth
                 label="Shop Domain"
@@ -282,8 +281,8 @@ const SessionSecurityManager: React.FC = () => {
                 placeholder="example.myshopify.com"
                 helperText="Enter the shop domain to analyze"
               />
-            </Grid>
-            <Grid item xs={12} md={4}>
+            </Box>
+            <Box flex="1" minWidth="300px">
               <TextField
                 fullWidth
                 label="Session ID"
@@ -292,8 +291,8 @@ const SessionSecurityManager: React.FC = () => {
                 placeholder="session-id-here"
                 helperText="Enter specific session ID (optional)"
               />
-            </Grid>
-            <Grid item xs={12} md={4}>
+            </Box>
+            <Box flex="1" minWidth="300px">
               <Stack spacing={2} direction="row">
                 <Button
                   variant="contained"
@@ -312,8 +311,8 @@ const SessionSecurityManager: React.FC = () => {
                   Shop Overview
                 </Button>
               </Stack>
-            </Grid>
-          </Grid>
+            </Box>
+          </Box>
         </CardContent>
       </SecurityCard>
 
@@ -325,71 +324,59 @@ const SessionSecurityManager: React.FC = () => {
             avatar={<SecurityIcon color="primary" />}
           />
           <CardContent>
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={2}>
-                <Box textAlign="center">
-                  <Typography variant="h4" color="primary.main">
-                    {shopOverview.total_active_sessions}
-                  </Typography>
-                  <Typography variant="body2" color="textSecondary">
-                    Total Sessions
-                  </Typography>
-                </Box>
-              </Grid>
-              <Grid item xs={12} md={2}>
-                <Box textAlign="center">
-                  <Typography variant="h4" color="success.main">
-                    {shopOverview.valid_sessions}
-                  </Typography>
-                  <Typography variant="body2" color="textSecondary">
-                    Valid Sessions
-                  </Typography>
-                </Box>
-              </Grid>
-              <Grid item xs={12} md={2}>
-                <Box textAlign="center">
-                  <Typography variant="h4" color="error.main">
-                    {shopOverview.sessions_with_violations}
-                  </Typography>
-                  <Typography variant="body2" color="textSecondary">
-                    With Violations
-                  </Typography>
-                </Box>
-              </Grid>
-              <Grid item xs={12} md={2}>
-                <Box textAlign="center">
-                  <Typography variant="h4" color="warning.main">
-                    {shopOverview.sessions_with_warnings}
-                  </Typography>
-                  <Typography variant="body2" color="textSecondary">
-                    With Warnings
-                  </Typography>
-                </Box>
-              </Grid>
-              <Grid item xs={12} md={2}>
-                <Box textAlign="center">
-                  <Typography variant="h4" color="info.main">
-                    {shopOverview.sessions_needing_rotation}
-                  </Typography>
-                  <Typography variant="body2" color="textSecondary">
-                    Need Rotation
-                  </Typography>
-                </Box>
-              </Grid>
-              <Grid item xs={12} md={2}>
-                <Box textAlign="center">
-                  <Chip
-                    label={`${Math.round(shopOverview.security_score)}%`}
-                    color={getSecurityScoreColor(shopOverview.security_score) as any}
-                    size="medium"
-                    sx={{ fontSize: '1.2rem', fontWeight: 600 }}
-                  />
-                  <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
-                    Security Score
-                  </Typography>
-                </Box>
-              </Grid>
-            </Grid>
+            <Box display="flex" flexWrap="wrap" gap={3}>
+              <Box flex="1" minWidth="150px" textAlign="center">
+                <Typography variant="h4" color="primary.main">
+                  {shopOverview.total_active_sessions}
+                </Typography>
+                <Typography variant="body2" color="textSecondary">
+                  Total Sessions
+                </Typography>
+              </Box>
+              <Box flex="1" minWidth="150px" textAlign="center">
+                <Typography variant="h4" color="success.main">
+                  {shopOverview.valid_sessions}
+                </Typography>
+                <Typography variant="body2" color="textSecondary">
+                  Valid Sessions
+                </Typography>
+              </Box>
+              <Box flex="1" minWidth="150px" textAlign="center">
+                <Typography variant="h4" color="error.main">
+                  {shopOverview.sessions_with_violations}
+                </Typography>
+                <Typography variant="body2" color="textSecondary">
+                  With Violations
+                </Typography>
+              </Box>
+              <Box flex="1" minWidth="150px" textAlign="center">
+                <Typography variant="h4" color="warning.main">
+                  {shopOverview.sessions_with_warnings}
+                </Typography>
+                <Typography variant="body2" color="textSecondary">
+                  With Warnings
+                </Typography>
+              </Box>
+              <Box flex="1" minWidth="150px" textAlign="center">
+                <Typography variant="h4" color="info.main">
+                  {shopOverview.sessions_needing_rotation}
+                </Typography>
+                <Typography variant="body2" color="textSecondary">
+                  Need Rotation
+                </Typography>
+              </Box>
+              <Box flex="1" minWidth="150px" textAlign="center">
+                <Chip
+                  label={`${Math.round(shopOverview.security_score)}%`}
+                  color={getSecurityScoreColor(shopOverview.security_score) as any}
+                  size="medium"
+                  sx={{ fontSize: '1.2rem', fontWeight: 600 }}
+                />
+                <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
+                  Security Score
+                </Typography>
+              </Box>
+            </Box>
           </CardContent>
         </SecurityCard>
       )}
@@ -443,9 +430,9 @@ const SessionSecurityManager: React.FC = () => {
                 Session not found or has been invalidated
               </Alert>
             ) : (
-              <Grid container spacing={3}>
+              <Box display="flex" flexWrap="wrap" gap={3}>
                 {/* Session Status */}
-                <Grid item xs={12} md={6}>
+                <Box flex="1" minWidth="400px">
                   <Typography variant="h6" gutterBottom>Session Status</Typography>
                   <Stack spacing={2}>
                     <Box display="flex" justifyContent="space-between">
@@ -489,10 +476,10 @@ const SessionSecurityManager: React.FC = () => {
                       />
                     </Box>
                   </Stack>
-                </Grid>
+                </Box>
 
                 {/* Session Metadata */}
-                <Grid item xs={12} md={6}>
+                <Box flex="1" minWidth="400px">
                   <Typography variant="h6" gutterBottom>Session Metadata</Typography>
                   <Stack spacing={1}>
                     <Box>
@@ -512,11 +499,11 @@ const SessionSecurityManager: React.FC = () => {
                       <Typography>{formatTimestamp(sessionStatus.session_metadata.expires_at)}</Typography>
                     </Box>
                   </Stack>
-                </Grid>
+                </Box>
 
                 {/* Violations */}
                 {Object.keys(sessionStatus.violations).length > 0 && (
-                  <Grid item xs={12}>
+                  <Box width="100%">
                     <Typography variant="h6" gutterBottom color="error.main">
                       Security Violations
                     </Typography>
@@ -529,12 +516,12 @@ const SessionSecurityManager: React.FC = () => {
                         </Alert>
                       ))}
                     </Stack>
-                  </Grid>
+                  </Box>
                 )}
 
                 {/* Warnings */}
                 {Object.keys(sessionStatus.warnings).length > 0 && (
-                  <Grid item xs={12}>
+                  <Box width="100%">
                     <Typography variant="h6" gutterBottom color="warning.main">
                       Security Warnings
                     </Typography>
@@ -547,9 +534,9 @@ const SessionSecurityManager: React.FC = () => {
                         </Alert>
                       ))}
                     </Stack>
-                  </Grid>
+                  </Box>
                 )}
-              </Grid>
+              </Box>
             )}
           </CardContent>
         </SecurityCard>

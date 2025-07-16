@@ -257,8 +257,8 @@ const SuspiciousActivityMonitor: React.FC = () => {
       </Box>
 
       {/* Summary Cards */}
-      <Grid container spacing={3} mb={4}>
-        <Grid item xs={12} md={3}>
+      <Box display="flex" flexWrap="wrap" gap={3} mb={4}>
+        <Box flex="1" minWidth="250px">
           <MetricCard>
             <Box display="flex" alignItems="center" justifyContent="center" mb={2}>
               <ErrorIcon color="error" />
@@ -273,9 +273,9 @@ const SuspiciousActivityMonitor: React.FC = () => {
               Last {suspiciousActivity?.hours_analyzed || timeRange} hours
             </Typography>
           </MetricCard>
-        </Grid>
+        </Box>
 
-        <Grid item xs={12} md={3}>
+        <Box flex="1" minWidth="250px">
           <MetricCard>
             <Box display="flex" alignItems="center" justifyContent="center" mb={2}>
               <ComputerIcon color="warning" />
@@ -290,9 +290,9 @@ const SuspiciousActivityMonitor: React.FC = () => {
               Unique addresses
             </Typography>
           </MetricCard>
-        </Grid>
+        </Box>
 
-        <Grid item xs={12} md={3}>
+        <Box flex="1" minWidth="250px">
           <MetricCard>
             <Box display="flex" alignItems="center" justifyContent="center" mb={2}>
               <BlockIcon color="error" />
@@ -307,9 +307,9 @@ const SuspiciousActivityMonitor: React.FC = () => {
               Total attempts
             </Typography>
           </MetricCard>
-        </Grid>
+        </Box>
 
-        <Grid item xs={12} md={3}>
+        <Box flex="1" minWidth="250px">
           <MetricCard>
             <Box display="flex" alignItems="center" justifyContent="center" mb={2}>
               <ShieldIcon color="info" />
@@ -327,8 +327,8 @@ const SuspiciousActivityMonitor: React.FC = () => {
               Current assessment
             </Typography>
           </MetricCard>
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
 
       {/* Suspicious IPs */}
       {suspiciousActivity && Object.keys(suspiciousActivity.suspicious_ips).length > 0 && (
@@ -342,11 +342,11 @@ const SuspiciousActivityMonitor: React.FC = () => {
             }
           />
           <CardContent>
-            <Grid container spacing={2}>
+            <Box display="flex" flexWrap="wrap" gap={2}>
               {Object.entries(suspiciousActivity.suspicious_ips)
                 .sort(([,a], [,b]) => b - a)
                 .map(([ip, count]) => (
-                  <Grid item xs={12} sm={6} md={4} key={ip}>
+                  <Box key={ip} flex="1" minWidth="250px">
                     <Paper 
                       sx={{ 
                         p: 2, 
@@ -371,9 +371,9 @@ const SuspiciousActivityMonitor: React.FC = () => {
                         />
                       </Box>
                     </Paper>
-                  </Grid>
+                  </Box>
                 ))}
-            </Grid>
+            </Box>
           </CardContent>
         </SecurityCard>
       )}
@@ -465,16 +465,16 @@ const SuspiciousActivityMonitor: React.FC = () => {
                       </Box>
                     </AccordionSummary>
                     <AccordionDetails>
-                      <Grid container spacing={2}>
-                        <Grid item xs={12} md={6}>
+                      <Box display="flex" flexWrap="wrap" gap={2}>
+                        <Box flex="1" minWidth="300px">
                           <Typography variant="body2" color="textSecondary" gutterBottom>
                             Event Details:
                           </Typography>
                           <Typography variant="body2">
                             {event.details}
                           </Typography>
-                        </Grid>
-                        <Grid item xs={12} md={6}>
+                        </Box>
+                        <Box flex="1" minWidth="300px">
                           <Typography variant="body2" color="textSecondary" gutterBottom>
                             Event Information:
                           </Typography>
@@ -492,8 +492,8 @@ const SuspiciousActivityMonitor: React.FC = () => {
                               <Typography variant="body2">{formatTimestamp(event.timestamp)}</Typography>
                             </Box>
                           </Stack>
-                        </Grid>
-                      </Grid>
+                        </Box>
+                      </Box>
                     </AccordionDetails>
                   </Accordion>
                 ))}

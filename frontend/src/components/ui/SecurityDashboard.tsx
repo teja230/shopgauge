@@ -5,7 +5,6 @@ import {
   Card,
   CardContent,
   CardHeader,
-  Grid,
   Alert,
   Chip,
   LinearProgress,
@@ -216,8 +215,8 @@ const SecurityDashboard: React.FC = () => {
       </Box>
 
       {/* Security Score Overview */}
-      <Grid container spacing={3} mb={4}>
-        <Grid item xs={12} md={4}>
+      <Box display="flex" flexWrap="wrap" gap={3} mb={4}>
+        <Box flex="1" minWidth="300px">
           <MetricCard>
             <Box display="flex" alignItems="center" justifyContent="center" mb={2}>
               {securityLevel.icon}
@@ -254,9 +253,9 @@ const SecurityDashboard: React.FC = () => {
               sx={{ fontWeight: 600 }}
             />
           </MetricCard>
-        </Grid>
+        </Box>
 
-        <Grid item xs={12} md={4}>
+        <Box flex="1" minWidth="300px">
           <MetricCard>
             <Box display="flex" alignItems="center" justifyContent="center" mb={2}>
               <WarningIcon color="warning" />
@@ -271,9 +270,9 @@ const SecurityDashboard: React.FC = () => {
               Last {securityStats?.hours_analyzed || 24} hours
             </Typography>
           </MetricCard>
-        </Grid>
+        </Box>
 
-        <Grid item xs={12} md={4}>
+        <Box flex="1" minWidth="300px">
           <MetricCard>
             <Box display="flex" alignItems="center" justifyContent="center" mb={2}>
               <ErrorIcon color="error" />
@@ -288,12 +287,12 @@ const SecurityDashboard: React.FC = () => {
               Last {suspiciousActivity?.hours_analyzed || 24} hours
             </Typography>
           </MetricCard>
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
 
       {/* Rate Limiting Status */}
-      <Grid container spacing={3} mb={4}>
-        <Grid item xs={12} md={6}>
+      <Box display="flex" flexWrap="wrap" gap={3} mb={4}>
+        <Box flex="1" minWidth="400px">
           <SecurityCard>
             <CardHeader 
               title="Rate Limiting Status" 
@@ -301,64 +300,64 @@ const SecurityDashboard: React.FC = () => {
             />
             <CardContent>
               {securityStats?.rate_limit_stats && (
-                <Grid container spacing={2}>
-                  <Grid item xs={12}>
-                    <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
-                      <Typography variant="body1">Rate Limiting</Typography>
-                      <Chip 
-                        label={securityStats.rate_limit_stats.rate_limit_enabled ? 'Enabled' : 'Disabled'}
-                        color={securityStats.rate_limit_stats.rate_limit_enabled ? 'success' : 'error'}
-                        size="small"
+                <Box>
+                  <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+                    <Typography variant="body1">Rate Limiting</Typography>
+                    <Chip 
+                      label={securityStats.rate_limit_stats.rate_limit_enabled ? 'Enabled' : 'Disabled'}
+                      color={securityStats.rate_limit_stats.rate_limit_enabled ? 'success' : 'error'}
+                      size="small"
+                    />
+                  </Box>
+                  <Box display="flex" flexWrap="wrap" gap={2}>
+                    <Box flex="1" minWidth="150px">
+                      <Typography variant="body2" color="textSecondary">Admin Requests</Typography>
+                      <Typography variant="h6">
+                        {securityStats.rate_limit_stats.remaining_admin_requests}/10
+                      </Typography>
+                      <LinearProgress 
+                        variant="determinate" 
+                        value={(securityStats.rate_limit_stats.remaining_admin_requests / 10) * 100}
+                        sx={{ mt: 1 }}
                       />
                     </Box>
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Typography variant="body2" color="textSecondary">Admin Requests</Typography>
-                    <Typography variant="h6">
-                      {securityStats.rate_limit_stats.remaining_admin_requests}/10
-                    </Typography>
-                    <LinearProgress 
-                      variant="determinate" 
-                      value={(securityStats.rate_limit_stats.remaining_admin_requests / 10) * 100}
-                      sx={{ mt: 1 }}
-                    />
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Typography variant="body2" color="textSecondary">Login Attempts</Typography>
-                    <Typography variant="h6">
-                      {securityStats.rate_limit_stats.remaining_login_attempts}/5
-                    </Typography>
-                    <LinearProgress 
-                      variant="determinate" 
-                      value={(securityStats.rate_limit_stats.remaining_login_attempts / 5) * 100}
-                      sx={{ mt: 1 }}
-                    />
-                  </Grid>
-                </Grid>
+                    <Box flex="1" minWidth="150px">
+                      <Typography variant="body2" color="textSecondary">Login Attempts</Typography>
+                      <Typography variant="h6">
+                        {securityStats.rate_limit_stats.remaining_login_attempts}/5
+                      </Typography>
+                      <LinearProgress 
+                        variant="determinate" 
+                        value={(securityStats.rate_limit_stats.remaining_login_attempts / 5) * 100}
+                        sx={{ mt: 1 }}
+                      />
+                    </Box>
+                  </Box>
+                </Box>
               )}
             </CardContent>
           </SecurityCard>
-        </Grid>
+        </Box>
 
-        <Grid item xs={12} md={6}>
+        <Box flex="1" minWidth="400px">
           <SecurityCard>
             <CardHeader 
               title="Network Security" 
               avatar={<VpnLockIcon color="primary" />}
             />
             <CardContent>
-              <Grid container spacing={2}>
-                <Grid item xs={6}>
+              <Box display="flex" flexWrap="wrap" gap={2}>
+                <Box flex="1" minWidth="150px">
                   <Typography variant="body2" color="textSecondary">Unique IP Addresses</Typography>
                   <Typography variant="h6">{securityStats?.unique_ip_addresses || 0}</Typography>
-                </Grid>
-                <Grid item xs={6}>
+                </Box>
+                <Box flex="1" minWidth="150px">
                   <Typography variant="body2" color="textSecondary">Suspicious IPs</Typography>
                   <Typography variant="h6" color="error.main">
                     {suspiciousActivity ? Object.keys(suspiciousActivity.suspicious_ips).length : 0}
                   </Typography>
-                </Grid>
-                <Grid item xs={12}>
+                </Box>
+                <Box width="100%">
                   <Divider sx={{ my: 1 }} />
                   <Typography variant="body2" color="textSecondary" gutterBottom>
                     Failed Logins by IP
@@ -384,12 +383,12 @@ const SecurityDashboard: React.FC = () => {
                       No suspicious IP activity detected
                     </Typography>
                   )}
-                </Grid>
-              </Grid>
+                </Box>
+              </Box>
             </CardContent>
           </SecurityCard>
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
 
       {/* Recent Security Events */}
       <SecurityCard>
@@ -399,29 +398,30 @@ const SecurityDashboard: React.FC = () => {
         />
         <CardContent>
           {securityStats?.recent_event_counts && Object.keys(securityStats.recent_event_counts).length > 0 ? (
-            <Grid container spacing={2}>
+            <Box display="flex" flexWrap="wrap" gap={2}>
               {Object.entries(securityStats.recent_event_counts)
                 .sort(([,a], [,b]) => (b as number) - (a as number))
                 .slice(0, 6)
                 .map(([event, count]) => (
-                  <Grid item xs={12} sm={6} md={4} key={event}>
-                    <Box 
-                      p={2} 
-                      border={1} 
-                      borderColor="divider" 
-                      borderRadius={2}
-                      bgcolor="background.paper"
-                    >
-                      <Typography variant="body2" color="textSecondary" gutterBottom>
-                        {event.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}
-                      </Typography>
-                      <Typography variant="h6" color={getEventColor(event)}>
-                        {count}
-                      </Typography>
-                    </Box>
-                  </Grid>
+                  <Box 
+                    key={event}
+                    flex="1"
+                    minWidth="200px"
+                    p={2} 
+                    border={1} 
+                    borderColor="divider" 
+                    borderRadius={2}
+                    bgcolor="background.paper"
+                  >
+                    <Typography variant="body2" color="textSecondary" gutterBottom>
+                      {event.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}
+                    </Typography>
+                    <Typography variant="h6" color={getEventColor(event)}>
+                      {count}
+                    </Typography>
+                  </Box>
                 ))}
-            </Grid>
+            </Box>
           ) : (
             <Typography variant="body1" color="textSecondary" textAlign="center" py={4}>
               No recent security events
