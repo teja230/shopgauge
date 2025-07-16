@@ -14,8 +14,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -239,8 +237,7 @@ public class OptimizedRepositoryService {
 
   /** Find expired sessions in batches for cleanup */
   public List<ShopSession> findExpiredSessionsBatch(int batchSize) {
-    Pageable pageable = PageRequest.of(0, batchSize);
-    return shopSessionRepository.findExpiredSessions(pageable).getContent();
+    return shopSessionRepository.findExpiredSessions().stream().limit(batchSize).toList();
   }
 
   /** Find inactive sessions in batches for cleanup */
