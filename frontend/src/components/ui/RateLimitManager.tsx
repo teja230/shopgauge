@@ -5,7 +5,6 @@ import {
   Card,
   CardContent,
   CardHeader,
-  Grid,
   Alert,
   Chip,
   Button,
@@ -202,8 +201,8 @@ const RateLimitManager: React.FC = () => {
 
       {/* Current IP Rate Limit Status */}
       {currentIpStats && (
-        <Grid container spacing={3} mb={4}>
-          <Grid item xs={12} md={4}>
+        <Box display="flex" flexWrap="wrap" gap={3} mb={4}>
+          <Box flex="1" minWidth="300px">
             <MetricCard>
               <Box display="flex" alignItems="center" justifyContent="center" mb={2}>
                 <AdminIcon color="primary" />
@@ -224,9 +223,9 @@ const RateLimitManager: React.FC = () => {
                 sx={{ mt: 1, height: 8, borderRadius: 4 }}
               />
             </MetricCard>
-          </Grid>
+          </Box>
 
-          <Grid item xs={12} md={4}>
+          <Box flex="1" minWidth="300px">
             <MetricCard>
               <Box display="flex" alignItems="center" justifyContent="center" mb={2}>
                 <SecurityIcon color="primary" />
@@ -247,9 +246,9 @@ const RateLimitManager: React.FC = () => {
                 sx={{ mt: 1, height: 8, borderRadius: 4 }}
               />
             </MetricCard>
-          </Grid>
+          </Box>
 
-          <Grid item xs={12} md={4}>
+          <Box flex="1" minWidth="300px">
             <MetricCard>
               <Box display="flex" alignItems="center" justifyContent="center" mb={2}>
                 <CheckCircleIcon color={currentIpStats.rate_limit_enabled ? 'success' : 'error'} />
@@ -270,8 +269,8 @@ const RateLimitManager: React.FC = () => {
                 Last updated: {formatTimestamp(currentIpStats.timestamp)}
               </Typography>
             </MetricCard>
-          </Grid>
-        </Grid>
+          </Box>
+        </Box>
       )}
 
       {/* Rate Limit Management */}
@@ -288,8 +287,8 @@ const RateLimitManager: React.FC = () => {
             </Typography>
           </Alert>
 
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={8}>
+          <Box display="flex" flexWrap="wrap" gap={3}>
+            <Box flex="1" minWidth="300px">
               <TextField
                 fullWidth
                 label="Target IP Address"
@@ -298,8 +297,8 @@ const RateLimitManager: React.FC = () => {
                 placeholder="192.168.1.100"
                 helperText="Enter the IP address to clear rate limits for"
               />
-            </Grid>
-            <Grid item xs={12} md={4}>
+            </Box>
+            <Box flex="0 0 200px">
               <Button
                 fullWidth
                 variant="contained"
@@ -311,8 +310,8 @@ const RateLimitManager: React.FC = () => {
               >
                 Clear Rate Limits
               </Button>
-            </Grid>
-          </Grid>
+            </Box>
+          </Box>
         </CardContent>
       </SecurityCard>
 
@@ -323,8 +322,8 @@ const RateLimitManager: React.FC = () => {
           avatar={<SecurityIcon color="primary" />}
         />
         <CardContent>
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
+          <Box display="flex" flexWrap="wrap" gap={3}>
+            <Box flex="1" minWidth="300px">
               <Typography variant="h6" gutterBottom>Admin Endpoints</Typography>
               <Stack spacing={2}>
                 <Box display="flex" justifyContent="space-between">
@@ -340,9 +339,9 @@ const RateLimitManager: React.FC = () => {
                   <Chip label="20" color="primary" size="small" />
                 </Box>
               </Stack>
-            </Grid>
+            </Box>
 
-            <Grid item xs={12} md={6}>
+            <Box flex="1" minWidth="300px">
               <Typography variant="h6" gutterBottom>Security Features</Typography>
               <Stack spacing={2}>
                 <Box display="flex" justifyContent="space-between">
@@ -358,17 +357,17 @@ const RateLimitManager: React.FC = () => {
                   <Chip label="Active" color="success" size="small" />
                 </Box>
               </Stack>
-            </Grid>
+            </Box>
 
-            <Grid item xs={12}>
+            <Box width="100%">
               <Divider sx={{ my: 2 }} />
               <Typography variant="body2" color="textSecondary">
                 Rate limits are applied per IP address and reset automatically based on sliding time windows. 
                 Admin operations have stricter limits than regular API endpoints to prevent abuse. 
                 Emergency endpoints may have different rate limiting rules to ensure system availability during critical situations.
               </Typography>
-            </Grid>
-          </Grid>
+            </Box>
+          </Box>
         </CardContent>
       </SecurityCard>
 

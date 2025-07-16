@@ -222,8 +222,8 @@ const ComprehensiveMonitoringDashboard: React.FC = () => {
       </Box>
 
       {/* Alert Summary */}
-      <Grid container spacing={3} mb={3}>
-        <Grid item xs={12} md={3}>
+      <Box display="flex" flexWrap="wrap" gap={3} mb={3}>
+        <Box flex="1" minWidth="250px">
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center">
@@ -237,8 +237,8 @@ const ComprehensiveMonitoringDashboard: React.FC = () => {
               </Box>
             </CardContent>
           </Card>
-        </Grid>
-        <Grid item xs={12} md={3}>
+        </Box>
+        <Box flex="1" minWidth="250px">
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center">
@@ -252,8 +252,8 @@ const ComprehensiveMonitoringDashboard: React.FC = () => {
               </Box>
             </CardContent>
           </Card>
-        </Grid>
-        <Grid item xs={12} md={3}>
+        </Box>
+        <Box flex="1" minWidth="250px">
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center">
@@ -265,8 +265,8 @@ const ComprehensiveMonitoringDashboard: React.FC = () => {
               </Box>
             </CardContent>
           </Card>
-        </Grid>
-        <Grid item xs={12} md={3}>
+        </Box>
+        <Box flex="1" minWidth="250px">
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center">
@@ -280,12 +280,12 @@ const ComprehensiveMonitoringDashboard: React.FC = () => {
               </Box>
             </CardContent>
           </Card>
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
 
       {/* System Resources */}
-      <Grid container spacing={3} mb={3}>
-        <Grid item xs={12} md={4}>
+      <Box display="flex" flexWrap="wrap" gap={3} mb={3}>
+        <Box flex="1" minWidth="300px">
           <Card>
             <CardHeader 
               title="Memory Usage" 
@@ -316,8 +316,8 @@ const ComprehensiveMonitoringDashboard: React.FC = () => {
               )}
             </CardContent>
           </Card>
-        </Grid>
-        <Grid item xs={12} md={4}>
+        </Box>
+        <Box flex="1" minWidth="300px">
           <Card>
             <CardHeader 
               title="CPU Usage" 
@@ -346,8 +346,8 @@ const ComprehensiveMonitoringDashboard: React.FC = () => {
               )}
             </CardContent>
           </Card>
-        </Grid>
-        <Grid item xs={12} md={4}>
+        </Box>
+        <Box flex="1" minWidth="300px">
           <Card>
             <CardHeader 
               title="Disk Usage" 
@@ -377,12 +377,12 @@ const ComprehensiveMonitoringDashboard: React.FC = () => {
               )}
             </CardContent>
           </Card>
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
 
       {/* Application Metrics */}
-      <Grid container spacing={3} mb={3}>
-        <Grid item xs={12} md={6}>
+      <Box display="flex" flexWrap="wrap" gap={3} mb={3}>
+        <Box flex="1" minWidth="400px">
           <Card>
             <CardHeader 
               title="Session Management" 
@@ -390,29 +390,29 @@ const ComprehensiveMonitoringDashboard: React.FC = () => {
             />
             <CardContent>
               {applicationMetrics?.session && (
-                <Grid container spacing={2}>
-                  <Grid item xs={6}>
+                <Box display="flex" flexWrap="wrap" gap={2}>
+                  <Box flex="1" minWidth="150px">
                     <Typography variant="body2" color="textSecondary">Lock Acquisitions</Typography>
                     <Typography variant="h6">{applicationMetrics.session.lockAcquisitions || 0}</Typography>
-                  </Grid>
-                  <Grid item xs={6}>
+                  </Box>
+                  <Box flex="1" minWidth="150px">
                     <Typography variant="body2" color="textSecondary">Lock Failures</Typography>
                     <Typography variant="h6">{applicationMetrics.session.lockFailures || 0}</Typography>
-                  </Grid>
-                  <Grid item xs={6}>
+                  </Box>
+                  <Box flex="1" minWidth="150px">
                     <Typography variant="body2" color="textSecondary">Active Locks</Typography>
                     <Typography variant="h6">{applicationMetrics.session.activeLocks || 0}</Typography>
-                  </Grid>
-                  <Grid item xs={6}>
+                  </Box>
+                  <Box flex="1" minWidth="150px">
                     <Typography variant="body2" color="textSecondary">Stuck Sessions</Typography>
                     <Typography variant="h6">{applicationMetrics.session.stuckSessionsCleared || 0}</Typography>
-                  </Grid>
-                </Grid>
+                  </Box>
+                </Box>
               )}
             </CardContent>
           </Card>
-        </Grid>
-        <Grid item xs={12} md={6}>
+        </Box>
+        <Box flex="1" minWidth="400px">
           <Card>
             <CardHeader 
               title="SSE Performance" 
@@ -420,33 +420,33 @@ const ComprehensiveMonitoringDashboard: React.FC = () => {
             />
             <CardContent>
               {applicationMetrics?.sse && (
-                <Grid container spacing={2}>
-                  <Grid item xs={6}>
+                <Box display="flex" flexWrap="wrap" gap={2}>
+                  <Box flex="1" minWidth="150px">
                     <Typography variant="body2" color="textSecondary">Active Connections</Typography>
                     <Typography variant="h6">{applicationMetrics.sse.activeConnections || 0}</Typography>
-                  </Grid>
-                  <Grid item xs={6}>
+                  </Box>
+                  <Box flex="1" minWidth="150px">
                     <Typography variant="body2" color="textSecondary">Total Connections</Typography>
                     <Typography variant="h6">{applicationMetrics.sse.connectionsCreated || 0}</Typography>
-                  </Grid>
-                  <Grid item xs={6}>
+                  </Box>
+                  <Box flex="1" minWidth="150px">
                     <Typography variant="body2" color="textSecondary">Events Published</Typography>
                     <Typography variant="h6">{applicationMetrics.sse.eventsPublished || 0}</Typography>
-                  </Grid>
-                  <Grid item xs={6}>
+                  </Box>
+                  <Box flex="1" minWidth="150px">
                     <Typography variant="body2" color="textSecondary">Connection Errors</Typography>
                     <Typography variant="h6">{applicationMetrics.sse.connectionErrors || 0}</Typography>
-                  </Grid>
-                </Grid>
+                  </Box>
+                </Box>
               )}
             </CardContent>
           </Card>
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
 
       {/* Database and Cache Metrics */}
-      <Grid container spacing={3} mb={3}>
-        <Grid item xs={12} md={6}>
+      <Box display="flex" flexWrap="wrap" gap={3} mb={3}>
+        <Box flex="1" minWidth="400px">
           <Card>
             <CardHeader 
               title="Database Performance" 
@@ -454,29 +454,29 @@ const ComprehensiveMonitoringDashboard: React.FC = () => {
             />
             <CardContent>
               {applicationMetrics?.database && (
-                <Grid container spacing={2}>
-                  <Grid item xs={6}>
+                <Box display="flex" flexWrap="wrap" gap={2}>
+                  <Box flex="1" minWidth="150px">
                     <Typography variant="body2" color="textSecondary">Total Queries</Typography>
                     <Typography variant="h6">{applicationMetrics.database.queries || 0}</Typography>
-                  </Grid>
-                  <Grid item xs={6}>
+                  </Box>
+                  <Box flex="1" minWidth="150px">
                     <Typography variant="body2" color="textSecondary">Error Rate</Typography>
                     <Typography variant="h6">{formatPercentage(applicationMetrics.database.errorRate || 0)}</Typography>
-                  </Grid>
-                  <Grid item xs={6}>
+                  </Box>
+                  <Box flex="1" minWidth="150px">
                     <Typography variant="body2" color="textSecondary">Avg Query Duration</Typography>
                     <Typography variant="h6">{(applicationMetrics.database.averageQueryDuration || 0).toFixed(2)}ms</Typography>
-                  </Grid>
-                  <Grid item xs={6}>
+                  </Box>
+                  <Box flex="1" minWidth="150px">
                     <Typography variant="body2" color="textSecondary">Pool Exhaustion</Typography>
                     <Typography variant="h6">{applicationMetrics.database.connectionPoolExhaustion || 0}</Typography>
-                  </Grid>
-                </Grid>
+                  </Box>
+                </Box>
               )}
             </CardContent>
           </Card>
-        </Grid>
-        <Grid item xs={12} md={6}>
+        </Box>
+        <Box flex="1" minWidth="400px">
           <Card>
             <CardHeader 
               title="Cache Performance" 
@@ -484,159 +484,155 @@ const ComprehensiveMonitoringDashboard: React.FC = () => {
             />
             <CardContent>
               {applicationMetrics?.cache && (
-                <Grid container spacing={2}>
-                  <Grid item xs={6}>
+                <Box display="flex" flexWrap="wrap" gap={2}>
+                  <Box flex="1" minWidth="150px">
                     <Typography variant="body2" color="textSecondary">Hit Rate</Typography>
                     <Typography variant="h6">{formatPercentage(applicationMetrics.cache.hitRate || 0)}</Typography>
-                  </Grid>
-                  <Grid item xs={6}>
+                  </Box>
+                  <Box flex="1" minWidth="150px">
                     <Typography variant="body2" color="textSecondary">Cache Size</Typography>
                     <Typography variant="h6">{applicationMetrics.cache.currentSize || 0}</Typography>
-                  </Grid>
-                  <Grid item xs={6}>
+                  </Box>
+                  <Box flex="1" minWidth="150px">
                     <Typography variant="body2" color="textSecondary">Cache Hits</Typography>
                     <Typography variant="h6">{applicationMetrics.cache.hits || 0}</Typography>
-                  </Grid>
-                  <Grid item xs={6}>
+                  </Box>
+                  <Box flex="1" minWidth="150px">
                     <Typography variant="body2" color="textSecondary">Evictions</Typography>
                     <Typography variant="h6">{applicationMetrics.cache.evictions || 0}</Typography>
-                  </Grid>
-                </Grid>
+                  </Box>
+                </Box>
               )}
             </CardContent>
           </Card>
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
 
       {/* System Resilience Metrics */}
-      <Grid container spacing={3} mb={3}>
-        <Grid item xs={12}>
-          <Card>
-            <CardHeader 
-              title="System Resilience & Circuit Breakers" 
-              avatar={<SecurityIcon />}
-            />
-            <CardContent>
-              {monitoringData.dashboards?.resilienceMetrics && (() => {
-                const latestMetrics = monitoringData.dashboards.resilienceMetrics[monitoringData.dashboards.resilienceMetrics.length - 1];
-                return (
-                  <Grid container spacing={3}>
-                    {/* Overall Resilience Score */}
-                    <Grid item xs={12} md={3}>
-                      <Box textAlign="center">
-                        <Typography variant="body2" color="textSecondary">Resilience Score</Typography>
-                        <Box position="relative" display="inline-flex" mt={1}>
-                          <CircularProgress
-                            variant="determinate"
-                            value={latestMetrics?.resilienceScore || 0}
-                            size={80}
-                            thickness={4}
-                            color={
-                              (latestMetrics?.resilienceScore || 0) >= 90 ? 'success' :
-                              (latestMetrics?.resilienceScore || 0) >= 70 ? 'warning' : 'error'
-                            }
-                          />
-                          <Box
-                            position="absolute"
-                            top={0}
-                            left={0}
-                            bottom={0}
-                            right={0}
-                            display="flex"
-                            alignItems="center"
-                            justifyContent="center"
-                          >
-                            <Typography variant="h6" component="div" color="textSecondary">
-                              {Math.round(latestMetrics?.resilienceScore || 0)}
-                            </Typography>
-                          </Box>
+      <Box mb={3}>
+        <Card>
+          <CardHeader 
+            title="System Resilience & Circuit Breakers" 
+            avatar={<SecurityIcon />}
+          />
+          <CardContent>
+            {monitoringData.dashboards?.resilienceMetrics && (() => {
+              const latestMetrics = monitoringData.dashboards.resilienceMetrics[monitoringData.dashboards.resilienceMetrics.length - 1];
+              return (
+                <Box display="flex" flexWrap="wrap" gap={3}>
+                  {/* Overall Resilience Score */}
+                  <Box flex="0 0 200px">
+                    <Box textAlign="center">
+                      <Typography variant="body2" color="textSecondary">Resilience Score</Typography>
+                      <Box position="relative" display="inline-flex" mt={1}>
+                        <CircularProgress
+                          variant="determinate"
+                          value={latestMetrics?.resilienceScore || 0}
+                          size={80}
+                          thickness={4}
+                          color={
+                            (latestMetrics?.resilienceScore || 0) >= 90 ? 'success' :
+                            (latestMetrics?.resilienceScore || 0) >= 70 ? 'warning' : 'error'
+                          }
+                        />
+                        <Box
+                          position="absolute"
+                          top={0}
+                          left={0}
+                          bottom={0}
+                          right={0}
+                          display="flex"
+                          alignItems="center"
+                          justifyContent="center"
+                        >
+                          <Typography variant="h6" component="div" color="textSecondary">
+                            {Math.round(latestMetrics?.resilienceScore || 0)}
+                          </Typography>
                         </Box>
                       </Box>
-                    </Grid>
+                    </Box>
+                  </Box>
 
-                    {/* Redis Circuit Breaker */}
-                    <Grid item xs={12} md={9}>
-                      <Grid container spacing={2}>
-                        <Grid item xs={12}>
-                          <Typography variant="h6" gutterBottom>
-                            Redis Circuit Breaker
-                            <Chip 
-                              label={latestMetrics?.redisCircuitBreakerState || 'UNKNOWN'}
-                              color={
-                                latestMetrics?.redisCircuitBreakerState === 'CLOSED' ? 'success' :
-                                latestMetrics?.redisCircuitBreakerState === 'HALF_OPEN' ? 'warning' : 'error'
-                              }
-                              size="small"
-                              sx={{ ml: 2 }}
-                            />
-                          </Typography>
-                        </Grid>
-                        <Grid item xs={6} md={3}>
-                          <Typography variant="body2" color="textSecondary">Health Status</Typography>
-                          <Typography variant="h6">
-                            {latestMetrics?.redisHealthy ? (
-                              <Chip label="Healthy" color="success" size="small" />
-                            ) : (
-                              <Chip label="Unhealthy" color="error" size="small" />
-                            )}
-                          </Typography>
-                        </Grid>
-                        <Grid item xs={6} md={3}>
-                          <Typography variant="body2" color="textSecondary">Success Rate</Typography>
-                          <Typography variant="h6">{formatPercentage(latestMetrics?.redisSuccessRate || 0)}</Typography>
-                        </Grid>
-                        <Grid item xs={6} md={3}>
-                          <Typography variant="body2" color="textSecondary">Fallback Rate</Typography>
-                          <Typography variant="h6">{formatPercentage(latestMetrics?.redisFallbackRate || 0)}</Typography>
-                        </Grid>
-                        <Grid item xs={6} md={3}>
-                          <Typography variant="body2" color="textSecondary">Circuit Trips</Typography>
-                          <Typography variant="h6">{latestMetrics?.redisCircuitBreakerTrips || 0}</Typography>
-                        </Grid>
-                        <Grid item xs={6} md={3}>
-                          <Typography variant="body2" color="textSecondary">Total Operations</Typography>
-                          <Typography variant="h6">{latestMetrics?.redisTotalOperations || 0}</Typography>
-                        </Grid>
-                        <Grid item xs={6} md={3}>
-                          <Typography variant="body2" color="textSecondary">Failed Operations</Typography>
-                          <Typography variant="h6">{latestMetrics?.redisFailedOperations || 0}</Typography>
-                        </Grid>
-                        <Grid item xs={6} md={3}>
-                          <Typography variant="body2" color="textSecondary">Fallback Cache Size</Typography>
-                          <Typography variant="h6">{latestMetrics?.redisFallbackCacheSize || 0}</Typography>
-                        </Grid>
-                      </Grid>
-                    </Grid>
+                  {/* Redis Circuit Breaker */}
+                  <Box flex="1" minWidth="400px">
+                    <Typography variant="h6" gutterBottom>
+                      Redis Circuit Breaker
+                      <Chip 
+                        label={latestMetrics?.redisCircuitBreakerState || 'UNKNOWN'}
+                        color={
+                          latestMetrics?.redisCircuitBreakerState === 'CLOSED' ? 'success' :
+                          latestMetrics?.redisCircuitBreakerState === 'HALF_OPEN' ? 'warning' : 'error'
+                        }
+                        size="small"
+                        sx={{ ml: 2 }}
+                      />
+                    </Typography>
+                    <Box display="flex" flexWrap="wrap" gap={2} mb={2}>
+                      <Box flex="1" minWidth="120px">
+                        <Typography variant="body2" color="textSecondary">Health Status</Typography>
+                        <Typography variant="h6">
+                          {latestMetrics?.redisHealthy ? (
+                            <Chip label="Healthy" color="success" size="small" />
+                          ) : (
+                            <Chip label="Unhealthy" color="error" size="small" />
+                          )}
+                        </Typography>
+                      </Box>
+                      <Box flex="1" minWidth="120px">
+                        <Typography variant="body2" color="textSecondary">Success Rate</Typography>
+                        <Typography variant="h6">{formatPercentage(latestMetrics?.redisSuccessRate || 0)}</Typography>
+                      </Box>
+                      <Box flex="1" minWidth="120px">
+                        <Typography variant="body2" color="textSecondary">Fallback Rate</Typography>
+                        <Typography variant="h6">{formatPercentage(latestMetrics?.redisFallbackRate || 0)}</Typography>
+                      </Box>
+                      <Box flex="1" minWidth="120px">
+                        <Typography variant="body2" color="textSecondary">Circuit Trips</Typography>
+                        <Typography variant="h6">{latestMetrics?.redisCircuitBreakerTrips || 0}</Typography>
+                      </Box>
+                      <Box flex="1" minWidth="120px">
+                        <Typography variant="body2" color="textSecondary">Total Operations</Typography>
+                        <Typography variant="h6">{latestMetrics?.redisTotalOperations || 0}</Typography>
+                      </Box>
+                      <Box flex="1" minWidth="120px">
+                        <Typography variant="body2" color="textSecondary">Failed Operations</Typography>
+                        <Typography variant="h6">{latestMetrics?.redisFailedOperations || 0}</Typography>
+                      </Box>
+                      <Box flex="1" minWidth="120px">
+                        <Typography variant="body2" color="textSecondary">Fallback Cache Size</Typography>
+                        <Typography variant="h6">{latestMetrics?.redisFallbackCacheSize || 0}</Typography>
+                      </Box>
+                    </Box>
 
                     {/* Session Management Resilience */}
-                    <Grid item xs={12} mt={2}>
+                    <Box mt={2}>
                       <Typography variant="h6" gutterBottom>Session Management Resilience</Typography>
-                      <Grid container spacing={2}>
-                        <Grid item xs={6} md={3}>
+                      <Box display="flex" flexWrap="wrap" gap={2}>
+                        <Box flex="1" minWidth="120px">
                           <Typography variant="body2" color="textSecondary">Lock Success Rate</Typography>
                           <Typography variant="h6">{formatPercentage(latestMetrics?.sessionLockSuccessRate || 0)}</Typography>
-                        </Grid>
-                        <Grid item xs={6} md={3}>
+                        </Box>
+                        <Box flex="1" minWidth="120px">
                           <Typography variant="body2" color="textSecondary">Redis Failures</Typography>
                           <Typography variant="h6">{latestMetrics?.sessionRedisFailures || 0}</Typography>
-                        </Grid>
-                        <Grid item xs={6} md={3}>
+                        </Box>
+                        <Box flex="1" minWidth="120px">
                           <Typography variant="body2" color="textSecondary">Stuck Sessions Cleared</Typography>
                           <Typography variant="h6">{latestMetrics?.sessionStuckSessionsCleared || 0}</Typography>
-                        </Grid>
-                        <Grid item xs={6} md={3}>
+                        </Box>
+                        <Box flex="1" minWidth="120px">
                           <Typography variant="body2" color="textSecondary">Orphaned Locks Cleared</Typography>
                           <Typography variant="h6">{latestMetrics?.sessionOrphanedLocksCleared || 0}</Typography>
-                        </Grid>
-                      </Grid>
-                    </Grid>
-                  </Grid>
-                );
-              })()}
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+                        </Box>
+                      </Box>
+                    </Box>
+                  </Box>
+                </Box>
+              );
+            })()}
+          </CardContent>
+        </Card>
+      </Box>
 
       {/* Active Alerts */}
       {activeAlerts.length > 0 && (
