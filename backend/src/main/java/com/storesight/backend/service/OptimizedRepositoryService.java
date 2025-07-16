@@ -240,7 +240,7 @@ public class OptimizedRepositoryService {
   /** Find expired sessions in batches for cleanup */
   public List<ShopSession> findExpiredSessionsBatch(int batchSize) {
     Pageable pageable = PageRequest.of(0, batchSize);
-    return shopSessionRepository.findExpiredSessions().stream().limit(batchSize).toList();
+    return shopSessionRepository.findExpiredSessions(pageable).getContent();
   }
 
   /** Find inactive sessions in batches for cleanup */
