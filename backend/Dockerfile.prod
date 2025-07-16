@@ -20,9 +20,8 @@ RUN chmod +x ./gradlew
 # Pre-download dependencies (cached layer)
 RUN ./gradlew dependencies --no-daemon --offline || true
 
-# Copy source code and configuration
+# Copy source code
 COPY backend/src ./src
-COPY config ./config
 
 # Build with production optimizations
 ENV CI=true
@@ -37,18 +36,15 @@ RUN apk add --no-cache curl
 
 WORKDIR /app
 
-# Copy the built jar, configuration, and startup script
+# Copy the built jar
 COPY --from=builder /app/build/libs/*-SNAPSHOT.jar app.jar
-COPY --from=builder /app/config ./config
-COPY backend/start.sh ./start.sh
 
 # Create non-root user for security
 RUN addgroup -g 1001 -S appgroup && \
     adduser -u 1001 -S appuser -G appgroup
 
-# Make startup script executable and change ownership
-RUN chmod +x ./start.sh && \
-    chown -R appuser:appgroup /app
+# Change ownership of the app directory
+RUN chown -R appuser:appgroup /app
 
 # Switch to non-root user
 USER appuser
@@ -60,5 +56,5 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
   CMD curl -f http://localhost:8080/health || exit 1
 
-# Run the application using the startup script
-CMD ["./start.sh"] 
+# Run the application with production-optimized JVM settings
+CMD ["java", "-Xmx1024m", "-XX:+UseG1GC", "-XX:MaxGCPauseMillis=200", "-XX:+HeapDumpOnOutOfMemoryError", "-XX:HeapDumpPath=/tmp/heapdump.hprof", "-Djava.security.egd=file:/dev/./urandom", "-jar", "app.jar"] 
