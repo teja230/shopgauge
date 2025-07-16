@@ -283,6 +283,7 @@ public class QueryResultCacheService {
           .removeIf(
               entry -> {
                 if (entry.getValue().isExpired()) {
+                  memoryEvicted++;
                   return true;
                 }
                 return false;
