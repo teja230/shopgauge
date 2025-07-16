@@ -383,9 +383,10 @@ public class SessionSynchronizationService {
 
       // Clean up orphaned Redis locks that might not be tracked locally
       try {
-        Set<String> lockKeys = redisTemplate.keys(SESSION_LOCK_PREFIX + "*");
-        if (lockKeys != null) {
-          for (String lockKey : lockKeys) {
+        redisTemplate.execute((RedisCallback<Void>) connection -> {
+          Cursor<byte[]> cursor = connection.scan(ScanOptions.scanOptions().match(SESSION_LOCK_PREFIX + "*").count(1000).build());
+          while (cursor.hasNext()) {
+            String lockKey = new String(cursor.next());
             String sessionId = lockKey.substring(SESSION_LOCK_PREFIX.length());
 
             // If we don't have this lock tracked locally, it might be orphaned
