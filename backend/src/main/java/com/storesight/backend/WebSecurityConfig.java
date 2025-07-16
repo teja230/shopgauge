@@ -18,6 +18,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -72,8 +73,8 @@ public class WebSecurityConfig implements WebMvcConfigurer {
   public WebSecurityConfig(
       ShopService shopService,
       SessionSynchronizationService sessionSynchronizationService,
-      SessionSecurityService sessionSecurityService,
-      RedisSessionService redisSessionService) {
+      @Lazy SessionSecurityService sessionSecurityService,
+      @Lazy RedisSessionService redisSessionService) {
     this.shopService = shopService;
     this.sessionSynchronizationService = sessionSynchronizationService;
     this.sessionSecurityService = sessionSecurityService;
