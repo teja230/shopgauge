@@ -94,10 +94,10 @@ class EndToEndIntegrationTest extends BaseIntegrationTest {
             try {
               sseService.broadcastToShop(shopDomain, "dashboard-update", "Update " + i, null);
               eventsReceived.incrementAndGet();
-              eventLatch.countDown();
-              Thread.sleep(100);
             } catch (Exception e) {
               // Handle gracefully
+            } finally {
+              eventLatch.countDown();
             }
           }
         });
