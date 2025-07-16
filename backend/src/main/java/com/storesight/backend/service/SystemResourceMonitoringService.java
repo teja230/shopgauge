@@ -119,11 +119,11 @@ public class SystemResourceMonitoringService {
         // Check for high CPU usage
         if (processCpuPercent > CRITICAL_CPU_THRESHOLD) {
           highCpuAlerts.incrementAndGet();
-          logger.warn("Critical CPU usage detected: {:.2f}%", processCpuPercent);
+          logger.warn("Critical CPU usage detected: {}%", String.format("%.2f", processCpuPercent));
           cpuStats.put("alert", "CRITICAL");
         } else if (processCpuPercent > HIGH_CPU_THRESHOLD) {
           highCpuAlerts.incrementAndGet();
-          logger.info("High CPU usage detected: {:.2f}%", processCpuPercent);
+          logger.info("High CPU usage detected: {}%", String.format("%.2f", processCpuPercent));
           cpuStats.put("alert", "WARNING");
         } else {
           cpuStats.put("alert", "NORMAL");
