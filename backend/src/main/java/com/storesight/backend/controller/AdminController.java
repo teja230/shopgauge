@@ -1,12 +1,17 @@
 package com.storesight.backend.controller;
 
 import com.storesight.backend.model.AuditLog;
+import com.storesight.backend.service.AlertingService;
 import com.storesight.backend.service.DataPrivacyService;
 import com.storesight.backend.service.DatabaseMonitoringService;
+import com.storesight.backend.service.MetricsCollectionService;
+import com.storesight.backend.service.MonitoringConfigurationService;
+import com.storesight.backend.service.MonitoringDashboardService;
 import com.storesight.backend.service.NotificationService;
 import com.storesight.backend.service.SecretService;
 import com.storesight.backend.service.SessionSynchronizationService;
 import com.storesight.backend.service.ShopService;
+import com.storesight.backend.service.SystemResourceMonitoringService;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -37,6 +42,11 @@ public class AdminController {
   private final SessionSynchronizationService sessionSynchronizationService;
   private final ShopService shopService;
   private final RedisTemplate<String, String> redisTemplate;
+  private final AlertingService alertingService;
+  private final MetricsCollectionService metricsCollectionService;
+  private final MonitoringDashboardService monitoringDashboardService;
+  private final MonitoringConfigurationService monitoringConfigurationService;
+  private final SystemResourceMonitoringService systemResourceMonitoringService;
 
   @Autowired
   public AdminController(
@@ -47,7 +57,12 @@ public class AdminController {
       DataSource dataSource,
       SessionSynchronizationService sessionSynchronizationService,
       ShopService shopService,
-      RedisTemplate<String, String> redisTemplate) {
+      RedisTemplate<String, String> redisTemplate,
+      AlertingService alertingService,
+      MetricsCollectionService metricsCollectionService,
+      MonitoringDashboardService monitoringDashboardService,
+      MonitoringConfigurationService monitoringConfigurationService,
+      SystemResourceMonitoringService systemResourceMonitoringService) {
     this.secretService = secretService;
     this.notificationService = notificationService;
     this.dataPrivacyService = dataPrivacyService;
@@ -56,6 +71,11 @@ public class AdminController {
     this.sessionSynchronizationService = sessionSynchronizationService;
     this.shopService = shopService;
     this.redisTemplate = redisTemplate;
+    this.alertingService = alertingService;
+    this.metricsCollectionService = metricsCollectionService;
+    this.monitoringDashboardService = monitoringDashboardService;
+    this.monitoringConfigurationService = monitoringConfigurationService;
+    this.systemResourceMonitoringService = systemResourceMonitoringService;
   }
 
   @PostMapping("/secrets")
@@ -375,7 +395,7 @@ public class AdminController {
 
     try {
       // Get database metrics without using repositories
-      Map<String, Object> dbMetrics = databaseMonitoringService.getDatabaseMetrics();
+      Map<String, Object> dbMetrics = databaseMonitoringService.getDatabaseStatistics();
       status.put("database", dbMetrics);
 
       String poolStatus = databaseMonitoringService.getPoolStatus();
@@ -421,7 +441,7 @@ public class AdminController {
 
     try {
       // Get pool metrics first
-      Map<String, Object> poolMetrics = databaseMonitoringService.getDatabaseMetrics();
+      Map<String, Object> poolMetrics = databaseMonitoringService.getDatabaseStatistics();
       info.put("connectionPool", poolMetrics);
 
       // Try to get basic database info with minimal query
@@ -1053,6 +1073,165 @@ public class AdminController {
       result.put("success", false);
       result.put("error", "Failed to get stuck sessions: " + e.getMessage());
       return ResponseEntity.status(500).body(result);
+    }
+  }
+
+  /** MONITORING ENDPOINT: Get comprehensive monitoring dashboard */
+  @GetMapping("/monitoring/dashboard")
+  public ResponseEntity<Map<String, Object>> getMonitoringDashboard() {
+    try {
+      Map<String, Object> response = new HashMap<>();
+
+      // Get all dashboard data
+      Map<String, Object> dashboardData = monitoringDashboardService.getAllDashboardData();
+      response.put("dashboards", dashboardData);
+
+      // Get current alerts
+      Map<String, Object> alertStats = alertingService.getAlertStatistics();
+      response.put("alerts", alertStats);
+
+      // Get system metrics
+      Map<String, Object> systemStats =
+          systemResourceMonitoringService.getSystemResourceStatistics();
+      response.put("systemResources", systemStats);
+
+      // Get application metrics
+      Map<String, Object> appMetrics = metricsCollectionService.getMetricsSummary();
+      response.put("applicationMetrics", appMetrics);
+
+      response.put("timestamp", LocalDateTime.now());
+      return ResponseEntity.ok(response);
+
+    } catch (Exception e) {
+      logger.error("Error retrieving monitoring dashboard: {}", e.getMessage());
+      return ResponseEntity.status(500)
+          .body(
+              Map.of(
+                  "error", "Failed to retrieve monitoring dashboard", "message", e.getMessage()));
+    }
+  }
+
+  /** MONITORING ENDPOINT: Get current alerts */
+  @GetMapping("/monitoring/alerts")
+  public ResponseEntity<Map<String, Object>> getCurrentAlerts() {
+    try {
+      Map<String, Object> response = alertingService.getAlertStatistics();
+      return ResponseEntity.ok(response);
+
+    } catch (Exception e) {
+      logger.error("Error retrieving alerts: {}", e.getMessage());
+      return ResponseEntity.status(500)
+          .body(Map.of("error", "Failed to retrieve alerts", "message", e.getMessage()));
+    }
+  }
+
+  /** MONITORING ENDPOINT: Acknowledge an alert */
+  @PostMapping("/monitoring/alerts/{alertId}/acknowledge")
+  public ResponseEntity<Map<String, Object>> acknowledgeAlert(@PathVariable String alertId) {
+    try {
+      boolean acknowledged = alertingService.acknowledgeAlert(alertId);
+
+      if (acknowledged) {
+        return ResponseEntity.ok(Map.of("success", true, "message", "Alert acknowledged"));
+      } else {
+        return ResponseEntity.status(404)
+            .body(Map.of("success", false, "message", "Alert not found"));
+      }
+
+    } catch (Exception e) {
+      logger.error("Error acknowledging alert: {}", e.getMessage());
+      return ResponseEntity.status(500)
+          .body(Map.of("error", "Failed to acknowledge alert", "message", e.getMessage()));
+    }
+  }
+
+  /** MONITORING ENDPOINT: Get system resource statistics */
+  @GetMapping("/monitoring/system-resources")
+  public ResponseEntity<Map<String, Object>> getSystemResourceStats() {
+    try {
+      Map<String, Object> response = systemResourceMonitoringService.getSystemResourceStatistics();
+      return ResponseEntity.ok(response);
+
+    } catch (Exception e) {
+      logger.error("Error retrieving system resources: {}", e.getMessage());
+      return ResponseEntity.status(500)
+          .body(Map.of("error", "Failed to retrieve system resources", "message", e.getMessage()));
+    }
+  }
+
+  /** MONITORING ENDPOINT: Get application metrics summary */
+  @GetMapping("/monitoring/metrics")
+  public ResponseEntity<Map<String, Object>> getApplicationMetrics() {
+    try {
+      Map<String, Object> response = metricsCollectionService.getMetricsSummary();
+      return ResponseEntity.ok(response);
+
+    } catch (Exception e) {
+      logger.error("Error retrieving application metrics: {}", e.getMessage());
+      return ResponseEntity.status(500)
+          .body(
+              Map.of("error", "Failed to retrieve application metrics", "message", e.getMessage()));
+    }
+  }
+
+  /** MONITORING ENDPOINT: Get error pattern analysis */
+  @GetMapping("/monitoring/error-patterns")
+  public ResponseEntity<Map<String, Object>> getErrorPatterns() {
+    try {
+      Map<String, Object> response = monitoringDashboardService.getErrorPatternAnalysis();
+      return ResponseEntity.ok(response);
+
+    } catch (Exception e) {
+      logger.error("Error retrieving error patterns: {}", e.getMessage());
+      return ResponseEntity.status(500)
+          .body(Map.of("error", "Failed to retrieve error patterns", "message", e.getMessage()));
+    }
+  }
+
+  /** MONITORING ENDPOINT: Get monitoring configuration for external tools */
+  @GetMapping("/monitoring/config/grafana")
+  public ResponseEntity<Map<String, Object>> getGrafanaConfig() {
+    try {
+      Map<String, Object> response = monitoringConfigurationService.getGrafanaDashboardConfig();
+      return ResponseEntity.ok(response);
+
+    } catch (Exception e) {
+      logger.error("Error retrieving Grafana config: {}", e.getMessage());
+      return ResponseEntity.status(500)
+          .body(Map.of("error", "Failed to retrieve Grafana config", "message", e.getMessage()));
+    }
+  }
+
+  /** MONITORING ENDPOINT: Get Prometheus alerting rules */
+  @GetMapping("/monitoring/config/prometheus")
+  public ResponseEntity<Map<String, Object>> getPrometheusConfig() {
+    try {
+      Map<String, Object> response = monitoringConfigurationService.getPrometheusAlertingRules();
+      return ResponseEntity.ok(response);
+
+    } catch (Exception e) {
+      logger.error("Error retrieving Prometheus config: {}", e.getMessage());
+      return ResponseEntity.status(500)
+          .body(Map.of("error", "Failed to retrieve Prometheus config", "message", e.getMessage()));
+    }
+  }
+
+  /** MONITORING ENDPOINT: Reset monitoring statistics */
+  @PostMapping("/monitoring/reset-stats")
+  public ResponseEntity<Map<String, Object>> resetMonitoringStats() {
+    try {
+      metricsCollectionService.resetMetrics();
+      alertingService.resetAlertStatistics();
+      monitoringDashboardService.resetStatistics();
+      systemResourceMonitoringService.resetStatistics();
+
+      return ResponseEntity.ok(Map.of("success", true, "message", "Monitoring statistics reset"));
+
+    } catch (Exception e) {
+      logger.error("Error resetting monitoring stats: {}", e.getMessage());
+      return ResponseEntity.status(500)
+          .body(
+              Map.of("error", "Failed to reset monitoring statistics", "message", e.getMessage()));
     }
   }
 

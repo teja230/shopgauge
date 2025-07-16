@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- Define log pattern with correlation ID -->
+    <property name="LOG_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{correlationId:-no-correlation-id}] %logger{36} - %msg%n"/>
+    
+    <!-- Console appender for development -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+        </encoder>
+    </appender>
+    
+    <!-- File appender for application logs -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/application.log</file>
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/application.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>100MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>3GB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+    
+    <!-- Separate appender for error logs -->
+    <appender name="ERROR_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/error.log</file>
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>ERROR</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/error.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>100MB</maxFileSize>
+            <maxHistory>60</maxHistory>
+            <totalSizeCap>1GB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+    
+    <!-- JSON appender for structured logging (production) -->
+    <appender name="JSON_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/application.json</file>
+        <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+            <providers>
+                <timestamp/>
+                <logLevel/>
+                <loggerName/>
+                <mdc/>
+                <message/>
+                <stackTrace/>
+                <pattern>
+                    <pattern>
+                        {
+                            "correlationId": "%X{correlationId:-no-correlation-id}",
+                            "thread": "%thread",
+                            "application": "storesight-backend"
+                        }
+                    </pattern>
+                </pattern>
+            </providers>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/application.%d{yyyy-MM-dd}.%i.json</fileNamePattern>
+            <maxFileSize>100MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>3GB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+    
+    <!-- Async appender for better performance -->
+    <appender name="ASYNC_FILE" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="FILE"/>
+        <queueSize>1024</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <includeCallerData>false</includeCallerData>
+    </appender>
+    
+    <!-- Async appender for JSON logs -->
+    <appender name="ASYNC_JSON" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="JSON_FILE"/>
+        <queueSize>1024</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <includeCallerData>false</includeCallerData>
+    </appender>
+    
+    <!-- Profile-specific configurations -->
+    <springProfile name="dev,local">
+        <root level="DEBUG">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="FILE"/>
+            <appender-ref ref="ERROR_FILE"/>
+        </root>
+        
+        <!-- Reduce noise from Spring and Hibernate in development -->
+        <logger name="org.springframework" level="INFO"/>
+        <logger name="org.hibernate" level="INFO"/>
+        <logger name="com.zaxxer.hikari" level="INFO"/>
+        <logger name="org.apache.http" level="INFO"/>
+    </springProfile>
+    
+    <springProfile name="staging">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="ASYNC_FILE"/>
+            <appender-ref ref="ERROR_FILE"/>
+            <appender-ref ref="ASYNC_JSON"/>
+        </root>
+        
+        <!-- Application-specific logging levels -->
+        <logger name="com.storesight.backend" level="DEBUG"/>
+        <logger name="com.storesight.backend.service" level="DEBUG"/>
+        <logger name="com.storesight.backend.controller" level="INFO"/>
+    </springProfile>
+    
+    <springProfile name="prod,production">
+        <root level="WARN">
+            <appender-ref ref="ASYNC_FILE"/>
+            <appender-ref ref="ERROR_FILE"/>
+            <appender-ref ref="ASYNC_JSON"/>
+        </root>
+        
+        <!-- Application-specific logging levels for production -->
+        <logger name="com.storesight.backend" level="INFO"/>
+        <logger name="com.storesight.backend.service" level="INFO"/>
+        <logger name="com.storesight.backend.controller" level="INFO"/>
+        <logger name="com.storesight.backend.config.GlobalExceptionHandler" level="WARN"/>
+        
+        <!-- Security and audit logging -->
+        <logger name="org.springframework.security" level="WARN"/>
+        <logger name="com.storesight.backend.service.AdminAuthService" level="INFO"/>
+        <logger name="com.storesight.backend.service.AuditLogService" level="INFO"/>
+        
+        <!-- Performance monitoring -->
+        <logger name="com.storesight.backend.service.SessionSynchronizationService" level="INFO"/>
+        <logger name="com.storesight.backend.service.EnhancedRedisService" level="INFO"/>
+        <logger name="com.storesight.backend.service.DashboardCacheService" level="INFO"/>
+    </springProfile>
+    
+    <!-- Specific logger configurations -->
+    <logger name="com.storesight.backend.util.CircuitBreaker" level="INFO"/>
+    <logger name="com.storesight.backend.util.RetryUtil" level="INFO"/>
+    <logger name="com.storesight.backend.config.CorrelationIdFilter" level="DEBUG"/>
+    <logger name="com.storesight.backend.config.AsyncExceptionHandler" level="INFO"/>
+    
+    <!-- Database and Redis logging -->
+    <logger name="org.springframework.data.redis" level="WARN"/>
+    <logger name="org.springframework.jdbc" level="WARN"/>
+    <logger name="org.flywaydb" level="INFO"/>
+    
+    <!-- HTTP client logging -->
+    <logger name="org.springframework.web.client" level="INFO"/>
+    <logger name="org.apache.http.wire" level="WARN"/>
+    
+    <!-- Metrics and monitoring -->
+    <logger name="com.storesight.backend.service.MetricsCollectionService" level="INFO"/>
+    <logger name="com.storesight.backend.service.MonitoringDashboardService" level="INFO"/>
+    <logger name="com.storesight.backend.service.AlertingService" level="INFO"/>
+</configuration>
