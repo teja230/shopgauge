@@ -293,7 +293,7 @@ public class ApplicationConfigurationProperties {
     private int sessionCleanupDays = 2;
 
     @Min(5)
-    @Max(60)
+    @Max(120)
     private int redisCacheTtlMinutes = 120;
 
     @Min(5)
