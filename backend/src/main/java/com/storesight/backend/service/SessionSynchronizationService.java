@@ -10,6 +10,9 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.Cursor;
+import org.springframework.data.redis.core.RedisCallback;
+import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -383,20 +386,30 @@ public class SessionSynchronizationService {
 
       // Clean up orphaned Redis locks that might not be tracked locally
       try {
-        redisTemplate.execute((RedisCallback<Void>) connection -> {
-          Cursor<byte[]> cursor = connection.scan(ScanOptions.scanOptions().match(SESSION_LOCK_PREFIX + "*").count(1000).build());
-          while (cursor.hasNext()) {
-            String lockKey = new String(cursor.next());
-            String sessionId = lockKey.substring(SESSION_LOCK_PREFIX.length());
+        final int[] redisLocksClearedArray = {0};
+        redisTemplate.execute(
+            (RedisCallback<Void>)
+                connection -> {
+                  Cursor<byte[]> cursor =
+                      connection.scan(
+                          ScanOptions.scanOptions()
+                              .match(SESSION_LOCK_PREFIX + "*")
+                              .count(1000)
+                              .build());
+                  while (cursor.hasNext()) {
+                    String lockKey = new String(cursor.next());
+                    String sessionId = lockKey.substring(SESSION_LOCK_PREFIX.length());
 
-            // If we don't have this lock tracked locally, it might be orphaned
-            if (!lockAcquisitionTimes.containsKey(sessionId)) {
-              logger.warn("Found orphaned Redis lock for session: {}, clearing", sessionId);
-              redisTemplate.delete(lockKey);
-              redisLocksCleared++;
-            }
-          }
-        }
+                    // If we don't have this lock tracked locally, it might be orphaned
+                    if (!lockAcquisitionTimes.containsKey(sessionId)) {
+                      logger.warn("Found orphaned Redis lock for session: {}, clearing", sessionId);
+                      redisTemplate.delete(lockKey);
+                      redisLocksClearedArray[0]++;
+                    }
+                  }
+                  return null;
+                });
+        redisLocksCleared = redisLocksClearedArray[0];
       } catch (Exception e) {
         logger.warn("Error scanning Redis for orphaned locks: {}", e.getMessage());
       }

@@ -183,11 +183,12 @@ public class SystemResourceMonitoringService {
       // Check for high memory usage
       if (memoryUsagePercent > CRITICAL_MEMORY_THRESHOLD) {
         highMemoryAlerts.incrementAndGet();
-        logger.warn("Critical memory usage detected: {:.2f}%", memoryUsagePercent);
+        logger.warn(
+            "Critical memory usage detected: {}%", String.format("%.2f", memoryUsagePercent));
         memoryStats.put("alert", "CRITICAL");
       } else if (memoryUsagePercent > HIGH_MEMORY_THRESHOLD) {
         highMemoryAlerts.incrementAndGet();
-        logger.info("High memory usage detected: {:.2f}%", memoryUsagePercent);
+        logger.info("High memory usage detected: {}%", String.format("%.2f", memoryUsagePercent));
         memoryStats.put("alert", "WARNING");
       } else {
         memoryStats.put("alert", "NORMAL");
@@ -246,11 +247,11 @@ public class SystemResourceMonitoringService {
       // Check for high disk usage
       if (diskUsagePercent > CRITICAL_DISK_THRESHOLD) {
         highDiskAlerts.incrementAndGet();
-        logger.warn("Critical disk usage detected: {:.2f}%", diskUsagePercent);
+        logger.warn("Critical disk usage detected: {}%", String.format("%.2f", diskUsagePercent));
         diskStats.put("alert", "CRITICAL");
       } else if (diskUsagePercent > HIGH_DISK_THRESHOLD) {
         highDiskAlerts.incrementAndGet();
-        logger.info("High disk usage detected: {:.2f}%", diskUsagePercent);
+        logger.info("High disk usage detected: {}%", String.format("%.2f", diskUsagePercent));
         diskStats.put("alert", "WARNING");
       } else {
         diskStats.put("alert", "NORMAL");

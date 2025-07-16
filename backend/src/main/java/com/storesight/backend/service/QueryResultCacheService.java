@@ -276,18 +276,20 @@ public class QueryResultCacheService {
     try {
       // Cleanup memory cache
       LocalDateTime now = LocalDateTime.now();
-      int memoryEvicted = 0;
+      final int[] memoryEvictedArray = {0};
 
       memoryCache
           .entrySet()
           .removeIf(
               entry -> {
                 if (entry.getValue().isExpired()) {
-                  memoryEvicted++;
+                  memoryEvictedArray[0]++;
                   return true;
                 }
                 return false;
               });
+
+      int memoryEvicted = memoryEvictedArray[0];
 
       if (memoryEvicted > 0) {
         evictionCount += memoryEvicted;
