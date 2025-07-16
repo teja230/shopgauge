@@ -1,895 +1,870 @@
 package com.storesight.backend.controller;
 
-import com.storesight.backend.model.ShopSession;
-import com.storesight.backend.repository.ShopSessionRepository;
+import com.storesight.backend.service.AlertingService;
 import com.storesight.backend.service.DashboardCacheService;
 import com.storesight.backend.service.DatabaseMonitoringService;
+import com.storesight.backend.service.MetricsCollectionService;
+import com.storesight.backend.service.MonitoringConfigurationService;
+import com.storesight.backend.service.MonitoringDashboardService;
 import com.storesight.backend.service.RedisHealthService;
-import com.storesight.backend.service.RedisSessionService;
-import com.storesight.backend.service.ShopService;
-import com.storesight.backend.service.TransactionMonitoringService;
-import java.sql.Connection;
-import java.sql.SQLException;
+import com.storesight.backend.service.SessionSynchronizationService;
+import com.storesight.backend.service.SseService;
+import com.storesight.backend.service.SystemResourceMonitoringService;
 import java.time.LocalDateTime;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
-import javax.sql.DataSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * Health check controller providing comprehensive system health monitoring
+ *
+ * <p>This controller provides various health check endpoints for: - Overall system health -
+ * Individual service health checks - Performance metrics and statistics - Detailed diagnostic
+ * information
+ */
 @RestController
 @RequestMapping("/api/health")
 public class HealthController {
 
   private static final Logger logger = LoggerFactory.getLogger(HealthController.class);
 
-  private final DataSource dataSource;
-  private final JdbcTemplate jdbcTemplate;
-  private final DatabaseMonitoringService databaseMonitoringService;
-
-  @Autowired private StringRedisTemplate redisTemplate;
-  @Autowired private ShopService shopService;
+  @Autowired private MetricsCollectionService metricsCollectionService;
+  @Autowired private DatabaseMonitoringService databaseMonitoringService;
+  @Autowired private SystemResourceMonitoringService systemResourceMonitoringService;
   @Autowired private RedisHealthService redisHealthService;
-  @Autowired private TransactionMonitoringService transactionMonitoringService;
-  @Autowired private ShopSessionRepository shopSessionRepository;
+  @Autowired private SseService sseService;
+  @Autowired private SessionSynchronizationService sessionSynchronizationService;
   @Autowired private DashboardCacheService dashboardCacheService;
-  @Autowired private RedisSessionService redisSessionService; // Add RedisSessionService
+  @Autowired private AlertingService alertingService;
+  @Autowired private MonitoringDashboardService monitoringDashboardService;
+  @Autowired private MonitoringConfigurationService monitoringConfigurationService;
 
-  @Value("${spring.application.name:storesight-backend}")
-  private String applicationName;
+  /**
+   * Basic liveness check - indicates if the application is running
+   *
+   * @return Simple OK response
+   */
+  @GetMapping("/live")
+  public ResponseEntity<Map<String, Object>> liveness() {
+    Map<String, Object> response = new HashMap<>();
+    response.put("status", "UP");
+    response.put("timestamp", LocalDateTime.now());
+    response.put("service", "ShopGauge Backend");
 
-  public HealthController(
-      DataSource dataSource,
-      JdbcTemplate jdbcTemplate,
-      DatabaseMonitoringService databaseMonitoringService) {
-    this.dataSource = dataSource;
-    this.jdbcTemplate = jdbcTemplate;
-    this.databaseMonitoringService = databaseMonitoringService;
+    return ResponseEntity.ok(response);
   }
 
-  @GetMapping("/summary")
-  public ResponseEntity<Map<String, Object>> getHealthSummary() {
-    Map<String, Object> health = new HashMap<>();
-    health.put("application", applicationName);
-    health.put("timestamp", LocalDateTime.now().toString());
-    health.put("status", "healthy");
-
-    // Database health check
-    Map<String, Object> databaseHealth = checkDatabaseHealth();
-    health.put("database", databaseHealth);
-
-    // Redis health check
-    Map<String, Object> redisHealth = checkRedisHealth();
-    health.put("redis", redisHealth);
-
-    // Overall status
-    boolean isHealthy =
-        "healthy".equals(databaseHealth.get("status"))
-            && "healthy".equals(redisHealth.get("status"));
-
-    health.put("status", isHealthy ? "healthy" : "degraded");
-
-    return ResponseEntity.ok(health);
-  }
-
-  @GetMapping("/database")
-  public ResponseEntity<Map<String, Object>> getDatabaseHealth() {
-    Map<String, Object> health = checkDatabaseHealth();
-
-    // Add enhanced monitoring metrics
-    Map<String, Object> monitoringMetrics = databaseMonitoringService.getDatabaseMetrics();
-    health.putAll(monitoringMetrics);
-
-    // Add pool status assessment
-    String poolStatus = databaseMonitoringService.getPoolStatus();
-    health.put("poolStatus", poolStatus);
-
-    // Determine HTTP status based on pool health
-    HttpStatus responseStatus = HttpStatus.OK;
-    if ("CRITICAL".equals(poolStatus)) {
-      responseStatus = HttpStatus.SERVICE_UNAVAILABLE;
-    } else if ("WARNING".equals(poolStatus)) {
-      responseStatus = HttpStatus.OK; // Still operational but warn
-      health.put("warning", "Database pool usage is high - monitor closely");
-    }
-
-    return ResponseEntity.status(responseStatus).body(health);
-  }
-
-  @GetMapping("/database-pool")
-  public ResponseEntity<Map<String, Object>> getDatabasePoolStatus() {
-    Map<String, Object> poolInfo = databaseMonitoringService.getDatabaseMetrics();
-    String poolStatus = databaseMonitoringService.getPoolStatus();
-
-    // Enhanced pool information
-    poolInfo.put("poolStatus", poolStatus);
-    poolInfo.put("timestamp", LocalDateTime.now().toString());
-
-    // Add recommendations based on status
-    if ("CRITICAL".equals(poolStatus)) {
-      poolInfo.put("recommendation", "IMMEDIATE ACTION REQUIRED: Pool exhaustion imminent");
-      poolInfo.put(
-          "actions",
-          List.of(
-              "Check for connection leaks",
-              "Review long-running transactions",
-              "Consider increasing pool size",
-              "Check database performance"));
-      return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(poolInfo);
-    } else if ("WARNING".equals(poolStatus)) {
-      poolInfo.put("recommendation", "Monitor closely - High pool usage detected");
-      poolInfo.put(
-          "actions",
-          List.of(
-              "Monitor active connections",
-              "Check for slow queries",
-              "Review session cleanup effectiveness"));
-    } else {
-      poolInfo.put("recommendation", "Pool operating normally");
-    }
-
-    return ResponseEntity.ok(poolInfo);
-  }
-
-  private Map<String, Object> checkDatabaseHealth() {
-    Map<String, Object> health = new HashMap<>();
-
-    try {
-      // Test connection
-      try (Connection connection = dataSource.getConnection()) {
-        health.put("connection", "healthy");
-        health.put("connection_timeout", connection.getNetworkTimeout());
-      }
-
-      // Test query execution
-      long startTime = System.currentTimeMillis();
-      Integer result = jdbcTemplate.queryForObject("SELECT 1", Integer.class);
-      long queryTime = System.currentTimeMillis() - startTime;
-
-      health.put("query_execution", "healthy");
-      health.put("query_time_ms", queryTime);
-      health.put("test_result", result);
-
-      // Check connection pool stats if using HikariCP
-      if (dataSource instanceof com.zaxxer.hikari.HikariDataSource) {
-        com.zaxxer.hikari.HikariDataSource hikariDS =
-            (com.zaxxer.hikari.HikariDataSource) dataSource;
-        health.put(
-            "pool_active_connections", hikariDS.getHikariPoolMXBean().getActiveConnections());
-        health.put("pool_idle_connections", hikariDS.getHikariPoolMXBean().getIdleConnections());
-        health.put("pool_total_connections", hikariDS.getHikariPoolMXBean().getTotalConnections());
-      }
-
-      health.put("status", "healthy");
-
-    } catch (SQLException e) {
-      logger.error("Database health check failed: {}", e.getMessage(), e);
-      health.put("status", "unhealthy");
-      health.put("error", e.getMessage());
-      health.put("error_type", e.getClass().getSimpleName());
-    } catch (Exception e) {
-      logger.error("Database health check failed with unexpected error: {}", e.getMessage(), e);
-      health.put("status", "unhealthy");
-      health.put("error", e.getMessage());
-      health.put("error_type", e.getClass().getSimpleName());
-    }
-
-    return health;
-  }
-
-  private Map<String, Object> checkRedisHealth() {
-    Map<String, Object> health = new HashMap<>();
-
-    try {
-      // Test Redis connection with a proper read/write test
-      CompletableFuture<Boolean> future =
-          CompletableFuture.supplyAsync(
-              () -> {
-                try {
-                  String testKey = "health_check_" + System.currentTimeMillis();
-                  String testValue = "test_" + System.currentTimeMillis();
-
-                  // Test write
-                  redisTemplate
-                      .opsForValue()
-                      .set(testKey, testValue, java.time.Duration.ofSeconds(10));
-
-                  // Test read
-                  String retrievedValue = redisTemplate.opsForValue().get(testKey);
-
-                  // Clean up
-                  redisTemplate.delete(testKey);
-
-                  // Verify the test
-                  return testValue.equals(retrievedValue);
-                } catch (Exception e) {
-                  throw new RuntimeException(e);
-                }
-              });
-
-      Boolean testResult = future.get(5, TimeUnit.SECONDS);
-      health.put("connection", "healthy");
-      health.put("test_result", testResult ? "PASS" : "FAIL");
-      health.put("status", testResult ? "healthy" : "unhealthy");
-
-    } catch (Exception e) {
-      logger.error("Redis health check failed: {}", e.getMessage(), e);
-      health.put("status", "unhealthy");
-      health.put("error", e.getMessage());
-      health.put("error_type", e.getClass().getSimpleName());
-    }
-
-    return health;
-  }
-
-  @GetMapping("/detailed")
-  public ResponseEntity<Map<String, Object>> getDetailedHealth() {
-    Map<String, Object> health = new HashMap<>();
-    health.put("application", applicationName);
-    health.put("timestamp", LocalDateTime.now().toString());
-
-    // Run all health checks in parallel
-    CompletableFuture<Map<String, Object>> dbHealth =
-        CompletableFuture.supplyAsync(this::checkDatabaseHealth);
-    CompletableFuture<Map<String, Object>> redisHealth =
-        CompletableFuture.supplyAsync(this::checkRedisHealth);
-
-    try {
-      Map<String, Object> databaseHealth = dbHealth.get(10, TimeUnit.SECONDS);
-      Map<String, Object> redisHealthResult = redisHealth.get(10, TimeUnit.SECONDS);
-
-      health.put("database", databaseHealth);
-      health.put("redis", redisHealthResult);
-
-      // Overall status
-      boolean isHealthy =
-          "healthy".equals(databaseHealth.get("status"))
-              && "healthy".equals(redisHealthResult.get("status"));
-
-      health.put("status", isHealthy ? "healthy" : "degraded");
-
-    } catch (Exception e) {
-      logger.error("Detailed health check failed: {}", e.getMessage(), e);
-      health.put("status", "unhealthy");
-      health.put("error", e.getMessage());
-    }
-
-    return ResponseEntity.ok(health);
-  }
-
-  @GetMapping("/readiness")
-  public ResponseEntity<Map<String, Object>> getReadinessProbe() {
-    Map<String, Object> readiness = new HashMap<>();
-    readiness.put("application", applicationName);
-    readiness.put("timestamp", LocalDateTime.now().toString());
-
-    boolean isReady = true;
+  /**
+   * Readiness check - indicates if the application is ready to serve requests
+   *
+   * @return Health status with dependency checks
+   */
+  @GetMapping("/ready")
+  public ResponseEntity<Map<String, Object>> readiness() {
+    Map<String, Object> response = new HashMap<>();
     Map<String, String> checks = new HashMap<>();
+    boolean allHealthy = true;
 
     try {
-      // Check database readiness
-      jdbcTemplate.queryForObject("SELECT 1", Integer.class);
-      checks.put("database", "ready");
-    } catch (Exception e) {
-      logger.warn("Database not ready: {}", e.getMessage());
-      checks.put("database", "not_ready");
-      isReady = false;
-    }
-
-    try {
-      // Check Redis readiness
-      redisTemplate.opsForValue().get("readiness_check");
-      checks.put("redis", "ready");
-    } catch (Exception e) {
-      logger.warn("Redis not ready: {}", e.getMessage());
-      checks.put("redis", "not_ready");
-      isReady = false;
-    }
-
-    try {
-      // Check if ShopService is initialized
-      if (shopService != null) {
-        checks.put("shopService", "ready");
-      } else {
-        checks.put("shopService", "not_ready");
-        isReady = false;
-      }
-    } catch (Exception e) {
-      logger.warn("ShopService not ready: {}", e.getMessage());
-      checks.put("shopService", "not_ready");
-      isReady = false;
-    }
-
-    readiness.put("status", isReady ? "ready" : "not_ready");
-    readiness.put("ready", isReady);
-    readiness.put("checks", checks);
-
-    HttpStatus status = isReady ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE;
-    return ResponseEntity.status(status).body(readiness);
-  }
-
-  @GetMapping("/database-metrics")
-  public Map<String, Object> getDatabaseMetrics() {
-    return databaseMonitoringService.getDatabaseMetrics();
-  }
-
-  /** Get cache statistics */
-  @GetMapping("/cache-statistics")
-  public ResponseEntity<Map<String, Object>> getCacheStatistics() {
-    try {
-      Map<String, Object> cacheStats = dashboardCacheService.getCacheStatistics();
-      return ResponseEntity.ok(cacheStats);
-    } catch (Exception e) {
-      logger.error("Failed to get cache statistics: {}", e.getMessage(), e);
-      Map<String, Object> error = new HashMap<>();
-      error.put("error", e.getMessage());
-      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
-    }
-  }
-
-  /** Enhanced session health check with performance comparison */
-  @GetMapping("/sessions")
-  public ResponseEntity<Map<String, Object>> getSessionHealth() {
-    Map<String, Object> health = new HashMap<>();
-
-    try {
-      // Session statistics
-      Map<String, Object> sessionStats = new HashMap<>();
-
-      // Get sample of active sessions (limit to avoid performance issues)
-      List<String> sampleShops = List.of("sample.myshopify.com"); // This should be parameterized
-
-      int totalActiveSessions = 0;
-      int shopsWithMultipleSessions = 0;
-      int expiredSessions = 0;
-      int staleSessions = 0;
-
-      try {
-        // Count only active sessions across all shops
-        totalActiveSessions =
-            shopSessionRepository.findAll().stream()
-                .filter(session -> session.getIsActive() && !session.isExpired())
-                .collect(Collectors.toList())
-                .size();
-
-        // Count expired sessions
-        expiredSessions = shopSessionRepository.findExpiredSessions().size();
-
-        // Count stale sessions (not accessed for > 2 hours)
-        LocalDateTime staleThreshold = LocalDateTime.now().minusHours(2);
-        staleSessions = shopSessionRepository.findInactiveSessionsOlderThan(staleThreshold).size();
-
-        logger.debug(
-            "Session health check: total={}, expired={}, stale={}",
-            totalActiveSessions,
-            expiredSessions,
-            staleSessions);
-
-      } catch (Exception e) {
-        logger.warn("Failed to get session statistics: {}", e.getMessage());
-        sessionStats.put("error", "Failed to retrieve session statistics");
+      // Check database health
+      Map<String, Object> dbHealth = databaseMonitoringService.performHealthCheck();
+      String dbStatus = (String) dbHealth.get("overallStatus");
+      checks.put("database", dbStatus);
+      if (!"HEALTHY".equals(dbStatus)) {
+        allHealthy = false;
       }
 
-      sessionStats.put("totalActiveSessions", totalActiveSessions);
-      sessionStats.put("expiredSessions", expiredSessions);
-      sessionStats.put("staleSessions", staleSessions);
-      sessionStats.put("shopsWithMultipleSessions", shopsWithMultipleSessions);
-      sessionStats.put("maxSessionsPerShop", 5);
-      sessionStats.put("sessionCleanupIntervalHours", 1);
-      sessionStats.put("sessionInactivityHours", 4);
+      // Check Redis health
+      boolean redisHealthy = redisHealthService.isRedisHealthy();
+      checks.put("redis", redisHealthy ? "HEALTHY" : "UNHEALTHY");
+      if (!redisHealthy) {
+        allHealthy = false;
+      }
 
-      health.put("sessionStats", sessionStats);
+      // Check system resources
+      Map<String, String> systemHealth = systemResourceMonitoringService.getHealthIndicators();
+      checks.putAll(systemHealth);
 
-      // Session cleanup metrics
-      Map<String, Object> cleanupMetrics = new HashMap<>();
-      cleanupMetrics.put("expiredSessionCleanupEnabled", true);
-      cleanupMetrics.put("staleSessionCleanupEnabled", true);
-      cleanupMetrics.put("cleanupIntervalHours", 1);
-      cleanupMetrics.put("staleThresholdHours", 2);
-
-      health.put("cleanupMetrics", cleanupMetrics);
-
-      // Session configuration health
-      Map<String, Object> configHealth = new HashMap<>();
-      configHealth.put("sessionInvalidationFixed", true);
-      configHealth.put("asyncProcessingConfigured", true);
-      configHealth.put("raceConditionsPrevented", true);
-      configHealth.put("errorHandlingImproved", true);
-
-      health.put("sessionConfigHealth", configHealth);
-
-      // Redis-first performance comparison
-      Map<String, Object> performanceMetrics = new HashMap<>();
-      try {
-        // Get a sample shop for performance testing (use first available shop)
-        List<String> availableShops =
-            shopSessionRepository.findAll().stream()
-                .map(session -> session.getShop().getShopifyDomain())
-                .distinct()
-                .limit(1)
-                .collect(Collectors.toList());
-
-        if (!availableShops.isEmpty()) {
-          String testShop = availableShops.get(0);
-
-          // Test Redis-first approach
-          long redisStart = System.currentTimeMillis();
-          List<RedisSessionService.SessionData> redisSessions =
-              redisSessionService.getActiveSessionsForShop(testShop);
-          long redisTime = System.currentTimeMillis() - redisStart;
-
-          // Test Database-first approach (original method)
-          long dbStart = System.currentTimeMillis();
-          List<ShopSession> dbSessions = shopService.getActiveSessionsForShop(testShop);
-          long dbTime = System.currentTimeMillis() - dbStart;
-
-          performanceMetrics.put(
-              "redisFirst",
-              Map.of(
-                  "timeMs",
-                  redisTime,
-                  "sessionCount",
-                  redisSessions.size(),
-                  "approach",
-                  "Redis-first"));
-
-          performanceMetrics.put(
-              "databaseFirst",
-              Map.of(
-                  "timeMs",
-                  dbTime,
-                  "sessionCount",
-                  dbSessions.size(),
-                  "approach",
-                  "Database-first"));
-
-          performanceMetrics.put(
-              "performanceImprovement",
-              Map.of(
-                  "fasterByMs",
-                  dbTime - redisTime,
-                  "percentageFaster",
-                  dbTime > 0 ? ((double) (dbTime - redisTime) / dbTime) * 100 : 0,
-                  "testShop",
-                  testShop));
-
-          // Redis statistics
-          Map<String, Object> redisStats = redisSessionService.getSessionStatistics();
-          performanceMetrics.put("redisStats", redisStats);
-
-          logger.info(
-              "Performance comparison for shop {}: Redis-first {}ms, Database-first {}ms",
-              testShop,
-              redisTime,
-              dbTime);
-        } else {
-          performanceMetrics.put("note", "No shops available for performance testing");
+      // Check if any system resource is critical
+      for (String status : systemHealth.values()) {
+        if ("CRITICAL".equals(status) || "ERROR".equals(status)) {
+          allHealthy = false;
+          break;
         }
-      } catch (Exception e) {
-        logger.warn("Failed to perform performance comparison: {}", e.getMessage());
-        performanceMetrics.put("error", "Performance comparison failed: " + e.getMessage());
       }
 
-      health.put("performanceMetrics", performanceMetrics);
+      response.put("status", allHealthy ? "UP" : "DOWN");
+      response.put("checks", checks);
+      response.put("timestamp", LocalDateTime.now());
 
-      // Overall session health status
-      String status = "healthy";
-      if (expiredSessions > 50) {
-        status = "warning";
-      }
-      if (staleSessions > 100) {
-        status = "degraded";
-      }
-
-      health.put("status", status);
-      health.put("timestamp", System.currentTimeMillis());
-
-      return ResponseEntity.ok(health);
+      return ResponseEntity.status(allHealthy ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE)
+          .body(response);
 
     } catch (Exception e) {
-      logger.error("Session health check failed: {}", e.getMessage(), e);
-      health.put("status", "unhealthy");
-      health.put("error", e.getMessage());
-      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(health);
+      logger.error("Error during readiness check: {}", e.getMessage());
+      response.put("status", "DOWN");
+      response.put("error", e.getMessage());
+      response.put("timestamp", LocalDateTime.now());
+
+      return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(response);
     }
   }
 
-  /** Dedicated performance comparison endpoint for detailed analysis */
-  @GetMapping("/sessions/performance")
-  public ResponseEntity<Map<String, Object>> getSessionPerformanceComparison() {
+  /**
+   * Comprehensive health check with detailed information
+   *
+   * @return Detailed health status of all components
+   */
+  @GetMapping
+  public ResponseEntity<Map<String, Object>> health() {
     Map<String, Object> response = new HashMap<>();
 
     try {
-      // Get available shops for testing
-      List<String> availableShops =
-          shopSessionRepository.findAll().stream()
-              .map(session -> session.getShop().getShopifyDomain())
-              .distinct()
-              .limit(3) // Test with up to 3 shops
-              .collect(Collectors.toList());
+      // Overall status tracking
+      boolean overallHealthy = true;
+      Map<String, Object> components = new HashMap<>();
 
-      if (availableShops.isEmpty()) {
-        response.put("error", "No shops available for performance testing");
-        response.put("success", false);
-        return ResponseEntity.ok(response);
-      }
-
-      Map<String, Object> comparisonResults = new HashMap<>();
-      Map<String, Object> summary = new HashMap<>();
-
-      long totalRedisTime = 0;
-      long totalDbTime = 0;
-      int testCount = 0;
-
-      for (String shop : availableShops) {
-        try {
-          // Test Redis-first approach
-          long redisStart = System.currentTimeMillis();
-          List<RedisSessionService.SessionData> redisSessions =
-              redisSessionService.getActiveSessionsForShop(shop);
-          long redisTime = System.currentTimeMillis() - redisStart;
-
-          // Test Database-first approach
-          long dbStart = System.currentTimeMillis();
-          List<ShopSession> dbSessions = shopService.getActiveSessionsForShop(shop);
-          long dbTime = System.currentTimeMillis() - dbStart;
-
-          Map<String, Object> shopResult =
-              Map.of(
-                  "shop", shop,
-                  "redisFirst",
-                      Map.of(
-                          "timeMs",
-                          redisTime,
-                          "sessionCount",
-                          redisSessions.size(),
-                          "approach",
-                          "Redis-first"),
-                  "databaseFirst",
-                      Map.of(
-                          "timeMs",
-                          dbTime,
-                          "sessionCount",
-                          dbSessions.size(),
-                          "approach",
-                          "Database-first"),
-                  "improvement",
-                      Map.of(
-                          "fasterByMs",
-                          dbTime - redisTime,
-                          "percentageFaster",
-                          dbTime > 0 ? ((double) (dbTime - redisTime) / dbTime) * 100 : 0));
-
-          comparisonResults.put(shop, shopResult);
-          totalRedisTime += redisTime;
-          totalDbTime += dbTime;
-          testCount++;
-
-          logger.debug(
-              "Performance test for shop {}: Redis {}ms, DB {}ms", shop, redisTime, dbTime);
-
-        } catch (Exception e) {
-          logger.warn("Performance test failed for shop {}: {}", shop, e.getMessage());
-          comparisonResults.put(
-              shop, Map.of("error", "Performance test failed: " + e.getMessage()));
-        }
-      }
-
-      // Calculate summary statistics
-      if (testCount > 0) {
-        double avgRedisTime = (double) totalRedisTime / testCount;
-        double avgDbTime = (double) totalDbTime / testCount;
-        double avgImprovement = avgDbTime > 0 ? ((avgDbTime - avgRedisTime) / avgDbTime) * 100 : 0;
-
-        summary.put("totalTests", testCount);
-        summary.put("averageRedisTimeMs", Math.round(avgRedisTime * 100.0) / 100.0);
-        summary.put("averageDatabaseTimeMs", Math.round(avgDbTime * 100.0) / 100.0);
-        summary.put("averageImprovementPercent", Math.round(avgImprovement * 100.0) / 100.0);
-        summary.put("totalTimeSavedMs", totalDbTime - totalRedisTime);
-      }
-
-      // Get Redis statistics
-      Map<String, Object> redisStats = redisSessionService.getSessionStatistics();
-
-      response.put("comparisonResults", comparisonResults);
-      response.put("summary", summary);
-      response.put("redisStats", redisStats);
-      response.put("success", true);
-      response.put("timestamp", System.currentTimeMillis());
-
-      logger.info(
-          "Performance comparison completed: {} tests, avg Redis {}ms, avg DB {}ms",
-          testCount,
-          summary.get("averageRedisTimeMs"),
-          summary.get("averageDatabaseTimeMs"));
-
-      return ResponseEntity.ok(response);
-
-    } catch (Exception e) {
-      logger.error("Performance comparison failed: {}", e.getMessage(), e);
-      response.put("error", "Performance comparison failed: " + e.getMessage());
-      response.put("success", false);
-      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
-    }
-  }
-
-  /** Redis health check endpoint */
-  @GetMapping("/redis")
-  public ResponseEntity<Map<String, Object>> getRedisHealth() {
-    try {
-      Map<String, Object> redisHealth = redisHealthService.getRedisHealthMetrics();
-
-      if (redisHealthService.isRedisHealthy()) {
-        return ResponseEntity.ok(redisHealth);
-      } else {
-        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(redisHealth);
-      }
-    } catch (Exception e) {
-      logger.error("Redis health check failed: {}", e.getMessage(), e);
-      Map<String, Object> errorHealth = new HashMap<>();
-      errorHealth.put("healthy", false);
-      errorHealth.put("error", e.getMessage());
-      errorHealth.put("timestamp", System.currentTimeMillis());
-      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorHealth);
-    }
-  }
-
-  /** Comprehensive system health check */
-  @GetMapping("/system")
-  public ResponseEntity<Map<String, Object>> getSystemHealth() {
-    Map<String, Object> systemHealth = new HashMap<>();
-    boolean overallHealthy = true;
-
-    try {
       // Database health
-      Map<String, Object> dbHealth = checkDatabaseHealth();
-      systemHealth.put("database", dbHealth);
-      if (!"healthy".equals(dbHealth.get("status"))) {
-        overallHealthy = false;
-      }
-
-      // Database pool metrics
-      Map<String, Object> poolMetrics = databaseMonitoringService.getDatabaseMetrics();
-      systemHealth.put("connectionPool", poolMetrics);
-      String poolStatus = databaseMonitoringService.getPoolStatus();
-      if ("CRITICAL".equals(poolStatus)) {
+      Map<String, Object> databaseHealth = databaseMonitoringService.performHealthCheck();
+      components.put("database", databaseHealth);
+      if (!"HEALTHY".equals(databaseHealth.get("overallStatus"))) {
         overallHealthy = false;
       }
 
       // Redis health
       Map<String, Object> redisHealth = redisHealthService.getRedisHealthMetrics();
-      systemHealth.put("redis", redisHealth);
+      components.put("redis", redisHealth);
       if (!redisHealthService.isRedisHealthy()) {
         overallHealthy = false;
       }
 
-      // Session health summary
-      Map<String, Object> sessionSummary = new HashMap<>();
-      sessionSummary.put("heartbeatEnabled", true);
-      sessionSummary.put("cleanupEnabled", true);
-      sessionSummary.put("maxSessionsPerShop", 5);
-      systemHealth.put("sessions", sessionSummary);
+      // System resources health
+      Map<String, Object> systemHealth =
+          systemResourceMonitoringService.getSystemResourceStatistics();
+      components.put("systemResources", systemHealth);
 
-      // Overall status
-      systemHealth.put("overallStatus", overallHealthy ? "healthy" : "degraded");
-      systemHealth.put("timestamp", System.currentTimeMillis());
+      // Check system resource alerts
+      @SuppressWarnings("unchecked")
+      Map<String, Object> cpuStats = (Map<String, Object>) systemHealth.get("cpu");
+      @SuppressWarnings("unchecked")
+      Map<String, Object> memoryStats = (Map<String, Object>) systemHealth.get("memory");
+      @SuppressWarnings("unchecked")
+      Map<String, Object> diskStats = (Map<String, Object>) systemHealth.get("disk");
 
-      if (overallHealthy) {
-        return ResponseEntity.ok(systemHealth);
-      } else {
-        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(systemHealth);
+      if ("CRITICAL".equals(cpuStats.get("alert"))
+          || "CRITICAL".equals(memoryStats.get("alert"))
+          || "CRITICAL".equals(diskStats.get("alert"))) {
+        overallHealthy = false;
       }
 
+      // SSE Service health
+      Map<String, Object> sseHealth = getSseServiceHealth();
+      components.put("sseService", sseHealth);
+
+      // Application metrics health
+      Map<String, String> metricsHealth = metricsCollectionService.getHealthIndicators();
+      components.put("applicationMetrics", metricsHealth);
+
+      // Check metrics health
+      for (String status : metricsHealth.values()) {
+        if ("CRITICAL".equals(status)) {
+          overallHealthy = false;
+          break;
+        }
+      }
+
+      response.put("status", overallHealthy ? "UP" : "DOWN");
+      response.put("components", components);
+      response.put("timestamp", LocalDateTime.now());
+
+      return ResponseEntity.status(overallHealthy ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE)
+          .body(response);
+
     } catch (Exception e) {
-      logger.error("System health check failed: {}", e.getMessage(), e);
-      systemHealth.put("overallStatus", "error");
-      systemHealth.put("error", e.getMessage());
-      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(systemHealth);
+      logger.error("Error during comprehensive health check: {}", e.getMessage());
+      response.put("status", "DOWN");
+      response.put("error", e.getMessage());
+      response.put("timestamp", LocalDateTime.now());
+
+      return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(response);
     }
   }
 
-  /** Force Redis health check (for testing) */
-  @PostMapping("/redis/check")
-  public ResponseEntity<Map<String, Object>> forceRedisHealthCheck() {
+  /**
+   * Get application performance metrics
+   *
+   * @return Comprehensive metrics summary
+   */
+  @GetMapping("/metrics")
+  public ResponseEntity<Map<String, Object>> metrics() {
     try {
+      Map<String, Object> response = new HashMap<>();
+
+      // Application metrics
+      Map<String, Object> appMetrics = metricsCollectionService.getMetricsSummary();
+      response.put("application", appMetrics);
+
+      // Database metrics
+      Map<String, Object> dbMetrics = databaseMonitoringService.getDatabaseStatistics();
+      response.put("database", dbMetrics);
+
+      // System resource metrics
+      Map<String, Object> systemMetrics =
+          systemResourceMonitoringService.getSystemResourceStatistics();
+      response.put("system", systemMetrics);
+
+      // Redis metrics
+      Map<String, Object> redisMetrics = redisHealthService.getRedisHealthMetrics();
+      response.put("redis", redisMetrics);
+
+      response.put("timestamp", LocalDateTime.now());
+
+      return ResponseEntity.ok(response);
+
+    } catch (Exception e) {
+      logger.error("Error retrieving metrics: {}", e.getMessage());
+      Map<String, Object> errorResponse = new HashMap<>();
+      errorResponse.put("error", e.getMessage());
+      errorResponse.put("timestamp", LocalDateTime.now());
+
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+    }
+  }
+
+  /**
+   * Get database-specific health information
+   *
+   * @return Database health and performance metrics
+   */
+  @GetMapping("/database")
+  public ResponseEntity<Map<String, Object>> databaseHealth() {
+    try {
+      Map<String, Object> response = new HashMap<>();
+
+      // Health check
+      Map<String, Object> healthCheck = databaseMonitoringService.performHealthCheck();
+      response.put("health", healthCheck);
+
+      // Performance statistics
+      Map<String, Object> statistics = databaseMonitoringService.getDatabaseStatistics();
+      response.put("statistics", statistics);
+
+      // Health indicators
+      Map<String, String> indicators = databaseMonitoringService.getHealthIndicators();
+      response.put("indicators", indicators);
+
+      response.put("timestamp", LocalDateTime.now());
+
+      boolean healthy = "HEALTHY".equals(healthCheck.get("overallStatus"));
+      return ResponseEntity.status(healthy ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE)
+          .body(response);
+
+    } catch (Exception e) {
+      logger.error("Error retrieving database health: {}", e.getMessage());
+      Map<String, Object> errorResponse = new HashMap<>();
+      errorResponse.put("error", e.getMessage());
+      errorResponse.put("timestamp", LocalDateTime.now());
+
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+    }
+  }
+
+  /**
+   * Get Redis-specific health information
+   *
+   * @return Redis health and connection metrics
+   */
+  @GetMapping("/redis")
+  public ResponseEntity<Map<String, Object>> redisHealth() {
+    try {
+      Map<String, Object> response = redisHealthService.getRedisHealthMetrics();
+      response.put("timestamp", LocalDateTime.now());
+
+      boolean healthy = redisHealthService.isRedisHealthy();
+      return ResponseEntity.status(healthy ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE)
+          .body(response);
+
+    } catch (Exception e) {
+      logger.error("Error retrieving Redis health: {}", e.getMessage());
+      Map<String, Object> errorResponse = new HashMap<>();
+      errorResponse.put("error", e.getMessage());
+      errorResponse.put("healthy", false);
+      errorResponse.put("timestamp", LocalDateTime.now());
+
+      return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(errorResponse);
+    }
+  }
+
+  /**
+   * Get system resource health information
+   *
+   * @return System resource usage and health metrics
+   */
+  @GetMapping("/system")
+  public ResponseEntity<Map<String, Object>> systemHealth() {
+    try {
+      Map<String, Object> response = systemResourceMonitoringService.getSystemResourceStatistics();
+
+      // Add health indicators
+      Map<String, String> indicators = systemResourceMonitoringService.getHealthIndicators();
+      response.put("healthIndicators", indicators);
+
+      // Determine overall system health
+      boolean systemHealthy =
+          indicators.values().stream()
+              .noneMatch(status -> "CRITICAL".equals(status) || "ERROR".equals(status));
+
+      response.put("overallStatus", systemHealthy ? "HEALTHY" : "UNHEALTHY");
+
+      return ResponseEntity.status(systemHealthy ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE)
+          .body(response);
+
+    } catch (Exception e) {
+      logger.error("Error retrieving system health: {}", e.getMessage());
+      Map<String, Object> errorResponse = new HashMap<>();
+      errorResponse.put("error", e.getMessage());
+      errorResponse.put("overallStatus", "ERROR");
+      errorResponse.put("timestamp", LocalDateTime.now());
+
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+    }
+  }
+
+  /**
+   * Force health checks on all services
+   *
+   * @return Results of forced health checks
+   */
+  @GetMapping("/check")
+  public ResponseEntity<Map<String, Object>> forceHealthCheck() {
+    try {
+      Map<String, Object> response = new HashMap<>();
+
+      // Force Redis health check
       redisHealthService.forceHealthCheck();
-      Map<String, Object> result = new HashMap<>();
-      result.put("message", "Redis health check forced");
-      result.put("newStatus", redisHealthService.isRedisHealthy());
-      result.put("timestamp", System.currentTimeMillis());
-      return ResponseEntity.ok(result);
-    } catch (Exception e) {
-      logger.error("Force Redis health check failed: {}", e.getMessage(), e);
-      Map<String, Object> error = new HashMap<>();
-      error.put("error", e.getMessage());
-      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
-    }
-  }
+      response.put("redis", "Health check triggered");
 
-  /** Transaction monitoring health check */
-  @GetMapping("/transactions")
-  public ResponseEntity<Map<String, Object>> getTransactionHealth() {
-    try {
-      Map<String, Object> transactionHealth = transactionMonitoringService.getHealthMetrics();
-      Map<String, Object> alerts = transactionMonitoringService.getCriticalAlerts();
+      // Force database health check
+      Map<String, Object> dbHealth = databaseMonitoringService.performHealthCheck();
+      response.put("database", dbHealth.get("overallStatus"));
 
-      transactionHealth.put("alerts", alerts);
-      transactionHealth.put("isHealthy", transactionMonitoringService.isHealthy());
+      // Get current system status
+      Map<String, String> systemHealth = systemResourceMonitoringService.getHealthIndicators();
+      response.put("system", systemHealth);
 
-      // Determine response status based on health
-      if (!transactionMonitoringService.isHealthy() || !alerts.isEmpty()) {
-        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(transactionHealth);
-      }
-
-      return ResponseEntity.ok(transactionHealth);
-    } catch (Exception e) {
-      logger.error("Transaction health check failed: {}", e.getMessage(), e);
-      Map<String, Object> error = new HashMap<>();
-      error.put("error", e.getMessage());
-      error.put("healthy", false);
-      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
-    }
-  }
-
-  /** Transaction monitoring metrics endpoint */
-  @GetMapping("/metrics/transactions")
-  public ResponseEntity<Map<String, Object>> getTransactionMetrics() {
-    try {
-      Map<String, Object> metrics = transactionMonitoringService.getHealthMetrics();
-      return ResponseEntity.ok(metrics);
-    } catch (Exception e) {
-      logger.error("Failed to get transaction metrics: {}", e.getMessage(), e);
-      Map<String, Object> error = new HashMap<>();
-      error.put("error", e.getMessage());
-      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
-    }
-  }
-
-  /** Transaction alerts endpoint */
-  @GetMapping("/alerts/transactions")
-  public ResponseEntity<Map<String, Object>> getTransactionAlerts() {
-    try {
-      Map<String, Object> alerts = transactionMonitoringService.getCriticalAlerts();
-
-      Map<String, Object> response = new HashMap<>();
-      response.put("alerts", alerts);
-      response.put("alertCount", alerts.size());
-      response.put("hasAlerts", !alerts.isEmpty());
+      response.put("message", "Health checks completed");
       response.put("timestamp", LocalDateTime.now());
 
       return ResponseEntity.ok(response);
+
     } catch (Exception e) {
-      logger.error("Failed to get transaction alerts: {}", e.getMessage(), e);
-      Map<String, Object> error = new HashMap<>();
-      error.put("error", e.getMessage());
-      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+      logger.error("Error during forced health check: {}", e.getMessage());
+      Map<String, Object> errorResponse = new HashMap<>();
+      errorResponse.put("error", e.getMessage());
+      errorResponse.put("timestamp", LocalDateTime.now());
+
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
     }
   }
 
-  /** Reset transaction monitoring metrics (for testing/maintenance) */
-  @PostMapping("/metrics/transactions/reset")
-  public ResponseEntity<Map<String, Object>> resetTransactionMetrics() {
+  /**
+   * Get SSE service health information
+   *
+   * @return SSE service health and connection metrics
+   */
+  @GetMapping("/sse")
+  public ResponseEntity<Map<String, Object>> sseHealth() {
     try {
-      transactionMonitoringService.resetMetrics();
-
       Map<String, Object> response = new HashMap<>();
-      response.put("message", "Transaction metrics reset successfully");
+
+      // Get SSE service statistics
+      Map<String, Object> sseStats = sseService.getStatistics();
+      response.put("statistics", sseStats);
+
+      // Determine SSE service health based on statistics
+      @SuppressWarnings("unchecked")
+      Map<String, Object> health = (Map<String, Object>) sseStats.get("health");
+      String healthStatus = (String) health.get("status");
+
+      response.put("overallStatus", healthStatus);
+      response.put("timestamp", LocalDateTime.now());
+
+      boolean healthy = "HEALTHY".equals(healthStatus);
+      return ResponseEntity.status(healthy ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE)
+          .body(response);
+
+    } catch (Exception e) {
+      logger.error("Error retrieving SSE service health: {}", e.getMessage());
+      Map<String, Object> errorResponse = new HashMap<>();
+      errorResponse.put("error", e.getMessage());
+      errorResponse.put("overallStatus", "ERROR");
+      errorResponse.put("timestamp", LocalDateTime.now());
+
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+    }
+  }
+
+  /**
+   * Get session management health information
+   *
+   * @return Session synchronization service health and metrics
+   */
+  @GetMapping("/sessions")
+  public ResponseEntity<Map<String, Object>> sessionHealth() {
+    try {
+      Map<String, Object> response = new HashMap<>();
+
+      // Get session synchronization metrics
+      SessionSynchronizationService.SessionSynchronizationMetrics metrics =
+          sessionSynchronizationService.getMetrics();
+      response.put("metrics", metrics);
+
+      // Get lock statistics
+      SessionSynchronizationService.SessionLockStatistics lockStats =
+          sessionSynchronizationService.getLockStatistics();
+      response.put("lockStatistics", lockStats);
+
+      // Determine session health based on metrics
+      String healthStatus = "HEALTHY";
+      Map<String, String> healthIndicators = new HashMap<>();
+
+      // Check lock failure rate
+      long totalLocks = metrics.getTotalLockAcquisitions();
+      if (totalLocks > 0) {
+        double failureRate = (double) metrics.getTotalLockFailures() / totalLocks * 100;
+        if (failureRate > 10) {
+          healthStatus = "WARNING";
+          healthIndicators.put("lockFailureRate", "HIGH");
+        } else {
+          healthIndicators.put("lockFailureRate", "NORMAL");
+        }
+      }
+
+      // Check for stuck sessions
+      if (metrics.getTotalStuckSessionsCleared() > 0) {
+        healthIndicators.put("stuckSessions", "DETECTED");
+        if ("HEALTHY".equals(healthStatus)) {
+          healthStatus = "WARNING";
+        }
+      } else {
+        healthIndicators.put("stuckSessions", "NONE");
+      }
+
+      // Check Redis operation failures
+      if (metrics.getTotalRedisOperationFailures() > 0) {
+        healthIndicators.put("redisOperations", "FAILURES_DETECTED");
+        healthStatus = "WARNING";
+      } else {
+        healthIndicators.put("redisOperations", "HEALTHY");
+      }
+
+      response.put("overallStatus", healthStatus);
+      response.put("healthIndicators", healthIndicators);
+      response.put("timestamp", LocalDateTime.now());
+
+      boolean healthy = "HEALTHY".equals(healthStatus);
+      return ResponseEntity.status(healthy ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE)
+          .body(response);
+
+    } catch (Exception e) {
+      logger.error("Error retrieving session health: {}", e.getMessage());
+      Map<String, Object> errorResponse = new HashMap<>();
+      errorResponse.put("error", e.getMessage());
+      errorResponse.put("overallStatus", "ERROR");
+      errorResponse.put("timestamp", LocalDateTime.now());
+
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+    }
+  }
+
+  /**
+   * Get cache service health information
+   *
+   * @return Dashboard cache service health and performance metrics
+   */
+  @GetMapping("/cache")
+  public ResponseEntity<Map<String, Object>> cacheHealth() {
+    try {
+      Map<String, Object> response = new HashMap<>();
+
+      // Get cache statistics
+      Map<String, Object> cacheStats = dashboardCacheService.getCacheStatistics();
+      response.put("statistics", cacheStats);
+
+      // Determine cache health based on statistics
+      String healthStatus = "HEALTHY";
+      Map<String, String> healthIndicators = new HashMap<>();
+
+      // Check hit rate
+      Double hitRate = (Double) cacheStats.get("hitRate");
+      if (hitRate != null) {
+        if (hitRate < 50) {
+          healthStatus = "WARNING";
+          healthIndicators.put("hitRate", "LOW");
+        } else if (hitRate < 30) {
+          healthStatus = "CRITICAL";
+          healthIndicators.put("hitRate", "VERY_LOW");
+        } else {
+          healthIndicators.put("hitRate", "GOOD");
+        }
+      }
+
+      // Check eviction rate
+      Long evictions = (Long) cacheStats.get("evictions");
+      Long total = (Long) cacheStats.get("total");
+      if (evictions != null && total != null && total > 0) {
+        double evictionRate = (double) evictions / total * 100;
+        if (evictionRate > 20) {
+          healthIndicators.put("evictionRate", "HIGH");
+          if ("HEALTHY".equals(healthStatus)) {
+            healthStatus = "WARNING";
+          }
+        } else {
+          healthIndicators.put("evictionRate", "NORMAL");
+        }
+      }
+
+      response.put("overallStatus", healthStatus);
+      response.put("healthIndicators", healthIndicators);
+      response.put("timestamp", LocalDateTime.now());
+
+      boolean healthy = "HEALTHY".equals(healthStatus);
+      return ResponseEntity.status(healthy ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE)
+          .body(response);
+
+    } catch (Exception e) {
+      logger.error("Error retrieving cache health: {}", e.getMessage());
+      Map<String, Object> errorResponse = new HashMap<>();
+      errorResponse.put("error", e.getMessage());
+      errorResponse.put("overallStatus", "ERROR");
+      errorResponse.put("timestamp", LocalDateTime.now());
+
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+    }
+  }
+
+  /**
+   * Get comprehensive application performance metrics
+   *
+   * @return Detailed performance metrics for all services
+   */
+  @GetMapping("/performance")
+  public ResponseEntity<Map<String, Object>> performanceMetrics() {
+    try {
+      Map<String, Object> response = new HashMap<>();
+
+      // Session performance metrics
+      SessionSynchronizationService.SessionSynchronizationMetrics sessionMetrics =
+          sessionSynchronizationService.getMetrics();
+      response.put("sessionManagement", sessionMetrics);
+
+      // SSE performance metrics
+      Map<String, Object> sseMetrics = sseService.getStatistics();
+      response.put("sseService", sseMetrics);
+
+      // Cache performance metrics
+      Map<String, Object> cacheMetrics = dashboardCacheService.getCacheStatistics();
+      response.put("cacheService", cacheMetrics);
+
+      // Application metrics summary
+      Map<String, Object> appMetrics = metricsCollectionService.getMetricsSummary();
+      response.put("applicationMetrics", appMetrics);
+
+      // Performance health indicators
+      Map<String, String> healthIndicators = metricsCollectionService.getHealthIndicators();
+      response.put("healthIndicators", healthIndicators);
+
       response.put("timestamp", LocalDateTime.now());
 
       return ResponseEntity.ok(response);
+
     } catch (Exception e) {
-      logger.error("Failed to reset transaction metrics: {}", e.getMessage(), e);
-      Map<String, Object> error = new HashMap<>();
-      error.put("error", e.getMessage());
-      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+      logger.error("Error retrieving performance metrics: {}", e.getMessage());
+      Map<String, Object> errorResponse = new HashMap<>();
+      errorResponse.put("error", e.getMessage());
+      errorResponse.put("timestamp", LocalDateTime.now());
+
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
     }
   }
 
-  @GetMapping("/connection-leak-status")
-  public ResponseEntity<Map<String, Object>> getConnectionLeakStatus() {
-    Map<String, Object> status = new HashMap<>();
-
+  /**
+   * Get alerting system information
+   *
+   * @return Current alerts and alerting statistics
+   */
+  @GetMapping("/alerts")
+  public ResponseEntity<Map<String, Object>> alertsStatus() {
     try {
-      // Get comprehensive database metrics
-      Map<String, Object> metrics = databaseMonitoringService.getDatabaseMetrics();
-      status.put("metrics", metrics);
+      Map<String, Object> response = new HashMap<>();
 
-      // Check if emergency cleanup is needed
-      boolean emergencyNeeded = databaseMonitoringService.isEmergencyCleanupNeeded();
-      status.put("emergencyCleanupNeeded", emergencyNeeded);
+      // Get alert statistics
+      Map<String, Object> alertStats = alertingService.getAlertStatistics();
+      response.put("statistics", alertStats);
 
-      // Get pool status
-      String poolStatus = databaseMonitoringService.getPoolStatus();
-      status.put("poolStatus", poolStatus);
+      // Get alert configuration
+      Map<String, Object> alertConfig = alertingService.getAlertConfiguration();
+      response.put("configuration", alertConfig);
 
-      // Add connection leak detection info
-      if (dataSource instanceof com.zaxxer.hikari.HikariDataSource) {
-        com.zaxxer.hikari.HikariDataSource hikariDS =
-            (com.zaxxer.hikari.HikariDataSource) dataSource;
+      response.put("timestamp", LocalDateTime.now());
 
-        // Check for potential leaks
-        int activeConnections = hikariDS.getHikariPoolMXBean().getActiveConnections();
-        int maxPoolSize = hikariDS.getMaximumPoolSize();
-        double usageRatio = (double) activeConnections / maxPoolSize;
-
-        status.put(
-            "connectionLeakRisk", usageRatio > 0.8 ? "HIGH" : usageRatio > 0.6 ? "MEDIUM" : "LOW");
-        status.put("leakDetectionThreshold", hikariDS.getLeakDetectionThreshold());
-
-        // Add HikariCP specific metrics
-        status.put(
-            "hikariMetrics",
-            Map.of(
-                "activeConnections", activeConnections,
-                "idleConnections", hikariDS.getHikariPoolMXBean().getIdleConnections(),
-                "totalConnections", hikariDS.getHikariPoolMXBean().getTotalConnections(),
-                "threadsAwaitingConnection",
-                    hikariDS.getHikariPoolMXBean().getThreadsAwaitingConnection(),
-                "maxPoolSize", maxPoolSize,
-                "minimumIdle", hikariDS.getMinimumIdle(),
-                "usagePercentage", Math.round(usageRatio * 100)));
-      }
-
-      status.put("timestamp", System.currentTimeMillis());
-      status.put("status", "healthy");
-
-      return ResponseEntity.ok(status);
+      return ResponseEntity.ok(response);
 
     } catch (Exception e) {
-      logger.error("Connection leak status check failed", e);
-      status.put("status", "error");
-      status.put("error", e.getMessage());
-      return ResponseEntity.status(500).body(status);
+      logger.error("Error retrieving alert status: {}", e.getMessage());
+      Map<String, Object> errorResponse = new HashMap<>();
+      errorResponse.put("error", e.getMessage());
+      errorResponse.put("timestamp", LocalDateTime.now());
+
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
     }
   }
 
-  @PostMapping("/emergency-cleanup")
-  public ResponseEntity<Map<String, Object>> performEmergencyCleanup() {
-    Map<String, Object> result = new HashMap<>();
-
+  /**
+   * Get monitoring dashboard data
+   *
+   * @return Monitoring dashboard data for all dashboard types
+   */
+  @GetMapping("/dashboard")
+  public ResponseEntity<Map<String, Object>> monitoringDashboard() {
     try {
-      logger.warn("Manual emergency cleanup triggered via API");
-
-      // Get metrics before cleanup
-      Map<String, Object> beforeMetrics = databaseMonitoringService.getDatabaseMetrics();
-      result.put("beforeCleanup", beforeMetrics);
-
-      // Perform emergency cleanup
-      databaseMonitoringService.performEmergencyCleanup();
-
-      // Wait for cleanup to complete
-      Thread.sleep(3000);
-
-      // Get metrics after cleanup
-      Map<String, Object> afterMetrics = databaseMonitoringService.getDatabaseMetrics();
-      result.put("afterCleanup", afterMetrics);
-
-      result.put("cleanupPerformed", true);
-      result.put("timestamp", System.currentTimeMillis());
-      result.put("message", "Emergency cleanup completed successfully");
-
-      return ResponseEntity.ok(result);
+      Map<String, Object> response = monitoringDashboardService.getAllDashboardData();
+      return ResponseEntity.ok(response);
 
     } catch (Exception e) {
-      logger.error("Emergency cleanup failed", e);
-      result.put("cleanupPerformed", false);
-      result.put("error", e.getMessage());
-      result.put("timestamp", System.currentTimeMillis());
-      return ResponseEntity.status(500).body(result);
+      logger.error("Error retrieving monitoring dashboard data: {}", e.getMessage());
+      Map<String, Object> errorResponse = new HashMap<>();
+      errorResponse.put("error", e.getMessage());
+      errorResponse.put("timestamp", LocalDateTime.now());
+
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
     }
+  }
+
+  /**
+   * Get monitoring dashboard configuration
+   *
+   * @return Dashboard configuration for monitoring tools
+   */
+  @GetMapping("/dashboard/config")
+  public ResponseEntity<Map<String, Object>> dashboardConfiguration() {
+    try {
+      Map<String, Object> response = monitoringDashboardService.getDashboardConfiguration();
+      return ResponseEntity.ok(response);
+
+    } catch (Exception e) {
+      logger.error("Error retrieving dashboard configuration: {}", e.getMessage());
+      Map<String, Object> errorResponse = new HashMap<>();
+      errorResponse.put("error", e.getMessage());
+      errorResponse.put("timestamp", LocalDateTime.now());
+
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+    }
+  }
+
+  /**
+   * Get error pattern analysis
+   *
+   * @return Error pattern analysis and log aggregation data
+   */
+  @GetMapping("/dashboard/errors")
+  public ResponseEntity<Map<String, Object>> errorPatternAnalysis() {
+    try {
+      Map<String, Object> response = monitoringDashboardService.getErrorPatternAnalysis();
+      return ResponseEntity.ok(response);
+
+    } catch (Exception e) {
+      logger.error("Error retrieving error pattern analysis: {}", e.getMessage());
+      Map<String, Object> errorResponse = new HashMap<>();
+      errorResponse.put("error", e.getMessage());
+      errorResponse.put("timestamp", LocalDateTime.now());
+
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+    }
+  }
+
+  /**
+   * Get monitoring service statistics
+   *
+   * @return Statistics about the monitoring service itself
+   */
+  @GetMapping("/dashboard/stats")
+  public ResponseEntity<Map<String, Object>> monitoringStatistics() {
+    try {
+      Map<String, Object> response = monitoringDashboardService.getMonitoringStatistics();
+      return ResponseEntity.ok(response);
+
+    } catch (Exception e) {
+      logger.error("Error retrieving monitoring statistics: {}", e.getMessage());
+      Map<String, Object> errorResponse = new HashMap<>();
+      errorResponse.put("error", e.getMessage());
+      errorResponse.put("timestamp", LocalDateTime.now());
+
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+    }
+  }
+
+  /**
+   * Get Grafana dashboard configuration
+   *
+   * @return Grafana dashboard configuration for external monitoring
+   */
+  @GetMapping("/config/grafana")
+  public ResponseEntity<Map<String, Object>> grafanaDashboardConfig() {
+    try {
+      Map<String, Object> response = monitoringConfigurationService.getGrafanaDashboardConfig();
+      return ResponseEntity.ok(response);
+
+    } catch (Exception e) {
+      logger.error("Error retrieving Grafana dashboard configuration: {}", e.getMessage());
+      Map<String, Object> errorResponse = new HashMap<>();
+      errorResponse.put("error", e.getMessage());
+      errorResponse.put("timestamp", LocalDateTime.now());
+
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+    }
+  }
+
+  /**
+   * Get Prometheus alerting rules configuration
+   *
+   * @return Prometheus alerting rules for external monitoring
+   */
+  @GetMapping("/config/prometheus")
+  public ResponseEntity<Map<String, Object>> prometheusAlertingRules() {
+    try {
+      Map<String, Object> response = monitoringConfigurationService.getPrometheusAlertingRules();
+      return ResponseEntity.ok(response);
+
+    } catch (Exception e) {
+      logger.error("Error retrieving Prometheus alerting rules: {}", e.getMessage());
+      Map<String, Object> errorResponse = new HashMap<>();
+      errorResponse.put("error", e.getMessage());
+      errorResponse.put("timestamp", LocalDateTime.now());
+
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+    }
+  }
+
+  /**
+   * Get log aggregation patterns
+   *
+   * @return Log aggregation patterns for various monitoring tools
+   */
+  @GetMapping("/config/logs")
+  public ResponseEntity<Map<String, Object>> logAggregationPatterns() {
+    try {
+      Map<String, Object> response = monitoringConfigurationService.getLogAggregationPatterns();
+      return ResponseEntity.ok(response);
+
+    } catch (Exception e) {
+      logger.error("Error retrieving log aggregation patterns: {}", e.getMessage());
+      Map<String, Object> errorResponse = new HashMap<>();
+      errorResponse.put("error", e.getMessage());
+      errorResponse.put("timestamp", LocalDateTime.now());
+
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+    }
+  }
+
+  /**
+   * Get monitoring tool integrations
+   *
+   * @return Configuration for various monitoring tool integrations
+   */
+  @GetMapping("/config/integrations")
+  public ResponseEntity<Map<String, Object>> monitoringIntegrations() {
+    try {
+      Map<String, Object> response = monitoringConfigurationService.getMonitoringIntegrations();
+      return ResponseEntity.ok(response);
+
+    } catch (Exception e) {
+      logger.error("Error retrieving monitoring integrations: {}", e.getMessage());
+      Map<String, Object> errorResponse = new HashMap<>();
+      errorResponse.put("error", e.getMessage());
+      errorResponse.put("timestamp", LocalDateTime.now());
+
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+    }
+  }
+
+  /**
+   * Get monitoring setup guide
+   *
+   * @return Comprehensive setup guide for monitoring infrastructure
+   */
+  @GetMapping("/config/setup")
+  public ResponseEntity<Map<String, Object>> monitoringSetupGuide() {
+    try {
+      Map<String, Object> response = monitoringConfigurationService.getMonitoringSetupGuide();
+      return ResponseEntity.ok(response);
+
+    } catch (Exception e) {
+      logger.error("Error retrieving monitoring setup guide: {}", e.getMessage());
+      Map<String, Object> errorResponse = new HashMap<>();
+      errorResponse.put("error", e.getMessage());
+      errorResponse.put("timestamp", LocalDateTime.now());
+
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+    }
+  }
+
+  /**
+   * Get monitoring best practices
+   *
+   * @return Best practices for monitoring and alerting
+   */
+  @GetMapping("/config/best-practices")
+  public ResponseEntity<Map<String, Object>> monitoringBestPractices() {
+    try {
+      Map<String, Object> response = monitoringConfigurationService.getMonitoringBestPractices();
+      return ResponseEntity.ok(response);
+
+    } catch (Exception e) {
+      logger.error("Error retrieving monitoring best practices: {}", e.getMessage());
+      Map<String, Object> errorResponse = new HashMap<>();
+      errorResponse.put("error", e.getMessage());
+      errorResponse.put("timestamp", LocalDateTime.now());
+
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+    }
+  }
+
+  /**
+   * Get SSE service health information (private method for comprehensive health check)
+   *
+   * @return SSE service health and connection metrics
+   */
+  private Map<String, Object> getSseServiceHealth() {
+    Map<String, Object> sseHealth = new HashMap<>();
+
+    try {
+      // Get SSE service statistics
+      Map<String, Object> sseStats = sseService.getStatistics();
+
+      // Extract health information
+      @SuppressWarnings("unchecked")
+      Map<String, Object> health = (Map<String, Object>) sseStats.get("health");
+      String healthStatus = (String) health.get("status");
+
+      sseHealth.put("status", healthStatus);
+      sseHealth.put("activeConnections", sseStats.get("activeConnections"));
+      sseHealth.put("totalConnections", sseStats.get("totalConnections"));
+      sseHealth.put("totalErrors", sseStats.get("totalErrors"));
+
+    } catch (Exception e) {
+      logger.warn("Error getting SSE service health: {}", e.getMessage());
+      sseHealth.put("status", "UNKNOWN");
+      sseHealth.put("error", e.getMessage());
+    }
+
+    return sseHealth;
   }
 }

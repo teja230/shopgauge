@@ -1,6 +1,7 @@
 package com.storesight.backend.controller;
 
 import com.storesight.backend.service.AdminAuthService;
+import com.storesight.backend.service.AdminRateLimitingService;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -20,6 +21,7 @@ public class AdminAuthController {
   private static final Logger logger = LoggerFactory.getLogger(AdminAuthController.class);
 
   @Autowired private AdminAuthService adminAuthService;
+  @Autowired private AdminRateLimitingService adminRateLimitingService;
 
   @Value("${admin.auth.require-https:true}")
   private boolean requireHttps;
@@ -79,10 +81,13 @@ public class AdminAuthController {
     } else {
       // Record failed login attempt
       adminAuthService.recordFailedLoginAttempt(clientIp, username);
+      adminRateLimitingService.recordLoginAttempt(clientIp);
 
       result.put("success", false);
       result.put("error", "Invalid username or password");
       result.put("locked", false);
+      result.put(
+          "remaining_attempts", adminRateLimitingService.getRemainingLoginAttempts(clientIp));
 
       logger.warn("Admin login failed for IP: {} with username: {}", clientIp, username);
       return ResponseEntity.status(401).body(result);
@@ -188,6 +193,41 @@ public class AdminAuthController {
       result.put("success", false);
       result.put("error", "Invalid or expired token");
       return ResponseEntity.status(401).body(result);
+    }
+  }
+
+  @GetMapping("/rate-limit-status")
+  public ResponseEntity<Map<String, Object>> getRateLimitStatus(HttpServletRequest request) {
+    String clientIp = getClientIpAddress(request);
+    String token = getAdminTokenFromRequest(request);
+    String username = token != null ? adminAuthService.getUsernameFromToken(token) : "unknown";
+
+    Map<String, Object> result = new HashMap<>();
+
+    try {
+      AdminRateLimitingService.RateLimitStats stats =
+          adminRateLimitingService.getRateLimitStats(clientIp);
+
+      result.put("success", true);
+      result.put("ip_address", clientIp);
+      result.put("remaining_admin_requests", stats.getRemainingAdminRequests());
+      result.put("remaining_login_attempts", stats.getRemainingLoginAttempts());
+      result.put("rate_limit_enabled", stats.isRateLimitEnabled());
+      result.put("timestamp", java.time.Instant.now().toString());
+
+      // Log rate limit status check for audit
+      adminAuthService.logAuditEvent(
+          "RATE_LIMIT_STATUS_CHECK",
+          username,
+          "Rate limit status checked from IP: " + clientIp,
+          clientIp);
+
+      return ResponseEntity.ok(result);
+    } catch (Exception e) {
+      logger.error("Failed to get rate limit status for IP {}: {}", clientIp, e.getMessage());
+      result.put("success", false);
+      result.put("error", "Failed to retrieve rate limit status");
+      return ResponseEntity.status(500).body(result);
     }
   }
 

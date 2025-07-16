@@ -1,7 +1,11 @@
 package com.storesight.backend.service;
 
+import com.storesight.backend.config.ApplicationConfigurationProperties;
 import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,17 +30,50 @@ public class SessionSynchronizationService {
   private static final String SESSION_STATE_PREFIX = "session_state:";
   private static final String SESSION_INVALIDATION_PREFIX = "session_invalidation:";
 
-  // Lock duration for session operations (5 seconds)
-  private static final Duration SESSION_LOCK_DURATION = Duration.ofSeconds(5);
-
-  // Invalidation tracking duration (1 hour)
-  private static final Duration INVALIDATION_TRACKING_DURATION = Duration.ofHours(1);
+  @Autowired private ApplicationConfigurationProperties config;
 
   // In-memory locks for high-performance session coordination
   private final ConcurrentHashMap<String, ReentrantReadWriteLock> sessionLocks =
       new ConcurrentHashMap<>();
 
+  // Track lock acquisition times for timeout-based cleanup
+  private final ConcurrentHashMap<String, LocalDateTime> lockAcquisitionTimes =
+      new ConcurrentHashMap<>();
+
+  // Track invalidation start times for stuck session detection
+  private final ConcurrentHashMap<String, LocalDateTime> invalidationStartTimes =
+      new ConcurrentHashMap<>();
+
+  // Metrics collection
+  private final AtomicLong totalLockAcquisitions = new AtomicLong(0);
+  private final AtomicLong totalLockFailures = new AtomicLong(0);
+  private final AtomicLong totalInvalidations = new AtomicLong(0);
+  private final AtomicLong totalStuckSessionsCleared = new AtomicLong(0);
+  private final AtomicLong totalOrphanedLocksCleared = new AtomicLong(0);
+  private final AtomicLong totalCleanupOperations = new AtomicLong(0);
+  private final AtomicLong totalRedisOperationFailures = new AtomicLong(0);
+  private final AtomicLong totalScheduledCleanupRuns = new AtomicLong(0);
+
+  // Configuration-driven timeout durations
+  private Duration getStuckSessionTimeout() {
+    return config.getSession().getStuckSessionTimeout();
+  }
+
+  private Duration getOrphanedLockTimeout() {
+    return config.getSession().getOrphanedLockTimeout();
+  }
+
+  private Duration getSessionLockDuration() {
+    return config.getSession().getLockDuration();
+  }
+
+  private Duration getInvalidationTrackingDuration() {
+    return config.getSession().getInvalidationTrackingDuration();
+  }
+
   @Autowired private StringRedisTemplate redisTemplate;
+  @Autowired private EnhancedRedisService enhancedRedisService;
+  @Autowired private MetricsCollectionService metricsCollectionService;
 
   /**
    * Acquire a session lock to prevent concurrent modifications
@@ -48,11 +85,11 @@ public class SessionSynchronizationService {
     try {
       String lockKey = SESSION_LOCK_PREFIX + sessionId;
 
-      // Try to acquire Redis lock
-      Boolean acquired =
-          redisTemplate.opsForValue().setIfAbsent(lockKey, "locked", SESSION_LOCK_DURATION);
+      // Try to acquire Redis lock using enhanced service with circuit breaker
+      boolean acquired =
+          enhancedRedisService.setIfAbsent(lockKey, "locked", getSessionLockDuration());
 
-      if (acquired != null && acquired) {
+      if (acquired) {
         logger.debug("Acquired Redis lock for session: {}", sessionId);
 
         // Also acquire in-memory lock for additional coordination
@@ -60,13 +97,24 @@ public class SessionSynchronizationService {
             sessionLocks.computeIfAbsent(sessionId, k -> new ReentrantReadWriteLock());
         lock.writeLock().lock();
 
+        // Track acquisition time for timeout-based cleanup
+        lockAcquisitionTimes.put(sessionId, LocalDateTime.now());
+
+        // Update metrics
+        totalLockAcquisitions.incrementAndGet();
+        metricsCollectionService.recordSessionLockAcquisition();
+
         return true;
       } else {
         logger.debug("Failed to acquire Redis lock for session: {}", sessionId);
+        totalLockFailures.incrementAndGet();
+        metricsCollectionService.recordSessionLockFailure();
         return false;
       }
     } catch (Exception e) {
       logger.warn("Error acquiring session lock for {}: {}", sessionId, e.getMessage());
+      totalLockFailures.incrementAndGet();
+      totalRedisOperationFailures.incrementAndGet();
       return false;
     }
   }
@@ -80,8 +128,8 @@ public class SessionSynchronizationService {
     try {
       String lockKey = SESSION_LOCK_PREFIX + sessionId;
 
-      // Release Redis lock
-      redisTemplate.delete(lockKey);
+      // Release Redis lock using enhanced service
+      enhancedRedisService.delete(lockKey);
       logger.debug("Released Redis lock for session: {}", sessionId);
 
       // Release in-memory lock
@@ -90,8 +138,16 @@ public class SessionSynchronizationService {
         lock.writeLock().unlock();
         logger.debug("Released in-memory lock for session: {}", sessionId);
       }
+
+      // Clean up tracking data
+      lockAcquisitionTimes.remove(sessionId);
+
+      // Update metrics
+      metricsCollectionService.recordSessionLockRelease();
+
     } catch (Exception e) {
       logger.warn("Error releasing session lock for {}: {}", sessionId, e.getMessage());
+      totalRedisOperationFailures.incrementAndGet();
     }
   }
 
@@ -106,13 +162,21 @@ public class SessionSynchronizationService {
       String invalidationKey = SESSION_INVALIDATION_PREFIX + sessionId;
       String stateKey = SESSION_STATE_PREFIX + sessionId;
 
-      // Mark session as invalidating
-      redisTemplate.opsForValue().set(invalidationKey, reason, INVALIDATION_TRACKING_DURATION);
-      redisTemplate.opsForValue().set(stateKey, "invalidating", INVALIDATION_TRACKING_DURATION);
+      // Mark session as invalidating using enhanced service
+      enhancedRedisService.setWithTtl(invalidationKey, reason, getInvalidationTrackingDuration());
+      enhancedRedisService.setWithTtl(stateKey, "invalidating", getInvalidationTrackingDuration());
+
+      // Track invalidation start time for timeout-based cleanup
+      invalidationStartTimes.put(sessionId, LocalDateTime.now());
+
+      // Update metrics
+      totalInvalidations.incrementAndGet();
+      metricsCollectionService.recordSessionInvalidation();
 
       logger.debug("Marked session {} as invalidating: {}", sessionId, reason);
     } catch (Exception e) {
       logger.warn("Error marking session {} as invalidating: {}", sessionId, e.getMessage());
+      totalRedisOperationFailures.incrementAndGet();
     }
   }
 
@@ -127,13 +191,13 @@ public class SessionSynchronizationService {
       String invalidationKey = SESSION_INVALIDATION_PREFIX + sessionId;
       String stateKey = SESSION_STATE_PREFIX + sessionId;
 
-      Boolean isInvalidating = redisTemplate.hasKey(invalidationKey);
-      Boolean hasInvalidatingState = redisTemplate.hasKey(stateKey);
+      boolean isInvalidating = enhancedRedisService.hasKey(invalidationKey);
+      boolean hasInvalidatingState = enhancedRedisService.hasKey(stateKey);
 
-      return (isInvalidating != null && isInvalidating)
-          || (hasInvalidatingState != null && hasInvalidatingState);
+      return isInvalidating || hasInvalidatingState;
     } catch (Exception e) {
       logger.warn("Error checking if session {} is invalidating: {}", sessionId, e.getMessage());
+      totalRedisOperationFailures.incrementAndGet();
       return false;
     }
   }
@@ -148,13 +212,17 @@ public class SessionSynchronizationService {
       String invalidationKey = SESSION_INVALIDATION_PREFIX + sessionId;
       String stateKey = SESSION_STATE_PREFIX + sessionId;
 
-      redisTemplate.delete(invalidationKey);
-      redisTemplate.delete(stateKey);
+      enhancedRedisService.delete(invalidationKey);
+      enhancedRedisService.delete(stateKey);
+
+      // Clean up tracking data
+      invalidationStartTimes.remove(sessionId);
 
       logger.debug("Cleared invalidation markers for session: {}", sessionId);
     } catch (Exception e) {
       logger.warn(
           "Error clearing invalidation markers for session {}: {}", sessionId, e.getMessage());
+      totalRedisOperationFailures.incrementAndGet();
     }
   }
 
@@ -170,10 +238,10 @@ public class SessionSynchronizationService {
       String stateKey = SESSION_STATE_PREFIX + sessionId;
       String lockKey = SESSION_LOCK_PREFIX + sessionId;
 
-      // Clear all markers and locks
-      redisTemplate.delete(invalidationKey);
-      redisTemplate.delete(stateKey);
-      redisTemplate.delete(lockKey);
+      // Clear all markers and locks using enhanced service
+      enhancedRedisService.delete(invalidationKey);
+      enhancedRedisService.delete(stateKey);
+      enhancedRedisService.delete(lockKey);
 
       // Clear in-memory lock
       ReentrantReadWriteLock lock = sessionLocks.remove(sessionId);
@@ -181,10 +249,19 @@ public class SessionSynchronizationService {
         logger.debug("Cleared in-memory lock for session: {}", sessionId);
       }
 
+      // Clean up tracking data
+      lockAcquisitionTimes.remove(sessionId);
+      invalidationStartTimes.remove(sessionId);
+
+      // Update metrics
+      totalStuckSessionsCleared.incrementAndGet();
+      metricsCollectionService.recordStuckSessionCleared();
+
       logger.warn("Cleared stuck session markers for session: {}", sessionId);
     } catch (Exception e) {
       logger.warn(
           "Error clearing stuck session markers for session {}: {}", sessionId, e.getMessage());
+      totalRedisOperationFailures.incrementAndGet();
     }
   }
 
@@ -276,7 +353,55 @@ public class SessionSynchronizationService {
    */
   public void cleanupExpiredLocks() {
     try {
+      LocalDateTime now = LocalDateTime.now();
+      int orphanedLocksCleared = 0;
+      int redisLocksCleared = 0;
+
+      logger.debug("Starting cleanup of expired locks and markers");
+
+      // Clean up orphaned locks based on acquisition time
+      lockAcquisitionTimes
+          .entrySet()
+          .removeIf(
+              entry -> {
+                String sessionId = entry.getKey();
+                LocalDateTime acquisitionTime = entry.getValue();
+
+                if (Duration.between(acquisitionTime, now).compareTo(getOrphanedLockTimeout())
+                    > 0) {
+                  logger.warn(
+                      "Clearing orphaned lock for session: {} (held for {} minutes)",
+                      sessionId,
+                      Duration.between(acquisitionTime, now).toMinutes());
+
+                  // Force clear the lock
+                  clearStuckSessionMarkers(sessionId);
+                  return true;
+                }
+                return false;
+              });
+
+      // Clean up orphaned Redis locks that might not be tracked locally
+      try {
+        Set<String> lockKeys = redisTemplate.keys(SESSION_LOCK_PREFIX + "*");
+        if (lockKeys != null) {
+          for (String lockKey : lockKeys) {
+            String sessionId = lockKey.substring(SESSION_LOCK_PREFIX.length());
+
+            // If we don't have this lock tracked locally, it might be orphaned
+            if (!lockAcquisitionTimes.containsKey(sessionId)) {
+              logger.warn("Found orphaned Redis lock for session: {}, clearing", sessionId);
+              redisTemplate.delete(lockKey);
+              redisLocksCleared++;
+            }
+          }
+        }
+      } catch (Exception e) {
+        logger.warn("Error scanning Redis for orphaned locks: {}", e.getMessage());
+      }
+
       // Clean up in-memory locks for sessions that haven't been accessed recently
+      int inMemoryLocksCleared = sessionLocks.size();
       sessionLocks
           .entrySet()
           .removeIf(
@@ -285,7 +410,16 @@ public class SessionSynchronizationService {
                 return !lock.hasQueuedThreads() && !lock.isWriteLocked();
               });
 
-      logger.debug("Cleaned up expired in-memory session locks");
+      inMemoryLocksCleared = inMemoryLocksCleared - sessionLocks.size();
+      totalOrphanedLocksCleared.addAndGet(inMemoryLocksCleared + redisLocksCleared);
+
+      if (inMemoryLocksCleared > 0 || redisLocksCleared > 0) {
+        logger.info(
+            "Cleaned up {} in-memory locks and {} Redis locks during cleanup",
+            inMemoryLocksCleared,
+            redisLocksCleared);
+      }
+
     } catch (Exception e) {
       logger.warn("Error cleaning up expired locks: {}", e.getMessage());
     }
@@ -297,10 +431,19 @@ public class SessionSynchronizationService {
   @Scheduled(fixedRate = 1800000) // 30 minutes
   public void scheduledCleanup() {
     try {
+      totalScheduledCleanupRuns.incrementAndGet();
+      totalCleanupOperations.incrementAndGet();
+
+      logger.info(
+          "Starting scheduled cleanup of session synchronization (run #{})",
+          totalScheduledCleanupRuns.get());
+
       cleanupExpiredLocks();
-      logger.debug("Scheduled cleanup of session synchronization completed");
+
+      logger.info("Scheduled cleanup of session synchronization completed successfully");
     } catch (Exception e) {
       logger.warn("Error during scheduled cleanup: {}", e.getMessage());
+      totalRedisOperationFailures.incrementAndGet();
     }
   }
 
@@ -311,15 +454,501 @@ public class SessionSynchronizationService {
   @Scheduled(fixedRate = 300000) // 5 minutes
   public void cleanupStuckSessionMarkers() {
     try {
-      // This is a more aggressive cleanup to prevent stuck sessions
-      // We'll clear any invalidation markers that have been around for too long
+      LocalDateTime now = LocalDateTime.now();
+      int stuckSessionsCleared = 0;
+
       logger.debug("Running stuck session markers cleanup");
 
-      // Note: In a production environment, you might want to add more sophisticated
-      // logic here to identify and clean up specific stuck sessions
+      // Clean up sessions that have been invalidating for too long
+      invalidationStartTimes
+          .entrySet()
+          .removeIf(
+              entry -> {
+                String sessionId = entry.getKey();
+                LocalDateTime invalidationStartTime = entry.getValue();
+
+                if (Duration.between(invalidationStartTime, now).compareTo(getStuckSessionTimeout())
+                    > 0) {
+                  logger.warn(
+                      "Clearing stuck session: {} (invalidating for {} minutes)",
+                      sessionId,
+                      Duration.between(invalidationStartTime, now).toMinutes());
+
+                  // Force clear the stuck session
+                  clearStuckSessionMarkers(sessionId);
+                  return true;
+                }
+                return false;
+              });
+
+      // Also scan Redis for any stuck invalidation markers that might not be in our local tracking
+      try {
+        Set<String> invalidationKeys = redisTemplate.keys(SESSION_INVALIDATION_PREFIX + "*");
+        if (invalidationKeys != null) {
+          for (String key : invalidationKeys) {
+            String sessionId = key.substring(SESSION_INVALIDATION_PREFIX.length());
+
+            // Check if this session has been invalidating for too long
+            if (!invalidationStartTimes.containsKey(sessionId)) {
+              // This is an orphaned invalidation marker, clear it
+              logger.warn("Clearing orphaned invalidation marker for session: {}", sessionId);
+              clearStuckSessionMarkers(sessionId);
+              stuckSessionsCleared++;
+            }
+          }
+        }
+      } catch (Exception e) {
+        logger.warn("Error scanning Redis for stuck invalidation markers: {}", e.getMessage());
+      }
+
+      if (stuckSessionsCleared > 0) {
+        logger.info("Cleared {} stuck session markers during cleanup", stuckSessionsCleared);
+      }
 
     } catch (Exception e) {
       logger.warn("Error during stuck session markers cleanup: {}", e.getMessage());
+    }
+  }
+
+  /**
+   * Get comprehensive metrics for session synchronization operations
+   *
+   * @return SessionSynchronizationMetrics containing all collected metrics
+   */
+  public SessionSynchronizationMetrics getMetrics() {
+    return new SessionSynchronizationMetrics(
+        totalLockAcquisitions.get(),
+        totalLockFailures.get(),
+        totalInvalidations.get(),
+        totalStuckSessionsCleared.get(),
+        totalOrphanedLocksCleared.get(),
+        totalCleanupOperations.get(),
+        totalRedisOperationFailures.get(),
+        totalScheduledCleanupRuns.get(),
+        sessionLocks.size(),
+        lockAcquisitionTimes.size(),
+        invalidationStartTimes.size());
+  }
+
+  /** Reset all metrics counters (useful for testing or periodic resets) */
+  public void resetMetrics() {
+    totalLockAcquisitions.set(0);
+    totalLockFailures.set(0);
+    totalInvalidations.set(0);
+    totalStuckSessionsCleared.set(0);
+    totalOrphanedLocksCleared.set(0);
+    totalCleanupOperations.set(0);
+    totalRedisOperationFailures.set(0);
+    totalScheduledCleanupRuns.set(0);
+    logger.info("Session synchronization metrics have been reset");
+  }
+
+  /**
+   * Perform comprehensive cleanup of all session-related data This method can be called on-demand
+   * for emergency cleanup
+   *
+   * @return CleanupResult containing details of what was cleaned up
+   */
+  public CleanupResult performComprehensiveCleanup() {
+    logger.info("Starting comprehensive cleanup of session synchronization data");
+
+    int locksCleared = 0;
+    int markersCleared = 0;
+    int inMemoryDataCleared = 0;
+    int redisKeysCleared = 0;
+
+    try {
+      totalCleanupOperations.incrementAndGet();
+
+      // Clean up all expired locks
+      cleanupExpiredLocks();
+
+      // Force cleanup of all in-memory tracking data for sessions that no longer exist in Redis
+      LocalDateTime now = LocalDateTime.now();
+
+      // Clean up lock acquisition times for sessions that don't have Redis locks
+      lockAcquisitionTimes
+          .entrySet()
+          .removeIf(
+              entry -> {
+                String sessionId = entry.getKey();
+                try {
+                  String lockKey = SESSION_LOCK_PREFIX + sessionId;
+                  Boolean hasLock = redisTemplate.hasKey(lockKey);
+                  if (hasLock == null || !hasLock) {
+                    logger.debug(
+                        "Cleaning up tracking data for session without Redis lock: {}", sessionId);
+                    return true;
+                  }
+                } catch (Exception e) {
+                  logger.warn(
+                      "Error checking Redis lock for session {}: {}", sessionId, e.getMessage());
+                  totalRedisOperationFailures.incrementAndGet();
+                  return true; // Clean up on error to be safe
+                }
+                return false;
+              });
+
+      // Clean up invalidation start times for sessions that don't have invalidation markers
+      invalidationStartTimes
+          .entrySet()
+          .removeIf(
+              entry -> {
+                String sessionId = entry.getKey();
+                try {
+                  String invalidationKey = SESSION_INVALIDATION_PREFIX + sessionId;
+                  Boolean hasMarker = redisTemplate.hasKey(invalidationKey);
+                  if (hasMarker == null || !hasMarker) {
+                    logger.debug(
+                        "Cleaning up invalidation tracking for session without marker: {}",
+                        sessionId);
+                    return true;
+                  }
+                } catch (Exception e) {
+                  logger.warn(
+                      "Error checking invalidation marker for session {}: {}",
+                      sessionId,
+                      e.getMessage());
+                  totalRedisOperationFailures.incrementAndGet();
+                  return true; // Clean up on error to be safe
+                }
+                return false;
+              });
+
+      // Clean up in-memory locks that are no longer needed
+      inMemoryDataCleared = sessionLocks.size();
+      sessionLocks
+          .entrySet()
+          .removeIf(
+              entry -> {
+                ReentrantReadWriteLock lock = entry.getValue();
+                // Remove locks that are not held and have no waiting threads
+                return !lock.isWriteLocked() && !lock.hasQueuedThreads();
+              });
+      inMemoryDataCleared = inMemoryDataCleared - sessionLocks.size();
+
+      // Scan and clean up any orphaned Redis keys
+      try {
+        // Clean up orphaned lock keys
+        Set<String> lockKeys = redisTemplate.keys(SESSION_LOCK_PREFIX + "*");
+        if (lockKeys != null) {
+          for (String lockKey : lockKeys) {
+            String sessionId = lockKey.substring(SESSION_LOCK_PREFIX.length());
+            if (!lockAcquisitionTimes.containsKey(sessionId)) {
+              redisTemplate.delete(lockKey);
+              redisKeysCleared++;
+              logger.debug("Cleaned up orphaned Redis lock: {}", lockKey);
+            }
+          }
+        }
+
+        // Clean up orphaned invalidation markers
+        Set<String> invalidationKeys = redisTemplate.keys(SESSION_INVALIDATION_PREFIX + "*");
+        if (invalidationKeys != null) {
+          for (String invalidationKey : invalidationKeys) {
+            String sessionId = invalidationKey.substring(SESSION_INVALIDATION_PREFIX.length());
+            if (!invalidationStartTimes.containsKey(sessionId)) {
+              redisTemplate.delete(invalidationKey);
+              redisKeysCleared++;
+              logger.debug("Cleaned up orphaned invalidation marker: {}", invalidationKey);
+            }
+          }
+        }
+
+        // Clean up orphaned state markers
+        Set<String> stateKeys = redisTemplate.keys(SESSION_STATE_PREFIX + "*");
+        if (stateKeys != null) {
+          for (String stateKey : stateKeys) {
+            String sessionId = stateKey.substring(SESSION_STATE_PREFIX.length());
+            if (!invalidationStartTimes.containsKey(sessionId)) {
+              redisTemplate.delete(stateKey);
+              redisKeysCleared++;
+              logger.debug("Cleaned up orphaned state marker: {}", stateKey);
+            }
+          }
+        }
+
+      } catch (Exception e) {
+        logger.warn("Error during Redis cleanup scan: {}", e.getMessage());
+        totalRedisOperationFailures.incrementAndGet();
+      }
+
+      CleanupResult result =
+          new CleanupResult(
+              locksCleared, markersCleared, inMemoryDataCleared, redisKeysCleared, true, null);
+
+      logger.info("Comprehensive cleanup completed: {}", result);
+      return result;
+
+    } catch (Exception e) {
+      logger.error("Error during comprehensive cleanup: {}", e.getMessage());
+      totalRedisOperationFailures.incrementAndGet();
+      return new CleanupResult(
+          locksCleared,
+          markersCleared,
+          inMemoryDataCleared,
+          redisKeysCleared,
+          false,
+          e.getMessage());
+    }
+  }
+
+  /** Data class for cleanup operation results */
+  public static class CleanupResult {
+    private final int locksCleared;
+    private final int markersCleared;
+    private final int inMemoryDataCleared;
+    private final int redisKeysCleared;
+    private final boolean success;
+    private final String errorMessage;
+
+    public CleanupResult(
+        int locksCleared,
+        int markersCleared,
+        int inMemoryDataCleared,
+        int redisKeysCleared,
+        boolean success,
+        String errorMessage) {
+      this.locksCleared = locksCleared;
+      this.markersCleared = markersCleared;
+      this.inMemoryDataCleared = inMemoryDataCleared;
+      this.redisKeysCleared = redisKeysCleared;
+      this.success = success;
+      this.errorMessage = errorMessage;
+    }
+
+    // Getters
+    public int getLocksCleared() {
+      return locksCleared;
+    }
+
+    public int getMarkersCleared() {
+      return markersCleared;
+    }
+
+    public int getInMemoryDataCleared() {
+      return inMemoryDataCleared;
+    }
+
+    public int getRedisKeysCleared() {
+      return redisKeysCleared;
+    }
+
+    public boolean isSuccess() {
+      return success;
+    }
+
+    public String getErrorMessage() {
+      return errorMessage;
+    }
+
+    public int getTotalItemsCleared() {
+      return locksCleared + markersCleared + inMemoryDataCleared + redisKeysCleared;
+    }
+
+    @Override
+    public String toString() {
+      return String.format(
+          "CleanupResult{locksCleared=%d, markersCleared=%d, inMemoryDataCleared=%d, "
+              + "redisKeysCleared=%d, totalCleared=%d, success=%s%s}",
+          locksCleared,
+          markersCleared,
+          inMemoryDataCleared,
+          redisKeysCleared,
+          getTotalItemsCleared(),
+          success,
+          errorMessage != null ? ", error='" + errorMessage + "'" : "");
+    }
+  }
+
+  /**
+   * Get current session lock statistics
+   *
+   * @return SessionLockStatistics containing current lock state information
+   */
+  public SessionLockStatistics getLockStatistics() {
+    LocalDateTime now = LocalDateTime.now();
+    int locksHeldLongerThanMinute = 0;
+    int locksHeldLongerThanFiveMinutes = 0;
+
+    for (LocalDateTime acquisitionTime : lockAcquisitionTimes.values()) {
+      Duration heldDuration = Duration.between(acquisitionTime, now);
+      if (heldDuration.compareTo(Duration.ofMinutes(1)) > 0) {
+        locksHeldLongerThanMinute++;
+      }
+      if (heldDuration.compareTo(Duration.ofMinutes(5)) > 0) {
+        locksHeldLongerThanFiveMinutes++;
+      }
+    }
+
+    return new SessionLockStatistics(
+        sessionLocks.size(),
+        lockAcquisitionTimes.size(),
+        locksHeldLongerThanMinute,
+        locksHeldLongerThanFiveMinutes);
+  }
+
+  /** Data class for session synchronization metrics */
+  public static class SessionSynchronizationMetrics {
+    private final long totalLockAcquisitions;
+    private final long totalLockFailures;
+    private final long totalInvalidations;
+    private final long totalStuckSessionsCleared;
+    private final long totalOrphanedLocksCleared;
+    private final long totalCleanupOperations;
+    private final long totalRedisOperationFailures;
+    private final long totalScheduledCleanupRuns;
+    private final int currentInMemoryLocks;
+    private final int currentTrackedLockAcquisitions;
+    private final int currentTrackedInvalidations;
+
+    public SessionSynchronizationMetrics(
+        long totalLockAcquisitions,
+        long totalLockFailures,
+        long totalInvalidations,
+        long totalStuckSessionsCleared,
+        long totalOrphanedLocksCleared,
+        long totalCleanupOperations,
+        long totalRedisOperationFailures,
+        long totalScheduledCleanupRuns,
+        int currentInMemoryLocks,
+        int currentTrackedLockAcquisitions,
+        int currentTrackedInvalidations) {
+      this.totalLockAcquisitions = totalLockAcquisitions;
+      this.totalLockFailures = totalLockFailures;
+      this.totalInvalidations = totalInvalidations;
+      this.totalStuckSessionsCleared = totalStuckSessionsCleared;
+      this.totalOrphanedLocksCleared = totalOrphanedLocksCleared;
+      this.totalCleanupOperations = totalCleanupOperations;
+      this.totalRedisOperationFailures = totalRedisOperationFailures;
+      this.totalScheduledCleanupRuns = totalScheduledCleanupRuns;
+      this.currentInMemoryLocks = currentInMemoryLocks;
+      this.currentTrackedLockAcquisitions = currentTrackedLockAcquisitions;
+      this.currentTrackedInvalidations = currentTrackedInvalidations;
+    }
+
+    // Getters
+    public long getTotalLockAcquisitions() {
+      return totalLockAcquisitions;
+    }
+
+    public long getTotalLockFailures() {
+      return totalLockFailures;
+    }
+
+    public long getTotalInvalidations() {
+      return totalInvalidations;
+    }
+
+    public long getTotalStuckSessionsCleared() {
+      return totalStuckSessionsCleared;
+    }
+
+    public long getTotalOrphanedLocksCleared() {
+      return totalOrphanedLocksCleared;
+    }
+
+    public long getTotalCleanupOperations() {
+      return totalCleanupOperations;
+    }
+
+    public long getTotalRedisOperationFailures() {
+      return totalRedisOperationFailures;
+    }
+
+    public long getTotalScheduledCleanupRuns() {
+      return totalScheduledCleanupRuns;
+    }
+
+    public int getCurrentInMemoryLocks() {
+      return currentInMemoryLocks;
+    }
+
+    public int getCurrentTrackedLockAcquisitions() {
+      return currentTrackedLockAcquisitions;
+    }
+
+    public int getCurrentTrackedInvalidations() {
+      return currentTrackedInvalidations;
+    }
+
+    public double getLockSuccessRate() {
+      long total = totalLockAcquisitions + totalLockFailures;
+      return total > 0 ? (double) totalLockAcquisitions / total * 100.0 : 0.0;
+    }
+
+    public double getRedisOperationSuccessRate() {
+      long totalOperations = totalLockAcquisitions + totalInvalidations + totalCleanupOperations;
+      return totalOperations > 0
+          ? (double) (totalOperations - totalRedisOperationFailures) / totalOperations * 100.0
+          : 0.0;
+    }
+
+    @Override
+    public String toString() {
+      return String.format(
+          "SessionSynchronizationMetrics{lockAcquisitions=%d, lockFailures=%d, "
+              + "invalidations=%d, stuckSessionsCleared=%d, orphanedLocksCleared=%d, "
+              + "cleanupOperations=%d, redisFailures=%d, scheduledCleanupRuns=%d, "
+              + "currentInMemoryLocks=%d, lockSuccessRate=%.2f%%, redisSuccessRate=%.2f%%}",
+          totalLockAcquisitions,
+          totalLockFailures,
+          totalInvalidations,
+          totalStuckSessionsCleared,
+          totalOrphanedLocksCleared,
+          totalCleanupOperations,
+          totalRedisOperationFailures,
+          totalScheduledCleanupRuns,
+          currentInMemoryLocks,
+          getLockSuccessRate(),
+          getRedisOperationSuccessRate());
+    }
+  }
+
+  /** Data class for session lock statistics */
+  public static class SessionLockStatistics {
+    private final int totalInMemoryLocks;
+    private final int totalTrackedLocks;
+    private final int locksHeldLongerThanMinute;
+    private final int locksHeldLongerThanFiveMinutes;
+
+    public SessionLockStatistics(
+        int totalInMemoryLocks,
+        int totalTrackedLocks,
+        int locksHeldLongerThanMinute,
+        int locksHeldLongerThanFiveMinutes) {
+      this.totalInMemoryLocks = totalInMemoryLocks;
+      this.totalTrackedLocks = totalTrackedLocks;
+      this.locksHeldLongerThanMinute = locksHeldLongerThanMinute;
+      this.locksHeldLongerThanFiveMinutes = locksHeldLongerThanFiveMinutes;
+    }
+
+    // Getters
+    public int getTotalInMemoryLocks() {
+      return totalInMemoryLocks;
+    }
+
+    public int getTotalTrackedLocks() {
+      return totalTrackedLocks;
+    }
+
+    public int getLocksHeldLongerThanMinute() {
+      return locksHeldLongerThanMinute;
+    }
+
+    public int getLocksHeldLongerThanFiveMinutes() {
+      return locksHeldLongerThanFiveMinutes;
+    }
+
+    @Override
+    public String toString() {
+      return String.format(
+          "SessionLockStatistics{totalInMemoryLocks=%d, totalTrackedLocks=%d, "
+              + "locksHeldLongerThanMinute=%d, locksHeldLongerThanFiveMinutes=%d}",
+          totalInMemoryLocks,
+          totalTrackedLocks,
+          locksHeldLongerThanMinute,
+          locksHeldLongerThanFiveMinutes);
     }
   }
 

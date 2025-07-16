@@ -90,6 +90,7 @@ import { adminLogin, adminLogout, getAdminStatus } from '../api/admin';
 import { styled } from '@mui/material/styles';
 import { useNotifications } from '../hooks/useNotifications';
 import EnhancedHealthSummary from '../components/ui/EnhancedHealthSummary';
+import ComprehensiveMonitoringDashboard from '../components/ui/ComprehensiveMonitoringDashboard';
 import { getSessionStatus } from '../utils/sessionUtils';
 import DiffViewerDialog from '../components/ui/DiffViewerDialog';
 import TransactionMonitoring from '../components/ui/TransactionMonitoring';
@@ -101,6 +102,10 @@ import SessionManagementTools from '../components/ui/SessionManagementTools';
 import RefreshHeader from '../components/ui/RefreshHeader';
 import DebugPanel from '../components/ui/DebugPanel';
 import SseStatsCard from '../components/ui/SseStatsCard';
+import SecurityDashboard from '../components/ui/SecurityDashboard';
+import SessionSecurityManager from '../components/ui/SessionSecurityManager';
+import RateLimitManager from '../components/ui/RateLimitManager';
+import SuspiciousActivityMonitor from '../components/ui/SuspiciousActivityMonitor';
 
 interface Secret {
   key: string;
@@ -417,6 +422,7 @@ const AdminPage: React.FC = () => {
 
   // UI state
   const [activeTab, setActiveTab] = useState('health');
+  const [securitySubTab, setSecuritySubTab] = useState('dashboard');
   // Remove geekMode state since we removed the toggle
 
   // Data state
@@ -1658,8 +1664,10 @@ const AdminPage: React.FC = () => {
           <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)} sx={{ mb: 3, minHeight: 40, '& .MuiTab-root': { minWidth: { xs: 80, sm: 140 } } }} variant="scrollable" scrollButtons="auto">
             {[
               { value: 'health', label: 'System Health' },
+              { value: 'monitoring', label: 'Comprehensive Monitoring' },
               { value: 'connection-pool', label: 'Connection Pool' },
               { value: 'transactions', label: 'Transactions' },
+              { value: 'security', label: 'Security' },
               { value: 'audit-logs', label: 'Audit Logs' },
               { value: 'sessions-shops', label: 'Sessions & Shops' },
               { value: 'market-intelligence', label: 'Market Intelligence' },
@@ -1837,6 +1845,13 @@ const AdminPage: React.FC = () => {
             </Box>
           )}
 
+          {/* Comprehensive Monitoring Dashboard Tab */}
+          {activeTab === 'monitoring' && (
+            <Box>
+              <ComprehensiveMonitoringDashboard />
+            </Box>
+          )}
+
           {/* Connection Pool Dashboard Tab */}
           {activeTab === 'connection-pool' && (
             <Box>
@@ -1848,6 +1863,29 @@ const AdminPage: React.FC = () => {
           {activeTab === 'transactions' && (
             <Box>
               <TransactionMonitoring />
+            </Box>
+          )}
+
+          {/* Security Tab */}
+          {activeTab === 'security' && (
+            <Box>
+              <Tabs 
+                value={securitySubTab} 
+                onChange={(e, newValue) => setSecuritySubTab(newValue)} 
+                sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}
+                variant="scrollable"
+                scrollButtons="auto"
+              >
+                <Tab label="Security Dashboard" value="dashboard" />
+                <Tab label="Session Security" value="sessions" />
+                <Tab label="Rate Limits" value="rate-limits" />
+                <Tab label="Suspicious Activity" value="suspicious" />
+              </Tabs>
+
+              {securitySubTab === 'dashboard' && <SecurityDashboard />}
+              {securitySubTab === 'sessions' && <SessionSecurityManager />}
+              {securitySubTab === 'rate-limits' && <RateLimitManager />}
+              {securitySubTab === 'suspicious' && <SuspiciousActivityMonitor />}
             </Box>
           )}
 
