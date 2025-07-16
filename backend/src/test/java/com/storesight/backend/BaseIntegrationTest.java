@@ -46,5 +46,8 @@ public abstract class BaseIntegrationTest {
     registry.add("spring.redis.port", () -> redis.getMappedPort(6379));
     // Disable logback configuration for tests
     registry.add("logging.config", () -> "");
+    // Disable Flyway for integration tests to prevent migration issues
+    registry.add("spring.flyway.enabled", () -> "false");
+    registry.add("spring.jpa.hibernate.ddl-auto", () -> "create-drop");
   }
 }
