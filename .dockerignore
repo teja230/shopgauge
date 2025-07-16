@@ -18,9 +18,9 @@ ENVIRONMENT_SETUP.md
 .husky/
 
 # Configuration files not needed in container
-config/
 render.yaml
-*.sh
+# Note: config/ directory is needed for environment configuration
+# Note: *.sh files are needed for startup scripts
 
 # Logs and temp files
 *.log
