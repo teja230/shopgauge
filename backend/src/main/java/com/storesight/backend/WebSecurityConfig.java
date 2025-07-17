@@ -2,8 +2,6 @@ package com.storesight.backend;
 
 import com.storesight.backend.config.AdminAuthenticationFilter;
 import com.storesight.backend.config.ShopifyAuthenticationFilter;
-import com.storesight.backend.service.RedisSessionService;
-import com.storesight.backend.service.SessionSecurityService;
 import com.storesight.backend.service.SessionSynchronizationService;
 import com.storesight.backend.service.ShopService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -18,7 +16,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -51,8 +48,6 @@ public class WebSecurityConfig implements WebMvcConfigurer {
 
   private final ShopService shopService;
   private final SessionSynchronizationService sessionSynchronizationService;
-  private final SessionSecurityService sessionSecurityService;
-  private final RedisSessionService redisSessionService;
 
   @Value("${spring.profiles.active:dev}")
   private String activeProfile;
@@ -71,14 +66,9 @@ public class WebSecurityConfig implements WebMvcConfigurer {
   private final Map<String, RateLimitInfo> rateLimitMap = new ConcurrentHashMap<>();
 
   public WebSecurityConfig(
-      ShopService shopService,
-      SessionSynchronizationService sessionSynchronizationService,
-      @Lazy SessionSecurityService sessionSecurityService,
-      @Lazy RedisSessionService redisSessionService) {
+      ShopService shopService, SessionSynchronizationService sessionSynchronizationService) {
     this.shopService = shopService;
     this.sessionSynchronizationService = sessionSynchronizationService;
-    this.sessionSecurityService = sessionSecurityService;
-    this.redisSessionService = redisSessionService;
   }
 
   // Rate limit info holder
@@ -280,8 +270,7 @@ public class WebSecurityConfig implements WebMvcConfigurer {
 
   @Bean
   public ShopifyAuthenticationFilter shopifyAuthenticationFilter() {
-    return new ShopifyAuthenticationFilter(
-        shopService, sessionSynchronizationService, sessionSecurityService, redisSessionService);
+    return new ShopifyAuthenticationFilter(shopService, sessionSynchronizationService);
   }
 
   @Bean

@@ -1,7 +1,5 @@
 package com.storesight.backend.config;
 
-import com.storesight.backend.service.RedisSessionService;
-import com.storesight.backend.service.SessionSecurityService;
 import com.storesight.backend.service.SessionSynchronizationService;
 import com.storesight.backend.service.ShopService;
 import jakarta.servlet.FilterChain;
@@ -26,18 +24,11 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
   private static final Logger logger = LoggerFactory.getLogger(ShopifyAuthenticationFilter.class);
   private final ShopService shopService;
   private final SessionSynchronizationService sessionSynchronizationService;
-  private final SessionSecurityService sessionSecurityService;
-  private final RedisSessionService redisSessionService;
 
   public ShopifyAuthenticationFilter(
-      ShopService shopService,
-      SessionSynchronizationService sessionSynchronizationService,
-      SessionSecurityService sessionSecurityService,
-      RedisSessionService redisSessionService) {
+      ShopService shopService, SessionSynchronizationService sessionSynchronizationService) {
     this.shopService = shopService;
     this.sessionSynchronizationService = sessionSynchronizationService;
-    this.sessionSecurityService = sessionSecurityService;
-    this.redisSessionService = redisSessionService;
   }
 
   @Override
