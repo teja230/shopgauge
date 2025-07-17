@@ -89,6 +89,7 @@ import {
 import { adminLogin, adminLogout, getAdminStatus } from '../api/admin';
 import { styled } from '@mui/material/styles';
 import { useNotifications } from '../hooks/useNotifications';
+import { fetchWithAdminAuth } from '../api';
 import EnhancedHealthSummary from '../components/ui/EnhancedHealthSummary';
 import ComprehensiveMonitoringDashboard from '../components/ui/ComprehensiveMonitoringDashboard';
 import { getSessionStatus } from '../utils/sessionUtils';
@@ -1046,34 +1047,32 @@ const AdminPage: React.FC = () => {
       setHealthSummaryLoading(true);
       setHealthSummaryError(null);
       
-      // Fetch health summary, detailed database pool info, and Redis health
-      const [summaryResponse, poolResponse, redisResponse] = await Promise.all([
-        fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/health/summary`),
-        fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/health/database-pool`),
-        fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/health/redis`)
+      // Fetch health summary, detailed database pool info, and Redis health using fetchWithAdminAuth
+      const [summaryData, poolData, redisData] = await Promise.all([
+        fetchWithAdminAuth('/api/health/summary'),
+        fetchWithAdminAuth('/api/health/database-pool').catch(() => null),
+        fetchWithAdminAuth('/api/health/redis').catch(() => null)
       ]);
       
-      if (!summaryResponse.ok) {
-        throw new Error(`Health check failed: ${summaryResponse.statusText}`);
-      }
-      
-      const summaryData = await summaryResponse.json();
-      const poolData = poolResponse.ok ? await poolResponse.json() : null;
-      const redisData = redisResponse.ok ? await redisResponse.json() : null;
-      
-      // Merge pool data into the summary
-      if (poolData && summaryData.database) {
+      // Enhance with detailed pool info if available
+      if (poolData) {
         summaryData.database = {
           ...summaryData.database,
-          ...poolData
+          ...poolData,
+          activeConnections: poolData.poolStatistics?.activeConnections || poolData.activeConnections || 0,
+          totalConnections: poolData.poolStatistics?.totalConnections || poolData.totalConnections || 20,
+          maxPoolSize: poolData.poolStatistics?.maxPoolSize || poolData.maxPoolSize || 20,
+          status: poolData.poolStatistics?.healthy !== false ? 'healthy' : 'unhealthy'
         };
       }
       
-      // Merge Redis data into the summary
-      if (redisData && summaryData.redis) {
+      // Enhance with Redis info if available
+      if (redisData) {
         summaryData.redis = {
           ...summaryData.redis,
-          ...redisData
+          ...redisData,
+          status: redisData.healthy ? 'healthy' : 'unhealthy',
+          responseTimeMs: redisData.responseTimeMs || redisData.performance?.responseTimeMs
         };
       }
       
@@ -1493,35 +1492,24 @@ const AdminPage: React.FC = () => {
         ? `/api/admin/sessions/stuck-sessions/${shopDomain}`
         : '/api/admin/sessions/stuck-sessions';
       
-      const response = await fetch(endpoint, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-      });
+      const result = await fetchWithAdminAuth(endpoint);
       
-      if (response.ok) {
-        const result = await response.json();
-        console.log('Stuck sessions response:', result);
-        
-        // Handle both single shop and all shops response formats
-        if (shopDomain) {
-          // Single shop response
-          const count = result.count || 0;
-          const stuckSessions = result.stuckSessions || [];
-          showSuccess(`Found ${count} stuck sessions for ${shopDomain}`);
-          return { shopDomain, stuckSessions, count };
-        } else {
-          // All shops response
-          const totalStuckSessions = result.totalStuckSessions || 0;
-          const totalShops = result.totalShops || 0;
-          const stuckSessionsByShop = result.stuckSessionsByShop || {};
-          showSuccess(`Found ${totalStuckSessions} stuck sessions across ${totalShops} shops`);
-          return { totalStuckSessions, totalShops, stuckSessionsByShop };
-        }
+      console.log('Stuck sessions response:', result);
+      
+      // Handle both single shop and all shops response formats
+      if (shopDomain) {
+        // Single shop response
+        const count = result.count || 0;
+        const stuckSessions = result.stuckSessions || [];
+        showSuccess(`Found ${count} stuck sessions for ${shopDomain}`);
+        return { shopDomain, stuckSessions, count };
       } else {
-        const error = await response.json().catch(() => ({}));
-        showError(error.error || 'Failed to get stuck sessions');
-        throw new Error(error.error || 'Failed to get stuck sessions');
+        // All shops response
+        const totalStuckSessions = result.totalStuckSessions || 0;
+        const totalShops = result.totalShops || 0;
+        const stuckSessionsByShop = result.stuckSessionsByShop || {};
+        showSuccess(`Found ${totalStuckSessions} stuck sessions across ${totalShops} shops`);
+        return { totalStuckSessions, totalShops, stuckSessionsByShop };
       }
     } catch (error) {
       console.error('Error getting stuck sessions:', error);

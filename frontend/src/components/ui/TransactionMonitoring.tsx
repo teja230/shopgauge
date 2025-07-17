@@ -196,7 +196,8 @@ const TransactionMonitoring: React.FC = () => {
 
   const fetchTransactionAlerts = async () => {
     try {
-      const response = await fetchWithAdminAuth('/api/health/alerts/transactions') as any;
+      // Get alerts from the metrics endpoint since alerts are included there
+      const response = await fetchWithAdminAuth('/api/health/metrics/transactions') as any;
       
       // Transform backend alerts to match frontend interface
       const transformedAlerts: TransactionAlert[] = Object.entries(response.alerts || {}).map(([key, alert]: [string, any]) => ({

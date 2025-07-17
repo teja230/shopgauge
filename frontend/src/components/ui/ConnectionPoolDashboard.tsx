@@ -166,8 +166,9 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
         poolStatus: poolData.connection_pool?.healthy ? 'HEALTHY' : 'CRITICAL',
         connectionLeakRisk: poolData.connection_pool?.leak_count > 5 ? 'HIGH' : 
                            poolData.connection_pool?.leak_count > 2 ? 'MEDIUM' : 'LOW',
-        emergencyCleanupNeeded: (poolData.connection_pool?.threads_waiting > 5) || 
-                               (poolData.connection_pool?.utilization_ratio || 0) > 0.95,
+        emergencyCleanupNeeded: (poolData.connection_pool?.threads_waiting > 10) || 
+                               ((poolData.connection_pool?.utilization_ratio || 0) > 0.98 && 
+                                (poolData.connection_pool?.threads_waiting > 0)),
       } : {
         // Legacy endpoint format
         activeConnections: poolData.hikariMetrics?.activeConnections || 0,

@@ -105,7 +105,14 @@ const RateLimitManager: React.FC = () => {
       setLastUpdated(new Date());
     } catch (err) {
       console.error('Error fetching rate limit stats:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch rate limit status');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch rate limit status';
+      
+      // Check if it's an authentication error
+      if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
+        setError('Please ensure you are logged in to the admin panel');
+      } else {
+        setError(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
