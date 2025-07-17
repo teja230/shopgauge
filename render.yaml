@@ -50,11 +50,11 @@ services:
       - key: FRONTEND_URL
         value: "https://www.shopgaugeai.com"
       
-      # Shopify Configuration
+      # Shopify Configuration - Set these in Render Dashboard Environment Variables
       - key: SHOPIFY_API_KEY
-        value: "cd0858684729106799143c9a437a5e1a"
+        sync: false  # Must be set in Render Dashboard
       - key: SHOPIFY_API_SECRET
-        value: "d4260751f82b0bf07a52d08ea572c098"
+        sync: false  # Must be set in Render Dashboard
       - key: SHOPIFY_REDIRECT_URI
         value: "https://api.shopgaugeai.com/api/auth/shopify/callback"
       - key: SHOPIFY_SCOPES
@@ -62,23 +62,39 @@ services:
       - key: SHOPIFY_API_VERSION
         value: "2023-10"
       
-      # Security Configuration
+      # Security Configuration - Set these in Render Dashboard Environment Variables
       - key: JWT_SECRET
-        value: "your-super-secret-jwt-key-change-this-in-production"
+        sync: false  # Must be set in Render Dashboard
       - key: ADMIN_USERNAME
-        value: "admin"
+        sync: false  # Must be set in Render Dashboard
       - key: ADMIN_PASSWORD
-        value: "$2a$12$rHm5SW8VNn8P0kvvzNA9yuxoXxBIqxJYZ/QD/hf//0cfxESzbFQq6"
+        sync: false  # Must be set in Render Dashboard
       - key: ADMIN_JWT_SECRET
-        value: "8152f9fe1fb4de3d2ca3d46d6e2f1ec759ba6e0fbf2ae33c944fa5439479bb5b"
+        sync: false  # Must be set in Render Dashboard
       
-      # API Keys
+      # Admin Authentication Configuration
+      - key: ADMIN_AUTH_ENABLED
+        value: "true"
+      - key: ADMIN_REQUIRE_HTTPS
+        value: "true"
+      - key: ADMIN_SESSION_TIMEOUT
+        value: "3600"
+      - key: ADMIN_MAX_LOGIN_ATTEMPTS
+        value: "5"
+      - key: ADMIN_LOCKOUT_DURATION
+        value: "900"
+      - key: ADMIN_TOKEN_EXPIRY
+        value: "86400"
+      - key: ADMIN_AUDIT_LOGGING
+        value: "true"
+      
+      # API Keys - Set these in Render Dashboard Environment Variables
       - key: SCRAPINGDOG_KEY
-        value: "685dc0418fd77e07930a97d6"
+        sync: false  # Must be set in Render Dashboard
       - key: SERPER_KEY
-        value: "a1e59256c8dcbc3cd5364dcb98828b6b0dee7daf"
+        sync: false  # Must be set in Render Dashboard
       - key: SERPAPI_KEY
-        value: "bc3415d216ce8a7632dd5103c8683a45734416276ec223bf16dfe739b6c5ae5c"
+        sync: false  # Must be set in Render Dashboard
       
       # Feature Flags
       - key: DISCOVERY_ENABLED
@@ -96,15 +112,17 @@ services:
       - key: SMS_NOTIFICATIONS_ENABLED
         value: "true"
       
-      # Logging Configuration
+      # Logging Configuration (Enhanced for debugging)
       - key: LOGGING_LEVEL_ROOT
-        value: "WARN"
-      - key: LOGGING_LEVEL_STORESIGHT
         value: "INFO"
+      - key: LOGGING_LEVEL_STORESIGHT
+        value: "DEBUG"
       - key: LOGGING_LEVEL_SPRING
-        value: "WARN"
+        value: "INFO"
       - key: LOGGING_LEVEL_HIBERNATE
         value: "WARN"
+      - key: LOGGING_LEVEL_SECURITY
+        value: "DEBUG"
     region: oregon
     dockerContext: .
     dockerfilePath: backend/Dockerfile.prod
@@ -136,6 +154,6 @@ services:
     region: oregon
     maxmemoryPolicy: allkeys-lru
     ipAllowList:
-      - source: 57.132.182.47/32
-        description: teja230@gmail.com
+      - source: 0.0.0.0/0
+        description: Allow all connections (configure specific IPs in Render Dashboard)
     version: "1"
