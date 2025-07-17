@@ -189,12 +189,20 @@ public class DatabaseMonitoringService {
             // Get maximum pool size from HikariCP configuration
             int maximumPoolSize = 20; // Default fallback
             try {
-              Object hikariConfig = dataSource.getClass().getMethod("getHikariConfigMXBean").invoke(dataSource);
+              Object hikariConfig =
+                  dataSource.getClass().getMethod("getHikariConfigMXBean").invoke(dataSource);
               if (hikariConfig != null) {
-                maximumPoolSize = (Integer) hikariConfig.getClass().getMethod("getMaximumPoolSize").invoke(hikariConfig);
+                maximumPoolSize =
+                    (Integer)
+                        hikariConfig
+                            .getClass()
+                            .getMethod("getMaximumPoolSize")
+                            .invoke(hikariConfig);
               }
             } catch (Exception configException) {
-              logger.debug("Could not get HikariCP configuration, using default maximum pool size: {}", configException.getMessage());
+              logger.debug(
+                  "Could not get HikariCP configuration, using default maximum pool size: {}",
+                  configException.getMessage());
             }
 
             stats.put("activeConnections", activeConnections);
@@ -206,8 +214,9 @@ public class DatabaseMonitoringService {
             // Calculate utilization based on maximum pool size, not current total connections
             // This prevents false emergency cleanup triggers when idle connections are closed
             double utilizationPercentage = (double) activeConnections / maximumPoolSize * 100;
-            double currentPoolUtilization = totalConnections > 0 ? (double) activeConnections / totalConnections * 100 : 0;
-            
+            double currentPoolUtilization =
+                totalConnections > 0 ? (double) activeConnections / totalConnections * 100 : 0;
+
             stats.put("utilizationPercentage", utilizationPercentage);
             stats.put("currentPoolUtilization", currentPoolUtilization);
 
@@ -215,7 +224,8 @@ public class DatabaseMonitoringService {
             if (utilizationPercentage > CONNECTION_POOL_WARNING_THRESHOLD) {
               stats.put(
                   "warning",
-                  "High connection pool utilization: " + String.format("%.1f%%", utilizationPercentage));
+                  "High connection pool utilization: "
+                      + String.format("%.1f%%", utilizationPercentage));
             }
 
             // Add pool health status
@@ -228,8 +238,13 @@ public class DatabaseMonitoringService {
             stats.put("poolStatus", poolStatus);
 
             // Log detailed connection info for debugging
-            logger.debug("Connection pool stats - Active: {}, Idle: {}, Total: {}, Max: {}, Utilization: {:.1f}%", 
-                activeConnections, idleConnections, totalConnections, maximumPoolSize, utilizationPercentage);
+            logger.debug(
+                "Connection pool stats - Active: {}, Idle: {}, Total: {}, Max: {}, Utilization: {:.1f}%",
+                activeConnections,
+                idleConnections,
+                totalConnections,
+                maximumPoolSize,
+                utilizationPercentage);
 
             if (threadsAwaitingConnection > 0) {
               stats.put("warning", "Threads waiting for connections: " + threadsAwaitingConnection);
