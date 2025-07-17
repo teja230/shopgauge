@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNotifications } from '../../hooks/useNotifications';
+import { fetchWithAdminAuth } from '../../api';
 import {
   Box,
   Typography,
@@ -131,13 +132,7 @@ const SessionSecurityManager: React.FC = () => {
     setError(null);
     
     try {
-      const response = await fetch(`/api/admin/session-security/session/${selectedShop}/${selectedSession}/status`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch session status');
-      }
-      
-      const data = await response.json();
+      const data = await fetchWithAdminAuth(`/api/admin/session-security/session/${selectedShop}/${selectedSession}/status`);
       setSessionStatus(data);
     } catch (err) {
       console.error('Error fetching session status:', err);
@@ -154,13 +149,7 @@ const SessionSecurityManager: React.FC = () => {
     setError(null);
     
     try {
-      const response = await fetch(`/api/admin/session-security/shop/${selectedShop}/overview`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch shop overview');
-      }
-      
-      const data = await response.json();
+      const data = await fetchWithAdminAuth(`/api/admin/session-security/shop/${selectedShop}/overview`);
       setShopOverview(data);
     } catch (err) {
       console.error('Error fetching shop overview:', err);
@@ -174,7 +163,7 @@ const SessionSecurityManager: React.FC = () => {
     if (!selectedShop || !selectedSession || !invalidateReason.trim()) return;
     
     try {
-      const response = await fetch(
+      await fetchWithAdminAuth(
         `/api/admin/session-security/session/${selectedShop}/${selectedSession}/force-invalidate`,
         {
           method: 'POST',
@@ -182,10 +171,6 @@ const SessionSecurityManager: React.FC = () => {
           body: JSON.stringify({ reason: invalidateReason })
         }
       );
-      
-      if (!response.ok) {
-        throw new Error('Failed to invalidate session');
-      }
       
       showSuccess('🚫 Session invalidated successfully!', {
         category: 'Session Security',
@@ -212,7 +197,7 @@ const SessionSecurityManager: React.FC = () => {
     if (!selectedShop || !selectedSession || !suspiciousReason.trim()) return;
     
     try {
-      const response = await fetch(
+      await fetchWithAdminAuth(
         `/api/admin/session-security/session/${selectedShop}/${selectedSession}/mark-suspicious`,
         {
           method: 'POST',
@@ -220,10 +205,6 @@ const SessionSecurityManager: React.FC = () => {
           body: JSON.stringify({ reason: suspiciousReason })
         }
       );
-      
-      if (!response.ok) {
-        throw new Error('Failed to mark session as suspicious');
-      }
       
       showSuccess('⚠️ Session marked as suspicious successfully!', {
         category: 'Session Security',
@@ -250,14 +231,10 @@ const SessionSecurityManager: React.FC = () => {
     if (!selectedShop || !selectedSession) return;
     
     try {
-      const response = await fetch(
+      await fetchWithAdminAuth(
         `/api/admin/session-security/session/${selectedShop}/${selectedSession}/rotate-token`,
         { method: 'POST' }
       );
-      
-      if (!response.ok) {
-        throw new Error('Failed to rotate token');
-      }
       
       showSuccess('🔄 Token rotated successfully!', {
         category: 'Session Security',

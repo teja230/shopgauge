@@ -51,6 +51,7 @@ import {
 } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
 import RefreshHeader from './RefreshHeader';
+import { fetchWithAdminAuth } from '../../api';
 
 const SecurityCard = styled(Card)(({ theme }) => ({
   borderRadius: 20,
@@ -125,13 +126,7 @@ const SuspiciousActivityMonitor: React.FC = () => {
       setError(null);
       setRefreshing(true);
       
-      const response = await fetch(`/api/admin/audit/suspicious-activity?hours=${timeRange}`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch suspicious activity data');
-      }
-      
-      const data = await response.json();
+      const data = await fetchWithAdminAuth(`/api/admin/audit/suspicious-activity?hours=${timeRange}`);
       setSuspiciousActivity(data);
       setLastUpdated(new Date());
     } catch (err) {

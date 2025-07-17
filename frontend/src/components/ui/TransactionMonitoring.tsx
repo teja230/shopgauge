@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNotifications } from '../../hooks/useNotifications';
+import { fetchWithAdminAuth } from '../../api';
 import {
   Box,
   Typography,
@@ -34,27 +35,6 @@ import {
 } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
 import RefreshHeader from './RefreshHeader';
-// Custom fetch function for admin endpoints that doesn't require shop authentication
-const fetchAdminEndpoint = async (url: string, options: RequestInit = {}) => {
-  const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) || 'https://api.shopgaugeai.com';
-  const fullUrl = `${API_BASE_URL}${url}`;
-  
-  const response = await fetch(fullUrl, {
-    ...options,
-    credentials: 'include',
-    headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
-  }
-
-  return response.json();
-};
 
 interface TransactionHealth {
   status: string;
@@ -160,7 +140,7 @@ const TransactionMonitoring: React.FC = () => {
 
   const fetchTransactionHealth = async () => {
     try {
-      const response = await fetchAdminEndpoint('/api/health/transactions');
+      const response = await fetchWithAdminAuth('/api/health/transactions');
       
       // Transform backend response to match frontend interface
       const transformedHealth: TransactionHealth = {
@@ -187,7 +167,7 @@ const TransactionMonitoring: React.FC = () => {
 
   const fetchTransactionMetrics = async () => {
     try {
-      const response = await fetchAdminEndpoint('/api/health/metrics/transactions');
+      const response = await fetchWithAdminAuth('/api/health/metrics/transactions');
       
       // Transform backend response to match frontend interface
       const transformedMetrics: TransactionMetrics = {
@@ -216,7 +196,7 @@ const TransactionMonitoring: React.FC = () => {
 
   const fetchTransactionAlerts = async () => {
     try {
-      const response = await fetchAdminEndpoint('/api/health/alerts/transactions') as any;
+      const response = await fetchWithAdminAuth('/api/health/alerts/transactions') as any;
       
       // Transform backend alerts to match frontend interface
       const transformedAlerts: TransactionAlert[] = Object.entries(response.alerts || {}).map(([key, alert]: [string, any]) => ({
@@ -243,7 +223,7 @@ const TransactionMonitoring: React.FC = () => {
     if (!isMountedRef.current) return;
     
     try {
-      await fetchAdminEndpoint('/api/health/metrics/transactions/reset', {
+      await fetchWithAdminAuth('/api/health/metrics/transactions/reset', {
         method: 'POST',
       });
       

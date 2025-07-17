@@ -54,6 +54,7 @@ import {
   Cloud as CloudIcon,
   Security as SecurityIcon
 } from '@mui/icons-material';
+import { fetchWithAdminAuth } from '../../api';
 
 interface MonitoringData {
   dashboards: any;
@@ -84,13 +85,7 @@ const ComprehensiveMonitoringDashboard: React.FC = () => {
   const fetchMonitoringData = async () => {
     try {
       setError(null);
-      const response = await fetch('/api/admin/monitoring/dashboard');
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch monitoring data: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
+      const data = await fetchWithAdminAuth('/api/admin/monitoring/dashboard');
       setMonitoringData(data);
     } catch (err) {
       console.error('Error fetching monitoring data:', err);
@@ -102,17 +97,13 @@ const ComprehensiveMonitoringDashboard: React.FC = () => {
 
   const acknowledgeAlert = async (alertId: string) => {
     try {
-      const response = await fetch(`/api/admin/monitoring/alerts/${alertId}/acknowledge`, {
+      await fetchWithAdminAuth(`/api/admin/monitoring/alerts/${alertId}/acknowledge`, {
         method: 'POST'
       });
       
-      if (response.ok) {
-        // Refresh monitoring data to update alert status
-        await fetchMonitoringData();
-        setAlertDialogOpen(false);
-      } else {
-        throw new Error('Failed to acknowledge alert');
-      }
+      // Refresh monitoring data to update alert status
+      await fetchMonitoringData();
+      setAlertDialogOpen(false);
     } catch (err) {
       console.error('Error acknowledging alert:', err);
     }

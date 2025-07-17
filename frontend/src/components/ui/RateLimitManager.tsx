@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNotifications } from '../../hooks/useNotifications';
+import { fetchWithAdminAuth } from '../../api';
 import {
   Box,
   Typography,
@@ -99,13 +100,7 @@ const RateLimitManager: React.FC = () => {
     setError(null);
     
     try {
-      const response = await fetch('/api/admin/auth/rate-limit-status');
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch rate limit status');
-      }
-      
-      const data = await response.json();
+      const data = await fetchWithAdminAuth('/api/admin/auth/rate-limit-status');
       setCurrentIpStats(data);
       setLastUpdated(new Date());
     } catch (err) {
@@ -127,7 +122,7 @@ const RateLimitManager: React.FC = () => {
     if (!targetIp.trim() || !clearReason.trim()) return;
     
     try {
-      const response = await fetch('/api/admin/audit/clear-rate-limit', {
+      await fetchWithAdminAuth('/api/admin/audit/clear-rate-limit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -135,10 +130,6 @@ const RateLimitManager: React.FC = () => {
           reason: clearReason 
         })
       });
-      
-      if (!response.ok) {
-        throw new Error('Failed to clear rate limit');
-      }
       
       showSuccess(`🚫 Rate limits cleared successfully for IP: ${targetIp}`, {
         category: 'Rate Limit Management',
