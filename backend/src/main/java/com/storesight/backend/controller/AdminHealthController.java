@@ -96,134 +96,126 @@ public class AdminHealthController {
     }
   }
 
-  /**
-   * Get transaction metrics endpoint for TransactionMonitoring component
-   */
+  /** Get transaction metrics endpoint for TransactionMonitoring component */
   @GetMapping("/metrics/transactions")
   public ResponseEntity<Map<String, Object>> transactionMetrics() {
     try {
       Map<String, Object> response = new HashMap<>();
-      
+
       // Get transaction monitoring metrics
       Map<String, Object> transactionMetrics = transactionMonitoringService.getHealthMetrics();
       response.put("metrics", transactionMetrics);
-      
+
       // Get critical alerts
       Map<String, Object> alerts = transactionMonitoringService.getCriticalAlerts();
       response.put("alerts", alerts);
-      
+
       // Add health status
       boolean isHealthy = transactionMonitoringService.isHealthy();
       response.put("healthy", isHealthy);
       response.put("status", isHealthy ? "HEALTHY" : "UNHEALTHY");
-      
+
       response.put("timestamp", LocalDateTime.now());
-      
+
       return ResponseEntity.ok(response);
-      
+
     } catch (Exception e) {
       logger.error("Error retrieving transaction metrics: {}", e.getMessage());
       Map<String, Object> errorResponse = new HashMap<>();
       errorResponse.put("error", e.getMessage());
       errorResponse.put("timestamp", LocalDateTime.now());
-      
+
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
     }
   }
 
-  /**
-   * Reset transaction metrics endpoint
-   */
+  /** Reset transaction metrics endpoint */
   @PostMapping("/metrics/transactions/reset")
   public ResponseEntity<Map<String, Object>> resetTransactionMetrics() {
     try {
       transactionMonitoringService.resetMetrics();
-      
+
       Map<String, Object> response = new HashMap<>();
       response.put("success", true);
       response.put("message", "Transaction metrics reset successfully");
       response.put("timestamp", LocalDateTime.now());
-      
+
       return ResponseEntity.ok(response);
-      
+
     } catch (Exception e) {
       logger.error("Error resetting transaction metrics: {}", e.getMessage());
       Map<String, Object> errorResponse = new HashMap<>();
       errorResponse.put("success", false);
       errorResponse.put("error", e.getMessage());
       errorResponse.put("timestamp", LocalDateTime.now());
-      
+
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
     }
   }
 
-  /**
-   * Emergency cleanup endpoint
-   */
+  /** Emergency cleanup endpoint */
   @PostMapping("/emergency-cleanup")
   public ResponseEntity<Map<String, Object>> emergencyCleanup() {
     try {
       Map<String, Object> response = new HashMap<>();
-      
+
       // Perform database cleanup
       Map<String, Object> dbHealth = databaseMonitoringService.performHealthCheck();
-      
+
       // Get system health
       Map<String, String> systemHealth = systemResourceMonitoringService.getHealthIndicators();
-      
+
       response.put("success", true);
       response.put("message", "Emergency cleanup completed");
       response.put("databaseHealth", dbHealth);
       response.put("systemHealth", systemHealth);
       response.put("timestamp", LocalDateTime.now());
-      
+
       return ResponseEntity.ok(response);
-      
+
     } catch (Exception e) {
       logger.error("Error during emergency cleanup: {}", e.getMessage());
       Map<String, Object> errorResponse = new HashMap<>();
       errorResponse.put("success", false);
       errorResponse.put("error", e.getMessage());
       errorResponse.put("timestamp", LocalDateTime.now());
-      
+
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
     }
   }
 
-  /**
-   * Comprehensive cleanup endpoint
-   */
+  /** Comprehensive cleanup endpoint */
   @PostMapping("/comprehensive-cleanup")
   public ResponseEntity<Map<String, Object>> comprehensiveCleanup() {
     try {
       Map<String, Object> response = new HashMap<>();
-      
+
       // Perform comprehensive cleanup
       Map<String, Object> dbHealth = databaseMonitoringService.performHealthCheck();
       Map<String, Object> dbStats = databaseMonitoringService.getDatabaseStatistics();
-      
+
       // Reset transaction metrics
       transactionMonitoringService.resetMetrics();
-      
+
       // Get updated system health
       Map<String, String> systemHealth = systemResourceMonitoringService.getHealthIndicators();
-      
+
       response.put("success", true);
       response.put("message", "Comprehensive cleanup completed");
       response.put("databaseHealth", dbHealth);
       response.put("databaseStats", dbStats);
       response.put("systemHealth", systemHealth);
       response.put("timestamp", LocalDateTime.now());
-      
+
       return ResponseEntity.ok(response);
-      
+
     } catch (Exception e) {
       logger.error("Error during comprehensive cleanup: {}", e.getMessage());
       Map<String, Object> errorResponse = new HashMap<>();
       errorResponse.put("success", false);
       errorResponse.put("error", e.getMessage());
       errorResponse.put("timestamp", LocalDateTime.now());
-      
+
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
     }
   }
