@@ -55,6 +55,7 @@ import {
   Security as SecurityIcon
 } from '@mui/icons-material';
 import { fetchWithAdminAuth } from '../../api';
+import RefreshHeader from './RefreshHeader';
 
 interface MonitoringData {
   dashboards: any;
@@ -80,19 +81,28 @@ const ComprehensiveMonitoringDashboard: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedAlert, setSelectedAlert] = useState<AlertData | null>(null);
   const [alertDialogOpen, setAlertDialogOpen] = useState(false);
-  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  const [refreshCooldown, setRefreshCooldown] = useState(0);
 
   const fetchMonitoringData = async () => {
     try {
       setError(null);
+      setLoading(true);
       const data = await fetchWithAdminAuth('/api/admin/monitoring/dashboard');
       setMonitoringData(data);
+      setLastRefresh(new Date());
     } catch (err) {
       console.error('Error fetching monitoring data:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch monitoring data');
     } finally {
       setLoading(false);
     }
+  };
+
+  const refreshData = async () => {
+    if (refreshCooldown > 0) return;
+    setRefreshCooldown(180); // 3 minutes cooldown
+    await fetchMonitoringData();
   };
 
   const acknowledgeAlert = async (alertId: string) => {
@@ -109,19 +119,21 @@ const ComprehensiveMonitoringDashboard: React.FC = () => {
     }
   };
 
+  // Cooldown timer for refresh
   useEffect(() => {
-    fetchMonitoringData();
-    
-    // Set up auto-refresh if enabled
-    let interval: NodeJS.Timeout;
-    if (autoRefresh) {
-      interval = setInterval(fetchMonitoringData, 30000); // Refresh every 30 seconds
+    if (refreshCooldown > 0) {
+      const timer = setTimeout(() => setRefreshCooldown(refreshCooldown - 1), 1000);
+      return () => clearTimeout(timer);
     }
-    
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [autoRefresh]);
+  }, [refreshCooldown]);
+
+  // Load data only on component mount when there is no data
+  useEffect(() => {
+    // Only fetch data if we don't have any data yet
+    if (!monitoringData) {
+      fetchMonitoringData();
+    }
+  }, []); // Empty dependency array - only run on mount
 
   const getSeverityColor = (severity: string) => {
     switch (severity.toLowerCase()) {
@@ -194,22 +206,20 @@ const ComprehensiveMonitoringDashboard: React.FC = () => {
         <Typography variant="h4" component="h1">
           Comprehensive Monitoring Dashboard
         </Typography>
-        <Stack direction="row" spacing={2}>
-          <Button
-            variant="outlined"
-            startIcon={<RefreshIcon />}
-            onClick={fetchMonitoringData}
-            disabled={loading}
-          >
-            Refresh
-          </Button>
-          <Button
-            variant={autoRefresh ? "contained" : "outlined"}
-            onClick={() => setAutoRefresh(!autoRefresh)}
-          >
-            Auto Refresh: {autoRefresh ? 'ON' : 'OFF'}
-          </Button>
-        </Stack>
+        <RefreshHeader
+          lastUpdated={lastRefresh ? (() => {
+            const diff = Math.floor((Date.now() - lastRefresh.getTime()) / 1000);
+            if (diff < 60) return 'Just now';
+            if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+            return lastRefresh.toLocaleString();
+          })() : 'Never'}
+          onRefresh={refreshData}
+          loading={loading}
+          cooldown={refreshCooldown > 0}
+          cooldownRemaining={refreshCooldown}
+          label="Refresh"
+          tooltip="Refresh monitoring dashboard data"
+        />
       </Box>
 
       {/* Alert Summary */}
