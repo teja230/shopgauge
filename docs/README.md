@@ -1,120 +1,103 @@
-# ShopGauge Documentation Hub
+# 📚 ShopGauge Documentation Hub
 
-Welcome to the **ShopGauge** documentation hub. This is the single starting point for all technical and product
-information about the platform. If you're new to ShopGauge, start here.
+Welcome to the **ShopGauge** documentation hub. This is your single starting point for all technical and product information about the platform.
 
-> **Audience**: Shopify merchants, solution architects, DevOps / SRE engineers, and developers integrating with or
-> contributing to ShopGauge.
+> **Audience**: Shopify merchants, developers, solution architects, DevOps engineers, and contributors.
 
 ---
 
-## 📈 Platform Overview
+## 🚀 Quick Start
 
-**ShopGauge** is an enterprise-grade analytics & competitor-intelligence platform for Shopify. Key capabilities include:
+| I want to... | Go to... |
+|---------------|----------|
+| **Learn about features** | [📖 User Guide](#-user-guide) |
+| **Integrate or develop** | [🔧 Developer Guide](#-developer-guide) |
+| **Understand the system** | [🏗️ Architecture](#️-architecture) |
+| **Deploy or monitor** | [⚙️ Operations](#️-operations) |
+| **Fix issues** | [🔍 Troubleshooting](#-troubleshooting) |
 
-| Category | Capabilities |
-|----------|--------------|
-| **Advanced Analytics** | Real-time revenue, conversion, inventory & customer behaviour dashboards (7+ chart types) |
-| **AI-Powered Market Intelligence** | Multi-provider competitor discovery (Scrapingdog, Serper, SerpAPI) with fall-back & cost optimisation |
-| **Multi-Session Architecture** | Concurrent log-ins, session isolation, token caching & intelligent clean-up |
-| **Notification System** | Session-scoped notifications via Email (SendGrid) & SMS (Twilio) with in-app centre |
-| **Security & Compliance** | GDPR / CCPA, Shopify Protected Data L2, AES-256 at rest, TLS 1.3 in transit, full audit trail |
-| **Cost & Performance Optimisations** | Exponential caching, debounced refreshes, 95 %+ API cost reduction |
-| **Enterprise UX** | Intelligent loading screen, responsive dashboard, mobile navigation & PWA-ready |
+---
+
+## 📖 User Guide
+*Product features, capabilities, and user-facing documentation*
+
+- **[Features Overview](user-guide/FEATURES_OVERVIEW.md)** - Complete feature catalog
+- **[Analytics & Dashboard](user-guide/ANALYTICS_AND_DASHBOARD.md)** - Revenue analytics and reporting
+- **[Market Intelligence](user-guide/MARKET_INTELLIGENCE.md)** - Competitor discovery and analysis
+- **[Mobile Enhancements](user-guide/MOBILE_ENHANCEMENTS.md)** - Mobile-first features
+- **[Notifications System](user-guide/NOTIFICATIONS_SYSTEM.md)** - Email, SMS, and in-app notifications
+
+---
+
+## 🔧 Developer Guide
+*APIs, integration guides, and development resources*
+
+- **[Admin Endpoints Reference](developer-guide/ADMIN_ENDPOINTS_REFERENCE.md)** - Complete API documentation
+- **[Session & Shop Management](developer-guide/SESSION_AND_SHOP_MANAGEMENT.md)** - Multi-session architecture
+- **[Admin & Security](developer-guide/ADMIN_AND_SECURITY.md)** - Security implementation
+- **[Setup & Compliance](developer-guide/SETUP_AND_COMPLIANCE.md)** - GDPR, privacy, and compliance
+- **[Contributing Guide](developer-guide/CONTRIBUTING.md)** - How to contribute to the project
+- **[SSE Admin Card](developer-guide/SSE_ADMIN_CARD.md)** - Server-sent events implementation
 
 ---
 
 ## 🏗️ Architecture
+*System design, technical architecture, and implementation details*
 
-```mermaid
-graph TB
-    subgraph "Frontend (React 18 / TS)"
-        UI[Dashboard & Admin <br/> Tailwind + MUI]
-        Auth[Auth Context <br/> Shopify OAuth]
-        Notifications[Session Notification Centre]
-    end
-
-    subgraph "API & Services (Spring Boot 3)"
-        Gateway[API Gateway]
-        AnalyticsSvc[Analytics Service]
-        DiscoverySvc[Competitor Discovery]
-        SessionSvc[Multi-Session Service]
-        NotificationSvc[Notification Service]
-        PrivacySvc[Data Privacy Service]
-    end
-
-    subgraph "Data Layer"
-        PG[(PostgreSQL 15+)]
-        Redis[(Redis 7)]
-    end
-
-    subgraph "External"
-        Shopify[Shopify API]
-        Scrapingdog[Scrapingdog]
-        Serper[Serper]
-        SerpAPI[SerpAPI]
-        SendGrid[SendGrid]
-        Twilio[Twilio]
-    end
-
-    UI --> Gateway
-    Gateway --> AnalyticsSvc
-    Gateway --> DiscoverySvc
-    Gateway --> SessionSvc
-    Gateway --> NotificationSvc
-    Gateway --> PrivacySvc
-
-    SessionSvc --> PG
-    SessionSvc --> Redis
-    AnalyticsSvc --> PG
-    AnalyticsSvc --> Redis
-    DiscoverySvc --> Scrapingdog
-    DiscoverySvc --> Serper
-    DiscoverySvc --> SerpAPI
-    AnalyticsSvc --> Shopify
-    NotificationSvc --> SendGrid
-    NotificationSvc --> Twilio
-```
-
-> For a deep-dive into the **multi-session design**, see **[Multi-Session Architecture](MULTI_SESSION_ARCHITECTURE.md)**.
+- **[Session Management Architecture](architecture/SESSION_MANAGEMENT_ARCHITECTURE.md)** - Multi-session system design
+- **[Enterprise SSE Implementation](architecture/ENTERPRISE_SSE_IMPLEMENTATION.md)** - Real-time communication
+- **[SSE Frontend-Backend Compatibility](architecture/SSE_FRONTEND_BACKEND_COMPATIBILITY.md)** - Integration patterns
 
 ---
 
-## 📚 Feature-Level Documentation
+## ⚙️ Operations
+*Deployment, monitoring, and operational procedures*
 
-| Area | Documentation |
-|------|---------------|
-| **Setup & Compliance** | 🔗 [Setup & Compliance](SETUP_AND_COMPLIANCE.md) |
-| **Market Intelligence** | 🔗 [Market Intelligence](MARKET_INTELLIGENCE.md) |
-| **Analytics & Dashboard** | 🔗 [Analytics & Dashboard](ANALYTICS_AND_DASHBOARD.md) |
-| **Session & Shop Management** | 🔗 [Session & Shop Management](SESSION_AND_SHOP_MANAGEMENT.md) |
-| **Admin & Security** | 🔗 [Admin & Security](ADMIN_AND_SECURITY.md) |
-| **Notification System** | 🔗 [Notification System](NOTIFICATIONS_SYSTEM.md) |
-| **Mobile Enhancements** | 🔗 [Mobile Enhancements](MOBILE_ENHANCEMENTS.md) |
-| **Features Overview** | 🔗 [Features Overview](FEATURES_OVERVIEW.md) |
-| **Contribution Guide** | 🔗 [CONTRIBUTING](CONTRIBUTING.md) |
-
-> All documentation has been consolidated into logical groups for easier discovery and maintenance.
+- **[Monitoring & Alerting](operations/MONITORING_AND_ALERTING_CONFIGURATION.md)** - Production monitoring setup
+- **[Configuration Management](operations/CONFIGURATION_MANAGEMENT_AND_ROLLBACK.md)** - Config and rollback procedures
+- **[Runbooks](runbooks/)** - Operational procedures and troubleshooting guides
 
 ---
 
-## 🚀 Quick Links
+## 🔍 Troubleshooting
+*Issue resolution, fixes, and debugging guides*
 
-• **Production Demo** – <https://www.shopgaugeai.com>  
-• **Public API Docs** – `/api/docs` (Swagger) once the backend is running  
-• **GitHub Repository** – <https://github.com/teja230/shopgauge>
-
----
-
-## 🆘 Support & Contact
-
-| Purpose | Contact |
-|---------|---------|
-| General enquiries | support@shopgauge.com |
-| Security | security@shopgauge.com |
-| Privacy | privacy@shopgauge.com |
-| Enterprise sales | sales@shopgauge.com |
+- **[Session Management Fixes](troubleshooting/)** - Session-related issue resolution
+- **[SSE Connection Issues](troubleshooting/)** - Real-time communication problems
+- **[Admin Interface Fixes](troubleshooting/)** - Admin panel troubleshooting
 
 ---
 
-© 2025 ShopGauge – Intelligent analytics & competitive insights for Shopify merchants. 
+## 🎯 Platform Overview
+
+**ShopGauge** is an enterprise-grade analytics & competitor-intelligence platform for Shopify merchants.
+
+### Key Capabilities
+
+| Category | Features |
+|----------|----------|
+| **📊 Advanced Analytics** | Real-time revenue, conversion, inventory & customer behavior dashboards (7+ chart types) |
+| **🤖 AI-Powered Intelligence** | Multi-provider competitor discovery with fallback & cost optimization |
+| **🔐 Multi-Session Architecture** | Concurrent logins, session isolation, token caching & intelligent cleanup |
+| **📱 Notification System** | Session-scoped notifications via Email, SMS & in-app center |
+| **🏢 Enterprise Features** | GDPR compliance, audit logging, role-based access, team collaboration |
+
+### Technology Stack
+
+- **Backend**: Spring Boot 3.2.3, Java 17, PostgreSQL 16, Redis 7
+- **Frontend**: React 18, TypeScript 5.5, Vite, PWA-enabled
+- **Infrastructure**: Docker, Render deployment, automated CI/CD
+- **Security**: AES-256-GCM encryption, JWT tokens, rate limiting, CSRF protection
+
+---
+
+## 📞 Support & Resources
+
+- **🐛 Issues**: [GitHub Issues](https://github.com/your-repo/issues)
+- **💬 Discussions**: [GitHub Discussions](https://github.com/your-repo/discussions)
+- **📧 Contact**: [support@shopgaugeai.com](mailto:support@shopgaugeai.com)
+- **🌐 Website**: [shopgaugeai.com](https://shopgaugeai.com)
+
+---
+
+*Last updated: July 2025*
