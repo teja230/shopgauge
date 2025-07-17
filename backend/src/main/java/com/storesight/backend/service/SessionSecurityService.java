@@ -41,7 +41,8 @@ public class SessionSecurityService {
 
   @Autowired private RedisTemplate<String, Object> redisTemplate;
 
-  @Autowired private AdminAuthService adminAuthService;
+  // Removed AdminAuthService dependency to break circular dependency
+  // Audit logging will be handled by the calling service
 
   @Value("${session.security.encryption.key:}")
   private String encryptionKeyBase64;
@@ -191,15 +192,10 @@ public class SessionSecurityService {
                 + currentIpAddress);
 
         // Log security violation
-        adminAuthService.logAuditEvent(
-            "SESSION_IP_VIOLATION",
-            "system",
-            "IP mismatch for session "
-                + sessionData.getSessionId()
-                + " - Expected: "
-                + sessionData.getIpAddress()
-                + ", Current: "
-                + currentIpAddress,
+        logger.warn(
+            "SESSION_IP_VIOLATION for session {} - Expected: {}, Current: {}",
+            sessionData.getSessionId(),
+            sessionData.getIpAddress(),
             currentIpAddress);
       }
     }
@@ -211,10 +207,9 @@ public class SessionSecurityService {
         result.addViolation("USER_AGENT_MISMATCH", "User agent validation failed");
 
         // Log security violation (don't log full user agents for privacy)
-        adminAuthService.logAuditEvent(
-            "SESSION_USER_AGENT_VIOLATION",
-            "system",
-            "User agent mismatch for session " + sessionData.getSessionId(),
+        logger.warn(
+            "SESSION_USER_AGENT_VIOLATION for session {} from IP {}",
+            sessionData.getSessionId(),
             currentIpAddress);
       }
     }
@@ -297,11 +292,7 @@ public class SessionSecurityService {
       overwriteSessionData(sessionId, shopDomain);
 
       // Log cleanup for audit
-      adminAuthService.logAuditEvent(
-          "SECURE_SESSION_CLEANUP",
-          "system",
-          "Secure cleanup initiated for session: " + sessionId,
-          "system");
+      logger.info("SECURE_SESSION_CLEANUP initiated for session: {}", sessionId);
 
       logger.info("Secure session cleanup initiated for session: {}", sessionId);
     } catch (Exception e) {
