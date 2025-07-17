@@ -868,9 +868,7 @@ public class HealthController {
     return sseHealth;
   }
 
-  /**
-   * Get comprehensive health summary - Admin Dashboard Endpoint
-   */
+  /** Get comprehensive health summary - Admin Dashboard Endpoint */
   @GetMapping("/summary")
   public ResponseEntity<Map<String, Object>> healthSummary() {
     try {
@@ -889,43 +887,38 @@ public class HealthController {
     }
   }
 
-  /**
-   * Get database pool statistics - Admin Dashboard Endpoint
-   */
+  /** Get database pool statistics - Admin Dashboard Endpoint */
   @GetMapping("/database-pool")
   public ResponseEntity<Map<String, Object>> databasePoolStatistics() {
     return databaseHealth();
   }
 
-  /**
-   * Get cache statistics - Admin Dashboard Endpoint
-   */
+  /** Get cache statistics - Admin Dashboard Endpoint */
   @GetMapping("/cache-statistics")
   public ResponseEntity<Map<String, Object>> cacheStatistics() {
     return cacheHealth();
   }
 
-  /**
-   * Get connection leak status - Admin Dashboard Endpoint
-   */
+  /** Get connection leak status - Admin Dashboard Endpoint */
   @GetMapping("/connection-leak-status")
   public ResponseEntity<Map<String, Object>> connectionLeakStatus() {
     try {
       Map<String, Object> response = new HashMap<>();
       Map<String, Object> dbHealth = databaseMonitoringService.performHealthCheck();
       Map<String, Object> dbStats = databaseMonitoringService.getDatabaseStatistics();
-      
+
       response.put("databaseHealth", dbHealth);
       response.put("connectionPool", dbStats);
-      response.put("leakDetection", Map.of(
-        "enabled", true,
-        "status", "MONITORING",
-        "lastCheck", LocalDateTime.now(),
-        "alert", "NORMAL",
-        "message", "Connection pool monitoring active"
-      ));
+      response.put(
+          "leakDetection",
+          Map.of(
+              "enabled", true,
+              "status", "MONITORING",
+              "lastCheck", LocalDateTime.now(),
+              "alert", "NORMAL",
+              "message", "Connection pool monitoring active"));
       response.put("timestamp", LocalDateTime.now());
-      
+
       return ResponseEntity.ok(response);
     } catch (Exception e) {
       logger.error("Error retrieving connection leak status: {}", e.getMessage());
