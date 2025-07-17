@@ -214,6 +214,67 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
   }
 };
 
+// Admin-specific fetch function with enhanced logging and error handling
+export const fetchWithAdminAuth = async (endpoint: string, options?: RequestInit) => {
+  const fullUrl = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
+
+  console.log(`API: Admin request to ${endpoint}`, { 
+    endpoint, 
+    fullUrl, 
+    method: options?.method || 'GET',
+    hasBody: !!options?.body 
+  });
+
+  try {
+    const response = await fetch(fullUrl, {
+      credentials: 'include',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        ...(options?.headers || {})
+      },
+      ...options,
+    });
+
+    console.log(`API: Admin response for ${endpoint}`, { 
+      endpoint, 
+      status: response.status, 
+      statusText: response.statusText,
+      ok: response.ok 
+    });
+
+    if (!response.ok) {
+      console.error(`API: Admin error for ${endpoint}`, { 
+        endpoint, 
+        status: response.status, 
+        statusText: response.statusText 
+      });
+      
+      if (response.status === 401) {
+        throw new Error('Admin authentication required');
+      }
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Admin endpoint error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log(`API: Admin success for ${endpoint}`, { 
+      endpoint, 
+      hasData: !!data,
+      dataKeys: data ? Object.keys(data) : []
+    });
+
+    return data;
+  } catch (error) {
+    console.error(`API: Admin exception for ${endpoint}`, { 
+      endpoint, 
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    throw error;
+  }
+};
+
 // Retry utility with exponential backoff
 export const retryWithBackoff = async <T>(
   fn: () => Promise<T>,
