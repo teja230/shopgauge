@@ -60,6 +60,13 @@ public class DashboardCacheService {
   private final AtomicLong cacheEvictions = new AtomicLong(0);
   private final AtomicLong totalCacheSizeExceeded = new AtomicLong(0);
 
+  // Persistent cache statistics keys
+  private static final String CACHE_STATS_HITS_KEY = "cache:stats:hits";
+  private static final String CACHE_STATS_MISSES_KEY = "cache:stats:misses";
+  private static final String CACHE_STATS_EVICTIONS_KEY = "cache:stats:evictions";
+  private static final String CACHE_STATS_SIZE_VIOLATIONS_KEY = "cache:stats:size_violations";
+  private static final String CACHE_STATS_LAST_RESET_KEY = "cache:stats:last_reset";
+
   @Autowired
   public DashboardCacheService(
       StringRedisTemplate redisTemplate,
@@ -70,6 +77,75 @@ public class DashboardCacheService {
     this.enhancedRedisService = enhancedRedisService;
     this.objectMapper = objectMapper;
     this.metricsCollectionService = metricsCollectionService;
+
+    // Initialize cache statistics from persistent storage
+    initializeCacheStatistics();
+  }
+
+  /** Initialize cache statistics from persistent storage */
+  private void initializeCacheStatistics() {
+    try {
+      // Load persistent cache statistics
+      String hitsStr = redisTemplate.opsForValue().get(CACHE_STATS_HITS_KEY);
+      String missesStr = redisTemplate.opsForValue().get(CACHE_STATS_MISSES_KEY);
+      String evictionsStr = redisTemplate.opsForValue().get(CACHE_STATS_EVICTIONS_KEY);
+      String sizeViolationsStr = redisTemplate.opsForValue().get(CACHE_STATS_SIZE_VIOLATIONS_KEY);
+
+      if (hitsStr != null) {
+        cacheHits.set(Long.parseLong(hitsStr));
+      }
+      if (missesStr != null) {
+        cacheMisses.set(Long.parseLong(missesStr));
+      }
+      if (evictionsStr != null) {
+        cacheEvictions.set(Long.parseLong(evictionsStr));
+      }
+      if (sizeViolationsStr != null) {
+        totalCacheSizeExceeded.set(Long.parseLong(sizeViolationsStr));
+      }
+
+      // Set last reset time if not exists
+      if (!redisTemplate.hasKey(CACHE_STATS_LAST_RESET_KEY)) {
+        redisTemplate
+            .opsForValue()
+            .set(CACHE_STATS_LAST_RESET_KEY, String.valueOf(System.currentTimeMillis()));
+      }
+
+      logger.info(
+          "Cache statistics initialized from persistent storage - hits: {}, misses: {}, evictions: {}",
+          cacheHits.get(),
+          cacheMisses.get(),
+          cacheEvictions.get());
+
+    } catch (Exception e) {
+      logger.warn(
+          "Failed to initialize cache statistics from persistent storage: {}", e.getMessage());
+    }
+  }
+
+  /** Persist cache statistics to Redis */
+  private void persistCacheStatistics() {
+    try {
+      redisTemplate.opsForValue().set(CACHE_STATS_HITS_KEY, String.valueOf(cacheHits.get()));
+      redisTemplate.opsForValue().set(CACHE_STATS_MISSES_KEY, String.valueOf(cacheMisses.get()));
+      redisTemplate
+          .opsForValue()
+          .set(CACHE_STATS_EVICTIONS_KEY, String.valueOf(cacheEvictions.get()));
+      redisTemplate
+          .opsForValue()
+          .set(CACHE_STATS_SIZE_VIOLATIONS_KEY, String.valueOf(totalCacheSizeExceeded.get()));
+
+      // Set expiration for statistics (30 days)
+      Duration statsExpiration = Duration.ofDays(30);
+      redisTemplate.expire(CACHE_STATS_HITS_KEY, statsExpiration);
+      redisTemplate.expire(CACHE_STATS_MISSES_KEY, statsExpiration);
+      redisTemplate.expire(CACHE_STATS_EVICTIONS_KEY, statsExpiration);
+      redisTemplate.expire(CACHE_STATS_SIZE_VIOLATIONS_KEY, statsExpiration);
+      redisTemplate.expire(CACHE_STATS_LAST_RESET_KEY, statsExpiration);
+
+    } catch (Exception e) {
+      logger.warn("Failed to persist cache statistics: {}", e.getMessage());
+    }
   }
 
   /** Cache entry wrapper with metadata for better cache management */
@@ -422,7 +498,23 @@ public class DashboardCacheService {
     stats.put("total", total);
     stats.put("hitRate", hitRate);
     stats.put("evictions", cacheEvictions.get());
+    stats.put("sizeViolations", totalCacheSizeExceeded.get());
     stats.put("timestamp", LocalDateTime.now());
+
+    // Add metadata about statistics
+    try {
+      String lastResetStr = redisTemplate.opsForValue().get(CACHE_STATS_LAST_RESET_KEY);
+      if (lastResetStr != null) {
+        long lastReset = Long.parseLong(lastResetStr);
+        stats.put(
+            "lastReset",
+            LocalDateTime.ofInstant(
+                java.time.Instant.ofEpochMilli(lastReset), java.time.ZoneId.systemDefault()));
+        stats.put("uptimeHours", (System.currentTimeMillis() - lastReset) / (1000 * 60 * 60));
+      }
+    } catch (Exception e) {
+      logger.debug("Error getting cache statistics metadata: {}", e.getMessage());
+    }
 
     return stats;
   }
@@ -430,11 +522,13 @@ public class DashboardCacheService {
   /** Record a cache hit */
   public void recordCacheHit() {
     cacheHits.incrementAndGet();
+    persistCacheStatistics();
   }
 
   /** Record a cache miss */
   public void recordCacheMiss() {
     cacheMisses.incrementAndGet();
+    persistCacheStatistics();
   }
 
   /** Record a cache eviction */
@@ -442,12 +536,14 @@ public class DashboardCacheService {
     cacheEvictions.incrementAndGet();
     metricsCollectionService.recordCacheEviction();
     updateCacheSizeMetrics();
+    persistCacheStatistics();
   }
 
   /** Record cache size violation */
   public void recordCacheSizeViolation() {
     totalCacheSizeExceeded.incrementAndGet();
     metricsCollectionService.recordCacheSizeViolation();
+    persistCacheStatistics();
   }
 
   /** Update cache size metrics */
@@ -467,6 +563,16 @@ public class DashboardCacheService {
     cacheHits.set(0);
     cacheMisses.set(0);
     cacheEvictions.set(0);
+    totalCacheSizeExceeded.set(0);
+
+    // Update persistent storage
+    persistCacheStatistics();
+
+    // Update last reset time
+    redisTemplate
+        .opsForValue()
+        .set(CACHE_STATS_LAST_RESET_KEY, String.valueOf(System.currentTimeMillis()));
+
     logger.info("Cache statistics reset");
   }
 
