@@ -39,6 +39,7 @@ import {
 } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
 import RefreshHeader from './RefreshHeader';
+import { fetchWithAdminAuth } from '../../api';
 
 const SecurityCard = styled(Card)(({ theme }) => ({
   borderRadius: 20,
@@ -103,18 +104,9 @@ const SecurityDashboard: React.FC = () => {
       setError(null);
       setRefreshing(true);
       
-      const [statsResponse, suspiciousResponse] = await Promise.all([
-        fetch('/api/admin/audit/security-stats'),
-        fetch('/api/admin/audit/suspicious-activity')
-      ]);
-
-      if (!statsResponse.ok || !suspiciousResponse.ok) {
-        throw new Error('Failed to fetch security data');
-      }
-
       const [statsData, suspiciousData] = await Promise.all([
-        statsResponse.json(),
-        suspiciousResponse.json()
+        fetchWithAdminAuth('/api/admin/audit/security-stats'),
+        fetchWithAdminAuth('/api/admin/audit/suspicious-activity')
       ]);
 
       setSecurityStats(statsData);
