@@ -38,7 +38,7 @@ public class SecretsConfig {
     initializeSecret("serper.api.key", "dummy_serper_key");
 
     log.info("Default secrets initialization completed");
-    
+
     // Validate that required secrets are configured after initialization
     validateRequiredSecrets();
   }
