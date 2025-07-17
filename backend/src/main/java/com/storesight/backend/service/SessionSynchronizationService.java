@@ -1,8 +1,11 @@
 package com.storesight.backend.service;
 
 import com.storesight.backend.config.ApplicationConfigurationProperties;
+import jakarta.annotation.PostConstruct;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
@@ -57,6 +60,20 @@ public class SessionSynchronizationService {
   private final AtomicLong totalRedisOperationFailures = new AtomicLong(0);
   private final AtomicLong totalScheduledCleanupRuns = new AtomicLong(0);
 
+  // Persistent storage keys
+  private static final String SESSION_STATS_LOCK_ACQUISITIONS_KEY =
+      "session:stats:lock_acquisitions";
+  private static final String SESSION_STATS_LOCK_FAILURES_KEY = "session:stats:lock_failures";
+  private static final String SESSION_STATS_INVALIDATIONS_KEY = "session:stats:invalidations";
+  private static final String SESSION_STATS_STUCK_CLEARED_KEY = "session:stats:stuck_cleared";
+  private static final String SESSION_STATS_ORPHANED_CLEARED_KEY = "session:stats:orphaned_cleared";
+  private static final String SESSION_STATS_CLEANUP_OPERATIONS_KEY =
+      "session:stats:cleanup_operations";
+  private static final String SESSION_STATS_REDIS_FAILURES_KEY = "session:stats:redis_failures";
+  private static final String SESSION_STATS_SCHEDULED_CLEANUPS_KEY =
+      "session:stats:scheduled_cleanups";
+  private static final String SESSION_STATS_LAST_RESET_KEY = "session:stats:last_reset";
+
   // Configuration-driven timeout durations
   private Duration getStuckSessionTimeout() {
     return config.getSession().getStuckSessionTimeout();
@@ -77,6 +94,108 @@ public class SessionSynchronizationService {
   @Autowired private StringRedisTemplate redisTemplate;
   @Autowired private EnhancedRedisService enhancedRedisService;
   @Autowired private MetricsCollectionService metricsCollectionService;
+
+  /** Initialize session statistics from persistent storage */
+  private void initializeSessionStatistics() {
+    try {
+      String lockAcquisitionsStr =
+          redisTemplate.opsForValue().get(SESSION_STATS_LOCK_ACQUISITIONS_KEY);
+      String lockFailuresStr = redisTemplate.opsForValue().get(SESSION_STATS_LOCK_FAILURES_KEY);
+      String invalidationsStr = redisTemplate.opsForValue().get(SESSION_STATS_INVALIDATIONS_KEY);
+      String stuckClearedStr = redisTemplate.opsForValue().get(SESSION_STATS_STUCK_CLEARED_KEY);
+      String orphanedClearedStr =
+          redisTemplate.opsForValue().get(SESSION_STATS_ORPHANED_CLEARED_KEY);
+      String cleanupOperationsStr =
+          redisTemplate.opsForValue().get(SESSION_STATS_CLEANUP_OPERATIONS_KEY);
+      String redisFailuresStr = redisTemplate.opsForValue().get(SESSION_STATS_REDIS_FAILURES_KEY);
+      String scheduledCleanupsStr =
+          redisTemplate.opsForValue().get(SESSION_STATS_SCHEDULED_CLEANUPS_KEY);
+
+      if (lockAcquisitionsStr != null)
+        totalLockAcquisitions.set(Long.parseLong(lockAcquisitionsStr));
+      if (lockFailuresStr != null) totalLockFailures.set(Long.parseLong(lockFailuresStr));
+      if (invalidationsStr != null) totalInvalidations.set(Long.parseLong(invalidationsStr));
+      if (stuckClearedStr != null) totalStuckSessionsCleared.set(Long.parseLong(stuckClearedStr));
+      if (orphanedClearedStr != null)
+        totalOrphanedLocksCleared.set(Long.parseLong(orphanedClearedStr));
+      if (cleanupOperationsStr != null)
+        totalCleanupOperations.set(Long.parseLong(cleanupOperationsStr));
+      if (redisFailuresStr != null)
+        totalRedisOperationFailures.set(Long.parseLong(redisFailuresStr));
+      if (scheduledCleanupsStr != null)
+        totalScheduledCleanupRuns.set(Long.parseLong(scheduledCleanupsStr));
+
+      // Set last reset time if not exists
+      if (!redisTemplate.hasKey(SESSION_STATS_LAST_RESET_KEY)) {
+        redisTemplate
+            .opsForValue()
+            .set(SESSION_STATS_LAST_RESET_KEY, String.valueOf(System.currentTimeMillis()));
+      }
+
+      logger.info(
+          "Session statistics initialized from persistent storage - acquisitions: {}, failures: {}, invalidations: {}",
+          totalLockAcquisitions.get(),
+          totalLockFailures.get(),
+          totalInvalidations.get());
+
+    } catch (Exception e) {
+      logger.warn(
+          "Failed to initialize session statistics from persistent storage: {}", e.getMessage());
+    }
+  }
+
+  /** Persist session statistics to Redis */
+  private void persistSessionStatistics() {
+    try {
+      redisTemplate
+          .opsForValue()
+          .set(SESSION_STATS_LOCK_ACQUISITIONS_KEY, String.valueOf(totalLockAcquisitions.get()));
+      redisTemplate
+          .opsForValue()
+          .set(SESSION_STATS_LOCK_FAILURES_KEY, String.valueOf(totalLockFailures.get()));
+      redisTemplate
+          .opsForValue()
+          .set(SESSION_STATS_INVALIDATIONS_KEY, String.valueOf(totalInvalidations.get()));
+      redisTemplate
+          .opsForValue()
+          .set(SESSION_STATS_STUCK_CLEARED_KEY, String.valueOf(totalStuckSessionsCleared.get()));
+      redisTemplate
+          .opsForValue()
+          .set(SESSION_STATS_ORPHANED_CLEARED_KEY, String.valueOf(totalOrphanedLocksCleared.get()));
+      redisTemplate
+          .opsForValue()
+          .set(SESSION_STATS_CLEANUP_OPERATIONS_KEY, String.valueOf(totalCleanupOperations.get()));
+      redisTemplate
+          .opsForValue()
+          .set(SESSION_STATS_REDIS_FAILURES_KEY, String.valueOf(totalRedisOperationFailures.get()));
+      redisTemplate
+          .opsForValue()
+          .set(
+              SESSION_STATS_SCHEDULED_CLEANUPS_KEY,
+              String.valueOf(totalScheduledCleanupRuns.get()));
+
+      // Set expiration for statistics (30 days)
+      java.time.Duration statsExpiration = java.time.Duration.ofDays(30);
+      redisTemplate.expire(SESSION_STATS_LOCK_ACQUISITIONS_KEY, statsExpiration);
+      redisTemplate.expire(SESSION_STATS_LOCK_FAILURES_KEY, statsExpiration);
+      redisTemplate.expire(SESSION_STATS_INVALIDATIONS_KEY, statsExpiration);
+      redisTemplate.expire(SESSION_STATS_STUCK_CLEARED_KEY, statsExpiration);
+      redisTemplate.expire(SESSION_STATS_ORPHANED_CLEARED_KEY, statsExpiration);
+      redisTemplate.expire(SESSION_STATS_CLEANUP_OPERATIONS_KEY, statsExpiration);
+      redisTemplate.expire(SESSION_STATS_REDIS_FAILURES_KEY, statsExpiration);
+      redisTemplate.expire(SESSION_STATS_SCHEDULED_CLEANUPS_KEY, statsExpiration);
+      redisTemplate.expire(SESSION_STATS_LAST_RESET_KEY, statsExpiration);
+
+    } catch (Exception e) {
+      logger.warn("Failed to persist session statistics: {}", e.getMessage());
+    }
+  }
+
+  /** Initialize session statistics on startup */
+  @PostConstruct
+  public void init() {
+    initializeSessionStatistics();
+  }
 
   /**
    * Acquire a session lock to prevent concurrent modifications
@@ -106,18 +225,21 @@ public class SessionSynchronizationService {
         // Update metrics
         totalLockAcquisitions.incrementAndGet();
         metricsCollectionService.recordSessionLockAcquisition();
+        persistSessionStatistics();
 
         return true;
       } else {
         logger.debug("Failed to acquire Redis lock for session: {}", sessionId);
         totalLockFailures.incrementAndGet();
         metricsCollectionService.recordSessionLockFailure();
+        persistSessionStatistics();
         return false;
       }
     } catch (Exception e) {
       logger.warn("Error acquiring session lock for {}: {}", sessionId, e.getMessage());
       totalLockFailures.incrementAndGet();
       totalRedisOperationFailures.incrementAndGet();
+      persistSessionStatistics();
       return false;
     }
   }
@@ -147,10 +269,12 @@ public class SessionSynchronizationService {
 
       // Update metrics
       metricsCollectionService.recordSessionLockRelease();
+      persistSessionStatistics();
 
     } catch (Exception e) {
       logger.warn("Error releasing session lock for {}: {}", sessionId, e.getMessage());
       totalRedisOperationFailures.incrementAndGet();
+      persistSessionStatistics();
     }
   }
 
@@ -175,11 +299,13 @@ public class SessionSynchronizationService {
       // Update metrics
       totalInvalidations.incrementAndGet();
       metricsCollectionService.recordSessionInvalidation();
+      persistSessionStatistics();
 
       logger.debug("Marked session {} as invalidating: {}", sessionId, reason);
     } catch (Exception e) {
       logger.warn("Error marking session {} as invalidating: {}", sessionId, e.getMessage());
       totalRedisOperationFailures.incrementAndGet();
+      persistSessionStatistics();
     }
   }
 
@@ -544,6 +670,32 @@ public class SessionSynchronizationService {
         invalidationStartTimes.size());
   }
 
+  /** Get enhanced metrics with metadata */
+  public Map<String, Object> getEnhancedMetrics() {
+    Map<String, Object> metrics = new HashMap<>();
+
+    SessionSynchronizationMetrics sessionMetrics = getMetrics();
+    metrics.put("sessionMetrics", sessionMetrics);
+
+    // Add metadata about statistics
+    try {
+      String lastResetStr = redisTemplate.opsForValue().get(SESSION_STATS_LAST_RESET_KEY);
+      if (lastResetStr != null) {
+        long lastReset = Long.parseLong(lastResetStr);
+        metrics.put(
+            "lastReset",
+            LocalDateTime.ofInstant(
+                java.time.Instant.ofEpochMilli(lastReset), java.time.ZoneId.systemDefault()));
+        metrics.put("uptimeHours", (System.currentTimeMillis() - lastReset) / (1000 * 60 * 60));
+      }
+    } catch (Exception e) {
+      logger.debug("Error getting session statistics metadata: {}", e.getMessage());
+    }
+
+    metrics.put("timestamp", LocalDateTime.now());
+    return metrics;
+  }
+
   /** Reset all metrics counters (useful for testing or periodic resets) */
   public void resetMetrics() {
     totalLockAcquisitions.set(0);
@@ -554,6 +706,15 @@ public class SessionSynchronizationService {
     totalCleanupOperations.set(0);
     totalRedisOperationFailures.set(0);
     totalScheduledCleanupRuns.set(0);
+
+    // Update persistent storage
+    persistSessionStatistics();
+
+    // Update last reset time
+    redisTemplate
+        .opsForValue()
+        .set(SESSION_STATS_LAST_RESET_KEY, String.valueOf(System.currentTimeMillis()));
+
     logger.info("Session synchronization metrics have been reset");
   }
 

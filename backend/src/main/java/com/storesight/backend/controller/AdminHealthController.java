@@ -1,5 +1,6 @@
 package com.storesight.backend.controller;
 
+import com.storesight.backend.service.DashboardCacheService;
 import com.storesight.backend.service.DatabaseMonitoringService;
 import com.storesight.backend.service.SessionSynchronizationService;
 import com.storesight.backend.service.SystemResourceMonitoringService;
@@ -31,6 +32,7 @@ public class AdminHealthController {
   @Autowired private SessionSynchronizationService sessionSynchronizationService;
   @Autowired private TransactionMonitoringService transactionMonitoringService;
   @Autowired private SystemResourceMonitoringService systemResourceMonitoringService;
+  @Autowired private DashboardCacheService dashboardCacheService;
 
   /**
    * Get database transactions - Admin Dashboard Endpoint This endpoint provides transaction
@@ -129,6 +131,68 @@ public class AdminHealthController {
     }
   }
 
+  /** Get cache statistics endpoint for admin dashboard */
+  @GetMapping("/cache-statistics")
+  public ResponseEntity<Map<String, Object>> cacheStatistics() {
+    try {
+      Map<String, Object> response = new HashMap<>();
+
+      // Get cache statistics
+      Map<String, Object> cacheStats = dashboardCacheService.getCacheStatistics();
+      response.put("statistics", cacheStats);
+
+      // Determine cache health based on statistics
+      String healthStatus = "HEALTHY";
+      Map<String, String> healthIndicators = new HashMap<>();
+
+      // Check hit rate
+      Double hitRate = (Double) cacheStats.get("hitRate");
+      if (hitRate != null) {
+        if (hitRate < 50) {
+          healthStatus = "WARNING";
+          healthIndicators.put("hitRate", "LOW");
+        } else if (hitRate < 30) {
+          healthStatus = "CRITICAL";
+          healthIndicators.put("hitRate", "VERY_LOW");
+        } else {
+          healthIndicators.put("hitRate", "GOOD");
+        }
+      }
+
+      // Check eviction rate
+      Long evictions = (Long) cacheStats.get("evictions");
+      Long total = (Long) cacheStats.get("total");
+      if (evictions != null && total != null && total > 0) {
+        double evictionRate = (double) evictions / total * 100;
+        if (evictionRate > 20) {
+          healthIndicators.put("evictionRate", "HIGH");
+          if ("HEALTHY".equals(healthStatus)) {
+            healthStatus = "WARNING";
+          }
+        } else {
+          healthIndicators.put("evictionRate", "NORMAL");
+        }
+      }
+
+      response.put("overallStatus", healthStatus);
+      response.put("healthIndicators", healthIndicators);
+      response.put("timestamp", LocalDateTime.now());
+
+      boolean healthy = "HEALTHY".equals(healthStatus);
+      return ResponseEntity.status(healthy ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE)
+          .body(response);
+
+    } catch (Exception e) {
+      logger.error("Error retrieving cache statistics: {}", e.getMessage());
+      Map<String, Object> errorResponse = new HashMap<>();
+      errorResponse.put("error", e.getMessage());
+      errorResponse.put("overallStatus", "ERROR");
+      errorResponse.put("timestamp", LocalDateTime.now());
+
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+    }
+  }
+
   /** Reset transaction metrics endpoint */
   @PostMapping("/metrics/transactions/reset")
   public ResponseEntity<Map<String, Object>> resetTransactionMetrics() {
@@ -144,6 +208,30 @@ public class AdminHealthController {
 
     } catch (Exception e) {
       logger.error("Error resetting transaction metrics: {}", e.getMessage());
+      Map<String, Object> errorResponse = new HashMap<>();
+      errorResponse.put("success", false);
+      errorResponse.put("error", e.getMessage());
+      errorResponse.put("timestamp", LocalDateTime.now());
+
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+    }
+  }
+
+  /** Reset cache statistics endpoint */
+  @PostMapping("/cache-statistics/reset")
+  public ResponseEntity<Map<String, Object>> resetCacheStatistics() {
+    try {
+      dashboardCacheService.resetCacheStatistics();
+
+      Map<String, Object> response = new HashMap<>();
+      response.put("success", true);
+      response.put("message", "Cache statistics reset successfully");
+      response.put("timestamp", LocalDateTime.now());
+
+      return ResponseEntity.ok(response);
+
+    } catch (Exception e) {
+      logger.error("Error resetting cache statistics: {}", e.getMessage());
       Map<String, Object> errorResponse = new HashMap<>();
       errorResponse.put("success", false);
       errorResponse.put("error", e.getMessage());
@@ -196,6 +284,9 @@ public class AdminHealthController {
 
       // Reset transaction metrics
       transactionMonitoringService.resetMetrics();
+
+      // Reset cache statistics
+      dashboardCacheService.resetCacheStatistics();
 
       // Get updated system health
       Map<String, String> systemHealth = systemResourceMonitoringService.getHealthIndicators();
