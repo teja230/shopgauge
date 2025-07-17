@@ -51,6 +51,12 @@ public class TransactionMonitoringService {
   /** Initialize transaction statistics from persistent storage */
   private void initializeTransactionStatistics() {
     try {
+      // Check if Redis is available before attempting to load statistics
+      if (!isRedisAvailable()) {
+        logger.warn("Redis not available during startup, using default transaction statistics");
+        return;
+      }
+
       String totalStr = redisTemplate.opsForValue().get(TX_STATS_TOTAL_KEY);
       String successStr = redisTemplate.opsForValue().get(TX_STATS_SUCCESS_KEY);
       String failedStr = redisTemplate.opsForValue().get(TX_STATS_FAILED_KEY);
@@ -78,14 +84,29 @@ public class TransactionMonitoringService {
 
     } catch (Exception e) {
       logger.warn(
-          "Failed to initialize transaction statistics from persistent storage: {}",
+          "Failed to initialize transaction statistics from persistent storage: {}. Using default values.",
           e.getMessage());
+    }
+  }
+
+  /** Check if Redis is available */
+  private boolean isRedisAvailable() {
+    try {
+      redisTemplate.opsForValue().get("health-check");
+      return true;
+    } catch (Exception e) {
+      return false;
     }
   }
 
   /** Persist transaction statistics to Redis */
   private void persistTransactionStatistics() {
     try {
+      // Check if Redis is available before attempting to persist
+      if (!isRedisAvailable()) {
+        return;
+      }
+
       redisTemplate.opsForValue().set(TX_STATS_TOTAL_KEY, String.valueOf(totalTransactions.get()));
       redisTemplate
           .opsForValue()
@@ -109,7 +130,7 @@ public class TransactionMonitoringService {
       redisTemplate.expire(TX_STATS_LAST_RESET_KEY, java.time.Duration.ofDays(30));
 
     } catch (Exception e) {
-      logger.warn("Failed to persist transaction statistics: {}", e.getMessage());
+      logger.debug("Failed to persist transaction statistics: {}", e.getMessage());
     }
   }
 

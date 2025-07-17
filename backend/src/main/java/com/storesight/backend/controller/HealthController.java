@@ -893,12 +893,6 @@ public class HealthController {
     return databaseHealth();
   }
 
-  /** Get cache statistics - Admin Dashboard Endpoint */
-  @GetMapping("/cache-statistics")
-  public ResponseEntity<Map<String, Object>> cacheStatistics() {
-    return cacheHealth();
-  }
-
   /** Get connection leak status - Admin Dashboard Endpoint */
   @GetMapping("/connection-leak-status")
   public ResponseEntity<Map<String, Object>> connectionLeakStatus() {

@@ -98,6 +98,12 @@ public class SessionSynchronizationService {
   /** Initialize session statistics from persistent storage */
   private void initializeSessionStatistics() {
     try {
+      // Check if Redis is available before attempting to load statistics
+      if (!isRedisAvailable()) {
+        logger.warn("Redis not available during startup, using default session statistics");
+        return;
+      }
+
       String lockAcquisitionsStr =
           redisTemplate.opsForValue().get(SESSION_STATS_LOCK_ACQUISITIONS_KEY);
       String lockFailuresStr = redisTemplate.opsForValue().get(SESSION_STATS_LOCK_FAILURES_KEY);
@@ -140,13 +146,29 @@ public class SessionSynchronizationService {
 
     } catch (Exception e) {
       logger.warn(
-          "Failed to initialize session statistics from persistent storage: {}", e.getMessage());
+          "Failed to initialize session statistics from persistent storage: {}. Using default values.",
+          e.getMessage());
+    }
+  }
+
+  /** Check if Redis is available */
+  private boolean isRedisAvailable() {
+    try {
+      redisTemplate.opsForValue().get("health-check");
+      return true;
+    } catch (Exception e) {
+      return false;
     }
   }
 
   /** Persist session statistics to Redis */
   private void persistSessionStatistics() {
     try {
+      // Check if Redis is available before attempting to persist
+      if (!isRedisAvailable()) {
+        return;
+      }
+
       redisTemplate
           .opsForValue()
           .set(SESSION_STATS_LOCK_ACQUISITIONS_KEY, String.valueOf(totalLockAcquisitions.get()));
@@ -187,7 +209,7 @@ public class SessionSynchronizationService {
       redisTemplate.expire(SESSION_STATS_LAST_RESET_KEY, statsExpiration);
 
     } catch (Exception e) {
-      logger.warn("Failed to persist session statistics: {}", e.getMessage());
+      logger.debug("Failed to persist session statistics: {}", e.getMessage());
     }
   }
 
