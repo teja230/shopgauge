@@ -85,6 +85,12 @@ public class DashboardCacheService {
   /** Initialize cache statistics from persistent storage */
   private void initializeCacheStatistics() {
     try {
+      // Check if Redis is available before attempting to load statistics
+      if (!isRedisAvailable()) {
+        logger.warn("Redis not available during startup, using default cache statistics");
+        return;
+      }
+
       // Load persistent cache statistics
       String hitsStr = redisTemplate.opsForValue().get(CACHE_STATS_HITS_KEY);
       String missesStr = redisTemplate.opsForValue().get(CACHE_STATS_MISSES_KEY);
@@ -119,13 +125,29 @@ public class DashboardCacheService {
 
     } catch (Exception e) {
       logger.warn(
-          "Failed to initialize cache statistics from persistent storage: {}", e.getMessage());
+          "Failed to initialize cache statistics from persistent storage: {}. Using default values.",
+          e.getMessage());
+    }
+  }
+
+  /** Check if Redis is available */
+  private boolean isRedisAvailable() {
+    try {
+      redisTemplate.opsForValue().get("health-check");
+      return true;
+    } catch (Exception e) {
+      return false;
     }
   }
 
   /** Persist cache statistics to Redis */
   private void persistCacheStatistics() {
     try {
+      // Check if Redis is available before attempting to persist
+      if (!isRedisAvailable()) {
+        return;
+      }
+
       redisTemplate.opsForValue().set(CACHE_STATS_HITS_KEY, String.valueOf(cacheHits.get()));
       redisTemplate.opsForValue().set(CACHE_STATS_MISSES_KEY, String.valueOf(cacheMisses.get()));
       redisTemplate
@@ -144,7 +166,7 @@ public class DashboardCacheService {
       redisTemplate.expire(CACHE_STATS_LAST_RESET_KEY, statsExpiration);
 
     } catch (Exception e) {
-      logger.warn("Failed to persist cache statistics: {}", e.getMessage());
+      logger.debug("Failed to persist cache statistics: {}", e.getMessage());
     }
   }
 
