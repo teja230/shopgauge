@@ -16,8 +16,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Additional health endpoints for admin dashboard
- * This controller provides the missing endpoints that the admin frontend expects
+ * Additional health endpoints for admin dashboard This controller provides the missing endpoints
+ * that the admin frontend expects
  */
 @RestController
 @RequestMapping("/api/health")
@@ -30,29 +30,29 @@ public class AdminHealthController {
   @Autowired private TransactionMonitoringService transactionMonitoringService;
 
   /**
-   * Get database transactions - Admin Dashboard Endpoint
-   * This endpoint provides transaction statistics for the admin monitoring page
+   * Get database transactions - Admin Dashboard Endpoint This endpoint provides transaction
+   * statistics for the admin monitoring page
    */
   @GetMapping("/transactions")
   public ResponseEntity<Map<String, Object>> transactions() {
     try {
       Map<String, Object> response = new HashMap<>();
-      
+
       // Get transaction monitoring metrics
       try {
         Map<String, Object> transactionMetrics = transactionMonitoringService.getHealthMetrics();
         response.put("transactionMetrics", transactionMetrics);
-        
+
         Map<String, Object> transactionAlerts = transactionMonitoringService.getCriticalAlerts();
         response.put("transactionAlerts", transactionAlerts);
-        
+
         boolean isHealthy = transactionMonitoringService.isHealthy();
         response.put("transactionHealthy", isHealthy);
       } catch (Exception e) {
         logger.warn("Transaction monitoring unavailable: {}", e.getMessage());
         response.put("transactionMetrics", Map.of("error", "Transaction monitoring unavailable"));
       }
-      
+
       // Get database statistics which should include connection pool info
       try {
         Map<String, Object> dbStats = databaseMonitoringService.getDatabaseStatistics();
@@ -61,7 +61,7 @@ public class AdminHealthController {
         logger.warn("Database statistics unavailable: {}", e.getMessage());
         response.put("databaseTransactions", Map.of("error", "Database statistics unavailable"));
       }
-      
+
       // Get session metrics which may include transaction-related data
       try {
         SessionSynchronizationService.SessionSynchronizationMetrics sessionMetrics =
@@ -71,24 +71,24 @@ public class AdminHealthController {
         logger.warn("Session metrics unavailable: {}", e.getMessage());
         response.put("sessionTransactions", Map.of("error", "Session metrics unavailable"));
       }
-      
+
       // Add transaction health indicators
       Map<String, String> healthIndicators = new HashMap<>();
       healthIndicators.put("transactionStatus", "ACTIVE");
       healthIndicators.put("connectionPool", "HEALTHY");
       healthIndicators.put("lockStatus", "NORMAL");
-      
+
       response.put("healthIndicators", healthIndicators);
       response.put("timestamp", LocalDateTime.now());
-      
+
       return ResponseEntity.ok(response);
-      
+
     } catch (Exception e) {
       logger.error("Error retrieving transaction statistics: {}", e.getMessage());
       Map<String, Object> errorResponse = new HashMap<>();
       errorResponse.put("error", e.getMessage());
       errorResponse.put("timestamp", LocalDateTime.now());
-      
+
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
     }
   }

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNotifications } from '../../hooks/useNotifications';
 import {
   Box,
   Typography,
@@ -143,6 +144,9 @@ const TransactionMonitoring: React.FC = () => {
   const [refreshCooldown, setRefreshCooldown] = useState(0);
   const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isMountedRef = useRef(true);
+  
+  // Add notifications hook
+  const { showSuccess, showError } = useNotifications();
 
   // Cleanup on unmount
   useEffect(() => {
@@ -242,11 +246,24 @@ const TransactionMonitoring: React.FC = () => {
       await fetchAdminEndpoint('/api/health/metrics/transactions/reset', {
         method: 'POST',
       });
+      
+      showSuccess('🔄 Transaction metrics reset successfully!', {
+        category: 'Transaction Monitoring',
+        duration: 4000
+      });
+      
       if (isMountedRef.current) {
         await refreshAll();
       }
     } catch (err) {
       console.error('Failed to reset metrics:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to reset metrics';
+      
+      showError(`Failed to reset transaction metrics: ${errorMessage}`, {
+        category: 'Transaction Monitoring',
+        duration: 6000
+      });
+      
       if (isMountedRef.current) {
         setError('Failed to reset metrics');
       }
