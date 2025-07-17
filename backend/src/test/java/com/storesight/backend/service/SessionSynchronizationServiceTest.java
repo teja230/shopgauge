@@ -227,13 +227,13 @@ class SessionSynchronizationServiceTest {
     when(enhancedRedisService.setIfAbsent(anyString(), eq("locked"), any(Duration.class)))
         .thenReturn(true);
     doNothing().when(metricsCollectionService).recordSessionInvalidation();
-    
+
     // Mock Redis operations for resetMetrics
-    org.springframework.data.redis.core.ValueOperations<String, String> valueOps = 
+    org.springframework.data.redis.core.ValueOperations<String, String> valueOps =
         mock(org.springframework.data.redis.core.ValueOperations.class);
     when(stringRedisTemplate.opsForValue()).thenReturn(valueOps);
     when(stringRedisTemplate.hasKey(anyString())).thenReturn(false);
-    
+
     sessionSynchronizationService.acquireSessionLock(sessionId);
     sessionSynchronizationService.markSessionAsInvalidating(sessionId, "test");
     SessionSynchronizationService.SessionSynchronizationMetrics beforeReset =
