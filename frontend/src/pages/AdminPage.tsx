@@ -534,7 +534,10 @@ const AdminPage: React.FC = () => {
             sessionStorage.removeItem('admin_session_info');
             sessionStorage.removeItem('admin_auth_status');
             
-            showError('Admin session expired. Please log in again.');
+            showError('Admin session expired. Please log in again.', {
+              category: 'Admin Authentication',
+              persistent: true
+            });
           }
         } catch (error) {
           console.error('Periodic auth check failed:', error);
@@ -738,7 +741,10 @@ const AdminPage: React.FC = () => {
         setAttemptCount(0);
         setPassword('');
         
-        showSuccess(`Welcome ${result.username}! Admin access granted.`);
+        showSuccess(`Welcome ${result.username}! Admin access granted.`, {
+          category: 'Admin Authentication',
+          duration: 4000
+        });
         
         // Fetch initial data
         await Promise.all([
@@ -754,7 +760,10 @@ const AdminPage: React.FC = () => {
         
         if (result.locked) {
           setIsLocked(true);
-          showError('Account locked due to too many failed attempts');
+          showError('Account locked due to too many failed attempts', {
+            category: 'Admin Authentication',
+            persistent: true
+          });
           
           // Auto-unlock after lockout period (15 minutes)
           setTimeout(() => {
@@ -766,7 +775,10 @@ const AdminPage: React.FC = () => {
     } catch (error) {
       console.error('Admin login error:', error);
       setAuthError('Authentication service unavailable. Please try again.');
-      showError('Unable to connect to authentication service');
+      showError('Unable to connect to authentication service', {
+        category: 'Admin Authentication',
+        persistent: true
+      });
     } finally {
       setIsLoading(false);
     }
@@ -778,10 +790,16 @@ const AdminPage: React.FC = () => {
       const logoutResult = await adminLogout();
       
       if (logoutResult.success) {
-        showSuccess('Admin session ended securely');
+        showSuccess('Admin session ended securely', {
+          category: 'Admin Authentication',
+          duration: 3000
+        });
       } else {
         console.warn('Backend logout failed, but proceeding with frontend cleanup:', logoutResult.error);
-        showError('Backend logout failed, but session has been cleared locally');
+        showError('Backend logout failed, but session has been cleared locally', {
+          category: 'Admin Authentication',
+          duration: 4000
+        });
       }
       
       // Clear all admin-related state regardless of backend response
@@ -827,7 +845,10 @@ const AdminPage: React.FC = () => {
       // Force clear admin token cookie
       document.cookie = 'admin_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; HttpOnly; Secure; SameSite=Strict';
       
-      showError('Logout completed locally (backend unavailable)');
+      showError('Logout completed locally (backend unavailable)', {
+        category: 'Admin Authentication',
+        duration: 4000
+      });
       navigate('/');
       setTimeout(() => { 
         window.location.href = '/'; 
@@ -960,7 +981,10 @@ const AdminPage: React.FC = () => {
       // Check if this might be a connection pool issue
       if (errorMessage.includes('HTTP 503') || errorMessage.includes('HTTP 500') || 
           errorMessage.includes('Connection is not available') || errorMessage.includes('timeout')) {
-        showError('🚨 Database connection issue detected! Redirecting to emergency admin...');
+        showError('🚨 Database connection issue detected! Redirecting to emergency admin...', {
+          category: 'Admin System',
+          persistent: true
+        });
         
         // Redirect to emergency admin after 2 seconds
         setTimeout(() => {
@@ -1019,7 +1043,10 @@ const AdminPage: React.FC = () => {
       setEmergencyMode(transformedStatus.emergencyMode);
       
       if (transformedStatus.emergencyMode) {
-        showError('⚠️ CRITICAL: Connection pool exhausted - Emergency admin mode activated');
+        showError('⚠️ CRITICAL: Connection pool exhausted - Emergency admin mode activated', {
+          category: 'Admin System',
+          persistent: true
+        });
       }
     } catch (error) {
       console.error('Emergency status check failed:', error);
@@ -1101,17 +1128,26 @@ const AdminPage: React.FC = () => {
       const result = await fetchEmergencyEndpoint('/cleanup-connections', { method: 'POST' });
       
       if (result.cleanupPerformed) {
-        showSuccess('✅ Emergency connection cleanup completed');
+        showSuccess('✅ Emergency connection cleanup completed', {
+          category: 'Admin System',
+          duration: 4000
+        });
         // Re-check status after cleanup
         setTimeout(() => {
           checkEmergencyStatus();
         }, 3000);
       } else {
-        showError('❌ Emergency cleanup failed: ' + result.message);
+        showError('❌ Emergency cleanup failed: ' + result.message, {
+          category: 'Admin System',
+          persistent: true
+        });
       }
     } catch (error) {
       console.error('Emergency cleanup failed:', error);
-      showError('❌ Emergency cleanup failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      showError('❌ Emergency cleanup failed: ' + (error instanceof Error ? error.message : 'Unknown error'), {
+        category: 'Admin System',
+        persistent: true
+      });
     } finally {
       setEmergencyLoading(false);
     }
@@ -1238,7 +1274,10 @@ const AdminPage: React.FC = () => {
           setLeakAlerts(prev => [alert, ...prev.slice(0, 9)]); // Keep last 10 alerts
           
           if (data.emergencyCleanupNeeded) {
-            showError(`🚨 CRITICAL: Emergency cleanup needed! Pool usage: ${data.hikariMetrics?.usagePercentage}%`);
+            showError(`🚨 CRITICAL: Emergency cleanup needed! Pool usage: ${data.hikariMetrics?.usagePercentage}%`, {
+              category: 'Admin System',
+              persistent: true
+            });
           }
         }
       } else {
@@ -1281,7 +1320,10 @@ const AdminPage: React.FC = () => {
           (data.afterCleanup?.activeConnections / data.afterCleanup?.maxPoolSize) * 100
         );
         
-        showSuccess(`✅ Emergency cleanup completed! Pool usage: ${beforeUsage}% → ${afterUsage}%`);
+        showSuccess(`✅ Emergency cleanup completed! Pool usage: ${beforeUsage}% → ${afterUsage}%`, {
+          category: 'Admin System',
+          duration: 5000
+        });
         
         // Add cleanup event to alerts
         const cleanupAlert = {
@@ -1302,11 +1344,17 @@ const AdminPage: React.FC = () => {
         
       } else {
         const errorData = await response.json();
-        showError(`Emergency cleanup failed: ${errorData.error || 'Unknown error'}`);
+        showError(`Emergency cleanup failed: ${errorData.error || 'Unknown error'}`, {
+          category: 'Admin System',
+          persistent: true
+        });
       }
     } catch (error) {
       console.error('Emergency cleanup failed:', error);
-      showError('Network error during emergency cleanup');
+      showError('Network error during emergency cleanup', {
+        category: 'Admin System',
+        persistent: true
+      });
     } finally {
       setEmergencyCleanupInProgress(false);
     }
@@ -1317,7 +1365,10 @@ const AdminPage: React.FC = () => {
     if (refreshAllCooldown > 0) return;
     setRefreshAllCooldown(1);
     try {
-      showSuccess('Refreshing all admin data...');
+      showSuccess('Refreshing all admin data...', {
+        category: 'Admin System',
+        duration: 2000
+      });
       
       // Refresh all data in parallel for better performance
       await Promise.all([
@@ -1330,10 +1381,16 @@ const AdminPage: React.FC = () => {
         fetchConnectionLeakStatus()
       ]);
       
-      showSuccess('All admin data refreshed successfully');
+      showSuccess('All admin data refreshed successfully', {
+        category: 'Admin System',
+        duration: 3000
+      });
     } catch (error) {
       console.error('Error refreshing admin data:', error);
-      showError('Some data failed to refresh. Please try again.');
+      showError('Some data failed to refresh. Please try again.', {
+        category: 'Admin System',
+        duration: 4000
+      });
     }
   };
 
@@ -1501,14 +1558,20 @@ const AdminPage: React.FC = () => {
         // Single shop response
         const count = result.count || 0;
         const stuckSessions = result.stuckSessions || [];
-        showSuccess(`Found ${count} stuck sessions for ${shopDomain}`);
+        showSuccess(`Found ${count} stuck sessions for ${shopDomain}`, {
+          category: 'Admin Session Management',
+          duration: 3000
+        });
         return { shopDomain, stuckSessions, count };
       } else {
         // All shops response
         const totalStuckSessions = result.totalStuckSessions || 0;
         const totalShops = result.totalShops || 0;
         const stuckSessionsByShop = result.stuckSessionsByShop || {};
-        showSuccess(`Found ${totalStuckSessions} stuck sessions across ${totalShops} shops`);
+        showSuccess(`Found ${totalStuckSessions} stuck sessions across ${totalShops} shops`, {
+          category: 'Admin Session Management',
+          duration: 3000
+        });
         return { totalStuckSessions, totalShops, stuckSessionsByShop };
       }
     } catch (error) {
@@ -1530,15 +1593,24 @@ const AdminPage: React.FC = () => {
       
       if (response.ok) {
         const result = await response.json();
-        showSuccess(result.message || `Cleared stuck sessions for ${shopDomain}`);
+        showSuccess(result.message || `Cleared stuck sessions for ${shopDomain}`, {
+          category: 'Admin Session Management',
+          duration: 4000
+        });
         return result;
       } else {
         const error = await response.json().catch(() => ({}));
-        showError(error.error || 'Failed to clear stuck sessions');
+        showError(error.error || 'Failed to clear stuck sessions', {
+          category: 'Admin Session Management',
+          duration: 4000
+        });
         throw new Error(error.error || 'Failed to clear stuck sessions');
       }
     } catch (error) {
-      showError('Error clearing stuck sessions');
+      showError('Error clearing stuck sessions', {
+        category: 'Admin Session Management',
+        duration: 4000
+      });
       throw error;
     }
   };
@@ -1556,7 +1628,10 @@ const AdminPage: React.FC = () => {
 
   const handleCheckSessionSyncStatus = async (sessionId: string) => {
     // This endpoint might not exist yet, so we'll show a placeholder
-    showError('Session sync status endpoint not implemented yet');
+    showError('Session sync status endpoint not implemented yet', {
+      category: 'Admin Session Management',
+      duration: 3000
+    });
     throw new Error('Session sync status endpoint not implemented yet');
   };
 

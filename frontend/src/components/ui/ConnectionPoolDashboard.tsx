@@ -163,7 +163,13 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
         maxPoolSize: poolData.connection_pool?.total_connections || 20,
         minimumIdle: 5, // Not provided in new format, use default
         activeUsagePercent: (poolData.connection_pool?.utilization_ratio || 0) * 100,
-        poolStatus: poolData.connection_pool?.healthy ? 'HEALTHY' : 'CRITICAL',
+        poolStatus: (() => {
+          const utilizationRatio = poolData.connection_pool?.utilization_ratio || 0;
+          const utilizationPercent = utilizationRatio * 100;
+          if (utilizationPercent > 90) return 'CRITICAL';
+          if (utilizationPercent > 70) return 'WARNING';
+          return 'HEALTHY';
+        })(),
         connectionLeakRisk: poolData.connection_pool?.leak_count > 5 ? 'HIGH' : 
                            poolData.connection_pool?.leak_count > 2 ? 'MEDIUM' : 'LOW',
         emergencyCleanupNeeded: (poolData.connection_pool?.threads_waiting > 10) || 
@@ -381,12 +387,6 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
     fetchMetrics();
   };
 
-  useEffect(() => {
-    if (isMountedRef.current) {
-      fetchMetrics();
-    }
-  }, []);
-
   // Cooldown timer
   useEffect(() => {
     if (refreshCooldown > 0) {
@@ -394,6 +394,14 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
       return () => clearTimeout(timer);
     }
   }, [refreshCooldown]);
+
+  // Load data only on component mount when there is no data
+  useEffect(() => {
+    // Only fetch data if we don't have any data yet
+    if (!systemMetrics) {
+      fetchMetrics();
+    }
+  }, []); // Empty dependency array - only run on mount
 
   useEffect(() => {
     return () => {
