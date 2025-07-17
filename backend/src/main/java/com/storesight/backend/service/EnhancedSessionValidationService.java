@@ -29,7 +29,8 @@ public class EnhancedSessionValidationService {
 
   @Autowired private RedisSessionService redisSessionService;
 
-  @Autowired private AdminAuthService adminAuthService;
+  // Removed AdminAuthService dependency to break circular dependency
+  // Audit logging will be handled by the calling service
 
   @Autowired private RedisTemplate<String, Object> redisTemplate;
 
@@ -102,14 +103,10 @@ public class EnhancedSessionValidationService {
 
       // Log validation result for audit
       if (!result.isValid()) {
-        adminAuthService.logAuditEvent(
-            "SESSION_VALIDATION_FAILED",
-            "system",
-            "Session validation failed for "
-                + sessionId
-                + " - Violations: "
-                + result.getViolations().keySet(),
-            currentIpAddress);
+        logger.warn(
+            "SESSION_VALIDATION_FAILED for session {} - Violations: {}",
+            sessionId,
+            result.getViolations().keySet());
       }
 
     } catch (Exception e) {
@@ -133,11 +130,10 @@ public class EnhancedSessionValidationService {
             "Maximum concurrent sessions exceeded: " + activeSessions.size());
 
         // Log potential security issue
-        adminAuthService.logAuditEvent(
-            "MAX_CONCURRENT_SESSIONS_EXCEEDED",
-            "system",
-            "Shop " + shopDomain + " has " + activeSessions.size() + " concurrent sessions",
-            "system");
+        logger.warn(
+            "MAX_CONCURRENT_SESSIONS_EXCEEDED for shop {} - {} concurrent sessions",
+            shopDomain,
+            activeSessions.size());
       }
     } catch (Exception e) {
       logger.warn("Failed to validate concurrent sessions: {}", e.getMessage());
@@ -167,10 +163,10 @@ public class EnhancedSessionValidationService {
         result.setValid(false);
         result.addViolation("SUSPICIOUS_ACTIVITY", "Suspicious activity detected for this session");
 
-        adminAuthService.logAuditEvent(
-            "SUSPICIOUS_SESSION_ACTIVITY",
-            "system",
-            "Suspicious activity count " + suspiciousCount + " for session " + sessionId,
+        logger.warn(
+            "SUSPICIOUS_SESSION_ACTIVITY - count {} for session {} from IP {}",
+            suspiciousCount,
+            sessionId,
             ipAddress);
       }
     } catch (Exception e) {
@@ -192,10 +188,9 @@ public class EnhancedSessionValidationService {
         result.addWarning("DEVICE_FINGERPRINT_MISMATCH", "Device fingerprint has changed");
 
         // This might indicate session hijacking or legitimate device changes
-        adminAuthService.logAuditEvent(
-            "DEVICE_FINGERPRINT_CHANGE",
-            "system",
-            "Device fingerprint changed for session " + sessionData.getSessionId(),
+        logger.warn(
+            "DEVICE_FINGERPRINT_CHANGE for session {} from IP {}",
+            sessionData.getSessionId(),
             sessionData.getIpAddress());
       }
     } catch (Exception e) {
@@ -223,15 +218,10 @@ public class EnhancedSessionValidationService {
         result.addViolation(
             "POTENTIAL_SESSION_HIJACKING", "Both IP address and user agent changed simultaneously");
 
-        adminAuthService.logAuditEvent(
-            "POTENTIAL_SESSION_HIJACKING",
-            "system",
-            "Potential session hijacking detected for session "
-                + sessionData.getSessionId()
-                + " - IP changed from "
-                + sessionData.getIpAddress()
-                + " to "
-                + currentIpAddress,
+        logger.warn(
+            "POTENTIAL_SESSION_HIJACKING detected for session {} - IP changed from {} to {}",
+            sessionData.getSessionId(),
+            sessionData.getIpAddress(),
             currentIpAddress);
       } else if (ipChanged) {
         // Only IP changed - medium risk
@@ -303,11 +293,11 @@ public class EnhancedSessionValidationService {
       Long count = redisTemplate.opsForValue().increment(suspiciousKey);
       redisTemplate.expire(suspiciousKey, 1, TimeUnit.HOURS);
 
-      adminAuthService.logAuditEvent(
-          "SESSION_MARKED_SUSPICIOUS",
-          "system",
-          "Session " + sessionId + " marked suspicious (count: " + count + ") - Reason: " + reason,
-          ipAddress);
+      logger.warn(
+          "SESSION_MARKED_SUSPICIOUS - Session {} marked suspicious (count: {}) - Reason: {}",
+          sessionId,
+          count,
+          reason);
 
       logger.warn(
           "Session {}:{} marked suspicious - Reason: {}, Count: {}",
@@ -334,11 +324,10 @@ public class EnhancedSessionValidationService {
       // Secure cleanup
       sessionSecurityService.secureSessionCleanup(sessionId, shopDomain);
 
-      adminAuthService.logAuditEvent(
-          "SESSION_FORCE_INVALIDATED",
-          "system",
-          "Session " + sessionId + " force invalidated - Reason: " + reason,
-          ipAddress);
+      logger.warn(
+          "SESSION_FORCE_INVALIDATED - Session {} force invalidated - Reason: {}",
+          sessionId,
+          reason);
 
       logger.warn("Session {}:{} force invalidated - Reason: {}", shopDomain, sessionId, reason);
     } catch (Exception e) {
