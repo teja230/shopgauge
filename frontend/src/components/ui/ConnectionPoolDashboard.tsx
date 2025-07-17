@@ -27,6 +27,7 @@ import {
 } from '@mui/icons-material';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import RefreshHeader from './RefreshHeader';
+import { useNotifications } from '../../hooks/useNotifications';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 const fetchAdminEndpoint = async (endpoint: string, options?: RequestInit) => {
@@ -126,6 +127,9 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
   const [refreshCooldown, setRefreshCooldown] = useState(0);
   const cooldownRef = useRef<NodeJS.Timeout | null>(null);
   const isMountedRef = useRef(true);
+  
+  // Add notifications hook
+  const { showSuccess, showError } = useNotifications();
 
   // Cleanup on unmount
   useEffect(() => {
@@ -269,12 +273,22 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
       });
       
       if (response.ok) {
+        const result = await response.json();
+        showSuccess('🚨 Emergency cleanup completed successfully!', {
+          category: 'Connection Pool',
+          duration: 5000
+        });
         await fetchMetrics();
       } else {
         throw new Error('Emergency cleanup failed');
       }
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Emergency cleanup failed');
+      const errorMessage = error instanceof Error ? error.message : 'Emergency cleanup failed';
+      showError(`Emergency cleanup failed: ${errorMessage}`, {
+        category: 'Connection Pool',
+        duration: 6000
+      });
+      setError(errorMessage);
     }
   };
 
@@ -285,12 +299,22 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
       });
       
       if (response.ok) {
+        const result = await response.json();
+        showSuccess('🔧 Comprehensive cleanup completed successfully!', {
+          category: 'Connection Pool',
+          duration: 5000
+        });
         await fetchMetrics();
       } else {
         throw new Error('Comprehensive cleanup failed');
       }
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Comprehensive cleanup failed');
+      const errorMessage = error instanceof Error ? error.message : 'Comprehensive cleanup failed';
+      showError(`Comprehensive cleanup failed: ${errorMessage}`, {
+        category: 'Connection Pool',
+        duration: 6000
+      });
+      setError(errorMessage);
     }
   };
 
@@ -304,15 +328,28 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
       if (response.ok) {
         const result = await response.json();
         if (result.recovered) {
+          showSuccess('🔧 Connection pool recovery successful!', {
+            category: 'Connection Pool',
+            duration: 4000
+          });
           await fetchMetrics();
         } else {
+          showError(`Connection pool recovery failed: ${result.message || 'Unknown error'}`, {
+            category: 'Connection Pool',
+            duration: 6000
+          });
           throw new Error(result.message || 'Connection pool recovery failed');
         }
       } else {
         throw new Error('Connection pool recovery failed');
       }
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Connection pool recovery failed');
+      const errorMessage = error instanceof Error ? error.message : 'Connection pool recovery failed';
+      showError(`Connection pool recovery failed: ${errorMessage}`, {
+        category: 'Connection Pool',
+        duration: 6000
+      });
+      setError(errorMessage);
     }
   };
 
@@ -325,15 +362,28 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
       if (response.ok) {
         const result = await response.json();
         if (result.success) {
+          showSuccess('🧹 Idle connections closed successfully!', {
+            category: 'Connection Pool',
+            duration: 4000
+          });
           await fetchMetrics();
         } else {
+          showError(`Failed to close idle connections: ${result.error || result.message || 'Unknown error'}`, {
+            category: 'Connection Pool',
+            duration: 6000
+          });
           throw new Error(result.message || 'Idle connection cleanup failed');
         }
       } else {
         throw new Error('Idle connection cleanup failed');
       }
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Idle connection cleanup failed');
+      const errorMessage = error instanceof Error ? error.message : 'Idle connection cleanup failed';
+      showError(`Failed to close idle connections: ${errorMessage}`, {
+        category: 'Connection Pool',
+        duration: 6000
+      });
+      setError(errorMessage);
     }
   };
 
@@ -344,16 +394,29 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
       if (response.ok) {
         const result = await response.json();
         if (result.healthy) {
+          showSuccess('✅ Connection test successful!', {
+            category: 'Connection Pool',
+            duration: 3000
+          });
           setError(null);
           await fetchMetrics();
         } else {
+          showError('❌ Connection test failed - database connectivity issues detected', {
+            category: 'Connection Pool',
+            duration: 6000
+          });
           setError('Connection test failed: Database is not responding properly');
         }
       } else {
         throw new Error('Connection test failed');
       }
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Connection test failed');
+      const errorMessage = error instanceof Error ? error.message : 'Connection test failed';
+      showError(`Connection test failed: ${errorMessage}`, {
+        category: 'Connection Pool',
+        duration: 6000
+      });
+      setError(errorMessage);
     }
   };
 

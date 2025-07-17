@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNotifications } from '../../hooks/useNotifications';
 import {
   Box,
   Typography,
@@ -119,6 +120,9 @@ const SessionSecurityManager: React.FC = () => {
   const [suspiciousDialogOpen, setSuspiciousDialogOpen] = useState(false);
   const [invalidateReason, setInvalidateReason] = useState('');
   const [suspiciousReason, setSuspiciousReason] = useState('');
+  
+  // Add notifications hook
+  const { showSuccess, showError } = useNotifications();
 
   const fetchSessionStatus = async () => {
     if (!selectedShop || !selectedSession) return;
@@ -183,12 +187,24 @@ const SessionSecurityManager: React.FC = () => {
         throw new Error('Failed to invalidate session');
       }
       
+      showSuccess('🚫 Session invalidated successfully!', {
+        category: 'Session Security',
+        duration: 4000
+      });
+      
       setInvalidateDialogOpen(false);
       setInvalidateReason('');
       await fetchSessionStatus();
     } catch (err) {
       console.error('Error invalidating session:', err);
-      setError(err instanceof Error ? err.message : 'Failed to invalidate session');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to invalidate session';
+      
+      showError(`Failed to invalidate session: ${errorMessage}`, {
+        category: 'Session Security',
+        duration: 6000
+      });
+      
+      setError(errorMessage);
     }
   };
 
@@ -209,12 +225,24 @@ const SessionSecurityManager: React.FC = () => {
         throw new Error('Failed to mark session as suspicious');
       }
       
+      showSuccess('⚠️ Session marked as suspicious successfully!', {
+        category: 'Session Security',
+        duration: 4000
+      });
+      
       setSuspiciousDialogOpen(false);
       setSuspiciousReason('');
       await fetchSessionStatus();
     } catch (err) {
       console.error('Error marking session as suspicious:', err);
-      setError(err instanceof Error ? err.message : 'Failed to mark session as suspicious');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to mark session as suspicious';
+      
+      showError(`Failed to mark session as suspicious: ${errorMessage}`, {
+        category: 'Session Security',
+        duration: 6000
+      });
+      
+      setError(errorMessage);
     }
   };
 
@@ -231,10 +259,22 @@ const SessionSecurityManager: React.FC = () => {
         throw new Error('Failed to rotate token');
       }
       
+      showSuccess('🔄 Token rotated successfully!', {
+        category: 'Session Security',
+        duration: 4000
+      });
+      
       await fetchSessionStatus();
     } catch (err) {
       console.error('Error rotating token:', err);
-      setError(err instanceof Error ? err.message : 'Failed to rotate token');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to rotate token';
+      
+      showError(`Failed to rotate token: ${errorMessage}`, {
+        category: 'Session Security',
+        duration: 6000
+      });
+      
+      setError(errorMessage);
     }
   };
 

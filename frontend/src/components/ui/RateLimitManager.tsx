@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNotifications } from '../../hooks/useNotifications';
 import {
   Box,
   Typography,
@@ -89,6 +90,9 @@ const RateLimitManager: React.FC = () => {
   // Dialog states
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [clearReason, setClearReason] = useState('');
+  
+  // Add notifications hook
+  const { showSuccess, showError } = useNotifications();
 
   const fetchCurrentStats = async () => {
     setLoading(true);
@@ -136,13 +140,25 @@ const RateLimitManager: React.FC = () => {
         throw new Error('Failed to clear rate limit');
       }
       
+      showSuccess(`🚫 Rate limits cleared successfully for IP: ${targetIp}`, {
+        category: 'Rate Limit Management',
+        duration: 5000
+      });
+      
       setClearDialogOpen(false);
       setClearReason('');
       setTargetIp('');
       await fetchCurrentStats();
     } catch (err) {
       console.error('Error clearing rate limit:', err);
-      setError(err instanceof Error ? err.message : 'Failed to clear rate limit');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to clear rate limit';
+      
+      showError(`Failed to clear rate limits: ${errorMessage}`, {
+        category: 'Rate Limit Management',
+        duration: 6000
+      });
+      
+      setError(errorMessage);
     }
   };
 
