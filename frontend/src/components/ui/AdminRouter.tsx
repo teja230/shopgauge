@@ -654,28 +654,232 @@ const AdminRouter = React.memo<AdminRouterProps>(({
               <Typography variant="h5" gutterBottom sx={{ mb: 3 }}>
                 Session Management
               </Typography>
-              <AdminSessionManager />
-              <Box sx={{ mt: 3 }}>
-                                 <SessionManagementTools
-                   onClearStuckSession={sessionData?.onClearStuckSession || (async (sessionId: string) => {
-                     console.log('Clear stuck session:', sessionId);
-                   })}
-                   onClearStuckSessionsForShop={sessionData?.onClearStuckSessionsForShop || (async (shopDomain: string) => {
-                     console.log('Clear stuck sessions for shop:', shopDomain);
-                   })}
-                   onGetStuckSessions={sessionData?.onGetStuckSessions || (async (shopDomain?: string) => {
-                     console.log('Get stuck sessions:', shopDomain);
-                   })}
-                   onEmergencySessionCleanup={sessionData?.onEmergencySessionCleanup || (async () => {
-                     console.log('Emergency session cleanup');
-                   })}
-                   onCheckSessionSyncStatus={sessionData?.onCheckSessionSyncStatus || (async (sessionId: string) => {
-                     console.log('Check session sync status:', sessionId);
-                   })}
-                   onRefreshSessionSyncStatus={sessionData?.onRefreshSessionSyncStatus || (async () => {
-                     console.log('Refresh session sync status');
-                   })}
-                 />
+              
+              {/* Session Statistics Section */}
+              <Box sx={{ mb: 4 }}>
+                <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
+                  Session Statistics
+                </Typography>
+                {sessionData?.sessionStatistics ? (
+                  <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap', mb: 3 }}>
+                    <Box sx={{ flex: '1 1 200px', p: 2, bgcolor: 'background.paper', borderRadius: 2, border: 1, borderColor: 'divider' }}>
+                      <Typography variant="h6" color="primary.main">
+                        {sessionData.sessionStatistics.totalActiveSessions || 0}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Total Sessions
+                      </Typography>
+                    </Box>
+                    <Box sx={{ flex: '1 1 200px', p: 2, bgcolor: 'background.paper', borderRadius: 2, border: 1, borderColor: 'divider' }}>
+                      <Typography variant="h6" color="success.main">
+                        {sessionData.sessionStatistics.currentlyActiveSessions || 0}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Currently Active
+                      </Typography>
+                    </Box>
+                    <Box sx={{ flex: '1 1 200px', p: 2, bgcolor: 'background.paper', borderRadius: 2, border: 1, borderColor: 'divider' }}>
+                      <Typography variant="h6" color="info.main">
+                        {sessionData.sessionStatistics.uniqueShops || 0}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Unique Shops
+                      </Typography>
+                    </Box>
+                  </Box>
+                ) : (
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    Session statistics will be displayed here.
+                  </Typography>
+                )}
+              </Box>
+
+              {/* Session Management Tools */}
+              <Box sx={{ mb: 4 }}>
+                <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
+                  Session Management Tools
+                </Typography>
+                <AdminSessionManager />
+                <Box sx={{ mt: 3 }}>
+                  <SessionManagementTools
+                    onClearStuckSession={sessionData?.onClearStuckSession || (async (sessionId: string) => {
+                      console.log('Clear stuck session:', sessionId);
+                    })}
+                    onClearStuckSessionsForShop={sessionData?.onClearStuckSessionsForShop || (async (shopDomain: string) => {
+                      console.log('Clear stuck sessions for shop:', shopDomain);
+                    })}
+                    onGetStuckSessions={sessionData?.onGetStuckSessions || (async (shopDomain?: string) => {
+                      console.log('Get stuck sessions:', shopDomain);
+                    })}
+                    onEmergencySessionCleanup={sessionData?.onEmergencySessionCleanup || (async () => {
+                      console.log('Emergency session cleanup');
+                    })}
+                    onCheckSessionSyncStatus={sessionData?.onCheckSessionSyncStatus || (async (sessionId: string) => {
+                      console.log('Check session sync status:', sessionId);
+                    })}
+                    onRefreshSessionSyncStatus={sessionData?.onRefreshSessionSyncStatus || (async () => {
+                      console.log('Refresh session sync status');
+                    })}
+                  />
+                </Box>
+              </Box>
+
+              {/* Active Sessions Table */}
+              <Box sx={{ mb: 4 }}>
+                <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
+                  Active Sessions
+                </Typography>
+                {sessionData ? (
+                  <Box>
+                    <Box sx={{ mb: 3 }}>
+                      <RefreshHeader
+                        lastUpdated={sessionData.activeShops?.length ? 'Just now' : 'Never'}
+                        onRefresh={sessionData.onRefresh}
+                        loading={sessionData.loading}
+                        label="Refresh Active Sessions"
+                        tooltip="Refresh active sessions"
+                        cooldown={false}
+                        cooldownRemaining={0}
+                      />
+                    </Box>
+                    {sessionData.error && (
+                      <Typography color="error" sx={{ mb: 2 }}>
+                        {sessionData.error}
+                      </Typography>
+                    )}
+                    {sessionData.activeShops && sessionData.activeShops.length > 0 ? (
+                      <ModernDataTable
+                        data={sessionData.activeShops}
+                        columns={[
+                          {
+                            id: 'shopDomain',
+                            label: 'Shop Domain',
+                            minWidth: 200,
+                            sortable: true,
+                            filterable: true,
+                          },
+                          {
+                            id: 'lastActivity',
+                            label: 'Last Activity',
+                            minWidth: 150,
+                            sortable: true,
+                            render: (value) => new Date(value).toLocaleString(),
+                          },
+                          {
+                            id: 'ipAddress',
+                            label: 'IP Address',
+                            minWidth: 120,
+                            filterable: true,
+                          },
+                          {
+                            id: 'activeSessionCount',
+                            label: 'Session Count',
+                            minWidth: 100,
+                            sortable: true,
+                            render: (value) => value || 1,
+                          },
+                          {
+                            id: 'isActive',
+                            label: 'Status',
+                            minWidth: 100,
+                            render: (value) => (
+                              <Box
+                                sx={{
+                                  px: 1.5,
+                                  py: 0.5,
+                                  borderRadius: 1,
+                                  fontSize: '0.75rem',
+                                  fontWeight: 600,
+                                  backgroundColor: value ? '#e8f5e8' : '#f5f5f5',
+                                  color: value ? '#2e7d32' : '#616161',
+                                }}
+                              >
+                                {value ? 'Active' : 'Inactive'}
+                              </Box>
+                            ),
+                          },
+                        ]}
+                        loading={sessionData.loading}
+                        error={sessionData.error}
+                        searchable={true}
+                        filterable={true}
+                        searchPlaceholder="Search active sessions..."
+                        emptyMessage="No active sessions found"
+                        stickyHeader={true}
+                        hoverable={true}
+                        dense={true}
+                      />
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">
+                        No active sessions found.
+                      </Typography>
+                    )}
+                  </Box>
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    Active sessions data will be displayed here.
+                  </Typography>
+                )}
+              </Box>
+
+              {/* Deleted Shops Table */}
+              <Box>
+                <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
+                  Deleted Shops
+                </Typography>
+                {sessionData ? (
+                  <Box>
+                    {sessionData.error && (
+                      <Typography color="error" sx={{ mb: 2 }}>
+                        {sessionData.error}
+                      </Typography>
+                    )}
+                    {sessionData.deletedShops && sessionData.deletedShops.length > 0 ? (
+                      <ModernDataTable
+                        data={sessionData.deletedShops}
+                        columns={[
+                          {
+                            id: 'shopDomain',
+                            label: 'Shop Domain',
+                            minWidth: 200,
+                            sortable: true,
+                            filterable: true,
+                          },
+                          {
+                            id: 'lastActivity',
+                            label: 'Last Activity',
+                            minWidth: 150,
+                            sortable: true,
+                            render: (value) => new Date(value).toLocaleString(),
+                          },
+                          {
+                            id: 'ipAddress',
+                            label: 'IP Address',
+                            minWidth: 120,
+                            filterable: true,
+                          },
+                        ]}
+                        loading={sessionData.loading}
+                        error={sessionData.error}
+                        searchable={true}
+                        filterable={true}
+                        searchPlaceholder="Search deleted shops..."
+                        emptyMessage="No deleted shops found"
+                        stickyHeader={true}
+                        hoverable={true}
+                        dense={true}
+                      />
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">
+                        No deleted shops found.
+                      </Typography>
+                    )}
+                  </Box>
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    Deleted shops data will be displayed here.
+                  </Typography>
+                )}
               </Box>
             </Box>
           </Suspense>
