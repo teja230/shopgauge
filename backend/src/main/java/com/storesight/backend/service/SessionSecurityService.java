@@ -83,9 +83,7 @@ public class SessionSecurityService {
         this.encryptionKey = keyGenerator.generateKey();
 
         // Log key generation indicator for security (don't log the actual key)
-        String keyHash =
-            generateSecureHash(Base64.getEncoder().encodeToString(this.encryptionKey.getEncoded()));
-        logger.warn("Generated new session encryption key. Key hash: {}", keyHash);
+        logger.warn("Generated new session encryption key.");
         logger.warn(
             "Set SESSION_SECURITY_ENCRYPTION_KEY environment variable with the generated key");
       }
