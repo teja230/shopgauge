@@ -137,61 +137,97 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     
-    try {
-      setAuthLoading(true);
-      setLoading(true);
+    // Check if this is a post-OAuth redirect (user just completed OAuth)
+    const urlParams = new URLSearchParams(window.location.search);
+    const isPostOAuth = urlParams.get('connected') === 'true';
+    
+    if (isPostOAuth) {
+      console.log('AuthContext: Detected post-OAuth redirect, adding delay for session establishment');
+      // Add a delay to allow session establishment after OAuth
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // Use direct fetch for initial auth check to avoid triggering global error handler
-      const response = await fetch(`${API_BASE_URL}/api/auth/shopify/me`, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        cache: 'no-cache',
-      });
-
-      console.log('AuthContext: Auth check response status:', response.status);
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.shop && data.authenticated) {
-          console.log('AuthContext: Authentication successful, shop:', data.shop);
-          setShop(data.shop);
-          setIsAuthenticated(true);
-          setIsAuthReady(true);
+      // Clean up the URL parameters
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('connected');
+      newUrl.searchParams.delete('skip_loading');
+      window.history.replaceState({}, '', newUrl.toString());
+    }
+    
+    // Retry mechanism for authentication
+    const maxRetries = isPostOAuth ? 3 : 1;
+    let lastError = null;
+    
+    try {
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          console.log(`AuthContext: Authentication attempt ${attempt}/${maxRetries}`);
           
-          // Sync API authentication state
-          setApiAuthState(true, data.shop);
-          setHasInitiallyLoaded(true);
-          return;
+          setAuthLoading(true);
+          setLoading(true);
+          
+          // Use direct fetch for initial auth check to avoid triggering global error handler
+          const response = await fetch(`${API_BASE_URL}/api/auth/shopify/me`, {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            cache: 'no-cache',
+          });
+
+          console.log('AuthContext: Auth check response status:', response.status);
+
+          if (response.ok) {
+            const data = await response.json();
+            if (data.shop && data.authenticated) {
+              console.log('AuthContext: Authentication successful, shop:', data.shop);
+              setShop(data.shop);
+              setIsAuthenticated(true);
+              setIsAuthReady(true);
+              
+              // Sync API authentication state
+              setApiAuthState(true, data.shop);
+              setHasInitiallyLoaded(true);
+              return;
+            }
+          }
+          
+          // If this is not the last attempt, wait before retrying
+          if (attempt < maxRetries) {
+            console.log(`AuthContext: Authentication failed, retrying in ${attempt * 1000}ms...`);
+            await new Promise(resolve => setTimeout(resolve, attempt * 1000));
+          }
+          
+        } catch (error) {
+          console.error(`AuthContext: Error during authentication check (attempt ${attempt}):`, error);
+          lastError = error;
+          
+          // If this is not the last attempt, wait before retrying
+          if (attempt < maxRetries) {
+            console.log(`AuthContext: Authentication error, retrying in ${attempt * 1000}ms...`);
+            await new Promise(resolve => setTimeout(resolve, attempt * 1000));
+          }
         }
       }
       
-      // Handle non-authenticated state
-      console.log('AuthContext: Not authenticated, response status:', response.status);
+      // All attempts failed
+      console.log('AuthContext: All authentication attempts failed');
       setShop(null);
       setIsAuthenticated(false);
       setIsAuthReady(true);
+      setHasInitiallyLoaded(true);
       
       // Sync API authentication state
       setApiAuthState(false, null);
-      setHasInitiallyLoaded(true);
       
     } catch (error) {
-      console.error('AuthContext: Error during authentication check:', error);
-      
-      // Handle network errors gracefully
+      console.error('AuthContext: Unexpected error during authentication check:', error);
       setShop(null);
       setIsAuthenticated(false);
       setIsAuthReady(true);
       setHasInitiallyLoaded(true);
-      
-      // Sync API authentication state
       setApiAuthState(false, null);
-      
-      // Don't throw error to prevent breaking the app
     } finally {
       setAuthLoading(false);
       setLoading(false);
