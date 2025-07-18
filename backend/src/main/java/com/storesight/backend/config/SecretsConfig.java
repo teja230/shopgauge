@@ -18,12 +18,6 @@ public class SecretsConfig {
   }
 
   @PostConstruct
-  public void init() {
-    // Validate that required secrets are configured
-    validateRequiredSecrets();
-  }
-
-  @PostConstruct
   public void initializeSecrets() {
     log.info("Initializing default secrets...");
 
@@ -44,16 +38,26 @@ public class SecretsConfig {
     initializeSecret("serper.api.key", "dummy_serper_key");
 
     log.info("Default secrets initialization completed");
+
+    // Validate that required secrets are configured after initialization
+    validateRequiredSecrets();
   }
 
   private void validateRequiredSecrets() {
     String[] requiredSecrets = {"shopify.api.key", "shopify.api.secret"};
+    String activeProfile = System.getenv("SPRING_PROFILES_ACTIVE");
+    boolean isProduction = "prod".equals(activeProfile) || "production".equals(activeProfile);
 
     for (String secretKey : requiredSecrets) {
       if (secretService.getSecret(secretKey).isEmpty()) {
-        System.err.println("[WARN] Required secret not configured: " + secretKey);
-        System.err.println(
-            "[INFO] Please set environment variable in Render: " + getEnvVarName(secretKey));
+        if (isProduction) {
+          log.error("Required secret not configured in production: {}", secretKey);
+          log.error("Please set environment variable: {}", getEnvVarName(secretKey));
+          throw new RuntimeException("Required secret not configured: " + secretKey);
+        } else {
+          log.warn("Required secret not configured in development: {}", secretKey);
+          log.info("Please set environment variable: {}", getEnvVarName(secretKey));
+        }
       }
     }
   }

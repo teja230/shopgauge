@@ -10,6 +10,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import javax.crypto.SecretKey;
@@ -343,6 +344,90 @@ public class AdminAuthService {
       adminAuditLogRepository.save(auditLog);
     } catch (Exception e) {
       logger.error("Failed to log admin audit event: {}", e.getMessage(), e);
+    }
+  }
+
+  /**
+   * Check if user is authorized for critical operations Currently all authenticated admin users are
+   * authorized, but this can be extended for role-based access control in the future
+   */
+  public boolean isAuthorizedForCriticalOperation(String username, String operation) {
+    if (username == null || username.trim().isEmpty()) {
+      logger.warn("Authorization check failed: username is null or empty");
+      return false;
+    }
+
+    // Validate that the username matches the configured admin username
+    if (!adminUsername.equals(username)) {
+      logger.warn(
+          "Authorization check failed: username '{}' does not match configured admin", username);
+      logAuditEvent(
+          "AUTHORIZATION_FAILED",
+          username,
+          "Critical operation authorization failed - invalid username for operation: " + operation);
+      return false;
+    }
+
+    // Additional checks can be added here for specific operations
+    if (operation.contains("/emergency/")) {
+      // Emergency operations require additional validation
+      logger.info(
+          "Emergency operation authorization requested for user: {} operation: {}",
+          username,
+          operation);
+      logAuditEvent(
+          "EMERGENCY_OPERATION_AUTHORIZED",
+          username,
+          "Emergency operation authorized: " + operation);
+    }
+
+    if (operation.contains("/secrets")) {
+      // Secret management operations
+      logger.info(
+          "Secret management operation authorization requested for user: {} operation: {}",
+          username,
+          operation);
+      logAuditEvent(
+          "SECRET_OPERATION_AUTHORIZED",
+          username,
+          "Secret management operation authorized: " + operation);
+    }
+
+    return true;
+  }
+
+  /** Get admin audit logs for monitoring and compliance */
+  public List<AdminAuditLog> getRecentAuditLogs(int limit) {
+    try {
+      Instant since = Instant.now().minus(24, ChronoUnit.HOURS);
+      List<AdminAuditLog> logs = adminAuditLogRepository.findRecentEvents(since);
+      return logs.stream().limit(limit).collect(java.util.stream.Collectors.toList());
+    } catch (Exception e) {
+      logger.error("Failed to retrieve recent audit logs: {}", e.getMessage(), e);
+      return new java.util.ArrayList<>();
+    }
+  }
+
+  /** Get failed login attempts for security monitoring */
+  public long getFailedLoginAttempts(String ipAddress, int hours) {
+    try {
+      Instant since = Instant.now().minus(hours, ChronoUnit.HOURS);
+      return adminAuditLogRepository.countFailedLoginAttempts(ipAddress, since);
+    } catch (Exception e) {
+      logger.error(
+          "Failed to get failed login attempts for IP {}: {}", ipAddress, e.getMessage(), e);
+      return 0;
+    }
+  }
+
+  /** Get recent audit logs by username for detailed analysis */
+  public List<AdminAuditLog> getRecentAuditLogsByUsername(String username, Instant since) {
+    try {
+      return adminAuditLogRepository.findRecentEventsByUsername(username, since);
+    } catch (Exception e) {
+      logger.error(
+          "Failed to retrieve recent audit logs for username {}: {}", username, e.getMessage(), e);
+      return new java.util.ArrayList<>();
     }
   }
 }

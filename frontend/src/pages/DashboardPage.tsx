@@ -2436,7 +2436,21 @@ const DashboardPage = () => {
 
     // Handle authentication failure or missing shop
     if (!isAuthenticated || !shop) {
-      console.log('Dashboard: Authentication failed or no shop - redirecting to home');
+      console.log('Dashboard: Authentication failed or no shop - checking for post-OAuth scenario');
+      
+      // Check if this might be a post-OAuth scenario (user just completed OAuth)
+      const urlParams = new URLSearchParams(window.location.search);
+      const isPostOAuth = urlParams.get('connected') === 'true';
+      
+      if (isPostOAuth) {
+        console.log('Dashboard: Detected post-OAuth scenario, being patient with authentication');
+        // Don't immediately redirect - let the AuthContext handle the retry logic
+        setLoading(true);
+        setError('Setting up your session...');
+        return;
+      }
+      
+      console.log('Dashboard: Not a post-OAuth scenario, redirecting to home');
       setError('Authentication required');
       setLoading(false);
       

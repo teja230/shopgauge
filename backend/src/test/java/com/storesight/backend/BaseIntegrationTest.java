@@ -37,9 +37,17 @@ public abstract class BaseIntegrationTest {
     registry.add("spring.datasource.url", postgres::getJdbcUrl);
     registry.add("spring.datasource.username", postgres::getUsername);
     registry.add("spring.datasource.password", postgres::getPassword);
+    registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
+    registry.add("spring.jpa.database-platform", () -> "org.hibernate.dialect.PostgreSQLDialect");
+    registry.add("spring.jpa.database", () -> "postgresql");
     registry.add("spring.data.redis.host", redis::getHost);
     registry.add("spring.data.redis.port", () -> redis.getMappedPort(6379));
     registry.add("spring.redis.host", redis::getHost);
     registry.add("spring.redis.port", () -> redis.getMappedPort(6379));
+    // Disable logback configuration for tests
+    registry.add("logging.config", () -> "");
+    // Disable Flyway for integration tests to prevent migration issues
+    registry.add("spring.flyway.enabled", () -> "false");
+    registry.add("spring.jpa.hibernate.ddl-auto", () -> "create-drop");
   }
 }

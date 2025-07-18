@@ -27,20 +27,8 @@ import {
 } from '@mui/icons-material';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import RefreshHeader from './RefreshHeader';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
-const fetchAdminEndpoint = async (endpoint: string, options?: RequestInit) => {
-  const fullUrl = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
-  return fetch(fullUrl, {
-    credentials: 'include',
-    headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-      ...(options?.headers || {})
-    },
-    ...options,
-  });
-};
+import { useNotifications } from '../../hooks/useNotifications';
+import { fetchWithAdminAuth } from '../../api';
 
 interface PoolMetrics {
   activeConnections: number;
@@ -126,6 +114,9 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
   const [refreshCooldown, setRefreshCooldown] = useState(0);
   const cooldownRef = useRef<NodeJS.Timeout | null>(null);
   const isMountedRef = useRef(true);
+  
+  // Add notifications hook
+  const { showSuccess, showError } = useNotifications();
 
   // Cleanup on unmount
   useEffect(() => {
@@ -146,25 +137,46 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
         setError(null);
       }
 
-      const [poolResponse, redisResponse, systemResponse, transactionResponse, sessionResponse] = await Promise.all([
-        fetchAdminEndpoint('/api/health/connection-leak-status'),
-        fetchAdminEndpoint('/api/health/redis'),
-        fetchAdminEndpoint('/api/health/system'),
-        fetchAdminEndpoint('/api/health/transactions'),
-        fetchAdminEndpoint('/api/admin/session-statistics').catch(() => ({ ok: false }))
+      // Use enhanced connection pool dashboard endpoint for comprehensive data
+      const [poolData, redisData, systemData, transactionData, sessionData] = await Promise.all([
+        fetchWithAdminAuth('/api/admin/connection-pool/dashboard').catch(() => 
+          fetchWithAdminAuth('/api/health/connection-leak-status') // Fallback to old endpoint
+        ),
+        fetchWithAdminAuth('/api/health/redis'),
+        fetchWithAdminAuth('/api/health/system'),
+        fetchWithAdminAuth('/api/health/transactions'),
+        fetchWithAdminAuth('/api/admin/session-statistics').catch(() => null)
       ]);
 
-      if (!poolResponse.ok) {
-        throw new Error(`Connection pool fetch failed: HTTP ${poolResponse.status}`);
-      }
+      // fetchWithAdminAuth returns JSON directly, no need to check response.ok or call .json()
+      // poolData, redisData, systemData, transactionData, sessionData are already JSON objects
 
-      const poolData = await poolResponse.json();
-      const redisData = redisResponse.ok ? await redisResponse.json() : null;
-      const systemData = systemResponse.ok ? await systemResponse.json() : null;
-      const transactionData = transactionResponse.ok ? await transactionResponse.json() : null;
-      const sessionData = sessionResponse.ok ? await (sessionResponse as Response).json() : null;
-
-      const poolMetrics: PoolMetrics = {
+      // Handle both new enhanced endpoint format and legacy format
+      const isEnhancedFormat = poolData.connection_pool && poolData.query_cache;
+      
+      const poolMetrics: PoolMetrics = isEnhancedFormat ? {
+        // New enhanced endpoint format
+        activeConnections: poolData.connection_pool?.active_connections || 0,
+        idleConnections: poolData.connection_pool?.idle_connections || 0,
+        totalConnections: poolData.connection_pool?.total_connections || 0,
+        threadsAwaitingConnection: poolData.connection_pool?.threads_waiting || 0,
+        maxPoolSize: poolData.connection_pool?.total_connections || 20,
+        minimumIdle: 5, // Not provided in new format, use default
+        activeUsagePercent: (poolData.connection_pool?.utilization_ratio || 0) * 100,
+        poolStatus: (() => {
+          const utilizationRatio = poolData.connection_pool?.utilization_ratio || 0;
+          const utilizationPercent = utilizationRatio * 100;
+          if (utilizationPercent > 90) return 'CRITICAL';
+          if (utilizationPercent > 70) return 'WARNING';
+          return 'HEALTHY';
+        })(),
+        connectionLeakRisk: poolData.connection_pool?.leak_count > 5 ? 'HIGH' : 
+                           poolData.connection_pool?.leak_count > 2 ? 'MEDIUM' : 'LOW',
+        emergencyCleanupNeeded: (poolData.connection_pool?.threads_waiting > 10) || 
+                               ((poolData.connection_pool?.utilization_ratio || 0) > 0.98 && 
+                                (poolData.connection_pool?.threads_waiting > 0)),
+      } : {
+        // Legacy endpoint format
         activeConnections: poolData.hikariMetrics?.activeConnections || 0,
         idleConnections: poolData.hikariMetrics?.idleConnections || 0,
         totalConnections: poolData.hikariMetrics?.totalConnections || 0,
@@ -243,33 +255,128 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
 
   const performEmergencyCleanup = async () => {
     try {
-      const response = await fetchAdminEndpoint('/api/health/emergency-cleanup', {
+      const result = await fetchWithAdminAuth('/api/health/emergency-cleanup', {
         method: 'POST',
       });
       
-      if (response.ok) {
-        await fetchMetrics();
-      } else {
-        throw new Error('Emergency cleanup failed');
-      }
+      showSuccess('🚨 Emergency cleanup completed successfully!', {
+        category: 'Connection Pool',
+        duration: 5000
+      });
+      await fetchMetrics();
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Emergency cleanup failed');
+      const errorMessage = error instanceof Error ? error.message : 'Emergency cleanup failed';
+      showError(`Emergency cleanup failed: ${errorMessage}`, {
+        category: 'Connection Pool',
+        duration: 6000
+      });
+      setError(errorMessage);
     }
   };
 
   const performComprehensiveCleanup = async () => {
     try {
-      const response = await fetchAdminEndpoint('/api/health/comprehensive-cleanup', {
+      const result = await fetchWithAdminAuth('/api/health/comprehensive-cleanup', {
         method: 'POST',
       });
       
-      if (response.ok) {
+      showSuccess('🔧 Comprehensive cleanup completed successfully!', {
+        category: 'Connection Pool',
+        duration: 5000
+      });
+      await fetchMetrics();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Comprehensive cleanup failed';
+      showError(`Comprehensive cleanup failed: ${errorMessage}`, {
+        category: 'Connection Pool',
+        duration: 6000
+      });
+      setError(errorMessage);
+    }
+  };
+
+  // New enhanced recovery actions using the new endpoints
+  const performConnectionPoolRecovery = async () => {
+    try {
+      const result = await fetchWithAdminAuth('/api/admin/connection-pool/recover', {
+        method: 'POST',
+      });
+      
+      if (result.recovered) {
+        showSuccess('🔧 Connection pool recovery successful!', {
+          category: 'Connection Pool',
+          duration: 4000
+        });
         await fetchMetrics();
       } else {
-        throw new Error('Comprehensive cleanup failed');
+        showError(`Connection pool recovery failed: ${result.message || 'Unknown error'}`, {
+          category: 'Connection Pool',
+          duration: 6000
+        });
       }
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Comprehensive cleanup failed');
+      const errorMessage = error instanceof Error ? error.message : 'Connection pool recovery failed';
+      showError(`Connection pool recovery failed: ${errorMessage}`, {
+        category: 'Connection Pool',
+        duration: 6000
+      });
+      setError(errorMessage);
+    }
+  };
+
+  const performIdleConnectionCleanup = async () => {
+    try {
+      const result = await fetchWithAdminAuth('/api/admin/connection-pool/close-idle', {
+        method: 'POST',
+      });
+      
+      if (result.success) {
+        showSuccess('🧹 Idle connections closed successfully!', {
+          category: 'Connection Pool',
+          duration: 4000
+        });
+        await fetchMetrics();
+      } else {
+        showError(`Failed to close idle connections: ${result.error || result.message || 'Unknown error'}`, {
+          category: 'Connection Pool',
+          duration: 6000
+        });
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Idle connection cleanup failed';
+      showError(`Failed to close idle connections: ${errorMessage}`, {
+        category: 'Connection Pool',
+        duration: 6000
+      });
+      setError(errorMessage);
+    }
+  };
+
+  const testConnectionHealth = async () => {
+    try {
+      const result = await fetchWithAdminAuth('/api/admin/connection-pool/test-connection');
+      
+      if (result.healthy) {
+        showSuccess('✅ Connection test successful!', {
+          category: 'Connection Pool',
+          duration: 3000
+        });
+        setError(null);
+        await fetchMetrics();
+      } else {
+        showError('❌ Connection test failed - database connectivity issues detected', {
+          category: 'Connection Pool',
+          duration: 6000
+        });
+        setError('Connection test failed: Database is not responding properly');
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Connection test failed';
+      showError(`Connection test failed: ${errorMessage}`, {
+        category: 'Connection Pool',
+        duration: 6000
+      });
+      setError(errorMessage);
     }
   };
 
@@ -280,12 +387,6 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
     fetchMetrics();
   };
 
-  useEffect(() => {
-    if (isMountedRef.current) {
-      fetchMetrics();
-    }
-  }, []);
-
   // Cooldown timer
   useEffect(() => {
     if (refreshCooldown > 0) {
@@ -293,6 +394,14 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
       return () => clearTimeout(timer);
     }
   }, [refreshCooldown]);
+
+  // Load data only on component mount when there is no data
+  useEffect(() => {
+    // Only fetch data if we don't have any data yet
+    if (!systemMetrics) {
+      fetchMetrics();
+    }
+  }, []); // Empty dependency array - only run on mount
 
   useEffect(() => {
     return () => {
@@ -395,11 +504,82 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
               color="warning"
               startIcon={<StorageIcon />}
               onClick={performComprehensiveCleanup}
+              sx={{ mr: 1 }}
             >
               Comprehensive Cleanup
             </Button>
+            <Button
+              variant="outlined"
+              color="primary"
+              startIcon={<HealingIcon />}
+              onClick={performConnectionPoolRecovery}
+              sx={{ mr: 1 }}
+            >
+              Auto Recovery
+            </Button>
+            <Button
+              variant="outlined"
+              color="secondary"
+              startIcon={<StorageIcon />}
+              onClick={performIdleConnectionCleanup}
+            >
+              Close Idle
+            </Button>
           </Box>
         </Alert>
+      )}
+
+      {/* Enhanced Actions Panel - Always visible for admins */}
+      {showActions && (
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <HealingIcon />
+              Connection Pool Management
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Enhanced connection pool monitoring and recovery tools
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              <Button
+                variant="outlined"
+                color="primary"
+                startIcon={<CheckCircleIcon />}
+                onClick={testConnectionHealth}
+                size="small"
+              >
+                Test Connection
+              </Button>
+              <Button
+                variant="outlined"
+                color="secondary"
+                startIcon={<HealingIcon />}
+                onClick={performConnectionPoolRecovery}
+                size="small"
+              >
+                Auto Recovery
+              </Button>
+              <Button
+                variant="outlined"
+                color="info"
+                startIcon={<StorageIcon />}
+                onClick={performIdleConnectionCleanup}
+                size="small"
+              >
+                Close Idle Connections
+              </Button>
+              <Button
+                variant="outlined"
+                color="warning"
+                startIcon={<HealingIcon />}
+                onClick={performEmergencyCleanup}
+                size="small"
+              >
+                Emergency Cleanup
+              </Button>
+            </Box>
+          </CardContent>
+        </Card>
       )}
 
       {/* Metrics Cards */}

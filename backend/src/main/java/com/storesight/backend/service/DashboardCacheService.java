@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,17 +50,124 @@ public class DashboardCacheService {
   private static final String METADATA_SUFFIX = ":metadata";
 
   private final StringRedisTemplate redisTemplate;
+  private final EnhancedRedisService enhancedRedisService;
   private final ObjectMapper objectMapper;
+  private final MetricsCollectionService metricsCollectionService;
 
   // Cache statistics tracking
   private final AtomicLong cacheHits = new AtomicLong(0);
   private final AtomicLong cacheMisses = new AtomicLong(0);
   private final AtomicLong cacheEvictions = new AtomicLong(0);
+  private final AtomicLong totalCacheSizeExceeded = new AtomicLong(0);
+
+  // Persistent cache statistics keys
+  private static final String CACHE_STATS_HITS_KEY = "cache:stats:hits";
+  private static final String CACHE_STATS_MISSES_KEY = "cache:stats:misses";
+  private static final String CACHE_STATS_EVICTIONS_KEY = "cache:stats:evictions";
+  private static final String CACHE_STATS_SIZE_VIOLATIONS_KEY = "cache:stats:size_violations";
+  private static final String CACHE_STATS_LAST_RESET_KEY = "cache:stats:last_reset";
 
   @Autowired
-  public DashboardCacheService(StringRedisTemplate redisTemplate, ObjectMapper objectMapper) {
+  public DashboardCacheService(
+      StringRedisTemplate redisTemplate,
+      EnhancedRedisService enhancedRedisService,
+      ObjectMapper objectMapper,
+      MetricsCollectionService metricsCollectionService) {
     this.redisTemplate = redisTemplate;
+    this.enhancedRedisService = enhancedRedisService;
     this.objectMapper = objectMapper;
+    this.metricsCollectionService = metricsCollectionService;
+
+    // Initialize cache statistics from persistent storage
+    initializeCacheStatistics();
+  }
+
+  /** Initialize cache statistics from persistent storage */
+  private void initializeCacheStatistics() {
+    try {
+      // Check if Redis is available before attempting to load statistics
+      if (!isRedisAvailable()) {
+        logger.warn("Redis not available during startup, using default cache statistics");
+        return;
+      }
+
+      // Load persistent cache statistics
+      String hitsStr = redisTemplate.opsForValue().get(CACHE_STATS_HITS_KEY);
+      String missesStr = redisTemplate.opsForValue().get(CACHE_STATS_MISSES_KEY);
+      String evictionsStr = redisTemplate.opsForValue().get(CACHE_STATS_EVICTIONS_KEY);
+      String sizeViolationsStr = redisTemplate.opsForValue().get(CACHE_STATS_SIZE_VIOLATIONS_KEY);
+
+      if (hitsStr != null) {
+        cacheHits.set(Long.parseLong(hitsStr));
+      }
+      if (missesStr != null) {
+        cacheMisses.set(Long.parseLong(missesStr));
+      }
+      if (evictionsStr != null) {
+        cacheEvictions.set(Long.parseLong(evictionsStr));
+      }
+      if (sizeViolationsStr != null) {
+        totalCacheSizeExceeded.set(Long.parseLong(sizeViolationsStr));
+      }
+
+      // Set last reset time if not exists
+      if (!redisTemplate.hasKey(CACHE_STATS_LAST_RESET_KEY)) {
+        redisTemplate
+            .opsForValue()
+            .set(CACHE_STATS_LAST_RESET_KEY, String.valueOf(System.currentTimeMillis()));
+      }
+
+      logger.info(
+          "Cache statistics initialized from persistent storage - hits: {}, misses: {}, evictions: {}",
+          cacheHits.get(),
+          cacheMisses.get(),
+          cacheEvictions.get());
+
+    } catch (Exception e) {
+      logger.warn(
+          "Failed to initialize cache statistics from persistent storage: {}. Using default values.",
+          e.getMessage());
+    }
+  }
+
+  /** Check if Redis is available */
+  private boolean isRedisAvailable() {
+    try {
+      redisTemplate.opsForValue().get("health-check");
+      return true;
+    } catch (Exception e) {
+      return false;
+    }
+  }
+
+  /** Persist cache statistics to Redis */
+  private void persistCacheStatistics() {
+    try {
+      // Check if Redis is available before attempting to persist
+      if (!isRedisAvailable()) {
+        return;
+      }
+
+      redisTemplate.opsForValue().set(CACHE_STATS_HITS_KEY, String.valueOf(cacheHits.get()));
+      redisTemplate.opsForValue().set(CACHE_STATS_MISSES_KEY, String.valueOf(cacheMisses.get()));
+      redisTemplate
+          .opsForValue()
+          .set(CACHE_STATS_EVICTIONS_KEY, String.valueOf(cacheEvictions.get()));
+      redisTemplate
+          .opsForValue()
+          .set(CACHE_STATS_SIZE_VIOLATIONS_KEY, String.valueOf(totalCacheSizeExceeded.get()));
+
+      // Set expiration for statistics (30 days)
+      Duration statsExpiration = Duration.ofDays(30);
+      redisTemplate.expire(CACHE_STATS_HITS_KEY, statsExpiration);
+      redisTemplate.expire(CACHE_STATS_MISSES_KEY, statsExpiration);
+      redisTemplate.expire(CACHE_STATS_EVICTIONS_KEY, statsExpiration);
+      redisTemplate.expire(CACHE_STATS_SIZE_VIOLATIONS_KEY, statsExpiration);
+      redisTemplate.expire(CACHE_STATS_LAST_RESET_KEY, statsExpiration);
+
+    } catch (Exception e) {
+      logger.debug("Failed to persist cache statistics: {}", e.getMessage());
+    }
   }
 
   /** Cache entry wrapper with metadata for better cache management */
@@ -226,14 +334,14 @@ public class DashboardCacheService {
       CacheEntry<Object> entry = new CacheEntry<>(data, shopDomain, ttl.getSeconds());
       String serializedData = objectMapper.writeValueAsString(entry);
 
-      redisTemplate.opsForValue().set(key, serializedData, ttl);
+      // Use enhanced Redis service with circuit breaker
+      enhancedRedisService.setWithTtl(key, serializedData, ttl);
 
       // Also store metadata for cache management
       String metadataKey = key + METADATA_SUFFIX;
       String metadata = objectMapper.writeValueAsString(entry);
-      redisTemplate
-          .opsForValue()
-          .set(metadataKey, metadata, ttl.plusMinutes(30)); // Metadata lives longer
+      enhancedRedisService.setWithTtl(
+          metadataKey, metadata, ttl.plusMinutes(30)); // Metadata lives longer
 
       logger.debug("Cached data for key: {} with TTL: {} minutes", key, ttl.toMinutes());
 
@@ -247,14 +355,16 @@ public class DashboardCacheService {
   /** Generic method to get cached data */
   private <T> Optional<T> getCachedData(String key, Class<T> dataType) {
     try {
-      String serializedData = redisTemplate.opsForValue().get(key);
+      // Use enhanced Redis service with circuit breaker
+      Optional<String> serializedDataOpt = enhancedRedisService.get(key);
 
-      if (serializedData == null) {
+      if (serializedDataOpt.isEmpty()) {
         logger.info("No cached data found for key: {} (cache miss)", key);
         recordCacheMiss(); // Track cache miss
         return Optional.empty();
       }
 
+      String serializedData = serializedDataOpt.get();
       @SuppressWarnings("unchecked")
       CacheEntry<T> entry = objectMapper.readValue(serializedData, CacheEntry.class);
 
@@ -287,8 +397,8 @@ public class DashboardCacheService {
   /** Invalidate cache for a specific key */
   public void invalidateCache(String key) {
     try {
-      redisTemplate.delete(key);
-      redisTemplate.delete(key + METADATA_SUFFIX);
+      enhancedRedisService.delete(key);
+      enhancedRedisService.delete(key + METADATA_SUFFIX);
       logger.debug("Invalidated cache for key: {}", key);
     } catch (Exception e) {
       logger.warn("Failed to invalidate cache for key: {} - {}", key, e.getMessage());
@@ -410,7 +520,23 @@ public class DashboardCacheService {
     stats.put("total", total);
     stats.put("hitRate", hitRate);
     stats.put("evictions", cacheEvictions.get());
+    stats.put("sizeViolations", totalCacheSizeExceeded.get());
     stats.put("timestamp", LocalDateTime.now());
+
+    // Add metadata about statistics
+    try {
+      String lastResetStr = redisTemplate.opsForValue().get(CACHE_STATS_LAST_RESET_KEY);
+      if (lastResetStr != null) {
+        long lastReset = Long.parseLong(lastResetStr);
+        stats.put(
+            "lastReset",
+            LocalDateTime.ofInstant(
+                java.time.Instant.ofEpochMilli(lastReset), java.time.ZoneId.systemDefault()));
+        stats.put("uptimeHours", (System.currentTimeMillis() - lastReset) / (1000 * 60 * 60));
+      }
+    } catch (Exception e) {
+      logger.debug("Error getting cache statistics metadata: {}", e.getMessage());
+    }
 
     return stats;
   }
@@ -418,16 +544,40 @@ public class DashboardCacheService {
   /** Record a cache hit */
   public void recordCacheHit() {
     cacheHits.incrementAndGet();
+    persistCacheStatistics();
   }
 
   /** Record a cache miss */
   public void recordCacheMiss() {
     cacheMisses.incrementAndGet();
+    persistCacheStatistics();
   }
 
   /** Record a cache eviction */
   public void recordCacheEviction() {
     cacheEvictions.incrementAndGet();
+    metricsCollectionService.recordCacheEviction();
+    updateCacheSizeMetrics();
+    persistCacheStatistics();
+  }
+
+  /** Record cache size violation */
+  public void recordCacheSizeViolation() {
+    totalCacheSizeExceeded.incrementAndGet();
+    metricsCollectionService.recordCacheSizeViolation();
+    persistCacheStatistics();
+  }
+
+  /** Update cache size metrics */
+  private void updateCacheSizeMetrics() {
+    try {
+      // Get approximate cache size by counting keys with dashboard prefix
+      Set<String> cacheKeys = redisTemplate.keys("dashboard:*");
+      long currentCacheSize = cacheKeys != null ? cacheKeys.size() : 0;
+      metricsCollectionService.updateCacheSize(currentCacheSize);
+    } catch (Exception e) {
+      logger.debug("Error updating cache size metrics: {}", e.getMessage());
+    }
   }
 
   /** Reset cache statistics (useful for testing or periodic resets) */
@@ -435,6 +585,16 @@ public class DashboardCacheService {
     cacheHits.set(0);
     cacheMisses.set(0);
     cacheEvictions.set(0);
+    totalCacheSizeExceeded.set(0);
+
+    // Update persistent storage
+    persistCacheStatistics();
+
+    // Update last reset time
+    redisTemplate
+        .opsForValue()
+        .set(CACHE_STATS_LAST_RESET_KEY, String.valueOf(System.currentTimeMillis()));
+
     logger.info("Cache statistics reset");
   }
 
@@ -453,12 +613,12 @@ public class DashboardCacheService {
       String sessionKey = SESSION_TRACKING_PREFIX + shopDomain + ":" + sessionId;
       String countKey = SESSION_COUNT_PREFIX + shopDomain;
 
-      // Register this session
-      redisTemplate.opsForValue().set(sessionKey, "active", Duration.ofHours(24));
+      // Register this session using enhanced Redis service
+      enhancedRedisService.setWithTtl(sessionKey, "active", Duration.ofHours(24));
 
       // Increment session count for this shop
-      redisTemplate.opsForValue().increment(countKey);
-      redisTemplate.expire(countKey, Duration.ofHours(24));
+      enhancedRedisService.increment(countKey);
+      enhancedRedisService.expire(countKey, Duration.ofHours(24));
 
       logger.debug(
           "Registered session {} for shop: {} (total sessions: {})",
@@ -483,14 +643,15 @@ public class DashboardCacheService {
       String sessionKey = SESSION_TRACKING_PREFIX + shopDomain + ":" + sessionId;
       String countKey = SESSION_COUNT_PREFIX + shopDomain;
 
-      // Remove this session
-      redisTemplate.delete(sessionKey);
+      // Remove this session using enhanced Redis service
+      enhancedRedisService.delete(sessionKey);
 
       // Decrement session count
-      Long remainingSessions = redisTemplate.opsForValue().decrement(countKey);
+      Optional<Long> remainingSessionsOpt = enhancedRedisService.decrement(countKey);
+      Long remainingSessions = remainingSessionsOpt.orElse(0L);
 
       // If count becomes null or 0, this was the last session
-      boolean isLastSession = remainingSessions == null || remainingSessions <= 0;
+      boolean isLastSession = remainingSessions <= 0;
 
       if (isLastSession) {
         logger.info(
@@ -498,7 +659,7 @@ public class DashboardCacheService {
         // Clear all cache for this shop since no sessions remain
         invalidateShopCache(shopDomain);
         // Clean up session tracking keys
-        redisTemplate.delete(countKey);
+        enhancedRedisService.delete(countKey);
       } else {
         logger.debug(
             "Session {} logged out for shop: {} (remaining sessions: {})",

@@ -56,5 +56,5 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
   CMD curl -f http://localhost:8080/health || exit 1
 
-# Run the application with optimized JVM settings
-CMD ["java", "-Xmx1024m", "-XX:+UseG1GC", "-XX:MaxGCPauseMillis=200", "-jar", "app.jar"] 
+# Run the application with production-optimized JVM settings
+CMD ["java", "-Xmx1024m", "-XX:+UseG1GC", "-XX:MaxGCPauseMillis=200", "-XX:+HeapDumpOnOutOfMemoryError", "-XX:HeapDumpPath=/tmp/heapdump.hprof", "-Djava.security.egd=file:/dev/./urandom", "-jar", "app.jar"] 
