@@ -101,12 +101,19 @@ public class SystemResourceMonitoringService {
       cpuStats.put("availableProcessors", osBean.getAvailableProcessors());
       cpuStats.put("systemLoadAverage", osBean.getSystemLoadAverage());
 
-      // Process CPU load (if available)
+      // Process CPU load (if available) - using standard JMX APIs
       double processCpuLoad = -1;
-      if (osBean instanceof com.sun.management.OperatingSystemMXBean) {
-        com.sun.management.OperatingSystemMXBean sunOsBean =
-            (com.sun.management.OperatingSystemMXBean) osBean;
-        processCpuLoad = sunOsBean.getProcessCpuLoad();
+      try {
+        // Use reflection to access process CPU load if available (works on Oracle JDK and OpenJDK)
+        java.lang.reflect.Method getProcessCpuLoadMethod =
+            osBean.getClass().getMethod("getProcessCpuLoad");
+        Object result = getProcessCpuLoadMethod.invoke(osBean);
+        if (result instanceof Number) {
+          processCpuLoad = ((Number) result).doubleValue();
+        }
+      } catch (Exception e) {
+        // Method not available or failed - this is expected on some JVMs
+        logger.debug("Process CPU load not available: {}", e.getMessage());
       }
 
       if (processCpuLoad >= 0) {
@@ -133,15 +140,21 @@ public class SystemResourceMonitoringService {
         cpuStats.put("alert", "UNKNOWN");
       }
 
-      // System CPU load (if available)
-      if (osBean instanceof com.sun.management.OperatingSystemMXBean) {
-        com.sun.management.OperatingSystemMXBean sunOsBean =
-            (com.sun.management.OperatingSystemMXBean) osBean;
-
-        double systemCpuLoad = sunOsBean.getSystemCpuLoad();
-        if (systemCpuLoad >= 0) {
-          cpuStats.put("systemCpuLoad", systemCpuLoad * 100);
+      // System CPU load (if available) - using standard JMX APIs
+      try {
+        // Use reflection to access system CPU load if available
+        java.lang.reflect.Method getSystemCpuLoadMethod =
+            osBean.getClass().getMethod("getSystemCpuLoad");
+        Object result = getSystemCpuLoadMethod.invoke(osBean);
+        if (result instanceof Number) {
+          double systemCpuLoad = ((Number) result).doubleValue();
+          if (systemCpuLoad >= 0) {
+            cpuStats.put("systemCpuLoad", systemCpuLoad * 100);
+          }
         }
+      } catch (Exception e) {
+        // Method not available or failed - this is expected on some JVMs
+        logger.debug("System CPU load not available: {}", e.getMessage());
       }
 
       cpuStats.put("status", "HEALTHY");

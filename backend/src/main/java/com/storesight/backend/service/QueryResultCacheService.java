@@ -331,13 +331,19 @@ public class QueryResultCacheService {
   private void evictOldestMemoryCacheEntry() {
     if (memoryCache.isEmpty()) return;
 
-    // Batch eviction for efficiency - remove multiple entries at once
-    int targetSize = getMaxMemoryCacheSize() * 8 / 10; // Keep 80% of max size
-    int entriesToRemove = memoryCache.size() - targetSize;
+    // Use LRU-style eviction with batch processing for efficiency
+    // Only evict when we're significantly over the limit to reduce frequency
+    int currentSize = memoryCache.size();
+    int maxSize = getMaxMemoryCacheSize();
 
-    if (entriesToRemove <= 0) return;
+    if (currentSize <= maxSize) return;
 
-    // Get oldest entries for batch removal
+    // Calculate how many entries to remove (batch eviction)
+    int entriesToRemove =
+        Math.min(
+            currentSize - maxSize + 5, currentSize / 4); // Remove at least 25% or excess + buffer
+
+    // Get oldest entries for batch removal using LRU strategy
     List<String> oldestKeys =
         memoryCache.entrySet().stream()
             .sorted(
@@ -346,13 +352,17 @@ public class QueryResultCacheService {
             .map(entry -> entry.getKey())
             .collect(Collectors.toList());
 
-    // Batch remove
+    // Batch remove for efficiency
     for (String key : oldestKeys) {
       memoryCache.remove(key);
       evictionCount++;
     }
 
-    logger.debug("Batch evicted {} oldest cache entries", oldestKeys.size());
+    logger.debug(
+        "LRU batch evicted {} oldest cache entries (size: {} -> {})",
+        oldestKeys.size(),
+        currentSize,
+        memoryCache.size());
   }
 
   private <T> String serializeValue(T value) throws JsonProcessingException {
