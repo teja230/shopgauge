@@ -401,6 +401,97 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           )}
         </Box>
 
+        {/* Quick Actions Section - Moved Above Metrics */}
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="h5" gutterBottom sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 1, 
+            mb: 3,
+            fontWeight: 600,
+            color: 'text.primary'
+          }}>
+            <SettingsIcon color="primary" />
+            Quick Actions
+          </Typography>
+          
+          {/* Enhanced Quick Actions with Competitors Page Style */}
+          <Box sx={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+            gap: 2,
+            maxWidth: '100%'
+          }}>
+            {displayQuickActions.map((action) => (
+              <Tooltip 
+                key={action.id}
+                title={action.description}
+                placement="top"
+                arrow
+              >
+                <Box
+                  onClick={action.action}
+                  sx={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    p: 2,
+                    borderRadius: 2,
+                    background: `linear-gradient(135deg, ${action.color}08 0%, ${action.color}04 100%)`,
+                    border: `1px solid ${action.color}20`,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease-in-out',
+                    '&:hover': {
+                      transform: 'translateY(-2px)',
+                      boxShadow: `0 4px 20px ${action.color}25`,
+                      borderColor: action.color,
+                      background: `linear-gradient(135deg, ${action.color}15 0%, ${action.color}08 100%)`,
+                    },
+                    '&:active': {
+                      transform: 'translateY(0px)',
+                    }
+                  }}
+                >
+                  <Box sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    width: 48,
+                    height: 48,
+                    borderRadius: '50%',
+                    background: `linear-gradient(135deg, ${action.color}20 0%, ${action.color}10 100%)`,
+                    mb: 1,
+                    transition: 'all 0.2s ease-in-out',
+                    '&:hover': {
+                      background: `linear-gradient(135deg, ${action.color}30 0%, ${action.color}20 100%)`,
+                    }
+                  }}>
+                    <Box sx={{ color: action.color, fontSize: 24 }}>
+                      {action.icon}
+                    </Box>
+                  </Box>
+                  <Typography 
+                    variant="body2" 
+                    sx={{ 
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                      textAlign: 'center',
+                      lineHeight: 1.2,
+                      color: 'text.primary',
+                      maxWidth: '100%',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {action.title}
+                  </Typography>
+                </Box>
+              </Tooltip>
+            ))}
+          </Box>
+        </Box>
+
         {/* Metrics Cards */}
         {loading ? (
           <DashboardMetricsSkeleton count={6} />
@@ -509,84 +600,6 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           </Box>
         )}
 
-        {/* Quick Actions Section */}
-        <Box sx={{ mb: 4 }}>
-          <Typography variant="h5" gutterBottom sx={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: 1, 
-            mb: 3,
-            fontWeight: 600,
-            color: 'text.primary'
-          }}>
-            <SettingsIcon color="primary" />
-            Quick Actions
-          </Typography>
-          
-          {/* Compact Quick Actions with Icons and Tooltips */}
-          <Box sx={{ 
-            display: 'flex', 
-            gap: 2, 
-            flexWrap: 'wrap',
-            justifyContent: 'center'
-          }}>
-                         {displayQuickActions.map((action) => (
-              <Tooltip 
-                key={action.id}
-                title={action.description}
-                placement="top"
-                arrow
-              >
-                <IconButton
-                  onClick={action.action}
-                  sx={{
-                    width: 80,
-                    height: 80,
-                    borderRadius: 3,
-                    background: `linear-gradient(135deg, ${action.color}15 0%, ${action.color}05 100%)`,
-                    border: `2px solid ${action.color}30`,
-                    color: action.color,
-                    transition: 'all 0.3s ease',
-                    '&:hover': {
-                      transform: 'translateY(-4px) scale(1.05)',
-                      boxShadow: `0 8px 25px ${action.color}30`,
-                      borderColor: action.color,
-                      background: `linear-gradient(135deg, ${action.color}25 0%, ${action.color}15 100%)`,
-                    },
-                    '&:active': {
-                      transform: 'translateY(-2px) scale(1.02)',
-                    }
-                  }}
-                >
-                  <Box sx={{ 
-                    display: 'flex', 
-                    flexDirection: 'column', 
-                    alignItems: 'center',
-                    gap: 0.5
-                  }}>
-                    {action.icon}
-                    <Typography 
-                      variant="caption" 
-                      sx={{ 
-                        fontSize: '0.7rem',
-                        fontWeight: 600,
-                        textAlign: 'center',
-                        lineHeight: 1.2,
-                        maxWidth: 60,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap'
-                      }}
-                    >
-                      {action.title}
-                    </Typography>
-                  </Box>
-                </IconButton>
-              </Tooltip>
-            ))}
-          </Box>
-        </Box>
-
         {/* Alerts Section */}
         {alerts.length > 0 && (
           <Box sx={{ mb: 4 }}>
@@ -598,48 +611,61 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                 size="small"
                 onClick={() => setShowAllAlerts(!showAllAlerts)}
                 startIcon={<NotificationsIcon />}
+                variant="outlined"
               >
                 {showAllAlerts ? 'Show Less' : `Show All (${alerts.length})`}
               </Button>
             </Box>
             
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
               {filteredAlerts.map((alert, index) => (
-                <Box key={alert.id}>
-                  <Fade in timeout={300 + index * 100}>
-                    <Alert 
-                      severity={alert.severity}
-                      sx={{
-                        '& .MuiAlert-message': { width: '100%' }
-                      }}
-                    >
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%' }}>
-                        <Box sx={{ flex: 1 }}>
-                          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>
-                            {alert.title}
-                          </Typography>
-                          <Typography variant="body2">
-                            {alert.message}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                            {alert.timestamp.toLocaleString()}
-                          </Typography>
+                <Fade in timeout={300 + index * 100} key={alert.id}>
+                  <Alert 
+                    severity={alert.severity}
+                    sx={{ 
+                      mb: 1,
+                      border: `1px solid ${getSeverityColor(alert.severity)}30`,
+                      '& .MuiAlert-icon': { 
+                        color: getSeverityColor(alert.severity) 
+                      }
+                    }}
+                  >
+                    <Box sx={{ width: '100%' }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                          {alert.title}
+                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          {alert.category && (
+                            <Chip 
+                              label={alert.category} 
+                              size="small" 
+                              variant="outlined"
+                              sx={{ fontSize: '0.7rem' }}
+                            />
+                          )}
+                          {alert.priority && (
+                            <Chip 
+                              label={alert.priority.toUpperCase()} 
+                              size="small"
+                              sx={{ 
+                                fontSize: '0.7rem',
+                                backgroundColor: getPriorityColor(alert.priority),
+                                color: 'white'
+                              }}
+                            />
+                          )}
                         </Box>
-                        {alert.priority && (
-                          <Chip
-                            label={alert.priority.toUpperCase()}
-                            size="small"
-                            sx={{
-                              backgroundColor: getPriorityColor(alert.priority),
-                              color: 'white',
-                              fontWeight: 600
-                            }}
-                          />
-                        )}
                       </Box>
-                    </Alert>
-                  </Fade>
-                </Box>
+                      <Typography variant="body2" sx={{ mb: 1 }}>
+                        {alert.message}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {alert.timestamp.toLocaleString()}
+                      </Typography>
+                    </Box>
+                  </Alert>
+                </Fade>
               ))}
             </Box>
           </Box>
