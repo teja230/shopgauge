@@ -330,7 +330,31 @@ public class SessionSecurityService {
 
   // Helper methods for IP validation
   private boolean isIPv4(String ip) {
-    return ip.matches("^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$");
+    if (ip == null || ip.trim().isEmpty()) {
+      return false;
+    }
+
+    // More comprehensive IPv4 validation
+    String[] parts = ip.split("\\.");
+    if (parts.length != 4) {
+      return false;
+    }
+
+    try {
+      for (String part : parts) {
+        int value = Integer.parseInt(part);
+        if (value < 0 || value > 255) {
+          return false;
+        }
+        // Check for leading zeros (e.g., "01" should be invalid)
+        if (part.length() > 1 && part.startsWith("0")) {
+          return false;
+        }
+      }
+      return true;
+    } catch (NumberFormatException e) {
+      return false;
+    }
   }
 
   private boolean isIPv6(String ip) {

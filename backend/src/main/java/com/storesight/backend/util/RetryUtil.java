@@ -6,6 +6,7 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.web.client.HttpClientErrorException;
 
 /**
  * Utility class for implementing retry logic with exponential backoff and jitter for database and
@@ -173,54 +174,134 @@ public class RetryUtil {
 
   /** Check if database exception is retryable */
   private static boolean isDatabaseRetryableException(Exception e) {
+    // Use exception type matching instead of string matching
     if (e instanceof java.sql.SQLTransientException) {
       return true;
     }
+    if (e instanceof java.sql.SQLRecoverableException) {
+      return true;
+    }
+    if (e instanceof org.springframework.dao.DataAccessException) {
+      return true;
+    }
+    if (e instanceof org.springframework.dao.TransientDataAccessException) {
+      return true;
+    }
+    if (e instanceof org.springframework.dao.RecoverableDataAccessException) {
+      return true;
+    }
+    if (e instanceof java.sql.SQLNonTransientConnectionException) {
+      return true;
+    }
+    if (e instanceof java.sql.SQLTransientConnectionException) {
+      return true;
+    }
 
-    String message = e.getMessage();
-    if (message == null) return false;
-
-    String lowerMessage = message.toLowerCase();
-    return lowerMessage.contains("connection")
-        || lowerMessage.contains("timeout")
-        || lowerMessage.contains("deadlock")
-        || lowerMessage.contains("lock wait timeout")
-        || lowerMessage.contains("too many connections")
-        || lowerMessage.contains("connection reset")
-        || lowerMessage.contains("broken pipe");
+    // Fallback to structured error classification for unknown exceptions
+    return classifyExceptionAsRetryable(e, "database");
   }
 
   /** Check if Redis exception is retryable */
   private static boolean isRedisRetryableException(Exception e) {
-    String message = e.getMessage();
-    if (message == null) return false;
+    // Use exception type matching for Redis-specific exceptions
+    if (e instanceof java.net.SocketTimeoutException) {
+      return true;
+    }
+    if (e instanceof java.net.ConnectException) {
+      return true;
+    }
+    if (e instanceof java.net.NoRouteToHostException) {
+      return true;
+    }
+    if (e instanceof java.net.UnknownHostException) {
+      return true;
+    }
+    if (e instanceof org.springframework.data.redis.RedisConnectionFailureException) {
+      return true;
+    }
+    if (e instanceof org.springframework.data.redis.RedisSystemException) {
+      return true;
+    }
 
-    String lowerMessage = message.toLowerCase();
-    return lowerMessage.contains("connection")
-        || lowerMessage.contains("timeout")
-        || lowerMessage.contains("redis")
-        || lowerMessage.contains("jedis")
-        || lowerMessage.contains("lettuce")
-        || e instanceof java.net.SocketTimeoutException
-        || e instanceof java.net.ConnectException;
+    // Fallback to structured error classification
+    return classifyExceptionAsRetryable(e, "redis");
   }
 
   /** Check if API exception is retryable */
   private static boolean isApiRetryableException(Exception e) {
-    String message = e.getMessage();
-    if (message == null) return false;
+    // Use exception type matching for HTTP/API exceptions
+    if (e instanceof java.net.SocketTimeoutException) {
+      return true;
+    }
+    if (e instanceof java.net.ConnectException) {
+      return true;
+    }
+    if (e instanceof java.net.NoRouteToHostException) {
+      return true;
+    }
+    if (e instanceof java.net.UnknownHostException) {
+      return true;
+    }
+    if (e instanceof org.springframework.web.client.ResourceAccessException) {
+      return true;
+    }
+    if (e instanceof org.springframework.web.client.HttpServerErrorException) {
+      return true;
+    }
+    if (e instanceof org.springframework.web.client.HttpClientErrorException) {
+      HttpClientErrorException httpEx = (HttpClientErrorException) e;
+      // Retry on rate limiting (429) and some 5xx errors
+      return httpEx.getStatusCode().value() == 429 || httpEx.getStatusCode().value() >= 500;
+    }
 
-    String lowerMessage = message.toLowerCase();
-    return lowerMessage.contains("timeout")
-        || lowerMessage.contains("503")
-        || lowerMessage.contains("502")
-        || lowerMessage.contains("504")
-        || lowerMessage.contains("429")
-        || // Rate limited
-        lowerMessage.contains("connection")
-        || lowerMessage.contains("network")
-        || e instanceof java.net.SocketTimeoutException
-        || e instanceof java.net.ConnectException;
+    // Fallback to structured error classification
+    return classifyExceptionAsRetryable(e, "api");
+  }
+
+  /** Structured error classification with fallback to message analysis */
+  private static boolean classifyExceptionAsRetryable(Exception e, String context) {
+    if (e == null || e.getMessage() == null) {
+      return false;
+    }
+
+    String message = e.getMessage().toLowerCase();
+
+    // Define retryable error patterns by context
+    switch (context) {
+      case "database":
+        return message.contains("connection")
+            || message.contains("timeout")
+            || message.contains("deadlock")
+            || message.contains("lock wait timeout")
+            || message.contains("too many connections")
+            || message.contains("connection reset")
+            || message.contains("broken pipe")
+            || message.contains("connection pool")
+            || message.contains("database unavailable");
+
+      case "redis":
+        return message.contains("connection")
+            || message.contains("timeout")
+            || message.contains("redis")
+            || message.contains("jedis")
+            || message.contains("lettuce")
+            || message.contains("connection pool")
+            || message.contains("network");
+
+      case "api":
+        return message.contains("timeout")
+            || message.contains("503")
+            || message.contains("502")
+            || message.contains("504")
+            || message.contains("429")
+            || message.contains("connection")
+            || message.contains("network")
+            || message.contains("service unavailable")
+            || message.contains("gateway timeout");
+
+      default:
+        return false;
+    }
   }
 
   /** Retry statistics for monitoring */

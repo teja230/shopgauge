@@ -1,6 +1,6 @@
 package com.storesight.backend.service;
 
-import com.storesight.backend.util.CircuitBreaker;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -259,9 +259,8 @@ public class MonitoringDashboardService {
   /** Collect resilience metrics data (circuit breakers, retry logic, fallbacks) */
   private void collectResilienceMetricsData(LocalDateTime timestamp) {
     try {
-      // Get Redis circuit breaker statistics
-      CircuitBreaker.CircuitBreakerStatistics redisStats =
-          enhancedRedisService.getCircuitBreakerStatistics();
+      // Get Redis circuit breaker metrics using Resilience4j
+      CircuitBreaker.Metrics redisMetrics = enhancedRedisService.getCircuitBreakerStatistics();
       boolean redisHealthy = enhancedRedisService.testConnection();
 
       Map<String, Object> dataPoint = new HashMap<>();
@@ -269,13 +268,18 @@ public class MonitoringDashboardService {
 
       // Redis circuit breaker metrics
       dataPoint.put("redisHealthy", redisHealthy);
-      dataPoint.put("redisCircuitBreakerState", redisStats.getState().toString());
-      dataPoint.put("redisCurrentFailures", redisStats.getFailureCount());
-      dataPoint.put("redisFailureRate", redisStats.getFailureRate());
-      dataPoint.put("redisSuccessCount", redisStats.getSuccessCount());
-      dataPoint.put("redisFailureThreshold", redisStats.getFailureThreshold());
-      dataPoint.put("redisLastFailureTime", redisStats.getLastFailureTime());
-      dataPoint.put("redisLastSuccessTime", redisStats.getLastSuccessTime());
+      dataPoint.put(
+          "redisCircuitBreakerState", enhancedRedisService.getCircuitBreakerState().toString());
+      dataPoint.put("redisCurrentFailures", redisMetrics.getNumberOfFailedCalls());
+      dataPoint.put("redisFailureRate", redisMetrics.getFailureRate());
+      dataPoint.put("redisSuccessCount", redisMetrics.getNumberOfSuccessfulCalls());
+      dataPoint.put("redisFailureThreshold", 50.0); // From configuration
+      dataPoint.put(
+          "redisLastFailureTime",
+          System.currentTimeMillis()); // Resilience4j doesn't provide this directly
+      dataPoint.put(
+          "redisLastSuccessTime",
+          System.currentTimeMillis()); // Resilience4j doesn't provide this directly
 
       // Session synchronization resilience metrics (already collected but add resilience focus)
       SessionSynchronizationService.SessionSynchronizationMetrics sessionMetrics =
@@ -290,7 +294,7 @@ public class MonitoringDashboardService {
       dataPoint.put("overallSystemHealthy", systemHealthy);
 
       // Calculate overall resilience score (0-100)
-      double resilienceScore = calculateResilienceScore(redisStats, sessionMetrics, redisHealthy);
+      double resilienceScore = calculateResilienceScore(redisMetrics, sessionMetrics, redisHealthy);
       dataPoint.put("resilienceScore", resilienceScore);
 
       addDataPoint("resilienceMetrics", dataPoint);
@@ -302,7 +306,7 @@ public class MonitoringDashboardService {
 
   /** Calculate overall system resilience score */
   private double calculateResilienceScore(
-      CircuitBreaker.CircuitBreakerStatistics redisStats,
+      CircuitBreaker.Metrics redisMetrics,
       SessionSynchronizationService.SessionSynchronizationMetrics sessionMetrics,
       boolean redisHealthy) {
     double score = 100.0;
@@ -312,15 +316,15 @@ public class MonitoringDashboardService {
       score -= 40.0;
     } else {
       // Deduct points based on failure rate
-      double redisFailureRate = redisStats.getFailureRate() * 100;
+      double redisFailureRate = redisMetrics.getFailureRate() * 100;
       if (redisFailureRate > 5.0) {
         score -= Math.min(20.0, redisFailureRate * 2); // Max 20 points deduction
       }
 
       // Deduct points for circuit breaker being open
-      if (redisStats.getState() == CircuitBreaker.State.OPEN) {
+      if (enhancedRedisService.getCircuitBreakerState() == CircuitBreaker.State.OPEN) {
         score -= 15.0;
-      } else if (redisStats.getState() == CircuitBreaker.State.HALF_OPEN) {
+      } else if (enhancedRedisService.getCircuitBreakerState() == CircuitBreaker.State.HALF_OPEN) {
         score -= 5.0;
       }
     }

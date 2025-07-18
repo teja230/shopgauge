@@ -1,7 +1,9 @@
 package com.storesight.backend.service;
 
-import com.storesight.backend.util.CircuitBreaker;
 import com.storesight.backend.util.RetryUtil;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import jakarta.annotation.PostConstruct;
 import java.time.Duration;
 import java.util.Optional;
@@ -15,8 +17,8 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 /**
- * Enhanced Redis service with circuit breaker, retry logic, and fallback mechanisms for improved
- * reliability and fault tolerance.
+ * Enhanced Redis service with Resilience4j circuit breaker, retry logic, and fallback mechanisms
+ * for improved reliability and fault tolerance.
  */
 @Service
 public class EnhancedRedisService {
@@ -36,16 +38,53 @@ public class EnhancedRedisService {
 
   @PostConstruct
   public void initialize() {
-    // Initialize circuit breaker for Redis operations
-    this.circuitBreaker =
-        new CircuitBreaker(
-            "redis-operations",
-            5, // failure threshold
-            Duration.ofSeconds(30), // timeout
-            Duration.ofSeconds(60) // retry timeout
-            );
+    // Initialize Resilience4j circuit breaker for Redis operations with enterprise-grade
+    // configuration
+    CircuitBreakerConfig config =
+        CircuitBreakerConfig.custom()
+            .failureRateThreshold(50) // 50% failure rate threshold
+            .waitDurationInOpenState(
+                Duration.ofSeconds(60)) // Wait 60 seconds before transitioning to half-open
+            .permittedNumberOfCallsInHalfOpenState(5) // Allow 5 calls in half-open state
+            .slidingWindowSize(10) // Consider last 10 calls for failure rate calculation
+            .minimumNumberOfCalls(5) // Minimum calls before calculating failure rate
+            .recordExceptions(
+                java.net.SocketTimeoutException.class,
+                java.net.ConnectException.class,
+                java.net.NoRouteToHostException.class,
+                java.net.UnknownHostException.class,
+                org.springframework.data.redis.RedisConnectionFailureException.class,
+                org.springframework.data.redis.RedisSystemException.class,
+                RuntimeException.class)
+            .ignoreExceptions(IllegalArgumentException.class, java.lang.IllegalStateException.class)
+            .enableAutomaticTransitionFromOpenToHalfOpen()
+            .build();
 
-    logger.info("Enhanced Redis service initialized with circuit breaker protection");
+    CircuitBreakerRegistry registry = CircuitBreakerRegistry.of(config);
+    this.circuitBreaker = registry.circuitBreaker("redis-operations");
+
+    // Add event listeners for monitoring and alerting
+    circuitBreaker
+        .getEventPublisher()
+        .onStateTransition(
+            event -> {
+              logger.info(
+                  "Redis circuit breaker state changed: {} -> {}",
+                  event.getStateTransition().getFromState(),
+                  event.getStateTransition().getToState());
+            })
+        .onFailureRateExceeded(
+            event -> {
+              logger.warn(
+                  "Redis circuit breaker failure rate exceeded: {}%", event.getFailureRate());
+            })
+        .onSlowCallRateExceeded(
+            event -> {
+              logger.warn(
+                  "Redis circuit breaker slow call rate exceeded: {}%", event.getSlowCallRate());
+            });
+
+    logger.info("Enhanced Redis service initialized with Resilience4j circuit breaker protection");
   }
 
   /** Set a string value with TTL and fault tolerance */
@@ -315,9 +354,9 @@ public class EnhancedRedisService {
   private <T> T executeWithFallback(
       java.util.function.Supplier<T> operation, java.util.function.Supplier<T> fallback) {
     try {
-      return circuitBreaker.execute(
-          () -> RetryUtil.executeWithRetry(operation, RetryUtil.forRedis()), fallback);
-    } catch (CircuitBreaker.CircuitBreakerOpenException e) {
+      return circuitBreaker.executeSupplier(
+          () -> RetryUtil.executeWithRetry(operation, RetryUtil.forRedis()));
+    } catch (io.github.resilience4j.circuitbreaker.CallNotPermittedException e) {
       logger.warn("Circuit breaker is open for Redis operations, using fallback");
       return fallback.get();
     } catch (Exception e) {
@@ -326,9 +365,9 @@ public class EnhancedRedisService {
     }
   }
 
-  /** Get circuit breaker statistics */
-  public CircuitBreaker.CircuitBreakerStatistics getCircuitBreakerStatistics() {
-    return circuitBreaker.getStatistics();
+  /** Get circuit breaker metrics */
+  public CircuitBreaker.Metrics getCircuitBreakerStatistics() {
+    return circuitBreaker.getMetrics();
   }
 
   /** Reset circuit breaker */
@@ -339,7 +378,22 @@ public class EnhancedRedisService {
 
   /** Force circuit breaker to open state */
   public void forceCircuitBreakerOpen() {
-    circuitBreaker.forceOpen();
+    circuitBreaker.transitionToOpenState();
     logger.warn("Redis circuit breaker manually forced to open state");
+  }
+
+  /** Get circuit breaker state */
+  public CircuitBreaker.State getCircuitBreakerState() {
+    return circuitBreaker.getState();
+  }
+
+  /** Check if circuit breaker is open */
+  public boolean isCircuitBreakerOpen() {
+    return circuitBreaker.getState() == CircuitBreaker.State.OPEN;
+  }
+
+  /** Get circuit breaker configuration */
+  public CircuitBreakerConfig getCircuitBreakerConfig() {
+    return circuitBreaker.getCircuitBreakerConfig();
   }
 }
