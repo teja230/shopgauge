@@ -790,8 +790,7 @@ public class SseService {
   }
 
   /** Scheduled cleanup of stale connections */
-  @Scheduled(
-      fixedRateString = "#{@applicationConfigurationProperties.sse.cleanupInterval.toMillis()}")
+  @Scheduled(fixedRateString = "#{@schedulingConfiguration.getCleanupIntervalMs()}")
   public void cleanupStaleConnections() {
     try {
       logger.debug("Starting SSE connection cleanup...");
@@ -829,8 +828,7 @@ public class SseService {
   }
 
   /** Enhanced scheduled heartbeat with connection health tracking */
-  @Scheduled(
-      fixedRateString = "#{@applicationConfigurationProperties.sse.heartbeatInterval.toMillis()}")
+  @Scheduled(fixedRateString = "#{@schedulingConfiguration.getHeartbeatIntervalMs()}")
   public void sendHeartbeats() {
     try {
       int totalHeartbeats = 0;
@@ -910,9 +908,7 @@ public class SseService {
   }
 
   /** Enhanced connection health check and dead connection removal */
-  @Scheduled(
-      fixedRateString =
-          "#{@applicationConfigurationProperties.sse.connectionHealthCheckInterval.toMillis()}")
+  @Scheduled(fixedRateString = "#{@schedulingConfiguration.getConnectionHealthCheckIntervalMs()}")
   public void performConnectionHealthCheck() {
     try {
       int deadConnectionsRemoved = 0;
@@ -1029,9 +1025,7 @@ public class SseService {
   }
 
   /** Enhanced batch cleanup to prevent memory leaks */
-  @Scheduled(
-      fixedRateString =
-          "#{@applicationConfigurationProperties.sse.batchCleanupInterval.toMillis()}")
+  @Scheduled(fixedRateString = "#{@schedulingConfiguration.getBatchCleanupIntervalMs()}")
   public void performBatchCleanup() {
     try {
       int batchesCleared = 0;
