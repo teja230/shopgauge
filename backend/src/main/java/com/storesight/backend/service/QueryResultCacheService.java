@@ -7,11 +7,13 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -133,8 +135,11 @@ public class QueryResultCacheService {
 
               // Store in memory cache for faster future access
               CacheEntry entry = new CacheEntry(jsonValue, expiresAt);
-              if (memoryCache.size() < getMaxMemoryCacheSize()) {
-                memoryCache.put(key, entry);
+              // Use efficient eviction strategy instead of checking size on every put
+              memoryCache.put(key, entry);
+              // Evict if necessary (handled by eviction strategy)
+              if (memoryCache.size() > getMaxMemoryCacheSize()) {
+                evictOldestMemoryCacheEntry();
               }
 
               hitCount++;
@@ -184,10 +189,11 @@ public class QueryResultCacheService {
       LocalDateTime memoryExpiresAt = LocalDateTime.now().plus(getMemoryCacheTtl());
       CacheEntry entry = new CacheEntry(jsonValue, memoryExpiresAt);
 
-      if (memoryCache.size() >= getMaxMemoryCacheSize()) {
+      // Use efficient eviction strategy - put first, then evict if necessary
+      memoryCache.put(key, entry);
+      if (memoryCache.size() > getMaxMemoryCacheSize()) {
         evictOldestMemoryCacheEntry();
       }
-      memoryCache.put(key, entry);
 
       logger.debug("Cached value for key: {} with TTL: {}", key, ttl);
 
@@ -325,16 +331,28 @@ public class QueryResultCacheService {
   private void evictOldestMemoryCacheEntry() {
     if (memoryCache.isEmpty()) return;
 
-    String oldestKey =
-        memoryCache.entrySet().stream()
-            .min((e1, e2) -> e1.getValue().getCreatedAt().compareTo(e2.getValue().getCreatedAt()))
-            .map(entry -> entry.getKey())
-            .orElse(null);
+    // Batch eviction for efficiency - remove multiple entries at once
+    int targetSize = getMaxMemoryCacheSize() * 8 / 10; // Keep 80% of max size
+    int entriesToRemove = memoryCache.size() - targetSize;
 
-    if (oldestKey != null) {
-      memoryCache.remove(oldestKey);
+    if (entriesToRemove <= 0) return;
+
+    // Get oldest entries for batch removal
+    List<String> oldestKeys =
+        memoryCache.entrySet().stream()
+            .sorted(
+                (e1, e2) -> e1.getValue().getCreatedAt().compareTo(e2.getValue().getCreatedAt()))
+            .limit(entriesToRemove)
+            .map(entry -> entry.getKey())
+            .collect(Collectors.toList());
+
+    // Batch remove
+    for (String key : oldestKeys) {
+      memoryCache.remove(key);
       evictionCount++;
     }
+
+    logger.debug("Batch evicted {} oldest cache entries", oldestKeys.size());
   }
 
   private <T> String serializeValue(T value) throws JsonProcessingException {

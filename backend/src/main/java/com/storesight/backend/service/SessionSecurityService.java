@@ -82,10 +82,12 @@ public class SessionSecurityService {
         keyGenerator.init(KEY_LENGTH);
         this.encryptionKey = keyGenerator.generateKey();
 
-        // Log the generated key for configuration (in production, this should be stored securely)
-        String generatedKey = Base64.getEncoder().encodeToString(this.encryptionKey.getEncoded());
-        logger.warn("Generated new session encryption key. Store this securely: {}", generatedKey);
-        logger.warn("Set SESSION_SECURITY_ENCRYPTION_KEY environment variable with this key");
+        // Log key generation indicator for security (don't log the actual key)
+        String keyHash =
+            generateSecureHash(Base64.getEncoder().encodeToString(this.encryptionKey.getEncoded()));
+        logger.warn("Generated new session encryption key. Key hash: {}", keyHash);
+        logger.warn(
+            "Set SESSION_SECURITY_ENCRYPTION_KEY environment variable with the generated key");
       }
     } catch (Exception e) {
       logger.error("Failed to initialize session encryption: {}", e.getMessage(), e);
