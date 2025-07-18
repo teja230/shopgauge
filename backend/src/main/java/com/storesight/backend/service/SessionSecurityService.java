@@ -84,8 +84,7 @@ public class SessionSecurityService {
 
         // Log key generation indicator for security (don't log the actual key)
         logger.warn("Generated new session encryption key.");
-        logger.warn(
-            "Ensure the encryption key is securely configured in your environment.");
+        logger.warn("Ensure the encryption key is securely configured in your environment.");
       }
     } catch (Exception e) {
       logger.error("Failed to initialize session encryption: {}", e.getMessage(), e);
