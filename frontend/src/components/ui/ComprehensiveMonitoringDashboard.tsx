@@ -58,11 +58,11 @@ import { fetchWithAdminAuth } from '../../api';
 import RefreshHeader from './RefreshHeader';
 
 interface MonitoringData {
-  dashboards: any;
-  alerts: any;
-  systemResources: any;
-  applicationMetrics: any;
-  timestamp: string;
+  dashboards?: any;
+  alerts?: any;
+  systemResources?: any;
+  applicationMetrics?: any;
+  timestamp?: string;
 }
 
 interface AlertData {
@@ -137,7 +137,7 @@ const ComprehensiveMonitoringDashboard: React.FC = () => {
   }, []); // Empty dependency array - only run on mount
 
   const getSeverityColor = (severity: string) => {
-    switch (severity.toLowerCase()) {
+    switch (severity?.toLowerCase()) {
       case 'critical': return 'error';
       case 'warning': return 'warning';
       case 'info': return 'info';
@@ -146,7 +146,7 @@ const ComprehensiveMonitoringDashboard: React.FC = () => {
   };
 
   const getSeverityIcon = (severity: string) => {
-    switch (severity.toLowerCase()) {
+    switch (severity?.toLowerCase()) {
       case 'critical': return <ErrorIcon />;
       case 'warning': return <WarningIcon />;
       case 'info': return <InfoIcon />;
@@ -155,7 +155,7 @@ const ComprehensiveMonitoringDashboard: React.FC = () => {
   };
 
   const formatBytes = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
+    if (!bytes || bytes === 0) return '0 Bytes';
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
@@ -163,6 +163,7 @@ const ComprehensiveMonitoringDashboard: React.FC = () => {
   };
 
   const formatPercentage = (value: number) => {
+    if (!value || isNaN(value)) return '0%';
     return `${value.toFixed(1)}%`;
   };
 
@@ -195,10 +196,18 @@ const ComprehensiveMonitoringDashboard: React.FC = () => {
     );
   }
 
-  const { alerts, systemResources, applicationMetrics } = monitoringData;
+  // Safely extract data with fallbacks
+  const alerts = monitoringData.alerts || {};
+  const systemResources = monitoringData.systemResources || {};
+  const applicationMetrics = monitoringData.applicationMetrics || {};
+  
   const activeAlerts = alerts?.alertDetails ? Object.entries(alerts.alertDetails) : [];
-  const criticalAlerts = activeAlerts.filter(([_, alert]: [string, any]) => alert.severity === 'CRITICAL');
-  const warningAlerts = activeAlerts.filter(([_, alert]: [string, any]) => alert.severity === 'WARNING');
+  const criticalAlerts = activeAlerts.filter(([_, alert]: [string, any]) => 
+    alert?.severity === 'CRITICAL'
+  );
+  const warningAlerts = activeAlerts.filter(([_, alert]: [string, any]) => 
+    alert?.severity === 'WARNING'
+  );
 
   return (
     <Box>
@@ -294,12 +303,12 @@ const ComprehensiveMonitoringDashboard: React.FC = () => {
               avatar={<MemoryIcon />}
             />
             <CardContent>
-              {systemResources?.memory && (
+              {systemResources?.memory ? (
                 <>
                   <LinearProgress 
                     variant="determinate" 
                     value={systemResources.memory.usagePercent || 0}
-                    color={systemResources.memory.usagePercent > 80 ? 'error' : 'primary'}
+                    color={(systemResources.memory.usagePercent || 0) > 80 ? 'error' : 'primary'}
                     sx={{ mb: 1 }}
                   />
                   <Typography variant="body2">
@@ -315,6 +324,10 @@ const ComprehensiveMonitoringDashboard: React.FC = () => {
                     sx={{ mt: 1 }}
                   />
                 </>
+              ) : (
+                <Typography variant="body2" color="textSecondary">
+                  Memory data not available
+                </Typography>
               )}
             </CardContent>
           </Card>
@@ -326,12 +339,12 @@ const ComprehensiveMonitoringDashboard: React.FC = () => {
               avatar={<SpeedIcon />}
             />
             <CardContent>
-              {systemResources?.cpu && (
+              {systemResources?.cpu ? (
                 <>
                   <LinearProgress 
                     variant="determinate" 
                     value={systemResources.cpu.processCpuLoad || 0}
-                    color={systemResources.cpu.processCpuLoad > 80 ? 'error' : 'primary'}
+                    color={(systemResources.cpu.processCpuLoad || 0) > 80 ? 'error' : 'primary'}
                     sx={{ mb: 1 }}
                   />
                   <Typography variant="body2">
@@ -345,6 +358,10 @@ const ComprehensiveMonitoringDashboard: React.FC = () => {
                     sx={{ mt: 1 }}
                   />
                 </>
+              ) : (
+                <Typography variant="body2" color="textSecondary">
+                  CPU data not available
+                </Typography>
               )}
             </CardContent>
           </Card>
@@ -356,12 +373,12 @@ const ComprehensiveMonitoringDashboard: React.FC = () => {
               avatar={<StorageIcon />}
             />
             <CardContent>
-              {systemResources?.disk && (
+              {systemResources?.disk ? (
                 <>
                   <LinearProgress 
                     variant="determinate" 
                     value={systemResources.disk.usagePercent || 0}
-                    color={systemResources.disk.usagePercent > 80 ? 'error' : 'primary'}
+                    color={(systemResources.disk.usagePercent || 0) > 80 ? 'error' : 'primary'}
                     sx={{ mb: 1 }}
                   />
                   <Typography variant="body2">
@@ -376,6 +393,10 @@ const ComprehensiveMonitoringDashboard: React.FC = () => {
                     sx={{ mt: 1 }}
                   />
                 </>
+              ) : (
+                <Typography variant="body2" color="textSecondary">
+                  Disk data not available
+                </Typography>
               )}
             </CardContent>
           </Card>
@@ -391,7 +412,7 @@ const ComprehensiveMonitoringDashboard: React.FC = () => {
               avatar={<SecurityIcon />}
             />
             <CardContent>
-              {applicationMetrics?.session && (
+              {applicationMetrics?.session ? (
                 <Box display="flex" flexWrap="wrap" gap={2}>
                   <Box flex="1" minWidth="150px">
                     <Typography variant="body2" color="textSecondary">Lock Acquisitions</Typography>
@@ -402,52 +423,18 @@ const ComprehensiveMonitoringDashboard: React.FC = () => {
                     <Typography variant="h6">{applicationMetrics.session.lockFailures || 0}</Typography>
                   </Box>
                   <Box flex="1" minWidth="150px">
-                    <Typography variant="body2" color="textSecondary">Active Locks</Typography>
-                    <Typography variant="h6">{applicationMetrics.session.activeLocks || 0}</Typography>
-                  </Box>
-                  <Box flex="1" minWidth="150px">
-                    <Typography variant="body2" color="textSecondary">Stuck Sessions</Typography>
-                    <Typography variant="h6">{applicationMetrics.session.stuckSessionsCleared || 0}</Typography>
+                    <Typography variant="body2" color="textSecondary">Active Sessions</Typography>
+                    <Typography variant="h6">{applicationMetrics.session.activeSessions || 0}</Typography>
                   </Box>
                 </Box>
+              ) : (
+                <Typography variant="body2" color="textSecondary">
+                  Session metrics not available
+                </Typography>
               )}
             </CardContent>
           </Card>
         </Box>
-        <Box flex="1" minWidth="400px">
-          <Card>
-            <CardHeader 
-              title="SSE Performance" 
-              avatar={<CloudIcon />}
-            />
-            <CardContent>
-              {applicationMetrics?.sse && (
-                <Box display="flex" flexWrap="wrap" gap={2}>
-                  <Box flex="1" minWidth="150px">
-                    <Typography variant="body2" color="textSecondary">Active Connections</Typography>
-                    <Typography variant="h6">{applicationMetrics.sse.activeConnections || 0}</Typography>
-                  </Box>
-                  <Box flex="1" minWidth="150px">
-                    <Typography variant="body2" color="textSecondary">Total Connections</Typography>
-                    <Typography variant="h6">{applicationMetrics.sse.connectionsCreated || 0}</Typography>
-                  </Box>
-                  <Box flex="1" minWidth="150px">
-                    <Typography variant="body2" color="textSecondary">Events Published</Typography>
-                    <Typography variant="h6">{applicationMetrics.sse.eventsPublished || 0}</Typography>
-                  </Box>
-                  <Box flex="1" minWidth="150px">
-                    <Typography variant="body2" color="textSecondary">Connection Errors</Typography>
-                    <Typography variant="h6">{applicationMetrics.sse.connectionErrors || 0}</Typography>
-                  </Box>
-                </Box>
-              )}
-            </CardContent>
-          </Card>
-        </Box>
-      </Box>
-
-      {/* Database and Cache Metrics */}
-      <Box display="flex" flexWrap="wrap" gap={3} mb={3}>
         <Box flex="1" minWidth="400px">
           <Card>
             <CardHeader 
@@ -455,193 +442,37 @@ const ComprehensiveMonitoringDashboard: React.FC = () => {
               avatar={<DatabaseIcon />}
             />
             <CardContent>
-              {applicationMetrics?.database && (
+              {applicationMetrics?.database ? (
                 <Box display="flex" flexWrap="wrap" gap={2}>
                   <Box flex="1" minWidth="150px">
-                    <Typography variant="body2" color="textSecondary">Total Queries</Typography>
-                    <Typography variant="h6">{applicationMetrics.database.queries || 0}</Typography>
+                    <Typography variant="body2" color="textSecondary">Active Connections</Typography>
+                    <Typography variant="h6">{applicationMetrics.database.activeConnections || 0}</Typography>
                   </Box>
                   <Box flex="1" minWidth="150px">
-                    <Typography variant="body2" color="textSecondary">Error Rate</Typography>
-                    <Typography variant="h6">{formatPercentage(applicationMetrics.database.errorRate || 0)}</Typography>
+                    <Typography variant="body2" color="textSecondary">Query Response Time</Typography>
+                    <Typography variant="h6">{applicationMetrics.database.avgQueryTime || 0}ms</Typography>
                   </Box>
                   <Box flex="1" minWidth="150px">
-                    <Typography variant="body2" color="textSecondary">Avg Query Duration</Typography>
-                    <Typography variant="h6">{(applicationMetrics.database.averageQueryDuration || 0).toFixed(2)}ms</Typography>
-                  </Box>
-                  <Box flex="1" minWidth="150px">
-                    <Typography variant="body2" color="textSecondary">Pool Exhaustion</Typography>
-                    <Typography variant="h6">{applicationMetrics.database.connectionPoolExhaustion || 0}</Typography>
+                    <Typography variant="body2" color="textSecondary">Connection Pool Usage</Typography>
+                    <Typography variant="h6">{formatPercentage(applicationMetrics.database.poolUsage || 0)}</Typography>
                   </Box>
                 </Box>
-              )}
-            </CardContent>
-          </Card>
-        </Box>
-        <Box flex="1" minWidth="400px">
-          <Card>
-            <CardHeader 
-              title="Cache Performance" 
-              avatar={<AssessmentIcon />}
-            />
-            <CardContent>
-              {applicationMetrics?.cache && (
-                <Box display="flex" flexWrap="wrap" gap={2}>
-                  <Box flex="1" minWidth="150px">
-                    <Typography variant="body2" color="textSecondary">Hit Rate</Typography>
-                    <Typography variant="h6">{formatPercentage(applicationMetrics.cache.hitRate || 0)}</Typography>
-                  </Box>
-                  <Box flex="1" minWidth="150px">
-                    <Typography variant="body2" color="textSecondary">Cache Size</Typography>
-                    <Typography variant="h6">{applicationMetrics.cache.currentSize || 0}</Typography>
-                  </Box>
-                  <Box flex="1" minWidth="150px">
-                    <Typography variant="body2" color="textSecondary">Cache Hits</Typography>
-                    <Typography variant="h6">{applicationMetrics.cache.hits || 0}</Typography>
-                  </Box>
-                  <Box flex="1" minWidth="150px">
-                    <Typography variant="body2" color="textSecondary">Evictions</Typography>
-                    <Typography variant="h6">{applicationMetrics.cache.evictions || 0}</Typography>
-                  </Box>
-                </Box>
+              ) : (
+                <Typography variant="body2" color="textSecondary">
+                  Database metrics not available
+                </Typography>
               )}
             </CardContent>
           </Card>
         </Box>
       </Box>
 
-      {/* System Resilience Metrics */}
-      <Box mb={3}>
-        <Card>
-          <CardHeader 
-            title="System Resilience & Circuit Breakers" 
-            avatar={<SecurityIcon />}
-          />
-          <CardContent>
-            {monitoringData.dashboards?.resilienceMetrics && (() => {
-              const latestMetrics = monitoringData.dashboards.resilienceMetrics[monitoringData.dashboards.resilienceMetrics.length - 1];
-              return (
-                <Box display="flex" flexWrap="wrap" gap={3}>
-                  {/* Overall Resilience Score */}
-                  <Box flex="0 0 200px">
-                    <Box textAlign="center">
-                      <Typography variant="body2" color="textSecondary">Resilience Score</Typography>
-                      <Box position="relative" display="inline-flex" mt={1}>
-                        <CircularProgress
-                          variant="determinate"
-                          value={latestMetrics?.resilienceScore || 0}
-                          size={80}
-                          thickness={4}
-                          color={
-                            (latestMetrics?.resilienceScore || 0) >= 90 ? 'success' :
-                            (latestMetrics?.resilienceScore || 0) >= 70 ? 'warning' : 'error'
-                          }
-                        />
-                        <Box
-                          position="absolute"
-                          top={0}
-                          left={0}
-                          bottom={0}
-                          right={0}
-                          display="flex"
-                          alignItems="center"
-                          justifyContent="center"
-                        >
-                          <Typography variant="h6" component="div" color="textSecondary">
-                            {Math.round(latestMetrics?.resilienceScore || 0)}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    </Box>
-                  </Box>
-
-                  {/* Redis Circuit Breaker */}
-                  <Box flex="1" minWidth="400px">
-                    <Typography variant="h6" gutterBottom>
-                      Redis Circuit Breaker
-                      <Chip 
-                        label={latestMetrics?.redisCircuitBreakerState || 'UNKNOWN'}
-                        color={
-                          latestMetrics?.redisCircuitBreakerState === 'CLOSED' ? 'success' :
-                          latestMetrics?.redisCircuitBreakerState === 'HALF_OPEN' ? 'warning' : 'error'
-                        }
-                        size="small"
-                        sx={{ ml: 2 }}
-                      />
-                    </Typography>
-                    <Box display="flex" flexWrap="wrap" gap={2} mb={2}>
-                      <Box flex="1" minWidth="120px">
-                        <Typography variant="body2" color="textSecondary">Health Status</Typography>
-                        <Typography variant="h6">
-                          {latestMetrics?.redisHealthy ? (
-                            <Chip label="Healthy" color="success" size="small" />
-                          ) : (
-                            <Chip label="Unhealthy" color="error" size="small" />
-                          )}
-                        </Typography>
-                      </Box>
-                      <Box flex="1" minWidth="120px">
-                        <Typography variant="body2" color="textSecondary">Success Rate</Typography>
-                        <Typography variant="h6">{formatPercentage(latestMetrics?.redisSuccessRate || 0)}</Typography>
-                      </Box>
-                      <Box flex="1" minWidth="120px">
-                        <Typography variant="body2" color="textSecondary">Fallback Rate</Typography>
-                        <Typography variant="h6">{formatPercentage(latestMetrics?.redisFallbackRate || 0)}</Typography>
-                      </Box>
-                      <Box flex="1" minWidth="120px">
-                        <Typography variant="body2" color="textSecondary">Circuit Trips</Typography>
-                        <Typography variant="h6">{latestMetrics?.redisCircuitBreakerTrips || 0}</Typography>
-                      </Box>
-                      <Box flex="1" minWidth="120px">
-                        <Typography variant="body2" color="textSecondary">Total Operations</Typography>
-                        <Typography variant="h6">{latestMetrics?.redisTotalOperations || 0}</Typography>
-                      </Box>
-                      <Box flex="1" minWidth="120px">
-                        <Typography variant="body2" color="textSecondary">Failed Operations</Typography>
-                        <Typography variant="h6">{latestMetrics?.redisFailedOperations || 0}</Typography>
-                      </Box>
-                      <Box flex="1" minWidth="120px">
-                        <Typography variant="body2" color="textSecondary">Fallback Cache Size</Typography>
-                        <Typography variant="h6">{latestMetrics?.redisFallbackCacheSize || 0}</Typography>
-                      </Box>
-                    </Box>
-
-                    {/* Session Management Resilience */}
-                    <Box mt={2}>
-                      <Typography variant="h6" gutterBottom>Session Management Resilience</Typography>
-                      <Box display="flex" flexWrap="wrap" gap={2}>
-                        <Box flex="1" minWidth="120px">
-                          <Typography variant="body2" color="textSecondary">Lock Success Rate</Typography>
-                          <Typography variant="h6">{formatPercentage(latestMetrics?.sessionLockSuccessRate || 0)}</Typography>
-                        </Box>
-                        <Box flex="1" minWidth="120px">
-                          <Typography variant="body2" color="textSecondary">Redis Failures</Typography>
-                          <Typography variant="h6">{latestMetrics?.sessionRedisFailures || 0}</Typography>
-                        </Box>
-                        <Box flex="1" minWidth="120px">
-                          <Typography variant="body2" color="textSecondary">Stuck Sessions Cleared</Typography>
-                          <Typography variant="h6">{latestMetrics?.sessionStuckSessionsCleared || 0}</Typography>
-                        </Box>
-                        <Box flex="1" minWidth="120px">
-                          <Typography variant="body2" color="textSecondary">Orphaned Locks Cleared</Typography>
-                          <Typography variant="h6">{latestMetrics?.sessionOrphanedLocksCleared || 0}</Typography>
-                        </Box>
-                      </Box>
-                    </Box>
-                  </Box>
-                </Box>
-              );
-            })()}
-          </CardContent>
-        </Card>
-      </Box>
-
-      {/* Active Alerts */}
+      {/* Active Alerts Table */}
       {activeAlerts.length > 0 && (
-        <Card>
+        <Card sx={{ mb: 3 }}>
           <CardHeader 
-            title={`Active Alerts (${activeAlerts.length})`}
-            avatar={<NotificationsActiveIcon color="error" />}
+            title="Active Alerts" 
+            avatar={<NotificationsActiveIcon />}
           />
           <CardContent>
             <TableContainer>
@@ -649,10 +480,10 @@ const ComprehensiveMonitoringDashboard: React.FC = () => {
                 <TableHead>
                   <TableRow>
                     <TableCell>Severity</TableCell>
-                    <TableCell>Alert</TableCell>
                     <TableCell>Message</TableCell>
-                    <TableCell>Count</TableCell>
+                    <TableCell>First Occurrence</TableCell>
                     <TableCell>Last Occurrence</TableCell>
+                    <TableCell>Count</TableCell>
                     <TableCell>Actions</TableCell>
                   </TableRow>
                 </TableHead>
@@ -661,27 +492,34 @@ const ComprehensiveMonitoringDashboard: React.FC = () => {
                     <TableRow key={alertId}>
                       <TableCell>
                         <Chip 
-                          icon={getSeverityIcon(alert.severity)}
-                          label={alert.severity}
-                          color={getSeverityColor(alert.severity) as any}
+                          icon={getSeverityIcon(alert?.severity || 'info')}
+                          label={alert?.severity || 'Unknown'}
+                          color={getSeverityColor(alert?.severity || 'info')}
                           size="small"
                         />
                       </TableCell>
-                      <TableCell>{alertId}</TableCell>
-                      <TableCell>{alert.message}</TableCell>
-                      <TableCell>{alert.occurrenceCount}</TableCell>
-                      <TableCell>{new Date(alert.lastOccurrence).toLocaleString()}</TableCell>
+                      <TableCell>{alert?.message || 'No message'}</TableCell>
+                      <TableCell>{alert?.firstOccurrence || 'Unknown'}</TableCell>
+                      <TableCell>{alert?.lastOccurrence || 'Unknown'}</TableCell>
+                      <TableCell>{alert?.occurrenceCount || 0}</TableCell>
                       <TableCell>
                         <Button
                           size="small"
                           variant="outlined"
                           onClick={() => {
-                            setSelectedAlert({ alertId, ...alert });
+                            setSelectedAlert({
+                              alertId,
+                              severity: alert?.severity || 'info',
+                              message: alert?.message || 'No message',
+                              firstOccurrence: alert?.firstOccurrence || 'Unknown',
+                              lastOccurrence: alert?.lastOccurrence || 'Unknown',
+                              occurrenceCount: alert?.occurrenceCount || 0,
+                              acknowledged: alert?.acknowledged || false
+                            });
                             setAlertDialogOpen(true);
                           }}
-                          disabled={alert.acknowledged}
                         >
-                          {alert.acknowledged ? 'Acknowledged' : 'Acknowledge'}
+                          View Details
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -693,39 +531,43 @@ const ComprehensiveMonitoringDashboard: React.FC = () => {
         </Card>
       )}
 
-      {/* Alert Acknowledgment Dialog */}
-      <Dialog open={alertDialogOpen} onClose={() => setAlertDialogOpen(false)}>
-        <DialogTitle>Acknowledge Alert</DialogTitle>
+      {/* Alert Details Dialog */}
+      <Dialog open={alertDialogOpen} onClose={() => setAlertDialogOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>
+          Alert Details
+        </DialogTitle>
         <DialogContent>
           {selectedAlert && (
             <Box>
               <Typography variant="h6" gutterBottom>
-                {selectedAlert.alertId}
-              </Typography>
-              <Typography variant="body1" gutterBottom>
                 {selectedAlert.message}
               </Typography>
-              <Typography variant="body2" color="textSecondary">
+              <Typography variant="body2" color="textSecondary" gutterBottom>
                 Severity: {selectedAlert.severity}
               </Typography>
-              <Typography variant="body2" color="textSecondary">
-                Occurrences: {selectedAlert.occurrenceCount}
+              <Typography variant="body2" gutterBottom>
+                First Occurrence: {selectedAlert.firstOccurrence}
               </Typography>
-              <Typography variant="body2" color="textSecondary">
-                First occurred: {new Date(selectedAlert.firstOccurrence).toLocaleString()}
+              <Typography variant="body2" gutterBottom>
+                Last Occurrence: {selectedAlert.lastOccurrence}
+              </Typography>
+              <Typography variant="body2" gutterBottom>
+                Occurrence Count: {selectedAlert.occurrenceCount}
               </Typography>
             </Box>
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setAlertDialogOpen(false)}>Cancel</Button>
-          <Button 
-            onClick={() => selectedAlert && acknowledgeAlert(selectedAlert.alertId)}
-            variant="contained"
-            color="primary"
-          >
-            Acknowledge
-          </Button>
+          <Button onClick={() => setAlertDialogOpen(false)}>Close</Button>
+          {selectedAlert && !selectedAlert.acknowledged && (
+            <Button 
+              onClick={() => acknowledgeAlert(selectedAlert.alertId)}
+              variant="contained"
+              color="primary"
+            >
+              Acknowledge
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
     </Box>
