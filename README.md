@@ -518,18 +518,36 @@ We welcome contributions! Please see our [Contributing Guide](docs/CONTRIBUTING.
 
 ## 📚 Documentation
 
-### Technical Documentation
+Comprehensive documentation is organized by audience and use case:
 
-- **[Multi-Session Architecture](docs/MULTI_SESSION_ARCHITECTURE.md)** - Detailed architecture documentation
-- **[Notification System](docs/NOTIFICATIONS_SYSTEM.md)** - Comprehensive notification system documentation (session-based, global settings, frontend/backend integration)
-- **[Environment Setup](docs/ENVIRONMENT_SETUP.md)** - Complete setup guide
-- **[Contributing Guide](docs/CONTRIBUTING.md)** - Development guidelines
-- **[Privacy Policy](docs/PRIVACY_POLICY.md)** - Data handling and privacy compliance
-- **[Shopify Protected Data Request](docs/SHOPIFY_PROTECTED_DATA_REQUEST.md)** - Shopify compliance documentation
+### 📖 **[User Guide](docs/user-guide/)**
+Features, capabilities, and user-facing documentation
+- [Features Overview](docs/user-guide/FEATURES_OVERVIEW.md) - Complete feature catalog
+- [Analytics & Dashboard](docs/user-guide/ANALYTICS_AND_DASHBOARD.md) - Revenue analytics and reporting
+- [Market Intelligence](docs/user-guide/MARKET_INTELLIGENCE.md) - Competitor discovery and analysis
 
-### Enhancement Documentation
+### 🔧 **[Developer Guide](docs/developer-guide/)**
+APIs, integration guides, and development resources
+- [Admin Endpoints Reference](docs/developer-guide/ADMIN_ENDPOINTS_REFERENCE.md) - Complete API documentation
+- [Session & Shop Management](docs/developer-guide/SESSION_AND_SHOP_MANAGEMENT.md) - Multi-session architecture
+- [Contributing Guide](docs/developer-guide/CONTRIBUTING.md) - How to contribute to the project
 
-- **[Authentication UI Fixes](docs/AUTHENTICATION_UI_FIXES.md)** - Authentication and UI improvements
+### 🏗️ **[Architecture](docs/architecture/)**
+System design and technical architecture
+- [Session Management Architecture](docs/architecture/SESSION_MANAGEMENT_ARCHITECTURE.md) - Multi-session system design
+- [Enterprise SSE Implementation](docs/architecture/ENTERPRISE_SSE_IMPLEMENTATION.md) - Real-time communication
+
+### ⚙️ **[Operations](docs/operations/)**
+Deployment, monitoring, and operational procedures
+- [Monitoring & Alerting](docs/operations/MONITORING_AND_ALERTING_CONFIGURATION.md) - Production monitoring
+- [Configuration Management](docs/operations/CONFIGURATION_MANAGEMENT_AND_ROLLBACK.md) - Config and rollback
+
+### 🔍 **[Troubleshooting](docs/troubleshooting/)**
+Issue resolution and debugging guides
+- [Session Management Fixes](docs/troubleshooting/) - Session-related issue resolution
+- [SSE Connection Issues](docs/troubleshooting/) - Real-time communication problems
+
+**📚 [Complete Documentation Hub](docs/README.md)** - Start here for all documentation
 - **[Dashboard Loading Fixes](docs/DASHBOARD_LOADING_FIXES.md)** - Dashboard performance and loading optimizations
 - **[OAuth Database Fixes](docs/OAUTH_DATABASE_FIXES.md)** - OAuth and database improvements
 - **[Market Intelligence](docs/MARKET_INTELLIGENCE.md)** - Competitor discovery and market analysis features

@@ -17,81 +17,112 @@ services:
     repo: https://github.com/teja230/storesight
     plan: free
     envVars:
-      - key: METRICS_ENABLED
-        sync: false
-      - key: HEALTH_CHECK_ENABLED
-        sync: false
-      - key: AUTO_DELETE_ENABLED
-        sync: false
-      - key: DATA_RETENTION_DAYS
-        sync: false
-      - key: DISCOVERY_MAX_RESULTS
-        sync: false
-      - key: DISCOVERY_INTERVAL_HOURS
-        sync: false
-      - key: DISCOVERY_PROVIDER
-        sync: false
-      - key: DISCOVERY_ENABLED
-        sync: false
-      - key: SMS_NOTIFICATIONS_ENABLED
-        sync: false
-      - key: EMAIL_NOTIFICATIONS_ENABLED
-        sync: false
-      - key: API_RATE_LIMIT_BURST_SIZE
-        sync: false
-      - key: API_RATE_LIMIT_REQUESTS_PER_MINUTE
-        sync: false
-      - key: JWT_SECRET
-        sync: false
-      - key: SPRING_PROFILES_ACTIVE
-        sync: false
-      - key: LOGGING_LEVEL_HIBERNATE
-        sync: false
-      - key: LOGGING_LEVEL_SPRING
-        sync: false
-      - key: LOGGING_LEVEL_STORESIGHT
-        sync: false
-      - key: LOGGING_LEVEL_ROOT
-        sync: false
-      - key: BACKEND_URL
-        sync: false
-      - key: FRONTEND_URL
-        sync: false
-      - key: SERVER_PORT
-        sync: false
-      - key: SERPAPI_KEY
-        sync: false
-      - key: TWILIO_FROM_NUMBER
-        sync: false
-      - key: TWILIO_AUTH_TOKEN
-        sync: false
-      - key: TWILIO_ACCOUNT_SID
-        sync: false
-      - key: SENDGRID_API_KEY
-        sync: false
-      - key: SHOPIFY_SCOPES
-        sync: false
-      - key: SHOPIFY_REDIRECT_URI
-        sync: false
-      - key: SHOPIFY_API_SECRET
-        sync: false
-      - key: SHOPIFY_API_KEY
-        sync: false
-      - key: REDIS_PORT
-        sync: false
+      # Database Configuration
+      - key: DB_URL
+        fromDatabase:
+          name: storesight-db
+          property: connectionString
+      - key: DB_USER
+        fromDatabase:
+          name: storesight-db
+          property: user
+      - key: DB_PASS
+        fromDatabase:
+          name: storesight-db
+          property: password
+      
+      # Redis Configuration
       - key: REDIS_HOST
         fromService:
           name: storesight-redis
           type: keyvalue
           property: host
-      - key: DB_USER
-        sync: false
-      - key: DB_URL
-        sync: false
-      - key: DB_PASS
-        fromDatabase:
-          name: storesight-db
-          property: password
+      - key: REDIS_PORT
+        value: "6379"
+      
+      # Application Configuration
+      - key: SPRING_PROFILES_ACTIVE
+        value: "prod"
+      - key: SERVER_PORT
+        value: "8080"
+      - key: BACKEND_URL
+        value: "https://api.shopgaugeai.com"
+      - key: FRONTEND_URL
+        value: "https://www.shopgaugeai.com"
+      
+      # Shopify Configuration - Set these in Render Dashboard Environment Variables
+      - key: SHOPIFY_API_KEY
+        sync: false  # Must be set in Render Dashboard
+      - key: SHOPIFY_API_SECRET
+        sync: false  # Must be set in Render Dashboard
+      - key: SHOPIFY_REDIRECT_URI
+        value: "https://api.shopgaugeai.com/api/auth/shopify/callback"
+      - key: SHOPIFY_SCOPES
+        value: "read_products,read_orders,read_customers,read_inventory"
+      - key: SHOPIFY_API_VERSION
+        value: "2023-10"
+      
+      # Security Configuration - Set these in Render Dashboard Environment Variables
+      - key: JWT_SECRET
+        sync: false  # Must be set in Render Dashboard
+      - key: ADMIN_USERNAME
+        sync: false  # Must be set in Render Dashboard
+      - key: ADMIN_PASSWORD
+        sync: false  # Must be set in Render Dashboard
+      - key: ADMIN_JWT_SECRET
+        sync: false  # Must be set in Render Dashboard
+      
+      # Admin Authentication Configuration
+      - key: ADMIN_AUTH_ENABLED
+        value: "true"
+      - key: ADMIN_REQUIRE_HTTPS
+        value: "true"
+      - key: ADMIN_SESSION_TIMEOUT
+        value: "3600"
+      - key: ADMIN_MAX_LOGIN_ATTEMPTS
+        value: "5"
+      - key: ADMIN_LOCKOUT_DURATION
+        value: "900"
+      - key: ADMIN_TOKEN_EXPIRY
+        value: "86400"
+      - key: ADMIN_AUDIT_LOGGING
+        value: "true"
+      
+      # API Keys - Set these in Render Dashboard Environment Variables
+      - key: SCRAPINGDOG_KEY
+        sync: false  # Must be set in Render Dashboard
+      - key: SERPER_KEY
+        sync: false  # Must be set in Render Dashboard
+      - key: SERPAPI_KEY
+        sync: false  # Must be set in Render Dashboard
+      
+      # Feature Flags
+      - key: DISCOVERY_ENABLED
+        value: "true"
+      - key: DISCOVERY_MULTI_SOURCE_ENABLED
+        value: "true"
+      - key: DISCOVERY_FALLBACK_ENABLED
+        value: "true"
+      - key: HEALTH_CHECK_ENABLED
+        value: "true"
+      - key: METRICS_ENABLED
+        value: "true"
+      - key: EMAIL_NOTIFICATIONS_ENABLED
+        value: "true"
+      - key: SMS_NOTIFICATIONS_ENABLED
+        value: "true"
+      
+      # Logging Configuration (Enhanced for debugging)
+      - key: LOGGING_LEVEL_ROOT
+        value: "INFO"
+      - key: LOGGING_LEVEL_STORESIGHT
+        value: "DEBUG"
+      - key: LOGGING_LEVEL_SPRING
+        value: "INFO"
+      - key: LOGGING_LEVEL_HIBERNATE
+        value: "WARN"
+      - key: LOGGING_LEVEL_SECURITY
+        value: "DEBUG"
     region: oregon
     dockerContext: .
     dockerfilePath: backend/Dockerfile.prod
@@ -123,6 +154,6 @@ services:
     region: oregon
     maxmemoryPolicy: allkeys-lru
     ipAllowList:
-      - source: 57.132.182.47/32
-        description: teja230@gmail.com
+      - source: 0.0.0.0/0
+        description: Allow all connections (configure specific IPs in Render Dashboard)
     version: "1"

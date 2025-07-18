@@ -3,6 +3,7 @@ package com.storesight.backend.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.storesight.backend.config.ApplicationConfigurationProperties;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -31,22 +32,88 @@ public class SseService {
 
   private static final Logger logger = LoggerFactory.getLogger(SseService.class);
 
-  // Configuration constants
-  private static final int MAX_SSE_PER_SHOP = 5;
-  private static final int MAX_SSE_GLOBAL = 50;
-  private static final long SSE_TIMEOUT_MS = 120_000L; // 2 minutes
-  private static final long HEARTBEAT_INTERVAL_MS = 30_000L; // 30 seconds
-  private static final long CLEANUP_INTERVAL_MS = 60_000L; // 1 minute
-  private static final int MAX_BATCH_SIZE = 10; // Maximum events per batch
-  private static final long BATCH_TIMEOUT_MS = 1000L; // 1 second batch timeout
+  @Autowired private ApplicationConfigurationProperties config;
+
+  // Configuration helper methods
+  private int getMaxSsePerShop() {
+    return config.getSse().getMaxConnectionsPerShop();
+  }
+
+  private int getMaxSseGlobal() {
+    return config.getSse().getMaxConnectionsGlobal();
+  }
+
+  private long getSseTimeoutMs() {
+    return config.getSse().getConnectionTimeout().toMillis();
+  }
+
+  private long getHeartbeatIntervalMs() {
+    return config.getSse().getHeartbeatInterval().toMillis();
+  }
+
+  private long getCleanupIntervalMs() {
+    return config.getSse().getCleanupInterval().toMillis();
+  }
+
+  private int getMaxBatchSize() {
+    return config.getSse().getMaxBatchSize();
+  }
+
+  private long getBatchTimeoutMs() {
+    return config.getSse().getBatchTimeout().toMillis();
+  }
+
+  private int getMaxBatchQueueSize() {
+    return config.getSse().getMaxBatchQueueSize();
+  }
+
+  private long getConnectionHealthCheckIntervalMs() {
+    return config.getSse().getConnectionHealthCheckInterval().toMillis();
+  }
+
+  private long getDeadConnectionTimeoutMs() {
+    return config.getSse().getDeadConnectionTimeout().toMillis();
+  }
+
+  private long getBatchCleanupIntervalMs() {
+    return config.getSse().getBatchCleanupInterval().toMillis();
+  }
+
+  private int getMaxFailedHeartbeats() {
+    return config.getSse().getMaxFailedHeartbeats();
+  }
+
+  private long getBatchMemoryCleanupThresholdMs() {
+    return config.getSse().getBatchMemoryCleanupThreshold().toMillis();
+  }
+
+  private int getMaxBatchMemorySizeBytes() {
+    return config.getSse().getMaxBatchMemorySizeBytes();
+  }
+
+  private long getConnectionIdleTimeoutMs() {
+    return config.getSse().getConnectionIdleTimeout().toMillis();
+  }
+
+  private int getEmergencyCleanupThreshold() {
+    return config.getSse().getEmergencyCleanupThreshold();
+  }
 
   // Connection storage
   private final ConcurrentHashMap<String, CopyOnWriteArrayList<SseEmitter>> sseEmitters =
       new ConcurrentHashMap<>();
 
-  // Batching support
+  // Batching support with enhanced resource management
   private final ConcurrentHashMap<String, List<SseEvent>> eventBatches = new ConcurrentHashMap<>();
   private final ConcurrentHashMap<String, Long> batchTimers = new ConcurrentHashMap<>();
+
+  // Enhanced connection health tracking
+  private final ConcurrentHashMap<SseEmitter, ConnectionHealth> connectionHealth =
+      new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<SseEmitter, Long> connectionCreationTimes =
+      new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<SseEmitter, String> connectionShopMapping =
+      new ConcurrentHashMap<>();
 
   // Monitoring and metrics
   private final AtomicLong totalConnections = new AtomicLong(0);
@@ -55,15 +122,74 @@ public class SseService {
   private final AtomicLong totalEventsSent = new AtomicLong(0);
   private final AtomicLong totalBatchesSent = new AtomicLong(0);
   private final AtomicInteger activeConnections = new AtomicInteger(0);
+  private final AtomicLong totalDeadConnectionsRemoved = new AtomicLong(0);
+  private final AtomicLong totalBatchesDropped = new AtomicLong(0);
+  private final AtomicLong totalMemoryLeaksPreventedCount = new AtomicLong(0);
 
   // Dependencies
   private final RedisTemplate<String, String> redisTemplate;
   private final ObjectMapper objectMapper;
+  private final MetricsCollectionService metricsCollectionService;
 
   @Autowired
-  public SseService(RedisTemplate<String, String> redisTemplate) {
+  public SseService(
+      RedisTemplate<String, String> redisTemplate,
+      MetricsCollectionService metricsCollectionService) {
     this.redisTemplate = redisTemplate;
     this.objectMapper = new ObjectMapper();
+    this.metricsCollectionService = metricsCollectionService;
+  }
+
+  /** Connection health tracking */
+  public static class ConnectionHealth {
+    private long lastHeartbeat;
+    private int failedHeartbeats;
+    private boolean isDead;
+    private long creationTime;
+
+    public ConnectionHealth() {
+      this.lastHeartbeat = System.currentTimeMillis();
+      this.failedHeartbeats = 0;
+      this.isDead = false;
+      this.creationTime = System.currentTimeMillis();
+    }
+
+    public long getLastHeartbeat() {
+      return lastHeartbeat;
+    }
+
+    public void setLastHeartbeat(long lastHeartbeat) {
+      this.lastHeartbeat = lastHeartbeat;
+    }
+
+    public int getFailedHeartbeats() {
+      return failedHeartbeats;
+    }
+
+    public void incrementFailedHeartbeats() {
+      this.failedHeartbeats++;
+    }
+
+    public void resetFailedHeartbeats() {
+      this.failedHeartbeats = 0;
+    }
+
+    public boolean isDead() {
+      return isDead;
+    }
+
+    public void markAsDead() {
+      this.isDead = true;
+    }
+
+    public long getCreationTime() {
+      return creationTime;
+    }
+
+    public boolean shouldBeMarkedDead(SseService service) {
+      return failedHeartbeats >= service.getMaxFailedHeartbeats()
+          || (System.currentTimeMillis() - lastHeartbeat) > service.getDeadConnectionTimeoutMs();
+    }
   }
 
   /** SSE Event representation with minimal payload */
@@ -118,16 +244,16 @@ public class SseService {
     int globalCount = sseEmitters.values().stream().mapToInt(List::size).sum();
     int shopCount = sseEmitters.getOrDefault(shopDomain, new CopyOnWriteArrayList<>()).size();
 
-    boolean canAccept = globalCount < MAX_SSE_GLOBAL && shopCount < MAX_SSE_PER_SHOP;
+    boolean canAccept = globalCount < getMaxSseGlobal() && shopCount < getMaxSsePerShop();
 
     if (!canAccept) {
       logger.warn(
           "SSE connection limit reached - Global: {}/{}, Shop {}: {}/{}",
           globalCount,
-          MAX_SSE_GLOBAL,
+          getMaxSseGlobal(),
           shopDomain,
           shopCount,
-          MAX_SSE_PER_SHOP);
+          getMaxSsePerShop());
     }
 
     return canAccept;
@@ -137,15 +263,24 @@ public class SseService {
   public SseEmitter createConnection(String shopDomain, String sessionId) {
     if (!canAcceptConnection(shopDomain)) {
       totalErrors.incrementAndGet();
-      SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
+      SseEmitter emitter = new SseEmitter(getSseTimeoutMs());
       sendMinimalEvent(emitter, "error", "Too many connections. Try again later.", 10000);
       emitter.complete();
       return emitter;
     }
 
-    SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
+    SseEmitter emitter = new SseEmitter(getSseTimeoutMs());
     totalConnections.incrementAndGet();
     activeConnections.incrementAndGet();
+
+    // Update metrics
+    metricsCollectionService.recordSseConnectionCreated();
+
+    // Initialize connection health tracking
+    ConnectionHealth health = new ConnectionHealth();
+    connectionHealth.put(emitter, health);
+    connectionCreationTimes.put(emitter, System.currentTimeMillis());
+    connectionShopMapping.put(emitter, shopDomain);
 
     // Add to connection pool
     sseEmitters.computeIfAbsent(shopDomain, k -> new CopyOnWriteArrayList<>()).add(emitter);
@@ -205,10 +340,12 @@ public class SseService {
               .reconnectTime(reconnectMs != null ? reconnectMs : 5000));
 
       totalEventsSent.incrementAndGet();
+      metricsCollectionService.recordSseEventPublished();
 
     } catch (Exception e) {
       logger.warn("Failed to send minimal SSE event: {}", e.getMessage());
       totalErrors.incrementAndGet();
+      metricsCollectionService.recordSseConnectionError();
     }
   }
 
@@ -267,9 +404,38 @@ public class SseService {
     }
   }
 
-  /** Queue an event for batching (future-ready) */
+  /** Queue an event for batching with enhanced memory leak prevention */
   public void queueEventForBatching(String shopDomain, SseEvent event) {
-    eventBatches.computeIfAbsent(shopDomain, k -> new ArrayList<>()).add(event);
+    List<SseEvent> batch = eventBatches.computeIfAbsent(shopDomain, k -> new ArrayList<>());
+
+    // Check if emergency cleanup is needed based on global capacity
+    int globalConnections = sseEmitters.values().stream().mapToInt(List::size).sum();
+    double utilizationPercent = (double) globalConnections / getMaxSseGlobal() * 100;
+
+    if (utilizationPercent >= getEmergencyCleanupThreshold()) {
+      performEmergencyCleanup();
+    }
+
+    // Enhanced memory management - check batch memory size
+    if (batch.size() >= getMaxBatchQueueSize()
+        || estimateBatchMemorySize(batch) >= getMaxBatchMemorySizeBytes()) {
+      logger.warn(
+          "Batch queue for shop {} has reached limits (size: {}/{}, estimated memory: {} bytes), dropping oldest events",
+          shopDomain,
+          batch.size(),
+          getMaxBatchQueueSize(),
+          estimateBatchMemorySize(batch));
+
+      // Remove oldest events to make room (FIFO) - more aggressive cleanup
+      int eventsToRemove = Math.max(batch.size() - getMaxBatchQueueSize() + 1, batch.size() / 4);
+      for (int i = 0; i < eventsToRemove && !batch.isEmpty(); i++) {
+        batch.remove(0);
+      }
+      totalBatchesDropped.incrementAndGet();
+      totalMemoryLeaksPreventedCount.incrementAndGet();
+    }
+
+    batch.add(event);
 
     // Start batch timer if not already running
     batchTimers.computeIfAbsent(
@@ -280,10 +446,71 @@ public class SseService {
         });
 
     // Send batch immediately if it reaches max size
-    List<SseEvent> batch = eventBatches.get(shopDomain);
-    if (batch != null && batch.size() >= MAX_BATCH_SIZE) {
+    if (batch.size() >= getMaxBatchSize()) {
       sendBatch(shopDomain);
     }
+  }
+
+  /** Estimate memory size of a batch for memory management */
+  private int estimateBatchMemorySize(List<SseEvent> batch) {
+    if (batch == null || batch.isEmpty()) {
+      return 0;
+    }
+
+    int totalSize = 0;
+    for (SseEvent event : batch) {
+      // Rough estimation: type + message + metadata + overhead
+      totalSize += (event.getType() != null ? event.getType().length() * 2 : 0);
+      totalSize += (event.getMessage() != null ? event.getMessage().length() * 2 : 0);
+      totalSize += (event.getMetadata() != null ? event.getMetadata().toString().length() * 2 : 0);
+      totalSize += 100; // Overhead for object structure
+    }
+    return totalSize;
+  }
+
+  /** Emergency cleanup when system is under pressure */
+  private void performEmergencyCleanup() {
+    logger.warn("Performing emergency SSE cleanup due to high resource utilization");
+
+    long currentTime = System.currentTimeMillis();
+    int connectionsRemoved = 0;
+    int batchesCleared = 0;
+
+    // Remove idle connections more aggressively
+    for (Map.Entry<SseEmitter, Long> entry : new HashMap<>(connectionCreationTimes).entrySet()) {
+      SseEmitter emitter = entry.getKey();
+      Long creationTime = entry.getValue();
+      ConnectionHealth health = connectionHealth.get(emitter);
+
+      // Remove connections that have been idle for too long
+      if (health != null
+          && (currentTime - health.getLastHeartbeat()) > getConnectionIdleTimeoutMs() / 2) {
+        String shopDomain = connectionShopMapping.get(emitter);
+        logger.warn("Emergency removal of idle SSE connection for shop: {}", shopDomain);
+
+        if (shopDomain != null) {
+          removeConnection(shopDomain, emitter);
+          connectionsRemoved++;
+        }
+      }
+    }
+
+    // Clear old batches more aggressively
+    for (Map.Entry<String, Long> entry : new HashMap<>(batchTimers).entrySet()) {
+      String shopDomain = entry.getKey();
+      Long timerStart = entry.getValue();
+
+      if ((currentTime - timerStart) > getBatchTimeoutMs() * 2) {
+        sendBatch(shopDomain);
+        batchesCleared++;
+      }
+    }
+
+    totalMemoryLeaksPreventedCount.addAndGet(connectionsRemoved + batchesCleared);
+    logger.warn(
+        "Emergency cleanup completed - removed {} connections, cleared {} batches",
+        connectionsRemoved,
+        batchesCleared);
   }
 
   /** Send a batch of events as a single SSE message */
@@ -476,9 +703,16 @@ public class SseService {
     stats.put("totalBatchesSent", totalBatchesSent.get());
     stats.put("activeConnections", activeConnections.get());
     stats.put("activeShops", sseEmitters.size());
-    stats.put("maxGlobalConnections", MAX_SSE_GLOBAL);
-    stats.put("maxPerShopConnections", MAX_SSE_PER_SHOP);
+    stats.put("maxGlobalConnections", getMaxSseGlobal());
+    stats.put("maxPerShopConnections", getMaxSsePerShop());
     stats.put("pendingBatches", eventBatches.size());
+
+    // Enhanced resource management statistics
+    stats.put("totalDeadConnectionsRemoved", totalDeadConnectionsRemoved.get());
+    stats.put("totalBatchesDropped", totalBatchesDropped.get());
+    stats.put("totalMemoryLeaksPreventedCount", totalMemoryLeaksPreventedCount.get());
+    stats.put("trackedConnections", connectionHealth.size());
+    stats.put("activeTimers", batchTimers.size());
 
     // Per-shop breakdown
     Map<String, Integer> shopConnections = new HashMap<>();
@@ -487,7 +721,7 @@ public class SseService {
 
     // Health indicators
     int globalCount = sseEmitters.values().stream().mapToInt(List::size).sum();
-    double connectionUtilization = (double) globalCount / MAX_SSE_GLOBAL * 100;
+    double connectionUtilization = (double) globalCount / getMaxSseGlobal() * 100;
 
     Map<String, Object> health = new HashMap<>();
     health.put("connectionUtilization", String.format("%.1f%%", connectionUtilization));
@@ -497,14 +731,24 @@ public class SseService {
         connectionUtilization > 80
             ? "Consider increasing limits or investigating connection leaks"
             : "Normal operation");
-    stats.put("health", health);
 
+    // Enhanced health metrics
+    health.put(
+        "errorRate",
+        totalConnections.get() > 0
+            ? String.format("%.2f%%", (double) totalErrors.get() / totalConnections.get() * 100.0)
+            : "0.00%");
+    health.put(
+        "memoryLeakPreventionEffectiveness",
+        totalBatchesDropped.get() + totalMemoryLeaksPreventedCount.get());
+
+    stats.put("health", health);
     stats.put("timestamp", LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
 
     return stats;
   }
 
-  /** Remove a connection from the pool */
+  /** Remove a connection from the pool with enhanced cleanup */
   private void removeConnection(String shopDomain, SseEmitter emitter) {
     try {
       CopyOnWriteArrayList<SseEmitter> emitters = sseEmitters.get(shopDomain);
@@ -518,6 +762,15 @@ public class SseService {
           batchTimers.remove(shopDomain);
         }
       }
+
+      // Clean up health tracking data to prevent memory leaks
+      connectionHealth.remove(emitter);
+      connectionCreationTimes.remove(emitter);
+      connectionShopMapping.remove(emitter);
+
+      // Update metrics
+      metricsCollectionService.recordSseConnectionClosed();
+
     } catch (Exception e) {
       logger.warn("Error removing SSE connection for shop {}: {}", shopDomain, e.getMessage());
     }
@@ -533,11 +786,11 @@ public class SseService {
                 sendBatch(shopDomain);
               }
             },
-            BATCH_TIMEOUT_MS);
+            getBatchTimeoutMs());
   }
 
   /** Scheduled cleanup of stale connections */
-  @Scheduled(fixedRate = CLEANUP_INTERVAL_MS)
+  @Scheduled(fixedRateString = "#{@schedulingConfiguration.getCleanupIntervalMs()}")
   public void cleanupStaleConnections() {
     try {
       logger.debug("Starting SSE connection cleanup...");
@@ -574,11 +827,12 @@ public class SseService {
     }
   }
 
-  /** Scheduled heartbeat to keep connections alive */
-  @Scheduled(fixedRate = HEARTBEAT_INTERVAL_MS)
+  /** Enhanced scheduled heartbeat with connection health tracking */
+  @Scheduled(fixedRateString = "#{@schedulingConfiguration.getHeartbeatIntervalMs()}")
   public void sendHeartbeats() {
     try {
       int totalHeartbeats = 0;
+      int failedHeartbeats = 0;
 
       for (Map.Entry<String, CopyOnWriteArrayList<SseEmitter>> entry : sseEmitters.entrySet()) {
         String shopDomain = entry.getKey();
@@ -588,20 +842,50 @@ public class SseService {
           List<SseEmitter> emittersCopy = new ArrayList<>(emitters);
 
           for (SseEmitter emitter : emittersCopy) {
+            ConnectionHealth health = connectionHealth.get(emitter);
+            if (health != null && health.isDead()) {
+              // Skip dead connections, they will be cleaned up by the health check
+              continue;
+            }
+
             try {
               sendMinimalEvent(emitter, "heartbeat", null, null);
               totalHeartbeats++;
+
+              // Update connection health on successful heartbeat
+              if (health != null) {
+                health.setLastHeartbeat(System.currentTimeMillis());
+                health.resetFailedHeartbeats();
+              }
+
             } catch (Exception e) {
+              failedHeartbeats++;
               logger.debug(
-                  "Heartbeat failed for SSE connection in shop: {} - removing", shopDomain);
-              removeConnection(shopDomain, emitter);
+                  "Heartbeat failed for SSE connection in shop: {} - {}",
+                  shopDomain,
+                  e.getMessage());
+
+              // Update connection health on failed heartbeat
+              if (health != null) {
+                health.incrementFailedHeartbeats();
+                if (health.shouldBeMarkedDead(this)) {
+                  health.markAsDead();
+                  logger.warn(
+                      "Marking SSE connection as dead for shop: {} after {} failed heartbeats",
+                      shopDomain,
+                      health.getFailedHeartbeats());
+                }
+              } else {
+                // No health tracking, remove immediately
+                removeConnection(shopDomain, emitter);
+              }
             }
           }
         }
       }
 
-      if (totalHeartbeats > 0) {
-        logger.debug("Sent {} SSE heartbeats", totalHeartbeats);
+      if (totalHeartbeats > 0 || failedHeartbeats > 0) {
+        logger.debug("Sent {} SSE heartbeats, {} failed", totalHeartbeats, failedHeartbeats);
       }
     } catch (Exception e) {
       logger.error("Error during SSE heartbeat: {}", e.getMessage());
@@ -614,12 +898,412 @@ public class SseService {
     try {
       for (String shopDomain : new ArrayList<>(batchTimers.keySet())) {
         Long timer = batchTimers.get(shopDomain);
-        if (timer != null && System.currentTimeMillis() - timer > BATCH_TIMEOUT_MS) {
+        if (timer != null && System.currentTimeMillis() - timer > getBatchTimeoutMs()) {
           sendBatch(shopDomain);
         }
       }
     } catch (Exception e) {
       logger.error("Error processing pending batches: {}", e.getMessage());
+    }
+  }
+
+  /** Enhanced connection health check and dead connection removal */
+  @Scheduled(fixedRateString = "#{@schedulingConfiguration.getConnectionHealthCheckIntervalMs()}")
+  public void performConnectionHealthCheck() {
+    try {
+      int deadConnectionsRemoved = 0;
+      int idleConnectionsRemoved = 0;
+      int orphanedConnectionsRemoved = 0;
+      long currentTime = System.currentTimeMillis();
+
+      logger.debug("Starting enhanced connection health check...");
+
+      // Check all connections for health status
+      for (Map.Entry<SseEmitter, ConnectionHealth> entry :
+          new HashMap<>(connectionHealth).entrySet()) {
+        SseEmitter emitter = entry.getKey();
+        ConnectionHealth health = entry.getValue();
+        String shopDomain = connectionShopMapping.get(emitter);
+
+        if (health.isDead() || health.shouldBeMarkedDead(this)) {
+          logger.warn(
+              "Removing dead SSE connection for shop: {} (dead for {} ms, failed heartbeats: {})",
+              shopDomain,
+              currentTime - health.getLastHeartbeat(),
+              health.getFailedHeartbeats());
+
+          if (shopDomain != null) {
+            removeConnection(shopDomain, emitter);
+          } else {
+            // Fallback cleanup if shop mapping is lost
+            connectionHealth.remove(emitter);
+            connectionCreationTimes.remove(emitter);
+            connectionShopMapping.remove(emitter);
+          }
+
+          deadConnectionsRemoved++;
+        }
+        // Check for idle connections that should be cleaned up
+        else if ((currentTime - health.getLastHeartbeat()) > getConnectionIdleTimeoutMs()) {
+          logger.warn(
+              "Removing idle SSE connection for shop: {} (idle for {} ms)",
+              shopDomain,
+              currentTime - health.getLastHeartbeat());
+
+          if (shopDomain != null) {
+            // Send notification before closing idle connection
+            try {
+              sendMinimalEvent(
+                  emitter, "connection_idle", "Connection closed due to inactivity", 5000);
+            } catch (Exception e) {
+              // Ignore errors when sending to idle connection
+            }
+            removeConnection(shopDomain, emitter);
+            idleConnectionsRemoved++;
+          }
+        }
+      }
+
+      // Check for connections that have been around too long without proper health tracking
+      for (Map.Entry<SseEmitter, Long> entry : new HashMap<>(connectionCreationTimes).entrySet()) {
+        SseEmitter emitter = entry.getKey();
+        Long creationTime = entry.getValue();
+
+        if (!connectionHealth.containsKey(emitter)
+            && (currentTime - creationTime) > getDeadConnectionTimeoutMs()) {
+
+          String shopDomain = connectionShopMapping.get(emitter);
+          logger.warn(
+              "Removing orphaned SSE connection for shop: {} (no health tracking, age: {} ms)",
+              shopDomain,
+              currentTime - creationTime);
+
+          if (shopDomain != null) {
+            removeConnection(shopDomain, emitter);
+          } else {
+            // Direct cleanup for orphaned connections
+            connectionCreationTimes.remove(emitter);
+            connectionShopMapping.remove(emitter);
+          }
+          orphanedConnectionsRemoved++;
+        }
+      }
+
+      // Additional cleanup: Check for shop domains with empty emitter lists
+      int emptyShopsRemoved = 0;
+      for (Map.Entry<String, CopyOnWriteArrayList<SseEmitter>> entry :
+          new HashMap<>(sseEmitters).entrySet()) {
+        String shopDomain = entry.getKey();
+        CopyOnWriteArrayList<SseEmitter> emitters = entry.getValue();
+
+        if (emitters == null || emitters.isEmpty()) {
+          sseEmitters.remove(shopDomain);
+          eventBatches.remove(shopDomain);
+          batchTimers.remove(shopDomain);
+          emptyShopsRemoved++;
+          logger.debug("Cleaned up empty shop domain: {}", shopDomain);
+        }
+      }
+
+      int totalRemoved =
+          deadConnectionsRemoved + idleConnectionsRemoved + orphanedConnectionsRemoved;
+      if (totalRemoved > 0 || emptyShopsRemoved > 0) {
+        totalDeadConnectionsRemoved.addAndGet(totalRemoved);
+        logger.info(
+            "Enhanced connection health check completed - removed {} dead, {} idle, {} orphaned connections, {} empty shops",
+            deadConnectionsRemoved,
+            idleConnectionsRemoved,
+            orphanedConnectionsRemoved,
+            emptyShopsRemoved);
+      } else {
+        logger.debug("Enhanced connection health check completed - no cleanup needed");
+      }
+
+    } catch (Exception e) {
+      logger.error("Error during enhanced connection health check: {}", e.getMessage());
+    }
+  }
+
+  /** Enhanced batch cleanup to prevent memory leaks */
+  @Scheduled(fixedRateString = "#{@schedulingConfiguration.getBatchCleanupIntervalMs()}")
+  public void performBatchCleanup() {
+    try {
+      int batchesCleared = 0;
+      int orphanedTimersCleared = 0;
+      int memoryOptimizedBatches = 0;
+      long currentTime = System.currentTimeMillis();
+
+      logger.debug("Starting enhanced batch cleanup...");
+
+      // Clean up old batch timers that might be stuck
+      for (Map.Entry<String, Long> entry : new HashMap<>(batchTimers).entrySet()) {
+        String shopDomain = entry.getKey();
+        Long timerStart = entry.getValue();
+
+        if ((currentTime - timerStart) > (getBatchTimeoutMs() * 10)) { // 10x timeout threshold
+          logger.warn(
+              "Clearing stuck batch timer for shop: {} (stuck for {} ms)",
+              shopDomain,
+              currentTime - timerStart);
+
+          // Force send any pending batch and clear timer
+          sendBatch(shopDomain);
+          orphanedTimersCleared++;
+        }
+      }
+
+      // Enhanced cleanup: Check for memory-heavy batches and old batches
+      for (Map.Entry<String, List<SseEvent>> entry : new HashMap<>(eventBatches).entrySet()) {
+        String shopDomain = entry.getKey();
+        List<SseEvent> batch = entry.getValue();
+        CopyOnWriteArrayList<SseEmitter> emitters = sseEmitters.get(shopDomain);
+
+        // Clean up event batches for shops with no active connections
+        if (emitters == null || emitters.isEmpty()) {
+          eventBatches.remove(shopDomain);
+          batchTimers.remove(shopDomain);
+
+          if (batch != null && !batch.isEmpty()) {
+            logger.warn(
+                "Cleared {} orphaned events for shop with no connections: {}",
+                batch.size(),
+                shopDomain);
+            batchesCleared++;
+            totalMemoryLeaksPreventedCount.incrementAndGet();
+          }
+        }
+        // Check for batches that are too old or too large
+        else if (batch != null && !batch.isEmpty()) {
+          Long timerStart = batchTimers.get(shopDomain);
+          int batchMemorySize = estimateBatchMemorySize(batch);
+          boolean isTooOld =
+              timerStart != null && (currentTime - timerStart) > getBatchMemoryCleanupThresholdMs();
+          boolean isTooLarge = batchMemorySize > getMaxBatchMemorySizeBytes();
+
+          if (isTooOld || isTooLarge) {
+            logger.warn(
+                "Force sending batch for shop {} due to {} (age: {} ms, size: {} bytes, events: {})",
+                shopDomain,
+                isTooOld ? "age threshold" : "memory threshold",
+                timerStart != null ? currentTime - timerStart : 0,
+                batchMemorySize,
+                batch.size());
+
+            sendBatch(shopDomain);
+            memoryOptimizedBatches++;
+          }
+        }
+      }
+
+      if (batchesCleared > 0 || orphanedTimersCleared > 0 || memoryOptimizedBatches > 0) {
+        logger.info(
+            "Enhanced batch cleanup completed - cleared {} orphaned batches, {} stuck timers, {} memory-optimized batches",
+            batchesCleared,
+            orphanedTimersCleared,
+            memoryOptimizedBatches);
+      } else {
+        logger.debug("Enhanced batch cleanup completed - no cleanup needed");
+      }
+
+    } catch (Exception e) {
+      logger.error("Error during enhanced batch cleanup: {}", e.getMessage());
+    }
+  }
+
+  /** Get enhanced SSE service metrics including resource management statistics */
+  public SseServiceMetrics getEnhancedMetrics() {
+    Map<String, Object> basicStats = getStatistics();
+
+    return new SseServiceMetrics(
+        totalConnections.get(),
+        totalErrors.get(),
+        totalEventsSent.get(),
+        totalBatchesSent.get(),
+        activeConnections.get(),
+        totalDeadConnectionsRemoved.get(),
+        totalBatchesDropped.get(),
+        totalMemoryLeaksPreventedCount.get(),
+        connectionHealth.size(),
+        eventBatches.size(),
+        batchTimers.size(),
+        basicStats);
+  }
+
+  /** Check if SSE service is healthy and operating within normal parameters */
+  public boolean isServiceHealthy() {
+    int globalConnections = sseEmitters.values().stream().mapToInt(List::size).sum();
+    double utilizationPercent = (double) globalConnections / getMaxSseGlobal() * 100;
+
+    // Service is healthy if:
+    // 1. Connection utilization is below 90%
+    // 2. Error rate is below 5%
+    // 3. No excessive memory leaks detected
+    boolean utilizationHealthy = utilizationPercent < 90;
+    boolean errorRateHealthy =
+        totalConnections.get() == 0 || (double) totalErrors.get() / totalConnections.get() < 0.05;
+    boolean memoryHealthy = totalMemoryLeaksPreventedCount.get() < totalConnections.get() * 0.1;
+
+    return utilizationHealthy && errorRateHealthy && memoryHealthy;
+  }
+
+  /** Force cleanup of all resources - emergency use only */
+  public void forceCleanupAllResources() {
+    logger.warn("Performing FORCE cleanup of all SSE resources - emergency procedure");
+
+    int connectionsRemoved = 0;
+    int batchesCleared = 0;
+
+    // Force close all connections
+    for (Map.Entry<String, CopyOnWriteArrayList<SseEmitter>> entry :
+        new HashMap<>(sseEmitters).entrySet()) {
+      String shopDomain = entry.getKey();
+      CopyOnWriteArrayList<SseEmitter> emitters = entry.getValue();
+
+      if (emitters != null) {
+        for (SseEmitter emitter : new ArrayList<>(emitters)) {
+          try {
+            sendMinimalEvent(emitter, "service_restart", "Service is restarting", 10000);
+            emitter.complete();
+          } catch (Exception e) {
+            // Ignore errors during force cleanup
+          }
+          connectionsRemoved++;
+        }
+      }
+    }
+
+    // Clear all data structures
+    sseEmitters.clear();
+    batchesCleared = eventBatches.size();
+    eventBatches.clear();
+    batchTimers.clear();
+    connectionHealth.clear();
+    connectionCreationTimes.clear();
+    connectionShopMapping.clear();
+
+    // Reset counters
+    activeConnections.set(0);
+    totalMemoryLeaksPreventedCount.addAndGet(connectionsRemoved + batchesCleared);
+
+    logger.warn(
+        "Force cleanup completed - removed {} connections, cleared {} batches",
+        connectionsRemoved,
+        batchesCleared);
+  }
+
+  /** Data class for enhanced SSE service metrics */
+  public static class SseServiceMetrics {
+    private final long totalConnections;
+    private final long totalErrors;
+    private final long totalEventsSent;
+    private final long totalBatchesSent;
+    private final int activeConnections;
+    private final long totalDeadConnectionsRemoved;
+    private final long totalBatchesDropped;
+    private final long totalMemoryLeaksPreventedCount;
+    private final int trackedConnections;
+    private final int pendingBatches;
+    private final int activeTimers;
+    private final Map<String, Object> detailedStats;
+
+    public SseServiceMetrics(
+        long totalConnections,
+        long totalErrors,
+        long totalEventsSent,
+        long totalBatchesSent,
+        int activeConnections,
+        long totalDeadConnectionsRemoved,
+        long totalBatchesDropped,
+        long totalMemoryLeaksPreventedCount,
+        int trackedConnections,
+        int pendingBatches,
+        int activeTimers,
+        Map<String, Object> detailedStats) {
+      this.totalConnections = totalConnections;
+      this.totalErrors = totalErrors;
+      this.totalEventsSent = totalEventsSent;
+      this.totalBatchesSent = totalBatchesSent;
+      this.activeConnections = activeConnections;
+      this.totalDeadConnectionsRemoved = totalDeadConnectionsRemoved;
+      this.totalBatchesDropped = totalBatchesDropped;
+      this.totalMemoryLeaksPreventedCount = totalMemoryLeaksPreventedCount;
+      this.trackedConnections = trackedConnections;
+      this.pendingBatches = pendingBatches;
+      this.activeTimers = activeTimers;
+      this.detailedStats = detailedStats;
+    }
+
+    // Getters
+    public long getTotalConnections() {
+      return totalConnections;
+    }
+
+    public long getTotalErrors() {
+      return totalErrors;
+    }
+
+    public long getTotalEventsSent() {
+      return totalEventsSent;
+    }
+
+    public long getTotalBatchesSent() {
+      return totalBatchesSent;
+    }
+
+    public int getActiveConnections() {
+      return activeConnections;
+    }
+
+    public long getTotalDeadConnectionsRemoved() {
+      return totalDeadConnectionsRemoved;
+    }
+
+    public long getTotalBatchesDropped() {
+      return totalBatchesDropped;
+    }
+
+    public long getTotalMemoryLeaksPreventedCount() {
+      return totalMemoryLeaksPreventedCount;
+    }
+
+    public int getTrackedConnections() {
+      return trackedConnections;
+    }
+
+    public int getPendingBatches() {
+      return pendingBatches;
+    }
+
+    public int getActiveTimers() {
+      return activeTimers;
+    }
+
+    public Map<String, Object> getDetailedStats() {
+      return detailedStats;
+    }
+
+    public double getErrorRate() {
+      return totalConnections > 0 ? (double) totalErrors / totalConnections * 100.0 : 0.0;
+    }
+
+    public double getMemoryLeakPreventionEffectiveness() {
+      return totalBatchesDropped + totalMemoryLeaksPreventedCount;
+    }
+
+    @Override
+    public String toString() {
+      return String.format(
+          "SseServiceMetrics{totalConnections=%d, activeConnections=%d, totalErrors=%d, "
+              + "errorRate=%.2f%%, deadConnectionsRemoved=%d, batchesDropped=%d, "
+              + "memoryLeaksPreventedCount=%d, trackedConnections=%d}",
+          totalConnections,
+          activeConnections,
+          totalErrors,
+          getErrorRate(),
+          totalDeadConnectionsRemoved,
+          totalBatchesDropped,
+          totalMemoryLeaksPreventedCount,
+          trackedConnections);
     }
   }
 }

@@ -2,6 +2,8 @@ package com.storesight.backend;
 
 import com.storesight.backend.config.AdminAuthenticationFilter;
 import com.storesight.backend.config.ShopifyAuthenticationFilter;
+import com.storesight.backend.service.RedisSessionService;
+import com.storesight.backend.service.SessionSecurityService;
 import com.storesight.backend.service.SessionSynchronizationService;
 import com.storesight.backend.service.ShopService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -48,6 +50,8 @@ public class WebSecurityConfig implements WebMvcConfigurer {
 
   private final ShopService shopService;
   private final SessionSynchronizationService sessionSynchronizationService;
+  private final SessionSecurityService sessionSecurityService;
+  private final RedisSessionService redisSessionService;
 
   @Value("${spring.profiles.active:dev}")
   private String activeProfile;
@@ -66,9 +70,14 @@ public class WebSecurityConfig implements WebMvcConfigurer {
   private final Map<String, RateLimitInfo> rateLimitMap = new ConcurrentHashMap<>();
 
   public WebSecurityConfig(
-      ShopService shopService, SessionSynchronizationService sessionSynchronizationService) {
+      ShopService shopService,
+      SessionSynchronizationService sessionSynchronizationService,
+      SessionSecurityService sessionSecurityService,
+      RedisSessionService redisSessionService) {
     this.shopService = shopService;
     this.sessionSynchronizationService = sessionSynchronizationService;
+    this.sessionSecurityService = sessionSecurityService;
+    this.redisSessionService = redisSessionService;
   }
 
   // Rate limit info holder
@@ -270,7 +279,8 @@ public class WebSecurityConfig implements WebMvcConfigurer {
 
   @Bean
   public ShopifyAuthenticationFilter shopifyAuthenticationFilter() {
-    return new ShopifyAuthenticationFilter(shopService, sessionSynchronizationService);
+    return new ShopifyAuthenticationFilter(
+        shopService, sessionSynchronizationService, sessionSecurityService, redisSessionService);
   }
 
   @Bean
