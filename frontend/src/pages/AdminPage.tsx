@@ -322,20 +322,45 @@ const AdminPage: React.FC = () => {
     }
   };
 
+  // Admin endpoint function (simpler than fetchWithAdminAuth)
+  const fetchAdminEndpoint = async (endpoint: string) => {
+    try {
+      // Use admin authentication instead of Shopify authentication
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+      const fullUrl = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
+      
+      const response = await fetch(fullUrl, {
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Admin authentication required');
+        }
+        throw new Error(`Admin endpoint error (${endpoint}): ${response.statusText}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error(`Admin endpoint error (${endpoint}):`, error);
+      throw error;
+    }
+  };
+
   // Load session data
   const loadSessionData = async () => {
     try {
       setSessionData(prev => ({ ...prev, loading: true }));
       
-      const [activeResponse, deletedResponse, statsResponse] = await Promise.all([
-        fetchWithAdminAuth('/api/admin/active-shops'),
-        fetchWithAdminAuth('/api/admin/deleted-shops'),
-        fetchWithAdminAuth('/api/admin/session-statistics')
+      const [activeShops, deletedShops, sessionStatistics] = await Promise.all([
+        fetchAdminEndpoint('/api/admin/active-shops'),
+        fetchAdminEndpoint('/api/admin/deleted-shops'),
+        fetchAdminEndpoint('/api/admin/session-statistics')
       ]);
-
-      const activeShops = await activeResponse.json();
-      const deletedShops = await deletedResponse.json();
-      const sessionStatistics = await statsResponse.json();
 
       setSessionData({
         loading: false,
