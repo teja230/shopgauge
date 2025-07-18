@@ -1,739 +1,658 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  Box,
+  Typography,
+  TextField,
+  Button,
+  Paper,
+  Alert,
+  Snackbar,
+  CircularProgress,
+  Card,
+  CardContent,
+  Chip,
+  Container,
+  Fade,
+  Zoom,
+  Grow,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  TextField,
-  Button,
-  Typography,
-  Alert,
-  CircularProgress,
-  Box,
-  Fade,
-  Slide,
-  Zoom,
-  Grow,
+  IconButton,
+  Tooltip,
+  Divider,
+  LinearProgress,
 } from '@mui/material';
 import {
-  Lock as LockIcon,
-  Security as SecurityIcon,
   Visibility as VisibilityIcon,
   VisibilityOff as VisibilityOffIcon,
-  AccountCircle as AccountIcon,
-  Key as KeyIcon,
+  Login as LoginIcon,
+  Logout as LogoutIcon,
+  Refresh as RefreshIcon,
+  Warning as WarningIcon,
+  CheckCircle as CheckCircleIcon,
+  Error as ErrorIcon,
+  Info as InfoIcon,
+  AdminPanelSettings as AdminIcon,
+  Lock as LockIcon,
+  Security as SecurityIcon,
 } from '@mui/icons-material';
+
 import { adminLogin, adminLogout, getAdminStatus } from '../api/admin';
+import { styled } from '@mui/material/styles';
 import { useNotifications } from '../hooks/useNotifications';
+import { fetchWithAdminAuth } from '../api';
 import AdminLayout from '../components/ui/AdminLayout';
 import AdminRouter from '../components/ui/AdminRouter';
-import '../styles/admin-design-system.css';
+import { getSessionStatus } from '../utils/sessionUtils';
 
-interface AuditLog {
-  id: number;
-  shopDomain: string;
-  action: string;
-  details: string;
-  timestamp: string;
-  createdAt: string;
-  ipAddress?: string;
-  userAgent?: string;
-}
+// Styled components for modern UI
+const AdminContainer = styled(Container)(({ theme }) => ({
+  minHeight: '100vh',
+  backgroundImage: 'linear-gradient(135deg, #f1f5fb 0%, #ffffff 60%)',
+  paddingTop: theme.spacing(6),
+  paddingBottom: theme.spacing(6),
+  [theme.breakpoints.down('sm')]: {
+    paddingTop: theme.spacing(4),
+    paddingBottom: theme.spacing(4),
+  },
+}));
 
-interface ActiveShop {
-  shopDomain: string;
-  lastActivity: string;
-  ipAddress?: string;
-  userAgent?: string;
-  sessionId?: string;
-  isActive: boolean;
-  action?: string;
-  details?: string;
-  category?: string;
-  activeSessionCount?: number;
-  sessionCreatedAt?: string;
-  source?: string;
-  databaseSessionId?: string;
-}
-
-interface DeletedShop {
-  shopDomain: string;
-  lastActivity: string;
-  ipAddress?: string;
-  userAgent?: string;
-  sessionId?: string;
-  isActive: boolean;
-  action?: string;
-  details?: string;
-  category?: string;
-}
-
-// Enhanced constants for admin authentication
-const MAX_ATTEMPTS = 5;
-const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutes
-const SESSION_CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
+const LoginCard = styled(Paper)(({ theme }) => ({
+  padding: theme.spacing(4),
+  borderRadius: 20,
+  backdropFilter: 'blur(12px)',
+  background: 'rgba(255, 255, 255, 0.9)',
+  boxShadow: '0 20px 40px rgba(0,0,0,0.1)',
+  border: `1px solid ${theme.palette.divider}`,
+  maxWidth: 400,
+  width: '100%',
+}));
 
 const AdminPage: React.FC = () => {
   const navigate = useNavigate();
-  const { showSuccess, showError, showWarning } = useNotifications();
-
-  // Enhanced authentication state
+  const { addNotification } = useNotifications();
+  
+  // Authentication state
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
-  const [sessionInfo, setSessionInfo] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
+  
+  // Login form state
   const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [isLocked, setIsLocked] = useState(false);
-  const [username, setUsername] = useState('admin');
-  const [authError, setAuthError] = useState('');
-  const [attemptCount, setAttemptCount] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
-  const [lockoutEndTime, setLockoutEndTime] = useState<number | null>(null);
+  const [loginAttempts, setLoginAttempts] = useState(0);
+  const [isLocked, setIsLocked] = useState(false);
+  const [lockoutTime, setLockoutTime] = useState<Date | null>(null);
+  
+  // Admin interface state
+  const [currentSection, setCurrentSection] = useState('dashboard');
+  const [refreshing, setRefreshing] = useState(false);
+  const [breadcrumbs, setBreadcrumbs] = useState([{ label: 'Dashboard' }]);
+  
+  // Data state
+  const [dashboardData, setDashboardData] = useState({
+    loading: false,
+    metrics: [],
+    alerts: [],
+    quickActions: []
+  });
+  const [auditLogsData, setAuditLogsData] = useState({
+    auditLogs: [],
+    loading: false,
+    error: null as string | null,
+    page: 0,
+    rowsPerPage: 10,
+    totalCount: 0,
+    searchTerm: '',
+    actionFilter: '',
+    categoryFilter: '',
+    logType: 'all'
+  });
+  const [sessionData, setSessionData] = useState({
+    activeShops: [],
+    deletedShops: [],
+    sessionStatistics: null,
+    loading: false,
+    error: null as string | null
+  });
+  const [emergencyData, setEmergencyData] = useState({
+    status: null,
+    connectionLeakStatus: null,
+    loading: false,
+    error: null as string | null
+  });
 
-  // Navigation state
-  const [activeSection, setActiveSection] = useState('dashboard');
+  // Refs
+  const passwordInputRef = useRef<HTMLInputElement>(null);
+  const lockoutTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Enhanced data state with better error handling
-  const [activeShops, setActiveShops] = useState<ActiveShop[]>([]);
-  const [activeShopsLoading, setActiveShopsLoading] = useState(false);
-  const [activeShopsError, setActiveShopsError] = useState<string | null>(null);
+  // Check authentication status on mount
+  useEffect(() => {
+    checkAuthStatus();
+  }, []);
 
-  const [deletedShops, setDeletedShops] = useState<DeletedShop[]>([]);
-  const [deletedShopsLoading, setDeletedShopsLoading] = useState(false);
-  const [deletedShopsError, setDeletedShopsError] = useState<string | null>(null);
-
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
-  const [auditLogsLoading, setAuditLogsLoading] = useState(false);
-  const [auditLogsError, setAuditLogsError] = useState<string | null>(null);
-
-  const [sessionStatistics, setSessionStatistics] = useState<any>(null);
-  const [sessionStatisticsLoading, setSessionStatisticsLoading] = useState(false);
-  const [sessionStatisticsError, setSessionStatisticsError] = useState<string | null>(null);
-
-  const [emergencyStatus, setEmergencyStatus] = useState<any>(null);
-  const [connectionLeakStatus, setConnectionLeakStatus] = useState<any>(null);
-  const [emergencyLoading, setEmergencyLoading] = useState(false);
-  const [emergencyError, setEmergencyError] = useState<string | null>(null);
-
-  // Enhanced audit logs pagination state
-  const [auditPage, setAuditPage] = useState(0);
-  const [auditRowsPerPage, setAuditRowsPerPage] = useState(25);
-  const [auditTotalCount, setAuditTotalCount] = useState(0);
-  const [auditSearchTerm, setAuditSearchTerm] = useState('');
-  const [auditActionFilter, setAuditActionFilter] = useState<string>('all');
-  const [auditCategoryFilter, setAuditCategoryFilter] = useState<string>('all');
-  const [auditLogType, setAuditLogType] = useState<'all' | 'deleted' | 'active' | 'monitoring' | 'connection-leak' | 'pool-dashboard'>('all');
-
-  // Enhanced dashboard state
-  const [dashboardMetrics, setDashboardMetrics] = useState<any[]>([]);
-  const [dashboardAlerts, setDashboardAlerts] = useState<any[]>([]);
-  const [dashboardLoading, setDashboardLoading] = useState(false);
-
-  // Enhanced session expiration handler
-  const handleSessionExpired = useCallback(() => {
-    setIsAuthenticated(false);
-    setIsPasswordDialogOpen(true);
-    setSessionInfo(null);
-    setPassword('');
-    setAuthError('');
-    setAttemptCount(0);
-    setIsLocked(false);
-    setLockoutEndTime(null);
-    
-    // Clear cached data
-    sessionStorage.removeItem('admin_session_info');
-    sessionStorage.removeItem('admin_auth_status');
-    
-    showError('Admin session expired. Please log in again.', {
-      category: 'Admin Authentication',
-      persistent: true,
-      action: {
-        label: 'Login Again',
-        onClick: () => setIsPasswordDialogOpen(true)
+  // Handle lockout timer
+  useEffect(() => {
+    if (isLocked && lockoutTime) {
+      const now = new Date();
+      const timeRemaining = lockoutTime.getTime() - now.getTime();
+      
+      if (timeRemaining > 0) {
+        lockoutTimeoutRef.current = setTimeout(() => {
+          setIsLocked(false);
+          setLockoutTime(null);
+          setLoginAttempts(0);
+        }, timeRemaining);
+      } else {
+        setIsLocked(false);
+        setLockoutTime(null);
+        setLoginAttempts(0);
       }
-    });
-  }, [showError]);
+    }
 
-  // Enhanced authentication check with lockout handling
+    return () => {
+      if (lockoutTimeoutRef.current) {
+        clearTimeout(lockoutTimeoutRef.current);
+      }
+    };
+  }, [isLocked, lockoutTime]);
+
+  // Check authentication status
   const checkAuthStatus = async () => {
     try {
+      setIsLoading(true);
       const status = await getAdminStatus();
+      setIsAuthenticated(status.authenticated);
+      
       if (status.authenticated) {
-        setIsAuthenticated(true);
-        setSessionInfo(status.sessionInfo);
-        setIsPasswordDialogOpen(false);
-        setAuthError('');
-        setAttemptCount(0);
-        setIsLocked(false);
-        setLockoutEndTime(null);
-        
-        // Cache session info
-        sessionStorage.setItem('admin_session_info', JSON.stringify(status.sessionInfo));
-        sessionStorage.setItem('admin_auth_status', 'authenticated');
-        
-        showSuccess('Admin session restored successfully', {
-          category: 'Admin Authentication',
-          duration: 3000
-        });
-      } else {
-        setIsAuthenticated(false);
-        setIsPasswordDialogOpen(true);
+        addNotification('Admin authentication verified', 'success');
+        // Load initial data
+        await Promise.all([
+          loadDashboardData(),
+          loadAuditLogs(),
+          loadSessionData(),
+          loadEmergencyData()
+        ]);
       }
     } catch (error) {
-      console.error('Auth status check failed:', error);
+      console.error('Auth check failed:', error);
       setIsAuthenticated(false);
-      setIsPasswordDialogOpen(true);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // Enhanced login handler with better security
+  // Load dashboard data
+  const loadDashboardData = async () => {
+    try {
+      setDashboardData(prev => ({ ...prev, loading: true }));
+      
+      // Fetch metrics, alerts, and quick actions
+      const [metricsResponse, alertsResponse] = await Promise.all([
+        fetchWithAdminAuth('/api/admin/metrics'),
+        fetchWithAdminAuth('/api/admin/alerts')
+      ]);
+
+      const metrics = await metricsResponse.json();
+      const alerts = await alertsResponse.json();
+
+      setDashboardData({
+        loading: false,
+        metrics: metrics.metrics || [],
+        alerts: alerts.alerts || [],
+        quickActions: []
+      });
+    } catch (error) {
+      console.error('Failed to load dashboard data:', error);
+      setDashboardData(prev => ({ ...prev, loading: false, error: 'Failed to load dashboard data' }));
+    }
+  };
+
+  // Load audit logs
+  const loadAuditLogs = async () => {
+    try {
+      setAuditLogsData(prev => ({ ...prev, loading: true }));
+      
+      const response = await fetchWithAdminAuth('/api/admin/audit-logs');
+      const data = await response.json();
+
+      setAuditLogsData(prev => ({
+        ...prev,
+        loading: false,
+        auditLogs: data.audit_logs || [],
+        totalCount: data.total_count || 0
+      }));
+    } catch (error) {
+      console.error('Failed to load audit logs:', error);
+      setAuditLogsData(prev => ({ ...prev, loading: false, error: 'Failed to load audit logs' }));
+    }
+  };
+
+  // Load session data
+  const loadSessionData = async () => {
+    try {
+      setSessionData(prev => ({ ...prev, loading: true }));
+      
+      const [activeResponse, deletedResponse, statsResponse] = await Promise.all([
+        fetchWithAdminAuth('/api/admin/active-shops'),
+        fetchWithAdminAuth('/api/admin/deleted-shops'),
+        fetchWithAdminAuth('/api/admin/session-statistics')
+      ]);
+
+      const activeShops = await activeResponse.json();
+      const deletedShops = await deletedResponse.json();
+      const sessionStatistics = await statsResponse.json();
+
+      setSessionData({
+        loading: false,
+        activeShops: activeShops.shops || [],
+        deletedShops: deletedShops.shops || [],
+        sessionStatistics: sessionStatistics.statistics || null,
+        error: null
+      });
+    } catch (error) {
+      console.error('Failed to load session data:', error);
+      setSessionData(prev => ({ ...prev, loading: false, error: 'Failed to load session data' }));
+    }
+  };
+
+  // Load emergency data
+  const loadEmergencyData = async () => {
+    try {
+      setEmergencyData(prev => ({ ...prev, loading: true }));
+      
+      const response = await fetchWithAdminAuth('/api/admin/emergency-status');
+      const data = await response.json();
+
+      setEmergencyData({
+        loading: false,
+        status: data,
+        connectionLeakStatus: data.connectionLeakStatus || null,
+        error: null
+      });
+    } catch (error) {
+      console.error('Failed to load emergency data:', error);
+      setEmergencyData(prev => ({ ...prev, loading: false, error: 'Failed to load emergency data' }));
+    }
+  };
+
+  // Handle admin login
   const handleAdminLogin = async () => {
     if (isLocked) {
-      const remainingTime = lockoutEndTime ? Math.max(0, lockoutEndTime - Date.now()) : 0;
-      if (remainingTime > 0) {
-        const minutes = Math.ceil(remainingTime / 60000);
-        setAuthError(`Account is locked. Please wait ${minutes} minute${minutes > 1 ? 's' : ''} before trying again.`);
-        return;
-      } else {
-        // Lockout expired
-        setIsLocked(false);
-        setAttemptCount(0);
-        setLockoutEndTime(null);
-      }
-    }
-
-    if (!username.trim() || !password.trim()) {
-      setAuthError('Please enter both username and password.');
+      const remainingTime = lockoutTime ? Math.ceil((lockoutTime.getTime() - new Date().getTime()) / 1000) : 0;
+      addNotification(`Account is locked. Please wait ${remainingTime} seconds.`, 'error');
       return;
     }
 
-    setIsLoading(true);
-    setAuthError('');
+    if (!password.trim()) {
+      setLoginError('Password is required');
+      return;
+    }
 
     try {
-      const result = await adminLogin(username.trim(), password);
+      setLoginError(null);
+      setIsLoading(true);
       
-      if (result.success) {
+      const response = await adminLogin(password, 'admin');
+      
+      if (response.success) {
         setIsAuthenticated(true);
-        setSessionInfo(result.sessionInfo);
-        setIsPasswordDialogOpen(false);
+        setLoginAttempts(0);
         setPassword('');
-        setAuthError('');
-        setAttemptCount(0);
-        setIsLocked(false);
-        setLockoutEndTime(null);
-        
-        // Cache session info
-        sessionStorage.setItem('admin_session_info', JSON.stringify(result.sessionInfo));
-        sessionStorage.setItem('admin_auth_status', 'authenticated');
-        
-        showSuccess('Admin login successful', {
-          category: 'Admin Authentication',
-          duration: 3000
-        });
+        addNotification('Admin login successful', 'success');
         
         // Load initial data
-        handleRefresh();
+        await Promise.all([
+          loadDashboardData(),
+          loadAuditLogs(),
+          loadSessionData(),
+          loadEmergencyData()
+        ]);
       } else {
-        throw new Error(result.error || 'Login failed');
+        throw new Error(response.message || 'Login failed');
       }
     } catch (error: any) {
-      console.error('Admin login failed:', error);
+      console.error('Login error:', error);
+      const newAttempts = loginAttempts + 1;
+      setLoginAttempts(newAttempts);
       
-      const newAttemptCount = attemptCount + 1;
-      setAttemptCount(newAttemptCount);
-      
-      if (newAttemptCount >= MAX_ATTEMPTS) {
+      if (newAttempts >= 5) {
         setIsLocked(true);
-        setLockoutEndTime(Date.now() + LOCKOUT_DURATION);
-        setAuthError(`Too many failed attempts. Account locked for 15 minutes.`);
-        showWarning('Admin account locked due to multiple failed login attempts', {
-          category: 'Admin Security',
-          persistent: true
-        });
+        const lockoutEnd = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+        setLockoutTime(lockoutEnd);
+        addNotification('Account locked for 15 minutes due to multiple failed attempts', 'error');
       } else {
-        const remainingAttempts = MAX_ATTEMPTS - newAttemptCount;
-        setAuthError(`Login failed. ${remainingAttempts} attempt${remainingAttempts > 1 ? 's' : ''} remaining.`);
+        setLoginError(error.message || 'Login failed. Please try again.');
+        addNotification(`Login failed. ${5 - newAttempts} attempts remaining.`, 'error');
       }
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Enhanced logout handler
+  // Handle admin logout
   const handleAdminLogout = async () => {
     try {
-      await adminLogout();
-      showSuccess('Admin logout successful', {
-        category: 'Admin Authentication',
-        duration: 3000
-      });
-    } catch (error) {
-      console.error('Admin logout failed:', error);
-      showError('Logout failed, but session has been cleared locally', {
-        category: 'Admin Authentication'
-      });
-    } finally {
-      handleSessionExpired();
+      setLogoutError(null);
+      const response = await adminLogout();
+      
+      if (response.success) {
+        setIsAuthenticated(false);
+        setPassword('');
+        setLoginAttempts(0);
+        setIsLocked(false);
+        setLockoutTime(null);
+        addNotification('Admin logout successful', 'success');
+        navigate('/');
+      } else {
+        throw new Error(response.message || 'Logout failed');
+      }
+    } catch (error: any) {
+      console.error('Logout error:', error);
+      setLogoutError(error.message || 'Logout failed');
+      addNotification('Logout failed', 'error');
     }
   };
 
-  // Enhanced section change handler
-  const handleSectionChange = useCallback((section: string) => {
-    setActiveSection(section);
+  // Handle section change
+  const handleSectionChange = (section: string) => {
+    setCurrentSection(section);
     
-    // Show section-specific notifications
-    const sectionNotifications: Record<string, string> = {
-      'dashboard': 'Dashboard loaded',
-      'health-summary': 'System health overview',
-      'active-sessions': 'Active sessions monitoring',
-      'audit-logs': 'Audit logs viewer',
-      'security-dashboard': 'Security monitoring',
-      'comprehensive-monitoring': 'Comprehensive monitoring'
+    // Update breadcrumbs based on section
+    const sectionBreadcrumbs: Record<string, { label: string }[]> = {
+      'dashboard': [{ label: 'Dashboard' }],
+      'health-summary': [{ label: 'System Health' }, { label: 'Health Summary' }],
+      'connection-pool': [{ label: 'System Health' }, { label: 'Connection Pool' }],
+      'emergency-status': [{ label: 'System Health' }, { label: 'Emergency Status' }],
+      'active-sessions': [{ label: 'User Management' }, { label: 'Active Sessions' }],
+      'session-statistics': [{ label: 'User Management' }, { label: 'Session Statistics' }],
+      'deleted-shops': [{ label: 'User Management' }, { label: 'Deleted Shops' }],
+      'session-management': [{ label: 'User Management' }, { label: 'Session Management' }],
+      'security-dashboard': [{ label: 'Security & Audit' }, { label: 'Security Dashboard' }],
+      'rate-limiting': [{ label: 'Security & Audit' }, { label: 'Rate Limiting' }],
+      'audit-logs': [{ label: 'Security & Audit' }, { label: 'Audit Logs' }],
+      'comprehensive-monitoring': [{ label: 'Monitoring' }, { label: 'Comprehensive Monitoring' }],
+      'transaction-monitoring': [{ label: 'Monitoring' }, { label: 'Transaction Monitoring' }],
+      'sse-statistics': [{ label: 'Monitoring' }, { label: 'SSE Statistics' }],
+      'market-intelligence': [{ label: 'Market Intelligence' }],
+      'system-configuration': [{ label: 'Settings' }, { label: 'System Configuration' }],
     };
     
-    if (sectionNotifications[section]) {
-      showSuccess(sectionNotifications[section], {
-        category: 'Navigation',
-        duration: 2000
-      });
-    }
-  }, [showSuccess]);
+    setBreadcrumbs(sectionBreadcrumbs[section] || [{ label: 'Dashboard' }]);
+  };
 
-  // Enhanced refresh handler with better error handling
-  const handleRefresh = useCallback(async () => {
+  // Handle refresh
+  const handleRefresh = async () => {
+    setRefreshing(true);
     try {
       await Promise.all([
-        fetchDashboardData(),
-        fetchActiveShops(),
-        fetchDeletedShops(),
-        fetchAuditLogs(),
-        fetchSessionStatistics(),
-        checkEmergencyStatus()
+        loadDashboardData(),
+        loadAuditLogs(),
+        loadSessionData(),
+        loadEmergencyData()
       ]);
-      
-      showSuccess('All data refreshed successfully', {
-        category: 'Data Refresh',
-        duration: 3000
-      });
+      addNotification('Data refreshed successfully', 'success');
     } catch (error) {
-      console.error('Refresh failed:', error);
-      showError('Some data failed to refresh. Please try again.', {
-        category: 'Data Refresh'
-      });
+      addNotification('Failed to refresh data', 'error');
+    } finally {
+      setRefreshing(false);
     }
-  }, [showSuccess, showError]);
+  };
 
-  // Enhanced data fetching functions with better error handling
-  const fetchDashboardData = useCallback(async () => {
-    setDashboardLoading(true);
+  // Session management functions from main branch
+  const handleGetStuckSessions = async (shopDomain?: string) => {
     try {
-      const data = await fetchAdminEndpoint('/admin/dashboard');
-      setDashboardMetrics(data.metrics || []);
-      setDashboardAlerts(data.alerts || []);
+      const endpoint = shopDomain 
+        ? `/api/admin/sessions/stuck-sessions/${shopDomain}`
+        : '/api/admin/sessions/stuck-sessions';
+      
+      const response = await fetchWithAdminAuth(endpoint);
+      const data = await response.json();
+      
+      addNotification(`Found ${data.stuckSessions?.length || 0} stuck sessions`, 'info');
+      return data;
     } catch (error) {
-      console.error('Dashboard data fetch failed:', error);
-      setDashboardMetrics([]);
-      setDashboardAlerts([]);
-    } finally {
-      setDashboardLoading(false);
-    }
-  }, []);
-
-  const fetchActiveShops = useCallback(async () => {
-    setActiveShopsLoading(true);
-    setActiveShopsError(null);
-    try {
-      const data = await fetchAdminEndpoint('/admin/active-shops');
-      setActiveShops(data.shops || []);
-    } catch (error: any) {
-      console.error('Active shops fetch failed:', error);
-      setActiveShopsError(error.message || 'Failed to load active shops');
-      setActiveShops([]);
-    } finally {
-      setActiveShopsLoading(false);
-    }
-  }, []);
-
-  const fetchDeletedShops = useCallback(async () => {
-    setDeletedShopsLoading(true);
-    setDeletedShopsError(null);
-    try {
-      const data = await fetchAdminEndpoint('/admin/deleted-shops');
-      setDeletedShops(data.shops || []);
-    } catch (error: any) {
-      console.error('Deleted shops fetch failed:', error);
-      setDeletedShopsError(error.message || 'Failed to load deleted shops');
-      setDeletedShops([]);
-    } finally {
-      setDeletedShopsLoading(false);
-    }
-  }, []);
-
-  const fetchAuditLogs = useCallback(async () => {
-    setAuditLogsLoading(true);
-    setAuditLogsError(null);
-    try {
-      const params = new URLSearchParams({
-        page: auditPage.toString(),
-        size: auditRowsPerPage.toString(),
-        search: auditSearchTerm,
-        actionFilter: auditActionFilter,
-        categoryFilter: auditCategoryFilter,
-        logType: auditLogType
-      });
-      
-      const data = await fetchAdminEndpoint(`/admin/audit-logs?${params}`);
-      setAuditLogs(data.logs || []);
-      setAuditTotalCount(data.totalCount || 0);
-    } catch (error: any) {
-      console.error('Audit logs fetch failed:', error);
-      setAuditLogsError(error.message || 'Failed to load audit logs');
-      setAuditLogs([]);
-    } finally {
-      setAuditLogsLoading(false);
-    }
-  }, [auditPage, auditRowsPerPage, auditSearchTerm, auditActionFilter, auditCategoryFilter, auditLogType]);
-
-  const fetchSessionStatistics = useCallback(async () => {
-    setSessionStatisticsLoading(true);
-    setSessionStatisticsError(null);
-    try {
-      const data = await fetchAdminEndpoint('/admin/session-statistics');
-      setSessionStatistics(data);
-    } catch (error: any) {
-      console.error('Session statistics fetch failed:', error);
-      setSessionStatisticsError(error.message || 'Failed to load session statistics');
-      setSessionStatistics(null);
-    } finally {
-      setSessionStatisticsLoading(false);
-    }
-  }, []);
-
-  const checkEmergencyStatus = useCallback(async () => {
-    setEmergencyLoading(true);
-    setEmergencyError(null);
-    try {
-      const [statusData, leakData] = await Promise.all([
-        fetchAdminEndpoint('/admin/emergency-status'),
-        fetchAdminEndpoint('/admin/connection-leak-status')
-      ]);
-      setEmergencyStatus(statusData);
-      setConnectionLeakStatus(leakData);
-    } catch (error: any) {
-      console.error('Emergency status check failed:', error);
-      setEmergencyError(error.message || 'Failed to check emergency status');
-      setEmergencyStatus(null);
-      setConnectionLeakStatus(null);
-    } finally {
-      setEmergencyLoading(false);
-    }
-  }, []);
-
-  // Enhanced admin endpoint helper
-  const fetchAdminEndpoint = useCallback(async (endpoint: string) => {
-    try {
-      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
-      const fullUrl = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
-      
-      const response = await fetch(fullUrl, {
-        credentials: 'include',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error('Admin authentication required');
-        }
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Admin endpoint error: ${response.status}`);
-      }
-      
-      return await response.json();
-    } catch (error) {
-      console.error(`Admin endpoint error (${endpoint}):`, error);
+      addNotification('Error getting stuck sessions', 'error');
       throw error;
     }
-  }, []);
+  };
 
-  // Enhanced effects
-  useEffect(() => {
-    checkAuthStatus();
-  }, []);
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      const authCheckInterval = setInterval(async () => {
-        try {
-          const status = await getAdminStatus();
-          if (!status.authenticated) {
-            console.log('Admin session expired, logging out');
-            handleSessionExpired();
-          }
-        } catch (error) {
-          console.error('Periodic auth check failed:', error);
-          // Don't logout on network errors, only on auth failures
-        }
-      }, SESSION_CHECK_INTERVAL);
+  const handleClearStuckSessionsForShop = async (shopDomain: string) => {
+    if (!shopDomain.trim()) return;
+    
+    try {
+      const response = await fetchWithAdminAuth(`/api/admin/sessions/clear-stuck-sessions/${shopDomain}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
       
-      return () => clearInterval(authCheckInterval);
+      if (response.ok) {
+        const result = await response.json();
+        addNotification(`Cleared ${result.clearedCount || 0} stuck sessions for ${shopDomain}`, 'success');
+        await loadSessionData(); // Refresh session data
+      } else {
+        throw new Error('Failed to clear stuck sessions');
+      }
+    } catch (error) {
+      addNotification('Error clearing stuck sessions', 'error');
+      throw error;
     }
-  }, [isAuthenticated, handleSessionExpired]);
+  };
 
-  useEffect(() => {
-    if (!isAuthenticated) {
-      setIsPasswordDialogOpen(true);
+  const handleClearStuckSession = async (sessionId: string) => {
+    // Extract shop domain from session ID or use a default
+    const shopDomain = (sessionData.activeShops as any[]).find((shop: any) => 
+      shop.sessionId === sessionId
+    )?.shopDomain || 'unknown';
+    
+    return handleClearStuckSessionsForShop(shopDomain);
+  };
+
+  const handleCheckSessionSyncStatus = async (sessionId: string) => {
+    addNotification('Session sync status endpoint not implemented yet', 'warning');
+    throw new Error('Session sync status endpoint not implemented yet');
+  };
+
+  const handleEmergencySessionCleanup = async () => {
+    try {
+      const response = await fetchWithAdminAuth('/api/admin/sessions/emergency-cleanup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        addNotification('Emergency session cleanup completed', 'success');
+        await loadSessionData(); // Refresh session data
+        return result;
+      } else {
+        throw new Error('Emergency session cleanup failed');
+      }
+    } catch (error) {
+      addNotification('Error performing emergency session cleanup', 'error');
+      throw error;
     }
-  }, [isAuthenticated]);
+  };
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      Promise.all([
-        fetchDashboardData(),
-        fetchActiveShops(),
-        fetchDeletedShops(),
-        fetchAuditLogs(),
-        fetchSessionStatistics(),
-        checkEmergencyStatus()
-      ]);
+  const handleRefreshSessionSyncStatus = async () => {
+    console.log('Session sync status refresh requested from SessionManagementTools');
+    addNotification('Session sync status refreshed', 'info');
+  };
+
+  // Handle keyboard events
+  const handleKeyPress = (event: React.KeyboardEvent) => {
+    if (event.key === 'Enter' && !isLocked) {
+      handleAdminLogin();
     }
-  }, [activeSection, fetchDashboardData, fetchActiveShops, fetchDeletedShops, fetchAuditLogs, fetchSessionStatistics, checkEmergencyStatus]);
+  };
 
-  // Enhanced memoized data objects for AdminRouter
-  const dashboardData = useMemo(() => ({
-    loading: dashboardLoading,
-    metrics: dashboardMetrics,
-    alerts: dashboardAlerts,
-    quickActions: [
-      { label: 'Refresh All Data', action: () => handleRefresh() },
-      { label: 'View System Health', action: () => setActiveSection('health-summary') },
-      { label: 'Check Active Sessions', action: () => setActiveSection('active-sessions') },
-    ]
-  }), [dashboardLoading, dashboardMetrics, dashboardAlerts, handleRefresh]);
-
-  const auditLogsData = useMemo(() => ({
-    auditLogs,
-    loading: auditLogsLoading,
-    error: auditLogsError,
-    page: auditPage,
-    rowsPerPage: auditRowsPerPage,
-    totalCount: auditTotalCount,
-    searchTerm: auditSearchTerm,
-    actionFilter: auditActionFilter,
-    categoryFilter: auditCategoryFilter,
-    logType: auditLogType,
-    onPageChange: setAuditPage,
-    onRowsPerPageChange: setAuditRowsPerPage,
-    onSearchChange: setAuditSearchTerm,
-    onActionFilterChange: setAuditActionFilter,
-    onCategoryFilterChange: setAuditCategoryFilter,
-    onLogTypeChange: (type: string) => setAuditLogType(type as 'all' | 'deleted' | 'active' | 'monitoring' | 'connection-leak' | 'pool-dashboard'),
-    onRefresh: fetchAuditLogs,
-  }), [auditLogs, auditLogsLoading, auditLogsError, auditPage, auditRowsPerPage, auditTotalCount, auditSearchTerm, auditActionFilter, auditCategoryFilter, auditLogType, fetchAuditLogs]);
-
-  const sessionData = useMemo(() => ({
-    activeShops,
-    deletedShops,
-    sessionStatistics,
-    loading: activeShopsLoading || deletedShopsLoading || sessionStatisticsLoading,
-    error: activeShopsError || deletedShopsError || sessionStatisticsError,
-    onRefresh: () => {
-      fetchActiveShops();
-      fetchDeletedShops();
-      fetchSessionStatistics();
-    },
-  }), [activeShops, deletedShops, sessionStatistics, activeShopsLoading, deletedShopsLoading, sessionStatisticsLoading, activeShopsError, deletedShopsError, sessionStatisticsError, fetchActiveShops, fetchDeletedShops, fetchSessionStatistics]);
-
-  const emergencyData = useMemo(() => ({
-    status: emergencyStatus,
-    connectionLeakStatus,
-    loading: emergencyLoading,
-    error: emergencyError,
-    onRefresh: checkEmergencyStatus,
-    onEmergencyCleanup: () => {
-      // Implement emergency cleanup if needed
-      console.log('Emergency cleanup requested');
-    },
-  }), [emergencyStatus, connectionLeakStatus, emergencyLoading, emergencyError, checkEmergencyStatus]);
-
-  const breadcrumbs = useMemo(() => {
-    const sectionTitles: Record<string, string> = {
-      'dashboard': 'Dashboard',
-      'health-summary': 'System Health',
-      'connection-pool': 'Connection Pool',
-      'emergency-status': 'Emergency Status',
-      'active-sessions': 'Active Sessions',
-      'session-statistics': 'Session Statistics',
-      'deleted-shops': 'Deleted Shops',
-      'audit-logs': 'Audit Logs',
-      'security-dashboard': 'Security Dashboard',
-      'rate-limiting': 'Rate Limiting',
-      'transaction-monitoring': 'Transaction Monitoring',
-      'sse-statistics': 'SSE Statistics',
-      'comprehensive-monitoring': 'Monitoring',
-      'market-intelligence': 'Market Intelligence',
-      'debug-panel': 'Debug Panel',
-      'system-configuration': 'System Configuration',
-    };
-
-    return [
-      { label: 'Admin', icon: null },
-      { label: sectionTitles[activeSection] || activeSection, icon: null }
-    ];
-  }, [activeSection]);
-
-  // Enhanced login dialog with modern design
-  if (!isAuthenticated) {
+  // Show loading screen
+  if (isLoading) {
     return (
-      <Dialog 
-        open={isPasswordDialogOpen} 
-        onClose={() => {}} 
-        disableEscapeKeyDown
-        maxWidth="sm"
-        fullWidth
-        TransitionComponent={Zoom}
-        transitionDuration={300}
-      >
-        <DialogTitle sx={{ 
-          textAlign: 'center', 
-          pb: 1,
-          background: 'linear-gradient(135deg, #1976d2 0%, #1565c0 100%)',
-          color: 'white',
-          borderRadius: '12px 12px 0 0'
+      <AdminContainer>
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center', 
+          justifyContent: 'center', 
+          minHeight: '60vh' 
         }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 1 }}>
-            <SecurityIcon sx={{ fontSize: 32, mr: 1 }} />
-            <Typography variant="h5" component="div" sx={{ fontWeight: 600 }}>
-              Admin Authentication
-            </Typography>
-          </Box>
-          <Typography variant="body2" sx={{ opacity: 0.9 }}>
-            Enter your credentials to access the admin panel
+          <CircularProgress size={60} sx={{ mb: 3 }} />
+          <Typography variant="h5" color="text.secondary" gutterBottom>
+            Loading Admin Panel...
           </Typography>
-        </DialogTitle>
-        <DialogContent sx={{ pt: 3, pb: 2 }}>
-          <Box sx={{ pt: 1 }}>
-            <TextField
-              autoFocus
-              margin="dense"
-              label="Username"
-              type="text"
-              fullWidth
-              variant="outlined"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              disabled={isLoading || isLocked}
-              sx={{ mb: 3 }}
-              InputProps={{
-                startAdornment: <AccountIcon sx={{ mr: 1, color: 'text.secondary' }} />
-              }}
-            />
-            <TextField
-              margin="dense"
-              label="Password"
-              type={showPassword ? 'text' : 'password'}
-              fullWidth
-              variant="outlined"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter' && !isLoading && !isLocked) {
-                  handleAdminLogin();
-                }
-              }}
-              disabled={isLoading || isLocked}
-              sx={{ mb: 3 }}
-              InputProps={{
-                startAdornment: <KeyIcon sx={{ mr: 1, color: 'text.secondary' }} />,
-                endAdornment: (
-                  <Button
-                    onClick={() => setShowPassword(!showPassword)}
-                    sx={{ minWidth: 'auto', p: 0.5 }}
-                  >
-                    {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                  </Button>
-                )
-              }}
-            />
-            
-            {authError && (
-              <Fade in={!!authError}>
-                <Alert severity="error" sx={{ mb: 2 }}>
-                  {authError}
-                </Alert>
-              </Fade>
-            )}
-            
-            {isLocked && (
-              <Fade in={isLocked}>
-                <Alert severity="warning" sx={{ mb: 2 }}>
-                  Account locked due to too many failed attempts. Please wait 15 minutes.
-                </Alert>
-              </Fade>
-            )}
-            
-            {attemptCount > 0 && attemptCount < MAX_ATTEMPTS && !isLocked && (
-              <Fade in={attemptCount > 0}>
-                <Alert severity="info" sx={{ mb: 2 }}>
-                  {MAX_ATTEMPTS - attemptCount} attempts remaining before account lockout.
-                </Alert>
-              </Fade>
-            )}
-          </Box>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 3 }}>
-          <Button
-            onClick={handleAdminLogin}
-            variant="contained"
-            disabled={isLoading || isLocked || !username || !password}
-            startIcon={isLoading ? <CircularProgress size={20} /> : <LockIcon />}
-            fullWidth
-            size="large"
-            sx={{
-              background: 'linear-gradient(135deg, #1976d2 0%, #1565c0 100%)',
-              '&:hover': {
-                background: 'linear-gradient(135deg, #1565c0 0%, #0d47a1 100%)',
-              }
-            }}
-          >
-            {isLoading ? 'Authenticating...' : 'Login'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+          <LinearProgress sx={{ width: '100%', maxWidth: 400, mt: 2 }} />
+        </Box>
+      </AdminContainer>
     );
   }
 
-  // Enhanced main admin interface with modern layout
+  // Show login form if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <AdminContainer>
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center', 
+          justifyContent: 'center', 
+          minHeight: '80vh' 
+        }}>
+          <Fade in timeout={800}>
+            <LoginCard elevation={8}>
+              <Box sx={{ textAlign: 'center', mb: 4 }}>
+                <AdminIcon sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
+                <Typography variant="h4" gutterBottom sx={{ fontWeight: 700, color: 'text.primary' }}>
+                  Admin Panel
+                </Typography>
+                <Typography variant="body1" color="text.secondary">
+                  Enter your admin password to continue
+                </Typography>
+              </Box>
+
+              <Box sx={{ mb: 3 }}>
+                <TextField
+                  ref={passwordInputRef}
+                  fullWidth
+                  type={showPassword ? 'text' : 'password'}
+                  label="Admin Password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  disabled={isLocked}
+                  error={!!loginError}
+                  helperText={loginError}
+                  InputProps={{
+                    endAdornment: (
+                      <IconButton
+                        onClick={() => setShowPassword(!showPassword)}
+                        edge="end"
+                        disabled={isLocked}
+                      >
+                        {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                      </IconButton>
+                    ),
+                  }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                    },
+                  }}
+                />
+              </Box>
+
+              {isLocked && lockoutTime && (
+                <Alert severity="warning" sx={{ mb: 3 }}>
+                  Account locked until {lockoutTime.toLocaleTimeString()}
+                </Alert>
+              )}
+
+              <Button
+                fullWidth
+                variant="contained"
+                size="large"
+                onClick={handleAdminLogin}
+                disabled={isLocked || isLoading}
+                startIcon={isLoading ? <CircularProgress size={20} /> : <LoginIcon />}
+                sx={{
+                  borderRadius: 2,
+                  py: 1.5,
+                  fontSize: '1.1rem',
+                  fontWeight: 600,
+                  background: 'linear-gradient(135deg, #1976d2 0%, #1565c0 100%)',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #1565c0 0%, #0d47a1 100%)',
+                  },
+                }}
+              >
+                {isLoading ? 'Authenticating...' : 'Login'}
+              </Button>
+
+              {loginAttempts > 0 && !isLocked && (
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block', textAlign: 'center' }}>
+                  Failed attempts: {loginAttempts}/5
+                </Typography>
+              )}
+            </LoginCard>
+          </Fade>
+        </Box>
+      </AdminContainer>
+    );
+  }
+
+  // Show admin interface
   return (
-    <Grow in={isAuthenticated} timeout={500}>
-      <div>
-        <AdminLayout
-          currentSection={activeSection}
-          onSectionChange={handleSectionChange}
-          breadcrumbs={breadcrumbs}
-          onRefresh={handleRefresh}
-          refreshing={dashboardLoading || auditLogsLoading || activeShopsLoading || sessionStatisticsLoading || emergencyLoading}
-          user={{
-            username: sessionInfo?.username || 'admin',
-            role: 'Administrator',
-            lastLogin: sessionInfo?.lastLogin ? new Date(sessionInfo.lastLogin) : undefined,
-          }}
-          onLogout={handleAdminLogout}
-        >
-          <AdminRouter
-            activeSection={activeSection}
-            dashboardData={dashboardData}
-            auditLogsData={auditLogsData}
-            sessionData={sessionData}
-            emergencyData={emergencyData}
-          />
-        </AdminLayout>
-      </div>
-    </Grow>
+    <AdminLayout
+      currentSection={currentSection}
+      onSectionChange={handleSectionChange}
+      breadcrumbs={breadcrumbs}
+      onRefresh={handleRefresh}
+      refreshing={refreshing}
+      user={{ username: 'Admin', role: 'Administrator' }}
+      onLogout={handleAdminLogout}
+    >
+      <AdminRouter
+        activeSection={currentSection}
+        dashboardData={dashboardData}
+        auditLogsData={{
+          ...auditLogsData,
+          onPageChange: (page: number) => setAuditLogsData(prev => ({ ...prev, page })),
+          onRowsPerPageChange: (rowsPerPage: number) => setAuditLogsData(prev => ({ ...prev, rowsPerPage })),
+          onSearchChange: (search: string) => setAuditLogsData(prev => ({ ...prev, searchTerm: search })),
+          onActionFilterChange: (filter: string) => setAuditLogsData(prev => ({ ...prev, actionFilter: filter })),
+          onCategoryFilterChange: (filter: string) => setAuditLogsData(prev => ({ ...prev, categoryFilter: filter })),
+          onLogTypeChange: (type: string) => setAuditLogsData(prev => ({ ...prev, logType: type })),
+          onRefresh: loadAuditLogs
+        }}
+        sessionData={{
+          ...sessionData,
+          onRefresh: loadSessionData,
+          onClearStuckSession: handleClearStuckSession,
+          onClearStuckSessionsForShop: handleClearStuckSessionsForShop,
+          onGetStuckSessions: handleGetStuckSessions,
+          onEmergencySessionCleanup: handleEmergencySessionCleanup,
+          onCheckSessionSyncStatus: handleCheckSessionSyncStatus,
+          onRefreshSessionSyncStatus: handleRefreshSessionSyncStatus
+        }}
+        emergencyData={{
+          ...emergencyData,
+          onRefresh: loadEmergencyData,
+          onEmergencyCleanup: async () => {
+            try {
+              await fetchWithAdminAuth('/api/admin/emergency-cleanup', { method: 'POST' });
+              addNotification('Emergency cleanup completed', 'success');
+              await loadEmergencyData();
+            } catch (error) {
+              addNotification('Emergency cleanup failed', 'error');
+            }
+          }
+        }}
+      />
+    </AdminLayout>
   );
 };
 

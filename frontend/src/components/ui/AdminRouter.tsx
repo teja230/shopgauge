@@ -1,32 +1,33 @@
-import React, { Suspense, lazy, memo, useMemo, useCallback } from 'react';
-import { Box, Typography, Alert, CircularProgress } from '@mui/material';
-import {
-  Visibility as VisibilityIcon,
-  Delete as DeleteIcon,
-  Security as SecurityIcon,
-  CheckCircle as CheckCircleIcon,
-  Store as StoreIcon,
-  Settings as SettingsIcon,
-  Info as InfoIcon,
-} from '@mui/icons-material';
-import { ModernDataTable } from './ModernDataTable';
-import SkeletonLoaders from './SkeletonLoaders';
+import React, { Suspense, lazy } from 'react';
+import { Box, Typography, CircularProgress } from '@mui/material';
+import DashboardOverview from './DashboardOverview';
+import EnhancedHealthSummary from './EnhancedHealthSummary';
+import ConnectionPoolDashboard from './ConnectionPoolDashboard';
+import TransactionMonitoring from './TransactionMonitoring';
+import SecurityDashboard from './SecurityDashboard';
+import SessionSecurityManager from './SessionSecurityManager';
+import RateLimitManager from './RateLimitManager';
+import SuspiciousActivityMonitor from './SuspiciousActivityMonitor';
+import MarketIntelligenceDashboard from './MarketIntelligenceDashboard';
+import SseStatsCard from './SseStatsCard';
+import ComprehensiveMonitoringDashboard from './ComprehensiveMonitoringDashboard';
+import AdminSessionManager from './AdminSessionManager';
+import SessionManagementTools from './SessionManagementTools';
+import ModernDataTable from './ModernDataTable';
+import RefreshHeader from './RefreshHeader';
 
-// Lazy load admin components for better performance
-const DashboardOverview = lazy(() => import('./DashboardOverview'));
-const EnhancedHealthSummary = lazy(() => import('./EnhancedHealthSummary'));
-const ComprehensiveMonitoringDashboard = lazy(() => import('./ComprehensiveMonitoringDashboard'));
-const ConnectionPoolDashboard = lazy(() => import('./ConnectionPoolDashboard'));
-const TransactionMonitoring = lazy(() => import('./TransactionMonitoring'));
-const SecurityDashboard = lazy(() => import('./SecurityDashboard'));
-const MarketIntelligenceDashboard = lazy(() => import('./MarketIntelligenceDashboard'));
-const AdminSessionManager = lazy(() => import('./AdminSessionManager'));
-const SessionManagementTools = lazy(() => import('./SessionManagementTools'));
+// Lazy load components for better performance
 const DebugPanel = lazy(() => import('./DebugPanel'));
-const SseStatsCard = lazy(() => import('./SseStatsCard'));
-const SessionSecurityManager = lazy(() => import('./SessionSecurityManager'));
-const RateLimitManager = lazy(() => import('./RateLimitManager'));
-const SuspiciousActivityMonitor = lazy(() => import('./SuspiciousActivityMonitor'));
+
+// Loading fallback component
+const LoadingFallback = ({ title }: { title: string }) => (
+  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 4 }}>
+    <CircularProgress size={40} sx={{ mb: 2 }} />
+    <Typography variant="h6" color="text.secondary">
+      Loading {title}...
+    </Typography>
+  </Box>
+);
 
 interface AdminRouterProps {
   activeSection: string;
@@ -63,6 +64,12 @@ interface AdminRouterProps {
     loading: boolean;
     error: string | null;
     onRefresh: () => void;
+    onClearStuckSession?: (sessionId: string) => Promise<void>;
+    onClearStuckSessionsForShop?: (shopDomain: string) => Promise<void>;
+    onGetStuckSessions?: (shopDomain?: string) => Promise<any>;
+    onEmergencySessionCleanup?: () => Promise<void>;
+    onCheckSessionSyncStatus?: (sessionId: string) => Promise<void>;
+    onRefreshSessionSyncStatus?: () => Promise<void>;
   };
   emergencyData?: {
     status: any;
@@ -74,84 +81,88 @@ interface AdminRouterProps {
   };
 }
 
-const AdminRouter: React.FC<AdminRouterProps> = memo(({
+const AdminRouter = React.memo<AdminRouterProps>(({
   activeSection,
   dashboardData,
   auditLogsData,
   sessionData,
   emergencyData,
 }) => {
-  // Memoize action categories to prevent recreation on every render
-  const actionCategories = useMemo(() => ({
-    'DATA_ACCESS': { label: 'Data Access', color: '#1976d2', bgColor: '#e3f2fd', icon: <VisibilityIcon /> },
-    'DATA_DELETION': { label: 'Data Deletion', color: '#d32f2f', bgColor: '#ffebee', icon: <DeleteIcon /> },
-    'AUTHENTICATION': { label: 'Authentication', color: '#ed6c02', bgColor: '#fff3e0', icon: <SecurityIcon /> },
-    'COMPLIANCE': { label: 'Compliance', color: '#2e7d32', bgColor: '#e8f5e8', icon: <CheckCircleIcon /> },
-    'SHOP_OPERATIONS': { label: 'Shop Operations', color: '#0288d1', bgColor: '#e1f5fe', icon: <StoreIcon /> },
-    'SYSTEM': { label: 'System', color: '#5e35b1', bgColor: '#f3e5f5', icon: <SettingsIcon /> },
-  }), []);
+  // Helper functions for audit logs
+  const getActionBgColor = (action: string) => {
+    const actionColors: Record<string, string> = {
+      'shop_deleted': '#ffebee',
+      'shop_created': '#e8f5e8',
+      'session_started': '#e3f2fd',
+      'session_ended': '#fff3e0',
+      'login_attempt': '#f3e5f5',
+      'logout': '#fce4ec',
+      'data_export': '#e0f2f1',
+      'settings_changed': '#fff8e1',
+      'emergency_cleanup': '#ffebee',
+      'connection_leak_detected': '#ffebee',
+      'rate_limit_exceeded': '#fff3e0',
+      'security_alert': '#ffebee',
+    };
+    return actionColors[action] || '#f5f5f5';
+  };
 
-  // Memoize action category functions to prevent recreation
-  const getActionCategory = useCallback((action: string) => {
-    if (action.includes('DATA_ACCESS') || action.includes('REVENUE_DATA') || action.includes('ORDER_DATA')) {
-      return 'DATA_ACCESS';
-    } else if (action.includes('DELETE') || action.includes('DELETION')) {
-      return 'DATA_DELETION';  
-    } else if (action.includes('AUTH') || action.includes('LOGIN') || action.includes('LOGOUT')) {
-      return 'AUTHENTICATION';
-    } else if (action.includes('COMPLIANCE') || action.includes('PRIVACY')) {
-      return 'COMPLIANCE';
-    } else if (action.includes('SHOP') || action.includes('TOKEN')) {
-      return 'SHOP_OPERATIONS';
-    } else {
-      return 'SYSTEM';
-    }
-  }, []);
+  const getActionColor = (action: string) => {
+    const actionColors: Record<string, string> = {
+      'shop_deleted': '#d32f2f',
+      'shop_created': '#2e7d32',
+      'session_started': '#1976d2',
+      'session_ended': '#ed6c02',
+      'login_attempt': '#7b1fa2',
+      'logout': '#c2185b',
+      'data_export': '#00695c',
+      'settings_changed': '#f57c00',
+      'emergency_cleanup': '#d32f2f',
+      'connection_leak_detected': '#d32f2f',
+      'rate_limit_exceeded': '#ed6c02',
+      'security_alert': '#d32f2f',
+    };
+    return actionColors[action] || '#616161';
+  };
 
-  const getActionColor = useCallback((action: string) => {
-    const category = getActionCategory(action);
-    return actionCategories[category as keyof typeof actionCategories]?.color || '#616161';
-  }, [actionCategories, getActionCategory]);
-
-  const getActionBgColor = useCallback((action: string) => {
-    const category = getActionCategory(action);
-    return actionCategories[category as keyof typeof actionCategories]?.bgColor || '#f5f5f5';
-  }, [actionCategories, getActionCategory]);
-
-  const getActionIcon = useCallback((action: string) => {
-    const category = getActionCategory(action);
-    return actionCategories[category as keyof typeof actionCategories]?.icon || <InfoIcon />;
-  }, [actionCategories, getActionCategory]);
-
-  // Memoize loading fallback component for lazy-loaded sections
-  const LoadingFallback = memo(({ title }: { title?: string }) => (
-    <Box>
-      {title && (
-        <Typography variant="h5" gutterBottom sx={{ mb: 3 }}>
-          {title}
-        </Typography>
-      )}
-      <SkeletonLoaders.AdminSection />
-    </Box>
-  ));
+  const getActionIcon = (action: string) => {
+    const actionIcons: Record<string, string> = {
+      'shop_deleted': '🗑️',
+      'shop_created': '➕',
+      'session_started': '🔗',
+      'session_ended': '🔌',
+      'login_attempt': '🔐',
+      'logout': '🚪',
+      'data_export': '📊',
+      'settings_changed': '⚙️',
+      'emergency_cleanup': '🚨',
+      'connection_leak_detected': '💧',
+      'rate_limit_exceeded': '⏱️',
+      'security_alert': '🛡️',
+    };
+    return actionIcons[action] || '📝';
+  };
 
   const renderContent = () => {
     switch (activeSection) {
       case 'dashboard':
         return (
-          <Suspense fallback={<LoadingFallback />}>
-            <DashboardOverview
+          <Box>
+            <Typography variant="h5" gutterBottom sx={{ mb: 3 }}>
+              Dashboard Overview
+            </Typography>
+            <DashboardOverview 
               loading={dashboardData?.loading || false}
               metrics={dashboardData?.metrics || []}
               alerts={dashboardData?.alerts || []}
               quickActions={dashboardData?.quickActions || []}
             />
-          </Suspense>
+          </Box>
         );
 
       case 'health-summary':
         return (
-          <Suspense fallback={<LoadingFallback title="System Health Summary" />}>
+          <Suspense fallback={<LoadingFallback title="System Health" />}>
             <Box>
               <Typography variant="h5" gutterBottom sx={{ mb: 3 }}>
                 System Health Summary
@@ -175,272 +186,384 @@ const AdminRouter: React.FC<AdminRouterProps> = memo(({
 
       case 'emergency-status':
         return (
-          <Box>
-            <Typography variant="h5" gutterBottom sx={{ mb: 3 }}>
-              Emergency Status
-            </Typography>
-            {emergencyData?.status && (
-              <Alert 
-                severity={emergencyData.status.status === 'healthy' ? 'success' : 'warning'}
-                sx={{ mb: 2 }}
-              >
-                System Status: {emergencyData.status.status}
-              </Alert>
-            )}
-            {emergencyData?.connectionLeakStatus && (
-              <Box sx={{ mt: 2 }}>
-                <Typography variant="h6" gutterBottom>
-                  Connection Leak Status
+          <Suspense fallback={<LoadingFallback title="Emergency Status" />}>
+            <Box>
+              <Typography variant="h5" gutterBottom sx={{ mb: 3 }}>
+                Emergency Status
+              </Typography>
+              {emergencyData ? (
+                <Box>
+                  <Box sx={{ mb: 3 }}>
+                                         <RefreshHeader
+                       lastUpdated={emergencyData.status?.lastUpdated || 'Never'}
+                       onRefresh={emergencyData.onRefresh}
+                       loading={emergencyData.loading}
+                       label="Refresh Emergency Status"
+                       tooltip="Refresh emergency status"
+                       cooldown={false}
+                       cooldownRemaining={0}
+                     />
+                  </Box>
+                  {emergencyData.error && (
+                    <Typography color="error" sx={{ mb: 2 }}>
+                      {emergencyData.error}
+                    </Typography>
+                  )}
+                  {emergencyData.status && (
+                    <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                      <Box sx={{ flex: '1 1 300px' }}>
+                        <Typography variant="h6" gutterBottom>
+                          Emergency Mode: {emergencyData.status.emergencyMode ? 'ACTIVE' : 'Inactive'}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Pool Usage: {emergencyData.status.database?.activeUsagePercent ?? 0}%
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Active Connections: {emergencyData.status.database?.activeConnections ?? 0} / {emergencyData.status.database?.maxPoolSize ?? 20}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  )}
+                </Box>
+              ) : (
+                <Typography variant="body1" color="text.secondary">
+                  Emergency status data will be displayed here.
                 </Typography>
-                <Alert 
-                  severity={emergencyData.connectionLeakStatus.status === 'healthy' ? 'success' : 'error'}
-                  sx={{ mb: 2 }}
-                >
-                  {emergencyData.connectionLeakStatus.message || 'Connection monitoring active'}
-                </Alert>
-              </Box>
-            )}
-          </Box>
+              )}
+            </Box>
+          </Suspense>
         );
 
       case 'active-sessions':
         return (
-          <Box>
-            <Typography variant="h5" gutterBottom>
-              Active Sessions
-            </Typography>
-            {sessionData ? (
-              <ModernDataTable
-                data={sessionData.activeShops}
-                columns={[
-                  {
-                    id: 'shopDomain',
-                    label: 'Shop Domain',
-                    minWidth: 200,
-                    sortable: true,
-                    filterable: true,
-                  },
-                  {
-                    id: 'lastActivity',
-                    label: 'Last Activity',
-                    minWidth: 180,
-                    sortable: true,
-                    format: (value) => new Date(value).toLocaleString(),
-                  },
-                  {
-                    id: 'sessionId',
-                    label: 'Session ID',
-                    minWidth: 150,
-                    render: (value) => value ? value.substring(0, 8) + '...' : 'N/A',
-                  },
-                  {
-                    id: 'ipAddress',
-                    label: 'IP Address',
-                    minWidth: 120,
-                    filterable: true,
-                  },
-                  {
-                    id: 'userAgent',
-                    label: 'User Agent',
-                    minWidth: 200,
-                    render: (value) => value ? value.substring(0, 50) + '...' : 'N/A',
-                  },
-                ]}
-                loading={sessionData.loading}
-                error={sessionData.error}
-                searchable={true}
-                filterable={true}
-                searchPlaceholder="Search active sessions..."
-                emptyMessage="No active sessions found"
-                stickyHeader={true}
-                hoverable={true}
-                maxHeight={600}
-              />
-            ) : (
-              <Typography variant="body1" color="text.secondary">
-                Active sessions data will be displayed here.
+          <Suspense fallback={<LoadingFallback title="Active Sessions" />}>
+            <Box>
+              <Typography variant="h5" gutterBottom sx={{ mb: 3 }}>
+                Active Sessions
               </Typography>
-            )}
-          </Box>
+              {sessionData ? (
+                <Box>
+                  <Box sx={{ mb: 3 }}>
+                                         <RefreshHeader
+                       lastUpdated={sessionData.activeShops?.length ? 'Just now' : 'Never'}
+                       onRefresh={sessionData.onRefresh}
+                       loading={sessionData.loading}
+                       label="Refresh Active Sessions"
+                       tooltip="Refresh active sessions"
+                       cooldown={false}
+                       cooldownRemaining={0}
+                     />
+                  </Box>
+                  {sessionData.error && (
+                    <Typography color="error" sx={{ mb: 2 }}>
+                      {sessionData.error}
+                    </Typography>
+                  )}
+                  {sessionData.activeShops && sessionData.activeShops.length > 0 ? (
+                    <ModernDataTable
+                      data={sessionData.activeShops}
+                      columns={[
+                        {
+                          id: 'shopDomain',
+                          label: 'Shop Domain',
+                          minWidth: 200,
+                          sortable: true,
+                          filterable: true,
+                        },
+                        {
+                          id: 'lastActivity',
+                          label: 'Last Activity',
+                          minWidth: 150,
+                          sortable: true,
+                          render: (value) => new Date(value).toLocaleString(),
+                        },
+                        {
+                          id: 'ipAddress',
+                          label: 'IP Address',
+                          minWidth: 120,
+                          filterable: true,
+                        },
+                        {
+                          id: 'activeSessionCount',
+                          label: 'Session Count',
+                          minWidth: 100,
+                          sortable: true,
+                          render: (value) => value || 1,
+                        },
+                        {
+                          id: 'isActive',
+                          label: 'Status',
+                          minWidth: 100,
+                          render: (value) => (
+                            <Box
+                              sx={{
+                                px: 1.5,
+                                py: 0.5,
+                                borderRadius: 1,
+                                fontSize: '0.75rem',
+                                fontWeight: 600,
+                                backgroundColor: value ? '#e8f5e8' : '#f5f5f5',
+                                color: value ? '#2e7d32' : '#616161',
+                              }}
+                            >
+                              {value ? 'Active' : 'Inactive'}
+                            </Box>
+                          ),
+                        },
+                      ]}
+                      loading={sessionData.loading}
+                      error={sessionData.error}
+                      searchable={true}
+                      filterable={true}
+                      searchPlaceholder="Search active sessions..."
+                      emptyMessage="No active sessions found"
+                      stickyHeader={true}
+                      hoverable={true}
+                      dense={true}
+                    />
+                  ) : (
+                    <Typography variant="body1" color="text.secondary">
+                      No active sessions found.
+                    </Typography>
+                  )}
+                </Box>
+              ) : (
+                <Typography variant="body1" color="text.secondary">
+                  Active sessions data will be displayed here.
+                </Typography>
+              )}
+            </Box>
+          </Suspense>
         );
 
       case 'session-statistics':
         return (
-          <Box>
-            <Typography variant="h5" gutterBottom sx={{ mb: 3 }}>
-              Session Statistics
-            </Typography>
-            {sessionData?.loading ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-                <CircularProgress />
-              </Box>
-            ) : (
-              <Box>
-                {sessionData?.sessionStatistics && (
-                  <Box sx={{ mt: 3 }}>
-                    <Suspense fallback={<SkeletonLoaders.AdminSection />}>
-                      <AdminSessionManager />
-                    </Suspense>
+          <Suspense fallback={<LoadingFallback title="Session Statistics" />}>
+            <Box>
+              <Typography variant="h5" gutterBottom sx={{ mb: 3 }}>
+                Session Statistics
+              </Typography>
+              {sessionData?.sessionStatistics ? (
+                <Box>
+                  <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap', mb: 3 }}>
+                    <Box sx={{ flex: '1 1 200px', p: 2, bgcolor: 'background.paper', borderRadius: 2, border: 1, borderColor: 'divider' }}>
+                      <Typography variant="h6" color="primary.main">
+                        {sessionData.sessionStatistics.totalActiveSessions || 0}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Total Sessions
+                      </Typography>
+                    </Box>
+                    <Box sx={{ flex: '1 1 200px', p: 2, bgcolor: 'background.paper', borderRadius: 2, border: 1, borderColor: 'divider' }}>
+                      <Typography variant="h6" color="success.main">
+                        {sessionData.sessionStatistics.currentlyActiveSessions || 0}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Currently Active
+                      </Typography>
+                    </Box>
+                    <Box sx={{ flex: '1 1 200px', p: 2, bgcolor: 'background.paper', borderRadius: 2, border: 1, borderColor: 'divider' }}>
+                      <Typography variant="h6" color="info.main">
+                        {sessionData.sessionStatistics.uniqueShops || 0}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Unique Shops
+                      </Typography>
+                    </Box>
                   </Box>
-                )}
-                <Typography variant="body1" color="text.secondary" sx={{ mt: 2 }}>
-                  Session management tools will be integrated here.
+                </Box>
+              ) : (
+                <Typography variant="body1" color="text.secondary">
+                  Session statistics will be displayed here.
                 </Typography>
-              </Box>
-            )}
-          </Box>
+              )}
+            </Box>
+          </Suspense>
         );
 
       case 'deleted-shops':
         return (
-          <Box>
-            <Typography variant="h5" gutterBottom>
-              Deleted Shops
-            </Typography>
-            {sessionData ? (
-              <ModernDataTable
-                data={sessionData.deletedShops}
-                columns={[
-                  {
-                    id: 'shopDomain',
-                    label: 'Shop Domain',
-                    minWidth: 200,
-                    sortable: true,
-                    filterable: true,
-                  },
-                  {
-                    id: 'lastActivity',
-                    label: 'Last Activity',
-                    minWidth: 180,
-                    sortable: true,
-                    format: (value) => new Date(value).toLocaleString(),
-                  },
-                  {
-                    id: 'action',
-                    label: 'Action',
-                    minWidth: 150,
-                    sortable: true,
-                    filterable: true,
-                  },
-                  {
-                    id: 'details',
-                    label: 'Details',
-                    minWidth: 300,
-                    filterable: true,
-                  },
-                ]}
-                loading={sessionData.loading}
-                error={sessionData.error}
-                searchable={true}
-                filterable={true}
-                searchPlaceholder="Search deleted shops..."
-                emptyMessage="No deleted shops found"
-                stickyHeader={true}
-                hoverable={true}
-                striped={true}
-                maxHeight={600}
-              />
-            ) : (
-              <Typography variant="body1" color="text.secondary">
-                Deleted shops data will be displayed here.
+          <Suspense fallback={<LoadingFallback title="Deleted Shops" />}>
+            <Box>
+              <Typography variant="h5" gutterBottom sx={{ mb: 3 }}>
+                Deleted Shops
               </Typography>
-            )}
-          </Box>
+              {sessionData ? (
+                <Box>
+                  {sessionData.error && (
+                    <Typography color="error" sx={{ mb: 2 }}>
+                      {sessionData.error}
+                    </Typography>
+                  )}
+                  {sessionData.deletedShops && sessionData.deletedShops.length > 0 ? (
+                    <ModernDataTable
+                      data={sessionData.deletedShops}
+                      columns={[
+                        {
+                          id: 'shopDomain',
+                          label: 'Shop Domain',
+                          minWidth: 200,
+                          sortable: true,
+                          filterable: true,
+                        },
+                        {
+                          id: 'lastActivity',
+                          label: 'Last Activity',
+                          minWidth: 150,
+                          sortable: true,
+                          render: (value) => new Date(value).toLocaleString(),
+                        },
+                        {
+                          id: 'ipAddress',
+                          label: 'IP Address',
+                          minWidth: 120,
+                          filterable: true,
+                        },
+                      ]}
+                      loading={sessionData.loading}
+                      error={sessionData.error}
+                      searchable={true}
+                      filterable={true}
+                      searchPlaceholder="Search deleted shops..."
+                      emptyMessage="No deleted shops found"
+                      stickyHeader={true}
+                      hoverable={true}
+                      dense={true}
+                    />
+                  ) : (
+                    <Typography variant="body1" color="text.secondary">
+                      No deleted shops found.
+                    </Typography>
+                  )}
+                </Box>
+              ) : (
+                <Typography variant="body1" color="text.secondary">
+                  Deleted shops data will be displayed here.
+                </Typography>
+              )}
+            </Box>
+          </Suspense>
         );
 
       case 'audit-logs':
         return (
-          <Box>
-            <Typography variant="h5" gutterBottom sx={{ mb: 3 }}>
-              Audit Logs
-            </Typography>
-            {auditLogsData ? (
-              <ModernDataTable
-                data={auditLogsData.auditLogs}
-                columns={[
-                  {
-                    id: 'timestamp',
-                    label: 'Time',
-                    minWidth: 180,
-                    sortable: true,
-                    format: (value) => new Date(value).toLocaleString(),
-                  },
-                  {
-                    id: 'action',
-                    label: 'Action',
-                    minWidth: 200,
-                    sortable: true,
-                    filterable: true,
-                    render: (value) => (
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Box
-                          sx={{
-                            px: 1.5,
-                            py: 0.5,
-                            borderRadius: 1,
-                            fontSize: '0.75rem',
-                            fontWeight: 600,
-                            backgroundColor: getActionBgColor(value),
-                            color: getActionColor(value),
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 0.5,
-                          }}
-                        >
-                          {getActionIcon(value)}
-                          {value}
-                        </Box>
-                      </Box>
-                    ),
-                  },
-                  {
-                    id: 'shopDomain',
-                    label: 'Shop',
-                    minWidth: 200,
-                    sortable: true,
-                    filterable: true,
-                  },
-                  {
-                    id: 'details',
-                    label: 'Details',
-                    minWidth: 300,
-                    filterable: true,
-                    render: (value) => (
-                      <Box sx={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {value}
-                      </Box>
-                    ),
-                  },
-                  {
-                    id: 'ipAddress',
-                    label: 'IP Address',
-                    minWidth: 120,
-                    filterable: true,
-                  },
-                ]}
-                loading={auditLogsData.loading}
-                error={auditLogsData.error}
-                searchable={true}
-                filterable={true}
-                pagination={{
-                  page: auditLogsData.page,
-                  rowsPerPage: auditLogsData.rowsPerPage,
-                  totalCount: auditLogsData.totalCount,
-                  onPageChange: auditLogsData.onPageChange,
-                  onRowsPerPageChange: auditLogsData.onRowsPerPageChange,
-                }}
-                searchPlaceholder="Search audit logs..."
-                emptyMessage="No audit logs found"
-                stickyHeader={true}
-                hoverable={true}
-                dense={true}
-              />
-            ) : (
-              <Typography variant="body1" color="text.secondary">
-                Audit logs data will be displayed here.
+          <Suspense fallback={<LoadingFallback title="Audit Logs" />}>
+            <Box>
+              <Typography variant="h5" gutterBottom sx={{ mb: 3 }}>
+                Audit Logs
               </Typography>
-            )}
-          </Box>
+              {auditLogsData ? (
+                <Box>
+                  <Box sx={{ mb: 3 }}>
+                                         <RefreshHeader
+                       lastUpdated={auditLogsData.auditLogs?.length ? 'Just now' : 'Never'}
+                       onRefresh={auditLogsData.onRefresh}
+                       loading={auditLogsData.loading}
+                       label="Refresh Audit Logs"
+                       tooltip="Refresh audit logs"
+                       cooldown={false}
+                       cooldownRemaining={0}
+                     />
+                  </Box>
+                  {auditLogsData.error && (
+                    <Typography color="error" sx={{ mb: 2 }}>
+                      {auditLogsData.error}
+                    </Typography>
+                  )}
+                  {auditLogsData.auditLogs && auditLogsData.auditLogs.length > 0 ? (
+                    <ModernDataTable
+                      data={auditLogsData.auditLogs}
+                      columns={[
+                        {
+                          id: 'timestamp',
+                          label: 'Timestamp',
+                          minWidth: 150,
+                          sortable: true,
+                          format: (value) => new Date(value).toLocaleString(),
+                        },
+                        {
+                          id: 'action',
+                          label: 'Action',
+                          minWidth: 200,
+                          sortable: true,
+                          filterable: true,
+                          render: (value) => (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Box
+                                sx={{
+                                  px: 1.5,
+                                  py: 0.5,
+                                  borderRadius: 1,
+                                  fontSize: '0.75rem',
+                                  fontWeight: 600,
+                                  backgroundColor: getActionBgColor(value),
+                                  color: getActionColor(value),
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 0.5,
+                                }}
+                              >
+                                {getActionIcon(value)}
+                                {value}
+                              </Box>
+                            </Box>
+                          ),
+                        },
+                        {
+                          id: 'shopDomain',
+                          label: 'Shop',
+                          minWidth: 200,
+                          sortable: true,
+                          filterable: true,
+                        },
+                        {
+                          id: 'details',
+                          label: 'Details',
+                          minWidth: 300,
+                          filterable: true,
+                          render: (value) => (
+                            <Box sx={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {value}
+                            </Box>
+                          ),
+                        },
+                        {
+                          id: 'ipAddress',
+                          label: 'IP Address',
+                          minWidth: 120,
+                          filterable: true,
+                        },
+                      ]}
+                      loading={auditLogsData.loading}
+                      error={auditLogsData.error}
+                      searchable={true}
+                      filterable={true}
+                      pagination={{
+                        page: auditLogsData.page,
+                        rowsPerPage: auditLogsData.rowsPerPage,
+                        totalCount: auditLogsData.totalCount,
+                        onPageChange: auditLogsData.onPageChange,
+                        onRowsPerPageChange: auditLogsData.onRowsPerPageChange,
+                      }}
+                      searchPlaceholder="Search audit logs..."
+                      emptyMessage="No audit logs found"
+                      stickyHeader={true}
+                      hoverable={true}
+                      dense={true}
+                    />
+                  ) : (
+                    <Typography variant="body1" color="text.secondary">
+                      Audit logs data will be displayed here.
+                    </Typography>
+                  )}
+                </Box>
+              ) : (
+                <Typography variant="body1" color="text.secondary">
+                  Audit logs data will be displayed here.
+                </Typography>
+              )}
+            </Box>
+          </Suspense>
         );
 
       case 'security-dashboard':
@@ -521,6 +644,40 @@ const AdminRouter: React.FC<AdminRouterProps> = memo(({
           </Suspense>
         );
 
+      case 'session-management':
+        return (
+          <Suspense fallback={<LoadingFallback title="Session Management" />}>
+            <Box>
+              <Typography variant="h5" gutterBottom sx={{ mb: 3 }}>
+                Session Management
+              </Typography>
+              <AdminSessionManager />
+              <Box sx={{ mt: 3 }}>
+                                 <SessionManagementTools
+                   onClearStuckSession={sessionData?.onClearStuckSession || (async (sessionId: string) => {
+                     console.log('Clear stuck session:', sessionId);
+                   })}
+                   onClearStuckSessionsForShop={sessionData?.onClearStuckSessionsForShop || (async (shopDomain: string) => {
+                     console.log('Clear stuck sessions for shop:', shopDomain);
+                   })}
+                   onGetStuckSessions={sessionData?.onGetStuckSessions || (async (shopDomain?: string) => {
+                     console.log('Get stuck sessions:', shopDomain);
+                   })}
+                   onEmergencySessionCleanup={sessionData?.onEmergencySessionCleanup || (async () => {
+                     console.log('Emergency session cleanup');
+                   })}
+                   onCheckSessionSyncStatus={sessionData?.onCheckSessionSyncStatus || (async (sessionId: string) => {
+                     console.log('Check session sync status:', sessionId);
+                   })}
+                   onRefreshSessionSyncStatus={sessionData?.onRefreshSessionSyncStatus || (async () => {
+                     console.log('Refresh session sync status');
+                   })}
+                 />
+              </Box>
+            </Box>
+          </Suspense>
+        );
+
       case 'debug-panel':
         return (
           <Suspense fallback={<LoadingFallback title="Debug Panel" />}>
@@ -534,10 +691,43 @@ const AdminRouter: React.FC<AdminRouterProps> = memo(({
       case 'system-configuration':
         return (
           <Box>
-            <Typography variant="h5" gutterBottom>
+            <Typography variant="h5" gutterBottom sx={{ mb: 3 }}>
               System Configuration
             </Typography>
-            {/* Add system configuration components here */}
+            <Box sx={{ p: 3, bgcolor: 'background.paper', borderRadius: 2, border: 1, borderColor: 'divider' }}>
+              <Typography variant="h6" gutterBottom>
+                Environment Configuration
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                System configuration options will be displayed here.
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                <Box sx={{ flex: '1 1 300px', p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
+                  <Typography variant="subtitle2" gutterBottom>
+                    API Configuration
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Configure API endpoints and authentication settings.
+                  </Typography>
+                </Box>
+                <Box sx={{ flex: '1 1 300px', p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
+                  <Typography variant="subtitle2" gutterBottom>
+                    Database Configuration
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Configure database connection settings and pool parameters.
+                  </Typography>
+                </Box>
+                <Box sx={{ flex: '1 1 300px', p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
+                  <Typography variant="subtitle2" gutterBottom>
+                    Security Settings
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Configure security policies and access controls.
+                  </Typography>
+                </Box>
+              </Box>
+            </Box>
           </Box>
         );
 
