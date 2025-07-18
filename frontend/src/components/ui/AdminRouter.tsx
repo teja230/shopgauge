@@ -31,6 +31,7 @@ const LoadingFallback = ({ title }: { title: string }) => (
 
 interface AdminRouterProps {
   activeSection: string;
+  onSectionChange?: (section: string) => void;
   // Props that might be needed by various components
   dashboardData?: {
     loading: boolean;
@@ -83,6 +84,7 @@ interface AdminRouterProps {
 
 const AdminRouter = React.memo<AdminRouterProps>(({
   activeSection,
+  onSectionChange,
   dashboardData,
   auditLogsData,
   sessionData,
@@ -156,6 +158,7 @@ const AdminRouter = React.memo<AdminRouterProps>(({
               metrics={dashboardData?.metrics || []}
               alerts={dashboardData?.alerts || []}
               quickActions={dashboardData?.quickActions || []}
+              onSectionChange={onSectionChange}
             />
           </Box>
         );

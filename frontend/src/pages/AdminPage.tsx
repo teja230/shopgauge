@@ -744,6 +744,7 @@ const AdminPage: React.FC = () => {
     >
       <AdminRouter
         activeSection={currentSection}
+        onSectionChange={handleSectionChange}
         dashboardData={dashboardData}
         auditLogsData={{
           ...auditLogsData,
