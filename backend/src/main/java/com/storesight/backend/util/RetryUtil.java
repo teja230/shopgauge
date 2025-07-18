@@ -267,6 +267,7 @@ public class RetryUtil {
     String message = e.getMessage().toLowerCase();
 
     // Define retryable error patterns by context
+    // Note: Using return statements to prevent fall-through behavior
     switch (context) {
       case "database":
         return message.contains("connection")
