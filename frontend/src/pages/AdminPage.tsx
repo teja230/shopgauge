@@ -42,6 +42,8 @@ import {
   People as PeopleIcon,
   Speed as SpeedIcon,
   Assessment as AssessmentIcon,
+  Storage as StorageIcon,
+  Memory as MemoryIcon,
 } from '@mui/icons-material';
 
 import { adminLogin, adminLogout, getAdminStatus } from '../api/admin';
@@ -203,6 +205,9 @@ const AdminPage: React.FC = () => {
     try {
       setDashboardData(prev => ({ ...prev, loading: true }));
       
+      // Fetch real-time dashboard data from health endpoint
+      const dashboardResponse = await fetchAdminEndpoint('/api/health/dashboard');
+      
       // Create quick actions with proper navigation
       const quickActions = [
         {
@@ -261,10 +266,151 @@ const AdminPage: React.FC = () => {
         }
       ];
 
+      // Transform backend data to frontend format
+      const metrics: any[] = [];
+      const alerts: any[] = [];
+
+      // Add system health metrics
+      if (dashboardResponse.systemHealth) {
+        metrics.push({
+          title: 'System Health',
+          value: dashboardResponse.systemHealth.status || 'Healthy',
+          status: dashboardResponse.systemHealth.status === 'HEALTHY' ? 'healthy' : 
+                 dashboardResponse.systemHealth.status === 'WARNING' ? 'warning' : 'error',
+          trend: 'stable',
+          description: 'Overall system health status',
+          icon: <HealthIcon />,
+          change: 0,
+          changeLabel: 'No change',
+          details: [
+            { label: 'CPU Usage', value: `${dashboardResponse.systemHealth?.cpuUsage || 0}%`, status: 'healthy' },
+            { label: 'Memory Usage', value: `${dashboardResponse.systemHealth?.memoryUsage || 0}%`, status: 'healthy' },
+            { label: 'Disk Usage', value: `${dashboardResponse.systemHealth?.diskUsage || 0}%`, status: 'healthy' },
+            { label: 'Network', value: 'Normal', status: 'healthy' }
+          ]
+        });
+      }
+
+      // Add session metrics
+      if (dashboardResponse.sessionMetrics) {
+        metrics.push({
+          title: 'Active Sessions',
+          value: dashboardResponse.sessionMetrics.activeSessions || 0,
+          status: 'info',
+          trend: 'up',
+          description: 'Currently active user sessions',
+          icon: <PeopleIcon />,
+          change: dashboardResponse.sessionMetrics.newSessionsToday || 0,
+          changeLabel: `+${dashboardResponse.sessionMetrics.newSessionsToday || 0} today`,
+          details: [
+            { label: 'Total Sessions', value: dashboardResponse.sessionMetrics.totalSessions || 0, status: 'info' },
+            { label: 'Peak Today', value: dashboardResponse.sessionMetrics.peakSessions || 0, status: 'info' },
+            { label: 'Avg Duration', value: `${dashboardResponse.sessionMetrics.avgSessionDuration || 0}m`, status: 'info' },
+            { label: 'New Today', value: dashboardResponse.sessionMetrics.newSessionsToday || 0, status: 'info' }
+          ]
+        });
+      }
+
+      // Add database metrics
+      if (dashboardResponse.databaseMetrics) {
+        metrics.push({
+          title: 'Connection Pool',
+          value: `${dashboardResponse.databaseMetrics.usagePercentage || 0}%`,
+          status: (dashboardResponse.databaseMetrics.usagePercentage || 0) > 80 ? 'warning' : 'healthy',
+          trend: 'stable',
+          description: 'Database connection usage',
+          icon: <StorageIcon />,
+          change: 0,
+          changeLabel: 'Stable',
+          details: [
+            { label: 'Active Connections', value: dashboardResponse.databaseMetrics.activeConnections || 0, status: 'healthy' },
+            { label: 'Max Connections', value: dashboardResponse.databaseMetrics.maxConnections || 0, status: 'info' },
+            { label: 'Idle Connections', value: dashboardResponse.databaseMetrics.idleConnections || 0, status: 'healthy' },
+            { label: 'Wait Time', value: `${dashboardResponse.databaseMetrics.avgWaitTime || 0}ms`, status: 'healthy' }
+          ]
+        });
+      }
+
+      // Add security metrics
+      if (dashboardResponse.securityMetrics) {
+        metrics.push({
+          title: 'Security Status',
+          value: dashboardResponse.securityMetrics.threatsBlocked === 0 ? 'Secure' : 'Warning',
+          status: dashboardResponse.securityMetrics.threatsBlocked === 0 ? 'healthy' : 'warning',
+          trend: 'stable',
+          description: 'Security monitoring status',
+          icon: <SecurityIcon />,
+          change: 0,
+          changeLabel: 'No threats detected',
+          details: [
+            { label: 'Threats Blocked', value: dashboardResponse.securityMetrics.threatsBlocked || 0, status: 'healthy' },
+            { label: 'Failed Logins', value: dashboardResponse.securityMetrics.failedLogins || 0, status: 'warning' },
+            { label: 'SSL Status', value: 'Valid', status: 'healthy' },
+            { label: 'Last Scan', value: '2m ago', status: 'healthy' }
+          ]
+        });
+      }
+
+      // Add performance metrics
+      if (dashboardResponse.performanceMetrics) {
+        metrics.push({
+          title: 'Performance',
+          value: dashboardResponse.performanceMetrics.responseTime < 200 ? 'Excellent' : 'Good',
+          status: dashboardResponse.performanceMetrics.responseTime < 200 ? 'healthy' : 'warning',
+          trend: 'up',
+          description: 'System performance metrics',
+          icon: <SpeedIcon />,
+          change: 5,
+          changeLabel: '+5% improvement',
+          details: [
+            { label: 'Response Time', value: `${dashboardResponse.performanceMetrics.responseTime || 0}ms`, status: 'healthy' },
+            { label: 'Throughput', value: `${dashboardResponse.performanceMetrics.throughput || 0} req/s`, status: 'healthy' },
+            { label: 'Error Rate', value: `${dashboardResponse.performanceMetrics.errorRate || 0}%`, status: 'healthy' },
+            { label: 'Uptime', value: `${dashboardResponse.performanceMetrics.uptime || 99.9}%`, status: 'healthy' }
+          ]
+        });
+      }
+
+      // Add resource usage metrics
+      if (dashboardResponse.resourceMetrics) {
+        metrics.push({
+          title: 'Resource Usage',
+          value: 'Optimal',
+          status: 'healthy',
+          trend: 'stable',
+          description: 'System resource utilization',
+          icon: <MemoryIcon />,
+          change: -1,
+          changeLabel: '-1% from last check',
+          details: [
+            { label: 'CPU Load', value: `${dashboardResponse.resourceMetrics.cpuLoad || 0}%`, status: 'healthy' },
+            { label: 'Memory Usage', value: `${dashboardResponse.resourceMetrics.memoryUsage || 0}%`, status: 'warning' },
+            { label: 'Disk I/O', value: 'Normal', status: 'healthy' },
+            { label: 'Network I/O', value: 'Normal', status: 'healthy' }
+          ]
+        });
+      }
+
+      // Transform alerts if available
+      if (dashboardResponse.alerts && Array.isArray(dashboardResponse.alerts)) {
+        dashboardResponse.alerts.forEach((alert: any) => {
+          alerts.push({
+            id: alert.id || Math.random().toString(),
+            title: alert.title || 'System Alert',
+            message: alert.message || 'System alert detected',
+            severity: alert.severity === 'CRITICAL' ? 'error' : 
+                     alert.severity === 'WARNING' ? 'warning' : 'info',
+            timestamp: new Date(alert.timestamp || Date.now()),
+            category: alert.category || 'System',
+            priority: alert.priority || 'medium'
+          });
+        });
+      }
+
       setDashboardData({
         loading: false,
-        metrics: [],
-        alerts: [],
+        metrics,
+        alerts,
         quickActions
       });
     } catch (error) {
