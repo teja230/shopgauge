@@ -82,6 +82,8 @@ dependencies {
     implementation 'com.github.vladimir-bukhtoyarov:bucket4j-core:7.6.0'
     implementation 'com.github.vladimir-bukhtoyarov:bucket4j-redis:7.6.0'
     implementation 'net.logstash.logback:logstash-logback-encoder:7.4'
+    implementation 'io.github.resilience4j:resilience4j-spring-boot3:2.2.0'
+    implementation 'io.github.resilience4j:resilience4j-circuitbreaker:2.2.0'
 }
 
 tasks.named('test') {
