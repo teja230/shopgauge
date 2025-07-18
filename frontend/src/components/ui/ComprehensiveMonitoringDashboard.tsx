@@ -88,7 +88,8 @@ const ComprehensiveMonitoringDashboard: React.FC = () => {
     try {
       setError(null);
       setLoading(true);
-      const data = await fetchWithAdminAuth('/api/admin/monitoring/dashboard');
+      // Changed endpoint to likely RESTful pattern
+      const data = await fetchWithAdminAuth('/api/admin/monitoring');
       setMonitoringData(data);
       setLastRefresh(new Date());
     } catch (err) {
