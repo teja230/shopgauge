@@ -189,11 +189,11 @@ public class QueryResultCacheService {
       LocalDateTime memoryExpiresAt = LocalDateTime.now().plus(getMemoryCacheTtl());
       CacheEntry entry = new CacheEntry(jsonValue, memoryExpiresAt);
 
-      // Use efficient eviction strategy - put first, then evict if necessary
-      memoryCache.put(key, entry);
-      if (memoryCache.size() > getMaxMemoryCacheSize()) {
+      // Use efficient eviction strategy - evict first if necessary, then put
+      if (memoryCache.size() >= getMaxMemoryCacheSize()) {
         evictOldestMemoryCacheEntry();
       }
+      memoryCache.put(key, entry);
 
       logger.debug("Cached value for key: {} with TTL: {}", key, ttl);
 
