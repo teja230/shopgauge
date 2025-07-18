@@ -86,6 +86,7 @@ interface DashboardOverviewProps {
   metrics?: MetricCardData[];
   alerts?: DashboardAlert[];
   quickActions?: QuickAction[];
+  onSectionChange?: (section: string) => void;
 }
 
 const DashboardOverview: React.FC<DashboardOverviewProps> = ({
@@ -93,6 +94,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   metrics = [],
   alerts = [],
   quickActions = [],
+  onSectionChange,
 }) => {
   const [expandedMetric, setExpandedMetric] = useState<string | null>(null);
   const [showAllAlerts, setShowAllAlerts] = useState(false);
@@ -264,83 +266,75 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({
 
   const displayMetrics = metrics.length > 0 ? metrics : defaultMetrics;
 
-  // Enhanced quick actions with proper functionality
-  const enhancedQuickActions = useMemo(() => [
-    {
-      id: 'refresh-status',
-      title: 'Refresh Status',
-      description: 'Update all system metrics',
-      icon: <RefreshIcon />,
-      color: '#1976d2',
-      action: () => {
-        // This will be handled by parent component
-        console.log('Refresh status action triggered');
-      },
-      category: 'General Actions'
-    },
-    {
-      id: 'emergency-cleanup',
-      title: 'Emergency Cleanup',
-      description: 'Force cleanup of connection pool',
-      icon: <WarningIcon />,
-      color: '#d32f2f',
-      action: () => {
-        console.log('Emergency cleanup action triggered');
-      },
-      category: 'Emergency Actions'
-    },
-    {
-      id: 'session-management',
-      title: 'Session Management',
-      description: 'Manage active sessions',
-      icon: <PeopleIcon />,
-      color: '#2e7d32',
-      action: () => {
-        console.log('Session management action triggered');
-      },
-      category: 'User Management'
-    },
-    {
-      id: 'security-audit',
-      title: 'Security Audit',
-      description: 'Review security logs',
-      icon: <SecurityIcon />,
-      color: '#ed6c02',
-      action: () => {
-        console.log('Security audit action triggered');
-      },
-      category: 'Security Actions'
-    },
-    {
-      id: 'system-health',
-      title: 'System Health',
-      description: 'Check system status',
-      icon: <HealthIcon />,
-      color: '#7b1fa2',
-      action: () => {
-        console.log('System health action triggered');
-      },
-      category: 'Monitoring'
-    },
-    {
-      id: 'market-intelligence',
-      title: 'Market Intelligence',
-      description: 'View market insights',
-      icon: <AssessmentIcon />,
-      color: '#0288d1',
-      action: () => {
-        console.log('Market intelligence action triggered');
-      },
-      category: 'Analytics'
+  // Use provided quick actions or fallback to defaults with navigation
+  const displayQuickActions = useMemo(() => {
+    if (quickActions.length > 0) {
+      return quickActions;
     }
-  ], []);
-
-  const displayQuickActions = enhancedQuickActions;
+    
+    // Default quick actions with navigation
+    return [
+      {
+        id: 'health-summary',
+        title: 'Health Summary',
+        description: 'View system health status',
+        icon: <HealthIcon />,
+        action: () => onSectionChange?.('health-summary'),
+        category: 'System Health',
+        color: '#2e7d32'
+      },
+      {
+        id: 'active-sessions',
+        title: 'Active Sessions',
+        description: 'Manage user sessions',
+        icon: <PeopleIcon />,
+        action: () => onSectionChange?.('active-sessions'),
+        category: 'User Management',
+        color: '#1976d2'
+      },
+      {
+        id: 'audit-logs',
+        title: 'Audit Logs',
+        description: 'Review system logs',
+        icon: <SecurityIcon />,
+        action: () => onSectionChange?.('audit-logs'),
+        category: 'Security & Audit',
+        color: '#ed6c02'
+      },
+      {
+        id: 'emergency-status',
+        title: 'Emergency Status',
+        description: 'Check emergency mode',
+        icon: <WarningIcon />,
+        action: () => onSectionChange?.('emergency-status'),
+        category: 'System Health',
+        color: '#d32f2f'
+      },
+      {
+        id: 'rate-limiting',
+        title: 'Rate Limiting',
+        description: 'Manage rate limits',
+        icon: <SpeedIcon />,
+        action: () => onSectionChange?.('rate-limiting'),
+        category: 'Security & Audit',
+        color: '#7b1fa2'
+      },
+      {
+        id: 'market-intelligence',
+        title: 'Market Intelligence',
+        description: 'View market insights',
+        icon: <AssessmentIcon />,
+        action: () => onSectionChange?.('market-intelligence'),
+        category: 'Analytics',
+        color: '#0288d1'
+      }
+    ];
+  }, [quickActions, onSectionChange]);
 
   // Group quick actions by category
   const groupedQuickActions = useMemo(() => {
     const groups: Record<string, QuickAction[]> = {};
-    displayQuickActions.forEach(action => {
+    displayQuickActions.forEach((action: QuickAction) => {
       const category = action.category || 'general';
       if (!groups[category]) {
         groups[category] = [];
@@ -536,7 +530,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             flexWrap: 'wrap',
             justifyContent: 'center'
           }}>
-            {enhancedQuickActions.map((action) => (
+                         {displayQuickActions.map((action) => (
               <Tooltip 
                 key={action.id}
                 title={action.description}
