@@ -100,7 +100,7 @@ const RateLimitManager: React.FC = () => {
     setError(null);
     
     try {
-      // Changed endpoint to likely RESTful pattern
+      // Correct endpoint from AdminAuthController
       const data = await fetchWithAdminAuth('/api/admin/rate-limit-status');
       setCurrentIpStats(data);
       setLastUpdated(new Date());
@@ -130,8 +130,8 @@ const RateLimitManager: React.FC = () => {
     if (!targetIp.trim() || !clearReason.trim()) return;
     
     try {
-      // Changed endpoint to likely RESTful pattern
-      await fetchWithAdminAuth('/api/admin/rate-limit/clear', {
+      // Correct endpoint from AdminAuditController
+      await fetchWithAdminAuth('/api/admin/audit/clear-rate-limit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 

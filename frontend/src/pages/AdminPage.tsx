@@ -185,6 +185,7 @@ const AdminPage: React.FC = () => {
           loadDashboardData(),
           loadAuditLogs(),
           loadSessionData(),
+          fetchDeletedShops(),
           loadEmergencyData()
         ]);
       }
@@ -514,6 +515,7 @@ const AdminPage: React.FC = () => {
           loadDashboardData(),
           loadAuditLogs(),
           loadSessionData(),
+          fetchDeletedShops(),
           loadEmergencyData()
         ]);
       } else {
@@ -597,6 +599,7 @@ const AdminPage: React.FC = () => {
         loadDashboardData(),
         loadAuditLogs(),
         loadSessionData(),
+        fetchDeletedShops(),
         loadEmergencyData()
       ]);
       addNotification('Data refreshed successfully', 'success');
