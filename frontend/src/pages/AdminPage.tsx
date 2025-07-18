@@ -38,6 +38,10 @@ import {
   AdminPanelSettings as AdminIcon,
   Lock as LockIcon,
   Security as SecurityIcon,
+  HealthAndSafety as HealthIcon,
+  People as PeopleIcon,
+  Speed as SpeedIcon,
+  Assessment as AssessmentIcon,
 } from '@mui/icons-material';
 
 import { adminLogin, adminLogout, getAdminStatus } from '../api/admin';
@@ -97,12 +101,12 @@ const AdminPage: React.FC = () => {
   // Data state
   const [dashboardData, setDashboardData] = useState({
     loading: false,
-    metrics: [],
-    alerts: [],
-    quickActions: []
+    metrics: [] as any[],
+    alerts: [] as any[],
+    quickActions: [] as any[]
   });
   const [auditLogsData, setAuditLogsData] = useState({
-    auditLogs: [],
+    auditLogs: [] as any[],
     loading: false,
     error: null as string | null,
     page: 0,
@@ -192,20 +196,69 @@ const AdminPage: React.FC = () => {
     try {
       setDashboardData(prev => ({ ...prev, loading: true }));
       
-      // Fetch metrics, alerts, and quick actions
-      const [metricsResponse, alertsResponse] = await Promise.all([
-        fetchWithAdminAuth('/api/admin/metrics'),
-        fetchWithAdminAuth('/api/admin/alerts')
-      ]);
-
-      const metrics = await metricsResponse.json();
-      const alerts = await alertsResponse.json();
+      // Create quick actions with proper navigation
+      const quickActions = [
+        {
+          id: 'health-summary',
+          title: 'Health Summary',
+          description: 'View system health status',
+          icon: <HealthIcon />,
+          action: () => handleSectionChange('health-summary'),
+          category: 'System Health',
+          color: '#2e7d32'
+        },
+        {
+          id: 'active-sessions',
+          title: 'Active Sessions',
+          description: 'Manage user sessions',
+          icon: <PeopleIcon />,
+          action: () => handleSectionChange('active-sessions'),
+          category: 'User Management',
+          color: '#1976d2'
+        },
+        {
+          id: 'audit-logs',
+          title: 'Audit Logs',
+          description: 'Review system logs',
+          icon: <SecurityIcon />,
+          action: () => handleSectionChange('audit-logs'),
+          category: 'Security & Audit',
+          color: '#ed6c02'
+        },
+        {
+          id: 'emergency-status',
+          title: 'Emergency Status',
+          description: 'Check emergency mode',
+          icon: <WarningIcon />,
+          action: () => handleSectionChange('emergency-status'),
+          category: 'System Health',
+          color: '#d32f2f'
+        },
+        {
+          id: 'rate-limiting',
+          title: 'Rate Limiting',
+          description: 'Manage rate limits',
+          icon: <SpeedIcon />,
+          action: () => handleSectionChange('rate-limiting'),
+          category: 'Security & Audit',
+          color: '#7b1fa2'
+        },
+        {
+          id: 'market-intelligence',
+          title: 'Market Intelligence',
+          description: 'View market insights',
+          icon: <AssessmentIcon />,
+          action: () => handleSectionChange('market-intelligence'),
+          category: 'Analytics',
+          color: '#0288d1'
+        }
+      ];
 
       setDashboardData({
         loading: false,
-        metrics: metrics.metrics || [],
-        alerts: alerts.alerts || [],
-        quickActions: []
+        metrics: [],
+        alerts: [],
+        quickActions
       });
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
@@ -218,15 +271,51 @@ const AdminPage: React.FC = () => {
     try {
       setAuditLogsData(prev => ({ ...prev, loading: true }));
       
-      const response = await fetchWithAdminAuth('/api/admin/audit-logs');
+      // Fix: Use the correct endpoints available in the backend
+      let endpoint = `/api/admin/audit-logs/all?page=${auditLogsData.page}&size=${auditLogsData.rowsPerPage}`;
+      
+      if (auditLogsData.logType === 'deleted') {
+        endpoint = `/api/admin/audit-logs/deleted-shops?page=${auditLogsData.page}&size=${auditLogsData.rowsPerPage}`;
+      } else if (auditLogsData.logType === 'active') {
+        endpoint = `/api/admin/audit-logs/active-shops?page=${auditLogsData.page}&size=${auditLogsData.rowsPerPage}`;
+      }
+      
+      const response = await fetchWithAdminAuth(endpoint);
       const data = await response.json();
 
-      setAuditLogsData(prev => ({
-        ...prev,
-        loading: false,
-        auditLogs: data.audit_logs || [],
-        totalCount: data.total_count || 0
-      }));
+      if (data.audit_logs) {
+        // Map backend fields to frontend expected fields
+        const mappedLogs = data.audit_logs.map((log: any) => ({
+          ...log,
+          timestamp: log.createdAt || log.timestamp,
+          shopDomain: log.shopDomain || 'System'
+        }));
+        setAuditLogsData(prev => ({
+          ...prev,
+          loading: false,
+          auditLogs: mappedLogs,
+          totalCount: data.total_count || mappedLogs.length
+        }));
+      } else if (Array.isArray(data)) {
+        const mappedLogs = data.map((log: any) => ({
+          ...log,
+          timestamp: log.createdAt || log.timestamp,
+          shopDomain: log.shopDomain || 'System'
+        }));
+        setAuditLogsData(prev => ({
+          ...prev,
+          loading: false,
+          auditLogs: mappedLogs,
+          totalCount: mappedLogs.length
+        }));
+      } else {
+        setAuditLogsData(prev => ({
+          ...prev,
+          loading: false,
+          auditLogs: [],
+          totalCount: 0
+        }));
+      }
     } catch (error) {
       console.error('Failed to load audit logs:', error);
       setAuditLogsData(prev => ({ ...prev, loading: false, error: 'Failed to load audit logs' }));
@@ -250,8 +339,8 @@ const AdminPage: React.FC = () => {
 
       setSessionData({
         loading: false,
-        activeShops: activeShops.shops || [],
-        deletedShops: deletedShops.shops || [],
+        activeShops: activeShops.active_shops || activeShops.shops || [],
+        deletedShops: deletedShops.deleted_shops || deletedShops.shops || [],
         sessionStatistics: sessionStatistics.statistics || null,
         error: null
       });
@@ -266,12 +355,34 @@ const AdminPage: React.FC = () => {
     try {
       setEmergencyData(prev => ({ ...prev, loading: true }));
       
-      const response = await fetchWithAdminAuth('/api/admin/emergency-status');
+      const response = await fetchWithAdminAuth('/api/admin/emergency/status');
       const data = await response.json();
+
+      // Transform the backend response to match frontend expectations
+      const transformedStatus = {
+        ...data,
+        emergencyMode: data.emergencyMode || false,
+        poolUsage: data.database?.usagePercentage || data.database?.activeUsagePercent || 0,
+        database: {
+          status: data.database?.status || 'unknown',
+          activeConnections: data.database?.activeConnections || 0,
+          maxPoolSize: data.database?.maxPoolSize || 10,
+          usagePercentage: data.database?.usagePercentage || data.database?.activeUsagePercent || 0
+        },
+        redis: {
+          status: data.redis?.status || 'unknown',
+          memory: data.redis?.memory || 'N/A'
+        },
+        jvmMemory: data.jvmMemory || {
+          used: 'N/A',
+          total: 'N/A',
+          percentage: 0
+        }
+      };
 
       setEmergencyData({
         loading: false,
-        status: data,
+        status: transformedStatus,
         connectionLeakStatus: data.connectionLeakStatus || null,
         error: null
       });

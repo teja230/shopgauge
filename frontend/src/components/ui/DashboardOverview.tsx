@@ -529,78 +529,68 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             Quick Actions
           </Typography>
           
-                     {/* Group actions by category */}
-           {Object.entries(
-             enhancedQuickActions.reduce((acc, action) => {
-               const category = action.category || 'General Actions';
-               if (!acc[category]) acc[category] = [];
-               acc[category].push(action);
-               return acc;
-             }, {} as Record<string, typeof enhancedQuickActions>)
-           ).map(([category, actions]) => (
-            <Box key={category} sx={{ mb: 3 }}>
-              <Typography variant="h6" sx={{ 
-                mb: 2, 
-                color: 'text.secondary',
-                fontSize: '0.875rem',
-                fontWeight: 600,
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px'
-              }}>
-                {category}
-              </Typography>
-              <Box sx={{ 
-                display: 'flex', 
-                gap: 2, 
-                flexWrap: 'wrap' 
-              }}>
-                {actions.map((action) => (
-                  <Card
-                    key={action.id}
-                    sx={{
-                      flex: '1 1 250px',
-                      minWidth: 250,
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease-in-out',
-                      background: `linear-gradient(135deg, ${action.color}15 0%, ${action.color}05 100%)`,
-                      border: `1px solid ${action.color}30`,
-                      '&:hover': {
-                        transform: 'translateY(-2px)',
-                        boxShadow: `0 8px 25px ${action.color}20`,
-                        borderColor: action.color,
-                      },
-                    }}
-                    onClick={action.action}
-                  >
-                    <CardContent sx={{ p: 2.5 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1.5 }}>
-                        <Box sx={{
-                          p: 1,
-                          borderRadius: 2,
-                          backgroundColor: `${action.color}20`,
-                          color: action.color,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}>
-                          {action.icon}
-                        </Box>
-                        <Typography variant="h6" sx={{ 
-                          fontWeight: 600,
-                          color: 'text.primary'
-                        }}>
-                          {action.title}
-                        </Typography>
-                      </Box>
-                      <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.5 }}>
-                        {action.description}
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                ))}
-              </Box>
-            </Box>
-          ))}
+          {/* Compact Quick Actions with Icons and Tooltips */}
+          <Box sx={{ 
+            display: 'flex', 
+            gap: 2, 
+            flexWrap: 'wrap',
+            justifyContent: 'center'
+          }}>
+            {enhancedQuickActions.map((action) => (
+              <Tooltip 
+                key={action.id}
+                title={action.description}
+                placement="top"
+                arrow
+              >
+                <IconButton
+                  onClick={action.action}
+                  sx={{
+                    width: 80,
+                    height: 80,
+                    borderRadius: 3,
+                    background: `linear-gradient(135deg, ${action.color}15 0%, ${action.color}05 100%)`,
+                    border: `2px solid ${action.color}30`,
+                    color: action.color,
+                    transition: 'all 0.3s ease',
+                    '&:hover': {
+                      transform: 'translateY(-4px) scale(1.05)',
+                      boxShadow: `0 8px 25px ${action.color}30`,
+                      borderColor: action.color,
+                      background: `linear-gradient(135deg, ${action.color}25 0%, ${action.color}15 100%)`,
+                    },
+                    '&:active': {
+                      transform: 'translateY(-2px) scale(1.02)',
+                    }
+                  }}
+                >
+                  <Box sx={{ 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    alignItems: 'center',
+                    gap: 0.5
+                  }}>
+                    {action.icon}
+                    <Typography 
+                      variant="caption" 
+                      sx={{ 
+                        fontSize: '0.7rem',
+                        fontWeight: 600,
+                        textAlign: 'center',
+                        lineHeight: 1.2,
+                        maxWidth: 60,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      {action.title}
+                    </Typography>
+                  </Box>
+                </IconButton>
+              </Tooltip>
+            ))}
+          </Box>
         </Box>
 
         {/* Alerts Section */}
