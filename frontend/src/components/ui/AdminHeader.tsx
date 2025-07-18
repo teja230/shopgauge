@@ -197,7 +197,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
               color="error"
               aria-label={`${unreadNotifications.length} unread notifications`}
             >
-              <NotificationsIcon />
+              <NotificationsIcon sx={{ color: 'text.primary' }} />
             </Badge>
           </IconButton>
         </Tooltip>

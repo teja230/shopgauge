@@ -268,7 +268,7 @@ const ComprehensiveMonitoringDashboard: React.FC = () => {
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center">
-                <NotificationsIcon color="primary" />
+                <NotificationsIcon sx={{ color: 'text.primary' }} />
                 <Box ml={2}>
                   <Typography variant="h6">{alerts?.totalAlertsGenerated || 0}</Typography>
                   <Typography variant="body2" color="textSecondary">Total Alerts</Typography>
