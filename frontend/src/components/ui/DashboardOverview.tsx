@@ -610,7 +610,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({
               <Button
                 size="small"
                 onClick={() => setShowAllAlerts(!showAllAlerts)}
-                startIcon={<NotificationsIcon />}
+                startIcon={<NotificationsIcon sx={{ color: 'text.primary' }} />}
                 variant="outlined"
               >
                 {showAllAlerts ? 'Show Less' : `Show All (${alerts.length})`}
