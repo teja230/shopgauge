@@ -118,9 +118,9 @@ const AdminPage: React.FC = () => {
     logType: 'all'
   });
   const [sessionData, setSessionData] = useState({
-    activeShops: [],
-    deletedShops: [],
-    sessionStatistics: null,
+    activeShops: [] as any[],
+    deletedShops: [] as any[],
+    sessionStatistics: null as any,
     loading: false,
     error: null as string | null
   });
@@ -130,6 +130,11 @@ const AdminPage: React.FC = () => {
     loading: false,
     error: null as string | null
   });
+
+  // Separate deleted shops state (like main branch)
+  const [deletedShops, setDeletedShops] = useState<any[]>([]);
+  const [deletedShopsLoading, setDeletedShopsLoading] = useState(false);
+  const [deletedShopsError, setDeletedShopsError] = useState<string | null>(null);
 
   // Refs
   const passwordInputRef = useRef<HTMLInputElement>(null);
@@ -356,22 +361,48 @@ const AdminPage: React.FC = () => {
     try {
       setSessionData(prev => ({ ...prev, loading: true }));
       
-      const [activeShops, deletedShops, sessionStatistics] = await Promise.all([
+      const [activeShops, sessionStatistics] = await Promise.all([
         fetchAdminEndpoint('/api/admin/active-shops'),
-        fetchAdminEndpoint('/api/admin/deleted-shops'),
         fetchAdminEndpoint('/api/admin/session-statistics')
       ]);
 
       setSessionData({
         loading: false,
         activeShops: activeShops.active_shops || activeShops.shops || [],
-        deletedShops: deletedShops.deleted_shops || deletedShops.shops || [],
+        deletedShops: deletedShops, // Use separate deleted shops state
         sessionStatistics: sessionStatistics.statistics || null,
         error: null
       });
     } catch (error) {
       console.error('Failed to load session data:', error);
       setSessionData(prev => ({ ...prev, loading: false, error: 'Failed to load session data' }));
+    }
+  };
+
+  // Separate function for fetching deleted shops (like main branch)
+  const fetchDeletedShops = async () => {
+    if (!isAuthenticated) return;
+    
+    try {
+      setDeletedShopsLoading(true);
+      setDeletedShopsError(null);
+      
+      const data = await fetchAdminEndpoint('/api/admin/deleted-shops');
+      
+      if (data.deleted_shops) {
+        setDeletedShops(data.deleted_shops);
+      } else if (Array.isArray(data)) {
+        setDeletedShops(data);
+      } else {
+        setDeletedShops([]);
+      }
+    } catch (err) {
+      console.error('Error fetching deleted shops:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+      setDeletedShopsError(`Failed to fetch deleted shops: ${errorMessage}`);
+      setDeletedShops([]);
+    } finally {
+      setDeletedShopsLoading(false);
     }
   };
 
