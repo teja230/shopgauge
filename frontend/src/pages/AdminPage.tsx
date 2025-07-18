@@ -115,7 +115,8 @@ const AdminPage: React.FC = () => {
     searchTerm: '',
     actionFilter: '',
     categoryFilter: '',
-    logType: 'all'
+    logType: 'all',
+    lastUpdated: null as Date | null
   });
   const [sessionData, setSessionData] = useState({
     activeShops: [] as any[],
@@ -175,7 +176,7 @@ const AdminPage: React.FC = () => {
   const checkAuthStatus = async () => {
     try {
       setIsLoading(true);
-      const status = await getAdminStatus();
+          const status = await getAdminStatus();
       setIsAuthenticated(status.authenticated);
       
       if (status.authenticated) {
@@ -188,8 +189,8 @@ const AdminPage: React.FC = () => {
           fetchDeletedShops(),
           loadEmergencyData()
         ]);
-      }
-    } catch (error) {
+          }
+        } catch (error) {
       console.error('Auth check failed:', error);
       setIsAuthenticated(false);
     } finally {
@@ -286,8 +287,8 @@ const AdminPage: React.FC = () => {
         endpoint = `/api/admin/audit-logs/active-shops?page=${auditLogsData.page}&size=${auditLogsData.rowsPerPage}`;
       }
       
-      const response = await fetchWithAdminAuth(endpoint);
-      const data = await response.json();
+      // Use fetchAdminEndpoint like main branch (simpler and more reliable)
+      const data = await fetchAdminEndpoint(endpoint);
 
       if (data.audit_logs) {
         // Map backend fields to frontend expected fields
@@ -300,7 +301,8 @@ const AdminPage: React.FC = () => {
           ...prev,
           loading: false,
           auditLogs: mappedLogs,
-          totalCount: data.total_count || mappedLogs.length
+          totalCount: data.total_count || mappedLogs.length,
+          lastUpdated: new Date()
         }));
       } else if (Array.isArray(data)) {
         const mappedLogs = data.map((log: any) => ({
@@ -312,14 +314,16 @@ const AdminPage: React.FC = () => {
           ...prev,
           loading: false,
           auditLogs: mappedLogs,
-          totalCount: mappedLogs.length
+          totalCount: mappedLogs.length,
+          lastUpdated: new Date()
         }));
       } else {
         setAuditLogsData(prev => ({
           ...prev,
           loading: false,
           auditLogs: [],
-          totalCount: 0
+          totalCount: 0,
+          lastUpdated: new Date()
         }));
       }
     } catch (error) {
@@ -742,23 +746,23 @@ const AdminPage: React.FC = () => {
               </Box>
 
               <Box sx={{ mb: 3 }}>
-                <TextField
-                  fullWidth
+            <TextField
+              fullWidth
                   label="Username"
                   placeholder="Enter admin username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
                   disabled={isLocked}
-                  sx={{ mb: 2 }}
-                />
+              sx={{ mb: 2 }}
+            />
                 
-                <TextField
+            <TextField
                   ref={passwordInputRef}
-                  fullWidth
+              fullWidth
                   type={showPassword ? 'text' : 'password'}
                   label="Admin Password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
                   onKeyPress={handleKeyPress}
                   disabled={isLocked}
                   error={!!loginError}
