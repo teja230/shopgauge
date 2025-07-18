@@ -428,6 +428,21 @@ public class ShopifyAuthController {
         // Execute post-save operations (caching, cleanup) outside transaction
         shopService.postSaveShopOperations(shop, sessionId, accessToken);
         logger.debug("Post-save operations completed for shop: {}", shop);
+
+        // Verify that the session was actually saved
+        String savedToken = shopService.getTokenForShop(shop, sessionId);
+        if (savedToken == null) {
+          logger.error(
+              "Session verification failed - token not found after save for shop: {} and session: {}",
+              shop,
+              sessionId);
+          throw new RuntimeException("Session verification failed - token not found after save");
+        }
+        logger.info(
+            "Session verification successful - token found for shop: {} and session: {}",
+            shop,
+            sessionId);
+
       } catch (Exception saveError) {
         logger.error("Failed to save shop data: {}", saveError.getMessage(), saveError);
 
@@ -536,6 +551,16 @@ public class ShopifyAuthController {
       }
 
       logger.info("Cookie set successfully, redirecting to: {}", redirectUrl);
+
+      // Add a small delay to ensure session is fully established
+      try {
+        Thread.sleep(500); // 500ms delay
+        logger.info("Session establishment delay completed");
+      } catch (InterruptedException e) {
+        logger.warn("Session establishment delay was interrupted");
+        Thread.currentThread().interrupt();
+      }
+
       response.sendRedirect(redirectUrl);
     } catch (Exception e) {
       logger.error("Error in callback - Error details: {}", e.getMessage(), e);
