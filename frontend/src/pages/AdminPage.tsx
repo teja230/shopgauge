@@ -350,30 +350,61 @@ const AdminPage: React.FC = () => {
     }
   };
 
+  // Emergency endpoint function (designed to work even when connection pool is exhausted)
+  const fetchEmergencyEndpoint = async (endpoint: string, options?: RequestInit) => {
+    try {
+      // Emergency endpoints are designed to work without authentication
+      // They can function even when the connection pool is exhausted
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+      const fullUrl = `${API_BASE_URL}/api/admin/emergency${endpoint}`;
+      
+      const response = await fetch(fullUrl, {
+        ...options,
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          ...options?.headers,
+        },
+      });
+      
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Admin authentication required');
+        }
+        throw new Error(`Emergency endpoint error (${endpoint}): ${response.statusText}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error(`Emergency endpoint error (${endpoint}):`, error);
+      throw error;
+    }
+  };
+
   // Load emergency data
   const loadEmergencyData = async () => {
     try {
       setEmergencyData(prev => ({ ...prev, loading: true }));
       
-      const response = await fetchWithAdminAuth('/api/admin/emergency/status');
-      const data = await response.json();
-
+      const status = await fetchEmergencyEndpoint('/status');
+      
       // Transform the backend response to match frontend expectations
       const transformedStatus = {
-        ...data,
-        emergencyMode: data.emergencyMode || false,
-        poolUsage: data.database?.usagePercentage || data.database?.activeUsagePercent || 0,
+        ...status,
+        emergencyMode: status.emergencyMode || false,
+        poolUsage: status.database?.usagePercentage || status.database?.activeUsagePercent || 0,
         database: {
-          status: data.database?.status || 'unknown',
-          activeConnections: data.database?.activeConnections || 0,
-          maxPoolSize: data.database?.maxPoolSize || 10,
-          usagePercentage: data.database?.usagePercentage || data.database?.activeUsagePercent || 0
+          status: status.database?.status || 'unknown',
+          activeConnections: status.database?.activeConnections || 0,
+          maxPoolSize: status.database?.maxPoolSize || 10,
+          usagePercentage: status.database?.usagePercentage || status.database?.activeUsagePercent || 0
         },
         redis: {
-          status: data.redis?.status || 'unknown',
-          memory: data.redis?.memory || 'N/A'
+          status: status.redis?.status || 'unknown',
+          memory: status.redis?.memory || 'N/A'
         },
-        jvmMemory: data.jvmMemory || {
+        jvmMemory: status.jvmMemory || {
           used: 'N/A',
           total: 'N/A',
           percentage: 0
@@ -383,7 +414,7 @@ const AdminPage: React.FC = () => {
       setEmergencyData({
         loading: false,
         status: transformedStatus,
-        connectionLeakStatus: data.connectionLeakStatus || null,
+        connectionLeakStatus: status.connectionLeakStatus || null,
         error: null
       });
     } catch (error) {
@@ -771,9 +802,13 @@ const AdminPage: React.FC = () => {
           onRefresh: loadEmergencyData,
           onEmergencyCleanup: async () => {
             try {
-              await fetchWithAdminAuth('/api/admin/emergency-cleanup', { method: 'POST' });
-              addNotification('Emergency cleanup completed', 'success');
-              await loadEmergencyData();
+              const result = await fetchEmergencyEndpoint('/cleanup-connections', { method: 'POST' });
+              if (result.cleanupPerformed) {
+                addNotification('Emergency cleanup completed', 'success');
+                await loadEmergencyData();
+              } else {
+                addNotification('Emergency cleanup failed', 'error');
+              }
             } catch (error) {
               addNotification('Emergency cleanup failed', 'error');
             }
