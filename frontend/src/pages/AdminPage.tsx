@@ -74,7 +74,7 @@ const LoginCard = styled(Paper)(({ theme }) => ({
 const AdminPage: React.FC = () => {
   const navigate = useNavigate();
   const { addNotification } = useNotifications();
-  
+
   // Authentication state
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -82,6 +82,7 @@ const AdminPage: React.FC = () => {
   const [logoutError, setLogoutError] = useState<string | null>(null);
   
   // Login form state
+  const [username, setUsername] = useState('admin');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loginAttempts, setLoginAttempts] = useState(0);
@@ -92,7 +93,7 @@ const AdminPage: React.FC = () => {
   const [currentSection, setCurrentSection] = useState('dashboard');
   const [refreshing, setRefreshing] = useState(false);
   const [breadcrumbs, setBreadcrumbs] = useState([{ label: 'Dashboard' }]);
-  
+
   // Data state
   const [dashboardData, setDashboardData] = useState({
     loading: false,
@@ -288,6 +289,11 @@ const AdminPage: React.FC = () => {
       return;
     }
 
+    if (!username.trim()) {
+      setLoginError('Username is required');
+      return;
+    }
+
     if (!password.trim()) {
       setLoginError('Password is required');
       return;
@@ -297,7 +303,7 @@ const AdminPage: React.FC = () => {
       setLoginError(null);
       setIsLoading(true);
       
-      const response = await adminLogin(password, 'admin');
+      const response = await adminLogin(username, password);
       
       if (response.success) {
         setIsAuthenticated(true);
@@ -319,9 +325,9 @@ const AdminPage: React.FC = () => {
       console.error('Login error:', error);
       const newAttempts = loginAttempts + 1;
       setLoginAttempts(newAttempts);
-      
+        
       if (newAttempts >= 5) {
-        setIsLocked(true);
+          setIsLocked(true);
         const lockoutEnd = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
         setLockoutTime(lockoutEnd);
         addNotification('Account locked for 15 minutes due to multiple failed attempts', 'error');
@@ -357,11 +363,11 @@ const AdminPage: React.FC = () => {
       addNotification('Logout failed', 'error');
     }
   };
-
+      
   // Handle section change
   const handleSectionChange = (section: string) => {
     setCurrentSection(section);
-    
+      
     // Update breadcrumbs based on section
     const sectionBreadcrumbs: Record<string, { label: string }[]> = {
       'dashboard': [{ label: 'Dashboard' }],
@@ -471,7 +477,7 @@ const AdminPage: React.FC = () => {
         return result;
       } else {
         throw new Error('Emergency session cleanup failed');
-      }
+    }
     } catch (error) {
       addNotification('Error performing emergency session cleanup', 'error');
       throw error;
@@ -528,13 +534,23 @@ const AdminPage: React.FC = () => {
                 <AdminIcon sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
                 <Typography variant="h4" gutterBottom sx={{ fontWeight: 700, color: 'text.primary' }}>
                   Admin Panel
-                </Typography>
+          </Typography>
                 <Typography variant="body1" color="text.secondary">
                   Enter your admin password to continue
-                </Typography>
+          </Typography>
               </Box>
 
               <Box sx={{ mb: 3 }}>
+                <TextField
+                  fullWidth
+                  label="Username"
+                  placeholder="Enter admin username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  disabled={isLocked}
+                  sx={{ mb: 2 }}
+                />
+                
                 <TextField
                   ref={passwordInputRef}
                   fullWidth
@@ -568,29 +584,29 @@ const AdminPage: React.FC = () => {
               {isLocked && lockoutTime && (
                 <Alert severity="warning" sx={{ mb: 3 }}>
                   Account locked until {lockoutTime.toLocaleTimeString()}
-                </Alert>
-              )}
-
-              <Button
-                fullWidth
-                variant="contained"
-                size="large"
-                onClick={handleAdminLogin}
-                disabled={isLocked || isLoading}
-                startIcon={isLoading ? <CircularProgress size={20} /> : <LoginIcon />}
-                sx={{
-                  borderRadius: 2,
-                  py: 1.5,
-                  fontSize: '1.1rem',
-                  fontWeight: 600,
-                  background: 'linear-gradient(135deg, #1976d2 0%, #1565c0 100%)',
-                  '&:hover': {
-                    background: 'linear-gradient(135deg, #1565c0 0%, #0d47a1 100%)',
-                  },
-                }}
-              >
-                {isLoading ? 'Authenticating...' : 'Login'}
-              </Button>
+              </Alert>
+            )}
+            
+          <Button
+            fullWidth
+            variant="contained"
+            size="large"
+            onClick={handleAdminLogin}
+            disabled={!username || !password || isLocked || isLoading}
+            startIcon={isLoading ? <CircularProgress size={20} /> : <LoginIcon />}
+            sx={{
+              borderRadius: 2,
+              py: 1.5,
+              fontSize: '1.1rem',
+              fontWeight: 600,
+              background: 'linear-gradient(135deg, #1976d2 0%, #1565c0 100%)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #1565c0 0%, #0d47a1 100%)',
+              },
+            }}
+          >
+            {isLoading ? 'Authenticating...' : 'Access Admin Panel'}
+          </Button>
 
               {loginAttempts > 0 && !isLocked && (
                 <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block', textAlign: 'center' }}>

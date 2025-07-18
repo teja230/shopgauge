@@ -84,7 +84,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
   const [expandedSections, setExpandedSections] = useState<string[]>(['system-health', 'user-management', 'security-audit', 'monitoring', 'settings']);
   const [userMenuAnchor, setUserMenuAnchor] = useState<null | HTMLElement>(null);
-
+  
   // Navigation structure matching main branch
   const navigationItems = [
     {
@@ -304,7 +304,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
             <Typography variant="h6" noWrap component="div" sx={{ fontWeight: 600 }}>
               Admin Panel
             </Typography>
-            
+      
             {/* Breadcrumbs */}
             <Box sx={{ ml: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
               {breadcrumbs.map((crumb, index) => (
@@ -402,7 +402,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
         }}
       >
         <Toolbar /> {/* Spacer for AppBar */}
-        {children}
+            {children}
       </Box>
 
       {/* User Menu */}
