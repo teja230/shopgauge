@@ -124,19 +124,29 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
           String token = shopService.getTokenForShop(shopDomain, sessionId);
           if (token != null) {
             logger.debug("Token found for shop: {} and session: {}", shopDomain, sessionId);
-            
+
             // Check if this is a /me endpoint request (OAuth validation)
             boolean isOAuthValidation = path.contains("/me") || path.contains("/auth/shopify/me");
-            
+
             // Perform basic session validation with OAuth grace period
-            boolean sessionValid = shopService.isSessionValid(shopDomain, sessionId, isOAuthValidation);
+            boolean sessionValid =
+                shopService.isSessionValid(shopDomain, sessionId, isOAuthValidation);
             if (sessionValid) {
-              logger.debug("Session validation passed for shop: {} and session: {} (OAuth: {})", shopDomain, sessionId, isOAuthValidation);
+              logger.debug(
+                  "Session validation passed for shop: {} and session: {} (OAuth: {})",
+                  shopDomain,
+                  sessionId,
+                  isOAuthValidation);
             } else {
-              logger.warn("Session validation failed for shop: {} and session: {} - but token exists, allowing access (OAuth: {})", shopDomain, sessionId, isOAuthValidation);
-              // Don't immediately fail - the token exists, so the session might be valid but validation is being overly strict
+              logger.warn(
+                  "Session validation failed for shop: {} and session: {} - but token exists, allowing access (OAuth: {})",
+                  shopDomain,
+                  sessionId,
+                  isOAuthValidation);
+              // Don't immediately fail - the token exists, so the session might be valid but
+              // validation is being overly strict
             }
-            
+
             // Set authentication context
             UsernamePasswordAuthenticationToken authentication =
                 new UsernamePasswordAuthenticationToken(

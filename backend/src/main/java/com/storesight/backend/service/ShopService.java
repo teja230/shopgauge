@@ -120,10 +120,15 @@ public class ShopService {
 
   @Transactional(timeout = 10) // Reduced from 15s to 10s for faster connection release
   public ShopSession saveShop(
-      String shopifyDomain, String accessToken, String sessionId, HttpServletRequest request, boolean isOAuthCallback) {
+      String shopifyDomain,
+      String accessToken,
+      String sessionId,
+      HttpServletRequest request,
+      boolean isOAuthCallback) {
     long start = System.currentTimeMillis();
     try {
-      logger.info("Saving shop: {} for session: {} (OAuth: {})", shopifyDomain, sessionId, isOAuthCallback);
+      logger.info(
+          "Saving shop: {} for session: {} (OAuth: {})", shopifyDomain, sessionId, isOAuthCallback);
 
       // Validate and ensure we have a valid sessionId
       String validSessionId = sessionId;
@@ -152,7 +157,8 @@ public class ShopService {
       if (!isOAuthCallback) {
         enforceSessionLimitSync(shop, validSessionId);
       } else {
-        logger.info("Skipping session limit enforcement for OAuth callback - shop: {}", shopifyDomain);
+        logger.info(
+            "Skipping session limit enforcement for OAuth callback - shop: {}", shopifyDomain);
       }
 
       // Create or update session (optimized to minimize transaction time)
@@ -1941,9 +1947,7 @@ public class ShopService {
     return isSessionValid(shopifyDomain, sessionId, false);
   }
 
-  /**
-   * Validate if a session is in a valid state for operations with OAuth grace period
-   */
+  /** Validate if a session is in a valid state for operations with OAuth grace period */
   public boolean isSessionValid(String shopifyDomain, String sessionId, boolean isOAuthValidation) {
     try {
       if (sessionId == null || sessionId.trim().isEmpty()) {
@@ -1960,11 +1964,17 @@ public class ShopService {
           return false;
         }
       } else {
-        logger.debug("OAuth validation mode - skipping session synchronization check for session: {}", sessionId);
+        logger.debug(
+            "OAuth validation mode - skipping session synchronization check for session: {}",
+            sessionId);
       }
 
       // DEBUG: Log the specific session being validated
-      logger.debug("Validating session {} for shop: {} (OAuth: {})", sessionId, shopifyDomain, isOAuthValidation);
+      logger.debug(
+          "Validating session {} for shop: {} (OAuth: {})",
+          sessionId,
+          shopifyDomain,
+          isOAuthValidation);
 
       // OPTIMIZED: Check Redis first for better performance
       // Redis is much faster than database queries
@@ -2415,8 +2425,8 @@ public class ShopService {
   }
 
   /**
-   * Clear stuck session markers for OAuth sessions to ensure clean state
-   * This prevents OAuth sessions from being blocked by previous invalidation attempts
+   * Clear stuck session markers for OAuth sessions to ensure clean state This prevents OAuth
+   * sessions from being blocked by previous invalidation attempts
    */
   public void clearOAuthSessionMarkers(String sessionId) {
     try {
@@ -2425,7 +2435,8 @@ public class ShopService {
         logger.debug("Cleared OAuth session markers for session: {}", sessionId);
       }
     } catch (Exception e) {
-      logger.warn("Failed to clear OAuth session markers for session {}: {}", sessionId, e.getMessage());
+      logger.warn(
+          "Failed to clear OAuth session markers for session {}: {}", sessionId, e.getMessage());
     }
   }
 }

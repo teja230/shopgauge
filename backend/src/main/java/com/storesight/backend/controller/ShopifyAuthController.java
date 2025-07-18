@@ -432,10 +432,11 @@ public class ShopifyAuthController {
         // Execute post-save operations (caching, cleanup) outside transaction
         shopService.postSaveShopOperations(shop, sessionId, accessToken);
         logger.debug("Post-save operations completed for shop: {}", shop);
-        
+
         // Simple verification that the session was saved (skip complex validation for OAuth)
-        logger.info("OAuth session creation completed for shop: {} and session: {}", shop, sessionId);
-        
+        logger.info(
+            "OAuth session creation completed for shop: {} and session: {}", shop, sessionId);
+
         // Add a small delay to ensure session is properly established before redirect
         try {
           Thread.sleep(500); // 500ms delay
@@ -444,7 +445,7 @@ public class ShopifyAuthController {
           Thread.currentThread().interrupt();
           logger.warn("OAuth session delay interrupted for shop: {}", shop);
         }
-        
+
       } catch (Exception saveError) {
         logger.error("Failed to save shop data: {}", saveError.getMessage(), saveError);
 
