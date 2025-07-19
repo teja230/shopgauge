@@ -61,7 +61,6 @@ interface AdminRouterProps {
   sessionData?: {
     activeShops: any[];
     deletedShops: any[];
-    sessionStatistics: any;
     loading: boolean;
     error: string | null;
     onRefresh: () => void;
@@ -339,51 +338,6 @@ const AdminRouter = React.memo<AdminRouterProps>(({
           </Suspense>
         );
 
-      case 'session-statistics':
-        return (
-          <Suspense fallback={<LoadingFallback title="Session Statistics" />}>
-            <Box>
-              <Typography variant="h5" gutterBottom sx={{ mb: 3 }}>
-                Session Statistics
-              </Typography>
-              {sessionData?.sessionStatistics ? (
-                <Box>
-                  <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap', mb: 3 }}>
-                    <Box sx={{ flex: '1 1 200px', p: 2, bgcolor: 'background.paper', borderRadius: 2, border: 1, borderColor: 'divider' }}>
-                      <Typography variant="h6" color="primary.main">
-                        {sessionData.sessionStatistics.totalActiveSessions || 0}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Total Sessions
-                      </Typography>
-                    </Box>
-                    <Box sx={{ flex: '1 1 200px', p: 2, bgcolor: 'background.paper', borderRadius: 2, border: 1, borderColor: 'divider' }}>
-                      <Typography variant="h6" color="success.main">
-                        {sessionData.sessionStatistics.currentlyActiveSessions || 0}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Currently Active
-                      </Typography>
-                    </Box>
-                    <Box sx={{ flex: '1 1 200px', p: 2, bgcolor: 'background.paper', borderRadius: 2, border: 1, borderColor: 'divider' }}>
-                      <Typography variant="h6" color="info.main">
-                        {sessionData.sessionStatistics.uniqueShops || 0}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Unique Shops
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Box>
-              ) : (
-                <Typography variant="body1" color="text.secondary">
-                  Session statistics will be displayed here.
-                </Typography>
-              )}
-            </Box>
-          </Suspense>
-        );
-
       case 'deleted-shops':
         return (
           <Suspense fallback={<LoadingFallback title="Deleted Shops" />}>
@@ -655,45 +609,6 @@ const AdminRouter = React.memo<AdminRouterProps>(({
                 Session Management
               </Typography>
               
-              {/* Session Statistics Section */}
-              <Box sx={{ mb: 4 }}>
-                <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
-                  Session Statistics
-                </Typography>
-                {sessionData?.sessionStatistics ? (
-                  <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap', mb: 3 }}>
-                    <Box sx={{ flex: '1 1 200px', p: 2, bgcolor: 'background.paper', borderRadius: 2, border: 1, borderColor: 'divider' }}>
-                      <Typography variant="h6" color="primary.main">
-                        {sessionData.sessionStatistics.totalActiveSessions || 0}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Total Sessions
-                      </Typography>
-                    </Box>
-                    <Box sx={{ flex: '1 1 200px', p: 2, bgcolor: 'background.paper', borderRadius: 2, border: 1, borderColor: 'divider' }}>
-                      <Typography variant="h6" color="success.main">
-                        {sessionData.sessionStatistics.currentlyActiveSessions || 0}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Currently Active
-                      </Typography>
-                    </Box>
-                    <Box sx={{ flex: '1 1 200px', p: 2, bgcolor: 'background.paper', borderRadius: 2, border: 1, borderColor: 'divider' }}>
-                      <Typography variant="h6" color="info.main">
-                        {sessionData.sessionStatistics.uniqueShops || 0}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Unique Shops
-                      </Typography>
-                    </Box>
-                  </Box>
-                ) : (
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    Session statistics will be displayed here.
-                  </Typography>
-                )}
-              </Box>
-
               {/* Session Management Tools */}
               <Box sx={{ mb: 4 }}>
                 <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
