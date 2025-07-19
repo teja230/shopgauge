@@ -123,7 +123,6 @@ const AdminPage: React.FC = () => {
   const [sessionData, setSessionData] = useState({
     activeShops: [] as any[],
     deletedShops: [] as any[],
-    sessionStatistics: null as any,
     loading: false,
     error: null as string | null
   });
@@ -512,16 +511,14 @@ const AdminPage: React.FC = () => {
     try {
       setSessionData(prev => ({ ...prev, loading: true }));
       
-      const [activeShops, sessionStatistics] = await Promise.all([
-        fetchAdminEndpoint('/api/admin/active-shops'),
-        fetchAdminEndpoint('/api/admin/session-statistics')
+      const [activeShops] = await Promise.all([
+        fetchAdminEndpoint('/api/admin/active-shops')
       ]);
 
       setSessionData({
         loading: false,
         activeShops: activeShops.active_shops || activeShops.shops || [],
         deletedShops: deletedShops, // Use separate deleted shops state
-        sessionStatistics: sessionStatistics.statistics || null,
         error: null
       });
     } catch (error) {
@@ -725,7 +722,6 @@ const AdminPage: React.FC = () => {
       'connection-pool': [{ label: 'System Health' }, { label: 'Connection Pool' }],
       'emergency-status': [{ label: 'System Health' }, { label: 'Emergency Status' }],
       'active-sessions': [{ label: 'User Management' }, { label: 'Active Sessions' }],
-      'session-statistics': [{ label: 'User Management' }, { label: 'Session Statistics' }],
       'deleted-shops': [{ label: 'User Management' }, { label: 'Deleted Shops' }],
       'session-management': [{ label: 'User Management' }, { label: 'Session Management' }],
       'security-dashboard': [{ label: 'Security & Audit' }, { label: 'Security Dashboard' }],

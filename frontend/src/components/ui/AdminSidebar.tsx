@@ -83,7 +83,6 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
       icon: <PeopleIcon />,
       children: [
         { id: 'active-sessions', label: 'Active Sessions', icon: <TimelineIcon />, path: '/admin/sessions' },
-        { id: 'session-statistics', label: 'Session Statistics', icon: <AssessmentIcon />, path: '/admin/session-stats' },
         { id: 'deleted-shops', label: 'Deleted Shops', icon: <StorageIcon />, path: '/admin/deleted-shops' },
       ],
     },

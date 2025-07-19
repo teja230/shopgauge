@@ -111,7 +111,6 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
       expanded: expandedSections.includes('user-management'),
       children: [
         { id: 'active-sessions', label: 'Active Sessions', section: 'active-sessions' },
-        { id: 'session-statistics', label: 'Session Statistics', section: 'session-statistics' },
         { id: 'deleted-shops', label: 'Deleted Shops', section: 'deleted-shops' },
         { id: 'session-management', label: 'Session Management', section: 'session-management' },
       ],
