@@ -142,16 +142,21 @@ const TransactionMonitoring: React.FC = () => {
     try {
       const response = await fetchWithAdminAuth('/api/health/transactions');
       
+      // Extract metrics from the nested response structure
+      const transactionMetrics = response.transactionMetrics || {};
+      const transactionAlerts = response.transactionAlerts || {};
+      const isHealthy = response.transactionHealthy !== false; // Default to true if not specified
+      
       // Transform backend response to match frontend interface
       const transformedHealth: TransactionHealth = {
-        status: response.isHealthy ? 'healthy' : 'critical',
-        readOnlyViolations: response.read_only_violations || 0,
-        totalTransactions: response.total_transactions || 0,
-        successRate: response.success_rate || 0,
-        failureRate: response.failed_transactions ? (response.failed_transactions / response.total_transactions * 100) : 0,
+        status: isHealthy ? 'healthy' : 'critical',
+        readOnlyViolations: transactionMetrics.read_only_violations || 0,
+        totalTransactions: transactionMetrics.total_transactions || 0,
+        successRate: transactionMetrics.success_rate || 0,
+        failureRate: transactionMetrics.failure_rate || 0,
         avgResponseTime: 0, // Not provided by backend
-        healthScore: response.success_rate || 0,
-        alerts: response.alerts ? Object.keys(response.alerts) : []
+        healthScore: transactionMetrics.total_transactions > 0 ? (transactionMetrics.success_rate || 0) : 100, // Default to 100% when no transactions
+        alerts: Object.keys(transactionAlerts)
       };
       
       if (isMountedRef.current) {
@@ -169,17 +174,21 @@ const TransactionMonitoring: React.FC = () => {
     try {
       const response = await fetchWithAdminAuth('/api/health/metrics/transactions');
       
+      // Extract metrics from the nested response structure
+      const metrics = response.metrics || {};
+      const alerts = response.alerts || {};
+      
       // Transform backend response to match frontend interface
       const transformedMetrics: TransactionMetrics = {
-        totalTransactions: response.total_transactions || 0,
-        successfulTransactions: response.successful_transactions || 0,
-        failedTransactions: response.failed_transactions || 0,
-        readOnlyViolations: response.read_only_violations || 0,
+        totalTransactions: metrics.total_transactions || 0,
+        successfulTransactions: metrics.successful_transactions || 0,
+        failedTransactions: metrics.failed_transactions || 0,
+        readOnlyViolations: metrics.read_only_violations || 0,
         sessionUpdateFailures: 0, // Not provided by backend
         avgResponseTime: 0, // Not provided by backend
         peakResponseTime: 0, // Not provided by backend
-        violationsByType: response.error_counts || {},
-        errorsByCategory: response.error_counts || {},
+        violationsByType: metrics.error_counts || {},
+        errorsByCategory: metrics.error_counts || {},
         hourlyMetrics: [] // Not provided by backend
       };
       
@@ -199,8 +208,11 @@ const TransactionMonitoring: React.FC = () => {
       // Get alerts from the metrics endpoint since alerts are included there
       const response = await fetchWithAdminAuth('/api/health/metrics/transactions') as any;
       
+      // Extract alerts from the nested response structure
+      const alerts = response.alerts || {};
+      
       // Transform backend alerts to match frontend interface
-      const transformedAlerts: TransactionAlert[] = Object.entries(response.alerts || {}).map(([key, alert]: [string, any]) => ({
+      const transformedAlerts: TransactionAlert[] = Object.entries(alerts).map(([key, alert]: [string, any]) => ({
         id: key,
         type: alert.severity === 'CRITICAL' ? 'CRITICAL' : alert.severity === 'WARNING' ? 'WARNING' : 'INFO',
         message: alert.message || 'Unknown alert',
@@ -394,16 +406,20 @@ const TransactionMonitoring: React.FC = () => {
               
               <MetricCard>
                 <Typography variant="h4" color="success.main" fontWeight="bold">
-                  {health.successRate.toFixed(1)}%
+                  {health.totalTransactions > 0 ? health.successRate.toFixed(1) : '100.0'}%
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   Success Rate
                 </Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mt: 1 }}>
-                  {health.successRate > 95 ? (
-                    <TrendingUpIcon color="success" fontSize="small" />
+                  {health.totalTransactions > 0 ? (
+                    health.successRate > 95 ? (
+                      <TrendingUpIcon color="success" fontSize="small" />
+                    ) : (
+                      <TrendingDownIcon color="error" fontSize="small" />
+                    )
                   ) : (
-                    <TrendingDownIcon color="error" fontSize="small" />
+                    <CheckCircleIcon color="success" fontSize="small" />
                   )}
                 </Box>
               </MetricCard>

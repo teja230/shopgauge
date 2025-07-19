@@ -163,7 +163,8 @@ const ComprehensiveMonitoringDashboard: React.FC = () => {
   };
 
   const formatPercentage = (value: number) => {
-    if (!value || isNaN(value)) return '0%';
+    if (value === null || value === undefined || isNaN(value) || value < 0) return '0%';
+    if (value > 100) return '100%';
     return `${value.toFixed(1)}%`;
   };
 
@@ -343,17 +344,26 @@ const ComprehensiveMonitoringDashboard: React.FC = () => {
                 <>
                   <LinearProgress 
                     variant="determinate" 
-                    value={systemResources.cpu.processCpuLoad || 0}
-                    color={(systemResources.cpu.processCpuLoad || 0) > 80 ? 'error' : 'primary'}
+                    value={typeof systemResources.cpu.processCpuLoad === 'number' ? systemResources.cpu.processCpuLoad : 0}
+                    color={(typeof systemResources.cpu.processCpuLoad === 'number' && systemResources.cpu.processCpuLoad > 80) ? 'error' : 'primary'}
                     sx={{ mb: 1 }}
                   />
                   <Typography variant="body2">
-                    {formatPercentage(systemResources.cpu.processCpuLoad || 0)}
+                    {typeof systemResources.cpu.processCpuLoad === 'number' 
+                      ? formatPercentage(systemResources.cpu.processCpuLoad)
+                      : 'Calculating...'
+                    }
                   </Typography>
+                  {systemResources.cpu.systemLoadAverage !== undefined && (
+                    <Typography variant="caption" color="textSecondary" display="block">
+                      System Load: {systemResources.cpu.systemLoadAverage?.toFixed(2) || 'N/A'}
+                    </Typography>
+                  )}
                   <Chip 
                     label={systemResources.cpu.alert || 'Normal'} 
                     color={systemResources.cpu.alert === 'CRITICAL' ? 'error' : 
-                           systemResources.cpu.alert === 'WARNING' ? 'warning' : 'success'}
+                           systemResources.cpu.alert === 'WARNING' ? 'warning' : 
+                           systemResources.cpu.alert === 'UNKNOWN' ? 'default' : 'success'}
                     size="small"
                     sx={{ mt: 1 }}
                   />

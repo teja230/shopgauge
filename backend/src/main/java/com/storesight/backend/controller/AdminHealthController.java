@@ -131,6 +131,30 @@ public class AdminHealthController {
     }
   }
 
+  /** Reset transaction metrics endpoint for TransactionMonitoring component */
+  @PostMapping("/metrics/transactions/reset")
+  public ResponseEntity<Map<String, Object>> resetTransactionMetrics() {
+    try {
+      // Reset transaction monitoring metrics
+      transactionMonitoringService.resetMetrics();
+
+      Map<String, Object> response = new HashMap<>();
+      response.put("success", true);
+      response.put("message", "Transaction metrics reset successfully");
+      response.put("timestamp", LocalDateTime.now());
+
+      return ResponseEntity.ok(response);
+
+    } catch (Exception e) {
+      logger.error("Error resetting transaction metrics: {}", e.getMessage());
+      Map<String, Object> errorResponse = new HashMap<>();
+      errorResponse.put("error", e.getMessage());
+      errorResponse.put("timestamp", LocalDateTime.now());
+
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+    }
+  }
+
   /** Get cache statistics endpoint for admin dashboard */
   @GetMapping("/cache-statistics")
   public ResponseEntity<Map<String, Object>> cacheStatistics() {
@@ -187,30 +211,6 @@ public class AdminHealthController {
       Map<String, Object> errorResponse = new HashMap<>();
       errorResponse.put("error", e.getMessage());
       errorResponse.put("overallStatus", "ERROR");
-      errorResponse.put("timestamp", LocalDateTime.now());
-
-      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
-    }
-  }
-
-  /** Reset transaction metrics endpoint */
-  @PostMapping("/metrics/transactions/reset")
-  public ResponseEntity<Map<String, Object>> resetTransactionMetrics() {
-    try {
-      transactionMonitoringService.resetMetrics();
-
-      Map<String, Object> response = new HashMap<>();
-      response.put("success", true);
-      response.put("message", "Transaction metrics reset successfully");
-      response.put("timestamp", LocalDateTime.now());
-
-      return ResponseEntity.ok(response);
-
-    } catch (Exception e) {
-      logger.error("Error resetting transaction metrics: {}", e.getMessage());
-      Map<String, Object> errorResponse = new HashMap<>();
-      errorResponse.put("success", false);
-      errorResponse.put("error", e.getMessage());
       errorResponse.put("timestamp", LocalDateTime.now());
 
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
