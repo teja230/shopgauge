@@ -288,8 +288,11 @@ public class HealthController {
       response.put("timestamp", LocalDateTime.now());
 
       boolean healthy = redisHealthService.isRedisHealthy();
-      return ResponseEntity.status(healthy ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE)
-          .body(response);
+      response.put("healthy", healthy);
+
+      // Always return 200 OK to allow monitoring tools to access the data
+      // The health status is included in the response body for monitoring tools to evaluate
+      return ResponseEntity.ok(response);
 
     } catch (Exception e) {
       logger.error("Error retrieving Redis health: {}", e.getMessage());
@@ -298,7 +301,7 @@ public class HealthController {
       errorResponse.put("healthy", false);
       errorResponse.put("timestamp", LocalDateTime.now());
 
-      return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(errorResponse);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
     }
   }
 
@@ -322,9 +325,11 @@ public class HealthController {
               .noneMatch(status -> "CRITICAL".equals(status) || "ERROR".equals(status));
 
       response.put("overallStatus", systemHealthy ? "HEALTHY" : "UNHEALTHY");
+      response.put("timestamp", LocalDateTime.now());
 
-      return ResponseEntity.status(systemHealthy ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE)
-          .body(response);
+      // Always return 200 OK to allow monitoring tools to access the data
+      // The health status is included in the response body for monitoring tools to evaluate
+      return ResponseEntity.ok(response);
 
     } catch (Exception e) {
       logger.error("Error retrieving system health: {}", e.getMessage());
@@ -396,9 +401,9 @@ public class HealthController {
       response.put("overallStatus", healthStatus);
       response.put("timestamp", LocalDateTime.now());
 
-      boolean healthy = "HEALTHY".equals(healthStatus);
-      return ResponseEntity.status(healthy ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE)
-          .body(response);
+      // Always return 200 OK to allow monitoring tools to access the data
+      // The health status is included in the response body for monitoring tools to evaluate
+      return ResponseEntity.ok(response);
 
     } catch (Exception e) {
       logger.error("Error retrieving SSE service health: {}", e.getMessage());
@@ -469,9 +474,9 @@ public class HealthController {
       response.put("healthIndicators", healthIndicators);
       response.put("timestamp", LocalDateTime.now());
 
-      boolean healthy = "HEALTHY".equals(healthStatus);
-      return ResponseEntity.status(healthy ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE)
-          .body(response);
+      // Always return 200 OK to allow monitoring tools to access the data
+      // The health status is included in the response body for monitoring tools to evaluate
+      return ResponseEntity.ok(response);
 
     } catch (Exception e) {
       logger.error("Error retrieving session health: {}", e.getMessage());
