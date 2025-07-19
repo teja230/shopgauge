@@ -45,6 +45,7 @@ public class CompetitorScraperWorker {
   @Autowired private JdbcTemplate jdbcTemplate;
   @Autowired private RedisTemplate<String, Object> redisTemplate;
   @Autowired private AlertService alertService;
+  @Autowired private AsyncProcessingService asyncProcessingService;
 
   @Value("${selenium.enabled:true}")
   private boolean seleniumEnabled;
@@ -226,19 +227,35 @@ public class CompetitorScraperWorker {
 
       log.info("[Worker] Found {} competitor URLs to scrape", competitorUrls.size());
 
-      // Process each URL
+      // Process each URL using enhanced async processing
       for (Map<String, Object> urlData : competitorUrls) {
-        scrapeExecutor.submit(
-            () -> {
-              try {
-                scrapeCompetitorUrl(urlData);
-              } catch (Exception e) {
-                log.error(
-                    "[Worker] Error scraping competitor URL {}: {}",
-                    urlData.get("url"),
-                    e.getMessage());
-              }
-            });
+        String url = (String) urlData.get("url");
+        Long shopId = ((Number) urlData.get("shop_id")).longValue();
+        String shopDomain = (String) urlData.get("shopify_domain");
+        String taskId =
+            "scraping-" + shopId + "-" + urlData.get("id") + "-" + System.currentTimeMillis();
+
+        asyncProcessingService
+            .submitScrapingTask(
+                taskId,
+                shopDomain,
+                shopId,
+                () -> {
+                  try {
+                    scrapeCompetitorUrl(urlData);
+                  } catch (Exception e) {
+                    log.error("[Worker] Error scraping competitor URL {}: {}", url, e.getMessage());
+                    throw new RuntimeException("Scraping failed for URL " + url, e);
+                  }
+                })
+            .exceptionally(
+                throwable -> {
+                  log.error(
+                      "[Worker] Async scraping task failed for URL {}: {}",
+                      url,
+                      throwable.getMessage());
+                  return null;
+                });
       }
 
       log.info("[Worker] Submitted {} competitor URLs for scraping", competitorUrls.size());
@@ -461,21 +478,61 @@ public class CompetitorScraperWorker {
     }
   }
 
-  /** Store price snapshot in database */
+  /** Store price snapshot in database with enhanced tracking */
   private void storePriceSnapshot(Long competitorUrlId, CompetitorData data) {
     try {
+      // Calculate price change percentage if previous price exists
+      BigDecimal priceChangePercent = null;
+      boolean significantChange = false;
+
+      List<Map<String, Object>> previousPrices =
+          jdbcTemplate.queryForList(
+              "SELECT price FROM price_snapshots WHERE competitor_url_id = ? AND price IS NOT NULL ORDER BY checked_at DESC LIMIT 1",
+              competitorUrlId);
+
+      if (!previousPrices.isEmpty() && data.price != null) {
+        BigDecimal previousPrice = (BigDecimal) previousPrices.get(0).get("price");
+        if (previousPrice != null && previousPrice.compareTo(BigDecimal.ZERO) > 0) {
+          BigDecimal priceDiff = data.price.subtract(previousPrice);
+          priceChangePercent =
+              priceDiff
+                  .divide(previousPrice, 4, BigDecimal.ROUND_HALF_UP)
+                  .multiply(BigDecimal.valueOf(100));
+          significantChange = priceChangePercent.abs().compareTo(BigDecimal.valueOf(5)) > 0;
+        }
+      }
+
       jdbcTemplate.update(
-          "INSERT INTO price_snapshots (competitor_url_id, price, in_stock, checked_at) "
-              + "VALUES (?, ?, ?, CURRENT_TIMESTAMP)",
+          "INSERT INTO price_snapshots (competitor_url_id, price, in_stock, price_change_percent, significant_change, checked_at, scraper_version) "
+              + "VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)",
           competitorUrlId,
           data.price,
-          data.inStock);
+          data.inStock,
+          priceChangePercent,
+          significantChange,
+          "v2.0");
+
+      // Update competitor URL status on successful scrape
+      jdbcTemplate.update(
+          "UPDATE competitor_urls SET status = 'active', last_successful_check = CURRENT_TIMESTAMP, error_count = 0 WHERE id = ?",
+          competitorUrlId);
+
     } catch (Exception e) {
       log.error("[Worker] Error storing price snapshot: {}", e.getMessage());
+
+      // Update error count on failure
+      try {
+        jdbcTemplate.update(
+            "UPDATE competitor_urls SET error_count = COALESCE(error_count, 0) + 1, status = CASE WHEN COALESCE(error_count, 0) + 1 >= 5 THEN 'error' ELSE status END WHERE id = ?",
+            competitorUrlId);
+      } catch (Exception updateError) {
+        log.error(
+            "[Worker] Error updating competitor URL error count: {}", updateError.getMessage());
+      }
     }
   }
 
-  /** Check for price alerts */
+  /** Check for price alerts with enhanced tracking */
   private void checkPriceAlerts(
       Long competitorUrlId, Long shopId, String shopDomain, CompetitorData data) {
     try {
@@ -499,30 +556,80 @@ public class CompetitorScraperWorker {
                   .divide(previousPrice, 4, BigDecimal.ROUND_HALF_UP)
                   .multiply(BigDecimal.valueOf(100));
 
+          // Significant price change threshold (5%)
           if (percentChange.abs().compareTo(BigDecimal.valueOf(5)) > 0) {
+            String alertType =
+                percentChange.compareTo(BigDecimal.ZERO) > 0 ? "price_increase" : "price_drop";
             String direction =
                 percentChange.compareTo(BigDecimal.ZERO) > 0 ? "increased" : "decreased";
+
+            // Create price alert record
+            createPriceAlert(
+                competitorUrlId, shopId, previousPrice, data.price, percentChange, alertType);
+
+            // Send notification
             String message =
                 String.format(
                     "Competitor price %s by %.1f%% (from $%.2f to $%.2f)",
                     direction, percentChange.abs(), previousPrice, data.price);
 
             alertService.triggerBusinessEvent(shopDomain, "Competitor Price Change", message);
+
+            log.info(
+                "[Worker] Price alert triggered for competitor {}: {} by {}%",
+                competitorUrlId, direction, percentChange.abs());
           }
         }
 
         // Check for stock changes
         if (previousInStock != null && previousInStock != data.inStock) {
+          String alertType = data.inStock ? "back_in_stock" : "out_of_stock";
           String message =
               data.inStock
                   ? "Competitor product is now back in stock"
                   : "Competitor product is now out of stock";
 
+          // Create stock alert record
+          createPriceAlert(competitorUrlId, shopId, null, null, null, alertType);
+
+          // Send notification
           alertService.triggerBusinessEvent(shopDomain, "Competitor Stock Change", message);
+
+          log.info(
+              "[Worker] Stock alert triggered for competitor {}: {}", competitorUrlId, alertType);
         }
       }
     } catch (Exception e) {
       log.error("[Worker] Error checking price alerts: {}", e.getMessage());
+    }
+  }
+
+  /** Create price alert record in database */
+  private void createPriceAlert(
+      Long competitorUrlId,
+      Long shopId,
+      BigDecimal oldPrice,
+      BigDecimal newPrice,
+      BigDecimal changePercent,
+      String alertType) {
+    try {
+      jdbcTemplate.update(
+          "INSERT INTO price_alerts (competitor_url_id, shop_id, old_price, new_price, change_percent, alert_type, notification_sent, created_at) "
+              + "VALUES (?, ?, ?, ?, ?, ?, true, CURRENT_TIMESTAMP)",
+          competitorUrlId,
+          shopId,
+          oldPrice,
+          newPrice,
+          changePercent,
+          alertType);
+
+      log.debug(
+          "[Worker] Created price alert record: competitorUrlId={}, alertType={}, changePercent={}",
+          competitorUrlId,
+          alertType,
+          changePercent);
+    } catch (Exception e) {
+      log.error("[Worker] Error creating price alert record: {}", e.getMessage());
     }
   }
 

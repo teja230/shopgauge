@@ -11,6 +11,7 @@ import SuspiciousActivityMonitor from './SuspiciousActivityMonitor';
 import MarketIntelligenceDashboard from './MarketIntelligenceDashboard';
 import SseStatsCard from './SseStatsCard';
 import ComprehensiveMonitoringDashboard from './ComprehensiveMonitoringDashboard';
+import PerformanceMetricsDashboard from './PerformanceMetricsDashboard';
 import AdminSessionManager from './AdminSessionManager';
 import SessionManagementTools from './SessionManagementTools';
 import ModernDataTable from './ModernDataTable';
@@ -562,6 +563,18 @@ const AdminRouter = React.memo<AdminRouterProps>(({
                 Transaction Monitoring
               </Typography>
               <TransactionMonitoring />
+            </Box>
+          </Suspense>
+        );
+
+      case 'performance-metrics':
+        return (
+          <Suspense fallback={<LoadingFallback title="Performance Metrics" />}>
+            <Box>
+              <Typography variant="h5" gutterBottom sx={{ mb: 3 }}>
+                Performance Metrics Dashboard
+              </Typography>
+              <PerformanceMetricsDashboard />
             </Box>
           </Suspense>
         );
