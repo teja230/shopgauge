@@ -71,6 +71,8 @@ services:
         sync: false  # Must be set in Render Dashboard
       - key: ADMIN_JWT_SECRET
         sync: false  # Must be set in Render Dashboard
+      - key: SESSION_SECURITY_ENCRYPTION_KEY
+        sync: false  # Must be set in Render Dashboard (32-byte Base64-encoded key)
       
       # Admin Authentication Configuration
       - key: ADMIN_AUTH_ENABLED
@@ -127,6 +129,8 @@ services:
     dockerContext: .
     dockerfilePath: backend/Dockerfile.prod
     autoDeployTrigger: "on"
+    healthCheckPath: "/api/health/live"
+    numInstances: 1
     
   - type: web
     name: storesight
