@@ -123,6 +123,7 @@ const AdminPage: React.FC = () => {
   const [sessionData, setSessionData] = useState({
     activeShops: [] as any[],
     deletedShops: [] as any[],
+    sessionStatistics: null as any,
     loading: false,
     error: null as string | null
   });
@@ -511,14 +512,16 @@ const AdminPage: React.FC = () => {
     try {
       setSessionData(prev => ({ ...prev, loading: true }));
       
-      const [activeShops] = await Promise.all([
-        fetchAdminEndpoint('/api/admin/active-shops')
+      const [activeShops, sessionStats] = await Promise.all([
+        fetchAdminEndpoint('/api/admin/active-shops'),
+        fetchAdminEndpoint('/api/admin/session-statistics')
       ]);
 
       setSessionData({
         loading: false,
         activeShops: activeShops.active_shops || activeShops.shops || [],
         deletedShops: deletedShops, // Use separate deleted shops state
+        sessionStatistics: sessionStats,
         error: null
       });
     } catch (error) {

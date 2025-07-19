@@ -61,6 +61,7 @@ interface AdminRouterProps {
   sessionData?: {
     activeShops: any[];
     deletedShops: any[];
+    sessionStatistics: any;
     loading: boolean;
     error: string | null;
     onRefresh: () => void;
