@@ -6,6 +6,7 @@ import com.storesight.backend.repository.NotificationRepository;
 import jakarta.annotation.PostConstruct;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +26,7 @@ public class NotificationService {
   private final WebClient webClient;
   private final NotificationRepository notificationRepository;
   private final SecretService secretService;
+  private final AsyncProcessingService asyncProcessingService;
 
   @Value("${sendgrid.api_key:}")
   private String sendGridApiKey;
@@ -62,10 +64,12 @@ public class NotificationService {
       StringRedisTemplate stringRedisTemplate,
       NotificationRepository notificationRepository,
       SecretService secretService,
+      AsyncProcessingService asyncProcessingService,
       WebClient.Builder webClientBuilder) {
     this.stringRedisTemplate = stringRedisTemplate;
     this.notificationRepository = notificationRepository;
     this.secretService = secretService;
+    this.asyncProcessingService = asyncProcessingService;
     this.webClient = webClientBuilder.build();
   }
 
@@ -135,33 +139,51 @@ public class NotificationService {
   }
 
   public void sendEmailAlert(String to, String subject, String body) {
+    sendEmailAlertAsync(to, subject, body, null, null);
+  }
+
+  public CompletableFuture<Void> sendEmailAlertAsync(
+      String to, String subject, String body, String shopDomain, Long shopId) {
     if (!sendGridEnabled) {
       log.warn("SendGrid is not enabled - skipping email alert to: {}", to);
-      return;
+      return CompletableFuture.completedFuture(null);
     }
 
-    webClient
-        .post()
-        .uri("https://api.sendgrid.com/v3/mail/send")
-        .header("Authorization", "Bearer " + sendGridApiKey)
-        .header("Content-Type", "application/json")
-        .bodyValue(
-            "{"
-                + "\"personalizations\":[{\"to\":[{\"email\":\""
-                + to
-                + "\"}]}],"
-                + "\"from\":{\"email\":\"noreply@shopgaugeai.com\"},"
-                + "\"subject\":\""
-                + subject
-                + "\","
-                + "\"content\":[{\"type\":\"text/plain\",\"value\":\""
-                + body
-                + "\"}]}")
-        .retrieve()
-        .bodyToMono(String.class)
-        .subscribe(
-            response -> log.info("Email alert sent successfully to: {}", to),
-            error -> log.error("Failed to send email alert to {}: {}", to, error.getMessage()));
+    String taskId = "email-" + to.hashCode() + "-" + System.currentTimeMillis();
+
+    return asyncProcessingService.submitNotificationTask(
+        taskId,
+        shopDomain,
+        shopId,
+        () -> {
+          try {
+            webClient
+                .post()
+                .uri("https://api.sendgrid.com/v3/mail/send")
+                .header("Authorization", "Bearer " + sendGridApiKey)
+                .header("Content-Type", "application/json")
+                .bodyValue(
+                    "{"
+                        + "\"personalizations\":[{\"to\":[{\"email\":\""
+                        + to
+                        + "\"}]}],"
+                        + "\"from\":{\"email\":\"noreply@shopgaugeai.com\"},"
+                        + "\"subject\":\""
+                        + subject
+                        + "\","
+                        + "\"content\":[{\"type\":\"text/plain\",\"value\":\""
+                        + body
+                        + "\"}]}")
+                .retrieve()
+                .bodyToMono(String.class)
+                .block(); // Block for synchronous execution within async task
+
+            log.info("Email alert sent successfully to: {}", to);
+          } catch (Exception e) {
+            log.error("Failed to send email alert to {}: {}", to, e.getMessage());
+            throw new RuntimeException("Email sending failed", e);
+          }
+        });
   }
 
   public void sendSlackAlert(String webhookUrl, String message) {
@@ -179,34 +201,58 @@ public class NotificationService {
   }
 
   public void sendSmsAlert(String phoneNumber, String message) {
+    sendSmsAlertAsync(phoneNumber, message, null, null);
+  }
+
+  public CompletableFuture<Void> sendSmsAlertAsync(
+      String phoneNumber, String message, String shopDomain, Long shopId) {
     if (!twilioEnabled) {
       log.warn("Twilio is not enabled - skipping SMS alert to: {}", phoneNumber);
-      return;
+      return CompletableFuture.completedFuture(null);
     }
 
-    if (phoneNumber == null || phoneNumber.isEmpty()) return;
-    webClient
-        .post()
-        .uri("https://api.twilio.com/2010-04-01/Accounts/" + twilioAccountSid + "/Messages.json")
-        .headers(
-            headers -> {
-              headers.setBasicAuth(twilioAccountSid, twilioAuthToken);
-              headers.setContentType(
-                  org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED);
-            })
-        .bodyValue(
-            "To="
-                + phoneNumber
-                + "&From="
-                + twilioFromNumber
-                + "&Body="
-                + java.net.URLEncoder.encode(message, java.nio.charset.StandardCharsets.UTF_8))
-        .retrieve()
-        .bodyToMono(String.class)
-        .subscribe(
-            response -> log.info("SMS alert sent successfully to: {}", phoneNumber),
-            error ->
-                log.error("Failed to send SMS alert to {}: {}", phoneNumber, error.getMessage()));
+    if (phoneNumber == null || phoneNumber.isEmpty()) {
+      return CompletableFuture.completedFuture(null);
+    }
+
+    String taskId = "sms-" + phoneNumber.hashCode() + "-" + System.currentTimeMillis();
+
+    return asyncProcessingService.submitNotificationTask(
+        taskId,
+        shopDomain,
+        shopId,
+        () -> {
+          try {
+            webClient
+                .post()
+                .uri(
+                    "https://api.twilio.com/2010-04-01/Accounts/"
+                        + twilioAccountSid
+                        + "/Messages.json")
+                .headers(
+                    headers -> {
+                      headers.setBasicAuth(twilioAccountSid, twilioAuthToken);
+                      headers.setContentType(
+                          org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED);
+                    })
+                .bodyValue(
+                    "To="
+                        + phoneNumber
+                        + "&From="
+                        + twilioFromNumber
+                        + "&Body="
+                        + java.net.URLEncoder.encode(
+                            message, java.nio.charset.StandardCharsets.UTF_8))
+                .retrieve()
+                .bodyToMono(String.class)
+                .block(); // Block for synchronous execution within async task
+
+            log.info("SMS alert sent successfully to: {}", phoneNumber);
+          } catch (Exception e) {
+            log.error("Failed to send SMS alert to {}: {}", phoneNumber, e.getMessage());
+            throw new RuntimeException("SMS sending failed", e);
+          }
+        });
   }
 
   public Mono<List<Notification>> getNotifications(String shop) {

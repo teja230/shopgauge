@@ -4,6 +4,8 @@ import com.storesight.backend.model.AuditLog;
 import com.storesight.backend.model.Shop;
 import com.storesight.backend.model.ShopSession;
 import com.storesight.backend.repository.AuditLogRepository;
+import com.storesight.backend.repository.CompetitorSuggestionRepository;
+import com.storesight.backend.repository.MarketIntelligenceCostRepository;
 import com.storesight.backend.repository.ShopRepository;
 import com.storesight.backend.repository.ShopSessionRepository;
 import jakarta.servlet.http.HttpServletRequest;
@@ -12,18 +14,22 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 /**
- * Enhanced service for data privacy compliance with multi-session support. Handles GDPR compliance,
- * audit logging, and data minimization.
+ * Comprehensive data privacy and GDPR compliance service with multi-session support. Handles GDPR
+ * compliance, audit logging, data minimization, and Market Intelligence specific privacy controls.
  */
 @Service
 public class DataPrivacyService {
@@ -33,22 +39,41 @@ public class DataPrivacyService {
   private final AuditLogRepository auditLogRepository;
   private final ShopRepository shopRepository;
   private final ShopSessionRepository shopSessionRepository;
+  private final CompetitorSuggestionRepository competitorSuggestionRepository;
+  private final MarketIntelligenceCostRepository marketIntelligenceCostRepository;
+  private final CompetitorAuditService competitorAuditService;
 
   // Data retention periods (in days)
   private static final int ORDER_DATA_RETENTION_DAYS = 60; // Only last 60 days as per requirement
   private static final int ANALYTICS_DATA_RETENTION_DAYS = 90; // Aggregated analytics
   private static final int AUDIT_LOG_RETENTION_DAYS = 365; // Compliance audit logs
 
+  // Market Intelligence specific retention periods (configurable)
+  @Value("${privacy.retention.audit-logs.days:365}")
+  private int auditLogRetentionDays;
+
+  @Value("${privacy.retention.competitor-data.days:730}")
+  private int competitorDataRetentionDays;
+
+  @Value("${privacy.retention.cost-data.days:1095}")
+  private int costDataRetentionDays;
+
   @Autowired
   public DataPrivacyService(
       StringRedisTemplate redisTemplate,
       AuditLogRepository auditLogRepository,
       ShopRepository shopRepository,
-      ShopSessionRepository shopSessionRepository) {
+      ShopSessionRepository shopSessionRepository,
+      CompetitorSuggestionRepository competitorSuggestionRepository,
+      MarketIntelligenceCostRepository marketIntelligenceCostRepository,
+      CompetitorAuditService competitorAuditService) {
     this.redisTemplate = redisTemplate;
     this.auditLogRepository = auditLogRepository;
     this.shopRepository = shopRepository;
     this.shopSessionRepository = shopSessionRepository;
+    this.competitorSuggestionRepository = competitorSuggestionRepository;
+    this.marketIntelligenceCostRepository = marketIntelligenceCostRepository;
+    this.competitorAuditService = competitorAuditService;
   }
 
   /** Process only minimum required data for analytics purposes */
@@ -805,5 +830,230 @@ public class DataPrivacyService {
       logger.error("Error retrieving deleted shops: {}", e.getMessage(), e);
       return Collections.emptyList();
     }
+  }
+
+  // ========== MARKET INTELLIGENCE SPECIFIC PRIVACY METHODS ==========
+
+  /** Delete all data for a shop (GDPR right to be forgotten) */
+  @Transactional
+  @Async
+  public CompletableFuture<Map<String, Object>> deleteShopData(Long shopId, String reason) {
+    logger.info("Starting data deletion for shop ID: {} - Reason: {}", shopId, reason);
+
+    Map<String, Object> deletionReport = new HashMap<>();
+    LocalDateTime startTime = LocalDateTime.now();
+
+    try {
+      // Log the data deletion request
+      competitorAuditService.logDataAccessed(shopId, "FULL_DELETION", reason);
+
+      // Delete competitor suggestions
+      long competitorSuggestions = competitorSuggestionRepository.countByShopId(shopId);
+      competitorSuggestionRepository.deleteByShopId(shopId);
+      deletionReport.put("competitorSuggestions", competitorSuggestions);
+
+      // Delete market intelligence costs
+      long costRecords = marketIntelligenceCostRepository.countByShopId(shopId);
+      marketIntelligenceCostRepository.deleteByShopId(shopId);
+      deletionReport.put("costRecords", costRecords);
+
+      // Delete audit logs (keep deletion audit log)
+      long auditLogs = auditLogRepository.countByShopId(shopId);
+      auditLogRepository.deleteByShopIdAndCreatedAtBefore(
+          shopId, LocalDateTime.now().minusMinutes(1));
+      deletionReport.put("auditLogs", auditLogs);
+
+      // Record completion
+      LocalDateTime endTime = LocalDateTime.now();
+      deletionReport.put("startTime", startTime);
+      deletionReport.put("endTime", endTime);
+      deletionReport.put("success", true);
+      deletionReport.put("reason", reason);
+
+      // Final audit log for deletion completion
+      competitorAuditService.logDataAccessed(
+          shopId,
+          "DELETION_COMPLETED",
+          "Data deletion completed successfully: " + deletionReport.toString());
+
+      logger.info("Data deletion completed for shop ID: {} - Report: {}", shopId, deletionReport);
+
+    } catch (Exception e) {
+      logger.error("Failed to delete data for shop ID: {} - Error: {}", shopId, e.getMessage(), e);
+      deletionReport.put("success", false);
+      deletionReport.put("error", e.getMessage());
+      deletionReport.put("endTime", LocalDateTime.now());
+    }
+
+    return CompletableFuture.completedFuture(deletionReport);
+  }
+
+  /** Export all data for a shop (GDPR right to data portability) */
+  @Transactional(readOnly = true)
+  public Map<String, Object> exportShopData(Long shopId) {
+    logger.info("Starting data export for shop ID: {}", shopId);
+
+    Map<String, Object> exportData = new HashMap<>();
+
+    try {
+      // Log the data export request
+      competitorAuditService.logDataAccessed(
+          shopId, "FULL_EXPORT", "GDPR data portability request");
+
+      // Export competitor suggestions
+      var suggestions = competitorSuggestionRepository.findByShopId(shopId);
+      exportData.put("competitorSuggestions", suggestions);
+
+      // Export cost data
+      var costs = marketIntelligenceCostRepository.findByShopId(shopId);
+      exportData.put("costRecords", costs);
+
+      // Export audit logs (last 90 days for privacy)
+      LocalDateTime ninetyDaysAgo = LocalDateTime.now().minusDays(90);
+      var auditLogs =
+          auditLogRepository.findByShopIdAndCreatedAtBetweenOrderByCreatedAtDesc(
+              shopId, ninetyDaysAgo, LocalDateTime.now());
+      exportData.put("auditLogs", auditLogs);
+
+      // Add metadata
+      exportData.put("exportDate", LocalDateTime.now());
+      exportData.put("shopId", shopId);
+      exportData.put("dataTypes", exportData.keySet());
+
+      // Log successful export
+      competitorAuditService.logDataExported(
+          shopId,
+          "GDPR_EXPORT",
+          exportData.values().stream()
+              .mapToInt(
+                  v -> v instanceof java.util.Collection ? ((java.util.Collection<?>) v).size() : 1)
+              .sum());
+
+      logger.info(
+          "Data export completed for shop ID: {} - {} records",
+          shopId,
+          exportData.values().stream()
+              .mapToInt(
+                  v -> v instanceof java.util.Collection ? ((java.util.Collection<?>) v).size() : 1)
+              .sum());
+
+    } catch (Exception e) {
+      logger.error("Failed to export data for shop ID: {} - Error: {}", shopId, e.getMessage(), e);
+      exportData.put("error", e.getMessage());
+    }
+
+    return exportData;
+  }
+
+  /** Clean up old data based on retention policies */
+  @Transactional
+  @Async
+  public CompletableFuture<Map<String, Long>> cleanupOldData() {
+    logger.info("Starting automated data cleanup based on retention policies");
+
+    Map<String, Long> cleanupReport = new HashMap<>();
+
+    try {
+      // Clean up old audit logs
+      LocalDateTime auditCutoff = LocalDateTime.now().minusDays(auditLogRetentionDays);
+      long oldAuditLogs = auditLogRepository.countByCreatedAtBefore(auditCutoff);
+      auditLogRepository.deleteByCreatedAtBefore(auditCutoff);
+      cleanupReport.put("auditLogs", oldAuditLogs);
+
+      // Clean up old cost data
+      LocalDateTime costCutoff = LocalDateTime.now().minusDays(costDataRetentionDays);
+      long oldCostRecords =
+          marketIntelligenceCostRepository.countByDateBefore(costCutoff.toLocalDate());
+      marketIntelligenceCostRepository.deleteByDateBefore(costCutoff.toLocalDate());
+      cleanupReport.put("costRecords", oldCostRecords);
+
+      logger.info("Data cleanup completed - Report: {}", cleanupReport);
+
+    } catch (Exception e) {
+      logger.error("Failed to cleanup old data: {}", e.getMessage(), e);
+      cleanupReport.put("error", 1L);
+    }
+
+    return CompletableFuture.completedFuture(cleanupReport);
+  }
+
+  /** Get data retention status for a shop */
+  public Map<String, Object> getDataRetentionStatus(Long shopId) {
+    Map<String, Object> status = new HashMap<>();
+
+    try {
+      // Count current data
+      long suggestions = competitorSuggestionRepository.countByShopId(shopId);
+      long auditLogs = auditLogRepository.countByShopId(shopId);
+      long costRecords = marketIntelligenceCostRepository.countByShopId(shopId);
+
+      status.put(
+          "currentData",
+          Map.of(
+              "competitorSuggestions", suggestions,
+              "auditLogs", auditLogs,
+              "costRecords", costRecords));
+
+      // Retention policies
+      status.put(
+          "retentionPolicies",
+          Map.of(
+              "auditLogRetentionDays", auditLogRetentionDays,
+              "competitorDataRetentionDays", competitorDataRetentionDays,
+              "costDataRetentionDays", costDataRetentionDays));
+
+      // Calculate oldest data
+      var oldestAuditLog =
+          auditLogRepository.findByShopIdOrderByCreatedAtDesc(shopId).stream()
+              .reduce((first, second) -> second)
+              .orElse(null);
+      if (oldestAuditLog != null) {
+        status.put("oldestAuditLog", oldestAuditLog.getCreatedAt());
+      }
+
+    } catch (Exception e) {
+      logger.error("Failed to get retention status for shop {}: {}", shopId, e.getMessage());
+      status.put("error", e.getMessage());
+    }
+
+    return status;
+  }
+
+  /** Anonymize data for a shop (alternative to deletion) */
+  @Transactional
+  public Map<String, Object> anonymizeShopData(Long shopId, String reason) {
+    logger.info("Starting data anonymization for shop ID: {} - Reason: {}", shopId, reason);
+
+    Map<String, Object> anonymizationReport = new HashMap<>();
+
+    try {
+      // Log the anonymization request
+      competitorAuditService.logDataAccessed(shopId, "ANONYMIZATION", reason);
+
+      // Anonymize competitor suggestions (remove URLs, keep aggregated data)
+      var suggestions = competitorSuggestionRepository.findByShopId(shopId);
+      for (var suggestion : suggestions) {
+        suggestion.setSuggestedUrl("ANONYMIZED_URL_" + suggestion.getId());
+        suggestion.setTitle("ANONYMIZED_TITLE");
+      }
+      competitorSuggestionRepository.saveAll(suggestions);
+      anonymizationReport.put("anonymizedSuggestions", suggestions.size());
+
+      // Keep cost data and audit logs for analytics (they don't contain personal info)
+      anonymizationReport.put("success", true);
+      anonymizationReport.put("reason", reason);
+      anonymizationReport.put("timestamp", LocalDateTime.now());
+
+      logger.info(
+          "Data anonymization completed for shop ID: {} - Report: {}", shopId, anonymizationReport);
+
+    } catch (Exception e) {
+      logger.error(
+          "Failed to anonymize data for shop ID: {} - Error: {}", shopId, e.getMessage(), e);
+      anonymizationReport.put("success", false);
+      anonymizationReport.put("error", e.getMessage());
+    }
+
+    return anonymizationReport;
   }
 }

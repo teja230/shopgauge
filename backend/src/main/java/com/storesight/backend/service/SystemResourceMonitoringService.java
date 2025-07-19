@@ -110,6 +110,14 @@ public class SystemResourceMonitoringService {
         Object result = getProcessCpuLoadMethod.invoke(osBean);
         if (result instanceof Number) {
           processCpuLoad = ((Number) result).doubleValue();
+          // The getProcessCpuLoad() method returns a value between 0.0 and 1.0
+          // If we get a value > 1.0, it means it's already been converted to percentage
+          if (processCpuLoad > 1.0) {
+            processCpuLoad = processCpuLoad / 100.0; // Convert back to 0.0-1.0 range
+            logger.debug(
+                "Detected percentage value from getProcessCpuLoad, converting to decimal: {}",
+                processCpuLoad);
+          }
         }
       } catch (Exception e) {
         // Method not available or failed - this is expected on some JVMs
@@ -121,10 +129,12 @@ public class SystemResourceMonitoringService {
         double systemLoad = osBean.getSystemLoadAverage();
         if (systemLoad >= 0) {
           // Convert system load average to approximate CPU percentage
-          // System load average is typically per CPU core, so we multiply by 100 and divide by
-          // cores
+          // Load average represents the average system load over time
+          // For a more accurate CPU percentage, we need to consider the number of cores
           int processors = osBean.getAvailableProcessors();
-          processCpuLoad = Math.min((systemLoad * 100.0) / processors, 100.0);
+          // A load average of 1.0 per core means 100% CPU usage
+          // So we calculate: (load_average / num_cores) * 100
+          processCpuLoad = Math.min((systemLoad / processors) * 100.0, 100.0);
           logger.debug(
               "Using system load average fallback for CPU calculation: {}%", processCpuLoad);
         } else {
@@ -135,7 +145,16 @@ public class SystemResourceMonitoringService {
       }
 
       // Always ensure we have a numeric value
-      double processCpuPercent = processCpuLoad * 100;
+      // processCpuLoad is already in percentage (0-100) from the fallback calculation
+      // If it came from JMX, it needs to be converted from 0.0-1.0 to percentage
+      double processCpuPercent;
+      if (processCpuLoad <= 1.0) {
+        // This came from JMX (0.0-1.0 range), convert to percentage
+        processCpuPercent = processCpuLoad * 100;
+      } else {
+        // This came from fallback calculation (already in percentage)
+        processCpuPercent = processCpuLoad;
+      }
       cpuStats.put("processCpuLoad", processCpuPercent);
 
       // Update metrics

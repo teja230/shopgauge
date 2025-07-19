@@ -45,4 +45,13 @@ public interface CompetitorSuggestionRepository extends JpaRepository<Competitor
   // Get suggestions for discovery scheduling (shops with active products)
   @Query("SELECT DISTINCT cs.shopId FROM CompetitorSuggestion cs WHERE cs.status = 'NEW'")
   List<Long> findShopIdsWithNewSuggestions();
+
+  // Count suggestions by shop ID
+  long countByShopId(Long shopId);
+
+  // Find all suggestions by shop ID
+  List<CompetitorSuggestion> findByShopId(Long shopId);
+
+  // Delete all suggestions for a shop
+  void deleteByShopId(Long shopId);
 }

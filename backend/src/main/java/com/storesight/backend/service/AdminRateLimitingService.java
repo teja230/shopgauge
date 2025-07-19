@@ -1,6 +1,9 @@
 package com.storesight.backend.service;
 
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,8 +13,9 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 /**
- * Enhanced rate limiting service specifically for admin endpoints Provides more restrictive rate
- * limiting for admin operations
+ * Comprehensive rate limiting service for admin endpoints and Market Intelligence operations.
+ * Provides Redis-based rate limiting for all operations to ensure persistence, scalability, and
+ * consistency.
  */
 @Service
 public class AdminRateLimitingService {
@@ -20,6 +24,7 @@ public class AdminRateLimitingService {
 
   @Autowired private RedisTemplate<String, Object> redisTemplate;
 
+  // Admin rate limit configurations
   @Value("${admin.rate-limit.requests-per-minute:10}")
   private int adminRequestsPerMinute;
 
@@ -31,6 +36,21 @@ public class AdminRateLimitingService {
 
   @Value("${admin.rate-limit.enabled:true}")
   private boolean rateLimitEnabled;
+
+  // Market Intelligence rate limit configurations
+  @Value("${security.rate-limit.competitor.add-per-hour:10}")
+  private int competitorAddPerHour;
+
+  @Value("${security.rate-limit.competitor.discovery-per-day:3}")
+  private int discoveryPerDay;
+
+  @Value("${security.rate-limit.competitor.suggestions-per-hour:50}")
+  private int suggestionsPerHour;
+
+  @Value("${security.rate-limit.api.requests-per-minute:60}")
+  private int apiRequestsPerMinute;
+
+  // ========== ADMIN RATE LIMITING METHODS (Redis-based) ==========
 
   /** Check if admin request is allowed based on general rate limiting */
   public boolean isAdminRequestAllowed(String ipAddress, String endpoint) {
@@ -271,6 +291,186 @@ public class AdminRateLimitingService {
     return status;
   }
 
+  // ========== MARKET INTELLIGENCE RATE LIMITING METHODS (Redis-based) ==========
+
+  /** Check if competitor addition is allowed for a shop */
+  public RateLimitResult checkCompetitorAddition(Long shopId) {
+    try {
+      String key = "market_intelligence:rate_limit:competitor_add:" + shopId;
+      return checkRedisRateLimit(
+          key, competitorAddPerHour, 60, ChronoUnit.MINUTES); // 1 hour window
+    } catch (Exception e) {
+      logger.warn("Redis unavailable for competitor addition rate limiting: {}", e.getMessage());
+      return RateLimitResult.allowed(0, competitorAddPerHour, LocalDateTime.now().plusHours(1));
+    }
+  }
+
+  /** Check if discovery is allowed for a shop */
+  public RateLimitResult checkDiscoveryTrigger(Long shopId) {
+    try {
+      String key = "market_intelligence:rate_limit:discovery:" + shopId;
+      return checkRedisRateLimit(key, discoveryPerDay, 24, ChronoUnit.HOURS); // 24 hour window
+    } catch (Exception e) {
+      logger.warn("Redis unavailable for discovery rate limiting: {}", e.getMessage());
+      return RateLimitResult.allowed(0, discoveryPerDay, LocalDateTime.now().plusDays(1));
+    }
+  }
+
+  /** Check if suggestion processing is allowed for a shop */
+  public RateLimitResult checkSuggestionProcessing(Long shopId) {
+    try {
+      String key = "market_intelligence:rate_limit:suggestions:" + shopId;
+      return checkRedisRateLimit(key, suggestionsPerHour, 60, ChronoUnit.MINUTES); // 1 hour window
+    } catch (Exception e) {
+      logger.warn("Redis unavailable for suggestions rate limiting: {}", e.getMessage());
+      return RateLimitResult.allowed(0, suggestionsPerHour, LocalDateTime.now().plusHours(1));
+    }
+  }
+
+  /** Check if API request is allowed for an IP */
+  public RateLimitResult checkApiRequest(String ipAddress) {
+    try {
+      String key = "market_intelligence:rate_limit:api:" + ipAddress;
+      return checkRedisRateLimit(
+          key, apiRequestsPerMinute, 1, ChronoUnit.MINUTES); // 1 minute window
+    } catch (Exception e) {
+      logger.warn("Redis unavailable for API rate limiting: {}", e.getMessage());
+      return RateLimitResult.allowed(0, apiRequestsPerMinute, LocalDateTime.now().plusMinutes(1));
+    }
+  }
+
+  /** Generic Redis-based rate limit checker */
+  private RateLimitResult checkRedisRateLimit(
+      String key, int maxRequests, int duration, ChronoUnit unit) {
+    Long currentCount = getCurrentCount(key);
+
+    if (currentCount >= maxRequests) {
+      logger.warn(
+          "Rate limit exceeded for key: {} - Current: {}, Max: {}", key, currentCount, maxRequests);
+
+      // Calculate reset time based on TTL
+      Long ttl = redisTemplate.getExpire(key, TimeUnit.SECONDS);
+      LocalDateTime resetTime =
+          ttl != null
+              ? LocalDateTime.now().plusSeconds(ttl)
+              : LocalDateTime.now().plus(duration, unit);
+
+      return RateLimitResult.denied(
+          "Rate limit exceeded", currentCount.intValue(), maxRequests, resetTime);
+    }
+
+    // Increment counter
+    Long newCount = redisTemplate.opsForValue().increment(key);
+    if (newCount == 1) {
+      // Set expiration only for new keys
+      long seconds = unit.getDuration().getSeconds() * duration;
+      redisTemplate.expire(key, seconds, TimeUnit.SECONDS);
+    }
+
+    // Calculate reset time
+    Long ttl = redisTemplate.getExpire(key, TimeUnit.SECONDS);
+    LocalDateTime resetTime =
+        ttl != null
+            ? LocalDateTime.now().plusSeconds(ttl)
+            : LocalDateTime.now().plus(duration, unit);
+
+    return RateLimitResult.allowed(newCount.intValue(), maxRequests, resetTime);
+  }
+
+  /** Get rate limit status for a shop */
+  public Map<String, Object> getRateLimitStatus(Long shopId) {
+    Map<String, Object> status = new ConcurrentHashMap<>();
+
+    try {
+      // Competitor addition status
+      String addKey = "market_intelligence:rate_limit:competitor_add:" + shopId;
+      Long addCount = getCurrentCount(addKey);
+      Long addTtl = redisTemplate.getExpire(addKey, TimeUnit.SECONDS);
+      LocalDateTime addResetTime =
+          addTtl != null
+              ? LocalDateTime.now().plusSeconds(addTtl)
+              : LocalDateTime.now().plusHours(1);
+
+      status.put(
+          "competitorAddition",
+          Map.of(
+              "current", addCount.intValue(),
+              "limit", competitorAddPerHour,
+              "resetTime", addResetTime));
+
+      // Discovery status
+      String discoveryKey = "market_intelligence:rate_limit:discovery:" + shopId;
+      Long discoveryCount = getCurrentCount(discoveryKey);
+      Long discoveryTtl = redisTemplate.getExpire(discoveryKey, TimeUnit.SECONDS);
+      LocalDateTime discoveryResetTime =
+          discoveryTtl != null
+              ? LocalDateTime.now().plusSeconds(discoveryTtl)
+              : LocalDateTime.now().plusDays(1);
+
+      status.put(
+          "discovery",
+          Map.of(
+              "current", discoveryCount.intValue(),
+              "limit", discoveryPerDay,
+              "resetTime", discoveryResetTime));
+
+      // Suggestions status
+      String suggestionsKey = "market_intelligence:rate_limit:suggestions:" + shopId;
+      Long suggestionsCount = getCurrentCount(suggestionsKey);
+      Long suggestionsTtl = redisTemplate.getExpire(suggestionsKey, TimeUnit.SECONDS);
+      LocalDateTime suggestionsResetTime =
+          suggestionsTtl != null
+              ? LocalDateTime.now().plusSeconds(suggestionsTtl)
+              : LocalDateTime.now().plusHours(1);
+
+      status.put(
+          "suggestions",
+          Map.of(
+              "current", suggestionsCount.intValue(),
+              "limit", suggestionsPerHour,
+              "resetTime", suggestionsResetTime));
+
+    } catch (Exception e) {
+      logger.error("Failed to get rate limit status for shop {}: {}", shopId, e.getMessage());
+      status.put("error", "Failed to retrieve rate limit status: " + e.getMessage());
+    }
+
+    return status;
+  }
+
+  /** Clear rate limits for a shop (admin function) */
+  public void clearRateLimits(Long shopId) {
+    try {
+      String addKey = "market_intelligence:rate_limit:competitor_add:" + shopId;
+      String discoveryKey = "market_intelligence:rate_limit:discovery:" + shopId;
+      String suggestionsKey = "market_intelligence:rate_limit:suggestions:" + shopId;
+
+      redisTemplate.delete(addKey);
+      redisTemplate.delete(discoveryKey);
+      redisTemplate.delete(suggestionsKey);
+
+      logger.info("Rate limits cleared for shop: {}", shopId);
+    } catch (Exception e) {
+      logger.error("Failed to clear rate limits for shop {}: {}", shopId, e.getMessage());
+    }
+  }
+
+  /** Clear all Market Intelligence rate limiting for an IP */
+  public void clearMarketIntelligenceRateLimiting(String targetIp) {
+    try {
+      String apiKey = "market_intelligence:rate_limit:api:" + targetIp;
+      redisTemplate.delete(apiKey);
+      logger.info("Market Intelligence rate limiting cleared for IP: {}", targetIp);
+    } catch (Exception e) {
+      logger.error(
+          "Failed to clear Market Intelligence rate limiting for IP {}: {}",
+          targetIp,
+          e.getMessage());
+    }
+  }
+
+  // ========== UTILITY METHODS ==========
+
   /** Check rate limit using sliding window approach */
   private boolean checkRateLimit(String key, int maxRequests, int duration, ChronoUnit unit) {
     Long currentCount = getCurrentCount(key);
@@ -312,6 +512,59 @@ public class AdminRateLimitingService {
     stats.setRemainingLoginAttempts(getRemainingLoginAttempts(ipAddress));
     stats.setRateLimitEnabled(rateLimitEnabled);
     return stats;
+  }
+
+  // ========== INNER CLASSES ==========
+
+  /** Rate limit result class */
+  public static class RateLimitResult {
+    private final boolean allowed;
+    private final String message;
+    private final int currentCount;
+    private final int maxCount;
+    private final LocalDateTime resetTime;
+
+    private RateLimitResult(
+        boolean allowed, String message, int currentCount, int maxCount, LocalDateTime resetTime) {
+      this.allowed = allowed;
+      this.message = message;
+      this.currentCount = currentCount;
+      this.maxCount = maxCount;
+      this.resetTime = resetTime;
+    }
+
+    public static RateLimitResult allowed(int currentCount, int maxCount, LocalDateTime resetTime) {
+      return new RateLimitResult(true, "Request allowed", currentCount, maxCount, resetTime);
+    }
+
+    public static RateLimitResult denied(
+        String message, int currentCount, int maxCount, LocalDateTime resetTime) {
+      return new RateLimitResult(false, message, currentCount, maxCount, resetTime);
+    }
+
+    public boolean isAllowed() {
+      return allowed;
+    }
+
+    public String getMessage() {
+      return message;
+    }
+
+    public int getCurrentCount() {
+      return currentCount;
+    }
+
+    public int getMaxCount() {
+      return maxCount;
+    }
+
+    public LocalDateTime getResetTime() {
+      return resetTime;
+    }
+
+    public int getRemainingRequests() {
+      return Math.max(0, maxCount - currentCount);
+    }
   }
 
   /** Rate limit statistics holder */

@@ -1,8 +1,13 @@
 package com.storesight.backend.controller;
 
+import com.storesight.backend.exception.CompetitorLimitExceededException;
+import com.storesight.backend.exception.DiscoveryServiceUnavailableException;
 import com.storesight.backend.model.CompetitorSuggestion;
 import com.storesight.backend.repository.CompetitorSuggestionRepository;
+import com.storesight.backend.service.AdminRateLimitingService;
+import com.storesight.backend.service.CompetitorAuditService;
 import com.storesight.backend.service.CompetitorLimitService;
+import com.storesight.backend.service.InputValidationService;
 import com.storesight.backend.service.discovery.CompetitorDiscoveryService;
 import com.storesight.backend.service.discovery.MultiSourceSearchClient;
 import jakarta.servlet.http.Cookie;
@@ -41,6 +46,12 @@ public class CompetitorController {
   @Autowired(required = false)
   private CompetitorDiscoveryService discoveryService;
 
+  @Autowired private CompetitorAuditService competitorAuditService;
+
+  @Autowired private InputValidationService inputValidationService;
+
+  @Autowired private AdminRateLimitingService rateLimitingService;
+
   // Cache for debouncing frequent count requests
   private final Map<Long, CachedCount> countCache = new ConcurrentHashMap<>();
 
@@ -64,6 +75,14 @@ public class CompetitorController {
     if (shopId == null) {
       return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
           .body(Map.of("error", "Authentication required"));
+    }
+
+    // Check rate limits
+    AdminRateLimitingService.RateLimitResult rateLimitResult =
+        rateLimitingService.checkApiRequest(getClientIpAddress(request));
+    if (!rateLimitResult.isAllowed()) {
+      return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+          .body(Map.of("error", rateLimitResult.getMessage()));
     }
 
     try {
@@ -102,6 +121,10 @@ public class CompetitorController {
                   })
               .collect(Collectors.toList());
 
+      // Audit log the data access
+      competitorAuditService.logDataAccessed(
+          shopId, "COMPETITOR_LIST", "User viewed competitor list");
+
       return ResponseEntity.ok(competitors);
     } catch (Exception e) {
       logger.error("Error getting competitors: {}", e.getMessage(), e);
@@ -120,21 +143,38 @@ public class CompetitorController {
           .body(Map.of("error", "Authentication required"));
     }
 
-    if (request.url == null || request.url.trim().isEmpty()) {
-      return ResponseEntity.badRequest().body(Map.of("error", "URL is required"));
+    // Check rate limits for competitor addition
+    AdminRateLimitingService.RateLimitResult addRateLimit =
+        rateLimitingService.checkCompetitorAddition(shopId);
+    if (!addRateLimit.isAllowed()) {
+      return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+          .body(Map.of("error", addRateLimit.getMessage()));
+    }
+
+    // Comprehensive input validation for competitor URLs
+    InputValidationService.ValidationResult validation =
+        inputValidationService.validateCompetitorUrl(request.url);
+    if (!validation.isValid()) {
+      return ResponseEntity.badRequest().body(Map.of("error", validation.getErrorMessage()));
+    }
+
+    // Validate label if provided
+    if (request.label != null && !request.label.trim().isEmpty()) {
+      InputValidationService.ValidationResult labelValidation =
+          inputValidationService.validateCompetitorLabel(request.label);
+      if (!labelValidation.isValid()) {
+        return ResponseEntity.badRequest().body(Map.of("error", labelValidation.getErrorMessage()));
+      }
     }
 
     // Check competitor limits before adding
     CompetitorLimitService.LimitCheckResult limitCheck = limitService.checkCompetitorLimit(shopId);
     if (!limitCheck.isCanAdd()) {
-      return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-          .body(
-              Map.of(
-                  "error", "COMPETITOR_LIMIT_REACHED",
-                  "message", "Competitor limit reached for your plan",
-                  "currentCount", limitCheck.getCurrent(),
-                  "limit", limitCheck.getLimit(),
-                  "tier", limitCheck.getPlanType().getDisplayName()));
+      throw new CompetitorLimitExceededException(
+          "Competitor limit reached for your plan",
+          limitCheck.getCurrent(),
+          limitCheck.getLimit(),
+          limitCheck.getPlanType().getDisplayName());
     }
 
     try {
@@ -233,6 +273,9 @@ public class CompetitorController {
               0.0, // No price difference initially
               "Just added");
 
+      // Audit log the competitor addition
+      competitorAuditService.logCompetitorAdded(shopId, request.url, label);
+
       logger.info("Added competitor {} for shop {}", request.url, shopId);
       return ResponseEntity.ok(competitor);
 
@@ -268,8 +311,18 @@ public class CompetitorController {
       jdbcTemplate.update(
           "DELETE FROM price_snapshots WHERE competitor_url_id = ?", Long.parseLong(id));
 
+      // Get competitor URL for audit logging before deletion
+      List<Map<String, Object>> competitorInfo =
+          jdbcTemplate.queryForList(
+              "SELECT url FROM competitor_urls WHERE id = ?", Long.parseLong(id));
+      String competitorUrl =
+          competitorInfo.isEmpty() ? "unknown" : (String) competitorInfo.get(0).get("url");
+
       // Delete the competitor URL
       jdbcTemplate.update("DELETE FROM competitor_urls WHERE id = ?", Long.parseLong(id));
+
+      // Audit log the deletion
+      competitorAuditService.logCompetitorRemoved(shopId, competitorUrl, "User deleted competitor");
 
       logger.info("Deleted competitor {} for shop {}", id, shopId);
       return ResponseEntity.ok().build();
@@ -448,8 +501,9 @@ public class CompetitorController {
   @GetMapping("/competitors/discovery/stats")
   public ResponseEntity<Map<String, Object>> getDiscoveryStats() {
     if (discoveryService == null) {
-      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-          .body(Map.of("error", "Discovery service not available"));
+      throw new DiscoveryServiceUnavailableException(
+          "Discovery service is not available",
+          "Service not configured or external API credentials missing");
     }
 
     Map<String, Object> stats = discoveryService.getDiscoveryStats();
@@ -646,8 +700,9 @@ public class CompetitorController {
     }
 
     if (discoveryService == null) {
-      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-          .body(Map.of("error", "Discovery service not available"));
+      throw new DiscoveryServiceUnavailableException(
+          "Discovery service is not available",
+          "Service not configured or external API credentials missing");
     }
 
     // Check discovery limits before triggering
@@ -871,6 +926,127 @@ public class CompetitorController {
     }
   }
 
+  /** Comprehensive URL validation for competitor URLs */
+  private ValidationResult validateCompetitorUrl(String url) {
+    if (url == null || url.trim().isEmpty()) {
+      return ValidationResult.invalid("URL is required");
+    }
+
+    url = url.trim();
+
+    // Basic URL format validation
+    if (!url.matches("^https?://.*")) {
+      return ValidationResult.invalid("URL must start with http:// or https://");
+    }
+
+    // Length validation
+    if (url.length() > 2000) {
+      return ValidationResult.invalid("URL is too long (maximum 2000 characters)");
+    }
+
+    // Domain validation
+    try {
+      java.net.URL urlObj = new java.net.URL(url);
+      String host = urlObj.getHost();
+
+      if (host == null || host.trim().isEmpty()) {
+        return ValidationResult.invalid("Invalid URL format - no host found");
+      }
+
+      // Check for localhost or internal IPs (security)
+      if (host.equals("localhost")
+          || host.equals("127.0.0.1")
+          || host.startsWith("192.168.")
+          || host.startsWith("10.")
+          || host.startsWith("172.")) {
+        return ValidationResult.invalid("Cannot track internal or localhost URLs");
+      }
+
+      // Validate supported platforms
+      if (!isSupportedPlatform(host)) {
+        return ValidationResult.invalid(
+            "Unsupported platform. Supported platforms: Amazon, Shopify stores, WooCommerce, and other e-commerce sites");
+      }
+
+    } catch (java.net.MalformedURLException e) {
+      return ValidationResult.invalid("Invalid URL format: " + e.getMessage());
+    }
+
+    // Check for suspicious patterns
+    if (url.contains("javascript:") || url.contains("data:") || url.contains("file:")) {
+      return ValidationResult.invalid("Invalid URL scheme");
+    }
+
+    // Check for common non-product pages that shouldn't be tracked
+    String lowerUrl = url.toLowerCase();
+    if (lowerUrl.contains("/login")
+        || lowerUrl.contains("/register")
+        || lowerUrl.contains("/checkout")
+        || lowerUrl.contains("/cart")
+        || lowerUrl.contains("/account")
+        || lowerUrl.contains("/admin")) {
+      return ValidationResult.invalid("Cannot track login, checkout, or admin pages");
+    }
+
+    return ValidationResult.valid();
+  }
+
+  /** Check if the domain/host is from a supported e-commerce platform */
+  private boolean isSupportedPlatform(String host) {
+    String lowerHost = host.toLowerCase();
+
+    // Amazon domains
+    if (lowerHost.contains("amazon.")) {
+      return true;
+    }
+
+    // Shopify stores (myshopify.com or custom domains with Shopify)
+    if (lowerHost.contains("myshopify.com")) {
+      return true;
+    }
+
+    // Other major e-commerce platforms
+    if (lowerHost.contains("shopify")
+        || lowerHost.contains("woocommerce")
+        || lowerHost.contains("bigcommerce")
+        || lowerHost.contains("magento")
+        || lowerHost.contains("prestashop")
+        || lowerHost.contains("opencart")) {
+      return true;
+    }
+
+    // For other domains, we'll allow them but they might not scrape as well
+    // This is more permissive to allow tracking of various e-commerce sites
+    return true;
+  }
+
+  /** Validation result class */
+  private static class ValidationResult {
+    private final boolean valid;
+    private final String errorMessage;
+
+    private ValidationResult(boolean valid, String errorMessage) {
+      this.valid = valid;
+      this.errorMessage = errorMessage;
+    }
+
+    public static ValidationResult valid() {
+      return new ValidationResult(true, null);
+    }
+
+    public static ValidationResult invalid(String errorMessage) {
+      return new ValidationResult(false, errorMessage);
+    }
+
+    public boolean isValid() {
+      return valid;
+    }
+
+    public String getErrorMessage() {
+      return errorMessage;
+    }
+  }
+
   /** Extract shop ID from session cookie with caching */
   private Long getShopIdFromRequest(HttpServletRequest request) {
     if (request.getCookies() != null) {
@@ -1020,6 +1196,7 @@ public class CompetitorController {
   public static class AddCompetitorRequest {
     public String url;
     public String productId;
+    public String label;
 
     public AddCompetitorRequest() {}
 
@@ -1093,5 +1270,20 @@ public class CompetitorController {
       this.discoveredAt = discoveredAt;
       this.status = status;
     }
+  }
+
+  /** Extract client IP address from request */
+  private String getClientIpAddress(HttpServletRequest request) {
+    String xForwardedFor = request.getHeader("X-Forwarded-For");
+    if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
+      return xForwardedFor.split(",")[0].trim();
+    }
+
+    String xRealIp = request.getHeader("X-Real-IP");
+    if (xRealIp != null && !xRealIp.isEmpty()) {
+      return xRealIp;
+    }
+
+    return request.getRemoteAddr();
   }
 }
