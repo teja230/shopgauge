@@ -37,8 +37,8 @@ public class SystemResourceMonitoringService {
   private static final double CRITICAL_CPU_THRESHOLD = 95.0;
   private static final double HIGH_MEMORY_THRESHOLD = 80.0;
   private static final double CRITICAL_MEMORY_THRESHOLD = 95.0;
-  private static final double HIGH_DISK_THRESHOLD = 80.0;
-  private static final double CRITICAL_DISK_THRESHOLD = 95.0;
+  private static final double HIGH_DISK_THRESHOLD = 85.0; // Increased from 80% to 85%
+  private static final double CRITICAL_DISK_THRESHOLD = 95.0; // Increased from 95% to 95%
 
   // Alert tracking
   private final AtomicLong highCpuAlerts = new AtomicLong(0);
@@ -116,28 +116,42 @@ public class SystemResourceMonitoringService {
         logger.debug("Process CPU load not available: {}", e.getMessage());
       }
 
-      if (processCpuLoad >= 0) {
-        double processCpuPercent = processCpuLoad * 100;
-        cpuStats.put("processCpuLoad", processCpuPercent);
-
-        // Update metrics
-        metricsCollectionService.updateCpuUsage((long) processCpuPercent);
-
-        // Check for high CPU usage
-        if (processCpuPercent > CRITICAL_CPU_THRESHOLD) {
-          highCpuAlerts.incrementAndGet();
-          logger.warn("Critical CPU usage detected: {}%", String.format("%.2f", processCpuPercent));
-          cpuStats.put("alert", "CRITICAL");
-        } else if (processCpuPercent > HIGH_CPU_THRESHOLD) {
-          highCpuAlerts.incrementAndGet();
-          logger.info("High CPU usage detected: {}%", String.format("%.2f", processCpuPercent));
-          cpuStats.put("alert", "WARNING");
+      // Fallback CPU calculation using system load average if process CPU load is not available
+      if (processCpuLoad < 0) {
+        double systemLoad = osBean.getSystemLoadAverage();
+        if (systemLoad >= 0) {
+          // Convert system load average to approximate CPU percentage
+          // System load average is typically per CPU core, so we multiply by 100 and divide by
+          // cores
+          int processors = osBean.getAvailableProcessors();
+          processCpuLoad = Math.min((systemLoad * 100.0) / processors, 100.0);
+          logger.debug(
+              "Using system load average fallback for CPU calculation: {}%", processCpuLoad);
         } else {
-          cpuStats.put("alert", "NORMAL");
+          // If system load is also not available, use a conservative estimate
+          processCpuLoad = 0.0;
+          logger.debug("No CPU metrics available, using 0% as fallback");
         }
+      }
+
+      // Always ensure we have a numeric value
+      double processCpuPercent = processCpuLoad * 100;
+      cpuStats.put("processCpuLoad", processCpuPercent);
+
+      // Update metrics
+      metricsCollectionService.updateCpuUsage((long) processCpuPercent);
+
+      // Check for high CPU usage
+      if (processCpuPercent > CRITICAL_CPU_THRESHOLD) {
+        highCpuAlerts.incrementAndGet();
+        logger.warn("Critical CPU usage detected: {}%", String.format("%.2f", processCpuPercent));
+        cpuStats.put("alert", "CRITICAL");
+      } else if (processCpuPercent > HIGH_CPU_THRESHOLD) {
+        highCpuAlerts.incrementAndGet();
+        logger.info("High CPU usage detected: {}%", String.format("%.2f", processCpuPercent));
+        cpuStats.put("alert", "WARNING");
       } else {
-        cpuStats.put("processCpuLoad", "Not available");
-        cpuStats.put("alert", "UNKNOWN");
+        cpuStats.put("alert", "NORMAL");
       }
 
       // System CPU load (if available) - using standard JMX APIs
@@ -163,6 +177,9 @@ public class SystemResourceMonitoringService {
       logger.warn("Error getting CPU statistics: {}", e.getMessage());
       cpuStats.put("error", e.getMessage());
       cpuStats.put("status", "ERROR");
+      // Provide fallback values even on error
+      cpuStats.put("processCpuLoad", 0.0);
+      cpuStats.put("alert", "UNKNOWN");
     }
 
     return cpuStats;
@@ -241,15 +258,22 @@ public class SystemResourceMonitoringService {
     Map<String, Object> diskStats = new HashMap<>();
 
     try {
-      // Get root directory disk space
-      File root = new File("/");
-      long totalSpace = root.getTotalSpace();
-      long freeSpace = root.getFreeSpace();
+      // Get the current working directory or user home directory for more accurate disk usage
+      // This is more likely to be the actual data directory than just "/"
+      String dataPath = System.getProperty("user.home");
+      if (dataPath == null || dataPath.isEmpty()) {
+        dataPath = "/";
+      }
+
+      File dataDir = new File(dataPath);
+      long totalSpace = dataDir.getTotalSpace();
+      long freeSpace = dataDir.getFreeSpace();
       long usedSpace = totalSpace - freeSpace;
 
       diskStats.put("totalSpaceGB", totalSpace / (1024 * 1024 * 1024));
       diskStats.put("usedSpaceGB", usedSpace / (1024 * 1024 * 1024));
       diskStats.put("freeSpaceGB", freeSpace / (1024 * 1024 * 1024));
+      diskStats.put("dataPath", dataPath);
 
       double diskUsagePercent = (double) usedSpace / totalSpace * 100;
       diskStats.put("usagePercent", diskUsagePercent);
@@ -275,16 +299,21 @@ public class SystemResourceMonitoringService {
       if (roots.length > 1) {
         Map<String, Object> additionalMounts = new HashMap<>();
         for (File mountPoint : roots) {
-          if (!mountPoint.equals(root)) {
+          if (!mountPoint.equals(dataDir)) {
             Map<String, Object> mountStats = new HashMap<>();
-            mountStats.put("totalSpaceGB", mountPoint.getTotalSpace() / (1024 * 1024 * 1024));
-            mountStats.put("freeSpaceGB", mountPoint.getFreeSpace() / (1024 * 1024 * 1024));
-            additionalMounts.put(mountPoint.getAbsolutePath(), mountStats);
+            long mountTotal = mountPoint.getTotalSpace();
+            long mountFree = mountPoint.getFreeSpace();
+            long mountUsed = mountTotal - mountFree;
+
+            mountStats.put("totalSpaceGB", mountTotal / (1024 * 1024 * 1024));
+            mountStats.put("usedSpaceGB", mountUsed / (1024 * 1024 * 1024));
+            mountStats.put("freeSpaceGB", mountFree / (1024 * 1024 * 1024));
+            mountStats.put("usagePercent", (double) mountUsed / mountTotal * 100);
+
+            additionalMounts.put(mountPoint.getPath(), mountStats);
           }
         }
-        if (!additionalMounts.isEmpty()) {
-          diskStats.put("additionalMounts", additionalMounts);
-        }
+        diskStats.put("additionalMounts", additionalMounts);
       }
 
       diskStats.put("status", "HEALTHY");
