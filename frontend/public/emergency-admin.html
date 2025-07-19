@@ -665,7 +665,7 @@ Use the buttons above to check system status and perform recovery operations.
                     fetch(`${API_BASE_URL}/api/admin/emergency/status`, {
                         method: 'GET',
                         credentials: 'include'
-                    }),
+                    }).catch(() => ({ ok: false })),
                     fetch(`${API_BASE_URL}/api/health/redis`, {
                         method: 'GET',
                         credentials: 'include'
