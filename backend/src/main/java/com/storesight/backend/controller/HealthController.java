@@ -57,8 +57,18 @@ public class HealthController {
     response.put("status", "UP");
     response.put("timestamp", LocalDateTime.now());
     response.put("service", "ShopGauge Backend");
+    response.put("version", "1.0.0");
 
-    return ResponseEntity.ok(response);
+    // Simple check to ensure basic functionality
+    try {
+      // Just return success - no external dependencies
+      return ResponseEntity.ok(response);
+    } catch (Exception e) {
+      logger.error("Liveness check failed: {}", e.getMessage());
+      response.put("status", "DOWN");
+      response.put("error", e.getMessage());
+      return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(response);
+    }
   }
 
   /**
