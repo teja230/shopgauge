@@ -230,10 +230,19 @@ public class TransactionMonitoringService {
     long total = totalTransactions.get();
     long failed = failedTransactions.get();
 
-    if (total < 10) {
-      return true; // Not enough data to determine health
+    // If no transactions have been processed yet, consider the system healthy
+    // This prevents false "CRITICAL" status when the system is just starting up
+    if (total == 0) {
+      return true;
     }
 
+    // If very few transactions, be more lenient
+    if (total < 10) {
+      double failureRate = (double) failed / total;
+      return failureRate < 0.20; // Allow up to 20% failure rate for low transaction counts
+    }
+
+    // For normal operation, use stricter criteria
     double failureRate = (double) failed / total;
     return failureRate < 0.05; // Less than 5% failure rate is considered healthy
   }
