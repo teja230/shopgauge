@@ -19,8 +19,7 @@ import org.springframework.core.env.Environment;
 @Profile("!test")
 @ConditionalOnProperty(
     name = "storesight.database.custom-config.enabled",
-    havingValue = "true",
-    matchIfMissing = false)
+    havingValue = "true")
 public class DatabaseConfig {
 
   private static final Logger logger = LoggerFactory.getLogger(DatabaseConfig.class);
