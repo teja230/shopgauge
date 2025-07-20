@@ -53,7 +53,7 @@ public class PrivacyRequest {
   @Column(name = "created_by", length = 100)
   private String createdBy;
 
-  @Column(name = "ip_address")
+  @Column(name = "ip_address", columnDefinition = "inet")
   private String ipAddress;
 
   // Constructors
