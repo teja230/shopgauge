@@ -193,9 +193,6 @@ CREATE INDEX IF NOT EXISTS idx_competitor_urls_last_check
 ON competitor_urls (last_successful_check DESC) 
 WHERE last_successful_check IS NOT NULL;
 
-CREATE INDEX IF NOT EXISTS idx_competitor_urls_response_time 
-ON competitor_urls (response_time_ms) 
-WHERE response_time_ms IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_competitor_urls_shop_product_status 
 ON competitor_urls (shop_id, product_id, status) 
