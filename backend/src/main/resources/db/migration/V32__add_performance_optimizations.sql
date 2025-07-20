@@ -206,10 +206,7 @@ COMMENT ON COLUMN price_snapshots.significant_change IS 'Whether price change ex
 COMMENT ON COLUMN competitor_suggestions.relevance_score IS 'AI-calculated relevance score (0.00 to 1.00)';
 COMMENT ON COLUMN competitor_suggestions.search_keywords IS 'Keywords used to discover this competitor';
 
--- View creation moved to V34__add_analytics_views.sql to ensure deleted_at column is available
-
--- Grant necessary permissions
-GRANT SELECT ON competitor_performance_analytics TO PUBLIC;
+-- View creation moved to V33__add_analytics_views.sql to ensure deleted_at column is available
 GRANT EXECUTE ON FUNCTION update_table_statistics() TO PUBLIC;
 GRANT EXECUTE ON FUNCTION get_slow_queries(INTEGER) TO PUBLIC;
 GRANT EXECUTE ON FUNCTION get_index_usage_stats() TO PUBLIC;
