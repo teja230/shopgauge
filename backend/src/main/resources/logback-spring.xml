@@ -91,14 +91,14 @@
     
     <!-- Profile-specific configurations -->
     <springProfile name="dev,local">
-        <root level="DEBUG">
+        <root level="INFO">
             <appender-ref ref="CONSOLE"/>
-            <appender-ref ref="FILE"/>
+            <appender-ref ref="ASYNC_FILE"/>
             <appender-ref ref="ERROR_FILE"/>
         </root>
         
         <!-- Reduce noise from Spring and Hibernate in development -->
-        <logger name="org.springframework" level="INFO"/>
+        <logger name="org.springframework" level="WARN"/>
         <logger name="org.hibernate" level="INFO"/>
         <logger name="com.zaxxer.hikari" level="INFO"/>
         <logger name="org.apache.http" level="INFO"/>
