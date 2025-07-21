@@ -122,6 +122,15 @@ export const useEnterpriseSse = (
           }
           break;
 
+        case 'admin_logout':
+          if (enableNotifications) {
+            addNotification('Administrator logged out', 'info', {
+              duration: 5000,
+              category: 'System'
+            });
+          }
+          break;
+
         case 'rate_limited':
           if (enableNotifications) {
             addNotification('Rate limited - switching to polling', 'warning', {

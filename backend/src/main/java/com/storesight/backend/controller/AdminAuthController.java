@@ -2,6 +2,7 @@ package com.storesight.backend.controller;
 
 import com.storesight.backend.service.AdminAuthService;
 import com.storesight.backend.service.AdminRateLimitingService;
+import com.storesight.backend.service.SseService;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -22,6 +23,7 @@ public class AdminAuthController {
 
   @Autowired private AdminAuthService adminAuthService;
   @Autowired private AdminRateLimitingService adminRateLimitingService;
+  @Autowired private SseService sseService;
 
   @Value("${admin.auth.require-https:true}")
   private boolean requireHttps;
@@ -117,6 +119,14 @@ public class AdminAuthController {
     if (request.getServerName().contains("localhost")
         || request.getServerName().contains("127.0.0.1")) {
       clearAdminCookie(response, null);
+    }
+
+    // Broadcast admin logout notification to all connected shop users
+    try {
+      broadcastAdminLogoutNotification();
+    } catch (Exception e) {
+      logger.warn("Failed to broadcast admin logout notification: {}", e.getMessage());
+      // Don't fail the logout if SSE broadcast fails
     }
 
     Map<String, Object> result = new HashMap<>();
@@ -302,5 +312,24 @@ public class AdminAuthController {
       adminCookie.setDomain(getBaseDomain(domain));
     }
     response.addCookie(adminCookie);
+  }
+
+  /**
+   * Broadcast admin logout notification to all connected shop users This allows shop users to be
+   * aware when an admin logs out
+   */
+  private void broadcastAdminLogoutNotification() {
+    try {
+      logger.info("Broadcasting admin logout notification to all connected shops");
+
+      // Broadcast to all connected shops that an admin has logged out
+      sseService.broadcastToAllShops(
+          "admin_logout", "An administrator has logged out. Your session remains active.", 5000);
+
+      logger.info("Admin logout notification broadcast completed");
+
+    } catch (Exception e) {
+      logger.error("Error broadcasting admin logout notification: {}", e.getMessage());
+    }
   }
 }
