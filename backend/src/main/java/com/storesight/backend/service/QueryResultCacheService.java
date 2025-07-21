@@ -522,27 +522,35 @@ public class QueryResultCacheService {
   private void logCacheStatistics() {
     CacheStatistics stats = getStatistics();
 
-    // Only log if there are issues or low hit ratio
-    if (stats.getHitRatio() < 0.5 || stats.getEvictionCount() > 100) {
-      logger.warn(
-          "Cache Statistics - Hit Ratio: {}%, Memory Entries: {}, DB Entries: {}, "
-              + "Total Hits: {}, Total Misses: {}, Evictions: {}",
-          String.format("%.2f", stats.getHitRatio() * 100),
-          stats.getMemoryCacheSize(),
-          stats.getDatabaseCacheSize(),
-          stats.getHitCount(),
-          stats.getMissCount(),
-          stats.getEvictionCount());
+    // Only log if there's actual activity or issues
+    long totalActivity = stats.getHitCount() + stats.getMissCount();
+
+    if (totalActivity > 0) {
+      // Only log if there are issues or low hit ratio
+      if (stats.getHitRatio() < 0.5 || stats.getEvictionCount() > 100) {
+        logger.warn(
+            "Cache Statistics - Hit Ratio: {}%, Memory Entries: {}, DB Entries: {}, "
+                + "Total Hits: {}, Total Misses: {}, Evictions: {}",
+            String.format("%.2f", stats.getHitRatio() * 100),
+            stats.getMemoryCacheSize(),
+            stats.getDatabaseCacheSize(),
+            stats.getHitCount(),
+            stats.getMissCount(),
+            stats.getEvictionCount());
+      } else {
+        logger.debug(
+            "Cache Statistics - Hit Ratio: {}%, Memory Entries: {}, DB Entries: {}, "
+                + "Total Hits: {}, Total Misses: {}, Evictions: {}",
+            String.format("%.2f", stats.getHitRatio() * 100),
+            stats.getMemoryCacheSize(),
+            stats.getDatabaseCacheSize(),
+            stats.getHitCount(),
+            stats.getMissCount(),
+            stats.getEvictionCount());
+      }
     } else {
-      logger.debug(
-          "Cache Statistics - Hit Ratio: {}%, Memory Entries: {}, DB Entries: {}, "
-              + "Total Hits: {}, Total Misses: {}, Evictions: {}",
-          String.format("%.2f", stats.getHitRatio() * 100),
-          stats.getMemoryCacheSize(),
-          stats.getDatabaseCacheSize(),
-          stats.getHitCount(),
-          stats.getMissCount(),
-          stats.getEvictionCount());
+      // No activity - only log at trace level to reduce noise
+      logger.trace("Cache Statistics - No activity detected, skipping detailed logging");
     }
   }
 
