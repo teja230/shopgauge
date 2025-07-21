@@ -62,7 +62,8 @@ public class MultiSourceSearchClient implements SearchClient {
     // Log detailed provider status for debugging
     if (sortedProviders.isEmpty()) {
       log.error("No search providers are enabled! Discovery will not work.");
-      log.error("Available providers: {}", 
+      log.error(
+          "Available providers: {}",
           searchClients.stream()
               .filter(client -> !client.getClass().equals(MultiSourceSearchClient.class))
               .map(client -> client.getProviderName() + " (enabled: " + client.isEnabled() + ")")

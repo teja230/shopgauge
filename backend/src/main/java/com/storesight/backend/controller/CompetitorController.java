@@ -562,11 +562,12 @@ public class CompetitorController {
             "message",
             "Search API credentials not configured. Please set SCRAPINGDOG_KEY, SERPER_KEY, or SERPAPI_KEY environment variables.");
         config.put("availableProviders", List.of("Scrapingdog", "Serper", "SerpAPI"));
-        config.put("debugInfo", Map.of(
-            "discoveryServiceAvailable", discoveryService != null,
-            "searchClientEnabled", searchClientEnabled,
-            "searchProvider", searchProvider
-        ));
+        config.put(
+            "debugInfo",
+            Map.of(
+                "discoveryServiceAvailable", discoveryService != null,
+                "searchClientEnabled", searchClientEnabled,
+                "searchProvider", searchProvider));
       } else {
         config.put("message", "Discovery service ready");
       }
@@ -592,10 +593,10 @@ public class CompetitorController {
                   false,
                   "message",
                   "Internal server error: " + e.getMessage(),
-                  "debugInfo", Map.of(
+                  "debugInfo",
+                  Map.of(
                       "exception", e.getClass().getSimpleName(),
-                      "exceptionMessage", e.getMessage()
-                  )));
+                      "exceptionMessage", e.getMessage())));
     }
   }
 
