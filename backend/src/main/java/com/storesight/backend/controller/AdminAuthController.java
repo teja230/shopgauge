@@ -2,10 +2,12 @@ package com.storesight.backend.controller;
 
 import com.storesight.backend.service.AdminAuthService;
 import com.storesight.backend.service.AdminRateLimitingService;
+import com.storesight.backend.service.AdminSessionInvalidationService;
 import com.storesight.backend.service.SseService;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import org.slf4j.Logger;
@@ -24,6 +26,7 @@ public class AdminAuthController {
   @Autowired private AdminAuthService adminAuthService;
   @Autowired private AdminRateLimitingService adminRateLimitingService;
   @Autowired private SseService sseService;
+  @Autowired private AdminSessionInvalidationService adminSessionInvalidationService;
 
   @Value("${admin.auth.require-https:true}")
   private boolean requireHttps;
@@ -121,7 +124,8 @@ public class AdminAuthController {
       clearAdminCookie(response, null);
     }
 
-    // Broadcast admin logout notification to all connected shop users
+    // Send admin logout notification to all connected shop users
+    // This is just a notification, not session invalidation
     try {
       broadcastAdminLogoutNotification();
     } catch (Exception e) {
@@ -137,6 +141,141 @@ public class AdminAuthController {
     logger.info("Admin logout successful for user: {} from IP: {}", username, clientIp);
     adminAuthService.logAuditEvent("LOGOUT", username, "Logout from IP: " + clientIp, clientIp);
     return ResponseEntity.ok(result);
+  }
+
+  /**
+   * Admin endpoint to invalidate all sessions for a specific shop This is the proper way to force
+   * logout all users from a shop
+   */
+  @PostMapping("/invalidate-shop-sessions/{shopDomain}")
+  public ResponseEntity<Map<String, Object>> invalidateShopSessions(
+      @PathVariable String shopDomain,
+      @RequestBody(required = false) Map<String, String> requestBody,
+      HttpServletRequest request) {
+
+    String clientIp = getClientIpAddress(request);
+    String token = getAdminTokenFromRequest(request);
+
+    if (token == null || !adminAuthService.validateJwtToken(token)) {
+      return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
+    }
+
+    String adminUsername = adminAuthService.getUsernameFromToken(token);
+    String reason = requestBody != null ? requestBody.get("reason") : "Admin session invalidation";
+
+    try {
+      Map<String, Object> result =
+          adminSessionInvalidationService.invalidateAllSessionsForShop(
+              shopDomain, adminUsername, reason, clientIp);
+
+      if (Boolean.TRUE.equals(result.get("success"))) {
+        logger.info(
+            "Admin {} successfully invalidated {} sessions for shop: {}",
+            adminUsername,
+            result.get("invalidatedSessions"),
+            shopDomain);
+        return ResponseEntity.ok(result);
+      } else {
+        logger.error(
+            "Admin {} failed to invalidate sessions for shop {}: {}",
+            adminUsername,
+            shopDomain,
+            result.get("error"));
+        return ResponseEntity.status(500).body(result);
+      }
+
+    } catch (Exception e) {
+      logger.error(
+          "Error during admin session invalidation for shop {}: {}", shopDomain, e.getMessage(), e);
+
+      Map<String, Object> errorResult = new HashMap<>();
+      errorResult.put("success", false);
+      errorResult.put("error", "Internal server error: " + e.getMessage());
+      return ResponseEntity.status(500).body(errorResult);
+    }
+  }
+
+  /** Admin endpoint to invalidate a specific session */
+  @PostMapping("/invalidate-session/{shopDomain}/{sessionId}")
+  public ResponseEntity<Map<String, Object>> invalidateSpecificSession(
+      @PathVariable String shopDomain,
+      @PathVariable String sessionId,
+      @RequestBody(required = false) Map<String, String> requestBody,
+      HttpServletRequest request) {
+
+    String clientIp = getClientIpAddress(request);
+    String token = getAdminTokenFromRequest(request);
+
+    if (token == null || !adminAuthService.validateJwtToken(token)) {
+      return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
+    }
+
+    String adminUsername = adminAuthService.getUsernameFromToken(token);
+    String reason = requestBody != null ? requestBody.get("reason") : "Admin session invalidation";
+
+    try {
+      Map<String, Object> result =
+          adminSessionInvalidationService.invalidateSpecificSession(
+              shopDomain, sessionId, adminUsername, reason, clientIp);
+
+      if (Boolean.TRUE.equals(result.get("success"))) {
+        logger.info(
+            "Admin {} successfully invalidated session {} for shop: {}",
+            adminUsername,
+            sessionId,
+            shopDomain);
+        return ResponseEntity.ok(result);
+      } else {
+        logger.error(
+            "Admin {} failed to invalidate session {} for shop {}: {}",
+            adminUsername,
+            sessionId,
+            shopDomain,
+            result.get("error"));
+        return ResponseEntity.status(400).body(result);
+      }
+
+    } catch (Exception e) {
+      logger.error(
+          "Error during admin specific session invalidation for session {}:{}: {}",
+          shopDomain,
+          sessionId,
+          e.getMessage(),
+          e);
+
+      Map<String, Object> errorResult = new HashMap<>();
+      errorResult.put("success", false);
+      errorResult.put("error", "Internal server error: " + e.getMessage());
+      return ResponseEntity.status(500).body(errorResult);
+    }
+  }
+
+  /** Admin endpoint to get all shops with active sessions */
+  @GetMapping("/shops-with-sessions")
+  public ResponseEntity<Map<String, Object>> getShopsWithSessions(HttpServletRequest request) {
+    String token = getAdminTokenFromRequest(request);
+
+    if (token == null || !adminAuthService.validateJwtToken(token)) {
+      return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
+    }
+
+    try {
+      // This would typically call a service method to get shops with active sessions
+      // For now, returning a placeholder response
+      Map<String, Object> result = new HashMap<>();
+      result.put("success", true);
+      result.put("message", "Shops with active sessions retrieved successfully");
+      result.put("shops", new ArrayList<>()); // Placeholder
+
+      return ResponseEntity.ok(result);
+    } catch (Exception e) {
+      logger.error("Error retrieving shops with sessions: {}", e.getMessage(), e);
+
+      Map<String, Object> errorResult = new HashMap<>();
+      errorResult.put("success", false);
+      errorResult.put("error", "Failed to retrieve shops with sessions: " + e.getMessage());
+      return ResponseEntity.status(500).body(errorResult);
+    }
   }
 
   @GetMapping("/status")

@@ -90,19 +90,7 @@ export const useEnterpriseSse = (
 
       // Handle specific event types
       switch (sseEvent.type) {
-        case 'session_invalidated':
-          if (enableNotifications) {
-            addNotification('Session invalidated by server', 'error', {
-              persistent: true,
-              category: 'Authentication',
-              action: {
-                label: 'Logout',
-                onClick: () => handleSessionLogout()
-              }
-            });
-          }
-          handleSessionLogout();
-          break;
+
 
         case 'session_expired':
           if (enableNotifications) {
@@ -129,6 +117,50 @@ export const useEnterpriseSse = (
               category: 'System'
             });
           }
+          break;
+
+        case 'session_pre_invalidation':
+          if (enableNotifications) {
+            const adminUsername = sseEvent.data?.adminUsername || 'an administrator';
+            const reason = sseEvent.data?.reason || 'Admin action';
+            addNotification(
+              `${adminUsername} is about to invalidate your session. Reason: ${reason}`,
+              'warning',
+              {
+                duration: 8000,
+                category: 'Session Security',
+                persistent: true
+              }
+            );
+          }
+          break;
+
+        case 'session_invalidated':
+          if (enableNotifications) {
+            const adminUsername = sseEvent.data?.adminUsername || 'an administrator';
+            addNotification(
+              `Your session has been invalidated by ${adminUsername}. Please re-authenticate.`,
+              'error',
+              {
+                duration: 0, // Persistent until user action
+                category: 'Session Security',
+                persistent: true,
+                action: {
+                  label: 'Re-authenticate',
+                  onClick: () => {
+                    // Force logout and redirect to login
+                    window.location.href = '/';
+                  }
+                }
+              }
+            );
+          }
+          
+          // Force logout after a short delay to allow notification to be shown
+          setTimeout(() => {
+            console.log('Session invalidated by admin - forcing logout');
+            handleSessionLogout();
+          }, 2000);
           break;
 
         case 'rate_limited':
