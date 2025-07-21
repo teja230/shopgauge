@@ -60,8 +60,7 @@ public class MonitoringDashboardService {
   }
 
   /** Collect monitoring data for dashboards */
-  @Scheduled(
-      fixedRateString = "${monitoring.dashboard.collection.interval:30000}") // Every 30 seconds
+  @Scheduled(fixedRateString = "${storesight.monitoring.dashboard-collection-interval:PT4H}")
   public void collectMonitoringData() {
     try {
       logger.debug("Collecting monitoring data for dashboards");

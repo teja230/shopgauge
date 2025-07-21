@@ -447,9 +447,9 @@ public class SystemHealthMonitoringService implements HealthIndicator {
     }
   }
 
-  /** Scheduled health check every 5 minutes */
-  @Scheduled(fixedRate = 300000) // 5 minutes
-  public void scheduledHealthCheck() {
+  /** Scheduled health check every 6 hours */
+  @Scheduled(fixedRateString = "${storesight.monitoring.health-check-interval:PT6H}")
+  public void monitorSystemHealth() {
     try {
       Map<String, Object> healthReport = performComprehensiveHealthCheck();
       String overallStatus = (String) healthReport.get("overallStatus");

@@ -710,8 +710,8 @@ public class DatabaseMonitoringService implements HealthIndicator {
   }
 
   /** Scheduled monitoring task to check database health */
-  @Scheduled(fixedRate = 300000) // Every 5 minutes
-  public void scheduledHealthCheck() {
+  @Scheduled(fixedRateString = "${storesight.monitoring.database-interval:PT4H}")
+  public void monitorDatabaseHealth() {
     try {
       Map<String, Object> healthCheck = performHealthCheck();
       String status = (String) healthCheck.get("overallStatus");

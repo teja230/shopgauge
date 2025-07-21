@@ -191,19 +191,40 @@ public class EnhancedDatabaseConfig {
   }
 
   private void startDatabaseMonitoring() {
-    // Monitor connection pool health every 2 minutes
-    monitoringExecutor.scheduleAtFixedRate(this::monitorConnectionPool, 2, 2, TimeUnit.MINUTES);
+    // Monitor connection pool health every 30 minutes (reduced frequency)
+    monitoringExecutor.scheduleAtFixedRate(this::monitorConnectionPool, 30, 30, TimeUnit.MINUTES);
 
-    // Monitor slow queries every 5 minutes
+    // Monitor slow queries nightly at 2:30 AM (staggered from DatabasePerformanceService)
     if (logSlowQueries) {
-      monitoringExecutor.scheduleAtFixedRate(this::monitorSlowQueries, 5, 5, TimeUnit.MINUTES);
+      monitoringExecutor.scheduleAtFixedRate(
+          this::monitorSlowQueries, getInitialDelayToNextRun() + 30, 24 * 60, TimeUnit.MINUTES);
     }
 
-    // Monitor database performance every 10 minutes
+    // Monitor database performance nightly at 3 AM (staggered)
     monitoringExecutor.scheduleAtFixedRate(
-        this::monitorDatabasePerformance, 10, 10, TimeUnit.MINUTES);
+        this::monitorDatabasePerformance,
+        getInitialDelayToNextRun() + 60,
+        24 * 60,
+        TimeUnit.MINUTES);
 
-    log.info("Database monitoring started");
+    log.info("Database monitoring started with nightly performance analysis");
+  }
+
+  /** Calculate initial delay to next 2 AM run */
+  private long getInitialDelayToNextRun() {
+    try {
+      java.time.LocalDateTime now = java.time.LocalDateTime.now();
+      java.time.LocalDateTime nextRun = now.withHour(2).withMinute(0).withSecond(0).withNano(0);
+
+      if (now.compareTo(nextRun) > 0) {
+        nextRun = nextRun.plusDays(1);
+      }
+
+      return java.time.Duration.between(now, nextRun).toMinutes();
+    } catch (Exception e) {
+      log.warn("Error calculating initial delay, using 5 minutes: {}", e.getMessage());
+      return 5; // Fallback to 5 minutes
+    }
   }
 
   private void monitorConnectionPool() {

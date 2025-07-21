@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.slf4j.Logger;
@@ -613,62 +614,107 @@ public class SessionSynchronizationService {
    * Scheduled cleanup of stuck session markers Runs every 5 minutes to prevent sessions from
    * getting permanently stuck
    */
-  @Scheduled(fixedRate = 300000) // 5 minutes
+  @Scheduled(fixedRate = 900000) // 15 minutes - Reduced frequency for resource optimization
   public void cleanupStuckSessionMarkers() {
     try {
-      LocalDateTime now = LocalDateTime.now();
-      int stuckSessionsCleared = 0;
+      logger.debug("Starting cleanup of stuck session markers");
+      final AtomicInteger markersCleared = new AtomicInteger(0);
+      final AtomicInteger locksCleared = new AtomicInteger(0);
 
-      logger.debug("Running stuck session markers cleanup");
-
-      // Clean up sessions that have been invalidating for too long
+      // Clean up stuck invalidation markers
       invalidationStartTimes
           .entrySet()
           .removeIf(
               entry -> {
                 String sessionId = entry.getKey();
-                LocalDateTime invalidationStartTime = entry.getValue();
+                LocalDateTime startTime = entry.getValue();
 
-                if (Duration.between(invalidationStartTime, now).compareTo(getStuckSessionTimeout())
+                if (Duration.between(startTime, LocalDateTime.now())
+                        .compareTo(getStuckSessionTimeout())
                     > 0) {
                   logger.warn(
-                      "Clearing stuck session: {} (invalidating for {} minutes)",
+                      "Clearing stuck invalidation marker for session: {} (stuck for {} minutes)",
                       sessionId,
-                      Duration.between(invalidationStartTime, now).toMinutes());
+                      Duration.between(startTime, LocalDateTime.now()).toMinutes());
 
-                  // Force clear the stuck session
                   clearStuckSessionMarkers(sessionId);
+                  markersCleared.incrementAndGet();
                   return true;
                 }
                 return false;
               });
 
-      // Also scan Redis for any stuck invalidation markers that might not be in our local tracking
-      try {
-        Set<String> invalidationKeys = redisTemplate.keys(SESSION_INVALIDATION_PREFIX + "*");
-        if (invalidationKeys != null) {
-          for (String key : invalidationKeys) {
-            String sessionId = key.substring(SESSION_INVALIDATION_PREFIX.length());
+      // Clean up stuck locks
+      lockAcquisitionTimes
+          .entrySet()
+          .removeIf(
+              entry -> {
+                String sessionId = entry.getKey();
+                LocalDateTime acquisitionTime = entry.getValue();
 
-            // Check if this session has been invalidating for too long
-            if (!invalidationStartTimes.containsKey(sessionId)) {
-              // This is an orphaned invalidation marker, clear it
-              logger.warn("Clearing orphaned invalidation marker for session: {}", sessionId);
-              clearStuckSessionMarkers(sessionId);
-              stuckSessionsCleared++;
-            }
-          }
-        }
-      } catch (Exception e) {
-        logger.warn("Error scanning Redis for stuck invalidation markers: {}", e.getMessage());
-      }
+                if (Duration.between(acquisitionTime, LocalDateTime.now())
+                        .compareTo(getOrphanedLockTimeout())
+                    > 0) {
+                  logger.warn(
+                      "Clearing stuck lock for session: {} (held for {} minutes)",
+                      sessionId,
+                      Duration.between(acquisitionTime, LocalDateTime.now()).toMinutes());
 
-      if (stuckSessionsCleared > 0) {
-        logger.info("Cleared {} stuck session markers during cleanup", stuckSessionsCleared);
+                  clearStuckSessionMarkers(sessionId);
+                  locksCleared.incrementAndGet();
+                  return true;
+                }
+                return false;
+              });
+
+      if (markersCleared.get() > 0 || locksCleared.get() > 0) {
+        logger.info(
+            "Cleaned up {} stuck markers and {} stuck locks during cleanup",
+            markersCleared.get(),
+            locksCleared.get());
+        totalStuckSessionsCleared.addAndGet(markersCleared.get() + locksCleared.get());
       }
 
     } catch (Exception e) {
-      logger.warn("Error during stuck session markers cleanup: {}", e.getMessage());
+      logger.warn("Error cleaning up stuck session markers: {}", e.getMessage());
+    }
+  }
+
+  @Scheduled(fixedRate = 300000) // 5 minutes - Reduced from 1 minute for resource optimization
+  public void cleanupCriticalStuckMarkers() {
+    try {
+      // Only clean up markers that have been stuck for a very long time (10+ minutes)
+      Duration criticalTimeout = Duration.ofMinutes(10);
+      final AtomicInteger criticalMarkersCleared = new AtomicInteger(0);
+
+      invalidationStartTimes
+          .entrySet()
+          .removeIf(
+              entry -> {
+                String sessionId = entry.getKey();
+                LocalDateTime startTime = entry.getValue();
+
+                if (Duration.between(startTime, LocalDateTime.now()).compareTo(criticalTimeout)
+                    > 0) {
+                  logger.warn(
+                      "Clearing CRITICAL stuck marker for session: {} (stuck for {} minutes)",
+                      sessionId,
+                      Duration.between(startTime, LocalDateTime.now()).toMinutes());
+
+                  clearStuckSessionMarkers(sessionId);
+                  criticalMarkersCleared.incrementAndGet();
+                  return true;
+                }
+                return false;
+              });
+
+      if (criticalMarkersCleared.get() > 0) {
+        logger.info("Cleaned up {} critical stuck markers", criticalMarkersCleared.get());
+        totalStuckSessionsCleared.addAndGet(criticalMarkersCleared.get());
+      }
+
+    } catch (Exception e) {
+      logger.warn("Error cleaning up critical stuck markers: {}", e.getMessage());
     }
   }
 

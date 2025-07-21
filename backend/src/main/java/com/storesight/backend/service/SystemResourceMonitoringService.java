@@ -47,7 +47,8 @@ public class SystemResourceMonitoringService {
   private final AtomicLong gcAlerts = new AtomicLong(0);
 
   // Error suppression for alerts
-  private static final long ALERT_SUPPRESSION_INTERVAL_MS = 60000; // 1 minute
+  private static final long ALERT_SUPPRESSION_INTERVAL_MS =
+      300000; // 5 minutes (increased from 1 minute)
   private final AtomicLong lastCpuAlert = new AtomicLong(0);
   private final AtomicLong lastMemoryAlert = new AtomicLong(0);
   private final AtomicLong lastDiskAlert = new AtomicLong(0);
@@ -59,7 +60,7 @@ public class SystemResourceMonitoringService {
   // CPU monitoring state
   private volatile double lastValidCpuReading = 0.0;
   private volatile long lastCpuReadingTime = 0;
-  private static final long CPU_READING_CACHE_MS = 5000; // 5 seconds
+  private static final long CPU_READING_CACHE_MS = 30000; // 30 seconds (increased from 5 seconds)
 
   /** Get comprehensive system resource statistics */
   public Map<String, Object> getSystemResourceStatistics() {
@@ -562,8 +563,8 @@ public class SystemResourceMonitoringService {
   }
 
   /** Scheduled monitoring task to check system resources */
-  @Scheduled(fixedRate = 60000) // Every minute
-  public void scheduledResourceCheck() {
+  @Scheduled(fixedRateString = "${storesight.monitoring.system-resources-interval:PT2H}")
+  public void monitorSystemResources() {
     try {
       Map<String, Object> stats = getSystemResourceStatistics();
 

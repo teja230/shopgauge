@@ -36,7 +36,7 @@ public class DatabasePerformanceService {
   @Value("${database.monitoring.slow-query-threshold:5000}")
   private long slowQueryThreshold;
 
-  @Value("${database.monitoring.analysis-interval-minutes:30}")
+  @Value("${database.monitoring.analysis-interval-minutes:1440}")
   private int analysisIntervalMinutes;
 
   private ScheduledExecutorService analysisExecutor;
@@ -59,16 +59,31 @@ public class DatabasePerformanceService {
               return t;
             });
 
-    // Start periodic performance analysis
+    // Start nightly performance analysis at 2 AM
     analysisExecutor.scheduleAtFixedRate(
         this::performPerformanceAnalysis,
-        5, // Initial delay
-        analysisIntervalMinutes,
+        getInitialDelayToNextRun(),
+        24 * 60, // 24 hours
         TimeUnit.MINUTES);
 
-    log.info(
-        "Database performance monitoring started with {}-minute intervals",
-        analysisIntervalMinutes);
+    log.info("Database performance monitoring scheduled for nightly runs at 2 AM");
+  }
+
+  /** Calculate initial delay to next 2 AM run */
+  private long getInitialDelayToNextRun() {
+    try {
+      java.time.LocalDateTime now = java.time.LocalDateTime.now();
+      java.time.LocalDateTime nextRun = now.withHour(2).withMinute(0).withSecond(0).withNano(0);
+
+      if (now.compareTo(nextRun) > 0) {
+        nextRun = nextRun.plusDays(1);
+      }
+
+      return java.time.Duration.between(now, nextRun).toMinutes();
+    } catch (Exception e) {
+      log.warn("Error calculating initial delay, using 5 minutes: {}", e.getMessage());
+      return 5; // Fallback to 5 minutes
+    }
   }
 
   /** Get comprehensive database performance metrics */
@@ -155,7 +170,7 @@ public class DatabasePerformanceService {
           """
           SELECT schemaname, tablename, indexname, idx_scan, idx_tup_read, idx_tup_fetch,
                  CASE WHEN idx_scan = 0 THEN 0.0
-                      ELSE ROUND((idx_tup_read::DOUBLE PRECISION / idx_scan), 2)
+                      ELSE ROUND((CAST(idx_tup_read AS DOUBLE PRECISION) / idx_scan), 2)
                  END as usage_ratio
           FROM pg_stat_user_indexes
           WHERE schemaname = 'public'

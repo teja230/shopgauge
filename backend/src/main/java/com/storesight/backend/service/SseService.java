@@ -893,7 +893,7 @@ public class SseService {
   }
 
   /** Process pending batches (cleanup) */
-  @Scheduled(fixedRate = 30000) // Every 30 seconds (reduced from 5 seconds)
+  @Scheduled(fixedRate = 300000) // Every 5 minutes (reduced from 30 seconds)
   public void processPendingBatches() {
     try {
       for (String shopDomain : new ArrayList<>(batchTimers.keySet())) {
