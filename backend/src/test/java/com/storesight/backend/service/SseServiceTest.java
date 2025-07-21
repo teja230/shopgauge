@@ -323,6 +323,11 @@ class SseServiceTest {
 
   @Test
   void testSendHeartbeats() {
+    // Given
+    when(config.getSse()).thenReturn(sseConfig);
+    when(sseConfig.getHeartbeatInterval()).thenReturn(Duration.ofMinutes(2));
+    
+    // When & Then
     assertDoesNotThrow(() -> sseService.sendHeartbeats());
   }
 
