@@ -1201,13 +1201,21 @@ export default function CompetitorsPage() {
       
       if (!cfg.enabled) {
         console.warn(`[Discovery] Discovery disabled. Config:`, cfg);
-        notifications.showError(cfg.message || 'Competitor discovery is currently disabled. Please contact support.', { category: 'Discovery' });
+        const errorMessage = cfg.message || 'Competitor discovery is currently disabled. Please contact support.';
+        if (cfg.debugInfo) {
+          console.error('[Discovery] Debug info:', cfg.debugInfo);
+        }
+        notifications.showError(errorMessage, { category: 'Discovery' });
         return;
       }
       
       if (!cfg.configured) {
         console.warn(`[Discovery] Discovery not configured. Config:`, cfg);
-        notifications.showError(cfg.message || 'Competitor discovery is not configured. Please set up your search API credentials.', { category: 'Discovery' });
+        const errorMessage = cfg.message || 'Competitor discovery is not configured. Please set up your search API credentials.';
+        if (cfg.debugInfo) {
+          console.error('[Discovery] Debug info:', cfg.debugInfo);
+        }
+        notifications.showError(errorMessage, { category: 'Discovery' });
         return;
       }
 
