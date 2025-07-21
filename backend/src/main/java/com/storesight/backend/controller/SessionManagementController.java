@@ -2,6 +2,7 @@ package com.storesight.backend.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.storesight.backend.model.ShopSession;
+import com.storesight.backend.service.AdminAuthService;
 import com.storesight.backend.service.ShopService;
 import com.storesight.backend.service.SseService;
 import jakarta.servlet.http.Cookie;
@@ -34,6 +35,7 @@ public class SessionManagementController {
   private final ShopService shopService;
   private final RedisTemplate<String, String> redisTemplate;
   private final SseService sseService;
+  private final AdminAuthService adminAuthService;
 
   private static final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -44,10 +46,14 @@ public class SessionManagementController {
 
   @Autowired
   public SessionManagementController(
-      ShopService shopService, RedisTemplate<String, String> redisTemplate, SseService sseService) {
+      ShopService shopService, 
+      RedisTemplate<String, String> redisTemplate, 
+      SseService sseService,
+      AdminAuthService adminAuthService) {
     this.shopService = shopService;
     this.redisTemplate = redisTemplate;
     this.sseService = sseService;
+    this.adminAuthService = adminAuthService;
   }
 
   /** Get active sessions for the current shop */
@@ -1014,6 +1020,34 @@ public class SessionManagementController {
     return request.getRemoteAddr();
   }
 
+  private String getCurrentUsername(HttpServletRequest request) {
+    String token = getAdminTokenFromRequest(request);
+    if (token != null) {
+      return adminAuthService.getUsernameFromToken(token);
+    }
+    return "unknown";
+  }
+
+  private String getAdminTokenFromRequest(HttpServletRequest request) {
+    // Check for admin token in cookie
+    jakarta.servlet.http.Cookie[] cookies = request.getCookies();
+    if (cookies != null) {
+      for (jakarta.servlet.http.Cookie cookie : cookies) {
+        if ("admin_token".equals(cookie.getName())) {
+          return cookie.getValue();
+        }
+      }
+    }
+
+    // Check for admin token in Authorization header
+    String authHeader = request.getHeader("Authorization");
+    if (authHeader != null && authHeader.startsWith("Bearer ")) {
+      return authHeader.substring(7);
+    }
+
+    return null;
+  }
+
   // ==================== ADMIN SESSION ENDPOINTS ====================
 
   /** Admin: Get session health for all shops */
@@ -1177,28 +1211,75 @@ public class SessionManagementController {
     }
   }
 
-  /** Admin: Invalidate all sessions for a specific shop */
+  /** Admin: Invalidate all sessions for a specific shop with enhanced notifications and audit logging */
   @PostMapping("/admin/shop/{shopDomain}/invalidate")
   public ResponseEntity<Map<String, Object>> adminInvalidateShopSessions(
       @PathVariable String shopDomain,
+      @RequestBody(required = false) Map<String, String> requestBody,
       HttpServletRequest request,
       HttpServletResponse httpResponse) {
+
+    String clientIp = getClientIpAddress(request);
+    String adminUsername = getCurrentUsername(request);
+    String reason = requestBody != null ? requestBody.get("reason") : "Admin session invalidation";
 
     Map<String, Object> response = new HashMap<>();
 
     try {
-      // Get all sessions for the shop
+      logger.info(
+          "Admin {} initiating session invalidation for shop: {} - Reason: {}",
+          adminUsername,
+          shopDomain,
+          reason);
+
+      // Step 1: Get all active sessions for the shop
       List<ShopSession> allSessions = shopService.getActiveSessionsForShop(shopDomain);
 
-      // Remove all sessions with better error handling
+      if (allSessions.isEmpty()) {
+        response.put("success", true);
+        response.put("message", "No active sessions found for shop: " + shopDomain);
+        response.put("shopDomain", shopDomain);
+        response.put("invalidatedSessions", 0);
+        response.put("totalSessions", 0);
+        response.put("adminUsername", adminUsername);
+        response.put("reason", reason);
+        return ResponseEntity.ok(response);
+      }
+
+      // Step 2: Send pre-invalidation notification to all connected users
+      try {
+        String preMessage = String.format(
+            "An administrator (%s) is about to invalidate your session. Reason: %s",
+            adminUsername,
+            reason);
+        
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("adminUsername", adminUsername);
+        metadata.put("reason", reason);
+        metadata.put("timestamp", System.currentTimeMillis());
+        metadata.put("type", "pre_invalidation");
+
+        sseService.broadcastToShop(shopDomain, "session_pre_invalidation", preMessage, 5000, metadata);
+        logger.debug("Sent pre-invalidation notification to shop: {}", shopDomain);
+      } catch (Exception e) {
+        logger.warn("Failed to send pre-invalidation notification to shop {}: {}", shopDomain, e.getMessage());
+      }
+
+      // Step 3: Invalidate all sessions using forceInvalidateSession for proper cleanup
       int successfullyInvalidated = 0;
       for (ShopSession session : allSessions) {
         try {
-          shopService.removeSession(shopDomain, session.getSessionId());
+          // Use forceInvalidateSession instead of removeSession for proper cleanup
+          shopService.forceInvalidateSession(shopDomain, session.getSessionId());
           successfullyInvalidated++;
+          
+          logger.debug(
+              "Successfully invalidated session {} for shop: {}",
+              session.getSessionId(),
+              shopDomain);
         } catch (Exception e) {
           logger.warn(
-              "Failed to remove session {} for shop {}: {}",
+              "Failed to invalidate session {} for shop {}: {}",
               session.getSessionId(),
               shopDomain,
               e.getMessage());
@@ -1206,37 +1287,83 @@ public class SessionManagementController {
         }
       }
 
-      // Clear shop cookie for this domain to force frontend logout
+      // Step 4: Force close all SSE connections for the shop
+      try {
+        sseService.forceCloseConnectionsForShop(shopDomain);
+        logger.info("Force closed all SSE connections for shop: {}", shopDomain);
+      } catch (Exception e) {
+        logger.warn("Failed to force close SSE connections for shop {}: {}", shopDomain, e.getMessage());
+      }
+
+      // Step 5: Send post-invalidation notification
+      try {
+        String postMessage = String.format(
+            "Your session has been invalidated by administrator %s. Please re-authenticate.",
+            adminUsername);
+        
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("adminUsername", adminUsername);
+        metadata.put("invalidatedCount", successfullyInvalidated);
+        metadata.put("timestamp", System.currentTimeMillis());
+        metadata.put("type", "post_invalidation");
+
+        sseService.broadcastToShop(shopDomain, "session_invalidated", postMessage, 10000, metadata);
+        logger.debug("Sent post-invalidation notification to shop: {}", shopDomain);
+      } catch (Exception e) {
+        logger.warn("Failed to send post-invalidation notification to shop {}: {}", shopDomain, e.getMessage());
+      }
+
+      // Step 6: Clear shop cookie for this domain to force frontend logout
       clearShopCookie(httpResponse, shopDomain);
 
+      // Step 7: Log the admin action for audit compliance
+      String auditMessage = String.format(
+          "Admin %s invalidated %d sessions for shop %s - Reason: %s",
+          adminUsername,
+          successfullyInvalidated,
+          shopDomain,
+          reason);
+
+      adminAuthService.logAuditEvent(
+          "ADMIN_SESSION_INVALIDATION",
+          adminUsername,
+          auditMessage,
+          clientIp);
+
+      // Step 8: Prepare response
+      response.put("success", true);
+      response.put("message", "Successfully invalidated " + successfullyInvalidated + " sessions for shop: " + shopDomain);
       response.put("shopDomain", shopDomain);
       response.put("invalidatedSessions", successfullyInvalidated);
       response.put("totalSessions", allSessions.size());
-      response.put("success", true);
-      response.put("message", "All sessions for shop invalidated successfully");
+      response.put("adminUsername", adminUsername);
+      response.put("reason", reason);
       response.put("cookieCleared", true);
 
       logger.info(
-          "Admin invalidated {} of {} sessions for shop: {} and cleared cookies",
+          "Admin session invalidation completed: {} of {} sessions invalidated for shop: {}",
           successfullyInvalidated,
           allSessions.size(),
           shopDomain);
 
-      // Broadcast session invalidation asynchronously to prevent blocking
-      try {
-        broadcastSessionInvalidated(shopDomain);
-      } catch (Exception e) {
-        logger.warn(
-            "Failed to broadcast session invalidation for shop {}: {}", shopDomain, e.getMessage());
-        // Don't fail the entire operation if SSE broadcast fails
-      }
-
       return ResponseEntity.ok(response);
 
     } catch (Exception e) {
-      logger.error("Error invalidating sessions for shop {}: {}", shopDomain, e.getMessage(), e);
-      response.put("error", "Failed to invalidate shop sessions");
+      logger.error("Error during admin session invalidation for shop {}: {}", shopDomain, e.getMessage(), e);
+      
+      // Log failed attempt for audit
+      try {
+        adminAuthService.logAuditEvent(
+            "ADMIN_SESSION_INVALIDATION_FAILED",
+            adminUsername,
+            "Failed to invalidate sessions for shop " + shopDomain + ": " + e.getMessage(),
+            clientIp);
+      } catch (Exception auditError) {
+        logger.warn("Failed to log audit event for failed invalidation: {}", auditError.getMessage());
+      }
+      
       response.put("success", false);
+      response.put("error", "Failed to invalidate sessions: " + e.getMessage());
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
     }
   }
