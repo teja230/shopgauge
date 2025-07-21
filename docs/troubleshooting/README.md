@@ -15,6 +15,12 @@ Welcome to the ShopGauge Troubleshooting Guide. This section contains issue reso
 - **[SSE Refresh Loop Fix](SSE_REFRESH_LOOP_FIX.md)** - Server-sent events refresh loop resolution
 - **[SSE Frontend-Backend Compatibility](SSE_FRONTEND_BACKEND_COMPATIBILITY.md)** - Integration compatibility issues
 
+### 🧠 Market Intelligence Issues
+
+- **[Market Intelligence Troubleshooting](MARKET_INTELLIGENCE_TROUBLESHOOTING.md)** - Comprehensive Market Intelligence fixes and diagnostics
+- **[Market Intelligence Fixes](MARKET_INTELLIGENCE_FIXES.md)** - Recent fixes for session validation, database cache, and API routing issues
+- **[API /:splat Error Fix](API_SPLAT_ERROR_FIX.md)** - Resolution for malformed API request errors
+
 ### 🖥️ Admin Interface Issues
 
 - **[Admin Tabs Refresh Fix](ADMIN_TABS_REFRESH_FIX.md)** - Admin interface tab refresh problems
@@ -47,6 +53,15 @@ Welcome to the ShopGauge Troubleshooting Guide. This section contains issue reso
 | **Slow API Responses** | High response times | Check database queries and Redis cache |
 | **Memory Leaks** | Increasing memory usage | Review session cleanup and object disposal |
 | **Database Locks** | Slow queries, timeouts | Check for long-running transactions |
+
+### Market Intelligence Issues
+
+| Issue | Symptoms | Quick Fix |
+|-------|----------|-----------|
+| **Session Validation Warnings** | "Session validation failed but token exists" | Check session recovery service and authentication filter |
+| **Database Cache Errors** | "Incorrect result size: expected 1, actual 0" | Check QueryResultCacheService configuration |
+| **API /:splat Errors** | "No static resource api/:splat" | Verify render.yaml redirect rules |
+| **Suggestions Not Displaying** | Market Intelligence shows count but no content | Check session recovery and API routing |
 
 ---
 
@@ -92,6 +107,9 @@ curl https://api.shopgaugeai.com/health
 
 # Check detailed health status
 curl https://api.shopgaugeai.com/actuator/health
+
+# Check Market Intelligence health
+curl https://api.shopgaugeai.com/api/admin/market-intelligence/health
 ```
 
 ### Database Queries
@@ -110,6 +128,18 @@ redis-cli ping
 
 # Monitor Redis commands
 redis-cli monitor
+```
+
+### Market Intelligence Health Checks
+```bash
+# Check Market Intelligence health
+curl https://api.shopgaugeai.com/api/admin/market-intelligence/health
+
+# Check discovery configuration
+curl https://api.shopgaugeai.com/api/competitors/discovery/config
+
+# Check for session validation issues in logs
+grep -i "session validation failed" backend/app.log
 ```
 
 ---
