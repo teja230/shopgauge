@@ -138,7 +138,7 @@ services:
     dockerfilePath: backend/Dockerfile.prod
     autoDeployTrigger: "on"
     healthCheckPath: "/api/health/live"
-    numInstances: 1
+    numInstances: 2
     
   - type: web
     name: storesight
