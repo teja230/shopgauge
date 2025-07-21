@@ -191,8 +191,8 @@ public class EnhancedDatabaseConfig {
   }
 
   private void startDatabaseMonitoring() {
-    // Monitor connection pool health every 30 minutes (reduced frequency)
-    monitoringExecutor.scheduleAtFixedRate(this::monitorConnectionPool, 30, 30, TimeUnit.MINUTES);
+    // Monitor connection pool health every 4 hours (ultra-conservative for resource conservation)
+    monitoringExecutor.scheduleAtFixedRate(this::monitorConnectionPool, 240, 240, TimeUnit.MINUTES);
 
     // Monitor slow queries nightly at 2:30 AM (staggered from DatabasePerformanceService)
     if (logSlowQueries) {
@@ -207,7 +207,8 @@ public class EnhancedDatabaseConfig {
         24 * 60,
         TimeUnit.MINUTES);
 
-    log.info("Database monitoring started with nightly performance analysis");
+    log.info(
+        "Database monitoring started with ultra-conservative intervals for resource conservation");
   }
 
   /** Calculate initial delay to next 2 AM run */
