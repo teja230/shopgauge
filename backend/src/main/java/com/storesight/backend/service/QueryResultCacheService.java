@@ -8,6 +8,7 @@ import jakarta.annotation.PreDestroy;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
@@ -302,30 +303,42 @@ public class QueryResultCacheService {
             calculateHitRatio());
       }
 
-      // Get database cache statistics
+      // Get database cache statistics - use queryForList to handle empty results
       String sql =
           "SELECT COUNT(*) as total_entries, "
               + "COALESCE(SUM(hit_count), 0) as total_hits, "
               + "COALESCE(AVG(hit_count), 0) as avg_hits "
               + "FROM query_cache WHERE expires_at > CURRENT_TIMESTAMP";
 
-      return jdbcTemplate.queryForObject(
-          sql,
-          (rs, rowNum) -> {
-            long totalEntries = rs.getLong("total_entries");
-            long totalHits = rs.getLong("total_hits");
-            double avgHits = rs.getDouble("avg_hits");
+      List<Map<String, Object>> results = jdbcTemplate.queryForList(sql);
 
-            return new CacheStatistics(
-                hitCount.get(),
-                missCount.get(),
-                evictionCount.get(),
-                memoryCache.size(),
-                totalEntries,
-                totalHits,
-                avgHits,
-                calculateHitRatio());
-          });
+      if (results.isEmpty()) {
+        // Return default statistics when table is empty
+        return new CacheStatistics(
+            hitCount.get(),
+            missCount.get(),
+            evictionCount.get(),
+            memoryCache.size(),
+            0,
+            0,
+            0.0,
+            calculateHitRatio());
+      }
+
+      Map<String, Object> row = results.get(0);
+      long totalEntries = ((Number) row.get("total_entries")).longValue();
+      long totalHits = ((Number) row.get("total_hits")).longValue();
+      double avgHits = ((Number) row.get("avg_hits")).doubleValue();
+
+      return new CacheStatistics(
+          hitCount.get(),
+          missCount.get(),
+          evictionCount.get(),
+          memoryCache.size(),
+          totalEntries,
+          totalHits,
+          avgHits,
+          calculateHitRatio());
 
     } catch (Exception e) {
       markDatabaseUnavailable();
