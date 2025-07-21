@@ -1,8 +1,8 @@
-# Admin Session Invalidation Implementation
+# Admin Session Invalidation Implementation (Refactored)
 
 ## 📋 Executive Summary
 
-This document describes the implementation of a comprehensive admin session invalidation system that allows administrators to properly invalidate shop sessions with real-time notifications to affected users.
+This document describes the **refactored implementation** of admin session invalidation functionality by enhancing the existing `SessionManagementController` instead of creating a new service. This approach reuses existing infrastructure and maintains consistency with the current codebase.
 
 ## 🎯 **Problem Solved**
 
@@ -11,101 +11,115 @@ This document describes the implementation of a comprehensive admin session inva
 - No proper session invalidation mechanism for admin logout scenarios
 - Users remained logged in even when sessions were "invalidated"
 
-**New Solution**:
+**Refactored Solution**:
+- ✅ **Enhanced existing `SessionManagementController.adminInvalidateShopSessions()`** instead of creating new service
 - ✅ **Proper session invalidation** with database and Redis cleanup
 - ✅ **Real-time notifications** to affected users
 - ✅ **Pre-invalidation warnings** to give users time to save work
 - ✅ **Post-invalidation notifications** with re-authentication prompts
 - ✅ **Audit logging** for security compliance
+- ✅ **Reused existing infrastructure** and patterns
 
 ## 🏗️ **Architecture Overview**
 
 ### **Components**
 
-1. **`AdminSessionInvalidationService`** - Core service for session invalidation
-2. **`AdminAuthController`** - New admin endpoints for session management
-3. **`SseService`** - Enhanced with proper notification system
-4. **Frontend SSE Handler** - Updated to handle new invalidation events
+1. **`SessionManagementController`** - **Enhanced existing controller** with improved session invalidation
+2. **`SseService`** - Enhanced with proper notification system
+3. **Frontend SSE Handler** - Updated to handle new invalidation events
+4. **Frontend API** - Updated to use existing endpoint
 
 ### **Flow Diagram**
 
 ```
-Admin Action → AdminAuthController → AdminSessionInvalidationService → 
+Admin Action → SessionManagementController.adminInvalidateShopSessions() → 
 ShopService.forceInvalidateSession() → SseService.notifications → Frontend
 ```
 
 ## 🔧 **Backend Implementation**
 
-### **1. AdminSessionInvalidationService**
+### **1. Enhanced SessionManagementController**
 
-**Location**: `backend/src/main/java/com/storesight/backend/service/AdminSessionInvalidationService.java`
+**Location**: `backend/src/main/java/com/storesight/backend/controller/SessionManagementController.java`
 
-**Key Methods**:
+**Key Changes**:
 
-#### **`invalidateAllSessionsForShop()`**
+#### **Enhanced `adminInvalidateShopSessions()` Method**
 ```java
-public Map<String, Object> invalidateAllSessionsForShop(
-    String shopDomain, String adminUsername, String reason, String clientIp)
+@PostMapping("/admin/shop/{shopDomain}/invalidate")
+public ResponseEntity<Map<String, Object>> adminInvalidateShopSessions(
+    @PathVariable String shopDomain,
+    @RequestBody(required = false) Map<String, String> requestBody,
+    HttpServletRequest request,
+    HttpServletResponse httpResponse)
 ```
 
-**Process**:
-1. **Get active sessions** for the shop
-2. **Send pre-invalidation notification** to all users
-3. **Force invalidate** each session using `ShopService.forceInvalidateSession()`
-4. **Force close SSE connections** for the shop
-5. **Send post-invalidation notification** to all users
-6. **Log audit event** for security compliance
+**New Features Added**:
+1. **Reason parameter support** - Optional reason for invalidation
+2. **Admin username tracking** - Extract admin username from JWT token
+3. **Pre-invalidation notifications** - Warn users before invalidation
+4. **Post-invalidation notifications** - Notify users after invalidation
+5. **Proper audit logging** - Log all invalidation actions
+6. **Enhanced error handling** - Better error responses and logging
+7. **Force invalidation** - Use `forceInvalidateSession()` instead of `removeSession()`
 
-#### **`invalidateSpecificSession()`**
+#### **Added Dependencies**
 ```java
-public Map<String, Object> invalidateSpecificSession(
-    String shopDomain, String sessionId, String adminUsername, String reason, String clientIp)
+@Autowired private AdminAuthService adminAuthService;
 ```
 
-**Process**:
-1. **Validate session** exists and belongs to shop
-2. **Send pre-invalidation notification** to specific user
-3. **Force invalidate** the specific session
-4. **Force close SSE connections** for the shop
-5. **Send post-invalidation notification** to the user
-6. **Log audit event** for security compliance
-
-### **2. AdminAuthController Endpoints**
-
-**Location**: `backend/src/main/java/com/storesight/backend/controller/AdminAuthController.java`
-
-#### **New Endpoints**:
-
-**Invalidate All Sessions for a Shop**:
-```
-POST /api/admin/invalidate-shop-sessions/{shopDomain}
-Body: { "reason": "Optional reason for invalidation" }
+#### **Added Helper Methods**
+```java
+private String getCurrentUsername(HttpServletRequest request)
+private String getAdminTokenFromRequest(HttpServletRequest request)
 ```
 
-**Invalidate Specific Session**:
-```
-POST /api/admin/invalidate-session/{shopDomain}/{sessionId}
-Body: { "reason": "Optional reason for invalidation" }
-```
+### **2. Enhanced Process Flow**
 
-**Get Shops with Active Sessions**:
-```
-GET /api/admin/shops-with-sessions
-```
+**Step-by-Step Process**:
 
-### **3. Enhanced SseService Notifications**
+1. **Admin Authentication & Validation**
+   ```java
+   String adminUsername = getCurrentUsername(request);
+   String reason = requestBody != null ? requestBody.get("reason") : "Admin session invalidation";
+   ```
 
-**New Event Types**:
+2. **Pre-Invalidation Notification**
+   ```java
+   sseService.broadcastToShop(shopDomain, "session_pre_invalidation", preMessage, 5000, metadata);
+   ```
 
-#### **`session_pre_invalidation`**
-- **Purpose**: Warn users that their session will be invalidated
-- **Payload**: `{ adminUsername, reason, timestamp, type: "pre_invalidation" }`
-- **Duration**: 5 seconds before actual invalidation
+3. **Session Invalidation**
+   ```java
+   shopService.forceInvalidateSession(shopDomain, session.getSessionId());
+   ```
 
-#### **`session_invalidated`**
-- **Purpose**: Notify users that their session has been invalidated
-- **Payload**: `{ adminUsername, invalidatedCount, timestamp, type: "post_invalidation" }`
-- **Duration**: 10 seconds with re-authentication prompt
+4. **SSE Connection Cleanup**
+   ```java
+   sseService.forceCloseConnectionsForShop(shopDomain);
+   ```
+
+5. **Post-Invalidation Notification**
+   ```java
+   sseService.broadcastToShop(shopDomain, "session_invalidated", postMessage, 10000, metadata);
+   ```
+
+6. **Audit Logging**
+   ```java
+   adminAuthService.logAuditEvent("ADMIN_SESSION_INVALIDATION", adminUsername, auditMessage, clientIp);
+   ```
+
+### **3. Removed Components**
+
+**Deleted Files**:
+- ❌ `AdminSessionInvalidationService.java` - No longer needed
+- ❌ New admin endpoints in `AdminAuthController` - Removed
+
+**Benefits of Removal**:
+- ✅ **Reduced code duplication**
+- ✅ **Simplified architecture**
+- ✅ **Easier maintenance**
+- ✅ **Consistent patterns**
 
 ## 🎨 **Frontend Implementation**
 
@@ -113,65 +127,37 @@ GET /api/admin/shops-with-sessions
 
 **Location**: `frontend/src/hooks/useEnterpriseSse.ts`
 
-#### **New Event Handlers**:
-
+**New Event Handlers** (unchanged):
 ```typescript
 case 'session_pre_invalidation':
-  const adminUsername = sseEvent.data?.adminUsername || 'an administrator';
-  const reason = sseEvent.data?.reason || 'Admin action';
-  addNotification(
-    `${adminUsername} is about to invalidate your session. Reason: ${reason}`,
-    'warning',
-    {
-      duration: 8000,
-      category: 'Session Security',
-      persistent: true
-    }
-  );
+  // Warning notification before invalidation
   break;
 
 case 'session_invalidated':
-  const adminUsername = sseEvent.data?.adminUsername || 'an administrator';
-  addNotification(
-    `Your session has been invalidated by ${adminUsername}. Please re-authenticate.`,
-    'error',
-    {
-      duration: 0, // Persistent until user action
-      category: 'Session Security',
-      persistent: true,
-      action: {
-        label: 'Re-authenticate',
-        onClick: () => window.location.href = '/'
-      }
-    }
-  );
-  
-  // Force logout after 2 seconds
-  setTimeout(() => {
-    console.log('Session invalidated by admin - forcing logout');
-    handleSessionLogout();
-  }, 2000);
+  // Error notification with re-authentication prompt
   break;
 ```
 
-### **2. New Admin API Functions**
+### **2. Updated Admin API Functions**
 
 **Location**: `frontend/src/api/admin.ts`
 
-#### **`invalidateShopSessions()`**
+#### **Updated `invalidateShopSessions()`**
 ```typescript
-export const invalidateShopSessions = async (shopDomain: string, reason?: string): Promise<any>
+export const invalidateShopSessions = async (shopDomain: string, reason?: string): Promise<any> => {
+  // Now calls the enhanced SessionManagementController endpoint
+  const data = await fetchWithAdminAuth(`/api/sessions/admin/shop/${encodeURIComponent(shopDomain)}/invalidate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  return data;
+};
 ```
 
-#### **`invalidateSpecificSession()`**
-```typescript
-export const invalidateSpecificSession = async (shopDomain: string, sessionId: string, reason?: string): Promise<any>
-```
-
-#### **`getShopsWithSessions()`**
-```typescript
-export const getShopsWithSessions = async (): Promise<any>
-```
+#### **Removed Functions**
+- ❌ `invalidateSpecificSession()` - Not needed for current use case
+- ❌ `getShopsWithSessions()` - Can use existing endpoints
 
 ## 🔄 **Session Invalidation Process**
 
@@ -179,7 +165,7 @@ export const getShopsWithSessions = async (): Promise<any>
 
 1. **Admin Initiates Invalidation**
    ```
-   Admin → POST /api/admin/invalidate-shop-sessions/{shopDomain}
+   Admin → POST /api/sessions/admin/shop/{shopDomain}/invalidate
    ```
 
 2. **Pre-Invalidation Notification**
@@ -234,16 +220,6 @@ export const getShopsWithSessions = async (): Promise<any>
 
 ### **1. Invalidate All Sessions for a Shop**
 
-**Backend**:
-```java
-Map<String, Object> result = adminSessionInvalidationService.invalidateAllSessionsForShop(
-    "mystore.myshopify.com", 
-    "admin_user", 
-    "Security maintenance", 
-    "192.168.1.100"
-);
-```
-
 **Frontend**:
 ```typescript
 const result = await invalidateShopSessions("mystore.myshopify.com", "Security maintenance");
@@ -252,123 +228,123 @@ if (result.success) {
 }
 ```
 
-### **2. Invalidate Specific Session**
-
-**Backend**:
-```java
-Map<String, Object> result = adminSessionInvalidationService.invalidateSpecificSession(
-    "mystore.myshopify.com", 
-    "session-123", 
-    "admin_user", 
-    "Suspicious activity", 
-    "192.168.1.100"
-);
+**Backend Response**:
+```json
+{
+  "success": true,
+  "message": "Successfully invalidated 3 sessions for shop: mystore.myshopify.com",
+  "shopDomain": "mystore.myshopify.com",
+  "invalidatedSessions": 3,
+  "totalSessions": 3,
+  "adminUsername": "admin_user",
+  "reason": "Security maintenance",
+  "cookieCleared": true
+}
 ```
 
-**Frontend**:
-```typescript
-const result = await invalidateSpecificSession(
-  "mystore.myshopify.com", 
-  "session-123", 
-  "Suspicious activity"
-);
+## 🔄 **Migration from Previous Implementation**
+
+### **What Changed**
+
+1. **Removed `AdminSessionInvalidationService`**
+   - All logic moved to `SessionManagementController`
+   - No new service class needed
+
+2. **Removed New Admin Endpoints**
+   - `/api/admin/invalidate-shop-sessions/{shopDomain}` → `/api/sessions/admin/shop/{shopDomain}/invalidate`
+   - Removed `/api/admin/invalidate-session/{shopDomain}/{sessionId}`
+   - Removed `/api/admin/shops-with-sessions`
+
+3. **Enhanced Existing Endpoint**
+   - Added reason parameter support
+   - Added pre/post notifications
+   - Added audit logging
+   - Improved error handling
+
+### **Benefits of Refactoring**
+
+1. **🔄 Reuse Existing Infrastructure**
+   - Leverage existing authentication and authorization
+   - Use existing audit logging patterns
+   - Maintain consistent API structure
+
+2. **📦 Reduce Code Duplication**
+   - No need for separate service class
+   - Reuse existing validation and error handling
+   - Consistent response formats
+
+3. **🔧 Easier Maintenance**
+   - Single place for session invalidation logic
+   - Consistent behavior across endpoints
+   - Easier to update and test
+
+4. **🎯 Better Organization**
+   - Session management logic stays in session controllers
+   - Clear separation of concerns
+   - Follows existing patterns
+
+## ✅ **Testing**
+
+### **Backend Tests**
+```bash
+./gradlew test --tests "*SessionManagementController*"
 ```
 
-## 🔍 **Monitoring & Debugging**
-
-### **1. Log Messages**
-
-**Pre-invalidation**:
-```
-Admin admin_user initiating session invalidation for shop: mystore.myshopify.com - Reason: Security maintenance
+### **Frontend Tests**
+```bash
+npm test -- --testPathPattern="useEnterpriseSse"
 ```
 
-**During invalidation**:
-```
-Successfully invalidated session abc-123 for shop: mystore.myshopify.com
-Force closed all SSE connections for shop: mystore.myshopify.com
-```
+## 🚀 **Deployment**
 
-**Post-invalidation**:
-```
-Admin session invalidation completed: 3 of 3 sessions invalidated for shop: mystore.myshopify.com
-```
+### **Backend Changes**
+- Enhanced `SessionManagementController`
+- Added `AdminAuthService` dependency
+- Added helper methods for admin authentication
 
-### **2. Audit Events**
+### **Frontend Changes**
+- Updated API endpoint URL
+- Removed unused API functions
+- SSE event handling remains the same
 
-**Event Type**: `ADMIN_SESSION_INVALIDATION`
-**Message**: `Admin admin_user invalidated 3 sessions for shop mystore.myshopify.com - Reason: Security maintenance`
+### **Database Changes**
+- No database changes required
+- Uses existing session tables and audit logs
 
-### **3. Frontend Console Logs**
+## 📈 **Performance Impact**
 
-```
-[EnterpriseSSE] Message received {type: "session_pre_invalidation", data: {...}}
-[EnterpriseSSE] Message received {type: "session_invalidated", data: {...}}
-Session invalidated by admin - forcing logout
-```
+### **Positive Impacts**
+- ✅ **Reduced memory usage** (no new service class)
+- ✅ **Faster startup** (fewer components to initialize)
+- ✅ **Better caching** (reuses existing service instances)
+- ✅ **Consistent patterns** (easier to optimize)
 
-## 🚀 **Benefits**
+### **Monitoring**
+- Monitor session invalidation success rates
+- Track SSE notification delivery
+- Monitor audit log performance
 
-### **1. Proper Session Invalidation**
-- ✅ Sessions are actually invalidated in database and Redis
-- ✅ Users are forced to re-authenticate
-- ✅ No lingering session data
+## 🔮 **Future Enhancements**
 
-### **2. User Experience**
-- ✅ Pre-invalidation warnings allow users to save work
-- ✅ Clear notifications about what's happening
-- ✅ Automatic logout with re-authentication prompts
+### **Potential Improvements**
+1. **Batch Operations** - Invalidate sessions across multiple shops
+2. **Scheduled Invalidations** - Time-based session cleanup
+3. **Advanced Notifications** - Custom notification templates
+4. **Analytics Dashboard** - Session invalidation metrics
 
-### **3. Security**
-- ✅ Complete audit trail of all invalidations
-- ✅ Proper authentication and authorization
-- ✅ IP address tracking for security
+### **Scalability Considerations**
+- Current implementation handles single shop invalidation
+- Can be extended for multi-shop operations
+- SSE notifications scale with existing infrastructure
 
-### **4. Reliability**
-- ✅ Graceful error handling
-- ✅ Fallback mechanisms
-- ✅ Detailed logging for debugging
+## 📝 **Conclusion**
 
-## 🔄 **Migration from Old System**
+The refactored implementation successfully provides all the required functionality while:
 
-### **Before (Old System)**:
-```java
-// Only sent notifications, didn't invalidate sessions
-sseService.broadcastToAllShops("admin_logout", "Admin logged out", 5000);
-```
+- ✅ **Reusing existing infrastructure**
+- ✅ **Maintaining code consistency**
+- ✅ **Reducing complexity**
+- ✅ **Improving maintainability**
+- ✅ **Following established patterns**
 
-### **After (New System)**:
-```java
-// Properly invalidates sessions with notifications
-Map<String, Object> result = adminSessionInvalidationService.invalidateAllSessionsForShop(
-    shopDomain, adminUsername, reason, clientIp);
-```
-
-## 📈 **Performance Considerations**
-
-### **1. Batch Operations**
-- Process multiple sessions efficiently
-- Continue even if individual sessions fail
-- Non-blocking SSE notifications
-
-### **2. Redis Optimization**
-- Use Redis for fast session validation
-- Clear invalid session markers
-- Optimize cache cleanup
-
-### **3. Database Efficiency**
-- Use direct queries to avoid lazy loading
-- Transactional boundaries for consistency
-- Proper indexing for session lookups
-
-## 🎯 **Conclusion**
-
-The new admin session invalidation system provides:
-
-1. **Complete session invalidation** with proper cleanup
-2. **Real-time user notifications** with pre and post-invalidation warnings
-3. **Security compliance** with audit logging
-4. **User-friendly experience** with clear notifications and re-authentication prompts
-5. **Reliable operation** with proper error handling and fallbacks
-
-This implementation replaces the previous notification-only approach with a comprehensive session management system that properly invalidates sessions while providing excellent user experience and security compliance. 
+This approach demonstrates the value of enhancing existing components rather than creating new ones when the functionality can be naturally integrated into the current architecture. 

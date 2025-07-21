@@ -179,7 +179,7 @@ export const invalidateAdminShopSessions = async (shopDomain: string): Promise<a
 };
 
 /**
- * Invalidate all sessions for a specific shop using the new admin session invalidation service
+ * Invalidate all sessions for a specific shop using the enhanced SessionManagementController
  */
 export const invalidateShopSessions = async (shopDomain: string, reason?: string): Promise<any> => {
   if (import.meta.env.DEV) {
@@ -187,7 +187,7 @@ export const invalidateShopSessions = async (shopDomain: string, reason?: string
   }
   try {
     const body = reason ? { reason } : undefined;
-    const data = await fetchWithAdminAuth(`/api/admin/invalidate-shop-sessions/${encodeURIComponent(shopDomain)}`, {
+    const data = await fetchWithAdminAuth(`/api/sessions/admin/shop/${encodeURIComponent(shopDomain)}/invalidate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -206,56 +206,7 @@ export const invalidateShopSessions = async (shopDomain: string, reason?: string
   }
 };
 
-/**
- * Invalidate a specific session
- */
-export const invalidateSpecificSession = async (shopDomain: string, sessionId: string, reason?: string): Promise<any> => {
-  if (import.meta.env.DEV) {
-    console.log('API: Invalidating specific session:', sessionId, 'for shop:', shopDomain, 'Reason:', reason);
-  }
-  try {
-    const body = reason ? { reason } : undefined;
-    const data = await fetchWithAdminAuth(`/api/admin/invalidate-session/${encodeURIComponent(shopDomain)}/${encodeURIComponent(sessionId)}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: body ? JSON.stringify(body) : undefined
-    });
-    if (import.meta.env.DEV) {
-      console.log('API: Specific session invalidate response:', data);
-    }
-    return data;
-  } catch (error) {
-    if (import.meta.env.DEV) {
-      console.error('API: Specific session invalidate error:', error);
-    }
-    return { success: false, error: 'Failed to invalidate specific session' };
-  }
-};
 
-/**
- * Get all shops with active sessions
- */
-export const getShopsWithSessions = async (): Promise<any> => {
-  if (import.meta.env.DEV) {
-    console.log('API: Getting shops with active sessions');
-  }
-  try {
-    const data = await fetchWithAdminAuth('/api/admin/shops-with-sessions', {
-      method: 'GET'
-    });
-    if (import.meta.env.DEV) {
-      console.log('API: Shops with sessions response:', data);
-    }
-    return data;
-  } catch (error) {
-    if (import.meta.env.DEV) {
-      console.error('API: Get shops with sessions error:', error);
-    }
-    return { success: false, error: 'Failed to get shops with sessions' };
-  }
-};
 
 export const getAdminSseStats = async (): Promise<any> => {
   if (import.meta.env.DEV) {
