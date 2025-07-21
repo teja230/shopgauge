@@ -660,6 +660,39 @@ public class SseService {
     }
   }
 
+  /** Broadcast an event to all connected shops */
+  public void broadcastToAllShops(String eventType, String message, Integer reconnectMs) {
+    if (sseEmitters.isEmpty()) {
+      logger.debug("No SSE clients connected to any shop");
+      return;
+    }
+
+    logger.info("Broadcasting {} event to all {} connected shops", eventType, sseEmitters.size());
+
+    int totalClients = 0;
+    int successfulBroadcasts = 0;
+
+    for (String shopDomain : sseEmitters.keySet()) {
+      try {
+        CopyOnWriteArrayList<SseEmitter> emitters = sseEmitters.get(shopDomain);
+        if (emitters != null && !emitters.isEmpty()) {
+          totalClients += emitters.size();
+          broadcastToShop(shopDomain, eventType, message, reconnectMs);
+          successfulBroadcasts++;
+        }
+      } catch (Exception e) {
+        logger.warn(
+            "Failed to broadcast {} event to shop {}: {}", eventType, shopDomain, e.getMessage());
+      }
+    }
+
+    logger.info(
+        "Broadcast completed: {} event sent to {} shops with {} total clients",
+        eventType,
+        successfulBroadcasts,
+        totalClients);
+  }
+
   /** Send exponential backoff hint to client */
   public void sendExponentialBackoff(SseEmitter emitter, int failCount) {
     int backoffSeconds = Math.min((int) Math.pow(2, failCount - 1), 60);
