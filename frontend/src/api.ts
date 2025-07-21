@@ -10,8 +10,8 @@ if (!import.meta.env.VITE_API_BASE_URL) {
   // but avoid leaking details or crashing the app.
   // eslint-disable-next-line no-console
   console.warn(
-    'VITE_API_BASE_URL is not defined – using relative URLs for API calls. ' +
-    'Ensure this variable is set in production (e.g., https://api.shopgaugeai.com)'
+    'VITE_API_BASE_URL is not defined – using fallback backend URL. ' +
+    'Set VITE_API_BASE_URL=https://api.shopgaugeai.com in production'
   );
 }
 
@@ -707,4 +707,4 @@ export const getPrivacyReport = async () => {
   return handleResponse<any>(response);
 };
 
-export default api; 
+export default api;

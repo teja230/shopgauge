@@ -158,7 +158,9 @@ class SessionManager {
       return;
     }
     try {
-      const response = await fetch('/api/sessions/heartbeat', {
+      // Import API_BASE_URL to use the configured backend URL
+      const { API_BASE_URL } = await import('../api');
+      const response = await fetch(`${API_BASE_URL}/api/sessions/heartbeat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -591,4 +593,4 @@ export function clearAllSessionCookies() {
 } 
 
 // SSE functionality has been moved to enterpriseSseHandler.ts
-// This file now only contains session management utilities 
+// This file now only contains session management utilities

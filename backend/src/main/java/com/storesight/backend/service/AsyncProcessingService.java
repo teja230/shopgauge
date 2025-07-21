@@ -108,9 +108,11 @@ public class AsyncProcessingService {
     // Initialize thread pools with conservative settings
     discoveryExecutor =
         createThreadPoolExecutor("discovery", Math.min(discoveryMaxConcurrent, 1), discoveryQueue);
-    scrapingExecutor = createThreadPoolExecutor("scraping", Math.min(scrapingMaxConcurrent, 2), scrapingQueue);
+    scrapingExecutor =
+        createThreadPoolExecutor("scraping", Math.min(scrapingMaxConcurrent, 2), scrapingQueue);
     notificationExecutor =
-        createThreadPoolExecutor("notification", Math.min(notificationMaxConcurrent, 2), notificationQueue);
+        createThreadPoolExecutor(
+            "notification", Math.min(notificationMaxConcurrent, 2), notificationQueue);
 
     // Initialize retry executor with single thread to prevent CPU saturation
     retryExecutor =
@@ -123,7 +125,8 @@ public class AsyncProcessingService {
               return t;
             });
 
-    log.info("AsyncProcessingService initialized successfully with conservative settings for 2x512MB instances");
+    log.info(
+        "AsyncProcessingService initialized successfully with conservative settings for 2x512MB instances");
   }
 
   private ThreadPoolExecutor createThreadPoolExecutor(
