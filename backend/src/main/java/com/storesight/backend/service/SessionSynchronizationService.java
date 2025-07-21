@@ -591,7 +591,8 @@ public class SessionSynchronizationService {
   /** Scheduled cleanup of expired locks and markers Runs every 2 hours to prevent memory leaks */
   @Scheduled(
       fixedRateString = "#{@sessionSchedulingConfiguration.getSynchronizationCleanupIntervalMs()}",
-      initialDelayString = "#{@sessionSchedulingConfiguration.getSynchronizationCleanupStartupDelayMs()}")
+      initialDelayString =
+          "#{@sessionSchedulingConfiguration.getSynchronizationCleanupStartupDelayMs()}")
   public void scheduledCleanup() {
     try {
       totalScheduledCleanupRuns.incrementAndGet();
@@ -616,7 +617,8 @@ public class SessionSynchronizationService {
    */
   @Scheduled(
       fixedRateString = "#{@sessionSchedulingConfiguration.getStuckMarkersCleanupIntervalMs()}",
-      initialDelayString = "#{@sessionSchedulingConfiguration.getStuckMarkersCleanupStartupDelayMs()}")
+      initialDelayString =
+          "#{@sessionSchedulingConfiguration.getStuckMarkersCleanupStartupDelayMs()}")
   public void cleanupStuckSessionMarkers() {
     try {
       logger.debug("Starting cleanup of stuck session markers");
@@ -683,8 +685,10 @@ public class SessionSynchronizationService {
   }
 
   @Scheduled(
-      fixedRateString = "#{@sessionSchedulingConfiguration.getCriticalStuckMarkersCleanupIntervalMs()}",
-      initialDelayString = "#{@sessionSchedulingConfiguration.getCriticalStuckMarkersCleanupStartupDelayMs()}")
+      fixedRateString =
+          "#{@sessionSchedulingConfiguration.getCriticalStuckMarkersCleanupIntervalMs()}",
+      initialDelayString =
+          "#{@sessionSchedulingConfiguration.getCriticalStuckMarkersCleanupStartupDelayMs()}")
   public void cleanupCriticalStuckMarkers() {
     try {
       // Only clean up markers that have been stuck for a very long time (10+ minutes)
