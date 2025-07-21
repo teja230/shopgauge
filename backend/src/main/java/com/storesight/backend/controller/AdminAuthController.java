@@ -2,12 +2,10 @@ package com.storesight.backend.controller;
 
 import com.storesight.backend.service.AdminAuthService;
 import com.storesight.backend.service.AdminRateLimitingService;
-
 import com.storesight.backend.service.SseService;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import org.slf4j.Logger;
@@ -141,8 +139,6 @@ public class AdminAuthController {
     adminAuthService.logAuditEvent("LOGOUT", username, "Logout from IP: " + clientIp, clientIp);
     return ResponseEntity.ok(result);
   }
-
-
 
   @GetMapping("/status")
   public ResponseEntity<Map<String, Object>> adminStatus(HttpServletRequest request) {
