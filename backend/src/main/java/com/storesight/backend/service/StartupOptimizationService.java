@@ -39,12 +39,17 @@ public class StartupOptimizationService {
   private String gradualEnableDelay;
 
   private final ScheduledExecutorService startupScheduler = Executors.newScheduledThreadPool(1);
+  private volatile boolean startupOptimizationCompleted = false;
 
   /** Handle application startup optimization */
   @EventListener(ApplicationReadyEvent.class)
   public void handleApplicationStartup() {
-    if (!startupOptimizationEnabled) {
-      logger.info("Startup optimization disabled");
+    if (!startupOptimizationEnabled || startupOptimizationCompleted) {
+      if (startupOptimizationCompleted) {
+        logger.debug("Startup optimization already completed, skipping");
+      } else {
+        logger.info("Startup optimization disabled");
+      }
       return;
     }
 
@@ -75,11 +80,19 @@ public class StartupOptimizationService {
 
   /** Activate monitoring services after startup delay */
   private void activateMonitoringServices() {
+    if (startupOptimizationCompleted) {
+      logger.debug("Startup optimization already completed, skipping activation");
+      return;
+    }
+
     try {
       logger.info("🔍 Activating monitoring services after startup delay");
 
       // Enable JVM metrics after startup
       enableJvmMetrics();
+
+      // Mark startup optimization as completed
+      startupOptimizationCompleted = true;
 
       // Log startup completion
       logger.info("✅ Application startup optimization completed at {}", LocalDateTime.now());
