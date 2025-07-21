@@ -107,7 +107,7 @@ export async function getAuthShop(): Promise<string> {
 export async function getInsights(): Promise<any> {
   console.log('API: Getting insights');
   try {
-    const response = await fetchWithAuth('/analytics/insights');
+    const response = await fetchWithAuth('/api/analytics/insights');
     const data = await response.json();
     console.log('API: Insights response:', data);
     return data;
