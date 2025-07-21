@@ -588,22 +588,20 @@ public class SessionSynchronizationService {
     }
   }
 
-  /**
-   * Scheduled cleanup of expired locks and markers Runs every 30 minutes to prevent memory leaks
-   */
-  @Scheduled(fixedRate = 1800000) // 30 minutes
+  /** Scheduled cleanup of expired locks and markers Runs every 2 hours to prevent memory leaks */
+  @Scheduled(fixedRate = 7200000, initialDelay = 300000) // 2 hours with 5-minute startup delay
   public void scheduledCleanup() {
     try {
       totalScheduledCleanupRuns.incrementAndGet();
       totalCleanupOperations.incrementAndGet();
 
-      logger.info(
+      logger.debug(
           "Starting scheduled cleanup of session synchronization (run #{})",
           totalScheduledCleanupRuns.get());
 
       cleanupExpiredLocks();
 
-      logger.info("Scheduled cleanup of session synchronization completed successfully");
+      logger.debug("Scheduled cleanup of session synchronization completed successfully");
     } catch (Exception e) {
       logger.warn("Error during scheduled cleanup: {}", e.getMessage());
       totalRedisOperationFailures.incrementAndGet();
@@ -611,10 +609,10 @@ public class SessionSynchronizationService {
   }
 
   /**
-   * Scheduled cleanup of stuck session markers Runs every 5 minutes to prevent sessions from
+   * Scheduled cleanup of stuck session markers Runs every 30 minutes to prevent sessions from
    * getting permanently stuck
    */
-  @Scheduled(fixedRate = 900000) // 15 minutes - Reduced frequency for resource optimization
+  @Scheduled(fixedRate = 1800000, initialDelay = 600000) // 30 minutes with 10-minute startup delay
   public void cleanupStuckSessionMarkers() {
     try {
       logger.debug("Starting cleanup of stuck session markers");
@@ -680,7 +678,7 @@ public class SessionSynchronizationService {
     }
   }
 
-  @Scheduled(fixedRate = 300000) // 5 minutes - Reduced from 1 minute for resource optimization
+  @Scheduled(fixedRate = 900000, initialDelay = 900000) // 15 minutes with 15-minute startup delay
   public void cleanupCriticalStuckMarkers() {
     try {
       // Only clean up markers that have been stuck for a very long time (10+ minutes)
