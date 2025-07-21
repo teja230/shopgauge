@@ -417,8 +417,10 @@ public class QueryResultCacheService {
 
   private void checkDatabaseAvailability() {
     try {
-      // Try a simple query to check if the table exists
-      jdbcTemplate.queryForObject("SELECT 1 FROM query_cache LIMIT 1", Integer.class);
+      // Try a simple query to check if the table exists - use query instead of queryForObject
+      // to avoid "Incorrect result size" error when table is empty
+      List<Integer> results =
+          jdbcTemplate.queryForList("SELECT 1 FROM query_cache LIMIT 1", Integer.class);
       databaseAvailable.set(true);
       lastDatabaseCheck.set(System.currentTimeMillis());
       logger.debug("Database cache is available");

@@ -233,4 +233,71 @@ curl -H "Authorization: Bearer $TOKEN" \
 curl -X POST "https://api.scrapingdog.com/google" \
      -H "Content-Type: application/json" \
      -d '{"api_key":"$SCRAPINGDOG_KEY","q":"test"}'
-``` 
+```
+
+---
+
+## Recent Fixes and Enhancements
+
+### Session Validation Issues (Fixed)
+
+**Problem**: Sessions were being marked as invalid but the system was still allowing access, creating inconsistent behavior.
+
+**Solution**: 
+- Enhanced session validation logic in `ShopifyAuthenticationFilter`
+- Added `SessionRecoveryService` for automatic session recovery
+- Improved error handling for session validation failures
+
+**Files Modified**:
+- `backend/src/main/java/com/storesight/backend/config/ShopifyAuthenticationFilter.java`
+- `backend/src/main/java/com/storesight/backend/service/SessionRecoveryService.java`
+
+### Database Cache Issues (Fixed)
+
+**Problem**: QueryResultCacheService was using `queryForObject()` which expects exactly one result, but empty tables returned 0 results.
+
+**Solution**:
+- Changed to `queryForList()` to handle empty tables gracefully
+- Added proper error handling for database cache availability checks
+- Improved fallback mechanisms for cache failures
+
+**Files Modified**:
+- `backend/src/main/java/com/storesight/backend/service/QueryResultCacheService.java`
+
+### API /:splat Error (Fixed)
+
+**Problem**: Frontend was making malformed requests to `/api/:splat` instead of proper API endpoints.
+
+**Solution**:
+- Fixed redirect configuration in `render.yaml`
+- Enhanced error handling and logging
+
+**Files Modified**:
+- `render.yaml`
+- `frontend/src/api.ts`
+
+### Manual Diagnostic Steps
+
+To diagnose Market Intelligence issues manually:
+
+```bash
+# Check backend health
+curl https://api.shopgaugeai.com/actuator/health
+
+# Check Market Intelligence health
+curl https://api.shopgaugeai.com/api/admin/market-intelligence/health
+
+# Check database connectivity (if local)
+psql -h localhost -U postgres -d storesight -c "SELECT 1;"
+
+# Check Redis connectivity (if local)
+redis-cli ping
+```
+
+### Expected Behavior After Fixes
+
+1. **No more session validation warnings** in logs
+2. **Database cache working properly** without "Incorrect result size" errors
+3. **No more `/api/:splat` errors** in backend logs
+4. **Market Intelligence suggestions displaying correctly**
+5. **Proper API routing** to backend endpoints 

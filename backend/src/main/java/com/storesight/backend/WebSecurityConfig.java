@@ -3,6 +3,7 @@ package com.storesight.backend;
 import com.storesight.backend.config.AdminAuthenticationFilter;
 import com.storesight.backend.config.ShopifyAuthenticationFilter;
 import com.storesight.backend.service.RedisSessionService;
+import com.storesight.backend.service.SessionRecoveryService;
 import com.storesight.backend.service.SessionSecurityService;
 import com.storesight.backend.service.SessionSynchronizationService;
 import com.storesight.backend.service.ShopService;
@@ -52,6 +53,7 @@ public class WebSecurityConfig implements WebMvcConfigurer {
   private final SessionSynchronizationService sessionSynchronizationService;
   private final SessionSecurityService sessionSecurityService;
   private final RedisSessionService redisSessionService;
+  private final SessionRecoveryService sessionRecoveryService;
 
   @Value("${spring.profiles.active:dev}")
   private String activeProfile;
@@ -73,11 +75,13 @@ public class WebSecurityConfig implements WebMvcConfigurer {
       ShopService shopService,
       SessionSynchronizationService sessionSynchronizationService,
       SessionSecurityService sessionSecurityService,
-      RedisSessionService redisSessionService) {
+      RedisSessionService redisSessionService,
+      SessionRecoveryService sessionRecoveryService) {
     this.shopService = shopService;
     this.sessionSynchronizationService = sessionSynchronizationService;
     this.sessionSecurityService = sessionSecurityService;
     this.redisSessionService = redisSessionService;
+    this.sessionRecoveryService = sessionRecoveryService;
   }
 
   // Rate limit info holder
@@ -280,7 +284,11 @@ public class WebSecurityConfig implements WebMvcConfigurer {
   @Bean
   public ShopifyAuthenticationFilter shopifyAuthenticationFilter() {
     return new ShopifyAuthenticationFilter(
-        shopService, sessionSynchronizationService, sessionSecurityService, redisSessionService);
+        shopService,
+        sessionSynchronizationService,
+        sessionSecurityService,
+        redisSessionService,
+        sessionRecoveryService);
   }
 
   @Bean

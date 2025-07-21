@@ -1,6 +1,7 @@
 package com.storesight.backend.config;
 
 import com.storesight.backend.service.RedisSessionService;
+import com.storesight.backend.service.SessionRecoveryService;
 import com.storesight.backend.service.SessionSecurityService;
 import com.storesight.backend.service.SessionSynchronizationService;
 import com.storesight.backend.service.ShopService;
@@ -28,16 +29,19 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
   private final SessionSynchronizationService sessionSynchronizationService;
   private final SessionSecurityService sessionSecurityService;
   private final RedisSessionService redisSessionService;
+  private final SessionRecoveryService sessionRecoveryService;
 
   public ShopifyAuthenticationFilter(
       ShopService shopService,
       SessionSynchronizationService sessionSynchronizationService,
       SessionSecurityService sessionSecurityService,
-      RedisSessionService redisSessionService) {
+      RedisSessionService redisSessionService,
+      SessionRecoveryService sessionRecoveryService) {
     this.shopService = shopService;
     this.sessionSynchronizationService = sessionSynchronizationService;
     this.sessionSecurityService = sessionSecurityService;
     this.redisSessionService = redisSessionService;
+    this.sessionRecoveryService = sessionRecoveryService;
   }
 
   @Override
@@ -137,23 +141,60 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
                   shopDomain,
                   sessionId,
                   isOAuthValidation);
+
+              // Set authentication context
+              UsernamePasswordAuthenticationToken authentication =
+                  new UsernamePasswordAuthenticationToken(
+                      shopDomain, null, AuthorityUtils.createAuthorityList("ROLE_SHOP"));
+              SecurityContextHolder.getContext().setAuthentication(authentication);
+
+              logger.debug(
+                  "Authentication set for shop: {} with session: {}", shopDomain, sessionId);
             } else {
               logger.warn(
-                  "Session validation failed for shop: {} and session: {} - but token exists, allowing access (OAuth: {})",
+                  "Session validation failed for shop: {} and session: {} - token exists but session invalid (OAuth: {})",
                   shopDomain,
                   sessionId,
                   isOAuthValidation);
-              // Don't immediately fail - the token exists, so the session might be valid but
-              // validation is being overly strict
+
+              // For OAuth validation endpoints, be more lenient
+              if (isOAuthValidation) {
+                logger.debug(
+                    "Allowing OAuth validation despite session issues for shop: {}", shopDomain);
+                UsernamePasswordAuthenticationToken authentication =
+                    new UsernamePasswordAuthenticationToken(
+                        shopDomain, null, AuthorityUtils.createAuthorityList("ROLE_SHOP"));
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+              } else {
+                // For regular API calls, attempt session recovery first
+                logger.debug(
+                    "Attempting session recovery for shop: {} and session: {}",
+                    shopDomain,
+                    sessionId);
+                boolean recoverySuccessful =
+                    sessionRecoveryService.attemptSessionRecovery(shopDomain, sessionId);
+
+                if (recoverySuccessful) {
+                  logger.info(
+                      "Session recovery successful for shop: {} and session: {}",
+                      shopDomain,
+                      sessionId);
+                  UsernamePasswordAuthenticationToken authentication =
+                      new UsernamePasswordAuthenticationToken(
+                          shopDomain, null, AuthorityUtils.createAuthorityList("ROLE_SHOP"));
+                  SecurityContextHolder.getContext().setAuthentication(authentication);
+                } else {
+                  // Recovery failed, reject the request
+                  logger.warn(
+                      "Session recovery failed, rejecting request for shop: {}", shopDomain);
+                  if (sessionId != null) {
+                    shopService.safeSessionCleanup(shopDomain, sessionId);
+                  }
+                  handleAuthenticationFailure(response, "Session expired. Please re-authenticate.");
+                  return;
+                }
+              }
             }
-
-            // Set authentication context
-            UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken(
-                    shopDomain, null, AuthorityUtils.createAuthorityList("ROLE_SHOP"));
-            SecurityContextHolder.getContext().setAuthentication(authentication);
-
-            logger.debug("Authentication set for shop: {} with session: {}", shopDomain, sessionId);
           } else {
             logger.warn("No valid token found for shop: {} and session: {}", shopDomain, sessionId);
             // Perform safe cleanup before authentication failure
