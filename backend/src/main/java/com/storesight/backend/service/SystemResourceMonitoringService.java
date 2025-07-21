@@ -596,9 +596,9 @@ public class SystemResourceMonitoringService {
 
       if (criticalAlert) {
         logger.error(alertMessage.toString());
+      } else {
+        logger.debug("System resource monitoring completed successfully");
       }
-
-      logger.debug("System resource monitoring completed successfully");
 
     } catch (Exception e) {
       logger.error("Error during scheduled system resource check: {}", e.getMessage());

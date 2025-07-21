@@ -48,8 +48,9 @@ public class QueryResultCacheService {
   // Circuit breaker for database operations
   private final AtomicBoolean databaseAvailable = new AtomicBoolean(true);
   private final AtomicLong lastDatabaseCheck = new AtomicLong(0);
-  private static final long DATABASE_CHECK_INTERVAL_MS = 60000; // 1 minute
-  private static final long ERROR_SUPPRESSION_INTERVAL_MS = 300000; // 5 minutes
+  private static final long DATABASE_CHECK_INTERVAL_MS = 300000; // 5 minutes (reduced frequency)
+  private static final long ERROR_SUPPRESSION_INTERVAL_MS =
+      900000; // 15 minutes (reduced frequency)
   private final AtomicLong lastErrorLog = new AtomicLong(0);
 
   @Autowired private ApplicationConfigurationProperties config;
@@ -95,12 +96,11 @@ public class QueryResultCacheService {
         getCleanupInterval().toMinutes(),
         TimeUnit.MINUTES);
 
-    // Schedule periodic statistics logging
+    // Schedule periodic statistics logging - reduced frequency for resource conservation
+    long statsIntervalMinutes =
+        Math.max(getStatisticsInterval().toMinutes() * 4, 60); // At least 1 hour
     scheduler.scheduleAtFixedRate(
-        this::logCacheStatistics,
-        getStatisticsInterval().toMinutes(),
-        getStatisticsInterval().toMinutes(),
-        TimeUnit.MINUTES);
+        this::logCacheStatistics, statsIntervalMinutes, statsIntervalMinutes, TimeUnit.MINUTES);
 
     logger.info(
         "QueryResultCacheService initialized with memory cache size: {} (Database available: {})",
@@ -503,15 +503,29 @@ public class QueryResultCacheService {
 
   private void logCacheStatistics() {
     CacheStatistics stats = getStatistics();
-    logger.info(
-        "Cache Statistics - Hit Ratio: {}%, Memory Entries: {}, DB Entries: {}, "
-            + "Total Hits: {}, Total Misses: {}, Evictions: {}",
-        String.format("%.2f", stats.getHitRatio() * 100),
-        stats.getMemoryCacheSize(),
-        stats.getDatabaseCacheSize(),
-        stats.getHitCount(),
-        stats.getMissCount(),
-        stats.getEvictionCount());
+
+    // Only log if there are issues or low hit ratio
+    if (stats.getHitRatio() < 0.5 || stats.getEvictionCount() > 100) {
+      logger.warn(
+          "Cache Statistics - Hit Ratio: {}%, Memory Entries: {}, DB Entries: {}, "
+              + "Total Hits: {}, Total Misses: {}, Evictions: {}",
+          String.format("%.2f", stats.getHitRatio() * 100),
+          stats.getMemoryCacheSize(),
+          stats.getDatabaseCacheSize(),
+          stats.getHitCount(),
+          stats.getMissCount(),
+          stats.getEvictionCount());
+    } else {
+      logger.debug(
+          "Cache Statistics - Hit Ratio: {}%, Memory Entries: {}, DB Entries: {}, "
+              + "Total Hits: {}, Total Misses: {}, Evictions: {}",
+          String.format("%.2f", stats.getHitRatio() * 100),
+          stats.getMemoryCacheSize(),
+          stats.getDatabaseCacheSize(),
+          stats.getHitCount(),
+          stats.getMissCount(),
+          stats.getEvictionCount());
+    }
   }
 
   /** Cache entry for memory cache */
