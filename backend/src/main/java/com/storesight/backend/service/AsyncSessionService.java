@@ -142,8 +142,9 @@ public class AsyncSessionService {
 
   /** Clean up old throttling entries to prevent memory leaks */
   @Scheduled(
-      fixedRate = 7200000,
-      initialDelay = 600000) // Run every 2 hours with 10-minute startup delay
+      fixedRateString = "#{@sessionSchedulingConfiguration.getThrottlingCacheCleanupIntervalMs()}",
+      initialDelayString =
+          "#{@sessionSchedulingConfiguration.getThrottlingCacheCleanupStartupDelayMs()}")
   public void cleanupThrottlingCache() {
     LocalDateTime cutoff = LocalDateTime.now().minusHours(1);
     lastUpdateTimes.entrySet().removeIf(entry -> entry.getValue().isBefore(cutoff));

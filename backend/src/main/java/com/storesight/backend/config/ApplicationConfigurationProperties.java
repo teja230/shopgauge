@@ -304,6 +304,22 @@ public class ApplicationConfigurationProperties {
     @Max(30)
     private int invalidSessionCacheMinutes = 15;
 
+    // Session Cleanup Configuration - ULTRA CONSERVATIVE FOR RESOURCE OPTIMIZATION
+    @NotNull private Duration synchronizationCleanupInterval = Duration.ofHours(2);
+    @NotNull private Duration stuckMarkersCleanupInterval = Duration.ofMinutes(30);
+    @NotNull private Duration criticalStuckMarkersCleanupInterval = Duration.ofMinutes(15);
+    @NotNull private Duration expiredSessionsCleanupInterval = Duration.ofHours(2);
+    @NotNull private Duration staleSessionsCleanupInterval = Duration.ofHours(4);
+    @NotNull private Duration throttlingCacheCleanupInterval = Duration.ofHours(2);
+
+    // Session Cleanup Startup Delays - PREVENT RESOURCE CONTENTION
+    @NotNull private Duration synchronizationCleanupStartupDelay = Duration.ofMinutes(5);
+    @NotNull private Duration stuckMarkersCleanupStartupDelay = Duration.ofMinutes(10);
+    @NotNull private Duration criticalStuckMarkersCleanupStartupDelay = Duration.ofMinutes(15);
+    @NotNull private Duration expiredSessionsCleanupStartupDelay = Duration.ofMinutes(15);
+    @NotNull private Duration staleSessionsCleanupStartupDelay = Duration.ofMinutes(20);
+    @NotNull private Duration throttlingCacheCleanupStartupDelay = Duration.ofMinutes(10);
+
     // Getters and setters
     public Duration getLockDuration() {
       return lockDuration;
@@ -415,6 +431,106 @@ public class ApplicationConfigurationProperties {
 
     public void setInvalidSessionCacheMinutes(int invalidSessionCacheMinutes) {
       this.invalidSessionCacheMinutes = invalidSessionCacheMinutes;
+    }
+
+    // Cleanup interval getters and setters
+    public Duration getSynchronizationCleanupInterval() {
+      return synchronizationCleanupInterval;
+    }
+
+    public void setSynchronizationCleanupInterval(Duration synchronizationCleanupInterval) {
+      this.synchronizationCleanupInterval = synchronizationCleanupInterval;
+    }
+
+    public Duration getStuckMarkersCleanupInterval() {
+      return stuckMarkersCleanupInterval;
+    }
+
+    public void setStuckMarkersCleanupInterval(Duration stuckMarkersCleanupInterval) {
+      this.stuckMarkersCleanupInterval = stuckMarkersCleanupInterval;
+    }
+
+    public Duration getCriticalStuckMarkersCleanupInterval() {
+      return criticalStuckMarkersCleanupInterval;
+    }
+
+    public void setCriticalStuckMarkersCleanupInterval(
+        Duration criticalStuckMarkersCleanupInterval) {
+      this.criticalStuckMarkersCleanupInterval = criticalStuckMarkersCleanupInterval;
+    }
+
+    public Duration getExpiredSessionsCleanupInterval() {
+      return expiredSessionsCleanupInterval;
+    }
+
+    public void setExpiredSessionsCleanupInterval(Duration expiredSessionsCleanupInterval) {
+      this.expiredSessionsCleanupInterval = expiredSessionsCleanupInterval;
+    }
+
+    public Duration getStaleSessionsCleanupInterval() {
+      return staleSessionsCleanupInterval;
+    }
+
+    public void setStaleSessionsCleanupInterval(Duration staleSessionsCleanupInterval) {
+      this.staleSessionsCleanupInterval = staleSessionsCleanupInterval;
+    }
+
+    public Duration getThrottlingCacheCleanupInterval() {
+      return throttlingCacheCleanupInterval;
+    }
+
+    public void setThrottlingCacheCleanupInterval(Duration throttlingCacheCleanupInterval) {
+      this.throttlingCacheCleanupInterval = throttlingCacheCleanupInterval;
+    }
+
+    // Startup delay getters and setters
+    public Duration getSynchronizationCleanupStartupDelay() {
+      return synchronizationCleanupStartupDelay;
+    }
+
+    public void setSynchronizationCleanupStartupDelay(Duration synchronizationCleanupStartupDelay) {
+      this.synchronizationCleanupStartupDelay = synchronizationCleanupStartupDelay;
+    }
+
+    public Duration getStuckMarkersCleanupStartupDelay() {
+      return stuckMarkersCleanupStartupDelay;
+    }
+
+    public void setStuckMarkersCleanupStartupDelay(Duration stuckMarkersCleanupStartupDelay) {
+      this.stuckMarkersCleanupStartupDelay = stuckMarkersCleanupStartupDelay;
+    }
+
+    public Duration getCriticalStuckMarkersCleanupStartupDelay() {
+      return criticalStuckMarkersCleanupStartupDelay;
+    }
+
+    public void setCriticalStuckMarkersCleanupStartupDelay(
+        Duration criticalStuckMarkersCleanupStartupDelay) {
+      this.criticalStuckMarkersCleanupStartupDelay = criticalStuckMarkersCleanupStartupDelay;
+    }
+
+    public Duration getExpiredSessionsCleanupStartupDelay() {
+      return expiredSessionsCleanupStartupDelay;
+    }
+
+    public void setExpiredSessionsCleanupStartupDelay(Duration expiredSessionsCleanupStartupDelay) {
+      this.expiredSessionsCleanupStartupDelay = expiredSessionsCleanupStartupDelay;
+    }
+
+    public Duration getStaleSessionsCleanupStartupDelay() {
+      return staleSessionsCleanupStartupDelay;
+    }
+
+    public void setStaleSessionsCleanupStartupDelay(Duration staleSessionsCleanupStartupDelay) {
+      this.staleSessionsCleanupStartupDelay = staleSessionsCleanupStartupDelay;
+    }
+
+    public Duration getThrottlingCacheCleanupStartupDelay() {
+      return throttlingCacheCleanupStartupDelay;
+    }
+
+    public void setThrottlingCacheCleanupStartupDelay(Duration throttlingCacheCleanupStartupDelay) {
+      this.throttlingCacheCleanupStartupDelay = throttlingCacheCleanupStartupDelay;
     }
   }
 

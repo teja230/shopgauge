@@ -1185,7 +1185,10 @@ public class ShopService {
 
   /** Enhanced session cleanup with better error handling and monitoring */
   @Transactional(timeout = 10) // Reduced timeout for cleanup operations
-  @Scheduled(fixedRate = 7200000, initialDelay = 900000) // 2 hours with 15-minute startup delay
+  @Scheduled(
+      fixedRateString = "#{@sessionSchedulingConfiguration.getExpiredSessionsCleanupIntervalMs()}",
+      initialDelayString =
+          "#{@sessionSchedulingConfiguration.getExpiredSessionsCleanupStartupDelayMs()}")
   public synchronized void cleanupExpiredSessions() {
     try {
       logger.debug("Starting expired session cleanup");
@@ -1534,7 +1537,10 @@ public class ShopService {
 
   /** Clean up stale sessions (sessions that haven't sent heartbeat for extended period) */
   @Transactional
-  @Scheduled(fixedRate = 14400000, initialDelay = 1200000) // 4 hours with 20-minute startup delay
+  @Scheduled(
+      fixedRateString = "#{@sessionSchedulingConfiguration.getStaleSessionsCleanupIntervalMs()}",
+      initialDelayString =
+          "#{@sessionSchedulingConfiguration.getStaleSessionsCleanupStartupDelayMs()}")
   public synchronized void cleanupStaleSessions() {
     try {
       // Define stale threshold (sessions not accessed for more than 2 hours)
