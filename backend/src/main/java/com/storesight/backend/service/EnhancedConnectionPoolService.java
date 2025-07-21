@@ -225,7 +225,8 @@ public class EnhancedConnectionPoolService implements HealthIndicator {
         // Log critical alert (AlertingService will handle this automatically via monitoring)
         logger.error(
             "Connection pool health critical - Utilization: {}%, Waiting threads: {}",
-            String.format("%.2f", stats.getUtilizationRatio() * 100), stats.getThreadsAwaitingConnection());
+            String.format("%.2f", stats.getUtilizationRatio() * 100),
+            stats.getThreadsAwaitingConnection());
 
         // Attempt automatic recovery
         attemptRecovery();
@@ -235,7 +236,8 @@ public class EnhancedConnectionPoolService implements HealthIndicator {
       if (stats.getUtilizationRatio() >= getWarningThreshold()
           && stats.getUtilizationRatio() < getCriticalThreshold()) {
         logger.warn(
-            "Connection pool utilization is high: {}%", String.format("%.2f", stats.getUtilizationRatio() * 100));
+            "Connection pool utilization is high: {}%",
+            String.format("%.2f", stats.getUtilizationRatio() * 100));
       }
 
       isHealthy = overallHealthy;

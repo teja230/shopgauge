@@ -166,8 +166,9 @@ public class SystemResourceMonitoringService {
           // Convert to percentage and cap at 100%
           processCpuLoad = Math.min(loadPerCore * 100.0, 100.0);
 
-          logger.debug("Using system load average for CPU: load={}, processors={}, cpu={}%",
-                      systemLoad, processors, processCpuLoad);
+          logger.debug(
+              "Using system load average for CPU: load={}, processors={}, cpu={}%",
+              systemLoad, processors, processCpuLoad);
         } else {
           // Use cached value if available, otherwise default to 0
           if (lastValidCpuReading >= 0) {
@@ -285,7 +286,8 @@ public class SystemResourceMonitoringService {
 
         // Only log if enough time has passed since last alert
         if (now - lastMemoryAlert.get() > ALERT_SUPPRESSION_INTERVAL_MS) {
-          logger.warn("Critical memory usage detected: {}%", String.format("%.2f", memoryUsagePercent));
+          logger.warn(
+              "Critical memory usage detected: {}%", String.format("%.2f", memoryUsagePercent));
           lastMemoryAlert.set(now);
         }
         memoryStats.put("alert", "CRITICAL");

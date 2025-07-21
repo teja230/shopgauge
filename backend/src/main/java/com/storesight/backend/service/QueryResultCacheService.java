@@ -104,7 +104,8 @@ public class QueryResultCacheService {
 
     logger.info(
         "QueryResultCacheService initialized with memory cache size: {} (Database available: {})",
-        getMaxMemoryCacheSize(), databaseAvailable.get());
+        getMaxMemoryCacheSize(),
+        databaseAvailable.get());
   }
 
   @PreDestroy
@@ -288,7 +289,14 @@ public class QueryResultCacheService {
       // If database is not available, return memory-only statistics
       if (!isDatabaseAvailable()) {
         return new CacheStatistics(
-            hitCount.get(), missCount.get(), evictionCount.get(), memoryCache.size(), 0, 0, 0.0, calculateHitRatio());
+            hitCount.get(),
+            missCount.get(),
+            evictionCount.get(),
+            memoryCache.size(),
+            0,
+            0,
+            0.0,
+            calculateHitRatio());
       }
 
       // Get database cache statistics
@@ -320,7 +328,14 @@ public class QueryResultCacheService {
       markDatabaseUnavailable();
       logErrorWithSuppression("Error retrieving cache statistics", e);
       return new CacheStatistics(
-          hitCount.get(), missCount.get(), evictionCount.get(), memoryCache.size(), 0, 0, 0.0, calculateHitRatio());
+          hitCount.get(),
+          missCount.get(),
+          evictionCount.get(),
+          memoryCache.size(),
+          0,
+          0,
+          0.0,
+          calculateHitRatio());
     }
   }
 
@@ -400,8 +415,7 @@ public class QueryResultCacheService {
   private void checkDatabaseAvailability() {
     try {
       // Try a simple query to check if the table exists
-      jdbcTemplate.queryForObject(
-          "SELECT 1 FROM query_cache LIMIT 1", Integer.class);
+      jdbcTemplate.queryForObject("SELECT 1 FROM query_cache LIMIT 1", Integer.class);
       databaseAvailable.set(true);
       lastDatabaseCheck.set(System.currentTimeMillis());
       logger.debug("Database cache is available");
@@ -412,7 +426,9 @@ public class QueryResultCacheService {
       // Only log this error once per interval
       long now = System.currentTimeMillis();
       if (now - lastErrorLog.get() > ERROR_SUPPRESSION_INTERVAL_MS) {
-        logger.warn("Database cache is not available, falling back to memory-only cache: {}", e.getMessage());
+        logger.warn(
+            "Database cache is not available, falling back to memory-only cache: {}",
+            e.getMessage());
         lastErrorLog.set(now);
       }
     }
