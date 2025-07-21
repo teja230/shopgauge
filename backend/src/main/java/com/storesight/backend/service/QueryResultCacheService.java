@@ -13,6 +13,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,9 +41,16 @@ public class QueryResultCacheService {
   private final ConcurrentHashMap<String, CacheEntry> memoryCache;
 
   // Cache statistics
-  private volatile long hitCount = 0;
-  private volatile long missCount = 0;
-  private volatile long evictionCount = 0;
+  private final AtomicLong hitCount = new AtomicLong(0);
+  private final AtomicLong missCount = new AtomicLong(0);
+  private final AtomicLong evictionCount = new AtomicLong(0);
+
+  // Circuit breaker for database operations
+  private final AtomicBoolean databaseAvailable = new AtomicBoolean(true);
+  private final AtomicLong lastDatabaseCheck = new AtomicLong(0);
+  private static final long DATABASE_CHECK_INTERVAL_MS = 60000; // 1 minute
+  private static final long ERROR_SUPPRESSION_INTERVAL_MS = 300000; // 5 minutes
+  private final AtomicLong lastErrorLog = new AtomicLong(0);
 
   @Autowired private ApplicationConfigurationProperties config;
 
@@ -76,6 +85,9 @@ public class QueryResultCacheService {
 
   @PostConstruct
   public void initialize() {
+    // Check database availability on startup
+    checkDatabaseAvailability();
+
     // Schedule periodic cleanup of expired entries
     scheduler.scheduleAtFixedRate(
         this::cleanupExpiredEntries,
@@ -91,7 +103,8 @@ public class QueryResultCacheService {
         TimeUnit.MINUTES);
 
     logger.info(
-        "QueryResultCacheService initialized with memory cache size: {}", getMaxMemoryCacheSize());
+        "QueryResultCacheService initialized with memory cache size: {} (Database available: {})",
+        getMaxMemoryCacheSize(), databaseAvailable.get());
   }
 
   @PreDestroy
@@ -115,11 +128,16 @@ public class QueryResultCacheService {
       // Check memory cache first (L1)
       CacheEntry memoryEntry = memoryCache.get(key);
       if (memoryEntry != null && !memoryEntry.isExpired()) {
-        hitCount++;
+        hitCount.incrementAndGet();
         return Optional.of(deserializeValue(memoryEntry.getValue(), valueType));
       }
 
-      // Check database cache (L2)
+      // Check database cache (L2) only if database is available
+      if (!isDatabaseAvailable()) {
+        missCount.incrementAndGet();
+        return Optional.empty();
+      }
+
       String sql =
           "SELECT cache_value, expires_at FROM query_cache WHERE cache_key = ? AND expires_at > CURRENT_TIMESTAMP";
 
@@ -130,35 +148,36 @@ public class QueryResultCacheService {
               String jsonValue = rs.getString("cache_value");
               LocalDateTime expiresAt = rs.getTimestamp("expires_at").toLocalDateTime();
 
-              // Update hit count and last accessed time
+              // Update hit count and last accessed time (non-blocking)
               updateCacheStatistics(key);
 
               // Store in memory cache for faster future access
               CacheEntry entry = new CacheEntry(jsonValue, expiresAt);
-              // Use efficient eviction strategy instead of checking size on every put
               memoryCache.put(key, entry);
+
               // Evict if necessary (handled by eviction strategy)
               if (memoryCache.size() > getMaxMemoryCacheSize()) {
                 evictOldestMemoryCacheEntry();
               }
 
-              hitCount++;
+              hitCount.incrementAndGet();
               try {
                 return Optional.of(deserializeValue(jsonValue, valueType));
               } catch (JsonProcessingException e) {
-                logger.error("Error deserializing cached value for key: {}", key, e);
+                logErrorWithSuppression("Error deserializing cached value for key: " + key, e);
                 return Optional.<T>empty();
               }
             } else {
-              missCount++;
+              missCount.incrementAndGet();
               return Optional.<T>empty();
             }
           },
           key);
 
     } catch (Exception e) {
-      logger.error("Error retrieving cached value for key: {}", key, e);
-      missCount++;
+      markDatabaseUnavailable();
+      logErrorWithSuppression("Error retrieving cached value for key: " + key, e);
+      missCount.incrementAndGet();
       return Optional.empty();
     }
   }
@@ -174,18 +193,7 @@ public class QueryResultCacheService {
       String jsonValue = serializeValue(value);
       LocalDateTime expiresAt = LocalDateTime.now().plus(ttl);
 
-      // Store in database cache (L2)
-      String sql =
-          "INSERT INTO query_cache (cache_key, cache_value, expires_at) "
-              + "VALUES (?, ?::jsonb, ?) "
-              + "ON CONFLICT (cache_key) DO UPDATE SET "
-              + "cache_value = EXCLUDED.cache_value, "
-              + "expires_at = EXCLUDED.expires_at, "
-              + "created_at = CURRENT_TIMESTAMP";
-
-      jdbcTemplate.update(sql, key, jsonValue, expiresAt);
-
-      // Store in memory cache (L1) with shorter TTL
+      // Always store in memory cache (L1)
       LocalDateTime memoryExpiresAt = LocalDateTime.now().plus(getMemoryCacheTtl());
       CacheEntry entry = new CacheEntry(jsonValue, memoryExpiresAt);
 
@@ -195,10 +203,28 @@ public class QueryResultCacheService {
       }
       memoryCache.put(key, entry);
 
+      // Store in database cache (L2) only if database is available
+      if (isDatabaseAvailable()) {
+        try {
+          String sql =
+              "INSERT INTO query_cache (cache_key, cache_value, expires_at) "
+                  + "VALUES (?, ?::jsonb, ?) "
+                  + "ON CONFLICT (cache_key) DO UPDATE SET "
+                  + "cache_value = EXCLUDED.cache_value, "
+                  + "expires_at = EXCLUDED.expires_at, "
+                  + "updated_at = CURRENT_TIMESTAMP";
+
+          jdbcTemplate.update(sql, key, jsonValue, expiresAt);
+        } catch (Exception e) {
+          markDatabaseUnavailable();
+          logErrorWithSuppression("Error storing cache value in database for key: " + key, e);
+        }
+      }
+
       logger.debug("Cached value for key: {} with TTL: {}", key, ttl);
 
     } catch (Exception e) {
-      logger.error("Error caching value for key: {}", key, e);
+      logErrorWithSuppression("Error caching value for key: " + key, e);
     }
   }
 
@@ -208,17 +234,24 @@ public class QueryResultCacheService {
       // Remove from memory cache
       memoryCache.remove(key);
 
-      // Remove from database cache
-      String sql = "DELETE FROM query_cache WHERE cache_key = ?";
-      int deletedRows = jdbcTemplate.update(sql, key);
+      // Remove from database cache only if database is available
+      if (isDatabaseAvailable()) {
+        try {
+          String sql = "DELETE FROM query_cache WHERE cache_key = ?";
+          int deletedRows = jdbcTemplate.update(sql, key);
 
-      if (deletedRows > 0) {
-        evictionCount++;
-        logger.debug("Evicted cached value for key: {}", key);
+          if (deletedRows > 0) {
+            evictionCount.incrementAndGet();
+            logger.debug("Evicted cached value for key: {}", key);
+          }
+        } catch (Exception e) {
+          markDatabaseUnavailable();
+          logErrorWithSuppression("Error evicting cache value from database for key: " + key, e);
+        }
       }
 
     } catch (Exception e) {
-      logger.error("Error evicting cached value for key: {}", key, e);
+      logErrorWithSuppression("Error evicting cached value for key: " + key, e);
     }
   }
 
@@ -228,28 +261,41 @@ public class QueryResultCacheService {
       // Remove from memory cache
       memoryCache.entrySet().removeIf(entry -> entry.getKey().matches(pattern));
 
-      // Remove from database cache
-      String sql = "DELETE FROM query_cache WHERE cache_key ~ ?";
-      int deletedRows = jdbcTemplate.update(sql, pattern);
+      // Remove from database cache only if database is available
+      if (isDatabaseAvailable()) {
+        try {
+          String sql = "DELETE FROM query_cache WHERE cache_key ~ ?";
+          int deletedRows = jdbcTemplate.update(sql, pattern);
 
-      if (deletedRows > 0) {
-        evictionCount += deletedRows;
-        logger.debug("Evicted {} cached values matching pattern: {}", deletedRows, pattern);
+          if (deletedRows > 0) {
+            evictionCount.addAndGet(deletedRows);
+            logger.debug("Evicted {} cached values matching pattern: {}", deletedRows, pattern);
+          }
+        } catch (Exception e) {
+          markDatabaseUnavailable();
+          logErrorWithSuppression("Error evicting cache values by pattern: " + pattern, e);
+        }
       }
 
     } catch (Exception e) {
-      logger.error("Error evicting cached values by pattern: {}", pattern, e);
+      logErrorWithSuppression("Error evicting cached values by pattern: " + pattern, e);
     }
   }
 
   /** Get cache statistics */
   public CacheStatistics getStatistics() {
     try {
+      // If database is not available, return memory-only statistics
+      if (!isDatabaseAvailable()) {
+        return new CacheStatistics(
+            hitCount.get(), missCount.get(), evictionCount.get(), memoryCache.size(), 0, 0, 0.0, calculateHitRatio());
+      }
+
       // Get database cache statistics
       String sql =
           "SELECT COUNT(*) as total_entries, "
-              + "SUM(hit_count) as total_hits, "
-              + "AVG(hit_count) as avg_hits "
+              + "COALESCE(SUM(hit_count), 0) as total_hits, "
+              + "COALESCE(AVG(hit_count), 0) as avg_hits "
               + "FROM query_cache WHERE expires_at > CURRENT_TIMESTAMP";
 
       return jdbcTemplate.queryForObject(
@@ -260,9 +306,9 @@ public class QueryResultCacheService {
             double avgHits = rs.getDouble("avg_hits");
 
             return new CacheStatistics(
-                hitCount,
-                missCount,
-                evictionCount,
+                hitCount.get(),
+                missCount.get(),
+                evictionCount.get(),
                 memoryCache.size(),
                 totalEntries,
                 totalHits,
@@ -271,9 +317,10 @@ public class QueryResultCacheService {
           });
 
     } catch (Exception e) {
-      logger.error("Error retrieving cache statistics", e);
+      markDatabaseUnavailable();
+      logErrorWithSuppression("Error retrieving cache statistics", e);
       return new CacheStatistics(
-          hitCount, missCount, evictionCount, memoryCache.size(), 0, 0, 0.0, calculateHitRatio());
+          hitCount.get(), missCount.get(), evictionCount.get(), memoryCache.size(), 0, 0, 0.0, calculateHitRatio());
     }
   }
 
@@ -298,33 +345,92 @@ public class QueryResultCacheService {
       int memoryEvicted = memoryEvictedArray[0];
 
       if (memoryEvicted > 0) {
-        evictionCount += memoryEvicted;
+        evictionCount.addAndGet(memoryEvicted);
         logger.debug("Cleaned up {} expired entries from memory cache", memoryEvicted);
       }
 
-      // Cleanup database cache
-      String sql = "DELETE FROM query_cache WHERE expires_at < CURRENT_TIMESTAMP";
-      int dbEvicted = jdbcTemplate.update(sql);
+      // Cleanup database cache only if database is available
+      if (isDatabaseAvailable()) {
+        try {
+          String sql = "DELETE FROM query_cache WHERE expires_at < CURRENT_TIMESTAMP";
+          int dbEvicted = jdbcTemplate.update(sql);
 
-      if (dbEvicted > 0) {
-        evictionCount += dbEvicted;
-        logger.debug("Cleaned up {} expired entries from database cache", dbEvicted);
+          if (dbEvicted > 0) {
+            evictionCount.addAndGet(dbEvicted);
+            logger.debug("Cleaned up {} expired entries from database cache", dbEvicted);
+          }
+        } catch (Exception e) {
+          markDatabaseUnavailable();
+          logErrorWithSuppression("Error cleaning up expired database cache entries", e);
+        }
       }
 
     } catch (Exception e) {
-      logger.error("Error during cache cleanup", e);
+      logErrorWithSuppression("Error during cache cleanup", e);
     }
   }
 
   private void updateCacheStatistics(String key) {
+    if (!isDatabaseAvailable()) {
+      return;
+    }
+
     try {
       String sql =
           "UPDATE query_cache SET hit_count = hit_count + 1, "
-              + "last_accessed_at = CURRENT_TIMESTAMP WHERE cache_key = ?";
+              + "updated_at = CURRENT_TIMESTAMP WHERE cache_key = ?";
       jdbcTemplate.update(sql, key);
     } catch (DataAccessException e) {
-      // Log but don't fail the cache operation
-      logger.debug("Failed to update cache statistics for key: {}", key);
+      markDatabaseUnavailable();
+      // Don't log this error as it's not critical
+    }
+  }
+
+  private boolean isDatabaseAvailable() {
+    long now = System.currentTimeMillis();
+
+    // Check if we need to verify database availability
+    if (!databaseAvailable.get() && (now - lastDatabaseCheck.get()) > DATABASE_CHECK_INTERVAL_MS) {
+      checkDatabaseAvailability();
+    }
+
+    return databaseAvailable.get();
+  }
+
+  private void checkDatabaseAvailability() {
+    try {
+      // Try a simple query to check if the table exists
+      jdbcTemplate.queryForObject(
+          "SELECT 1 FROM query_cache LIMIT 1", Integer.class);
+      databaseAvailable.set(true);
+      lastDatabaseCheck.set(System.currentTimeMillis());
+      logger.debug("Database cache is available");
+    } catch (Exception e) {
+      databaseAvailable.set(false);
+      lastDatabaseCheck.set(System.currentTimeMillis());
+
+      // Only log this error once per interval
+      long now = System.currentTimeMillis();
+      if (now - lastErrorLog.get() > ERROR_SUPPRESSION_INTERVAL_MS) {
+        logger.warn("Database cache is not available, falling back to memory-only cache: {}", e.getMessage());
+        lastErrorLog.set(now);
+      }
+    }
+  }
+
+  private void markDatabaseUnavailable() {
+    if (databaseAvailable.compareAndSet(true, false)) {
+      logger.warn("Database cache marked as unavailable, switching to memory-only mode");
+    }
+  }
+
+  private void logErrorWithSuppression(String message, Exception e) {
+    long now = System.currentTimeMillis();
+    if (now - lastErrorLog.get() > ERROR_SUPPRESSION_INTERVAL_MS) {
+      logger.error(message, e);
+      lastErrorLog.set(now);
+    } else {
+      logger.debug(message + ": " + e.getMessage());
     }
   }
 
@@ -355,7 +461,7 @@ public class QueryResultCacheService {
     // Batch remove for efficiency
     for (String key : oldestKeys) {
       memoryCache.remove(key);
-      evictionCount++;
+      evictionCount.incrementAndGet();
     }
 
     logger.debug(
@@ -375,16 +481,16 @@ public class QueryResultCacheService {
   }
 
   private double calculateHitRatio() {
-    long total = hitCount + missCount;
-    return total > 0 ? (double) hitCount / total : 0.0;
+    long total = hitCount.get() + missCount.get();
+    return total > 0 ? (double) hitCount.get() / total : 0.0;
   }
 
   private void logCacheStatistics() {
     CacheStatistics stats = getStatistics();
     logger.info(
-        "Cache Statistics - Hit Ratio: {:.2f}%, Memory Entries: {}, DB Entries: {}, "
+        "Cache Statistics - Hit Ratio: {}%, Memory Entries: {}, DB Entries: {}, "
             + "Total Hits: {}, Total Misses: {}, Evictions: {}",
-        stats.getHitRatio() * 100,
+        String.format("%.2f", stats.getHitRatio() * 100),
         stats.getMemoryCacheSize(),
         stats.getDatabaseCacheSize(),
         stats.getHitCount(),

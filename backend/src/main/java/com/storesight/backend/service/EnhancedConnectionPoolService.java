@@ -217,15 +217,15 @@ public class EnhancedConnectionPoolService implements HealthIndicator {
       if (!overallHealthy && isHealthy) {
         // Health status changed from healthy to unhealthy
         logger.error(
-            "Connection pool health check failed - Connection: {}, Utilization: {:.2f}%, Waiting threads: {}",
+            "Connection pool health check failed - Connection: {}, Utilization: {}%, Waiting threads: {}",
             connectionHealthy,
-            stats.getUtilizationRatio() * 100,
+            String.format("%.2f", stats.getUtilizationRatio() * 100),
             stats.getThreadsAwaitingConnection());
 
         // Log critical alert (AlertingService will handle this automatically via monitoring)
         logger.error(
-            "Connection pool health critical - Utilization: {:.2f}%, Waiting threads: {}",
-            stats.getUtilizationRatio() * 100, stats.getThreadsAwaitingConnection());
+            "Connection pool health critical - Utilization: {}%, Waiting threads: {}",
+            String.format("%.2f", stats.getUtilizationRatio() * 100), stats.getThreadsAwaitingConnection());
 
         // Attempt automatic recovery
         attemptRecovery();
@@ -235,7 +235,7 @@ public class EnhancedConnectionPoolService implements HealthIndicator {
       if (stats.getUtilizationRatio() >= getWarningThreshold()
           && stats.getUtilizationRatio() < getCriticalThreshold()) {
         logger.warn(
-            "Connection pool utilization is high: {:.2f}%", stats.getUtilizationRatio() * 100);
+            "Connection pool utilization is high: {}%", String.format("%.2f", stats.getUtilizationRatio() * 100));
       }
 
       isHealthy = overallHealthy;
@@ -253,11 +253,11 @@ public class EnhancedConnectionPoolService implements HealthIndicator {
 
       logger.info(
           "Connection Pool Metrics - Total: {}, Active: {}, Idle: {}, "
-              + "Utilization: {:.2f}%, Waiting: {}, Leaks: {}, Timeouts: {}, Recoveries: {}",
+              + "Utilization: {}%, Waiting: {}, Leaks: {}, Timeouts: {}, Recoveries: {}",
           stats.getTotalConnections(),
           stats.getActiveConnections(),
           stats.getIdleConnections(),
-          stats.getUtilizationRatio() * 100,
+          String.format("%.2f", stats.getUtilizationRatio() * 100),
           stats.getThreadsAwaitingConnection(),
           stats.getConnectionLeakCount(),
           stats.getConnectionTimeoutCount(),
