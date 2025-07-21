@@ -19,7 +19,9 @@ public class SchedulingConfiguration {
 
   /** Get heartbeat interval in milliseconds for @Scheduled annotations */
   public long getHeartbeatIntervalMs() {
-    return config.getSse().getHeartbeatInterval().toMillis();
+    long interval = config.getSse().getHeartbeatInterval().toMillis();
+    // If heartbeat is disabled (PT0S), return a very large value to effectively disable scheduling
+    return interval == 0 ? Long.MAX_VALUE : interval;
   }
 
   /** Get connection health check interval in milliseconds for @Scheduled annotations */

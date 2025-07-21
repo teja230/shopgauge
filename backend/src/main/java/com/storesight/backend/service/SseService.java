@@ -51,6 +51,10 @@ public class SseService {
     return config.getSse().getHeartbeatInterval().toMillis();
   }
 
+  private boolean isHeartbeatEnabled() {
+    return getHeartbeatIntervalMs() > 0;
+  }
+
   private long getCleanupIntervalMs() {
     return config.getSse().getCleanupInterval().toMillis();
   }
@@ -830,6 +834,11 @@ public class SseService {
   /** Enhanced scheduled heartbeat with connection health tracking */
   @Scheduled(fixedRateString = "#{@schedulingConfiguration.getHeartbeatIntervalMs()}")
   public void sendHeartbeats() {
+    // Skip heartbeat if it's disabled (PT0S)
+    if (!isHeartbeatEnabled()) {
+      return;
+    }
+
     try {
       int totalHeartbeats = 0;
       int failedHeartbeats = 0;
