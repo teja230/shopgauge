@@ -46,8 +46,8 @@ public class SessionManagementController {
 
   @Autowired
   public SessionManagementController(
-      ShopService shopService, 
-      RedisTemplate<String, String> redisTemplate, 
+      ShopService shopService,
+      RedisTemplate<String, String> redisTemplate,
       SseService sseService,
       AdminAuthService adminAuthService) {
     this.shopService = shopService;
@@ -1211,7 +1211,10 @@ public class SessionManagementController {
     }
   }
 
-  /** Admin: Invalidate all sessions for a specific shop with enhanced notifications and audit logging */
+  /**
+   * Admin: Invalidate all sessions for a specific shop with enhanced notifications and audit
+   * logging
+   */
   @PostMapping("/admin/shop/{shopDomain}/invalidate")
   public ResponseEntity<Map<String, Object>> adminInvalidateShopSessions(
       @PathVariable String shopDomain,
@@ -1248,21 +1251,25 @@ public class SessionManagementController {
 
       // Step 2: Send pre-invalidation notification to all connected users
       try {
-        String preMessage = String.format(
-            "An administrator (%s) is about to invalidate your session. Reason: %s",
-            adminUsername,
-            reason);
-        
+        String preMessage =
+            String.format(
+                "An administrator (%s) is about to invalidate your session. Reason: %s",
+                adminUsername, reason);
+
         Map<String, Object> metadata = new HashMap<>();
         metadata.put("adminUsername", adminUsername);
         metadata.put("reason", reason);
         metadata.put("timestamp", System.currentTimeMillis());
         metadata.put("type", "pre_invalidation");
 
-        sseService.broadcastToShop(shopDomain, "session_pre_invalidation", preMessage, 5000, metadata);
+        sseService.broadcastToShop(
+            shopDomain, "session_pre_invalidation", preMessage, 5000, metadata);
         logger.debug("Sent pre-invalidation notification to shop: {}", shopDomain);
       } catch (Exception e) {
-        logger.warn("Failed to send pre-invalidation notification to shop {}: {}", shopDomain, e.getMessage());
+        logger.warn(
+            "Failed to send pre-invalidation notification to shop {}: {}",
+            shopDomain,
+            e.getMessage());
       }
 
       // Step 3: Invalidate all sessions using forceInvalidateSession for proper cleanup
@@ -1272,7 +1279,7 @@ public class SessionManagementController {
           // Use forceInvalidateSession instead of removeSession for proper cleanup
           shopService.forceInvalidateSession(shopDomain, session.getSessionId());
           successfullyInvalidated++;
-          
+
           logger.debug(
               "Successfully invalidated session {} for shop: {}",
               session.getSessionId(),
@@ -1292,15 +1299,17 @@ public class SessionManagementController {
         sseService.forceCloseConnectionsForShop(shopDomain);
         logger.info("Force closed all SSE connections for shop: {}", shopDomain);
       } catch (Exception e) {
-        logger.warn("Failed to force close SSE connections for shop {}: {}", shopDomain, e.getMessage());
+        logger.warn(
+            "Failed to force close SSE connections for shop {}: {}", shopDomain, e.getMessage());
       }
 
       // Step 5: Send post-invalidation notification
       try {
-        String postMessage = String.format(
-            "Your session has been invalidated by administrator %s. Please re-authenticate.",
-            adminUsername);
-        
+        String postMessage =
+            String.format(
+                "Your session has been invalidated by administrator %s. Please re-authenticate.",
+                adminUsername);
+
         Map<String, Object> metadata = new HashMap<>();
         metadata.put("adminUsername", adminUsername);
         metadata.put("invalidatedCount", successfullyInvalidated);
@@ -1310,29 +1319,32 @@ public class SessionManagementController {
         sseService.broadcastToShop(shopDomain, "session_invalidated", postMessage, 10000, metadata);
         logger.debug("Sent post-invalidation notification to shop: {}", shopDomain);
       } catch (Exception e) {
-        logger.warn("Failed to send post-invalidation notification to shop {}: {}", shopDomain, e.getMessage());
+        logger.warn(
+            "Failed to send post-invalidation notification to shop {}: {}",
+            shopDomain,
+            e.getMessage());
       }
 
       // Step 6: Clear shop cookie for this domain to force frontend logout
       clearShopCookie(httpResponse, shopDomain);
 
       // Step 7: Log the admin action for audit compliance
-      String auditMessage = String.format(
-          "Admin %s invalidated %d sessions for shop %s - Reason: %s",
-          adminUsername,
-          successfullyInvalidated,
-          shopDomain,
-          reason);
+      String auditMessage =
+          String.format(
+              "Admin %s invalidated %d sessions for shop %s - Reason: %s",
+              adminUsername, successfullyInvalidated, shopDomain, reason);
 
       adminAuthService.logAuditEvent(
-          "ADMIN_SESSION_INVALIDATION",
-          adminUsername,
-          auditMessage,
-          clientIp);
+          "ADMIN_SESSION_INVALIDATION", adminUsername, auditMessage, clientIp);
 
       // Step 8: Prepare response
       response.put("success", true);
-      response.put("message", "Successfully invalidated " + successfullyInvalidated + " sessions for shop: " + shopDomain);
+      response.put(
+          "message",
+          "Successfully invalidated "
+              + successfullyInvalidated
+              + " sessions for shop: "
+              + shopDomain);
       response.put("shopDomain", shopDomain);
       response.put("invalidatedSessions", successfullyInvalidated);
       response.put("totalSessions", allSessions.size());
@@ -1349,8 +1361,9 @@ public class SessionManagementController {
       return ResponseEntity.ok(response);
 
     } catch (Exception e) {
-      logger.error("Error during admin session invalidation for shop {}: {}", shopDomain, e.getMessage(), e);
-      
+      logger.error(
+          "Error during admin session invalidation for shop {}: {}", shopDomain, e.getMessage(), e);
+
       // Log failed attempt for audit
       try {
         adminAuthService.logAuditEvent(
@@ -1359,9 +1372,10 @@ public class SessionManagementController {
             "Failed to invalidate sessions for shop " + shopDomain + ": " + e.getMessage(),
             clientIp);
       } catch (Exception auditError) {
-        logger.warn("Failed to log audit event for failed invalidation: {}", auditError.getMessage());
+        logger.warn(
+            "Failed to log audit event for failed invalidation: {}", auditError.getMessage());
       }
-      
+
       response.put("success", false);
       response.put("error", "Failed to invalidate sessions: " + e.getMessage());
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
