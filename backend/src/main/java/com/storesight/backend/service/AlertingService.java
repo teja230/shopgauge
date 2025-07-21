@@ -142,8 +142,10 @@ public class AlertingService {
     }
   }
 
-  /** Comprehensive monitoring and alerting check */
-  @Scheduled(fixedRateString = "${storesight.monitoring.health-check-interval:PT6H}")
+  /** Comprehensive monitoring and alerting with startup delay */
+  @Scheduled(
+      fixedRateString = "${storesight.monitoring.health-check-interval:PT6H}",
+      initialDelayString = "${storesight.monitoring.alerting-startup-delay:PT18M}")
   public void comprehensiveMonitoring() {
     try {
       logger.debug("Starting comprehensive monitoring and alerting check");

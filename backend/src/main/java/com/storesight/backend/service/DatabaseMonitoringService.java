@@ -709,8 +709,10 @@ public class DatabaseMonitoringService implements HealthIndicator {
     return healthCheck;
   }
 
-  /** Scheduled monitoring task to check database health */
-  @Scheduled(fixedRateString = "${storesight.monitoring.database-interval:PT4H}")
+  /** Scheduled monitoring task to check database health with startup delay */
+  @Scheduled(
+      fixedRateString = "${storesight.monitoring.database-interval:PT4H}",
+      initialDelayString = "${storesight.monitoring.database-startup-delay:PT12M}")
   public void monitorDatabaseHealth() {
     try {
       Map<String, Object> healthCheck = performHealthCheck();

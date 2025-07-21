@@ -59,8 +59,10 @@ public class MonitoringDashboardService {
     dashboardData.put("alertSummary", new ArrayList<>());
   }
 
-  /** Collect monitoring data for dashboards */
-  @Scheduled(fixedRateString = "${storesight.monitoring.dashboard-collection-interval:PT4H}")
+  /** Collect monitoring data for dashboards with startup delay */
+  @Scheduled(
+      fixedRateString = "${storesight.monitoring.dashboard-collection-interval:PT4H}",
+      initialDelayString = "${storesight.monitoring.dashboard-startup-delay:PT25M}")
   public void collectMonitoringData() {
     try {
       logger.debug("Collecting monitoring data for dashboards");
