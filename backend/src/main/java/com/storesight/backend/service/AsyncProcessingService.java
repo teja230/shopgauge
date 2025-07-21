@@ -99,29 +99,31 @@ public class AsyncProcessingService {
     log.info("  Queue capacity: {}", queueCapacity);
     log.info("  Max retry attempts: {}", maxRetryAttempts);
 
-    // Initialize queues
-    discoveryQueue = new LinkedBlockingQueue<>(queueCapacity);
-    scrapingQueue = new LinkedBlockingQueue<>(queueCapacity);
-    notificationQueue = new LinkedBlockingQueue<>(queueCapacity);
+    // Initialize queues with reduced capacity for 2x512MB instances
+    int adjustedCapacity = Math.min(queueCapacity, 100); // Cap at 100 for memory conservation
+    discoveryQueue = new LinkedBlockingQueue<>(adjustedCapacity);
+    scrapingQueue = new LinkedBlockingQueue<>(adjustedCapacity);
+    notificationQueue = new LinkedBlockingQueue<>(adjustedCapacity);
 
-    // Initialize thread pools
+    // Initialize thread pools with conservative settings
     discoveryExecutor =
-        createThreadPoolExecutor("discovery", discoveryMaxConcurrent, discoveryQueue);
-    scrapingExecutor = createThreadPoolExecutor("scraping", scrapingMaxConcurrent, scrapingQueue);
+        createThreadPoolExecutor("discovery", Math.min(discoveryMaxConcurrent, 1), discoveryQueue);
+    scrapingExecutor = createThreadPoolExecutor("scraping", Math.min(scrapingMaxConcurrent, 2), scrapingQueue);
     notificationExecutor =
-        createThreadPoolExecutor("notification", notificationMaxConcurrent, notificationQueue);
+        createThreadPoolExecutor("notification", Math.min(notificationMaxConcurrent, 2), notificationQueue);
 
-    // Initialize retry executor
+    // Initialize retry executor with single thread to prevent CPU saturation
     retryExecutor =
         new ScheduledThreadPoolExecutor(
-            2,
+            1, // Reduced from 2 to 1 thread
             r -> {
               Thread t = new Thread(r, "async-retry-" + System.currentTimeMillis());
               t.setDaemon(true);
+              t.setPriority(Thread.MIN_PRIORITY); // Lower priority to prevent CPU starvation
               return t;
             });
 
-    log.info("AsyncProcessingService initialized successfully");
+    log.info("AsyncProcessingService initialized successfully with conservative settings for 2x512MB instances");
   }
 
   private ThreadPoolExecutor createThreadPoolExecutor(
