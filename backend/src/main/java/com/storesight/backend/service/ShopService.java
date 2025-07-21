@@ -1960,8 +1960,24 @@ public class ShopService {
       if (!isOAuthValidation) {
         // Check if session operation should be allowed (prevents race conditions)
         if (!sessionSynchronizationService.shouldAllowSessionOperation(sessionId)) {
-          logger.warn("Session {} is being invalidated, validation blocked", sessionId);
-          return false;
+          logger.warn(
+              "Session {} is being invalidated, attempting to clear stuck markers", sessionId);
+
+          // Try to clear stuck session markers automatically
+          try {
+            sessionSynchronizationService.clearStuckSessionMarkers(sessionId);
+            // Re-check after clearing
+            if (sessionSynchronizationService.shouldAllowSessionOperation(sessionId)) {
+              logger.info("Successfully cleared stuck markers for session: {}", sessionId);
+            } else {
+              logger.warn("Session {} still blocked after clearing markers", sessionId);
+              return false;
+            }
+          } catch (Exception e) {
+            logger.warn(
+                "Failed to clear stuck markers for session {}: {}", sessionId, e.getMessage());
+            return false;
+          }
         }
       } else {
         logger.debug(
@@ -2038,91 +2054,41 @@ public class ShopService {
 
         // Check if session is active
         if (session.getIsActive() == null || !session.getIsActive()) {
-          logger.debug(
-              "Session {} is not active for shop: {} (isActive: {})",
-              sessionId,
-              shopifyDomain,
-              session.getIsActive());
-
-          // Track validation failure
-          trackValidationFailure(shopifyDomain, sessionId);
-
+          logger.debug("Session {} is inactive for shop: {}", sessionId, shopifyDomain);
           return false;
         }
 
-        // OPTIMIZED: Cache the valid session in Redis for future fast lookups
+        // Cache the valid session in Redis for future fast lookups
         try {
-          String tokenKey = SHOP_TOKEN_PREFIX + shopifyDomain + ":" + sessionId;
-          String accessToken = session.getAccessToken();
-          if (accessToken != null && !accessToken.trim().isEmpty()) {
-            redisTemplate.opsForValue().set(tokenKey, accessToken, Duration.ofHours(4));
-            logger.debug("Cached session {} in Redis for future fast lookups", sessionId);
-          } else {
-            logger.warn(
-                "Session {} has null or empty access token for shop: {}", sessionId, shopifyDomain);
-          }
+          cacheShopSession(shopifyDomain, sessionId, session.getAccessToken());
+          clearValidationFailureCount(shopifyDomain, sessionId);
+          logger.debug("Session {} cached in Redis for shop: {}", sessionId, shopifyDomain);
         } catch (Exception cacheError) {
-          logger.warn(
-              "Failed to cache session {} in Redis: {}", sessionId, cacheError.getMessage());
-          // Don't fail validation if caching fails
+          logger.warn("Failed to cache valid session {}: {}", sessionId, cacheError.getMessage());
         }
 
-        logger.debug("Session {} is valid for shop: {}", sessionId, shopifyDomain);
-        clearValidationFailureCount(shopifyDomain, sessionId);
         return true;
+      } else {
+        logger.debug("Session {} not found in database for shop: {}", sessionId, shopifyDomain);
+
+        // Track validation failure
+        trackValidationFailure(shopifyDomain, sessionId);
+
+        return false;
       }
 
-      // Session not found in either Redis or database
-      logger.debug("Session {} not found in database for shop: {}", sessionId, shopifyDomain);
+    } catch (Exception e) {
+      logger.error(
+          "Error validating session {} for shop {}: {}",
+          sessionId,
+          shopifyDomain,
+          e.getMessage(),
+          e);
 
       // Track validation failure
       trackValidationFailure(shopifyDomain, sessionId);
 
-      // Mark missing session as invalid in cache to prevent repeated database lookups
-      try {
-        redisTemplate
-            .opsForValue()
-            .set(invalidKey, "not_found", Duration.ofMinutes(INVALID_SESSION_CACHE_MINUTES));
-      } catch (Exception cacheError) {
-        logger.warn("Failed to cache missing session {}: {}", sessionId, cacheError.getMessage());
-      }
-
       return false;
-
-    } catch (Exception e) {
-      logger.warn(
-          "Error validating session {} for shop {}: {}", sessionId, shopifyDomain, e.getMessage());
-
-      // SECURE: When database validation fails, check Redis cache instead of assuming valid
-      // This provides a security fallback while maintaining reliability
-      try {
-        return isSessionValidInRedis(shopifyDomain, sessionId);
-      } catch (Exception redisError) {
-        logger.error(
-            "Both database and Redis validation failed for session {}:{} - marking as invalid for security",
-            shopifyDomain,
-            sessionId);
-        // Track validation failure
-        trackValidationFailure(shopifyDomain, sessionId);
-
-        // SECURE: Mark as invalid when both database and Redis validation fail
-        // This prevents security bypass through validation failures
-        try {
-          String invalidKey = INVALID_SESSION_PREFIX + shopifyDomain + ":" + sessionId;
-          redisTemplate
-              .opsForValue()
-              .set(
-                  invalidKey,
-                  "validation_error",
-                  Duration.ofMinutes(INVALID_SESSION_CACHE_MINUTES));
-        } catch (Exception cacheError) {
-          logger.warn(
-              "Failed to cache validation error for session {}: {}",
-              sessionId,
-              cacheError.getMessage());
-        }
-        return false;
-      }
     }
   }
 
@@ -2248,8 +2214,25 @@ public class ShopService {
             "Both database and Redis validation failed for session {}:{} - marking as invalid for security",
             shopifyDomain,
             sessionId);
+        // Track validation failure
+        trackValidationFailure(shopifyDomain, sessionId);
+
         // SECURE: Mark as invalid when both database and Redis validation fail
         // This prevents security bypass through validation failures
+        try {
+          String invalidKey = INVALID_SESSION_PREFIX + shopifyDomain + ":" + sessionId;
+          redisTemplate
+              .opsForValue()
+              .set(
+                  invalidKey,
+                  "validation_error",
+                  Duration.ofMinutes(INVALID_SESSION_CACHE_MINUTES));
+        } catch (Exception cacheError) {
+          logger.warn(
+              "Failed to cache validation error for session {}: {}",
+              sessionId,
+              cacheError.getMessage());
+        }
         return false;
       }
     }

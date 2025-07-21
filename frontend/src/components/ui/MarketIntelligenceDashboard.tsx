@@ -43,6 +43,7 @@ import { XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveCont
 import marketIntelligenceAdminAPI from '../../api/marketIntelligenceAdmin';
 import type { CostAnalytics, ProviderStats } from '../../api/marketIntelligenceAdmin';
 import RefreshHeader from './RefreshHeader';
+import { useNotifications } from '../../hooks/useNotifications';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 const fetchAdminEndpoint = async (endpoint: string, options?: RequestInit) => {

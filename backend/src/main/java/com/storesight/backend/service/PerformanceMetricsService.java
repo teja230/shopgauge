@@ -283,7 +283,7 @@ public class PerformanceMetricsService {
   }
 
   /** Scheduled task to log performance summary */
-  @Scheduled(fixedRate = 300000) // Every 5 minutes
+  @Scheduled(fixedRateString = "${storesight.monitoring.cache-cleanup-interval:PT8H}")
   public void logPerformanceSummary() {
     try {
       Map<String, Object> metrics = getPerformanceMetrics();

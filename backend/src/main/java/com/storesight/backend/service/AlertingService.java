@@ -143,8 +143,8 @@ public class AlertingService {
   }
 
   /** Comprehensive monitoring and alerting check */
-  @Scheduled(fixedRateString = "${monitoring.system-resources.interval:60000}")
-  public void performComprehensiveMonitoring() {
+  @Scheduled(fixedRateString = "${storesight.monitoring.health-check-interval:PT6H}")
+  public void comprehensiveMonitoring() {
     try {
       logger.debug("Starting comprehensive monitoring and alerting check");
 

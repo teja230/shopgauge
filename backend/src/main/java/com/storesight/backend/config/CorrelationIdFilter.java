@@ -21,7 +21,7 @@ import org.springframework.stereotype.Component;
  * present, and ensures they are included in responses and logging context.
  */
 @Component
-@Order(1) // Execute early in the filter chain
+@Order(-1000) // Execute very early in the filter chain, before security filters
 public class CorrelationIdFilter implements Filter {
 
   private static final Logger logger = LoggerFactory.getLogger(CorrelationIdFilter.class);
@@ -29,6 +29,11 @@ public class CorrelationIdFilter implements Filter {
   @Override
   public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
       throws IOException, ServletException {
+
+    if (!(request instanceof HttpServletRequest) || !(response instanceof HttpServletResponse)) {
+      chain.doFilter(request, response);
+      return;
+    }
 
     HttpServletRequest httpRequest = (HttpServletRequest) request;
     HttpServletResponse httpResponse = (HttpServletResponse) response;
@@ -64,6 +69,10 @@ public class CorrelationIdFilter implements Filter {
       // Continue with the filter chain
       chain.doFilter(request, response);
 
+    } catch (Exception e) {
+      logger.error("Error in correlation ID filter: {}", e.getMessage(), e);
+      // Continue with the chain even if correlation ID fails
+      chain.doFilter(request, response);
     } finally {
       // Clean up MDC to prevent memory leaks
       CorrelationIdUtil.clearCorrelationId();
