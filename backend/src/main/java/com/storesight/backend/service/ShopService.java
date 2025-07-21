@@ -1187,7 +1187,8 @@ public class ShopService {
   @Transactional(timeout = 10) // Reduced timeout for cleanup operations
   @Scheduled(
       fixedRateString = "#{@sessionSchedulingConfiguration.getExpiredSessionsCleanupIntervalMs()}",
-      initialDelayString = "#{@sessionSchedulingConfiguration.getExpiredSessionsCleanupStartupDelayMs()}")
+      initialDelayString =
+          "#{@sessionSchedulingConfiguration.getExpiredSessionsCleanupStartupDelayMs()}")
   public synchronized void cleanupExpiredSessions() {
     try {
       logger.debug("Starting expired session cleanup");
@@ -1538,7 +1539,8 @@ public class ShopService {
   @Transactional
   @Scheduled(
       fixedRateString = "#{@sessionSchedulingConfiguration.getStaleSessionsCleanupIntervalMs()}",
-      initialDelayString = "#{@sessionSchedulingConfiguration.getStaleSessionsCleanupStartupDelayMs()}")
+      initialDelayString =
+          "#{@sessionSchedulingConfiguration.getStaleSessionsCleanupStartupDelayMs()}")
   public synchronized void cleanupStaleSessions() {
     try {
       // Define stale threshold (sessions not accessed for more than 2 hours)

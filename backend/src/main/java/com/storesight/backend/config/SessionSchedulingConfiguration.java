@@ -71,4 +71,4 @@ public class SessionSchedulingConfiguration {
   public long getThrottlingCacheCleanupStartupDelayMs() {
     return config.getSession().getThrottlingCacheCleanupStartupDelay().toMillis();
   }
-} 
+}
