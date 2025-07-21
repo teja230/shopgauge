@@ -89,10 +89,10 @@ public class QueryResultCacheService {
     // Check database availability on startup
     checkDatabaseAvailability();
 
-    // Schedule periodic cleanup of expired entries
+    // Schedule periodic cleanup of expired entries with startup delay
     scheduler.scheduleAtFixedRate(
         this::cleanupExpiredEntries,
-        getCleanupInterval().toMinutes(),
+        10, // 10-minute startup delay
         getCleanupInterval().toMinutes(),
         TimeUnit.MINUTES);
 
@@ -100,7 +100,10 @@ public class QueryResultCacheService {
     long statsIntervalMinutes =
         Math.max(getStatisticsInterval().toMinutes() * 4, 60); // At least 1 hour
     scheduler.scheduleAtFixedRate(
-        this::logCacheStatistics, statsIntervalMinutes, statsIntervalMinutes, TimeUnit.MINUTES);
+        this::logCacheStatistics,
+        30,
+        statsIntervalMinutes,
+        TimeUnit.MINUTES); // 30-minute startup delay
 
     logger.info(
         "QueryResultCacheService initialized with memory cache size: {} (Database available: {})",
