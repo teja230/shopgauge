@@ -562,8 +562,10 @@ public class SystemResourceMonitoringService {
     return jvmStats;
   }
 
-  /** Scheduled monitoring task to check system resources */
-  @Scheduled(fixedRateString = "${storesight.monitoring.system-resources-interval:PT2H}")
+  /** Scheduled system resource monitoring with startup delay */
+  @Scheduled(
+      fixedRateString = "${storesight.monitoring.system-resources-interval:PT2H}",
+      initialDelayString = "${storesight.monitoring.system-resources-startup-delay:PT10M}")
   public void monitorSystemResources() {
     try {
       Map<String, Object> stats = getSystemResourceStatistics();

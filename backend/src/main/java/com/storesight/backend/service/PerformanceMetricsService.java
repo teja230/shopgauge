@@ -282,9 +282,11 @@ public class PerformanceMetricsService {
     logger.info("Performance metrics reset");
   }
 
-  /** Scheduled task to log performance summary */
-  @Scheduled(fixedRateString = "${storesight.monitoring.cache-cleanup-interval:PT8H}")
-  public void logPerformanceSummary() {
+  /** Scheduled performance metrics monitoring with startup delay */
+  @Scheduled(
+      fixedRateString = "${storesight.monitoring.performance-metrics-interval:PT1H}",
+      initialDelayString = "${storesight.monitoring.performance-metrics-startup-delay:PT20M}")
+  public void monitorPerformanceMetrics() {
     try {
       Map<String, Object> metrics = getPerformanceMetrics();
 

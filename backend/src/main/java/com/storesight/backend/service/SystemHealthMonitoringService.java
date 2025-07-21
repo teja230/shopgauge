@@ -447,8 +447,10 @@ public class SystemHealthMonitoringService implements HealthIndicator {
     }
   }
 
-  /** Scheduled health check every 6 hours */
-  @Scheduled(fixedRateString = "${storesight.monitoring.health-check-interval:PT6H}")
+  /** Scheduled health check every 6 hours with startup delay */
+  @Scheduled(
+      fixedRateString = "${storesight.monitoring.health-check-interval:PT6H}",
+      initialDelayString = "${storesight.monitoring.health-check-startup-delay:PT15M}")
   public void monitorSystemHealth() {
     try {
       Map<String, Object> healthReport = performComprehensiveHealthCheck();
