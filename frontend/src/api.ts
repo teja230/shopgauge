@@ -682,7 +682,7 @@ export const getStoreStats = async () => {
 };
 
 export const forceDisconnectShop = async (shop: string) => {
-  const response = await fetchWithAuth('/auth/shopify/profile/force-disconnect', {
+  const response = await fetchWithAuth('/api/auth/shopify/profile/force-disconnect', {
     method: 'POST',
     body: JSON.stringify({ shop }),
   });
