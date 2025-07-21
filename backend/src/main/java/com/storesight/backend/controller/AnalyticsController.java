@@ -41,6 +41,7 @@ public class AnalyticsController {
   private final ShopifyConfig shopifyConfig;
   private final BackendConfig backendConfig;
   private final CacheManager cacheManager;
+  private final ObjectMapper objectMapper;
   private static final Logger logger = LoggerFactory.getLogger(AnalyticsController.class);
 
   @Autowired
@@ -52,7 +53,8 @@ public class AnalyticsController {
       DataPrivacyService dataPrivacyService,
       ShopifyConfig shopifyConfig,
       BackendConfig backendConfig,
-      CacheManager cacheManager) {
+      CacheManager cacheManager,
+      ObjectMapper objectMapper) {
     this.webClient = webClientBuilder.build();
     this.shopService = shopService;
     this.redisTemplate = redisTemplate;
@@ -61,6 +63,7 @@ public class AnalyticsController {
     this.shopifyConfig = shopifyConfig;
     this.backendConfig = backendConfig;
     this.cacheManager = cacheManager;
+    this.objectMapper = objectMapper;
   }
 
   private String getShopifyUrl(String shop, String endpoint) {
@@ -2359,59 +2362,125 @@ public class AnalyticsController {
   @PostMapping("/cache/invalidate-session")
   public ResponseEntity<Map<String, Object>> invalidateCacheForSession(
       @CookieValue(value = "shop", required = false) String shop, HttpSession session) {
-
     if (shop == null) {
-      return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-          .body(Map.of("error", "Not authenticated", "cleared", false));
-    }
-
-    String token = shopService.getTokenForShop(shop, session.getId());
-    if (token == null) {
-      return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-          .body(Map.of("error", "No token for shop", "cleared", false));
+      return ResponseEntity.badRequest()
+          .body(Map.of("error", "No shop provided", "success", false));
     }
 
     try {
-      String sessionId = session.getId();
-      logger.info(
-          "Session-aware cache invalidation requested for shop: {} (session: {})", shop, sessionId);
-
-      // Use session-aware cache invalidation
-      boolean cacheCleared = dashboardCacheService.invalidateCacheForSession(shop, sessionId);
-
-      // Log the cache invalidation
-      dataPrivacyService.logDataAccess(
-          "SESSION_CACHE_INVALIDATION",
-          "Session cache invalidation - cleared: " + cacheCleared,
-          shop);
-
+      boolean wasLastSession = dashboardCacheService.invalidateCacheForSession(shop, session.getId());
       Map<String, Object> response = new HashMap<>();
-      response.put("cleared", cacheCleared);
-      response.put("shop", shop);
-      response.put("sessionId", sessionId);
-      response.put("timestamp", System.currentTimeMillis());
-      response.put("remainingSessions", dashboardCacheService.getSessionCount(shop));
-
-      if (cacheCleared) {
-        response.put("message", "Cache cleared - this was the last session for this shop");
-      } else {
-        response.put("message", "Cache preserved - other sessions are still active for this shop");
-      }
-
-      logger.info(
-          "Session-aware cache invalidation completed for shop: {} (cleared: {})",
-          shop,
-          cacheCleared);
+      response.put("success", true);
+      response.put("wasLastSession", wasLastSession);
+      response.put("message", wasLastSession ? "Cache cleared (last session)" : "Cache preserved (other sessions active)");
       return ResponseEntity.ok(response);
-
     } catch (Exception e) {
-      logger.error(
-          "Failed to invalidate cache for session {} shop {}: {}",
-          session.getId(),
-          shop,
-          e.getMessage());
+      logger.error("Failed to invalidate cache for session: {}", e.getMessage());
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-          .body(Map.of("error", "Session cache invalidation failed", "cleared", false));
+          .body(Map.of("error", "Failed to invalidate cache", "success", false));
+    }
+  }
+
+  @GetMapping("/cache/status")
+  public ResponseEntity<Map<String, Object>> getCacheStatus(
+      @CookieValue(value = "shop", required = false) String shop, HttpSession session) {
+    if (shop == null) {
+      return ResponseEntity.badRequest()
+          .body(Map.of("error", "No shop provided", "success", false));
+    }
+
+    try {
+      Map<String, Object> cacheStatus = new HashMap<>();
+      
+      // Check if Redis has cached data for each endpoint
+      cacheStatus.put("revenue", dashboardCacheService.getCachedRevenueData(shop).isPresent());
+      cacheStatus.put("orders", dashboardCacheService.getCachedOrdersData(shop).isPresent());
+      cacheStatus.put("products", dashboardCacheService.getCachedProductsData(shop).isPresent());
+      cacheStatus.put("inventory", dashboardCacheService.getCachedInventoryData(shop).isPresent());
+      cacheStatus.put("newProducts", dashboardCacheService.getCachedNewProductsData(shop).isPresent());
+      cacheStatus.put("abandonedCarts", dashboardCacheService.getCachedAbandonedCartsData(shop).isPresent());
+      cacheStatus.put("analytics", dashboardCacheService.getCachedAnalyticsData(shop).isPresent());
+      
+      // Get session count
+      cacheStatus.put("activeSessions", dashboardCacheService.getSessionCount(shop));
+      cacheStatus.put("isSessionRegistered", dashboardCacheService.isSessionRegistered(shop, session.getId()));
+      
+      // Get cache statistics
+      cacheStatus.put("cacheStats", dashboardCacheService.getCacheStatistics());
+      
+      return ResponseEntity.ok(Map.of("success", true, "cacheStatus", cacheStatus));
+    } catch (Exception e) {
+      logger.error("Failed to get cache status: {}", e.getMessage());
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to get cache status", "success", false));
+    }
+  }
+
+  @GetMapping("/cache/debug")
+  @Profile("!prod") // Only available in non-production environments
+  public ResponseEntity<Map<String, Object>> debugCache(
+      @CookieValue(value = "shop", required = false) String shop, HttpSession session) {
+    if (shop == null) {
+      return ResponseEntity.badRequest()
+          .body(Map.of("error", "No shop provided", "success", false));
+    }
+
+    try {
+      Map<String, Object> debugInfo = new HashMap<>();
+      
+      // Check each cache key individually with detailed info
+      String[] cacheKeys = {
+        "dashboard:revenue:" + shop,
+        "dashboard:orders:" + shop,
+        "dashboard:products:" + shop,
+        "dashboard:inventory:" + shop,
+        "dashboard:new_products:" + shop,
+        "dashboard:abandoned_carts:" + shop,
+        "dashboard:analytics:" + shop
+      };
+      
+      Map<String, Object> cacheDetails = new HashMap<>();
+      for (String key : cacheKeys) {
+        Map<String, Object> keyInfo = new HashMap<>();
+        
+        // Check if key exists
+        Boolean exists = redisTemplate.hasKey(key);
+        keyInfo.put("exists", exists);
+        
+        if (exists != null && exists) {
+          // Get TTL
+          Long ttl = redisTemplate.getExpire(key);
+          keyInfo.put("ttlSeconds", ttl);
+          keyInfo.put("ttlMinutes", ttl != null ? ttl / 60 : null);
+          
+          // Get value size
+          String value = redisTemplate.opsForValue().get(key);
+          keyInfo.put("valueSize", value != null ? value.length() : 0);
+          
+          // Try to parse as CacheEntry
+          try {
+            if (value != null) {
+              Map<String, Object> cacheEntry = objectMapper.readValue(value, Map.class);
+              keyInfo.put("cacheEntry", cacheEntry);
+            }
+          } catch (Exception e) {
+            keyInfo.put("parseError", e.getMessage());
+          }
+        }
+        
+        cacheDetails.put(key, keyInfo);
+      }
+      
+      debugInfo.put("cacheKeys", cacheDetails);
+      debugInfo.put("shop", shop);
+      debugInfo.put("sessionId", session.getId());
+      debugInfo.put("timestamp", System.currentTimeMillis());
+      
+      return ResponseEntity.ok(Map.of("success", true, "debugInfo", debugInfo));
+    } catch (Exception e) {
+      logger.error("Failed to get cache debug info: {}", e.getMessage());
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to get cache debug info", "success", false));
     }
   }
 }

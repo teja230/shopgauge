@@ -17,6 +17,7 @@ import {
   getCacheKey,
   invalidateCache,
   CACHE_VERSION,
+  checkRedisCacheStatus,
 } from '../utils/cacheUtils'; // Import from shared utils
 import IntelligentLoadingScreen from '../components/ui/IntelligentLoadingScreen';
 import ErrorBoundary from '../components/ErrorBoundary';
@@ -1173,15 +1174,31 @@ const DashboardPage = () => {
           console.log(`🔄 Same shop re-authentication detected: ${shop} (with session cache)`);
           isFreshLoginRef.current = false;
         } else {
-          // No session cache, so this is likely a new browser session
-          console.log(`🆕 Fresh login detected for shop: ${shop} (new browser session, no session cache)`);
-          isFreshLoginRef.current = true;
+          // No session cache, check Redis cache status to make informed decision
+          console.log(`🆕 New browser session detected: ${shop} (no session cache, checking Redis status)`);
           
-          // Reset fresh login flag after initial data loading
-          setTimeout(() => {
+          // Check Redis cache status asynchronously
+          checkRedisCacheStatus(shop).then(redisStatus => {
+            if (redisStatus) {
+              const hasRedisCache = Object.values(redisStatus).some((value: any) => 
+                typeof value === 'boolean' && value === true
+              );
+              
+              if (hasRedisCache) {
+                console.log(`✅ Redis cache available for ${shop}, will use Redis-first strategy`);
+                isFreshLoginRef.current = false; // Use Redis cache
+              } else {
+                console.log(`❌ No Redis cache available for ${shop}, will make fresh API calls`);
+                isFreshLoginRef.current = false; // Still don't skip Redis, but expect cache miss
+              }
+            } else {
+              console.log(`⚠️ Could not check Redis cache status for ${shop}, proceeding with normal strategy`);
+              isFreshLoginRef.current = false;
+            }
+          }).catch(error => {
+            console.warn(`Error checking Redis cache status:`, error);
             isFreshLoginRef.current = false;
-            console.log(`✅ Fresh login period ended for shop: ${shop}`);
-          }, 3000);
+          });
         }
       }
     }
@@ -1213,33 +1230,32 @@ const DashboardPage = () => {
       cachedEntry.version === CACHE_VERSION &&
       cachedEntry.shop === shop;
     
-    // OPTIMAL STRATEGY: Different cache check order based on context
+    // OPTIMAL STRATEGY: Session cache first, then Redis via backend
     const isFreshLogin = isFreshLoginRef.current;
     
     if (isFreshLogin) {
-      // LOGIN STRATEGY: Redis Cache First, Session Second
-      console.log(`🔄 ${cacheKey.toUpperCase()}: Fresh login detected - checking Redis cache first`);
-      
-      // For fresh login, skip session cache and go directly to backend (which checks Redis first)
-      // This ensures we get the most up-to-date data from Redis cache
+      // SHOP CHANGE STRATEGY: Skip session cache, go directly to backend (which checks Redis first)
+      console.log(`🔄 ${cacheKey.toUpperCase()}: Shop change detected - checking Redis cache first via backend`);
     } else {
       // NORMAL STRATEGY: Session First, Redis Second (to prevent continuous Redis hits)
       if (!forceRefresh && isSessionFresh) {
-      const ageMinutes = Math.round((Date.now() - cachedEntry.timestamp) / (1000 * 60));
+        const ageMinutes = Math.round((Date.now() - cachedEntry.timestamp) / (1000 * 60));
         console.log(`✅ ${cacheKey.toUpperCase()}: Using session cached data (${ageMinutes}min old)`);
-      setCache(prev => ({ ...prev, [cacheKey]: cachedEntry }));
-      return cachedEntry.data;
+        setCache(prev => ({ ...prev, [cacheKey]: cachedEntry }));
+        return cachedEntry.data;
       }
       
       if (!forceRefresh && !isSessionFresh && cachedEntry) {
-        console.log(`🔄 ${cacheKey.toUpperCase()}: Session cache expired, checking Redis cache...`);
+        console.log(`🔄 ${cacheKey.toUpperCase()}: Session cache expired, checking Redis cache via backend...`);
+      } else if (!forceRefresh && !cachedEntry) {
+        console.log(`🔄 ${cacheKey.toUpperCase()}: No session cache, checking Redis cache via backend...`);
       }
     }
     
     // Create and track the fetch promise to prevent concurrent fetches
     const fetchPromise = (async () => {
       try {
-        const context = isFreshLogin ? 'fresh login' : 'normal action';
+        const context = isFreshLogin ? 'shop change' : 'normal action';
         console.log(`🔄 ${cacheKey.toUpperCase()}: Fetching data from API (${context} - backend will check Redis cache first)`);
         const freshData = await fetchFunction();
         const now = new Date();
@@ -1268,8 +1284,8 @@ const DashboardPage = () => {
     // Track this fetch to prevent concurrent calls
     activeFetches.current.set(fetchKey, fetchPromise);
     
-    return await fetchPromise;
-  }, [shop, cache]); // Only depends on shop and cache now
+    return fetchPromise;
+  }, [shop, setCache]);
 
   // Get the most recent update time across all cache entries
   const getMostRecentUpdateTime = useCallback((): Date | null => {
