@@ -18,8 +18,10 @@ Welcome to the ShopGauge Troubleshooting Guide. This section contains issue reso
 ### 🧠 Market Intelligence Issues
 
 - **[Market Intelligence Troubleshooting](MARKET_INTELLIGENCE_TROUBLESHOOTING.md)** - Comprehensive Market Intelligence fixes and diagnostics
-- **[Market Intelligence Fixes](MARKET_INTELLIGENCE_FIXES.md)** - Recent fixes for session validation, database cache, and API routing issues
-- **[API /:splat Error Fix](API_SPLAT_ERROR_FIX.md)** - Resolution for malformed API request errors
+
+### 🚀 Application Startup Issues
+
+- **[Startup Optimization Fix](STARTUP_OPTIMIZATION_FIX.md)** - Resolution for resource contention and performance issues during application startup
 
 ### 🖥️ Admin Interface Issues
 
@@ -62,6 +64,15 @@ Welcome to the ShopGauge Troubleshooting Guide. This section contains issue reso
 | **Database Cache Errors** | "Incorrect result size: expected 1, actual 0" | Check QueryResultCacheService configuration |
 | **API /:splat Errors** | "No static resource api/:splat" | Verify render.yaml redirect rules |
 | **Suggestions Not Displaying** | Market Intelligence shows count but no content | Check session recovery and API routing |
+
+### Application Startup Issues
+
+| Issue | Symptoms | Quick Fix |
+|-------|----------|-----------|
+| **High CPU Usage During Startup** | "Critical CPU usage detected: 100.00%" | Check startup optimization service and monitoring delays |
+| **Slow Startup Time** | "Started in 73+ seconds" | Verify startup delay configurations |
+| **System Health Failures** | "System health check failed with status: UNHEALTHY" | Check monitoring service startup delays |
+| **Resource Contention** | High disk usage, session lock failures | Enable startup optimization and staggered monitoring |
 
 ---
 
