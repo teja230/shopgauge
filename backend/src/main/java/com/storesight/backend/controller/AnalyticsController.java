@@ -2368,11 +2368,16 @@ public class AnalyticsController {
     }
 
     try {
-      boolean wasLastSession = dashboardCacheService.invalidateCacheForSession(shop, session.getId());
+      boolean wasLastSession =
+          dashboardCacheService.invalidateCacheForSession(shop, session.getId());
       Map<String, Object> response = new HashMap<>();
       response.put("success", true);
       response.put("wasLastSession", wasLastSession);
-      response.put("message", wasLastSession ? "Cache cleared (last session)" : "Cache preserved (other sessions active)");
+      response.put(
+          "message",
+          wasLastSession
+              ? "Cache cleared (last session)"
+              : "Cache preserved (other sessions active)");
       return ResponseEntity.ok(response);
     } catch (Exception e) {
       logger.error("Failed to invalidate cache for session: {}", e.getMessage());
@@ -2391,23 +2396,26 @@ public class AnalyticsController {
 
     try {
       Map<String, Object> cacheStatus = new HashMap<>();
-      
+
       // Check if Redis has cached data for each endpoint
       cacheStatus.put("revenue", dashboardCacheService.getCachedRevenueData(shop).isPresent());
       cacheStatus.put("orders", dashboardCacheService.getCachedOrdersData(shop).isPresent());
       cacheStatus.put("products", dashboardCacheService.getCachedProductsData(shop).isPresent());
       cacheStatus.put("inventory", dashboardCacheService.getCachedInventoryData(shop).isPresent());
-      cacheStatus.put("newProducts", dashboardCacheService.getCachedNewProductsData(shop).isPresent());
-      cacheStatus.put("abandonedCarts", dashboardCacheService.getCachedAbandonedCartsData(shop).isPresent());
+      cacheStatus.put(
+          "newProducts", dashboardCacheService.getCachedNewProductsData(shop).isPresent());
+      cacheStatus.put(
+          "abandonedCarts", dashboardCacheService.getCachedAbandonedCartsData(shop).isPresent());
       cacheStatus.put("analytics", dashboardCacheService.getCachedAnalyticsData(shop).isPresent());
-      
+
       // Get session count
       cacheStatus.put("activeSessions", dashboardCacheService.getSessionCount(shop));
-      cacheStatus.put("isSessionRegistered", dashboardCacheService.isSessionRegistered(shop, session.getId()));
-      
+      cacheStatus.put(
+          "isSessionRegistered", dashboardCacheService.isSessionRegistered(shop, session.getId()));
+
       // Get cache statistics
       cacheStatus.put("cacheStats", dashboardCacheService.getCacheStatistics());
-      
+
       return ResponseEntity.ok(Map.of("success", true, "cacheStatus", cacheStatus));
     } catch (Exception e) {
       logger.error("Failed to get cache status: {}", e.getMessage());
@@ -2427,7 +2435,7 @@ public class AnalyticsController {
 
     try {
       Map<String, Object> debugInfo = new HashMap<>();
-      
+
       // Check each cache key individually with detailed info
       String[] cacheKeys = {
         "dashboard:revenue:" + shop,
@@ -2438,25 +2446,25 @@ public class AnalyticsController {
         "dashboard:abandoned_carts:" + shop,
         "dashboard:analytics:" + shop
       };
-      
+
       Map<String, Object> cacheDetails = new HashMap<>();
       for (String key : cacheKeys) {
         Map<String, Object> keyInfo = new HashMap<>();
-        
+
         // Check if key exists
         Boolean exists = redisTemplate.hasKey(key);
         keyInfo.put("exists", exists);
-        
+
         if (exists != null && exists) {
           // Get TTL
           Long ttl = redisTemplate.getExpire(key);
           keyInfo.put("ttlSeconds", ttl);
           keyInfo.put("ttlMinutes", ttl != null ? ttl / 60 : null);
-          
+
           // Get value size
           String value = redisTemplate.opsForValue().get(key);
           keyInfo.put("valueSize", value != null ? value.length() : 0);
-          
+
           // Try to parse as CacheEntry
           try {
             if (value != null) {
@@ -2467,15 +2475,15 @@ public class AnalyticsController {
             keyInfo.put("parseError", e.getMessage());
           }
         }
-        
+
         cacheDetails.put(key, keyInfo);
       }
-      
+
       debugInfo.put("cacheKeys", cacheDetails);
       debugInfo.put("shop", shop);
       debugInfo.put("sessionId", session.getId());
       debugInfo.put("timestamp", System.currentTimeMillis());
-      
+
       return ResponseEntity.ok(Map.of("success", true, "debugInfo", debugInfo));
     } catch (Exception e) {
       logger.error("Failed to get cache debug info: {}", e.getMessage());
