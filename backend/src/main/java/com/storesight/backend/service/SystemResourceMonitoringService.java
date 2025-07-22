@@ -162,7 +162,7 @@ public class SystemResourceMonitoringService {
         // System load average is NOT a CPU percentage - it's a load average
         // Instead, use a conservative estimate based on available processors
         int processors = osBean.getAvailableProcessors();
-        
+
         // Use cached value if available and recent, otherwise use conservative estimate
         if (lastValidCpuReading >= 0 && (now - lastCpuReadingTime) < CPU_READING_CACHE_MS * 2) {
           processCpuLoad = lastValidCpuReading;
@@ -171,7 +171,8 @@ public class SystemResourceMonitoringService {
           // Conservative estimate: assume low CPU usage when we can't measure accurately
           // This prevents false 100% CPU alerts
           processCpuLoad = Math.min(10.0, processors * 5.0); // Max 10% or 5% per core
-          logger.debug("Using conservative CPU estimate: {}% (processors: {})", processCpuLoad, processors);
+          logger.debug(
+              "Using conservative CPU estimate: {}% (processors: {})", processCpuLoad, processors);
         }
       }
 
