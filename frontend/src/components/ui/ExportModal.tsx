@@ -28,7 +28,7 @@ import { useNotifications } from '../../hooks/useNotifications';
 import { debugLog } from './DebugPanel';
 import html2canvas from 'html2canvas-pro';
 import jsPDF from 'jspdf';
-import * as XLSX from 'xlsx';
+import ExcellentExport from 'excellentexport';
 import { useAuth } from '../../context/AuthContext';
 
 interface ExportSettings {
@@ -615,7 +615,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
     }
   }, [chartRef, exportSettings, generateFilename, shopName, chartTitle, metrics, theme, showInfo, showSuccess, showError, chartType, waitForChartReadiness]);
 
-  // Enhanced Excel export with multi-tab workbook
+  // Enhanced Excel export with multi-tab workbook using excellentexport
   const handleExportExcel = useCallback(async () => {
     // Handle different data formats
     let processedData: any[] = [];
@@ -648,42 +648,39 @@ const ExportModal: React.FC<ExportModalProps> = ({
     setIsProcessing(true);
     setProgress(0);
     
-          debugLog.info('Starting enhanced Excel export', { 
-        filename: generateFilename(),
-        dataLength: processedData.length,
-        includeData: exportSettings.includeData,
-        includeMetadata: exportSettings.includeMetadata 
-      }, 'ExportModal');
+    debugLog.info('Starting enhanced Excel export', { 
+      filename: generateFilename(),
+      dataLength: processedData.length,
+      includeData: exportSettings.includeData,
+      includeMetadata: exportSettings.includeMetadata 
+    }, 'ExportModal');
     
     showInfo('Generating comprehensive Excel workbook...');
 
     try {
       setProgress(25);
 
-      const wb = XLSX.utils.book_new();
+      const sheets: any[] = [];
       let sheetsCreated = 0;
 
       // Main data sheet
       if (exportSettings.includeData) {
-        const mainData = processedData.map((item: any, index: number) => ({
-          Date: item.date || item.created_at || `Day ${index + 1}`,
-          Revenue: item.revenue || item.total_price || 0,
-          Orders: item.orders_count || 0,
-          Conversion: item.conversion_rate || 0,
-          Type: item.isPrediction ? 'Forecast' : 'Historical',
-          Confidence: item.confidence_score || null,
-        }));
+        const mainData = processedData.map((item: any, index: number) => [
+          item.date || item.created_at || `Day ${index + 1}`,
+          item.revenue || item.total_price || 0,
+          item.orders_count || 0,
+          item.conversion_rate || 0,
+          item.isPrediction ? 'Forecast' : 'Historical',
+          item.confidence_score || null,
+        ]);
         
-        const ws = XLSX.utils.json_to_sheet(mainData);
-        ws['!cols'] = [
-          { width: 15 }, // Date
-          { width: 12 }, // Revenue
-          { width: 10 }, // Orders
-          { width: 12 }, // Conversion
-          { width: 12 }, // Type
-          { width: 12 }, // Confidence
-        ];
-        XLSX.utils.book_append_sheet(wb, ws, 'Main Data');
+        // Add headers
+        mainData.unshift(['Date', 'Revenue', 'Orders', 'Conversion', 'Type', 'Confidence']);
+        
+        sheets.push({
+          name: 'Main Data',
+          from: { array: mainData }
+        });
         sheetsCreated++;
       }
 
@@ -691,21 +688,20 @@ const ExportModal: React.FC<ExportModalProps> = ({
       if (processedData.some((item: any) => item.isPrediction)) {
         const revenueData = processedData
           .filter((item: any) => item.isPrediction)
-          .map((item: any, index: number) => ({
-            Date: item.date || `Forecast Day ${index + 1}`,
-            Revenue: item.revenue || item.total_price || 0,
-            Confidence: item.confidence_score || 0.75,
-            Period: metrics?.forecastPeriod || '30 days',
-          }));
+          .map((item: any, index: number) => [
+            item.date || `Forecast Day ${index + 1}`,
+            item.revenue || item.total_price || 0,
+            item.confidence_score || 0.75,
+            metrics?.forecastPeriod || '30 days',
+          ]);
         
-        const revenueWs = XLSX.utils.json_to_sheet(revenueData);
-        revenueWs['!cols'] = [
-          { width: 15 }, // Date
-          { width: 12 }, // Revenue
-          { width: 12 }, // Confidence
-          { width: 15 }, // Period
-        ];
-        XLSX.utils.book_append_sheet(wb, revenueWs, 'Revenue Forecast');
+        // Add headers
+        revenueData.unshift(['Date', 'Revenue', 'Confidence', 'Period']);
+        
+        sheets.push({
+          name: 'Revenue Forecast',
+          from: { array: revenueData }
+        });
         sheetsCreated++;
       }
 
@@ -713,21 +709,20 @@ const ExportModal: React.FC<ExportModalProps> = ({
       if (processedData.some((item: any) => item.isPrediction && item.orders_count)) {
         const ordersData = processedData
           .filter((item: any) => item.isPrediction)
-          .map((item: any, index: number) => ({
-            Date: item.date || `Forecast Day ${index + 1}`,
-            Orders: item.orders_count || 0,
-            Confidence: item.confidence_score || 0.75,
-            Period: metrics?.forecastPeriod || '30 days',
-          }));
+          .map((item: any, index: number) => [
+            item.date || `Forecast Day ${index + 1}`,
+            item.orders_count || 0,
+            item.confidence_score || 0.75,
+            metrics?.forecastPeriod || '30 days',
+          ]);
         
-        const ordersWs = XLSX.utils.json_to_sheet(ordersData);
-        ordersWs['!cols'] = [
-          { width: 15 }, // Date
-          { width: 12 }, // Orders
-          { width: 12 }, // Confidence
-          { width: 15 }, // Period
-        ];
-        XLSX.utils.book_append_sheet(wb, ordersWs, 'Orders Forecast');
+        // Add headers
+        ordersData.unshift(['Date', 'Orders', 'Confidence', 'Period']);
+        
+        sheets.push({
+          name: 'Orders Forecast',
+          from: { array: ordersData }
+        });
         sheetsCreated++;
       }
 
@@ -735,64 +730,74 @@ const ExportModal: React.FC<ExportModalProps> = ({
       if (processedData.some((item: any) => item.isPrediction && item.conversion_rate)) {
         const conversionData = processedData
           .filter((item: any) => item.isPrediction)
-          .map((item: any, index: number) => ({
-            Date: item.date || `Forecast Day ${index + 1}`,
-            Conversion: item.conversion_rate || 0,
-            Confidence: item.confidence_score || 0.75,
-            Period: metrics?.forecastPeriod || '30 days',
-          }));
+          .map((item: any, index: number) => [
+            item.date || `Forecast Day ${index + 1}`,
+            item.conversion_rate || 0,
+            item.confidence_score || 0.75,
+            metrics?.forecastPeriod || '30 days',
+          ]);
         
-        const conversionWs = XLSX.utils.json_to_sheet(conversionData);
-        conversionWs['!cols'] = [
-          { width: 15 }, // Date
-          { width: 12 }, // Conversion
-          { width: 12 }, // Confidence
-          { width: 15 }, // Period
-        ];
-        XLSX.utils.book_append_sheet(wb, conversionWs, 'Conversion Forecast');
+        // Add headers
+        conversionData.unshift(['Date', 'Conversion', 'Confidence', 'Period']);
+        
+        sheets.push({
+          name: 'Conversion Forecast',
+          from: { array: conversionData }
+        });
         sheetsCreated++;
       }
 
       // Summary sheet
       const summaryData = [
-        { Metric: 'Total Revenue', Value: metrics?.revenue || 0 },
-        { Metric: 'Total Orders', Value: metrics?.orders || 0 },
-        { Metric: 'Average Conversion', Value: metrics?.conversion ? `${(metrics.conversion * 100).toFixed(2)}%` : 'N/A' },
-        { Metric: 'Time Period', Value: metrics?.timeRange || 'N/A' },
-        { Metric: 'Forecast Period', Value: metrics?.forecastPeriod || 'N/A' },
-        { Metric: 'Forecast Revenue', Value: metrics?.forecastRevenue || 0 },
-        { Metric: 'Forecast Orders', Value: metrics?.forecastOrders || 0 },
-        { Metric: 'Confidence Score', Value: metrics?.confidenceScore ? `${Math.round(metrics.confidenceScore * 100)}%` : 'N/A' },
+        ['Metric', 'Value'],
+        ['Total Revenue', metrics?.revenue || 0],
+        ['Total Orders', metrics?.orders || 0],
+        ['Average Conversion', metrics?.conversion ? `${(metrics.conversion * 100).toFixed(2)}%` : 'N/A'],
+        ['Time Period', metrics?.timeRange || 'N/A'],
+        ['Forecast Period', metrics?.forecastPeriod || 'N/A'],
+        ['Forecast Revenue', metrics?.forecastRevenue || 0],
+        ['Forecast Orders', metrics?.forecastOrders || 0],
+        ['Confidence Score', metrics?.confidenceScore ? `${Math.round(metrics.confidenceScore * 100)}%` : 'N/A'],
       ];
       
-      const summaryWs = XLSX.utils.json_to_sheet(summaryData);
-      summaryWs['!cols'] = [{ width: 20 }, { width: 30 }];
-      XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary');
+      sheets.push({
+        name: 'Summary',
+        from: { array: summaryData }
+      });
       sheetsCreated++;
 
       // Add metadata sheet if enabled
       if (exportSettings.includeMetadata) {
         const metadataSheet = [
-          { Property: 'Chart Title', Value: chartTitle },
-          { Property: 'Chart Type', Value: chartType },
-          { Property: 'Shop Name', Value: shopName || 'N/A' },
-          { Property: 'Export Date', Value: new Date().toISOString() },
-          { Property: 'Export Time', Value: new Date().toLocaleString() },
-          { Property: 'Sheets Created', Value: sheetsCreated },
-          { Property: 'Total Data Points', Value: processedData.length },
-          { Property: 'Includes Forecasts', Value: processedData.some((item: any) => item.isPrediction) ? 'Yes' : 'No' },
+          ['Property', 'Value'],
+          ['Chart Title', chartTitle],
+          ['Chart Type', chartType],
+          ['Shop Name', shopName || 'N/A'],
+          ['Export Date', new Date().toISOString()],
+          ['Export Time', new Date().toLocaleString()],
+          ['Sheets Created', sheetsCreated],
+          ['Total Data Points', processedData.length],
+          ['Includes Forecasts', processedData.some((item: any) => item.isPrediction) ? 'Yes' : 'No'],
         ];
         
-        const metaWs = XLSX.utils.json_to_sheet(metadataSheet);
-        metaWs['!cols'] = [{ width: 20 }, { width: 30 }];
-        XLSX.utils.book_append_sheet(wb, metaWs, 'Metadata');
+        sheets.push({
+          name: 'Metadata',
+          from: { array: metadataSheet }
+        });
       }
 
       setProgress(90);
 
-      // Save file
+      // Create and download the Excel file
       const filename = `${generateFilename()}_comprehensive.xlsx`;
-      XLSX.writeFile(wb, filename);
+      ExcellentExport.convert(
+        { 
+          anchor: document.createElement('a'), 
+          filename, 
+          format: 'xlsx' 
+        }, 
+        sheets
+      );
 
       setProgress(100);
       showSuccess(`Excel workbook exported with ${sheetsCreated + 1} sheets!`);

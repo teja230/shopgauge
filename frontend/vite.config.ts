@@ -56,10 +56,41 @@ export default defineConfig({
     // Optimize chunk splitting
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom'],
-          ui: ['@mui/material', '@mui/icons-material'],
-          utils: ['axios', 'date-fns'],
+        manualChunks: (id) => {
+          // Vendor chunks
+          if (id.includes('node_modules')) {
+            if (id.includes('react') || id.includes('react-dom')) {
+              return 'vendor-react';
+            }
+            if (id.includes('@mui')) {
+              return 'vendor-mui';
+            }
+            if (id.includes('recharts')) {
+              return 'vendor-charts';
+            }
+            if (id.includes('html2canvas') || id.includes('jspdf') || id.includes('excellentexport')) {
+              return 'vendor-export';
+            }
+            if (id.includes('axios') || id.includes('date-fns') || id.includes('fuse.js')) {
+              return 'vendor-utils';
+            }
+            // Other node_modules
+            return 'vendor';
+          }
+          
+          // Application chunks
+          if (id.includes('/components/ui/')) {
+            return 'ui-components';
+          }
+          if (id.includes('/pages/')) {
+            return 'pages';
+          }
+          if (id.includes('/hooks/') || id.includes('/utils/')) {
+            return 'utils';
+          }
+          if (id.includes('/api/')) {
+            return 'api';
+          }
         },
         // Add cache busting with timestamp
         assetFileNames: (assetInfo) => {
@@ -76,7 +107,7 @@ export default defineConfig({
       },
     },
     // Reduce build size
-    chunkSizeWarningLimit: 1000,
+    chunkSizeWarningLimit: 2000,
   },
   server: {
     proxy: {
