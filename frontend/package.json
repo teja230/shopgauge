@@ -24,7 +24,6 @@
     "@tailwindcss/forms": "^0.5.10",
     "axios": "^1.10.0",
     "date-fns": "^4.1.0",
-    "excellentexport": "^3.9.10",
     "fuse.js": "^6.6.2",
     "html2canvas": "^1.4.1",
     "html2canvas-pro": "^1.5.11",

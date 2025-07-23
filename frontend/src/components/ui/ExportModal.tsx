@@ -28,7 +28,7 @@ import { useNotifications } from '../../hooks/useNotifications';
 import { debugLog } from './DebugPanel';
 import html2canvas from 'html2canvas-pro';
 import jsPDF from 'jspdf';
-import ExcellentExport from 'excellentexport';
+
 import { useAuth } from '../../context/AuthContext';
 
 interface ExportSettings {
@@ -615,7 +615,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
     }
   }, [chartRef, exportSettings, generateFilename, shopName, chartTitle, metrics, theme, showInfo, showSuccess, showError, chartType, waitForChartReadiness]);
 
-  // Enhanced Excel export with multi-tab workbook using excellentexport
+  // Enhanced CSV export with multi-section workbook
   const handleExportExcel = useCallback(async () => {
     // Handle different data formats
     let processedData: any[] = [];
@@ -655,7 +655,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
       includeMetadata: exportSettings.includeMetadata 
     }, 'ExportModal');
     
-    showInfo('Generating comprehensive Excel workbook...');
+          showInfo('Generating comprehensive CSV file...');
 
     try {
       setProgress(25);
@@ -788,19 +788,36 @@ const ExportModal: React.FC<ExportModalProps> = ({
 
       setProgress(90);
 
-      // Create and download the Excel file
-      const filename = `${generateFilename()}_comprehensive.xlsx`;
-      ExcellentExport.convert(
-        { 
-          anchor: document.createElement('a'), 
-          filename, 
-          format: 'xlsx' 
-        }, 
-        sheets
-      );
+      // Create and download the CSV file
+      const filename = `${generateFilename()}_comprehensive.csv`;
+      
+      // Convert sheets to CSV format
+      let csvContent = '';
+      
+      sheets.forEach((sheet, index) => {
+        if (index > 0) csvContent += '\n\n';
+        csvContent += `=== ${sheet.name} ===\n`;
+        
+        if (sheet.from && sheet.from.array) {
+          sheet.from.array.forEach((row: any[]) => {
+            csvContent += row.map(cell => `"${cell}"`).join(',') + '\n';
+          });
+        }
+      });
+      
+      // Create and download the file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', filename);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
 
       setProgress(100);
-      showSuccess(`Excel workbook exported with ${sheetsCreated + 1} sheets!`);
+      showSuccess(`CSV file exported with ${sheetsCreated + 1} sections!`);
       
       // Log audit event
       await logAuditEvent('export', 'excel', { 
@@ -811,8 +828,8 @@ const ExportModal: React.FC<ExportModalProps> = ({
       });
 
     } catch (error) {
-      debugLog.error('Excel export failed:', error, 'ExportModal');
-      showError('Excel export failed. Please try again or contact support.');
+      debugLog.error('CSV export failed:', error, 'ExportModal');
+      showError('CSV export failed. Please try again or contact support.');
     } finally {
       setIsProcessing(false);
       setProgress(0);
