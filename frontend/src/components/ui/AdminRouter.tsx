@@ -1,4 +1,4 @@
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense } from 'react';
 import { Box, Typography, CircularProgress } from '@mui/material';
 import DashboardOverview from './DashboardOverview';
 import EnhancedHealthSummary from './EnhancedHealthSummary';
@@ -17,8 +17,8 @@ import SessionManagementTools from './SessionManagementTools';
 import ModernDataTable from './ModernDataTable';
 import RefreshHeader from './RefreshHeader';
 
-// Lazy load components for better performance
-const DebugPanel = lazy(() => import('./DebugPanel'));
+// Import DebugPanel directly since it's available globally
+import { DebugPanel } from './DebugPanel';
 
 // Loading fallback component
 const LoadingFallback = ({ title }: { title: string }) => (
