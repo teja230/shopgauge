@@ -32,6 +32,8 @@ public class StartupOptimizationService {
   @Autowired(required = false)
   private AlertingService alertingService;
 
+  @Autowired private FeatureFlagService featureFlagService;
+
   @Value("${storesight.startup.optimization.enabled:true}")
   private boolean startupOptimizationEnabled;
 
@@ -44,11 +46,21 @@ public class StartupOptimizationService {
   /** Handle application startup optimization */
   @EventListener(ApplicationReadyEvent.class)
   public void handleApplicationStartup() {
-    if (!startupOptimizationEnabled || startupOptimizationCompleted) {
+    // Check if startup optimization is enabled and memory optimization features are active
+    boolean memoryOptimizationEnabled =
+        featureFlagService.isScheduledSystemResourceMonitoringEnabled()
+            || featureFlagService.isScheduledDashboardCollectionEnabled()
+            || featureFlagService.isScheduledPerformanceMetricsEnabled()
+            || featureFlagService.isScheduledDatabaseMonitoringEnabled()
+            || featureFlagService.isScheduledAlertingEnabled();
+
+    if (!startupOptimizationEnabled || startupOptimizationCompleted || !memoryOptimizationEnabled) {
       if (startupOptimizationCompleted) {
         logger.debug("Startup optimization already completed, skipping");
-      } else {
-        logger.info("Startup optimization disabled");
+      } else if (!startupOptimizationEnabled) {
+        logger.debug("Startup optimization disabled via configuration");
+      } else if (!memoryOptimizationEnabled) {
+        logger.debug("Startup optimization disabled - memory optimization features not enabled");
       }
       return;
     }
@@ -142,6 +154,17 @@ public class StartupOptimizationService {
 
   /** Get startup optimization status */
   public String getStartupStatus() {
-    return startupOptimizationEnabled ? "ENABLED" : "DISABLED";
+    if (!startupOptimizationEnabled) {
+      return "DISABLED_CONFIG";
+    }
+
+    boolean memoryOptimizationEnabled =
+        featureFlagService.isScheduledSystemResourceMonitoringEnabled()
+            || featureFlagService.isScheduledDashboardCollectionEnabled()
+            || featureFlagService.isScheduledPerformanceMetricsEnabled()
+            || featureFlagService.isScheduledDatabaseMonitoringEnabled()
+            || featureFlagService.isScheduledAlertingEnabled();
+
+    return memoryOptimizationEnabled ? "ENABLED" : "DISABLED_MEMORY_OPTIMIZATION";
   }
 }
