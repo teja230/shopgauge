@@ -42,6 +42,8 @@ public class DatabaseMonitoringService implements HealthIndicator {
   @Autowired private MetricsCollectionService metricsCollectionService;
   @Autowired private JdbcTemplate jdbcTemplate;
 
+  @Autowired private FeatureFlagService featureFlagService;
+
   // Performance thresholds
   private static final long SLOW_QUERY_THRESHOLD_MS = 1000; // 1 second
   private static final long VERY_SLOW_QUERY_THRESHOLD_MS = 5000; // 5 seconds
@@ -714,6 +716,12 @@ public class DatabaseMonitoringService implements HealthIndicator {
       fixedRateString = "${storesight.monitoring.database-interval:PT4H}",
       initialDelayString = "${storesight.monitoring.database-startup-delay:PT12M}")
   public void monitorDatabaseHealth() {
+    // Check if scheduled database monitoring is enabled
+    if (!featureFlagService.isScheduledDatabaseMonitoringEnabled()) {
+      logger.debug("Scheduled database monitoring is disabled via feature flag");
+      return;
+    }
+
     try {
       Map<String, Object> healthCheck = performHealthCheck();
       String status = (String) healthCheck.get("overallStatus");

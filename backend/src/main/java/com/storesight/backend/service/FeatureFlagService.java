@@ -238,6 +238,78 @@ public class FeatureFlagService {
         featureFlags.getRollout().getMonitoringEnhancementsRolloutPercentage());
   }
 
+  // New methods for scheduled monitoring services
+  public boolean isScheduledSystemResourceMonitoringEnabled() {
+    return isFeatureEnabled(
+        "monitoring.scheduledSystemResourceMonitoring",
+        featureFlags.getMonitoring().isScheduledSystemResourceMonitoring(),
+        featureFlags.getRollout().getMonitoringEnhancementsRolloutPercentage());
+  }
+
+  public boolean isScheduledDashboardCollectionEnabled() {
+    return isFeatureEnabled(
+        "monitoring.scheduledDashboardCollection",
+        featureFlags.getMonitoring().isScheduledDashboardCollection(),
+        featureFlags.getRollout().getMonitoringEnhancementsRolloutPercentage());
+  }
+
+  public boolean isScheduledPerformanceMetricsEnabled() {
+    return isFeatureEnabled(
+        "monitoring.scheduledPerformanceMetrics",
+        featureFlags.getMonitoring().isScheduledPerformanceMetrics(),
+        featureFlags.getRollout().getMonitoringEnhancementsRolloutPercentage());
+  }
+
+  public boolean isScheduledDatabaseMonitoringEnabled() {
+    return isFeatureEnabled(
+        "monitoring.scheduledDatabaseMonitoring",
+        featureFlags.getMonitoring().isScheduledDatabaseMonitoring(),
+        featureFlags.getRollout().getMonitoringEnhancementsRolloutPercentage());
+  }
+
+  public boolean isScheduledRedisMonitoringEnabled() {
+    return isFeatureEnabled(
+        "monitoring.scheduledRedisMonitoring",
+        featureFlags.getMonitoring().isScheduledRedisMonitoring(),
+        featureFlags.getRollout().getMonitoringEnhancementsRolloutPercentage());
+  }
+
+  public boolean isScheduledAlertingEnabled() {
+    return isFeatureEnabled(
+        "monitoring.scheduledAlerting",
+        featureFlags.getMonitoring().isScheduledAlerting(),
+        featureFlags.getRollout().getMonitoringEnhancementsRolloutPercentage());
+  }
+
+  public boolean isScheduledCacheCleanupEnabled() {
+    return isFeatureEnabled(
+        "monitoring.scheduledCacheCleanup",
+        featureFlags.getMonitoring().isScheduledCacheCleanup(),
+        featureFlags.getRollout().getMonitoringEnhancementsRolloutPercentage());
+  }
+
+  public boolean isScheduledSessionCleanupEnabled() {
+    return isFeatureEnabled(
+        "monitoring.scheduledSessionCleanup",
+        featureFlags.getMonitoring().isScheduledSessionCleanup(),
+        featureFlags.getRollout().getMonitoringEnhancementsRolloutPercentage());
+  }
+
+  public boolean isScheduledSseCleanupEnabled() {
+    return isFeatureEnabled(
+        "monitoring.scheduledSseCleanup",
+        featureFlags.getMonitoring().isScheduledSseCleanup(),
+        featureFlags.getRollout().getMonitoringEnhancementsRolloutPercentage());
+  }
+
+  // New SSE control method
+  public boolean isSseEnabled() {
+    return isFeatureEnabled(
+        "sse.enabled",
+        featureFlags.getSse().isEnabled(),
+        featureFlags.getRollout().getSseImprovementsRolloutPercentage());
+  }
+
   /** Security feature flags */
   public boolean isEnhancedAuthenticationEnabled() {
     return isFeatureEnabled(

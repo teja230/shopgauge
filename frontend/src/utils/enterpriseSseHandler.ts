@@ -62,6 +62,7 @@ export interface SseEventHandler {
   onRateLimited?: (until: Date) => void;
   onPollingStart?: () => void;
   onPollingStop?: () => void;
+  onSseDisabled?: (data: any) => void;
 }
 
 export interface SseMetrics {
@@ -387,14 +388,14 @@ class EnterpriseSseHandler {
   }
 
   /**
-   * Handle custom events
+   * Handle custom SSE events
    */
   private handleCustomEvent(eventType: string, event: MessageEvent): void {
     try {
       const sseEvent: SseEvent = {
         type: eventType,
         data: this.parseMessageData(event.data),
-        id: event.lastEventId || undefined,
+        id: event.lastEventId,
         timestamp: Date.now()
       };
 
@@ -409,6 +410,12 @@ class EnterpriseSseHandler {
         return;
       }
 
+      // Handle SSE disabled
+      if (eventType === 'sse_disabled') {
+        this.handleSseDisabled(sseEvent.data);
+        return;
+      }
+
       // Call handler
       if (this.handlers.onMessage) {
         try {
@@ -420,6 +427,30 @@ class EnterpriseSseHandler {
 
     } catch (error) {
       this.log('Failed to handle custom event', { error, eventType, data: event.data });
+    }
+  }
+
+  /**
+   * Handle SSE disabled event
+   */
+  private handleSseDisabled(data: any): void {
+    this.log('SSE is disabled by server', { data });
+    
+    // Disconnect current connection
+    this.disconnect();
+    
+    // Start polling fallback if enabled
+    if (this.config.pollingFallbackEnabled) {
+      this.startPollingFallback();
+    }
+    
+    // Call SSE disabled handler if provided
+    if (this.handlers.onSseDisabled) {
+      try {
+        this.handlers.onSseDisabled(data);
+      } catch (error) {
+        this.log('Error in onSseDisabled handler', { error });
+      }
     }
   }
 

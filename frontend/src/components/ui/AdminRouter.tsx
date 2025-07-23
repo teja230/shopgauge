@@ -16,6 +16,7 @@ import AdminSessionManager from './AdminSessionManager';
 import SessionManagementTools from './SessionManagementTools';
 import ModernDataTable from './ModernDataTable';
 import RefreshHeader from './RefreshHeader';
+import MemoryOptimizationManager from './MemoryOptimizationManager';
 
 
 
@@ -611,6 +612,13 @@ const AdminRouter = React.memo<AdminRouterProps>(({
               </Typography>
               <MarketIntelligenceDashboard />
             </Box>
+          </Suspense>
+        );
+
+      case 'memory-optimization':
+        return (
+          <Suspense fallback={<LoadingFallback title="Memory Optimization" />}>
+            <MemoryOptimizationManager />
           </Suspense>
         );
 

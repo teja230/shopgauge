@@ -137,8 +137,13 @@ public class CompetitorController {
   @PostMapping("/competitors")
   public ResponseEntity<?> addCompetitor(
       @RequestBody AddCompetitorRequest request, HttpServletRequest httpRequest) {
+    logger.info("addCompetitor: Starting request with URL: {}", request.url);
+
     Long shopId = getShopIdFromRequest(httpRequest);
+    logger.info("addCompetitor: Extracted shopId: {}", shopId);
+
     if (shopId == null) {
+      logger.warn("addCompetitor: No shopId found - authentication failed");
       return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
           .body(Map.of("error", "Authentication required"));
     }
@@ -199,15 +204,22 @@ public class CompetitorController {
 
       // If still no product ID, try to fetch products from Shopify first
       if (productId == null) {
+        logger.info(
+            "addCompetitor: No productId provided, looking for existing products for shop {}",
+            shopId);
+
         List<Map<String, Object>> products =
             jdbcTemplate.queryForList(
                 "SELECT id FROM products WHERE shop_id = ? ORDER BY created_at DESC LIMIT 1",
                 shopId);
 
+        logger.info("addCompetitor: Found {} products for shop {}", products.size(), shopId);
+
         if (products.isEmpty()) {
           // Try to sync products from Shopify before giving up
-          logger.info(
-              "No products found in database for shop {}, attempting to sync from Shopify", shopId);
+          logger.warn(
+              "addCompetitor: No products found in database for shop {}, returning PRODUCTS_SYNC_NEEDED",
+              shopId);
 
           return ResponseEntity.status(HttpStatus.PRECONDITION_REQUIRED)
               .body(
@@ -220,17 +232,23 @@ public class CompetitorController {
         } else {
           productId = ((Number) products.get(0).get("id")).longValue();
           logger.info(
-              "Using existing product {} for competitor tracking in shop {}", productId, shopId);
+              "addCompetitor: Using existing product {} for competitor tracking in shop {}",
+              productId,
+              shopId);
         }
       }
 
       // Check if competitor URL already exists for this product
+      logger.info("addCompetitor: Checking for existing competitor URL for product {}", productId);
+
       List<Map<String, Object>> existing =
           jdbcTemplate.queryForList(
               "SELECT id FROM competitor_urls WHERE product_id = ? AND url = ?",
               productId,
               request.url);
+
       if (!existing.isEmpty()) {
+        logger.warn("addCompetitor: Competitor URL already exists for product {}", productId);
         return ResponseEntity.badRequest()
             .body(Map.of("error", "This competitor URL is already being tracked"));
       }
@@ -243,14 +261,23 @@ public class CompetitorController {
                   ? extractShopifyTitle(request.url)
                   : extractTitleFromUrl(request.url);
 
+      logger.info("addCompetitor: Extracted label '{}' for URL: {}", label, request.url);
+
       // Insert new competitor URL
-      jdbcTemplate.update(
-          "INSERT INTO competitor_urls (product_id, url, label, created_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)",
-          productId,
-          request.url,
-          label);
+      logger.info("addCompetitor: Inserting competitor URL into database");
+
+      int rowsAffected =
+          jdbcTemplate.update(
+              "INSERT INTO competitor_urls (product_id, url, label, created_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)",
+              productId,
+              request.url,
+              label);
+
+      logger.info("addCompetitor: Database insert affected {} rows", rowsAffected);
 
       // Get the inserted record
+      logger.info("addCompetitor: Retrieving inserted competitor record");
+
       List<Map<String, Object>> newRecord =
           jdbcTemplate.queryForList(
               "SELECT id, url, label FROM competitor_urls WHERE product_id = ? AND url = ? ORDER BY created_at DESC LIMIT 1",
@@ -258,11 +285,14 @@ public class CompetitorController {
               request.url);
 
       if (newRecord.isEmpty()) {
+        logger.error("addCompetitor: Failed to retrieve inserted competitor record");
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
             .body(Map.of("error", "Failed to create competitor record"));
       }
 
       Map<String, Object> record = newRecord.get(0);
+      logger.info("addCompetitor: Retrieved competitor record with ID: {}", record.get("id"));
+
       CompetitorDto competitor =
           new CompetitorDto(
               String.valueOf(record.get("id")),
@@ -276,13 +306,36 @@ public class CompetitorController {
       // Audit log the competitor addition
       competitorAuditService.logCompetitorAdded(shopId, request.url, label);
 
-      logger.info("Added competitor {} for shop {}", request.url, shopId);
+      logger.info(
+          "addCompetitor: Successfully added competitor {} for shop {}", request.url, shopId);
       return ResponseEntity.ok(competitor);
 
     } catch (Exception e) {
-      logger.error("Error adding competitor: {}", e.getMessage(), e);
+      logger.error(
+          "addCompetitor: Unexpected error for shop {} with URL {}: {}",
+          shopId,
+          request.url,
+          e.getMessage(),
+          e);
+
+      // Provide more specific error messages based on exception type
+      String errorMessage = "Failed to add competitor";
+      if (e.getMessage() != null) {
+        if (e.getMessage().contains("duplicate key")
+            || e.getMessage().contains("unique constraint")) {
+          errorMessage = "This competitor URL is already being tracked";
+        } else if (e.getMessage().contains("foreign key")
+            || e.getMessage().contains("product_id")) {
+          errorMessage = "Invalid product reference. Please refresh the page and try again.";
+        } else if (e.getMessage().contains("connection") || e.getMessage().contains("database")) {
+          errorMessage = "Database connection issue. Please try again in a moment.";
+        } else {
+          errorMessage = "Failed to add competitor: " + e.getMessage();
+        }
+      }
+
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-          .body(Map.of("error", "Failed to add competitor: " + e.getMessage()));
+          .body(Map.of("error", errorMessage));
     }
   }
 
