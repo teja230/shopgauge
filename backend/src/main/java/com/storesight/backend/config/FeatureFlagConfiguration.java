@@ -175,6 +175,9 @@ public class FeatureFlagConfiguration {
     private boolean heartbeatMonitoring = true;
     private boolean performanceMetrics = true;
 
+    // New flag to control SSE functionality
+    private boolean enabled = false;
+
     // Getters and setters
     public boolean isEventBatching() {
       return eventBatching;
@@ -238,6 +241,14 @@ public class FeatureFlagConfiguration {
 
     public void setPerformanceMetrics(boolean performanceMetrics) {
       this.performanceMetrics = performanceMetrics;
+    }
+
+    public boolean isEnabled() {
+      return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+      this.enabled = enabled;
     }
   }
 
@@ -320,6 +331,17 @@ public class FeatureFlagConfiguration {
     private boolean databaseMonitoring = true;
     private boolean customMetrics = true;
 
+    // New flags for memory-intensive monitoring services
+    private boolean scheduledSystemResourceMonitoring = false;
+    private boolean scheduledDashboardCollection = false;
+    private boolean scheduledPerformanceMetrics = false;
+    private boolean scheduledDatabaseMonitoring = false;
+    private boolean scheduledRedisMonitoring = false;
+    private boolean scheduledAlerting = false;
+    private boolean scheduledCacheCleanup = false;
+    private boolean scheduledSessionCleanup = false;
+    private boolean scheduledSseCleanup = false;
+
     // Getters and setters
     public boolean isEnhancedMetrics() {
       return enhancedMetrics;
@@ -383,6 +405,79 @@ public class FeatureFlagConfiguration {
 
     public void setCustomMetrics(boolean customMetrics) {
       this.customMetrics = customMetrics;
+    }
+
+    // New getters and setters for scheduled monitoring
+    public boolean isScheduledSystemResourceMonitoring() {
+      return scheduledSystemResourceMonitoring;
+    }
+
+    public void setScheduledSystemResourceMonitoring(boolean scheduledSystemResourceMonitoring) {
+      this.scheduledSystemResourceMonitoring = scheduledSystemResourceMonitoring;
+    }
+
+    public boolean isScheduledDashboardCollection() {
+      return scheduledDashboardCollection;
+    }
+
+    public void setScheduledDashboardCollection(boolean scheduledDashboardCollection) {
+      this.scheduledDashboardCollection = scheduledDashboardCollection;
+    }
+
+    public boolean isScheduledPerformanceMetrics() {
+      return scheduledPerformanceMetrics;
+    }
+
+    public void setScheduledPerformanceMetrics(boolean scheduledPerformanceMetrics) {
+      this.scheduledPerformanceMetrics = scheduledPerformanceMetrics;
+    }
+
+    public boolean isScheduledDatabaseMonitoring() {
+      return scheduledDatabaseMonitoring;
+    }
+
+    public void setScheduledDatabaseMonitoring(boolean scheduledDatabaseMonitoring) {
+      this.scheduledDatabaseMonitoring = scheduledDatabaseMonitoring;
+    }
+
+    public boolean isScheduledRedisMonitoring() {
+      return scheduledRedisMonitoring;
+    }
+
+    public void setScheduledRedisMonitoring(boolean scheduledRedisMonitoring) {
+      this.scheduledRedisMonitoring = scheduledRedisMonitoring;
+    }
+
+    public boolean isScheduledAlerting() {
+      return scheduledAlerting;
+    }
+
+    public void setScheduledAlerting(boolean scheduledAlerting) {
+      this.scheduledAlerting = scheduledAlerting;
+    }
+
+    public boolean isScheduledCacheCleanup() {
+      return scheduledCacheCleanup;
+    }
+
+    public void setScheduledCacheCleanup(boolean scheduledCacheCleanup) {
+      this.scheduledCacheCleanup = scheduledCacheCleanup;
+    }
+
+    public boolean isScheduledSessionCleanup() {
+      return scheduledSessionCleanup;
+    }
+
+    public void setScheduledSessionCleanup(boolean scheduledSessionCleanup) {
+      this.scheduledSessionCleanup = scheduledSessionCleanup;
+    }
+
+    public boolean isScheduledSseCleanup() {
+      return scheduledSseCleanup;
+    }
+
+    public void setScheduledSseCleanup(boolean scheduledSseCleanup) {
+      this.scheduledSseCleanup = scheduledSseCleanup;
     }
   }
 

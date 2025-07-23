@@ -25,6 +25,7 @@ import {
   BugReport as BugIcon,
   Close as CloseIcon,
   Speed as SpeedIcon,
+  Memory as MemoryIcon,
 } from '@mui/icons-material';
 import { useAdminNavigation } from '../../context/AdminNavigationContext';
 import { useKeyboardNavigation, useFocusAnnouncement } from '../../hooks/useKeyboardNavigation';
@@ -114,6 +115,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
       label: 'Settings',
       icon: <SettingsIcon />,
       children: [
+        { id: 'memory-optimization', label: 'Memory Optimization', icon: <MemoryIcon />, path: '/admin/memory-optimization' },
         { id: 'debug-panel', label: 'Debug Panel', icon: <BugIcon />, path: '/admin/debug' },
         { id: 'system-configuration', label: 'System Configuration', icon: <SettingsIcon />, path: '/admin/config' },
       ],

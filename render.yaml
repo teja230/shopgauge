@@ -122,6 +122,28 @@ services:
       - key: SMS_NOTIFICATIONS_ENABLED
         value: "true"
       
+      # Memory Optimization Feature Flags - Disabled by default for 512MB plan
+      - key: FEATURE_SSE_ENABLED
+        value: "false"
+      - key: FEATURE_SCHEDULED_SYSTEM_RESOURCE_MONITORING
+        value: "false"
+      - key: FEATURE_SCHEDULED_DASHBOARD_COLLECTION
+        value: "false"
+      - key: FEATURE_SCHEDULED_PERFORMANCE_METRICS
+        value: "false"
+      - key: FEATURE_SCHEDULED_DATABASE_MONITORING
+        value: "false"
+      - key: FEATURE_SCHEDULED_REDIS_MONITORING
+        value: "false"
+      - key: FEATURE_SCHEDULED_ALERTING
+        value: "false"
+      - key: FEATURE_SCHEDULED_CACHE_CLEANUP
+        value: "false"
+      - key: FEATURE_SCHEDULED_SESSION_CLEANUP
+        value: "false"
+      - key: FEATURE_SCHEDULED_SSE_CLEANUP
+        value: "false"
+      
       # Logging Configuration (Enhanced for debugging)
       - key: LOGGING_LEVEL_ROOT
         value: "INFO"

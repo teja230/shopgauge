@@ -3,6 +3,7 @@ package com.storesight.backend.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.storesight.backend.model.ShopSession;
 import com.storesight.backend.service.AdminAuthService;
+import com.storesight.backend.service.FeatureFlagService;
 import com.storesight.backend.service.ShopService;
 import com.storesight.backend.service.SseService;
 import jakarta.servlet.http.Cookie;
@@ -36,6 +37,8 @@ public class SessionManagementController {
   private final RedisTemplate<String, String> redisTemplate;
   private final SseService sseService;
   private final AdminAuthService adminAuthService;
+
+  @Autowired private FeatureFlagService featureFlagService;
 
   private static final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -1541,6 +1544,23 @@ public class SessionManagementController {
   public SseEmitter subscribeToSessionEvents(
       @PathVariable String shopDomain, HttpServletRequest request) {
     logger.info("SSE connection request for shop: {}", shopDomain);
+
+    // Check if SSE is enabled via feature flag
+    if (!featureFlagService.isSseEnabled()) {
+      logger.info("SSE is disabled via feature flag for shop: {}", shopDomain);
+      SseEmitter emitter = new SseEmitter(120_000L);
+      try {
+        sseService.sendMinimalEvent(
+            emitter,
+            "sse_disabled",
+            "Server-Sent Events are currently disabled. Please use polling instead.",
+            30000);
+      } catch (Exception e) {
+        logger.warn("Error sending SSE disabled message: {}", e.getMessage());
+      }
+      emitter.complete();
+      return emitter;
+    }
 
     // CRITICAL FIX: Validate session before allowing SSE connection
     String sessionId = null;

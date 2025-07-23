@@ -32,6 +32,8 @@ public class SystemResourceMonitoringService {
 
   @Autowired private MetricsCollectionService metricsCollectionService;
 
+  @Autowired private FeatureFlagService featureFlagService;
+
   // Resource usage thresholds
   private static final double HIGH_CPU_THRESHOLD = 80.0;
   private static final double CRITICAL_CPU_THRESHOLD = 95.0;
@@ -561,6 +563,12 @@ public class SystemResourceMonitoringService {
       fixedRateString = "${storesight.monitoring.system-resources-interval:PT2H}",
       initialDelayString = "${storesight.monitoring.system-resources-startup-delay:PT10M}")
   public void monitorSystemResources() {
+    // Check if scheduled system resource monitoring is enabled
+    if (!featureFlagService.isScheduledSystemResourceMonitoringEnabled()) {
+      logger.debug("Scheduled system resource monitoring is disabled via feature flag");
+      return;
+    }
+
     try {
       Map<String, Object> stats = getSystemResourceStatistics();
 

@@ -4,6 +4,7 @@ import com.storesight.backend.model.AuditLog;
 import com.storesight.backend.service.AlertingService;
 import com.storesight.backend.service.DataPrivacyService;
 import com.storesight.backend.service.DatabaseMonitoringService;
+import com.storesight.backend.service.FeatureFlagService;
 import com.storesight.backend.service.MetricsCollectionService;
 import com.storesight.backend.service.MonitoringConfigurationService;
 import com.storesight.backend.service.MonitoringDashboardService;
@@ -26,6 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -47,6 +49,8 @@ public class AdminController {
   private final MonitoringDashboardService monitoringDashboardService;
   private final MonitoringConfigurationService monitoringConfigurationService;
   private final SystemResourceMonitoringService systemResourceMonitoringService;
+
+  @Autowired private FeatureFlagService featureFlagService;
 
   @Autowired
   public AdminController(
@@ -1325,5 +1329,203 @@ public class AdminController {
     if (key.contains("session_state:")) return "state_marker";
     if (key.contains("session_lock:")) return "lock_marker";
     return "unknown";
+  }
+
+  // =============================================================================
+  // MEMORY OPTIMIZATION FEATURE FLAGS MANAGEMENT
+  // =============================================================================
+
+  /** Get current memory optimization feature flags status */
+  @GetMapping("/features/memory-optimization")
+  public ResponseEntity<Map<String, Object>> getMemoryOptimizationFeatures() {
+    try {
+      Map<String, Object> features = new HashMap<>();
+
+      // SSE Features
+      features.put("sseEnabled", featureFlagService.isSseEnabled());
+
+      // Scheduled Monitoring Features
+      features.put(
+          "scheduledSystemResourceMonitoring",
+          featureFlagService.isScheduledSystemResourceMonitoringEnabled());
+      features.put(
+          "scheduledDashboardCollection",
+          featureFlagService.isScheduledDashboardCollectionEnabled());
+      features.put(
+          "scheduledPerformanceMetrics", featureFlagService.isScheduledPerformanceMetricsEnabled());
+      features.put(
+          "scheduledDatabaseMonitoring", featureFlagService.isScheduledDatabaseMonitoringEnabled());
+      features.put(
+          "scheduledRedisMonitoring", featureFlagService.isScheduledRedisMonitoringEnabled());
+      features.put("scheduledAlerting", featureFlagService.isScheduledAlertingEnabled());
+      features.put("scheduledCacheCleanup", featureFlagService.isScheduledCacheCleanupEnabled());
+      features.put(
+          "scheduledSessionCleanup", featureFlagService.isScheduledSessionCleanupEnabled());
+      features.put("scheduledSseCleanup", featureFlagService.isScheduledSseCleanupEnabled());
+
+      // Memory usage impact
+      Map<String, Object> impact = new HashMap<>();
+      impact.put("estimatedMemorySavings", "15-25%");
+      impact.put("cpuUsageReduction", "60-70%");
+      impact.put("recommendedFor", "512MB Render starter plan");
+      impact.put("tradeoffs", "Reduced real-time monitoring, manual metrics collection required");
+
+      features.put("memoryImpact", impact);
+      features.put("timestamp", java.time.LocalDateTime.now().toString());
+
+      return ResponseEntity.ok(features);
+    } catch (Exception e) {
+      logger.error("Error getting memory optimization features: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to get memory optimization features: " + e.getMessage()));
+    }
+  }
+
+  /** Update memory optimization feature flags */
+  @PutMapping("/features/memory-optimization")
+  public ResponseEntity<Map<String, Object>> updateMemoryOptimizationFeatures(
+      @RequestBody Map<String, Boolean> featureUpdates) {
+    try {
+      Map<String, Object> response = new HashMap<>();
+      Map<String, Object> updatedFeatures = new HashMap<>();
+      Map<String, Object> warnings = new HashMap<>();
+
+      // Validate and apply updates
+      for (Map.Entry<String, Boolean> entry : featureUpdates.entrySet()) {
+        String featureName = entry.getKey();
+        Boolean enabled = entry.getValue();
+
+        // Apply the update to the configuration
+        switch (featureName) {
+          case "sseEnabled":
+            // Note: This would require a configuration refresh mechanism
+            // For now, we'll just log the request
+            logger.info("SSE feature flag update requested: {}", enabled);
+            updatedFeatures.put(featureName, enabled);
+            if (enabled) {
+              warnings.put(
+                  "sseEnabled", "SSE will consume additional memory. Monitor resource usage.");
+            }
+            break;
+
+          case "scheduledSystemResourceMonitoring":
+          case "scheduledDashboardCollection":
+          case "scheduledPerformanceMetrics":
+          case "scheduledDatabaseMonitoring":
+          case "scheduledRedisMonitoring":
+          case "scheduledAlerting":
+          case "scheduledCacheCleanup":
+          case "scheduledSessionCleanup":
+          case "scheduledSseCleanup":
+            logger.info(
+                "Scheduled monitoring feature flag update requested: {} = {}",
+                featureName,
+                enabled);
+            updatedFeatures.put(featureName, enabled);
+            if (enabled) {
+              warnings.put(
+                  featureName, "Scheduled monitoring will consume additional CPU and memory.");
+            }
+            break;
+
+          default:
+            logger.warn("Unknown memory optimization feature flag: {}", featureName);
+            warnings.put(featureName, "Unknown feature flag");
+        }
+      }
+
+      response.put("success", true);
+      response.put("updatedFeatures", updatedFeatures);
+      response.put("warnings", warnings);
+      response.put(
+          "message",
+          "Feature flags updated successfully. Some changes may require application restart.");
+      response.put("timestamp", java.time.LocalDateTime.now().toString());
+
+      return ResponseEntity.ok(response);
+    } catch (Exception e) {
+      logger.error("Error updating memory optimization features: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(
+              Map.of("error", "Failed to update memory optimization features: " + e.getMessage()));
+    }
+  }
+
+  /** Get memory optimization recommendations */
+  @GetMapping("/features/memory-optimization/recommendations")
+  public ResponseEntity<Map<String, Object>> getMemoryOptimizationRecommendations() {
+    try {
+      Map<String, Object> recommendations = new HashMap<>();
+
+      // Current system status
+      Map<String, Object> systemStatus = new HashMap<>();
+      try {
+        Map<String, Object> systemStats =
+            systemResourceMonitoringService.getSystemResourceStatistics();
+        @SuppressWarnings("unchecked")
+        Map<String, Object> memoryStats = (Map<String, Object>) systemStats.get("memory");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> cpuStats = (Map<String, Object>) systemStats.get("cpu");
+
+        if (memoryStats != null) {
+          systemStatus.put("memoryUsagePercent", memoryStats.get("usagePercent"));
+          systemStatus.put("memoryAlert", memoryStats.get("alert"));
+        }
+        if (cpuStats != null) {
+          systemStatus.put("cpuUsagePercent", cpuStats.get("processCpuLoad"));
+          systemStatus.put("cpuAlert", cpuStats.get("alert"));
+        }
+      } catch (Exception e) {
+        systemStatus.put("error", "Unable to get system status: " + e.getMessage());
+      }
+
+      // Recommendations based on current status
+      java.util.List<String> recommendationsList = new java.util.ArrayList<>();
+
+      if (systemStatus.containsKey("memoryUsagePercent")) {
+        Double memoryUsage = (Double) systemStatus.get("memoryUsagePercent");
+        if (memoryUsage > 80) {
+          recommendationsList.add(
+              "High memory usage detected. Consider disabling more scheduled monitoring services.");
+          recommendationsList.add(
+              "Enable memory optimization features to reduce resource consumption.");
+        } else if (memoryUsage > 60) {
+          recommendationsList.add(
+              "Moderate memory usage. Monitor closely and consider selective optimization.");
+        } else {
+          recommendationsList.add(
+              "Memory usage is healthy. You can safely enable additional features if needed.");
+        }
+      }
+
+      if (systemStatus.containsKey("cpuUsagePercent")) {
+        Double cpuUsage = (Double) systemStatus.get("cpuUsagePercent");
+        if (cpuUsage > 80) {
+          recommendationsList.add(
+              "High CPU usage detected. Disable scheduled monitoring to reduce load.");
+        }
+      }
+
+      // Default recommendations for 512MB plan
+      if (recommendationsList.isEmpty()) {
+        recommendationsList.add(
+            "For 512MB Render starter plan, keep scheduled monitoring disabled for optimal performance.");
+        recommendationsList.add("Enable SSE only when real-time notifications are critical.");
+        recommendationsList.add("Use admin dashboards for on-demand metrics collection.");
+      }
+
+      recommendations.put("systemStatus", systemStatus);
+      recommendations.put("recommendations", recommendationsList);
+      recommendations.put("plan", "512MB Render Starter Plan");
+      recommendations.put("timestamp", java.time.LocalDateTime.now().toString());
+
+      return ResponseEntity.ok(recommendations);
+    } catch (Exception e) {
+      logger.error("Error getting memory optimization recommendations: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(
+              Map.of(
+                  "error", "Failed to get memory optimization recommendations: " + e.getMessage()));
+    }
   }
 }

@@ -446,6 +446,8 @@ async function getProductsIntelligently(): Promise<any[]> {
 
 // Intelligent competitor addition with automatic product syncing
 export async function addCompetitorIntelligent(url: string, productId?: string): Promise<Competitor> {
+  console.log('addCompetitorIntelligent: Starting with URL:', url, 'productId:', productId);
+  
   try {
     // If no productId provided, try to get products and use the first one
     let finalProductId = productId;
@@ -457,48 +459,96 @@ export async function addCompetitorIntelligent(url: string, productId?: string):
       if (products.length > 0) {
         finalProductId = products[0].id?.toString();
         console.log('Using first available product:', finalProductId);
+      } else {
+        console.warn('No products found - this may cause PRODUCTS_SYNC_NEEDED error');
       }
     }
     
-    // Attempt to add competitor
-  const res = await fetch(`${API_BASE_URL}/api/competitors`, {
-    ...defaultOptions,
-    method: 'POST',
-      body: JSON.stringify({ url, productId: finalProductId }),
-  });
+    // Prepare request payload
+    const payload = { url: url.trim(), productId: finalProductId || '' };
+    console.log('addCompetitorIntelligent: Sending payload:', payload);
     
-  return handleResponse<Competitor>(res);
+    // Use fetchWithAuth for proper authentication handling
+    const response = await fetchWithAuth('/api/competitors', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+    
+    console.log('addCompetitorIntelligent: Response status:', response.status);
+    
+    if (!response.ok) {
+      let errorData;
+      try {
+        errorData = await response.json();
+      } catch (e) {
+        errorData = { error: `HTTP ${response.status}` };
+      }
+      
+      console.error('addCompetitorIntelligent: Error response:', errorData);
+      
+      // Handle specific error cases
+      if (response.status === 412 || errorData.error === 'PRODUCTS_SYNC_NEEDED') {
+        const userError = new Error('Please visit your Dashboard first to sync your product catalog, then try adding competitors again.');
+        (userError as any).userFriendly = true;
+        (userError as any).needsProductSync = true;
+        throw userError;
+      }
+      
+      if (response.status === 400) {
+        const errorMessage = errorData.error || errorData.message || 'Invalid request';
+        if (errorMessage.includes('already being tracked')) {
+          throw new Error('This competitor is already being tracked for your products.');
+        }
+        if (errorMessage.includes('limit')) {
+          throw new Error('You have reached your competitor tracking limit for your current plan.');
+        }
+        throw new Error(errorMessage);
+      }
+      
+      if (response.status === 401) {
+        throw new Error('Authentication required. Please refresh the page and try again.');
+      }
+      
+      if (response.status === 429) {
+        throw new Error('Too many requests. Please wait a moment before trying again.');
+      }
+      
+      if (response.status >= 500) {
+        throw new Error('Service temporarily unavailable. Please try again in a few moments.');
+      }
+      
+      // Generic error
+      const errorMessage = errorData.error || errorData.message || `Request failed with status ${response.status}`;
+      throw new Error(errorMessage);
+    }
+    
+    const competitor = await response.json();
+    console.log('addCompetitorIntelligent: Success, received competitor:', competitor);
+    return competitor;
+    
   } catch (error: any) {
-    // Enhanced error handling to prevent raw JSON display
-    console.error('addCompetitorIntelligent error:', error);
+    console.error('addCompetitorIntelligent: Caught error:', error);
     
-    // Check for specific error types and provide user-friendly messages
-    if (error.response?.status === 412 || error.response?.data?.error === 'PRODUCTS_SYNC_NEEDED') {
-      // Don't throw an error that would trigger redirects - just return a user-friendly error
-      const userError = new Error('Please visit your Dashboard first to sync your product catalog, then try adding competitors again.');
-      (userError as any).userFriendly = true;
-      (userError as any).needsProductSync = true;
-      throw userError;
+    // Re-throw user-friendly errors as-is
+    if (error.userFriendly || error.needsProductSync) {
+      throw error;
     }
     
-    if (error.response?.status === 400) {
-      const errorMessage = error.response?.data?.message || error.message;
-      if (errorMessage.includes('already being tracked')) {
-        throw new Error('This competitor is already being tracked for your products.');
-      }
-      throw new Error(errorMessage || 'Invalid competitor URL. Please check the URL and try again.');
+    // Handle network errors
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      throw new Error('Network error. Please check your connection and try again.');
     }
     
-    if (error.response?.status === 401) {
-      throw new Error('Authentication required. Please log in again.');
+    // Handle authentication errors
+    if (error.message.includes('Authentication required') || error.message.includes('401')) {
+      throw new Error('Authentication required. Please refresh the page and try again.');
     }
     
-    if (error.response?.status >= 500) {
-      throw new Error('Service temporarily unavailable. Please try again in a few moments.');
-    }
-    
-    // Generic fallback for any other errors
-    const fallbackMessage = error.response?.data?.message || error.message || 'Failed to add competitor. Please try again.';
+    // Generic fallback
+    const fallbackMessage = error.message || 'Failed to add competitor. Please try again.';
     throw new Error(fallbackMessage);
   }
 }

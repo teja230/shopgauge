@@ -888,14 +888,26 @@ export default function CompetitorsPage() {
       // Enhanced error handling with user-friendly messages
       let userMessage = 'Failed to add competitor. Please try again.';
       let needsProductSync = false;
+      let isAuthError = false;
       
       // Check for specific error conditions
-      if (error?.response?.status === 412 || 
-          error?.response?.data?.error === 'PRODUCTS_SYNC_NEEDED' ||
-          error?.needsProductSync) {
+      if (error?.needsProductSync || 
+          error?.message?.includes('sync your product catalog')) {
         userMessage = 'Syncing your product catalog... Please try adding the competitor again in a moment.';
         needsProductSync = true;
-      } else if (error.message) {
+      } else if (error?.message?.includes('Authentication required') || 
+                 error?.message?.includes('refresh the page')) {
+        userMessage = 'Session expired. Please refresh the page and try again.';
+        isAuthError = true;
+      } else if (error?.message?.includes('already being tracked')) {
+        userMessage = 'This competitor is already being tracked for your products.';
+      } else if (error?.message?.includes('limit')) {
+        userMessage = 'You have reached your competitor tracking limit. Please upgrade your plan to add more competitors.';
+      } else if (error?.message?.includes('Network error')) {
+        userMessage = 'Network connection issue. Please check your internet and try again.';
+      } else if (error?.message?.includes('Service temporarily unavailable')) {
+        userMessage = 'Service is temporarily unavailable. Please try again in a few moments.';
+      } else if (error.message && !error.message.includes('{') && !error.message.includes('}')) {
         userMessage = error.message;
       }
       
@@ -905,8 +917,14 @@ export default function CompetitorsPage() {
         needsProductSync = true;
       }
       
-      // If product sync is needed, trigger it automatically
-      if (needsProductSync) {
+      // Handle different error types appropriately
+      if (isAuthError) {
+        notifications.showError(userMessage, {
+          category: 'Authentication',
+          persistent: true
+        });
+        // Don't auto-refresh to avoid infinite loops, let user manually refresh
+      } else if (needsProductSync) {
         // Trigger product sync in background with better feedback
         notifications.showInfo('Syncing your product catalog in the background...', {
             category: 'Competitors',
@@ -933,10 +951,20 @@ export default function CompetitorsPage() {
             };
             sessionStorage.setItem('dashboard_cache_v2', JSON.stringify(cacheData));
             console.log('Updated dashboard cache with fresh product data');
+            
+            // Show success message after sync
+            notifications.showSuccess('Product catalog synced. You can now try adding competitors again.', {
+              category: 'Competitors',
+              persistent: false
+            });
         }
         })
         .catch(error => {
           console.error('Background product sync failed:', error);
+          notifications.showError('Failed to sync product catalog. Please visit your Dashboard first.', {
+            category: 'Competitors',
+            persistent: false
+          });
         });
         
         notifications.showInfo(userMessage, {

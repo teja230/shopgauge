@@ -36,6 +36,8 @@ public class MonitoringDashboardService {
   @Autowired private EnhancedRedisService enhancedRedisService;
   @Autowired private AlertingService alertingService;
 
+  @Autowired private FeatureFlagService featureFlagService;
+
   // Dashboard data storage
   private final ConcurrentHashMap<String, List<Map<String, Object>>> dashboardData =
       new ConcurrentHashMap<>();
@@ -64,6 +66,12 @@ public class MonitoringDashboardService {
       fixedRateString = "${storesight.monitoring.dashboard-collection-interval:PT4H}",
       initialDelayString = "${storesight.monitoring.dashboard-startup-delay:PT25M}")
   public void collectMonitoringData() {
+    // Check if scheduled dashboard collection is enabled
+    if (!featureFlagService.isScheduledDashboardCollectionEnabled()) {
+      logger.debug("Scheduled dashboard collection is disabled via feature flag");
+      return;
+    }
+
     try {
       logger.debug("Collecting monitoring data for dashboards");
 
