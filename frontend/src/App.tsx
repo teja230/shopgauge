@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, Suspense, lazy } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -20,10 +20,7 @@ import { CssBaseline } from '@mui/material';
 import theme from './theme';
 import IntelligentLoadingScreen from './components/ui/IntelligentLoadingScreen';
 import CommandPalette from './components/CommandPalette';
-import { debugLog } from './components/ui/DebugPanel';
-
-// Lazy load DebugPanel to avoid initialization conflicts
-const DebugPanel = lazy(() => import('./components/ui/DebugPanel').then(module => ({ default: module.DebugPanel })));
+import { DebugPanel, debugLog } from './components/ui/DebugPanel';
 import { sessionManager, getSessionStatus } from './utils/sessionUtils';
 import SessionLimitDialog from './components/ui/SessionLimitDialog';
 import useSessionLimit from './hooks/useSessionLimit';
@@ -305,12 +302,10 @@ const AppContent: React.FC = () => {
       <RouteErrorCleaner />
       <NavBar />
       <PrivacyBanner />
-      <Suspense fallback={<div>Loading debug panel...</div>}>
-        <DebugPanel 
-          isVisible={showDebugPanel} 
-          onToggleVisibility={setShowDebugPanel} 
-        />
-      </Suspense>
+      <DebugPanel 
+        isVisible={showDebugPanel} 
+        onToggleVisibility={setShowDebugPanel} 
+      />
       
       {/* Session Limit Management Dialog */}
       <SessionLimitDialog
