@@ -17,8 +17,7 @@ import SessionManagementTools from './SessionManagementTools';
 import ModernDataTable from './ModernDataTable';
 import RefreshHeader from './RefreshHeader';
 
-// Import DebugPanel directly since it's available globally
-import { DebugPanel } from './DebugPanel';
+
 
 // Loading fallback component
 const LoadingFallback = ({ title }: { title: string }) => (
@@ -816,12 +815,15 @@ const AdminRouter = React.memo<AdminRouterProps>(({
 
       case 'debug-panel':
         return (
-          <Suspense fallback={<LoadingFallback title="Debug Panel" />}>
-            <DebugPanel 
-              isVisible={true}
-              onToggleVisibility={() => {}}
-            />
-          </Suspense>
+          <Box sx={{ p: 3, bgcolor: 'background.paper', borderRadius: 2, border: 1, borderColor: 'divider' }}>
+            <Typography variant="h5" gutterBottom>
+              Debug Panel
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Debug panel is available globally through the main application interface.
+              Use the debug panel toggle in the main navigation to access debugging features.
+            </Typography>
+          </Box>
         );
 
       case 'system-configuration':
