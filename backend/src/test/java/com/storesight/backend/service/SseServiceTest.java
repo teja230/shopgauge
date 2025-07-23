@@ -49,15 +49,16 @@ class SseServiceTest {
       java.lang.reflect.Field configField = SseService.class.getDeclaredField("config");
       configField.setAccessible(true);
       configField.set(sseService, config);
-      
+
       // Inject the featureFlagService dependency
-      java.lang.reflect.Field featureFlagField = SseService.class.getDeclaredField("featureFlagService");
+      java.lang.reflect.Field featureFlagField =
+          SseService.class.getDeclaredField("featureFlagService");
       featureFlagField.setAccessible(true);
       featureFlagField.set(sseService, featureFlagService);
     } catch (Exception e) {
       throw new RuntimeException("Failed to inject dependencies", e);
     }
-    
+
     // Set up default feature flag behavior
     when(featureFlagService.isScheduledSseCleanupEnabled()).thenReturn(true);
   }
