@@ -20,7 +20,7 @@ import { CssBaseline } from '@mui/material';
 import theme from './theme';
 import IntelligentLoadingScreen from './components/ui/IntelligentLoadingScreen';
 import CommandPalette from './components/CommandPalette';
-import { DebugPanel, debugLog } from './components/ui/DebugPanel';
+import { debugLog } from './components/ui/DebugPanel';
 import { sessionManager, getSessionStatus } from './utils/sessionUtils';
 import SessionLimitDialog from './components/ui/SessionLimitDialog';
 import useSessionLimit from './hooks/useSessionLimit';
@@ -93,7 +93,7 @@ const AppContent: React.FC = () => {
   const { isAuthenticated, authLoading, loading, hasInitiallyLoaded, shop } = useAuth();
   const { handleServiceError } = useServiceStatus();
   const { addNotification } = useNotifications();
-  const [showDebugPanel, setShowDebugPanel] = React.useState(false);
+
   
   // Session limit management
   const {
@@ -302,10 +302,7 @@ const AppContent: React.FC = () => {
       <RouteErrorCleaner />
       <NavBar />
       <PrivacyBanner />
-      <DebugPanel 
-        isVisible={showDebugPanel} 
-        onToggleVisibility={setShowDebugPanel} 
-      />
+
       
       {/* Session Limit Management Dialog */}
       <SessionLimitDialog
