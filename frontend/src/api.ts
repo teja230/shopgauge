@@ -529,7 +529,7 @@ export async function addCompetitorIntelligent(url: string, productId?: string):
       
       // Handle specific error cases
       if (response.status === 412 || errorData.error === 'PRODUCTS_SYNC_NEEDED') {
-        const userError = new Error('Please visit your Dashboard first to sync your product catalog, then try adding competitors again.');
+        const userError = new Error('Your product catalog needs to be synchronized. Please visit your Dashboard first, then try adding competitors again.');
         (userError as any).userFriendly = true;
         (userError as any).needsProductSync = true;
         throw userError;
@@ -538,16 +538,16 @@ export async function addCompetitorIntelligent(url: string, productId?: string):
       if (response.status === 400) {
         const errorMessage = errorData.error || errorData.message || 'Invalid request';
         if (errorMessage.includes('already being tracked')) {
-          throw new Error('This competitor is already being tracked for your products.');
+          throw new Error('This competitor is already being monitored for your products.');
         }
         if (errorMessage.includes('limit')) {
-          throw new Error('You have reached your competitor tracking limit for your current plan.');
+          throw new Error('You have reached your competitor monitoring limit for your current plan.');
         }
         throw new Error(errorMessage);
       }
       
       if (response.status === 401) {
-        throw new Error('Authentication required. Please refresh the page and try again.');
+        throw new Error('Your session has expired. Please refresh the page and try again.');
       }
       
       if (response.status === 429) {
@@ -555,7 +555,7 @@ export async function addCompetitorIntelligent(url: string, productId?: string):
       }
       
       if (response.status >= 500) {
-        throw new Error('Service temporarily unavailable. Please try again in a few moments.');
+        throw new Error('Our service is temporarily unavailable. Please try again in a few moments.');
       }
       
       // Generic error
@@ -577,16 +577,16 @@ export async function addCompetitorIntelligent(url: string, productId?: string):
     
     // Handle network errors
     if (error.name === 'TypeError' && error.message.includes('fetch')) {
-      throw new Error('Network error. Please check your connection and try again.');
+      throw new Error('Connection issue detected. Please check your internet connection and try again.');
     }
     
     // Handle authentication errors
     if (error.message.includes('Authentication required') || error.message.includes('401')) {
-      throw new Error('Authentication required. Please refresh the page and try again.');
+      throw new Error('Your session has expired. Please refresh the page and try again.');
     }
     
     // Generic fallback
-    const fallbackMessage = error.message || 'Failed to add competitor. Please try again.';
+    const fallbackMessage = error.message || 'Unable to add competitor at this time. Please try again.';
     throw new Error(fallbackMessage);
   }
 }

@@ -808,7 +808,7 @@ export default function CompetitorsPage() {
           lastChecked: new Date().toISOString()
         };
         setCompetitors((prev) => [...prev, newCompetitor]);
-        notifications.showSuccess('Demo competitor added', {
+        notifications.showSuccess('Demo competitor added successfully', {
           category: 'Competitors'
         });
       } else {
@@ -888,7 +888,7 @@ export default function CompetitorsPage() {
             category: 'Competitors'
           });
         } else {
-          notifications.showSuccess('Competitor added successfully!', {
+          notifications.showSuccess('Competitor monitoring started successfully!', {
             category: 'Competitors'
           });
         }
@@ -911,7 +911,7 @@ export default function CompetitorsPage() {
       console.error('handleAdd error:', error);
       
       // Enhanced error handling with user-friendly messages
-      let userMessage = 'Failed to add competitor. Please try again.';
+      let userMessage = 'Unable to add competitor at this time. Please try again.';
       let needsProductSync = false;
       let isAuthError = false;
       let isValidationError = false;
@@ -919,20 +919,20 @@ export default function CompetitorsPage() {
       // Check for specific error conditions
       if (error?.needsProductSync || 
           error?.message?.includes('sync your product catalog')) {
-        userMessage = 'Syncing your product catalog... Please try adding the competitor again in a moment.';
+        userMessage = 'Your product catalog needs to be synchronized. Please visit your Dashboard first, then try adding the competitor again.';
         needsProductSync = true;
       } else if (error?.message?.includes('Authentication required') || 
                  error?.message?.includes('refresh the page')) {
-        userMessage = 'Session expired. Please refresh the page and try again.';
+        userMessage = 'Your session has expired. Please refresh the page and try again.';
         isAuthError = true;
       } else if (error?.message?.includes('already being tracked')) {
-        userMessage = 'This competitor is already being tracked for your products.';
+        userMessage = 'This competitor is already being monitored for your products.';
       } else if (error?.message?.includes('limit')) {
-        userMessage = 'You have reached your competitor tracking limit. Please upgrade your plan to add more competitors.';
+        userMessage = 'You have reached your competitor monitoring limit. Please upgrade your plan to add more competitors.';
       } else if (error?.message?.includes('Network error')) {
-        userMessage = 'Network connection issue. Please check your internet and try again.';
+        userMessage = 'Connection issue detected. Please check your internet connection and try again.';
       } else if (error?.message?.includes('Service temporarily unavailable')) {
-        userMessage = 'Service is temporarily unavailable. Please try again in a few moments.';
+        userMessage = 'Our service is temporarily unavailable. Please try again in a few moments.';
       } else if (error?.message?.includes('Invalid URL') || 
                  error?.message?.includes('Unsupported platform') ||
                  error?.message?.includes('Please enter a valid URL') ||
@@ -967,7 +967,7 @@ export default function CompetitorsPage() {
         // Don't auto-refresh to avoid infinite loops, let user manually refresh
       } else if (needsProductSync) {
         // Trigger product sync in background with better feedback
-        notifications.showInfo('Syncing your product catalog in the background...', {
+        notifications.showInfo('Synchronizing your product catalog in the background...', {
             category: 'Competitors',
           persistent: false
         });
@@ -994,7 +994,7 @@ export default function CompetitorsPage() {
             console.log('Updated dashboard cache with fresh product data');
             
             // Show success message after sync
-            notifications.showSuccess('Product catalog synced. You can now try adding competitors again.', {
+            notifications.showSuccess('Product catalog synchronized successfully. You can now add competitors.', {
               category: 'Competitors',
               persistent: false
             });
@@ -1002,7 +1002,7 @@ export default function CompetitorsPage() {
         })
         .catch(error => {
           console.error('Background product sync failed:', error);
-          notifications.showError('Failed to sync product catalog. Please visit your Dashboard first.', {
+          notifications.showError('Unable to synchronize product catalog. Please visit your Dashboard first to refresh your product data.', {
             category: 'Competitors',
             persistent: false
           });
@@ -1035,7 +1035,7 @@ export default function CompetitorsPage() {
     try {
       if (isDemoMode) {
         setCompetitors((prev) => prev.filter((c) => c.id !== id));
-        notifications.showSuccess('Demo competitor removed', {
+        notifications.showSuccess('Demo competitor removed successfully', {
           category: 'Competitors'
         });
         return;
@@ -1048,11 +1048,11 @@ export default function CompetitorsPage() {
       const cacheKey = `competitors_${shop}`;
       cache.delete(cacheKey);
       
-      notifications.showSuccess('Competitor deleted successfully', {
+      notifications.showSuccess('Competitor monitoring stopped successfully', {
         category: 'Competitors'
       });
     } catch {
-      notifications.showError('Failed to delete competitor', {
+      notifications.showError('Unable to stop competitor monitoring. Please try again.', {
         category: 'Competitors'
       });
     }
