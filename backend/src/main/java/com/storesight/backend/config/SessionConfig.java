@@ -25,7 +25,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 @EnableRedisHttpSession(
     maxInactiveIntervalInSeconds = 14400, // 4 hours (aligned with business app standards)
     redisNamespace = "storesight:sessions",
-    saveMode = org.springframework.session.SaveMode.ON_SET_ATTRIBUTE) // Only save when attributes change
+    saveMode =
+        org.springframework.session.SaveMode.ON_SET_ATTRIBUTE) // Only save when attributes change
 public class SessionConfig {
 
   private static final Logger logger = LoggerFactory.getLogger(SessionConfig.class);
@@ -54,21 +55,22 @@ public class SessionConfig {
   }
 
   /**
-   * Custom session event listener to handle session lifecycle events
-   * This helps prevent race conditions during session cleanup
+   * Custom session event listener to handle session lifecycle events This helps prevent race
+   * conditions during session cleanup
    */
   @Bean
   public ApplicationListener<SessionDeletedEvent> sessionDeletedEventListener() {
     return event -> {
       String sessionId = event.getSessionId();
       logger.debug("Session deleted event received for sessionId: {}", sessionId);
-      
+
       // Cleanup any stuck session markers
       try {
         // Add any additional cleanup logic here if needed
         logger.debug("Session cleanup completed for sessionId: {}", sessionId);
       } catch (Exception e) {
-        logger.warn("Error during session cleanup for sessionId: {} - {}", sessionId, e.getMessage());
+        logger.warn(
+            "Error during session cleanup for sessionId: {} - {}", sessionId, e.getMessage());
       }
     };
   }
@@ -120,13 +122,15 @@ public class SessionConfig {
       } catch (IllegalStateException e) {
         // Handle session invalidation errors gracefully
         if (e.getMessage() != null && e.getMessage().contains("Session was invalidated")) {
-          filterLogger.warn("Session invalidation error handled gracefully for path: {} - {}", 
-              request.getRequestURI(), e.getMessage());
+          filterLogger.warn(
+              "Session invalidation error handled gracefully for path: {} - {}",
+              request.getRequestURI(),
+              e.getMessage());
 
           // Always allow the response to complete normally for session invalidation errors
           // This prevents cascading failures during concurrent requests after OAuth
           filterLogger.info(
-              "Session invalidation occurred for path: {} - allowing response to complete normally", 
+              "Session invalidation occurred for path: {} - allowing response to complete normally",
               request.getRequestURI());
           return;
         } else {
@@ -140,7 +144,8 @@ public class SessionConfig {
           if (ise.getMessage() != null && ise.getMessage().contains("Session was invalidated")) {
             filterLogger.warn(
                 "Session invalidation error in ServletException handled gracefully for path: {} - {}",
-                request.getRequestURI(), ise.getMessage());
+                request.getRequestURI(),
+                ise.getMessage());
 
             // Always allow the response to complete normally
             filterLogger.info(
@@ -158,7 +163,8 @@ public class SessionConfig {
         if (e.getMessage() != null && e.getMessage().contains("Session was invalidated")) {
           filterLogger.warn(
               "Session invalidation error in generic exception handled gracefully for path: {} - {}",
-              request.getRequestURI(), e.getMessage());
+              request.getRequestURI(),
+              e.getMessage());
           return;
         } else {
           throw e;
