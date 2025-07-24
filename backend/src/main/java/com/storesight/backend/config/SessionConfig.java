@@ -88,12 +88,9 @@ public class SessionConfig {
   /**
    * Custom session filter to handle session invalidation errors gracefully This prevents the
    * IllegalStateException from bubbling up to the client
+   *
+   * <p>Note: This bean is created in WebSecurityConfig to avoid duplicate bean definitions
    */
-  @Bean
-  public SessionErrorHandlingFilter sessionErrorHandlingFilter() {
-    return new SessionErrorHandlingFilter();
-  }
-
   private boolean isProduction() {
     return "prod".equals(activeProfile) || "production".equals(activeProfile);
   }
