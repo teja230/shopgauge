@@ -7,7 +7,8 @@ import {
   addCompetitor, 
   deleteCompetitor,
   getDebouncedSuggestionCount,
-  refreshSuggestionCount as refreshSuggestionCountAPI
+  refreshSuggestionCount as refreshSuggestionCountAPI,
+  addCompetitorIntelligent
 } from '../api';
 import { marketIntelligenceAPI, type LimitsResponse } from '../api/marketIntelligence';
 import { useAuth } from '../context/AuthContext';
@@ -860,7 +861,7 @@ export default function CompetitorsPage() {
                 }
               } else {
                 console.log('Products API returned status:', response.status);
-      }
+              }
             } catch (error) {
               console.error('Failed to fetch products:', error);
             }
@@ -868,7 +869,7 @@ export default function CompetitorsPage() {
         }
         
         // Add competitor with intelligent product handling
-        newCompetitor = await addCompetitor(url.trim(), finalProductId || '');
+        newCompetitor = await addCompetitorIntelligent(url.trim(), finalProductId);
         setCompetitors((prev) => [...prev, newCompetitor]);
       
         // Clear cache to ensure fresh data on next load
@@ -887,15 +888,25 @@ export default function CompetitorsPage() {
             category: 'Competitors'
           });
         } else {
-          notifications.showSuccess('Competitor added successfully', {
+          notifications.showSuccess('Competitor added successfully!', {
             category: 'Competitors'
           });
         }
+        
+        // Clear form and close after success
+        setUrl('');
+        setProductId('');
+        setShowAddForm(false);
+        
+        // Add a small delay to show success state before clearing
+        setTimeout(() => {
+          // Refresh the competitors list to show the new addition
+          if (shop) {
+            const cacheKey = `competitors_${shop}`;
+            cache.delete(cacheKey);
+          }
+        }, 500);
       }
-      
-      setUrl('');
-      setProductId('');
-      setShowAddForm(false);
     } catch (error: any) {
       console.error('handleAdd error:', error);
       
@@ -1002,10 +1013,18 @@ export default function CompetitorsPage() {
           persistent: false
         });
       } else {
+        // Always show error notification for any unhandled errors
         notifications.showError(userMessage, {
           category: 'Competitors',
           persistent: false
-      });
+        });
+        
+        // Log additional details for debugging
+        console.error('Unhandled competitor addition error:', {
+          error: error,
+          message: error.message,
+          stack: error.stack
+        });
       }
     } finally {
       setIsAdding(false);
@@ -1784,10 +1803,19 @@ export default function CompetitorsPage() {
               {/* Add Competitor Button */}
               <button
                 onClick={() => setShowAddForm(!showAddForm)}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-all shadow-md add-competitor-button"
+                disabled={isAdding}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-md add-competitor-button ${
+                  isAdding 
+                    ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
+                    : 'bg-green-600 text-white hover:bg-green-700'
+                }`}
               >
-                <PlusIcon className="h-4 w-4" />
-                Add
+                {isAdding ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                ) : (
+                  <PlusIcon className="h-4 w-4" />
+                )}
+                {isAdding ? 'Adding...' : 'Add'}
               </button>
             </div>
           </div>
@@ -1803,7 +1831,10 @@ export default function CompetitorsPage() {
                       placeholder="Competitor URL (e.g., https://amazon.com/dp/...)"
                       value={url}
                       onChange={(e) => setUrl(e.target.value)}
-                      className="w-full px-4 py-3 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent outline-none transition"
+                      disabled={isAdding}
+                      className={`w-full px-4 py-3 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent outline-none transition ${
+                        isAdding ? 'bg-gray-100 cursor-not-allowed' : ''
+                      }`}
                       required
                       onFocus={() => setShowUrlTooltip(true)}
                       onBlur={() => setTimeout(() => setShowUrlTooltip(false), 200)}
@@ -1811,7 +1842,8 @@ export default function CompetitorsPage() {
                     <button
                       type="button"
                       onClick={() => setShowUrlTooltip(!showUrlTooltip)}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                      disabled={isAdding}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
                       title="Show supported URL formats"
                     >
                       <InformationCircleIcon className="h-5 w-5" />
@@ -1920,18 +1952,38 @@ export default function CompetitorsPage() {
                   placeholder="Product ID (optional)"
                   value={productId}
                   onChange={(e) => setProductId(e.target.value)}
-                  className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent outline-none transition"
+                  disabled={isAdding}
+                  className={`flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent outline-none transition ${
+                    isAdding ? 'bg-gray-100 cursor-not-allowed' : ''
+                  }`}
                 />
                 <button 
                   type="submit" 
-                  className="bg-green-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-green-700 transition-all shadow-md"
+                  disabled={isAdding}
+                  className={`px-6 py-3 rounded-lg font-medium transition-all shadow-md ${
+                    isAdding 
+                      ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
+                      : 'bg-green-600 text-white hover:bg-green-700'
+                  }`}
                 >
-                  Add
+                  {isAdding ? (
+                    <div className="flex items-center gap-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                      Adding...
+                    </div>
+                  ) : (
+                    'Add'
+                  )}
                 </button>
                 <button 
                   type="button"
                   onClick={() => setShowAddForm(false)}
-                  className="bg-gray-500 text-white px-6 py-3 rounded-lg font-medium hover:bg-gray-600 transition-all"
+                  disabled={isAdding}
+                  className={`px-6 py-3 rounded-lg font-medium transition-all ${
+                    isAdding 
+                      ? 'bg-gray-300 text-gray-400 cursor-not-allowed' 
+                      : 'bg-gray-500 text-white hover:bg-gray-600'
+                  }`}
                 >
                   Cancel
                 </button>
@@ -1941,7 +1993,18 @@ export default function CompetitorsPage() {
         </div>
 
         {/* Competitors Table */}
-        <div className="bg-white rounded-xl shadow overflow-hidden">
+        <div className="bg-white rounded-xl shadow overflow-hidden relative">
+          {/* Loading overlay during competitor addition */}
+          {isAdding && (
+            <div className="absolute inset-0 bg-white bg-opacity-75 z-10 flex items-center justify-center">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
+                <p className="text-gray-600 font-medium">Adding competitor...</p>
+                <p className="text-sm text-gray-500 mt-1">Please wait while we process your request</p>
+              </div>
+            </div>
+          )}
+          
           <div className="p-6 border-b border-gray-200">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">

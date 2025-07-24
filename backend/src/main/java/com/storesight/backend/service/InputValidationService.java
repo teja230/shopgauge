@@ -25,7 +25,8 @@ public class InputValidationService {
   // Enhanced competitor URL patterns (major e-commerce platforms)
   private static final Pattern AMAZON_URL_PATTERN =
       Pattern.compile(
-          "^https?://(?:www\\.)?(?:amazon\\.[a-z]{2,3}(?:\\.[a-z]{2})?|a\\.co)/.*", Pattern.CASE_INSENSITIVE);
+          "^https?://(?:www\\.)?(?:amazon\\.[a-z]{2,3}(?:\\.[a-z]{2})?|a\\.co)/.*",
+          Pattern.CASE_INSENSITIVE);
 
   private static final Pattern SHOPIFY_URL_PATTERN =
       Pattern.compile(
