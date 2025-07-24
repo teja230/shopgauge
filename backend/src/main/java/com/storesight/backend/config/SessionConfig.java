@@ -24,7 +24,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 @Profile("!test")
 @EnableRedisHttpSession(
     maxInactiveIntervalInSeconds = 14400, // 4 hours (aligned with business app standards)
-    redisNamespace = "storesight:sessions")
+    redisNamespace = "storesight:sessions",
+    saveMode = org.springframework.session.SaveMode.ON_SET_ATTRIBUTE) // Only save when attributes change
 public class SessionConfig {
 
   private static final Logger logger = LoggerFactory.getLogger(SessionConfig.class);
@@ -53,17 +54,22 @@ public class SessionConfig {
   }
 
   /**
-   * Custom session event listener to handle session lifecycle events This helps prevent race
-   * conditions during session cleanup
+   * Custom session event listener to handle session lifecycle events
+   * This helps prevent race conditions during session cleanup
    */
   @Bean
   public ApplicationListener<SessionDeletedEvent> sessionDeletedEventListener() {
     return event -> {
       String sessionId = event.getSessionId();
       logger.debug("Session deleted event received for sessionId: {}", sessionId);
-
-      // Note: Additional cleanup can be added here if needed
-      // but we should avoid heavy operations in this listener
+      
+      // Cleanup any stuck session markers
+      try {
+        // Add any additional cleanup logic here if needed
+        logger.debug("Session cleanup completed for sessionId: {}", sessionId);
+      } catch (Exception e) {
+        logger.warn("Error during session cleanup for sessionId: {} - {}", sessionId, e.getMessage());
+      }
     };
   }
 
@@ -114,25 +120,14 @@ public class SessionConfig {
       } catch (IllegalStateException e) {
         // Handle session invalidation errors gracefully
         if (e.getMessage() != null && e.getMessage().contains("Session was invalidated")) {
-          filterLogger.warn("Session invalidation error handled gracefully: {}", e.getMessage());
+          filterLogger.warn("Session invalidation error handled gracefully for path: {} - {}", 
+              request.getRequestURI(), e.getMessage());
 
-          // Check if response has already been committed
-          if (response.isCommitted()) {
-            filterLogger.warn(
-                "Response already committed, cannot write session invalidation error");
-            return;
-          }
-
-          // For session invalidation during response writing, we should NOT return 401
-          // because this happens after successful authentication. Instead, we should
-          // return a 200 response with a warning, or let the response complete normally.
-
-          // Since the response is likely already written successfully, we just log the issue
-          // and don't interfere with the successful response
+          // Always allow the response to complete normally for session invalidation errors
+          // This prevents cascading failures during concurrent requests after OAuth
           filterLogger.info(
-              "Session invalidation occurred after successful response - allowing response to complete normally");
-
-          // Don't write any error response - let the successful response stand
+              "Session invalidation occurred for path: {} - allowing response to complete normally", 
+              request.getRequestURI());
           return;
         } else {
           // Re-throw other IllegalStateExceptions
@@ -144,23 +139,27 @@ public class SessionConfig {
           IllegalStateException ise = (IllegalStateException) e.getCause();
           if (ise.getMessage() != null && ise.getMessage().contains("Session was invalidated")) {
             filterLogger.warn(
-                "Session invalidation error in ServletException handled gracefully: {}",
-                ise.getMessage());
+                "Session invalidation error in ServletException handled gracefully for path: {} - {}",
+                request.getRequestURI(), ise.getMessage());
 
-            // Check if response has already been committed
-            if (response.isCommitted()) {
-              filterLogger.warn(
-                  "Response already committed, cannot write session invalidation error");
-              return;
-            }
-
-            // Same approach - don't interfere with successful responses
+            // Always allow the response to complete normally
             filterLogger.info(
-                "Session invalidation occurred after successful response - allowing response to complete normally");
+                "Session invalidation in ServletException for path: {} - allowing response to complete normally",
+                request.getRequestURI());
             return;
           } else {
             throw e;
           }
+        } else {
+          throw e;
+        }
+      } catch (Exception e) {
+        // Catch any other exceptions that might be related to session issues
+        if (e.getMessage() != null && e.getMessage().contains("Session was invalidated")) {
+          filterLogger.warn(
+              "Session invalidation error in generic exception handled gracefully for path: {} - {}",
+              request.getRequestURI(), e.getMessage());
+          return;
         } else {
           throw e;
         }

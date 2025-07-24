@@ -378,30 +378,41 @@ public class ShopifyAuthController {
       logger.info("Access token obtained for shop: {}", shop);
 
       // Create session more carefully with Redis fallback
+      // For OAuth callback, we'll use a more robust session creation approach
       String sessionId = null;
       boolean sessionCreated = false;
 
       try {
-        // Try to get existing session first
+        // For OAuth callback, always create a fresh session to avoid conflicts
+        // First invalidate any existing session to prevent conflicts
         var existingSession = request.getSession(false);
         if (existingSession != null) {
-          sessionId = existingSession.getId();
-          logger.info("Using existing session - sessionId: {}", sessionId);
-        } else {
-          // Create new session only if needed
-          var newSession = request.getSession(true);
-          sessionId = newSession.getId();
-          sessionCreated = true;
-          logger.info("New session created successfully - sessionId: {}", sessionId);
+          try {
+            logger.info("Invalidating existing session before OAuth: {}", existingSession.getId());
+            existingSession.invalidate();
+          } catch (Exception invalidateError) {
+            logger.warn("Error invalidating existing session: {}", invalidateError.getMessage());
+          }
         }
+        
+        // Create new session for OAuth
+        var newSession = request.getSession(true);
+        sessionId = newSession.getId();
+        sessionCreated = true;
+        logger.info("New OAuth session created successfully - sessionId: {}", sessionId);
+        
+        // Set a marker to indicate this is an OAuth session
+        newSession.setAttribute("oauth_session", true);
+        newSession.setAttribute("shop", shop);
+        
       } catch (Exception sessionError) {
         logger.warn(
-            "Failed to create session (likely Redis issue), using fallback approach: {}",
+            "Failed to create OAuth session (likely Redis issue), using fallback approach: {}",
             sessionError.getMessage());
         // Fallback: use a timestamp-based session ID that doesn't require Redis
-        sessionId = "fallback_" + System.currentTimeMillis() + "_" + Math.abs(shop.hashCode());
+        sessionId = "oauth_" + System.currentTimeMillis() + "_" + Math.abs(shop.hashCode());
         sessionCreated = true;
-        logger.info("Using fallback sessionId: {}", sessionId);
+        logger.info("Using fallback OAuth sessionId: {}", sessionId);
       }
 
       // Validate session ID
@@ -437,9 +448,9 @@ public class ShopifyAuthController {
         logger.info(
             "OAuth session creation completed for shop: {} and session: {}", shop, sessionId);
 
-        // Add a small delay to ensure session is properly established before redirect
+        // Reduced delay to minimize timing window for concurrent requests
         try {
-          Thread.sleep(500); // 500ms delay
+          Thread.sleep(100); // Reduced to 100ms delay
           logger.debug("OAuth session establishment delay completed for shop: {}", shop);
         } catch (InterruptedException e) {
           Thread.currentThread().interrupt();
@@ -555,9 +566,9 @@ public class ShopifyAuthController {
 
       logger.info("Cookie set successfully, redirecting to: {}", redirectUrl);
 
-      // Add a small delay to ensure session is fully established
+      // Minimal delay to ensure session is established
       try {
-        Thread.sleep(500); // 500ms delay
+        Thread.sleep(50); // Reduced to 50ms delay
         logger.info("Session establishment delay completed");
       } catch (InterruptedException e) {
         logger.warn("Session establishment delay was interrupted");
