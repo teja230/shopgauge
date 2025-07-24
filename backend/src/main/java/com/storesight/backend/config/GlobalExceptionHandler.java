@@ -357,6 +357,40 @@ public class GlobalExceptionHandler {
 
     String correlationId = CorrelationIdUtil.getOrGenerateCorrelationId();
 
+    // Special handling for session invalidation errors
+    if (ex.getMessage() != null && ex.getMessage().contains("Session was invalidated")) {
+      logger.warn("Session invalidation error [{}]: {} on {}", 
+          correlationId, ex.getMessage(), request.getRequestURI());
+
+      ErrorResponse.ErrorDetails errorDetails =
+          new ErrorResponse.ErrorDetails("SESSION_INVALIDATED", "Session expired", 
+              "Your session has expired. Please refresh the page and try again.");
+      errorDetails.setCorrelationId(correlationId);
+      errorDetails.setPath(request.getRequestURI());
+      errorDetails.setStatus(HttpStatus.UNAUTHORIZED.value());
+      errorDetails.setRetryable(false);
+      errorDetails.setMetadata(Map.of("requiresReauth", true));
+
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ErrorResponse(errorDetails));
+    }
+
+    // Special handling for response stream conflicts
+    if (ex.getMessage() != null && ex.getMessage().contains("getOutputStream() has already been called")) {
+      logger.warn("Response stream conflict [{}]: {} on {}", 
+          correlationId, ex.getMessage(), request.getRequestURI());
+
+      ErrorResponse.ErrorDetails errorDetails =
+          new ErrorResponse.ErrorDetails("RESPONSE_CONFLICT", "Response stream error", 
+              "A response conflict occurred. Please try again.");
+      errorDetails.setCorrelationId(correlationId);
+      errorDetails.setPath(request.getRequestURI());
+      errorDetails.setStatus(HttpStatus.CONFLICT.value());
+      errorDetails.setRetryable(true);
+      errorDetails.setRetryAfter(5);
+
+      return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponse(errorDetails));
+    }
+
     ErrorResponse.ErrorDetails errorDetails =
         new ErrorResponse.ErrorDetails("INVALID_STATE", "Invalid operation state", ex.getMessage());
     errorDetails.setCorrelationId(correlationId);

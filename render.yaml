@@ -175,9 +175,6 @@ services:
     rootDir: frontend
     # Configure redirects for SPA routing
     redirects:
-      - source: "/api/*"
-        destination: "https://api.shopgaugeai.com/api/:splat"
-        action: "rewrite"
       - source: "/*"
         destination: "/index.html"
         action: "rewrite"
