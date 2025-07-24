@@ -110,13 +110,13 @@ public class MarketIntelligenceExceptionHandler {
     // Special handling for session invalidation errors
     if (ex.getMessage() != null && ex.getMessage().contains("Session was invalidated")) {
       logger.warn("Session invalidation error in Market Intelligence: {}", ex.getMessage());
-      
+
       Map<String, Object> response = new HashMap<>();
       response.put("error", "SESSION_INVALIDATED");
       response.put("message", "Your session has expired. Please refresh the page and try again.");
       response.put("timestamp", LocalDateTime.now());
       response.put("requiresReauth", true);
-      
+
       return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
     }
 

@@ -359,11 +359,16 @@ public class GlobalExceptionHandler {
 
     // Special handling for session invalidation errors
     if (ex.getMessage() != null && ex.getMessage().contains("Session was invalidated")) {
-      logger.warn("Session invalidation error [{}]: {} on {}", 
-          correlationId, ex.getMessage(), request.getRequestURI());
+      logger.warn(
+          "Session invalidation error [{}]: {} on {}",
+          correlationId,
+          ex.getMessage(),
+          request.getRequestURI());
 
       ErrorResponse.ErrorDetails errorDetails =
-          new ErrorResponse.ErrorDetails("SESSION_INVALIDATED", "Session expired", 
+          new ErrorResponse.ErrorDetails(
+              "SESSION_INVALIDATED",
+              "Session expired",
               "Your session has expired. Please refresh the page and try again.");
       errorDetails.setCorrelationId(correlationId);
       errorDetails.setPath(request.getRequestURI());
@@ -375,12 +380,18 @@ public class GlobalExceptionHandler {
     }
 
     // Special handling for response stream conflicts
-    if (ex.getMessage() != null && ex.getMessage().contains("getOutputStream() has already been called")) {
-      logger.warn("Response stream conflict [{}]: {} on {}", 
-          correlationId, ex.getMessage(), request.getRequestURI());
+    if (ex.getMessage() != null
+        && ex.getMessage().contains("getOutputStream() has already been called")) {
+      logger.warn(
+          "Response stream conflict [{}]: {} on {}",
+          correlationId,
+          ex.getMessage(),
+          request.getRequestURI());
 
       ErrorResponse.ErrorDetails errorDetails =
-          new ErrorResponse.ErrorDetails("RESPONSE_CONFLICT", "Response stream error", 
+          new ErrorResponse.ErrorDetails(
+              "RESPONSE_CONFLICT",
+              "Response stream error",
               "A response conflict occurred. Please try again.");
       errorDetails.setCorrelationId(correlationId);
       errorDetails.setPath(request.getRequestURI());

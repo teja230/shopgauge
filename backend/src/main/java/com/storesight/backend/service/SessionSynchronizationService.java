@@ -435,8 +435,6 @@ public class SessionSynchronizationService {
         return null;
       }
 
-
-
       // Acquire lock
       lockAcquired = acquireSessionLock(sessionId);
       if (!lockAcquired) {
@@ -456,8 +454,6 @@ public class SessionSynchronizationService {
       }
     }
   }
-
-
 
   /**
    * Safely invalidate a session with proper coordination
