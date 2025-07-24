@@ -29,11 +29,9 @@ public class CorrelationIdFilter implements Filter {
   private static final Logger logger = LoggerFactory.getLogger(CorrelationIdFilter.class);
 
   // Endpoints that don't need correlation IDs (health checks, monitoring)
-  private static final List<String> SKIP_CORRELATION_ENDPOINTS = Arrays.asList(
-    "/actuator/health",
-    "/api/health/summary",
-    "/api/admin/market-intelligence/health"
-  );
+  private static final List<String> SKIP_CORRELATION_ENDPOINTS =
+      Arrays.asList(
+          "/actuator/health", "/api/health/summary", "/api/admin/market-intelligence/health");
 
   @Override
   public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
@@ -103,7 +101,7 @@ public class CorrelationIdFilter implements Filter {
 
   /**
    * Check if the request URI should skip correlation ID generation
-   * 
+   *
    * @param requestUri The request URI to check
    * @return true if correlation ID should be skipped, false otherwise
    */
