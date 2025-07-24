@@ -1,9 +1,7 @@
 package com.storesight.backend;
 
 import com.storesight.backend.config.AdminAuthenticationFilter;
-import com.storesight.backend.config.OAuthSessionFilter;
 import com.storesight.backend.config.SessionConfig;
-import com.storesight.backend.config.SessionRepositoryErrorFilter;
 import com.storesight.backend.config.ShopifyAuthenticationFilter;
 import com.storesight.backend.service.RedisSessionService;
 import com.storesight.backend.service.SessionRecoveryService;
@@ -277,7 +275,9 @@ public class WebSecurityConfig implements WebMvcConfigurer {
             })
         .sessionManagement(
             session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
-        .addFilterBefore(sessionRepositoryErrorFilter(), org.springframework.security.web.context.SecurityContextHolderFilter.class)
+        .addFilterBefore(
+            sessionRepositoryErrorFilter(),
+            org.springframework.security.web.context.SecurityContextHolderFilter.class)
         .addFilterBefore(oAuthSessionFilter(), UsernamePasswordAuthenticationFilter.class)
         .addFilterBefore(adminAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
         .addFilterBefore(shopifyAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
