@@ -72,7 +72,11 @@ public class CorrelationIdFilter implements Filter {
     } catch (Exception e) {
       logger.error("Error in correlation ID filter: {}", e.getMessage(), e);
       // Continue with the chain even if correlation ID fails
-      chain.doFilter(request, response);
+      try {
+        chain.doFilter(request, response);
+      } catch (Exception chainError) {
+        logger.error("Error in filter chain after correlation ID error: {}", chainError.getMessage());
+      }
     } finally {
       // Clean up MDC to prevent memory leaks
       CorrelationIdUtil.clearCorrelationId();

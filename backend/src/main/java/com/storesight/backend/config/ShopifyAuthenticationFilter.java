@@ -166,11 +166,14 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
                         shopDomain, null, AuthorityUtils.createAuthorityList("ROLE_SHOP"));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
               } else {
-                // For regular API calls, attempt session recovery first
-                logger.debug(
-                    "Attempting session recovery for shop: {} and session: {}",
-                    shopDomain,
-                    sessionId);
+                              // For regular API calls, attempt session recovery first
+              logger.debug(
+                  "Attempting session recovery for shop: {} and session: {}",
+                  shopDomain,
+                  sessionId);
+              
+              // Use async session recovery to prevent blocking response writing
+              try {
                 boolean recoverySuccessful =
                     sessionRecoveryService.attemptSessionRecovery(shopDomain, sessionId);
 
@@ -187,12 +190,18 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
                   // Recovery failed, reject the request
                   logger.warn(
                       "Session recovery failed, rejecting request for shop: {}", shopDomain);
-                  if (sessionId != null) {
-                    shopService.safeSessionCleanup(shopDomain, sessionId);
-                  }
+                  // Don't call safeSessionCleanup here to prevent response conflicts
                   handleAuthenticationFailure(response, "Session expired. Please re-authenticate.");
                   return;
                 }
+              } catch (Exception recoveryError) {
+                logger.warn(
+                    "Session recovery error for shop: {} - {}", 
+                    shopDomain, 
+                    recoveryError.getMessage());
+                handleAuthenticationFailure(response, "Session expired. Please re-authenticate.");
+                return;
+              }
               }
             }
           } else {
@@ -341,22 +350,35 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
     // Clear any authentication context to prevent session issues
     SecurityContextHolder.clearContext();
 
-    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-    response.setContentType("application/json");
-    response.setCharacterEncoding("UTF-8");
+    // Check if response has already been committed or written to
+    if (response.isCommitted()) {
+      logger.warn("Response already committed, cannot write authentication failure");
+      return;
+    }
 
-    // Add CORS headers for error responses
-    response.setHeader("Access-Control-Allow-Origin", "https://www.shopgaugeai.com");
-    response.setHeader("Access-Control-Allow-Credentials", "true");
-    response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-    response.setHeader("Access-Control-Allow-Headers", "*");
+    try {
+      response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+      response.setContentType("application/json");
+      response.setCharacterEncoding("UTF-8");
 
-    String jsonResponse =
-        String.format(
-            "{\"error\":\"Authentication required\",\"message\":\"%s\",\"timestamp\":%d}",
-            message, System.currentTimeMillis());
+      // Add CORS headers for error responses
+      response.setHeader("Access-Control-Allow-Origin", "https://www.shopgaugeai.com");
+      response.setHeader("Access-Control-Allow-Credentials", "true");
+      response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+      response.setHeader("Access-Control-Allow-Headers", "*");
 
-    response.getWriter().write(jsonResponse);
-    response.getWriter().flush();
+      String jsonResponse =
+          String.format(
+              "{\"error\":\"Authentication required\",\"message\":\"%s\",\"timestamp\":%d}",
+              message, System.currentTimeMillis());
+
+      response.getWriter().write(jsonResponse);
+      response.getWriter().flush();
+    } catch (IllegalStateException e) {
+      // Response stream already used, log and continue
+      logger.warn("Cannot write to response stream: {}", e.getMessage());
+    } catch (Exception e) {
+      logger.error("Error writing authentication failure response: {}", e.getMessage());
+    }
   }
 }
