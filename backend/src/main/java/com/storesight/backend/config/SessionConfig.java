@@ -175,16 +175,9 @@ public class SessionConfig {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
       String path = request.getRequestURI();
-      // Skip filtering for public endpoints
-      return path.startsWith("/api/auth/shopify/")
-          || path.startsWith("/actuator/")
-          || path.startsWith("/health/")
-          || path.startsWith("/api/health/")
-          || path.startsWith("/api/admin/")
-          || path.equals("/")
-          || path.equals("/health")
-          || path.equals("/api/health")
-          || path.startsWith("/error");
+      // Apply to all requests - we want to catch session errors everywhere
+      // The SessionRepositoryErrorFilter will handle the high-level filtering
+      return false;
     }
   }
 }
