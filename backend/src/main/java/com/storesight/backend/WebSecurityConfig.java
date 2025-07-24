@@ -1,6 +1,7 @@
 package com.storesight.backend;
 
 import com.storesight.backend.config.AdminAuthenticationFilter;
+import com.storesight.backend.config.SessionConfig;
 import com.storesight.backend.config.ShopifyAuthenticationFilter;
 import com.storesight.backend.service.RedisSessionService;
 import com.storesight.backend.service.SessionRecoveryService;
@@ -276,6 +277,7 @@ public class WebSecurityConfig implements WebMvcConfigurer {
             session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
         .addFilterBefore(adminAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
         .addFilterBefore(shopifyAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
+        .addFilterAfter(sessionErrorHandlingFilter(), UsernamePasswordAuthenticationFilter.class)
         .exceptionHandling(exceptions -> exceptions.accessDeniedHandler(accessDeniedHandler()));
 
     return http.build();
@@ -294,6 +296,11 @@ public class WebSecurityConfig implements WebMvcConfigurer {
   @Bean
   public AdminAuthenticationFilter adminAuthenticationFilter() {
     return new AdminAuthenticationFilter();
+  }
+
+  @Bean
+  public SessionConfig.SessionErrorHandlingFilter sessionErrorHandlingFilter() {
+    return new SessionConfig.SessionErrorHandlingFilter();
   }
 
   /** Access Denied Handler */

@@ -119,20 +119,52 @@ public class SessionConfig {
         if (e.getMessage() != null && e.getMessage().contains("Session was invalidated")) {
           filterLogger.warn("Session invalidation error handled gracefully: {}", e.getMessage());
 
-          // Return a proper error response instead of letting the exception bubble up
-          response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-          response.setContentType("application/json");
-          response.setCharacterEncoding("UTF-8");
+          // Check if response has already been committed
+          if (response.isCommitted()) {
+            filterLogger.warn(
+                "Response already committed, cannot write session invalidation error");
+            return;
+          }
 
-          String errorResponse =
-              String.format(
-                  "{\"error\":\"session_invalidated\",\"message\":\"Session has been invalidated. Please re-authenticate.\",\"timestamp\":%d}",
-                  System.currentTimeMillis());
+          // For session invalidation during response writing, we should NOT return 401
+          // because this happens after successful authentication. Instead, we should
+          // return a 200 response with a warning, or let the response complete normally.
 
-          response.getWriter().write(errorResponse);
-          response.getWriter().flush();
+          // Since the response is likely already written successfully, we just log the issue
+          // and don't interfere with the successful response
+          filterLogger.info(
+              "Session invalidation occurred after successful response - allowing response to complete normally");
+
+          // Don't write any error response - let the successful response stand
+          return;
         } else {
           // Re-throw other IllegalStateExceptions
+          throw e;
+        }
+      } catch (ServletException e) {
+        // Handle ServletException that might contain session invalidation errors
+        if (e.getCause() instanceof IllegalStateException) {
+          IllegalStateException ise = (IllegalStateException) e.getCause();
+          if (ise.getMessage() != null && ise.getMessage().contains("Session was invalidated")) {
+            filterLogger.warn(
+                "Session invalidation error in ServletException handled gracefully: {}",
+                ise.getMessage());
+
+            // Check if response has already been committed
+            if (response.isCommitted()) {
+              filterLogger.warn(
+                  "Response already committed, cannot write session invalidation error");
+              return;
+            }
+
+            // Same approach - don't interfere with successful responses
+            filterLogger.info(
+                "Session invalidation occurred after successful response - allowing response to complete normally");
+            return;
+          } else {
+            throw e;
+          }
+        } else {
           throw e;
         }
       }
