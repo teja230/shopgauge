@@ -112,7 +112,7 @@ const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: 'add-competitor',
     title: 'Add Competitors',
-    description: 'Manually add competitors by entering their product URLs.',
+    description: 'Manually add competitors by entering their product URLs. Click the info icon to see supported URL formats for major e-commerce platforms.',
     target: '.add-competitor-button',
     position: 'bottom'
   },
@@ -506,7 +506,21 @@ export default function CompetitorsPage() {
   const [url, setUrl] = useState('');
   const [productId, setProductId] = useState('');
   const [isDiscovering, setIsDiscovering] = useState(false);
+  const [showUrlTooltip, setShowUrlTooltip] = useState(false);
   const [filterStatus, setFilterStatus] = useState<'all' | 'inStock' | 'outOfStock'>('all');
+  
+  // Close tooltip when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (showUrlTooltip && !target.closest('.url-tooltip-container')) {
+        setShowUrlTooltip(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showUrlTooltip]);
   const [searchQuery, setSearchQuery] = useState('');
   const [lastDiscoveryTime, setLastDiscoveryTime] = useState<number>(0);
   const [userDisabledDemo, setUserDisabledDemo] = useState<boolean>(false);
@@ -889,6 +903,7 @@ export default function CompetitorsPage() {
       let userMessage = 'Failed to add competitor. Please try again.';
       let needsProductSync = false;
       let isAuthError = false;
+      let isValidationError = false;
       
       // Check for specific error conditions
       if (error?.needsProductSync || 
@@ -907,6 +922,13 @@ export default function CompetitorsPage() {
         userMessage = 'Network connection issue. Please check your internet and try again.';
       } else if (error?.message?.includes('Service temporarily unavailable')) {
         userMessage = 'Service is temporarily unavailable. Please try again in a few moments.';
+      } else if (error?.message?.includes('Invalid URL') || 
+                 error?.message?.includes('Unsupported platform') ||
+                 error?.message?.includes('Please enter a valid URL') ||
+                 error?.message?.includes('URL contains invalid characters') ||
+                 error?.message?.includes('Cannot track internal')) {
+        userMessage = error.message;
+        isValidationError = true;
       } else if (error.message && !error.message.includes('{') && !error.message.includes('}')) {
         userMessage = error.message;
       }
@@ -918,7 +940,15 @@ export default function CompetitorsPage() {
       }
       
       // Handle different error types appropriately
-      if (isAuthError) {
+      if (isValidationError) {
+        notifications.showError(userMessage, {
+          category: 'Competitors',
+          persistent: false
+        });
+        // Don't clear the URL for validation errors so user can fix it
+        setProductId('');
+        setShowAddForm(false);
+      } else if (isAuthError) {
         notifications.showError(userMessage, {
           category: 'Authentication',
           persistent: true
@@ -1766,14 +1796,125 @@ export default function CompetitorsPage() {
           {showAddForm && (
             <div className="mt-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
               <form onSubmit={handleAdd} className="flex flex-col sm:flex-row gap-3">
-                <input
-                  type="text"
-                  placeholder="Competitor URL (e.g., https://amazon.com/dp/...)"
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent outline-none transition"
-                  required
-                />
+                <div className="flex-1 relative">
+                  <div className="relative url-tooltip-container">
+                    <input
+                      type="text"
+                      placeholder="Competitor URL (e.g., https://amazon.com/dp/...)"
+                      value={url}
+                      onChange={(e) => setUrl(e.target.value)}
+                      className="w-full px-4 py-3 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent outline-none transition"
+                      required
+                      onFocus={() => setShowUrlTooltip(true)}
+                      onBlur={() => setTimeout(() => setShowUrlTooltip(false), 200)}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowUrlTooltip(!showUrlTooltip)}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                      title="Show supported URL formats"
+                    >
+                      <InformationCircleIcon className="h-5 w-5" />
+                    </button>
+                  </div>
+                  
+                  {/* Enterprise-grade URL format tooltip */}
+                  {showUrlTooltip && (
+                    <div className="url-tooltip-container absolute z-50 mt-2 w-full max-w-md bg-white border border-gray-200 rounded-lg shadow-lg sm:left-0 sm:right-auto">
+                      <div className="p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="text-sm font-semibold text-gray-900">Supported URL Formats</h4>
+                          <button
+                            onClick={() => setShowUrlTooltip(false)}
+                            className="text-gray-400 hover:text-gray-600 transition-colors"
+                          >
+                            <XMarkIcon className="h-4 w-4" />
+                          </button>
+                        </div>
+                        
+                        <div className="space-y-3 max-h-64 overflow-y-auto">
+                          {/* Amazon */}
+                          <div className="flex items-start space-x-3">
+                            <div className="flex-shrink-0 w-6 h-6 bg-orange-100 rounded-full flex items-center justify-center">
+                              <span className="text-xs font-semibold text-orange-600">A</span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900">Amazon</p>
+                              <p className="text-xs text-gray-600 font-mono break-all">amazon.com/dp/PRODUCT_ID</p>
+                              <p className="text-xs text-gray-500">All Amazon domains supported</p>
+                            </div>
+                          </div>
+                          
+                          {/* Walmart */}
+                          <div className="flex items-start space-x-3">
+                            <div className="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                              <span className="text-xs font-semibold text-blue-600">W</span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900">Walmart</p>
+                              <p className="text-xs text-gray-600 font-mono break-all">walmart.com/ip/PRODUCT_NAME</p>
+                              <p className="text-xs text-gray-500">Product pages only</p>
+                            </div>
+                          </div>
+                          
+                          {/* Target */}
+                          <div className="flex items-start space-x-3">
+                            <div className="flex-shrink-0 w-6 h-6 bg-red-100 rounded-full flex items-center justify-center">
+                              <span className="text-xs font-semibold text-red-600">T</span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900">Target</p>
+                              <p className="text-xs text-gray-600 font-mono break-all">target.com/p/PRODUCT_NAME</p>
+                              <p className="text-xs text-gray-500">Product pages only</p>
+                            </div>
+                          </div>
+                          
+                          {/* Best Buy */}
+                          <div className="flex items-start space-x-3">
+                            <div className="flex-shrink-0 w-6 h-6 bg-yellow-100 rounded-full flex items-center justify-center">
+                              <span className="text-xs font-semibold text-yellow-600">B</span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900">Best Buy</p>
+                              <p className="text-xs text-gray-600 font-mono break-all">bestbuy.com/site/PRODUCT_NAME</p>
+                              <p className="text-xs text-gray-500">Product pages only</p>
+                            </div>
+                          </div>
+                          
+                          {/* eBay */}
+                          <div className="flex items-start space-x-3">
+                            <div className="flex-shrink-0 w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
+                              <span className="text-xs font-semibold text-green-600">E</span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900">eBay</p>
+                              <p className="text-xs text-gray-600 font-mono break-all">ebay.com/itm/ITEM_ID</p>
+                              <p className="text-xs text-gray-500">Individual listings</p>
+                            </div>
+                          </div>
+                          
+                          {/* Shopify */}
+                          <div className="flex items-start space-x-3">
+                            <div className="flex-shrink-0 w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center">
+                              <span className="text-xs font-semibold text-purple-600">S</span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900">Shopify Stores</p>
+                              <p className="text-xs text-gray-600 font-mono break-all">store.myshopify.com/products/PRODUCT</p>
+                              <p className="text-xs text-gray-500">All Shopify stores supported</p>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="mt-4 pt-3 border-t border-gray-100">
+                          <p className="text-xs text-gray-500">
+                            💡 <strong>Tip:</strong> Copy the URL directly from your competitor's product page
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
                 <input
                   type="text"
                   placeholder="Product ID (optional)"
