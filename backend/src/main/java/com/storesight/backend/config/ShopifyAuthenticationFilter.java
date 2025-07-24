@@ -166,42 +166,43 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
                         shopDomain, null, AuthorityUtils.createAuthorityList("ROLE_SHOP"));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
               } else {
-                              // For regular API calls, attempt session recovery first
-              logger.debug(
-                  "Attempting session recovery for shop: {} and session: {}",
-                  shopDomain,
-                  sessionId);
-              
-              // Use async session recovery to prevent blocking response writing
-              try {
-                boolean recoverySuccessful =
-                    sessionRecoveryService.attemptSessionRecovery(shopDomain, sessionId);
+                // For regular API calls, attempt session recovery first
+                logger.debug(
+                    "Attempting session recovery for shop: {} and session: {}",
+                    shopDomain,
+                    sessionId);
 
-                if (recoverySuccessful) {
-                  logger.info(
-                      "Session recovery successful for shop: {} and session: {}",
-                      shopDomain,
-                      sessionId);
-                  UsernamePasswordAuthenticationToken authentication =
-                      new UsernamePasswordAuthenticationToken(
-                          shopDomain, null, AuthorityUtils.createAuthorityList("ROLE_SHOP"));
-                  SecurityContextHolder.getContext().setAuthentication(authentication);
-                } else {
-                  // Recovery failed, reject the request
+                // Use async session recovery to prevent blocking response writing
+                try {
+                  boolean recoverySuccessful =
+                      sessionRecoveryService.attemptSessionRecovery(shopDomain, sessionId);
+
+                  if (recoverySuccessful) {
+                    logger.info(
+                        "Session recovery successful for shop: {} and session: {}",
+                        shopDomain,
+                        sessionId);
+                    UsernamePasswordAuthenticationToken authentication =
+                        new UsernamePasswordAuthenticationToken(
+                            shopDomain, null, AuthorityUtils.createAuthorityList("ROLE_SHOP"));
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                  } else {
+                    // Recovery failed, reject the request
+                    logger.warn(
+                        "Session recovery failed, rejecting request for shop: {}", shopDomain);
+                    // Don't call safeSessionCleanup here to prevent response conflicts
+                    handleAuthenticationFailure(
+                        response, "Session expired. Please re-authenticate.");
+                    return;
+                  }
+                } catch (Exception recoveryError) {
                   logger.warn(
-                      "Session recovery failed, rejecting request for shop: {}", shopDomain);
-                  // Don't call safeSessionCleanup here to prevent response conflicts
+                      "Session recovery error for shop: {} - {}",
+                      shopDomain,
+                      recoveryError.getMessage());
                   handleAuthenticationFailure(response, "Session expired. Please re-authenticate.");
                   return;
                 }
-              } catch (Exception recoveryError) {
-                logger.warn(
-                    "Session recovery error for shop: {} - {}", 
-                    shopDomain, 
-                    recoveryError.getMessage());
-                handleAuthenticationFailure(response, "Session expired. Please re-authenticate.");
-                return;
-              }
               }
             }
           } else {

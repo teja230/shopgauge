@@ -75,7 +75,8 @@ public class CorrelationIdFilter implements Filter {
       try {
         chain.doFilter(request, response);
       } catch (Exception chainError) {
-        logger.error("Error in filter chain after correlation ID error: {}", chainError.getMessage());
+        logger.error(
+            "Error in filter chain after correlation ID error: {}", chainError.getMessage());
       }
     } finally {
       // Clean up MDC to prevent memory leaks
