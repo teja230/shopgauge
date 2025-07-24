@@ -1020,7 +1020,7 @@ export default function CompetitorsPage() {
         });
         
         // Log additional details for debugging
-        console.error('Unhandled competitor addition error:', {
+        console.error('Competitor addition failed - technical details:', {
           error: error,
           message: error.message,
           stack: error.stack
