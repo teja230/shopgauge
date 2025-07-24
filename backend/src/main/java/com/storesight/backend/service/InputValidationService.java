@@ -49,7 +49,9 @@ public class InputValidationService {
       Pattern.compile("^https?://(?:www\\.)?ebay\\.com/.*", Pattern.CASE_INSENSITIVE);
 
   private static final Pattern WOOCOMMERCE_URL_PATTERN =
-      Pattern.compile("^https?://[a-zA-Z0-9][a-zA-Z0-9\\-]*[a-zA-Z0-9]\\.[a-zA-Z]{2,}/.*", Pattern.CASE_INSENSITIVE);
+      Pattern.compile(
+          "^https?://[a-zA-Z0-9][a-zA-Z0-9\\-]*[a-zA-Z0-9]\\.[a-zA-Z]{2,}/.*",
+          Pattern.CASE_INSENSITIVE);
 
   // Security patterns
   private static final Pattern SQL_INJECTION_PATTERN =
@@ -81,7 +83,8 @@ public class InputValidationService {
 
     // Enhanced URL format validation - more permissive
     if (!isValidUrlFormat(trimmedUrl)) {
-      return ValidationResult.invalid("Please enter a valid URL (e.g., https://www.amazon.com/product)");
+      return ValidationResult.invalid(
+          "Please enter a valid URL (e.g., https://www.amazon.com/product)");
     }
 
     // Validate URL structure
@@ -101,7 +104,7 @@ public class InputValidationService {
 
       // Determine platform with enhanced detection
       String platform = detectPlatform(trimmedUrl);
-      
+
       if ("unsupported".equals(platform)) {
         return ValidationResult.invalid(
             "Unsupported platform. We support: Amazon, Walmart, Target, Best Buy, eBay, Shopify stores, and other e-commerce sites");
@@ -120,32 +123,32 @@ public class InputValidationService {
     if (!url.matches("^https?://.*")) {
       return false;
     }
-    
+
     // Length check
     if (url.length() > 2000) {
       return false;
     }
-    
+
     // More permissive domain validation
     try {
       URL urlObj = new URL(url);
       String host = urlObj.getHost();
-      
+
       // Must have a host
       if (host == null || host.trim().isEmpty()) {
         return false;
       }
-      
+
       // Host must contain at least one dot and have valid characters
       if (!host.contains(".") || host.length() < 3) {
         return false;
       }
-      
+
       // Check for valid host characters
       if (!host.matches("^[a-zA-Z0-9][a-zA-Z0-9\\-.]*[a-zA-Z0-9]$")) {
         return false;
       }
-      
+
       return true;
     } catch (MalformedURLException e) {
       return false;
@@ -218,7 +221,7 @@ public class InputValidationService {
   /** Enhanced platform detection with more supported sites */
   private String detectPlatform(String url) {
     String lowerUrl = url.toLowerCase();
-    
+
     if (AMAZON_URL_PATTERN.matcher(url).matches()) {
       return "amazon";
     } else if (WALMART_URL_PATTERN.matcher(url).matches()) {
@@ -235,19 +238,24 @@ public class InputValidationService {
       return "etsy";
     } else if (WOOCOMMERCE_URL_PATTERN.matcher(url).matches()) {
       // Additional check for WooCommerce indicators
-      if (lowerUrl.contains("wp-content") || lowerUrl.contains("woocommerce") || 
-          lowerUrl.contains("product") || lowerUrl.contains("shop")) {
+      if (lowerUrl.contains("wp-content")
+          || lowerUrl.contains("woocommerce")
+          || lowerUrl.contains("product")
+          || lowerUrl.contains("shop")) {
         return "woocommerce";
       }
     }
-    
+
     // Check for other common e-commerce indicators
-    if (lowerUrl.contains("product") || lowerUrl.contains("item") || 
-        lowerUrl.contains("buy") || lowerUrl.contains("shop") ||
-        lowerUrl.contains("store") || lowerUrl.contains("cart")) {
+    if (lowerUrl.contains("product")
+        || lowerUrl.contains("item")
+        || lowerUrl.contains("buy")
+        || lowerUrl.contains("shop")
+        || lowerUrl.contains("store")
+        || lowerUrl.contains("cart")) {
       return "other";
     }
-    
+
     return "unsupported";
   }
 
