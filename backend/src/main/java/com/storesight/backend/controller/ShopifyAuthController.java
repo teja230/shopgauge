@@ -394,17 +394,17 @@ public class ShopifyAuthController {
             logger.warn("Error invalidating existing session: {}", invalidateError.getMessage());
           }
         }
-        
+
         // Create new session for OAuth
         var newSession = request.getSession(true);
         sessionId = newSession.getId();
         sessionCreated = true;
         logger.info("New OAuth session created successfully - sessionId: {}", sessionId);
-        
+
         // Set a marker to indicate this is an OAuth session
         newSession.setAttribute("oauth_session", true);
         newSession.setAttribute("shop", shop);
-        
+
       } catch (Exception sessionError) {
         logger.warn(
             "Failed to create OAuth session (likely Redis issue), using fallback approach: {}",

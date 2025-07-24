@@ -1,7 +1,6 @@
 package com.storesight.backend;
 
 import com.storesight.backend.config.AdminAuthenticationFilter;
-import com.storesight.backend.config.OAuthSessionFilter;
 import com.storesight.backend.config.SessionConfig;
 import com.storesight.backend.config.ShopifyAuthenticationFilter;
 import com.storesight.backend.service.RedisSessionService;
