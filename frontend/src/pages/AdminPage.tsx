@@ -490,6 +490,7 @@ const AdminPage: React.FC = () => {
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
+          'X-Correlation-ID': `admin-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         },
       });
       

@@ -5,6 +5,26 @@ const API_BASE_URL: string = (
   import.meta.env.VITE_API_BASE_URL as string | undefined
 ) || '' /* Relative path handled by dev proxy */;
 
+// Correlation ID management
+let currentCorrelationId: string | null = null;
+
+// Generate a new correlation ID
+const generateCorrelationId = (): string => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
+
+// Get or generate correlation ID
+const getOrGenerateCorrelationId = (): string => {
+  if (!currentCorrelationId) {
+    currentCorrelationId = generateCorrelationId();
+  }
+  return currentCorrelationId;
+};
+
 if (!import.meta.env.VITE_API_BASE_URL) {
   // eslint-disable-next-line no-console
   console.warn(
@@ -20,14 +40,22 @@ export const api = axios.create({
   },
 });
 
+// Add correlation ID to all axios requests
+api.interceptors.request.use(request => {
+  const correlationId = getOrGenerateCorrelationId();
+  request.headers['X-Correlation-ID'] = correlationId;
+  return request;
+});
+
 const API_BASE = '/api';
 
 async function fetchWithAuth(url: string, options: RequestInit = {}) {
   // Route all requests through dedicated API host
   const fullUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
+  const correlationId = getOrGenerateCorrelationId();
   // Only log in development or for non-auth endpoints
   if (import.meta.env.DEV && !url.includes('/auth/shopify/me')) {
-    console.log('API: Making request to', fullUrl);
+    console.log('API: Making request to', fullUrl, 'Correlation ID:', correlationId);
   }
   
   try {
@@ -37,6 +65,7 @@ async function fetchWithAuth(url: string, options: RequestInit = {}) {
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
+        'X-Correlation-ID': correlationId,
         ...options.headers,
       },
     });
@@ -170,14 +199,16 @@ export async function getHealthSummary(): Promise<any> {
 }
 
 export async function adminLogin(username: string, password: string): Promise<any> {
+  const correlationId = getOrGenerateCorrelationId();
   if (import.meta.env.DEV) {
-    console.log('API: Admin login attempt');
+    console.log('API: Admin login attempt', 'Correlation ID:', correlationId);
   }
   try {
     const response = await fetch(`${API_BASE_URL}/api/admin/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'X-Correlation-ID': correlationId,
       },
       body: JSON.stringify({ username, password }),
       credentials: 'include'
@@ -249,12 +280,14 @@ export async function getAdminStatus(): Promise<any> {
 export async function fetchWithAdminAuth(endpoint: string, options?: RequestInit) {
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
   const fullUrl = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
+  const correlationId = getOrGenerateCorrelationId();
 
   debugLog.info(`fetchWithAdminAuth: Making request to ${endpoint}`, { 
     endpoint, 
     fullUrl, 
     method: options?.method || 'GET',
-    hasBody: !!options?.body 
+    hasBody: !!options?.body,
+    correlationId
   }, 'API');
 
   try {
@@ -263,6 +296,7 @@ export async function fetchWithAdminAuth(endpoint: string, options?: RequestInit
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
+        'X-Correlation-ID': correlationId,
         ...(options?.headers || {})
       },
       ...options,
