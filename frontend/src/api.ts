@@ -39,6 +39,31 @@ export const getApiAuthState = () => ({
   shop: currentShop
 });
 
+// Correlation ID management
+let currentCorrelationId: string | null = null;
+
+// Generate a new correlation ID
+const generateCorrelationId = (): string => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
+
+// Get or generate correlation ID
+const getOrGenerateCorrelationId = (): string => {
+  if (!currentCorrelationId) {
+    currentCorrelationId = generateCorrelationId();
+  }
+  return currentCorrelationId;
+};
+
+// Clear correlation ID (useful for new user sessions)
+export const clearCorrelationId = (): void => {
+  currentCorrelationId = null;
+};
+
 const defaultOptions: RequestInit = {
   credentials: 'include',
   headers: {
@@ -55,7 +80,15 @@ export const api = axios.create({
   }
 });
 
-// Add axios interceptor for logging
+// Add correlation ID to all axios requests
+api.interceptors.request.use(request => {
+  const correlationId = getOrGenerateCorrelationId();
+  request.headers['X-Correlation-ID'] = correlationId;
+  console.log('API: Starting Request:', request.method?.toUpperCase(), request.url, 'Correlation ID:', correlationId);
+  return request;
+});
+
+// Add axios interceptor for logging (correlation ID already added above)
 api.interceptors.request.use(request => {
   console.log('API: Starting Request:', request.method?.toUpperCase(), request.url);
   return request;
@@ -94,7 +127,8 @@ api.interceptors.response.use(
 // Enhanced fetchWithAuth with authentication pre-checks
 export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
   const fullUrl = `${API_BASE_URL}${url}`;
-  console.log('API: Fetching:', fullUrl);
+  const correlationId = getOrGenerateCorrelationId();
+  console.log('API: Fetching:', fullUrl, 'Correlation ID:', correlationId);
   
   // Pre-flight authentication check
   if (!isApiAuthenticated || !currentShop) {
@@ -109,6 +143,7 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
     headers: {
       'Accept': 'application/json',
       'Content-Type': 'application/json',
+      'X-Correlation-ID': correlationId,
       ...options.headers,
     },
   });
@@ -217,12 +252,14 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
 // Admin-specific fetch function with enhanced logging and error handling
 export const fetchWithAdminAuth = async (endpoint: string, options?: RequestInit) => {
   const fullUrl = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
+  const correlationId = getOrGenerateCorrelationId();
 
   console.log(`API: Admin request to ${endpoint}`, { 
     endpoint, 
     fullUrl, 
     method: options?.method || 'GET',
-    hasBody: !!options?.body 
+    hasBody: !!options?.body,
+    correlationId
   });
 
   try {
@@ -231,6 +268,7 @@ export const fetchWithAdminAuth = async (endpoint: string, options?: RequestInit
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
+        'X-Correlation-ID': correlationId,
         ...(options?.headers || {})
       },
       ...options,

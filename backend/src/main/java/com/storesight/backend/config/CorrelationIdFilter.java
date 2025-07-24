@@ -9,6 +9,8 @@ import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.annotation.Order;
@@ -26,6 +28,13 @@ public class CorrelationIdFilter implements Filter {
 
   private static final Logger logger = LoggerFactory.getLogger(CorrelationIdFilter.class);
 
+  // Endpoints that don't need correlation IDs (health checks, monitoring)
+  private static final List<String> SKIP_CORRELATION_ENDPOINTS = Arrays.asList(
+    "/actuator/health",
+    "/api/health/summary",
+    "/api/admin/market-intelligence/health"
+  );
+
   @Override
   public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
       throws IOException, ServletException {
@@ -37,6 +46,14 @@ public class CorrelationIdFilter implements Filter {
 
     HttpServletRequest httpRequest = (HttpServletRequest) request;
     HttpServletResponse httpResponse = (HttpServletResponse) response;
+
+    // Check if this endpoint should skip correlation ID generation
+    String requestUri = httpRequest.getRequestURI();
+    if (shouldSkipCorrelationId(requestUri)) {
+      // For health checks and monitoring, just continue without correlation ID
+      chain.doFilter(request, response);
+      return;
+    }
 
     try {
       // Extract correlation ID from request header
@@ -82,5 +99,16 @@ public class CorrelationIdFilter implements Filter {
       // Clean up MDC to prevent memory leaks
       CorrelationIdUtil.clearCorrelationId();
     }
+  }
+
+  /**
+   * Check if the request URI should skip correlation ID generation
+   * 
+   * @param requestUri The request URI to check
+   * @return true if correlation ID should be skipped, false otherwise
+   */
+  private boolean shouldSkipCorrelationId(String requestUri) {
+    return SKIP_CORRELATION_ENDPOINTS.stream()
+        .anyMatch(endpoint -> requestUri.startsWith(endpoint));
   }
 }

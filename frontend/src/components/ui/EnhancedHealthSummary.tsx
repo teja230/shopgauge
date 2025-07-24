@@ -36,6 +36,7 @@ const fetchPublicEndpoint = async (endpoint: string, options?: RequestInit) => {
     headers: {
       'Accept': 'application/json',
       'Content-Type': 'application/json',
+      'X-Correlation-ID': `health-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       ...(options?.headers || {})
     },
     ...options,

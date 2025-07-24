@@ -14,6 +14,7 @@ export const adminLogin = async (username: string, password: string): Promise<an
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'X-Correlation-ID': `admin-login-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       },
       body: JSON.stringify({ username, password }),
       credentials: 'include'

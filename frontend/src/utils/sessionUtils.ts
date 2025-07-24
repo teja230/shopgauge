@@ -164,6 +164,7 @@ class SessionManager {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-Correlation-ID': `heartbeat-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         },
         credentials: 'include', // Include cookies
       });
@@ -359,13 +360,14 @@ class SessionManager {
     console.log('🔄 Attempting session refresh');
     
     try {
-      const response = await fetch('/api/sessions/refresh', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-      });
+          const response = await fetch('/api/sessions/refresh', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Correlation-ID': `session-refresh-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      },
+      credentials: 'include',
+    });
       
       if (response.ok) {
         const data = await response.json();
