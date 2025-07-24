@@ -238,7 +238,16 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
       // Clear authentication context to prevent session issues
       SecurityContextHolder.clearContext();
 
-      handleAuthenticationFailure(response, "Authentication error occurred. Please try again.");
+      // Check if this is a session invalidation error
+      if (e.getMessage() != null && e.getMessage().contains("Session was invalidated")) {
+        logger.warn(
+            "Session invalidation detected in authentication filter for path: {}",
+            request.getRequestURI());
+        handleAuthenticationFailure(
+            response, "Session has been invalidated. Please re-authenticate.");
+      } else {
+        handleAuthenticationFailure(response, "Authentication error occurred. Please try again.");
+      }
     }
   }
 
