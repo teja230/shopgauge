@@ -55,6 +55,26 @@ com.storesight.backend.controller.AdminHealthController#getLiveness() mapped.
 - `backend/Dockerfile.prod`
 - `backend/src/main/resources/application-prod.properties`
 
+### 3. JVM Startup Error: Unsupported Flag
+
+**Problem**: 
+```
+Unrecognized VM option 'UseCGroupMemoryLimitForHeap'
+Error: Could not create the Java Virtual Machine.
+```
+
+**Root Cause**: The `UseCGroupMemoryLimitForHeap` flag is not available in Java 17 and was causing JVM startup failure.
+
+**Solution**: Removed the unsupported `UseCGroupMemoryLimitForHeap` flag from all memory profiles while keeping all other memory optimization flags.
+
+**Files Modified**:
+- `backend/Dockerfile.prod`
+
+**Impact**: 
+- JVM now starts successfully with supported flags
+- All memory optimization benefits retained
+- Verified JVM options are valid with local testing
+
 ## Verification
 
 ### Compilation Test
@@ -62,6 +82,12 @@ com.storesight.backend.controller.AdminHealthController#getLiveness() mapped.
 cd backend && ./gradlew compileJava --no-daemon
 ```
 ✅ **Result**: BUILD SUCCESSFUL - No ambiguous mapping errors
+
+### JVM Options Test
+```bash
+java -Xmx380m -Xms200m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:G1HeapRegionSize=8m -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/tmp/heapdump.hprof -XX:+UseStringDeduplication -XX:+UseCompressedOops -XX:+UseCompressedClassPointers -XX:MaxMetaspaceSize=160m -XX:CompressedClassSpaceSize=64m -XX:MaxDirectMemorySize=64m -XX:+ExitOnOutOfMemoryError -version
+```
+✅ **Result**: JVM starts successfully with all memory optimization flags
 
 ### Memory Profile Configuration
 The application now supports three memory profiles:
@@ -92,6 +118,7 @@ If issues arise:
 1. Revert `AdminHealthController` mapping back to `/api/health` (will require endpoint consolidation)
 2. Disable lazy initialization: `spring.main.lazy-initialization=false`
 3. Increase JVM metaspace settings further if needed
+4. Remove memory optimization flags if JVM compatibility issues persist
 
 ## Monitoring
 Monitor these metrics after deployment:
