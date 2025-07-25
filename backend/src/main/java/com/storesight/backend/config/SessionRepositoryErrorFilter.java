@@ -80,12 +80,15 @@ public class SessionRepositoryErrorFilter extends OncePerRequestFilter {
     try {
       // Try to get the writer to see if it's already been accessed
       response.getWriter();
-      logger.debug("Response writer already accessed for path: {} - allowing to complete normally", path);
+      logger.debug(
+          "Response writer already accessed for path: {} - allowing to complete normally", path);
       return;
     } catch (IllegalStateException writerException) {
-      if (writerException.getMessage() != null && 
-          writerException.getMessage().contains("getOutputStream() has already been called")) {
-        logger.debug("Response output stream already accessed for path: {} - allowing to complete normally", path);
+      if (writerException.getMessage() != null
+          && writerException.getMessage().contains("getOutputStream() has already been called")) {
+        logger.debug(
+            "Response output stream already accessed for path: {} - allowing to complete normally",
+            path);
         return;
       }
     }

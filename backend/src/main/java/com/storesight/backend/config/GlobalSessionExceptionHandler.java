@@ -36,23 +36,31 @@ public class GlobalSessionExceptionHandler {
 
       // Check if response is already committed
       if (httpResponse.isCommitted()) {
-        logger.debug("Response already committed for global session invalidation - allowing to complete normally for path: {}", path);
+        logger.debug(
+            "Response already committed for global session invalidation - allowing to complete normally for path: {}",
+            path);
         return null; // Let the response complete normally
       }
 
       // Check if response stream has already been written to
       try {
         httpResponse.getWriter();
-        logger.debug("Response writer already accessed for global session invalidation - allowing to complete normally for path: {}", path);
+        logger.debug(
+            "Response writer already accessed for global session invalidation - allowing to complete normally for path: {}",
+            path);
         return null; // Let the response complete normally
       } catch (IllegalStateException writerException) {
-        if (writerException.getMessage() != null && 
-            writerException.getMessage().contains("getOutputStream() has already been called")) {
-          logger.debug("Response output stream already accessed for global session invalidation - allowing to complete normally for path: {}", path);
+        if (writerException.getMessage() != null
+            && writerException.getMessage().contains("getOutputStream() has already been called")) {
+          logger.debug(
+              "Response output stream already accessed for global session invalidation - allowing to complete normally for path: {}",
+              path);
           return null; // Let the response complete normally
         }
       } catch (IOException ioException) {
-        logger.debug("IOException when checking response writer for global session invalidation - allowing to complete normally for path: {}", path);
+        logger.debug(
+            "IOException when checking response writer for global session invalidation - allowing to complete normally for path: {}",
+            path);
         return null; // Let the response complete normally
       }
 
