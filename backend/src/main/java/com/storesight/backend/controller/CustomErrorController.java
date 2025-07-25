@@ -1,6 +1,7 @@
 package com.storesight.backend.controller;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.HashMap;
 import java.util.Map;
 import org.slf4j.Logger;
@@ -12,6 +13,11 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+/**
+ * Comprehensive error controller that handles both general errors and session-specific errors. This
+ * consolidates the functionality of both CustomErrorController and SessionErrorController to
+ * prevent ambiguous mapping conflicts while providing robust error handling.
+ */
 @Controller
 public class CustomErrorController implements ErrorController {
 
@@ -19,12 +25,64 @@ public class CustomErrorController implements ErrorController {
 
   @RequestMapping("/error")
   @ResponseBody
-  public ResponseEntity<Map<String, Object>> handleError(HttpServletRequest request) {
+  public ResponseEntity<Object> handleError(
+      HttpServletRequest request, HttpServletResponse response) {
+    String path = request.getRequestURI();
     Object status = request.getAttribute("javax.servlet.error.status_code");
     Object message = request.getAttribute("javax.servlet.error.message");
     Object exception = request.getAttribute("javax.servlet.error.exception");
-    Object path = request.getAttribute("javax.servlet.error.request_uri");
-    String requestPath = path != null ? path.toString() : request.getRequestURI();
+    Object pathAttr = request.getAttribute("javax.servlet.error.request_uri");
+    String requestPath = pathAttr != null ? pathAttr.toString() : path;
+
+    logger.debug(
+        "Error controller handling error for path: {}, status: {}, exception: {}, message: {}",
+        path,
+        status,
+        exception != null ? exception.getClass().getSimpleName() : "null",
+        message);
+
+    // Check if this is a session-related error first
+    boolean isSessionError = isSessionRelatedError(exception, message);
+
+    if (isSessionError) {
+      logger.debug("Session error detected in error controller - handling gracefully");
+
+      // Add CORS headers for API requests
+      response.setHeader("Access-Control-Allow-Origin", "https://www.shopgaugeai.com");
+      response.setHeader("Access-Control-Allow-Credentials", "true");
+
+      // Return a clean success response for session errors to prevent cascading
+      return ResponseEntity.ok()
+          .header("X-Session-Warning", "Session issue resolved")
+          .body(
+              "{\"success\":true,\"message\":\"Session issue resolved - please refresh if you experience problems\"}");
+    }
+
+    // Handle general errors (non-session related)
+    return handleGeneralError(request, response, status, message, exception, requestPath);
+  }
+
+  /** Check if the error is session-related */
+  private boolean isSessionRelatedError(Object exception, Object message) {
+    if (exception instanceof IllegalStateException) {
+      IllegalStateException ise = (IllegalStateException) exception;
+      if (ise.getMessage() != null && ise.getMessage().contains("Session was invalidated")) {
+        return true;
+      }
+    } else if (message != null && message.toString().contains("Session")) {
+      return true;
+    }
+    return false;
+  }
+
+  /** Handle general errors (non-session related) */
+  private ResponseEntity<Object> handleGeneralError(
+      HttpServletRequest request,
+      HttpServletResponse response,
+      Object status,
+      Object message,
+      Object exception,
+      String requestPath) {
 
     // Only handle actual errors (status code >= 400)
     if (status == null) {

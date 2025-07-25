@@ -174,8 +174,8 @@ public class DatabasePerformanceService {
                  END as usage_ratio
           FROM pg_stat_user_indexes
           WHERE schemaname = 'public'
-          AND tablename IN ('competitor_urls', 'price_snapshots', 'competitor_suggestions',
-                           'market_intelligence_costs', 'price_alerts')
+            AND tablename IN ('competitor_urls', 'price_snapshots', 'competitor_suggestions',
+                             'market_intelligence_costs', 'price_alerts')
           ORDER BY idx_scan DESC
           """;
 
@@ -322,10 +322,10 @@ public class DatabasePerformanceService {
           SELECT schemaname, tablename, last_analyze, last_autoanalyze
           FROM pg_stat_user_tables
           WHERE schemaname = 'public'
-          AND tablename IN ('competitor_urls', 'price_snapshots', 'competitor_suggestions',
-                           'market_intelligence_costs', 'price_alerts')
-          AND (last_analyze IS NULL OR last_analyze < NOW() - INTERVAL '7 days')
-          AND (last_autoanalyze IS NULL OR last_autoanalyze < NOW() - INTERVAL '7 days')
+            AND tablename IN ('competitor_urls', 'price_snapshots', 'competitor_suggestions',
+                             'market_intelligence_costs', 'price_alerts')
+            AND (last_analyze IS NULL OR last_analyze < NOW() - INTERVAL '7 days')
+            AND (last_autoanalyze IS NULL OR last_autoanalyze < NOW() - INTERVAL '7 days')
           """;
 
       jdbcTemplate.query(
