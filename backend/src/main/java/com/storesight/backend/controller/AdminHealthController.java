@@ -33,7 +33,7 @@ import org.springframework.web.bind.annotation.RestController;
  * endpoints (/enterprise, /config/validate) are for Admin UI only.
  */
 @RestController
-@RequestMapping("/api/health")
+@RequestMapping("/api/admin/health")
 public class AdminHealthController {
 
   private static final Logger logger = LoggerFactory.getLogger(AdminHealthController.class);
