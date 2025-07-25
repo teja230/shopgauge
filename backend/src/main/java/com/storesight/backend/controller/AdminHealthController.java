@@ -1,7 +1,11 @@
 package com.storesight.backend.controller;
 
+import com.storesight.backend.config.MemoryProfileConfig;
+import com.storesight.backend.service.ConfigurationValidationService;
 import com.storesight.backend.service.DashboardCacheService;
 import com.storesight.backend.service.DatabaseMonitoringService;
+import com.storesight.backend.service.EnterpriseHealthService;
+import com.storesight.backend.service.RequestThrottlingService;
 import com.storesight.backend.service.SessionSynchronizationService;
 import com.storesight.backend.service.SystemResourceMonitoringService;
 import com.storesight.backend.service.TransactionMonitoringService;
@@ -19,8 +23,14 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Additional health endpoints for admin dashboard This controller provides the missing endpoints
- * that the admin frontend expects
+ * Admin Health Controller - Enterprise-Grade Health Endpoints
+ *
+ * <p>This controller provides comprehensive health monitoring endpoints designed for Admin UI
+ * consumption. These endpoints are ON-DEMAND ONLY and should not be called on schedules to preserve
+ * system resources.
+ *
+ * <p>Basic health endpoints (/live, /ready) are suitable for automated monitoring. Advanced
+ * endpoints (/enterprise, /config/validate) are for Admin UI only.
  */
 @RestController
 @RequestMapping("/api/health")
@@ -33,6 +43,10 @@ public class AdminHealthController {
   @Autowired private TransactionMonitoringService transactionMonitoringService;
   @Autowired private SystemResourceMonitoringService systemResourceMonitoringService;
   @Autowired private DashboardCacheService dashboardCacheService;
+  @Autowired private MemoryProfileConfig memoryProfileConfig;
+  @Autowired private RequestThrottlingService requestThrottlingService;
+  @Autowired private EnterpriseHealthService enterpriseHealthService;
+  @Autowired private ConfigurationValidationService configurationValidationService;
 
   /**
    * Get database transactions - Admin Dashboard Endpoint This endpoint provides transaction
@@ -307,6 +321,196 @@ public class AdminHealthController {
       errorResponse.put("error", e.getMessage());
       errorResponse.put("timestamp", LocalDateTime.now());
 
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+    }
+  }
+
+  /** Get current memory profile configuration */
+  @GetMapping("/memory-profile")
+  public ResponseEntity<Map<String, Object>> getMemoryProfile() {
+    try {
+      Map<String, Object> response = new HashMap<>();
+
+      // Memory profile info
+      response.put("currentProfile", memoryProfileConfig.getMemoryProfile());
+      response.put("isEmergencyMode", memoryProfileConfig.isEmergencyMode());
+      response.put("isBalancedMode", memoryProfileConfig.isBalancedMode());
+      response.put("isPerformanceMode", memoryProfileConfig.isPerformanceMode());
+
+      // Current settings
+      MemoryProfileConfig.MemorySettings settings = memoryProfileConfig.getActiveSettings();
+      Map<String, Object> currentSettings = new HashMap<>();
+      currentSettings.put("dbPoolMaxSize", settings.getDbPoolMaxSize());
+      currentSettings.put("tomcatMaxThreads", settings.getTomcatMaxThreads());
+      currentSettings.put("cacheMaxSize", settings.getCacheMaxSize());
+      currentSettings.put("requestThrottlingEnabled", settings.isRequestThrottlingEnabled());
+      currentSettings.put("maxConcurrentRequests", settings.getMaxConcurrentRequests());
+      currentSettings.put("asyncDiscoveryMaxConcurrent", settings.getAsyncDiscoveryMaxConcurrent());
+      currentSettings.put("asyncScrapingMaxConcurrent", settings.getAsyncScrapingMaxConcurrent());
+
+      response.put("settings", currentSettings);
+
+      // JVM memory info
+      Runtime runtime = Runtime.getRuntime();
+      Map<String, Object> memoryInfo = new HashMap<>();
+      memoryInfo.put("maxMemoryMB", runtime.maxMemory() / 1024 / 1024);
+      memoryInfo.put("totalMemoryMB", runtime.totalMemory() / 1024 / 1024);
+      memoryInfo.put("freeMemoryMB", runtime.freeMemory() / 1024 / 1024);
+      memoryInfo.put("usedMemoryMB", (runtime.totalMemory() - runtime.freeMemory()) / 1024 / 1024);
+      memoryInfo.put(
+          "usagePercent",
+          Math.round(
+              ((double) (runtime.totalMemory() - runtime.freeMemory()) / runtime.maxMemory())
+                  * 100));
+
+      response.put("jvmMemory", memoryInfo);
+      response.put("timestamp", LocalDateTime.now());
+      response.put("success", true);
+
+      return ResponseEntity.ok(response);
+
+    } catch (Exception e) {
+      logger.error("Error getting memory profile: {}", e.getMessage());
+      Map<String, Object> errorResponse = new HashMap<>();
+      errorResponse.put("success", false);
+      errorResponse.put("error", e.getMessage());
+      errorResponse.put("timestamp", LocalDateTime.now());
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+    }
+  }
+
+  /** Get request throttling statistics */
+  @GetMapping("/throttling")
+  public ResponseEntity<Map<String, Object>> getThrottlingStats() {
+    try {
+      Map<String, Object> response = new HashMap<>();
+
+      // Get throttling statistics
+      Map<String, Object> throttlingStats = requestThrottlingService.getStatistics();
+      response.put("throttling", throttlingStats);
+      response.put("timestamp", LocalDateTime.now());
+      response.put("success", true);
+
+      return ResponseEntity.ok(response);
+
+    } catch (Exception e) {
+      logger.error("Error getting throttling stats: {}", e.getMessage());
+      Map<String, Object> errorResponse = new HashMap<>();
+      errorResponse.put("success", false);
+      errorResponse.put("error", e.getMessage());
+      errorResponse.put("timestamp", LocalDateTime.now());
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+    }
+  }
+
+  /**
+   * Enterprise health status with intelligent recommendations FOR ADMIN UI ONLY - On-demand
+   * comprehensive health analysis
+   */
+  @GetMapping("/enterprise")
+  public ResponseEntity<Map<String, Object>> getEnterpriseHealth() {
+    try {
+      Map<String, Object> response = enterpriseHealthService.getEnterpriseHealthStatus();
+      return ResponseEntity.ok(response);
+
+    } catch (Exception e) {
+      logger.error("Error getting enterprise health: {}", e.getMessage());
+      Map<String, Object> errorResponse = new HashMap<>();
+      errorResponse.put("success", false);
+      errorResponse.put("error", e.getMessage());
+      errorResponse.put("timestamp", LocalDateTime.now());
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+    }
+  }
+
+  /**
+   * Readiness probe for load balancers SUITABLE FOR AUTOMATED MONITORING - Lightweight readiness
+   * check
+   */
+  @GetMapping("/ready")
+  public ResponseEntity<Map<String, Object>> getReadiness() {
+    try {
+      Map<String, Object> response = enterpriseHealthService.getReadinessStatus();
+      boolean isReady = (Boolean) response.get("ready");
+
+      return ResponseEntity.status(isReady ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE)
+          .body(response);
+
+    } catch (Exception e) {
+      logger.error("Error checking readiness: {}", e.getMessage());
+      Map<String, Object> errorResponse = new HashMap<>();
+      errorResponse.put("ready", false);
+      errorResponse.put("status", "ERROR");
+      errorResponse.put("error", e.getMessage());
+      errorResponse.put("timestamp", LocalDateTime.now());
+      return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(errorResponse);
+    }
+  }
+
+  /**
+   * Liveness probe for container orchestration SUITABLE FOR AUTOMATED MONITORING - Lightweight
+   * liveness check
+   */
+  @GetMapping("/live")
+  public ResponseEntity<Map<String, Object>> getLiveness() {
+    try {
+      Map<String, Object> response = enterpriseHealthService.getLivenessStatus();
+      return ResponseEntity.ok(response);
+
+    } catch (Exception e) {
+      logger.error("Error checking liveness: {}", e.getMessage());
+      Map<String, Object> errorResponse = new HashMap<>();
+      errorResponse.put("alive", false);
+      errorResponse.put("status", "ERROR");
+      errorResponse.put("error", e.getMessage());
+      errorResponse.put("timestamp", LocalDateTime.now());
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+    }
+  }
+
+  /** Configuration validation endpoint FOR ADMIN UI ONLY - On-demand configuration analysis */
+  @GetMapping("/config/validate")
+  public ResponseEntity<Map<String, Object>> validateConfiguration() {
+    try {
+      Map<String, Object> response = configurationValidationService.getValidationResults();
+
+      // Return appropriate HTTP status based on validation results
+      boolean hasErrors = (Integer) response.get("errorCount") > 0;
+      HttpStatus status = hasErrors ? HttpStatus.BAD_REQUEST : HttpStatus.OK;
+
+      return ResponseEntity.status(status).body(response);
+
+    } catch (Exception e) {
+      logger.error("Error validating configuration: {}", e.getMessage());
+      Map<String, Object> errorResponse = new HashMap<>();
+      errorResponse.put("status", "ERROR");
+      errorResponse.put("error", e.getMessage());
+      errorResponse.put("timestamp", LocalDateTime.now());
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+    }
+  }
+
+  /** Revalidate configuration on demand FOR ADMIN UI ONLY - Trigger configuration revalidation */
+  @PostMapping("/config/revalidate")
+  public ResponseEntity<Map<String, Object>> revalidateConfiguration() {
+    try {
+      configurationValidationService.revalidateConfiguration();
+      Map<String, Object> response = configurationValidationService.getValidationResults();
+
+      Map<String, Object> result = new HashMap<>();
+      result.put("success", true);
+      result.put("message", "Configuration revalidated successfully");
+      result.put("validation", response);
+      result.put("timestamp", LocalDateTime.now());
+
+      return ResponseEntity.ok(result);
+
+    } catch (Exception e) {
+      logger.error("Error revalidating configuration: {}", e.getMessage());
+      Map<String, Object> errorResponse = new HashMap<>();
+      errorResponse.put("success", false);
+      errorResponse.put("error", e.getMessage());
+      errorResponse.put("timestamp", LocalDateTime.now());
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
     }
   }

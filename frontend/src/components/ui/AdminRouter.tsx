@@ -2,6 +2,7 @@ import React, { Suspense } from 'react';
 import { Box, Typography, CircularProgress } from '@mui/material';
 import DashboardOverview from './DashboardOverview';
 import EnhancedHealthSummary from './EnhancedHealthSummary';
+import EnterpriseHealthPanel from '../admin/EnterpriseHealthPanel';
 import ConnectionPoolDashboard from './ConnectionPoolDashboard';
 import TransactionMonitoring from './TransactionMonitoring';
 import SecurityDashboard from './SecurityDashboard';
@@ -162,6 +163,13 @@ const AdminRouter = React.memo<AdminRouterProps>(({
               onSectionChange={onSectionChange}
             />
           </Box>
+        );
+
+      case 'enterprise-health':
+        return (
+          <Suspense fallback={<LoadingFallback title="Enterprise Health" />}>
+            <EnterpriseHealthPanel onRefresh={() => {}} />
+          </Suspense>
         );
 
       case 'health-summary':

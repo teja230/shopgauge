@@ -225,4 +225,97 @@ export const getAdminSseStats = async (): Promise<any> => {
     }
     return { success: false, error: 'Failed to get SSE statistics' };
   }
+};
+
+// Enterprise Health Endpoints
+export const getEnterpriseHealth = async (): Promise<any> => {
+  if (import.meta.env.DEV) {
+    console.log('API: Getting enterprise health status');
+  }
+  try {
+    const data = await fetchWithAdminAuth('/api/health/enterprise');
+    if (import.meta.env.DEV) {
+      console.log('API: Enterprise health response:', data);
+    }
+    return data;
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      console.error('API: Enterprise health error:', error);
+    }
+    return { success: false, error: 'Failed to get enterprise health' };
+  }
+};
+
+export const getMemoryProfileStatus = async (): Promise<any> => {
+  if (import.meta.env.DEV) {
+    console.log('API: Getting memory profile status');
+  }
+  try {
+    const data = await fetchWithAdminAuth('/api/health/memory-profile');
+    if (import.meta.env.DEV) {
+      console.log('API: Memory profile response:', data);
+    }
+    return data;
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      console.error('API: Memory profile error:', error);
+    }
+    return { success: false, error: 'Failed to get memory profile' };
+  }
+};
+
+export const getRequestThrottlingStats = async (): Promise<any> => {
+  if (import.meta.env.DEV) {
+    console.log('API: Getting request throttling statistics');
+  }
+  try {
+    const data = await fetchWithAdminAuth('/api/health/throttling');
+    if (import.meta.env.DEV) {
+      console.log('API: Request throttling response:', data);
+    }
+    return data;
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      console.error('API: Request throttling error:', error);
+    }
+    return { success: false, error: 'Failed to get throttling stats' };
+  }
+};
+
+export const validateConfiguration = async (): Promise<any> => {
+  if (import.meta.env.DEV) {
+    console.log('API: Validating system configuration');
+  }
+  try {
+    const data = await fetchWithAdminAuth('/api/health/config/validate');
+    if (import.meta.env.DEV) {
+      console.log('API: Configuration validation response:', data);
+    }
+    return data;
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      console.error('API: Configuration validation error:', error);
+    }
+    return { success: false, error: 'Failed to validate configuration' };
+  }
+};
+
+export const revalidateConfiguration = async (): Promise<any> => {
+  if (import.meta.env.DEV) {
+    console.log('API: Revalidating system configuration');
+  }
+  try {
+    const data = await fetchWithAdminAuth('/api/health/config/revalidate', {
+      method: 'POST'
+    });
+    if (import.meta.env.DEV) {
+      console.log('API: Configuration revalidation response:', data);
+    }
+    return data;
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      console.error('API: Configuration revalidation error:', error);
+    }
+    return { success: false, error: 'Failed to revalidate configuration' };
+  }
 }; 
