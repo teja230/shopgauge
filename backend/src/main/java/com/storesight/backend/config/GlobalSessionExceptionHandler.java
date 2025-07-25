@@ -2,6 +2,7 @@ package com.storesight.backend.config;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.annotation.Order;
@@ -32,6 +33,28 @@ public class GlobalSessionExceptionHandler {
       String path = httpRequest.getRequestURI();
       logger.debug(
           "Global session invalidation error handled for path: {} - {}", path, e.getMessage());
+
+      // Check if response is already committed
+      if (httpResponse.isCommitted()) {
+        logger.debug("Response already committed for global session invalidation - allowing to complete normally for path: {}", path);
+        return null; // Let the response complete normally
+      }
+
+      // Check if response stream has already been written to
+      try {
+        httpResponse.getWriter();
+        logger.debug("Response writer already accessed for global session invalidation - allowing to complete normally for path: {}", path);
+        return null; // Let the response complete normally
+      } catch (IllegalStateException writerException) {
+        if (writerException.getMessage() != null && 
+            writerException.getMessage().contains("getOutputStream() has already been called")) {
+          logger.debug("Response output stream already accessed for global session invalidation - allowing to complete normally for path: {}", path);
+          return null; // Let the response complete normally
+        }
+      } catch (IOException ioException) {
+        logger.debug("IOException when checking response writer for global session invalidation - allowing to complete normally for path: {}", path);
+        return null; // Let the response complete normally
+      }
 
       // For API endpoints, return success since the business operation likely succeeded
       if (path.startsWith("/api/")) {

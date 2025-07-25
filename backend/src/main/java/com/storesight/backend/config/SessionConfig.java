@@ -127,6 +127,32 @@ public class SessionConfig {
               request.getRequestURI(),
               e.getMessage());
 
+          // Check if response is already committed - if so, we can't write to it
+          if (response.isCommitted()) {
+            filterLogger.info(
+                "Response already committed for session invalidation - allowing to complete normally for path: {}",
+                request.getRequestURI());
+            return;
+          }
+
+          // Check if response stream has already been written to
+          try {
+            // Try to get the writer to see if it's already been accessed
+            response.getWriter();
+            filterLogger.info(
+                "Response writer already accessed for session invalidation - allowing to complete normally for path: {}",
+                request.getRequestURI());
+            return;
+          } catch (IllegalStateException writerException) {
+            if (writerException.getMessage() != null && 
+                writerException.getMessage().contains("getOutputStream() has already been called")) {
+              filterLogger.info(
+                  "Response output stream already accessed for session invalidation - allowing to complete normally for path: {}",
+                  request.getRequestURI());
+              return;
+            }
+          }
+
           // Always allow the response to complete normally for session invalidation errors
           // This prevents cascading failures during concurrent requests after OAuth
           filterLogger.info(
@@ -147,6 +173,30 @@ public class SessionConfig {
                 request.getRequestURI(),
                 ise.getMessage());
 
+            // Check response commitment and stream access
+            if (response.isCommitted()) {
+              filterLogger.info(
+                  "Response already committed for session invalidation in ServletException - allowing to complete normally for path: {}",
+                  request.getRequestURI());
+              return;
+            }
+
+            try {
+              response.getWriter();
+              filterLogger.info(
+                  "Response writer already accessed for session invalidation in ServletException - allowing to complete normally for path: {}",
+                  request.getRequestURI());
+              return;
+            } catch (IllegalStateException writerException) {
+              if (writerException.getMessage() != null && 
+                  writerException.getMessage().contains("getOutputStream() has already been called")) {
+                filterLogger.info(
+                    "Response output stream already accessed for session invalidation in ServletException - allowing to complete normally for path: {}",
+                    request.getRequestURI());
+                return;
+              }
+            }
+
             // Always allow the response to complete normally
             filterLogger.info(
                 "Session invalidation in ServletException for path: {} - allowing response to complete normally",
@@ -165,6 +215,31 @@ public class SessionConfig {
               "Session invalidation error in generic exception handled gracefully for path: {} - {}",
               request.getRequestURI(),
               e.getMessage());
+          
+          // Check response commitment and stream access
+          if (response.isCommitted()) {
+            filterLogger.info(
+                "Response already committed for session invalidation in generic exception - allowing to complete normally for path: {}",
+                request.getRequestURI());
+            return;
+          }
+
+          try {
+            response.getWriter();
+            filterLogger.info(
+                "Response writer already accessed for session invalidation in generic exception - allowing to complete normally for path: {}",
+                request.getRequestURI());
+            return;
+          } catch (IllegalStateException writerException) {
+            if (writerException.getMessage() != null && 
+                writerException.getMessage().contains("getOutputStream() has already been called")) {
+              filterLogger.info(
+                  "Response output stream already accessed for session invalidation in generic exception - allowing to complete normally for path: {}",
+                  request.getRequestURI());
+              return;
+            }
+          }
+          
           return;
         } else {
           throw e;
