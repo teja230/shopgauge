@@ -427,7 +427,7 @@ public class AdminHealthController {
    * Readiness probe for load balancers SUITABLE FOR AUTOMATED MONITORING - Lightweight readiness
    * check
    */
-  @GetMapping("/ready")
+  @GetMapping("/admin/ready")
   public ResponseEntity<Map<String, Object>> getReadiness() {
     try {
       Map<String, Object> response = enterpriseHealthService.getReadinessStatus();
@@ -451,7 +451,7 @@ public class AdminHealthController {
    * Liveness probe for container orchestration SUITABLE FOR AUTOMATED MONITORING - Lightweight
    * liveness check
    */
-  @GetMapping("/live")
+  @GetMapping("/admin/live")
   public ResponseEntity<Map<String, Object>> getLiveness() {
     try {
       Map<String, Object> response = enterpriseHealthService.getLivenessStatus();
