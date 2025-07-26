@@ -533,7 +533,7 @@ public class DatabaseMonitoringService implements HealthIndicator {
 
     try {
       // Clean up old price snapshots (older than 90 days) using standard SQL
-      String cleanupQuery = 
+      String cleanupQuery =
           "DELETE FROM price_snapshots WHERE checked_at < CURRENT_DATE - INTERVAL '90 days'";
       int deletedSnapshots = jdbcTemplate.update(cleanupQuery);
       results.put("priceSnapshotCleanup", "Deleted " + deletedSnapshots + " old price snapshots");
@@ -859,7 +859,7 @@ public class DatabaseMonitoringService implements HealthIndicator {
       logger.warn("Performing emergency database cleanup");
 
       // Clean up old price snapshots more aggressively (30 days instead of 90) using standard SQL
-      String cleanupQuery = 
+      String cleanupQuery =
           "DELETE FROM price_snapshots WHERE checked_at < CURRENT_DATE - INTERVAL '30 days'";
       int deletedSnapshots = jdbcTemplate.update(cleanupQuery);
       logger.info("Emergency cleanup result: Deleted {} old price snapshots", deletedSnapshots);
@@ -870,7 +870,8 @@ public class DatabaseMonitoringService implements HealthIndicator {
         jdbcTemplate.execute("ANALYZE competitor_urls");
         jdbcTemplate.execute("ANALYZE competitor_suggestions");
       } catch (Exception e) {
-        logger.warn("Could not update table statistics during emergency cleanup: {}", e.getMessage());
+        logger.warn(
+            "Could not update table statistics during emergency cleanup: {}", e.getMessage());
       }
 
       // Log the emergency cleanup
@@ -878,7 +879,9 @@ public class DatabaseMonitoringService implements HealthIndicator {
         jdbcTemplate.update(
             "INSERT INTO admin_audit_logs (action, details, created_at) VALUES (?, ?, ?)",
             "EMERGENCY_DATABASE_CLEANUP",
-            "{\"retention_days\": 30, \"reason\": \"emergency_cleanup\", \"deleted_snapshots\": " + deletedSnapshots + "}",
+            "{\"retention_days\": 30, \"reason\": \"emergency_cleanup\", \"deleted_snapshots\": "
+                + deletedSnapshots
+                + "}",
             LocalDateTime.now());
       } catch (Exception e) {
         logger.warn("Could not log emergency cleanup to audit logs: {}", e.getMessage());

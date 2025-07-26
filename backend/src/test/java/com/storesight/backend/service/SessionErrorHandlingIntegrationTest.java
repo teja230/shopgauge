@@ -5,9 +5,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import com.storesight.backend.BaseIntegrationTest;
+import com.storesight.backend.config.GlobalSessionExceptionHandler;
 import com.storesight.backend.config.SessionConfig;
 import com.storesight.backend.config.SessionRepositoryErrorFilter;
-import com.storesight.backend.config.GlobalSessionExceptionHandler;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -26,10 +26,11 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
 /**
- * Comprehensive integration test for session error handling to validate the enterprise-grade
- * fixes for session invalidation and response stream conflicts.
- * 
+ * Comprehensive integration test for session error handling to validate the enterprise-grade fixes
+ * for session invalidation and response stream conflicts.
+ *
  * <p>This test validates:
+ *
  * <ul>
  *   <li>Race condition prevention between concurrent requests
  *   <li>Response stream conflict resolution
@@ -54,10 +55,11 @@ class SessionErrorHandlingIntegrationTest extends BaseIntegrationTest {
 
   @BeforeEach
   void setUp() {
-    mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext)
-        .addFilter(sessionErrorHandlingFilter)
-        .addFilter(sessionRepositoryErrorFilter)
-        .build();
+    mockMvc =
+        MockMvcBuilders.webAppContextSetup(webApplicationContext)
+            .addFilter(sessionErrorHandlingFilter)
+            .addFilter(sessionRepositoryErrorFilter)
+            .build();
   }
 
   @Test
@@ -74,19 +76,24 @@ class SessionErrorHandlingIntegrationTest extends BaseIntegrationTest {
 
     for (int i = 0; i < concurrentRequests; i++) {
       final int requestId = i;
-      futures[i] = CompletableFuture.supplyAsync(() -> {
-        try {
-          return mockMvc.perform(get("/api/health/live")
-              .session(session)
-              .contentType(MediaType.APPLICATION_JSON))
-              .andExpect(status().isOk())
-              .andReturn();
-        } catch (Exception e) {
-          throw new RuntimeException("Request " + requestId + " failed", e);
-        } finally {
-          latch.countDown();
-        }
-      }, executor);
+      futures[i] =
+          CompletableFuture.supplyAsync(
+              () -> {
+                try {
+                  return mockMvc
+                      .perform(
+                          get("/api/health/live")
+                              .session(session)
+                              .contentType(MediaType.APPLICATION_JSON))
+                      .andExpect(status().isOk())
+                      .andReturn();
+                } catch (Exception e) {
+                  throw new RuntimeException("Request " + requestId + " failed", e);
+                } finally {
+                  latch.countDown();
+                }
+              },
+              executor);
     }
 
     // Wait for all requests to complete
@@ -112,14 +119,15 @@ class SessionErrorHandlingIntegrationTest extends BaseIntegrationTest {
     // Simulate session invalidation by invalidating the session
     session.invalidate();
 
-    MvcResult result = mockMvc.perform(get("/api/health/live")
-        .session(session)
-        .contentType(MediaType.APPLICATION_JSON))
-        .andExpect(status().isOk())
-        .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-        .andExpect(jsonPath("$.success").value(true))
-        .andExpect(jsonPath("$.warning").exists())
-        .andReturn();
+    MvcResult result =
+        mockMvc
+            .perform(
+                get("/api/health/live").session(session).contentType(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+            .andExpect(jsonPath("$.success").value(true))
+            .andExpect(jsonPath("$.warning").exists())
+            .andReturn();
 
     String responseBody = result.getResponse().getContentAsString();
     assertTrue(responseBody.contains("Session cleanup issue"));
@@ -132,12 +140,12 @@ class SessionErrorHandlingIntegrationTest extends BaseIntegrationTest {
     session.setAttribute("test", "value");
     session.invalidate();
 
-    MvcResult result = mockMvc.perform(get("/error")
-        .session(session)
-        .contentType(MediaType.TEXT_HTML))
-        .andExpect(status().isOk())
-        .andExpect(content().contentType("text/html;charset=UTF-8"))
-        .andReturn();
+    MvcResult result =
+        mockMvc
+            .perform(get("/error").session(session).contentType(MediaType.TEXT_HTML))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType("text/html;charset=UTF-8"))
+            .andReturn();
 
     String responseBody = result.getResponse().getContentAsString();
     assertTrue(responseBody.contains("Session Expired"));
@@ -151,8 +159,8 @@ class SessionErrorHandlingIntegrationTest extends BaseIntegrationTest {
     session.setAttribute("test", "value");
     session.invalidate();
 
-    mockMvc.perform(get("/dashboard")
-        .session(session))
+    mockMvc
+        .perform(get("/dashboard").session(session))
         .andExpect(status().isFound())
         .andExpect(redirectedUrl("/"));
   }
@@ -165,11 +173,12 @@ class SessionErrorHandlingIntegrationTest extends BaseIntegrationTest {
     session.invalidate();
 
     // This should not throw an IllegalStateException about response stream
-    MvcResult result = mockMvc.perform(get("/api/health/live")
-        .session(session)
-        .contentType(MediaType.APPLICATION_JSON))
-        .andExpect(status().isOk())
-        .andReturn();
+    MvcResult result =
+        mockMvc
+            .perform(
+                get("/api/health/live").session(session).contentType(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk())
+            .andReturn();
 
     // Verify the response is valid JSON
     String responseBody = result.getResponse().getContentAsString();
@@ -188,23 +197,28 @@ class SessionErrorHandlingIntegrationTest extends BaseIntegrationTest {
 
     for (int i = 0; i < concurrentRequests; i++) {
       final int requestId = i;
-      futures[i] = CompletableFuture.supplyAsync(() -> {
-        try {
-          MockHttpSession session = new MockHttpSession();
-          session.setAttribute("test", "value");
-          session.invalidate();
+      futures[i] =
+          CompletableFuture.supplyAsync(
+              () -> {
+                try {
+                  MockHttpSession session = new MockHttpSession();
+                  session.setAttribute("test", "value");
+                  session.invalidate();
 
-          return mockMvc.perform(get("/api/health/live")
-              .session(session)
-              .contentType(MediaType.APPLICATION_JSON))
-              .andExpect(status().isOk())
-              .andReturn();
-        } catch (Exception e) {
-          throw new RuntimeException("Request " + requestId + " failed", e);
-        } finally {
-          latch.countDown();
-        }
-      }, executor);
+                  return mockMvc
+                      .perform(
+                          get("/api/health/live")
+                              .session(session)
+                              .contentType(MediaType.APPLICATION_JSON))
+                      .andExpect(status().isOk())
+                      .andReturn();
+                } catch (Exception e) {
+                  throw new RuntimeException("Request " + requestId + " failed", e);
+                } finally {
+                  latch.countDown();
+                }
+              },
+              executor);
     }
 
     // Wait for all requests to complete
@@ -224,14 +238,11 @@ class SessionErrorHandlingIntegrationTest extends BaseIntegrationTest {
   @Test
   void testHealthEndpoints_NotFiltered() throws Exception {
     // Test that health endpoints are not filtered and work normally
-    mockMvc.perform(get("/health"))
-        .andExpect(status().isOk());
+    mockMvc.perform(get("/health")).andExpect(status().isOk());
 
-    mockMvc.perform(get("/api/health/live"))
-        .andExpect(status().isOk());
+    mockMvc.perform(get("/api/health/live")).andExpect(status().isOk());
 
-    mockMvc.perform(get("/actuator/health"))
-        .andExpect(status().isOk());
+    mockMvc.perform(get("/actuator/health")).andExpect(status().isOk());
   }
 
   @Test
@@ -242,9 +253,8 @@ class SessionErrorHandlingIntegrationTest extends BaseIntegrationTest {
 
     // Make multiple requests to create session state
     for (int i = 0; i < 5; i++) {
-      mockMvc.perform(get("/api/health/live")
-          .session(session)
-          .contentType(MediaType.APPLICATION_JSON))
+      mockMvc
+          .perform(get("/api/health/live").session(session).contentType(MediaType.APPLICATION_JSON))
           .andExpect(status().isOk());
     }
 
@@ -252,9 +262,8 @@ class SessionErrorHandlingIntegrationTest extends BaseIntegrationTest {
     session.invalidate();
 
     // Make another request to trigger cleanup
-    mockMvc.perform(get("/api/health/live")
-        .session(session)
-        .contentType(MediaType.APPLICATION_JSON))
+    mockMvc
+        .perform(get("/api/health/live").session(session).contentType(MediaType.APPLICATION_JSON))
         .andExpect(status().isOk());
   }
 
@@ -266,11 +275,12 @@ class SessionErrorHandlingIntegrationTest extends BaseIntegrationTest {
     session.invalidate();
 
     // This should be handled by the global exception handler
-    MvcResult result = mockMvc.perform(get("/api/health/live")
-        .session(session)
-        .contentType(MediaType.APPLICATION_JSON))
-        .andExpect(status().isOk())
-        .andReturn();
+    MvcResult result =
+        mockMvc
+            .perform(
+                get("/api/health/live").session(session).contentType(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk())
+            .andReturn();
 
     // Verify CORS headers are set
     String corsOrigin = result.getResponse().getHeader("Access-Control-Allow-Origin");
@@ -279,4 +289,4 @@ class SessionErrorHandlingIntegrationTest extends BaseIntegrationTest {
     String sessionWarning = result.getResponse().getHeader("X-Session-Warning");
     assertNotNull(sessionWarning);
   }
-} 
+}

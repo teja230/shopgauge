@@ -32,6 +32,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * prevention.
  *
  * <p>This configuration addresses the core issues causing session invalidation errors:
+ *
  * <ul>
  *   <li>Race conditions between concurrent requests accessing the same session
  *   <li>Response stream conflicts when multiple filters try to write error responses
@@ -48,8 +49,9 @@ public class SessionConfig {
   private static final Logger logger = LoggerFactory.getLogger(SessionConfig.class);
 
   // Thread-safe session state tracking to prevent race conditions
-  private static final ConcurrentHashMap<String, SessionState> sessionStates = new ConcurrentHashMap<>();
-  
+  private static final ConcurrentHashMap<String, SessionState> sessionStates =
+      new ConcurrentHashMap<>();
+
   // Read-write lock for session operations to prevent concurrent invalidation/save conflicts
   private static final ReentrantReadWriteLock sessionLock = new ReentrantReadWriteLock();
 
@@ -61,9 +63,7 @@ public class SessionConfig {
 
   @Autowired private SessionSynchronizationService sessionSynchronizationService;
 
-  /**
-   * Enhanced Redis session repository with proper error handling and synchronization.
-   */
+  /** Enhanced Redis session repository with proper error handling and synchronization. */
   @Bean
   public RedisSessionRepository redisSessionRepository(RedisConnectionFactory connectionFactory) {
     RedisTemplate<String, Object> redisTemplate = new RedisTemplate<>();
@@ -75,18 +75,19 @@ public class SessionConfig {
     redisTemplate.afterPropertiesSet();
 
     RedisSessionRepository repository = new RedisSessionRepository(redisTemplate);
-    
+
     // Configure session repository with proper error handling
     repository.setDefaultMaxInactiveInterval(java.time.Duration.ofHours(1)); // 1 hour
-    
+
     logger.info("Configured Redis session repository with 1-hour timeout and proper serialization");
     return repository;
   }
 
   /**
    * Enterprise-grade session error handling filter with comprehensive race condition prevention.
-   * 
+   *
    * <p>This filter implements multiple layers of protection:
+   *
    * <ul>
    *   <li>Response state checking to prevent multiple writes
    *   <li>Session state tracking to prevent concurrent invalidation/save conflicts
@@ -100,39 +101,37 @@ public class SessionConfig {
     return new SessionErrorHandlingFilter();
   }
 
-  /**
-   * Thread-safe session state tracking to prevent race conditions.
-   */
+  /** Thread-safe session state tracking to prevent race conditions. */
   private static class SessionState {
     private final AtomicBoolean isInvalidating = new AtomicBoolean(false);
     private final AtomicBoolean isSaving = new AtomicBoolean(false);
     private final AtomicBoolean isCommitted = new AtomicBoolean(false);
     private volatile long lastAccessTime = System.currentTimeMillis();
-    
+
     public boolean tryInvalidate() {
       return isInvalidating.compareAndSet(false, true);
     }
-    
+
     public boolean trySave() {
       return isSaving.compareAndSet(false, true);
     }
-    
+
     public void markCommitted() {
       isCommitted.set(true);
     }
-    
+
     public boolean isCommitted() {
       return isCommitted.get();
     }
-    
+
     public void updateAccessTime() {
       lastAccessTime = System.currentTimeMillis();
     }
-    
+
     public long getLastAccessTime() {
       return lastAccessTime;
     }
-    
+
     public void reset() {
       isInvalidating.set(false);
       isSaving.set(false);
@@ -146,7 +145,8 @@ public class SessionConfig {
    */
   public static class SessionErrorHandlingFilter extends OncePerRequestFilter {
 
-    private static final Logger filterLogger = LoggerFactory.getLogger(SessionErrorHandlingFilter.class);
+    private static final Logger filterLogger =
+        LoggerFactory.getLogger(SessionErrorHandlingFilter.class);
 
     @Override
     protected void doFilterInternal(
@@ -155,7 +155,7 @@ public class SessionConfig {
 
       String sessionId = getSessionId(request);
       SessionState sessionState = null;
-      
+
       if (sessionId != null) {
         sessionState = sessionStates.computeIfAbsent(sessionId, k -> new SessionState());
         sessionState.updateAccessTime();
@@ -166,9 +166,9 @@ public class SessionConfig {
         if (sessionId != null) {
           sessionLock.readLock().lock();
         }
-        
+
         filterChain.doFilter(request, response);
-        
+
       } catch (IllegalStateException e) {
         handleSessionError(request, response, e, sessionState, sessionId);
       } catch (ServletException e) {
@@ -188,7 +188,7 @@ public class SessionConfig {
         if (sessionId != null) {
           sessionLock.readLock().unlock();
         }
-        
+
         // Clean up session state if response is committed
         if (sessionState != null && response.isCommitted()) {
           sessionState.markCommitted();
@@ -224,15 +224,15 @@ public class SessionConfig {
     }
 
     private void handleSessionError(
-        HttpServletRequest request, 
-        HttpServletResponse response, 
-        Exception e, 
+        HttpServletRequest request,
+        HttpServletResponse response,
+        Exception e,
         SessionState sessionState,
         String sessionId) {
 
       String path = request.getRequestURI();
       String method = request.getMethod();
-      
+
       filterLogger.debug(
           "Session error handled gracefully for {} {} - {}", method, path, e.getMessage());
 
@@ -246,7 +246,9 @@ public class SessionConfig {
       // Check if this is a session invalidation conflict
       if (sessionState != null && sessionState.isCommitted()) {
         filterLogger.debug(
-            "Session state already committed for {} {} - allowing to complete normally", method, path);
+            "Session state already committed for {} {} - allowing to complete normally",
+            method,
+            path);
         return;
       }
 
@@ -260,7 +262,8 @@ public class SessionConfig {
           handleBrowserSessionError(response, path);
         }
       } catch (IOException ioException) {
-        filterLogger.warn("Failed to write error response for {} {}: {}", method, path, ioException.getMessage());
+        filterLogger.warn(
+            "Failed to write error response for {} {}: {}", method, path, ioException.getMessage());
       }
     }
 
@@ -286,10 +289,11 @@ public class SessionConfig {
       }
     }
 
-    private void handleApiSessionError(HttpServletResponse response, String path, String method) 
+    private void handleApiSessionError(HttpServletResponse response, String path, String method)
         throws IOException {
-      
-      filterLogger.debug("Session error on API endpoint - returning clean response for {} {}", method, path);
+
+      filterLogger.debug(
+          "Session error on API endpoint - returning clean response for {} {}", method, path);
 
       // For API endpoints, return success since the business operation likely succeeded
       // The session invalidation happens during cleanup, not during the actual operation
@@ -304,30 +308,30 @@ public class SessionConfig {
       response.setHeader("Access-Control-Allow-Headers", "*");
 
       // Return a success response with a session warning
-      String jsonResponse = 
+      String jsonResponse =
           "{\"success\":true,\"warning\":\"Session cleanup issue - please refresh if you experience problems\"}";
       response.getWriter().write(jsonResponse);
     }
 
-    private void handleErrorPageSessionError(HttpServletResponse response, String path) 
+    private void handleErrorPageSessionError(HttpServletResponse response, String path)
         throws IOException {
-      
+
       filterLogger.debug("Session error on error page - preventing cascade for {}", path);
-      
+
       response.setStatus(HttpServletResponse.SC_OK);
       response.setContentType("text/html");
       response.setCharacterEncoding("UTF-8");
-      
-      String htmlResponse = 
+
+      String htmlResponse =
           "<html><body><h1>Session Expired</h1><p>Your session has expired. Please refresh the page.</p></body></html>";
       response.getWriter().write(htmlResponse);
     }
 
-    private void handleBrowserSessionError(HttpServletResponse response, String path) 
+    private void handleBrowserSessionError(HttpServletResponse response, String path)
         throws IOException {
-      
+
       filterLogger.debug("Session error on browser endpoint - redirecting for {}", path);
-      
+
       // For browser requests, redirect to home page
       response.sendRedirect("/");
     }
@@ -335,7 +339,7 @@ public class SessionConfig {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
       String path = request.getRequestURI();
-      
+
       // Skip filtering for health checks and actuator endpoints
       return path.startsWith("/actuator/")
           || path.startsWith("/health/")
@@ -345,35 +349,42 @@ public class SessionConfig {
     }
   }
 
-  /**
-   * Scheduled cleanup of session state tracking to prevent memory leaks.
-   */
+  /** Scheduled cleanup of session state tracking to prevent memory leaks. */
   @Bean
-  @ConditionalOnProperty(name = "session.cleanup.enabled", havingValue = "true", matchIfMissing = true)
+  @ConditionalOnProperty(
+      name = "session.cleanup.enabled",
+      havingValue = "true",
+      matchIfMissing = true)
   public SessionStateCleanupTask sessionStateCleanupTask() {
     return new SessionStateCleanupTask();
   }
 
   public static class SessionStateCleanupTask {
-    
-    private static final Logger cleanupLogger = LoggerFactory.getLogger(SessionStateCleanupTask.class);
-    
+
+    private static final Logger cleanupLogger =
+        LoggerFactory.getLogger(SessionStateCleanupTask.class);
+
     // Clean up session states older than 1 hour
     public void cleanupOldSessionStates() {
       long cutoffTime = System.currentTimeMillis() - (60 * 60 * 1000); // 1 hour ago
-      
-      sessionStates.entrySet().removeIf(entry -> {
-        SessionState state = entry.getValue();
-        boolean shouldRemove = state.getLastAccessTime() < cutoffTime;
-        
-        if (shouldRemove) {
-          cleanupLogger.debug("Cleaning up old session state for session: {}", entry.getKey());
-        }
-        
-        return shouldRemove;
-      });
-      
-      cleanupLogger.debug("Session state cleanup completed. Active sessions: {}", sessionStates.size());
+
+      sessionStates
+          .entrySet()
+          .removeIf(
+              entry -> {
+                SessionState state = entry.getValue();
+                boolean shouldRemove = state.getLastAccessTime() < cutoffTime;
+
+                if (shouldRemove) {
+                  cleanupLogger.debug(
+                      "Cleaning up old session state for session: {}", entry.getKey());
+                }
+
+                return shouldRemove;
+              });
+
+      cleanupLogger.debug(
+          "Session state cleanup completed. Active sessions: {}", sessionStates.size());
     }
   }
 }
