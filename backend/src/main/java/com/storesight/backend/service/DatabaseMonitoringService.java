@@ -532,18 +532,31 @@ public class DatabaseMonitoringService implements HealthIndicator {
     Map<String, Object> results = new HashMap<>();
 
     try {
-      // Clean up old price snapshots (older than 90 days)
-      String cleanupResult =
-          jdbcTemplate.queryForObject("SELECT cleanup_old_price_snapshots(90)", String.class);
-      results.put("priceSnapshotCleanup", cleanupResult);
+      // Clean up old price snapshots (older than 90 days) using standard SQL
+      String cleanupQuery = 
+          "DELETE FROM price_snapshots WHERE checked_at < CURRENT_DATE - INTERVAL '90 days'";
+      int deletedSnapshots = jdbcTemplate.update(cleanupQuery);
+      results.put("priceSnapshotCleanup", "Deleted " + deletedSnapshots + " old price snapshots");
 
-      // Update table statistics
-      jdbcTemplate.execute("SELECT update_market_intelligence_statistics()");
-      results.put("statisticsUpdate", "completed");
+      // Update table statistics using standard SQL
+      try {
+        jdbcTemplate.execute("ANALYZE price_snapshots");
+        jdbcTemplate.execute("ANALYZE competitor_urls");
+        jdbcTemplate.execute("ANALYZE competitor_suggestions");
+        results.put("statisticsUpdate", "completed");
+      } catch (Exception e) {
+        logger.warn("Could not update table statistics: {}", e.getMessage());
+        results.put("statisticsUpdate", "skipped - " + e.getMessage());
+      }
 
-      // Refresh materialized view
-      jdbcTemplate.execute("SELECT refresh_competitor_performance_summary()");
-      results.put("materializedViewRefresh", "completed");
+      // Refresh materialized view if it exists
+      try {
+        jdbcTemplate.execute("REFRESH MATERIALIZED VIEW IF EXISTS competitor_performance_summary");
+        results.put("materializedViewRefresh", "completed");
+      } catch (Exception e) {
+        logger.warn("Could not refresh materialized view: {}", e.getMessage());
+        results.put("materializedViewRefresh", "skipped - view does not exist");
+      }
 
       results.put("maintenanceCompleted", LocalDateTime.now());
       logger.info("Database maintenance completed successfully");
@@ -845,20 +858,31 @@ public class DatabaseMonitoringService implements HealthIndicator {
     try {
       logger.warn("Performing emergency database cleanup");
 
-      // Clean up old price snapshots more aggressively (30 days instead of 90)
-      String cleanupResult =
-          jdbcTemplate.queryForObject("SELECT cleanup_old_price_snapshots(30)", String.class);
-      logger.info("Emergency cleanup result: {}", cleanupResult);
+      // Clean up old price snapshots more aggressively (30 days instead of 90) using standard SQL
+      String cleanupQuery = 
+          "DELETE FROM price_snapshots WHERE checked_at < CURRENT_DATE - INTERVAL '30 days'";
+      int deletedSnapshots = jdbcTemplate.update(cleanupQuery);
+      logger.info("Emergency cleanup result: Deleted {} old price snapshots", deletedSnapshots);
 
-      // Update statistics
-      jdbcTemplate.execute("SELECT update_market_intelligence_statistics()");
+      // Update statistics using standard SQL
+      try {
+        jdbcTemplate.execute("ANALYZE price_snapshots");
+        jdbcTemplate.execute("ANALYZE competitor_urls");
+        jdbcTemplate.execute("ANALYZE competitor_suggestions");
+      } catch (Exception e) {
+        logger.warn("Could not update table statistics during emergency cleanup: {}", e.getMessage());
+      }
 
       // Log the emergency cleanup
-      jdbcTemplate.update(
-          "INSERT INTO admin_audit_logs (action, details, created_at) VALUES (?, ?, ?)",
-          "EMERGENCY_DATABASE_CLEANUP",
-          "{\"retention_days\": 30, \"reason\": \"emergency_cleanup\"}",
-          LocalDateTime.now());
+      try {
+        jdbcTemplate.update(
+            "INSERT INTO admin_audit_logs (action, details, created_at) VALUES (?, ?, ?)",
+            "EMERGENCY_DATABASE_CLEANUP",
+            "{\"retention_days\": 30, \"reason\": \"emergency_cleanup\", \"deleted_snapshots\": " + deletedSnapshots + "}",
+            LocalDateTime.now());
+      } catch (Exception e) {
+        logger.warn("Could not log emergency cleanup to audit logs: {}", e.getMessage());
+      }
 
       // Reset monitoring statistics
       resetStatistics();
