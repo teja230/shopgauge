@@ -16,7 +16,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 /**
  * Enhanced filter that catches session repository errors at the lowest level with comprehensive
  * race condition prevention and response state management.
- * 
+ *
  * <p>This filter works in conjunction with SessionConfig.SessionErrorHandlingFilter to provide
  * multiple layers of protection against session invalidation errors.
  */
@@ -24,9 +24,10 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class SessionRepositoryErrorFilter extends OncePerRequestFilter {
 
   private static final Logger logger = LoggerFactory.getLogger(SessionRepositoryErrorFilter.class);
-  
+
   // Track response states to prevent multiple writes
-  private static final ConcurrentHashMap<String, AtomicBoolean> responseStates = new ConcurrentHashMap<>();
+  private static final ConcurrentHashMap<String, AtomicBoolean> responseStates =
+      new ConcurrentHashMap<>();
 
   @Override
   protected void doFilterInternal(
@@ -34,7 +35,8 @@ public class SessionRepositoryErrorFilter extends OncePerRequestFilter {
       throws ServletException, IOException {
 
     String requestId = generateRequestId(request);
-    AtomicBoolean responseWritten = responseStates.computeIfAbsent(requestId, k -> new AtomicBoolean(false));
+    AtomicBoolean responseWritten =
+        responseStates.computeIfAbsent(requestId, k -> new AtomicBoolean(false));
 
     try {
       filterChain.doFilter(request, response);
@@ -59,9 +61,9 @@ public class SessionRepositoryErrorFilter extends OncePerRequestFilter {
   }
 
   private String generateRequestId(HttpServletRequest request) {
-    return request.getSession(false) != null ? 
-        request.getSession().getId() + "-" + System.currentTimeMillis() : 
-        "anonymous-" + System.currentTimeMillis();
+    return request.getSession(false) != null
+        ? request.getSession().getId() + "-" + System.currentTimeMillis()
+        : "anonymous-" + System.currentTimeMillis();
   }
 
   private boolean isSessionError(Exception e) {
@@ -84,15 +86,15 @@ public class SessionRepositoryErrorFilter extends OncePerRequestFilter {
   }
 
   private void handleSessionError(
-      HttpServletRequest request, 
-      HttpServletResponse response, 
-      Exception e, 
+      HttpServletRequest request,
+      HttpServletResponse response,
+      Exception e,
       AtomicBoolean responseWritten,
       String requestId) {
 
     String path = request.getRequestURI();
     String method = request.getMethod();
-    
+
     logger.debug("Session repository error handled for {} {} - {}", method, path, e.getMessage());
 
     // Check if response has already been written to by this filter
@@ -103,23 +105,33 @@ public class SessionRepositoryErrorFilter extends OncePerRequestFilter {
 
     // Check if response is already committed
     if (response.isCommitted()) {
-      logger.debug("Response already committed for {} {} - allowing to complete normally", method, path);
+      logger.debug(
+          "Response already committed for {} {} - allowing to complete normally", method, path);
       return;
     }
 
     // Check if response stream has already been written to
     try {
       response.getWriter();
-      logger.debug("Response writer already accessed for {} {} - allowing to complete normally", method, path);
+      logger.debug(
+          "Response writer already accessed for {} {} - allowing to complete normally",
+          method,
+          path);
       return;
     } catch (IllegalStateException writerException) {
       if (writerException.getMessage() != null
           && writerException.getMessage().contains("getOutputStream() has already been called")) {
-        logger.debug("Response output stream already accessed for {} {} - allowing to complete normally", method, path);
+        logger.debug(
+            "Response output stream already accessed for {} {} - allowing to complete normally",
+            method,
+            path);
         return;
       }
     } catch (IOException ioException) {
-      logger.debug("IOException when checking response writer for {} {} - allowing to complete normally", method, path);
+      logger.debug(
+          "IOException when checking response writer for {} {} - allowing to complete normally",
+          method,
+          path);
       return;
     }
 
@@ -139,14 +151,21 @@ public class SessionRepositoryErrorFilter extends OncePerRequestFilter {
         handleBrowserSessionError(response, path);
       }
     } catch (IOException ioException) {
-      logger.warn("Failed to write session error response for {} {}: {}", method, path, ioException.getMessage());
+      logger.warn(
+          "Failed to write session error response for {} {}: {}",
+          method,
+          path,
+          ioException.getMessage());
     }
   }
 
-  private void handleApiSessionError(HttpServletResponse response, String path, String method) 
+  private void handleApiSessionError(HttpServletResponse response, String path, String method)
       throws IOException {
-    
-    logger.debug("Session repository error on API endpoint - returning clean response for {} {}", method, path);
+
+    logger.debug(
+        "Session repository error on API endpoint - returning clean response for {} {}",
+        method,
+        path);
 
     // For API endpoints, return success since the business operation likely succeeded
     response.setStatus(HttpServletResponse.SC_OK);
@@ -160,30 +179,30 @@ public class SessionRepositoryErrorFilter extends OncePerRequestFilter {
     response.setHeader("Access-Control-Allow-Headers", "*");
 
     // Return a success response with a session warning
-    String jsonResponse = 
+    String jsonResponse =
         "{\"success\":true,\"warning\":\"Session cleanup issue - please refresh if you experience problems\"}";
     response.getWriter().write(jsonResponse);
   }
 
-  private void handleErrorPageSessionError(HttpServletResponse response, String path) 
+  private void handleErrorPageSessionError(HttpServletResponse response, String path)
       throws IOException {
-    
+
     logger.debug("Session repository error on error page - preventing cascade for {}", path);
-    
+
     response.setStatus(HttpServletResponse.SC_OK);
     response.setContentType("text/html");
     response.setCharacterEncoding("UTF-8");
-    
-    String htmlResponse = 
+
+    String htmlResponse =
         "<html><body><h1>Session Expired</h1><p>Your session has expired. Please refresh the page.</p></body></html>";
     response.getWriter().write(htmlResponse);
   }
 
-  private void handleBrowserSessionError(HttpServletResponse response, String path) 
+  private void handleBrowserSessionError(HttpServletResponse response, String path)
       throws IOException {
-    
+
     logger.debug("Session repository error on browser endpoint - redirecting for {}", path);
-    
+
     // For browser requests, redirect to home page
     response.sendRedirect("/");
   }
@@ -191,7 +210,7 @@ public class SessionRepositoryErrorFilter extends OncePerRequestFilter {
   @Override
   protected boolean shouldNotFilter(HttpServletRequest request) {
     String path = request.getRequestURI();
-    
+
     // Skip filtering for health checks and actuator endpoints
     return path.startsWith("/actuator/")
         || path.startsWith("/health/")

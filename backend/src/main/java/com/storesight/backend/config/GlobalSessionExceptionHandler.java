@@ -15,9 +15,9 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.context.request.WebRequest;
 
 /**
- * Enhanced global exception handler specifically for session-related errors with comprehensive
- * race condition prevention and response state management.
- * 
+ * Enhanced global exception handler specifically for session-related errors with comprehensive race
+ * condition prevention and response state management.
+ *
  * <p>This handler works in conjunction with SessionConfig.SessionErrorHandlingFilter and
  * SessionRepositoryErrorFilter to provide multiple layers of protection against session
  * invalidation errors.
@@ -27,9 +27,10 @@ import org.springframework.web.context.request.WebRequest;
 public class GlobalSessionExceptionHandler {
 
   private static final Logger logger = LoggerFactory.getLogger(GlobalSessionExceptionHandler.class);
-  
+
   // Track response states to prevent multiple writes
-  private static final ConcurrentHashMap<String, AtomicBoolean> responseStates = new ConcurrentHashMap<>();
+  private static final ConcurrentHashMap<String, AtomicBoolean> responseStates =
+      new ConcurrentHashMap<>();
 
   @ExceptionHandler(IllegalStateException.class)
   public ResponseEntity<Object> handleSessionInvalidationError(
@@ -42,12 +43,13 @@ public class GlobalSessionExceptionHandler {
       String path = httpRequest.getRequestURI();
       String method = httpRequest.getMethod();
       String requestId = generateRequestId(httpRequest);
-      
+
       logger.debug(
           "Global session invalidation error handled for {} {} - {}", method, path, e.getMessage());
 
       // Check if response has already been written to by this handler
-      AtomicBoolean responseWritten = responseStates.computeIfAbsent(requestId, k -> new AtomicBoolean(false));
+      AtomicBoolean responseWritten =
+          responseStates.computeIfAbsent(requestId, k -> new AtomicBoolean(false));
       if (responseWritten.get()) {
         logger.debug("Response already written by this handler for {} {} - skipping", method, path);
         return null;
@@ -57,7 +59,8 @@ public class GlobalSessionExceptionHandler {
       if (httpResponse.isCommitted()) {
         logger.debug(
             "Response already committed for global session invalidation - allowing to complete normally for {} {}",
-            method, path);
+            method,
+            path);
         return null; // Let the response complete normally
       }
 
@@ -66,20 +69,23 @@ public class GlobalSessionExceptionHandler {
         httpResponse.getWriter();
         logger.debug(
             "Response writer already accessed for global session invalidation - allowing to complete normally for {} {}",
-            method, path);
+            method,
+            path);
         return null; // Let the response complete normally
       } catch (IllegalStateException writerException) {
         if (writerException.getMessage() != null
             && writerException.getMessage().contains("getOutputStream() has already been called")) {
           logger.debug(
               "Response output stream already accessed for global session invalidation - allowing to complete normally for {} {}",
-              method, path);
+              method,
+              path);
           return null; // Let the response complete normally
         }
       } catch (IOException ioException) {
         logger.debug(
             "IOException when checking response writer for global session invalidation - allowing to complete normally for {} {}",
-            method, path);
+            method,
+            path);
         return null; // Let the response complete normally
       }
 
@@ -93,7 +99,9 @@ public class GlobalSessionExceptionHandler {
         // For API endpoints, return success since the business operation likely succeeded
         if (path.startsWith("/api/")) {
           logger.debug(
-              "Session invalidation on API endpoint - returning success response for {} {}", method, path);
+              "Session invalidation on API endpoint - returning success response for {} {}",
+              method,
+              path);
 
           // Add CORS headers
           httpResponse.setHeader("Access-Control-Allow-Origin", "https://www.shopgaugeai.com");
@@ -107,13 +115,16 @@ public class GlobalSessionExceptionHandler {
 
         // For error pages, return a simple OK to prevent cascading
         if (path.startsWith("/error")) {
-          logger.debug("Session invalidation on error page - preventing cascade for {} {}", method, path);
+          logger.debug(
+              "Session invalidation on error page - preventing cascade for {} {}", method, path);
           return ResponseEntity.ok().body("Session expired. Please refresh the page.");
         }
 
         // For other requests, return a redirect response
         logger.debug(
-            "Session invalidation on non-API endpoint - suggesting redirect for {} {}", method, path);
+            "Session invalidation on non-API endpoint - suggesting redirect for {} {}",
+            method,
+            path);
         return ResponseEntity.status(HttpStatus.FOUND)
             .header("Location", "/")
             .body("Session expired. Redirecting...");
@@ -139,11 +150,12 @@ public class GlobalSessionExceptionHandler {
       String path = httpRequest.getRequestURI();
       String method = httpRequest.getMethod();
       String requestId = generateRequestId(httpRequest);
-      
+
       logger.debug("Generic session error handled for {} {} - {}", method, path, e.getMessage());
 
       // Check if response has already been written to by this handler
-      AtomicBoolean responseWritten = responseStates.computeIfAbsent(requestId, k -> new AtomicBoolean(false));
+      AtomicBoolean responseWritten =
+          responseStates.computeIfAbsent(requestId, k -> new AtomicBoolean(false));
       if (responseWritten.get()) {
         logger.debug("Response already written by this handler for {} {} - skipping", method, path);
         return null;
@@ -184,9 +196,9 @@ public class GlobalSessionExceptionHandler {
   }
 
   private String generateRequestId(HttpServletRequest request) {
-    return request.getSession(false) != null ? 
-        request.getSession().getId() + "-" + System.currentTimeMillis() : 
-        "anonymous-" + System.currentTimeMillis();
+    return request.getSession(false) != null
+        ? request.getSession().getId() + "-" + System.currentTimeMillis()
+        : "anonymous-" + System.currentTimeMillis();
   }
 
   private boolean isSessionRelatedError(Exception e) {
