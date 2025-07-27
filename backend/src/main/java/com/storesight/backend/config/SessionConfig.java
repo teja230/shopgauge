@@ -166,7 +166,7 @@ public class SessionConfig {
       if (sessionId != null) {
         sessionState = sessionStates.computeIfAbsent(sessionId, k -> new SessionState());
         sessionState.updateAccessTime();
-        
+
         // Mark session as active for the duration of this request
         try {
           sessionSynchronizationService.markSessionActive(sessionId, Duration.ofMinutes(5));
@@ -201,12 +201,13 @@ public class SessionConfig {
         // Release read lock
         if (sessionId != null) {
           sessionLock.readLock().unlock();
-          
+
           // Clear session active marker
           try {
             sessionSynchronizationService.clearSessionActive(sessionId);
           } catch (Exception e) {
-            filterLogger.debug("Failed to clear active marker for session {}: {}", sessionId, e.getMessage());
+            filterLogger.debug(
+                "Failed to clear active marker for session {}: {}", sessionId, e.getMessage());
           }
         }
 
@@ -258,8 +259,9 @@ public class SessionConfig {
       if (isResponseCommitted(response)) {
         // Only log at debug level for committed responses to reduce noise
         filterLogger.debug(
-            "Session invalidation after successful response for {} {} - allowing to complete normally", 
-            method, path);
+            "Session invalidation after successful response for {} {} - allowing to complete normally",
+            method,
+            path);
         return;
       }
 

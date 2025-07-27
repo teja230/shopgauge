@@ -39,9 +39,6 @@ import type { CallBackProps, Step, TooltipRenderProps } from 'react-joyride';
 import ThemedJoyrideTooltip from '../components/ui/ThemedJoyrideTooltip';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import Typography from '@mui/material/Typography';
-import Alert from '@mui/material/Alert';
-import AlertTitle from '@mui/material/AlertTitle';
-import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
 
 // Tutorial step types
@@ -506,7 +503,7 @@ export default function CompetitorsPage() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestionCount, setSuggestionCount] = useState(0);
   const [isDemoMode, setIsDemoMode] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+
   const [isAdding, setIsAdding] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [url, setUrl] = useState('');
@@ -560,17 +557,7 @@ export default function CompetitorsPage() {
   // Track if tutorial is running to prevent duplicate notifications
   const [tutorialRunning, setTutorialRunning] = useState(false);
 
-  const [showProductSyncAlert, setShowProductSyncAlert] = useState(false);
 
-  // Product sync alert will only be shown when user tries to add a competitor
-  // and gets the PRODUCTS_SYNC_NEEDED error - not proactively
-
-  // Clear product sync alert when component unmounts or user navigates away
-  useEffect(() => {
-    return () => {
-      setShowProductSyncAlert(false);
-    };
-  }, []);
 
   useEffect(() => {
     setTutorialRunning(showTutorial);
@@ -637,7 +624,6 @@ export default function CompetitorsPage() {
         setSuggestionCount(getDemoData(DEFAULT_DEMO_PREFERENCES.category).suggestions.length);
       }
       
-      setIsLoading(false);
       return;
     }
     
@@ -650,8 +636,6 @@ export default function CompetitorsPage() {
     }
     
     try {
-      setIsLoading(true);
-      
       const cacheKey = `competitors_${shop}`;
       const suggestionCacheKey = `suggestions_${shop}`;
       
@@ -704,8 +688,6 @@ export default function CompetitorsPage() {
       } else {
         console.log('fetchData: API failed but authenticated or demo disabled, showing error state');
       }
-    } finally {
-      setIsLoading(false);
     }
   }, [shop, isAuthenticated, isAuthReady, fetchWithCache, userDisabledDemo, isDemoMode]);
 
@@ -799,7 +781,6 @@ export default function CompetitorsPage() {
     }
 
     setIsAdding(true);
-    setShowProductSyncAlert(false); // Clear any existing sync alert when starting a new add operation
     try {
       let newCompetitor: Competitor;
       
@@ -984,9 +965,6 @@ export default function CompetitorsPage() {
         });
         // Don't auto-refresh to avoid infinite loops, let user manually refresh
       } else if (needsProductSync) {
-        // Show the product sync alert only when user actually needs it
-        setShowProductSyncAlert(true);
-        
         // Show clear user guidance with actionable steps
         notifications.showError('Product catalog needs to be synchronized', {
           category: 'Competitors',
@@ -2014,9 +1992,7 @@ export default function CompetitorsPage() {
             </div>
           </div>
           
-          {isLoading ? (
-            <IntelligentLoadingScreen fastMode={true} message="Loading market intelligence..." />
-          ) : filteredCompetitors.length === 0 ? (
+          {filteredCompetitors.length === 0 ? (
             <div className="text-center py-16">
               <ChartBarIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
               <h3 className="text-xl font-medium text-gray-900 mb-2">
@@ -2263,35 +2239,6 @@ export default function CompetitorsPage() {
         </Typography>
       </Box>
 
-      {/* Product Sync Alert - Only shown when user gets PRODUCTS_SYNC_NEEDED error */}
-      {showProductSyncAlert && (
-        <Alert 
-          severity="warning" 
-          sx={{ mb: 3 }}
-          action={
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              <Button 
-                color="inherit" 
-                size="small"
-                onClick={() => navigate('/dashboard?sync_products=true')}
-              >
-                Sync Products
-              </Button>
-              <Button 
-                color="inherit" 
-                size="small"
-                onClick={() => setShowProductSyncAlert(false)}
-              >
-                Dismiss
-              </Button>
-            </Box>
-          }
-        >
-          <AlertTitle>Product Catalog Needs Sync</AlertTitle>
-          To add competitors, you need to sync your product catalog first. 
-          Visit your Dashboard to refresh your product data, then return here to add competitors.
-        </Alert>
-      )}
     </div>
   );
 }
