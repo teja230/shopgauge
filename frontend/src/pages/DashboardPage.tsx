@@ -2624,6 +2624,7 @@ const DashboardPage = () => {
             error={cardErrors.revenue}
             onRetry={() => handleCardLoad('revenue')}
             onLoad={() => handleCardLoad('revenue')}
+            helpText={insights?.totalRevenue === 0 ? "No revenue data available. Make sure your Shopify store has sales and the app has revenue permissions." : undefined}
           />
           <MetricCard
             key="conversion-rate"

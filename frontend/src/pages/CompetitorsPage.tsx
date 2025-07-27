@@ -525,6 +525,22 @@ export default function CompetitorsPage() {
   const [userDisabledDemo, setUserDisabledDemo] = useState<boolean>(false);
   const notifications = useNotifications();
   
+  // Show helpful message if not authenticated
+  useEffect(() => {
+    if (!isAuthenticated && !isDemoMode && isAuthReady) {
+      notifications.showInfo('Connect your Shopify store to start monitoring competitors', {
+        category: 'Competitors',
+        persistent: true,
+        action: {
+          label: 'Connect Store',
+          onClick: () => {
+            window.location.href = '/';
+          }
+        }
+      });
+    }
+  }, [isAuthenticated, isDemoMode, isAuthReady, notifications]);
+  
   // New state for enhanced demo features
   const [showTutorial, setShowTutorial] = useState(false);
   // Add a ref to prevent duplicate notifications
@@ -908,94 +924,75 @@ export default function CompetitorsPage() {
       // Enhanced error handling with user-friendly messages
       let userMessage = 'Unable to add competitor at this time. Please try again.';
       let needsProductSync = false;
-      let isAuthError = false;
-      let isValidationError = false;
-      
-      // Check for specific error conditions
-      if (error?.needsProductSync || 
-          error?.message?.includes('sync your product catalog')) {
+      let needsAuthentication = false;
+
+      if (error.needsProductSync) {
+        needsProductSync = true;
         userMessage = 'Your product catalog needs to be synchronized before adding competitors. Please sync your products first.';
-        needsProductSync = true;
-      } else if (error?.message?.includes('Authentication required') || 
-                 error?.message?.includes('refresh the page')) {
-        userMessage = 'Your session has expired. Please refresh the page and try again.';
-        isAuthError = true;
-      } else if (error?.message?.includes('already being tracked')) {
+      } else if (error.message?.includes('Authentication required') || error.message?.includes('401')) {
+        needsAuthentication = true;
+        userMessage = 'Please connect your Shopify store first to add competitors.';
+      } else if (error.message?.includes('already being monitored')) {
         userMessage = 'This competitor is already being monitored for your products.';
-      } else if (error?.message?.includes('limit')) {
-        userMessage = 'You have reached your competitor monitoring limit. Please upgrade your plan to add more competitors.';
-      } else if (error?.message?.includes('Network error')) {
+      } else if (error.message?.includes('limit')) {
+        userMessage = 'You have reached your competitor monitoring limit for your current plan.';
+      } else if (error.message?.includes('Invalid URL')) {
+        userMessage = 'Please enter a valid competitor URL (Amazon, Shopify, etc.).';
+      } else if (error.message?.includes('Connection issue')) {
         userMessage = 'Connection issue detected. Please check your internet connection and try again.';
-      } else if (error?.message?.includes('Service temporarily unavailable')) {
+      } else if (error.message?.includes('session has expired')) {
+        userMessage = 'Your session has expired. Please refresh the page and try again.';
+      } else if (error.message?.includes('Too many requests')) {
+        userMessage = 'Too many requests. Please wait a moment before trying again.';
+      } else if (error.message?.includes('temporarily unavailable')) {
         userMessage = 'Our service is temporarily unavailable. Please try again in a few moments.';
-      } else if (error?.message?.includes('Invalid URL') || 
-                 error?.message?.includes('Unsupported platform') ||
-                 error?.message?.includes('Please enter a valid URL') ||
-                 error?.message?.includes('URL contains invalid characters') ||
-                 error?.message?.includes('Cannot track internal')) {
-        userMessage = error.message;
-        isValidationError = true;
-      } else if (error.message && !error.message.includes('{') && !error.message.includes('}')) {
+      } else if (error.userFriendly) {
         userMessage = error.message;
       }
-      
-      // Never show raw JSON to users - additional safeguard
-      if (userMessage.includes('{') && userMessage.includes('}')) {
-        userMessage = 'Unable to add competitor at this time. Please try again in a moment.';
-        needsProductSync = true;
-      }
-      
-      // Handle different error types appropriately
-      if (isValidationError) {
-        notifications.showError(userMessage, {
+
+      console.error('Competitor addition failed:', {
+        error: error.message,
+        needsProductSync,
+        needsAuthentication,
+        userMessage
+      });
+
+      // Show appropriate notification based on error type
+      if (needsAuthentication) {
+        notifications.showError('Authentication Required', {
           category: 'Competitors',
-          persistent: false
+          persistent: true,
+          action: {
+            label: 'Connect Store',
+            onClick: () => {
+              window.location.href = '/';
+            }
+          }
         });
-        // Don't clear the URL for validation errors so user can fix it
-        setProductId('');
-        setShowAddForm(false);
-      } else if (isAuthError) {
-        notifications.showError(userMessage, {
-          category: 'Authentication',
-          persistent: true
+        notifications.showInfo('To add competitors, you need to connect your Shopify store first. Click "Connect Store" above or visit the home page to authenticate.', {
+          category: 'Competitors',
+          persistent: false,
+          duration: 8000
         });
-        // Don't auto-refresh to avoid infinite loops, let user manually refresh
       } else if (needsProductSync) {
-        // Show clear user guidance with actionable steps
         notifications.showError('Product catalog needs to be synchronized', {
           category: 'Competitors',
           persistent: true,
           action: {
             label: 'Sync Products',
             onClick: () => {
-              // Navigate to dashboard with clear intent
               navigate('/dashboard?sync_products=true');
             }
           }
         });
-        
-        // Show additional info notification with clear steps
         notifications.showInfo('To add competitors, you need to sync your product catalog first. Click "Sync Products" above or visit your Dashboard to refresh your product data.', {
           category: 'Competitors',
           persistent: false,
           duration: 8000
         });
-        
-        // Clear form state
-        setProductId('');
-        setShowAddForm(false);
       } else {
-        // Always show error notification for any unhandled errors
         notifications.showError(userMessage, {
-          category: 'Competitors',
-          persistent: false
-        });
-        
-        // Log additional details for debugging
-        console.error('Competitor addition failed - technical details:', {
-          error: error,
-          message: error.message,
-          stack: error.stack
+          category: 'Competitors'
         });
       }
     } finally {
