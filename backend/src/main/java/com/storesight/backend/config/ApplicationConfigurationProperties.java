@@ -536,15 +536,15 @@ public class ApplicationConfigurationProperties {
 
   /** Cache configuration properties */
   public static class CacheConfiguration {
-    @NotNull private Duration defaultTtl = Duration.ofMinutes(10);
+    @NotNull private Duration defaultTtl = Duration.ofMinutes(15);
 
-    @NotNull private Duration memoryTtl = Duration.ofMinutes(3);
+    @NotNull private Duration memoryTtl = Duration.ofMinutes(8);
 
     @Min(100)
     @Max(10000)
     private int maxMemoryCacheSize = 1000;
 
-    @NotNull private Duration cleanupInterval = Duration.ofMinutes(5);
+    @NotNull private Duration cleanupInterval = Duration.ofMinutes(10);
 
     @NotNull private Duration statisticsInterval = Duration.ofMinutes(10);
 
@@ -624,7 +624,7 @@ public class ApplicationConfigurationProperties {
 
     @NotNull private Duration sseCleanupInterval = Duration.ofMinutes(1);
 
-    @NotNull private Duration cacheCleanupInterval = Duration.ofMinutes(5);
+    @NotNull private Duration cacheCleanupInterval = Duration.ofMinutes(10);
 
     @NotNull private Duration dashboardCollectionInterval = Duration.ofSeconds(30);
 
