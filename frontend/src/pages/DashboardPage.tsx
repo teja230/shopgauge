@@ -2215,6 +2215,7 @@ const DashboardPage = () => {
     const reauth = searchParams.get('reauth');
     const forceRefresh = searchParams.get('force_refresh');
     const clearCache = searchParams.get('clear_cache');
+    const syncProducts = searchParams.get('sync_products');
 
     // Optimized: Skip heavy loading animations if coming from OAuth
     if (skipLoading === 'true') {
@@ -2312,6 +2313,29 @@ const DashboardPage = () => {
       // Clean up URL
       const newUrl = new URL(window.location.href);
       newUrl.searchParams.delete('force_refresh');
+      window.history.replaceState({}, document.title, newUrl.toString());
+    }
+
+    // Handle product sync request from competitors page
+    if (syncProducts === 'true') {
+      const notificationKey = `sync-products-${shop || 'sync'}`;
+      if (!notificationShownRef.current.has(notificationKey)) {
+        markNotificationShown(notificationKey);
+        
+        notifications.showInfo('🔄 Syncing your product catalog for competitor tracking...', {
+          category: 'Product Sync',
+          duration: 3000
+        });
+        
+        // Force refresh products data
+        setTimeout(() => {
+          handleCardLoad('products', true);
+        }, 500);
+      }
+      
+      // Clean up URL
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('sync_products');
       window.history.replaceState({}, document.title, newUrl.toString());
     }
   }, [location.search, notifications, markNotificationShown, handleRefreshAll]);
