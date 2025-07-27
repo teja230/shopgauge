@@ -529,7 +529,7 @@ export async function addCompetitorIntelligent(url: string, productId?: string):
       
       // Handle specific error cases
       if (response.status === 412 || errorData.error === 'PRODUCTS_SYNC_NEEDED') {
-        const userError = new Error('Your product catalog needs to be synchronized. Please visit your Dashboard first, then try adding competitors again.');
+        const userError = new Error('Your product catalog needs to be synchronized before adding competitors. Please sync your products first.');
         (userError as any).userFriendly = true;
         (userError as any).needsProductSync = true;
         throw userError;

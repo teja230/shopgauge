@@ -38,6 +38,11 @@ import Joyride from 'react-joyride';
 import type { CallBackProps, Step, TooltipRenderProps } from 'react-joyride';
 import ThemedJoyrideTooltip from '../components/ui/ThemedJoyrideTooltip';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import Typography from '@mui/material/Typography';
+import Alert from '@mui/material/Alert';
+import AlertTitle from '@mui/material/AlertTitle';
+import Button from '@mui/material/Button';
+import Box from '@mui/material/Box';
 
 // Tutorial step types
 interface TutorialStep {
@@ -555,6 +560,18 @@ export default function CompetitorsPage() {
   // Track if tutorial is running to prevent duplicate notifications
   const [tutorialRunning, setTutorialRunning] = useState(false);
 
+  const [showProductSyncAlert, setShowProductSyncAlert] = useState(false);
+
+  // Product sync alert will only be shown when user tries to add a competitor
+  // and gets the PRODUCTS_SYNC_NEEDED error - not proactively
+
+  // Clear product sync alert when component unmounts or user navigates away
+  useEffect(() => {
+    return () => {
+      setShowProductSyncAlert(false);
+    };
+  }, []);
+
   useEffect(() => {
     setTutorialRunning(showTutorial);
   }, [showTutorial]);
@@ -782,6 +799,7 @@ export default function CompetitorsPage() {
     }
 
     setIsAdding(true);
+    setShowProductSyncAlert(false); // Clear any existing sync alert when starting a new add operation
     try {
       let newCompetitor: Competitor;
       
@@ -919,7 +937,7 @@ export default function CompetitorsPage() {
       // Check for specific error conditions
       if (error?.needsProductSync || 
           error?.message?.includes('sync your product catalog')) {
-        userMessage = 'Your product catalog needs to be synchronized. Please visit your Dashboard first, then try adding the competitor again.';
+        userMessage = 'Your product catalog needs to be synchronized before adding competitors. Please sync your products first.';
         needsProductSync = true;
       } else if (error?.message?.includes('Authentication required') || 
                  error?.message?.includes('refresh the page')) {
@@ -966,52 +984,32 @@ export default function CompetitorsPage() {
         });
         // Don't auto-refresh to avoid infinite loops, let user manually refresh
       } else if (needsProductSync) {
-        // Trigger product sync in background with better feedback
-        notifications.showInfo('Synchronizing your product catalog in the background...', {
-            category: 'Competitors',
-          persistent: false
-        });
+        // Show the product sync alert only when user actually needs it
+        setShowProductSyncAlert(true);
         
-        fetchWithAuth('/api/analytics/products')
-        .then(response => {
-          if (response.ok) {
-            console.log('Background product sync completed successfully');
-            // Update cache with fresh data
-            return response.json();
-          } else {
-            console.log('Background product sync failed with status:', response.status);
-          }
-        })
-        .then(data => {
-          if (data?.products?.length > 0) {
-            const cacheData = {
-              products: {
-                data: data,
-                timestamp: Date.now()
-              }
-            };
-            sessionStorage.setItem('dashboard_cache_v2', JSON.stringify(cacheData));
-            console.log('Updated dashboard cache with fresh product data');
-            
-            // Show success message after sync
-            notifications.showSuccess('Product catalog synchronized successfully. You can now add competitors.', {
-              category: 'Competitors',
-              persistent: false
-            });
-        }
-        })
-        .catch(error => {
-          console.error('Background product sync failed:', error);
-          notifications.showError('Unable to synchronize product catalog. Please visit your Dashboard first to refresh your product data.', {
-            category: 'Competitors',
-            persistent: false
-          });
-        });
-        
-        notifications.showInfo(userMessage, {
+        // Show clear user guidance with actionable steps
+        notifications.showError('Product catalog needs to be synchronized', {
           category: 'Competitors',
-          persistent: false
+          persistent: true,
+          action: {
+            label: 'Sync Products',
+            onClick: () => {
+              // Navigate to dashboard with clear intent
+              navigate('/dashboard?sync_products=true');
+            }
+          }
         });
+        
+        // Show additional info notification with clear steps
+        notifications.showInfo('To add competitors, you need to sync your product catalog first. Click "Sync Products" above or visit your Dashboard to refresh your product data.', {
+          category: 'Competitors',
+          persistent: false,
+          duration: 8000
+        });
+        
+        // Clear form state
+        setProductId('');
+        setShowAddForm(false);
       } else {
         // Always show error notification for any unhandled errors
         notifications.showError(userMessage, {
@@ -2255,6 +2253,45 @@ export default function CompetitorsPage() {
           <HelpOutlineIcon sx={{ fontSize: 24 }} />
         </button>
       </div>
+
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="h4" component="h1" sx={{ fontWeight: 600, color: 'text.primary' }}>
+          Competitor Tracking
+        </Typography>
+        <Typography variant="body1" sx={{ color: 'text.secondary', mt: 1 }}>
+          Monitor your competitors' prices and stay ahead of the market
+        </Typography>
+      </Box>
+
+      {/* Product Sync Alert - Only shown when user gets PRODUCTS_SYNC_NEEDED error */}
+      {showProductSyncAlert && (
+        <Alert 
+          severity="warning" 
+          sx={{ mb: 3 }}
+          action={
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button 
+                color="inherit" 
+                size="small"
+                onClick={() => navigate('/dashboard?sync_products=true')}
+              >
+                Sync Products
+              </Button>
+              <Button 
+                color="inherit" 
+                size="small"
+                onClick={() => setShowProductSyncAlert(false)}
+              >
+                Dismiss
+              </Button>
+            </Box>
+          }
+        >
+          <AlertTitle>Product Catalog Needs Sync</AlertTitle>
+          To add competitors, you need to sync your product catalog first. 
+          Visit your Dashboard to refresh your product data, then return here to add competitors.
+        </Alert>
+      )}
     </div>
   );
 }

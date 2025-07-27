@@ -7,6 +7,7 @@ import com.storesight.backend.repository.CompetitorSuggestionRepository;
 import com.storesight.backend.service.AdminRateLimitingService;
 import com.storesight.backend.service.CompetitorAuditService;
 import com.storesight.backend.service.CompetitorLimitService;
+import com.storesight.backend.service.DashboardCacheService;
 import com.storesight.backend.service.InputValidationService;
 import com.storesight.backend.service.discovery.CompetitorDiscoveryService;
 import com.storesight.backend.service.discovery.MultiSourceSearchClient;
@@ -52,6 +53,8 @@ public class CompetitorController {
 
   @Autowired private AdminRateLimitingService rateLimitingService;
 
+  @Autowired private DashboardCacheService dashboardCacheService;
+
   // Cache for debouncing frequent count requests
   private final Map<Long, CachedCount> countCache = new ConcurrentHashMap<>();
 
@@ -89,12 +92,10 @@ public class CompetitorController {
       // Get competitor URLs for this shop, joining with latest price snapshots
       String query =
           """
-          SELECT cu.id, cu.url, cu.label, ps.price, ps.in_stock, ps.checked_at,
-                 p.title as product_title
+          SELECT cu.id, cu.url, cu.label, cu.shopify_product_id, ps.price, ps.in_stock, ps.checked_at
           FROM competitor_urls cu
-          JOIN products p ON cu.product_id = p.id
           LEFT JOIN price_snapshots ps ON cu.id = ps.competitor_url_id
-          WHERE p.shop_id = ?
+          WHERE cu.shop_id = ?
           ORDER BY cu.created_at DESC
           """;
 
@@ -183,44 +184,53 @@ public class CompetitorController {
     }
 
     try {
-      // Get a default product for this shop if no productId specified
-      Long productId = null;
-      if (request.productId != null && !request.productId.trim().isEmpty()) {
-        try {
-          productId = Long.parseLong(request.productId);
-        } catch (NumberFormatException e) {
-          // If not a number, try to find product by title or shopify_product_id
-          List<Map<String, Object>> products =
-              jdbcTemplate.queryForList(
-                  "SELECT id FROM products WHERE shop_id = ? AND (title ILIKE ? OR shopify_product_id = ?) LIMIT 1",
-                  shopId,
-                  "%" + request.productId + "%",
-                  request.productId);
-          if (!products.isEmpty()) {
-            productId = ((Number) products.get(0).get("id")).longValue();
-          }
-        }
+      // Get shop domain from shopId for Redis lookup
+      String shopDomain = getShopDomainFromId(shopId);
+      if (shopDomain == null) {
+        logger.error("addCompetitor: Could not determine shop domain for shopId: {}", shopId);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            .body(Map.of("error", "Unable to determine shop domain"));
       }
 
-      // If still no product ID, try to fetch products from Shopify first
-      if (productId == null) {
+      // Get products from Redis cache instead of database
+      String productId = null;
+      if (request.productId != null && !request.productId.trim().isEmpty()) {
+        productId = request.productId.trim();
+        logger.info("addCompetitor: Using provided productId: {}", productId);
+      } else {
+        // Get products from Redis cache
         logger.info(
-            "addCompetitor: No productId provided, looking for existing products for shop {}",
-            shopId);
+            "addCompetitor: No productId provided, looking for cached products for shop {}",
+            shopDomain);
 
-        List<Map<String, Object>> products =
-            jdbcTemplate.queryForList(
-                "SELECT id FROM products WHERE shop_id = ? ORDER BY created_at DESC LIMIT 1",
-                shopId);
+        var cachedProducts = dashboardCacheService.getCachedProductsData(shopDomain);
+        if (cachedProducts.isPresent()) {
+          try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> productsData = (Map<String, Object>) cachedProducts.get();
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> products =
+                (List<Map<String, Object>>) productsData.get("products");
 
-        logger.info("addCompetitor: Found {} products for shop {}", products.size(), shopId);
+            if (products != null && !products.isEmpty()) {
+              // Use the first product's Shopify ID
+              Map<String, Object> firstProduct = products.get(0);
+              Object shopifyId = firstProduct.get("id");
+              if (shopifyId != null) {
+                productId = shopifyId.toString();
+                logger.info(
+                    "addCompetitor: Using first cached product with Shopify ID: {}", productId);
+              }
+            }
+          } catch (Exception e) {
+            logger.warn("addCompetitor: Error parsing cached products data: {}", e.getMessage());
+          }
+        }
 
-        if (products.isEmpty()) {
-          // Try to sync products from Shopify before giving up
+        if (productId == null) {
           logger.warn(
-              "addCompetitor: No products found in database for shop {}, returning PRODUCTS_SYNC_NEEDED",
-              shopId);
-
+              "addCompetitor: No products found in cache for shop {}, returning PRODUCTS_SYNC_NEEDED",
+              shopDomain);
           return ResponseEntity.status(HttpStatus.PRECONDITION_REQUIRED)
               .body(
                   Map.of(
@@ -229,26 +239,27 @@ public class CompetitorController {
                           "Please visit your Dashboard first to sync products from Shopify, then try adding competitors.",
                       "action", "SYNC_PRODUCTS",
                       "redirect_url", "/dashboard"));
-        } else {
-          productId = ((Number) products.get(0).get("id")).longValue();
-          logger.info(
-              "addCompetitor: Using existing product {} for competitor tracking in shop {}",
-              productId,
-              shopId);
         }
       }
 
-      // Check if competitor URL already exists for this product
-      logger.info("addCompetitor: Checking for existing competitor URL for product {}", productId);
+      // Check if competitor URL already exists for this shop and product
+      logger.info(
+          "addCompetitor: Checking for existing competitor URL for shop {} and product {}",
+          shopId,
+          productId);
 
       List<Map<String, Object>> existing =
           jdbcTemplate.queryForList(
-              "SELECT id FROM competitor_urls WHERE product_id = ? AND url = ?",
+              "SELECT id FROM competitor_urls WHERE shop_id = ? AND shopify_product_id = ? AND url = ?",
+              shopId,
               productId,
               request.url);
 
       if (!existing.isEmpty()) {
-        logger.warn("addCompetitor: Competitor URL already exists for product {}", productId);
+        logger.warn(
+            "addCompetitor: Competitor URL already exists for shop {} and product {}",
+            shopId,
+            productId);
         return ResponseEntity.badRequest()
             .body(Map.of("error", "This competitor URL is already being tracked"));
       }
@@ -268,7 +279,8 @@ public class CompetitorController {
 
       int rowsAffected =
           jdbcTemplate.update(
-              "INSERT INTO competitor_urls (product_id, url, label, created_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)",
+              "INSERT INTO competitor_urls (shop_id, shopify_product_id, url, label, created_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)",
+              shopId,
               productId,
               request.url,
               label);
@@ -280,7 +292,8 @@ public class CompetitorController {
 
       List<Map<String, Object>> newRecord =
           jdbcTemplate.queryForList(
-              "SELECT id, url, label FROM competitor_urls WHERE product_id = ? AND url = ? ORDER BY created_at DESC LIMIT 1",
+              "SELECT id, url, label FROM competitor_urls WHERE shop_id = ? AND shopify_product_id = ? AND url = ? ORDER BY created_at DESC LIMIT 1",
+              shopId,
               productId,
               request.url);
 
@@ -352,7 +365,7 @@ public class CompetitorController {
       // Verify the competitor belongs to this shop
       List<Map<String, Object>> competitors =
           jdbcTemplate.queryForList(
-              "SELECT cu.id FROM competitor_urls cu JOIN products p ON cu.product_id = p.id WHERE cu.id = ? AND p.shop_id = ?",
+              "SELECT cu.id FROM competitor_urls cu WHERE cu.id = ? AND cu.shop_id = ?",
               Long.parseLong(id),
               shopId);
 
@@ -1193,6 +1206,20 @@ public class CompetitorController {
   }
 
   /** Helper method to extract title from URL */
+  /** Get shop domain from shop ID */
+  private String getShopDomainFromId(Long shopId) {
+    try {
+      List<Map<String, Object>> shops =
+          jdbcTemplate.queryForList("SELECT shop_domain FROM shops WHERE id = ?", shopId);
+      if (!shops.isEmpty()) {
+        return (String) shops.get(0).get("shop_domain");
+      }
+    } catch (Exception e) {
+      logger.error("Error getting shop domain for shopId {}: {}", shopId, e.getMessage());
+    }
+    return null;
+  }
+
   private String extractTitleFromUrl(String url) {
     if (url == null || url.trim().isEmpty()) {
       return "Unknown Competitor";
