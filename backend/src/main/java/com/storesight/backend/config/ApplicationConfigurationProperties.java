@@ -536,9 +536,9 @@ public class ApplicationConfigurationProperties {
 
   /** Cache configuration properties */
   public static class CacheConfiguration {
-    @NotNull private Duration defaultTtl = Duration.ofMinutes(15);
+    @NotNull private Duration defaultTtl = Duration.ofMinutes(10);
 
-    @NotNull private Duration memoryTtl = Duration.ofMinutes(5);
+    @NotNull private Duration memoryTtl = Duration.ofMinutes(3);
 
     @Min(100)
     @Max(10000)
