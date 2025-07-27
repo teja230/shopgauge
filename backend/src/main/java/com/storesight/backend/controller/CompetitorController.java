@@ -192,13 +192,67 @@ public class CompetitorController {
             .body(Map.of("error", "Unable to determine shop domain"));
       }
 
-      // Get products from Redis cache instead of database
-      String productId = null;
+      // Get products from Redis cache and validate productId
+      final String productId;
+      
       if (request.productId != null && !request.productId.trim().isEmpty()) {
-        productId = request.productId.trim();
-        logger.info("addCompetitor: Using provided productId: {}", productId);
+        String providedProductId = request.productId.trim();
+        logger.info("addCompetitor: Using provided productId: {}", providedProductId);
+        
+        // Validate that the provided productId exists in Redis cache
+        var cachedProducts = dashboardCacheService.getCachedProductsData(shopDomain);
+        if (cachedProducts.isPresent()) {
+          try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> productsData = (Map<String, Object>) cachedProducts.get();
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> products =
+                (List<Map<String, Object>>) productsData.get("products");
+
+            if (products != null && !products.isEmpty()) {
+              // Check if the provided productId exists in the cached products
+              boolean productExists = products.stream()
+                  .anyMatch(product -> providedProductId.equals(product.get("id").toString()));
+              
+              if (!productExists) {
+                logger.warn("addCompetitor: Provided productId {} not found in cached products for shop {}", providedProductId, shopDomain);
+                return ResponseEntity.status(HttpStatus.PRECONDITION_REQUIRED)
+                    .body(Map.of(
+                        "error", "PRODUCTS_SYNC_NEEDED",
+                        "message", "The provided product ID was not found. Please sync your products first.",
+                        "action", "SYNC_PRODUCTS",
+                        "redirect_url", "/dashboard"));
+              }
+              productId = providedProductId;
+            } else {
+              logger.warn("addCompetitor: No products found in cache for shop {}", shopDomain);
+              return ResponseEntity.status(HttpStatus.PRECONDITION_REQUIRED)
+                  .body(Map.of(
+                      "error", "PRODUCTS_SYNC_NEEDED",
+                      "message", "Please visit your Dashboard first to sync products from Shopify, then try adding competitors.",
+                      "action", "SYNC_PRODUCTS",
+                      "redirect_url", "/dashboard"));
+            }
+          } catch (Exception e) {
+            logger.warn("addCompetitor: Error parsing cached products data: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.PRECONDITION_REQUIRED)
+                .body(Map.of(
+                    "error", "PRODUCTS_SYNC_NEEDED",
+                    "message", "Product data is corrupted. Please sync your products first.",
+                    "action", "SYNC_PRODUCTS",
+                    "redirect_url", "/dashboard"));
+          }
+        } else {
+          logger.warn("addCompetitor: No cached products found for shop {}", shopDomain);
+          return ResponseEntity.status(HttpStatus.PRECONDITION_REQUIRED)
+              .body(Map.of(
+                  "error", "PRODUCTS_SYNC_NEEDED",
+                  "message", "Please visit your Dashboard first to sync products from Shopify, then try adding competitors.",
+                  "action", "SYNC_PRODUCTS",
+                  "redirect_url", "/dashboard"));
+        }
       } else {
-        // Get products from Redis cache
+        // No productId provided, get first product from Redis cache
         logger.info(
             "addCompetitor: No productId provided, looking for cached products for shop {}",
             shopDomain);
@@ -220,25 +274,41 @@ public class CompetitorController {
                 productId = shopifyId.toString();
                 logger.info(
                     "addCompetitor: Using first cached product with Shopify ID: {}", productId);
+              } else {
+                logger.warn("addCompetitor: First product has no ID");
+                return ResponseEntity.status(HttpStatus.PRECONDITION_REQUIRED)
+                    .body(Map.of(
+                        "error", "PRODUCTS_SYNC_NEEDED",
+                        "message", "Product data is incomplete. Please sync your products first.",
+                        "action", "SYNC_PRODUCTS",
+                        "redirect_url", "/dashboard"));
               }
+            } else {
+              logger.warn("addCompetitor: No products found in cache for shop {}", shopDomain);
+              return ResponseEntity.status(HttpStatus.PRECONDITION_REQUIRED)
+                  .body(Map.of(
+                      "error", "PRODUCTS_SYNC_NEEDED",
+                      "message", "Please visit your Dashboard first to sync products from Shopify, then try adding competitors.",
+                      "action", "SYNC_PRODUCTS",
+                      "redirect_url", "/dashboard"));
             }
           } catch (Exception e) {
             logger.warn("addCompetitor: Error parsing cached products data: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.PRECONDITION_REQUIRED)
+                .body(Map.of(
+                    "error", "PRODUCTS_SYNC_NEEDED",
+                    "message", "Product data is corrupted. Please sync your products first.",
+                    "action", "SYNC_PRODUCTS",
+                    "redirect_url", "/dashboard"));
           }
-        }
-
-        if (productId == null) {
-          logger.warn(
-              "addCompetitor: No products found in cache for shop {}, returning PRODUCTS_SYNC_NEEDED",
-              shopDomain);
+        } else {
+          logger.warn("addCompetitor: No cached products found for shop {}", shopDomain);
           return ResponseEntity.status(HttpStatus.PRECONDITION_REQUIRED)
-              .body(
-                  Map.of(
-                      "error", "PRODUCTS_SYNC_NEEDED",
-                      "message",
-                          "Please visit your Dashboard first to sync products from Shopify, then try adding competitors.",
-                      "action", "SYNC_PRODUCTS",
-                      "redirect_url", "/dashboard"));
+              .body(Map.of(
+                  "error", "PRODUCTS_SYNC_NEEDED",
+                  "message", "Please visit your Dashboard first to sync products from Shopify, then try adding competitors.",
+                  "action", "SYNC_PRODUCTS",
+                  "redirect_url", "/dashboard"));
         }
       }
 
