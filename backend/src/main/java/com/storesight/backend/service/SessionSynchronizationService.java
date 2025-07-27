@@ -36,6 +36,7 @@ public class SessionSynchronizationService {
   private static final String SESSION_LOCK_PREFIX = "session_lock:";
   private static final String SESSION_STATE_PREFIX = "session_state:";
   private static final String SESSION_INVALIDATION_PREFIX = "session_invalidation:";
+  private static final String SESSION_ACTIVE_PREFIX = "session_active:";
 
   @Autowired private ApplicationConfigurationProperties config;
 
@@ -351,6 +352,58 @@ public class SessionSynchronizationService {
       logger.warn("Error checking if session {} is invalidating: {}", sessionId, e.getMessage());
       totalRedisOperationFailures.incrementAndGet();
       return false;
+    }
+  }
+
+  /**
+   * Check if a session is currently being used in an active request
+   * This helps prevent invalidation during active operations
+   *
+   * @param sessionId The session ID to check
+   * @return true if session is actively being used, false otherwise
+   */
+  public boolean isSessionActive(String sessionId) {
+    try {
+      String activeKey = SESSION_ACTIVE_PREFIX + sessionId;
+      return enhancedRedisService.hasKey(activeKey);
+    } catch (Exception e) {
+      logger.warn("Error checking if session {} is active: {}", sessionId, e.getMessage());
+      totalRedisOperationFailures.incrementAndGet();
+      return false;
+    }
+  }
+
+  /**
+   * Mark session as active for the duration of a request
+   * This prevents invalidation during active operations
+   *
+   * @param sessionId The session ID to mark as active
+   * @param duration Duration to keep the session marked as active
+   */
+  public void markSessionActive(String sessionId, Duration duration) {
+    try {
+      String activeKey = SESSION_ACTIVE_PREFIX + sessionId;
+      enhancedRedisService.setWithTtl(activeKey, "active", duration);
+      logger.debug("Marked session {} as active for {}", sessionId, duration);
+    } catch (Exception e) {
+      logger.warn("Error marking session {} as active: {}", sessionId, e.getMessage());
+      totalRedisOperationFailures.incrementAndGet();
+    }
+  }
+
+  /**
+   * Clear session active marker
+   *
+   * @param sessionId The session ID to clear active marker for
+   */
+  public void clearSessionActive(String sessionId) {
+    try {
+      String activeKey = SESSION_ACTIVE_PREFIX + sessionId;
+      enhancedRedisService.delete(activeKey);
+      logger.debug("Cleared active marker for session {}", sessionId);
+    } catch (Exception e) {
+      logger.warn("Error clearing active marker for session {}: {}", sessionId, e.getMessage());
+      totalRedisOperationFailures.incrementAndGet();
     }
   }
 

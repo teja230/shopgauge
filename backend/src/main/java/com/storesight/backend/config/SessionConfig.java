@@ -9,6 +9,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -98,7 +99,7 @@ public class SessionConfig {
   @Bean
   @Order(1) // Highest priority to catch session errors first
   public SessionErrorHandlingFilter sessionErrorHandlingFilter() {
-    return new SessionErrorHandlingFilter();
+    return new SessionErrorHandlingFilter(sessionSynchronizationService);
   }
 
   /** Thread-safe session state tracking to prevent race conditions. */
@@ -148,6 +149,12 @@ public class SessionConfig {
     private static final Logger filterLogger =
         LoggerFactory.getLogger(SessionErrorHandlingFilter.class);
 
+    private final SessionSynchronizationService sessionSynchronizationService;
+
+    public SessionErrorHandlingFilter(SessionSynchronizationService sessionSynchronizationService) {
+      this.sessionSynchronizationService = sessionSynchronizationService;
+    }
+
     @Override
     protected void doFilterInternal(
         HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -159,6 +166,13 @@ public class SessionConfig {
       if (sessionId != null) {
         sessionState = sessionStates.computeIfAbsent(sessionId, k -> new SessionState());
         sessionState.updateAccessTime();
+        
+        // Mark session as active for the duration of this request
+        try {
+          sessionSynchronizationService.markSessionActive(sessionId, Duration.ofMinutes(5));
+        } catch (Exception e) {
+          filterLogger.debug("Failed to mark session {} as active: {}", sessionId, e.getMessage());
+        }
       }
 
       try {
@@ -187,6 +201,13 @@ public class SessionConfig {
         // Release read lock
         if (sessionId != null) {
           sessionLock.readLock().unlock();
+          
+          // Clear session active marker
+          try {
+            sessionSynchronizationService.clearSessionActive(sessionId);
+          } catch (Exception e) {
+            filterLogger.debug("Failed to clear active marker for session {}: {}", sessionId, e.getMessage());
+          }
         }
 
         // Clean up session state if response is committed
@@ -233,13 +254,12 @@ public class SessionConfig {
       String path = request.getRequestURI();
       String method = request.getMethod();
 
-      filterLogger.debug(
-          "Session error handled gracefully for {} {} - {}", method, path, e.getMessage());
-
       // Check if response is already committed or written to
       if (isResponseCommitted(response)) {
+        // Only log at debug level for committed responses to reduce noise
         filterLogger.debug(
-            "Response already committed for {} {} - allowing to complete normally", method, path);
+            "Session invalidation after successful response for {} {} - allowing to complete normally", 
+            method, path);
         return;
       }
 
@@ -251,6 +271,10 @@ public class SessionConfig {
             path);
         return;
       }
+
+      // Log at info level only for uncommitted responses that need handling
+      filterLogger.info(
+          "Session error handled gracefully for {} {} - {}", method, path, e.getMessage());
 
       // Handle different request types appropriately
       try {
