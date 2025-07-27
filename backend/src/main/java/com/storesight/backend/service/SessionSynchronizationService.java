@@ -356,8 +356,8 @@ public class SessionSynchronizationService {
   }
 
   /**
-   * Check if a session is currently being used in an active request
-   * This helps prevent invalidation during active operations
+   * Check if a session is currently being used in an active request This helps prevent invalidation
+   * during active operations
    *
    * @param sessionId The session ID to check
    * @return true if session is actively being used, false otherwise
@@ -374,8 +374,8 @@ public class SessionSynchronizationService {
   }
 
   /**
-   * Mark session as active for the duration of a request
-   * This prevents invalidation during active operations
+   * Mark session as active for the duration of a request This prevents invalidation during active
+   * operations
    *
    * @param sessionId The session ID to mark as active
    * @param duration Duration to keep the session marked as active
