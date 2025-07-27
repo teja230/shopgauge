@@ -1,10 +1,9 @@
-import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { CompetitorTable } from '../components/ui/CompetitorTable';
 import type { Competitor } from '../components/ui/CompetitorTable';
 import { SuggestionDrawer } from '../components/ui/SuggestionDrawer';
 import { 
   getCompetitors, 
-  addCompetitor, 
   deleteCompetitor,
   getDebouncedSuggestionCount,
   refreshSuggestionCount as refreshSuggestionCountAPI,
@@ -28,14 +27,11 @@ import {
   InformationCircleIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
-import type { CompetitorSuggestion } from '../api';
 import { useNotifications } from '../hooks/useNotifications';
 import { fetchWithAuth } from '../api/index';
-import { getSuggestionCount } from '../api';
 import { useNavigate } from 'react-router-dom';
-import IntelligentLoadingScreen from '../components/ui/IntelligentLoadingScreen';
 import Joyride from 'react-joyride';
-import type { CallBackProps, Step, TooltipRenderProps } from 'react-joyride';
+import type { CallBackProps, Step } from 'react-joyride';
 import ThemedJoyrideTooltip from '../components/ui/ThemedJoyrideTooltip';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import Typography from '@mui/material/Typography';
@@ -1925,7 +1921,7 @@ export default function CompetitorsPage() {
                 </div>
                 <input
                   type="text"
-                  placeholder="Product ID (optional)"
+                  placeholder="Your Shopify Product ID (optional)"
                   value={productId}
                   onChange={(e) => setProductId(e.target.value)}
                   disabled={isAdding}
