@@ -155,8 +155,7 @@ public class CompetitorController {
                         0.0,
                         lastChecked,
                         shopifyProductId,
-                        productTitle,
-                        null);
+                        productTitle);
                   })
               .collect(Collectors.toList());
 
@@ -468,8 +467,7 @@ public class CompetitorController {
               0.0, // No price difference initially
               "Just added",
               productId, // shopifyProductId
-              null, // productTitle - will be populated on next fetch
-              null); // productHandle - will be populated on next fetch
+              null); // productTitle - will be populated on next fetch
 
       // Audit log the competitor addition
       competitorAuditService.logCompetitorAdded(shopId, request.url, label);
@@ -1581,7 +1579,6 @@ public class CompetitorController {
     public String lastChecked;
     public String shopifyProductId;
     public String productTitle;
-    public String productHandle;
 
     public CompetitorDto(
         String id,
@@ -1592,8 +1589,7 @@ public class CompetitorController {
         double percentDiff,
         String lastChecked,
         String shopifyProductId,
-        String productTitle,
-        String productHandle) {
+        String productTitle) {
       this.id = id;
       this.url = url;
       this.label = label;
@@ -1603,7 +1599,6 @@ public class CompetitorController {
       this.lastChecked = lastChecked;
       this.shopifyProductId = shopifyProductId;
       this.productTitle = productTitle;
-      this.productHandle = productHandle;
     }
   }
 
