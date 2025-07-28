@@ -92,9 +92,16 @@ public class CompetitorController {
       // Get competitor URLs for this shop, joining with latest price snapshots
       String query =
           """
-          SELECT cu.id, cu.url, cu.label, cu.shopify_product_id, ps.price, ps.in_stock, ps.checked_at
+          SELECT cu.id, cu.url, cu.label, cu.shopify_product_id, 
+                 COALESCE(ps.price, 0.0) as price, 
+                 COALESCE(ps.in_stock, true) as in_stock, 
+                 ps.checked_at
           FROM competitor_urls cu
-          LEFT JOIN price_snapshots ps ON cu.id = ps.competitor_url_id
+          LEFT JOIN (
+              SELECT competitor_url_id, price, in_stock, checked_at,
+                     ROW_NUMBER() OVER (PARTITION BY competitor_url_id ORDER BY checked_at DESC) as rn
+              FROM price_snapshots
+          ) ps ON cu.id = ps.competitor_url_id AND ps.rn = 1
           WHERE cu.shop_id = ?
           ORDER BY cu.created_at DESC
           """;
@@ -117,8 +124,10 @@ public class CompetitorController {
                         row.get("in_stock") != null ? (Boolean) row.get("in_stock") : true;
                     String lastChecked =
                         row.get("checked_at") != null ? row.get("checked_at").toString() : "Never";
+                    String shopifyProductId = 
+                        row.get("shopify_product_id") != null ? String.valueOf(row.get("shopify_product_id")) : null;
 
-                    return new CompetitorDto(id, url, label, price, inStock, 0.0, lastChecked);
+                    return new CompetitorDto(id, url, label, price, inStock, 0.0, lastChecked, shopifyProductId);
                   })
               .collect(Collectors.toList());
 
@@ -402,7 +411,8 @@ public class CompetitorController {
               0.0, // Price will be updated by scraper
               true, // Assume in stock initially
               0.0, // No price difference initially
-              "Just added");
+              "Just added",
+              null); // shopifyProductId will be set when product is associated
 
       // Audit log the competitor addition
       competitorAuditService.logCompetitorAdded(shopId, request.url, label);
@@ -1404,6 +1414,7 @@ public class CompetitorController {
     public boolean inStock;
     public double percentDiff;
     public String lastChecked;
+    public String shopifyProductId;
 
     public CompetitorDto(
         String id,
@@ -1412,7 +1423,8 @@ public class CompetitorController {
         double price,
         boolean inStock,
         double percentDiff,
-        String lastChecked) {
+        String lastChecked,
+        String shopifyProductId) {
       this.id = id;
       this.url = url;
       this.label = label;
@@ -1420,6 +1432,7 @@ public class CompetitorController {
       this.inStock = inStock;
       this.percentDiff = percentDiff;
       this.lastChecked = lastChecked;
+      this.shopifyProductId = shopifyProductId;
     }
   }
 

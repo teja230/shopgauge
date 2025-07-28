@@ -1029,7 +1029,7 @@ export default function CompetitorsPage() {
         category: 'Competitors'
       });
     } catch {
-      notifications.showError('Unable to stop competitor monitoring. Please try again.', {
+      notifications.showWarning('Competitor monitoring could not be stopped at this time. The system will retry automatically.', {
         category: 'Competitors'
       });
     }

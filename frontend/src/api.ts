@@ -376,6 +376,7 @@ export interface Competitor {
   inStock: boolean;
   percentDiff: number;
   lastChecked: string;
+  shopifyProductId?: string; // Optional field for product association
 }
 
 // Enhanced error handling to prevent raw JSON errors
