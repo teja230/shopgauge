@@ -219,11 +219,31 @@ public class ShopService {
               sessionsToRemove.size(),
               shop.getShopifyDomain());
 
+          // CRITICAL FIX: Use async cleanup to prevent Spring Session conflicts
+          // Instead of immediately deactivating sessions during request processing,
+          // schedule the cleanup to happen after the response is written
           for (ShopSession session : sessionsToRemove) {
+            String sessionIdToCleanup = session.getSessionId();
+            String shopDomain = shop.getShopifyDomain();
+
+            // Schedule async cleanup to prevent Spring Session conflicts
+            cleanupExcessiveSessionsAsync(shopDomain);
+
+            // Mark session as deactivated in database but don't immediately clear Redis
+            // This prevents the "Session was invalidated" error
             session.deactivate();
             shopSessionRepository.save(session);
-            // Note: Redis cleanup will be done in post-transaction operations
+
+            logger.debug(
+                "Scheduled cleanup for session {} due to session limit enforcement",
+                sessionIdToCleanup);
           }
+
+          // Log the enforcement action
+          logger.info(
+              "Session limit enforcement completed for shop: {} - {} sessions scheduled for cleanup",
+              shop.getShopifyDomain(),
+              sessionsToRemove.size());
         }
       }
     } catch (Exception e) {
