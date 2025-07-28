@@ -1205,8 +1205,17 @@ const DashboardPage = () => {
   }, [shop, isAuthenticated]);
 
   // Ensure products data is loaded immediately for competitor functionality
+  // Ensure products data is loaded for competitor functionality
+  const productsLoadedRef = useRef<Set<string>>(new Set());
+  
   useEffect(() => {
     if (shop && isAuthenticated && isAuthReady && !authLoading) {
+      // Prevent duplicate loading for the same shop
+      if (productsLoadedRef.current.has(shop)) {
+        console.log('✅ Dashboard: Products data already loaded for this shop');
+        return;
+      }
+      
       console.log('🔄 Dashboard: Ensuring products data is loaded for competitor functionality');
       
       // Check if we have products in session storage
@@ -1222,8 +1231,11 @@ const DashboardPage = () => {
       } else {
         console.log('✅ Dashboard: Products data already available in session storage');
       }
+      
+      // Mark this shop as loaded
+      productsLoadedRef.current.add(shop);
     }
-  }, [shop, isAuthenticated, isAuthReady, authLoading, fetchProductsData]);
+  }, [shop, isAuthenticated, isAuthReady, authLoading]);
 
   // Stable cache check function with optimal strategy
   const checkCacheAndFetch = useCallback(async (
