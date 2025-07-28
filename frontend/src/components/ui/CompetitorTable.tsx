@@ -372,9 +372,10 @@ const getCompetitorInitials = (label: string): string => {
 
 const getProductLink = (competitor: Competitor): string | null => {
   if (competitor.productHandle && competitor.shopifyProductId) {
-    // Extract shop domain from current URL or use a default
-    const currentDomain = window.location.hostname;
-    const shopDomain = currentDomain.includes('shopgaugeai.com') ? 'your-store.myshopify.com' : currentDomain;
+    // Get shop domain from URL or use a fallback
+    const urlParams = new URLSearchParams(window.location.search);
+    const shopFromUrl = urlParams.get('shop');
+    const shopDomain = shopFromUrl || 'your-store.myshopify.com';
     return `https://${shopDomain}/products/${competitor.productHandle}`;
   }
   return null;

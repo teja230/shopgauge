@@ -601,8 +601,7 @@ export async function addCompetitor(url: string, productId: string): Promise<Com
 }
 
 export async function deleteCompetitor(id: string): Promise<void> {
-  const res = await fetch(`${API_BASE_URL}/api/competitors/${id}`, {
-    ...defaultOptions,
+  const res = await fetchWithAuth(`/api/competitors/${id}`, {
     method: 'DELETE',
   });
   return handleResponse<void>(res);
