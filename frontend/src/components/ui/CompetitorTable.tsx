@@ -492,24 +492,36 @@ const MobileCompetitorCard: React.FC<{
               </Typography>
               <Stack direction="row" spacing={1} alignItems="center">
                 {competitor.shopifyProductId ? (
-                  <>
+                  <Tooltip 
+                    title={
+                      <Box>
+                        <Typography variant="subtitle2" fontWeight={600}>
+                          {competitor.productTitle || 'Associated Product'}
+                        </Typography>
+                        <Typography variant="body2" sx={{ mt: 0.5 }}>
+                          Click to view in your store
+                        </Typography>
+                      </Box>
+                    }
+                    arrow
+                    placement="top"
+                  >
                     <Chip
                       label="Associated"
                       color="success"
                       size="small"
                       variant="outlined"
                       icon={<CheckCircleIcon />}
+                      onClick={() => getProductLink(competitor) && window.open(getProductLink(competitor)!, '_blank')}
+                      sx={{ 
+                        cursor: getProductLink(competitor) ? 'pointer' : 'default',
+                        '&:hover': getProductLink(competitor) ? {
+                          backgroundColor: 'success.light',
+                          color: 'success.contrastText'
+                        } : {}
+                      }}
                     />
-                    {getProductLink(competitor) && (
-                      <IconButton
-                        size="small"
-                        onClick={() => window.open(getProductLink(competitor)!, '_blank')}
-                        sx={{ minWidth: 24, minHeight: 24 }}
-                      >
-                        <LinkIcon fontSize="small" />
-                      </IconButton>
-                    )}
-                  </>
+                  </Tooltip>
                 ) : (
                   <Typography variant="body2" color="text.secondary">
                     Auto-selected
@@ -632,26 +644,36 @@ const DesktopTableRow: React.FC<{
 
       <StyledTableCell>
         {competitor.shopifyProductId ? (
-          <Stack direction="row" spacing={1} alignItems="center">
+          <Tooltip 
+            title={
+              <Box>
+                <Typography variant="subtitle2" fontWeight={600}>
+                  {competitor.productTitle || 'Associated Product'}
+                </Typography>
+                <Typography variant="body2" sx={{ mt: 0.5 }}>
+                  Click to view in your store
+                </Typography>
+              </Box>
+            }
+            arrow
+            placement="top"
+          >
             <Chip
               label="Associated"
               color="success"
               size="small"
               variant="outlined"
               icon={<CheckCircleIcon />}
+              onClick={() => getProductLink(competitor) && window.open(getProductLink(competitor)!, '_blank')}
+              sx={{ 
+                cursor: getProductLink(competitor) ? 'pointer' : 'default',
+                '&:hover': getProductLink(competitor) ? {
+                  backgroundColor: 'success.light',
+                  color: 'success.contrastText'
+                } : {}
+              }}
             />
-            {getProductLink(competitor) && (
-              <Tooltip title={`View ${competitor.productTitle || 'product'} in your store`}>
-                <IconButton
-                  size="small"
-                  onClick={() => window.open(getProductLink(competitor)!, '_blank')}
-                  sx={{ minWidth: 24, minHeight: 24 }}
-                >
-                  <LinkIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            )}
-          </Stack>
+          </Tooltip>
         ) : (
           <Typography variant="body2" color="text.secondary">
             Auto-selected
