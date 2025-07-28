@@ -529,16 +529,16 @@ export default function CompetitorsPage() {
   // Show helpful message if not authenticated
   useEffect(() => {
     if (!isAuthenticated && !isDemoMode && isAuthReady) {
-      notifications.showInfo('Connect your Shopify store to start monitoring competitors', {
-        category: 'Competitors',
-        persistent: true,
-        action: {
-          label: 'Connect Store',
-          onClick: () => {
-            window.location.href = '/';
+              notifications.showInfo('Connect your Shopify store to initiate competitor tracking', {
+          category: 'Competitors',
+          persistent: true,
+          action: {
+            label: 'Connect Store',
+            onClick: () => {
+              window.location.href = '/';
+            }
           }
-        }
-      });
+        });
     }
   }, [isAuthenticated, isDemoMode, isAuthReady, notifications]);
   
@@ -792,7 +792,7 @@ export default function CompetitorsPage() {
 
   const handleAdd = useCallback(async () => {
     if (!url.trim()) {
-      notifications.showError('Please enter a competitor URL', {
+      notifications.showError('Please provide a valid competitor URL to begin tracking', {
         category: 'Competitors'
       });
       return;
@@ -825,7 +825,7 @@ export default function CompetitorsPage() {
           lastChecked: new Date().toISOString()
         };
         setCompetitors((prev) => [...prev, newCompetitor]);
-        notifications.showSuccess('Demo competitor added successfully', {
+        notifications.showSuccess('Demo competitor has been added to tracking', {
           category: 'Competitors'
         });
       } else {
@@ -846,7 +846,7 @@ export default function CompetitorsPage() {
         cache.delete(cacheKey);
         
         // Show success notification immediately
-        notifications.showSuccess('Competitor monitoring started successfully!', {
+        notifications.showSuccess('Competitor tracking has been successfully initiated', {
           category: 'Competitors'
         });
         
@@ -878,63 +878,63 @@ export default function CompetitorsPage() {
         productId: productId
       }, 'CompetitorsPage');
       
-      // Enhanced error handling with user-friendly messages
-      let userMessage = 'Unable to add competitor at this time. Please try again.';
+      // Enhanced error handling with enterprise-grade messages
+      let userMessage = 'Unable to initiate competitor tracking at this time. Please try again.';
       let needsProductSync = false;
       let needsAuthentication = false;
 
       if (error.needsProductSync) {
         needsProductSync = true;
-        userMessage = 'Your product catalog needs to be synchronized before adding competitors. Please sync your products first.';
+        userMessage = 'Product catalog synchronization is required before initiating competitor tracking. Please synchronize your product catalog first.';
         debugLog.info('Detected PRODUCTS_SYNC_NEEDED error - user needs to sync products', {
           error: error.message,
           url: url
         }, 'CompetitorsPage');
       } else if (error.message?.includes('Authentication required') || error.message?.includes('401')) {
         needsAuthentication = true;
-        userMessage = 'Please connect your Shopify store first to add competitors.';
+        userMessage = 'Store authentication is required to initiate competitor tracking. Please connect your Shopify store first.';
         debugLog.warn('Authentication required for competitor addition', {
           error: error.message,
           url: url
         }, 'CompetitorsPage');
       } else if (error.message?.includes('already being monitored')) {
-        userMessage = 'This competitor is already being monitored for your products.';
+        userMessage = 'This competitor is already under active tracking for your product catalog.';
         debugLog.info('Competitor already being monitored', {
           error: error.message,
           url: url
         }, 'CompetitorsPage');
       } else if (error.message?.includes('limit')) {
-        userMessage = 'You have reached your competitor monitoring limit for your current plan.';
+        userMessage = 'You have reached the maximum competitor tracking limit for your current subscription tier.';
         debugLog.warn('Competitor limit reached', {
           error: error.message,
           url: url
         }, 'CompetitorsPage');
       } else if (error.message?.includes('Invalid URL')) {
-        userMessage = 'Please enter a valid competitor URL (Amazon, Shopify, etc.).';
+        userMessage = 'Please provide a valid competitor URL from a supported platform (Amazon, Shopify, etc.).';
         debugLog.warn('Invalid competitor URL provided', {
           error: error.message,
           url: url
         }, 'CompetitorsPage');
       } else if (error.message?.includes('Connection issue')) {
-        userMessage = 'Connection issue detected. Please check your internet connection and try again.';
+        userMessage = 'Network connectivity issue detected. Please verify your internet connection and retry.';
         debugLog.error('Connection issue detected', {
           error: error.message,
           url: url
         }, 'CompetitorsPage');
       } else if (error.message?.includes('session has expired')) {
-        userMessage = 'Your session has expired. Please refresh the page and try again.';
+        userMessage = 'Your session has expired. Please refresh the page and re-authenticate.';
         debugLog.warn('Session expired during competitor addition', {
           error: error.message,
           url: url
         }, 'CompetitorsPage');
       } else if (error.message?.includes('Too many requests')) {
-        userMessage = 'Too many requests. Please wait a moment before trying again.';
+        userMessage = 'Rate limit exceeded. Please wait a moment before retrying.';
         debugLog.warn('Rate limit exceeded for competitor addition', {
           error: error.message,
           url: url
         }, 'CompetitorsPage');
       } else if (error.message?.includes('temporarily unavailable')) {
-        userMessage = 'Our service is temporarily unavailable. Please try again in a few moments.';
+        userMessage = 'Service is temporarily unavailable. Please retry in a few moments.';
         debugLog.error('Service temporarily unavailable', {
           error: error.message,
           url: url
@@ -957,7 +957,7 @@ export default function CompetitorsPage() {
       // Show appropriate notification based on error type
       if (needsAuthentication) {
         debugLog.info('Showing authentication error notification');
-        notifications.showError('Authentication Required', {
+        notifications.showError('Store Authentication Required', {
           category: 'Competitors',
           persistent: true,
           action: {
@@ -967,14 +967,14 @@ export default function CompetitorsPage() {
             }
           }
         });
-        notifications.showInfo('To add competitors, you need to connect your Shopify store first. Click "Connect Store" above or visit the home page to authenticate.', {
+        notifications.showInfo('To initiate competitor tracking, you must first authenticate your Shopify store. Click "Connect Store" above or visit the home page to authenticate.', {
           category: 'Competitors',
           persistent: false,
           duration: 8000
         });
       } else if (needsProductSync) {
         debugLog.info('Showing product sync error notification');
-        notifications.showError('Product catalog needs to be synchronized', {
+        notifications.showError('Product Catalog Synchronization Required', {
           category: 'Competitors',
           persistent: true,
           action: {
@@ -984,7 +984,7 @@ export default function CompetitorsPage() {
             }
           }
         });
-        notifications.showInfo('To add competitors, you need to sync your product catalog first. Click "Sync Products" above or visit your Dashboard to refresh your product data.', {
+        notifications.showInfo('To initiate competitor tracking, you must first synchronize your product catalog. Click "Sync Products" above or visit your Dashboard to refresh your product data.', {
           category: 'Competitors',
           persistent: false,
           duration: 8000
@@ -1006,7 +1006,7 @@ export default function CompetitorsPage() {
     try {
       if (isDemoMode) {
         setCompetitors((prev) => prev.filter((c) => c.id !== id));
-        notifications.showSuccess('Demo competitor removed successfully', {
+        notifications.showSuccess('Demo competitor has been removed from tracking', {
           category: 'Competitors'
         });
         return;
@@ -1019,12 +1019,12 @@ export default function CompetitorsPage() {
       const cacheKey = `competitors_${shop}`;
       cache.delete(cacheKey);
       
-      notifications.showSuccess('Competitor monitoring stopped successfully', {
+      notifications.showSuccess('Competitor tracking has been discontinued', {
         category: 'Competitors'
       });
     } catch (error) {
       console.error('Delete competitor error:', error);
-      notifications.showError('Failed to delete competitor. Please try again.', {
+      notifications.showError('Unable to discontinue competitor tracking at this time. Please try again.', {
         category: 'Competitors'
       });
     }
@@ -1124,7 +1124,7 @@ export default function CompetitorsPage() {
         console.log(`Persisted demoDisabled preference for shop: ${shop}`);
       }
       
-      notifications.showSuccess('Switched to Live Mode', {
+      notifications.showSuccess('Switched to Live Mode - Real competitor tracking enabled', {
         category: 'Mode'
       });
       
@@ -1150,7 +1150,7 @@ export default function CompetitorsPage() {
         console.log(`Removed demoDisabled preference for shop: ${shop}`);
       }
       
-      notifications.showSuccess('Switched to Demo Mode', {
+      notifications.showSuccess('Switched to Demo Mode - Sample data enabled', {
         category: 'Mode'
       });
       
