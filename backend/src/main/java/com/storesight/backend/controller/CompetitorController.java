@@ -19,6 +19,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,7 +36,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
-import java.util.concurrent.TimeUnit;
 
 @RestController
 @RequestMapping("/api")
@@ -97,12 +97,11 @@ public class CompetitorController {
       // Get competitor URLs for this shop, joining with latest price snapshots and product info
       String query =
           """
-          SELECT cu.id, cu.url, cu.label, cu.shopify_product_id, 
-                 COALESCE(ps.price, 0.0) as price, 
-                 COALESCE(ps.in_stock, true) as in_stock, 
+          SELECT cu.id, cu.url, cu.label, cu.shopify_product_id,
+                 COALESCE(ps.price, 0.0) as price,
+                 COALESCE(ps.in_stock, true) as in_stock,
                  COALESCE(ps.checked_at, cu.created_at) as last_checked,
-                 p.title as product_title,
-                 p.handle as product_handle
+                 p.title as product_title
           FROM competitor_urls cu
           LEFT JOIN (
               SELECT competitor_url_id, price, in_stock, checked_at,
@@ -115,7 +114,7 @@ public class CompetitorController {
           """;
 
       List<Map<String, Object>> rows = jdbcTemplate.queryForList(query, shopId);
-      
+
       logger.info("getCompetitors: Found {} competitor rows for shop {}", rows.size(), shopId);
 
       List<CompetitorDto> competitors =
@@ -133,33 +132,56 @@ public class CompetitorController {
                     Boolean inStock =
                         row.get("in_stock") != null ? (Boolean) row.get("in_stock") : true;
                     String lastChecked =
-                        row.get("last_checked") != null ? row.get("last_checked").toString() : "Never";
-                    String shopifyProductId = 
-                        row.get("shopify_product_id") != null ? String.valueOf(row.get("shopify_product_id")) : null;
-                    String productTitle = row.get("product_title") != null ? String.valueOf(row.get("product_title")) : null;
-                    String productHandle = row.get("product_handle") != null ? String.valueOf(row.get("product_handle")) : null;
+                        row.get("last_checked") != null
+                            ? row.get("last_checked").toString()
+                            : "Never";
+                    String shopifyProductId =
+                        row.get("shopify_product_id") != null
+                            ? String.valueOf(row.get("shopify_product_id"))
+                            : null;
+                    String productTitle =
+                        row.get("product_title") != null
+                            ? String.valueOf(row.get("product_title"))
+                            : null;
 
-                    logger.debug("getCompetitors: Processing competitor ID {} with URL {}", id, url);
-                    return new CompetitorDto(id, url, label, price, inStock, 0.0, lastChecked, shopifyProductId, productTitle, productHandle);
+                    logger.debug(
+                        "getCompetitors: Processing competitor ID {} with URL {}", id, url);
+                    return new CompetitorDto(
+                        id,
+                        url,
+                        label,
+                        price,
+                        inStock,
+                        0.0,
+                        lastChecked,
+                        shopifyProductId,
+                        productTitle,
+                        null);
                   })
               .collect(Collectors.toList());
-              
-      logger.info("getCompetitors: Returning {} competitors for shop {}", competitors.size(), shopId);
+
+      logger.info(
+          "getCompetitors: Returning {} competitors for shop {}", competitors.size(), shopId);
 
       // Check for and log any inconsistent data (competitors without price snapshots)
       if (competitors.size() > 0) {
-        List<Map<String, Object>> inconsistentCompetitors = jdbcTemplate.queryForList(
-            "SELECT cu.id, cu.url FROM competitor_urls cu " +
-            "LEFT JOIN price_snapshots ps ON cu.id = ps.competitor_url_id " +
-            "WHERE cu.shop_id = ? AND ps.id IS NULL",
-            shopId);
-        
+        List<Map<String, Object>> inconsistentCompetitors =
+            jdbcTemplate.queryForList(
+                "SELECT cu.id, cu.url FROM competitor_urls cu "
+                    + "LEFT JOIN price_snapshots ps ON cu.id = ps.competitor_url_id "
+                    + "WHERE cu.shop_id = ? AND ps.id IS NULL",
+                shopId);
+
         if (!inconsistentCompetitors.isEmpty()) {
-          logger.warn("getCompetitors: Found {} competitors without price snapshots for shop {}", 
-              inconsistentCompetitors.size(), shopId);
+          logger.warn(
+              "getCompetitors: Found {} competitors without price snapshots for shop {}",
+              inconsistentCompetitors.size(),
+              shopId);
           for (Map<String, Object> comp : inconsistentCompetitors) {
-            logger.warn("getCompetitors: Inconsistent competitor - ID: {}, URL: {}", 
-                comp.get("id"), comp.get("url"));
+            logger.warn(
+                "getCompetitors: Inconsistent competitor - ID: {}, URL: {}",
+                comp.get("id"),
+                comp.get("url"));
           }
         }
       }
@@ -457,7 +479,8 @@ public class CompetitorController {
         logger.info("addCompetitor: Triggering immediate price scraping for new competitor");
         triggerImmediatePriceScraping(record.get("id").toString(), request.url, shopId);
       } catch (Exception e) {
-        logger.warn("addCompetitor: Failed to trigger immediate price scraping: {}", e.getMessage());
+        logger.warn(
+            "addCompetitor: Failed to trigger immediate price scraping: {}", e.getMessage());
         // Don't fail the competitor addition if scraping fails
       }
 
@@ -505,8 +528,9 @@ public class CompetitorController {
     }
 
     try {
-      logger.info("deleteCompetitor: Starting deletion for competitor ID: {} for shop: {}", id, shopId);
-      
+      logger.info(
+          "deleteCompetitor: Starting deletion for competitor ID: {} for shop: {}", id, shopId);
+
       // Verify the competitor belongs to this shop and get URL for audit logging
       List<Map<String, Object>> competitors =
           jdbcTemplate.queryForList(
@@ -523,15 +547,19 @@ public class CompetitorController {
       logger.info("deleteCompetitor: Found competitor URL: {} for deletion", competitorUrl);
 
       // Audit log the deletion attempt before performing the actual deletion
-      competitorAuditService.logCompetitorRemoved(shopId, competitorUrl, "User initiated competitor deletion");
+      competitorAuditService.logCompetitorRemoved(
+          shopId, competitorUrl, "User initiated competitor deletion");
 
       // Delete related price snapshots first
-      int deletedSnapshots = jdbcTemplate.update(
-          "DELETE FROM price_snapshots WHERE competitor_url_id = ?", Long.parseLong(id));
-      logger.info("deleteCompetitor: Deleted {} price snapshots for competitor {}", deletedSnapshots, id);
+      int deletedSnapshots =
+          jdbcTemplate.update(
+              "DELETE FROM price_snapshots WHERE competitor_url_id = ?", Long.parseLong(id));
+      logger.info(
+          "deleteCompetitor: Deleted {} price snapshots for competitor {}", deletedSnapshots, id);
 
       // Delete the competitor URL
-      int deletedCompetitors = jdbcTemplate.update("DELETE FROM competitor_urls WHERE id = ?", Long.parseLong(id));
+      int deletedCompetitors =
+          jdbcTemplate.update("DELETE FROM competitor_urls WHERE id = ?", Long.parseLong(id));
       logger.info("deleteCompetitor: Deleted {} competitor URLs for ID {}", deletedCompetitors, id);
 
       if (deletedCompetitors == 0) {
@@ -540,7 +568,8 @@ public class CompetitorController {
       }
 
       // Audit log the successful deletion completion
-      competitorAuditService.logCompetitorRemoved(shopId, competitorUrl, "Competitor deletion completed successfully");
+      competitorAuditService.logCompetitorRemoved(
+          shopId, competitorUrl, "Competitor deletion completed successfully");
 
       logger.info("deleteCompetitor: Successfully deleted competitor {} for shop {}", id, shopId);
       return ResponseEntity.ok().build();
@@ -549,7 +578,12 @@ public class CompetitorController {
       logger.error("deleteCompetitor: Invalid competitor ID format: {}", id);
       return ResponseEntity.badRequest().body(Map.of("error", "Invalid competitor ID"));
     } catch (Exception e) {
-      logger.error("deleteCompetitor: Error deleting competitor {} for shop {}: {}", id, shopId, e.getMessage(), e);
+      logger.error(
+          "deleteCompetitor: Error deleting competitor {} for shop {}: {}",
+          id,
+          shopId,
+          e.getMessage(),
+          e);
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
           .body(Map.of("error", "Failed to delete competitor"));
     }
@@ -558,7 +592,8 @@ public class CompetitorController {
   /** Admin endpoint to clean up inconsistent competitor data */
   @PostMapping("/competitors/cleanup-inconsistent")
   @Profile("!prod") // Only available in non-production environments
-  public ResponseEntity<Map<String, Object>> cleanupInconsistentCompetitors(HttpServletRequest request) {
+  public ResponseEntity<Map<String, Object>> cleanupInconsistentCompetitors(
+      HttpServletRequest request) {
     Long shopId = getShopIdFromRequest(request);
     if (shopId == null) {
       return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -567,50 +602,64 @@ public class CompetitorController {
 
     try {
       logger.info("cleanupInconsistentCompetitors: Starting cleanup for shop {}", shopId);
-      
+
       // Find competitors without price snapshots
-      List<Map<String, Object>> inconsistentCompetitors = jdbcTemplate.queryForList(
-          "SELECT cu.id, cu.url FROM competitor_urls cu " +
-          "LEFT JOIN price_snapshots ps ON cu.id = ps.competitor_url_id " +
-          "WHERE cu.shop_id = ? AND ps.id IS NULL",
-          shopId);
-      
+      List<Map<String, Object>> inconsistentCompetitors =
+          jdbcTemplate.queryForList(
+              "SELECT cu.id, cu.url FROM competitor_urls cu "
+                  + "LEFT JOIN price_snapshots ps ON cu.id = ps.competitor_url_id "
+                  + "WHERE cu.shop_id = ? AND ps.id IS NULL",
+              shopId);
+
       if (inconsistentCompetitors.isEmpty()) {
-        return ResponseEntity.ok(Map.of(
-            "message", "No inconsistent competitors found",
-            "cleanedCount", 0
-        ));
+        return ResponseEntity.ok(
+            Map.of("message", "No inconsistent competitors found", "cleanedCount", 0));
       }
-      
-      logger.info("cleanupInconsistentCompetitors: Found {} inconsistent competitors to clean up", 
+
+      logger.info(
+          "cleanupInconsistentCompetitors: Found {} inconsistent competitors to clean up",
           inconsistentCompetitors.size());
-      
+
       int cleanedCount = 0;
       for (Map<String, Object> comp : inconsistentCompetitors) {
         Long compId = ((Number) comp.get("id")).longValue();
         String compUrl = (String) comp.get("url");
-        
+
         try {
           // Delete the inconsistent competitor
           jdbcTemplate.update("DELETE FROM competitor_urls WHERE id = ?", compId);
           cleanedCount++;
-          logger.info("cleanupInconsistentCompetitors: Cleaned up competitor ID {} with URL {}", compId, compUrl);
+          logger.info(
+              "cleanupInconsistentCompetitors: Cleaned up competitor ID {} with URL {}",
+              compId,
+              compUrl);
         } catch (Exception e) {
-          logger.error("cleanupInconsistentCompetitors: Failed to clean up competitor ID {}: {}", compId, e.getMessage());
+          logger.error(
+              "cleanupInconsistentCompetitors: Failed to clean up competitor ID {}: {}",
+              compId,
+              e.getMessage());
         }
       }
-      
-      Map<String, Object> result = Map.of(
-          "message", "Cleanup completed",
-          "cleanedCount", cleanedCount,
-          "totalFound", inconsistentCompetitors.size()
-      );
-      
-      logger.info("cleanupInconsistentCompetitors: Cleanup completed for shop {} - {}", shopId, result);
+
+      Map<String, Object> result =
+          Map.of(
+              "message",
+              "Cleanup completed",
+              "cleanedCount",
+              cleanedCount,
+              "totalFound",
+              inconsistentCompetitors.size());
+
+      logger.info(
+          "cleanupInconsistentCompetitors: Cleanup completed for shop {} - {}", shopId, result);
       return ResponseEntity.ok(result);
-      
+
     } catch (Exception e) {
-      logger.error("cleanupInconsistentCompetitors: Error during cleanup for shop {}: {}", shopId, e.getMessage(), e);
+      logger.error(
+          "cleanupInconsistentCompetitors: Error during cleanup for shop {}: {}",
+          shopId,
+          e.getMessage(),
+          e);
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
           .body(Map.of("error", "Failed to cleanup inconsistent competitors"));
     }
@@ -1589,85 +1638,98 @@ public class CompetitorController {
   /** Trigger immediate price scraping for a newly added competitor with cost optimization */
   private void triggerImmediatePriceScraping(String competitorId, String url, Long shopId) {
     try {
-      logger.info("triggerImmediatePriceScraping: Starting immediate scraping for competitor ID: {}", competitorId);
-      
+      logger.info(
+          "triggerImmediatePriceScraping: Starting immediate scraping for competitor ID: {}",
+          competitorId);
+
       // Check rate limiting for immediate scraping (same as scheduled scraping)
       String domain = extractDomain(url);
       String rateLimitKey = "scraper_rate_limit:" + domain;
-      
+
       // Use Redis for rate limiting (same as CompetitorScraperWorker)
       if (redisTemplate.hasKey(rateLimitKey)) {
         logger.debug("triggerImmediatePriceScraping: Rate limit active for domain: {}", domain);
         return; // Skip immediate scraping if rate limited
       }
-      
+
       // Set rate limit with shorter delay for immediate scraping
       int immediateScrapingDelay = 500; // 500ms delay for immediate scraping (faster UX)
-      redisTemplate.opsForValue().set(rateLimitKey, "1", immediateScrapingDelay, TimeUnit.MILLISECONDS);
-      
+      redisTemplate
+          .opsForValue()
+          .set(rateLimitKey, "1", immediateScrapingDelay, TimeUnit.MILLISECONDS);
+
       // Check if scraping is enabled and within limits
       if (!isScrapingAllowed(shopId)) {
         logger.debug("triggerImmediatePriceScraping: Scraping not allowed for shop {}", shopId);
         return;
       }
-      
+
       // Basic price extraction with cost optimization
       try {
         // Use Jsoup for immediate scraping (faster and cheaper than Selenium)
-        org.jsoup.nodes.Document doc = org.jsoup.Jsoup.connect(url)
-            .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-            .timeout(3000) // 3 second timeout for immediate scraping (faster UX)
-            .followRedirects(true)
-            .get();
-        
+        org.jsoup.nodes.Document doc =
+            org.jsoup.Jsoup.connect(url)
+                .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                .timeout(3000) // 3 second timeout for immediate scraping (faster UX)
+                .followRedirects(true)
+                .get();
+
         // Extract price using basic patterns
         java.math.BigDecimal price = extractPriceFromDocument(doc, identifyPlatform(url));
         boolean inStock = extractStockStatusFromDocument(doc, identifyPlatform(url));
-        
+
         if (price != null) {
           // Store the initial price snapshot
           jdbcTemplate.update(
-              "INSERT INTO price_snapshots (competitor_url_id, price, in_stock, checked_at, scraper_version) " +
-              "VALUES (?, ?, ?, CURRENT_TIMESTAMP, 'v2.0-immediate')",
+              "INSERT INTO price_snapshots (competitor_url_id, price, in_stock, checked_at, scraper_version) "
+                  + "VALUES (?, ?, ?, CURRENT_TIMESTAMP, 'v2.0-immediate')",
               Long.parseLong(competitorId),
               price,
-              inStock
-          );
-          
-          logger.info("triggerImmediatePriceScraping: Successfully scraped initial price ${} for competitor {}", price, competitorId);
+              inStock);
+
+          logger.info(
+              "triggerImmediatePriceScraping: Successfully scraped initial price ${} for competitor {}",
+              price,
+              competitorId);
         } else {
           logger.warn("triggerImmediatePriceScraping: Could not extract price from {}", url);
         }
-        
+
       } catch (Exception e) {
         logger.warn("triggerImmediatePriceScraping: Failed to scrape {}: {}", url, e.getMessage());
       }
-      
+
     } catch (Exception e) {
-      logger.error("triggerImmediatePriceScraping: Error during immediate scraping: {}", e.getMessage());
+      logger.error(
+          "triggerImmediatePriceScraping: Error during immediate scraping: {}", e.getMessage());
     }
   }
-  
+
   /** Check if scraping is allowed for the shop (cost optimization) */
   private boolean isScrapingAllowed(Long shopId) {
     try {
       // Check if shop has reached scraping limits
-      int currentCompetitors = jdbcTemplate.queryForObject(
-          "SELECT COUNT(*) FROM competitor_urls WHERE shop_id = ?", Integer.class, shopId);
-      
+      int currentCompetitors =
+          jdbcTemplate.queryForObject(
+              "SELECT COUNT(*) FROM competitor_urls WHERE shop_id = ?", Integer.class, shopId);
+
       int maxCompetitors = 100; // Same as CompetitorScraperWorker
       if (currentCompetitors > maxCompetitors) {
-        logger.debug("triggerImmediatePriceScraping: Shop {} has too many competitors ({})", shopId, currentCompetitors);
+        logger.debug(
+            "triggerImmediatePriceScraping: Shop {} has too many competitors ({})",
+            shopId,
+            currentCompetitors);
         return false;
       }
-      
+
       return true;
     } catch (Exception e) {
-      logger.warn("triggerImmediatePriceScraping: Error checking scraping limits: {}", e.getMessage());
+      logger.warn(
+          "triggerImmediatePriceScraping: Error checking scraping limits: {}", e.getMessage());
       return true; // Allow scraping if check fails
     }
   }
-  
+
   /** Extract domain from URL */
   private String extractDomain(String url) {
     try {
@@ -1676,7 +1738,7 @@ public class CompetitorController {
       return url;
     }
   }
-  
+
   /** Identify platform from URL */
   private String identifyPlatform(String url) {
     String lowerUrl = url.toLowerCase();
@@ -1688,21 +1750,20 @@ public class CompetitorController {
       return "generic";
     }
   }
-  
+
   /** Extract price from document using basic patterns */
-  private java.math.BigDecimal extractPriceFromDocument(org.jsoup.nodes.Document doc, String platform) {
+  private java.math.BigDecimal extractPriceFromDocument(
+      org.jsoup.nodes.Document doc, String platform) {
     // Basic price patterns
     java.util.regex.Pattern[] patterns = {
-        java.util.regex.Pattern.compile("\\$([0-9,]+\\.?[0-9]*)"),
-        java.util.regex.Pattern.compile("([0-9,]+\\.?[0-9]*)"),
-        java.util.regex.Pattern.compile("USD\\s*([0-9,]+\\.?[0-9]*)")
+      java.util.regex.Pattern.compile("\\$([0-9,]+\\.?[0-9]*)"),
+      java.util.regex.Pattern.compile("([0-9,]+\\.?[0-9]*)"),
+      java.util.regex.Pattern.compile("USD\\s*([0-9,]+\\.?[0-9]*)")
     };
-    
+
     // Try common price selectors
-    String[] selectors = {
-        ".price", ".product-price", ".money", "[data-price]", ".cost", ".amount"
-    };
-    
+    String[] selectors = {".price", ".product-price", ".money", "[data-price]", ".cost", ".amount"};
+
     // Try CSS selectors first
     for (String selector : selectors) {
       org.jsoup.select.Elements elements = doc.select(selector);
@@ -1716,14 +1777,15 @@ public class CompetitorController {
         }
       }
     }
-    
+
     // Try patterns on entire page text as fallback
     String pageText = doc.text();
     return extractPriceFromText(pageText, patterns);
   }
-  
+
   /** Extract price from text using patterns */
-  private java.math.BigDecimal extractPriceFromText(String text, java.util.regex.Pattern[] patterns) {
+  private java.math.BigDecimal extractPriceFromText(
+      String text, java.util.regex.Pattern[] patterns) {
     for (java.util.regex.Pattern pattern : patterns) {
       java.util.regex.Matcher matcher = pattern.matcher(text);
       if (matcher.find()) {
@@ -1737,30 +1799,34 @@ public class CompetitorController {
     }
     return null;
   }
-  
+
   /** Extract stock status from document */
   private boolean extractStockStatusFromDocument(org.jsoup.nodes.Document doc, String platform) {
     String[] selectors = {
-        ".stock", ".availability", ".in-stock", ".out-of-stock", ".product-availability"
+      ".stock", ".availability", ".in-stock", ".out-of-stock", ".product-availability"
     };
-    
+
     for (String selector : selectors) {
       org.jsoup.select.Elements elements = doc.select(selector);
       for (org.jsoup.nodes.Element element : elements) {
         String text = element.text().toLowerCase();
-        
+
         // Check for out of stock indicators
-        if (text.contains("out of stock") || text.contains("unavailable") || text.contains("sold out")) {
+        if (text.contains("out of stock")
+            || text.contains("unavailable")
+            || text.contains("sold out")) {
           return false;
         }
-        
+
         // Check for in stock indicators
-        if (text.contains("in stock") || text.contains("available") || text.contains("add to cart")) {
+        if (text.contains("in stock")
+            || text.contains("available")
+            || text.contains("add to cart")) {
           return true;
         }
       }
     }
-    
+
     // Default to in stock if no clear indicator
     return true;
   }
