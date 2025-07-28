@@ -1479,6 +1479,14 @@ const DashboardPage = () => {
         const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/products'));
         const jsonData = await response.json();
         console.log('📊 Dashboard: Products API response:', jsonData);
+        
+        // Ensure Redis cache is populated for competitor functionality
+        if (jsonData.products && Array.isArray(jsonData.products) && jsonData.products.length > 0) {
+          console.log('✅ Dashboard: Redis cache populated with', jsonData.products.length, 'products');
+        } else {
+          console.warn('⚠️ Dashboard: Products API returned no products, Redis cache may be empty');
+        }
+        
         return jsonData;
       }, forceRefresh);
       
