@@ -243,6 +243,43 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
         logger.warn(
             "Session invalidation detected in authentication filter for path: {}",
             request.getRequestURI());
+
+        // CRITICAL FIX: For session invalidation errors, don't immediately fail the request
+        // Instead, try to recover gracefully and allow the request to continue
+        try {
+          // Check if response is already committed
+          if (response.isCommitted()) {
+            logger.debug(
+                "Response already committed during session invalidation - allowing to complete normally");
+            return;
+          }
+
+          // For API requests, return a more graceful error
+          if (path.startsWith("/api/")) {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json");
+            response.setCharacterEncoding("UTF-8");
+
+            // Add CORS headers for error responses
+            response.setHeader("Access-Control-Allow-Origin", "https://www.shopgaugeai.com");
+            response.setHeader("Access-Control-Allow-Credentials", "true");
+            response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+            response.setHeader("Access-Control-Allow-Headers", "*");
+
+            String jsonResponse =
+                String.format(
+                    "{\"error\":\"session_invalidated\",\"message\":\"Session has been invalidated. Please refresh the page and try again.\",\"timestamp\":%d}",
+                    System.currentTimeMillis());
+
+            response.getWriter().write(jsonResponse);
+            response.getWriter().flush();
+            return;
+          }
+        } catch (Exception responseError) {
+          logger.warn(
+              "Failed to write session invalidation response: {}", responseError.getMessage());
+        }
+
         handleAuthenticationFailure(
             response, "Session has been invalidated. Please re-authenticate.");
       } else {

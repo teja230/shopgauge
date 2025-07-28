@@ -839,6 +839,24 @@ public class SessionManagementController {
 
       boolean limitReached = activeSessions.size() >= 5; // MAX_SESSIONS_PER_SHOP
 
+      // CRITICAL FIX: If limit is reached, trigger async cleanup instead of immediate invalidation
+      if (limitReached) {
+        logger.info(
+            "Session limit reached for shop: {} ({} sessions). Triggering async cleanup.",
+            shop,
+            activeSessions.size());
+
+        // Trigger async cleanup to prevent Spring Session conflicts
+        try {
+          shopService.cleanupExcessiveSessionsAsync(shop);
+        } catch (Exception cleanupError) {
+          logger.warn(
+              "Failed to trigger async session cleanup for shop {}: {}",
+              shop,
+              cleanupError.getMessage());
+        }
+      }
+
       response.put("limitReached", limitReached);
       response.put("maxSessions", 5);
       response.put("currentSessionCount", activeSessions.size());
