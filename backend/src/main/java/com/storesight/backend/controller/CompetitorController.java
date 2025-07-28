@@ -487,7 +487,7 @@ public class CompetitorController {
     try {
       logger.info("deleteCompetitor: Starting deletion for competitor ID: {} for shop: {}", id, shopId);
       
-      // Verify the competitor belongs to this shop
+      // Verify the competitor belongs to this shop and get URL for audit logging
       List<Map<String, Object>> competitors =
           jdbcTemplate.queryForList(
               "SELECT cu.id, cu.url FROM competitor_urls cu WHERE cu.id = ? AND cu.shop_id = ?",
@@ -501,6 +501,9 @@ public class CompetitorController {
 
       String competitorUrl = (String) competitors.get(0).get("url");
       logger.info("deleteCompetitor: Found competitor URL: {} for deletion", competitorUrl);
+
+      // Audit log the deletion attempt before performing the actual deletion
+      competitorAuditService.logCompetitorRemoved(shopId, competitorUrl, "User initiated competitor deletion");
 
       // Delete related price snapshots first
       int deletedSnapshots = jdbcTemplate.update(
@@ -516,8 +519,8 @@ public class CompetitorController {
         throw new RuntimeException("Failed to delete competitor URL");
       }
 
-      // Audit log the deletion
-      competitorAuditService.logCompetitorRemoved(shopId, competitorUrl, "User deleted competitor");
+      // Audit log the successful deletion completion
+      competitorAuditService.logCompetitorRemoved(shopId, competitorUrl, "Competitor deletion completed successfully");
 
       logger.info("deleteCompetitor: Successfully deleted competitor {} for shop {}", id, shopId);
       return ResponseEntity.ok().build();
