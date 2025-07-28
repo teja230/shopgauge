@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { debugLog } from './components/ui/DebugPanel';
 
 // Enterprise-grade: never hard-code hostnames. Prefer environment config and, in dev, fallback to relative API proxy.
 export const API_BASE_URL: string = (
@@ -477,6 +478,11 @@ async function getProductsIntelligently(): Promise<any[]> {
 
 // Intelligent competitor addition with automatic product syncing
 export async function addCompetitorIntelligent(url: string, productId?: string): Promise<Competitor> {
+  debugLog.info('addCompetitorIntelligent: Starting competitor addition', {
+    url: url,
+    productId: productId || 'not provided'
+  }, 'API');
+  
   console.log('addCompetitorIntelligent: Starting with URL:', url, 'productId:', productId);
   
   try {
@@ -514,7 +520,12 @@ export async function addCompetitorIntelligent(url: string, productId?: string):
       
       // Handle specific error cases
       if (response.status === 412 || errorData.error === 'PRODUCTS_SYNC_NEEDED') {
-        console.log('addCompetitorIntelligent: Detected PRODUCTS_SYNC_NEEDED error');
+        debugLog.info('addCompetitorIntelligent: Detected PRODUCTS_SYNC_NEEDED error', {
+          status: response.status,
+          errorData: errorData,
+          url: url,
+          productId: productId
+        }, 'API');
         const userError = new Error('Your product catalog needs to be synchronized before adding competitors. Please sync your products first.');
         (userError as any).userFriendly = true;
         (userError as any).needsProductSync = true;
@@ -551,6 +562,10 @@ export async function addCompetitorIntelligent(url: string, productId?: string):
     
     const competitor = await response.json();
     console.log('addCompetitorIntelligent: Success, received competitor:', competitor);
+    debugLog.info('addCompetitorIntelligent: Successfully added competitor', {
+      competitor: competitor,
+      url: url
+    }, 'API');
     return competitor;
     
   } catch (error: any) {

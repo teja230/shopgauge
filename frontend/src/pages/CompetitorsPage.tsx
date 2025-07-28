@@ -36,6 +36,7 @@ import ThemedJoyrideTooltip from '../components/ui/ThemedJoyrideTooltip';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
+import { debugLog } from '../components/ui/DebugPanel';
 
 // Tutorial step types
 interface TutorialStep {
@@ -873,6 +874,16 @@ export default function CompetitorsPage() {
     } catch (error: any) {
       console.error('handleAdd error:', error);
       
+      // Log error to debug panel for production debugging
+      debugLog.error('Competitor addition failed', {
+        error: error.message,
+        errorType: error.constructor.name,
+        needsProductSync: error.needsProductSync,
+        userFriendly: error.userFriendly,
+        url: url,
+        productId: productId
+      }, 'CompetitorsPage');
+      
       // Enhanced error handling with user-friendly messages
       let userMessage = 'Unable to add competitor at this time. Please try again.';
       let needsProductSync = false;
@@ -881,25 +892,65 @@ export default function CompetitorsPage() {
       if (error.needsProductSync) {
         needsProductSync = true;
         userMessage = 'Your product catalog needs to be synchronized before adding competitors. Please sync your products first.';
+        debugLog.info('Detected PRODUCTS_SYNC_NEEDED error - user needs to sync products', {
+          error: error.message,
+          url: url
+        }, 'CompetitorsPage');
       } else if (error.message?.includes('Authentication required') || error.message?.includes('401')) {
         needsAuthentication = true;
         userMessage = 'Please connect your Shopify store first to add competitors.';
+        debugLog.warn('Authentication required for competitor addition', {
+          error: error.message,
+          url: url
+        }, 'CompetitorsPage');
       } else if (error.message?.includes('already being monitored')) {
         userMessage = 'This competitor is already being monitored for your products.';
+        debugLog.info('Competitor already being monitored', {
+          error: error.message,
+          url: url
+        }, 'CompetitorsPage');
       } else if (error.message?.includes('limit')) {
         userMessage = 'You have reached your competitor monitoring limit for your current plan.';
+        debugLog.warn('Competitor limit reached', {
+          error: error.message,
+          url: url
+        }, 'CompetitorsPage');
       } else if (error.message?.includes('Invalid URL')) {
         userMessage = 'Please enter a valid competitor URL (Amazon, Shopify, etc.).';
+        debugLog.warn('Invalid competitor URL provided', {
+          error: error.message,
+          url: url
+        }, 'CompetitorsPage');
       } else if (error.message?.includes('Connection issue')) {
         userMessage = 'Connection issue detected. Please check your internet connection and try again.';
+        debugLog.error('Connection issue detected', {
+          error: error.message,
+          url: url
+        }, 'CompetitorsPage');
       } else if (error.message?.includes('session has expired')) {
         userMessage = 'Your session has expired. Please refresh the page and try again.';
+        debugLog.warn('Session expired during competitor addition', {
+          error: error.message,
+          url: url
+        }, 'CompetitorsPage');
       } else if (error.message?.includes('Too many requests')) {
         userMessage = 'Too many requests. Please wait a moment before trying again.';
+        debugLog.warn('Rate limit exceeded for competitor addition', {
+          error: error.message,
+          url: url
+        }, 'CompetitorsPage');
       } else if (error.message?.includes('temporarily unavailable')) {
         userMessage = 'Our service is temporarily unavailable. Please try again in a few moments.';
+        debugLog.error('Service temporarily unavailable', {
+          error: error.message,
+          url: url
+        }, 'CompetitorsPage');
       } else if (error.userFriendly) {
         userMessage = error.message;
+        debugLog.info('User-friendly error displayed', {
+          error: error.message,
+          url: url
+        }, 'CompetitorsPage');
       }
 
       console.error('Competitor addition failed:', {
@@ -911,7 +962,7 @@ export default function CompetitorsPage() {
 
       // Show appropriate notification based on error type
       if (needsAuthentication) {
-        console.log('Showing authentication error notification');
+        debugLog.info('Showing authentication error notification');
         notifications.showError('Authentication Required', {
           category: 'Competitors',
           persistent: true,
@@ -928,7 +979,7 @@ export default function CompetitorsPage() {
           duration: 8000
         });
       } else if (needsProductSync) {
-        console.log('Showing product sync error notification');
+        debugLog.info('Showing product sync error notification');
         notifications.showError('Product catalog needs to be synchronized', {
           category: 'Competitors',
           persistent: true,
@@ -945,7 +996,9 @@ export default function CompetitorsPage() {
           duration: 8000
         });
       } else {
-        console.log('Showing generic error notification:', userMessage);
+        debugLog.info('Showing generic error notification', {
+          message: userMessage
+        }, 'CompetitorsPage');
         notifications.showError(userMessage, {
           category: 'Competitors'
         });
