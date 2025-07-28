@@ -328,6 +328,11 @@ const formatPercentChange = (percentDiff: number): string | null => {
 };
 
 const formatLastChecked = (lastChecked: string): string => {
+  // Handle special cases
+  if (lastChecked === 'Never' || lastChecked === 'Unknown' || !lastChecked) {
+    return 'Not checked yet';
+  }
+  
   try {
     const date = parseISO(lastChecked);
     const timeAgo = format(date, 'PPpp');
@@ -340,7 +345,7 @@ const formatLastChecked = (lastChecked: string): string => {
     
     return timeAgo;
   } catch {
-    return 'Unknown';
+    return 'Not checked yet';
   }
 };
 
