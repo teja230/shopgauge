@@ -378,7 +378,6 @@ export interface Competitor {
   lastChecked: string;
   shopifyProductId?: string; // Optional field for product association
   productTitle?: string; // Product title for display
-  productHandle?: string; // Product handle for Shopify URL generation
 }
 
 // Enhanced error handling to prevent raw JSON errors
