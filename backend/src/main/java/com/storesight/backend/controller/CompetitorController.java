@@ -90,19 +90,22 @@ public class CompetitorController {
     }
 
     try {
-      // Get competitor URLs for this shop, joining with latest price snapshots
+      // Get competitor URLs for this shop, joining with latest price snapshots and product info
       String query =
           """
           SELECT cu.id, cu.url, cu.label, cu.shopify_product_id, 
                  COALESCE(ps.price, 0.0) as price, 
                  COALESCE(ps.in_stock, true) as in_stock, 
-                 COALESCE(ps.checked_at, cu.created_at) as last_checked
+                 COALESCE(ps.checked_at, cu.created_at) as last_checked,
+                 p.title as product_title,
+                 p.handle as product_handle
           FROM competitor_urls cu
           LEFT JOIN (
               SELECT competitor_url_id, price, in_stock, checked_at,
                      ROW_NUMBER() OVER (PARTITION BY competitor_url_id ORDER BY checked_at DESC) as rn
               FROM price_snapshots
           ) ps ON cu.id = ps.competitor_url_id AND ps.rn = 1
+          LEFT JOIN products p ON cu.shopify_product_id = p.shopify_id
           WHERE cu.shop_id = ?
           ORDER BY cu.created_at DESC
           """;
@@ -129,9 +132,11 @@ public class CompetitorController {
                         row.get("last_checked") != null ? row.get("last_checked").toString() : "Never";
                     String shopifyProductId = 
                         row.get("shopify_product_id") != null ? String.valueOf(row.get("shopify_product_id")) : null;
+                    String productTitle = row.get("product_title") != null ? String.valueOf(row.get("product_title")) : null;
+                    String productHandle = row.get("product_handle") != null ? String.valueOf(row.get("product_handle")) : null;
 
                     logger.debug("getCompetitors: Processing competitor ID {} with URL {}", id, url);
-                    return new CompetitorDto(id, url, label, price, inStock, 0.0, lastChecked, shopifyProductId);
+                    return new CompetitorDto(id, url, label, price, inStock, 0.0, lastChecked, shopifyProductId, productTitle, productHandle);
                   })
               .collect(Collectors.toList());
               
@@ -436,10 +441,21 @@ public class CompetitorController {
               true, // Assume in stock initially
               0.0, // No price difference initially
               "Just added",
-              null); // shopifyProductId will be set when product is associated
+              productId, // shopifyProductId
+              null, // productTitle - will be populated on next fetch
+              null); // productHandle - will be populated on next fetch
 
       // Audit log the competitor addition
       competitorAuditService.logCompetitorAdded(shopId, request.url, label);
+
+      // Trigger immediate price scraping for the new competitor
+      try {
+        logger.info("addCompetitor: Triggering immediate price scraping for new competitor");
+        triggerImmediatePriceScraping(record.get("id").toString(), request.url, shopId);
+      } catch (Exception e) {
+        logger.warn("addCompetitor: Failed to trigger immediate price scraping: {}", e.getMessage());
+        // Don't fail the competitor addition if scraping fails
+      }
 
       logger.info(
           "addCompetitor: Successfully added competitor {} for shop {}", request.url, shopId);
@@ -1511,6 +1527,8 @@ public class CompetitorController {
     public double percentDiff;
     public String lastChecked;
     public String shopifyProductId;
+    public String productTitle;
+    public String productHandle;
 
     public CompetitorDto(
         String id,
@@ -1520,7 +1538,9 @@ public class CompetitorController {
         boolean inStock,
         double percentDiff,
         String lastChecked,
-        String shopifyProductId) {
+        String shopifyProductId,
+        String productTitle,
+        String productHandle) {
       this.id = id;
       this.url = url;
       this.label = label;
@@ -1529,6 +1549,8 @@ public class CompetitorController {
       this.percentDiff = percentDiff;
       this.lastChecked = lastChecked;
       this.shopifyProductId = shopifyProductId;
+      this.productTitle = productTitle;
+      this.productHandle = productHandle;
     }
   }
 
@@ -1560,6 +1582,157 @@ public class CompetitorController {
   }
 
   /** Extract client IP address from request */
+  /** Trigger immediate price scraping for a newly added competitor */
+  private void triggerImmediatePriceScraping(String competitorId, String url, Long shopId) {
+    try {
+      logger.info("triggerImmediatePriceScraping: Starting immediate scraping for competitor ID: {}", competitorId);
+      
+      // Create a simple data structure for scraping
+      Map<String, Object> urlData = Map.of(
+          "id", competitorId,
+          "url", url,
+          "shop_id", shopId
+      );
+      
+      // Use the existing scraping logic from CompetitorScraperWorker
+      // This is a simplified version for immediate scraping
+      String domain = extractDomain(url);
+      String platform = identifyPlatform(url);
+      
+      // Basic price extraction (simplified version)
+      try {
+        // Use Jsoup for immediate scraping (faster than Selenium for initial check)
+        org.jsoup.nodes.Document doc = org.jsoup.Jsoup.connect(url)
+            .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+            .timeout(10000)
+            .followRedirects(true)
+            .get();
+        
+        // Extract price using basic patterns
+        java.math.BigDecimal price = extractPriceFromDocument(doc, platform);
+        boolean inStock = extractStockStatusFromDocument(doc, platform);
+        
+        if (price != null) {
+          // Store the initial price snapshot
+          jdbcTemplate.update(
+              "INSERT INTO price_snapshots (competitor_url_id, price, in_stock, checked_at, scraper_version) " +
+              "VALUES (?, ?, ?, CURRENT_TIMESTAMP, 'v2.0-immediate')",
+              Long.parseLong(competitorId),
+              price,
+              inStock
+          );
+          
+          logger.info("triggerImmediatePriceScraping: Successfully scraped initial price ${} for competitor {}", price, competitorId);
+        } else {
+          logger.warn("triggerImmediatePriceScraping: Could not extract price from {}", url);
+        }
+        
+      } catch (Exception e) {
+        logger.warn("triggerImmediatePriceScraping: Failed to scrape {}: {}", url, e.getMessage());
+      }
+      
+    } catch (Exception e) {
+      logger.error("triggerImmediatePriceScraping: Error during immediate scraping: {}", e.getMessage());
+    }
+  }
+  
+  /** Extract domain from URL */
+  private String extractDomain(String url) {
+    try {
+      return url.replaceAll("https?://", "").replaceAll("/.*", "");
+    } catch (Exception e) {
+      return url;
+    }
+  }
+  
+  /** Identify platform from URL */
+  private String identifyPlatform(String url) {
+    String lowerUrl = url.toLowerCase();
+    if (lowerUrl.contains("amazon.com")) {
+      return "amazon";
+    } else if (lowerUrl.contains("shopify")) {
+      return "shopify";
+    } else {
+      return "generic";
+    }
+  }
+  
+  /** Extract price from document using basic patterns */
+  private java.math.BigDecimal extractPriceFromDocument(org.jsoup.nodes.Document doc, String platform) {
+    // Basic price patterns
+    java.util.regex.Pattern[] patterns = {
+        java.util.regex.Pattern.compile("\\$([0-9,]+\\.?[0-9]*)"),
+        java.util.regex.Pattern.compile("([0-9,]+\\.?[0-9]*)"),
+        java.util.regex.Pattern.compile("USD\\s*([0-9,]+\\.?[0-9]*)")
+    };
+    
+    // Try common price selectors
+    String[] selectors = {
+        ".price", ".product-price", ".money", "[data-price]", ".cost", ".amount"
+    };
+    
+    // Try CSS selectors first
+    for (String selector : selectors) {
+      org.jsoup.select.Elements elements = doc.select(selector);
+      for (org.jsoup.nodes.Element element : elements) {
+        String text = element.text().trim();
+        if (!text.isEmpty()) {
+          java.math.BigDecimal price = extractPriceFromText(text, patterns);
+          if (price != null) {
+            return price;
+          }
+        }
+      }
+    }
+    
+    // Try patterns on entire page text as fallback
+    String pageText = doc.text();
+    return extractPriceFromText(pageText, patterns);
+  }
+  
+  /** Extract price from text using patterns */
+  private java.math.BigDecimal extractPriceFromText(String text, java.util.regex.Pattern[] patterns) {
+    for (java.util.regex.Pattern pattern : patterns) {
+      java.util.regex.Matcher matcher = pattern.matcher(text);
+      if (matcher.find()) {
+        try {
+          String priceStr = matcher.group(1).replaceAll(",", "");
+          return new java.math.BigDecimal(priceStr);
+        } catch (NumberFormatException e) {
+          // Try next pattern
+        }
+      }
+    }
+    return null;
+  }
+  
+  /** Extract stock status from document */
+  private boolean extractStockStatusFromDocument(org.jsoup.nodes.Document doc, String platform) {
+    String[] selectors = {
+        ".stock", ".availability", ".in-stock", ".out-of-stock", ".product-availability"
+    };
+    
+    for (String selector : selectors) {
+      org.jsoup.select.Elements elements = doc.select(selector);
+      for (org.jsoup.nodes.Element element : elements) {
+        String text = element.text().toLowerCase();
+        
+        // Check for out of stock indicators
+        if (text.contains("out of stock") || text.contains("unavailable") || text.contains("sold out")) {
+          return false;
+        }
+        
+        // Check for in stock indicators
+        if (text.contains("in stock") || text.contains("available") || text.contains("add to cart")) {
+          return true;
+        }
+      }
+    }
+    
+    // Default to in stock if no clear indicator
+    return true;
+  }
+
   private String getClientIpAddress(HttpServletRequest request) {
     String xForwardedFor = request.getHeader("X-Forwarded-For");
     if (xForwardedFor != null && !xForwardedFor.isEmpty()) {

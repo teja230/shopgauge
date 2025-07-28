@@ -35,6 +35,7 @@ import {
   Group as GroupIcon,
   Schedule as ScheduleIcon,
   Launch as LaunchIcon,
+  Link as LinkIcon,
 } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
 import { format, parseISO } from 'date-fns';
@@ -48,6 +49,8 @@ export interface Competitor {
   percentDiff: number;
   lastChecked: string;
   shopifyProductId?: string; // Optional field for product association
+  productTitle?: string; // Product title for display
+  productHandle?: string; // Product handle for Shopify URL generation
 }
 
 interface CompetitorTableProps {
@@ -367,6 +370,16 @@ const getCompetitorInitials = (label: string): string => {
     .toUpperCase();
 };
 
+const getProductLink = (competitor: Competitor): string | null => {
+  if (competitor.productHandle && competitor.shopifyProductId) {
+    // Extract shop domain from current URL or use a default
+    const currentDomain = window.location.hostname;
+    const shopDomain = currentDomain.includes('shopgaugeai.com') ? 'your-store.myshopify.com' : currentDomain;
+    return `https://${shopDomain}/products/${competitor.productHandle}`;
+  }
+  return null;
+};
+
 // Mobile competitor card component
 const MobileCompetitorCard: React.FC<{
   competitor: Competitor;
@@ -479,13 +492,24 @@ const MobileCompetitorCard: React.FC<{
               </Typography>
               <Stack direction="row" spacing={1} alignItems="center">
                 {competitor.shopifyProductId ? (
-                  <Chip
-                    label="Associated"
-                    color="success"
-                    size="small"
-                    variant="outlined"
-                    icon={<CheckCircleIcon />}
-                  />
+                  <>
+                    <Chip
+                      label="Associated"
+                      color="success"
+                      size="small"
+                      variant="outlined"
+                      icon={<CheckCircleIcon />}
+                    />
+                    {getProductLink(competitor) && (
+                      <IconButton
+                        size="small"
+                        onClick={() => window.open(getProductLink(competitor)!, '_blank')}
+                        sx={{ minWidth: 24, minHeight: 24 }}
+                      >
+                        <LinkIcon fontSize="small" />
+                      </IconButton>
+                    )}
+                  </>
                 ) : (
                   <Typography variant="body2" color="text.secondary">
                     Auto-selected
@@ -608,13 +632,26 @@ const DesktopTableRow: React.FC<{
 
       <StyledTableCell>
         {competitor.shopifyProductId ? (
-          <Chip
-            label="Associated"
-            color="success"
-            size="small"
-            variant="outlined"
-            icon={<CheckCircleIcon />}
-          />
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Chip
+              label="Associated"
+              color="success"
+              size="small"
+              variant="outlined"
+              icon={<CheckCircleIcon />}
+            />
+            {getProductLink(competitor) && (
+              <Tooltip title={`View ${competitor.productTitle || 'product'} in your store`}>
+                <IconButton
+                  size="small"
+                  onClick={() => window.open(getProductLink(competitor)!, '_blank')}
+                  sx={{ minWidth: 24, minHeight: 24 }}
+                >
+                  <LinkIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
+          </Stack>
         ) : (
           <Typography variant="body2" color="text.secondary">
             Auto-selected
