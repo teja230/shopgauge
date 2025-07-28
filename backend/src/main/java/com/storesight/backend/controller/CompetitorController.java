@@ -29,11 +29,13 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import java.util.concurrent.TimeUnit;
 
 @RestController
 @RequestMapping("/api")
@@ -55,6 +57,8 @@ public class CompetitorController {
   @Autowired private AdminRateLimitingService rateLimitingService;
 
   @Autowired private DashboardCacheService dashboardCacheService;
+
+  @Autowired private RedisTemplate<String, Object> redisTemplate;
 
   // Cache for debouncing frequent count requests
   private final Map<Long, CachedCount> countCache = new ConcurrentHashMap<>();
@@ -1582,35 +1586,43 @@ public class CompetitorController {
   }
 
   /** Extract client IP address from request */
-  /** Trigger immediate price scraping for a newly added competitor */
+  /** Trigger immediate price scraping for a newly added competitor with cost optimization */
   private void triggerImmediatePriceScraping(String competitorId, String url, Long shopId) {
     try {
       logger.info("triggerImmediatePriceScraping: Starting immediate scraping for competitor ID: {}", competitorId);
       
-      // Create a simple data structure for scraping
-      Map<String, Object> urlData = Map.of(
-          "id", competitorId,
-          "url", url,
-          "shop_id", shopId
-      );
-      
-      // Use the existing scraping logic from CompetitorScraperWorker
-      // This is a simplified version for immediate scraping
+      // Check rate limiting for immediate scraping (same as scheduled scraping)
       String domain = extractDomain(url);
-      String platform = identifyPlatform(url);
+      String rateLimitKey = "scraper_rate_limit:" + domain;
       
-      // Basic price extraction (simplified version)
+      // Use Redis for rate limiting (same as CompetitorScraperWorker)
+      if (redisTemplate.hasKey(rateLimitKey)) {
+        logger.debug("triggerImmediatePriceScraping: Rate limit active for domain: {}", domain);
+        return; // Skip immediate scraping if rate limited
+      }
+      
+      // Set rate limit with shorter delay for immediate scraping
+      int immediateScrapingDelay = 1000; // 1 second delay for immediate scraping
+      redisTemplate.opsForValue().set(rateLimitKey, "1", immediateScrapingDelay, TimeUnit.MILLISECONDS);
+      
+      // Check if scraping is enabled and within limits
+      if (!isScrapingAllowed(shopId)) {
+        logger.debug("triggerImmediatePriceScraping: Scraping not allowed for shop {}", shopId);
+        return;
+      }
+      
+      // Basic price extraction with cost optimization
       try {
-        // Use Jsoup for immediate scraping (faster than Selenium for initial check)
+        // Use Jsoup for immediate scraping (faster and cheaper than Selenium)
         org.jsoup.nodes.Document doc = org.jsoup.Jsoup.connect(url)
             .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-            .timeout(10000)
+            .timeout(5000) // Shorter timeout for immediate scraping
             .followRedirects(true)
             .get();
         
         // Extract price using basic patterns
-        java.math.BigDecimal price = extractPriceFromDocument(doc, platform);
-        boolean inStock = extractStockStatusFromDocument(doc, platform);
+        java.math.BigDecimal price = extractPriceFromDocument(doc, identifyPlatform(url));
+        boolean inStock = extractStockStatusFromDocument(doc, identifyPlatform(url));
         
         if (price != null) {
           // Store the initial price snapshot
@@ -1633,6 +1645,26 @@ public class CompetitorController {
       
     } catch (Exception e) {
       logger.error("triggerImmediatePriceScraping: Error during immediate scraping: {}", e.getMessage());
+    }
+  }
+  
+  /** Check if scraping is allowed for the shop (cost optimization) */
+  private boolean isScrapingAllowed(Long shopId) {
+    try {
+      // Check if shop has reached scraping limits
+      int currentCompetitors = jdbcTemplate.queryForObject(
+          "SELECT COUNT(*) FROM competitor_urls WHERE shop_id = ?", Integer.class, shopId);
+      
+      int maxCompetitors = 100; // Same as CompetitorScraperWorker
+      if (currentCompetitors > maxCompetitors) {
+        logger.debug("triggerImmediatePriceScraping: Shop {} has too many competitors ({})", shopId, currentCompetitors);
+        return false;
+      }
+      
+      return true;
+    } catch (Exception e) {
+      logger.warn("triggerImmediatePriceScraping: Error checking scraping limits: {}", e.getMessage());
+      return true; // Allow scraping if check fails
     }
   }
   

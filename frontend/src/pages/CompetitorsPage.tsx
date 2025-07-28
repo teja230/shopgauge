@@ -1034,7 +1034,7 @@ export default function CompetitorsPage() {
         category: 'Competitors'
       });
     } catch {
-      notifications.showWarning('Competitor monitoring could not be stopped at this time. The system will retry automatically.', {
+      notifications.showError('Failed to delete competitor. Please try again.', {
         category: 'Competitors'
       });
     }
