@@ -47,6 +47,7 @@ export interface Competitor {
   inStock: boolean;
   percentDiff: number;
   lastChecked: string;
+  shopifyProductId?: string; // Optional field for product association
 }
 
 interface CompetitorTableProps {
@@ -469,6 +470,27 @@ const MobileCompetitorCard: React.FC<{
           <Stack spacing={2}>
             <Box>
               <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
+                Product Association
+              </Typography>
+              <Stack direction="row" spacing={1} alignItems="center">
+                {competitor.shopifyProductId ? (
+                  <Chip
+                    label="Associated"
+                    color="success"
+                    size="small"
+                    variant="outlined"
+                    icon={<CheckCircleIcon />}
+                  />
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    Auto-selected
+                  </Typography>
+                )}
+              </Stack>
+            </Box>
+
+            <Box>
+              <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
                 Last Checked
               </Typography>
               <Stack direction="row" spacing={1} alignItems="center">
@@ -575,6 +597,22 @@ const DesktopTableRow: React.FC<{
         ) : (
           <Typography variant="body2" color="text.secondary">
             No change
+          </Typography>
+        )}
+      </StyledTableCell>
+
+      <StyledTableCell>
+        {competitor.shopifyProductId ? (
+          <Chip
+            label="Associated"
+            color="success"
+            size="small"
+            variant="outlined"
+            icon={<CheckCircleIcon />}
+          />
+        ) : (
+          <Typography variant="body2" color="text.secondary">
+            Auto-selected
           </Typography>
         )}
       </StyledTableCell>
@@ -699,6 +737,7 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({
                 <TableCell>Price</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell>Change</TableCell>
+                <TableCell>Product</TableCell>
                 <TableCell>Last Checked</TableCell>
                 <TableCell>Actions</TableCell>
               </TableRow>
