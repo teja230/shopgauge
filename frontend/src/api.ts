@@ -470,16 +470,9 @@ async function getProductsIntelligently(): Promise<any[]> {
     }
   }
   
-  // If no cache, try to fetch products directly
-  try {
-    console.log('Fetching products from API for competitor addition');
-    const response = await fetch(`${API_BASE_URL}/api/analytics/products`, defaultOptions);
-    const data = await handleResponse<{ products: any[] }>(response);
-    return data.products || [];
-  } catch (error) {
-    console.error('Failed to fetch products:', error);
-    return [];
-  }
+  // If no cache, return empty array and let backend handle product selection
+  console.log('No cached products available, letting backend handle product selection');
+  return [];
 }
 
 // Intelligent competitor addition with automatic product syncing
@@ -487,19 +480,11 @@ export async function addCompetitorIntelligent(url: string, productId?: string):
   console.log('addCompetitorIntelligent: Starting with URL:', url, 'productId:', productId);
   
   try {
-    // If no productId provided, try to get products and use the first one
+    // If no productId provided, let backend handle product selection from Redis cache
     let finalProductId = productId;
     
     if (!finalProductId) {
-      console.log('No productId provided, attempting to get products intelligently...');
-      const products = await getProductsIntelligently();
-      
-      if (products.length > 0) {
-        finalProductId = products[0].id?.toString();
-        console.log('Using first available product:', finalProductId);
-      } else {
-        console.warn('No products found - this may cause PRODUCTS_SYNC_NEEDED error');
-      }
+      console.log('No productId provided, letting backend select product from cache');
     }
     
     // Prepare request payload

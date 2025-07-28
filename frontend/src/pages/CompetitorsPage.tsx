@@ -823,60 +823,12 @@ export default function CompetitorsPage() {
           category: 'Competitors'
         });
       } else {
-        // Intelligent competitor addition with automatic product syncing
+        // Intelligent competitor addition - let backend handle product selection
         let finalProductId = productId;
         
-        // If no productId provided, try to get products intelligently
+        // If no productId provided, let backend select from Redis cache
         if (!finalProductId) {
-          console.log('No productId provided, attempting to get products intelligently...');
-          
-          // First, try dashboard cache
-          const dashboardCache = sessionStorage.getItem('dashboard_cache_v2');
-          if (dashboardCache) {
-            try {
-              const cache = JSON.parse(dashboardCache);
-              if (cache.products?.data?.products?.length > 0) {
-                const age = Date.now() - cache.products.timestamp;
-                if (age < 30 * 60 * 1000) { // 30 minutes
-                  finalProductId = cache.products.data.products[0].id?.toString();
-                  console.log('Using product from dashboard cache:', finalProductId);
-                }
-              }
-            } catch (error) {
-              console.warn('Failed to parse dashboard cache:', error);
-            }
-          }
-          
-          // If still no product, try to fetch from API with better error handling
-          if (!finalProductId) {
-            try {
-              console.log('Fetching products from API for competitor addition');
-              const response = await fetchWithAuth('/api/analytics/products');
-              
-              if (response.ok) {
-                const data = await response.json();
-                if (data.products?.length > 0) {
-                  finalProductId = data.products[0].id?.toString();
-                  console.log('Using product from API:', finalProductId);
-                  
-                  // Update dashboard cache with fresh data
-                  const cacheData = {
-                    products: {
-                      data: data,
-                      timestamp: Date.now()
-                    }
-                  };
-                  sessionStorage.setItem('dashboard_cache_v2', JSON.stringify(cacheData));
-                } else {
-                  console.log('No products found in API response');
-                }
-              } else {
-                console.log('Products API returned status:', response.status);
-              }
-            } catch (error) {
-              console.error('Failed to fetch products:', error);
-            }
-          }
+          console.log('No productId provided, letting backend select product from cache');
         }
         
         // Add competitor with intelligent product handling
