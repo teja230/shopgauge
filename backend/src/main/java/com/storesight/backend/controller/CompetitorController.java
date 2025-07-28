@@ -109,7 +109,7 @@ public class CompetitorController {
                      ROW_NUMBER() OVER (PARTITION BY competitor_url_id ORDER BY checked_at DESC) as rn
               FROM price_snapshots
           ) ps ON cu.id = ps.competitor_url_id AND ps.rn = 1
-          LEFT JOIN products p ON cu.shopify_product_id = p.shopify_id
+          LEFT JOIN products p ON cu.shopify_product_id = p.shop_id
           WHERE cu.shop_id = ?
           ORDER BY cu.created_at DESC
           """;
