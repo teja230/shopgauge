@@ -1602,7 +1602,7 @@ public class CompetitorController {
       }
       
       // Set rate limit with shorter delay for immediate scraping
-      int immediateScrapingDelay = 1000; // 1 second delay for immediate scraping
+      int immediateScrapingDelay = 500; // 500ms delay for immediate scraping (faster UX)
       redisTemplate.opsForValue().set(rateLimitKey, "1", immediateScrapingDelay, TimeUnit.MILLISECONDS);
       
       // Check if scraping is enabled and within limits
@@ -1616,7 +1616,7 @@ public class CompetitorController {
         // Use Jsoup for immediate scraping (faster and cheaper than Selenium)
         org.jsoup.nodes.Document doc = org.jsoup.Jsoup.connect(url)
             .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-            .timeout(5000) // Shorter timeout for immediate scraping
+            .timeout(3000) // 3 second timeout for immediate scraping (faster UX)
             .followRedirects(true)
             .get();
         

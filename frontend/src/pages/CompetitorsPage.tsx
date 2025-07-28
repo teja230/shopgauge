@@ -845,6 +845,11 @@ export default function CompetitorsPage() {
         const cacheKey = `competitors_${shop}`;
         cache.delete(cacheKey);
         
+        // Show success notification immediately
+        notifications.showSuccess('Competitor monitoring started successfully!', {
+          category: 'Competitors'
+        });
+        
         // If we were in demo mode and successfully added a real competitor, switch to live mode
         if (isDemoMode) {
           console.log('Successfully added real competitor, switching from Demo to Live Mode');
@@ -853,28 +858,12 @@ export default function CompetitorsPage() {
           if (shop) {
             localStorage.setItem(`demoDisabled_${shop}`, 'true');
           }
-          notifications.showSuccess('Competitor added successfully! Switched to Live Mode.', {
-            category: 'Competitors'
-          });
-        } else {
-          notifications.showSuccess('Competitor monitoring started successfully!', {
-            category: 'Competitors'
-          });
         }
         
         // Clear form and close after success
         setUrl('');
         setProductId('');
         setShowAddForm(false);
-        
-        // Add a small delay to show success state before clearing
-        setTimeout(() => {
-          // Refresh the competitors list to show the new addition
-          if (shop) {
-            const cacheKey = `competitors_${shop}`;
-            cache.delete(cacheKey);
-          }
-        }, 500);
       }
     } catch (error: any) {
       console.error('handleAdd error:', error);
@@ -1033,7 +1022,8 @@ export default function CompetitorsPage() {
       notifications.showSuccess('Competitor monitoring stopped successfully', {
         category: 'Competitors'
       });
-    } catch {
+    } catch (error) {
+      console.error('Delete competitor error:', error);
       notifications.showError('Failed to delete competitor. Please try again.', {
         category: 'Competitors'
       });
