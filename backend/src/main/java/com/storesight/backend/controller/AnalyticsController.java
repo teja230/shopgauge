@@ -967,37 +967,37 @@ public class AnalyticsController {
       return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response));
     }
 
-    // EMERGENCY FIX: Throttle requests to prevent OOM during concurrent API calls
-    if (!requestThrottlingService.acquireRequestPermit(shop, "revenue")) {
-      logger.warn(
-          "Request throttled for revenue data for shop: {} (session: {})", shop, session.getId());
-
-      // Return loading state instead of error - frontend will retry automatically
-      Map<String, Object> response = new HashMap<>();
-      response.put("loading", true);
-      response.put("throttled", true);
-      response.put("message", "Loading data...");
-      response.put("revenue", "$0.00");
-      response.put("currency", "USD");
-      response.put("retry_after_ms", 1000); // Suggest retry after 1 second
-
-      return Mono.just(ResponseEntity.status(HttpStatus.ACCEPTED).body(response));
-    }
-
     try {
       // Register this session for cache tracking (regardless of cache hit/miss)
       dashboardCacheService.registerSession(shop, session.getId());
 
-      // Check Redis cache first
+      // Check Redis cache first - if we have cached data, return it immediately
       var cachedRevenue = dashboardCacheService.getCachedRevenueData(shop);
       if (cachedRevenue.isPresent()) {
         logger.info("Cache hit for revenue data for shop: {} (session: {})", shop, session.getId());
         return Mono.just(ResponseEntity.ok((Map<String, Object>) cachedRevenue.get()));
       } else {
         logger.info(
-            "Cache miss for revenue data for shop: {} (session: {}) - making API call",
+            "Cache miss for revenue data for shop: {} (session: {}) - checking throttling before API call",
             shop,
             session.getId());
+      }
+
+      // Only apply throttling if we need to make an actual API call
+      if (!requestThrottlingService.acquireRequestPermit(shop, "revenue")) {
+        logger.warn(
+            "Request throttled for revenue data for shop: {} (session: {})", shop, session.getId());
+
+        // Return loading state instead of error - frontend will retry automatically
+        Map<String, Object> response = new HashMap<>();
+        response.put("loading", true);
+        response.put("throttled", true);
+        response.put("message", "Loading data...");
+        response.put("revenue", "$0.00");
+        response.put("currency", "USD");
+        response.put("retry_after_ms", 1000); // Suggest retry after 1 second
+
+        return Mono.just(ResponseEntity.status(HttpStatus.ACCEPTED).body(response));
       }
 
       // Log the revenue data access
