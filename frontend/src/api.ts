@@ -454,27 +454,59 @@ export async function getCompetitors(): Promise<Competitor[]> {
   return handleResponse<Competitor[]>(res);
 }
 
-// Get products from dashboard cache or API
+// Get products from session storage first, then Redis fallback
 async function getProductsIntelligently(): Promise<any[]> {
-  // First, try to get products from dashboard cache
-  const dashboardCache = sessionStorage.getItem('dashboard_cache_v2');
-  if (dashboardCache) {
+  const shop = getApiAuthState().shop;
+  if (!shop) {
+    console.log('No shop available for product cache lookup');
+    return [];
+  }
+
+  // First, try session storage (fastest)
+  const sessionKey = `products_cache_${shop}`;
+  const sessionData = sessionStorage.getItem(sessionKey);
+  
+  if (sessionData) {
     try {
-      const cache = JSON.parse(dashboardCache);
-      if (cache.products && cache.products.data && Array.isArray(cache.products.data.products)) {
-        const age = Date.now() - cache.products.timestamp;
-        // Use cache if less than 30 minutes old
-        if (age < 30 * 60 * 1000) {
-          console.log('Using products from dashboard cache');
-          return cache.products.data.products;
-        }
+      const cache = JSON.parse(sessionData);
+      const age = Date.now() - cache.timestamp;
+      const maxAge = 30 * 60 * 1000; // 30 minutes
+      
+      if (age < maxAge) {
+        console.log('Using products from session storage cache');
+        return cache.products || [];
+      } else {
+        console.log('Session storage cache expired, removing');
+        sessionStorage.removeItem(sessionKey);
       }
     } catch (error) {
-      console.warn('Failed to parse dashboard cache:', error);
+      console.warn('Failed to parse session storage cache:', error);
+      sessionStorage.removeItem(sessionKey);
     }
   }
+
+  // Try Redis fallback via API (avoids direct Redis calls)
+  try {
+    console.log('Checking Redis cache for products via API');
+    const response = await fetchWithAuth('/api/analytics/products');
+    if (response.ok) {
+      const data = await response.json();
+      if (data.products && Array.isArray(data.products)) {
+        // Cache in session storage for future use
+        const cacheData = {
+          products: data.products,
+          timestamp: Date.now()
+        };
+        sessionStorage.setItem(sessionKey, JSON.stringify(cacheData));
+        console.log('Cached products from Redis in session storage');
+        return data.products;
+      }
+    }
+  } catch (error) {
+    console.warn('Redis fallback failed:', error);
+  }
   
-  // If no cache, return empty array and let backend handle product selection
+  // If no cache available, return empty array and let backend handle product selection
   console.log('No cached products available, letting backend handle product selection');
   return [];
 }

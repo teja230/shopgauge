@@ -372,11 +372,14 @@ const getCompetitorInitials = (label: string): string => {
 
 const getProductLink = (competitor: Competitor): string | null => {
   if (competitor.productHandle && competitor.shopifyProductId) {
-    // Get shop domain from URL or use a fallback
+    // Get shop domain from URL parameters
     const urlParams = new URLSearchParams(window.location.search);
     const shopFromUrl = urlParams.get('shop');
-    const shopDomain = shopFromUrl || 'your-store.myshopify.com';
-    return `https://${shopDomain}/products/${competitor.productHandle}`;
+    
+    // Only return link if we have a valid shop domain
+    if (shopFromUrl && shopFromUrl.includes('.myshopify.com')) {
+      return `https://${shopFromUrl}/products/${competitor.productHandle}`;
+    }
   }
   return null;
 };
