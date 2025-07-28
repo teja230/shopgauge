@@ -50,7 +50,6 @@ export interface Competitor {
   lastChecked: string;
   shopifyProductId?: string; // Optional field for product association
   productTitle?: string; // Product title for display
-  productHandle?: string; // Product handle for Shopify URL generation
 }
 
 interface CompetitorTableProps {
@@ -371,14 +370,15 @@ const getCompetitorInitials = (label: string): string => {
 };
 
 const getProductLink = (competitor: Competitor): string | null => {
-  if (competitor.productHandle && competitor.shopifyProductId) {
-    // Get shop domain from URL parameters
+  if (competitor.shopifyProductId) {
+    // Get shop domain from URL parameters (same as Dashboard approach)
     const urlParams = new URLSearchParams(window.location.search);
     const shopFromUrl = urlParams.get('shop');
     
     // Only return link if we have a valid shop domain
     if (shopFromUrl && shopFromUrl.includes('.myshopify.com')) {
-      return `https://${shopFromUrl}/products/${competitor.productHandle}`;
+      // Use the same approach as Dashboard - create admin URL with product ID
+      return `https://${shopFromUrl}/admin/products/${competitor.shopifyProductId}`;
     }
   }
   return null;
