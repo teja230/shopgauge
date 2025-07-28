@@ -32,6 +32,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -135,6 +136,24 @@ public class CompetitorController {
               .collect(Collectors.toList());
               
       logger.info("getCompetitors: Returning {} competitors for shop {}", competitors.size(), shopId);
+
+      // Check for and log any inconsistent data (competitors without price snapshots)
+      if (competitors.size() > 0) {
+        List<Map<String, Object>> inconsistentCompetitors = jdbcTemplate.queryForList(
+            "SELECT cu.id, cu.url FROM competitor_urls cu " +
+            "LEFT JOIN price_snapshots ps ON cu.id = ps.competitor_url_id " +
+            "WHERE cu.shop_id = ? AND ps.id IS NULL",
+            shopId);
+        
+        if (!inconsistentCompetitors.isEmpty()) {
+          logger.warn("getCompetitors: Found {} competitors without price snapshots for shop {}", 
+              inconsistentCompetitors.size(), shopId);
+          for (Map<String, Object> comp : inconsistentCompetitors) {
+            logger.warn("getCompetitors: Inconsistent competitor - ID: {}, URL: {}", 
+                comp.get("id"), comp.get("url"));
+          }
+        }
+      }
 
       // Audit log the data access
       competitorAuditService.logDataAccessed(
@@ -457,6 +476,7 @@ public class CompetitorController {
 
   /** Delete a competitor */
   @DeleteMapping("/competitors/{id}")
+  @Transactional
   public ResponseEntity<?> deleteCompetitor(@PathVariable String id, HttpServletRequest request) {
     Long shopId = getShopIdFromRequest(request);
     if (shopId == null) {
@@ -465,43 +485,111 @@ public class CompetitorController {
     }
 
     try {
+      logger.info("deleteCompetitor: Starting deletion for competitor ID: {} for shop: {}", id, shopId);
+      
       // Verify the competitor belongs to this shop
       List<Map<String, Object>> competitors =
           jdbcTemplate.queryForList(
-              "SELECT cu.id FROM competitor_urls cu WHERE cu.id = ? AND cu.shop_id = ?",
+              "SELECT cu.id, cu.url FROM competitor_urls cu WHERE cu.id = ? AND cu.shop_id = ?",
               Long.parseLong(id),
               shopId);
 
       if (competitors.isEmpty()) {
+        logger.warn("deleteCompetitor: Competitor {} not found for shop {}", id, shopId);
         return ResponseEntity.notFound().build();
       }
 
-      // Delete related price snapshots first
-      jdbcTemplate.update(
-          "DELETE FROM price_snapshots WHERE competitor_url_id = ?", Long.parseLong(id));
+      String competitorUrl = (String) competitors.get(0).get("url");
+      logger.info("deleteCompetitor: Found competitor URL: {} for deletion", competitorUrl);
 
-      // Get competitor URL for audit logging before deletion
-      List<Map<String, Object>> competitorInfo =
-          jdbcTemplate.queryForList(
-              "SELECT url FROM competitor_urls WHERE id = ?", Long.parseLong(id));
-      String competitorUrl =
-          competitorInfo.isEmpty() ? "unknown" : (String) competitorInfo.get(0).get("url");
+      // Delete related price snapshots first
+      int deletedSnapshots = jdbcTemplate.update(
+          "DELETE FROM price_snapshots WHERE competitor_url_id = ?", Long.parseLong(id));
+      logger.info("deleteCompetitor: Deleted {} price snapshots for competitor {}", deletedSnapshots, id);
 
       // Delete the competitor URL
-      jdbcTemplate.update("DELETE FROM competitor_urls WHERE id = ?", Long.parseLong(id));
+      int deletedCompetitors = jdbcTemplate.update("DELETE FROM competitor_urls WHERE id = ?", Long.parseLong(id));
+      logger.info("deleteCompetitor: Deleted {} competitor URLs for ID {}", deletedCompetitors, id);
+
+      if (deletedCompetitors == 0) {
+        logger.error("deleteCompetitor: No competitor URL was deleted for ID {}", id);
+        throw new RuntimeException("Failed to delete competitor URL");
+      }
 
       // Audit log the deletion
       competitorAuditService.logCompetitorRemoved(shopId, competitorUrl, "User deleted competitor");
 
-      logger.info("Deleted competitor {} for shop {}", id, shopId);
+      logger.info("deleteCompetitor: Successfully deleted competitor {} for shop {}", id, shopId);
       return ResponseEntity.ok().build();
 
     } catch (NumberFormatException e) {
+      logger.error("deleteCompetitor: Invalid competitor ID format: {}", id);
       return ResponseEntity.badRequest().body(Map.of("error", "Invalid competitor ID"));
     } catch (Exception e) {
-      logger.error("Error deleting competitor: {}", e.getMessage(), e);
+      logger.error("deleteCompetitor: Error deleting competitor {} for shop {}: {}", id, shopId, e.getMessage(), e);
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
           .body(Map.of("error", "Failed to delete competitor"));
+    }
+  }
+
+  /** Admin endpoint to clean up inconsistent competitor data */
+  @PostMapping("/competitors/cleanup-inconsistent")
+  @Profile("!prod") // Only available in non-production environments
+  public ResponseEntity<Map<String, Object>> cleanupInconsistentCompetitors(HttpServletRequest request) {
+    Long shopId = getShopIdFromRequest(request);
+    if (shopId == null) {
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+          .body(Map.of("error", "Authentication required"));
+    }
+
+    try {
+      logger.info("cleanupInconsistentCompetitors: Starting cleanup for shop {}", shopId);
+      
+      // Find competitors without price snapshots
+      List<Map<String, Object>> inconsistentCompetitors = jdbcTemplate.queryForList(
+          "SELECT cu.id, cu.url FROM competitor_urls cu " +
+          "LEFT JOIN price_snapshots ps ON cu.id = ps.competitor_url_id " +
+          "WHERE cu.shop_id = ? AND ps.id IS NULL",
+          shopId);
+      
+      if (inconsistentCompetitors.isEmpty()) {
+        return ResponseEntity.ok(Map.of(
+            "message", "No inconsistent competitors found",
+            "cleanedCount", 0
+        ));
+      }
+      
+      logger.info("cleanupInconsistentCompetitors: Found {} inconsistent competitors to clean up", 
+          inconsistentCompetitors.size());
+      
+      int cleanedCount = 0;
+      for (Map<String, Object> comp : inconsistentCompetitors) {
+        Long compId = ((Number) comp.get("id")).longValue();
+        String compUrl = (String) comp.get("url");
+        
+        try {
+          // Delete the inconsistent competitor
+          jdbcTemplate.update("DELETE FROM competitor_urls WHERE id = ?", compId);
+          cleanedCount++;
+          logger.info("cleanupInconsistentCompetitors: Cleaned up competitor ID {} with URL {}", compId, compUrl);
+        } catch (Exception e) {
+          logger.error("cleanupInconsistentCompetitors: Failed to clean up competitor ID {}: {}", compId, e.getMessage());
+        }
+      }
+      
+      Map<String, Object> result = Map.of(
+          "message", "Cleanup completed",
+          "cleanedCount", cleanedCount,
+          "totalFound", inconsistentCompetitors.size()
+      );
+      
+      logger.info("cleanupInconsistentCompetitors: Cleanup completed for shop {} - {}", shopId, result);
+      return ResponseEntity.ok(result);
+      
+    } catch (Exception e) {
+      logger.error("cleanupInconsistentCompetitors: Error during cleanup for shop {}: {}", shopId, e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to cleanup inconsistent competitors"));
     }
   }
 
