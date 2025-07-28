@@ -658,6 +658,11 @@ export default function CompetitorsPage() {
       ]);
       
       // Set data first
+      console.log('fetchData: Received competitors data:', competitorsData);
+      debugLog.info('fetchData: Received competitors data', {
+        count: competitorsData.length,
+        competitors: competitorsData.map(c => ({ id: c.id, url: c.url, label: c.label }))
+      }, 'CompetitorsPage');
       setCompetitors(competitorsData);
       setSuggestionCount(suggestionCountData.newSuggestions);
       

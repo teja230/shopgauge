@@ -95,7 +95,7 @@ public class CompetitorController {
           SELECT cu.id, cu.url, cu.label, cu.shopify_product_id, 
                  COALESCE(ps.price, 0.0) as price, 
                  COALESCE(ps.in_stock, true) as in_stock, 
-                 ps.checked_at
+                 COALESCE(ps.checked_at, cu.created_at) as last_checked
           FROM competitor_urls cu
           LEFT JOIN (
               SELECT competitor_url_id, price, in_stock, checked_at,
@@ -107,6 +107,8 @@ public class CompetitorController {
           """;
 
       List<Map<String, Object>> rows = jdbcTemplate.queryForList(query, shopId);
+      
+      logger.info("getCompetitors: Found {} competitor rows for shop {}", rows.size(), shopId);
 
       List<CompetitorDto> competitors =
           rows.stream()
@@ -123,13 +125,16 @@ public class CompetitorController {
                     Boolean inStock =
                         row.get("in_stock") != null ? (Boolean) row.get("in_stock") : true;
                     String lastChecked =
-                        row.get("checked_at") != null ? row.get("checked_at").toString() : "Never";
+                        row.get("last_checked") != null ? row.get("last_checked").toString() : "Never";
                     String shopifyProductId = 
                         row.get("shopify_product_id") != null ? String.valueOf(row.get("shopify_product_id")) : null;
 
+                    logger.debug("getCompetitors: Processing competitor ID {} with URL {}", id, url);
                     return new CompetitorDto(id, url, label, price, inStock, 0.0, lastChecked, shopifyProductId);
                   })
               .collect(Collectors.toList());
+              
+      logger.info("getCompetitors: Returning {} competitors for shop {}", competitors.size(), shopId);
 
       // Audit log the data access
       competitorAuditService.logDataAccessed(
