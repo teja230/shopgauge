@@ -1204,38 +1204,7 @@ const DashboardPage = () => {
     }
   }, [shop, isAuthenticated]);
 
-  // Ensure products data is loaded immediately for competitor functionality
-  // Ensure products data is loaded for competitor functionality
-  const productsLoadedRef = useRef<Set<string>>(new Set());
-  
-  useEffect(() => {
-    if (shop && isAuthenticated && isAuthReady && !authLoading) {
-      // Prevent duplicate loading for the same shop
-      if (productsLoadedRef.current.has(shop)) {
-        console.log('✅ Dashboard: Products data already loaded for this shop');
-        return;
-      }
-      
-      console.log('🔄 Dashboard: Ensuring products data is loaded for competitor functionality');
-      
-      // Check if we have products in session storage
-      const sessionKey = `products_cache_${shop}`;
-      const sessionData = sessionStorage.getItem(sessionKey);
-      
-      if (!sessionData) {
-        console.log('🔄 Dashboard: No products in session storage, loading products data');
-        // Load products data immediately to populate both Redis and session storage
-        fetchProductsData().catch(error => {
-          console.error('❌ Dashboard: Failed to load products data for competitor functionality:', error);
-        });
-      } else {
-        console.log('✅ Dashboard: Products data already available in session storage');
-      }
-      
-      // Mark this shop as loaded
-      productsLoadedRef.current.add(shop);
-    }
-  }, [shop, isAuthenticated, isAuthReady, authLoading]);
+  // Dashboard handles all data loading including products - no special competitor logic needed
 
   // Stable cache check function with optimal strategy
   const checkCacheAndFetch = useCallback(async (
@@ -1513,20 +1482,20 @@ const DashboardPage = () => {
         const jsonData = await response.json();
         console.log('📊 Dashboard: Products API response:', jsonData);
         
-        // Ensure Redis cache is populated for competitor functionality
+        // Populate session storage for products data (used by dashboard and other components)
         if (jsonData.products && Array.isArray(jsonData.products) && jsonData.products.length > 0) {
-          console.log('✅ Dashboard: Redis cache populated with', jsonData.products.length, 'products');
+          console.log('✅ Dashboard: Products data loaded -', jsonData.products.length, 'products');
           
-          // Also populate session storage for competitor functionality
+          // Cache in session storage for other components to use
           const sessionKey = `products_cache_${shop}`;
           const cacheData = {
             products: jsonData.products,
             timestamp: Date.now()
           };
           sessionStorage.setItem(sessionKey, JSON.stringify(cacheData));
-          console.log('✅ Dashboard: Session storage also populated for competitor functionality');
+          console.log('✅ Dashboard: Products cached in session storage');
         } else {
-          console.warn('⚠️ Dashboard: Products API returned no products, Redis cache may be empty');
+          console.warn('⚠️ Dashboard: Products API returned no products');
         }
         
         return jsonData;
