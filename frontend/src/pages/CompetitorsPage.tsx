@@ -2223,14 +2223,7 @@ export default function CompetitorsPage() {
         </button>
       </div>
 
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="h4" component="h1" sx={{ fontWeight: 600, color: 'text.primary' }}>
-          Competitor Tracking
-        </Typography>
-        <Typography variant="body1" sx={{ color: 'text.secondary', mt: 1 }}>
-          Monitor your competitors' prices and stay ahead of the market
-        </Typography>
-      </Box>
+
 
     </div>
   );
