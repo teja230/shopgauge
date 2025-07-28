@@ -500,7 +500,11 @@ async function getProductsIntelligently(): Promise<any[]> {
         sessionStorage.setItem(sessionKey, JSON.stringify(cacheData));
         console.log('Cached products from Redis in session storage');
         return data.products;
+      } else {
+        console.warn('Products API returned no products or invalid format:', data);
       }
+    } else {
+      console.warn('Products API failed with status:', response.status);
     }
   } catch (error) {
     console.warn('Redis fallback failed:', error);
@@ -521,11 +525,24 @@ export async function addCompetitorIntelligent(url: string, productId?: string):
   console.log('addCompetitorIntelligent: Starting with URL:', url, 'productId:', productId);
   
   try {
-    // If no productId provided, let backend handle product selection from Redis cache
+    // If no productId provided, ensure Redis cache is populated first
     let finalProductId = productId;
     
     if (!finalProductId) {
-      console.log('No productId provided, letting backend select product from cache');
+      console.log('No productId provided, ensuring Redis cache is populated');
+      
+      // Force populate Redis cache by calling products API
+      try {
+        const productsResponse = await fetchWithAuth('/api/analytics/products');
+        if (productsResponse.ok) {
+          const productsData = await productsResponse.json();
+          console.log('Forced Redis cache population, got products:', productsData.products?.length || 0);
+        } else {
+          console.warn('Failed to populate Redis cache, status:', productsResponse.status);
+        }
+      } catch (error) {
+        console.warn('Error populating Redis cache:', error);
+      }
     }
     
     // Prepare request payload

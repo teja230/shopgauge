@@ -241,7 +241,7 @@ public class CompetitorController {
         String providedProductId = request.productId.trim();
         logger.info("addCompetitor: Using provided productId: {}", providedProductId);
 
-        // Validate that the provided productId exists in Redis cache
+        // First try Redis cache, then fallback to session storage via API
         var cachedProducts = dashboardCacheService.getCachedProductsData(shopDomain);
         if (cachedProducts.isPresent()) {
           try {
