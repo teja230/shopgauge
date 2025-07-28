@@ -911,6 +911,7 @@ export default function CompetitorsPage() {
 
       // Show appropriate notification based on error type
       if (needsAuthentication) {
+        console.log('Showing authentication error notification');
         notifications.showError('Authentication Required', {
           category: 'Competitors',
           persistent: true,
@@ -927,6 +928,7 @@ export default function CompetitorsPage() {
           duration: 8000
         });
       } else if (needsProductSync) {
+        console.log('Showing product sync error notification');
         notifications.showError('Product catalog needs to be synchronized', {
           category: 'Competitors',
           persistent: true,
@@ -943,6 +945,7 @@ export default function CompetitorsPage() {
           duration: 8000
         });
       } else {
+        console.log('Showing generic error notification:', userMessage);
         notifications.showError(userMessage, {
           category: 'Competitors'
         });
