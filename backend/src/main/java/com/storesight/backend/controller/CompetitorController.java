@@ -1298,9 +1298,9 @@ public class CompetitorController {
   private String getShopDomainFromId(Long shopId) {
     try {
       List<Map<String, Object>> shops =
-          jdbcTemplate.queryForList("SELECT shop_domain FROM shops WHERE id = ?", shopId);
+          jdbcTemplate.queryForList("SELECT shopify_domain FROM shops WHERE id = ?", shopId);
       if (!shops.isEmpty()) {
-        return (String) shops.get(0).get("shop_domain");
+        return (String) shops.get(0).get("shopify_domain");
       }
     } catch (Exception e) {
       logger.error("Error getting shop domain for shopId {}: {}", shopId, e.getMessage());
