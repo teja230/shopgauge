@@ -331,6 +331,9 @@ interface RevenueData {
 interface DashboardInsight {
   totalRevenue: number;
   revenue?: number;
+  recentRevenue?: number; // Add 7-day revenue
+  recentOrders?: number; // Add 7-day orders
+  recentConversionRate?: number; // Add 7-day conversion rate
   newProducts: number;
   abandonedCarts: number;
   lowInventory: number;
@@ -851,6 +854,9 @@ const DashboardPage = () => {
     dashboardRevenueData: stableTimeseriesData, // Use stable reference
     dashboardOrdersData: stableTimeseriesData, // Use stable reference
     realConversionRate: insights?.conversionRate, // Pass real conversion rate from dashboard
+    recentRevenue: insights?.recentRevenue, // Pass 7-day revenue from dashboard
+    recentOrders: insights?.recentOrders, // Pass 7-day orders from dashboard
+    recentConversionRate: insights?.recentConversionRate, // Pass 7-day conversion rate from dashboard
     // Note: Always computes 90 days max, filtering done in PredictionViewContainer
   });
 
@@ -1413,9 +1419,15 @@ const DashboardPage = () => {
       // Handle successful data response
       let timeseriesData = data.timeseries || [];
       const totalRevenue = data.totalRevenue || data.revenue || 0;
+      const recentRevenue = data.recentRevenue || 0; // Use backend-calculated 7-day revenue
+      const recentOrders = data.recentOrders || 0; // Use backend-calculated 7-day orders
+      const recentConversionRate = data.recentConversionRate || 0; // Use backend-calculated 7-day conversion rate
       
       console.log('Revenue API response:', {
         totalRevenue,
+        recentRevenue,
+        recentOrders,
+        recentConversionRate,
         timeseriesLength: timeseriesData.length,
         periodDays: data.period_days,
         ordersCount: data.orders_count
@@ -1436,6 +1448,9 @@ const DashboardPage = () => {
       
       setInsights(mergeInsights({
         totalRevenue: data.rate_limited ? 0 : totalRevenue,
+        recentRevenue: data.rate_limited ? 0 : recentRevenue,
+        recentOrders: data.rate_limited ? 0 : recentOrders,
+        recentConversionRate: data.rate_limited ? 0 : recentConversionRate,
         timeseries: data.rate_limited ? [] : timeseriesData
       }));
       
