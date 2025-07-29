@@ -10,10 +10,12 @@ import com.storesight.backend.service.discovery.MultiSourceSearchClient;
 import com.storesight.backend.service.discovery.SearchClient;
 import java.math.BigDecimal;
 import java.util.*;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -43,6 +45,7 @@ public class MarketIntelligenceAdminController {
   @Autowired private RedisHealthService redisHealthService;
   @Autowired private TransactionMonitoringService transactionMonitoringService;
   @Autowired private DataPrivacyService dataPrivacyService;
+  @Autowired private RedisTemplate<String, Object> redisTemplate;
 
   @Value("${discovery.enabled:true}")
   private boolean discoveryEnabled;
@@ -498,5 +501,266 @@ public class MarketIntelligenceAdminController {
             "category", "Cost"));
 
     return activity.stream().limit(limit).toList();
+  }
+
+  // ==================== COMPETITOR DEBUG ENDPOINTS ====================
+
+  /** Get scraping status for a specific shop */
+  @GetMapping("/competitors/scraping-status")
+  public ResponseEntity<Map<String, Object>> getCompetitorScrapingStatus(
+      @RequestParam(required = false) Long shopId) {
+    try {
+      Map<String, Object> debugInfo = new HashMap<>();
+      
+      if (shopId == null) {
+        // Get all shops if no specific shop provided
+        List<Map<String, Object>> shops = jdbcTemplate.queryForList(
+            "SELECT id, shopify_domain FROM shops WHERE deleted_at IS NULL ORDER BY id");
+        debugInfo.put("availableShops", shops);
+        debugInfo.put("message", "No shop ID provided. Use ?shopId=X to get specific shop data.");
+        return ResponseEntity.ok(debugInfo);
+      }
+      
+      // Get shop domain
+      String shopDomain = null;
+      try {
+        Map<String, Object> shop = jdbcTemplate.queryForMap(
+            "SELECT shopify_domain FROM shops WHERE id = ?", shopId);
+        shopDomain = (String) shop.get("shopify_domain");
+      } catch (Exception e) {
+        return ResponseEntity.badRequest().body(Map.of("error", "Shop not found: " + shopId));
+      }
+      
+      debugInfo.put("shopId", shopId);
+      debugInfo.put("shopDomain", shopDomain);
+      
+      // Get comprehensive scraping status data
+      String query = """
+          SELECT 
+              cu.id,
+              cu.url,
+              cu.status,
+              cu.error_count,
+              cu.created_at as competitor_created,
+              cu.last_successful_check,
+              ps.checked_at as latest_price_check,
+              ps.price,
+              ps.in_stock,
+              ps.platform,
+              ps.scraper_source,
+              ps.response_time_ms,
+              CASE 
+                  WHEN cu.error_count >= 5 THEN 'BLOCKED_BY_ERRORS'
+                  WHEN cu.status = 'error' THEN 'ERROR_STATUS'
+                  WHEN ps.checked_at IS NULL THEN 'NEVER_SCRAPED'
+                  WHEN ps.checked_at < NOW() - INTERVAL '12 hours' THEN 'DUE_FOR_SCRAPING'
+                  ELSE 'RECENTLY_SCRAPED'
+              END as scraping_status
+          FROM competitor_urls cu
+          LEFT JOIN (
+              SELECT competitor_url_id, price, in_stock, checked_at, platform, scraper_source, response_time_ms,
+                     ROW_NUMBER() OVER (PARTITION BY competitor_url_id ORDER BY checked_at DESC) as rn
+              FROM price_snapshots
+          ) ps ON cu.id = ps.competitor_url_id AND ps.rn = 1
+          WHERE cu.shop_id = ? AND cu.deleted_at IS NULL
+          ORDER BY cu.created_at DESC
+          """;
+      
+      List<Map<String, Object>> rows = jdbcTemplate.queryForList(query, shopId);
+      List<Map<String, Object>> statusData = new ArrayList<>();
+      
+      for (Map<String, Object> row : rows) {
+        Map<String, Object> competitorData = new HashMap<>();
+        competitorData.put("id", row.get("id"));
+        competitorData.put("url", row.get("url"));
+        competitorData.put("status", row.get("status"));
+        competitorData.put("error_count", row.get("error_count"));
+        competitorData.put("competitor_created", row.get("competitor_created"));
+        competitorData.put("last_successful_check", row.get("last_successful_check"));
+        competitorData.put("latest_price_check", row.get("latest_price_check"));
+        competitorData.put("price", row.get("price"));
+        competitorData.put("in_stock", row.get("in_stock"));
+        competitorData.put("platform", row.get("platform"));
+        competitorData.put("scraper_source", row.get("scraper_source"));
+        competitorData.put("response_time_ms", row.get("response_time_ms"));
+        competitorData.put("scraping_status", row.get("scraping_status"));
+        statusData.add(competitorData);
+      }
+      
+      // Summary statistics
+      Map<String, Object> summary = new HashMap<>();
+      summary.put("total_competitors", statusData.size());
+      summary.put("active_status", statusData.stream().filter(c -> "active".equals(c.get("status"))).count());
+      summary.put("error_status", statusData.stream().filter(c -> "error".equals(c.get("status"))).count());
+      summary.put("blocked_by_errors", statusData.stream().filter(c -> "BLOCKED_BY_ERRORS".equals(c.get("scraping_status"))).count());
+      summary.put("due_for_scraping", statusData.stream().filter(c -> "DUE_FOR_SCRAPING".equals(c.get("scraping_status"))).count());
+      summary.put("recently_scraped", statusData.stream().filter(c -> "RECENTLY_SCRAPED".equals(c.get("scraping_status"))).count());
+      summary.put("never_scraped", statusData.stream().filter(c -> "NEVER_SCRAPED".equals(c.get("scraping_status"))).count());
+      
+      // Platform and scraper source analytics
+      Map<String, Long> platformStats = statusData.stream()
+          .filter(c -> c.get("platform") != null)
+          .collect(Collectors.groupingBy(
+              c -> (String) c.get("platform"), 
+              Collectors.counting()));
+      
+      Map<String, Long> scraperSourceStats = statusData.stream()
+          .filter(c -> c.get("scraper_source") != null)
+          .collect(Collectors.groupingBy(
+              c -> (String) c.get("scraper_source"), 
+              Collectors.counting()));
+      
+      summary.put("platform_stats", platformStats);
+      summary.put("scraper_source_stats", scraperSourceStats);
+      
+      debugInfo.put("competitors", statusData);
+      debugInfo.put("summary", summary);
+      
+      return ResponseEntity.ok(debugInfo);
+      
+    } catch (Exception e) {
+      log.error("Error getting competitor scraping status: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to get scraping status: " + e.getMessage()));
+    }
+  }
+
+  /** Trigger immediate scraping for a specific competitor */
+  @PostMapping("/competitors/{id}/trigger-scraping")
+  public ResponseEntity<Map<String, Object>> triggerCompetitorScraping(
+      @PathVariable String id, 
+      @RequestParam(required = false) Long shopId) {
+    try {
+      Map<String, Object> debugInfo = new HashMap<>();
+      debugInfo.put("competitorId", id);
+      debugInfo.put("shopId", shopId);
+      
+      // Get competitor details
+      List<Map<String, Object>> competitorData = jdbcTemplate.queryForList(
+          "SELECT id, url, shop_id FROM competitor_urls WHERE id = ? AND deleted_at IS NULL",
+          Long.parseLong(id));
+      
+      if (competitorData.isEmpty()) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(Map.of("error", "Competitor not found"));
+      }
+      
+      Map<String, Object> competitor = competitorData.get(0);
+      String url = (String) competitor.get("url");
+      Long actualShopId = ((Number) competitor.get("shop_id")).longValue();
+      
+      // Validate shop access if shopId provided
+      if (shopId != null && !shopId.equals(actualShopId)) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+            .body(Map.of("error", "Access denied to competitor from different shop"));
+      }
+      
+      debugInfo.put("url", url);
+      debugInfo.put("actualShopId", actualShopId);
+      
+      // Check Redis keys before scraping
+      String domain = extractDomain(url);
+      String recentScrapeKey = "recent_scrape:" + domain + ":" + url.hashCode();
+      String rateLimitKey = "scraper_rate_limit:" + domain;
+      
+      debugInfo.put("domain", domain);
+      debugInfo.put("recentScrapeKey", recentScrapeKey);
+      debugInfo.put("rateLimitKey", rateLimitKey);
+      debugInfo.put("recentScrapeExists", redisTemplate.hasKey(recentScrapeKey));
+      debugInfo.put("rateLimitExists", redisTemplate.hasKey(rateLimitKey));
+      
+      // Check current competitor status
+      List<Map<String, Object>> currentStatus = jdbcTemplate.queryForList(
+          "SELECT status, last_successful_check, error_count FROM competitor_urls WHERE id = ?",
+          Long.parseLong(id));
+      if (!currentStatus.isEmpty()) {
+        debugInfo.put("currentStatus", currentStatus.get(0));
+      }
+      
+      // Trigger immediate scraping (this would need to be implemented)
+      // For now, just simulate the trigger
+      debugInfo.put("scrapingTriggered", true);
+      debugInfo.put("message", "Scraping trigger endpoint - implementation needed");
+      
+      return ResponseEntity.ok(debugInfo);
+      
+    } catch (Exception e) {
+      log.error("Error triggering competitor scraping: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to trigger scraping: " + e.getMessage()));
+    }
+  }
+
+  /** Get cache debug information for a shop */
+  @GetMapping("/competitors/cache-debug")
+  public ResponseEntity<Map<String, Object>> getCacheDebugInfo(
+      @RequestParam(required = false) Long shopId) {
+    try {
+      Map<String, Object> debugInfo = new HashMap<>();
+      
+      if (shopId == null) {
+        return ResponseEntity.badRequest().body(Map.of("error", "shopId parameter required"));
+      }
+      
+      // Get shop domain
+      String shopDomain = null;
+      try {
+        Map<String, Object> shop = jdbcTemplate.queryForMap(
+            "SELECT shopify_domain FROM shops WHERE id = ?", shopId);
+        shopDomain = (String) shop.get("shopify_domain");
+      } catch (Exception e) {
+        return ResponseEntity.badRequest().body(Map.of("error", "Shop not found: " + shopId));
+      }
+      
+      debugInfo.put("shopId", shopId);
+      debugInfo.put("shopDomain", shopDomain);
+      
+      // Check Redis connectivity
+      try {
+        redisTemplate.opsForValue().set("test_key", "test_value", java.time.Duration.ofSeconds(10));
+        String testValue = (String) redisTemplate.opsForValue().get("test_key");
+        debugInfo.put("redisConnected", "test_value".equals(testValue));
+        debugInfo.put("redisError", null);
+      } catch (Exception e) {
+        debugInfo.put("redisConnected", false);
+        debugInfo.put("redisError", e.getMessage());
+      }
+      
+      // Check cache keys
+      String cacheKey = "dashboard:products:" + shopDomain;
+      debugInfo.put("cacheKey", cacheKey);
+      debugInfo.put("cacheExists", redisTemplate.hasKey(cacheKey));
+      
+      if (redisTemplate.hasKey(cacheKey)) {
+        Object cachedData = redisTemplate.opsForValue().get(cacheKey);
+        debugInfo.put("cachedData", cachedData);
+        debugInfo.put("cacheType", cachedData != null ? cachedData.getClass().getSimpleName() : "null");
+      }
+      
+      // Get database product count
+      try {
+        Integer productCount = jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM products WHERE shop_id = ?", Integer.class, shopId);
+        debugInfo.put("databaseProductCount", productCount);
+      } catch (Exception e) {
+        debugInfo.put("databaseProductCount", "Error: " + e.getMessage());
+      }
+      
+      return ResponseEntity.ok(debugInfo);
+      
+    } catch (Exception e) {
+      log.error("Error getting cache debug info: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to get cache debug info: " + e.getMessage()));
+    }
+  }
+
+  /** Helper method to extract domain from URL */
+  private String extractDomain(String url) {
+    try {
+      return url.replaceAll("https?://", "").replaceAll("/.*", "");
+    } catch (Exception e) {
+      return url;
+    }
   }
 }
