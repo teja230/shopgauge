@@ -38,7 +38,6 @@ import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import { debugLog } from '../components/ui/DebugPanel';
 import { getSuggestionCount } from '../api';
-import { DebugPanel } from '../components/ui/DebugPanel';
 
 // Tutorial step types
 interface TutorialStep {
@@ -2325,7 +2324,7 @@ export default function CompetitorsPage() {
         </button>
       </div>
 
-      <DebugPanel />
+
 
     </div>
   );

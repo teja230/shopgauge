@@ -1239,9 +1239,7 @@ public class CompetitorController {
         try {
           Integer competitorCount =
               jdbcTemplate.queryForObject(
-                  "SELECT COUNT(*) FROM competitor_urls WHERE shop_id = ?",
-                  Integer.class,
-                  shopId);
+                  "SELECT COUNT(*) FROM competitor_urls WHERE shop_id = ?", Integer.class, shopId);
           debug.put("competitorUrlsCount", competitorCount);
         } catch (Exception e) {
           debug.put("competitorUrlsError", e.getMessage());
