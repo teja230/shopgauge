@@ -690,10 +690,10 @@ public class CompetitorController {
       logger.info(
           "deleteCompetitor: Deleted {} price snapshots for competitor {}", deletedSnapshots, id);
 
-      // Delete the competitor URL
+      // Soft delete the competitor URL
       int deletedCompetitors =
-          jdbcTemplate.update("DELETE FROM competitor_urls WHERE id = ?", Long.parseLong(id));
-      logger.info("deleteCompetitor: Deleted {} competitor URLs for ID {}", deletedCompetitors, id);
+          jdbcTemplate.update("UPDATE competitor_urls SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?", Long.parseLong(id));
+      logger.info("deleteCompetitor: Soft deleted {} competitor URLs for ID {}", deletedCompetitors, id);
 
       if (deletedCompetitors == 0) {
         logger.error("deleteCompetitor: No competitor URL was deleted for ID {}", id);
@@ -775,7 +775,7 @@ public class CompetitorController {
 
         try {
           // Delete the inconsistent competitor
-          jdbcTemplate.update("DELETE FROM competitor_urls WHERE id = ?", compId);
+          jdbcTemplate.update("UPDATE competitor_urls SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?", compId);
           cleanedCount++;
           logger.info(
               "cleanupInconsistentCompetitors: Cleaned up competitor ID {} with URL {}",
@@ -1423,7 +1423,7 @@ public class CompetitorController {
         try {
           Integer competitorCount =
               jdbcTemplate.queryForObject(
-                  "SELECT COUNT(*) FROM competitor_urls WHERE shop_id = ?", Integer.class, shopId);
+                  "SELECT COUNT(*) FROM competitor_urls WHERE shop_id = ? AND deleted_at IS NULL", Integer.class, shopId);
           debug.put("competitorUrlsCount", competitorCount);
         } catch (Exception e) {
           debug.put("competitorUrlsError", e.getMessage());
@@ -2856,6 +2856,8 @@ public class CompetitorController {
 
       // Only scrape if no cached data available
       try {
+        long startTime = System.currentTimeMillis();
+        
         // Use Jsoup for immediate scraping (faster and cheaper than Selenium)
         org.jsoup.nodes.Document doc =
             org.jsoup.Jsoup.connect(url)
@@ -2863,6 +2865,8 @@ public class CompetitorController {
                 .timeout(5000) // 5 second timeout (increased for reliability)
                 .followRedirects(true)
                 .get();
+                
+        long responseTime = System.currentTimeMillis() - startTime;
 
         // Extract price using enhanced patterns
         String platform = identifyPlatform(url);
@@ -2876,18 +2880,20 @@ public class CompetitorController {
             price, inStock, platform);
 
         if (price != null) {
-          // Store the initial price snapshot with platform information
+          // Store the initial price snapshot with platform information and response time
           jdbcTemplate.update(
-              "INSERT INTO price_snapshots (competitor_url_id, price, in_stock, checked_at, scraper_version, platform) "
-                  + "VALUES (?, ?, ?, CURRENT_TIMESTAMP, 'v2.0-immediate', ?)",
+              "INSERT INTO price_snapshots (competitor_url_id, price, in_stock, checked_at, scraper_version, platform, response_time_ms) "
+                  + "VALUES (?, ?, ?, CURRENT_TIMESTAMP, 'v2.0-immediate', ?, ?)",
               Long.parseLong(competitorId),
               price,
               inStock,
-              platform);
+              platform,
+              (int) responseTime);
 
-          // Update competitor URL status on successful scrape
+          // Update competitor URL status on successful scrape with response time
           jdbcTemplate.update(
-              "UPDATE competitor_urls SET status = 'active', last_successful_check = CURRENT_TIMESTAMP, error_count = 0 WHERE id = ?",
+              "UPDATE competitor_urls SET status = 'active', last_successful_check = CURRENT_TIMESTAMP, error_count = 0, response_time_ms = ? WHERE id = ?",
+              (int) responseTime,
               Long.parseLong(competitorId));
 
           // COST OPTIMIZATION 5: Cache the price for future use
@@ -2953,7 +2959,7 @@ public class CompetitorController {
       // Check if shop has reached scraping limits
       int currentCompetitors =
           jdbcTemplate.queryForObject(
-              "SELECT COUNT(*) FROM competitor_urls WHERE shop_id = ?", Integer.class, shopId);
+              "SELECT COUNT(*) FROM competitor_urls WHERE shop_id = ? AND deleted_at IS NULL", Integer.class, shopId);
 
       if (currentCompetitors > maxUrlsPerShop) {
         logger.debug(
@@ -2986,10 +2992,30 @@ public class CompetitorController {
     String lowerUrl = url.toLowerCase();
     if (lowerUrl.contains("amazon.com")) {
       return "amazon";
-    } else if (lowerUrl.contains("shopify")) {
+    } else if (lowerUrl.contains("walmart.com")) {
+      return "walmart";
+    } else if (lowerUrl.contains("target.com")) {
+      return "target";
+    } else if (lowerUrl.contains("bestbuy.com")) {
+      return "bestbuy";
+    } else if (lowerUrl.contains("ebay.com")) {
+      return "ebay";
+    } else if (lowerUrl.contains("etsy.com")) {
+      return "etsy";
+    } else if (lowerUrl.contains("shopify") || lowerUrl.contains("myshopify.com")) {
       return "shopify";
+    } else if (lowerUrl.contains("woocommerce")) {
+      return "woocommerce";
+    } else if (lowerUrl.contains("bigcommerce")) {
+      return "bigcommerce";
+    } else if (lowerUrl.contains("magento")) {
+      return "magento";
+    } else if (lowerUrl.contains("prestashop")) {
+      return "prestashop";
+    } else if (lowerUrl.contains("opencart")) {
+      return "opencart";
     } else {
-      return "generic";
+      return "other";
     }
   }
 
