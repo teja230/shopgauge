@@ -859,9 +859,10 @@ export default function CompetitorsPage() {
         const cacheKey = `competitors_${shop}`;
         cache.delete(cacheKey);
         
-        // Show success notification immediately
+        // Show success notification immediately - force toast display
         notifications.showSuccess('Competitor has been added successfully. Price data will be updated within the next 12 hours.', {
-          category: 'Competitors'
+          category: 'Competitors',
+          showToast: true // Force toast to show
         });
         
         // If we were in demo mode and successfully added a real competitor, switch to live mode
@@ -978,6 +979,7 @@ export default function CompetitorsPage() {
         notifications.showError('Store Authentication Required', {
           category: 'Competitors',
           persistent: true,
+          showToast: true, // Force toast to show
           action: {
             label: 'Connect Store',
             onClick: () => {
@@ -995,6 +997,7 @@ export default function CompetitorsPage() {
         notifications.showError('Product Catalog Synchronization Required', {
             category: 'Competitors',
           persistent: true,
+          showToast: true, // Force toast to show
           action: {
             label: 'Sync Products',
             onClick: () => {
@@ -1026,7 +1029,8 @@ export default function CompetitorsPage() {
       if (isDemoMode) {
         setCompetitors((prev) => prev.filter((c) => c.id !== id));
         notifications.showSuccess('Demo competitor has been removed from tracking', {
-          category: 'Competitors'
+          category: 'Competitors',
+          showToast: true // Force toast to show
         });
         return;
       }
@@ -1042,7 +1046,8 @@ export default function CompetitorsPage() {
       cache.delete(cacheKey);
       
       notifications.showSuccess('Competitor tracking has been discontinued', {
-        category: 'Competitors'
+        category: 'Competitors',
+        showToast: true // Force toast to show
       });
     } catch (error) {
       console.error('Delete competitor error:', error);
@@ -1053,7 +1058,8 @@ export default function CompetitorsPage() {
       }, 'CompetitorsPage');
       
       notifications.showError('Unable to discontinue competitor tracking at this time. Please try again.', {
-        category: 'Competitors'
+        category: 'Competitors',
+        showToast: true // Force toast to show
       });
     }
   }, [isDemoMode, shop, notifications]);

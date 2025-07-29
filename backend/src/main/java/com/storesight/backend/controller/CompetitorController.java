@@ -479,15 +479,8 @@ public class CompetitorController {
         label = request.label.trim();
         logger.info("addCompetitor: Using custom label '{}' for URL: {}", label, request.url);
       } else {
-        // Extract title from URL
-        label =
-            request.url.contains("amazon.com")
-                ? extractAmazonTitle(request.url)
-                : request.url.contains("bestbuy.com")
-                    ? extractBestBuyTitle(request.url)
-                    : request.url.contains("shopify")
-                        ? extractShopifyTitle(request.url)
-                        : extractTitleFromUrl(request.url);
+        // Extract title from URL with enhanced platform support
+        label = extractTitleByPlatform(request.url);
         logger.info("addCompetitor: Extracted label '{}' for URL: {}", label, request.url);
       }
 
@@ -1767,6 +1760,96 @@ public class CompetitorController {
       return extractTitleFromUrl(url);
     } catch (Exception e) {
       logger.debug("extractBestBuyTitle: Error extracting title from URL: {}", e.getMessage());
+      return extractTitleFromUrl(url);
+    }
+  }
+
+  /** Helper method to extract Walmart product title from URL */
+  private String extractWalmartTitle(String url) {
+    try {
+      // URL slug extraction for Walmart
+      // Example: https://www.walmart.com/ip/apple-macbook-air-13-inch-laptop/12345678
+      if (url.contains("/ip/")) {
+        String[] parts = url.split("/ip/");
+        if (parts.length > 1) {
+          String productPath = parts[1].split("\\?")[0];
+          // Remove product ID and convert to title case
+          String productName = productPath.split("/")[0];
+          return cleanTitle(productName.replace("-", " ").replace("_", " "));
+        }
+      }
+      return extractTitleFromUrl(url);
+    } catch (Exception e) {
+      logger.debug("extractWalmartTitle: Error extracting title from URL: {}", e.getMessage());
+      return extractTitleFromUrl(url);
+    }
+  }
+
+  /** Helper method to extract Target product title from URL */
+  private String extractTargetTitle(String url) {
+    try {
+      // URL slug extraction for Target
+      // Example: https://www.target.com/p/apple-macbook-air-13-inch-laptop/-/A-12345678
+      if (url.contains("/p/")) {
+        String[] parts = url.split("/p/");
+        if (parts.length > 1) {
+          String productPath = parts[1].split("\\?")[0];
+          // Remove product ID and convert to title case
+          String productName = productPath.split("/")[0];
+          return cleanTitle(productName.replace("-", " ").replace("_", " "));
+        }
+      }
+      return extractTitleFromUrl(url);
+    } catch (Exception e) {
+      logger.debug("extractTargetTitle: Error extracting title from URL: {}", e.getMessage());
+      return extractTitleFromUrl(url);
+    }
+  }
+
+  /** Helper method to extract eBay product title from URL */
+  private String extractEbayTitle(String url) {
+    try {
+      // URL slug extraction for eBay
+      // Example: https://www.ebay.com/itm/apple-macbook-air-13-inch-laptop/123456789012
+      if (url.contains("/itm/")) {
+        String[] parts = url.split("/itm/");
+        if (parts.length > 1) {
+          String productPath = parts[1].split("\\?")[0];
+          // Remove item ID and convert to title case
+          String productName = productPath.split("/")[0];
+          return cleanTitle(productName.replace("-", " ").replace("_", " "));
+        }
+      }
+      return extractTitleFromUrl(url);
+    } catch (Exception e) {
+      logger.debug("extractEbayTitle: Error extracting title from URL: {}", e.getMessage());
+      return extractTitleFromUrl(url);
+    }
+  }
+
+  /** Enhanced method to extract title by platform */
+  private String extractTitleByPlatform(String url) {
+    try {
+      String lowerUrl = url.toLowerCase();
+
+      if (lowerUrl.contains("amazon.com")) {
+        return extractAmazonTitle(url);
+      } else if (lowerUrl.contains("bestbuy.com")) {
+        return extractBestBuyTitle(url);
+      } else if (lowerUrl.contains("walmart.com")) {
+        return extractWalmartTitle(url);
+      } else if (lowerUrl.contains("target.com")) {
+        return extractTargetTitle(url);
+      } else if (lowerUrl.contains("ebay.com")) {
+        return extractEbayTitle(url);
+      } else if (lowerUrl.contains("shopify") || lowerUrl.contains("myshopify.com")) {
+        return extractShopifyTitle(url);
+      } else {
+        // Generic fallback
+        return extractTitleFromUrl(url);
+      }
+    } catch (Exception e) {
+      logger.debug("extractTitleByPlatform: Error extracting title from URL: {}", e.getMessage());
       return extractTitleFromUrl(url);
     }
   }
