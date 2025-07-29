@@ -387,6 +387,7 @@ const MobileCompetitorCard: React.FC<{
   onDelete: (id: string) => void;
 }> = ({ competitor, onDelete }) => {
   const [expanded, setExpanded] = useState(false);
+  const { shop } = useAuth();
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();

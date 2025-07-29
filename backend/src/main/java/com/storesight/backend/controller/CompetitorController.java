@@ -1497,7 +1497,9 @@ public class CompetitorController {
     try {
       // First try to extract from HTML page title
       String htmlTitle = extractTitleFromHtml(url);
-      if (htmlTitle != null && !htmlTitle.trim().isEmpty() && !htmlTitle.equals("Unknown Competitor")) {
+      if (htmlTitle != null
+          && !htmlTitle.trim().isEmpty()
+          && !htmlTitle.equals("Unknown Competitor")) {
         return htmlTitle;
       }
 
@@ -1517,11 +1519,12 @@ public class CompetitorController {
   private String extractTitleFromHtml(String url) {
     try {
       // Use Jsoup to fetch and parse the page
-      org.jsoup.nodes.Document doc = org.jsoup.Jsoup.connect(url)
-          .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-          .timeout(5000)
-          .followRedirects(true)
-          .get();
+      org.jsoup.nodes.Document doc =
+          org.jsoup.Jsoup.connect(url)
+              .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+              .timeout(5000)
+              .followRedirects(true)
+              .get();
 
       // Try multiple selectors for product titles
       String title = null;
@@ -1608,7 +1611,7 @@ public class CompetitorController {
     title = title.replaceAll("\\|.*$", "").trim(); // Remove everything after |
     title = title.replaceAll("^.*\\|", "").trim(); // Remove everything before |
     title = title.replaceAll("\\s+", " ").trim(); // Normalize whitespace
-    
+
     // Remove common store names from title
     String[] storeNames = {"amazon", "shopify", "etsy", "ebay", "walmart", "target"};
     for (String store : storeNames) {
