@@ -8,6 +8,7 @@ import com.storesight.backend.service.AdminRateLimitingService;
 import com.storesight.backend.service.CompetitorAuditService;
 import com.storesight.backend.service.CompetitorLimitService;
 import com.storesight.backend.service.DashboardCacheService;
+import com.storesight.backend.service.EnhancedRedisService;
 import com.storesight.backend.service.InputValidationService;
 import com.storesight.backend.service.discovery.CompetitorDiscoveryService;
 import com.storesight.backend.service.discovery.MultiSourceSearchClient;
@@ -16,6 +17,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -56,6 +58,7 @@ public class CompetitorController {
   @Autowired private DashboardCacheService dashboardCacheService;
 
   @Autowired private RedisTemplate<String, Object> redisTemplate;
+  @Autowired private EnhancedRedisService enhancedRedisService;
 
   // Redis-based suggestion count cache with proper invalidation
   private static final String SUGGESTION_COUNT_CACHE_PREFIX = "suggestion_count:";
@@ -68,17 +71,17 @@ public class CompetitorController {
     String invalidationKey = SUGGESTION_CACHE_INVALIDATION_KEY + ":" + shopId;
 
     try {
-      // Check if cache is invalidated
-      String invalidationValue = (String) redisTemplate.opsForValue().get(invalidationKey);
-      if (invalidationValue != null) {
+      // Check if cache is invalidated using EnhancedRedisService
+      Optional<String> invalidationValueOpt = enhancedRedisService.get(invalidationKey);
+      if (invalidationValueOpt.isPresent()) {
         logger.debug("Cache invalidated for shop {}, fetching fresh count", shopId);
         return null; // Force fresh fetch
       }
 
-      // Get cached count
-      Object cachedValue = redisTemplate.opsForValue().get(cacheKey);
-      if (cachedValue != null) {
-        Long count = Long.valueOf(cachedValue.toString());
+      // Get cached count using EnhancedRedisService
+      Optional<String> cachedValueOpt = enhancedRedisService.get(cacheKey);
+      if (cachedValueOpt.isPresent()) {
+        Long count = Long.valueOf(cachedValueOpt.get());
         logger.debug("Returning cached suggestion count for shop {}: {}", shopId, count);
         return count;
       }
@@ -95,12 +98,20 @@ public class CompetitorController {
     String cacheKey = SUGGESTION_COUNT_CACHE_PREFIX + shopId;
 
     try {
-      redisTemplate.opsForValue().set(cacheKey, count, CACHE_TTL_MINUTES, TimeUnit.MINUTES);
-      logger.debug(
-          "Cached suggestion count for shop {}: {} (TTL: {} minutes)",
-          shopId,
-          count,
-          CACHE_TTL_MINUTES);
+      boolean success = enhancedRedisService.setWithTtl(
+          cacheKey, 
+          count.toString(), 
+          java.time.Duration.ofMinutes(CACHE_TTL_MINUTES)
+      );
+      if (success) {
+        logger.debug(
+            "Cached suggestion count for shop {}: {} (TTL: {} minutes)",
+            shopId,
+            count,
+            CACHE_TTL_MINUTES);
+      } else {
+        logger.warn("Failed to cache suggestion count for shop {}", shopId);
+      }
     } catch (Exception e) {
       logger.warn("Error caching suggestion count for shop {}: {}", shopId, e.getMessage());
     }
@@ -113,10 +124,21 @@ public class CompetitorController {
 
     try {
       // Set invalidation marker (short TTL to prevent permanent invalidation)
-      redisTemplate.opsForValue().set(invalidationKey, "invalidated", 1, TimeUnit.MINUTES);
+      boolean invalidationSet = enhancedRedisService.setWithTtl(
+          invalidationKey, 
+          "invalidated", 
+          java.time.Duration.ofMinutes(1)
+      );
+      
       // Remove cached count
-      redisTemplate.delete(cacheKey);
-      logger.debug("Invalidated suggestion count cache for shop {}", shopId);
+      boolean deleted = enhancedRedisService.delete(cacheKey);
+      
+      if (invalidationSet && deleted) {
+        logger.debug("Invalidated suggestion count cache for shop {}", shopId);
+      } else {
+        logger.warn("Partial cache invalidation for shop {} - invalidationSet: {}, deleted: {}", 
+                   shopId, invalidationSet, deleted);
+      }
     } catch (Exception e) {
       logger.warn("Error invalidating cache for shop {}: {}", shopId, e.getMessage());
     }
@@ -2120,9 +2142,9 @@ public class CompetitorController {
   private java.math.BigDecimal getCachedPriceForUrl(String url) {
     try {
       String cacheKey = "price_cache:" + url.hashCode();
-      Object cached = redisTemplate.opsForValue().get(cacheKey);
-      if (cached != null) {
-        return new java.math.BigDecimal(cached.toString());
+      Optional<String> cachedOpt = enhancedRedisService.get(cacheKey);
+      if (cachedOpt.isPresent()) {
+        return new java.math.BigDecimal(cachedOpt.get());
       }
     } catch (Exception e) {
       logger.debug("getCachedPriceForUrl: Error getting cached price: {}", e.getMessage());
@@ -2135,7 +2157,14 @@ public class CompetitorController {
     try {
       String cacheKey = "price_cache:" + url.hashCode();
       // Cache for 24 hours to reduce scraping frequency
-      redisTemplate.opsForValue().set(cacheKey, price.toString(), 24, TimeUnit.HOURS);
+      boolean success = enhancedRedisService.setWithTtl(
+          cacheKey, 
+          price.toString(), 
+          java.time.Duration.ofHours(24)
+      );
+      if (!success) {
+        logger.debug("cachePriceForUrl: Failed to cache price for URL: {}", url);
+      }
     } catch (Exception e) {
       logger.debug("cachePriceForUrl: Error caching price: {}", e.getMessage());
     }
