@@ -50,7 +50,9 @@ import marketIntelligenceAdminAPI from '../../api/marketIntelligenceAdmin';
 import type { 
   CompetitorScrapingStatus, 
   CompetitorTriggerResponse, 
-  CacheDebugInfo 
+  CacheDebugInfo,
+  TriggerScrapingDebugInfo,
+  ProductsDebugInfo
 } from '../../api/marketIntelligenceAdmin';
 import { useNotifications } from '../../hooks/useNotifications';
 import { styled } from '@mui/material/styles';
@@ -114,6 +116,11 @@ const CompetitorAdminPanel: React.FC<CompetitorAdminPanelProps> = ({
   const [selectedCompetitor, setSelectedCompetitor] = useState<any>(null);
   const [triggerResult, setTriggerResult] = useState<CompetitorTriggerResponse | null>(null);
   const [triggerLoading, setTriggerLoading] = useState(false);
+  const [triggerDebugResult, setTriggerDebugResult] = useState<TriggerScrapingDebugInfo | null>(null);
+  const [productsDebugInfo, setProductsDebugInfo] = useState<ProductsDebugInfo | null>(null);
+  const [debugDialogOpen, setDebugDialogOpen] = useState(false);
+  const [debugDialogType, setDebugDialogType] = useState<'trigger-debug' | 'products-debug' | null>(null);
+  const [debugLoading, setDebugLoading] = useState(false);
 
   // Load available shops on component mount
   useEffect(() => {
@@ -187,6 +194,45 @@ const CompetitorAdminPanel: React.FC<CompetitorAdminPanelProps> = ({
       console.error('Error triggering scraping:', error);
     } finally {
       setTriggerLoading(false);
+    }
+  };
+
+  const handleTriggerScrapingDebug = async (competitorId: string) => {
+    if (!selectedShopId) return;
+
+    try {
+      setDebugLoading(true);
+      const result = await marketIntelligenceAdminAPI.triggerScrapingDebug(
+        competitorId,
+        selectedShopId as number
+      );
+      setTriggerDebugResult(result);
+      setDebugDialogType('trigger-debug');
+      setDebugDialogOpen(true);
+      addNotification('Debug scraping triggered successfully', 'success');
+    } catch (error) {
+      addNotification('Failed to trigger debug scraping', 'error');
+      console.error('Error triggering debug scraping:', error);
+    } finally {
+      setDebugLoading(false);
+    }
+  };
+
+  const handleProductsDebug = async () => {
+    if (!selectedShopId) return;
+
+    try {
+      setDebugLoading(true);
+      const result = await marketIntelligenceAdminAPI.getProductsDebug(selectedShopId as number);
+      setProductsDebugInfo(result);
+      setDebugDialogType('products-debug');
+      setDebugDialogOpen(true);
+      addNotification('Products debug info loaded successfully', 'success');
+    } catch (error) {
+      addNotification('Failed to load products debug info', 'error');
+      console.error('Error loading products debug info:', error);
+    } finally {
+      setDebugLoading(false);
     }
   };
 
@@ -441,24 +487,42 @@ const CompetitorAdminPanel: React.FC<CompetitorAdminPanelProps> = ({
                           </Typography>
                         </TableCell>
                         <TableCell>
-                          <Tooltip title="Trigger Scraping">
-                            <IconButton
-                              size="small"
-                              sx={{ 
-                                color: 'primary.main',
-                                '&:hover': { 
-                                  backgroundColor: 'primary.main',
-                                  color: 'white'
-                                }
-                              }}
-                              onClick={() => {
-                                setSelectedCompetitor(competitor);
-                                setTriggerDialogOpen(true);
-                              }}
-                            >
-                              <PlayArrowIcon />
-                            </IconButton>
-                          </Tooltip>
+                          <Box sx={{ display: 'flex', gap: 1 }}>
+                            <Tooltip title="Trigger Scraping">
+                              <IconButton
+                                size="small"
+                                sx={{ 
+                                  color: 'primary.main',
+                                  '&:hover': { 
+                                    backgroundColor: 'primary.main',
+                                    color: 'white'
+                                  }
+                                }}
+                                onClick={() => {
+                                  setSelectedCompetitor(competitor);
+                                  setTriggerDialogOpen(true);
+                                }}
+                              >
+                                <PlayArrowIcon />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Debug Scraping">
+                              <IconButton
+                                size="small"
+                                sx={{ 
+                                  color: 'warning.main',
+                                  '&:hover': { 
+                                    backgroundColor: 'warning.main',
+                                    color: 'white'
+                                  }
+                                }}
+                                onClick={() => handleTriggerScrapingDebug(competitor.id.toString())}
+                                disabled={debugLoading}
+                              >
+                                <DebugIcon />
+                              </IconButton>
+                            </Tooltip>
+                          </Box>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -472,9 +536,28 @@ const CompetitorAdminPanel: React.FC<CompetitorAdminPanelProps> = ({
           {cacheDebugInfo && (
             <AdminCard sx={{ mb: 3 }}>
               <CardContent>
-                <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: 'primary.main' }}>
-                  Cache Debug Information
-                </Typography>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 600, color: 'primary.main' }}>
+                    Cache Debug Information
+                  </Typography>
+                  <AdminButton
+                    variant="outlined"
+                    size="small"
+                    startIcon={<DebugIcon />}
+                    onClick={handleProductsDebug}
+                    disabled={debugLoading}
+                    sx={{ 
+                      color: 'warning.main',
+                      borderColor: 'warning.main',
+                      '&:hover': { 
+                        backgroundColor: 'warning.main',
+                        color: 'white'
+                      }
+                    }}
+                  >
+                    Products Debug
+                  </AdminButton>
+                </Box>
                 <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 2 }}>
                   <Box sx={{ flex: 1 }}>
                     <Stack spacing={2}>
@@ -622,6 +705,245 @@ const CompetitorAdminPanel: React.FC<CompetitorAdminPanelProps> = ({
             startIcon={triggerLoading ? <CircularProgress size={16} /> : <PlayArrowIcon />}
           >
             {triggerLoading ? 'Triggering...' : 'Trigger Scraping'}
+          </AdminButton>
+        </DialogActions>
+      </Dialog>
+
+      {/* Debug Dialog */}
+      <Dialog 
+        open={debugDialogOpen} 
+        onClose={() => setDebugDialogOpen(false)} 
+        maxWidth="lg" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(10px)',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.1)',
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          background: 'linear-gradient(135deg, #ff9800 0%, #ff5722 100%)',
+          color: 'white',
+          fontWeight: 600
+        }}>
+          {debugDialogType === 'trigger-debug' ? 'Debug Scraping Results' : 'Products Debug Information'}
+        </DialogTitle>
+        <DialogContent sx={{ p: 3 }}>
+          {debugDialogType === 'trigger-debug' && triggerDebugResult && (
+            <Stack spacing={3}>
+              <Box sx={{ p: 2, borderRadius: 2, backgroundColor: 'background.paper' }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'warning.main', mb: 1 }}>
+                  Debug Information
+                </Typography>
+                <Stack spacing={1}>
+                  <Typography variant="body2">
+                    <strong>Competitor ID:</strong> {triggerDebugResult.competitorId}
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>URL:</strong> {triggerDebugResult.url}
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>Domain:</strong> {triggerDebugResult.domain}
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>Recent Scrape Key:</strong> {triggerDebugResult.recentScrapeKey}
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>Rate Limit Key:</strong> {triggerDebugResult.rateLimitKey}
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>Recent Scrape Exists:</strong> {triggerDebugResult.recentScrapeExists ? 'Yes' : 'No'}
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>Rate Limit Exists:</strong> {triggerDebugResult.rateLimitExists ? 'Yes' : 'No'}
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>Scraping Triggered:</strong> {triggerDebugResult.scrapingTriggered ? 'Yes' : 'No'}
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>Message:</strong> {triggerDebugResult.message}
+                  </Typography>
+                </Stack>
+              </Box>
+              
+              {triggerDebugResult.currentStatus && (
+                <Accordion sx={{ borderRadius: 2, overflow: 'hidden' }}>
+                  <AccordionSummary 
+                    expandIcon={<ExpandMoreIcon />}
+                    sx={{ 
+                      backgroundColor: 'warning.main',
+                      color: 'white',
+                      '&:hover': { backgroundColor: 'warning.dark' }
+                    }}
+                  >
+                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                      Current Status
+                    </Typography>
+                  </AccordionSummary>
+                  <AccordionDetails sx={{ backgroundColor: 'background.paper' }}>
+                    <Stack spacing={1}>
+                      <Typography variant="body2">
+                        <strong>Status:</strong> {triggerDebugResult.currentStatus.status}
+                      </Typography>
+                      <Typography variant="body2">
+                        <strong>Last Successful Check:</strong> {formatDate(triggerDebugResult.currentStatus.last_successful_check)}
+                      </Typography>
+                      <Typography variant="body2">
+                        <strong>Error Count:</strong> {triggerDebugResult.currentStatus.error_count}
+                      </Typography>
+                    </Stack>
+                  </AccordionDetails>
+                </Accordion>
+              )}
+
+              {triggerDebugResult.priceSnapshots && triggerDebugResult.priceSnapshots.length > 0 && (
+                <Accordion sx={{ borderRadius: 2, overflow: 'hidden' }}>
+                  <AccordionSummary 
+                    expandIcon={<ExpandMoreIcon />}
+                    sx={{ 
+                      backgroundColor: 'success.main',
+                      color: 'white',
+                      '&:hover': { backgroundColor: 'success.dark' }
+                    }}
+                  >
+                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                      Price Snapshots
+                    </Typography>
+                  </AccordionSummary>
+                  <AccordionDetails sx={{ backgroundColor: 'background.paper' }}>
+                    <Stack spacing={1}>
+                      {triggerDebugResult.priceSnapshots.map((snapshot, index) => (
+                        <Box key={index} sx={{ p: 2, borderRadius: 2, backgroundColor: 'action.hover' }}>
+                          <Typography variant="body2">
+                            <strong>Price:</strong> ${snapshot.price}
+                          </Typography>
+                          <Typography variant="body2">
+                            <strong>In Stock:</strong> {snapshot.in_stock ? 'Yes' : 'No'}
+                          </Typography>
+                          <Typography variant="body2">
+                            <strong>Checked At:</strong> {formatDate(snapshot.checked_at)}
+                          </Typography>
+                          <Typography variant="body2">
+                            <strong>Platform:</strong> {snapshot.platform}
+                          </Typography>
+                          <Typography variant="body2">
+                            <strong>Scraper Source:</strong> {snapshot.scraper_source}
+                          </Typography>
+                        </Box>
+                      ))}
+                    </Stack>
+                  </AccordionDetails>
+                </Accordion>
+              )}
+            </Stack>
+          )}
+
+          {debugDialogType === 'products-debug' && productsDebugInfo && (
+            <Stack spacing={3}>
+              <Box sx={{ p: 2, borderRadius: 2, backgroundColor: 'background.paper' }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'warning.main', mb: 1 }}>
+                  Products Debug Information
+                </Typography>
+                <Stack spacing={1}>
+                  <Typography variant="body2">
+                    <strong>Shop ID:</strong> {productsDebugInfo.shopId}
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>Shop Domain:</strong> {productsDebugInfo.shopDomain}
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>Redis Connected:</strong> {productsDebugInfo.redisConnected ? 'Yes' : 'No'}
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>Cache Key:</strong> {productsDebugInfo.cacheKey}
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>Cache Exists:</strong> {productsDebugInfo.cacheExists ? 'Yes' : 'No'}
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>Cache TTL:</strong> {productsDebugInfo.cacheTtl || 'N/A'}
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>Raw Cache Data Length:</strong> {productsDebugInfo.rawCacheDataLength}
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>Database Products Count:</strong> {productsDebugInfo.dbProductsCount}
+                  </Typography>
+                </Stack>
+              </Box>
+
+              {productsDebugInfo.redisError && (
+                <Alert severity="error" sx={{ borderRadius: 2 }}>
+                  <strong>Redis Error:</strong> {productsDebugInfo.redisError}
+                </Alert>
+              )}
+
+              {productsDebugInfo.parseError && (
+                <Alert severity="warning" sx={{ borderRadius: 2 }}>
+                  <strong>Parse Error:</strong> {productsDebugInfo.parseError}
+                </Alert>
+              )}
+
+              {productsDebugInfo.dbError && (
+                <Alert severity="error" sx={{ borderRadius: 2 }}>
+                  <strong>Database Error:</strong> {productsDebugInfo.dbError}
+                </Alert>
+              )}
+
+              {productsDebugInfo.parsedDataKeys && (
+                <Accordion sx={{ borderRadius: 2, overflow: 'hidden' }}>
+                  <AccordionSummary 
+                    expandIcon={<ExpandMoreIcon />}
+                    sx={{ 
+                      backgroundColor: 'info.main',
+                      color: 'white',
+                      '&:hover': { backgroundColor: 'info.dark' }
+                    }}
+                  >
+                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                      Parsed Data Information
+                    </Typography>
+                  </AccordionSummary>
+                  <AccordionDetails sx={{ backgroundColor: 'background.paper' }}>
+                    <Stack spacing={1}>
+                      <Typography variant="body2">
+                        <strong>Parsed Data Keys:</strong> {productsDebugInfo.parsedDataKeys.join(', ')}
+                      </Typography>
+                      <Typography variant="body2">
+                        <strong>Parsed Data Type:</strong> {productsDebugInfo.parsedDataType}
+                      </Typography>
+                      <Typography variant="body2">
+                        <strong>Data Type:</strong> {productsDebugInfo.dataType}
+                      </Typography>
+                      {productsDebugInfo.dataKeys && (
+                        <Typography variant="body2">
+                          <strong>Data Keys:</strong> {productsDebugInfo.dataKeys.join(', ')}
+                        </Typography>
+                      )}
+                      <Typography variant="body2">
+                        <strong>Products Type:</strong> {productsDebugInfo.productsType}
+                      </Typography>
+                      {productsDebugInfo.productsListSize && (
+                        <Typography variant="body2">
+                          <strong>Products List Size:</strong> {productsDebugInfo.productsListSize}
+                        </Typography>
+                      )}
+                    </Stack>
+                  </AccordionDetails>
+                </Accordion>
+              )}
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 3, gap: 2 }}>
+          <AdminButton 
+            onClick={() => setDebugDialogOpen(false)}
+            variant="outlined"
+          >
+            Close
           </AdminButton>
         </DialogActions>
       </Dialog>

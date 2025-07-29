@@ -150,6 +150,53 @@ export interface CacheDebugInfo {
   databaseProductCount: number;
 }
 
+export interface TriggerScrapingDebugInfo {
+  competitorId: string;
+  url: string;
+  shopId: number;
+  domain: string;
+  recentScrapeKey: string;
+  rateLimitKey: string;
+  recentScrapeExists: boolean;
+  rateLimitExists: boolean;
+  currentStatus?: {
+    status: string;
+    last_successful_check: string | null;
+    error_count: number;
+  };
+  scrapingTriggered: boolean;
+  message: string;
+  priceSnapshots?: Array<{
+    price: number;
+    in_stock: boolean;
+    checked_at: string;
+    scraper_version: string;
+    platform: string;
+    scraper_source: string;
+  }>;
+}
+
+export interface ProductsDebugInfo {
+  shopId: number;
+  shopDomain: string;
+  redisConnected: boolean;
+  redisError?: string;
+  cacheKey: string;
+  cacheExists: boolean;
+  cacheTtl?: string;
+  hasRawCacheData: boolean;
+  rawCacheDataLength: number;
+  parsedDataKeys?: string[];
+  parsedDataType?: string;
+  dataType?: string;
+  dataKeys?: string[];
+  productsType?: string;
+  productsListSize?: number;
+  parseError?: string;
+  dbProductsCount: number;
+  dbError?: string;
+}
+
 export interface SearchTestResult {
   url: string;
   title: string;
@@ -243,6 +290,14 @@ export const marketIntelligenceAdminAPI = {
 
   async getCacheDebugInfo(shopId: number): Promise<CacheDebugInfo> {
     return await fetchWithAdminAuth(`/api/admin/market-intelligence/competitors/cache-debug?shopId=${shopId}`);
+  },
+
+  async triggerScrapingDebug(competitorId: string, shopId: number): Promise<TriggerScrapingDebugInfo> {
+    return await fetchWithAdminAuth(`/api/admin/market-intelligence/competitors/${competitorId}/trigger-scraping-debug?shopId=${shopId}`, { method: 'POST' });
+  },
+
+  async getProductsDebug(shopId: number): Promise<ProductsDebugInfo> {
+    return await fetchWithAdminAuth(`/api/admin/market-intelligence/competitors/products-debug?shopId=${shopId}`);
   },
 };
 
