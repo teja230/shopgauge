@@ -30,6 +30,7 @@ import {
   XMarkIcon,
 } from '@heroicons/react/24/outline';
 import { useNotifications } from '../hooks/useNotifications';
+import { useNotificationSettings } from '../context/NotificationSettingsContext';
 import { fetchWithAuth } from '../api/index';
 import { useNavigate } from 'react-router-dom';
 import Joyride from 'react-joyride';
@@ -532,6 +533,35 @@ export default function CompetitorsPage() {
   const [lastDiscoveryTime, setLastDiscoveryTime] = useState<number>(0);
   const [userDisabledDemo, setUserDisabledDemo] = useState<boolean>(false);
   const notifications = useNotifications();
+  const { settings: notificationSettings } = useNotificationSettings();
+  
+  // Debug notification settings
+  debugLog.info('Notification settings loaded', {
+    showToasts: notificationSettings.showToasts,
+    soundEnabled: notificationSettings.soundEnabled,
+    systemNotifications: notificationSettings.systemNotifications,
+    emailNotifications: notificationSettings.emailNotifications,
+    marketingNotifications: notificationSettings.marketingNotifications
+  }, 'CompetitorsPage');
+  
+  // Test notification on component mount
+  useEffect(() => {
+    debugLog.info('Testing notification system', {
+      showToasts: notificationSettings.showToasts
+    }, 'CompetitorsPage');
+    
+    // Test notification after a short delay
+    const timer = setTimeout(() => {
+      debugLog.info('Sending test notification', {}, 'CompetitorsPage');
+      notifications.showInfo('Market Intelligence page loaded successfully', {
+        category: 'Competitors',
+        showToast: true,
+        duration: 3000
+      });
+    }, 1000);
+    
+    return () => clearTimeout(timer);
+  }, [notifications, notificationSettings.showToasts]);
   
   // Show helpful message if not authenticated
   useEffect(() => {
@@ -873,6 +903,11 @@ export default function CompetitorsPage() {
         cache.delete(cacheKey);
         
         // Show enterprise-grade success notification
+        debugLog.info('Showing success notification for competitor addition', {
+          message: 'Competitor added successfully! Price tracking will be activated shortly.',
+          category: 'Competitors'
+        }, 'CompetitorsPage');
+        
         notifications.showSuccess('Competitor added successfully! Price tracking will be activated shortly.', {
           category: 'Competitors',
           showToast: true, // Force toast to show
@@ -1161,7 +1196,15 @@ export default function CompetitorsPage() {
           );
           
           // Show enterprise-grade success notification
-          notifications.showSuccess(`Price found for ${priceStatus.inStock ? 'in-stock' : 'out-of-stock'} item at $${priceStatus.price}`, {
+          const successMessage = `Price found for ${priceStatus.inStock ? 'in-stock' : 'out-of-stock'} item at $${priceStatus.price}`;
+          debugLog.info('Showing price tracking success notification', {
+            message: successMessage,
+            price: priceStatus.price,
+            inStock: priceStatus.inStock,
+            category: 'Competitors'
+          }, 'CompetitorsPage');
+          
+          notifications.showSuccess(successMessage, {
             category: 'Competitors',
             showToast: true,
             persistent: false,
