@@ -544,7 +544,7 @@ export default function CompetitorsPage() {
     marketingNotifications: notificationSettings.marketingNotifications
   }, 'CompetitorsPage');
   
-  // Test notification on component mount
+  // Test notification on component mount - only run once
   useEffect(() => {
     debugLog.info('Testing notification system', {
       showToasts: notificationSettings.showToasts
@@ -561,23 +561,24 @@ export default function CompetitorsPage() {
     }, 1000);
     
     return () => clearTimeout(timer);
-  }, [notifications, notificationSettings.showToasts]);
+  }, []); // Empty dependency array - only run once on mount
   
-  // Show helpful message if not authenticated
+  // Show helpful message if not authenticated - only run once when auth state changes
   useEffect(() => {
-    if (!isAuthenticated && !isDemoMode && isAuthReady) {
-              notifications.showInfo('Connect your Shopify store to initiate competitor tracking', {
-          category: 'Competitors',
-          persistent: true,
-          action: {
-            label: 'Connect Store',
-            onClick: () => {
-              window.location.href = '/';
-            }
+    if (!isAuthenticated && !isDemoMode && isAuthReady && !notificationShownRef.current) {
+      notificationShownRef.current = true;
+      notifications.showInfo('Connect your Shopify store to initiate competitor tracking', {
+        category: 'Competitors',
+        persistent: true,
+        action: {
+          label: 'Connect Store',
+          onClick: () => {
+            window.location.href = '/';
           }
-        });
+        }
+      });
     }
-  }, [isAuthenticated, isDemoMode, isAuthReady, notifications]);
+  }, [isAuthenticated, isDemoMode, isAuthReady]); // Remove notifications from dependencies
   
   // New state for enhanced demo features
   const [showTutorial, setShowTutorial] = useState(false);
