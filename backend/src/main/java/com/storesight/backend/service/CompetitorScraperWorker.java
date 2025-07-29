@@ -199,24 +199,32 @@ public class CompetitorScraperWorker {
         maxConcurrentScrapersLimit);
   }
 
-  /** Scheduled task to scrape competitor prices (runs every 4 hours) */
-  @Scheduled(cron = "0 15 */4 * * *")
+  /** Scheduled task to scrape competitor prices (COST OPTIMIZED - runs every 12 hours) */
+  @Scheduled(cron = "0 0 */12 * * *")
   public void scrapeCompetitors() {
     log.info("[Worker] Starting competitor scrape job");
 
     try {
-      // Get all active competitor URLs with shop-based limits
+      // COST OPTIMIZATION: Get only competitors that need scraping (intelligent selection)
       List<Map<String, Object>> competitorUrls =
           jdbcTemplate.queryForList(
-              "SELECT cu.id, cu.url, cu.label, p.shop_id, s.shopify_domain "
+              "SELECT cu.id, cu.url, cu.label, p.shop_id, s.shopify_domain, "
+                  + "COALESCE(ps.checked_at, cu.created_at) as last_checked, "
+                  + "COALESCE(ps.price, 0) as last_price "
                   + "FROM competitor_urls cu "
                   + "JOIN products p ON cu.product_id = p.id "
                   + "JOIN shops s ON p.shop_id = s.id "
+                  + "LEFT JOIN ("
+                  + "  SELECT competitor_url_id, price, checked_at, "
+                  + "         ROW_NUMBER() OVER (PARTITION BY competitor_url_id ORDER BY checked_at DESC) as rn "
+                  + "  FROM price_snapshots"
+                  + ") ps ON cu.id = ps.competitor_url_id AND ps.rn = 1 "
                   + "WHERE cu.created_at >= NOW() - INTERVAL '30 days' "
                   + "AND (SELECT COUNT(*) FROM competitor_urls cu2 "
                   + "      JOIN products p2 ON cu2.product_id = p2.id "
                   + "      WHERE p2.shop_id = s.id) <= ? "
-                  + "ORDER BY cu.created_at DESC LIMIT ?",
+                  + "AND (ps.checked_at IS NULL OR ps.checked_at < NOW() - INTERVAL '12 hours') "
+                  + "ORDER BY ps.checked_at ASC NULLS FIRST LIMIT ?",
               maxUrlsPerShop,
               maxUrlsPerShop);
 
@@ -265,27 +273,52 @@ public class CompetitorScraperWorker {
     }
   }
 
-  /** Scrape a single competitor URL */
+  /** Scrape a single competitor URL with COST OPTIMIZATION */
   private void scrapeCompetitorUrl(Map<String, Object> urlData) {
     String url = (String) urlData.get("url");
     Long competitorUrlId = ((Number) urlData.get("id")).longValue();
     Long shopId = ((Number) urlData.get("shop_id")).longValue();
     String shopDomain = (String) urlData.get("shopify_domain");
+    Object lastCheckedObj = urlData.get("last_checked");
+    Object lastPriceObj = urlData.get("last_price");
 
     log.debug("[Worker] Scraping competitor URL: {}", url);
 
-    // Check rate limiting
-    String rateLimitKey = "scraper_rate_limit:" + extractDomain(url);
+    // COST OPTIMIZATION 1: Check if we recently scraped this URL
+    String domain = extractDomain(url);
+    String recentScrapeKey = "recent_scrape:" + domain + ":" + url.hashCode();
+    
+    if (redisTemplate.hasKey(recentScrapeKey)) {
+      log.info("[Worker] Skipping - URL scraped recently: {}", url);
+      return;
+    }
+
+    // COST OPTIMIZATION 2: Check rate limiting with longer delays
+    String rateLimitKey = "scraper_rate_limit:" + domain;
     if (redisTemplate.hasKey(rateLimitKey)) {
-      log.debug("[Worker] Rate limit active for domain: {}", extractDomain(url));
+      log.debug("[Worker] Rate limit active for domain: {}", domain);
+      return;
+    }
+
+    // COST OPTIMIZATION 3: Use cached price if available
+    BigDecimal cachedPrice = getCachedPriceForUrl(url);
+    if (cachedPrice != null) {
+      log.info("[Worker] Using cached price ${} for URL: {}", cachedPrice, url);
+      
+      // Store cached price as snapshot
+      storePriceSnapshot(competitorUrlId, new CompetitorData(cachedPrice, true));
+      
+      // Mark as recently scraped
+      redisTemplate.opsForValue().set(recentScrapeKey, "1", 2, TimeUnit.HOURS);
       return;
     }
 
     try {
-      // Set rate limit
+      // Set rate limit with longer delays for cost optimization
+      int optimizedDelay = Math.max(delayBetweenRequests, 10000); // At least 10 seconds
       redisTemplate
           .opsForValue()
-          .set(rateLimitKey, "1", delayBetweenRequests, TimeUnit.MILLISECONDS);
+          .set(rateLimitKey, "1", optimizedDelay, TimeUnit.MILLISECONDS);
 
       // Determine scraping method
       boolean requiresJs = requiresJavaScript(url);
@@ -301,6 +334,9 @@ public class CompetitorScraperWorker {
         // Store price snapshot
         storePriceSnapshot(competitorUrlId, data);
 
+        // COST OPTIMIZATION 4: Cache the price for future use
+        cachePriceForUrl(url, data.price);
+
         // Check for alerts
         checkPriceAlerts(competitorUrlId, shopId, shopDomain, data);
 
@@ -313,8 +349,36 @@ public class CompetitorScraperWorker {
         log.warn("[Worker] Failed to scrape data from: {}", url);
       }
 
+      // Mark as recently scraped to prevent immediate re-scraping
+      redisTemplate.opsForValue().set(recentScrapeKey, "1", 2, TimeUnit.HOURS);
+
     } catch (Exception e) {
       log.error("[Worker] Error scraping {}: {}", url, e.getMessage());
+    }
+  }
+
+  /** Get cached price for URL to reduce scraping costs */
+  private BigDecimal getCachedPriceForUrl(String url) {
+    try {
+      String cacheKey = "price_cache:" + url.hashCode();
+      Object cached = redisTemplate.opsForValue().get(cacheKey);
+      if (cached != null) {
+        return new BigDecimal(cached.toString());
+      }
+    } catch (Exception e) {
+      log.debug("[Worker] Error getting cached price: {}", e.getMessage());
+    }
+    return null;
+  }
+
+  /** Cache price for URL to reduce future scraping costs */
+  private void cachePriceForUrl(String url, BigDecimal price) {
+    try {
+      String cacheKey = "price_cache:" + url.hashCode();
+      // Cache for 24 hours to reduce scraping frequency
+      redisTemplate.opsForValue().set(cacheKey, price.toString(), 24, TimeUnit.HOURS);
+    } catch (Exception e) {
+      log.debug("[Worker] Error caching price: {}", e.getMessage());
     }
   }
 

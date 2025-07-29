@@ -1630,46 +1630,70 @@ public class CompetitorController {
   }
 
   /** Extract client IP address from request */
-  /** Trigger immediate price scraping for a newly added competitor with cost optimization */
+  /** Trigger immediate price scraping for a newly added competitor with COST OPTIMIZATION */
   private void triggerImmediatePriceScraping(String competitorId, String url, Long shopId) {
     try {
       logger.info(
-          "triggerImmediatePriceScraping: Starting immediate scraping for competitor ID: {}",
+          "triggerImmediatePriceScraping: Starting COST-OPTIMIZED immediate scraping for competitor ID: {}",
           competitorId);
 
-      // Check rate limiting for immediate scraping (same as scheduled scraping)
+      // COST OPTIMIZATION 1: Check if we recently scraped this URL (within last 2 hours)
       String domain = extractDomain(url);
-      String rateLimitKey = "scraper_rate_limit:" + domain;
+      String recentScrapeKey = "recent_scrape:" + domain + ":" + url.hashCode();
+      
+      if (redisTemplate.hasKey(recentScrapeKey)) {
+        logger.info("triggerImmediatePriceScraping: Skipping - URL scraped recently: {}", url);
+        return; // Skip if we scraped this URL recently
+      }
 
-      // Use Redis for rate limiting (same as CompetitorScraperWorker)
+      // COST OPTIMIZATION 2: Check rate limiting with longer delays
+      String rateLimitKey = "scraper_rate_limit:" + domain;
       if (redisTemplate.hasKey(rateLimitKey)) {
         logger.debug("triggerImmediatePriceScraping: Rate limit active for domain: {}", domain);
         return; // Skip immediate scraping if rate limited
       }
 
-      // Set rate limit with shorter delay for immediate scraping
-      int immediateScrapingDelay = 500; // 500ms delay for immediate scraping (faster UX)
+      // COST OPTIMIZATION 3: Longer rate limiting delays to reduce costs
+      int immediateScrapingDelay = 5000; // 5 seconds delay (reduced from 500ms)
       redisTemplate
           .opsForValue()
           .set(rateLimitKey, "1", immediateScrapingDelay, TimeUnit.MILLISECONDS);
 
-      // Check if scraping is enabled and within limits
+      // Check if scraping is allowed and within limits
       if (!isScrapingAllowed(shopId)) {
         logger.debug("triggerImmediatePriceScraping: Scraping not allowed for shop {}", shopId);
         return;
       }
 
-      // Basic price extraction with cost optimization
+      // COST OPTIMIZATION 4: Use cached price if available (fallback to scraping)
+      java.math.BigDecimal cachedPrice = getCachedPriceForUrl(url);
+      if (cachedPrice != null) {
+        logger.info("triggerImmediatePriceScraping: Using cached price ${} for competitor {}", cachedPrice, competitorId);
+        
+        // Store cached price as initial snapshot
+        jdbcTemplate.update(
+            "INSERT INTO price_snapshots (competitor_url_id, price, in_stock, checked_at, scraper_version) "
+                + "VALUES (?, ?, ?, CURRENT_TIMESTAMP, 'v2.0-cached')",
+            Long.parseLong(competitorId),
+            cachedPrice,
+            true); // Assume in stock for cached data
+
+        // Mark as recently scraped to prevent immediate re-scraping
+        redisTemplate.opsForValue().set(recentScrapeKey, "1", 2, TimeUnit.HOURS);
+        return;
+      }
+
+      // Only scrape if no cached data available
       try {
         // Use Jsoup for immediate scraping (faster and cheaper than Selenium)
         org.jsoup.nodes.Document doc =
             org.jsoup.Jsoup.connect(url)
                 .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-                .timeout(3000) // 3 second timeout for immediate scraping (faster UX)
+                .timeout(5000) // 5 second timeout (increased for reliability)
                 .followRedirects(true)
                 .get();
 
-        // Extract price using basic patterns
+        // Extract price using enhanced patterns
         java.math.BigDecimal price = extractPriceFromDocument(doc, identifyPlatform(url));
         boolean inStock = extractStockStatusFromDocument(doc, identifyPlatform(url));
 
@@ -1682,6 +1706,9 @@ public class CompetitorController {
               price,
               inStock);
 
+          // COST OPTIMIZATION 5: Cache the price for future use
+          cachePriceForUrl(url, price);
+
           logger.info(
               "triggerImmediatePriceScraping: Successfully scraped initial price ${} for competitor {}",
               price,
@@ -1690,6 +1717,9 @@ public class CompetitorController {
           logger.warn("triggerImmediatePriceScraping: Could not extract price from {}", url);
         }
 
+        // Mark as recently scraped to prevent immediate re-scraping
+        redisTemplate.opsForValue().set(recentScrapeKey, "1", 2, TimeUnit.HOURS);
+
       } catch (Exception e) {
         logger.warn("triggerImmediatePriceScraping: Failed to scrape {}: {}", url, e.getMessage());
       }
@@ -1697,6 +1727,31 @@ public class CompetitorController {
     } catch (Exception e) {
       logger.error(
           "triggerImmediatePriceScraping: Error during immediate scraping: {}", e.getMessage());
+    }
+  }
+
+  /** Get cached price for URL to reduce scraping costs */
+  private java.math.BigDecimal getCachedPriceForUrl(String url) {
+    try {
+      String cacheKey = "price_cache:" + url.hashCode();
+      Object cached = redisTemplate.opsForValue().get(cacheKey);
+      if (cached != null) {
+        return new java.math.BigDecimal(cached.toString());
+      }
+    } catch (Exception e) {
+      logger.debug("getCachedPriceForUrl: Error getting cached price: {}", e.getMessage());
+    }
+    return null;
+  }
+
+  /** Cache price for URL to reduce future scraping costs */
+  private void cachePriceForUrl(String url, java.math.BigDecimal price) {
+    try {
+      String cacheKey = "price_cache:" + url.hashCode();
+      // Cache for 24 hours to reduce scraping frequency
+      redisTemplate.opsForValue().set(cacheKey, price.toString(), 24, TimeUnit.HOURS);
+    } catch (Exception e) {
+      logger.debug("cachePriceForUrl: Error caching price: {}", e.getMessage());
     }
   }
 
