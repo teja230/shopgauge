@@ -5,6 +5,7 @@ import { XMarkIcon, CheckIcon, XCircleIcon } from '@heroicons/react/24/outline';
 import type { CompetitorSuggestion } from '../../api';
 import { getCompetitorSuggestions, approveSuggestion, ignoreSuggestion } from '../../api';
 import { useNotifications } from '../../hooks/useNotifications';
+import { debugLog } from './DebugPanel';
 
 interface SuggestionDrawerProps {
   isOpen: boolean;
@@ -28,13 +29,23 @@ export const SuggestionDrawer: React.FC<SuggestionDrawerProps> = ({
   const notifications = useNotifications();
 
   useEffect(() => {
+    debugLog.info('SuggestionDrawer: useEffect triggered', { 
+      isOpen, 
+      isDemoMode, 
+      demoSuggestionsLength: demoSuggestions?.length || 0 
+    }, 'SuggestionDrawer');
+    
     if (isOpen) {
       if (isDemoMode) {
         // Use demo suggestions
+        debugLog.info('SuggestionDrawer: Using demo suggestions', { 
+          count: demoSuggestions.length 
+        }, 'SuggestionDrawer');
         setSuggestions(demoSuggestions);
         setLoading(false);
       } else {
         // Fetch real suggestions
+        debugLog.info('SuggestionDrawer: Fetching real suggestions', {}, 'SuggestionDrawer');
         fetchSuggestions();
       }
     }
@@ -44,11 +55,18 @@ export const SuggestionDrawer: React.FC<SuggestionDrawerProps> = ({
     setLoading(true);
     setError(null);
     
+    debugLog.info('SuggestionDrawer: Starting to fetch suggestions', { isDemoMode }, 'SuggestionDrawer');
+    
     try {
       const response = await getCompetitorSuggestions(0, 20, 'NEW');
+      debugLog.info('SuggestionDrawer: Received suggestions response', { 
+        contentLength: response.content?.length || 0,
+        response 
+      }, 'SuggestionDrawer');
       setSuggestions(response.content);
       onSuggestionUpdate();
     } catch (err) {
+      debugLog.error('SuggestionDrawer: Failed to load suggestions', { error: err }, 'SuggestionDrawer');
       setError('Failed to load suggestions');
       notifications.showError('Failed to load suggestions', {
         category: 'Competitors'

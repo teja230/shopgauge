@@ -37,6 +37,8 @@ import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import { debugLog } from '../components/ui/DebugPanel';
+import { getSuggestionCount } from '../api';
+import { DebugPanel } from '../components/ui/DebugPanel';
 
 // Tutorial step types
 interface TutorialStep {
@@ -886,7 +888,7 @@ export default function CompetitorsPage() {
       let userMessage = 'Unable to initiate competitor tracking at this time. Please try again.';
       let needsProductSync = false;
       let needsAuthentication = false;
-
+      
       if (error.needsProductSync) {
         needsProductSync = true;
         userMessage = 'Product catalog synchronization is required before initiating competitor tracking. Please synchronize your product catalog first.';
@@ -950,7 +952,7 @@ export default function CompetitorsPage() {
           url: url
         }, 'CompetitorsPage');
       }
-
+      
       console.error('Competitor addition failed:', {
         error: error.message,
         needsProductSync,
@@ -979,7 +981,7 @@ export default function CompetitorsPage() {
       } else if (needsProductSync) {
         debugLog.info('Showing product sync error notification');
         notifications.showError('Product Catalog Synchronization Required', {
-          category: 'Competitors',
+            category: 'Competitors',
           persistent: true,
           action: {
             label: 'Sync Products',
@@ -989,7 +991,7 @@ export default function CompetitorsPage() {
           }
         });
         notifications.showInfo('To initiate competitor tracking, you must first synchronize your product catalog. Click "Sync Products" above or visit your Dashboard to refresh your product data.', {
-          category: 'Competitors',
+            category: 'Competitors',
           persistent: false,
           duration: 8000
         });
@@ -1034,27 +1036,55 @@ export default function CompetitorsPage() {
     }
   }, [isDemoMode, shop, notifications]);
 
+  // Fetch suggestion count with debouncing and caching
+  const getDebouncedSuggestionCount = useCallback(async () => {
+    try {
+      debugLog.info('Fetching suggestion count', { shop, isDemoMode }, 'CompetitorsPage');
+      
+      if (isDemoMode) {
+        const demoCount = getDemoData(DEFAULT_DEMO_PREFERENCES.category).suggestions.length;
+        debugLog.info('Demo mode: returning demo suggestion count', { demoCount }, 'CompetitorsPage');
+        return { newSuggestions: demoCount };
+      }
+      
+      const response = await getSuggestionCount();
+      debugLog.info('Suggestion count response', { 
+        newSuggestions: response.newSuggestions,
+        response 
+      }, 'CompetitorsPage');
+      return response;
+    } catch (error) {
+      debugLog.error('Error fetching suggestion count', { error, shop }, 'CompetitorsPage');
+      return { newSuggestions: 0 };
+    }
+  }, [shop, isDemoMode]);
+
+  // Refresh suggestion count (for manual refresh)
   const refreshSuggestionCount = useCallback(async () => {
     try {
+      debugLog.info('Refreshing suggestion count', { shop, isDemoMode }, 'CompetitorsPage');
+      
       if (isDemoMode) {
-        setSuggestionCount(getDemoData(DEFAULT_DEMO_PREFERENCES.category).suggestions.length);
+        const demoCount = getDemoData(DEFAULT_DEMO_PREFERENCES.category).suggestions.length;
+        debugLog.info('Demo mode: setting demo suggestion count', { demoCount }, 'CompetitorsPage');
+        setSuggestionCount(demoCount);
         return;
       }
       
-      // Clear suggestion cache and get fresh count
-      const suggestionCacheKey = `suggestions_${shop}`;
-      cache.delete(suggestionCacheKey);
-      
       const response = await refreshSuggestionCountAPI();
+      debugLog.info('Refreshed suggestion count', { 
+        newSuggestions: response.newSuggestions,
+        response 
+      }, 'CompetitorsPage');
       setSuggestionCount(response.newSuggestions);
     } catch (error) {
-      console.error('Error refreshing suggestion count:', error);
-      // Fallback to cached or demo data
+      debugLog.error('Error refreshing suggestion count', { error, shop }, 'CompetitorsPage');
+      // Fallback to demo data if in demo mode
       if (isDemoMode) {
         setSuggestionCount(getDemoData(DEFAULT_DEMO_PREFERENCES.category).suggestions.length);
       }
     }
-  }, [isDemoMode, shop]);
+  }, [shop, isDemoMode]);
 
   // Limit display component
   const LimitDisplay = () => {
@@ -1710,8 +1740,8 @@ export default function CompetitorsPage() {
                           onClick={() => {
                             setFilterStatus('all');
                             setFilterDropdownOpen(false);
-                            trackDemoInteraction('filter_status');
-                          }}
+                    trackDemoInteraction('filter_status');
+                  }}
                           className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${
                             filterStatus === 'all' ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
                           }`}
@@ -1818,7 +1848,14 @@ export default function CompetitorsPage() {
               {/* Suggestions Button */}
               {suggestionCount > 0 && (
                 <button
-                  onClick={() => setShowSuggestions(true)}
+                  onClick={() => {
+                    debugLog.info('Suggestions button clicked', { 
+                      suggestionCount, 
+                      isDemoMode,
+                      shop 
+                    }, 'CompetitorsPage');
+                    setShowSuggestions(true);
+                  }}
                   className="relative flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-all shadow-md suggestions-button"
                 >
                   <SparklesIcon className="h-4 w-4" />
@@ -2084,7 +2121,13 @@ export default function CompetitorsPage() {
       
       <SuggestionDrawer
         isOpen={showSuggestions}
-        onClose={() => setShowSuggestions(false)}
+        onClose={() => {
+          debugLog.info('SuggestionDrawer closed', { 
+            wasOpen: showSuggestions,
+            suggestionCount 
+          }, 'CompetitorsPage');
+          setShowSuggestions(false);
+        }}
         onSuggestionUpdate={refreshSuggestionCount}
         isDemoMode={isDemoMode}
         demoSuggestions={getDemoData(demoPreferences.category).suggestions}
@@ -2282,7 +2325,7 @@ export default function CompetitorsPage() {
         </button>
       </div>
 
-
+      <DebugPanel />
 
     </div>
   );
