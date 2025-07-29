@@ -37,7 +37,7 @@ import {
   Launch as LaunchIcon,
   Link as LinkIcon,
 } from '@mui/icons-material';
-import { CircularProgress } from '@mui/material';
+
 import { styled } from '@mui/material/styles';
 import { format, parseISO } from 'date-fns';
 import { useAuth } from '../../context/AuthContext';
@@ -384,6 +384,25 @@ const getProductLink = (competitor: Competitor, shop: string | null): string | n
   return null;
 };
 
+// Modern loading spinner component
+const LoadingSpinner: React.FC<{ size?: number }> = ({ size = 20 }) => (
+  <Box
+    sx={{
+      width: size,
+      height: size,
+      borderRadius: '50%',
+      border: '2px solid',
+      borderColor: 'primary.light',
+      borderTopColor: 'primary.main',
+      animation: 'spin 1s linear infinite',
+      '@keyframes spin': {
+        '0%': { transform: 'rotate(0deg)' },
+        '100%': { transform: 'rotate(360deg)' }
+      }
+    }}
+  />
+);
+
 // Mobile competitor card component
 const MobileCompetitorCard: React.FC<{
   competitor: Competitor;
@@ -465,10 +484,10 @@ const MobileCompetitorCard: React.FC<{
         <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }}>
           {competitor.priceLoading || competitor.price === 0 ? (
             <MetricChip
-              label="Loading price..."
+              label={formatPrice(0)}
               color="default"
               variant="outlined"
-              icon={<CircularProgress size={16} />}
+              icon={<LoadingSpinner size={16} />}
             />
           ) : (
             <MetricChip
@@ -640,11 +659,8 @@ const DesktopTableRow: React.FC<{
 
       <StyledTableCell>
         {competitor.priceLoading || competitor.price === 0 ? (
-          <Box display="flex" alignItems="center" gap={1}>
-            <CircularProgress size={16} />
-            <Typography variant="body2" color="text.secondary">
-              Loading price...
-            </Typography>
+          <Box display="flex" alignItems="center" justifyContent="center">
+            <LoadingSpinner size={20} />
           </Box>
         ) : (
           <Typography variant="body2" fontWeight={600} color="primary">
