@@ -14,6 +14,7 @@ import com.storesight.backend.service.discovery.CompetitorDiscoveryService;
 import com.storesight.backend.service.discovery.MultiSourceSearchClient;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -1513,6 +1514,87 @@ public class CompetitorController {
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
           .body(Map.of("error", "Failed to retrieve available products"));
     }
+  }
+
+  @GetMapping("/competitors/debug/scraping-status")
+  @Profile("!prod") // Only available in non-production environments
+  public ResponseEntity<Map<String, Object>> debugScrapingStatus(HttpServletRequest request) {
+    Long shopId = getShopIdFromRequest(request);
+    String shopDomain = shopId != null ? getShopDomainFromId(shopId) : null;
+    
+    Map<String, Object> debugInfo = new HashMap<>();
+    debugInfo.put("shopId", shopId);
+    debugInfo.put("shopDomain", shopDomain);
+    
+    if (shopId != null) {
+      try {
+        // Get comprehensive scraping status data
+        String query = """
+            SELECT 
+                cu.id,
+                cu.url,
+                cu.status,
+                cu.error_count,
+                cu.created_at as competitor_created,
+                cu.last_successful_check,
+                ps.checked_at as latest_price_check,
+                ps.price,
+                ps.in_stock,
+                CASE 
+                    WHEN cu.error_count >= 5 THEN 'BLOCKED_BY_ERRORS'
+                    WHEN cu.status = 'error' THEN 'ERROR_STATUS'
+                    WHEN ps.checked_at IS NULL THEN 'NEVER_SCRAPED'
+                    WHEN ps.checked_at < NOW() - INTERVAL '12 hours' THEN 'DUE_FOR_SCRAPING'
+                    ELSE 'RECENTLY_SCRAPED'
+                END as scraping_status
+            FROM competitor_urls cu
+            LEFT JOIN (
+                SELECT competitor_url_id, price, in_stock, checked_at,
+                       ROW_NUMBER() OVER (PARTITION BY competitor_url_id ORDER BY checked_at DESC) as rn
+                FROM price_snapshots
+            ) ps ON cu.id = ps.competitor_url_id AND ps.rn = 1
+            WHERE cu.shop_id = ?
+            ORDER BY cu.created_at DESC
+            """;
+        
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(query, shopId);
+        List<Map<String, Object>> statusData = new ArrayList<>();
+        
+        for (Map<String, Object> row : rows) {
+          Map<String, Object> competitorData = new HashMap<>();
+          competitorData.put("id", row.get("id"));
+          competitorData.put("url", row.get("url"));
+          competitorData.put("status", row.get("status"));
+          competitorData.put("error_count", row.get("error_count"));
+          competitorData.put("competitor_created", row.get("competitor_created"));
+          competitorData.put("last_successful_check", row.get("last_successful_check"));
+          competitorData.put("latest_price_check", row.get("latest_price_check"));
+          competitorData.put("price", row.get("price"));
+          competitorData.put("in_stock", row.get("in_stock"));
+          competitorData.put("scraping_status", row.get("scraping_status"));
+          statusData.add(competitorData);
+        }
+        
+        // Summary statistics
+        Map<String, Object> summary = new HashMap<>();
+        summary.put("total_competitors", statusData.size());
+        summary.put("active_status", statusData.stream().filter(c -> "active".equals(c.get("status"))).count());
+        summary.put("error_status", statusData.stream().filter(c -> "error".equals(c.get("status"))).count());
+        summary.put("blocked_by_errors", statusData.stream().filter(c -> "BLOCKED_BY_ERRORS".equals(c.get("scraping_status"))).count());
+        summary.put("due_for_scraping", statusData.stream().filter(c -> "DUE_FOR_SCRAPING".equals(c.get("scraping_status"))).count());
+        summary.put("recently_scraped", statusData.stream().filter(c -> "RECENTLY_SCRAPED".equals(c.get("scraping_status"))).count());
+        summary.put("never_scraped", statusData.stream().filter(c -> "NEVER_SCRAPED".equals(c.get("scraping_status"))).count());
+        
+        debugInfo.put("competitors", statusData);
+        debugInfo.put("summary", summary);
+        
+      } catch (Exception e) {
+        debugInfo.put("error", e.getMessage());
+        debugInfo.put("errorType", e.getClass().getSimpleName());
+      }
+    }
+    
+    return ResponseEntity.ok(debugInfo);
   }
 
   @GetMapping("/competitors/debug/timestamps")
