@@ -116,15 +116,49 @@ export const ProductAssociationModal: React.FC<ProductAssociationModalProps> = (
     setError(null);
     
     try {
+      console.log(`Loading products for competitor ${competitorId}, demo mode: ${isDemoMode}`);
       const response = await fetchWithAuth(`/api/competitors/${competitorId}/products?isDemoMode=${isDemoMode}`);
+      
+      console.log(`Response status: ${response.status}`);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log('Products data received:', data);
         setProducts(data.products || []);
+        
+        if (!data.products || data.products.length === 0) {
+          if (isDemoMode) {
+            // Show demo products when API fails in demo mode
+            const demoProducts = [
+              { id: 'demo-1', title: 'Demo Product 1', handle: 'demo-product-1', price: 29.99 },
+              { id: 'demo-2', title: 'Demo Product 2', handle: 'demo-product-2', price: 49.99 },
+              { id: 'demo-3', title: 'Demo Product 3', handle: 'demo-product-3', price: 19.99 }
+            ];
+            setProducts(demoProducts);
+            setError(null);
+          } else {
+            setError('No products available for association. Please sync your products first.');
+          }
+        }
       } else {
         const errorData = await response.json();
-        setError(errorData.error || 'Failed to load products');
+        console.error('API error:', errorData);
+        
+        if (isDemoMode) {
+          // In demo mode, show demo products even if API fails
+          const demoProducts = [
+            { id: 'demo-1', title: 'Demo Product 1', handle: 'demo-product-1', price: 29.99 },
+            { id: 'demo-2', title: 'Demo Product 2', handle: 'demo-product-2', price: 49.99 },
+            { id: 'demo-3', title: 'Demo Product 3', handle: 'demo-product-3', price: 19.99 }
+          ];
+          setProducts(demoProducts);
+          setError(null);
+        } else {
+          setError(errorData.error || 'Failed to load products. Please try again or sync your products first.');
+        }
       }
     } catch (err) {
+      console.error('Network error loading products:', err);
       setError('Network error while loading products');
     } finally {
       setLoading(false);
@@ -236,7 +270,20 @@ export const ProductAssociationModal: React.FC<ProductAssociationModalProps> = (
 
       <DialogContent sx={{ pb: 0 }}>
         {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
+          <Alert 
+            severity="error" 
+            sx={{ mb: 2 }}
+            action={
+              <Button 
+                color="inherit" 
+                size="small" 
+                onClick={loadAvailableProducts}
+                disabled={loading}
+              >
+                Retry
+              </Button>
+            }
+          >
             {error}
           </Alert>
         )}
