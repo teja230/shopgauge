@@ -860,10 +860,12 @@ export default function CompetitorsPage() {
         const cacheKey = `competitors_${shop}`;
         cache.delete(cacheKey);
         
-        // Show success notification with background scraping info
-        notifications.showSuccess('Competitor has been added successfully. Price data is being collected in the background.', {
+        // Show enterprise-grade success notification
+        notifications.showSuccess('Competitor added successfully! Price tracking will be activated shortly.', {
           category: 'Competitors',
-          showToast: true // Force toast to show
+          showToast: true, // Force toast to show
+          persistent: false,
+          duration: 4000
         });
 
         // Start polling for price updates
@@ -1118,38 +1120,71 @@ export default function CompetitorsPage() {
     }
   }, [shop, isDemoMode]);
 
-  // Poll for price updates after adding a competitor
+  // Poll for price updates after adding a competitor with intelligent intervals
   const startPricePolling = useCallback((competitorId: string) => {
     if (isDemoMode) return; // Don't poll in demo mode
     
-    const pollInterval = setInterval(async () => {
+    let attemptCount = 0;
+    const maxAttempts = 3;
+    const intervals = [30000, 90000, 180000]; // 30s, 90s, 180s
+    
+    const pollForPrice = async () => {
       try {
+        attemptCount++;
+        debugLog.info('Polling for price data', { competitorId, attempt: attemptCount }, 'CompetitorsPage');
+        
         const priceStatus = await getPriceStatus(competitorId);
         
         if (priceStatus.hasPrice) {
           // Price data is available, refresh the competitors list
           debugLog.info('Price data available for competitor', { competitorId, price: priceStatus.price }, 'CompetitorsPage');
           await fetchData(true); // Refresh the list to show updated prices
-          clearInterval(pollInterval);
           
-          // Show success notification
-          notifications.showSuccess(`Price data updated: $${priceStatus.price}`, {
+          // Show enterprise-grade success notification
+          notifications.showSuccess(`Price tracking activated for ${priceStatus.inStock ? 'in-stock' : 'out-of-stock'} item at $${priceStatus.price}`, {
             category: 'Competitors',
-            showToast: true
+            showToast: true,
+            persistent: false,
+            duration: 5000
           });
+          return true; // Success, stop polling
+        } else if (attemptCount >= maxAttempts) {
+          // Max attempts reached, show informative message
+          debugLog.info('Max polling attempts reached', { competitorId, attempts: attemptCount }, 'CompetitorsPage');
+          notifications.showInfo('Price tracking will be updated within the next few hours. You can continue adding competitors in the meantime.', {
+            category: 'Competitors',
+            showToast: true,
+            persistent: false,
+            duration: 6000
+          });
+          return true; // Stop polling
+        } else {
+          // Schedule next attempt
+          setTimeout(pollForPrice, intervals[attemptCount - 1]);
+          return false; // Continue polling
         }
       } catch (error) {
-        debugLog.error('Error polling for price status', { competitorId, error }, 'CompetitorsPage');
-        // Stop polling on error
-        clearInterval(pollInterval);
+        debugLog.error('Error polling for price status', { competitorId, error, attempt: attemptCount }, 'CompetitorsPage');
+        
+        if (attemptCount >= maxAttempts) {
+          notifications.showInfo('Price tracking will be updated within the next few hours. You can continue adding competitors in the meantime.', {
+            category: 'Competitors',
+            showToast: true,
+            persistent: false,
+            duration: 6000
+          });
+          return true; // Stop polling on max attempts
+        } else {
+          // Retry with next interval
+          setTimeout(pollForPrice, intervals[attemptCount - 1]);
+          return false; // Continue polling
+        }
       }
-    }, 3000); // Poll every 3 seconds
+    };
     
-    // Stop polling after 2 minutes (40 attempts)
-    setTimeout(() => {
-      clearInterval(pollInterval);
-      debugLog.info('Stopped polling for price updates', { competitorId }, 'CompetitorsPage');
-    }, 120000);
+    // Start first poll after 30 seconds
+    setTimeout(pollForPrice, intervals[0]);
+    
   }, [isDemoMode, fetchData, notifications]);
 
   // Limit display component
