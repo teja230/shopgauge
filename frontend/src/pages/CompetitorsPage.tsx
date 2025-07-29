@@ -1942,39 +1942,39 @@ export default function CompetitorsPage() {
                   
                   {/* Enhanced URL format tooltip with modern design */}
                   {showUrlTooltip && (
-                    <div className="url-tooltip-container absolute z-50 mt-3 w-full max-w-lg bg-white border border-gray-200 rounded-xl shadow-2xl sm:left-0 sm:right-auto backdrop-blur-sm">
-                      <div className="p-6">
+                    <div className="url-tooltip-container absolute z-50 mt-3 w-full max-w-md bg-white border border-gray-200 rounded-xl shadow-2xl sm:left-0 sm:right-auto backdrop-blur-sm">
+                      <div className="p-4">
                         {/* Header */}
-                        <div className="flex items-center justify-between mb-6">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                              <SparklesIcon className="h-4 w-4 text-white" />
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                              <SparklesIcon className="h-3 w-3 text-white" />
                             </div>
                             <div>
-                              <h4 className="text-lg font-semibold text-gray-900">Supported Platforms</h4>
-                              <p className="text-sm text-gray-500">Copy URLs from these e-commerce sites</p>
+                              <h4 className="text-base font-semibold text-gray-900">Supported Platforms</h4>
+                              <p className="text-xs text-gray-500">Copy URLs from these e-commerce sites</p>
                             </div>
                           </div>
                           <button
                             onClick={() => setShowUrlTooltip(false)}
-                            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-all duration-200"
+                            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-all duration-200"
                           >
-                            <XMarkIcon className="h-5 w-5" />
+                            <XMarkIcon className="h-4 w-4" />
                           </button>
                         </div>
                         
                         {/* Platform Grid */}
-                        <div className="grid grid-cols-1 gap-4 max-h-80 overflow-y-auto pr-2">
+                        <div className="grid grid-cols-1 gap-3 max-h-64 overflow-y-auto pr-2">
                           {/* Amazon */}
-                          <div className="group relative bg-gradient-to-r from-orange-50 to-orange-100 border border-orange-200 rounded-xl p-4 hover:shadow-md transition-all duration-200">
-                            <div className="flex items-start gap-4">
-                              <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-600 rounded-xl flex items-center justify-center shadow-sm">
-                                <span className="text-sm font-bold text-white">A</span>
+                          <div className="group relative bg-gradient-to-r from-orange-50 to-orange-100 border border-orange-200 rounded-lg p-3 hover:shadow-md transition-all duration-200">
+                            <div className="flex items-start gap-3">
+                              <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-orange-400 to-orange-600 rounded-lg flex items-center justify-center shadow-sm">
+                                <span className="text-xs font-bold text-white">A</span>
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-1">
-                                  <h5 className="text-sm font-semibold text-gray-900">Amazon</h5>
-                                  <span className="px-2 py-1 bg-orange-100 text-orange-700 text-xs font-medium rounded-full">Popular</span>
+                                  <h5 className="text-xs font-semibold text-gray-900">Amazon</h5>
+                                  <span className="px-1.5 py-0.5 bg-orange-100 text-orange-700 text-xs font-medium rounded-full">Popular</span>
                                 </div>
                                 <p className="text-xs text-gray-600 font-mono break-all bg-white px-2 py-1 rounded border">
                                   amazon.com/dp/PRODUCT_ID
@@ -1985,15 +1985,15 @@ export default function CompetitorsPage() {
                           </div>
                           
                           {/* Best Buy */}
-                          <div className="group relative bg-gradient-to-r from-yellow-50 to-yellow-100 border border-yellow-200 rounded-xl p-4 hover:shadow-md transition-all duration-200">
-                            <div className="flex items-start gap-4">
-                              <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-xl flex items-center justify-center shadow-sm">
-                                <span className="text-sm font-bold text-white">B</span>
+                          <div className="group relative bg-gradient-to-r from-yellow-50 to-yellow-100 border border-yellow-200 rounded-lg p-3 hover:shadow-md transition-all duration-200">
+                            <div className="flex items-start gap-3">
+                              <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-lg flex items-center justify-center shadow-sm">
+                                <span className="text-xs font-bold text-white">B</span>
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-1">
-                                  <h5 className="text-sm font-semibold text-gray-900">Best Buy</h5>
-                                  <span className="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs font-medium rounded-full">Electronics</span>
+                                  <h5 className="text-xs font-semibold text-gray-900">Best Buy</h5>
+                                  <span className="px-1.5 py-0.5 bg-yellow-100 text-yellow-700 text-xs font-medium rounded-full">Electronics</span>
                                 </div>
                                 <p className="text-xs text-gray-600 font-mono break-all bg-white px-2 py-1 rounded border">
                                   bestbuy.com/site/PRODUCT_NAME
@@ -2004,15 +2004,15 @@ export default function CompetitorsPage() {
                           </div>
                           
                           {/* Walmart */}
-                          <div className="group relative bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-4 hover:shadow-md transition-all duration-200">
-                            <div className="flex items-start gap-4">
-                              <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-xl flex items-center justify-center shadow-sm">
-                                <span className="text-sm font-bold text-white">W</span>
+                          <div className="group relative bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-lg p-3 hover:shadow-md transition-all duration-200">
+                            <div className="flex items-start gap-3">
+                              <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg flex items-center justify-center shadow-sm">
+                                <span className="text-xs font-bold text-white">W</span>
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-1">
-                                  <h5 className="text-sm font-semibold text-gray-900">Walmart</h5>
-                                  <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">Retail</span>
+                                  <h5 className="text-xs font-semibold text-gray-900">Walmart</h5>
+                                  <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">Retail</span>
                                 </div>
                                 <p className="text-xs text-gray-600 font-mono break-all bg-white px-2 py-1 rounded border">
                                   walmart.com/ip/PRODUCT_NAME
@@ -2023,15 +2023,15 @@ export default function CompetitorsPage() {
                           </div>
                           
                           {/* Target */}
-                          <div className="group relative bg-gradient-to-r from-red-50 to-red-100 border border-red-200 rounded-xl p-4 hover:shadow-md transition-all duration-200">
-                            <div className="flex items-start gap-4">
-                              <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-red-400 to-red-600 rounded-xl flex items-center justify-center shadow-sm">
-                                <span className="text-sm font-bold text-white">T</span>
+                          <div className="group relative bg-gradient-to-r from-red-50 to-red-100 border border-red-200 rounded-lg p-3 hover:shadow-md transition-all duration-200">
+                            <div className="flex items-start gap-3">
+                              <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-red-400 to-red-600 rounded-lg flex items-center justify-center shadow-sm">
+                                <span className="text-xs font-bold text-white">T</span>
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-1">
-                                  <h5 className="text-sm font-semibold text-gray-900">Target</h5>
-                                  <span className="px-2 py-1 bg-red-100 text-red-700 text-xs font-medium rounded-full">Retail</span>
+                                  <h5 className="text-xs font-semibold text-gray-900">Target</h5>
+                                  <span className="px-1.5 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded-full">Retail</span>
                                 </div>
                                 <p className="text-xs text-gray-600 font-mono break-all bg-white px-2 py-1 rounded border">
                                   target.com/p/PRODUCT_NAME
@@ -2042,15 +2042,15 @@ export default function CompetitorsPage() {
                           </div>
                           
                           {/* eBay */}
-                          <div className="group relative bg-gradient-to-r from-green-50 to-green-100 border border-green-200 rounded-xl p-4 hover:shadow-md transition-all duration-200">
-                            <div className="flex items-start gap-4">
-                              <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-green-400 to-green-600 rounded-xl flex items-center justify-center shadow-sm">
-                                <span className="text-sm font-bold text-white">E</span>
+                          <div className="group relative bg-gradient-to-r from-green-50 to-green-100 border border-green-200 rounded-lg p-3 hover:shadow-md transition-all duration-200">
+                            <div className="flex items-start gap-3">
+                              <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-green-400 to-green-600 rounded-lg flex items-center justify-center shadow-sm">
+                                <span className="text-xs font-bold text-white">E</span>
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-1">
-                                  <h5 className="text-sm font-semibold text-gray-900">eBay</h5>
-                                  <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">Marketplace</span>
+                                  <h5 className="text-xs font-semibold text-gray-900">eBay</h5>
+                                  <span className="px-1.5 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded-full">Marketplace</span>
                                 </div>
                                 <p className="text-xs text-gray-600 font-mono break-all bg-white px-2 py-1 rounded border">
                                   ebay.com/itm/ITEM_ID
@@ -2061,15 +2061,15 @@ export default function CompetitorsPage() {
                           </div>
                           
                           {/* Shopify */}
-                          <div className="group relative bg-gradient-to-r from-purple-50 to-purple-100 border border-purple-200 rounded-xl p-4 hover:shadow-md transition-all duration-200">
-                            <div className="flex items-start gap-4">
-                              <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-purple-400 to-purple-600 rounded-xl flex items-center justify-center shadow-sm">
-                                <span className="text-sm font-bold text-white">S</span>
+                          <div className="group relative bg-gradient-to-r from-purple-50 to-purple-100 border border-purple-200 rounded-lg p-3 hover:shadow-md transition-all duration-200">
+                            <div className="flex items-start gap-3">
+                              <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-purple-400 to-purple-600 rounded-lg flex items-center justify-center shadow-sm">
+                                <span className="text-xs font-bold text-white">S</span>
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-1">
-                                  <h5 className="text-sm font-semibold text-gray-900">Shopify Stores</h5>
-                                  <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">E-commerce</span>
+                                  <h5 className="text-xs font-semibold text-gray-900">Shopify Stores</h5>
+                                  <span className="px-1.5 py-0.5 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">E-commerce</span>
                                 </div>
                                 <p className="text-xs text-gray-600 font-mono break-all bg-white px-2 py-1 rounded border">
                                   store.myshopify.com/products/PRODUCT
@@ -2081,13 +2081,13 @@ export default function CompetitorsPage() {
                         </div>
                         
                         {/* Footer with enhanced tip */}
-                        <div className="mt-6 pt-4 border-t border-gray-100">
-                          <div className="flex items-start gap-3 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
-                            <div className="flex-shrink-0 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+                        <div className="mt-4 pt-3 border-t border-gray-100">
+                          <div className="flex items-start gap-2 p-2 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
+                            <div className="flex-shrink-0 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
                               <span className="text-xs font-bold text-white">💡</span>
                             </div>
                             <div>
-                              <p className="text-sm font-medium text-blue-900 mb-1">Pro Tip</p>
+                              <p className="text-xs font-medium text-blue-900 mb-0.5">Pro Tip</p>
                               <p className="text-xs text-blue-700">
                                 Copy the URL directly from your competitor's product page. Make sure it's a product page, not a category or search page.
                               </p>
