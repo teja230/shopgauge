@@ -535,13 +535,14 @@ export async function addCompetitorIntelligent(url: string, productId?: string):
     const payload = { url: url.trim(), productId: finalProductId || '' };
     console.log('addCompetitorIntelligent: Sending payload:', payload);
     
-    // Use fetchWithAuth for proper authentication handling
+    // Use fetchWithAuth for proper authentication handling with extended timeout
     const response = await fetchWithAuth('/api/competitors', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(60000), // Extended timeout to 60 seconds
     });
     
     console.log('addCompetitorIntelligent: Response status:', response.status);
@@ -614,9 +615,14 @@ export async function addCompetitorIntelligent(url: string, productId?: string):
       throw error;
     }
     
-    // Handle network errors
+    // Handle network errors and cancelled requests
     if (error.name === 'TypeError' && error.message.includes('fetch')) {
       throw new Error('Connection issue detected. Please check your internet connection and try again.');
+    }
+    
+    // Handle AbortError (cancelled requests)
+    if (error.name === 'AbortError') {
+      throw new Error('Request was cancelled due to timeout. Please try again.');
     }
     
     // Handle authentication errors

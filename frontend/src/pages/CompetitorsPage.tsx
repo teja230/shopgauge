@@ -931,10 +931,11 @@ export default function CompetitorsPage() {
           url: url,
           errorType: error.constructor.name
         }, 'CompetitorsPage');
-      } else if (error.message?.includes('Connection issue') || error.message?.includes('fetch') || error.message?.includes('Network Error')) {
-        userMessage = 'Network connectivity issue detected. Please verify your internet connection and retry.';
-        debugLog.error('Connection issue detected', {
+      } else if (error.message?.includes('Connection issue') || error.message?.includes('fetch') || error.message?.includes('Network Error') || error.message?.includes('cancelled') || error.message?.includes('timeout') || error.name === 'AbortError') {
+        userMessage = 'Request was cancelled due to timeout. Please try again.';
+        debugLog.error('Request cancelled/timeout', {
           error: error.message,
+          errorName: error.name,
           url: url,
           errorType: error.constructor.name
         }, 'CompetitorsPage');
@@ -1011,7 +1012,8 @@ export default function CompetitorsPage() {
           message: userMessage
         }, 'CompetitorsPage');
         notifications.showError(userMessage, {
-          category: 'Competitors'
+          category: 'Competitors',
+          showToast: true // Force toast to show for errors
         });
       }
     } finally {
