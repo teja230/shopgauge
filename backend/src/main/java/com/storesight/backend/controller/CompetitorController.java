@@ -1746,27 +1746,43 @@ public class CompetitorController {
     }
   }
 
-  /** Extract price from document using basic patterns */
+  /** Extract price from document using enhanced patterns */
   private java.math.BigDecimal extractPriceFromDocument(
       org.jsoup.nodes.Document doc, String platform) {
-    // Basic price patterns
+    // Enhanced price patterns with better specificity
     java.util.regex.Pattern[] patterns = {
       java.util.regex.Pattern.compile("\\$([0-9,]+\\.?[0-9]*)"),
-      java.util.regex.Pattern.compile("([0-9,]+\\.?[0-9]*)"),
-      java.util.regex.Pattern.compile("USD\\s*([0-9,]+\\.?[0-9]*)")
+      java.util.regex.Pattern.compile("USD\\s*([0-9,]+\\.?[0-9]*)"),
+      java.util.regex.Pattern.compile("([0-9,]+\\.?[0-9]*)\\s*USD"),
+      java.util.regex.Pattern.compile("Price:\\s*\\$([0-9,]+\\.?[0-9]*)"),
+      java.util.regex.Pattern.compile("Cost:\\s*\\$([0-9,]+\\.?[0-9]*)")
     };
 
-    // Try common price selectors
-    String[] selectors = {".price", ".product-price", ".money", "[data-price]", ".cost", ".amount"};
+    // Platform-specific selectors
+    String[] selectors = {
+      // Amazon-specific
+      ".a-price .a-offscreen",
+      ".a-price-whole",
+      ".a-price .a-price-whole",
+      "[data-a-color='price'] .a-offscreen",
+      // Generic
+      ".price", ".product-price", ".money", "[data-price]", ".cost", ".amount",
+      ".price-current", ".price-value", ".product-cost", ".item-price",
+      // Shopify
+      ".price__regular", ".price__sale", ".price-item",
+      // Walmart
+      ".price-characteristic", ".price-main", ".price-current"
+    };
 
-    // Try CSS selectors first
+    // Try CSS selectors first (most reliable)
     for (String selector : selectors) {
       org.jsoup.select.Elements elements = doc.select(selector);
       for (org.jsoup.nodes.Element element : elements) {
         String text = element.text().trim();
-        if (!text.isEmpty()) {
+        if (!text.isEmpty() && text.length() < 50) { // Avoid very long text
           java.math.BigDecimal price = extractPriceFromText(text, patterns);
-          if (price != null) {
+          if (price != null && price.compareTo(java.math.BigDecimal.ZERO) > 0) {
+            logger.debug("extractPriceFromDocument: Found price ${} using selector '{}'", price, selector);
             return price;
           }
         }
@@ -1775,7 +1791,14 @@ public class CompetitorController {
 
     // Try patterns on entire page text as fallback
     String pageText = doc.text();
-    return extractPriceFromText(pageText, patterns);
+    java.math.BigDecimal fallbackPrice = extractPriceFromText(pageText, patterns);
+    if (fallbackPrice != null && fallbackPrice.compareTo(java.math.BigDecimal.ZERO) > 0) {
+      logger.debug("extractPriceFromDocument: Found fallback price ${} from page text", fallbackPrice);
+      return fallbackPrice;
+    }
+
+    logger.warn("extractPriceFromDocument: Could not extract price from {}", platform);
+    return null;
   }
 
   /** Extract price from text using patterns */
@@ -1786,9 +1809,18 @@ public class CompetitorController {
       if (matcher.find()) {
         try {
           String priceStr = matcher.group(1).replaceAll(",", "");
-          return new java.math.BigDecimal(priceStr);
+          java.math.BigDecimal price = new java.math.BigDecimal(priceStr);
+          
+          // Validate price is reasonable (not too low or too high)
+          if (price.compareTo(java.math.BigDecimal.valueOf(0.01)) >= 0 && 
+              price.compareTo(java.math.BigDecimal.valueOf(100000)) <= 0) {
+            logger.debug("extractPriceFromText: Extracted valid price ${} from text: {}", price, text.substring(0, Math.min(text.length(), 100)));
+            return price;
+          } else {
+            logger.debug("extractPriceFromText: Price ${} outside reasonable range, skipping", price);
+          }
         } catch (NumberFormatException e) {
-          // Try next pattern
+          logger.debug("extractPriceFromText: Failed to parse price from '{}': {}", text, e.getMessage());
         }
       }
     }
