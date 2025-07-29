@@ -394,23 +394,30 @@ const getProductLink = (competitor: Competitor, shop: string | null): string | n
   return null;
 };
 
-// Modern loading spinner component
-const LoadingSpinner: React.FC<{ size?: number }> = ({ size = 20 }) => (
-  <Box
-    sx={{
-      width: size,
-      height: size,
-      borderRadius: '50%',
-      border: '2px solid',
-      borderColor: 'primary.light',
-      borderTopColor: 'primary.main',
-      animation: 'spin 1s linear infinite',
-      '@keyframes spin': {
-        '0%': { transform: 'rotate(0deg)' },
-        '100%': { transform: 'rotate(360deg)' }
-      }
-    }}
-  />
+// Modern loading spinner component with tooltip
+const LoadingSpinner: React.FC<{ size?: number; tooltip?: string }> = ({ size = 20, tooltip = "Loading price data..." }) => (
+  <Tooltip 
+    title={tooltip}
+    placement="top"
+    arrow
+  >
+    <Box
+      sx={{
+        width: size,
+        height: size,
+        borderRadius: '50%',
+        border: '2px solid',
+        borderColor: 'primary.light',
+        borderTopColor: 'primary.main',
+        animation: 'spin 1s linear infinite',
+        '@keyframes spin': {
+          '0%': { transform: 'rotate(0deg)' },
+          '100%': { transform: 'rotate(360deg)' }
+        },
+        cursor: 'help'
+      }}
+    />
+  </Tooltip>
 );
 
 // Mobile competitor card component
@@ -497,7 +504,7 @@ const MobileCompetitorCard: React.FC<{
               label={formatPrice(0)}
               color="default"
               variant="outlined"
-              icon={<LoadingSpinner size={16} />}
+              icon={<LoadingSpinner size={16} tooltip="Fetching current price from competitor website..." />}
             />
           ) : (
             <MetricChip
@@ -670,7 +677,7 @@ const DesktopTableRow: React.FC<{
       <StyledTableCell>
         {competitor.priceLoading || competitor.price === 0 ? (
           <Box display="flex" alignItems="center" justifyContent="center">
-            <LoadingSpinner size={20} />
+            <LoadingSpinner size={20} tooltip="Fetching current price from competitor website..." />
           </Box>
         ) : (
           <Typography variant="body2" fontWeight={600} color="primary">

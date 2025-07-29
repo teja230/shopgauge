@@ -2916,6 +2916,19 @@ public class CompetitorController {
       "[data-a-color='price'] .a-price-whole",
       ".a-price-range .a-price-fraction",
       ".a-price .a-price-range .a-price-fraction",
+      // New Amazon selectors based on current layout
+      ".a-price-current .a-offscreen",
+      ".a-price-current .a-price-whole",
+      ".a-price-current .a-price-fraction",
+      ".a-price-current .a-price-symbol + .a-price-whole",
+      ".a-price-current .a-price-symbol + .a-price-whole + .a-price-fraction",
+      // Price display patterns
+      "[data-a-color='price'] .a-price-current .a-offscreen",
+      "[data-a-color='price'] .a-price-current .a-price-whole",
+      // Fallback selectors for Amazon
+      ".a-price-current",
+      ".a-price-current .a-price",
+      ".a-price-current .a-price .a-offscreen",
       // Generic
       ".price",
       ".product-price",
@@ -2955,6 +2968,42 @@ public class CompetitorController {
             logger.debug(
                 "extractPriceFromDocument: Found price ${} using selector '{}'", price, selector);
             return price;
+          }
+        }
+      }
+    }
+
+    // Special handling for Amazon - try to find price in page text with more specific patterns
+    if (platform.equals("amazon")) {
+      logger.debug("extractPriceFromDocument: Amazon-specific fallback - searching page text");
+      String pageText = doc.text();
+      
+      // Look for price patterns like "Price: $54.95" or "$54.95"
+      java.util.regex.Pattern[] amazonPatterns = {
+        java.util.regex.Pattern.compile("Price:\\s*\\$([0-9,]+\\.?[0-9]*)"),
+        java.util.regex.Pattern.compile("\\$([0-9,]+\\.?[0-9]*)\\s*\\[.*?\\]"),
+        java.util.regex.Pattern.compile("\\$([0-9,]+\\.?[0-9]*)\\s*USD"),
+        java.util.regex.Pattern.compile("\\$([0-9,]+\\.?[0-9]*)\\s*\\("),
+        java.util.regex.Pattern.compile("\\$([0-9,]+\\.?[0-9]*)\\s*Free Returns"),
+        java.util.regex.Pattern.compile("\\$([0-9,]+\\.?[0-9]*)\\s*\\|"),
+      };
+      
+      for (java.util.regex.Pattern pattern : amazonPatterns) {
+        java.util.regex.Matcher matcher = pattern.matcher(pageText);
+        if (matcher.find()) {
+          try {
+            String priceStr = matcher.group(1).replaceAll(",", "");
+            java.math.BigDecimal price = new java.math.BigDecimal(priceStr);
+            
+            if (price.compareTo(java.math.BigDecimal.valueOf(0.01)) >= 0
+                && price.compareTo(java.math.BigDecimal.valueOf(100000)) <= 0) {
+              logger.debug(
+                  "extractPriceFromDocument: Found Amazon price ${} using pattern '{}'", 
+                  price, pattern.pattern());
+              return price;
+            }
+          } catch (NumberFormatException e) {
+            logger.debug("extractPriceFromDocument: Failed to parse Amazon price: {}", e.getMessage());
           }
         }
       }
