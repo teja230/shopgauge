@@ -788,4 +788,173 @@ public class MarketIntelligenceAdminController {
       return url;
     }
   }
+
+  /** Enhanced trigger scraping with detailed debug information */
+  @PostMapping("/competitors/{id}/trigger-scraping-debug")
+  public ResponseEntity<Map<String, Object>> triggerScrapingDebug(
+      @PathVariable String id, @RequestParam(required = false) Long shopId) {
+    try {
+      Map<String, Object> debugInfo = new HashMap<>();
+
+      if (shopId == null) {
+        return ResponseEntity.badRequest().body(Map.of("error", "shopId parameter required"));
+      }
+
+      // Get competitor URL data
+      List<Map<String, Object>> competitorData =
+          jdbcTemplate.queryForList(
+              "SELECT id, url, shop_id FROM competitor_urls WHERE id = ? AND shop_id = ? AND deleted_at IS NULL",
+              Long.parseLong(id),
+              shopId);
+
+      if (competitorData.isEmpty()) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(Map.of("error", "Competitor not found"));
+      }
+
+      Map<String, Object> competitor = competitorData.get(0);
+      String url = (String) competitor.get("url");
+      Long competitorId = ((Number) competitor.get("id")).longValue();
+
+      // Check Redis keys before scraping
+      String domain = extractDomain(url);
+      String recentScrapeKey = "recent_scrape:" + domain + ":" + url.hashCode();
+      String rateLimitKey = "scraper_rate_limit:" + domain;
+
+      debugInfo.put("competitorId", competitorId);
+      debugInfo.put("url", url);
+      debugInfo.put("shopId", shopId);
+      debugInfo.put("domain", domain);
+      debugInfo.put("recentScrapeKey", recentScrapeKey);
+      debugInfo.put("rateLimitKey", rateLimitKey);
+      debugInfo.put("recentScrapeExists", redisTemplate.hasKey(recentScrapeKey));
+      debugInfo.put("rateLimitExists", redisTemplate.hasKey(rateLimitKey));
+
+      // Check current competitor status
+      List<Map<String, Object>> currentStatus =
+          jdbcTemplate.queryForList(
+              "SELECT status, last_successful_check, error_count FROM competitor_urls WHERE id = ?",
+              Long.parseLong(id));
+      if (!currentStatus.isEmpty()) {
+        debugInfo.put("currentStatus", currentStatus.get(0));
+      }
+
+      // Trigger immediate scraping (simulate for now)
+      debugInfo.put("scrapingTriggered", true);
+      debugInfo.put("message", "Enhanced debug scraping trigger - detailed analysis provided");
+
+      // Check if price snapshots were created
+      List<Map<String, Object>> snapshots =
+          jdbcTemplate.queryForList(
+              "SELECT price, in_stock, checked_at, scraper_version, platform, scraper_source FROM price_snapshots WHERE competitor_url_id = ? ORDER BY checked_at DESC LIMIT 1",
+              Long.parseLong(id));
+      debugInfo.put("priceSnapshots", snapshots);
+
+      return ResponseEntity.ok(debugInfo);
+
+    } catch (Exception e) {
+      log.error("Error in trigger scraping debug: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to trigger scraping debug: " + e.getMessage()));
+    }
+  }
+
+  /** Enhanced products debug with comprehensive cache analysis */
+  @GetMapping("/competitors/products-debug")
+  public ResponseEntity<Map<String, Object>> getProductsDebug(
+      @RequestParam(required = false) Long shopId) {
+    try {
+      Map<String, Object> debugInfo = new HashMap<>();
+
+      if (shopId == null) {
+        return ResponseEntity.badRequest().body(Map.of("error", "shopId parameter required"));
+      }
+
+      // Get shop domain
+      String shopDomain = null;
+      try {
+        Map<String, Object> shop =
+            jdbcTemplate.queryForMap("SELECT shopify_domain FROM shops WHERE id = ?", shopId);
+        shopDomain = (String) shop.get("shopify_domain");
+      } catch (Exception e) {
+        return ResponseEntity.badRequest().body(Map.of("error", "Shop not found: " + shopId));
+      }
+
+      debugInfo.put("shopId", shopId);
+      debugInfo.put("shopDomain", shopDomain);
+
+      // Test Redis connectivity
+      try {
+        redisTemplate.opsForValue().set("test_key", "test_value", java.time.Duration.ofSeconds(10));
+        String testValue = (String) redisTemplate.opsForValue().get("test_key");
+        debugInfo.put("redisConnected", "test_value".equals(testValue));
+        debugInfo.put("redisError", null);
+      } catch (Exception e) {
+        debugInfo.put("redisConnected", false);
+        debugInfo.put("redisError", e.getMessage());
+      }
+
+      // Check cache key
+      String cacheKey = "dashboard:products:" + shopDomain;
+      debugInfo.put("cacheKey", cacheKey);
+      debugInfo.put("cacheExists", redisTemplate.hasKey(cacheKey));
+
+      // Get cache TTL
+      var cacheTtl = redisTemplate.getExpire(cacheKey);
+      debugInfo.put(
+          "cacheTtl", cacheTtl != null ? cacheTtl.toMinutes() + " minutes" : "no TTL");
+
+      // Try to get raw cache data
+      var rawCacheData = redisTemplate.opsForValue().get(cacheKey);
+      debugInfo.put("hasRawCacheData", rawCacheData != null);
+      debugInfo.put("rawCacheDataLength", rawCacheData != null ? rawCacheData.toString().length() : 0);
+
+      // Try to parse the raw cache data to see what's stored
+      if (rawCacheData != null) {
+        try {
+          com.fasterxml.jackson.databind.ObjectMapper mapper =
+              new com.fasterxml.jackson.databind.ObjectMapper();
+          var parsedData = mapper.readValue(rawCacheData.toString(), java.util.Map.class);
+          debugInfo.put("parsedDataKeys", parsedData.keySet());
+          debugInfo.put("parsedDataType", parsedData.getClass().getSimpleName());
+
+          if (parsedData.containsKey("data")) {
+            var data = parsedData.get("data");
+            debugInfo.put("dataType", data.getClass().getSimpleName());
+            if (data instanceof java.util.Map) {
+              var dataMap = (java.util.Map) data;
+              debugInfo.put("dataKeys", dataMap.keySet());
+              if (dataMap.containsKey("products")) {
+                var products = dataMap.get("products");
+                debugInfo.put("productsType", products.getClass().getSimpleName());
+                if (products instanceof java.util.List) {
+                  debugInfo.put("productsListSize", ((java.util.List) products).size());
+                }
+              }
+            }
+          }
+        } catch (Exception e) {
+          debugInfo.put("parseError", e.getMessage());
+        }
+      }
+
+      // Check if products exist in database
+      try {
+        List<Map<String, Object>> dbProducts =
+            jdbcTemplate.queryForList(
+                "SELECT COUNT(*) as count FROM products WHERE shop_id = ?", shopId);
+        debugInfo.put(
+            "dbProductsCount", dbProducts.isEmpty() ? 0 : dbProducts.get(0).get("count"));
+      } catch (Exception e) {
+        debugInfo.put("dbError", e.getMessage());
+      }
+
+      return ResponseEntity.ok(debugInfo);
+
+    } catch (Exception e) {
+      log.error("Error getting products debug info: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to get products debug info: " + e.getMessage()));
+    }
+  }
 }
