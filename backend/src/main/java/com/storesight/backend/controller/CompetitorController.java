@@ -1515,6 +1515,65 @@ public class CompetitorController {
     }
   }
 
+  @GetMapping("/competitors/debug/timestamps")
+  @Profile("!prod") // Only available in non-production environments
+  public ResponseEntity<Map<String, Object>> debugTimestamps(HttpServletRequest request) {
+    Long shopId = getShopIdFromRequest(request);
+    String shopDomain = shopId != null ? getShopDomainFromId(shopId) : null;
+    
+    Map<String, Object> debugInfo = new HashMap<>();
+    debugInfo.put("shopId", shopId);
+    debugInfo.put("shopDomain", shopDomain);
+    
+    if (shopId != null) {
+      try {
+        // Get raw timestamp data from database
+        String query = """
+            SELECT 
+                cu.id,
+                cu.url,
+                cu.created_at as competitor_created,
+                cu.last_successful_check,
+                ps.checked_at as latest_price_check,
+                ps.price,
+                ps.in_stock
+            FROM competitor_urls cu
+            LEFT JOIN (
+                SELECT competitor_url_id, price, in_stock, checked_at,
+                       ROW_NUMBER() OVER (PARTITION BY competitor_url_id ORDER BY checked_at DESC) as rn
+                FROM price_snapshots
+            ) ps ON cu.id = ps.competitor_url_id AND ps.rn = 1
+            WHERE cu.shop_id = ?
+            ORDER BY cu.created_at DESC
+            """;
+        
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(query, shopId);
+        List<Map<String, Object>> timestampData = new ArrayList<>();
+        
+        for (Map<String, Object> row : rows) {
+          Map<String, Object> competitorData = new HashMap<>();
+          competitorData.put("id", row.get("id"));
+          competitorData.put("url", row.get("url"));
+          competitorData.put("competitor_created", row.get("competitor_created"));
+          competitorData.put("last_successful_check", row.get("last_successful_check"));
+          competitorData.put("latest_price_check", row.get("latest_price_check"));
+          competitorData.put("price", row.get("price"));
+          competitorData.put("in_stock", row.get("in_stock"));
+          timestampData.add(competitorData);
+        }
+        
+        debugInfo.put("competitors", timestampData);
+        debugInfo.put("count", timestampData.size());
+        
+      } catch (Exception e) {
+        debugInfo.put("error", e.getMessage());
+        debugInfo.put("errorType", e.getClass().getSimpleName());
+      }
+    }
+    
+    return ResponseEntity.ok(debugInfo);
+  }
+
   @GetMapping("/competitors/debug/products")
   @Profile("!prod") // Only available in non-production environments
   public ResponseEntity<Map<String, Object>> debugProducts(HttpServletRequest request) {
