@@ -1089,34 +1089,74 @@ export default function CompetitorsPage() {
         return;
       }
       
-      // Call API first, then update UI only on success
-      await deleteCompetitor(id);
-      
-      // Only update UI after successful API call
+      // Optimistically remove from UI for better UX
+      const competitorToDelete = competitors.find(c => c.id === id);
       setCompetitors((prev) => prev.filter((c) => c.id !== id));
       
-      // Clear cache to force refresh
-      const cacheKey = `competitors_${shop}`;
-      cache.delete(cacheKey);
-      
-      notifications.showSuccess('Competitor tracking has been discontinued', {
-        category: 'Competitors',
-        showToast: true // Force toast to show
-      });
+      try {
+        // Call API to actually delete from backend
+        await deleteCompetitor(id);
+        
+        // Clear cache to force refresh
+        const cacheKey = `competitors_${shop}`;
+        cache.delete(cacheKey);
+        
+        notifications.showSuccess('Competitor tracking has been discontinued', {
+          category: 'Competitors',
+          showToast: true // Force toast to show
+        });
+        
+        debugLog.info('Competitor deleted successfully', { 
+          competitorId: id,
+          competitorUrl: competitorToDelete?.url 
+        }, 'CompetitorsPage');
+        
+      } catch (error) {
+        console.error('Delete competitor error:', error);
+        debugLog.error('Delete competitor failed', { 
+          competitorId: id, 
+          error: error instanceof Error ? error.message : String(error),
+          errorType: error instanceof Error ? error.constructor.name : typeof error
+        }, 'CompetitorsPage');
+        
+        // Re-add the competitor to the UI since the API call failed
+        if (competitorToDelete) {
+          setCompetitors((prev) => [...prev, competitorToDelete]);
+        }
+        
+        // Show appropriate error message based on error type
+        let errorMessage = 'Unable to discontinue competitor tracking at this time. Please try again.';
+        
+        if (error instanceof Error) {
+          if (error.message.includes('Authentication required') || error.message.includes('401')) {
+            errorMessage = 'Your session has expired. Please refresh the page and try again.';
+          } else if (error.message.includes('404') || error.message.includes('Not Found')) {
+            errorMessage = 'Competitor not found. It may have already been deleted.';
+          } else if (error.message.includes('timeout') || error.message.includes('Network Error')) {
+            errorMessage = 'Request timed out. The competitor may have been deleted. Please refresh the page to confirm.';
+          } else if (error.message.includes('Failed to delete competitor')) {
+            errorMessage = 'Unable to delete competitor at this time. Please try again.';
+          }
+        }
+        
+        notifications.showError(errorMessage, {
+          category: 'Competitors',
+          showToast: true // Force toast to show
+        });
+      }
     } catch (error) {
-      console.error('Delete competitor error:', error);
-      debugLog.error('Delete competitor failed', { 
+      console.error('Unexpected error in handleDelete:', error);
+      debugLog.error('Unexpected error in handleDelete', { 
         competitorId: id, 
-        error: error instanceof Error ? error.message : String(error),
-        errorType: error instanceof Error ? error.constructor.name : typeof error
+        error: error instanceof Error ? error.message : String(error)
       }, 'CompetitorsPage');
       
-      notifications.showError('Unable to discontinue competitor tracking at this time. Please try again.', {
+      notifications.showError('An unexpected error occurred. Please try again.', {
         category: 'Competitors',
         showToast: true // Force toast to show
       });
     }
-  }, [isDemoMode, shop, notifications]);
+  }, [isDemoMode, shop, notifications, competitors]);
 
   // Fetch suggestion count with debouncing and caching
   const getDebouncedSuggestionCount = useCallback(async () => {
