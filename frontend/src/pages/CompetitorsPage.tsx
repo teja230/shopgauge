@@ -2536,6 +2536,7 @@ export default function CompetitorsPage() {
           currentProductId={productAssociationModal.competitor.shopifyProductId}
           currentProductTitle={productAssociationModal.competitor.productTitle}
           onAssociationChange={handleProductAssociationChange}
+          isDemoMode={isDemoMode}
         />
       )}
 

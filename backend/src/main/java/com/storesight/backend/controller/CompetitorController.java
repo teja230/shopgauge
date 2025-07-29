@@ -1431,7 +1431,9 @@ public class CompetitorController {
 
   @GetMapping("/competitors/{id}/products")
   public ResponseEntity<Map<String, Object>> getAvailableProducts(
-      @PathVariable String id, HttpServletRequest request) {
+      @PathVariable String id, 
+      @RequestParam(defaultValue = "false") boolean isDemoMode,
+      HttpServletRequest request) {
     Long shopId = getShopIdFromRequest(request);
     if (shopId == null) {
       return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -1451,15 +1453,22 @@ public class CompetitorController {
       List<Map<String, Object>> availableProducts;
 
       if (cachedProducts.isEmpty()) {
-        // No cached products available, provide demo products for testing
-        logger.info("No cached products found for shop {}, providing demo products", shopDomain);
-        availableProducts = List.of(
-            Map.of("id", "demo-product-1", "title", "Demo Product 1", "handle", "demo-product-1", "price", 29.99),
-            Map.of("id", "demo-product-2", "title", "Demo Product 2", "handle", "demo-product-2", "price", 49.99),
-            Map.of("id", "demo-product-3", "title", "Demo Product 3", "handle", "demo-product-3", "price", 79.99),
-            Map.of("id", "demo-product-4", "title", "Demo Product 4", "handle", "demo-product-4", "price", 99.99),
-            Map.of("id", "demo-product-5", "title", "Demo Product 5", "handle", "demo-product-5", "price", 129.99)
-        );
+        if (isDemoMode) {
+          // Demo mode: provide demo products
+          logger.info("Demo mode: No cached products found for shop {}, providing demo products", shopDomain);
+          availableProducts = List.of(
+              Map.of("id", "demo-product-1", "title", "Demo Product 1", "handle", "demo-product-1", "price", 29.99),
+              Map.of("id", "demo-product-2", "title", "Demo Product 2", "handle", "demo-product-2", "price", 49.99),
+              Map.of("id", "demo-product-3", "title", "Demo Product 3", "handle", "demo-product-3", "price", 79.99),
+              Map.of("id", "demo-product-4", "title", "Demo Product 4", "handle", "demo-product-4", "price", 99.99),
+              Map.of("id", "demo-product-5", "title", "Demo Product 5", "handle", "demo-product-5", "price", 129.99)
+          );
+        } else {
+          // Live mode: return error for no products
+          logger.info("Live mode: No cached products found for shop {}, returning error", shopDomain);
+          return ResponseEntity.status(HttpStatus.NOT_FOUND)
+              .body(Map.of("error", "No products found. Please sync your products first."));
+        }
       } else {
         @SuppressWarnings("unchecked")
         Map<String, Object> productsData = (Map<String, Object>) cachedProducts.get();
@@ -1499,6 +1508,7 @@ public class CompetitorController {
   public ResponseEntity<Map<String, Object>> associateProduct(
       @PathVariable String id,
       @RequestBody Map<String, String> request,
+      @RequestParam(defaultValue = "false") boolean isDemoMode,
       HttpServletRequest httpRequest) {
 
     Long shopId = getShopIdFromRequest(httpRequest);
@@ -1536,10 +1546,15 @@ public class CompetitorController {
       
       boolean productExists = false;
       
-      // Check if it's a demo product
+      // Check if it's a demo product (only allowed in demo mode)
       if (productId.startsWith("demo-product-")) {
-        productExists = true;
-        logger.info("Associating competitor with demo product: {}", productId);
+        if (isDemoMode) {
+          productExists = true;
+          logger.info("Demo mode: Associating competitor with demo product: {}", productId);
+        } else {
+          return ResponseEntity.badRequest()
+              .body(Map.of("error", "Demo products are only available in demo mode"));
+        }
       } else {
         // Check against cached products
         if (cachedProducts.isEmpty()) {
@@ -1610,7 +1625,9 @@ public class CompetitorController {
   @PostMapping("/competitors/{id}/disassociate")
   @Transactional
   public ResponseEntity<Map<String, Object>> disassociateProduct(
-      @PathVariable String id, HttpServletRequest httpRequest) {
+      @PathVariable String id, 
+      @RequestParam(defaultValue = "false") boolean isDemoMode,
+      HttpServletRequest httpRequest) {
 
     Long shopId = getShopIdFromRequest(httpRequest);
     if (shopId == null) {
