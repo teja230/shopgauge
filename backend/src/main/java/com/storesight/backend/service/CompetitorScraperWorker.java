@@ -428,10 +428,12 @@ public class CompetitorScraperWorker {
     String domain = extractDomain(url);
     String platform = identifyPlatform(url, doc);
 
+    log.info("[Worker] Parsing data for platform: {} from URL: {}", platform, url);
+
     BigDecimal price = parsePrice(doc, platform);
     boolean inStock = parseStockStatus(doc, platform);
 
-    return new CompetitorData(price, inStock);
+    return new CompetitorData(price, inStock, platform);
   }
 
   /** Parse price from document */
@@ -562,14 +564,15 @@ public class CompetitorScraperWorker {
       }
 
       jdbcTemplate.update(
-          "INSERT INTO price_snapshots (competitor_url_id, price, in_stock, price_change_percent, significant_change, checked_at, scraper_version) "
-              + "VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)",
+          "INSERT INTO price_snapshots (competitor_url_id, price, in_stock, price_change_percent, significant_change, checked_at, scraper_version, platform) "
+              + "VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?)",
           competitorUrlId,
           data.price,
           data.inStock,
           priceChangePercent,
           significantChange,
-          "v2.0");
+          "v2.0",
+          data.platform);
 
       // Update competitor URL status on successful scrape
       jdbcTemplate.update(
@@ -731,10 +734,12 @@ public class CompetitorScraperWorker {
   private static class CompetitorData {
     final BigDecimal price;
     final boolean inStock;
+    final String platform;
 
-    CompetitorData(BigDecimal price, boolean inStock) {
+    CompetitorData(BigDecimal price, boolean inStock, String platform) {
       this.price = price;
       this.inStock = inStock;
+      this.platform = platform;
     }
   }
 }

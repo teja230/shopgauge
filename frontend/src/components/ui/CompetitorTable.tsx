@@ -340,7 +340,26 @@ const formatLastChecked = (lastChecked: string): string => {
   }
   
   try {
-    const date = parseISO(lastChecked);
+    let date: Date;
+    
+    // Handle different timestamp formats from backend
+    if (lastChecked.includes('T') && lastChecked.includes('Z')) {
+      // ISO format: "2025-07-29T17:59:19.391Z"
+      date = parseISO(lastChecked);
+    } else if (lastChecked.includes(' ') && lastChecked.includes(':')) {
+      // Database format: "2025-07-29 17:59:19.391"
+      date = new Date(lastChecked.replace(' ', 'T') + 'Z');
+    } else {
+      // Try direct parsing
+      date = new Date(lastChecked);
+    }
+    
+    // Validate the date
+    if (isNaN(date.getTime())) {
+      console.warn('Invalid date format for lastChecked:', lastChecked);
+      return 'Not checked yet';
+    }
+    
     const timeAgo = format(date, 'PPpp');
     
     // Show more precise time for recent checks
@@ -360,7 +379,8 @@ const formatLastChecked = (lastChecked: string): string => {
     if (daysAgo < 7) return `${daysAgo} days ago`;
     
     return timeAgo;
-  } catch {
+  } catch (error) {
+    console.warn('Error parsing lastChecked timestamp:', lastChecked, error);
     return 'Not checked yet';
   }
 };

@@ -2785,16 +2785,18 @@ public class CompetitorController {
         boolean inStock = extractStockStatusFromDocument(doc, platform);
 
         logger.info(
-            "triggerImmediatePriceScraping: Extracted price: {}, inStock: {}", price, inStock);
+            "triggerImmediatePriceScraping: Extracted price: {}, inStock: {}, platform: {}", 
+            price, inStock, platform);
 
         if (price != null) {
-          // Store the initial price snapshot
+          // Store the initial price snapshot with platform information
           jdbcTemplate.update(
-              "INSERT INTO price_snapshots (competitor_url_id, price, in_stock, checked_at, scraper_version) "
-                  + "VALUES (?, ?, ?, CURRENT_TIMESTAMP, 'v2.0-immediate')",
+              "INSERT INTO price_snapshots (competitor_url_id, price, in_stock, checked_at, scraper_version, platform) "
+                  + "VALUES (?, ?, ?, CURRENT_TIMESTAMP, 'v2.0-immediate', ?)",
               Long.parseLong(competitorId),
               price,
-              inStock);
+              inStock,
+              platform);
 
           // COST OPTIMIZATION 5: Cache the price for future use
           cachePriceForUrl(url, price);
