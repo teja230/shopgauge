@@ -1782,6 +1782,47 @@ public class CompetitorController {
     return ResponseEntity.ok(debugInfo);
   }
 
+  @GetMapping("/competitors/debug/trigger-scraping/{id}")
+  public ResponseEntity<Map<String, Object>> debugTriggerScraping(
+      @PathVariable String id, HttpServletRequest request) {
+    Long shopId = getShopIdFromRequest(request);
+    if (shopId == null) {
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+          .body(Map.of("error", "Authentication required"));
+    }
+
+    try {
+      // Get competitor URL data
+      List<Map<String, Object>> competitorData = jdbcTemplate.queryForList(
+          "SELECT id, url, shop_id FROM competitor_urls WHERE id = ? AND shop_id = ?",
+          Long.parseLong(id), shopId);
+
+      if (competitorData.isEmpty()) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(Map.of("error", "Competitor not found"));
+      }
+
+      Map<String, Object> competitor = competitorData.get(0);
+      String url = (String) competitor.get("url");
+      Long competitorId = ((Number) competitor.get("id")).longValue();
+
+      // Trigger immediate scraping
+      triggerImmediatePriceScraping(id, url, shopId);
+
+      return ResponseEntity.ok(Map.of(
+          "message", "Immediate scraping triggered",
+          "competitorId", competitorId,
+          "url", url,
+          "shopId", shopId
+      ));
+
+    } catch (Exception e) {
+      logger.error("debugTriggerScraping: Error triggering scraping for competitor {}: {}", id, e.getMessage());
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to trigger scraping: " + e.getMessage()));
+    }
+  }
+
   @GetMapping("/competitors/debug/products")
   public ResponseEntity<Map<String, Object>> debugProducts(HttpServletRequest request) {
     Long shopId = getShopIdFromRequest(request);
