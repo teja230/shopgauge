@@ -137,7 +137,7 @@ export const ProductAssociationModal: React.FC<ProductAssociationModalProps> = (
             setProducts(demoProducts);
             setError(null);
           } else {
-            setError('No products available for association. Please sync your products first.');
+            setError('No products found in your store. Please add products to your Shopify store first, then try again.');
           }
         }
       } else {
@@ -154,12 +154,27 @@ export const ProductAssociationModal: React.FC<ProductAssociationModalProps> = (
           setProducts(demoProducts);
           setError(null);
         } else {
-          setError(errorData.error || 'Failed to load products. Please try again or sync your products first.');
+          // Provide more specific error messages based on the error
+          let errorMessage = 'Failed to load products. Please try again.';
+          
+          if (errorData.error) {
+            if (errorData.error.includes('Shopify authentication')) {
+              errorMessage = 'Shopify connection required. Please reconnect your store in the dashboard.';
+            } else if (errorData.error.includes('No products found')) {
+              errorMessage = 'No products found in your store. Please add products to your Shopify store first.';
+            } else if (errorData.error.includes('sync')) {
+              errorMessage = 'Products need to be synced. Please visit the dashboard to sync your products.';
+            } else {
+              errorMessage = errorData.error;
+            }
+          }
+          
+          setError(errorMessage);
         }
       }
     } catch (err) {
       console.error('Network error loading products:', err);
-      setError('Network error while loading products');
+      setError('Connection issue. Please check your internet connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -274,14 +289,26 @@ export const ProductAssociationModal: React.FC<ProductAssociationModalProps> = (
             severity="error" 
             sx={{ mb: 2 }}
             action={
-              <Button 
-                color="inherit" 
-                size="small" 
-                onClick={loadAvailableProducts}
-                disabled={loading}
-              >
-                Retry
-              </Button>
+              <Box display="flex" gap={1}>
+                {error.includes('Shopify') && (
+                  <Button 
+                    color="inherit" 
+                    size="small" 
+                    variant="outlined"
+                    onClick={() => window.open('/dashboard', '_blank')}
+                  >
+                    Go to Dashboard
+                  </Button>
+                )}
+                <Button 
+                  color="inherit" 
+                  size="small" 
+                  onClick={loadAvailableProducts}
+                  disabled={loading}
+                >
+                  Retry
+                </Button>
+              </Box>
             }
           >
             {error}
@@ -340,6 +367,18 @@ export const ProductAssociationModal: React.FC<ProductAssociationModalProps> = (
             {currentProductId ? 'Change Association' : 'Select Product to Link'}
           </Typography>
           
+          {!loading && products.length === 0 && !error && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                <strong>No products found</strong>
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                To link competitors to products, you need to add products to your Shopify store first. 
+                Visit your Shopify admin to add products, then return here to link them.
+              </Typography>
+            </Alert>
+          )}
+          
           <SearchContainer>
             <TextField
               fullWidth
@@ -363,7 +402,7 @@ export const ProductAssociationModal: React.FC<ProductAssociationModalProps> = (
             </Box>
           ) : filteredProducts.length === 0 ? (
             <Alert severity="info">
-              {searchTerm ? 'No products match your search' : 'No products available'}
+              {searchTerm ? 'No products match your search. Try a different search term.' : 'No products available in your store. Please add products to your Shopify store first.'}
             </Alert>
           ) : (
             <Box sx={{ maxHeight: 400, overflowY: 'auto' }}>
