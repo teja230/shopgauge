@@ -701,10 +701,16 @@ public class MarketIntelligenceAdminController {
         debugInfo.put("currentStatus", currentStatus.get(0));
       }
 
-      // Trigger immediate scraping (this would need to be implemented)
-      // For now, just simulate the trigger
-      debugInfo.put("scrapingTriggered", true);
-      debugInfo.put("message", "Scraping trigger endpoint - implementation needed");
+      // Trigger actual immediate scraping
+      try {
+        triggerImmediatePriceScraping(id, url, actualShopId);
+        debugInfo.put("scrapingTriggered", true);
+        debugInfo.put("message", "Real scraping triggered successfully");
+      } catch (Exception scrapingError) {
+        debugInfo.put("scrapingTriggered", false);
+        debugInfo.put("scrapingError", scrapingError.getMessage());
+        debugInfo.put("message", "Failed to trigger scraping: " + scrapingError.getMessage());
+      }
 
       return ResponseEntity.ok(debugInfo);
 
@@ -1221,6 +1227,14 @@ public class MarketIntelligenceAdminController {
       ".a-price-current",
       ".a-price-current .a-price",
       ".a-price-current .a-price .a-offscreen",
+      // Enhanced Amazon selectors for dynamic content
+      "[data-a-price-whole]",
+      "[data-a-price-fraction]",
+      ".a-price .a-price-symbol + .a-price-whole",
+      ".a-price .a-price-whole + .a-price-fraction",
+      // Mobile Amazon selectors
+      ".a-price-mobile .a-offscreen",
+      ".a-price-mobile .a-price-whole",
       // Generic
       ".price",
       ".product-price",
