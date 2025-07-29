@@ -1453,28 +1453,79 @@ public class CompetitorController {
 
       logger.info("Fetching available products for competitor {} in shop {} (demo mode: {})", id, shopDomain, isDemoMode);
 
-      // Get cached products
+      // Get cached products with detailed debugging
+      logger.info("Attempting to get cached products for shop domain: {}", shopDomain);
       var cachedProducts = dashboardCacheService.getCachedProductsData(shopDomain);
+      logger.info("Cache result - isEmpty: {}, isPresent: {}", cachedProducts.isEmpty(), cachedProducts.isPresent());
+      
+      if (cachedProducts.isPresent()) {
+        logger.info("Cache hit - processing cached products data");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> productsData = (Map<String, Object>) cachedProducts.get();
+        logger.info("Cached products data keys: {}", productsData.keySet());
+        
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> products = (List<Map<String, Object>>) productsData.get("products");
+        logger.info("Products list - null: {}, size: {}", products == null, products != null ? products.size() : 0);
+      }
+      
       List<Map<String, Object>> availableProducts;
-
+      
       if (cachedProducts.isEmpty()) {
         logger.info("No cached products found for shop {} (demo mode: {})", shopDomain, isDemoMode);
         
-        if (isDemoMode) {
-          // Demo mode: provide demo products
-          logger.info("Demo mode: Providing demo products for shop {}", shopDomain);
-          availableProducts = List.of(
-              Map.of("id", "demo-product-1", "title", "Demo Product 1", "handle", "demo-product-1", "price", 29.99),
-              Map.of("id", "demo-product-2", "title", "Demo Product 2", "handle", "demo-product-2", "price", 49.99),
-              Map.of("id", "demo-product-3", "title", "Demo Product 3", "handle", "demo-product-3", "price", 79.99),
-              Map.of("id", "demo-product-4", "title", "Demo Product 4", "handle", "demo-product-4", "price", 99.99),
-              Map.of("id", "demo-product-5", "title", "Demo Product 5", "handle", "demo-product-5", "price", 129.99)
-          );
-        } else {
-          // Live mode: return error for no products
-          logger.info("Live mode: No cached products found for shop {}, returning error", shopDomain);
-          return ResponseEntity.status(HttpStatus.NOT_FOUND)
-              .body(Map.of("error", "No products found. Please sync your products first."));
+        // Try direct database query as fallback
+        logger.info("Attempting direct database query for products");
+        try {
+          List<Map<String, Object>> dbProducts = jdbcTemplate.queryForList(
+              "SELECT shopify_product_id as id, title, handle, price FROM products WHERE shop_id = ? ORDER BY title",
+              shopId);
+          logger.info("Direct DB query returned {} products", dbProducts.size());
+          
+          if (!dbProducts.isEmpty()) {
+            availableProducts = dbProducts.stream()
+                .map(product -> Map.of(
+                    "id", product.get("id"),
+                    "title", product.get("title"),
+                    "handle", product.get("handle"),
+                    "price", product.get("price")))
+                .collect(Collectors.toList());
+            logger.info("Using {} products from direct database query", availableProducts.size());
+          } else {
+            // No products in database either
+            if (isDemoMode) {
+              // Demo mode: provide demo products
+              logger.info("Demo mode: Providing demo products for shop {}", shopDomain);
+              availableProducts = List.of(
+                  Map.of("id", "demo-product-1", "title", "Demo Product 1", "handle", "demo-product-1", "price", 29.99),
+                  Map.of("id", "demo-product-2", "title", "Demo Product 2", "handle", "demo-product-2", "price", 49.99),
+                  Map.of("id", "demo-product-3", "title", "Demo Product 3", "handle", "demo-product-3", "price", 79.99),
+                  Map.of("id", "demo-product-4", "title", "Demo Product 4", "handle", "demo-product-4", "price", 99.99),
+                  Map.of("id", "demo-product-5", "title", "Demo Product 5", "handle", "demo-product-5", "price", 129.99)
+              );
+            } else {
+              // Live mode: return error for no products
+              logger.info("Live mode: No products found in database for shop {}, returning error", shopDomain);
+              return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                  .body(Map.of("error", "No products found. Please sync your products first."));
+            }
+          }
+        } catch (Exception dbError) {
+          logger.error("Error querying database for products: {}", dbError.getMessage());
+          if (isDemoMode) {
+            // Demo mode: provide demo products
+            logger.info("Demo mode: Providing demo products after DB error for shop {}", shopDomain);
+            availableProducts = List.of(
+                Map.of("id", "demo-product-1", "title", "Demo Product 1", "handle", "demo-product-1", "price", 29.99),
+                Map.of("id", "demo-product-2", "title", "Demo Product 2", "handle", "demo-product-2", "price", 49.99),
+                Map.of("id", "demo-product-3", "title", "Demo Product 3", "handle", "demo-product-3", "price", 79.99),
+                Map.of("id", "demo-product-4", "title", "Demo Product 4", "handle", "demo-product-4", "price", 99.99),
+                Map.of("id", "demo-product-5", "title", "Demo Product 5", "handle", "demo-product-5", "price", 129.99)
+            );
+          } else {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", "Failed to retrieve products from database"));
+          }
         }
       } else {
         logger.info("Found cached products for shop {}", shopDomain);
