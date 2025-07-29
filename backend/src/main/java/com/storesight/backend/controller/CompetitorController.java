@@ -26,6 +26,7 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -64,6 +65,9 @@ public class CompetitorController {
 
   @Autowired private RedisTemplate<String, Object> redisTemplate;
   @Autowired private EnhancedRedisService enhancedRedisService;
+  
+  @Value("${competitor.scraping.max-urls-per-shop:10}")
+  private int maxUrlsPerShop;
 
   // Redis-based suggestion count cache with proper invalidation
   private static final String SUGGESTION_COUNT_CACHE_PREFIX = "suggestion_count:";
@@ -2951,12 +2955,12 @@ public class CompetitorController {
           jdbcTemplate.queryForObject(
               "SELECT COUNT(*) FROM competitor_urls WHERE shop_id = ?", Integer.class, shopId);
 
-      int maxCompetitors = 100; // Same as CompetitorScraperWorker
-      if (currentCompetitors > maxCompetitors) {
+      if (currentCompetitors > maxUrlsPerShop) {
         logger.debug(
-            "triggerImmediatePriceScraping: Shop {} has too many competitors ({})",
+            "triggerImmediatePriceScraping: Shop {} has too many competitors ({} > {})",
             shopId,
-            currentCompetitors);
+            currentCompetitors,
+            maxUrlsPerShop);
         return false;
       }
 
