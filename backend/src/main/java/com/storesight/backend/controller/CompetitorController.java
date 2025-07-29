@@ -1436,6 +1436,7 @@ public class CompetitorController {
       HttpServletRequest request) {
     Long shopId = getShopIdFromRequest(request);
     if (shopId == null) {
+      logger.warn("Authentication required for competitor products endpoint - competitor ID: {}", id);
       return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
           .body(Map.of("error", "Authentication required"));
     }
@@ -1444,18 +1445,23 @@ public class CompetitorController {
       // Get shop domain for cache lookup
       String shopDomain = getShopDomainFromId(shopId);
       if (shopDomain == null) {
+        logger.error("Unable to determine shop domain for shop ID: {}", shopId);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
             .body(Map.of("error", "Unable to determine shop domain"));
       }
+
+      logger.info("Fetching available products for competitor {} in shop {} (demo mode: {})", id, shopDomain, isDemoMode);
 
       // Get cached products
       var cachedProducts = dashboardCacheService.getCachedProductsData(shopDomain);
       List<Map<String, Object>> availableProducts;
 
       if (cachedProducts.isEmpty()) {
+        logger.info("No cached products found for shop {} (demo mode: {})", shopDomain, isDemoMode);
+        
         if (isDemoMode) {
           // Demo mode: provide demo products
-          logger.info("Demo mode: No cached products found for shop {}, providing demo products", shopDomain);
+          logger.info("Demo mode: Providing demo products for shop {}", shopDomain);
           availableProducts = List.of(
               Map.of("id", "demo-product-1", "title", "Demo Product 1", "handle", "demo-product-1", "price", 29.99),
               Map.of("id", "demo-product-2", "title", "Demo Product 2", "handle", "demo-product-2", "price", 49.99),
@@ -1470,15 +1476,20 @@ public class CompetitorController {
               .body(Map.of("error", "No products found. Please sync your products first."));
         }
       } else {
+        logger.info("Found cached products for shop {}", shopDomain);
+        
         @SuppressWarnings("unchecked")
         Map<String, Object> productsData = (Map<String, Object>) cachedProducts.get();
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> products = (List<Map<String, Object>>) productsData.get("products");
 
         if (products == null || products.isEmpty()) {
+          logger.warn("Cached products data is empty or null for shop {}", shopDomain);
           return ResponseEntity.status(HttpStatus.NOT_FOUND)
               .body(Map.of("error", "No products available for association."));
         }
+
+        logger.info("Processing {} products for shop {}", products.size(), shopDomain);
 
         // Format products for frontend selection
         availableProducts =
@@ -1493,14 +1504,50 @@ public class CompetitorController {
                 .collect(Collectors.toList());
       }
 
+      logger.info("Returning {} available products for competitor {} in shop {}", availableProducts.size(), id, shopDomain);
       return ResponseEntity.ok(
           Map.of("products", availableProducts, "count", availableProducts.size()));
 
     } catch (Exception e) {
-      logger.error("Error getting available products for competitor {}: {}", id, e.getMessage());
+      logger.error("Error getting available products for competitor {} in shop {}: {}", id, shopId, e.getMessage(), e);
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
           .body(Map.of("error", "Failed to retrieve available products"));
     }
+  }
+
+  @GetMapping("/competitors/debug/products")
+  @Profile("!prod") // Only available in non-production environments
+  public ResponseEntity<Map<String, Object>> debugProducts(HttpServletRequest request) {
+    Long shopId = getShopIdFromRequest(request);
+    String shopDomain = shopId != null ? getShopDomainFromId(shopId) : null;
+    
+    Map<String, Object> debugInfo = new HashMap<>();
+    debugInfo.put("shopId", shopId);
+    debugInfo.put("shopDomain", shopDomain);
+    debugInfo.put("cookies", request.getCookies() != null ? 
+        java.util.Arrays.stream(request.getCookies())
+            .map(c -> Map.of("name", c.getName(), "value", c.getValue()))
+            .collect(Collectors.toList()) : List.of());
+    
+    if (shopDomain != null) {
+      try {
+        var cachedProducts = dashboardCacheService.getCachedProductsData(shopDomain);
+        debugInfo.put("hasCachedProducts", !cachedProducts.isEmpty());
+        debugInfo.put("cachedProductsType", cachedProducts.isPresent() ? cachedProducts.get().getClass().getSimpleName() : "empty");
+        
+        if (cachedProducts.isPresent()) {
+          @SuppressWarnings("unchecked")
+          Map<String, Object> productsData = (Map<String, Object>) cachedProducts.get();
+          @SuppressWarnings("unchecked")
+          List<Map<String, Object>> products = (List<Map<String, Object>>) productsData.get("products");
+          debugInfo.put("productsCount", products != null ? products.size() : 0);
+        }
+      } catch (Exception e) {
+        debugInfo.put("cacheError", e.getMessage());
+      }
+    }
+    
+    return ResponseEntity.ok(debugInfo);
   }
 
   @PostMapping("/competitors/{id}/associate")
