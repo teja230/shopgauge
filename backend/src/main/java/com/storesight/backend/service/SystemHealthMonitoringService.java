@@ -32,13 +32,11 @@ public class SystemHealthMonitoringService implements HealthIndicator {
 
   @Autowired private StringRedisTemplate redisTemplate;
 
+  @Autowired private DatabaseMonitoringService databaseMonitoringService;
+  @Autowired(required = false) private MultiSourceSearchClient multiSourceSearchClient;
   @Autowired private RedisHealthService redisHealthService;
 
-  @Autowired private DatabaseMonitoringService databaseMonitoringService;
-
   @Autowired private SystemResourceMonitoringService systemResourceMonitoringService;
-
-  @Autowired private MultiSourceSearchClient multiSourceSearchClient;
 
   // Health status tracking
   private volatile Map<String, HealthStatus> componentHealth = new HashMap<>();
@@ -199,6 +197,17 @@ public class SystemHealthMonitoringService implements HealthIndicator {
   /** Check external API providers health */
   public Map<String, Object> checkExternalApiProviders() {
     Map<String, Object> apiHealth = new HashMap<>();
+
+    // If discovery services are disabled, return disabled status
+    if (multiSourceSearchClient == null) {
+      apiHealth.put("status", "DISABLED");
+      apiHealth.put("message", "Discovery services are disabled");
+      apiHealth.put("providers", Map.of());
+      apiHealth.put("healthyProviders", 0);
+      apiHealth.put("totalProviders", 0);
+      componentHealth.put("externalApis", HealthStatus.HEALTHY);
+      return apiHealth;
+    }
 
     try {
       // Test each search provider with a simple query
