@@ -7,7 +7,8 @@ import {
   deleteCompetitor,
   getDebouncedSuggestionCount,
   refreshSuggestionCount as refreshSuggestionCountAPI,
-  addCompetitorIntelligent
+  addCompetitorIntelligent,
+  getPriceStatus
 } from '../api';
 import { marketIntelligenceAPI, type LimitsResponse } from '../api/marketIntelligence';
 import { useAuth } from '../context/AuthContext';
@@ -859,11 +860,14 @@ export default function CompetitorsPage() {
         const cacheKey = `competitors_${shop}`;
         cache.delete(cacheKey);
         
-        // Show success notification immediately - force toast display
-        notifications.showSuccess('Competitor has been added successfully. Price data will be updated within the next 12 hours.', {
+        // Show success notification with background scraping info
+        notifications.showSuccess('Competitor has been added successfully. Price data is being collected in the background.', {
           category: 'Competitors',
           showToast: true // Force toast to show
         });
+
+        // Start polling for price updates
+        startPricePolling(newCompetitor.id);
         
         // If we were in demo mode and successfully added a real competitor, switch to live mode
         if (isDemoMode) {
@@ -1113,6 +1117,40 @@ export default function CompetitorsPage() {
       }
     }
   }, [shop, isDemoMode]);
+
+  // Poll for price updates after adding a competitor
+  const startPricePolling = useCallback((competitorId: string) => {
+    if (isDemoMode) return; // Don't poll in demo mode
+    
+    const pollInterval = setInterval(async () => {
+      try {
+        const priceStatus = await getPriceStatus(competitorId);
+        
+        if (priceStatus.hasPrice) {
+          // Price data is available, refresh the competitors list
+          debugLog.info('Price data available for competitor', { competitorId, price: priceStatus.price }, 'CompetitorsPage');
+          await fetchData(true); // Refresh the list to show updated prices
+          clearInterval(pollInterval);
+          
+          // Show success notification
+          notifications.showSuccess(`Price data updated: $${priceStatus.price}`, {
+            category: 'Competitors',
+            showToast: true
+          });
+        }
+      } catch (error) {
+        debugLog.error('Error polling for price status', { competitorId, error }, 'CompetitorsPage');
+        // Stop polling on error
+        clearInterval(pollInterval);
+      }
+    }, 3000); // Poll every 3 seconds
+    
+    // Stop polling after 2 minutes (40 attempts)
+    setTimeout(() => {
+      clearInterval(pollInterval);
+      debugLog.info('Stopped polling for price updates', { competitorId }, 'CompetitorsPage');
+    }, 120000);
+  }, [isDemoMode, fetchData, notifications]);
 
   // Limit display component
   const LimitDisplay = () => {

@@ -648,6 +648,23 @@ export async function deleteCompetitor(id: string): Promise<void> {
   return handleResponse<void>(res);
 }
 
+export async function getPriceStatus(id: string): Promise<{
+  hasPrice: boolean;
+  price?: number;
+  inStock?: boolean;
+  lastChecked?: string;
+  message?: string;
+}> {
+  const res = await fetchWithAuth(`/api/competitors/${id}/price-status`);
+  return handleResponse<{
+    hasPrice: boolean;
+    price?: number;
+    inStock?: boolean;
+    lastChecked?: string;
+    message?: string;
+  }>(res);
+}
+
 // New competitor suggestion interfaces and functions
 export interface CompetitorSuggestion {
   id: number;

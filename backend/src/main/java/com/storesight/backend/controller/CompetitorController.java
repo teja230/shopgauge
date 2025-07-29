@@ -531,17 +531,16 @@ public class CompetitorController {
       // Audit log the competitor addition
       competitorAuditService.logCompetitorAdded(shopId, request.url, label);
 
-      // Schedule deferred price scraping for the new competitor (no immediate scraping)
+      // Start background price scraping for the new competitor (non-blocking)
       try {
         logger.info(
-            "addCompetitor: Scheduling deferred price scraping for new competitor ID: {}",
+            "addCompetitor: Starting background price scraping for new competitor ID: {}",
             record.get("id"));
-        // Schedule scraping for later - this will be handled by the existing 12-hour scraper
-        // No immediate scraping to avoid timeouts and improve user experience
+        // Start background scraping - this won't block the response
+        startBackgroundPriceScraping(record.get("id").toString(), request.url, shopId);
       } catch (Exception e) {
-        logger.warn(
-            "addCompetitor: Failed to schedule deferred price scraping: {}", e.getMessage());
-        // Don't fail the competitor addition if scheduling fails
+        logger.warn("addCompetitor: Failed to start background price scraping: {}", e.getMessage());
+        // Don't fail the competitor addition if background scraping fails
       }
 
       logger.info(
@@ -1203,6 +1202,43 @@ public class CompetitorController {
   }
 
   /** Check competitor tracking limits for the current shop */
+  @GetMapping("/competitors/{id}/price-status")
+  public ResponseEntity<Map<String, Object>> getPriceStatus(
+      @PathVariable String id, HttpServletRequest request) {
+    Long shopId = getShopIdFromRequest(request);
+    if (shopId == null) {
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+          .body(Map.of("error", "Authentication required"));
+    }
+
+    try {
+      // Check if competitor has any price snapshots
+      List<Map<String, Object>> snapshots =
+          jdbcTemplate.queryForList(
+              "SELECT price, in_stock, checked_at FROM price_snapshots WHERE competitor_url_id = ? ORDER BY checked_at DESC LIMIT 1",
+              Long.parseLong(id));
+
+      if (!snapshots.isEmpty()) {
+        Map<String, Object> snapshot = snapshots.get(0);
+        return ResponseEntity.ok(
+            Map.of(
+                "hasPrice", true,
+                "price", snapshot.get("price"),
+                "inStock", snapshot.get("in_stock"),
+                "lastChecked", snapshot.get("checked_at")));
+      } else {
+        return ResponseEntity.ok(
+            Map.of(
+                "hasPrice", false, "message", "Price data is being collected in the background"));
+      }
+    } catch (Exception e) {
+      logger.error(
+          "getPriceStatus: Error checking price status for competitor {}: {}", id, e.getMessage());
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to check price status"));
+    }
+  }
+
   @GetMapping("/competitors/limits")
   public ResponseEntity<Map<String, Object>> checkLimits(HttpServletRequest request) {
     Long shopId = getShopIdFromRequest(request);
@@ -1852,6 +1888,34 @@ public class CompetitorController {
       logger.debug("extractTitleByPlatform: Error extracting title from URL: {}", e.getMessage());
       return extractTitleFromUrl(url);
     }
+  }
+
+  /** Start background price scraping without blocking the response */
+  private void startBackgroundPriceScraping(String competitorId, String url, Long shopId) {
+    // Use CompletableFuture to run scraping in background
+    java.util.concurrent.CompletableFuture.runAsync(
+        () -> {
+          try {
+            logger.info(
+                "startBackgroundPriceScraping: Starting background scraping for competitor ID: {}",
+                competitorId);
+
+            // Add a small delay to ensure the competitor is fully saved
+            Thread.sleep(1000);
+
+            // Use the existing scraping logic but in background
+            triggerImmediatePriceScraping(competitorId, url, shopId);
+
+            logger.info(
+                "startBackgroundPriceScraping: Completed background scraping for competitor ID: {}",
+                competitorId);
+          } catch (Exception e) {
+            logger.warn(
+                "startBackgroundPriceScraping: Background scraping failed for competitor ID {}: {}",
+                competitorId,
+                e.getMessage());
+          }
+        });
   }
 
   /** Request class for adding competitors */
