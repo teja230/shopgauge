@@ -790,7 +790,8 @@ public class CompetitorController {
               : extractTitleFromUrl(suggestion.getSuggestedUrl());
 
       jdbcTemplate.update(
-          "INSERT INTO competitor_urls (product_id, url, label, created_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)",
+          "INSERT INTO competitor_urls (shop_id, shopify_product_id, url, label, created_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)",
+          suggestion.getShopId(),
           suggestion.getProductId(),
           suggestion.getSuggestedUrl(),
           label);
@@ -1238,7 +1239,7 @@ public class CompetitorController {
         try {
           Integer competitorCount =
               jdbcTemplate.queryForObject(
-                  "SELECT COUNT(*) FROM competitor_urls WHERE product_id IN (SELECT id FROM products WHERE shop_id = ?)",
+                  "SELECT COUNT(*) FROM competitor_urls WHERE shop_id = ?",
                   Integer.class,
                   shopId);
           debug.put("competitorUrlsCount", competitorCount);

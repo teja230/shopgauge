@@ -208,21 +208,18 @@ public class CompetitorScraperWorker {
       // COST OPTIMIZATION: Get only competitors that need scraping (intelligent selection)
       List<Map<String, Object>> competitorUrls =
           jdbcTemplate.queryForList(
-              "SELECT cu.id, cu.url, cu.label, p.shop_id, s.shopify_domain, "
+              "SELECT cu.id, cu.url, cu.label, cu.shop_id, s.shopify_domain, "
                   + "COALESCE(ps.checked_at, cu.created_at) as last_checked, "
                   + "COALESCE(ps.price, 0) as last_price "
                   + "FROM competitor_urls cu "
-                  + "JOIN products p ON cu.product_id = p.id "
-                  + "JOIN shops s ON p.shop_id = s.id "
+                  + "JOIN shops s ON cu.shop_id = s.id "
                   + "LEFT JOIN ("
                   + "  SELECT competitor_url_id, price, checked_at, "
                   + "         ROW_NUMBER() OVER (PARTITION BY competitor_url_id ORDER BY checked_at DESC) as rn "
                   + "  FROM price_snapshots"
                   + ") ps ON cu.id = ps.competitor_url_id AND ps.rn = 1 "
                   + "WHERE cu.created_at >= NOW() - INTERVAL '30 days' "
-                  + "AND (SELECT COUNT(*) FROM competitor_urls cu2 "
-                  + "      JOIN products p2 ON cu2.product_id = p2.id "
-                  + "      WHERE p2.shop_id = s.id) <= ? "
+                  + "AND (SELECT COUNT(*) FROM competitor_urls cu2 WHERE cu2.shop_id = s.id) <= ? "
                   + "AND (ps.checked_at IS NULL OR ps.checked_at < NOW() - INTERVAL '12 hours') "
                   + "ORDER BY ps.checked_at ASC NULLS FIRST LIMIT ?",
               maxUrlsPerShop,
