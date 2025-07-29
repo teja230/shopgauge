@@ -483,7 +483,7 @@ async function getProductsIntelligently(): Promise<any[]> {
       sessionStorage.removeItem(sessionKey);
     }
   }
-
+  
   // Try Redis fallback via API (avoids direct Redis calls)
   try {
     console.log('Checking Redis cache for products via API');
