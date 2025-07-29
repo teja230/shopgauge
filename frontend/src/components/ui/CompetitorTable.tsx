@@ -37,6 +37,7 @@ import {
   Launch as LaunchIcon,
   Link as LinkIcon,
 } from '@mui/icons-material';
+import { CircularProgress } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { format, parseISO } from 'date-fns';
 import { useAuth } from '../../context/AuthContext';
@@ -51,6 +52,7 @@ export interface Competitor {
   lastChecked: string;
   shopifyProductId?: string; // Optional field for product association
   productTitle?: string; // Product title for display
+  priceLoading?: boolean; // Indicates if price is being fetched
 }
 
 interface CompetitorTableProps {
@@ -461,12 +463,21 @@ const MobileCompetitorCard: React.FC<{
         </CompetitorHeader>
 
         <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }}>
-          <MetricChip
-            label={formatPrice(competitor.price)}
-            color="primary"
-            variant="filled"
-            icon={<AttachMoneyIcon />}
-          />
+          {competitor.priceLoading || competitor.price === 0 ? (
+            <MetricChip
+              label="Loading price..."
+              color="default"
+              variant="outlined"
+              icon={<CircularProgress size={16} />}
+            />
+          ) : (
+            <MetricChip
+              label={formatPrice(competitor.price)}
+              color="primary"
+              variant="filled"
+              icon={<AttachMoneyIcon />}
+            />
+          )}
           
           <MetricChip
             label={getStatusLabel(competitor.inStock)}
@@ -628,9 +639,18 @@ const DesktopTableRow: React.FC<{
       </StyledTableCell>
 
       <StyledTableCell>
-        <Typography variant="body2" fontWeight={600} color="primary">
-          {formatPrice(competitor.price)}
-        </Typography>
+        {competitor.priceLoading || competitor.price === 0 ? (
+          <Box display="flex" alignItems="center" gap={1}>
+            <CircularProgress size={16} />
+            <Typography variant="body2" color="text.secondary">
+              Loading price...
+            </Typography>
+          </Box>
+        ) : (
+          <Typography variant="body2" fontWeight={600} color="primary">
+            {formatPrice(competitor.price)}
+          </Typography>
+        )}
       </StyledTableCell>
 
       <StyledTableCell>
