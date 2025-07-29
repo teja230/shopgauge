@@ -2762,6 +2762,11 @@ public class CompetitorController {
             cachedPrice,
             true); // Assume in stock for cached data
 
+        // Update competitor URL status on successful cached scrape
+        jdbcTemplate.update(
+            "UPDATE competitor_urls SET status = 'active', last_successful_check = CURRENT_TIMESTAMP, error_count = 0 WHERE id = ?",
+            Long.parseLong(competitorId));
+
         // Mark as recently scraped to prevent immediate re-scraping
         redisTemplate.opsForValue().set(recentScrapeKey, "1", 2, TimeUnit.HOURS);
         return;
@@ -2797,6 +2802,11 @@ public class CompetitorController {
               price,
               inStock,
               platform);
+
+          // Update competitor URL status on successful scrape
+          jdbcTemplate.update(
+              "UPDATE competitor_urls SET status = 'active', last_successful_check = CURRENT_TIMESTAMP, error_count = 0 WHERE id = ?",
+              Long.parseLong(competitorId));
 
           // COST OPTIMIZATION 5: Cache the price for future use
           cachePriceForUrl(url, price);
