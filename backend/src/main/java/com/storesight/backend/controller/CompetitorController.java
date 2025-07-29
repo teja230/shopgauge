@@ -13,8 +13,6 @@ import com.storesight.backend.service.discovery.CompetitorDiscoveryService;
 import com.storesight.backend.service.discovery.MultiSourceSearchClient;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
-import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -65,13 +63,11 @@ public class CompetitorController {
   private static final String SUGGESTION_CACHE_INVALIDATION_KEY = "suggestion_cache_invalidation";
   private static final int CACHE_TTL_MINUTES = 30; // 30 minutes cache duration
 
-  /**
-   * Get cached suggestion count with Redis-based caching and proper invalidation
-   */
+  /** Get cached suggestion count with Redis-based caching and proper invalidation */
   private Long getCachedSuggestionCount(Long shopId) {
     String cacheKey = SUGGESTION_COUNT_CACHE_PREFIX + shopId;
     String invalidationKey = SUGGESTION_CACHE_INVALIDATION_KEY + ":" + shopId;
-    
+
     try {
       // Check if cache is invalidated
       String invalidationValue = (String) redisTemplate.opsForValue().get(invalidationKey);
@@ -79,7 +75,7 @@ public class CompetitorController {
         logger.debug("Cache invalidated for shop {}, fetching fresh count", shopId);
         return null; // Force fresh fetch
       }
-      
+
       // Get cached count
       Object cachedValue = redisTemplate.opsForValue().get(cacheKey);
       if (cachedValue != null) {
@@ -87,7 +83,7 @@ public class CompetitorController {
         logger.debug("Returning cached suggestion count for shop {}: {}", shopId, count);
         return count;
       }
-      
+
       return null; // Cache miss, need fresh fetch
     } catch (Exception e) {
       logger.warn("Error reading from Redis cache for shop {}: {}", shopId, e.getMessage());
@@ -95,28 +91,27 @@ public class CompetitorController {
     }
   }
 
-  /**
-   * Cache suggestion count in Redis with TTL
-   */
+  /** Cache suggestion count in Redis with TTL */
   private void cacheSuggestionCount(Long shopId, Long count) {
     String cacheKey = SUGGESTION_COUNT_CACHE_PREFIX + shopId;
-    
+
     try {
       redisTemplate.opsForValue().set(cacheKey, count, CACHE_TTL_MINUTES, TimeUnit.MINUTES);
-      logger.debug("Cached suggestion count for shop {}: {} (TTL: {} minutes)", 
-          shopId, count, CACHE_TTL_MINUTES);
+      logger.debug(
+          "Cached suggestion count for shop {}: {} (TTL: {} minutes)",
+          shopId,
+          count,
+          CACHE_TTL_MINUTES);
     } catch (Exception e) {
       logger.warn("Error caching suggestion count for shop {}: {}", shopId, e.getMessage());
     }
   }
 
-  /**
-   * Invalidate suggestion count cache for a shop
-   */
+  /** Invalidate suggestion count cache for a shop */
   private void invalidateSuggestionCountCache(Long shopId) {
     String cacheKey = SUGGESTION_COUNT_CACHE_PREFIX + shopId;
     String invalidationKey = SUGGESTION_CACHE_INVALIDATION_KEY + ":" + shopId;
-    
+
     try {
       // Set invalidation marker (short TTL to prevent permanent invalidation)
       redisTemplate.opsForValue().set(invalidationKey, "invalidated", 1, TimeUnit.MINUTES);
@@ -128,9 +123,7 @@ public class CompetitorController {
     }
   }
 
-  /**
-   * Clear all suggestion count caches (for admin operations)
-   */
+  /** Clear all suggestion count caches (for admin operations) */
   private void clearAllSuggestionCountCaches() {
     try {
       // This is a simple approach - in production you might want to use Redis SCAN
@@ -779,12 +772,8 @@ public class CompetitorController {
     }
   }
 
-  /** Get count of NEW suggestions for badge display - with caching and debounce */
+  /** Get count of NEW suggestions for badge display - with Redis-based caching and proper invalidation */
   @GetMapping("/competitors/suggestions/count")
-  @Cacheable(
-      value = "suggestionCounts",
-      key = "#request.remoteAddr + '_' + #request.getHeader('Cookie')",
-      unless = "#result.body.get('error') != null")
   public ResponseEntity<Map<String, Object>> getSuggestionCount(HttpServletRequest request) {
     Long shopId = getShopIdFromRequest(request);
 
@@ -812,9 +801,6 @@ public class CompetitorController {
 
       // Update cache
       cacheSuggestionCount(shopId, newCount);
-
-      // Clean up old cache entries (optional, prevents memory leaks)
-      invalidateSuggestionCountCache(shopId);
 
       logger.debug("Fresh suggestion count for shop {}: {}", shopId, newCount);
       return ResponseEntity.ok(Map.of("newSuggestions", newCount));
@@ -844,6 +830,7 @@ public class CompetitorController {
 
   /** Approve a competitor suggestion */
   @PostMapping("/competitors/suggestions/{id}/approve")
+  @Transactional
   public ResponseEntity<Map<String, String>> approveSuggestion(
       @PathVariable Long id, HttpServletRequest request) {
 
@@ -891,6 +878,7 @@ public class CompetitorController {
 
   /** Ignore a competitor suggestion */
   @PostMapping("/competitors/suggestions/{id}/ignore")
+  @Transactional
   public ResponseEntity<Map<String, String>> ignoreSuggestion(
       @PathVariable Long id, HttpServletRequest request) {
 
