@@ -538,14 +538,17 @@ public class CompetitorController {
       // Audit log the competitor addition
       competitorAuditService.logCompetitorAdded(shopId, request.url, label);
 
-      // Trigger immediate price scraping for the new competitor
+      // Schedule deferred price scraping for the new competitor (no immediate scraping)
       try {
-        logger.info("addCompetitor: Triggering immediate price scraping for new competitor");
-        triggerImmediatePriceScraping(record.get("id").toString(), request.url, shopId);
+        logger.info(
+            "addCompetitor: Scheduling deferred price scraping for new competitor ID: {}",
+            record.get("id"));
+        // Schedule scraping for later - this will be handled by the existing 12-hour scraper
+        // No immediate scraping to avoid timeouts and improve user experience
       } catch (Exception e) {
         logger.warn(
-            "addCompetitor: Failed to trigger immediate price scraping: {}", e.getMessage());
-        // Don't fail the competitor addition if scraping fails
+            "addCompetitor: Failed to schedule deferred price scraping: {}", e.getMessage());
+        // Don't fail the competitor addition if scheduling fails
       }
 
       logger.info(
@@ -1693,15 +1696,20 @@ public class CompetitorController {
   /** Helper method to extract Amazon product title from URL */
   private String extractAmazonTitle(String url) {
     try {
-      // First try HTML scraping for better results
-      String htmlTitle = extractTitleFromHtml(url);
-      if (htmlTitle != null && !htmlTitle.trim().isEmpty()) {
-        return htmlTitle;
-      }
-
-      // Fallback to URL-based extraction
+      // Enhanced URL-based extraction for Amazon
       if (url.contains("/dp/")) {
         String productId = url.split("/dp/")[1].split("/")[0];
+        // Try to extract product name from URL path
+        String[] urlParts = url.split("/dp/" + productId);
+        if (urlParts.length > 0 && urlParts[0].contains("/")) {
+          String pathPart = urlParts[0].substring(urlParts[0].lastIndexOf("/") + 1);
+          if (!pathPart.isEmpty()
+              && !pathPart.equals("www.amazon.com")
+              && !pathPart.equals("amazon.com")) {
+            String productName = pathPart.replace("-", " ").replace("_", " ");
+            return cleanTitle(productName);
+          }
+        }
         return "Amazon Product " + productId;
       } else if (url.contains("/gp/product/")) {
         String productId = url.split("/gp/product/")[1].split("/")[0];
@@ -1718,6 +1726,7 @@ public class CompetitorController {
         return "Amazon Page";
       }
     } catch (Exception e) {
+      logger.debug("extractAmazonTitle: Error extracting title from URL: {}", e.getMessage());
       return "Amazon Product";
     }
   }
@@ -1725,22 +1734,17 @@ public class CompetitorController {
   /** Helper method to extract Shopify product title from URL */
   private String extractShopifyTitle(String url) {
     try {
-      // First try HTML scraping for better results
-      String htmlTitle = extractTitleFromHtml(url);
-      if (htmlTitle != null && !htmlTitle.trim().isEmpty()) {
-        return htmlTitle;
-      }
-
-      // Fallback to URL slug extraction
+      // URL slug extraction for Shopify
       if (url.contains("/products/")) {
         String[] parts = url.split("/products/");
         if (parts.length > 1) {
           String productSlug = parts[1].split("\\?")[0].split("/")[0];
-          return productSlug.replace("-", " ").replace("_", " ");
+          return cleanTitle(productSlug.replace("-", " ").replace("_", " "));
         }
       }
       return extractTitleFromUrl(url);
     } catch (Exception e) {
+      logger.debug("extractShopifyTitle: Error extracting title from URL: {}", e.getMessage());
       return extractTitleFromUrl(url);
     }
   }
@@ -1748,13 +1752,7 @@ public class CompetitorController {
   /** Helper method to extract Best Buy product title from URL */
   private String extractBestBuyTitle(String url) {
     try {
-      // First try HTML scraping for better results
-      String htmlTitle = extractTitleFromHtml(url);
-      if (htmlTitle != null && !htmlTitle.trim().isEmpty()) {
-        return htmlTitle;
-      }
-
-      // Fallback to URL slug extraction for Best Buy
+      // URL slug extraction for Best Buy
       // Example:
       // https://www.bestbuy.com/site/apple-macbook-air-13-inch-laptop-apple-m4-chip-built-for-apple-intelligence-16gb-memory-256gb-ssd-midnight/6565862.p?skuId=6565862
       if (url.contains("/site/")) {
@@ -1763,11 +1761,12 @@ public class CompetitorController {
           String productPath = parts[1].split("\\?")[0];
           // Remove SKU and convert to title case
           String productName = productPath.split("/")[0];
-          return productName.replace("-", " ").replace("_", " ");
+          return cleanTitle(productName.replace("-", " ").replace("_", " "));
         }
       }
       return extractTitleFromUrl(url);
     } catch (Exception e) {
+      logger.debug("extractBestBuyTitle: Error extracting title from URL: {}", e.getMessage());
       return extractTitleFromUrl(url);
     }
   }
@@ -1928,11 +1927,12 @@ public class CompetitorController {
         // Extract price using enhanced patterns
         String platform = identifyPlatform(url);
         logger.info("triggerImmediatePriceScraping: Extracting price for platform: {}", platform);
-        
+
         java.math.BigDecimal price = extractPriceFromDocument(doc, platform);
         boolean inStock = extractStockStatusFromDocument(doc, platform);
 
-        logger.info("triggerImmediatePriceScraping: Extracted price: {}, inStock: {}", price, inStock);
+        logger.info(
+            "triggerImmediatePriceScraping: Extracted price: {}, inStock: {}", price, inStock);
 
         if (price != null) {
           // Store the initial price snapshot
@@ -2097,12 +2097,15 @@ public class CompetitorController {
     // Try CSS selectors first (most reliable)
     for (String selector : selectors) {
       org.jsoup.select.Elements elements = doc.select(selector);
-      logger.debug("extractPriceFromDocument: Trying selector '{}', found {} elements", selector, elements.size());
-      
+      logger.debug(
+          "extractPriceFromDocument: Trying selector '{}', found {} elements",
+          selector,
+          elements.size());
+
       for (org.jsoup.nodes.Element element : elements) {
         String text = element.text().trim();
         logger.debug("extractPriceFromDocument: Element text: '{}'", text);
-        
+
         if (!text.isEmpty() && text.length() < 50) { // Avoid very long text
           java.math.BigDecimal price = extractPriceFromText(text, patterns);
           if (price != null && price.compareTo(java.math.BigDecimal.ZERO) > 0) {

@@ -542,7 +542,7 @@ export async function addCompetitorIntelligent(url: string, productId?: string):
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(60000), // Extended timeout to 60 seconds
+      signal: AbortSignal.timeout(15000), // Reduced timeout since no immediate scraping
     });
     
     console.log('addCompetitorIntelligent: Response status:', response.status);

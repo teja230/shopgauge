@@ -860,7 +860,7 @@ export default function CompetitorsPage() {
         cache.delete(cacheKey);
         
         // Show success notification immediately
-        notifications.showSuccess('Competitor tracking has been successfully initiated', {
+        notifications.showSuccess('Competitor has been added successfully. Price data will be updated within the next 12 hours.', {
           category: 'Competitors'
         });
         
@@ -932,7 +932,7 @@ export default function CompetitorsPage() {
           errorType: error.constructor.name
         }, 'CompetitorsPage');
       } else if (error.message?.includes('Connection issue') || error.message?.includes('fetch') || error.message?.includes('Network Error') || error.message?.includes('cancelled') || error.message?.includes('timeout') || error.name === 'AbortError') {
-        userMessage = 'Request was cancelled due to timeout. Please try again.';
+        userMessage = 'Request timed out. Please try again.';
         debugLog.error('Request cancelled/timeout', {
           error: error.message,
           errorName: error.name,
