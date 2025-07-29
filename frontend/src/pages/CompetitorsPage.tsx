@@ -864,7 +864,9 @@ export default function CompetitorsPage() {
         
         // Add competitor with intelligent product handling
         newCompetitor = await addCompetitorIntelligent(url.trim(), finalProductId);
-        setCompetitors((prev) => [...prev, newCompetitor]);
+        // Set price loading state for the new competitor
+        const competitorWithLoading = { ...newCompetitor, priceLoading: true };
+        setCompetitors((prev) => [...prev, competitorWithLoading]);
       
         // Clear cache to ensure fresh data on next load
         const cacheKey = `competitors_${shop}`;
@@ -1146,9 +1148,17 @@ export default function CompetitorsPage() {
         const priceStatus = await getPriceStatus(competitorId);
         
         if (priceStatus.hasPrice) {
-          // Price data is available, refresh the competitors list
+          // Price data is available, update the competitor's loading state
           debugLog.info('Price data available for competitor', { competitorId, price: priceStatus.price }, 'CompetitorsPage');
-          await fetchData(true); // Refresh the list to show updated prices
+          
+          // Update the competitor to remove loading state
+          setCompetitors((prev) => 
+            prev.map(comp => 
+              comp.id === competitorId 
+                ? { ...comp, priceLoading: false }
+                : comp
+            )
+          );
           
           // Show enterprise-grade success notification
           notifications.showSuccess(`Price found for ${priceStatus.inStock ? 'in-stock' : 'out-of-stock'} item at $${priceStatus.price}`, {
@@ -1159,8 +1169,18 @@ export default function CompetitorsPage() {
           });
           return true; // Success, stop polling
         } else if (attemptCount >= maxAttempts) {
-          // Max attempts reached, show informative message
+          // Max attempts reached, clear loading state and show informative message
           debugLog.info('Max polling attempts reached', { competitorId, attempts: attemptCount }, 'CompetitorsPage');
+          
+          // Clear loading state for this competitor
+          setCompetitors((prev) => 
+            prev.map(comp => 
+              comp.id === competitorId 
+                ? { ...comp, priceLoading: false }
+                : comp
+            )
+          );
+          
           notifications.showInfo('Price will be updated within the next few hours. You can continue adding competitors in the meantime.', {
             category: 'Competitors',
             showToast: true,
@@ -1177,6 +1197,15 @@ export default function CompetitorsPage() {
         debugLog.error('Error polling for price status', { competitorId, error, attempt: attemptCount }, 'CompetitorsPage');
         
         if (attemptCount >= maxAttempts) {
+          // Clear loading state for this competitor on error
+          setCompetitors((prev) => 
+            prev.map(comp => 
+              comp.id === competitorId 
+                ? { ...comp, priceLoading: false }
+                : comp
+            )
+          );
+          
           notifications.showInfo('Price will be updated within the next few hours. You can continue adding competitors in the meantime.', {
             category: 'Competitors',
             showToast: true,
