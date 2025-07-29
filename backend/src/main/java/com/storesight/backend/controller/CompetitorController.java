@@ -1228,8 +1228,7 @@ public class CompetitorController {
                 "lastChecked", snapshot.get("checked_at")));
       } else {
         return ResponseEntity.ok(
-            Map.of(
-                "hasPrice", false, "message", "Price data is being collected in the background"));
+            Map.of("hasPrice", false, "message", "Price tracking is being activated"));
       }
     } catch (Exception e) {
       logger.error(
