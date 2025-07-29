@@ -968,7 +968,7 @@ public class ShopifyAuthController {
     Map<String, Object> response = new HashMap<>();
 
     if (shop == null) {
-      logger.warn("Auth: No shop cookie found");
+      logger.debug("Auth: No shop cookie found - user not authenticated");
       response.put("error", "Not authenticated");
       response.put("shop", null);
       return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response));

@@ -158,6 +158,8 @@
     <logger name="com.storesight.backend.util.RetryUtil" level="INFO"/>
     <logger name="com.storesight.backend.config.CorrelationIdFilter" level="WARN"/>
     <logger name="com.storesight.backend.config.AsyncExceptionHandler" level="INFO"/>
+    <logger name="com.storesight.backend.config.StartupOptimizationConfig" level="INFO"/>
+    <logger name="com.storesight.backend.config.ConfigurationValidator" level="INFO"/>
     
     <!-- Database and Redis logging -->
     <logger name="org.springframework.data.redis" level="WARN"/>
