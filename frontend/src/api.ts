@@ -662,19 +662,18 @@ export interface SuggestionResponse {
 }
 
 export async function getCompetitorSuggestions(page: number = 0, size: number = 10, status: string = 'NEW'): Promise<SuggestionResponse> {
-  const res = await fetch(`${API_BASE_URL}/api/competitors/suggestions?page=${page}&size=${size}&status=${status}`, defaultOptions);
+  const res = await fetchWithAuth(`/api/competitors/suggestions?page=${page}&size=${size}&status=${status}`);
   return handleResponse<SuggestionResponse>(res);
 }
 
 export async function getSuggestionCount(): Promise<{ newSuggestions: number }> {
-  const res = await fetch(`${API_BASE_URL}/api/competitors/suggestions/count`, defaultOptions);
+  const res = await fetchWithAuth(`/api/competitors/suggestions/count`);
   return handleResponse<{ newSuggestions: number }>(res);
 }
 
 // Manual refresh endpoint for forcing fresh data
 export async function refreshSuggestionCount(): Promise<{ newSuggestions: number }> {
-  const res = await fetch(`${API_BASE_URL}/api/competitors/suggestions/refresh-count`, {
-    ...defaultOptions,
+  const res = await fetchWithAuth(`/api/competitors/suggestions/refresh-count`, {
     method: 'POST',
   });
   return handleResponse<{ newSuggestions: number }>(res);
@@ -700,16 +699,14 @@ export function getDebouncedSuggestionCount(): Promise<{ newSuggestions: number 
 }
 
 export async function approveSuggestion(id: number): Promise<{ message: string }> {
-  const res = await fetch(`${API_BASE_URL}/api/competitors/suggestions/${id}/approve`, {
-    ...defaultOptions,
+  const res = await fetchWithAuth(`/api/competitors/suggestions/${id}/approve`, {
     method: 'POST',
   });
   return handleResponse<{ message: string }>(res);
 }
 
 export async function ignoreSuggestion(id: number): Promise<{ message: string }> {
-  const res = await fetch(`${API_BASE_URL}/api/competitors/suggestions/${id}/ignore`, {
-    ...defaultOptions,
+  const res = await fetchWithAuth(`/api/competitors/suggestions/${id}/ignore`, {
     method: 'POST',
   });
   return handleResponse<{ message: string }>(res);

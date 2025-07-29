@@ -39,6 +39,7 @@ import {
 } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
 import { format, parseISO } from 'date-fns';
+import { useAuth } from '../../context/AuthContext';
 
 export interface Competitor {
   id: string;
@@ -369,16 +370,12 @@ const getCompetitorInitials = (label: string): string => {
     .toUpperCase();
 };
 
-const getProductLink = (competitor: Competitor): string | null => {
+const getProductLink = (competitor: Competitor, shop: string | null): string | null => {
   if (competitor.shopifyProductId) {
-    // Get shop domain from URL parameters (same as Dashboard approach)
-    const urlParams = new URLSearchParams(window.location.search);
-    const shopFromUrl = urlParams.get('shop');
-    
     // Only return link if we have a valid shop domain
-    if (shopFromUrl && shopFromUrl.includes('.myshopify.com')) {
+    if (shop && shop.includes('.myshopify.com')) {
       // Use the same approach as Dashboard - create admin URL with product ID
-      return `https://${shopFromUrl}/admin/products/${competitor.shopifyProductId}`;
+      return `https://${shop}/admin/products/${competitor.shopifyProductId}`;
     }
   }
   return null;
@@ -516,13 +513,18 @@ const MobileCompetitorCard: React.FC<{
                       size="small"
                       variant="outlined"
                       icon={<CheckCircleIcon />}
-                      onClick={() => getProductLink(competitor) && window.open(getProductLink(competitor)!, '_blank')}
+                      onClick={() => {
+                        const productLink = getProductLink(competitor, shop);
+                        if (productLink) {
+                          window.open(productLink, '_blank', 'noopener,noreferrer');
+                        }
+                      }}
                       sx={{ 
-                        cursor: getProductLink(competitor) ? 'pointer' : 'default',
-                        '&:hover': getProductLink(competitor) ? {
+                        cursor: 'pointer',
+                        '&:hover': {
                           backgroundColor: 'success.light',
                           color: 'success.contrastText'
-                        } : {}
+                        }
                       }}
                     />
                   </Tooltip>
@@ -579,6 +581,7 @@ const DesktopTableRow: React.FC<{
   onDelete: (id: string) => void;
 }> = ({ competitor, onDelete }) => {
   const percentChangeText = formatPercentChange(competitor.percentDiff);
+  const { shop } = useAuth();
 
   const handleDelete = () => {
     onDelete(competitor.id);
@@ -586,6 +589,13 @@ const DesktopTableRow: React.FC<{
 
   const handleOpenUrl = () => {
     window.open(competitor.url, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleProductClick = () => {
+    const productLink = getProductLink(competitor, shop);
+    if (productLink) {
+      window.open(productLink, '_blank', 'noopener,noreferrer');
+    }
   };
 
   return (
@@ -668,18 +678,13 @@ const DesktopTableRow: React.FC<{
               size="small"
               variant="outlined"
               icon={<CheckCircleIcon />}
-              onClick={() => {
-                const productLink = getProductLink(competitor);
-                if (productLink) {
-                  window.open(productLink, '_blank', 'noopener,noreferrer');
-                }
-              }}
+              onClick={handleProductClick}
               sx={{ 
-                cursor: getProductLink(competitor) ? 'pointer' : 'default',
-                '&:hover': getProductLink(competitor) ? {
+                cursor: 'pointer',
+                '&:hover': {
                   backgroundColor: 'success.light',
                   color: 'success.contrastText'
-                } : {}
+                }
               }}
             />
           </Tooltip>
