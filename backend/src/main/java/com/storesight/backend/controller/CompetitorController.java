@@ -1517,7 +1517,6 @@ public class CompetitorController {
   }
 
   @GetMapping("/competitors/debug/scraping-status")
-  @Profile("!prod") // Only available in non-production environments
   public ResponseEntity<Map<String, Object>> debugScrapingStatus(HttpServletRequest request) {
     Long shopId = getShopIdFromRequest(request);
     String shopDomain = shopId != null ? getShopDomainFromId(shopId) : null;
@@ -1525,6 +1524,20 @@ public class CompetitorController {
     Map<String, Object> debugInfo = new HashMap<>();
     debugInfo.put("shopId", shopId);
     debugInfo.put("shopDomain", shopDomain);
+    
+    // Add authentication debugging info
+    debugInfo.put("cookies", request.getCookies() != null ? 
+        java.util.Arrays.stream(request.getCookies())
+            .map(c -> Map.of("name", c.getName(), "value", c.getValue()))
+            .collect(Collectors.toList()) : List.of());
+    
+    if (shopId == null) {
+      debugInfo.put("error", "No shop ID found - check authentication");
+      debugInfo.put("authStatus", "FAILED");
+      return ResponseEntity.ok(debugInfo);
+    }
+    
+    debugInfo.put("authStatus", "SUCCESS");
     
     if (shopId != null) {
       try {
@@ -1598,7 +1611,6 @@ public class CompetitorController {
   }
 
   @GetMapping("/competitors/debug/timestamps")
-  @Profile("!prod") // Only available in non-production environments
   public ResponseEntity<Map<String, Object>> debugTimestamps(HttpServletRequest request) {
     Long shopId = getShopIdFromRequest(request);
     String shopDomain = shopId != null ? getShopDomainFromId(shopId) : null;
@@ -1657,7 +1669,6 @@ public class CompetitorController {
   }
 
   @GetMapping("/competitors/debug/products")
-  @Profile("!prod") // Only available in non-production environments
   public ResponseEntity<Map<String, Object>> debugProducts(HttpServletRequest request) {
     Long shopId = getShopIdFromRequest(request);
     String shopDomain = shopId != null ? getShopDomainFromId(shopId) : null;
