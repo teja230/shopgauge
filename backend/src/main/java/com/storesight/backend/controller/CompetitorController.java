@@ -1419,6 +1419,229 @@ public class CompetitorController {
     }
   }
 
+  @GetMapping("/competitors/{id}/products")
+  public ResponseEntity<Map<String, Object>> getAvailableProducts(
+      @PathVariable String id, HttpServletRequest request) {
+    Long shopId = getShopIdFromRequest(request);
+    if (shopId == null) {
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+          .body(Map.of("error", "Authentication required"));
+    }
+
+    try {
+      // Get shop domain for cache lookup
+      String shopDomain = getShopDomainFromId(shopId);
+      if (shopDomain == null) {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            .body(Map.of("error", "Unable to determine shop domain"));
+      }
+
+      // Get cached products
+      var cachedProducts = dashboardCacheService.getCachedProductsData(shopDomain);
+      if (cachedProducts.isEmpty()) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(Map.of("error", "No products found. Please sync your products first."));
+      }
+
+      @SuppressWarnings("unchecked")
+      Map<String, Object> productsData = (Map<String, Object>) cachedProducts.get();
+      @SuppressWarnings("unchecked")
+      List<Map<String, Object>> products = (List<Map<String, Object>>) productsData.get("products");
+
+      if (products == null || products.isEmpty()) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(Map.of("error", "No products available for association."));
+      }
+
+      // Format products for frontend selection
+      List<Map<String, Object>> availableProducts = products.stream()
+          .map(product -> Map.of(
+              "id", product.get("id"),
+              "title", product.get("title"),
+              "handle", product.get("handle"),
+              "price", product.get("price")
+          ))
+          .collect(Collectors.toList());
+
+      return ResponseEntity.ok(Map.of(
+          "products", availableProducts,
+          "count", availableProducts.size()
+      ));
+
+    } catch (Exception e) {
+      logger.error("Error getting available products for competitor {}: {}", id, e.getMessage());
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to retrieve available products"));
+    }
+  }
+
+  @PostMapping("/competitors/{id}/associate")
+  @Transactional
+  public ResponseEntity<Map<String, Object>> associateProduct(
+      @PathVariable String id,
+      @RequestBody Map<String, String> request,
+      HttpServletRequest httpRequest) {
+    
+    Long shopId = getShopIdFromRequest(httpRequest);
+    if (shopId == null) {
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+          .body(Map.of("error", "Authentication required"));
+    }
+
+    String productId = request.get("productId");
+    if (productId == null || productId.trim().isEmpty()) {
+      return ResponseEntity.badRequest()
+          .body(Map.of("error", "Product ID is required"));
+    }
+
+    try {
+      // Verify competitor exists and belongs to this shop
+      List<Map<String, Object>> competitorCheck = jdbcTemplate.queryForList(
+          "SELECT id, url, shopify_product_id FROM competitor_urls WHERE id = ? AND shop_id = ?",
+          id, shopId);
+
+      if (competitorCheck.isEmpty()) {
+        return ResponseEntity.notFound().build();
+      }
+
+      Map<String, Object> competitor = competitorCheck.get(0);
+      String currentProductId = competitor.get("shopify_product_id") != null 
+          ? competitor.get("shopify_product_id").toString() 
+          : null;
+
+      // Verify product exists in cache
+      String shopDomain = getShopDomainFromId(shopId);
+      var cachedProducts = dashboardCacheService.getCachedProductsData(shopDomain);
+      
+      if (cachedProducts.isEmpty()) {
+        return ResponseEntity.status(HttpStatus.PRECONDITION_REQUIRED)
+            .body(Map.of("error", "Product cache not available. Please sync products first."));
+      }
+
+      @SuppressWarnings("unchecked")
+      Map<String, Object> productsData = (Map<String, Object>) cachedProducts.get();
+      @SuppressWarnings("unchecked")
+      List<Map<String, Object>> products = (List<Map<String, Object>>) productsData.get("products");
+
+      boolean productExists = products.stream()
+          .anyMatch(product -> productId.equals(product.get("id").toString()));
+
+      if (!productExists) {
+        return ResponseEntity.badRequest()
+            .body(Map.of("error", "Selected product not found in your store"));
+      }
+
+      // Update competitor with new product association
+      int rowsAffected = jdbcTemplate.update(
+          "UPDATE competitor_urls SET shopify_product_id = ? WHERE id = ? AND shop_id = ?",
+          productId, id, shopId);
+
+      if (rowsAffected == 0) {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            .body(Map.of("error", "Failed to update competitor association"));
+      }
+
+      // Log the association change
+      String competitorUrl = competitor.get("url").toString();
+      logger.info("Competitor {} associated with product {} (was: {})", 
+          competitorUrl, productId, currentProductId);
+
+      // Audit the association change
+      competitorAuditService.logCompetitorUpdated(
+          shopId,
+          competitorUrl,
+          Map.of(
+              "action", "ASSOCIATE_PRODUCT",
+              "old_product_id", currentProductId,
+              "new_product_id", productId
+          )
+      );
+
+      return ResponseEntity.ok(Map.of(
+          "success", true,
+          "message", "Competitor successfully associated with product",
+          "competitor_id", id,
+          "product_id", productId,
+          "previous_product_id", currentProductId
+      ));
+
+    } catch (Exception e) {
+      logger.error("Error associating product {} with competitor {}: {}", productId, id, e.getMessage());
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to associate product with competitor"));
+    }
+  }
+
+  @PostMapping("/competitors/{id}/disassociate")
+  @Transactional
+  public ResponseEntity<Map<String, Object>> disassociateProduct(
+      @PathVariable String id,
+      HttpServletRequest httpRequest) {
+    
+    Long shopId = getShopIdFromRequest(httpRequest);
+    if (shopId == null) {
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+          .body(Map.of("error", "Authentication required"));
+    }
+
+    try {
+      // Get current association
+      List<Map<String, Object>> competitorCheck = jdbcTemplate.queryForList(
+          "SELECT id, url, shopify_product_id FROM competitor_urls WHERE id = ? AND shop_id = ?",
+          id, shopId);
+
+      if (competitorCheck.isEmpty()) {
+        return ResponseEntity.notFound().build();
+      }
+
+      Map<String, Object> competitor = competitorCheck.get(0);
+      String currentProductId = competitor.get("shopify_product_id") != null 
+          ? competitor.get("shopify_product_id").toString() 
+          : null;
+
+      if (currentProductId == null) {
+        return ResponseEntity.badRequest()
+            .body(Map.of("error", "Competitor is not currently associated with any product"));
+      }
+
+      // Remove association
+      int rowsAffected = jdbcTemplate.update(
+          "UPDATE competitor_urls SET shopify_product_id = NULL WHERE id = ? AND shop_id = ?",
+          id, shopId);
+
+      if (rowsAffected == 0) {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            .body(Map.of("error", "Failed to remove product association"));
+      }
+
+      // Log the disassociation
+      String competitorUrl = competitor.get("url").toString();
+      logger.info("Competitor {} disassociated from product {}", competitorUrl, currentProductId);
+
+      // Audit the disassociation
+      competitorAuditService.logCompetitorUpdated(
+          shopId,
+          competitorUrl,
+          Map.of(
+              "action", "DISASSOCIATE_PRODUCT",
+              "removed_product_id", currentProductId
+          )
+      );
+
+      return ResponseEntity.ok(Map.of(
+          "success", true,
+          "message", "Product association removed successfully",
+          "competitor_id", id,
+          "removed_product_id", currentProductId
+      ));
+
+    } catch (Exception e) {
+      logger.error("Error disassociating product from competitor {}: {}", id, e.getMessage());
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to remove product association"));
+    }
+  }
+
   /** Comprehensive URL validation for competitor URLs */
   private ValidationResult validateCompetitorUrl(String url) {
     if (url == null || url.trim().isEmpty()) {
