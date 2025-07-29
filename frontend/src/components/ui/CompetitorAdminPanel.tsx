@@ -267,7 +267,21 @@ const CompetitorAdminPanel: React.FC<CompetitorAdminPanelProps> = ({
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'Never';
-    return new Date(dateString).toLocaleString();
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return 'Invalid Date';
+      return date.toLocaleString();
+    } catch (error) {
+      return 'Invalid Date';
+    }
+  };
+
+  const formatLastCheck = (competitor: any) => {
+    // Use latest_price_check if last_successful_check is null but we have recent scraping
+    if (!competitor.last_successful_check && competitor.latest_price_check) {
+      return formatDate(competitor.latest_price_check);
+    }
+    return formatDate(competitor.last_successful_check);
   };
 
   const formatResponseTime = (ms: number | null) => {
@@ -411,21 +425,26 @@ const CompetitorAdminPanel: React.FC<CompetitorAdminPanelProps> = ({
           {/* Competitors Table */}
           <AdminCard sx={{ mb: 3 }}>
             <CardContent>
-              <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: 'primary.main', mb: 3 }}>
-                Competitor Details
-              </Typography>
-              <TableContainer sx={{ borderRadius: 2, overflow: 'hidden' }}>
-                <Table>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                <Typography variant="h6" sx={{ fontWeight: 600, color: 'primary.main' }}>
+                  Competitor Details ({scrapingStatus.competitors.length} competitors)
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Scroll horizontally to see all columns
+                </Typography>
+              </Box>
+              <TableContainer sx={{ borderRadius: 2, overflow: 'auto', maxWidth: '100%' }}>
+                <Table sx={{ minWidth: 1200 }}>
                   <TableHead>
                     <TableRow sx={{ backgroundColor: 'primary.main' }}>
-                      <TableCell sx={{ color: 'white', fontWeight: 600 }}>ID</TableCell>
-                      <TableCell sx={{ color: 'white', fontWeight: 600 }}>URL</TableCell>
-                      <TableCell sx={{ color: 'white', fontWeight: 600 }}>Status</TableCell>
-                      <TableCell sx={{ color: 'white', fontWeight: 600 }}>Platform</TableCell>
-                      <TableCell sx={{ color: 'white', fontWeight: 600 }}>Scraper Source</TableCell>
-                      <TableCell sx={{ color: 'white', fontWeight: 600 }}>Last Check</TableCell>
-                      <TableCell sx={{ color: 'white', fontWeight: 600 }}>Price</TableCell>
-                      <TableCell sx={{ color: 'white', fontWeight: 600 }}>Actions</TableCell>
+                      <TableCell sx={{ color: 'white', fontWeight: 600, width: '60px' }}>ID</TableCell>
+                      <TableCell sx={{ color: 'white', fontWeight: 600, width: '300px' }}>URL</TableCell>
+                      <TableCell sx={{ color: 'white', fontWeight: 600, width: '120px' }}>Status</TableCell>
+                      <TableCell sx={{ color: 'white', fontWeight: 600, width: '100px' }}>Platform</TableCell>
+                      <TableCell sx={{ color: 'white', fontWeight: 600, width: '120px' }}>Scraper Source</TableCell>
+                      <TableCell sx={{ color: 'white', fontWeight: 600, width: '120px' }}>Last Check</TableCell>
+                      <TableCell sx={{ color: 'white', fontWeight: 600, width: '80px' }}>Price</TableCell>
+                      <TableCell sx={{ color: 'white', fontWeight: 600, width: '100px' }}>Actions</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -441,49 +460,54 @@ const CompetitorAdminPanel: React.FC<CompetitorAdminPanelProps> = ({
                         <TableCell>
                           <Tooltip title={competitor.url}>
                             <Typography variant="body2" sx={{ 
-                              maxWidth: 200, 
+                              maxWidth: 280, 
                               overflow: 'hidden', 
                               textOverflow: 'ellipsis',
                               color: 'primary.main',
-                              fontWeight: 500
+                              fontWeight: 500,
+                              whiteSpace: 'nowrap'
                             }}>
                               {competitor.url}
                             </Typography>
                           </Tooltip>
                         </TableCell>
                         <TableCell>
-                          <Chip
-                            icon={getStatusIcon(competitor.scraping_status)}
-                            label={competitor.scraping_status}
-                            color={getStatusColor(competitor.scraping_status) as any}
-                            size="small"
-                            sx={{ fontWeight: 600 }}
-                          />
+                          <Tooltip title={`Error Count: ${competitor.error_count || 0}`}>
+                            <Chip
+                              icon={getStatusIcon(competitor.scraping_status)}
+                              label={competitor.scraping_status}
+                              color={getStatusColor(competitor.scraping_status) as any}
+                              size="small"
+                              sx={{ fontWeight: 600 }}
+                            />
+                          </Tooltip>
                         </TableCell>
                         <TableCell>
                           <Chip 
-                            label={competitor.platform || 'unknown'} 
+                            label={competitor.platform || 'Unknown'} 
                             size="small" 
                             variant="outlined"
+                            color={competitor.platform ? 'default' : 'warning'}
                             sx={{ fontWeight: 500 }}
                           />
                         </TableCell>
                         <TableCell>
                           <Chip 
-                            label={competitor.scraper_source || 'unknown'} 
+                            label={competitor.scraper_source || 'Unknown'} 
                             size="small" 
                             variant="outlined"
+                            color={competitor.scraper_source ? 'default' : 'warning'}
                             sx={{ fontWeight: 500 }}
                           />
                         </TableCell>
                         <TableCell>
                           <Typography variant="body2" color="text.secondary">
-                            {formatDate(competitor.last_successful_check)}
+                            {formatLastCheck(competitor)}
                           </Typography>
                         </TableCell>
                         <TableCell>
                           <Typography variant="body2" fontWeight="bold" color="success.main">
-                            {competitor.price ? `$${competitor.price}` : 'N/A'}
+                            {competitor.price && competitor.price > 0 ? `$${competitor.price}` : 'N/A'}
                           </Typography>
                         </TableCell>
                         <TableCell>
