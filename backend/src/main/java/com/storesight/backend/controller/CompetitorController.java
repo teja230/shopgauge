@@ -713,8 +713,23 @@ public class CompetitorController {
           shopId,
           e.getMessage(),
           e);
+      
+      // Provide more specific error messages based on exception type
+      String errorMessage = "Failed to delete competitor";
+      if (e.getMessage() != null) {
+        if (e.getMessage().contains("foreign key") || e.getMessage().contains("constraint")) {
+          errorMessage = "Unable to delete competitor due to database constraints. Please try again.";
+        } else if (e.getMessage().contains("connection") || e.getMessage().contains("database")) {
+          errorMessage = "Database connection issue. Please try again in a moment.";
+        } else if (e.getMessage().contains("timeout")) {
+          errorMessage = "Request timed out. Please try again.";
+        } else {
+          errorMessage = "Failed to delete competitor: " + e.getMessage();
+        }
+      }
+      
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-          .body(Map.of("error", "Failed to delete competitor"));
+          .body(Map.of("error", errorMessage));
     }
   }
 
