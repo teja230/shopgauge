@@ -508,6 +508,7 @@ export default function CompetitorsPage() {
   const [isDiscovering, setIsDiscovering] = useState(false);
   const [showUrlTooltip, setShowUrlTooltip] = useState(false);
   const [filterStatus, setFilterStatus] = useState<'all' | 'inStock' | 'outOfStock'>('all');
+  const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
   
   // Close tooltip when clicking outside
   useEffect(() => {
@@ -516,11 +517,14 @@ export default function CompetitorsPage() {
       if (showUrlTooltip && !target.closest('.url-tooltip-container')) {
         setShowUrlTooltip(false);
       }
+      if (filterDropdownOpen && !target.closest('.filter-dropdown')) {
+        setFilterDropdownOpen(false);
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showUrlTooltip]);
+  }, [showUrlTooltip, filterDropdownOpen]);
   const [searchQuery, setSearchQuery] = useState('');
   const [lastDiscoveryTime, setLastDiscoveryTime] = useState<number>(0);
   const [userDisabledDemo, setUserDisabledDemo] = useState<boolean>(false);
@@ -1679,31 +1683,82 @@ export default function CompetitorsPage() {
             <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center flex-1 filter-controls">
               <div className="flex items-center gap-2">
                 <FunnelIcon className="h-5 w-5 text-gray-500" />
-                <select
-                  value={filterStatus}
-                  onChange={(e) => {
-                    setFilterStatus(e.target.value as any);
-                    trackDemoInteraction('filter_status');
-                  }}
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none"
-                >
-                  <option value="all">All Competitors</option>
-                  <option value="inStock">In Stock Only</option>
-                  <option value="outOfStock">Out of Stock</option>
-                </select>
+                <div className="relative filter-dropdown">
+                  <button
+                    onClick={() => setFilterDropdownOpen(!filterDropdownOpen)}
+                    className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white hover:bg-gray-50 focus:ring-2 focus:ring-blue-400 outline-none transition-colors"
+                  >
+                    <span className="text-gray-700">
+                      {filterStatus === 'all' && 'All Competitors'}
+                      {filterStatus === 'inStock' && 'In Stock Only'}
+                      {filterStatus === 'outOfStock' && 'Out of Stock'}
+                    </span>
+                    <svg 
+                      className={`h-4 w-4 text-gray-400 transition-transform ${filterDropdownOpen ? 'rotate-180' : ''}`} 
+                      fill="none" 
+                      viewBox="0 0 24 24" 
+                      stroke="currentColor"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  
+                  {filterDropdownOpen && (
+                    <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                      <div className="py-1">
+                        <button
+                          onClick={() => {
+                            setFilterStatus('all');
+                            setFilterDropdownOpen(false);
+                            trackDemoInteraction('filter_status');
+                          }}
+                          className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${
+                            filterStatus === 'all' ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
+                          }`}
+                        >
+                          All Competitors
+                        </button>
+                        <button
+                          onClick={() => {
+                            setFilterStatus('inStock');
+                            setFilterDropdownOpen(false);
+                            trackDemoInteraction('filter_status');
+                          }}
+                          className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${
+                            filterStatus === 'inStock' ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
+                          }`}
+                        >
+                          In Stock Only
+                        </button>
+                        <button
+                          onClick={() => {
+                            setFilterStatus('outOfStock');
+                            setFilterDropdownOpen(false);
+                            trackDemoInteraction('filter_status');
+                          }}
+                          className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${
+                            filterStatus === 'outOfStock' ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
+                          }`}
+                        >
+                          Out of Stock
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
               
               <div className="flex-1 relative min-w-64">
-                <MagnifyingGlassIcon className="h-5 w-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+                <MagnifyingGlassIcon className="h-5 w-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none" />
                 <input
                   type="text"
-                  placeholder="Search competitors..."
+                  placeholder="Search..."
                   value={searchQuery}
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
                     if (e.target.value) trackDemoInteraction('search_competitors');
                   }}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none text-sm"
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400 outline-none text-sm bg-white hover:bg-gray-50 transition-colors"
                 />
               </div>
             </div>
