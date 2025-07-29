@@ -1443,65 +1443,7 @@ public class CompetitorController {
     }
   }
 
-  /** Debug endpoint to check authentication status */
-  @GetMapping("/competitors/debug/auth")
-  @Profile("!prod") // Only available in non-production environments
-  public ResponseEntity<Map<String, Object>> debugAuth(HttpServletRequest request) {
 
-    Map<String, Object> debug = new HashMap<>();
-
-    try {
-      Long shopId = getShopIdFromRequest(request);
-      debug.put("shopId", shopId);
-      debug.put("authenticated", shopId != null);
-
-      if (shopId != null) {
-        // Check if shop exists in database
-        try {
-          Map<String, Object> shop =
-              jdbcTemplate.queryForMap(
-                  "SELECT id, shopify_domain, created_at FROM shops WHERE id = ?", shopId);
-          debug.put("shopExists", true);
-          debug.put("shopDomain", shop.get("shopify_domain"));
-          debug.put("shopCreatedAt", shop.get("created_at"));
-        } catch (Exception e) {
-          debug.put("shopExists", false);
-          debug.put("shopError", e.getMessage());
-        }
-
-        // Check competitor URLs count
-        try {
-          Integer competitorCount =
-              jdbcTemplate.queryForObject(
-                  "SELECT COUNT(*) FROM competitor_urls WHERE shop_id = ? AND deleted_at IS NULL", Integer.class, shopId);
-          debug.put("competitorUrlsCount", competitorCount);
-        } catch (Exception e) {
-          debug.put("competitorUrlsError", e.getMessage());
-        }
-
-        // Check products count
-        try {
-          Integer productsCount =
-              jdbcTemplate.queryForObject(
-                  "SELECT COUNT(*) FROM products WHERE shop_id = ?", Integer.class, shopId);
-          debug.put("productsCount", productsCount);
-        } catch (Exception e) {
-          debug.put("productsError", e.getMessage());
-        }
-      }
-
-      debug.put("timestamp", System.currentTimeMillis());
-      debug.put("success", true);
-
-      return ResponseEntity.ok(debug);
-
-    } catch (Exception e) {
-      logger.error("Debug auth error: {}", e.getMessage(), e);
-      debug.put("error", e.getMessage());
-      debug.put("success", false);
-      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(debug);
-    }
-  }
 
   @GetMapping("/competitors/{id}/products")
   public ResponseEntity<Map<String, Object>> getAvailableProducts(
@@ -1684,101 +1626,9 @@ public class CompetitorController {
     }
   }
 
-  @GetMapping("/competitors/debug/scraping-status")
-  public ResponseEntity<Map<String, Object>> debugScrapingStatus(HttpServletRequest request) {
-    Long shopId = getShopIdFromRequest(request);
-    String shopDomain = shopId != null ? getShopDomainFromId(shopId) : null;
-    
-    Map<String, Object> debugInfo = new HashMap<>();
-    debugInfo.put("shopId", shopId);
-    debugInfo.put("shopDomain", shopDomain);
-    
-    // Add authentication debugging info
-    debugInfo.put("cookies", request.getCookies() != null ? 
-        java.util.Arrays.stream(request.getCookies())
-            .map(c -> Map.of("name", c.getName(), "value", c.getValue()))
-            .collect(Collectors.toList()) : List.of());
-    
-    if (shopId == null) {
-      debugInfo.put("error", "No shop ID found - check authentication");
-      debugInfo.put("authStatus", "FAILED");
-      return ResponseEntity.ok(debugInfo);
-    }
-    
-    debugInfo.put("authStatus", "SUCCESS");
-    
-    if (shopId != null) {
-      try {
-        // Get comprehensive scraping status data
-        String query = """
-            SELECT 
-                cu.id,
-                cu.url,
-                cu.status,
-                cu.error_count,
-                cu.created_at as competitor_created,
-                cu.last_successful_check,
-                ps.checked_at as latest_price_check,
-                ps.price,
-                ps.in_stock,
-                CASE 
-                    WHEN cu.error_count >= 5 THEN 'BLOCKED_BY_ERRORS'
-                    WHEN cu.status = 'error' THEN 'ERROR_STATUS'
-                    WHEN ps.checked_at IS NULL THEN 'NEVER_SCRAPED'
-                    WHEN ps.checked_at < NOW() - INTERVAL '12 hours' THEN 'DUE_FOR_SCRAPING'
-                    ELSE 'RECENTLY_SCRAPED'
-                END as scraping_status
-            FROM competitor_urls cu
-            LEFT JOIN (
-                SELECT competitor_url_id, price, in_stock, checked_at,
-                       ROW_NUMBER() OVER (PARTITION BY competitor_url_id ORDER BY checked_at DESC) as rn
-                FROM price_snapshots
-            ) ps ON cu.id = ps.competitor_url_id AND ps.rn = 1
-            WHERE cu.shop_id = ?
-            ORDER BY cu.created_at DESC
-            """;
-        
-        List<Map<String, Object>> rows = jdbcTemplate.queryForList(query, shopId);
-        List<Map<String, Object>> statusData = new ArrayList<>();
-        
-        for (Map<String, Object> row : rows) {
-          Map<String, Object> competitorData = new HashMap<>();
-          competitorData.put("id", row.get("id"));
-          competitorData.put("url", row.get("url"));
-          competitorData.put("status", row.get("status"));
-          competitorData.put("error_count", row.get("error_count"));
-          competitorData.put("competitor_created", row.get("competitor_created"));
-          competitorData.put("last_successful_check", row.get("last_successful_check"));
-          competitorData.put("latest_price_check", row.get("latest_price_check"));
-          competitorData.put("price", row.get("price"));
-          competitorData.put("in_stock", row.get("in_stock"));
-          competitorData.put("scraping_status", row.get("scraping_status"));
-          statusData.add(competitorData);
-        }
-        
-        // Summary statistics
-        Map<String, Object> summary = new HashMap<>();
-        summary.put("total_competitors", statusData.size());
-        summary.put("active_status", statusData.stream().filter(c -> "active".equals(c.get("status"))).count());
-        summary.put("error_status", statusData.stream().filter(c -> "error".equals(c.get("status"))).count());
-        summary.put("blocked_by_errors", statusData.stream().filter(c -> "BLOCKED_BY_ERRORS".equals(c.get("scraping_status"))).count());
-        summary.put("due_for_scraping", statusData.stream().filter(c -> "DUE_FOR_SCRAPING".equals(c.get("scraping_status"))).count());
-        summary.put("recently_scraped", statusData.stream().filter(c -> "RECENTLY_SCRAPED".equals(c.get("scraping_status"))).count());
-        summary.put("never_scraped", statusData.stream().filter(c -> "NEVER_SCRAPED".equals(c.get("scraping_status"))).count());
-        
-        debugInfo.put("competitors", statusData);
-        debugInfo.put("summary", summary);
-        
-      } catch (Exception e) {
-        debugInfo.put("error", e.getMessage());
-        debugInfo.put("errorType", e.getClass().getSimpleName());
-      }
-    }
-    
-    return ResponseEntity.ok(debugInfo);
-  }
 
-  @GetMapping("/competitors/debug/timestamps")
+
+
   public ResponseEntity<Map<String, Object>> debugTimestamps(HttpServletRequest request) {
     Long shopId = getShopIdFromRequest(request);
     String shopDomain = shopId != null ? getShopDomainFromId(shopId) : null;
