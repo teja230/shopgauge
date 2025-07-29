@@ -6,15 +6,7 @@ plugins {
     id 'org.flywaydb.flyway' version '9.22.3'
 }
 
-// Explicit plugin management to ensure proper resolution
-pluginManagement {
-    repositories {
-        gradlePluginPortal()
-        mavenCentral()
-        maven { url 'https://repo.spring.io/milestone' }
-        maven { url 'https://repo.spring.io/snapshot' }
-    }
-}
+// Plugin management moved to settings.gradle for proper Gradle structure
 
 group = 'com.storesight'
 version = '0.0.1-SNAPSHOT'
