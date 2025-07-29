@@ -303,7 +303,7 @@ public class CompetitorScraperWorker {
       log.info("[Worker] Using cached price ${} for URL: {}", cachedPrice, url);
 
       // Store cached price as snapshot
-      storePriceSnapshot(competitorUrlId, new CompetitorData(cachedPrice, true));
+      storePriceSnapshot(competitorUrlId, new CompetitorData(cachedPrice, true, "cached"));
 
       // Mark as recently scraped
       redisTemplate.opsForValue().set(recentScrapeKey, "1", 2, TimeUnit.HOURS);
