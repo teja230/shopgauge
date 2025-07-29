@@ -115,9 +115,22 @@ export const ProductAssociationModal: React.FC<ProductAssociationModalProps> = (
     setLoading(true);
     setError(null);
     
+    if (isDemoMode) {
+      // In demo mode, skip API call entirely and show demo products
+      console.log('Demo mode: Loading demo products');
+      const demoProducts = [
+        { id: 'demo-1', title: 'Demo Product 1', handle: 'demo-product-1', price: 29.99 },
+        { id: 'demo-2', title: 'Demo Product 2', handle: 'demo-product-2', price: 49.99 },
+        { id: 'demo-3', title: 'Demo Product 3', handle: 'demo-product-3', price: 19.99 }
+      ];
+      setProducts(demoProducts);
+      setLoading(false);
+      return;
+    }
+    
     try {
-      console.log(`Loading products for competitor ${competitorId}, demo mode: ${isDemoMode}`);
-      const response = await fetchWithAuth(`/api/competitors/${competitorId}/products?isDemoMode=${isDemoMode}`);
+      console.log(`Loading products for competitor ${competitorId}`);
+      const response = await fetchWithAuth(`/api/competitors/${competitorId}/products`);
       
       console.log(`Response status: ${response.status}`);
       
@@ -127,66 +140,32 @@ export const ProductAssociationModal: React.FC<ProductAssociationModalProps> = (
         setProducts(data.products || []);
         
         if (!data.products || data.products.length === 0) {
-          if (isDemoMode) {
-            // Show demo products when API fails in demo mode
-            const demoProducts = [
-              { id: 'demo-1', title: 'Demo Product 1', handle: 'demo-product-1', price: 29.99 },
-              { id: 'demo-2', title: 'Demo Product 2', handle: 'demo-product-2', price: 49.99 },
-              { id: 'demo-3', title: 'Demo Product 3', handle: 'demo-product-3', price: 19.99 }
-            ];
-            setProducts(demoProducts);
-            setError(null);
-          } else {
-            setError('No products found in your store. Please add products to your Shopify store first, then try again.');
-          }
+          setError('No products found in your store. Please add products to your Shopify store first, then try again.');
         }
       } else {
         const errorData = await response.json();
         console.error('API error:', errorData);
         
-        if (isDemoMode) {
-          // In demo mode, show demo products even if API fails
-          const demoProducts = [
-            { id: 'demo-1', title: 'Demo Product 1', handle: 'demo-product-1', price: 29.99 },
-            { id: 'demo-2', title: 'Demo Product 2', handle: 'demo-product-2', price: 49.99 },
-            { id: 'demo-3', title: 'Demo Product 3', handle: 'demo-product-3', price: 19.99 }
-          ];
-          setProducts(demoProducts);
-          setError(null);
-        } else {
-          // Provide more specific error messages based on the error
-          let errorMessage = 'Failed to load products. Please try again.';
-          
-          if (errorData.error) {
-            if (errorData.error.includes('Shopify authentication')) {
-              errorMessage = 'Shopify connection required. Please reconnect your store in the dashboard.';
-            } else if (errorData.error.includes('No products found')) {
-              errorMessage = 'No products found in your store. Please add products to your Shopify store first.';
-            } else if (errorData.error.includes('sync')) {
-              errorMessage = 'Products need to be synced. Please visit the dashboard to sync your products.';
-            } else {
-              errorMessage = errorData.error;
-            }
+        // Provide more specific error messages based on the error
+        let errorMessage = 'Failed to load products. Please try again.';
+        
+        if (errorData.error) {
+          if (errorData.error.includes('Shopify authentication')) {
+            errorMessage = 'Shopify connection required. Please reconnect your store in the dashboard.';
+          } else if (errorData.error.includes('No products found')) {
+            errorMessage = 'No products found in your store. Please add products to your Shopify store first.';
+          } else if (errorData.error.includes('sync')) {
+            errorMessage = 'Products need to be synced. Please visit the dashboard to sync your products.';
+          } else {
+            errorMessage = errorData.error;
           }
-          
-          setError(errorMessage);
         }
+        
+        setError(errorMessage);
       }
     } catch (err) {
       console.error('Network error loading products:', err);
-      
-      if (isDemoMode) {
-        // In demo mode, show demo products even on network errors
-        const demoProducts = [
-          { id: 'demo-1', title: 'Demo Product 1', handle: 'demo-product-1', price: 29.99 },
-          { id: 'demo-2', title: 'Demo Product 2', handle: 'demo-product-2', price: 49.99 },
-          { id: 'demo-3', title: 'Demo Product 3', handle: 'demo-product-3', price: 19.99 }
-        ];
-        setProducts(demoProducts);
-        setError(null);
-      } else {
-        setError('Connection issue. Please check your internet connection and try again.');
-      }
+      setError('Connection issue. Please check your internet connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -199,8 +178,19 @@ export const ProductAssociationModal: React.FC<ProductAssociationModalProps> = (
     setError(null);
     setSuccess(null);
     
+    if (isDemoMode) {
+      // In demo mode, simulate successful association
+      setSuccess('Demo product associated successfully');
+      onAssociationChange();
+      setTimeout(() => {
+        onClose();
+      }, 1500);
+      setAssociating(false);
+      return;
+    }
+    
     try {
-      const response = await fetchWithAuth(`/api/competitors/${competitorId}/associate?isDemoMode=${isDemoMode}`, {
+      const response = await fetchWithAuth(`/api/competitors/${competitorId}/associate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -232,8 +222,20 @@ export const ProductAssociationModal: React.FC<ProductAssociationModalProps> = (
     setError(null);
     setSuccess(null);
     
+    if (isDemoMode) {
+      // In demo mode, simulate successful disassociation
+      setSuccess('Demo association removed successfully');
+      setSelectedProductId(undefined);
+      onAssociationChange();
+      setTimeout(() => {
+        onClose();
+      }, 1500);
+      setAssociating(false);
+      return;
+    }
+    
     try {
-      const response = await fetchWithAuth(`/api/competitors/${competitorId}/disassociate?isDemoMode=${isDemoMode}`, {
+      const response = await fetchWithAuth(`/api/competitors/${competitorId}/disassociate`, {
         method: 'POST',
       });
       
