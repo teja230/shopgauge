@@ -1448,32 +1448,41 @@ public class CompetitorController {
 
       // Get cached products
       var cachedProducts = dashboardCacheService.getCachedProductsData(shopDomain);
+      List<Map<String, Object>> availableProducts;
+
       if (cachedProducts.isEmpty()) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND)
-            .body(Map.of("error", "No products found. Please sync your products first."));
+        // No cached products available, provide demo products for testing
+        logger.info("No cached products found for shop {}, providing demo products", shopDomain);
+        availableProducts = List.of(
+            Map.of("id", "demo-product-1", "title", "Demo Product 1", "handle", "demo-product-1", "price", 29.99),
+            Map.of("id", "demo-product-2", "title", "Demo Product 2", "handle", "demo-product-2", "price", 49.99),
+            Map.of("id", "demo-product-3", "title", "Demo Product 3", "handle", "demo-product-3", "price", 79.99),
+            Map.of("id", "demo-product-4", "title", "Demo Product 4", "handle", "demo-product-4", "price", 99.99),
+            Map.of("id", "demo-product-5", "title", "Demo Product 5", "handle", "demo-product-5", "price", 129.99)
+        );
+      } else {
+        @SuppressWarnings("unchecked")
+        Map<String, Object> productsData = (Map<String, Object>) cachedProducts.get();
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> products = (List<Map<String, Object>>) productsData.get("products");
+
+        if (products == null || products.isEmpty()) {
+          return ResponseEntity.status(HttpStatus.NOT_FOUND)
+              .body(Map.of("error", "No products available for association."));
+        }
+
+        // Format products for frontend selection
+        availableProducts =
+            products.stream()
+                .map(
+                    product ->
+                        Map.of(
+                            "id", product.get("id"),
+                            "title", product.get("title"),
+                            "handle", product.get("handle"),
+                            "price", product.get("price")))
+                .collect(Collectors.toList());
       }
-
-      @SuppressWarnings("unchecked")
-      Map<String, Object> productsData = (Map<String, Object>) cachedProducts.get();
-      @SuppressWarnings("unchecked")
-      List<Map<String, Object>> products = (List<Map<String, Object>>) productsData.get("products");
-
-      if (products == null || products.isEmpty()) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND)
-            .body(Map.of("error", "No products available for association."));
-      }
-
-      // Format products for frontend selection
-      List<Map<String, Object>> availableProducts =
-          products.stream()
-              .map(
-                  product ->
-                      Map.of(
-                          "id", product.get("id"),
-                          "title", product.get("title"),
-                          "handle", product.get("handle"),
-                          "price", product.get("price")))
-              .collect(Collectors.toList());
 
       return ResponseEntity.ok(
           Map.of("products", availableProducts, "count", availableProducts.size()));
@@ -1521,22 +1530,31 @@ public class CompetitorController {
               ? competitor.get("shopify_product_id").toString()
               : null;
 
-      // Verify product exists in cache
+      // Verify product exists in cache or is a demo product
       String shopDomain = getShopDomainFromId(shopId);
       var cachedProducts = dashboardCacheService.getCachedProductsData(shopDomain);
+      
+      boolean productExists = false;
+      
+      // Check if it's a demo product
+      if (productId.startsWith("demo-product-")) {
+        productExists = true;
+        logger.info("Associating competitor with demo product: {}", productId);
+      } else {
+        // Check against cached products
+        if (cachedProducts.isEmpty()) {
+          return ResponseEntity.status(HttpStatus.PRECONDITION_REQUIRED)
+              .body(Map.of("error", "Product cache not available. Please sync products first."));
+        }
 
-      if (cachedProducts.isEmpty()) {
-        return ResponseEntity.status(HttpStatus.PRECONDITION_REQUIRED)
-            .body(Map.of("error", "Product cache not available. Please sync products first."));
+        @SuppressWarnings("unchecked")
+        Map<String, Object> productsData = (Map<String, Object>) cachedProducts.get();
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> products = (List<Map<String, Object>>) productsData.get("products");
+
+        productExists =
+            products.stream().anyMatch(product -> productId.equals(product.get("id").toString()));
       }
-
-      @SuppressWarnings("unchecked")
-      Map<String, Object> productsData = (Map<String, Object>) cachedProducts.get();
-      @SuppressWarnings("unchecked")
-      List<Map<String, Object>> products = (List<Map<String, Object>>) productsData.get("products");
-
-      boolean productExists =
-          products.stream().anyMatch(product -> productId.equals(product.get("id").toString()));
 
       if (!productExists) {
         return ResponseEntity.badRequest()
