@@ -174,7 +174,19 @@ export const ProductAssociationModal: React.FC<ProductAssociationModalProps> = (
       }
     } catch (err) {
       console.error('Network error loading products:', err);
-      setError('Connection issue. Please check your internet connection and try again.');
+      
+      if (isDemoMode) {
+        // In demo mode, show demo products even on network errors
+        const demoProducts = [
+          { id: 'demo-1', title: 'Demo Product 1', handle: 'demo-product-1', price: 29.99 },
+          { id: 'demo-2', title: 'Demo Product 2', handle: 'demo-product-2', price: 49.99 },
+          { id: 'demo-3', title: 'Demo Product 3', handle: 'demo-product-3', price: 19.99 }
+        ];
+        setProducts(demoProducts);
+        setError(null);
+      } else {
+        setError('Connection issue. Please check your internet connection and try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -367,7 +379,7 @@ export const ProductAssociationModal: React.FC<ProductAssociationModalProps> = (
             {currentProductId ? 'Change Association' : 'Select Product to Link'}
           </Typography>
           
-          {!loading && products.length === 0 && !error && (
+          {!loading && products.length === 0 && !error && !isDemoMode && (
             <Alert severity="info" sx={{ mb: 2 }}>
               <Typography variant="body2" gutterBottom>
                 <strong>No products found</strong>
@@ -402,7 +414,7 @@ export const ProductAssociationModal: React.FC<ProductAssociationModalProps> = (
             </Box>
           ) : filteredProducts.length === 0 ? (
             <Alert severity="info">
-              {searchTerm ? 'No products match your search. Try a different search term.' : 'No products available in your store. Please add products to your Shopify store first.'}
+              {searchTerm ? 'No products match your search. Try a different search term.' : (isDemoMode ? 'No demo products available.' : 'No products available in your store. Please add products to your Shopify store first.')}
             </Alert>
           ) : (
             <Box sx={{ maxHeight: 400, overflowY: 'auto' }}>
