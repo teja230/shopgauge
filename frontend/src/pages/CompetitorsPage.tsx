@@ -1224,17 +1224,11 @@ export default function CompetitorsPage() {
         const priceStatus = await getPriceStatus(competitorId);
         
         if (priceStatus.hasPrice) {
-          // Price data is available, update the competitor's loading state
+          // Price data is available, refresh the entire competitor list to show updated data
           debugLog.info('Price data available for competitor', { competitorId, price: priceStatus.price }, 'CompetitorsPage');
           
-          // Update the competitor to remove loading state
-          setCompetitors((prev) => 
-            prev.map(comp => 
-              comp.id === competitorId 
-                ? { ...comp, priceLoading: false }
-                : comp
-            )
-          );
+          // Refresh competitor data to show the new price
+          await fetchData(true);
           
           // Show enterprise-grade success notification
           const successMessage = `Price found for ${priceStatus.inStock ? 'in-stock' : 'out-of-stock'} item at $${priceStatus.price}`;
@@ -1253,17 +1247,11 @@ export default function CompetitorsPage() {
           });
           return true; // Success, stop polling
         } else if (attemptCount >= maxAttempts) {
-          // Max attempts reached, clear loading state and show informative message
+          // Max attempts reached, refresh data and show informative message
           debugLog.info('Max polling attempts reached', { competitorId, attempts: attemptCount }, 'CompetitorsPage');
           
-          // Clear loading state for this competitor
-          setCompetitors((prev) => 
-            prev.map(comp => 
-              comp.id === competitorId 
-                ? { ...comp, priceLoading: false }
-                : comp
-            )
-          );
+          // Refresh competitor data to show any available updates
+          await fetchData(true);
           
           notifications.showInfo('Price will be updated within the next few hours. You can continue adding competitors in the meantime.', {
             category: 'Competitors',
@@ -1281,14 +1269,8 @@ export default function CompetitorsPage() {
         debugLog.error('Error polling for price status', { competitorId, error, attempt: attemptCount }, 'CompetitorsPage');
         
         if (attemptCount >= maxAttempts) {
-          // Clear loading state for this competitor on error
-          setCompetitors((prev) => 
-            prev.map(comp => 
-              comp.id === competitorId 
-                ? { ...comp, priceLoading: false }
-                : comp
-            )
-          );
+          // Refresh competitor data on error to show any available updates
+          await fetchData(true);
           
           notifications.showInfo('Price will be updated within the next few hours. You can continue adding competitors in the meantime.', {
             category: 'Competitors',
