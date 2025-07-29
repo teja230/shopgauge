@@ -539,55 +539,93 @@ public class CompetitorController {
         logger.info("addCompetitor: Extracted label '{}' for URL: {}", label, request.url);
       }
 
-      // Insert new competitor URL
-      logger.info("addCompetitor: Inserting competitor URL into database");
+      // Check if this URL was previously soft-deleted for this shop
+      logger.info("addCompetitor: Checking for previously soft-deleted competitor");
+      
+      List<Map<String, Object>> existingSoftDeleted;
+      if (productId != null) {
+        existingSoftDeleted = jdbcTemplate.queryForList(
+            "SELECT id, url, label, deleted_at FROM competitor_urls WHERE shop_id = ? AND shopify_product_id = ? AND url = ? AND deleted_at IS NOT NULL ORDER BY deleted_at DESC LIMIT 1",
+            shopId, productId, request.url);
+      } else {
+        existingSoftDeleted = jdbcTemplate.queryForList(
+            "SELECT id, url, label, deleted_at FROM competitor_urls WHERE shop_id = ? AND shopify_product_id IS NULL AND url = ? AND deleted_at IS NOT NULL ORDER BY deleted_at DESC LIMIT 1",
+            shopId, request.url);
+      }
 
       int rowsAffected;
-      if (productId != null) {
-        rowsAffected =
-            jdbcTemplate.update(
-                "INSERT INTO competitor_urls (shop_id, shopify_product_id, url, label, created_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)",
-                shopId,
-                productId,
-                request.url,
-                label);
+      boolean isReadded = false;
+      Map<String, Object> softDeletedRecord = null;
+      
+      if (!existingSoftDeleted.isEmpty()) {
+        // Recover the soft-deleted competitor
+        softDeletedRecord = existingSoftDeleted.get(0);
+        Long existingId = ((Number) softDeletedRecord.get("id")).longValue();
+        
+        logger.info("addCompetitor: Recovering soft-deleted competitor with ID: {}", existingId);
+        
+        rowsAffected = jdbcTemplate.update(
+            "UPDATE competitor_urls SET deleted_at = NULL, label = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            label, existingId);
+        
+        isReadded = true;
+        logger.info("addCompetitor: Recovered {} soft-deleted competitor", rowsAffected);
       } else {
-        rowsAffected =
-            jdbcTemplate.update(
-                "INSERT INTO competitor_urls (shop_id, shopify_product_id, url, label, created_at) VALUES (?, NULL, ?, ?, CURRENT_TIMESTAMP)",
-                shopId,
-                request.url,
-                label);
+        // Insert new competitor URL
+        logger.info("addCompetitor: Inserting new competitor URL into database");
+        
+        if (productId != null) {
+          rowsAffected =
+              jdbcTemplate.update(
+                  "INSERT INTO competitor_urls (shop_id, shopify_product_id, url, label, created_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)",
+                  shopId,
+                  productId,
+                  request.url,
+                  label);
+        } else {
+          rowsAffected =
+              jdbcTemplate.update(
+                  "INSERT INTO competitor_urls (shop_id, shopify_product_id, url, label, created_at) VALUES (?, NULL, ?, ?, CURRENT_TIMESTAMP)",
+                  shopId,
+                  request.url,
+                  label);
+        }
       }
 
       logger.info("addCompetitor: Database insert affected {} rows", rowsAffected);
 
-      // Get the inserted record
-      logger.info("addCompetitor: Retrieving inserted competitor record");
+      // Get the inserted/recovered record
+      logger.info("addCompetitor: Retrieving competitor record");
 
-      List<Map<String, Object>> newRecord;
-      if (productId != null) {
-        newRecord =
+      List<Map<String, Object>> competitorRecord;
+      if (isReadded) {
+        // Use the existing ID for recovered records
+        Long existingId = ((Number) softDeletedRecord.get("id")).longValue();
+        competitorRecord = jdbcTemplate.queryForList(
+            "SELECT id, url, label FROM competitor_urls WHERE id = ?",
+            existingId);
+      } else if (productId != null) {
+        competitorRecord =
             jdbcTemplate.queryForList(
                 "SELECT id, url, label FROM competitor_urls WHERE shop_id = ? AND shopify_product_id = ? AND url = ? ORDER BY created_at DESC LIMIT 1",
                 shopId,
                 productId,
                 request.url);
       } else {
-        newRecord =
+        competitorRecord =
             jdbcTemplate.queryForList(
                 "SELECT id, url, label FROM competitor_urls WHERE shop_id = ? AND shopify_product_id IS NULL AND url = ? ORDER BY created_at DESC LIMIT 1",
                 shopId,
                 request.url);
       }
 
-      if (newRecord.isEmpty()) {
-        logger.error("addCompetitor: Failed to retrieve inserted competitor record");
+      if (competitorRecord.isEmpty()) {
+        logger.error("addCompetitor: Failed to retrieve competitor record");
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
             .body(Map.of("error", "Failed to create competitor record"));
       }
 
-      Map<String, Object> record = newRecord.get(0);
+      Map<String, Object> record = competitorRecord.get(0);
       logger.info("addCompetitor: Retrieved competitor record with ID: {}", record.get("id"));
 
       CompetitorDto competitor =
@@ -2838,8 +2876,8 @@ public class CompetitorController {
 
         // Store cached price as initial snapshot
         jdbcTemplate.update(
-            "INSERT INTO price_snapshots (competitor_url_id, price, in_stock, checked_at, scraper_version) "
-                + "VALUES (?, ?, ?, CURRENT_TIMESTAMP, 'v2.0-cached')",
+            "INSERT INTO price_snapshots (competitor_url_id, price, in_stock, checked_at, scraper_version, scraping_provider) "
+                + "VALUES (?, ?, ?, CURRENT_TIMESTAMP, 'v2.0-cached', 'cached')",
             Long.parseLong(competitorId),
             cachedPrice,
             true); // Assume in stock for cached data
@@ -2880,10 +2918,10 @@ public class CompetitorController {
             price, inStock, platform);
 
         if (price != null) {
-          // Store the initial price snapshot with platform information and response time
+          // Store the initial price snapshot with platform information, response time, and scraping provider
           jdbcTemplate.update(
-              "INSERT INTO price_snapshots (competitor_url_id, price, in_stock, checked_at, scraper_version, platform, response_time_ms) "
-                  + "VALUES (?, ?, ?, CURRENT_TIMESTAMP, 'v2.0-immediate', ?, ?)",
+              "INSERT INTO price_snapshots (competitor_url_id, price, in_stock, checked_at, scraper_version, platform, response_time_ms, scraping_provider) "
+                  + "VALUES (?, ?, ?, CURRENT_TIMESTAMP, 'v2.0-immediate', ?, ?, 'jsoup')",
               Long.parseLong(competitorId),
               price,
               inStock,

@@ -394,7 +394,7 @@ public class CompetitorScraperWorker {
       String html = driver.getPageSource();
       Document doc = Jsoup.parse(html);
 
-      return parseCompetitorData(doc, url);
+      return parseCompetitorData(doc, url, 0, "selenium");
 
     } catch (TimeoutException e) {
       log.warn("[Worker] Timeout scraping with Selenium: {}", url);
@@ -435,15 +435,20 @@ public class CompetitorScraperWorker {
 
   /** Parse competitor data from HTML document with response time */
   private CompetitorData parseCompetitorData(Document doc, String url, long responseTime) {
+    return parseCompetitorData(doc, url, responseTime, "jsoup");
+  }
+
+  /** Parse competitor data from HTML document with response time and scraping provider */
+  private CompetitorData parseCompetitorData(Document doc, String url, long responseTime, String scrapingProvider) {
     String domain = extractDomain(url);
     String platform = identifyPlatform(url, doc);
 
-    log.info("[Worker] Parsing data for platform: {} from URL: {} ({}ms)", platform, url, responseTime);
+    log.info("[Worker] Parsing data for platform: {} from URL: {} ({}ms) using {}", platform, url, responseTime, scrapingProvider);
 
     BigDecimal price = parsePrice(doc, platform);
     boolean inStock = parseStockStatus(doc, platform);
 
-    return new CompetitorData(price, inStock, platform, responseTime);
+    return new CompetitorData(price, inStock, platform, responseTime, scrapingProvider);
   }
 
   /** Parse price from document */
@@ -592,8 +597,8 @@ public class CompetitorScraperWorker {
       }
 
       jdbcTemplate.update(
-          "INSERT INTO price_snapshots (competitor_url_id, price, in_stock, price_change_percent, significant_change, checked_at, scraper_version, platform, response_time_ms) "
-              + "VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?)",
+          "INSERT INTO price_snapshots (competitor_url_id, price, in_stock, price_change_percent, significant_change, checked_at, scraper_version, platform, response_time_ms, scraping_provider) "
+              + "VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?)",
           competitorUrlId,
           data.price,
           data.inStock,
@@ -601,7 +606,8 @@ public class CompetitorScraperWorker {
           significantChange,
           "v2.0",
           data.platform,
-          (int) data.responseTime);
+          (int) data.responseTime,
+          data.scrapingProvider);
 
       // Update competitor URL status on successful scrape with response time
       jdbcTemplate.update(
@@ -766,16 +772,22 @@ public class CompetitorScraperWorker {
     final boolean inStock;
     final String platform;
     final long responseTime;
+    final String scrapingProvider;
 
     CompetitorData(BigDecimal price, boolean inStock, String platform) {
-      this(price, inStock, platform, 0);
+      this(price, inStock, platform, 0, "jsoup");
     }
 
     CompetitorData(BigDecimal price, boolean inStock, String platform, long responseTime) {
+      this(price, inStock, platform, responseTime, "jsoup");
+    }
+
+    CompetitorData(BigDecimal price, boolean inStock, String platform, long responseTime, String scrapingProvider) {
       this.price = price;
       this.inStock = inStock;
       this.platform = platform;
       this.responseTime = responseTime;
+      this.scrapingProvider = scrapingProvider;
     }
   }
 }
