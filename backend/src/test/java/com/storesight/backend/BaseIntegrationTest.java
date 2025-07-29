@@ -10,8 +10,8 @@ import org.testcontainers.utility.DockerImageName;
  * Test configuration for integration tests using TestContainers. This provides real PostgreSQL and
  * Redis instances for testing.
  *
- * <p>Usage: Extend this class in your test classes that need real database connections.
- * Falls back to in-memory databases if Docker is not available.
+ * <p>Usage: Extend this class in your test classes that need real database connections. Falls back
+ * to in-memory databases if Docker is not available.
  */
 public abstract class BaseIntegrationTest {
 
@@ -19,17 +19,19 @@ public abstract class BaseIntegrationTest {
   private static final boolean DOCKER_AVAILABLE = isDockerAvailable();
 
   // PostgreSQL TestContainer - starts a real PostgreSQL instance
-  static PostgreSQLContainer<?> postgres = DOCKER_AVAILABLE 
-      ? new PostgreSQLContainer<>(DockerImageName.parse("postgres:16"))
-          .withDatabaseName("storesight_test")
-          .withUsername("test")
-          .withPassword("test")
-      : null;
+  static PostgreSQLContainer<?> postgres =
+      DOCKER_AVAILABLE
+          ? new PostgreSQLContainer<>(DockerImageName.parse("postgres:16"))
+              .withDatabaseName("storesight_test")
+              .withUsername("test")
+              .withPassword("test")
+          : null;
 
   // Redis TestContainer - starts a real Redis instance
-  static GenericContainer<?> redis = DOCKER_AVAILABLE
-      ? new GenericContainer<>(DockerImageName.parse("redis:7")).withExposedPorts(6379)
-      : null;
+  static GenericContainer<?> redis =
+      DOCKER_AVAILABLE
+          ? new GenericContainer<>(DockerImageName.parse("redis:7")).withExposedPorts(6379)
+          : null;
 
   static {
     if (DOCKER_AVAILABLE) {
@@ -37,12 +39,14 @@ public abstract class BaseIntegrationTest {
         // Start containers before any tests run
         System.out.println("Starting PostgreSQL container...");
         postgres.start();
-        System.out.println("PostgreSQL container started successfully on port: " + postgres.getMappedPort(5432));
-        
+        System.out.println(
+            "PostgreSQL container started successfully on port: " + postgres.getMappedPort(5432));
+
         System.out.println("Starting Redis container...");
         redis.start();
-        System.out.println("Redis container started successfully on port: " + redis.getMappedPort(6379));
-        
+        System.out.println(
+            "Redis container started successfully on port: " + redis.getMappedPort(6379));
+
         System.out.println("All test containers started successfully!");
       } catch (Exception e) {
         System.err.println("Failed to start test containers: " + e.getMessage());
@@ -63,7 +67,8 @@ public abstract class BaseIntegrationTest {
         registry.add("spring.datasource.username", postgres::getUsername);
         registry.add("spring.datasource.password", postgres::getPassword);
         registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
-        registry.add("spring.jpa.database-platform", () -> "org.hibernate.dialect.PostgreSQLDialect");
+        registry.add(
+            "spring.jpa.database-platform", () -> "org.hibernate.dialect.PostgreSQLDialect");
         registry.add("spring.jpa.database", () -> "postgresql");
         registry.add("spring.data.redis.host", redis::getHost);
         registry.add("spring.data.redis.port", () -> redis.getMappedPort(6379));
@@ -84,12 +89,12 @@ public abstract class BaseIntegrationTest {
         registry.add("spring.redis.port", () -> 6379);
         System.out.println("Dynamic properties configured for in-memory databases");
       }
-      
+
       // Common configuration
       registry.add("logging.config", () -> "");
       registry.add("spring.flyway.enabled", () -> "false");
       registry.add("spring.jpa.hibernate.ddl-auto", () -> "create-drop");
-      
+
       System.out.println("Dynamic properties configured successfully");
     } catch (Exception e) {
       System.err.println("Failed to configure dynamic properties: " + e.getMessage());
@@ -98,9 +103,7 @@ public abstract class BaseIntegrationTest {
     }
   }
 
-  /**
-   * Check if Docker is available by trying to run a simple Docker command
-   */
+  /** Check if Docker is available by trying to run a simple Docker command */
   private static boolean isDockerAvailable() {
     try {
       Process process = Runtime.getRuntime().exec("docker --version");

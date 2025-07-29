@@ -33,7 +33,10 @@ public class SystemHealthMonitoringService implements HealthIndicator {
   @Autowired private StringRedisTemplate redisTemplate;
 
   @Autowired private DatabaseMonitoringService databaseMonitoringService;
-  @Autowired(required = false) private MultiSourceSearchClient multiSourceSearchClient;
+
+  @Autowired(required = false)
+  private MultiSourceSearchClient multiSourceSearchClient;
+
   @Autowired private RedisHealthService redisHealthService;
 
   @Autowired private SystemResourceMonitoringService systemResourceMonitoringService;
