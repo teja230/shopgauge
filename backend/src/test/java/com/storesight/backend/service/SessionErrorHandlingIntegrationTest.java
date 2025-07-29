@@ -17,6 +17,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureWebMvc;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.context.ActiveProfiles;
@@ -39,8 +40,9 @@ import org.springframework.web.context.WebApplicationContext;
  *   <li>Exception handler coordination
  * </ul>
  */
+@SpringBootTest
 @AutoConfigureWebMvc
-@ActiveProfiles("test")
+@ActiveProfiles("integration-test")
 class SessionErrorHandlingIntegrationTest extends BaseIntegrationTest {
 
   @Autowired private WebApplicationContext webApplicationContext;

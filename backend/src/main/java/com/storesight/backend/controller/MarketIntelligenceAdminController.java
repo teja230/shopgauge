@@ -31,8 +31,8 @@ public class MarketIntelligenceAdminController {
       LoggerFactory.getLogger(MarketIntelligenceAdminController.class);
 
   @Autowired private CostOptimizationService costOptimizationService;
-  @Autowired private CompetitorDiscoveryService discoveryService;
-  @Autowired private MultiSourceSearchClient multiSourceSearchClient;
+  @Autowired(required = false) private CompetitorDiscoveryService discoveryService;
+  @Autowired(required = false) private MultiSourceSearchClient multiSourceSearchClient;
   @Autowired private JdbcTemplate jdbcTemplate;
   @Autowired private DatabaseMonitoringService databaseMonitoringService;
   @Autowired private RedisHealthService redisHealthService;
@@ -62,12 +62,14 @@ public class MarketIntelligenceAdminController {
       }
 
       // Discovery stats
-      if (discoveryEnabled) {
+      if (discoveryEnabled && discoveryService != null) {
         dashboard.put("discoveryStats", discoveryService.getDiscoveryStats());
       }
 
       // Provider stats
-      dashboard.put("providerStats", multiSourceSearchClient.getProviderStats());
+      if (multiSourceSearchClient != null) {
+        dashboard.put("providerStats", multiSourceSearchClient.getProviderStats());
+      }
 
       // Database stats
       dashboard.put("databaseStats", getDatabaseStats());
@@ -112,6 +114,11 @@ public class MarketIntelligenceAdminController {
   /** Get provider performance comparison */
   @GetMapping("/provider-comparison")
   public ResponseEntity<Map<String, Object>> getProviderComparison() {
+    if (multiSourceSearchClient == null) {
+      return ResponseEntity.ok(
+          Map.of("enabled", false, "message", "Discovery services are disabled"));
+    }
+
     try {
       Map<String, Object> comparison = new HashMap<>();
       Map<String, Object> stats = multiSourceSearchClient.getProviderStats();
@@ -132,6 +139,11 @@ public class MarketIntelligenceAdminController {
   /** Test search providers */
   @PostMapping("/test-search")
   public ResponseEntity<Map<String, Object>> testSearch(@RequestBody Map<String, String> request) {
+    if (multiSourceSearchClient == null) {
+      return ResponseEntity.ok(
+          Map.of("enabled", false, "message", "Discovery services are disabled"));
+    }
+
     String keywords = request.get("keywords");
     if (keywords == null || keywords.trim().isEmpty()) {
       return ResponseEntity.badRequest().body(Map.of("error", "Keywords are required"));
@@ -166,7 +178,9 @@ public class MarketIntelligenceAdminController {
 
     try {
       costOptimizationService.resetDailyCosts();
-      multiSourceSearchClient.resetCostTracking();
+      if (multiSourceSearchClient != null) {
+        multiSourceSearchClient.resetCostTracking();
+      }
 
       return ResponseEntity.ok(
           Map.of("message", "Cost tracking reset successfully", "timestamp", new Date()));
@@ -185,9 +199,12 @@ public class MarketIntelligenceAdminController {
 
     config.put("discoveryEnabled", discoveryEnabled);
     config.put("costOptimizationEnabled", costOptimizationEnabled);
-    config.put("multiSourceConfig", multiSourceSearchClient.getProviderConfig());
+    
+    if (multiSourceSearchClient != null) {
+      config.put("multiSourceConfig", multiSourceSearchClient.getProviderConfig());
+    }
 
-    if (discoveryEnabled) {
+    if (discoveryEnabled && discoveryService != null) {
       config.put("discoveryConfig", discoveryService.getDiscoveryConfig());
     }
 
