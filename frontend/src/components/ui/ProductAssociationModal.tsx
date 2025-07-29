@@ -50,6 +50,7 @@ interface ProductAssociationModalProps {
   currentProductId?: string;
   currentProductTitle?: string;
   onAssociationChange: () => void;
+  isDemoMode?: boolean;
 }
 
 const ProductCard = styled(Card)<{ selected: boolean }>(({ theme, selected }) => ({
@@ -85,6 +86,7 @@ export const ProductAssociationModal: React.FC<ProductAssociationModalProps> = (
   currentProductId,
   currentProductTitle,
   onAssociationChange,
+  isDemoMode = false,
 }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -114,7 +116,7 @@ export const ProductAssociationModal: React.FC<ProductAssociationModalProps> = (
     setError(null);
     
     try {
-      const response = await fetchWithAuth(`/api/competitors/${competitorId}/products`);
+      const response = await fetchWithAuth(`/api/competitors/${competitorId}/products?isDemoMode=${isDemoMode}`);
       if (response.ok) {
         const data = await response.json();
         setProducts(data.products || []);
@@ -137,7 +139,7 @@ export const ProductAssociationModal: React.FC<ProductAssociationModalProps> = (
     setSuccess(null);
     
     try {
-      const response = await fetchWithAuth(`/api/competitors/${competitorId}/associate`, {
+      const response = await fetchWithAuth(`/api/competitors/${competitorId}/associate?isDemoMode=${isDemoMode}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -170,7 +172,7 @@ export const ProductAssociationModal: React.FC<ProductAssociationModalProps> = (
     setSuccess(null);
     
     try {
-      const response = await fetchWithAuth(`/api/competitors/${competitorId}/disassociate`, {
+      const response = await fetchWithAuth(`/api/competitors/${competitorId}/disassociate?isDemoMode=${isDemoMode}`, {
         method: 'POST',
       });
       
