@@ -31,8 +31,13 @@ public class MarketIntelligenceAdminController {
       LoggerFactory.getLogger(MarketIntelligenceAdminController.class);
 
   @Autowired private CostOptimizationService costOptimizationService;
-  @Autowired(required = false) private CompetitorDiscoveryService discoveryService;
-  @Autowired(required = false) private MultiSourceSearchClient multiSourceSearchClient;
+
+  @Autowired(required = false)
+  private CompetitorDiscoveryService discoveryService;
+
+  @Autowired(required = false)
+  private MultiSourceSearchClient multiSourceSearchClient;
+
   @Autowired private JdbcTemplate jdbcTemplate;
   @Autowired private DatabaseMonitoringService databaseMonitoringService;
   @Autowired private RedisHealthService redisHealthService;
@@ -199,7 +204,7 @@ public class MarketIntelligenceAdminController {
 
     config.put("discoveryEnabled", discoveryEnabled);
     config.put("costOptimizationEnabled", costOptimizationEnabled);
-    
+
     if (multiSourceSearchClient != null) {
       config.put("multiSourceConfig", multiSourceSearchClient.getProviderConfig());
     }

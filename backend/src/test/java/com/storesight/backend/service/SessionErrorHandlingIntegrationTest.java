@@ -160,9 +160,7 @@ class SessionErrorHandlingIntegrationTest extends BaseIntegrationTest {
     session.invalidate();
 
     // Since /dashboard doesn't exist in the test environment, test with a different endpoint
-    mockMvc
-        .perform(get("/actuator/health").session(session))
-        .andExpect(status().isOk());
+    mockMvc.perform(get("/actuator/health").session(session)).andExpect(status().isOk());
   }
 
   @Test
