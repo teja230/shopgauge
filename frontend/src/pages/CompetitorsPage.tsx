@@ -861,7 +861,7 @@ export default function CompetitorsPage() {
         cache.delete(cacheKey);
         
         // Show enterprise-grade success notification
-        notifications.showSuccess('Competitor added successfully! Price will be found shortly.', {
+        notifications.showSuccess('Competitor added successfully! Price tracking will be activated shortly.', {
           category: 'Competitors',
           showToast: true, // Force toast to show
           persistent: false,
