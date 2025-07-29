@@ -8,6 +8,7 @@ import com.storesight.backend.service.TransactionMonitoringService;
 import com.storesight.backend.service.discovery.CompetitorDiscoveryService;
 import com.storesight.backend.service.discovery.MultiSourceSearchClient;
 import com.storesight.backend.service.discovery.SearchClient;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -839,9 +840,17 @@ public class MarketIntelligenceAdminController {
         debugInfo.put("currentStatus", currentStatus.get(0));
       }
 
-      // Trigger immediate scraping (simulate for now)
-      debugInfo.put("scrapingTriggered", true);
-      debugInfo.put("message", "Enhanced debug scraping trigger - detailed analysis provided");
+      // Trigger actual immediate scraping for debugging
+      try {
+        // Call the actual scraping logic from CompetitorController
+        triggerImmediatePriceScraping(id, url, shopId);
+        debugInfo.put("scrapingTriggered", true);
+        debugInfo.put("message", "Real scraping triggered successfully for debugging");
+      } catch (Exception scrapingError) {
+        debugInfo.put("scrapingTriggered", false);
+        debugInfo.put("scrapingError", scrapingError.getMessage());
+        debugInfo.put("message", "Failed to trigger real scraping: " + scrapingError.getMessage());
+      }
 
       // Check if price snapshots were created
       List<Map<String, Object>> snapshots =
@@ -956,5 +965,306 @@ public class MarketIntelligenceAdminController {
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
           .body(Map.of("error", "Failed to get products debug info: " + e.getMessage()));
     }
+  }
+
+  /** Trigger immediate price scraping for debugging purposes */
+  private void triggerImmediatePriceScraping(String competitorId, String url, Long shopId) {
+    try {
+      log.info("triggerImmediatePriceScraping: Starting debug scraping for competitor ID: {}", competitorId);
+
+      // Check if we recently scraped this URL (within last 2 hours)
+      String domain = extractDomain(url);
+      String recentScrapeKey = "recent_scrape:" + domain + ":" + url.hashCode();
+
+      if (redisTemplate.hasKey(recentScrapeKey)) {
+        log.info("triggerImmediatePriceScraping: Skipping - URL scraped recently: {}", url);
+        return; // Skip if we scraped this URL recently
+      }
+
+      // Check rate limiting with longer delays
+      String rateLimitKey = "scraper_rate_limit:" + domain;
+      if (redisTemplate.hasKey(rateLimitKey)) {
+        log.debug("triggerImmediatePriceScraping: Rate limit active for domain: {}", domain);
+        return; // Skip immediate scraping if rate limited
+      }
+
+      // Longer rate limiting delays to reduce costs
+      int immediateScrapingDelay = 5000; // 5 seconds delay
+      redisTemplate
+          .opsForValue()
+          .set(rateLimitKey, "1", immediateScrapingDelay, java.util.concurrent.TimeUnit.MILLISECONDS);
+
+      // Use cached price if available (fallback to scraping)
+      java.math.BigDecimal cachedPrice = getCachedPriceForUrl(url);
+      if (cachedPrice != null) {
+        log.info("triggerImmediatePriceScraping: Using cached price ${} for competitor {}", cachedPrice, competitorId);
+
+        // Store cached price as initial snapshot
+        jdbcTemplate.update(
+            "INSERT INTO price_snapshots (competitor_url_id, price, in_stock, checked_at, scraper_version, scraper_source) "
+                + "VALUES (?, ?, ?, CURRENT_TIMESTAMP, 'v2.0-cached', 'cached')",
+            Long.parseLong(competitorId),
+            cachedPrice,
+            true); // Assume in stock for cached data
+
+        // Update competitor URL status on successful cached scrape
+        jdbcTemplate.update(
+            "UPDATE competitor_urls SET status = 'active', last_successful_check = CURRENT_TIMESTAMP, error_count = 0 WHERE id = ?",
+            Long.parseLong(competitorId));
+
+        // Mark as recently scraped to prevent immediate re-scraping
+        redisTemplate.opsForValue().set(recentScrapeKey, "1", 2, java.util.concurrent.TimeUnit.HOURS);
+        return;
+      }
+
+      // Only scrape if no cached data available
+      try {
+        long startTime = System.currentTimeMillis();
+
+        // Use Jsoup for immediate scraping (faster and cheaper than Selenium)
+        org.jsoup.nodes.Document doc =
+            org.jsoup.Jsoup.connect(url)
+                .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                .timeout(5000) // 5 second timeout
+                .followRedirects(true)
+                .get();
+
+        long responseTime = System.currentTimeMillis() - startTime;
+
+        // Extract price using enhanced patterns
+        String platform = identifyPlatform(url);
+        log.info("triggerImmediatePriceScraping: Extracting price for platform: {}", platform);
+
+        java.math.BigDecimal price = extractPriceFromDocument(doc, platform);
+        boolean inStock = extractStockStatusFromDocument(doc, platform);
+
+        log.info("triggerImmediatePriceScraping: Extracted price: {}, inStock: {}, platform: {}", price, inStock, platform);
+
+        if (price != null) {
+          // Store the initial price snapshot with platform information, response time, and scraper source
+          jdbcTemplate.update(
+              "INSERT INTO price_snapshots (competitor_url_id, price, in_stock, checked_at, scraper_version, platform, response_time_ms, scraper_source) "
+                  + "VALUES (?, ?, ?, CURRENT_TIMESTAMP, 'v2.0-immediate', ?, ?, 'direct')",
+              Long.parseLong(competitorId),
+              price,
+              inStock,
+              platform,
+              (int) responseTime);
+
+          // Update competitor URL status on successful scrape with response time
+          jdbcTemplate.update(
+              "UPDATE competitor_urls SET status = 'active', last_successful_check = CURRENT_TIMESTAMP, error_count = 0, response_time_ms = ? WHERE id = ?",
+              (int) responseTime,
+              Long.parseLong(competitorId));
+
+          // Cache the price for future use
+          cachePriceForUrl(url, price);
+
+          log.info("triggerImmediatePriceScraping: Successfully scraped initial price ${} for competitor {}", price, competitorId);
+        } else {
+          log.warn("triggerImmediatePriceScraping: Could not extract price from {}", url);
+          // Log page title for debugging
+          String pageTitle = doc.title();
+          log.debug("triggerImmediatePriceScraping: Page title: {}", pageTitle);
+        }
+
+        // Mark as recently scraped to prevent immediate re-scraping
+        redisTemplate.opsForValue().set(recentScrapeKey, "1", 2, java.util.concurrent.TimeUnit.HOURS);
+
+      } catch (Exception e) {
+        log.error("triggerImmediatePriceScraping: Error scraping {}: {}", url, e.getMessage());
+        throw new RuntimeException("Error scraping URL: " + e.getMessage(), e);
+      }
+
+    } catch (Exception e) {
+      log.error("triggerImmediatePriceScraping: Error in debug scraping: {}", e.getMessage(), e);
+      throw new RuntimeException("Error in debug scraping: " + e.getMessage(), e);
+    }
+  }
+
+  /** Get cached price for URL to reduce scraping costs */
+  private java.math.BigDecimal getCachedPriceForUrl(String url) {
+    try {
+      String cacheKey = "price_cache:" + url.hashCode();
+      Object cached = redisTemplate.opsForValue().get(cacheKey);
+      if (cached != null) {
+        return new java.math.BigDecimal(cached.toString());
+      }
+    } catch (Exception e) {
+      log.debug("getCachedPriceForUrl: Error getting cached price: {}", e.getMessage());
+    }
+    return null;
+  }
+
+  /** Cache price for URL to reduce future scraping costs */
+  private void cachePriceForUrl(String url, java.math.BigDecimal price) {
+    try {
+      String cacheKey = "price_cache:" + url.hashCode();
+      // Cache for 24 hours to reduce scraping frequency
+      redisTemplate.opsForValue().set(cacheKey, price.toString(), 24, java.util.concurrent.TimeUnit.HOURS);
+      log.debug("cachePriceForUrl: Cached price ${} for URL: {}", price, url);
+    } catch (Exception e) {
+      log.debug("cachePriceForUrl: Error caching price: {}", e.getMessage());
+    }
+  }
+
+
+
+  /** Identify platform from URL */
+  private String identifyPlatform(String url) {
+    String lowerUrl = url.toLowerCase();
+    if (lowerUrl.contains("amazon.com")) {
+      return "amazon";
+    } else if (lowerUrl.contains("walmart.com")) {
+      return "walmart";
+    } else if (lowerUrl.contains("target.com")) {
+      return "target";
+    } else if (lowerUrl.contains("bestbuy.com")) {
+      return "bestbuy";
+    } else if (lowerUrl.contains("ebay.com")) {
+      return "ebay";
+    } else if (lowerUrl.contains("etsy.com")) {
+      return "etsy";
+    } else if (lowerUrl.contains("shopify") || lowerUrl.contains("myshopify.com")) {
+      return "shopify";
+    } else if (lowerUrl.contains("woocommerce")) {
+      return "woocommerce";
+    } else if (lowerUrl.contains("bigcommerce")) {
+      return "bigcommerce";
+    } else if (lowerUrl.contains("magento")) {
+      return "magento";
+    } else if (lowerUrl.contains("prestashop")) {
+      return "prestashop";
+    } else if (lowerUrl.contains("opencart")) {
+      return "opencart";
+    } else {
+      return "other";
+    }
+  }
+
+  /** Extract price from document using enhanced patterns */
+  private java.math.BigDecimal extractPriceFromDocument(org.jsoup.nodes.Document doc, String platform) {
+    // Enhanced price patterns with better specificity
+    java.util.regex.Pattern[] patterns = {
+      java.util.regex.Pattern.compile("\\$([0-9,]+\\.?[0-9]*)"),
+      java.util.regex.Pattern.compile("USD\\s*([0-9,]+\\.?[0-9]*)"),
+      java.util.regex.Pattern.compile("([0-9,]+\\.?[0-9]*)\\s*USD"),
+      java.util.regex.Pattern.compile("Price:\\s*\\$([0-9,]+\\.?[0-9]*)"),
+      java.util.regex.Pattern.compile("Cost:\\s*\\$([0-9,]+\\.?[0-9]*)"),
+      java.util.regex.Pattern.compile("\\$([0-9]+)\\s*USD"),
+      java.util.regex.Pattern.compile("([0-9,]+\\.?[0-9]*)\\s*\\$"),
+      java.util.regex.Pattern.compile("Price\\s*:\\s*([0-9,]+\\.?[0-9]*)"),
+      java.util.regex.Pattern.compile("Cost\\s*:\\s*([0-9,]+\\.?[0-9]*)")
+    };
+
+    // Platform-specific selectors
+    String[] selectors = {
+      // Amazon-specific (enhanced for current layout)
+      ".a-price .a-offscreen",
+      ".a-price-whole",
+      ".a-price .a-price-whole",
+      "[data-a-color='price'] .a-offscreen",
+      ".a-price-range .a-offscreen",
+      ".a-price .a-price-range .a-offscreen",
+      ".a-price-range .a-price-whole",
+      ".a-price .a-price-range .a-price-whole",
+      // Additional Amazon selectors
+      "[data-a-color='price'] .a-price-whole",
+      ".a-price-range .a-price-fraction",
+      ".a-price .a-price-range .a-price-fraction",
+      // New Amazon selectors based on current layout
+      ".a-price-current .a-offscreen",
+      ".a-price-current .a-price-whole",
+      ".a-price-current .a-price-fraction",
+      ".a-price-current .a-price-symbol + .a-price-whole",
+      ".a-price-current .a-price-symbol + .a-price-whole + .a-price-fraction",
+      // Price display patterns
+      "[data-a-color='price'] .a-price-current .a-offscreen",
+      "[data-a-color='price'] .a-price-current .a-price-whole",
+      // Fallback selectors for Amazon
+      ".a-price-current",
+      ".a-price-current .a-price",
+      ".a-price-current .a-price .a-offscreen",
+      // Generic
+      ".price",
+      ".product-price",
+      ".money",
+      "[data-price]",
+      ".cost",
+      ".amount",
+      ".price-current",
+      ".price-value",
+      ".product-cost",
+      ".item-price"
+    };
+
+    // Try CSS selectors first
+    for (String selector : selectors) {
+      org.jsoup.select.Elements elements = doc.select(selector);
+      for (org.jsoup.nodes.Element element : elements) {
+        String text = element.text().trim();
+        if (!text.isEmpty()) {
+          java.math.BigDecimal price = extractPriceFromText(text, patterns);
+          if (price != null) {
+            return price;
+          }
+        }
+      }
+    }
+
+    // Try patterns on entire page text as fallback
+    String pageText = doc.text();
+    return extractPriceFromText(pageText, patterns);
+  }
+
+  /** Extract price from text using regex patterns */
+  private java.math.BigDecimal extractPriceFromText(String text, java.util.regex.Pattern[] patterns) {
+    for (java.util.regex.Pattern pattern : patterns) {
+      java.util.regex.Matcher matcher = pattern.matcher(text);
+      if (matcher.find()) {
+        try {
+          String priceStr = matcher.group(1).replaceAll(",", "");
+          return new java.math.BigDecimal(priceStr);
+        } catch (Exception e) {
+          log.debug("extractPriceFromText: Error parsing price from text: {}", e.getMessage());
+        }
+      }
+    }
+    return null;
+  }
+
+  /** Extract stock status from document */
+  private boolean extractStockStatusFromDocument(org.jsoup.nodes.Document doc, String platform) {
+    // Platform-specific stock selectors
+    String[] stockSelectors = {
+      // Amazon
+      ".a-color-success",
+      ".a-color-price",
+      ".a-text-success",
+      ".availability",
+      ".stock",
+      ".in-stock",
+      ".out-of-stock",
+      // Generic
+      ".stock-status",
+      ".availability-status",
+      ".product-availability"
+    };
+
+    for (String selector : stockSelectors) {
+      org.jsoup.select.Elements elements = doc.select(selector);
+      for (org.jsoup.nodes.Element element : elements) {
+        String text = element.text().toLowerCase();
+        if (text.contains("in stock") || text.contains("available") || text.contains("add to cart")) {
+          return true;
+        }
+        if (text.contains("out of stock") || text.contains("unavailable") || text.contains("sold out")) {
+          return false;
+        }
+      }
+    }
+
+    // Default to true if we can't determine
+    return true;
   }
 }
