@@ -335,7 +335,7 @@ public class CompetitorController {
       }
 
       // Get products from Redis cache and validate productId
-      final String productId;
+      String productId = null;
 
       if (request.productId != null && !request.productId.trim().isEmpty()) {
         String providedProductId = request.productId.trim();
@@ -460,9 +460,26 @@ public class CompetitorController {
                         "redirect_url", "/dashboard"));
           }
         } else {
-          logger.info("addCompetitor: No cached products found for shop {}, allowing competitor addition without product association", shopDomain);
-          // Allow competitor addition without requiring cached products
-          productId = null; // No product association
+          logger.info("addCompetitor: No cached products found for shop {}, attempting to fetch from Shopify API", shopDomain);
+          
+          // Try to fetch products from Shopify API as fallback
+          try {
+            // This would be a call to Shopify API to get products
+            // For now, we'll allow addition without product association
+            // TODO: Implement Shopify API call to fetch products
+            logger.info("addCompetitor: Shopify API fallback not implemented yet, allowing competitor addition without product association");
+            productId = null; // No product association for now
+            
+            // TODO: When Shopify API integration is ready, we can:
+            // 1. Call Shopify API to get products
+            // 2. Use first product or best match
+            // 3. Cache the products for future use
+            // 4. Associate competitor with selected product
+            
+          } catch (Exception e) {
+            logger.warn("addCompetitor: Failed to fetch products from Shopify API: {}", e.getMessage());
+            productId = null; // No product association
+          }
         }
       }
 
