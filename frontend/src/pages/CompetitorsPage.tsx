@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { CompetitorTable } from '../components/ui/CompetitorTable';
 import type { Competitor } from '../components/ui/CompetitorTable';
 import { SuggestionDrawer } from '../components/ui/SuggestionDrawer';
+import { ProductAssociationModal } from '../components/ui/ProductAssociationModal';
 import { 
   getCompetitors, 
   deleteCompetitor,
@@ -565,6 +566,15 @@ export default function CompetitorsPage() {
   const [interactiveDemoActive, setInteractiveDemoActive] = useState(false);
   const [demoStartTime, setDemoStartTime] = useState<number>(0);
   const [limits, setLimits] = useState<LimitsResponse | null>(null);
+  
+  // Product association modal state
+  const [productAssociationModal, setProductAssociationModal] = useState<{
+    open: boolean;
+    competitor: Competitor | null;
+  }>({
+    open: false,
+    competitor: null,
+  });
   
   // Refs to prevent unnecessary re-renders and API calls
   const lastFetchTimeRef = useRef<number>(0);
@@ -1186,6 +1196,26 @@ export default function CompetitorsPage() {
     setTimeout(pollForPrice, intervals[0]);
     
   }, [isDemoMode, fetchData, notifications]);
+
+  // Product association handlers
+  const handleLinkProduct = useCallback((competitor: Competitor) => {
+    setProductAssociationModal({
+      open: true,
+      competitor,
+    });
+  }, []);
+
+  const handleCloseProductAssociationModal = useCallback(() => {
+    setProductAssociationModal({
+      open: false,
+      competitor: null,
+    });
+  }, []);
+
+  const handleProductAssociationChange = useCallback(() => {
+    // Refresh the competitors list to show updated associations
+    fetchData(true);
+  }, [fetchData]);
 
   // Limit display component
   const LimitDisplay = () => {
@@ -2279,7 +2309,11 @@ export default function CompetitorsPage() {
             </div>
           ) : (
             <div className="overflow-x-auto competitor-table">
-              <CompetitorTable data={filteredCompetitors} onDelete={handleDelete} />
+              <CompetitorTable 
+                data={filteredCompetitors} 
+                onDelete={handleDelete} 
+                onLinkProduct={handleLinkProduct}
+              />
             </div>
           )}
         </div>
@@ -2491,7 +2525,19 @@ export default function CompetitorsPage() {
         </button>
       </div>
 
-
+      {/* Product Association Modal */}
+      {productAssociationModal.competitor && (
+        <ProductAssociationModal
+          open={productAssociationModal.open}
+          onClose={handleCloseProductAssociationModal}
+          competitorId={productAssociationModal.competitor.id}
+          competitorUrl={productAssociationModal.competitor.url}
+          competitorLabel={productAssociationModal.competitor.label}
+          currentProductId={productAssociationModal.competitor.shopifyProductId}
+          currentProductTitle={productAssociationModal.competitor.productTitle}
+          onAssociationChange={handleProductAssociationChange}
+        />
+      )}
 
     </div>
   );
