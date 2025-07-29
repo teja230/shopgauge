@@ -438,7 +438,8 @@ public class CompetitorScraperWorker {
     String domain = extractDomain(url);
     String platform = identifyPlatform(url, doc);
 
-    log.info("[Worker] Parsing data for platform: {} from URL: {} ({}ms)", platform, url, responseTime);
+    log.info(
+        "[Worker] Parsing data for platform: {} from URL: {} ({}ms)", platform, url, responseTime);
 
     BigDecimal price = parsePrice(doc, platform);
     boolean inStock = parseStockStatus(doc, platform);
@@ -533,7 +534,9 @@ public class CompetitorScraperWorker {
       return "ebay";
     } else if (lowerUrl.contains("etsy.com")) {
       return "etsy";
-    } else if (lowerUrl.contains("shopify") || lowerUrl.contains("myshopify.com") || doc.select("[data-shopify]").size() > 0) {
+    } else if (lowerUrl.contains("shopify")
+        || lowerUrl.contains("myshopify.com")
+        || doc.select("[data-shopify]").size() > 0) {
       return "shopify";
     } else if (doc.select(".woocommerce").size() > 0 || lowerUrl.contains("woocommerce")) {
       return "woocommerce";
@@ -777,7 +780,12 @@ public class CompetitorScraperWorker {
       this(price, inStock, platform, responseTime, "direct");
     }
 
-    CompetitorData(BigDecimal price, boolean inStock, String platform, long responseTime, String scraperSource) {
+    CompetitorData(
+        BigDecimal price,
+        boolean inStock,
+        String platform,
+        long responseTime,
+        String scraperSource) {
       this.price = price;
       this.inStock = inStock;
       this.platform = platform;

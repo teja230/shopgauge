@@ -38,12 +38,14 @@ import {
   Analytics as AnalyticsIcon,
   Settings as SettingsIcon,
   ShowChart as ShowChartIcon,
+  BugReport as DebugIcon,
 } from '@mui/icons-material';
 import { XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import marketIntelligenceAdminAPI from '../../api/marketIntelligenceAdmin';
 import type { CostAnalytics, ProviderStats } from '../../api/marketIntelligenceAdmin';
 import RefreshHeader from './RefreshHeader';
 import { useNotifications } from '../../hooks/useNotifications';
+import CompetitorAdminPanel from './CompetitorAdminPanel';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 const fetchAdminEndpoint = async (endpoint: string, options?: RequestInit) => {
@@ -132,6 +134,7 @@ const MarketIntelligenceDashboard: React.FC<MarketIntelligenceDashboardProps> = 
   const [testLoading, setTestLoading] = useState(false);
   const [resetCostsDialog, setResetCostsDialog] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'competitor-admin'>('dashboard');
   const cooldownRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchMetrics = async () => {
@@ -384,8 +387,33 @@ const MarketIntelligenceDashboard: React.FC<MarketIntelligenceDashboardProps> = 
         </Box>
       </Box>
 
-      {/* System Status Alert */}
-      {metrics && (!metrics.systemStatus.discoveryEnabled || !metrics.systemStatus.costOptimizationEnabled) && (
+      {/* Tab Navigation */}
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button
+            variant={activeTab === 'dashboard' ? 'contained' : 'outlined'}
+            onClick={() => setActiveTab('dashboard')}
+            startIcon={<AnalyticsIcon />}
+          >
+            Dashboard
+          </Button>
+          <Button
+            variant={activeTab === 'competitor-admin' ? 'contained' : 'outlined'}
+            onClick={() => setActiveTab('competitor-admin')}
+            startIcon={<DebugIcon />}
+          >
+            Competitor Admin
+          </Button>
+        </Box>
+      </Box>
+
+      {/* Tab Content */}
+      {activeTab === 'competitor-admin' ? (
+        <CompetitorAdminPanel showActions={showActions} />
+      ) : (
+        <>
+          {/* System Status Alert */}
+          {metrics && (!metrics.systemStatus.discoveryEnabled || !metrics.systemStatus.costOptimizationEnabled) && (
         <Alert severity="warning" sx={{ mb: 3 }}>
           <AlertTitle>System Configuration</AlertTitle>
           Some Market Intelligence features are disabled. Check system configuration for optimal performance.
@@ -740,6 +768,8 @@ const MarketIntelligenceDashboard: React.FC<MarketIntelligenceDashboardProps> = 
           )}
         </CardContent>
       </Card>
+        </>
+      )}
 
       {/* Actions */}
       {showActions && (
