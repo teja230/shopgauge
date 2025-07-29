@@ -880,7 +880,8 @@ export default function CompetitorsPage() {
         needsProductSync: error.needsProductSync,
         userFriendly: error.userFriendly,
         url: url,
-        productId: productId
+        productId: productId,
+        stack: error.stack
       }, 'CompetitorsPage');
       
       // Enhanced error handling with enterprise-grade messages
@@ -915,7 +916,12 @@ export default function CompetitorsPage() {
           url: url
         }, 'CompetitorsPage');
       } else if (error.message?.includes('Invalid URL')) {
-        userMessage = 'Please provide a valid competitor URL from a supported platform (Amazon, Shopify, etc.).';
+        // Check if it's a Best Buy URL and provide specific guidance
+        if (url.toLowerCase().includes('bestbuy.com')) {
+          userMessage = 'Best Buy URLs are supported. Please ensure the URL is a valid product page (e.g., https://www.bestbuy.com/site/product-name/...).';
+        } else {
+          userMessage = 'Please provide a valid competitor URL from a supported platform (Amazon, Shopify, Best Buy, etc.).';
+        }
         debugLog.warn('Invalid competitor URL provided', {
           error: error.message,
           url: url
@@ -948,6 +954,14 @@ export default function CompetitorsPage() {
         userMessage = error.message;
         debugLog.info('User-friendly error displayed', {
           error: error.message,
+          url: url
+        }, 'CompetitorsPage');
+      } else {
+        // Catch-all for any other errors
+        userMessage = 'Unable to add competitor. Please check the URL and try again.';
+        debugLog.error('Unhandled error during competitor addition', {
+          error: error.message,
+          errorType: error.constructor.name,
           url: url
         }, 'CompetitorsPage');
       }
