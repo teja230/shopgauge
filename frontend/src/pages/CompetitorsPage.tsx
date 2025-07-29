@@ -1905,11 +1905,11 @@ export default function CompetitorsPage() {
                   <div className="relative url-tooltip-container">
                     <input
                       type="text"
-                      placeholder="Competitor URL (e.g., https://amazon.com/dp/...)"
+                      placeholder="Competitor URL (e.g., https://amazon.com/dp/B07D3HG1SD)"
                       value={url}
                       onChange={(e) => setUrl(e.target.value)}
                       disabled={isAdding}
-                      className={`w-full px-4 py-3 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent outline-none transition ${
+                      className={`w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent outline-none transition text-sm ${
                         isAdding ? 'bg-gray-100 cursor-not-allowed' : ''
                       }`}
                       required
@@ -2096,14 +2096,14 @@ export default function CompetitorsPage() {
                   value={productId}
                   onChange={(e) => setProductId(e.target.value)}
                   disabled={isAdding}
-                  className={`flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent outline-none transition ${
+                  className={`flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent outline-none transition text-sm ${
                     isAdding ? 'bg-gray-100 cursor-not-allowed' : ''
                   }`}
                 />
                 <button 
                   type="submit" 
                   disabled={isAdding}
-                  className={`px-6 py-3 rounded-lg font-medium transition-all shadow-md ${
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-md ${
                     isAdding 
                       ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
                       : 'bg-green-600 text-white hover:bg-green-700'
@@ -2122,7 +2122,7 @@ export default function CompetitorsPage() {
                   type="button"
                   onClick={() => setShowAddForm(false)}
                   disabled={isAdding}
-                  className={`px-6 py-3 rounded-lg font-medium transition-all ${
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                     isAdding 
                       ? 'bg-gray-300 text-gray-400 cursor-not-allowed' 
                       : 'bg-gray-500 text-white hover:bg-gray-600'
