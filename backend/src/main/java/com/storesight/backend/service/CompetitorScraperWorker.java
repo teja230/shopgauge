@@ -219,7 +219,7 @@ public class CompetitorScraperWorker {
                   + "  FROM price_snapshots"
                   + ") ps ON cu.id = ps.competitor_url_id AND ps.rn = 1 "
                   + "WHERE cu.created_at >= NOW() - INTERVAL '30 days' "
-                  + "AND (SELECT COUNT(*) FROM competitor_urls cu2 WHERE cu2.shop_id = s.id) <= ? "
+                  + "AND (SELECT COUNT(*) FROM competitor_urls cu2 WHERE cu2.shop_id = s.id AND cu2.deleted_at IS NULL) <= ? "
                   + "AND (ps.checked_at IS NULL OR ps.checked_at < NOW() - INTERVAL '12 hours') "
                   + "ORDER BY ps.checked_at ASC NULLS FIRST LIMIT ?",
               maxUrlsPerShop,
@@ -407,6 +407,7 @@ public class CompetitorScraperWorker {
 
   /** Scrape using Jsoup (for static content) */
   private CompetitorData scrapeWithJsoup(String url) {
+    long startTime = System.currentTimeMillis();
     try {
       Document doc =
           Jsoup.connect(url)
@@ -415,25 +416,34 @@ public class CompetitorScraperWorker {
               .followRedirects(true)
               .get();
 
-      return parseCompetitorData(doc, url);
+      long responseTime = System.currentTimeMillis() - startTime;
+      log.debug("[Worker] Jsoup scraping completed in {}ms for URL: {}", responseTime, url);
+
+      return parseCompetitorData(doc, url, responseTime);
 
     } catch (Exception e) {
-      log.error("[Worker] Error scraping with Jsoup: {}", e.getMessage());
+      long responseTime = System.currentTimeMillis() - startTime;
+      log.error("[Worker] Error scraping with Jsoup ({}ms): {}", responseTime, e.getMessage());
       return null;
     }
   }
 
   /** Parse competitor data from HTML document */
   private CompetitorData parseCompetitorData(Document doc, String url) {
+    return parseCompetitorData(doc, url, 0); // Default response time for backward compatibility
+  }
+
+  /** Parse competitor data from HTML document with response time */
+  private CompetitorData parseCompetitorData(Document doc, String url, long responseTime) {
     String domain = extractDomain(url);
     String platform = identifyPlatform(url, doc);
 
-    log.info("[Worker] Parsing data for platform: {} from URL: {}", platform, url);
+    log.info("[Worker] Parsing data for platform: {} from URL: {} ({}ms)", platform, url, responseTime);
 
     BigDecimal price = parsePrice(doc, platform);
     boolean inStock = parseStockStatus(doc, platform);
 
-    return new CompetitorData(price, inStock, platform);
+    return new CompetitorData(price, inStock, platform, responseTime);
   }
 
   /** Parse price from document */
@@ -513,12 +523,30 @@ public class CompetitorScraperWorker {
 
     if (lowerUrl.contains("amazon.com")) {
       return "amazon";
-    } else if (lowerUrl.contains("shopify") || doc.select("[data-shopify]").size() > 0) {
+    } else if (lowerUrl.contains("walmart.com")) {
+      return "walmart";
+    } else if (lowerUrl.contains("target.com")) {
+      return "target";
+    } else if (lowerUrl.contains("bestbuy.com")) {
+      return "bestbuy";
+    } else if (lowerUrl.contains("ebay.com")) {
+      return "ebay";
+    } else if (lowerUrl.contains("etsy.com")) {
+      return "etsy";
+    } else if (lowerUrl.contains("shopify") || lowerUrl.contains("myshopify.com") || doc.select("[data-shopify]").size() > 0) {
       return "shopify";
-    } else if (doc.select(".woocommerce").size() > 0) {
+    } else if (doc.select(".woocommerce").size() > 0 || lowerUrl.contains("woocommerce")) {
       return "woocommerce";
+    } else if (lowerUrl.contains("bigcommerce")) {
+      return "bigcommerce";
+    } else if (lowerUrl.contains("magento")) {
+      return "magento";
+    } else if (lowerUrl.contains("prestashop")) {
+      return "prestashop";
+    } else if (lowerUrl.contains("opencart")) {
+      return "opencart";
     } else {
-      return "generic";
+      return "other";
     }
   }
 
@@ -564,19 +592,21 @@ public class CompetitorScraperWorker {
       }
 
       jdbcTemplate.update(
-          "INSERT INTO price_snapshots (competitor_url_id, price, in_stock, price_change_percent, significant_change, checked_at, scraper_version, platform) "
-              + "VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?)",
+          "INSERT INTO price_snapshots (competitor_url_id, price, in_stock, price_change_percent, significant_change, checked_at, scraper_version, platform, response_time_ms) "
+              + "VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?)",
           competitorUrlId,
           data.price,
           data.inStock,
           priceChangePercent,
           significantChange,
           "v2.0",
-          data.platform);
+          data.platform,
+          (int) data.responseTime);
 
-      // Update competitor URL status on successful scrape
+      // Update competitor URL status on successful scrape with response time
       jdbcTemplate.update(
-          "UPDATE competitor_urls SET status = 'active', last_successful_check = CURRENT_TIMESTAMP, error_count = 0 WHERE id = ?",
+          "UPDATE competitor_urls SET status = 'active', last_successful_check = CURRENT_TIMESTAMP, error_count = 0, response_time_ms = ? WHERE id = ?",
+          (int) data.responseTime,
           competitorUrlId);
 
     } catch (Exception e) {
@@ -735,11 +765,17 @@ public class CompetitorScraperWorker {
     final BigDecimal price;
     final boolean inStock;
     final String platform;
+    final long responseTime;
 
     CompetitorData(BigDecimal price, boolean inStock, String platform) {
+      this(price, inStock, platform, 0);
+    }
+
+    CompetitorData(BigDecimal price, boolean inStock, String platform, long responseTime) {
       this.price = price;
       this.inStock = inStock;
       this.platform = platform;
+      this.responseTime = responseTime;
     }
   }
 }
