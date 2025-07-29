@@ -287,7 +287,7 @@ public class CompetitorScraperWorker {
     // COST OPTIMIZATION 1: Check if we recently scraped this URL
     String domain = extractDomain(url);
     String recentScrapeKey = "recent_scrape:" + domain + ":" + url.hashCode();
-    
+
     if (redisTemplate.hasKey(recentScrapeKey)) {
       log.info("[Worker] Skipping - URL scraped recently: {}", url);
       return;
@@ -304,10 +304,10 @@ public class CompetitorScraperWorker {
     BigDecimal cachedPrice = getCachedPriceForUrl(url);
     if (cachedPrice != null) {
       log.info("[Worker] Using cached price ${} for URL: {}", cachedPrice, url);
-      
+
       // Store cached price as snapshot
       storePriceSnapshot(competitorUrlId, new CompetitorData(cachedPrice, true));
-      
+
       // Mark as recently scraped
       redisTemplate.opsForValue().set(recentScrapeKey, "1", 2, TimeUnit.HOURS);
       return;
@@ -316,9 +316,7 @@ public class CompetitorScraperWorker {
     try {
       // Set rate limit with longer delays for cost optimization
       int optimizedDelay = Math.max(delayBetweenRequests, 10000); // At least 10 seconds
-      redisTemplate
-          .opsForValue()
-          .set(rateLimitKey, "1", optimizedDelay, TimeUnit.MILLISECONDS);
+      redisTemplate.opsForValue().set(rateLimitKey, "1", optimizedDelay, TimeUnit.MILLISECONDS);
 
       // Determine scraping method
       boolean requiresJs = requiresJavaScript(url);

@@ -415,15 +415,22 @@ public class CompetitorController {
             .body(Map.of("error", "This competitor URL is already being tracked"));
       }
 
-      // Extract title from URL if no label provided
-      String label =
-          request.url.contains("amazon.com")
-              ? extractAmazonTitle(request.url)
-              : request.url.contains("shopify")
-                  ? extractShopifyTitle(request.url)
-                  : extractTitleFromUrl(request.url);
-
-      logger.info("addCompetitor: Extracted label '{}' for URL: {}", label, request.url);
+      // Extract title from URL if no custom label provided
+      String label;
+      if (request.label != null && !request.label.trim().isEmpty()) {
+        // Use custom label if provided
+        label = request.label.trim();
+        logger.info("addCompetitor: Using custom label '{}' for URL: {}", label, request.url);
+      } else {
+        // Extract title from URL
+        label =
+            request.url.contains("amazon.com")
+                ? extractAmazonTitle(request.url)
+                : request.url.contains("shopify")
+                    ? extractShopifyTitle(request.url)
+                    : extractTitleFromUrl(request.url);
+        logger.info("addCompetitor: Extracted label '{}' for URL: {}", label, request.url);
+      }
 
       // Insert new competitor URL
       logger.info("addCompetitor: Inserting competitor URL into database");
@@ -1481,49 +1488,166 @@ public class CompetitorController {
     return null;
   }
 
+  /** Enhanced method to extract product title from URL with HTML scraping */
   private String extractTitleFromUrl(String url) {
     if (url == null || url.trim().isEmpty()) {
       return "Unknown Competitor";
     }
 
     try {
-      // Extract domain name as basic title
+      // First try to extract from HTML page title
+      String htmlTitle = extractTitleFromHtml(url);
+      if (htmlTitle != null && !htmlTitle.trim().isEmpty() && !htmlTitle.equals("Unknown Competitor")) {
+        return htmlTitle;
+      }
+
+      // Fallback to domain-based extraction
       String domain = url.replaceAll("https?://", "").replaceAll("/.*", "");
       if (domain.startsWith("www.")) {
         domain = domain.substring(4);
       }
       return domain;
     } catch (Exception e) {
+      logger.debug("extractTitleFromUrl: Error extracting title from {}: {}", url, e.getMessage());
       return "Unknown Competitor";
     }
+  }
+
+  /** Extract product title from HTML page */
+  private String extractTitleFromHtml(String url) {
+    try {
+      // Use Jsoup to fetch and parse the page
+      org.jsoup.nodes.Document doc = org.jsoup.Jsoup.connect(url)
+          .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+          .timeout(5000)
+          .followRedirects(true)
+          .get();
+
+      // Try multiple selectors for product titles
+      String title = null;
+
+      // 1. Try meta title first
+      title = doc.select("meta[property=og:title]").attr("content");
+      if (title != null && !title.trim().isEmpty()) {
+        return cleanTitle(title);
+      }
+
+      // 2. Try page title
+      title = doc.title();
+      if (title != null && !title.trim().isEmpty() && !title.equals("Unknown")) {
+        return cleanTitle(title);
+      }
+
+      // 3. Try product-specific selectors
+      title = extractProductTitleFromSelectors(doc, url);
+      if (title != null && !title.trim().isEmpty()) {
+        return cleanTitle(title);
+      }
+
+      return null;
+    } catch (Exception e) {
+      logger.debug("extractTitleFromHtml: Error fetching title from {}: {}", url, e.getMessage());
+      return null;
+    }
+  }
+
+  /** Extract product title using platform-specific selectors */
+  private String extractProductTitleFromSelectors(org.jsoup.nodes.Document doc, String url) {
+    try {
+      String title = null;
+
+      if (url.contains("amazon.com")) {
+        // Amazon-specific selectors
+        title = doc.select("#productTitle").text();
+        if (title.isEmpty()) {
+          title = doc.select("h1.a-size-large").text();
+        }
+        if (title.isEmpty()) {
+          title = doc.select("[data-automation-id=product-title]").text();
+        }
+      } else if (url.contains("shopify.com") || url.contains("myshopify.com")) {
+        // Shopify-specific selectors
+        title = doc.select("h1.product-single__title").text();
+        if (title.isEmpty()) {
+          title = doc.select(".product__title h1").text();
+        }
+        if (title.isEmpty()) {
+          title = doc.select("h1.product__title").text();
+        }
+        if (title.isEmpty()) {
+          title = doc.select(".product-title h1").text();
+        }
+      } else {
+        // Generic product selectors
+        title = doc.select("h1.product-title").text();
+        if (title.isEmpty()) {
+          title = doc.select(".product-title").text();
+        }
+        if (title.isEmpty()) {
+          title = doc.select("h1[class*=product]").text();
+        }
+        if (title.isEmpty()) {
+          title = doc.select("h1[class*=title]").text();
+        }
+      }
+
+      return title;
+    } catch (Exception e) {
+      logger.debug("extractProductTitleFromSelectors: Error extracting title: {}", e.getMessage());
+      return null;
+    }
+  }
+
+  /** Clean and format the extracted title */
+  private String cleanTitle(String title) {
+    if (title == null || title.trim().isEmpty()) {
+      return null;
+    }
+
+    // Remove common suffixes and prefixes
+    title = title.replaceAll("\\|.*$", "").trim(); // Remove everything after |
+    title = title.replaceAll("^.*\\|", "").trim(); // Remove everything before |
+    title = title.replaceAll("\\s+", " ").trim(); // Normalize whitespace
+    
+    // Remove common store names from title
+    String[] storeNames = {"amazon", "shopify", "etsy", "ebay", "walmart", "target"};
+    for (String store : storeNames) {
+      title = title.replaceAll("(?i)\\b" + store + "\\b", "").trim();
+    }
+
+    // Limit length
+    if (title.length() > 100) {
+      title = title.substring(0, 97) + "...";
+    }
+
+    return title.isEmpty() ? null : title;
   }
 
   /** Helper method to extract Amazon product title from URL */
   private String extractAmazonTitle(String url) {
     try {
-      // Handle different Amazon URL patterns
+      // First try HTML scraping for better results
+      String htmlTitle = extractTitleFromHtml(url);
+      if (htmlTitle != null && !htmlTitle.trim().isEmpty()) {
+        return htmlTitle;
+      }
+
+      // Fallback to URL-based extraction
       if (url.contains("/dp/")) {
-        // Product page
         String productId = url.split("/dp/")[1].split("/")[0];
         return "Amazon Product " + productId;
-      } else if (url.contains("/gp/buyagain/")) {
-        // Buy Again page
-        return "Amazon Buy Again";
-      } else if (url.contains("/s?")) {
-        // Search results page
-        return "Amazon Search Results";
-      } else if (url.contains("/b/")) {
-        // Brand page
-        return "Amazon Brand Page";
       } else if (url.contains("/gp/product/")) {
-        // Product page (alternative format)
         String productId = url.split("/gp/product/")[1].split("/")[0];
         return "Amazon Product " + productId;
+      } else if (url.contains("/gp/buyagain/")) {
+        return "Amazon Buy Again";
+      } else if (url.contains("/s?")) {
+        return "Amazon Search Results";
+      } else if (url.contains("/b/")) {
+        return "Amazon Brand Page";
       } else if (url.contains("/gp/offer-listing/")) {
-        // Offer listing page
         return "Amazon Offers";
       } else {
-        // Generic Amazon page
         return "Amazon Page";
       }
     } catch (Exception e) {
@@ -1533,14 +1657,25 @@ public class CompetitorController {
 
   /** Helper method to extract Shopify product title from URL */
   private String extractShopifyTitle(String url) {
-    if (url.contains("/products/")) {
-      String[] parts = url.split("/products/");
-      if (parts.length > 1) {
-        String productSlug = parts[1].split("\\?")[0].split("/")[0];
-        return productSlug.replace("-", " ");
+    try {
+      // First try HTML scraping for better results
+      String htmlTitle = extractTitleFromHtml(url);
+      if (htmlTitle != null && !htmlTitle.trim().isEmpty()) {
+        return htmlTitle;
       }
+
+      // Fallback to URL slug extraction
+      if (url.contains("/products/")) {
+        String[] parts = url.split("/products/");
+        if (parts.length > 1) {
+          String productSlug = parts[1].split("\\?")[0].split("/")[0];
+          return productSlug.replace("-", " ").replace("_", " ");
+        }
+      }
+      return extractTitleFromUrl(url);
+    } catch (Exception e) {
+      return extractTitleFromUrl(url);
     }
-    return extractTitleFromUrl(url);
   }
 
   /** Request class for adding competitors */
@@ -1640,7 +1775,7 @@ public class CompetitorController {
       // COST OPTIMIZATION 1: Check if we recently scraped this URL (within last 2 hours)
       String domain = extractDomain(url);
       String recentScrapeKey = "recent_scrape:" + domain + ":" + url.hashCode();
-      
+
       if (redisTemplate.hasKey(recentScrapeKey)) {
         logger.info("triggerImmediatePriceScraping: Skipping - URL scraped recently: {}", url);
         return; // Skip if we scraped this URL recently
@@ -1668,8 +1803,11 @@ public class CompetitorController {
       // COST OPTIMIZATION 4: Use cached price if available (fallback to scraping)
       java.math.BigDecimal cachedPrice = getCachedPriceForUrl(url);
       if (cachedPrice != null) {
-        logger.info("triggerImmediatePriceScraping: Using cached price ${} for competitor {}", cachedPrice, competitorId);
-        
+        logger.info(
+            "triggerImmediatePriceScraping: Using cached price ${} for competitor {}",
+            cachedPrice,
+            competitorId);
+
         // Store cached price as initial snapshot
         jdbcTemplate.update(
             "INSERT INTO price_snapshots (competitor_url_id, price, in_stock, checked_at, scraper_version) "
@@ -1821,12 +1959,24 @@ public class CompetitorController {
       ".a-price .a-price-whole",
       "[data-a-color='price'] .a-offscreen",
       // Generic
-      ".price", ".product-price", ".money", "[data-price]", ".cost", ".amount",
-      ".price-current", ".price-value", ".product-cost", ".item-price",
+      ".price",
+      ".product-price",
+      ".money",
+      "[data-price]",
+      ".cost",
+      ".amount",
+      ".price-current",
+      ".price-value",
+      ".product-cost",
+      ".item-price",
       // Shopify
-      ".price__regular", ".price__sale", ".price-item",
+      ".price__regular",
+      ".price__sale",
+      ".price-item",
       // Walmart
-      ".price-characteristic", ".price-main", ".price-current"
+      ".price-characteristic",
+      ".price-main",
+      ".price-current"
     };
 
     // Try CSS selectors first (most reliable)
@@ -1837,7 +1987,8 @@ public class CompetitorController {
         if (!text.isEmpty() && text.length() < 50) { // Avoid very long text
           java.math.BigDecimal price = extractPriceFromText(text, patterns);
           if (price != null && price.compareTo(java.math.BigDecimal.ZERO) > 0) {
-            logger.debug("extractPriceFromDocument: Found price ${} using selector '{}'", price, selector);
+            logger.debug(
+                "extractPriceFromDocument: Found price ${} using selector '{}'", price, selector);
             return price;
           }
         }
@@ -1848,7 +1999,8 @@ public class CompetitorController {
     String pageText = doc.text();
     java.math.BigDecimal fallbackPrice = extractPriceFromText(pageText, patterns);
     if (fallbackPrice != null && fallbackPrice.compareTo(java.math.BigDecimal.ZERO) > 0) {
-      logger.debug("extractPriceFromDocument: Found fallback price ${} from page text", fallbackPrice);
+      logger.debug(
+          "extractPriceFromDocument: Found fallback price ${} from page text", fallbackPrice);
       return fallbackPrice;
     }
 
@@ -1865,17 +2017,22 @@ public class CompetitorController {
         try {
           String priceStr = matcher.group(1).replaceAll(",", "");
           java.math.BigDecimal price = new java.math.BigDecimal(priceStr);
-          
+
           // Validate price is reasonable (not too low or too high)
-          if (price.compareTo(java.math.BigDecimal.valueOf(0.01)) >= 0 && 
-              price.compareTo(java.math.BigDecimal.valueOf(100000)) <= 0) {
-            logger.debug("extractPriceFromText: Extracted valid price ${} from text: {}", price, text.substring(0, Math.min(text.length(), 100)));
+          if (price.compareTo(java.math.BigDecimal.valueOf(0.01)) >= 0
+              && price.compareTo(java.math.BigDecimal.valueOf(100000)) <= 0) {
+            logger.debug(
+                "extractPriceFromText: Extracted valid price ${} from text: {}",
+                price,
+                text.substring(0, Math.min(text.length(), 100)));
             return price;
           } else {
-            logger.debug("extractPriceFromText: Price ${} outside reasonable range, skipping", price);
+            logger.debug(
+                "extractPriceFromText: Price ${} outside reasonable range, skipping", price);
           }
         } catch (NumberFormatException e) {
-          logger.debug("extractPriceFromText: Failed to parse price from '{}': {}", text, e.getMessage());
+          logger.debug(
+              "extractPriceFromText: Failed to parse price from '{}': {}", text, e.getMessage());
         }
       }
     }

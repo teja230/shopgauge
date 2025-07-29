@@ -1974,6 +1974,7 @@ export default function CompetitorsPage() {
                     </div>
                   )}
                 </div>
+
                 <input
                   type="text"
                   placeholder="Your Shopify Product ID (optional)"
