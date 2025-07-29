@@ -1806,15 +1806,52 @@ public class CompetitorController {
       String url = (String) competitor.get("url");
       Long competitorId = ((Number) competitor.get("id")).longValue();
 
+      // Check Redis keys before scraping
+      String domain = extractDomain(url);
+      String recentScrapeKey = "recent_scrape:" + domain + ":" + url.hashCode();
+      String rateLimitKey = "scraper_rate_limit:" + domain;
+      
+      Map<String, Object> debugInfo = new HashMap<>();
+      debugInfo.put("competitorId", competitorId);
+      debugInfo.put("url", url);
+      debugInfo.put("shopId", shopId);
+      debugInfo.put("domain", domain);
+      debugInfo.put("recentScrapeKey", recentScrapeKey);
+      debugInfo.put("rateLimitKey", rateLimitKey);
+      debugInfo.put("recentScrapeExists", redisTemplate.hasKey(recentScrapeKey));
+      debugInfo.put("rateLimitExists", redisTemplate.hasKey(rateLimitKey));
+      debugInfo.put("isScrapingAllowed", isScrapingAllowed(shopId));
+      
+      // Check if there's cached price
+      java.math.BigDecimal cachedPrice = getCachedPriceForUrl(url);
+      debugInfo.put("cachedPrice", cachedPrice);
+      
+      // Check current competitor status
+      List<Map<String, Object>> currentStatus = jdbcTemplate.queryForList(
+          "SELECT status, last_successful_check, error_count FROM competitor_urls WHERE id = ?",
+          Long.parseLong(id));
+      if (!currentStatus.isEmpty()) {
+        debugInfo.put("currentStatus", currentStatus.get(0));
+      }
+
       // Trigger immediate scraping
       triggerImmediatePriceScraping(id, url, shopId);
 
-      return ResponseEntity.ok(Map.of(
-          "message", "Immediate scraping triggered",
-          "competitorId", competitorId,
-          "url", url,
-          "shopId", shopId
-      ));
+      // Check status after scraping
+      List<Map<String, Object>> afterStatus = jdbcTemplate.queryForList(
+          "SELECT status, last_successful_check, error_count FROM competitor_urls WHERE id = ?",
+          Long.parseLong(id));
+      if (!afterStatus.isEmpty()) {
+        debugInfo.put("afterStatus", afterStatus.get(0));
+      }
+
+      // Check if price snapshots were created
+      List<Map<String, Object>> snapshots = jdbcTemplate.queryForList(
+          "SELECT price, in_stock, checked_at, scraper_version, platform FROM price_snapshots WHERE competitor_url_id = ? ORDER BY checked_at DESC LIMIT 1",
+          Long.parseLong(id));
+      debugInfo.put("priceSnapshots", snapshots);
+
+      return ResponseEntity.ok(debugInfo);
 
     } catch (Exception e) {
       logger.error("debugTriggerScraping: Error triggering scraping for competitor {}: {}", id, e.getMessage());
