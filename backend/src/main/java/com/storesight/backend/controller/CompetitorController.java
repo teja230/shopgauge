@@ -1531,6 +1531,54 @@ public class CompetitorController {
     
     if (shopDomain != null) {
       try {
+        // Test Redis connectivity
+        debugInfo.put("redisConnected", enhancedRedisService.testConnection());
+        debugInfo.put("circuitBreakerState", enhancedRedisService.getCircuitBreakerState().name());
+        debugInfo.put("circuitBreakerOpen", enhancedRedisService.isCircuitBreakerOpen());
+        
+        // Check cache key
+        String cacheKey = "dashboard:products:" + shopDomain;
+        debugInfo.put("cacheKey", cacheKey);
+        debugInfo.put("cacheExists", enhancedRedisService.exists(cacheKey));
+        
+        // Get cache TTL
+        var cacheTtl = enhancedRedisService.getTtl(cacheKey);
+        debugInfo.put("cacheTtl", cacheTtl.isPresent() ? cacheTtl.get().toMinutes() + " minutes" : "no TTL");
+        
+        // Try to get raw cache data
+        var rawCacheData = enhancedRedisService.get(cacheKey);
+        debugInfo.put("hasRawCacheData", rawCacheData.isPresent());
+        debugInfo.put("rawCacheDataLength", rawCacheData.map(String::length).orElse(0));
+        
+        // Try to parse the raw cache data to see what's stored
+        if (rawCacheData.isPresent()) {
+          try {
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            var parsedData = mapper.readValue(rawCacheData.get(), java.util.Map.class);
+            debugInfo.put("parsedDataKeys", parsedData.keySet());
+            debugInfo.put("parsedDataType", parsedData.getClass().getSimpleName());
+            
+            if (parsedData.containsKey("data")) {
+              var data = parsedData.get("data");
+              debugInfo.put("dataType", data.getClass().getSimpleName());
+              if (data instanceof java.util.Map) {
+                var dataMap = (java.util.Map) data;
+                debugInfo.put("dataKeys", dataMap.keySet());
+                if (dataMap.containsKey("products")) {
+                  var products = dataMap.get("products");
+                  debugInfo.put("productsType", products.getClass().getSimpleName());
+                  if (products instanceof java.util.List) {
+                    debugInfo.put("productsListSize", ((java.util.List) products).size());
+                  }
+                }
+              }
+            }
+          } catch (Exception e) {
+            debugInfo.put("parseError", e.getMessage());
+          }
+        }
+        
+        // Test DashboardCacheService
         var cachedProducts = dashboardCacheService.getCachedProductsData(shopDomain);
         debugInfo.put("hasCachedProducts", !cachedProducts.isEmpty());
         debugInfo.put("cachedProductsType", cachedProducts.isPresent() ? cachedProducts.get().getClass().getSimpleName() : "empty");
@@ -1541,9 +1589,21 @@ public class CompetitorController {
           @SuppressWarnings("unchecked")
           List<Map<String, Object>> products = (List<Map<String, Object>>) productsData.get("products");
           debugInfo.put("productsCount", products != null ? products.size() : 0);
+          debugInfo.put("productsDataKeys", productsData.keySet());
         }
+        
+        // Check if products exist in database
+        try {
+          List<Map<String, Object>> dbProducts = jdbcTemplate.queryForList(
+              "SELECT COUNT(*) as count FROM products WHERE shop_id = ?", shopId);
+          debugInfo.put("dbProductsCount", dbProducts.isEmpty() ? 0 : dbProducts.get(0).get("count"));
+        } catch (Exception e) {
+          debugInfo.put("dbError", e.getMessage());
+        }
+        
       } catch (Exception e) {
         debugInfo.put("cacheError", e.getMessage());
+        debugInfo.put("cacheErrorType", e.getClass().getSimpleName());
       }
     }
     
