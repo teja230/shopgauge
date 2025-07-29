@@ -803,6 +803,15 @@ export default function CompetitorsPage() {
       return;
     }
 
+    // Enhanced URL validation for better user guidance
+    const trimmedUrl = url.trim();
+    if (trimmedUrl.includes('amazon.com') && !trimmedUrl.includes('/dp/') && !trimmedUrl.includes('/gp/product/')) {
+      notifications.showError('Please provide a direct Amazon product page URL (should contain /dp/ or /gp/product/)', {
+        category: 'Competitors'
+      });
+      return;
+    }
+
     setIsAdding(true);
     try {
       let newCompetitor: Competitor;
@@ -895,12 +904,13 @@ export default function CompetitorsPage() {
           error: error.message,
           url: url
         }, 'CompetitorsPage');
-      } else if (error.message?.includes('Authentication required') || error.message?.includes('401')) {
+      } else if (error.message?.includes('Authentication required') || error.message?.includes('401') || error.message?.includes('Authentication required. Please connect your Shopify store')) {
         needsAuthentication = true;
         userMessage = 'Store authentication is required to initiate competitor tracking. Please connect your Shopify store first.';
         debugLog.warn('Authentication required for competitor addition', {
           error: error.message,
-          url: url
+          url: url,
+          errorType: error.constructor.name
         }, 'CompetitorsPage');
       } else if (error.message?.includes('already being monitored')) {
         userMessage = 'This competitor is already under active tracking for your product catalog.';
@@ -915,16 +925,18 @@ export default function CompetitorsPage() {
           url: url
         }, 'CompetitorsPage');
       } else if (error.message?.includes('Invalid URL') || error.message?.includes('Unsupported platform')) {
-        userMessage = 'Please provide a valid competitor URL from a supported platform (Amazon, Best Buy, Shopify, etc.).';
+        userMessage = 'Please provide a valid competitor URL from a supported platform (Amazon, Best Buy, Shopify, etc.). Make sure it\'s a product page, not a search or category page.';
         debugLog.warn('Invalid competitor URL provided', {
           error: error.message,
-          url: url
+          url: url,
+          errorType: error.constructor.name
         }, 'CompetitorsPage');
-      } else if (error.message?.includes('Connection issue')) {
+      } else if (error.message?.includes('Connection issue') || error.message?.includes('fetch') || error.message?.includes('Network Error')) {
         userMessage = 'Network connectivity issue detected. Please verify your internet connection and retry.';
         debugLog.error('Connection issue detected', {
           error: error.message,
-          url: url
+          url: url,
+          errorType: error.constructor.name
         }, 'CompetitorsPage');
       } else if (error.message?.includes('session has expired')) {
         userMessage = 'Your session has expired. Please refresh the page and re-authenticate.';
