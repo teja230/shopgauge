@@ -461,8 +461,8 @@ async function getProductsIntelligently(): Promise<any[]> {
     return [];
   }
 
-  // First, try session storage (fastest)
-  const sessionKey = `products_cache_${shop}`;
+  // First, try session storage (fastest) - use same key format as backend
+  const sessionKey = `dashboard_cache_${shop}_v3`;
   const sessionData = sessionStorage.getItem(sessionKey);
   
   if (sessionData) {
@@ -473,7 +473,15 @@ async function getProductsIntelligently(): Promise<any[]> {
       
       if (age < maxAge) {
         console.log('Using products from session storage cache');
-        return cache.products || [];
+        // Handle both old format and new dashboard format
+        if (cache.products && Array.isArray(cache.products)) {
+          // Old format: direct array
+          return cache.products;
+        } else if (cache.products && cache.products.data) {
+          // New dashboard format: nested data
+          return cache.products.data || [];
+        }
+        return [];
       } else {
         console.log('Session storage cache expired, removing');
         sessionStorage.removeItem(sessionKey);
@@ -491,9 +499,15 @@ async function getProductsIntelligently(): Promise<any[]> {
     if (response.ok) {
       const data = await response.json();
       if (data.products && Array.isArray(data.products)) {
-        // Cache in session storage for future use
+        // Cache in session storage for future use - use same format as dashboard
         const cacheData = {
-          products: data.products,
+          products: {
+            data: data.products,
+            timestamp: Date.now(),
+            lastUpdated: new Date(),
+            version: "v2.0",
+            shop: shop
+          },
           timestamp: Date.now()
         };
         sessionStorage.setItem(sessionKey, JSON.stringify(cacheData));
