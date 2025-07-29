@@ -82,6 +82,74 @@ export interface CostHistoryResponse {
   totalDays: number;
 }
 
+// Competitor Debugging Interfaces
+export interface CompetitorScrapingStatus {
+  shopId?: number;
+  shopDomain?: string;
+  competitors: Array<{
+    id: number;
+    url: string;
+    status: string;
+    error_count: number;
+    competitor_created: string;
+    last_successful_check: string | null;
+    latest_price_check: string | null;
+    price: number | null;
+    in_stock: boolean | null;
+    platform: string | null;
+    scraper_source: string | null;
+    response_time_ms: number | null;
+    scraping_status: string;
+  }>;
+  summary: {
+    total_competitors: number;
+    active_status: number;
+    error_status: number;
+    blocked_by_errors: number;
+    due_for_scraping: number;
+    recently_scraped: number;
+    never_scraped: number;
+    platform_stats: Record<string, number>;
+    scraper_source_stats: Record<string, number>;
+  };
+  availableShops?: Array<{
+    id: number;
+    shopify_domain: string;
+  }>;
+  message?: string;
+}
+
+export interface CompetitorTriggerResponse {
+  competitorId: string;
+  shopId?: number;
+  url: string;
+  actualShopId: number;
+  domain: string;
+  recentScrapeKey: string;
+  rateLimitKey: string;
+  recentScrapeExists: boolean;
+  rateLimitExists: boolean;
+  currentStatus?: {
+    status: string;
+    last_successful_check: string | null;
+    error_count: number;
+  };
+  scrapingTriggered: boolean;
+  message: string;
+}
+
+export interface CacheDebugInfo {
+  shopId: number;
+  shopDomain: string;
+  redisConnected: boolean;
+  redisError?: string;
+  cacheKey: string;
+  cacheExists: boolean;
+  cachedData?: any;
+  cacheType?: string;
+  databaseProductCount: number;
+}
+
 export interface SearchTestResult {
   url: string;
   title: string;
@@ -156,7 +224,26 @@ export const marketIntelligenceAdminAPI = {
     return await fetchWithAdminAuth(
       `/api/admin/market-intelligence/cost-history?shopId=${shopId}&days=${days}`
     );
-  }
+  },
+
+  // Competitor Debugging API Functions
+  async getCompetitorScrapingStatus(shopId?: number): Promise<CompetitorScrapingStatus> {
+    const url = shopId 
+      ? `/api/admin/market-intelligence/competitors/scraping-status?shopId=${shopId}`
+      : '/api/admin/market-intelligence/competitors/scraping-status';
+    return await fetchWithAdminAuth(url);
+  },
+
+  async triggerCompetitorScraping(competitorId: string, shopId?: number): Promise<CompetitorTriggerResponse> {
+    const url = shopId 
+      ? `/api/admin/market-intelligence/competitors/${competitorId}/trigger-scraping?shopId=${shopId}`
+      : `/api/admin/market-intelligence/competitors/${competitorId}/trigger-scraping`;
+    return await fetchWithAdminAuth(url, { method: 'POST' });
+  },
+
+  async getCacheDebugInfo(shopId: number): Promise<CacheDebugInfo> {
+    return await fetchWithAdminAuth(`/api/admin/market-intelligence/competitors/cache-debug?shopId=${shopId}`);
+  },
 };
 
 export default marketIntelligenceAdminAPI; 

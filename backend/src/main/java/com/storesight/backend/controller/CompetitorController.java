@@ -65,7 +65,7 @@ public class CompetitorController {
 
   @Autowired private RedisTemplate<String, Object> redisTemplate;
   @Autowired private EnhancedRedisService enhancedRedisService;
-  
+
   @Value("${competitor.scraping.max-urls-per-shop:10}")
   private int maxUrlsPerShop;
 
@@ -463,10 +463,14 @@ public class CompetitorController {
             return ResponseEntity.status(HttpStatus.PRECONDITION_REQUIRED)
                 .body(
                     Map.of(
-                        "error", "PRODUCTS_SYNC_NEEDED",
-                        "message", "Product data is corrupted. Please sync your products first.",
-                        "action", "SYNC_PRODUCTS",
-                        "redirect_url", "/dashboard"));
+                        "error",
+                        "PRODUCTS_SYNC_NEEDED",
+                        "message",
+                        "Product data is corrupted. Please sync your products first.",
+                        "action",
+                        "SYNC_PRODUCTS",
+                        "redirect_url",
+                        "/dashboard"));
           }
         } else {
           logger.info(
@@ -540,52 +544,66 @@ public class CompetitorController {
       }
 
       // Check if this URL was previously soft-deleted for this shop
-      List<Map<String, Object>> existingDeleted = jdbcTemplate.queryForList(
-          "SELECT id, url, label FROM competitor_urls WHERE shop_id = ? AND url = ? AND deleted_at IS NOT NULL",
-          shopId, request.url);
-      
+      List<Map<String, Object>> existingDeleted =
+          jdbcTemplate.queryForList(
+              "SELECT id, url, label FROM competitor_urls WHERE shop_id = ? AND url = ? AND deleted_at IS NOT NULL",
+              shopId,
+              request.url);
+
       if (!existingDeleted.isEmpty()) {
         // Reactivate the soft-deleted competitor
-        Map<String, Object> existing = existingDeleted.get(0);
-        Long existingId = ((Number) existing.get("id")).longValue();
-        
+        Map<String, Object> existingDeletedRecord = existingDeleted.get(0);
+        Long existingId = ((Number) existingDeletedRecord.get("id")).longValue();
+
         jdbcTemplate.update(
             "UPDATE competitor_urls SET deleted_at = NULL, label = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-            request.label != null ? request.label : (String) existing.get("label"),
+            request.label != null ? request.label : (String) existingDeletedRecord.get("label"),
             existingId);
-        
-        logger.info("addCompetitor: Reactivated soft-deleted competitor ID {} for URL {}", existingId, request.url);
-        
+
+        logger.info(
+            "addCompetitor: Reactivated soft-deleted competitor ID {} for URL {}",
+            existingId,
+            request.url);
+
         // Get the reactivated record
-        List<Map<String, Object>> reactivatedRecord = jdbcTemplate.queryForList(
-            "SELECT id, url, label FROM competitor_urls WHERE id = ?",
-            existingId);
-        
+        List<Map<String, Object>> reactivatedRecord =
+            jdbcTemplate.queryForList(
+                "SELECT id, url, label FROM competitor_urls WHERE id = ?", existingId);
+
         if (!reactivatedRecord.isEmpty()) {
           Map<String, Object> record = reactivatedRecord.get(0);
-          CompetitorDto competitor = new CompetitorDto(
-              String.valueOf(record.get("id")),
-              String.valueOf(record.get("url")),
-              String.valueOf(record.get("label")),
-              0.0, // Price will be updated by scraper
-              true, // Assume in stock initially
-              0.0, // No price difference initially
-              "Just reactivated",
-              productId, // shopifyProductId
-              null); // productTitle - will be populated on next fetch
-          
+          CompetitorDto competitor =
+              new CompetitorDto(
+                  String.valueOf(record.get("id")),
+                  String.valueOf(record.get("url")),
+                  String.valueOf(record.get("label")),
+                  0.0, // Price will be updated by scraper
+                  true, // Assume in stock initially
+                  0.0, // No price difference initially
+                  "Just reactivated",
+                  productId, // shopifyProductId
+                  null); // productTitle - will be populated on next fetch
+
           // Start background price scraping for the reactivated competitor
           try {
-            logger.info("addCompetitor: Starting background price scraping for reactivated competitor ID: {}", record.get("id"));
+            logger.info(
+                "addCompetitor: Starting background price scraping for reactivated competitor ID: {}",
+                record.get("id"));
             startBackgroundPriceScraping(record.get("id").toString(), request.url, shopId);
           } catch (Exception e) {
-            logger.warn("addCompetitor: Failed to start background price scraping for reactivated competitor: {}", e.getMessage());
+            logger.warn(
+                "addCompetitor: Failed to start background price scraping for reactivated competitor: {}",
+                e.getMessage());
           }
-          
-          return ResponseEntity.ok(Map.of(
-              "message", "Competitor reactivated successfully",
-              "competitor", competitor,
-              "reactivated", true));
+
+          return ResponseEntity.ok(
+              Map.of(
+                  "message",
+                  "Competitor reactivated successfully",
+                  "competitor",
+                  competitor,
+                  "reactivated",
+                  true));
         }
       }
 
@@ -742,8 +760,11 @@ public class CompetitorController {
 
       // Soft delete the competitor URL
       int deletedCompetitors =
-          jdbcTemplate.update("UPDATE competitor_urls SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?", Long.parseLong(id));
-      logger.info("deleteCompetitor: Soft deleted {} competitor URLs for ID {}", deletedCompetitors, id);
+          jdbcTemplate.update(
+              "UPDATE competitor_urls SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?",
+              Long.parseLong(id));
+      logger.info(
+          "deleteCompetitor: Soft deleted {} competitor URLs for ID {}", deletedCompetitors, id);
 
       if (deletedCompetitors == 0) {
         logger.error("deleteCompetitor: No competitor URL was deleted for ID {}", id);
@@ -767,12 +788,13 @@ public class CompetitorController {
           shopId,
           e.getMessage(),
           e);
-      
+
       // Provide more specific error messages based on exception type
       String errorMessage = "Failed to delete competitor";
       if (e.getMessage() != null) {
         if (e.getMessage().contains("foreign key") || e.getMessage().contains("constraint")) {
-          errorMessage = "Unable to delete competitor due to database constraints. Please try again.";
+          errorMessage =
+              "Unable to delete competitor due to database constraints. Please try again.";
         } else if (e.getMessage().contains("connection") || e.getMessage().contains("database")) {
           errorMessage = "Database connection issue. Please try again in a moment.";
         } else if (e.getMessage().contains("timeout")) {
@@ -781,7 +803,7 @@ public class CompetitorController {
           errorMessage = "Failed to delete competitor: " + e.getMessage();
         }
       }
-      
+
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
           .body(Map.of("error", errorMessage));
     }
@@ -825,7 +847,8 @@ public class CompetitorController {
 
         try {
           // Delete the inconsistent competitor
-          jdbcTemplate.update("UPDATE competitor_urls SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?", compId);
+          jdbcTemplate.update(
+              "UPDATE competitor_urls SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?", compId);
           cleanedCount++;
           logger.info(
               "cleanupInconsistentCompetitors: Cleaned up competitor ID {} with URL {}",
@@ -1443,16 +1466,15 @@ public class CompetitorController {
     }
   }
 
-
-
   @GetMapping("/competitors/{id}/products")
   public ResponseEntity<Map<String, Object>> getAvailableProducts(
-      @PathVariable String id, 
+      @PathVariable String id,
       @RequestParam(defaultValue = "false") boolean isDemoMode,
       HttpServletRequest request) {
     Long shopId = getShopIdFromRequest(request);
     if (shopId == null) {
-      logger.warn("Authentication required for competitor products endpoint - competitor ID: {}", id);
+      logger.warn(
+          "Authentication required for competitor products endpoint - competitor ID: {}", id);
       return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
           .body(Map.of("error", "Authentication required"));
     }
@@ -1466,133 +1488,210 @@ public class CompetitorController {
             .body(Map.of("error", "Unable to determine shop domain"));
       }
 
-      logger.info("Fetching available products for competitor {} in shop {} (demo mode: {})", id, shopDomain, isDemoMode);
+      logger.info(
+          "Fetching available products for competitor {} in shop {} (demo mode: {})",
+          id,
+          shopDomain,
+          isDemoMode);
 
       // Get cached products with detailed debugging
       logger.info("Attempting to get cached products for shop domain: {}", shopDomain);
       var cachedProducts = dashboardCacheService.getCachedProductsData(shopDomain);
-      logger.info("Cache result - isEmpty: {}, isPresent: {}", cachedProducts.isEmpty(), cachedProducts.isPresent());
-      
+      logger.info(
+          "Cache result - isEmpty: {}, isPresent: {}",
+          cachedProducts.isEmpty(),
+          cachedProducts.isPresent());
+
       if (cachedProducts.isPresent()) {
         logger.info("Cache hit - processing cached products data");
         @SuppressWarnings("unchecked")
         Map<String, Object> productsData = (Map<String, Object>) cachedProducts.get();
         logger.info("Cached products data keys: {}", productsData.keySet());
-        
+
         @SuppressWarnings("unchecked")
-        List<Map<String, Object>> products = (List<Map<String, Object>>) productsData.get("products");
-        logger.info("Products list - null: {}, size: {}", products == null, products != null ? products.size() : 0);
+        List<Map<String, Object>> products =
+            (List<Map<String, Object>>) productsData.get("products");
+        logger.info(
+            "Products list - null: {}, size: {}",
+            products == null,
+            products != null ? products.size() : 0);
       }
-      
+
       List<Map<String, Object>> availableProducts;
-      
+
       if (cachedProducts.isEmpty()) {
         logger.info("No cached products found for shop {} (demo mode: {})", shopDomain, isDemoMode);
-        
+
         // Proper flow: session -> Redis -> Shopify
         // If cache is empty, trigger a cache refresh from Shopify
         logger.warn("Cache miss for products - attempting to refresh from Shopify");
-        
+
         if (isDemoMode) {
           // Demo mode: provide demo products
           logger.info("Demo mode: Providing demo products for shop {}", shopDomain);
-          availableProducts = List.of(
-              Map.of("id", "demo-product-1", "title", "Demo Product 1", "handle", "demo-product-1", "price", 29.99),
-              Map.of("id", "demo-product-2", "title", "Demo Product 2", "handle", "demo-product-2", "price", 49.99),
-              Map.of("id", "demo-product-3", "title", "Demo Product 3", "handle", "demo-product-3", "price", 79.99),
-              Map.of("id", "demo-product-4", "title", "Demo Product 4", "handle", "demo-product-4", "price", 99.99),
-              Map.of("id", "demo-product-5", "title", "Demo Product 5", "handle", "demo-product-5", "price", 129.99)
-          );
+          availableProducts =
+              List.of(
+                  Map.of(
+                      "id",
+                      "demo-product-1",
+                      "title",
+                      "Demo Product 1",
+                      "handle",
+                      "demo-product-1",
+                      "price",
+                      29.99),
+                  Map.of(
+                      "id",
+                      "demo-product-2",
+                      "title",
+                      "Demo Product 2",
+                      "handle",
+                      "demo-product-2",
+                      "price",
+                      49.99),
+                  Map.of(
+                      "id",
+                      "demo-product-3",
+                      "title",
+                      "Demo Product 3",
+                      "handle",
+                      "demo-product-3",
+                      "price",
+                      79.99),
+                  Map.of(
+                      "id",
+                      "demo-product-4",
+                      "title",
+                      "Demo Product 4",
+                      "handle",
+                      "demo-product-4",
+                      "price",
+                      99.99),
+                  Map.of(
+                      "id",
+                      "demo-product-5",
+                      "title",
+                      "Demo Product 5",
+                      "handle",
+                      "demo-product-5",
+                      "price",
+                      129.99));
         } else {
           // Live mode: Try to refresh cache from Shopify first
-          logger.info("Live mode: Attempting to refresh products cache from Shopify for shop {}", shopDomain);
+          logger.info(
+              "Live mode: Attempting to refresh products cache from Shopify for shop {}",
+              shopDomain);
           try {
             // Get the session token for Shopify API calls
             String sessionId = request.getSession().getId();
             String token = shopService.getTokenForShop(shopDomain, sessionId);
-            
+
             if (token == null) {
               logger.error("No Shopify token available for shop: {}", shopDomain);
               return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                  .body(Map.of("error", "Shopify authentication required. Please reconnect your store."));
+                  .body(
+                      Map.of(
+                          "error",
+                          "Shopify authentication required. Please reconnect your store."));
             }
-            
+
             // Fetch products from Shopify API and cache them
-            String url = String.format("https://%s.myshopify.com/admin/api/2023-10/products.json?limit=50", shopDomain);
+            String url =
+                String.format(
+                    "https://%s.myshopify.com/admin/api/2023-10/products.json?limit=50",
+                    shopDomain);
             WebClient webClient = WebClient.builder().build();
-            
-            Map<String, Object> shopifyResponse = webClient.get()
-                .uri(url)
-                .header("X-Shopify-Access-Token", token)
-                .retrieve()
-                .bodyToMono(Map.class)
-                .block();
-            
+
+            Map<String, Object> shopifyResponse =
+                webClient
+                    .get()
+                    .uri(url)
+                    .header("X-Shopify-Access-Token", token)
+                    .retrieve()
+                    .bodyToMono(Map.class)
+                    .block();
+
             if (shopifyResponse != null && shopifyResponse.containsKey("products")) {
               @SuppressWarnings("unchecked")
-              List<Map<String, Object>> shopifyProducts = (List<Map<String, Object>>) shopifyResponse.get("products");
-              
+              List<Map<String, Object>> shopifyProducts =
+                  (List<Map<String, Object>>) shopifyResponse.get("products");
+
               if (!shopifyProducts.isEmpty()) {
                 // Format products for frontend
-                availableProducts = shopifyProducts.stream()
-                    .map(product -> {
-                      Object productId = product.get("id");
-                      Object title = product.get("title");
-                      Object handle = product.get("handle");
-                      
-                      // Extract price from variants
-                      double price = 0.0;
-                      if (product.containsKey("variants")) {
-                        @SuppressWarnings("unchecked")
-                        List<Map<String, Object>> variants = (List<Map<String, Object>>) product.get("variants");
-                        if (!variants.isEmpty()) {
-                          Object priceObj = variants.get(0).get("price");
-                          if (priceObj != null) {
-                            price = Double.parseDouble(priceObj.toString());
-                          }
-                        }
-                      }
-                      
-                      Map<String, Object> productMap = new HashMap<>();
-                      productMap.put("id", productId != null ? productId.toString() : "");
-                      productMap.put("title", title != null ? title.toString() : "");
-                      productMap.put("handle", handle != null ? handle.toString() : "");
-                      productMap.put("price", price);
-                      return productMap;
-                    })
-                    .collect(Collectors.toList());
-                
+                availableProducts =
+                    shopifyProducts.stream()
+                        .map(
+                            product -> {
+                              Object productId = product.get("id");
+                              Object title = product.get("title");
+                              Object handle = product.get("handle");
+
+                              // Extract price from variants
+                              double price = 0.0;
+                              if (product.containsKey("variants")) {
+                                @SuppressWarnings("unchecked")
+                                List<Map<String, Object>> variants =
+                                    (List<Map<String, Object>>) product.get("variants");
+                                if (!variants.isEmpty()) {
+                                  Object priceObj = variants.get(0).get("price");
+                                  if (priceObj != null) {
+                                    price = Double.parseDouble(priceObj.toString());
+                                  }
+                                }
+                              }
+
+                              Map<String, Object> productMap = new HashMap<>();
+                              productMap.put("id", productId != null ? productId.toString() : "");
+                              productMap.put("title", title != null ? title.toString() : "");
+                              productMap.put("handle", handle != null ? handle.toString() : "");
+                              productMap.put("price", price);
+                              return productMap;
+                            })
+                        .collect(Collectors.toList());
+
                 // Cache the products data
                 Map<String, Object> cacheData = new HashMap<>();
                 cacheData.put("products", availableProducts);
                 cacheData.put("total_products", availableProducts.size());
                 dashboardCacheService.cacheProductsData(shopDomain, cacheData);
-                
-                logger.info("Successfully refreshed products cache from Shopify: {} products", availableProducts.size());
+
+                logger.info(
+                    "Successfully refreshed products cache from Shopify: {} products",
+                    availableProducts.size());
               } else {
                 logger.warn("Shopify returned no products for shop: {}", shopDomain);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("error", "No products found in your Shopify store. Please add products first."));
+                    .body(
+                        Map.of(
+                            "error",
+                            "No products found in your Shopify store. Please add products first."));
               }
             } else {
               logger.error("Invalid response from Shopify API for shop: {}", shopDomain);
               return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                  .body(Map.of("error", "Failed to fetch products from Shopify. Please try again."));
+                  .body(
+                      Map.of("error", "Failed to fetch products from Shopify. Please try again."));
             }
-            
+
           } catch (Exception e) {
-            logger.error("Error refreshing products from Shopify for shop {}: {}", shopDomain, e.getMessage());
+            logger.error(
+                "Error refreshing products from Shopify for shop {}: {}",
+                shopDomain,
+                e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", "Failed to sync products from Shopify. Please try again later."));
+                .body(
+                    Map.of(
+                        "error", "Failed to sync products from Shopify. Please try again later."));
           }
         }
       } else {
         logger.info("Found cached products for shop {}", shopDomain);
-        
+
         @SuppressWarnings("unchecked")
         Map<String, Object> productsData = (Map<String, Object>) cachedProducts.get();
         @SuppressWarnings("unchecked")
-        List<Map<String, Object>> products = (List<Map<String, Object>>) productsData.get("products");
+        List<Map<String, Object>> products =
+            (List<Map<String, Object>>) productsData.get("products");
 
         if (products == null || products.isEmpty()) {
           logger.warn("Cached products data is empty or null for shop {}", shopDomain);
@@ -1615,33 +1714,40 @@ public class CompetitorController {
                 .collect(Collectors.toList());
       }
 
-      logger.info("Returning {} available products for competitor {} in shop {}", availableProducts.size(), id, shopDomain);
+      logger.info(
+          "Returning {} available products for competitor {} in shop {}",
+          availableProducts.size(),
+          id,
+          shopDomain);
       return ResponseEntity.ok(
           Map.of("products", availableProducts, "count", availableProducts.size()));
 
     } catch (Exception e) {
-      logger.error("Error getting available products for competitor {} in shop {}: {}", id, shopId, e.getMessage(), e);
+      logger.error(
+          "Error getting available products for competitor {} in shop {}: {}",
+          id,
+          shopId,
+          e.getMessage(),
+          e);
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
           .body(Map.of("error", "Failed to retrieve available products"));
     }
   }
 
-
-
-
   public ResponseEntity<Map<String, Object>> debugTimestamps(HttpServletRequest request) {
     Long shopId = getShopIdFromRequest(request);
     String shopDomain = shopId != null ? getShopDomainFromId(shopId) : null;
-    
+
     Map<String, Object> debugInfo = new HashMap<>();
     debugInfo.put("shopId", shopId);
     debugInfo.put("shopDomain", shopDomain);
-    
+
     if (shopId != null) {
       try {
         // Get raw timestamp data from database
-        String query = """
-            SELECT 
+        String query =
+            """
+            SELECT
                 cu.id,
                 cu.url,
                 cu.created_at as competitor_created,
@@ -1658,10 +1764,10 @@ public class CompetitorController {
             WHERE cu.shop_id = ?
             ORDER BY cu.created_at DESC
             """;
-        
+
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(query, shopId);
         List<Map<String, Object>> timestampData = new ArrayList<>();
-        
+
         for (Map<String, Object> row : rows) {
           Map<String, Object> competitorData = new HashMap<>();
           competitorData.put("id", row.get("id"));
@@ -1673,16 +1779,16 @@ public class CompetitorController {
           competitorData.put("in_stock", row.get("in_stock"));
           timestampData.add(competitorData);
         }
-        
+
         debugInfo.put("competitors", timestampData);
         debugInfo.put("count", timestampData.size());
-        
+
       } catch (Exception e) {
         debugInfo.put("error", e.getMessage());
         debugInfo.put("errorType", e.getClass().getSimpleName());
       }
     }
-    
+
     return ResponseEntity.ok(debugInfo);
   }
 
@@ -1697,9 +1803,11 @@ public class CompetitorController {
 
     try {
       // Get competitor URL data
-      List<Map<String, Object>> competitorData = jdbcTemplate.queryForList(
-          "SELECT id, url, shop_id FROM competitor_urls WHERE id = ? AND shop_id = ?",
-          Long.parseLong(id), shopId);
+      List<Map<String, Object>> competitorData =
+          jdbcTemplate.queryForList(
+              "SELECT id, url, shop_id FROM competitor_urls WHERE id = ? AND shop_id = ?",
+              Long.parseLong(id),
+              shopId);
 
       if (competitorData.isEmpty()) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -1714,7 +1822,7 @@ public class CompetitorController {
       String domain = extractDomain(url);
       String recentScrapeKey = "recent_scrape:" + domain + ":" + url.hashCode();
       String rateLimitKey = "scraper_rate_limit:" + domain;
-      
+
       Map<String, Object> debugInfo = new HashMap<>();
       debugInfo.put("competitorId", competitorId);
       debugInfo.put("url", url);
@@ -1725,15 +1833,16 @@ public class CompetitorController {
       debugInfo.put("recentScrapeExists", redisTemplate.hasKey(recentScrapeKey));
       debugInfo.put("rateLimitExists", redisTemplate.hasKey(rateLimitKey));
       debugInfo.put("isScrapingAllowed", isScrapingAllowed(shopId));
-      
+
       // Check if there's cached price
       java.math.BigDecimal cachedPrice = getCachedPriceForUrl(url);
       debugInfo.put("cachedPrice", cachedPrice);
-      
+
       // Check current competitor status
-      List<Map<String, Object>> currentStatus = jdbcTemplate.queryForList(
-          "SELECT status, last_successful_check, error_count FROM competitor_urls WHERE id = ?",
-          Long.parseLong(id));
+      List<Map<String, Object>> currentStatus =
+          jdbcTemplate.queryForList(
+              "SELECT status, last_successful_check, error_count FROM competitor_urls WHERE id = ?",
+              Long.parseLong(id));
       if (!currentStatus.isEmpty()) {
         debugInfo.put("currentStatus", currentStatus.get(0));
       }
@@ -1742,23 +1851,28 @@ public class CompetitorController {
       triggerImmediatePriceScraping(id, url, shopId);
 
       // Check status after scraping
-      List<Map<String, Object>> afterStatus = jdbcTemplate.queryForList(
-          "SELECT status, last_successful_check, error_count FROM competitor_urls WHERE id = ?",
-          Long.parseLong(id));
+      List<Map<String, Object>> afterStatus =
+          jdbcTemplate.queryForList(
+              "SELECT status, last_successful_check, error_count FROM competitor_urls WHERE id = ?",
+              Long.parseLong(id));
       if (!afterStatus.isEmpty()) {
         debugInfo.put("afterStatus", afterStatus.get(0));
       }
 
       // Check if price snapshots were created
-      List<Map<String, Object>> snapshots = jdbcTemplate.queryForList(
-          "SELECT price, in_stock, checked_at, scraper_version, platform FROM price_snapshots WHERE competitor_url_id = ? ORDER BY checked_at DESC LIMIT 1",
-          Long.parseLong(id));
+      List<Map<String, Object>> snapshots =
+          jdbcTemplate.queryForList(
+              "SELECT price, in_stock, checked_at, scraper_version, platform FROM price_snapshots WHERE competitor_url_id = ? ORDER BY checked_at DESC LIMIT 1",
+              Long.parseLong(id));
       debugInfo.put("priceSnapshots", snapshots);
 
       return ResponseEntity.ok(debugInfo);
 
     } catch (Exception e) {
-      logger.error("debugTriggerScraping: Error triggering scraping for competitor {}: {}", id, e.getMessage());
+      logger.error(
+          "debugTriggerScraping: Error triggering scraping for competitor {}: {}",
+          id,
+          e.getMessage());
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
           .body(Map.of("error", "Failed to trigger scraping: " + e.getMessage()));
     }
@@ -1768,44 +1882,49 @@ public class CompetitorController {
   public ResponseEntity<Map<String, Object>> debugProducts(HttpServletRequest request) {
     Long shopId = getShopIdFromRequest(request);
     String shopDomain = shopId != null ? getShopDomainFromId(shopId) : null;
-    
+
     Map<String, Object> debugInfo = new HashMap<>();
     debugInfo.put("shopId", shopId);
     debugInfo.put("shopDomain", shopDomain);
-    debugInfo.put("cookies", request.getCookies() != null ? 
-        java.util.Arrays.stream(request.getCookies())
-            .map(c -> Map.of("name", c.getName(), "value", c.getValue()))
-            .collect(Collectors.toList()) : List.of());
-    
+    debugInfo.put(
+        "cookies",
+        request.getCookies() != null
+            ? java.util.Arrays.stream(request.getCookies())
+                .map(c -> Map.of("name", c.getName(), "value", c.getValue()))
+                .collect(Collectors.toList())
+            : List.of());
+
     if (shopDomain != null) {
       try {
         // Test Redis connectivity
         debugInfo.put("redisConnected", enhancedRedisService.testConnection());
         debugInfo.put("circuitBreakerState", enhancedRedisService.getCircuitBreakerState().name());
         debugInfo.put("circuitBreakerOpen", enhancedRedisService.isCircuitBreakerOpen());
-        
+
         // Check cache key
         String cacheKey = "dashboard:products:" + shopDomain;
         debugInfo.put("cacheKey", cacheKey);
         debugInfo.put("cacheExists", enhancedRedisService.exists(cacheKey));
-        
+
         // Get cache TTL
         var cacheTtl = enhancedRedisService.getTtl(cacheKey);
-        debugInfo.put("cacheTtl", cacheTtl.isPresent() ? cacheTtl.get().toMinutes() + " minutes" : "no TTL");
-        
+        debugInfo.put(
+            "cacheTtl", cacheTtl.isPresent() ? cacheTtl.get().toMinutes() + " minutes" : "no TTL");
+
         // Try to get raw cache data
         var rawCacheData = enhancedRedisService.get(cacheKey);
         debugInfo.put("hasRawCacheData", rawCacheData.isPresent());
         debugInfo.put("rawCacheDataLength", rawCacheData.map(String::length).orElse(0));
-        
+
         // Try to parse the raw cache data to see what's stored
         if (rawCacheData.isPresent()) {
           try {
-            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            com.fasterxml.jackson.databind.ObjectMapper mapper =
+                new com.fasterxml.jackson.databind.ObjectMapper();
             var parsedData = mapper.readValue(rawCacheData.get(), java.util.Map.class);
             debugInfo.put("parsedDataKeys", parsedData.keySet());
             debugInfo.put("parsedDataType", parsedData.getClass().getSimpleName());
-            
+
             if (parsedData.containsKey("data")) {
               var data = parsedData.get("data");
               debugInfo.put("dataType", data.getClass().getSimpleName());
@@ -1825,36 +1944,41 @@ public class CompetitorController {
             debugInfo.put("parseError", e.getMessage());
           }
         }
-        
+
         // Test DashboardCacheService
         var cachedProducts = dashboardCacheService.getCachedProductsData(shopDomain);
         debugInfo.put("hasCachedProducts", !cachedProducts.isEmpty());
-        debugInfo.put("cachedProductsType", cachedProducts.isPresent() ? cachedProducts.get().getClass().getSimpleName() : "empty");
-        
+        debugInfo.put(
+            "cachedProductsType",
+            cachedProducts.isPresent() ? cachedProducts.get().getClass().getSimpleName() : "empty");
+
         if (cachedProducts.isPresent()) {
           @SuppressWarnings("unchecked")
           Map<String, Object> productsData = (Map<String, Object>) cachedProducts.get();
           @SuppressWarnings("unchecked")
-          List<Map<String, Object>> products = (List<Map<String, Object>>) productsData.get("products");
+          List<Map<String, Object>> products =
+              (List<Map<String, Object>>) productsData.get("products");
           debugInfo.put("productsCount", products != null ? products.size() : 0);
           debugInfo.put("productsDataKeys", productsData.keySet());
         }
-        
+
         // Check if products exist in database
         try {
-          List<Map<String, Object>> dbProducts = jdbcTemplate.queryForList(
-              "SELECT COUNT(*) as count FROM products WHERE shop_id = ?", shopId);
-          debugInfo.put("dbProductsCount", dbProducts.isEmpty() ? 0 : dbProducts.get(0).get("count"));
+          List<Map<String, Object>> dbProducts =
+              jdbcTemplate.queryForList(
+                  "SELECT COUNT(*) as count FROM products WHERE shop_id = ?", shopId);
+          debugInfo.put(
+              "dbProductsCount", dbProducts.isEmpty() ? 0 : dbProducts.get(0).get("count"));
         } catch (Exception e) {
           debugInfo.put("dbError", e.getMessage());
         }
-        
+
       } catch (Exception e) {
         debugInfo.put("cacheError", e.getMessage());
         debugInfo.put("cacheErrorType", e.getClass().getSimpleName());
       }
     }
-    
+
     return ResponseEntity.ok(debugInfo);
   }
 
@@ -1898,9 +2022,9 @@ public class CompetitorController {
       // Verify product exists in cache or is a demo product
       String shopDomain = getShopDomainFromId(shopId);
       var cachedProducts = dashboardCacheService.getCachedProductsData(shopDomain);
-      
+
       boolean productExists = false;
-      
+
       // Check if it's a demo product (only allowed in demo mode)
       if (productId.startsWith("demo-product-")) {
         if (isDemoMode) {
@@ -1920,7 +2044,8 @@ public class CompetitorController {
         @SuppressWarnings("unchecked")
         Map<String, Object> productsData = (Map<String, Object>) cachedProducts.get();
         @SuppressWarnings("unchecked")
-        List<Map<String, Object>> products = (List<Map<String, Object>>) productsData.get("products");
+        List<Map<String, Object>> products =
+            (List<Map<String, Object>>) productsData.get("products");
 
         productExists =
             products.stream().anyMatch(product -> productId.equals(product.get("id").toString()));
@@ -1980,7 +2105,7 @@ public class CompetitorController {
   @PostMapping("/competitors/{id}/disassociate")
   @Transactional
   public ResponseEntity<Map<String, Object>> disassociateProduct(
-      @PathVariable String id, 
+      @PathVariable String id,
       @RequestParam(defaultValue = "false") boolean isDemoMode,
       HttpServletRequest httpRequest) {
 
@@ -2757,7 +2882,7 @@ public class CompetitorController {
       // Only scrape if no cached data available
       try {
         long startTime = System.currentTimeMillis();
-        
+
         // Use Jsoup for immediate scraping (faster and cheaper than Selenium)
         org.jsoup.nodes.Document doc =
             org.jsoup.Jsoup.connect(url)
@@ -2765,7 +2890,7 @@ public class CompetitorController {
                 .timeout(5000) // 5 second timeout (increased for reliability)
                 .followRedirects(true)
                 .get();
-                
+
         long responseTime = System.currentTimeMillis() - startTime;
 
         // Extract price using enhanced patterns
@@ -2776,11 +2901,14 @@ public class CompetitorController {
         boolean inStock = extractStockStatusFromDocument(doc, platform);
 
         logger.info(
-            "triggerImmediatePriceScraping: Extracted price: {}, inStock: {}, platform: {}", 
-            price, inStock, platform);
+            "triggerImmediatePriceScraping: Extracted price: {}, inStock: {}, platform: {}",
+            price,
+            inStock,
+            platform);
 
         if (price != null) {
-          // Store the initial price snapshot with platform information, response time, and scraper source
+          // Store the initial price snapshot with platform information, response time, and scraper
+          // source
           jdbcTemplate.update(
               "INSERT INTO price_snapshots (competitor_url_id, price, in_stock, checked_at, scraper_version, platform, response_time_ms, scraper_source) "
                   + "VALUES (?, ?, ?, CURRENT_TIMESTAMP, 'v2.0-immediate', ?, ?, 'direct')",
@@ -2859,7 +2987,9 @@ public class CompetitorController {
       // Check if shop has reached scraping limits
       int currentCompetitors =
           jdbcTemplate.queryForObject(
-              "SELECT COUNT(*) FROM competitor_urls WHERE shop_id = ? AND deleted_at IS NULL", Integer.class, shopId);
+              "SELECT COUNT(*) FROM competitor_urls WHERE shop_id = ? AND deleted_at IS NULL",
+              Integer.class,
+              shopId);
 
       if (currentCompetitors > maxUrlsPerShop) {
         logger.debug(
@@ -3012,7 +3142,7 @@ public class CompetitorController {
     if (platform.equals("amazon")) {
       logger.debug("extractPriceFromDocument: Amazon-specific fallback - searching page text");
       String pageText = doc.text();
-      
+
       // Look for price patterns like "Price: $54.95" or "$54.95"
       java.util.regex.Pattern[] amazonPatterns = {
         java.util.regex.Pattern.compile("Price:\\s*\\$([0-9,]+\\.?[0-9]*)"),
@@ -3022,23 +3152,25 @@ public class CompetitorController {
         java.util.regex.Pattern.compile("\\$([0-9,]+\\.?[0-9]*)\\s*Free Returns"),
         java.util.regex.Pattern.compile("\\$([0-9,]+\\.?[0-9]*)\\s*\\|"),
       };
-      
+
       for (java.util.regex.Pattern pattern : amazonPatterns) {
         java.util.regex.Matcher matcher = pattern.matcher(pageText);
         if (matcher.find()) {
           try {
             String priceStr = matcher.group(1).replaceAll(",", "");
             java.math.BigDecimal price = new java.math.BigDecimal(priceStr);
-            
+
             if (price.compareTo(java.math.BigDecimal.valueOf(0.01)) >= 0
                 && price.compareTo(java.math.BigDecimal.valueOf(100000)) <= 0) {
               logger.debug(
-                  "extractPriceFromDocument: Found Amazon price ${} using pattern '{}'", 
-                  price, pattern.pattern());
+                  "extractPriceFromDocument: Found Amazon price ${} using pattern '{}'",
+                  price,
+                  pattern.pattern());
               return price;
             }
           } catch (NumberFormatException e) {
-            logger.debug("extractPriceFromDocument: Failed to parse Amazon price: {}", e.getMessage());
+            logger.debug(
+                "extractPriceFromDocument: Failed to parse Amazon price: {}", e.getMessage());
           }
         }
       }

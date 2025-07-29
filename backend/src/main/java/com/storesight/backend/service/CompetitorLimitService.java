@@ -82,7 +82,9 @@ public class CompetitorLimitService {
       // Get current competitor count for this shop using shop_id directly (excluding soft-deleted)
       Integer currentCount =
           jdbcTemplate.queryForObject(
-              "SELECT COUNT(*) FROM competitor_urls WHERE shop_id = ? AND deleted_at IS NULL", Integer.class, shopId);
+              "SELECT COUNT(*) FROM competitor_urls WHERE shop_id = ? AND deleted_at IS NULL",
+              Integer.class,
+              shopId);
 
       if (currentCount == null) {
         currentCount = 0;
