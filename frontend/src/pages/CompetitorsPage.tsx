@@ -1031,7 +1031,10 @@ export default function CompetitorsPage() {
         return;
       }
       
+      // Call API first, then update UI only on success
       await deleteCompetitor(id);
+      
+      // Only update UI after successful API call
       setCompetitors((prev) => prev.filter((c) => c.id !== id));
       
       // Clear cache to force refresh
@@ -1043,6 +1046,12 @@ export default function CompetitorsPage() {
       });
     } catch (error) {
       console.error('Delete competitor error:', error);
+      debugLog.error('Delete competitor failed', { 
+        competitorId: id, 
+        error: error instanceof Error ? error.message : String(error),
+        errorType: error instanceof Error ? error.constructor.name : typeof error
+      }, 'CompetitorsPage');
+      
       notifications.showError('Unable to discontinue competitor tracking at this time. Please try again.', {
         category: 'Competitors'
       });
