@@ -1755,7 +1755,8 @@ public class CompetitorController {
       }
 
       // Fallback to URL slug extraction for Best Buy
-      // Example: https://www.bestbuy.com/site/apple-macbook-air-13-inch-laptop-apple-m4-chip-built-for-apple-intelligence-16gb-memory-256gb-ssd-midnight/6565862.p?skuId=6565862
+      // Example:
+      // https://www.bestbuy.com/site/apple-macbook-air-13-inch-laptop-apple-m4-chip-built-for-apple-intelligence-16gb-memory-256gb-ssd-midnight/6565862.p?skuId=6565862
       if (url.contains("/site/")) {
         String[] parts = url.split("/site/");
         if (parts.length > 1) {
