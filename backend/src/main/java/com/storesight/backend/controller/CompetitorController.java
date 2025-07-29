@@ -63,7 +63,7 @@ public class CompetitorController {
   // Redis-based suggestion count cache with proper invalidation
   private static final String SUGGESTION_COUNT_CACHE_PREFIX = "suggestion_count:";
   private static final String SUGGESTION_CACHE_INVALIDATION_KEY = "suggestion_cache_invalidation";
-  private static final int CACHE_TTL_MINUTES = 30; // 30 minutes cache duration
+  private static final int CACHE_TTL_MINUTES = 120; // 120 minutes cache duration (consistent with other caches)
 
   /** Get cached suggestion count with Redis-based caching and proper invalidation */
   private Long getCachedSuggestionCount(Long shopId) {
