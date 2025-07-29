@@ -60,20 +60,85 @@ public class CompetitorController {
 
   @Autowired private RedisTemplate<String, Object> redisTemplate;
 
-  // Cache for debouncing frequent count requests
-  private final Map<Long, CachedCount> countCache = new ConcurrentHashMap<>();
+  // Redis-based suggestion count cache with proper invalidation
+  private static final String SUGGESTION_COUNT_CACHE_PREFIX = "suggestion_count:";
+  private static final String SUGGESTION_CACHE_INVALIDATION_KEY = "suggestion_cache_invalidation";
+  private static final int CACHE_TTL_MINUTES = 30; // 30 minutes cache duration
 
-  private static class CachedCount {
-    final long count;
-    final LocalDateTime timestamp;
-
-    CachedCount(long count) {
-      this.count = count;
-      this.timestamp = LocalDateTime.now();
+  /**
+   * Get cached suggestion count with Redis-based caching and proper invalidation
+   */
+  private Long getCachedSuggestionCount(Long shopId) {
+    String cacheKey = SUGGESTION_COUNT_CACHE_PREFIX + shopId;
+    String invalidationKey = SUGGESTION_CACHE_INVALIDATION_KEY + ":" + shopId;
+    
+    try {
+      // Check if cache is invalidated
+      String invalidationValue = (String) redisTemplate.opsForValue().get(invalidationKey);
+      if (invalidationValue != null) {
+        logger.debug("Cache invalidated for shop {}, fetching fresh count", shopId);
+        return null; // Force fresh fetch
+      }
+      
+      // Get cached count
+      Object cachedValue = redisTemplate.opsForValue().get(cacheKey);
+      if (cachedValue != null) {
+        Long count = Long.valueOf(cachedValue.toString());
+        logger.debug("Returning cached suggestion count for shop {}: {}", shopId, count);
+        return count;
+      }
+      
+      return null; // Cache miss, need fresh fetch
+    } catch (Exception e) {
+      logger.warn("Error reading from Redis cache for shop {}: {}", shopId, e.getMessage());
+      return null; // Fallback to fresh fetch on Redis error
     }
+  }
 
-    boolean isExpired(int cacheMinutes) {
-      return ChronoUnit.MINUTES.between(timestamp, LocalDateTime.now()) > cacheMinutes;
+  /**
+   * Cache suggestion count in Redis with TTL
+   */
+  private void cacheSuggestionCount(Long shopId, Long count) {
+    String cacheKey = SUGGESTION_COUNT_CACHE_PREFIX + shopId;
+    
+    try {
+      redisTemplate.opsForValue().set(cacheKey, count, CACHE_TTL_MINUTES, TimeUnit.MINUTES);
+      logger.debug("Cached suggestion count for shop {}: {} (TTL: {} minutes)", 
+          shopId, count, CACHE_TTL_MINUTES);
+    } catch (Exception e) {
+      logger.warn("Error caching suggestion count for shop {}: {}", shopId, e.getMessage());
+    }
+  }
+
+  /**
+   * Invalidate suggestion count cache for a shop
+   */
+  private void invalidateSuggestionCountCache(Long shopId) {
+    String cacheKey = SUGGESTION_COUNT_CACHE_PREFIX + shopId;
+    String invalidationKey = SUGGESTION_CACHE_INVALIDATION_KEY + ":" + shopId;
+    
+    try {
+      // Set invalidation marker (short TTL to prevent permanent invalidation)
+      redisTemplate.opsForValue().set(invalidationKey, "invalidated", 1, TimeUnit.MINUTES);
+      // Remove cached count
+      redisTemplate.delete(cacheKey);
+      logger.debug("Invalidated suggestion count cache for shop {}", shopId);
+    } catch (Exception e) {
+      logger.warn("Error invalidating cache for shop {}: {}", shopId, e.getMessage());
+    }
+  }
+
+  /**
+   * Clear all suggestion count caches (for admin operations)
+   */
+  private void clearAllSuggestionCountCaches() {
+    try {
+      // This is a simple approach - in production you might want to use Redis SCAN
+      logger.info("Clearing all suggestion count caches");
+      // Note: In a real implementation, you'd use Redis SCAN to find and delete all keys
+      // For now, we'll rely on TTL expiration
+    } catch (Exception e) {
+      logger.warn("Error clearing suggestion count caches: {}", e.getMessage());
     }
   }
 
@@ -693,6 +758,19 @@ public class CompetitorController {
           suggestionRepository.findByShopIdAndStatus(shopId, statusEnum, pageable);
       Page<CompetitorSuggestionDto> result = suggestions.map(this::convertToDto);
 
+      logger.info(
+          "getSuggestions: Found {} suggestions for shop {} (status: {}, page: {}, size: {})",
+          suggestions.getTotalElements(),
+          shopId,
+          status,
+          page,
+          size);
+
+      // Invalidate cache when suggestions are fetched to ensure consistency
+      invalidateSuggestionCountCache(shopId);
+      logger.debug(
+          "Invalidated suggestion count cache for shop {} after fetching suggestions", shopId);
+
       return ResponseEntity.ok(result);
     } catch (Exception e) {
       System.err.println("Error getting suggestions: " + e.getMessage());
@@ -716,22 +794,27 @@ public class CompetitorController {
     }
 
     try {
-      // Check cache for this shop (24-hour cache for costly discovery APIs)
-      CachedCount cached = countCache.get(shopId);
-      if (cached != null && !cached.isExpired(1440)) { // 24 hours = 1440 minutes
-        logger.debug("Returning cached suggestion count for shop {}: {}", shopId, cached.count);
-        return ResponseEntity.ok(Map.of("newSuggestions", cached.count));
+      // Check cache for this shop (Redis-based with proper invalidation)
+      Long cachedCount = getCachedSuggestionCount(shopId);
+      if (cachedCount != null) {
+        logger.info("Returning cached suggestion count for shop {}: {}", shopId, cachedCount);
+        return ResponseEntity.ok(Map.of("newSuggestions", cachedCount));
       }
 
       // Fetch fresh count
       long newCount =
           suggestionRepository.countByShopIdAndStatus(shopId, CompetitorSuggestion.Status.NEW);
 
+      logger.info(
+          "getSuggestionCount: Fresh count for shop {}: {} (cache was expired or missing)",
+          shopId,
+          newCount);
+
       // Update cache
-      countCache.put(shopId, new CachedCount(newCount));
+      cacheSuggestionCount(shopId, newCount);
 
       // Clean up old cache entries (optional, prevents memory leaks)
-      countCache.entrySet().removeIf(entry -> entry.getValue().isExpired(2880)); // 48 hours cleanup
+      invalidateSuggestionCountCache(shopId);
 
       logger.debug("Fresh suggestion count for shop {}: {}", shopId, newCount);
       return ResponseEntity.ok(Map.of("newSuggestions", newCount));
@@ -753,7 +836,7 @@ public class CompetitorController {
     }
 
     // Clear cache for this shop
-    countCache.remove(shopId);
+    invalidateSuggestionCountCache(shopId);
 
     // Return fresh count
     return getSuggestionCount(request);
@@ -780,7 +863,7 @@ public class CompetitorController {
       suggestionRepository.save(suggestion);
 
       // Invalidate suggestion count cache to ensure badge updates immediately
-      countCache.remove(shopId);
+      invalidateSuggestionCountCache(shopId);
       logger.debug("Invalidated suggestion count cache for shop {} after approval", shopId);
 
       // Create actual competitor_url entry for price tracking
@@ -826,7 +909,7 @@ public class CompetitorController {
     suggestionRepository.save(suggestion);
 
     // Invalidate suggestion count cache to ensure badge updates immediately
-    countCache.remove(shopId);
+    invalidateSuggestionCountCache(shopId);
     logger.debug("Invalidated suggestion count cache for shop {} after ignore", shopId);
 
     return ResponseEntity.ok(Map.of("message", "Suggestion ignored"));
@@ -951,18 +1034,9 @@ public class CompetitorController {
       // Smart caching strategy: Transparent to users, optimized for cost
       String cacheKey = "discovery_status_" + shopId;
 
-      // Check if we have cached status (prevents expensive API calls)
-      CachedCount cachedStatus = countCache.get(shopId);
-      boolean isFromCache = cachedStatus != null && !cachedStatus.isExpired(1440); // 24 hours
-
-      if (isFromCache) {
-        // Cache hit - but user gets same real-time experience
-        logger.debug("Discovery status cache hit for shop {} (cost optimization)", shopId);
-      } else {
-        // Cache miss or expired - fetch fresh data and cache it
-        logger.info("Discovery status cache miss for shop {} - fetching fresh data", shopId);
-        countCache.put(shopId, new CachedCount(1)); // Cache for 24 hours
-      }
+      // Discovery status is always fetched fresh for real-time accuracy
+      // (Database queries are fast, no need for complex caching here)
+      logger.debug("Fetching fresh discovery status for shop {}", shopId);
 
       // Always fetch current status from database for real-time accuracy
       // (Database queries are fast, API calls are expensive)
@@ -1110,10 +1184,8 @@ public class CompetitorController {
       jdbcTemplate.update(
           "UPDATE shops SET last_discovery_at = CURRENT_TIMESTAMP WHERE id = ?", shopId);
 
-      // Invalidate discovery status cache to ensure fresh status on next check
-      countCache.remove(shopId);
-      logger.debug(
-          "Invalidated discovery status cache for shop {} after triggering discovery", shopId);
+      // Discovery status is always fresh, no cache invalidation needed
+      logger.debug("Discovery triggered for shop {}", shopId);
 
       // Trigger discovery asynchronously for immediate response
       java.util.concurrent.CompletableFuture.runAsync(
