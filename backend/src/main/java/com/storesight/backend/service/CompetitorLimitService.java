@@ -79,10 +79,10 @@ public class CompetitorLimitService {
    */
   public LimitCheckResult checkCompetitorLimit(Long shopId) {
     try {
-      // Get current competitor count for this shop by joining with products table
+      // Get current competitor count for this shop using shop_id directly
       Integer currentCount =
           jdbcTemplate.queryForObject(
-              "SELECT COUNT(*) FROM competitor_urls cu JOIN products p ON cu.product_id = p.id WHERE p.shop_id = ?",
+              "SELECT COUNT(*) FROM competitor_urls WHERE shop_id = ?",
               Integer.class,
               shopId);
 
