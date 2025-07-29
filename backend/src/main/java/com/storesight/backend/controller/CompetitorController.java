@@ -483,9 +483,11 @@ public class CompetitorController {
         label =
             request.url.contains("amazon.com")
                 ? extractAmazonTitle(request.url)
-                : request.url.contains("shopify")
-                    ? extractShopifyTitle(request.url)
-                    : extractTitleFromUrl(request.url);
+                : request.url.contains("bestbuy.com")
+                    ? extractBestBuyTitle(request.url)
+                    : request.url.contains("shopify")
+                        ? extractShopifyTitle(request.url)
+                        : extractTitleFromUrl(request.url);
         logger.info("addCompetitor: Extracted label '{}' for URL: {}", label, request.url);
       }
 
@@ -1416,7 +1418,8 @@ public class CompetitorController {
         || lowerHost.contains("bigcommerce")
         || lowerHost.contains("magento")
         || lowerHost.contains("prestashop")
-        || lowerHost.contains("opencart")) {
+        || lowerHost.contains("opencart")
+        || lowerHost.contains("bestbuy")) {
       return true;
     }
 
@@ -1734,6 +1737,32 @@ public class CompetitorController {
         if (parts.length > 1) {
           String productSlug = parts[1].split("\\?")[0].split("/")[0];
           return productSlug.replace("-", " ").replace("_", " ");
+        }
+      }
+      return extractTitleFromUrl(url);
+    } catch (Exception e) {
+      return extractTitleFromUrl(url);
+    }
+  }
+
+  /** Helper method to extract Best Buy product title from URL */
+  private String extractBestBuyTitle(String url) {
+    try {
+      // First try HTML scraping for better results
+      String htmlTitle = extractTitleFromHtml(url);
+      if (htmlTitle != null && !htmlTitle.trim().isEmpty()) {
+        return htmlTitle;
+      }
+
+      // Fallback to URL slug extraction for Best Buy
+      // Example: https://www.bestbuy.com/site/apple-macbook-air-13-inch-laptop-apple-m4-chip-built-for-apple-intelligence-16gb-memory-256gb-ssd-midnight/6565862.p?skuId=6565862
+      if (url.contains("/site/")) {
+        String[] parts = url.split("/site/");
+        if (parts.length > 1) {
+          String productPath = parts[1].split("\\?")[0];
+          // Remove SKU and convert to title case
+          String productName = productPath.split("/")[0];
+          return productName.replace("-", " ").replace("_", " ");
         }
       }
       return extractTitleFromUrl(url);
