@@ -460,15 +460,9 @@ public class CompetitorController {
                         "redirect_url", "/dashboard"));
           }
         } else {
-          logger.warn("addCompetitor: No cached products found for shop {}", shopDomain);
-          return ResponseEntity.status(HttpStatus.PRECONDITION_REQUIRED)
-              .body(
-                  Map.of(
-                      "error", "PRODUCTS_SYNC_NEEDED",
-                      "message",
-                          "Please visit your Dashboard first to sync products from Shopify, then try adding competitors.",
-                      "action", "SYNC_PRODUCTS",
-                      "redirect_url", "/dashboard"));
+          logger.info("addCompetitor: No cached products found for shop {}, allowing competitor addition without product association", shopDomain);
+          // Allow competitor addition without requiring cached products
+          productId = null; // No product association
         }
       }
 
@@ -478,12 +472,19 @@ public class CompetitorController {
           shopId,
           productId);
 
-      List<Map<String, Object>> existing =
-          jdbcTemplate.queryForList(
-              "SELECT id FROM competitor_urls WHERE shop_id = ? AND shopify_product_id = ? AND url = ?",
-              shopId,
-              productId,
-              request.url);
+      List<Map<String, Object>> existing;
+      if (productId != null) {
+        existing = jdbcTemplate.queryForList(
+            "SELECT id FROM competitor_urls WHERE shop_id = ? AND shopify_product_id = ? AND url = ?",
+            shopId,
+            productId,
+            request.url);
+      } else {
+        existing = jdbcTemplate.queryForList(
+            "SELECT id FROM competitor_urls WHERE shop_id = ? AND shopify_product_id IS NULL AND url = ?",
+            shopId,
+            request.url);
+      }
 
       if (!existing.isEmpty()) {
         logger.warn(
@@ -509,25 +510,40 @@ public class CompetitorController {
       // Insert new competitor URL
       logger.info("addCompetitor: Inserting competitor URL into database");
 
-      int rowsAffected =
-          jdbcTemplate.update(
-              "INSERT INTO competitor_urls (shop_id, shopify_product_id, url, label, created_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)",
-              shopId,
-              productId,
-              request.url,
-              label);
+      int rowsAffected;
+      if (productId != null) {
+        rowsAffected = jdbcTemplate.update(
+            "INSERT INTO competitor_urls (shop_id, shopify_product_id, url, label, created_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)",
+            shopId,
+            productId,
+            request.url,
+            label);
+      } else {
+        rowsAffected = jdbcTemplate.update(
+            "INSERT INTO competitor_urls (shop_id, shopify_product_id, url, label, created_at) VALUES (?, NULL, ?, ?, CURRENT_TIMESTAMP)",
+            shopId,
+            request.url,
+            label);
+      }
 
       logger.info("addCompetitor: Database insert affected {} rows", rowsAffected);
 
       // Get the inserted record
       logger.info("addCompetitor: Retrieving inserted competitor record");
 
-      List<Map<String, Object>> newRecord =
-          jdbcTemplate.queryForList(
-              "SELECT id, url, label FROM competitor_urls WHERE shop_id = ? AND shopify_product_id = ? AND url = ? ORDER BY created_at DESC LIMIT 1",
-              shopId,
-              productId,
-              request.url);
+      List<Map<String, Object>> newRecord;
+      if (productId != null) {
+        newRecord = jdbcTemplate.queryForList(
+            "SELECT id, url, label FROM competitor_urls WHERE shop_id = ? AND shopify_product_id = ? AND url = ? ORDER BY created_at DESC LIMIT 1",
+            shopId,
+            productId,
+            request.url);
+      } else {
+        newRecord = jdbcTemplate.queryForList(
+            "SELECT id, url, label FROM competitor_urls WHERE shop_id = ? AND shopify_product_id IS NULL AND url = ? ORDER BY created_at DESC LIMIT 1",
+            shopId,
+            request.url);
+      }
 
       if (newRecord.isEmpty()) {
         logger.error("addCompetitor: Failed to retrieve inserted competitor record");
