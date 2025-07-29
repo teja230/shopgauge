@@ -1926,8 +1926,13 @@ public class CompetitorController {
                 .get();
 
         // Extract price using enhanced patterns
-        java.math.BigDecimal price = extractPriceFromDocument(doc, identifyPlatform(url));
-        boolean inStock = extractStockStatusFromDocument(doc, identifyPlatform(url));
+        String platform = identifyPlatform(url);
+        logger.info("triggerImmediatePriceScraping: Extracting price for platform: {}", platform);
+        
+        java.math.BigDecimal price = extractPriceFromDocument(doc, platform);
+        boolean inStock = extractStockStatusFromDocument(doc, platform);
+
+        logger.info("triggerImmediatePriceScraping: Extracted price: {}, inStock: {}", price, inStock);
 
         if (price != null) {
           // Store the initial price snapshot
@@ -1947,6 +1952,9 @@ public class CompetitorController {
               competitorId);
         } else {
           logger.warn("triggerImmediatePriceScraping: Could not extract price from {}", url);
+          // Log page title for debugging
+          String pageTitle = doc.title();
+          logger.debug("triggerImmediatePriceScraping: Page title: {}", pageTitle);
         }
 
         // Mark as recently scraped to prevent immediate re-scraping
@@ -2042,16 +2050,29 @@ public class CompetitorController {
       java.util.regex.Pattern.compile("USD\\s*([0-9,]+\\.?[0-9]*)"),
       java.util.regex.Pattern.compile("([0-9,]+\\.?[0-9]*)\\s*USD"),
       java.util.regex.Pattern.compile("Price:\\s*\\$([0-9,]+\\.?[0-9]*)"),
-      java.util.regex.Pattern.compile("Cost:\\s*\\$([0-9,]+\\.?[0-9]*)")
+      java.util.regex.Pattern.compile("Cost:\\s*\\$([0-9,]+\\.?[0-9]*)"),
+      // Additional patterns for better price detection
+      java.util.regex.Pattern.compile("\\$([0-9]+)\\s*USD"),
+      java.util.regex.Pattern.compile("([0-9,]+\\.?[0-9]*)\\s*\\$"),
+      java.util.regex.Pattern.compile("Price\\s*:\\s*([0-9,]+\\.?[0-9]*)"),
+      java.util.regex.Pattern.compile("Cost\\s*:\\s*([0-9,]+\\.?[0-9]*)")
     };
 
     // Platform-specific selectors
     String[] selectors = {
-      // Amazon-specific
+      // Amazon-specific (enhanced for current layout)
       ".a-price .a-offscreen",
       ".a-price-whole",
       ".a-price .a-price-whole",
       "[data-a-color='price'] .a-offscreen",
+      ".a-price-range .a-offscreen",
+      ".a-price .a-price-range .a-offscreen",
+      ".a-price-range .a-price-whole",
+      ".a-price .a-price-range .a-price-whole",
+      // Additional Amazon selectors
+      "[data-a-color='price'] .a-price-whole",
+      ".a-price-range .a-price-fraction",
+      ".a-price .a-price-range .a-price-fraction",
       // Generic
       ".price",
       ".product-price",
@@ -2076,8 +2097,12 @@ public class CompetitorController {
     // Try CSS selectors first (most reliable)
     for (String selector : selectors) {
       org.jsoup.select.Elements elements = doc.select(selector);
+      logger.debug("extractPriceFromDocument: Trying selector '{}', found {} elements", selector, elements.size());
+      
       for (org.jsoup.nodes.Element element : elements) {
         String text = element.text().trim();
+        logger.debug("extractPriceFromDocument: Element text: '{}'", text);
+        
         if (!text.isEmpty() && text.length() < 50) { // Avoid very long text
           java.math.BigDecimal price = extractPriceFromText(text, patterns);
           if (price != null && price.compareTo(java.math.BigDecimal.ZERO) > 0) {
