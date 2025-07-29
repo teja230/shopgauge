@@ -898,25 +898,61 @@ public class MarketIntelligenceAdminController {
         String testValue = (String) redisTemplate.opsForValue().get("test_key");
         debugInfo.put("redisConnected", "test_value".equals(testValue));
         debugInfo.put("redisError", null);
+        log.debug("Redis connectivity test successful for shop: {}", shopDomain);
       } catch (Exception e) {
         debugInfo.put("redisConnected", false);
         debugInfo.put("redisError", e.getMessage());
+        log.warn("Redis connectivity test failed for shop: {} - {}", shopDomain, e.getMessage());
       }
 
-      // Check cache key
-      String cacheKey = "dashboard:products:" + shopDomain;
-      debugInfo.put("cacheKey", cacheKey);
-      debugInfo.put("cacheExists", redisTemplate.hasKey(cacheKey));
+      // Check multiple cache key formats used by the system
+      String primaryCacheKey = "dashboard_cache_" + shopDomain + "_v3";
+      String legacyCacheKey = "dashboard:products:" + shopDomain;
+      String productsCacheKey = "products_cache_" + shopDomain;
+      
+      debugInfo.put("primaryCacheKey", primaryCacheKey);
+      debugInfo.put("legacyCacheKey", legacyCacheKey);
+      debugInfo.put("productsCacheKey", productsCacheKey);
+      
+      try {
+        debugInfo.put("primaryCacheExists", redisTemplate.hasKey(primaryCacheKey));
+        debugInfo.put("legacyCacheExists", redisTemplate.hasKey(legacyCacheKey));
+        debugInfo.put("productsCacheExists", redisTemplate.hasKey(productsCacheKey));
+        log.debug("Cache key checks completed for shop: {}", shopDomain);
+      } catch (Exception e) {
+        log.warn("Cache key checks failed for shop: {} - {}", shopDomain, e.getMessage());
+        debugInfo.put("primaryCacheExists", false);
+        debugInfo.put("legacyCacheExists", false);
+        debugInfo.put("productsCacheExists", false);
+        debugInfo.put("cacheCheckError", e.getMessage());
+      }
+
+      // Use the primary cache key for detailed analysis
+      String cacheKey = primaryCacheKey;
 
       // Get cache TTL
-      var cacheTtl = redisTemplate.getExpire(cacheKey);
-      debugInfo.put(
-          "cacheTtl", cacheTtl != null ? (cacheTtl / 60) + " minutes" : "no TTL");
+      try {
+        var cacheTtl = redisTemplate.getExpire(cacheKey);
+        debugInfo.put(
+            "cacheTtl", cacheTtl != null ? (cacheTtl / 60) + " minutes" : "no TTL");
+      } catch (Exception e) {
+        log.warn("Failed to get cache TTL for key: {} - {}", cacheKey, e.getMessage());
+        debugInfo.put("cacheTtl", "error: " + e.getMessage());
+      }
 
       // Try to get raw cache data
-      var rawCacheData = redisTemplate.opsForValue().get(cacheKey);
-      debugInfo.put("hasRawCacheData", rawCacheData != null);
-      debugInfo.put("rawCacheDataLength", rawCacheData != null ? rawCacheData.toString().length() : 0);
+      try {
+        var rawCacheData = redisTemplate.opsForValue().get(cacheKey);
+        debugInfo.put("hasRawCacheData", rawCacheData != null);
+        debugInfo.put("rawCacheDataLength", rawCacheData != null ? rawCacheData.toString().length() : 0);
+        log.debug("Raw cache data retrieved for key: {} - length: {}", cacheKey, 
+            rawCacheData != null ? rawCacheData.toString().length() : 0);
+      } catch (Exception e) {
+        log.warn("Failed to get raw cache data for key: {} - {}", cacheKey, e.getMessage());
+        debugInfo.put("hasRawCacheData", false);
+        debugInfo.put("rawCacheDataLength", 0);
+        debugInfo.put("rawDataError", e.getMessage());
+      }
 
       // Try to parse the raw cache data to see what's stored
       if (rawCacheData != null) {
