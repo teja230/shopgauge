@@ -902,7 +902,7 @@ public class MarketIntelligenceAdminController {
       // Get cache TTL
       var cacheTtl = redisTemplate.getExpire(cacheKey);
       debugInfo.put(
-          "cacheTtl", cacheTtl != null ? cacheTtl.toMinutes() + " minutes" : "no TTL");
+          "cacheTtl", cacheTtl != null ? (cacheTtl / 60) + " minutes" : "no TTL");
 
       // Try to get raw cache data
       var rawCacheData = redisTemplate.opsForValue().get(cacheKey);
