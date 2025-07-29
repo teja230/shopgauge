@@ -56,6 +56,7 @@ export interface Competitor {
 interface CompetitorTableProps {
   data: Competitor[];
   onDelete: (id: string) => void;
+  onLinkProduct?: (competitor: Competitor) => void;
   loading?: boolean;
   error?: string | null;
   onRetry?: () => void;
@@ -580,7 +581,8 @@ const MobileCompetitorCard: React.FC<{
 const DesktopTableRow: React.FC<{
   competitor: Competitor;
   onDelete: (id: string) => void;
-}> = ({ competitor, onDelete }) => {
+  onLinkProduct?: (competitor: Competitor) => void;
+}> = ({ competitor, onDelete, onLinkProduct }) => {
   const percentChangeText = formatPercentChange(competitor.percentDiff);
   const { shop } = useAuth();
 
@@ -717,6 +719,19 @@ const DesktopTableRow: React.FC<{
             </IconButton>
           </Tooltip>
           
+          {onLinkProduct && (
+            <Tooltip title={competitor.shopifyProductId ? "Change product association" : "Link to product"}>
+              <IconButton 
+                size="small" 
+                color="primary"
+                onClick={() => onLinkProduct(competitor)}
+                sx={{ minWidth: 36, minHeight: 36 }}
+              >
+                <LinkIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+          
           <Tooltip title="Remove competitor">
             <IconButton 
               size="small" 
@@ -737,6 +752,7 @@ const DesktopTableRow: React.FC<{
 export const CompetitorTable: React.FC<CompetitorTableProps> = ({ 
   data = [], 
   onDelete, 
+  onLinkProduct,
   loading = false,
   error = null,
   onRetry,
@@ -827,6 +843,7 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({
                   key={competitor.id}
                   competitor={competitor}
                   onDelete={onDelete}
+                  onLinkProduct={onLinkProduct}
                 />
               ))}
             </TableBody>
