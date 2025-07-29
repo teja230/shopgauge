@@ -63,7 +63,8 @@ public class CompetitorController {
   // Redis-based suggestion count cache with proper invalidation
   private static final String SUGGESTION_COUNT_CACHE_PREFIX = "suggestion_count:";
   private static final String SUGGESTION_CACHE_INVALIDATION_KEY = "suggestion_cache_invalidation";
-  private static final int CACHE_TTL_MINUTES = 120; // 120 minutes cache duration (consistent with other caches)
+  private static final int CACHE_TTL_MINUTES =
+      120; // 120 minutes cache duration (consistent with other caches)
 
   /** Get cached suggestion count with Redis-based caching and proper invalidation */
   private Long getCachedSuggestionCount(Long shopId) {
@@ -98,11 +99,9 @@ public class CompetitorController {
     String cacheKey = SUGGESTION_COUNT_CACHE_PREFIX + shopId;
 
     try {
-      boolean success = enhancedRedisService.setWithTtl(
-          cacheKey, 
-          count.toString(), 
-          java.time.Duration.ofMinutes(CACHE_TTL_MINUTES)
-      );
+      boolean success =
+          enhancedRedisService.setWithTtl(
+              cacheKey, count.toString(), java.time.Duration.ofMinutes(CACHE_TTL_MINUTES));
       if (success) {
         logger.debug(
             "Cached suggestion count for shop {}: {} (TTL: {} minutes)",
@@ -124,20 +123,21 @@ public class CompetitorController {
 
     try {
       // Set invalidation marker (short TTL to prevent permanent invalidation)
-      boolean invalidationSet = enhancedRedisService.setWithTtl(
-          invalidationKey, 
-          "invalidated", 
-          java.time.Duration.ofMinutes(1)
-      );
-      
+      boolean invalidationSet =
+          enhancedRedisService.setWithTtl(
+              invalidationKey, "invalidated", java.time.Duration.ofMinutes(1));
+
       // Remove cached count
       boolean deleted = enhancedRedisService.delete(cacheKey);
-      
+
       if (invalidationSet && deleted) {
         logger.debug("Invalidated suggestion count cache for shop {}", shopId);
       } else {
-        logger.warn("Partial cache invalidation for shop {} - invalidationSet: {}, deleted: {}", 
-                   shopId, invalidationSet, deleted);
+        logger.warn(
+            "Partial cache invalidation for shop {} - invalidationSet: {}, deleted: {}",
+            shopId,
+            invalidationSet,
+            deleted);
       }
     } catch (Exception e) {
       logger.warn("Error invalidating cache for shop {}: {}", shopId, e.getMessage());
@@ -460,24 +460,28 @@ public class CompetitorController {
                         "redirect_url", "/dashboard"));
           }
         } else {
-          logger.info("addCompetitor: No cached products found for shop {}, attempting to fetch from Shopify API", shopDomain);
-          
+          logger.info(
+              "addCompetitor: No cached products found for shop {}, attempting to fetch from Shopify API",
+              shopDomain);
+
           // Try to fetch products from Shopify API as fallback
           try {
             // This would be a call to Shopify API to get products
             // For now, we'll allow addition without product association
             // TODO: Implement Shopify API call to fetch products
-            logger.info("addCompetitor: Shopify API fallback not implemented yet, allowing competitor addition without product association");
+            logger.info(
+                "addCompetitor: Shopify API fallback not implemented yet, allowing competitor addition without product association");
             productId = null; // No product association for now
-            
+
             // TODO: When Shopify API integration is ready, we can:
             // 1. Call Shopify API to get products
             // 2. Use first product or best match
             // 3. Cache the products for future use
             // 4. Associate competitor with selected product
-            
+
           } catch (Exception e) {
-            logger.warn("addCompetitor: Failed to fetch products from Shopify API: {}", e.getMessage());
+            logger.warn(
+                "addCompetitor: Failed to fetch products from Shopify API: {}", e.getMessage());
             productId = null; // No product association
           }
         }
@@ -491,16 +495,18 @@ public class CompetitorController {
 
       List<Map<String, Object>> existing;
       if (productId != null) {
-        existing = jdbcTemplate.queryForList(
-            "SELECT id FROM competitor_urls WHERE shop_id = ? AND shopify_product_id = ? AND url = ?",
-            shopId,
-            productId,
-            request.url);
+        existing =
+            jdbcTemplate.queryForList(
+                "SELECT id FROM competitor_urls WHERE shop_id = ? AND shopify_product_id = ? AND url = ?",
+                shopId,
+                productId,
+                request.url);
       } else {
-        existing = jdbcTemplate.queryForList(
-            "SELECT id FROM competitor_urls WHERE shop_id = ? AND shopify_product_id IS NULL AND url = ?",
-            shopId,
-            request.url);
+        existing =
+            jdbcTemplate.queryForList(
+                "SELECT id FROM competitor_urls WHERE shop_id = ? AND shopify_product_id IS NULL AND url = ?",
+                shopId,
+                request.url);
       }
 
       if (!existing.isEmpty()) {
@@ -529,18 +535,20 @@ public class CompetitorController {
 
       int rowsAffected;
       if (productId != null) {
-        rowsAffected = jdbcTemplate.update(
-            "INSERT INTO competitor_urls (shop_id, shopify_product_id, url, label, created_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)",
-            shopId,
-            productId,
-            request.url,
-            label);
+        rowsAffected =
+            jdbcTemplate.update(
+                "INSERT INTO competitor_urls (shop_id, shopify_product_id, url, label, created_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)",
+                shopId,
+                productId,
+                request.url,
+                label);
       } else {
-        rowsAffected = jdbcTemplate.update(
-            "INSERT INTO competitor_urls (shop_id, shopify_product_id, url, label, created_at) VALUES (?, NULL, ?, ?, CURRENT_TIMESTAMP)",
-            shopId,
-            request.url,
-            label);
+        rowsAffected =
+            jdbcTemplate.update(
+                "INSERT INTO competitor_urls (shop_id, shopify_product_id, url, label, created_at) VALUES (?, NULL, ?, ?, CURRENT_TIMESTAMP)",
+                shopId,
+                request.url,
+                label);
       }
 
       logger.info("addCompetitor: Database insert affected {} rows", rowsAffected);
@@ -550,16 +558,18 @@ public class CompetitorController {
 
       List<Map<String, Object>> newRecord;
       if (productId != null) {
-        newRecord = jdbcTemplate.queryForList(
-            "SELECT id, url, label FROM competitor_urls WHERE shop_id = ? AND shopify_product_id = ? AND url = ? ORDER BY created_at DESC LIMIT 1",
-            shopId,
-            productId,
-            request.url);
+        newRecord =
+            jdbcTemplate.queryForList(
+                "SELECT id, url, label FROM competitor_urls WHERE shop_id = ? AND shopify_product_id = ? AND url = ? ORDER BY created_at DESC LIMIT 1",
+                shopId,
+                productId,
+                request.url);
       } else {
-        newRecord = jdbcTemplate.queryForList(
-            "SELECT id, url, label FROM competitor_urls WHERE shop_id = ? AND shopify_product_id IS NULL AND url = ? ORDER BY created_at DESC LIMIT 1",
-            shopId,
-            request.url);
+        newRecord =
+            jdbcTemplate.queryForList(
+                "SELECT id, url, label FROM competitor_urls WHERE shop_id = ? AND shopify_product_id IS NULL AND url = ? ORDER BY created_at DESC LIMIT 1",
+                shopId,
+                request.url);
       }
 
       if (newRecord.isEmpty()) {
@@ -1454,19 +1464,19 @@ public class CompetitorController {
       }
 
       // Format products for frontend selection
-      List<Map<String, Object>> availableProducts = products.stream()
-          .map(product -> Map.of(
-              "id", product.get("id"),
-              "title", product.get("title"),
-              "handle", product.get("handle"),
-              "price", product.get("price")
-          ))
-          .collect(Collectors.toList());
+      List<Map<String, Object>> availableProducts =
+          products.stream()
+              .map(
+                  product ->
+                      Map.of(
+                          "id", product.get("id"),
+                          "title", product.get("title"),
+                          "handle", product.get("handle"),
+                          "price", product.get("price")))
+              .collect(Collectors.toList());
 
-      return ResponseEntity.ok(Map.of(
-          "products", availableProducts,
-          "count", availableProducts.size()
-      ));
+      return ResponseEntity.ok(
+          Map.of("products", availableProducts, "count", availableProducts.size()));
 
     } catch (Exception e) {
       logger.error("Error getting available products for competitor {}: {}", id, e.getMessage());
@@ -1481,7 +1491,7 @@ public class CompetitorController {
       @PathVariable String id,
       @RequestBody Map<String, String> request,
       HttpServletRequest httpRequest) {
-    
+
     Long shopId = getShopIdFromRequest(httpRequest);
     if (shopId == null) {
       return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -1490,29 +1500,31 @@ public class CompetitorController {
 
     String productId = request.get("productId");
     if (productId == null || productId.trim().isEmpty()) {
-      return ResponseEntity.badRequest()
-          .body(Map.of("error", "Product ID is required"));
+      return ResponseEntity.badRequest().body(Map.of("error", "Product ID is required"));
     }
 
     try {
       // Verify competitor exists and belongs to this shop
-      List<Map<String, Object>> competitorCheck = jdbcTemplate.queryForList(
-          "SELECT id, url, shopify_product_id FROM competitor_urls WHERE id = ? AND shop_id = ?",
-          id, shopId);
+      List<Map<String, Object>> competitorCheck =
+          jdbcTemplate.queryForList(
+              "SELECT id, url, shopify_product_id FROM competitor_urls WHERE id = ? AND shop_id = ?",
+              id,
+              shopId);
 
       if (competitorCheck.isEmpty()) {
         return ResponseEntity.notFound().build();
       }
 
       Map<String, Object> competitor = competitorCheck.get(0);
-      String currentProductId = competitor.get("shopify_product_id") != null 
-          ? competitor.get("shopify_product_id").toString() 
-          : null;
+      String currentProductId =
+          competitor.get("shopify_product_id") != null
+              ? competitor.get("shopify_product_id").toString()
+              : null;
 
       // Verify product exists in cache
       String shopDomain = getShopDomainFromId(shopId);
       var cachedProducts = dashboardCacheService.getCachedProductsData(shopDomain);
-      
+
       if (cachedProducts.isEmpty()) {
         return ResponseEntity.status(HttpStatus.PRECONDITION_REQUIRED)
             .body(Map.of("error", "Product cache not available. Please sync products first."));
@@ -1523,8 +1535,8 @@ public class CompetitorController {
       @SuppressWarnings("unchecked")
       List<Map<String, Object>> products = (List<Map<String, Object>>) productsData.get("products");
 
-      boolean productExists = products.stream()
-          .anyMatch(product -> productId.equals(product.get("id").toString()));
+      boolean productExists =
+          products.stream().anyMatch(product -> productId.equals(product.get("id").toString()));
 
       if (!productExists) {
         return ResponseEntity.badRequest()
@@ -1532,9 +1544,12 @@ public class CompetitorController {
       }
 
       // Update competitor with new product association
-      int rowsAffected = jdbcTemplate.update(
-          "UPDATE competitor_urls SET shopify_product_id = ? WHERE id = ? AND shop_id = ?",
-          productId, id, shopId);
+      int rowsAffected =
+          jdbcTemplate.update(
+              "UPDATE competitor_urls SET shopify_product_id = ? WHERE id = ? AND shop_id = ?",
+              productId,
+              id,
+              shopId);
 
       if (rowsAffected == 0) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -1543,8 +1558,11 @@ public class CompetitorController {
 
       // Log the association change
       String competitorUrl = competitor.get("url").toString();
-      logger.info("Competitor {} associated with product {} (was: {})", 
-          competitorUrl, productId, currentProductId);
+      logger.info(
+          "Competitor {} associated with product {} (was: {})",
+          competitorUrl,
+          productId,
+          currentProductId);
 
       // Audit the association change
       competitorAuditService.logCompetitorUpdated(
@@ -1553,20 +1571,19 @@ public class CompetitorController {
           Map.of(
               "action", "ASSOCIATE_PRODUCT",
               "old_product_id", currentProductId,
-              "new_product_id", productId
-          )
-      );
+              "new_product_id", productId));
 
-      return ResponseEntity.ok(Map.of(
-          "success", true,
-          "message", "Competitor successfully associated with product",
-          "competitor_id", id,
-          "product_id", productId,
-          "previous_product_id", currentProductId
-      ));
+      return ResponseEntity.ok(
+          Map.of(
+              "success", true,
+              "message", "Competitor successfully associated with product",
+              "competitor_id", id,
+              "product_id", productId,
+              "previous_product_id", currentProductId));
 
     } catch (Exception e) {
-      logger.error("Error associating product {} with competitor {}: {}", productId, id, e.getMessage());
+      logger.error(
+          "Error associating product {} with competitor {}: {}", productId, id, e.getMessage());
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
           .body(Map.of("error", "Failed to associate product with competitor"));
     }
@@ -1575,9 +1592,8 @@ public class CompetitorController {
   @PostMapping("/competitors/{id}/disassociate")
   @Transactional
   public ResponseEntity<Map<String, Object>> disassociateProduct(
-      @PathVariable String id,
-      HttpServletRequest httpRequest) {
-    
+      @PathVariable String id, HttpServletRequest httpRequest) {
+
     Long shopId = getShopIdFromRequest(httpRequest);
     if (shopId == null) {
       return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -1586,18 +1602,21 @@ public class CompetitorController {
 
     try {
       // Get current association
-      List<Map<String, Object>> competitorCheck = jdbcTemplate.queryForList(
-          "SELECT id, url, shopify_product_id FROM competitor_urls WHERE id = ? AND shop_id = ?",
-          id, shopId);
+      List<Map<String, Object>> competitorCheck =
+          jdbcTemplate.queryForList(
+              "SELECT id, url, shopify_product_id FROM competitor_urls WHERE id = ? AND shop_id = ?",
+              id,
+              shopId);
 
       if (competitorCheck.isEmpty()) {
         return ResponseEntity.notFound().build();
       }
 
       Map<String, Object> competitor = competitorCheck.get(0);
-      String currentProductId = competitor.get("shopify_product_id") != null 
-          ? competitor.get("shopify_product_id").toString() 
-          : null;
+      String currentProductId =
+          competitor.get("shopify_product_id") != null
+              ? competitor.get("shopify_product_id").toString()
+              : null;
 
       if (currentProductId == null) {
         return ResponseEntity.badRequest()
@@ -1605,9 +1624,11 @@ public class CompetitorController {
       }
 
       // Remove association
-      int rowsAffected = jdbcTemplate.update(
-          "UPDATE competitor_urls SET shopify_product_id = NULL WHERE id = ? AND shop_id = ?",
-          id, shopId);
+      int rowsAffected =
+          jdbcTemplate.update(
+              "UPDATE competitor_urls SET shopify_product_id = NULL WHERE id = ? AND shop_id = ?",
+              id,
+              shopId);
 
       if (rowsAffected == 0) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -1622,18 +1643,18 @@ public class CompetitorController {
       competitorAuditService.logCompetitorUpdated(
           shopId,
           competitorUrl,
-          Map.of(
-              "action", "DISASSOCIATE_PRODUCT",
-              "removed_product_id", currentProductId
-          )
-      );
+          Map.of("action", "DISASSOCIATE_PRODUCT", "removed_product_id", currentProductId));
 
-      return ResponseEntity.ok(Map.of(
-          "success", true,
-          "message", "Product association removed successfully",
-          "competitor_id", id,
-          "removed_product_id", currentProductId
-      ));
+      return ResponseEntity.ok(
+          Map.of(
+              "success",
+              true,
+              "message",
+              "Product association removed successfully",
+              "competitor_id",
+              id,
+              "removed_product_id",
+              currentProductId));
 
     } catch (Exception e) {
       logger.error("Error disassociating product from competitor {}: {}", id, e.getMessage());
@@ -2413,11 +2434,9 @@ public class CompetitorController {
     try {
       String cacheKey = "price_cache:" + url.hashCode();
       // Cache for 24 hours to reduce scraping frequency
-      boolean success = enhancedRedisService.setWithTtl(
-          cacheKey, 
-          price.toString(), 
-          java.time.Duration.ofHours(24)
-      );
+      boolean success =
+          enhancedRedisService.setWithTtl(
+              cacheKey, price.toString(), java.time.Duration.ofHours(24));
       if (!success) {
         logger.debug("cachePriceForUrl: Failed to cache price for URL: {}", url);
       }

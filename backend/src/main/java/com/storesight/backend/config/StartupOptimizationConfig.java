@@ -37,21 +37,18 @@ public class StartupOptimizationConfig {
     logger.info(
         "Memory-intensive monitoring services delayed by: {}", monitoringGradualEnableDelay);
 
-    // Log current memory usage
+    // Log memory usage after startup
     Runtime runtime = Runtime.getRuntime();
-    long totalMemory = runtime.totalMemory();
+    long usedMemory = runtime.totalMemory() - runtime.freeMemory();
     long freeMemory = runtime.freeMemory();
-    long usedMemory = totalMemory - freeMemory;
     long maxMemory = runtime.maxMemory();
+    double memoryUsagePercent = (double) usedMemory / maxMemory * 100;
 
     logger.info(
         "Startup complete - Memory usage: {}MB used, {}MB free, {}MB max",
-        usedMemory / 1024 / 1024,
-        freeMemory / 1024 / 1024,
-        maxMemory / 1024 / 1024);
-
-    // Calculate memory usage percentage
-    double memoryUsagePercent = (double) usedMemory / maxMemory * 100;
+        usedMemory / (1024 * 1024),
+        freeMemory / (1024 * 1024),
+        maxMemory / (1024 * 1024));
     logger.info("Memory usage: {:.1f}% of maximum heap", memoryUsagePercent);
 
     if (memoryUsagePercent > 70) {
@@ -63,13 +60,13 @@ public class StartupOptimizationConfig {
 
     // Log memory after GC
     runtime = Runtime.getRuntime();
-    totalMemory = runtime.totalMemory();
+    long totalMemory = runtime.totalMemory();
     freeMemory = runtime.freeMemory();
     usedMemory = totalMemory - freeMemory;
 
     logger.info(
         "After GC - Memory usage: {}MB used, {}MB free",
-        usedMemory / 1024 / 1024,
-        freeMemory / 1024 / 1024);
+        usedMemory / (1024 * 1024),
+        freeMemory / (1024 * 1024));
   }
 }
