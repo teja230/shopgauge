@@ -861,7 +861,7 @@ export default function CompetitorsPage() {
         cache.delete(cacheKey);
         
         // Show enterprise-grade success notification
-        notifications.showSuccess('Competitor added successfully! Price tracking will be activated shortly.', {
+        notifications.showSuccess('Competitor added successfully! Price will be found shortly.', {
           category: 'Competitors',
           showToast: true, // Force toast to show
           persistent: false,
@@ -1141,7 +1141,7 @@ export default function CompetitorsPage() {
           await fetchData(true); // Refresh the list to show updated prices
           
           // Show enterprise-grade success notification
-          notifications.showSuccess(`Price tracking activated for ${priceStatus.inStock ? 'in-stock' : 'out-of-stock'} item at $${priceStatus.price}`, {
+          notifications.showSuccess(`Price found for ${priceStatus.inStock ? 'in-stock' : 'out-of-stock'} item at $${priceStatus.price}`, {
             category: 'Competitors',
             showToast: true,
             persistent: false,
@@ -1151,7 +1151,7 @@ export default function CompetitorsPage() {
         } else if (attemptCount >= maxAttempts) {
           // Max attempts reached, show informative message
           debugLog.info('Max polling attempts reached', { competitorId, attempts: attemptCount }, 'CompetitorsPage');
-          notifications.showInfo('Price tracking will be updated within the next few hours. You can continue adding competitors in the meantime.', {
+          notifications.showInfo('Price will be updated within the next few hours. You can continue adding competitors in the meantime.', {
             category: 'Competitors',
             showToast: true,
             persistent: false,
@@ -1167,7 +1167,7 @@ export default function CompetitorsPage() {
         debugLog.error('Error polling for price status', { competitorId, error, attempt: attemptCount }, 'CompetitorsPage');
         
         if (attemptCount >= maxAttempts) {
-          notifications.showInfo('Price tracking will be updated within the next few hours. You can continue adding competitors in the meantime.', {
+          notifications.showInfo('Price will be updated within the next few hours. You can continue adding competitors in the meantime.', {
             category: 'Competitors',
             showToast: true,
             persistent: false,
