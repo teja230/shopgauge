@@ -668,7 +668,12 @@ const DesktopTableRow: React.FC<{
               size="small"
               variant="outlined"
               icon={<CheckCircleIcon />}
-              onClick={() => getProductLink(competitor) && window.open(getProductLink(competitor)!, '_blank')}
+              onClick={() => {
+                const productLink = getProductLink(competitor);
+                if (productLink) {
+                  window.open(productLink, '_blank', 'noopener,noreferrer');
+                }
+              }}
               sx={{ 
                 cursor: getProductLink(competitor) ? 'pointer' : 'default',
                 '&:hover': getProductLink(competitor) ? {
