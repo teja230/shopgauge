@@ -2490,37 +2490,45 @@ export default function CompetitorsPage() {
               )}
             </div>
           ) : (
-            <div>
-              <div className="mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Active Competitors</h3>
-                <p className="text-sm text-gray-600">Monitor and manage your current market competitors</p>
+            <div className="space-y-6">
+              {/* Active Competitors Section */}
+              <div className="relative">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                    <h3 className="text-lg font-semibold text-gray-900">Active Competitors</h3>
+                    <span className="text-sm text-gray-500">({filteredCompetitors.length})</span>
+                  </div>
+                </div>
+                <div className="overflow-x-auto competitor-table">
+                  <CompetitorTable 
+                    data={filteredCompetitors} 
+                    onDelete={handleDelete} 
+                    onLinkProduct={handleLinkProduct}
+                    onViewGraph={(competitor) => {
+                      setSelectedCompetitorForGraph(competitor);
+                      setShowGraphView(true);
+                    }}
+                  />
+                </div>
               </div>
-              <div className="overflow-x-auto competitor-table">
-                <CompetitorTable 
-                  data={filteredCompetitors} 
-                  onDelete={handleDelete} 
-                  onLinkProduct={handleLinkProduct}
-                  onViewGraph={(competitor) => {
-                    setSelectedCompetitorForGraph(competitor);
-                    setShowGraphView(true);
-                  }}
-                />
-              </div>
+              
+              {/* Deleted Competitors Panel */}
+              {showDeletedCompetitors && (
+                <div className="relative">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 bg-gray-400 rounded-full"></div>
+                      <h3 className="text-lg font-semibold text-gray-900">Deleted Competitors</h3>
+                    </div>
+                  </div>
+                  <div className="overflow-x-auto competitor-table">
+                    <DeletedCompetitorsPanel shopId={isDemoMode ? 'demo' : (shop || 'demo')} />
+                  </div>
+                </div>
+              )}
             </div>
           )}
-           
-           {/* Deleted Competitors Panel */}
-           {showDeletedCompetitors && (
-             <div className="mt-6">
-               <div className="mb-4">
-                 <h3 className="text-lg font-semibold text-gray-900 mb-2">Deleted Competitors</h3>
-                 <p className="text-sm text-gray-600">Restore or permanently delete removed competitors</p>
-               </div>
-               <div className="overflow-x-auto competitor-table">
-                 <DeletedCompetitorsPanel shopId={isDemoMode ? 'demo' : (shop || 'demo')} />
-               </div>
-             </div>
-           )}
          </div>
        </div>
       
