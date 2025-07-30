@@ -1490,20 +1490,34 @@ public class CompetitorController {
 
     Long shopId = getShopIdFromRequest(httpRequest);
     if (shopId == null) {
+      logger.error("Restore competitor: No shop ID found in request");
       return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-          .body(Map.of("error", "Authentication required"));
+          .body(Map.of("error", "Authentication required - no shop ID found"));
+    }
+
+    // Parse competitor ID
+    Long competitorId;
+    try {
+      competitorId = Long.parseLong(id);
+    } catch (NumberFormatException e) {
+      logger.error("Restore competitor: Invalid competitor ID format: {}", id);
+      return ResponseEntity.badRequest()
+          .body(Map.of("error", "Invalid competitor ID format"));
     }
 
     try {
+
       // Verify the competitor belongs to this shop and is deleted
       List<Map<String, Object>> competitors =
           jdbcTemplate.queryForList(
               "SELECT id, url, label FROM competitor_urls WHERE id = ? AND shop_id = ? AND deleted_at IS NOT NULL",
-              Long.parseLong(id),
+              competitorId,
               shopId);
 
       if (competitors.isEmpty()) {
-        return ResponseEntity.notFound().build();
+        logger.warn("Restore competitor: No deleted competitor found with ID {} for shop {}", competitorId, shopId);
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(Map.of("error", "Competitor not found or not deleted"));
       }
 
       String newLabel = request.get("label");
@@ -1515,7 +1529,7 @@ public class CompetitorController {
       List<Map<String, Object>> latestSnapshot =
           jdbcTemplate.queryForList(
               "SELECT checked_at FROM price_snapshots WHERE competitor_url_id = ? AND deleted_at IS NULL ORDER BY checked_at DESC LIMIT 1",
-              Long.parseLong(id));
+              competitorId);
 
       // Determine if we should trigger immediate scraping based on 24-hour rule
       boolean shouldTriggerImmediate = false;
@@ -1550,32 +1564,32 @@ public class CompetitorController {
         jdbcTemplate.update(
             "UPDATE competitor_urls SET deleted_at = NULL, label = ?, last_checked = NULL WHERE id = ?",
             newLabel,
-            Long.parseLong(id));
-        logger.info("Restore: Triggering immediate scraping for competitor {}", id);
+            competitorId);
+        logger.info("Restore: Triggering immediate scraping for competitor {}", competitorId);
       } else {
         // Keep the existing last_checked to respect the 24-hour schedule
         jdbcTemplate.update(
             "UPDATE competitor_urls SET deleted_at = NULL, label = ? WHERE id = ?",
             newLabel,
-            Long.parseLong(id));
+            competitorId);
         logger.info(
             "Restore: Using existing last_checked for competitor {} (respecting 24-hour schedule)",
-            id);
+            competitorId);
       }
 
       // Restore associated price snapshots
       jdbcTemplate.update(
           "UPDATE price_snapshots SET deleted_at = NULL WHERE competitor_url_id = ? AND deleted_at IS NOT NULL",
-          Long.parseLong(id));
+          competitorId);
 
-      logger.info("Restored competitor {} for shop {}", id, shopId);
+      logger.info("Restored competitor {} for shop {}", competitorId, shopId);
       return ResponseEntity.ok(
           Map.of("success", true, "message", "Competitor restored successfully"));
 
     } catch (Exception e) {
-      logger.error("Error restoring competitor {} for shop {}: {}", id, shopId, e.getMessage(), e);
+      logger.error("Error restoring competitor {} for shop {}: {}", competitorId, shopId, e.getMessage(), e);
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-          .body(Map.of("error", "Failed to restore competitor"));
+          .body(Map.of("error", "Failed to restore competitor: " + e.getMessage()));
     }
   }
 
