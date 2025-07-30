@@ -932,10 +932,7 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({
             <StyledTableHead>
               <TableRow>
                 <TableCell>
-                  <div className="flex items-center gap-2">
-                    <span>Competitor</span>
-                    <div className="w-1.5 h-1.5 bg-green-400 rounded-full opacity-60"></div>
-                  </div>
+                                      <span>Competitor</span>
                 </TableCell>
                 <TableCell>Price</TableCell>
                 <TableCell>Status</TableCell>

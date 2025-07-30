@@ -401,10 +401,7 @@ export const DeletedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> = 
             <StyledTableHead>
               <TableRow>
                 <TableCell>
-                  <div className="flex items-center gap-2">
-                    <span>Competitor</span>
-                    <div className="w-1.5 h-1.5 bg-orange-400 rounded-full opacity-60"></div>
-                  </div>
+                                      <span>Competitor</span>
                 </TableCell>
                 <TableCell>Archived</TableCell>
                 <TableCell>Last Check</TableCell>
