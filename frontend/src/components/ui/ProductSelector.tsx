@@ -8,8 +8,7 @@ import {
   Alert,
   Chip,
   Card,
-  CardContent,
-  Divider
+  CardContent
 } from '@mui/material';
 import { CheckCircleIcon } from '@heroicons/react/24/outline';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
