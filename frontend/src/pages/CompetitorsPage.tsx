@@ -2190,7 +2190,7 @@ export default function CompetitorsPage() {
                 title="View and restore deleted competitors"
               >
                 <ArchiveBoxIcon className="h-4 w-4" />
-                Deleted
+                Show Deleted
               </button>
 
 

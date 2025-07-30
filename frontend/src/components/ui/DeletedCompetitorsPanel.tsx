@@ -247,62 +247,68 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
 
   return (
     <Box>
-      {/* Single Integrated Card - Compact Design */}
-      <Card sx={{ 
+      {/* Compact Integrated Design - Matches Main Table */}
+      <Box sx={{ 
         background: 'white',
         border: '1px solid #e5e7eb',
         borderRadius: 2,
-        boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)'
+        boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+        overflow: 'hidden'
       }}>
-        <CardContent sx={{ py: 2 }}>
-          {/* Header Row */}
-          <Box display="flex" alignItems="center" gap={2} sx={{ mb: 2 }}>
-            <Box sx={{ 
-              p: 0.5, 
-              borderRadius: 1.5, 
-              backgroundColor: '#f3f4f6',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              <ArchiveIcon sx={{ fontSize: 20, color: '#6b7280' }} />
-            </Box>
-            <Box flex={1}>
-              <Typography variant="subtitle1" fontWeight="600" color="text.primary">
-                Deleted Competitors
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Manage and restore deleted competitors with full price history preserved
-              </Typography>
-            </Box>
-            <Chip 
-              label={`${deletedCompetitors.length} deleted`}
-              size="small"
-              sx={{ 
-                backgroundColor: deletedCompetitors.length > 0 ? '#fef3c7' : '#f3f4f6',
-                color: deletedCompetitors.length > 0 ? '#92400e' : '#6b7280',
-                fontWeight: 500,
-                border: '1px solid',
-                borderColor: deletedCompetitors.length > 0 ? '#fbbf24' : '#e5e7eb'
-              }}
-            />
+        {/* Compact Header */}
+        <Box sx={{ 
+          px: 3, 
+          py: 2, 
+          backgroundColor: '#f9fafb',
+          borderBottom: '1px solid #e5e7eb',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 2
+        }}>
+          <Box sx={{ 
+            p: 0.5, 
+            borderRadius: 1.5, 
+            backgroundColor: '#e5e7eb',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <ArchiveIcon sx={{ fontSize: 18, color: '#6b7280' }} />
           </Box>
+          <Box flex={1}>
+            <Typography variant="subtitle2" fontWeight="600" color="text.primary">
+              Deleted Competitors
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Manage and restore deleted competitors
+            </Typography>
+          </Box>
+          <Chip 
+            label={`${deletedCompetitors.length} deleted`}
+            size="small"
+            sx={{ 
+              backgroundColor: deletedCompetitors.length > 0 ? '#fef3c7' : '#f3f4f6',
+              color: deletedCompetitors.length > 0 ? '#92400e' : '#6b7280',
+              fontWeight: 500,
+              fontSize: '0.75rem',
+              height: 20
+            }}
+          />
+        </Box>
 
-          {/* Content Section */}
-          {deletedCompetitors.length === 0 ? (
-            /* Compact Empty State */
-            <Box sx={{ 
-              py: 3, 
-              textAlign: 'center',
-              backgroundColor: '#f9fafb',
-              borderRadius: 1,
-              border: '1px dashed #d1d5db'
-            }}>
-              <ArchiveIcon sx={{ fontSize: 24, color: '#9ca3af', mb: 1 }} />
-              <Typography variant="body2" color="text.secondary">
-                No deleted competitors. All deleted competitors will appear here for 30 days.
-              </Typography>
-            </Box>
+        {/* Content Section */}
+        {deletedCompetitors.length === 0 ? (
+          /* Minimal Empty State */
+          <Box sx={{ 
+            py: 2, 
+            px: 3,
+            textAlign: 'center',
+            backgroundColor: '#fafafa'
+          }}>
+            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
+              No deleted competitors. All deleted competitors will appear here for 30 days.
+            </Typography>
+          </Box>
                     ) : (
             /* Deleted Competitors Table - Integrated Design */
             <TableContainer>
@@ -431,8 +437,7 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
               </Table>
             </TableContainer>
           )}
-        </CardContent>
-      </Card>
+        </Box>
 
       {/* Restore Dialog */}
       <Dialog open={restoreDialog.open} onClose={() => setRestoreDialog({ open: false, competitor: null, newLabel: '' })}>
