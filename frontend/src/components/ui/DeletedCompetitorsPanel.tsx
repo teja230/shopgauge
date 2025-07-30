@@ -34,7 +34,7 @@ import {
   TrendingUp as TrendingUpIcon
 } from '@mui/icons-material';
 import { useNotifications } from '../../hooks/useNotifications';
-import { api } from '../../api';
+import { fetchWithAuth } from '../../api';
 
 interface DeletedCompetitor {
   id: string;
@@ -110,11 +110,12 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
         ];
         setDeletedCompetitors(demoDeletedCompetitors);
       } else {
-        const response = await api.get(`/competitors/deleted`);
-        if (response.data.competitors) {
-          setDeletedCompetitors(response.data.competitors || []);
+        const response = await fetchWithAuth(`/api/competitors/deleted`);
+        const data = await response.json();
+        if (data.competitors) {
+          setDeletedCompetitors(data.competitors || []);
         } else {
-          console.error('Unexpected response format:', response.data);
+          console.error('Unexpected response format:', data);
           notifications.showError('Failed to load deleted competitors - unexpected response format');
         }
       }
@@ -148,11 +149,15 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
         );
         notifications.showSuccess('Competitor restored successfully');
       } else {
-        const response = await api.post(`/competitors/${restoreDialog.competitor.id}/restore`, {
-          label: restoreDialog.newLabel
+        const response = await fetchWithAuth(`/api/competitors/${restoreDialog.competitor.id}/restore`, {
+          method: 'POST',
+          body: JSON.stringify({
+            label: restoreDialog.newLabel
+          })
         });
         
-        if (response.data.success) {
+        const data = await response.json();
+        if (data.success) {
           setDeletedCompetitors(prev => 
             prev.filter(c => c.id !== restoreDialog.competitor!.id)
           );
@@ -180,9 +185,12 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
         setDeletedCompetitors(prev => prev.filter(c => c.id !== competitorId));
         notifications.showSuccess('Competitor permanently deleted');
       } else {
-        const response = await api.delete(`/competitors/${competitorId}/permanent`);
+        const response = await fetchWithAuth(`/api/competitors/${competitorId}/permanent`, {
+          method: 'DELETE'
+        });
         
-        if (response.data.success) {
+        const data = await response.json();
+        if (data.success) {
           setDeletedCompetitors(prev => prev.filter(c => c.id !== competitorId));
           notifications.showSuccess('Competitor permanently deleted');
         }
@@ -210,13 +218,14 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
           history: demoHistory
         });
       } else {
-        const response = await api.get(`/competitors/${competitorId}/price-history?days=30`);
+        const response = await fetchWithAuth(`/api/competitors/${competitorId}/price-history?days=30`);
+        const data = await response.json();
         
-        if (response.data.success) {
+        if (data.success) {
           setViewHistoryDialog({
             open: true,
             competitorId,
-            history: response.data.history || []
+            history: data.history || []
           });
         }
       }
