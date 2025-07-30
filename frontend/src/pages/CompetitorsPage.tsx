@@ -2517,10 +2517,10 @@ export default function CompetitorsPage() {
               {showDeletedCompetitors && (
                 <div className="relative">
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 bg-gray-400 rounded-full"></div>
-                      <h3 className="text-lg font-semibold text-gray-900">Deleted Competitors</h3>
-                    </div>
+                                      <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                    <h3 className="text-lg font-semibold text-gray-900">Deleted Competitors</h3>
+                  </div>
                   </div>
                   <div className="overflow-x-auto competitor-table">
                     <DeletedCompetitorsPanel shopId={isDemoMode ? 'demo' : (shop || 'demo')} />
