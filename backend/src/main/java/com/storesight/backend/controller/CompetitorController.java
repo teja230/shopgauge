@@ -1841,6 +1841,7 @@ public class CompetitorController {
       @PathVariable String id,
       @RequestParam(defaultValue = "false") boolean isDemoMode,
       HttpServletRequest request) {
+
     Long shopId = getShopIdFromRequest(request);
     if (shopId == null) {
       logger.warn(
@@ -1864,218 +1865,137 @@ public class CompetitorController {
           shopDomain,
           isDemoMode);
 
-      // Get cached products with detailed debugging
-      logger.info("Attempting to get cached products for shop domain: {}", shopDomain);
-      var cachedProducts = dashboardCacheService.getCachedProductsData(shopDomain);
-      logger.info(
-          "Cache result - isEmpty: {}, isPresent: {}",
-          cachedProducts.isEmpty(),
-          cachedProducts.isPresent());
+      if (isDemoMode) {
+        // Demo mode: provide demo products
+        logger.info("Demo mode: Providing demo products for shop {}", shopDomain);
+        List<Map<String, Object>> demoProducts =
+            List.of(
+                createDemoProduct("demo-product-1", "Demo Product 1", "demo-product-1", 29.99),
+                createDemoProduct("demo-product-2", "Demo Product 2", "demo-product-2", 49.99),
+                createDemoProduct("demo-product-3", "Demo Product 3", "demo-product-3", 79.99),
+                createDemoProduct("demo-product-4", "Demo Product 4", "demo-product-4", 99.99),
+                createDemoProduct("demo-product-5", "Demo Product 5", "demo-product-5", 129.99));
 
-      if (cachedProducts.isPresent()) {
-        logger.info("Cache hit - processing cached products data");
-        @SuppressWarnings("unchecked")
-        Map<String, Object> productsData = (Map<String, Object>) cachedProducts.get();
-        logger.info("Cached products data keys: {}", productsData.keySet());
-
-        @SuppressWarnings("unchecked")
-        List<Map<String, Object>> products =
-            (List<Map<String, Object>>) productsData.get("products");
-        logger.info(
-            "Products list - null: {}, size: {}",
-            products == null,
-            products != null ? products.size() : 0);
-      }
-
-      List<Map<String, Object>> availableProducts;
-
-      if (cachedProducts.isEmpty()) {
-        logger.info("No cached products found for shop {} (demo mode: {})", shopDomain, isDemoMode);
-
-        // Proper flow: session -> Redis -> Shopify
-        // If cache is empty, trigger a cache refresh from Shopify
-        logger.warn("Cache miss for products - attempting to refresh from Shopify");
-
-        if (isDemoMode) {
-          // Demo mode: provide demo products
-          logger.info("Demo mode: Providing demo products for shop {}", shopDomain);
-          availableProducts =
-              List.of(
-                  createDemoProduct("demo-product-1", "Demo Product 1", "demo-product-1", 29.99),
-                  createDemoProduct("demo-product-2", "Demo Product 2", "demo-product-2", 49.99),
-                  createDemoProduct("demo-product-3", "Demo Product 3", "demo-product-3", 79.99),
-                  createDemoProduct("demo-product-4", "Demo Product 4", "demo-product-4", 99.99),
-                  createDemoProduct("demo-product-5", "Demo Product 5", "demo-product-5", 129.99));
-        } else {
-          // Live mode: Try to refresh cache from Shopify first
-          logger.info(
-              "Live mode: Attempting to refresh products cache from Shopify for shop {}",
-              shopDomain);
-          try {
-            // Get the session token for Shopify API calls
-            String sessionId = request.getSession().getId();
-            String token = shopService.getTokenForShop(shopDomain, sessionId);
-
-            if (token == null) {
-              logger.error("No Shopify token available for shop: {}", shopDomain);
-              return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                  .body(
-                      Map.of(
-                          "error",
-                          "Shopify authentication required. Please reconnect your store."));
-            }
-
-            // Fetch products from Shopify API and cache them
-            String url =
-                String.format(
-                    "https://%s.myshopify.com/admin/api/2023-10/products.json?limit=50",
-                    shopDomain);
-
-            try {
-              WebClient webClient = WebClient.builder().build();
-
-              Map<String, Object> shopifyResponse =
-                  webClient
-                      .get()
-                      .uri(url)
-                      .header("X-Shopify-Access-Token", token)
-                      .retrieve()
-                      .bodyToMono(Map.class)
-                      .block();
-
-              if (shopifyResponse != null && shopifyResponse.containsKey("products")) {
-                @SuppressWarnings("unchecked")
-                List<Map<String, Object>> shopifyProducts =
-                    (List<Map<String, Object>>) shopifyResponse.get("products");
-
-                if (!shopifyProducts.isEmpty()) {
-                  // Format products for frontend
-                  availableProducts =
-                      shopifyProducts.stream()
-                          .map(
-                              product -> {
-                                Object productId = product.get("id");
-                                Object title = product.get("title");
-                                Object handle = product.get("handle");
-
-                                // Extract price from variants
-                                double price = 0.0;
-                                if (product.containsKey("variants")) {
-                                  @SuppressWarnings("unchecked")
-                                  List<Map<String, Object>> variants =
-                                      (List<Map<String, Object>>) product.get("variants");
-                                  if (!variants.isEmpty()) {
-                                    Object priceObj = variants.get(0).get("price");
-                                    if (priceObj != null) {
-                                      price = Double.parseDouble(priceObj.toString());
-                                    }
-                                  }
-                                }
-
-                                Map<String, Object> productMap = new HashMap<>();
-                                productMap.put("id", productId != null ? productId.toString() : "");
-                                productMap.put("title", title != null ? title.toString() : "");
-                                productMap.put("handle", handle != null ? handle.toString() : "");
-                                productMap.put("price", price);
-                                return productMap;
-                              })
-                          .collect(Collectors.toList());
-
-                  // Cache the products data
-                  Map<String, Object> cacheData = new HashMap<>();
-                  cacheData.put("products", availableProducts);
-                  cacheData.put("total_products", availableProducts.size());
-                  dashboardCacheService.cacheProductsData(shopDomain, cacheData);
-
-                  logger.info(
-                      "Successfully refreshed products cache from Shopify: {} products",
-                      availableProducts.size());
-                } else {
-                  logger.warn("Shopify returned no products for shop: {}", shopDomain);
-                  return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                      .body(
-                          Map.of(
-                              "error",
-                              "No products found in your Shopify store. Please add products first."));
-                }
-              } else {
-                logger.error("Invalid response from Shopify API for shop: {}", shopDomain);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(
-                        Map.of(
-                            "error", "Failed to fetch products from Shopify. Please try again."));
-              }
-            } catch (Exception e) {
-              logger.error("Error calling Shopify API for shop {}: {}", shopDomain, e.getMessage());
-              return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                  .body(
-                      Map.of(
-                          "error",
-                          "Failed to connect to Shopify. Please check your connection and try again."));
-            }
-
-          } catch (Exception e) {
-            logger.error(
-                "Error refreshing products from Shopify for shop {}: {}",
-                shopDomain,
-                e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(
-                    Map.of(
-                        "error", "Failed to sync products from Shopify. Please try again later."));
-          }
-        }
+        return ResponseEntity.ok(Map.of("products", demoProducts));
       } else {
-        logger.info("Found cached products for shop {}", shopDomain);
+        // Live mode: Use the analytics products endpoint logic
+        logger.info("Live mode: Using analytics products endpoint for shop {}", shopDomain);
 
-        @SuppressWarnings("unchecked")
-        Map<String, Object> productsData = (Map<String, Object>) cachedProducts.get();
-        @SuppressWarnings("unchecked")
-        List<Map<String, Object>> products =
-            (List<Map<String, Object>>) productsData.get("products");
-
-        if (products == null || products.isEmpty()) {
-          logger.warn("Cached products data is empty or null for shop {}", shopDomain);
-          return ResponseEntity.status(HttpStatus.NOT_FOUND)
-              .body(Map.of("error", "No products available for association."));
+        // Check Redis cache first
+        var cachedProducts = dashboardCacheService.getCachedProductsData(shopDomain);
+        if (cachedProducts.isPresent()) {
+          logger.info("Cache hit for products data for shop: {}", shopDomain);
+          return ResponseEntity.ok((Map<String, Object>) cachedProducts.get());
         }
 
-        logger.info("Processing {} products for shop {}", products.size(), shopDomain);
+        // Get the session token for Shopify API calls
+        String sessionId = request.getSession().getId();
+        String token = shopService.getTokenForShop(shopDomain, sessionId);
 
-        // Format products for frontend selection
-        availableProducts =
-            products.stream()
-                .map(
-                    product -> {
-                      Map<String, Object> productMap = new HashMap<>();
-                      productMap.put("id", product.get("id"));
-                      productMap.put(
-                          "title", product.get("title") != null ? product.get("title") : "");
-                      productMap.put(
-                          "handle", product.get("handle") != null ? product.get("handle") : "");
-                      productMap.put("price", product.get("price"));
-                      return productMap;
-                    })
-                .collect(Collectors.toList());
+        if (token == null) {
+          logger.error("No Shopify token available for shop: {}", shopDomain);
+          return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+              .body(
+                  Map.of("error", "Shopify authentication required. Please reconnect your store."));
+        }
+
+        // Use the same logic as analytics endpoint
+        String url =
+            String.format(
+                "https://%s.myshopify.com/admin/api/2023-10/products.json?limit=50", shopDomain);
+
+        try {
+          WebClient webClient = WebClient.builder().build();
+          Map<String, Object> shopifyResponse =
+              webClient
+                  .get()
+                  .uri(url)
+                  .header("X-Shopify-Access-Token", token)
+                  .retrieve()
+                  .bodyToMono(Map.class)
+                  .block();
+
+          if (shopifyResponse != null && shopifyResponse.containsKey("products")) {
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> shopifyProducts =
+                (List<Map<String, Object>>) shopifyResponse.get("products");
+
+            if (shopifyProducts != null && !shopifyProducts.isEmpty()) {
+              logger.info(
+                  "Successfully fetched {} products from Shopify for shop {}",
+                  shopifyProducts.size(),
+                  shopDomain);
+
+              // Convert Shopify products to our format (same as analytics endpoint)
+              List<Map<String, Object>> availableProducts = new ArrayList<>();
+              for (Map<String, Object> product : shopifyProducts) {
+                String productId = product.get("id").toString();
+                String title = (String) product.get("title");
+                String handle = (String) product.get("handle");
+
+                // Get price from first variant
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> variants =
+                    (List<Map<String, Object>>) product.get("variants");
+                double price = 0.0;
+                if (variants != null && !variants.isEmpty()) {
+                  Object priceObj = variants.get(0).get("price");
+                  if (priceObj != null) {
+                    try {
+                      price = Double.parseDouble(priceObj.toString());
+                    } catch (NumberFormatException e) {
+                      logger.warn("Invalid price format for product {}: {}", productId, priceObj);
+                    }
+                  }
+                }
+
+                Map<String, Object> productData = new HashMap<>();
+                productData.put("id", productId);
+                productData.put("title", title);
+                productData.put("handle", handle);
+                productData.put("price", price);
+                availableProducts.add(productData);
+              }
+
+              // Cache the products data
+              Map<String, Object> productsData = new HashMap<>();
+              productsData.put("products", availableProducts);
+              productsData.put("total_products", availableProducts.size());
+              dashboardCacheService.cacheProductsData(shopDomain, productsData);
+
+              logger.info(
+                  "Successfully cached {} products for shop {}",
+                  availableProducts.size(),
+                  shopDomain);
+              return ResponseEntity.ok(Map.of("products", availableProducts));
+            } else {
+              logger.warn("No products found in Shopify response for shop {}", shopDomain);
+              return ResponseEntity.ok(Map.of("products", List.of()));
+            }
+          } else {
+            logger.error("Invalid Shopify response for shop {}: {}", shopDomain, shopifyResponse);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", "Failed to fetch products from Shopify"));
+          }
+        } catch (Exception e) {
+          logger.error(
+              "Error fetching products from Shopify for shop {}: {}", shopDomain, e.getMessage());
+          return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+              .body(
+                  Map.of(
+                      "error",
+                      "Failed to connect to Shopify. Please check your connection and try again."));
+        }
       }
-
-      logger.info(
-          "Returning {} available products for competitor {} in shop {}",
-          availableProducts.size(),
-          id,
-          shopDomain);
-      return ResponseEntity.ok(
-          Map.of("products", availableProducts, "count", availableProducts.size()));
-
     } catch (Exception e) {
       logger.error(
-          "Error getting available products for competitor {} in shop {}: {}",
+          "Error fetching products for competitor {} in shop {}: {}",
           id,
           shopId,
           e.getMessage(),
           e);
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-          .body(Map.of("error", "Failed to retrieve available products"));
+          .body(Map.of("error", "Failed to load products. Please try again."));
     }
   }
 
