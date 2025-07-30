@@ -151,12 +151,13 @@ public class PriceScrapingService {
     // Tier 2-4: API-based scraping (COST-OPTIMIZED for $19.99 plan)
     if (apiOptimized && multiSourceEnabled) {
       int providersTried = 0;
-      int maxProviders = Math.min(maxProvidersToTry, 2); // Reduced to 2 providers for cost
+      int maxProviders =
+          Math.min(maxProvidersToTry, 3); // Allow all 3 providers (Scrapingdog, Serper, SerpAPI)
 
       // Only use APIs if free-first is disabled or as fallback only
       if (!freeFirst || apiFallbackOnly) {
 
-        // Try Scrapingdog API (cheapest option)
+        // Try Scrapingdog API (primary - same cost as Serper: $0.001)
         if (scrapingdogSearchClient.isEnabled() && providersTried < maxProviders) {
           try {
             log.debug("Tier 2: Attempting Scrapingdog API (cost: $0.001)");
@@ -177,8 +178,8 @@ public class PriceScrapingService {
           }
         }
 
-        // Try Serper API (only if fallback enabled and within limit)
-        if (serperSearchClient.isEnabled() && fallbackEnabled && providersTried < maxProviders) {
+        // Try Serper API (fallback - same cost as Scrapingdog: $0.001)
+        if (serperSearchClient.isEnabled() && providersTried < maxProviders) {
           try {
             log.debug("Tier 3: Attempting Serper API (cost: $0.001)");
             PriceScrapingResult serperResult = scrapeWithSerper(url);
@@ -197,8 +198,8 @@ public class PriceScrapingService {
           }
         }
 
-        // Try SerpAPI as last resort (expensive but comprehensive)
-        if (serpApiSearchClient.isEnabled() && fallbackEnabled && providersTried < maxProviders) {
+        // Try SerpAPI as last resort (expensive but comprehensive: $0.015)
+        if (serpApiSearchClient.isEnabled() && providersTried < maxProviders) {
           try {
             log.debug("Tier 4: Attempting SerpAPI (cost: $0.015)");
             PriceScrapingResult serpApiResult = scrapeWithSerpAPI(url);
