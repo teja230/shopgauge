@@ -84,19 +84,22 @@ const SearchContainer = styled(Box)(({ theme }) => ({
 
 const StyledDialog = styled(Dialog)(({ theme }) => ({
   '& .MuiDialog-paper': {
-    borderRadius: 20,
-    boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15)',
+    borderRadius: 12,
+    boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
     border: '1px solid #e5e7eb',
-    background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+    background: '#ffffff',
+    maxWidth: '600px',
+    width: '90vw',
   },
 }));
 
 const HeaderSection = styled(Box)(({ theme }) => ({
-  background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
-  color: 'white',
+  background: '#f9fafb',
+  color: '#374151',
   padding: theme.spacing(3),
-  borderTopLeftRadius: 20,
-  borderTopRightRadius: 20,
+  borderTopLeftRadius: 12,
+  borderTopRightRadius: 12,
+  borderBottom: '1px solid #e5e7eb',
   position: 'relative',
   '&::before': {
     content: '""',
@@ -361,18 +364,18 @@ export const ProductAssociationModal: React.FC<ProductAssociationModalProps> = (
             <Box sx={{ 
               p: 1, 
               borderRadius: 2, 
-              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              backgroundColor: '#dbeafe',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center'
             }}>
-              <LinkIcon sx={{ fontSize: 24, color: '#f1f5f9' }} />
+              <LinkIcon sx={{ fontSize: 24, color: '#3b82f6' }} />
             </Box>
             <Box>
-              <Typography variant="h5" fontWeight="600" sx={{ color: '#f1f5f9' }}>
+              <Typography variant="h6" fontWeight="600" sx={{ color: '#111827' }}>
                 Product Association
               </Typography>
-              <Typography variant="body2" sx={{ color: '#cbd5e1', mt: 0.5 }}>
+              <Typography variant="body2" sx={{ color: '#6b7280', mt: 0.5 }}>
                 Link competitor to your Shopify product
               </Typography>
             </Box>
@@ -381,27 +384,27 @@ export const ProductAssociationModal: React.FC<ProductAssociationModalProps> = (
             onClick={onClose} 
             size="small"
             sx={{ 
-              color: '#f1f5f9',
-              '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' }
+              color: '#6b7280',
+              '&:hover': { backgroundColor: '#f3f4f6' }
             }}
           >
             <CloseIcon />
           </IconButton>
         </Box>
         <Box mt={2} position="relative" zIndex={1}>
-          <Typography variant="body2" sx={{ color: '#cbd5e1', mb: 1 }}>
+          <Typography variant="body2" sx={{ color: '#6b7280', mb: 1, fontWeight: 500 }}>
             Competitor Details
           </Typography>
           <Box sx={{ 
             p: 2, 
             borderRadius: 2, 
-            backgroundColor: 'rgba(255, 255, 255, 0.05)',
-            border: '1px solid rgba(255, 255, 255, 0.1)'
+            backgroundColor: '#ffffff',
+            border: '1px solid #e5e7eb'
           }}>
-            <Typography variant="body1" fontWeight="500" sx={{ color: '#f1f5f9' }}>
+            <Typography variant="body1" fontWeight="500" sx={{ color: '#111827' }}>
               {competitorLabel}
             </Typography>
-            <Typography variant="body2" sx={{ color: '#94a3b8' }}>
+            <Typography variant="body2" sx={{ color: '#6b7280' }}>
               {new URL(competitorUrl).hostname}
             </Typography>
           </Box>
@@ -582,7 +585,7 @@ export const ProductAssociationModal: React.FC<ProductAssociationModalProps> = (
                             {product.title}
                           </Typography>
                           <Typography variant="body2" color="#6b7280" gutterBottom sx={{ fontFamily: 'monospace' }}>
-                            {product.handle ? `/${product.handle}` : '/no-handle'}
+                            {product.handle ? `/${product.handle}` : 'No handle set'}
                           </Typography>
                           <Box display="flex" alignItems="center" gap={1}>
                             <AttachMoneyIcon fontSize="small" sx={{ color: '#059669' }} />
