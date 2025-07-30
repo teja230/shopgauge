@@ -643,6 +643,9 @@ export default function CompetitorsPage() {
   const [activeSectionCollapsed, setActiveSectionCollapsed] = useState(false);
   const [deletedSectionCollapsed, setDeletedSectionCollapsed] = useState(false);
   
+  // Archived competitors count
+  const [archivedCount, setArchivedCount] = useState(0);
+  
   // Refs to prevent unnecessary re-renders and API calls
   const lastFetchTimeRef = useRef<number>(0);
   const isInitialLoadRef = useRef<boolean>(true);
@@ -2544,6 +2547,9 @@ export default function CompetitorsPage() {
                       <div className="flex items-center gap-2">
                         <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
                         <span className="text-sm font-medium text-gray-700">Archived</span>
+                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                          {archivedCount}
+                        </span>
                       </div>
                     </div>
                     <button
@@ -2562,7 +2568,10 @@ export default function CompetitorsPage() {
                   </div>
                   {!deletedSectionCollapsed && (
                     <div className="overflow-x-auto competitor-table">
-                      <DeletedCompetitorsPanel shopId={isDemoMode ? 'demo' : (shop || 'demo')} />
+                      <DeletedCompetitorsPanel 
+                        shopId={isDemoMode ? 'demo' : (shop || 'demo')} 
+                        onCountChange={setArchivedCount}
+                      />
                     </div>
                   )}
                 </div>

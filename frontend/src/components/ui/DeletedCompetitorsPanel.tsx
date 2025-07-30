@@ -53,6 +53,7 @@ interface ArchivedCompetitor {
 
 interface ArchivedCompetitorsPanelProps {
   shopId: string;
+  onCountChange?: (count: number) => void;
 }
 
 // Styled components to match CompetitorTable
@@ -97,7 +98,7 @@ const StyledTableCell = styled(TableCell)(({ theme }) => ({
   borderBottom: `1px solid ${theme.palette.divider}`,
 }));
 
-export const DeletedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> = ({ shopId }) => {
+export const DeletedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> = ({ shopId, onCountChange }) => {
   const [deletedCompetitors, setDeletedCompetitors] = useState<ArchivedCompetitor[]>([]);
   const [loading, setLoading] = useState(true);
   const [restoring, setRestoring] = useState<string | null>(null);
@@ -135,6 +136,12 @@ export const DeletedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> = 
   useEffect(() => {
     loadDeletedCompetitors();
   }, [shopId]);
+
+  useEffect(() => {
+    if (onCountChange) {
+      onCountChange(deletedCompetitors.length);
+    }
+  }, [deletedCompetitors.length, onCountChange]);
 
   const loadDeletedCompetitors = async () => {
     try {
