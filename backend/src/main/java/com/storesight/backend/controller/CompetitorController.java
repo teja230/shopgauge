@@ -1511,9 +1511,9 @@ public class CompetitorController {
         newLabel = (String) competitors.get(0).get("label");
       }
 
-      // Restore the competitor
+      // Restore the competitor and reset last_checked to trigger immediate scraping
       jdbcTemplate.update(
-          "UPDATE competitor_urls SET deleted_at = NULL, label = ? WHERE id = ?",
+          "UPDATE competitor_urls SET deleted_at = NULL, label = ?, last_checked = NULL WHERE id = ?",
           newLabel,
           Long.parseLong(id));
 

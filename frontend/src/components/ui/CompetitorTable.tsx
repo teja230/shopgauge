@@ -36,6 +36,7 @@ import {
   Schedule as ScheduleIcon,
   Launch as LaunchIcon,
   Link as LinkIcon,
+  BarChart as BarChartIcon,
 } from '@mui/icons-material';
 import StoreLogo from './StoreLogo';
 
@@ -60,6 +61,7 @@ interface CompetitorTableProps {
   data: Competitor[];
   onDelete: (id: string) => void;
   onLinkProduct?: (competitor: Competitor) => void;
+  onViewGraph?: (competitor: Competitor) => void;
   loading?: boolean;
   error?: string | null;
   onRetry?: () => void;
@@ -637,7 +639,8 @@ const DesktopTableRow: React.FC<{
   competitor: Competitor;
   onDelete: (id: string) => void;
   onLinkProduct?: (competitor: Competitor) => void;
-}> = ({ competitor, onDelete, onLinkProduct }) => {
+  onViewGraph?: (competitor: Competitor) => void;
+}> = ({ competitor, onDelete, onLinkProduct, onViewGraph }) => {
   const percentChangeText = formatPercentChange(competitor.percentDiff);
   const { shop } = useAuth();
 
@@ -787,6 +790,19 @@ const DesktopTableRow: React.FC<{
             </Tooltip>
           )}
           
+          {onViewGraph && (
+            <Tooltip title="View price history graph">
+              <IconButton 
+                size="small" 
+                color="info"
+                onClick={() => onViewGraph(competitor)}
+                sx={{ minWidth: 36, minHeight: 36 }}
+              >
+                <BarChartIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+          
           <Tooltip title="Remove competitor">
             <IconButton 
               size="small" 
@@ -808,6 +824,7 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({
   data = [], 
   onDelete, 
   onLinkProduct,
+  onViewGraph,
   loading = false,
   error = null,
   onRetry,
