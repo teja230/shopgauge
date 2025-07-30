@@ -18,8 +18,8 @@ import { fetchWithAuth } from '../../api';
 interface Product {
   id: string;
   title: string;
-  handle: string;
-  price: number;
+  handle?: string; // Optional for analytics endpoint
+  price: number | string; // Can be number or string like "$29.99"
 }
 
 interface ProductSelectorProps {
@@ -65,8 +65,8 @@ export const ProductSelector: React.FC<ProductSelectorProps> = ({
     setError(null);
 
     try {
-      // Use the correct products endpoint
-      const response = await fetchWithAuth(`/api/products`, {
+      // Use the analytics products endpoint which has robust caching
+      const response = await fetchWithAuth(`/api/analytics/products`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -75,9 +75,19 @@ export const ProductSelector: React.FC<ProductSelectorProps> = ({
 
       if (response.ok) {
         const data = await response.json();
-        setProducts(data.products || data || []);
+        const productsData = data.products || data || [];
         
-        if (!data.products && !data.length) {
+        // Transform analytics products to expected format
+        const transformedProducts = productsData.map((product: any) => ({
+          id: product.id,
+          title: product.title,
+          handle: product.handle || product.id, // Use id as fallback for handle
+          price: typeof product.price === 'string' ? parseFloat(product.price.replace('$', '')) : product.price
+        }));
+        
+        setProducts(transformedProducts);
+        
+        if (!transformedProducts.length) {
           setError('No products found in your store. Please add products to your Shopify store first.');
         }
       } else {
