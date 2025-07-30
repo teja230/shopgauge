@@ -290,15 +290,21 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
 
   return (
     <Box>
-      <Card sx={{ mb: 3, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
+      <Card sx={{ 
+        mb: 3, 
+        background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)', 
+        color: 'white',
+        border: '1px solid #475569',
+        borderRadius: 2
+      }}>
         <CardContent>
           <Box display="flex" alignItems="center" gap={2}>
-            <ArchiveIcon sx={{ fontSize: 32 }} />
+            <ArchiveIcon sx={{ fontSize: 32, color: '#94a3b8' }} />
             <Box>
-              <Typography variant="h5" fontWeight="bold">
+              <Typography variant="h5" fontWeight="bold" sx={{ color: '#f1f5f9' }}>
                 Deleted Competitors
               </Typography>
-              <Typography variant="body2" sx={{ opacity: 0.9 }}>
+              <Typography variant="body2" sx={{ opacity: 0.8, color: '#cbd5e1' }}>
                 Manage and restore deleted competitors with full price history
               </Typography>
             </Box>
@@ -306,9 +312,10 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
               label={`${deletedCompetitors.length} deleted`}
               sx={{ 
                 ml: 'auto',
-                backgroundColor: 'rgba(255,255,255,0.2)',
-                color: 'white',
-                fontWeight: 'bold'
+                backgroundColor: 'rgba(148, 163, 184, 0.2)',
+                color: '#f1f5f9',
+                fontWeight: 'bold',
+                border: '1px solid #475569'
               }}
             />
           </Box>
@@ -316,15 +323,20 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
       </Card>
 
       {deletedCompetitors.length === 0 ? (
-        <Card sx={{ background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', color: 'white' }}>
+        <Card sx={{ 
+          background: 'linear-gradient(135deg, #475569 0%, #64748b 100%)', 
+          color: 'white',
+          border: '1px solid #64748b',
+          borderRadius: 2
+        }}>
           <CardContent>
             <Box display="flex" alignItems="center" gap={2}>
-              <ArchiveIcon sx={{ fontSize: 24 }} />
-              <Typography variant="h6">
+              <ArchiveIcon sx={{ fontSize: 24, color: '#94a3b8' }} />
+              <Typography variant="h6" sx={{ color: '#f1f5f9' }}>
                 No Deleted Competitors
               </Typography>
             </Box>
-            <Typography variant="body2" sx={{ mt: 1, opacity: 0.9 }}>
+            <Typography variant="body2" sx={{ mt: 1, opacity: 0.8, color: '#cbd5e1' }}>
               All deleted competitors will appear here for 30 days with full price history preserved.
             </Typography>
           </CardContent>

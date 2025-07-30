@@ -129,6 +129,27 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     description: 'View detailed pricing information, stock status, and price changes for all your competitors.',
     target: '.competitor-table',
     position: 'top'
+  },
+  {
+    id: 'graph-button',
+    title: 'Price History Graphs',
+    description: 'Click the graph icon next to any competitor to view their price history and trends over time.',
+    target: '.competitor-table',
+    position: 'top'
+  },
+  {
+    id: 'deleted-competitors',
+    title: 'Deleted Competitors',
+    description: 'Access the "Deleted" button to view and restore previously deleted competitors with full price history preserved.',
+    target: '.deleted-competitors-button',
+    position: 'bottom'
+  },
+  {
+    id: 'restore-feature',
+    title: 'Restore Functionality',
+    description: 'Deleted competitors can be restored for up to 30 days. All price history and data is preserved during this period.',
+    target: '.deleted-competitors-panel',
+    position: 'top'
   }
 ];
 
@@ -2159,11 +2180,11 @@ export default function CompetitorsPage() {
               </button>
 
               {/* Deleted Competitors Button */}
-              <button
+                            <button
                 onClick={() => setShowDeletedCompetitors(!showDeletedCompetitors)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-md ${
-                  showDeletedCompetitors 
-                    ? 'bg-orange-600 text-white hover:bg-orange-700' 
+                className={`deleted-competitors-button flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-md ${
+                  showDeletedCompetitors
+                    ? 'bg-orange-600 text-white hover:bg-orange-700'
                     : 'bg-gray-600 text-white hover:bg-gray-700'
                 }`}
                 title="View and restore deleted competitors"
@@ -2172,25 +2193,7 @@ export default function CompetitorsPage() {
                 Deleted
               </button>
 
-              {/* Graph View Button */}
-              <button
-                onClick={() => {
-                  if (filteredCompetitors.length > 0) {
-                    setSelectedCompetitorForGraph(filteredCompetitors[0]);
-                    setShowGraphView(true);
-                  }
-                }}
-                disabled={filteredCompetitors.length === 0}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-md ${
-                  filteredCompetitors.length === 0
-                    ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
-                }`}
-                title="View price history graphs"
-              >
-                <ChartBarIcon className="h-4 w-4" />
-                Graph
-              </button>
+
             </div>
           </div>
 
@@ -2491,6 +2494,10 @@ export default function CompetitorsPage() {
                 data={filteredCompetitors} 
                 onDelete={handleDelete} 
                 onLinkProduct={handleLinkProduct}
+                onViewGraph={(competitor) => {
+                  setSelectedCompetitorForGraph(competitor);
+                  setShowGraphView(true);
+                }}
               />
             </div>
           )}
@@ -2499,7 +2506,7 @@ export default function CompetitorsPage() {
       
       {/* Deleted Competitors Panel */}
       {showDeletedCompetitors && (
-        <div className="mt-8">
+        <div className="mt-8 deleted-competitors-panel">
           <DeletedCompetitorsPanel shopId={shop || 'demo'} />
         </div>
       )}
