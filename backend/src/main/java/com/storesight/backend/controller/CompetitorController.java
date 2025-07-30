@@ -1511,11 +1511,57 @@ public class CompetitorController {
         newLabel = (String) competitors.get(0).get("label");
       }
 
-      // Restore the competitor and reset last_checked to trigger immediate scraping
-      jdbcTemplate.update(
-          "UPDATE competitor_urls SET deleted_at = NULL, label = ?, last_checked = NULL WHERE id = ?",
-          newLabel,
-          Long.parseLong(id));
+      // Get the latest price snapshot to determine if we should trigger immediate scraping
+      List<Map<String, Object>> latestSnapshot =
+          jdbcTemplate.queryForList(
+              "SELECT checked_at FROM price_snapshots WHERE competitor_url_id = ? AND deleted_at IS NULL ORDER BY checked_at DESC LIMIT 1",
+              Long.parseLong(id));
+
+      // Determine if we should trigger immediate scraping based on 24-hour rule
+      boolean shouldTriggerImmediate = false;
+      if (!latestSnapshot.isEmpty()) {
+        String lastCheckedStr = (String) latestSnapshot.get(0).get("checked_at");
+        if (lastCheckedStr != null) {
+          try {
+            java.time.LocalDateTime lastChecked =
+                java.time.LocalDateTime.parse(lastCheckedStr.replace(" ", "T"));
+            java.time.LocalDateTime now = java.time.LocalDateTime.now();
+            java.time.Duration duration = java.time.Duration.between(lastChecked, now);
+            // Trigger immediate scraping only if last check was over 24 hours ago
+            shouldTriggerImmediate = duration.toHours() >= 24;
+            logger.info(
+                "Restore: Last check was {} hours ago, immediate scraping: {}",
+                duration.toHours(),
+                shouldTriggerImmediate);
+          } catch (Exception e) {
+            logger.warn("Restore: Could not parse last check time: {}", lastCheckedStr);
+            shouldTriggerImmediate = true; // Default to immediate if we can't parse
+          }
+        } else {
+          shouldTriggerImmediate = true; // No previous check, trigger immediate
+        }
+      } else {
+        shouldTriggerImmediate = true; // No snapshots, trigger immediate
+      }
+
+      // Restore the competitor with smart last_checked logic
+      if (shouldTriggerImmediate) {
+        // Reset last_checked to trigger immediate scraping
+        jdbcTemplate.update(
+            "UPDATE competitor_urls SET deleted_at = NULL, label = ?, last_checked = NULL WHERE id = ?",
+            newLabel,
+            Long.parseLong(id));
+        logger.info("Restore: Triggering immediate scraping for competitor {}", id);
+      } else {
+        // Keep the existing last_checked to respect the 24-hour schedule
+        jdbcTemplate.update(
+            "UPDATE competitor_urls SET deleted_at = NULL, label = ? WHERE id = ?",
+            newLabel,
+            Long.parseLong(id));
+        logger.info(
+            "Restore: Using existing last_checked for competitor {} (respecting 24-hour schedule)",
+            id);
+      }
 
       // Restore associated price snapshots
       jdbcTemplate.update(
