@@ -597,7 +597,7 @@ private void storePriceSnapshot(Long competitorUrlId, CompetitorData data) {
 - ✅ **Database Indexes**: Optimized indexes for faster price change queries
 - ✅ **Efficient Queries**: Uses LATERAL joins for better performance
 - ✅ **Caching Strategy**: Leverages existing Redis caching for price data
-- ✅ **Batch Processing**: Validates and fixes data in batches
+- ✅ **Batch Processing**: Validates and fixes data in batches (limited to 10 snapshots for minimal data)
 
 #### **Analytics Capabilities**
 - ✅ **Time-Based Analysis**: 7, 30, 90-day price change calculations
@@ -661,21 +661,21 @@ The enhanced price change calculations automatically improve the accuracy of per
 
 ### **Migration Impact**
 The V43 migration includes:
-- **Data Validation**: Automatically validates and fixes existing price change data
-- **Performance Indexes**: Adds optimized indexes for better query performance
-- **Function Creation**: Adds comprehensive database functions for analytics
+- **Essential Indexes**: Adds optimized indexes for better query performance
+- **Function Creation**: Adds basic database functions for analytics (minimal data friendly)
 - **Backward Compatibility**: Maintains compatibility with existing data
+- **Performance Focus**: Optimized for minimal test data scenarios
 
 ### **Monitoring & Validation**
 ```sql
--- Check validation results
-SELECT * FROM validate_price_changes();
-
--- Get statistics for a competitor
+-- Get statistics for a competitor (minimal data friendly)
 SELECT * FROM get_price_change_statistics(competitor_id);
 
--- Analyze trends
+-- Analyze trends (minimal data friendly)
 SELECT * FROM get_price_trend(competitor_id, 30);
+
+-- Note: Validation is handled on-demand by PriceChangeCalculationService
+-- No automatic validation run for minimal test data
 ```
 
 ## 🔄 Optimized Price Polling System
