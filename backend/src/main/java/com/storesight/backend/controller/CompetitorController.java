@@ -10,6 +10,7 @@ import com.storesight.backend.service.CompetitorLimitService;
 import com.storesight.backend.service.DashboardCacheService;
 import com.storesight.backend.service.EnhancedRedisService;
 import com.storesight.backend.service.InputValidationService;
+import com.storesight.backend.service.PriceScrapingService;
 import com.storesight.backend.service.ShopService;
 import com.storesight.backend.service.discovery.CompetitorDiscoveryService;
 import com.storesight.backend.service.discovery.MultiSourceSearchClient;
@@ -65,6 +66,7 @@ public class CompetitorController {
 
   @Autowired private RedisTemplate<String, Object> redisTemplate;
   @Autowired private EnhancedRedisService enhancedRedisService;
+  @Autowired private PriceScrapingService priceScrapingService;
 
   @Value("${competitor.scraping.max-urls-per-shop:10}")
   private int maxUrlsPerShop;
@@ -2632,7 +2634,7 @@ public class CompetitorController {
   private void triggerImmediatePriceScraping(String competitorId, String url, Long shopId) {
     try {
       logger.info(
-          "triggerImmediatePriceScraping: Starting COST-OPTIMIZED immediate scraping for competitor ID: {}",
+          "triggerImmediatePriceScraping: Starting ENTERPRISE-GRADE immediate scraping for competitor ID: {}",
           competitorId);
 
       // COST OPTIMIZATION 1: Check if we recently scraped this URL (within last 2 hours)
@@ -2689,75 +2691,71 @@ public class CompetitorController {
         return;
       }
 
-      // Only scrape if no cached data available
+      // NEW: Use PriceScrapingService for reliable 4-tier scraping
       try {
         long startTime = System.currentTimeMillis();
 
-        // Use Jsoup for immediate scraping (faster and cheaper than Selenium)
-        org.jsoup.nodes.Document doc =
-            org.jsoup.Jsoup.connect(url)
-                .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-                .timeout(5000) // 5 second timeout (increased for reliability)
-                .followRedirects(true)
-                .get();
+        // Use the new unified PriceScrapingService with API fallbacks
+        PriceScrapingService.PriceScrapingResult result =
+            priceScrapingService.scrapePriceWithMultiTier(url);
 
-        long responseTime = System.currentTimeMillis() - startTime;
+        long totalTime = System.currentTimeMillis() - startTime;
 
-        // Extract price using enhanced patterns
-        String platform = identifyPlatform(url);
-        logger.info("triggerImmediatePriceScraping: Extracting price for platform: {}", platform);
+        if (result.isSuccess()) {
+          logger.info(
+              "triggerImmediatePriceScraping: SUCCESS - Price ${} extracted via {} ({}ms)",
+              result.getPrice(),
+              result.getScraperSource(),
+              result.getResponseTime());
 
-        java.math.BigDecimal price = extractPriceFromDocument(doc, platform);
-        boolean inStock = extractStockStatusFromDocument(doc, platform);
-
-        logger.info(
-            "triggerImmediatePriceScraping: Extracted price: {}, inStock: {}, platform: {}",
-            price,
-            inStock,
-            platform);
-
-        if (price != null) {
-          // Store the initial price snapshot with platform information, response time, and scraper
-          // source
+          // Store the price snapshot with comprehensive data
           jdbcTemplate.update(
               "INSERT INTO price_snapshots (competitor_url_id, price, in_stock, checked_at, scraper_version, platform, response_time_ms, scraper_source) "
-                  + "VALUES (?, ?, ?, CURRENT_TIMESTAMP, 'v2.0-immediate', ?, ?, 'direct')",
+                  + "VALUES (?, ?, ?, CURRENT_TIMESTAMP, 'v2.0-unified', ?, ?, ?)",
               Long.parseLong(competitorId),
-              price,
-              inStock,
-              platform,
-              (int) responseTime);
+              result.getPrice(),
+              result.isInStock(),
+              result.getPlatform(),
+              (int) result.getResponseTime(),
+              result.getScraperSource());
 
-          // Update competitor URL status on successful scrape with response time
+          // Update competitor URL status on successful scrape
           jdbcTemplate.update(
-              "UPDATE competitor_urls SET status = 'active', last_successful_check = CURRENT_TIMESTAMP, error_count = 0, response_time_ms = ? WHERE id = ?",
-              (int) responseTime,
+              "UPDATE competitor_urls SET status = 'active', last_successful_check = CURRENT_TIMESTAMP, error_count = 0 WHERE id = ?",
               Long.parseLong(competitorId));
 
-          // COST OPTIMIZATION 5: Cache the price for future use
-          cachePriceForUrl(url, price);
+          // Mark as recently scraped to prevent immediate re-scraping
+          redisTemplate.opsForValue().set(recentScrapeKey, "1", 2, TimeUnit.HOURS);
 
-          logger.info(
-              "triggerImmediatePriceScraping: Successfully scraped initial price ${} for competitor {}",
-              price,
-              competitorId);
         } else {
-          logger.warn("triggerImmediatePriceScraping: Could not extract price from {}", url);
-          // Log page title for debugging
-          String pageTitle = doc.title();
-          logger.debug("triggerImmediatePriceScraping: Page title: {}", pageTitle);
+          logger.warn(
+              "triggerImmediatePriceScraping: FAILED - {} ({}ms)",
+              result.getFailureReason(),
+              totalTime);
+
+          // Update competitor URL status on failed scrape
+          jdbcTemplate.update(
+              "UPDATE competitor_urls SET status = 'error', error_count = error_count + 1 WHERE id = ?",
+              Long.parseLong(competitorId));
         }
 
-        // Mark as recently scraped to prevent immediate re-scraping
-        redisTemplate.opsForValue().set(recentScrapeKey, "1", 2, TimeUnit.HOURS);
-
       } catch (Exception e) {
-        logger.warn("triggerImmediatePriceScraping: Failed to scrape {}: {}", url, e.getMessage());
+        logger.error(
+            "triggerImmediatePriceScraping: Exception during unified scraping for competitor {}: {}",
+            competitorId,
+            e.getMessage());
+
+        // Update competitor URL status on exception
+        jdbcTemplate.update(
+            "UPDATE competitor_urls SET status = 'error', error_count = error_count + 1 WHERE id = ?",
+            Long.parseLong(competitorId));
       }
 
     } catch (Exception e) {
       logger.error(
-          "triggerImmediatePriceScraping: Error during immediate scraping: {}", e.getMessage());
+          "triggerImmediatePriceScraping: Critical error for competitor {}: {}",
+          competitorId,
+          e.getMessage());
     }
   }
 

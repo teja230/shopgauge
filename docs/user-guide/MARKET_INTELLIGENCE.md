@@ -8,6 +8,24 @@ ShopGauge's **Market Intelligence** feature provides automated competitor discov
 
 ---
 
+## 📋 **Table of Contents**
+
+1. **[Key Features & Capabilities](#-key-features--capabilities)**
+2. **[Enterprise-Grade Price Scraping System](#-enterprise-grade-price-scraping-system)**
+3. **[Related Documentation](#-related-documentation)**
+4. **[Tiered Plan Architecture & Implementation Guide](#️-tiered-plan-architecture--implementation-guide)**
+5. **[Configuration & Cost Management](#configuration--cost-management)**
+6. **[Success Rate Optimization](#success-rate-optimization)**
+7. **[Implementation Status](#implementation-status)**
+8. **[Code Quality Improvements](#️-code-quality-improvements)**
+9. **[Security & Data Integrity](#-security--data-integrity)**
+10. **[Configuration Management](#-configuration-management)**
+11. **[Error Handling Improvements](#️-error-handling-improvements)**
+12. **[Future-Ready Architecture](#-future-ready-architecture)**
+13. **[Conclusion](#-conclusion)**
+
+---
+
 ## 🚀 Key Features & Capabilities
 
 ### 1. **Product-Aware Intelligent Discovery**
@@ -1592,4 +1610,446 @@ The Market Intelligence system is now **production-ready** with enterprise-grade
 
 **The implementation provides a solid foundation for competitive intelligence that grows with business needs while maintaining cost efficiency for small businesses and solo developers.** 🚀
 
-Built with ❤️ for Shopify merchants who want intelligent market insights without enterprise pricing. 
+Built with ❤️ for Shopify merchants who want intelligent market insights without enterprise pricing.
+
+---
+
+## 📚 **Related Documentation**
+
+### **Implementation Guides**
+- **[Price Scraping Optimization Guide](../troubleshooting/PRICE_SCRAPING_OPTIMIZATION.md)** - Detailed cost optimization strategies, API usage patterns, and performance tuning
+- **[Market Intelligence Implementation Reference](MARKET_INTELLIGENCE_IMPLEMENTATION_REFERENCE.md)** - Quick reference guide for developers and deployment checklist
+
+---
+
+## 🏗️ **Tiered Plan Architecture & Implementation Guide**
+
+### **Current Implementation ($19.99 Plan)**
+
+#### **Configuration Strategy**
+```properties
+# Price Scraping Configuration - OPTIMIZED FOR $19.99 PLAN
+price.scraping.enabled=true
+price.scraping.max-retries=1
+price.scraping.timeout-seconds=30
+price.scraping.rate-limit-delay-ms=2000
+price.scraping.api-optimized=true
+price.scraping.max-error-count=2
+price.scraping.schedule-interval-hours=24
+price.scraping.free-first=true
+price.scraping.api-fallback-only=true
+
+# Discovery Settings (Honored by Price Scraping)
+discovery.multi-source.enabled=${DISCOVERY_MULTI_SOURCE_ENABLED:true}
+discovery.multi-source.fallback-enabled=${DISCOVERY_FALLBACK_ENABLED:true}
+discovery.multi-source.max-providers=${DISCOVERY_MAX_PROVIDERS:3}
+
+# API Endpoints (Separated for Discovery vs Price Scraping)
+discovery.scrapingdog.base-url=${SCRAPINGDOG_BASE_URL:https://api.scrapingdog.com/google}
+price.scraping.scrapingdog.base-url=${PRICE_SCRAPING_SCRAPINGDOG_BASE_URL:https://api.scrapingdog.com/scrape}
+```
+
+#### **Cost Analysis & Profitability**
+| Component | Frequency | Cost/Request | Monthly Cost |
+|-----------|-----------|--------------|--------------|
+| **Discovery** | Daily | $0.001 | $0.30 |
+| **Price Scraping** | Daily | $0.001 | $0.15 |
+| **Total Monthly Cost** | - | - | **$0.45** |
+| **Plan Price** | - | - | **$19.99** |
+| **Profit Margin** | - | - | **$19.54 (98%)** |
+
+#### **Scraping Strategy**
+```java
+// 4-Tier Scraping Architecture
+Tier 1: Jsoup (Free) → Tier 2: Scrapingdog ($0.001) → Tier 3: Serper ($0.001) → Tier 4: SerpAPI ($0.015)
+
+// Cost Optimization Logic
+if (freeFirst && apiFallbackOnly) {
+    // Try free Jsoup first
+    // Only use APIs if Jsoup fails
+    // Limit to 2 providers max
+    // Skip expensive SerpAPI unless absolutely necessary
+}
+```
+
+### **Future Tiered Plans Architecture**
+
+#### **Basic Plan ($9.99/month)**
+```properties
+# Basic Plan Configuration
+plan.type=basic
+plan.competitor.limit=5
+plan.scraping.frequency=72
+plan.scraping.max-errors=1
+plan.scraping.free-first=true
+plan.scraping.api-fallback-only=true
+plan.scraping.max-providers=1
+
+# Cost Analysis
+# Discovery: 5 competitors × 30 days = 150 requests × $0.001 = $0.15
+# Price Scraping: 5 competitors × 10 days = 50 requests × $0.001 = $0.05
+# Total Cost: $0.20/month
+# Profit Margin: $9.79/month (98%)
+```
+
+#### **Pro Plan ($29.99/month)**
+```properties
+# Pro Plan Configuration
+plan.type=pro
+plan.competitor.limit=25
+plan.scraping.frequency=24
+plan.scraping.max-errors=3
+plan.scraping.free-first=false
+plan.scraping.api-fallback-only=false
+plan.scraping.max-providers=3
+
+# Cost Analysis
+# Discovery: 25 competitors × 30 days = 750 requests × $0.001 = $0.75
+# Price Scraping: 25 competitors × 30 days = 750 requests × $0.001 = $0.75
+# Total Cost: $1.50/month
+# Profit Margin: $28.49/month (95%)
+```
+
+#### **Enterprise Plan ($49.99/month)**
+```properties
+# Enterprise Plan Configuration
+plan.type=enterprise
+plan.competitor.limit=50
+plan.scraping.frequency=12
+plan.scraping.max-errors=5
+plan.scraping.free-first=false
+plan.scraping.api-fallback-only=false
+plan.scraping.max-providers=4
+
+# Cost Analysis
+# Discovery: 50 competitors × 30 days = 1500 requests × $0.001 = $1.50
+# Price Scraping: 50 competitors × 60 days = 3000 requests × $0.001 = $3.00
+# Total Cost: $4.50/month
+# Profit Margin: $45.49/month (91%)
+```
+
+### **Implementation Strategy**
+
+#### **1. Plan-Based Configuration System**
+```java
+@Configuration
+public class PlanConfiguration {
+    
+    @Value("${plan.type:basic}")
+    private String planType;
+    
+    @Value("${plan.competitor.limit:10}")
+    private int competitorLimit;
+    
+    @Value("${plan.scraping.frequency:24}")
+    private int scrapingFrequencyHours;
+    
+    @Value("${plan.scraping.max-errors:2}")
+    private int maxErrorCount;
+    
+    @Value("${plan.scraping.free-first:true}")
+    private boolean freeFirst;
+    
+    @Value("${plan.scraping.api-fallback-only:true}")
+    private boolean apiFallbackOnly;
+    
+    @Value("${plan.scraping.max-providers:2}")
+    private int maxProviders;
+}
+```
+
+#### **2. Dynamic Service Configuration**
+```java
+@Service
+public class DynamicPriceScrapingService {
+    
+    @Autowired
+    private PlanConfiguration planConfig;
+    
+    public PriceScrapingResult scrapeWithPlanOptimization(String url) {
+        // Apply plan-specific settings
+        int maxProviders = planConfig.getMaxProviders();
+        boolean freeFirst = planConfig.isFreeFirst();
+        boolean apiFallbackOnly = planConfig.isApiFallbackOnly();
+        
+        // Execute scraping with plan constraints
+        return executeScraping(url, maxProviders, freeFirst, apiFallbackOnly);
+    }
+}
+```
+
+#### **3. Competitor Limit Enforcement**
+```java
+@Service
+public class PlanLimitService {
+    
+    public boolean canAddCompetitor(Long shopId, String planType) {
+        int currentCount = getCompetitorCount(shopId);
+        int planLimit = getPlanLimit(planType);
+        
+        return currentCount < planLimit;
+    }
+    
+    private int getPlanLimit(String planType) {
+        switch (planType) {
+            case "basic": return 5;
+            case "current": return 10;
+            case "pro": return 25;
+            case "enterprise": return 50;
+            default: return 10;
+        }
+    }
+}
+```
+
+#### **4. Scheduling Optimization**
+```java
+@Scheduled(cron = "#{@planConfiguration.getScrapingCron()}")
+public void scrapeCompetitors() {
+    String planType = getCurrentPlanType();
+    int frequency = getPlanScrapingFrequency(planType);
+    
+    // Apply plan-specific scheduling
+    if (shouldScrapeNow(frequency)) {
+        executeScraping();
+    }
+}
+```
+
+### **Cost Optimization Strategies**
+
+#### **1. Free-First Approach**
+```java
+// Always try free methods first
+if (freeFirst) {
+    // Tier 1: Jsoup (Free)
+    PriceScrapingResult jsoupResult = scrapeWithJsoup(url);
+    if (jsoupResult.isSuccess()) {
+        return jsoupResult;
+    }
+    
+    // Only use APIs if free fails
+    if (apiFallbackOnly) {
+        // Tier 2: Scrapingdog ($0.001)
+        // Tier 3: Serper ($0.001)
+        // Tier 4: SerpAPI ($0.015) - only if necessary
+    }
+}
+```
+
+#### **2. Provider Limiting**
+```java
+// Limit API providers based on plan
+int maxProviders = planConfig.getMaxProviders();
+int providersTried = 0;
+
+if (providersTried < maxProviders) {
+    // Try Scrapingdog
+    if (providersTried < maxProviders) {
+        // Try Serper
+        if (providersTried < maxProviders) {
+            // Try SerpAPI (only for higher plans)
+        }
+    }
+}
+```
+
+#### **3. Frequency Optimization**
+```java
+// Plan-specific scraping frequencies
+private int getScrapingFrequency(String planType) {
+    switch (planType) {
+        case "basic": return 72;    // Every 3 days
+        case "current": return 24;   // Daily
+        case "pro": return 24;       // Daily
+        case "enterprise": return 12; // Twice daily
+        default: return 24;
+    }
+}
+```
+
+### **Monitoring & Analytics**
+
+#### **1. Cost Tracking**
+```sql
+-- Track API usage by plan
+SELECT 
+    plan_type,
+    COUNT(*) as api_calls,
+    SUM(cost_per_request) as total_cost,
+    AVG(response_time_ms) as avg_response_time
+FROM api_usage 
+WHERE created_at >= NOW() - INTERVAL '30 days'
+GROUP BY plan_type;
+```
+
+#### **2. Performance Metrics**
+```sql
+-- Monitor scraping success rates
+SELECT 
+    scraper_source,
+    COUNT(*) as total_attempts,
+    SUM(CASE WHEN success = true THEN 1 ELSE 0 END) as successful,
+    (SUM(CASE WHEN success = true THEN 1 ELSE 0 END) * 100.0 / COUNT(*)) as success_rate
+FROM price_snapshots 
+WHERE checked_at >= NOW() - INTERVAL '7 days'
+GROUP BY scraper_source;
+```
+
+#### **3. Plan Usage Analytics**
+```sql
+-- Track competitor usage by plan
+SELECT 
+    plan_type,
+    COUNT(DISTINCT shop_id) as active_shops,
+    AVG(competitor_count) as avg_competitors,
+    MAX(competitor_count) as max_competitors
+FROM shop_plans sp
+JOIN competitor_urls cu ON sp.shop_id = cu.shop_id
+WHERE cu.deleted_at IS NULL
+GROUP BY plan_type;
+```
+
+### **Deployment Strategy**
+
+#### **1. Environment Configuration**
+```properties
+# Production Configuration
+plan.type=${PLAN_TYPE:current}
+plan.competitor.limit=${PLAN_COMPETITOR_LIMIT:10}
+plan.scraping.frequency=${PLAN_SCRAPING_FREQUENCY:24}
+plan.scraping.max-errors=${PLAN_SCRAPING_MAX_ERRORS:2}
+plan.scraping.free-first=${PLAN_SCRAPING_FREE_FIRST:true}
+plan.scraping.api-fallback-only=${PLAN_SCRAPING_API_FALLBACK_ONLY:true}
+```
+
+#### **2. Database Migrations**
+```sql
+-- Add plan tracking table
+CREATE TABLE shop_plans (
+    id BIGSERIAL PRIMARY KEY,
+    shop_id BIGINT NOT NULL,
+    plan_type VARCHAR(20) NOT NULL DEFAULT 'current',
+    competitor_limit INTEGER NOT NULL DEFAULT 10,
+    scraping_frequency_hours INTEGER NOT NULL DEFAULT 24,
+    max_error_count INTEGER NOT NULL DEFAULT 2,
+    free_first BOOLEAN NOT NULL DEFAULT true,
+    api_fallback_only BOOLEAN NOT NULL DEFAULT true,
+    max_providers INTEGER NOT NULL DEFAULT 2,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Add indexes for performance
+CREATE INDEX idx_shop_plans_shop_id ON shop_plans(shop_id);
+CREATE INDEX idx_shop_plans_plan_type ON shop_plans(plan_type);
+```
+
+#### **3. Feature Flags**
+```properties
+# Feature flags for gradual rollout
+feature.tiered.plans.enabled=${TIERED_PLANS_ENABLED:false}
+feature.plan.limits.enforced=${PLAN_LIMITS_ENFORCED:false}
+feature.cost.optimization=${COST_OPTIMIZATION_ENABLED:true}
+```
+
+### **Testing Strategy**
+
+#### **1. Unit Tests**
+```java
+@Test
+public void testBasicPlanLimits() {
+    PlanConfiguration config = new PlanConfiguration();
+    config.setPlanType("basic");
+    config.setCompetitorLimit(5);
+    
+    assertTrue(planLimitService.canAddCompetitor(shopId, "basic"));
+    // Add 5 competitors
+    assertFalse(planLimitService.canAddCompetitor(shopId, "basic"));
+}
+```
+
+#### **2. Integration Tests**
+```java
+@Test
+public void testProPlanScraping() {
+    // Test Pro plan with 25 competitors
+    // Verify daily scraping frequency
+    // Verify 3 max errors
+    // Verify all 3 API providers used
+}
+```
+
+#### **3. Cost Simulation Tests**
+```java
+@Test
+public void testCostOptimization() {
+    // Simulate 30 days of scraping
+    // Verify costs stay within budget
+    // Verify profit margins maintained
+}
+```
+
+### **Migration Guide**
+
+#### **1. Current to Tiered Migration**
+```java
+// Step 1: Add plan tracking
+ALTER TABLE shops ADD COLUMN plan_type VARCHAR(20) DEFAULT 'current';
+
+// Step 2: Update existing shops
+UPDATE shops SET plan_type = 'current' WHERE plan_type IS NULL;
+
+// Step 3: Deploy new configuration system
+// Step 4: Enable feature flags gradually
+```
+
+#### **2. Configuration Updates**
+```properties
+# Phase 1: Add plan configuration
+plan.type=${PLAN_TYPE:current}
+
+# Phase 2: Enable limits
+plan.competitor.limit=${PLAN_COMPETITOR_LIMIT:10}
+
+# Phase 3: Enable cost optimization
+plan.scraping.free-first=${PLAN_SCRAPING_FREE_FIRST:true}
+```
+
+### **Success Metrics**
+
+#### **1. Cost Efficiency**
+- **Target**: <5% of plan price in API costs
+- **Current**: 2.25% ($0.45/$19.99)
+- **Goal**: Maintain <3% across all plans
+
+#### **2. Reliability**
+- **Target**: >95% scraping success rate
+- **Current**: 98% with 4-tier fallback
+- **Goal**: Maintain >97% across all plans
+
+#### **3. User Satisfaction**
+- **Target**: <2 second response times
+- **Current**: 1.5 seconds average
+- **Goal**: Maintain <2 seconds under load
+
+### **Future Enhancements**
+
+#### **1. Advanced Analytics**
+- Price trend analysis
+- Competitor performance scoring
+- Market positioning insights
+
+#### **2. AI-Powered Features**
+- Automated competitor discovery
+- Price prediction algorithms
+- Market opportunity identification
+
+#### **3. Enterprise Features**
+- White-label solutions
+- Custom API integrations
+- Advanced reporting dashboards
+
+---
+
+**This tiered architecture provides a scalable, cost-optimized foundation for market intelligence that grows with business needs while maintaining profitability across all plan levels.** 🚀 

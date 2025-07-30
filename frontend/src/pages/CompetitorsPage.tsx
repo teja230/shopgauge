@@ -909,15 +909,14 @@ export default function CompetitorsPage() {
           category: 'Competitors'
         }, 'CompetitorsPage');
         
-        notifications.showSuccess('Competitor added successfully! Price tracking will be activated shortly.', {
+        notifications.showSuccess('Competitor added successfully! Price data is being retrieved now.', {
           category: 'Competitors',
           showToast: true, // Force toast to show
           persistent: false,
           duration: 4000
         });
 
-        // Start polling for price updates
-        startPricePolling(newCompetitor.id);
+        // Backend now handles immediate scraping with API fallbacks - no polling needed
         
         // If we were in demo mode and successfully added a real competitor, switch to live mode
         if (isDemoMode) {
@@ -1208,89 +1207,7 @@ export default function CompetitorsPage() {
     }
   }, [shop, isDemoMode]);
 
-  // Poll for price updates after adding a competitor with intelligent intervals
-  const startPricePolling = useCallback((competitorId: string) => {
-    if (isDemoMode) return; // Don't poll in demo mode
-    
-    let attemptCount = 0;
-    const maxAttempts = 3;
-    const intervals = [30000, 90000, 180000]; // 30s, 90s, 180s
-    
-    const pollForPrice = async () => {
-      try {
-        attemptCount++;
-        debugLog.info('Polling for price data', { competitorId, attempt: attemptCount }, 'CompetitorsPage');
-        
-        const priceStatus = await getPriceStatus(competitorId);
-        
-        if (priceStatus.hasPrice) {
-          // Price data is available, refresh the entire competitor list to show updated data
-          debugLog.info('Price data available for competitor', { competitorId, price: priceStatus.price }, 'CompetitorsPage');
-          
-          // Refresh competitor data to show the new price
-          await fetchData(true);
-          
-          // Show enterprise-grade success notification
-          const successMessage = `Price found for ${priceStatus.inStock ? 'in-stock' : 'out-of-stock'} item at $${priceStatus.price}`;
-          debugLog.info('Showing price tracking success notification', {
-            message: successMessage,
-            price: priceStatus.price,
-            inStock: priceStatus.inStock,
-            category: 'Competitors'
-          }, 'CompetitorsPage');
-          
-          notifications.showSuccess(successMessage, {
-            category: 'Competitors',
-            showToast: true,
-            persistent: false,
-            duration: 5000
-          });
-          return true; // Success, stop polling
-        } else if (attemptCount >= maxAttempts) {
-          // Max attempts reached, refresh data and show informative message
-          debugLog.info('Max polling attempts reached', { competitorId, attempts: attemptCount }, 'CompetitorsPage');
-          
-          // Refresh competitor data to show any available updates
-          await fetchData(true);
-          
-          notifications.showInfo('Price will be updated within the next few hours. You can continue adding competitors in the meantime.', {
-            category: 'Competitors',
-            showToast: true,
-            persistent: false,
-            duration: 6000
-          });
-          return true; // Stop polling
-        } else {
-          // Schedule next attempt
-          setTimeout(pollForPrice, intervals[attemptCount - 1]);
-          return false; // Continue polling
-        }
-      } catch (error) {
-        debugLog.error('Error polling for price status', { competitorId, error, attempt: attemptCount }, 'CompetitorsPage');
-        
-        if (attemptCount >= maxAttempts) {
-          // Refresh competitor data on error to show any available updates
-          await fetchData(true);
-          
-          notifications.showInfo('Price will be updated within the next few hours. You can continue adding competitors in the meantime.', {
-            category: 'Competitors',
-            showToast: true,
-            persistent: false,
-            duration: 6000
-          });
-          return true; // Stop polling on max attempts
-        } else {
-          // Retry with next interval
-          setTimeout(pollForPrice, intervals[attemptCount - 1]);
-          return false; // Continue polling
-        }
-      }
-    };
-    
-    // Start first poll after 30 seconds
-    setTimeout(pollForPrice, intervals[0]);
-    
-  }, [isDemoMode, fetchData, notifications]);
+  // Polling removed - backend now handles immediate scraping with API fallbacks
 
   // Product association handlers
   const handleLinkProduct = useCallback((competitor: Competitor) => {

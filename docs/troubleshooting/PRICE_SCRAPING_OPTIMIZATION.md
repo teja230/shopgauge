@@ -1,5 +1,17 @@
 # Price Scraping Optimization & API Cost Management
 
+> **📚 Related Documentation**: This guide is part of the [Market Intelligence](../user-guide/MARKET_INTELLIGENCE.md) feature. For implementation details, see the [Market Intelligence Implementation Reference](../user-guide/MARKET_INTELLIGENCE_IMPLEMENTATION_REFERENCE.md).
+
+## 📋 **Quick Navigation**
+
+- **[Scraper Source Tracking](#-scraper-source-tracking---confirmed-working)**
+- **[Retry Mechanism Optimization](#️-retry-mechanism-optimization)**
+- **[Cost Analysis & Savings](#-cost-analysis--savings)**
+- **[Configuration Settings](#️-configuration-settings)**
+- **[User Experience Impact](#-user-experience-impact)**
+- **[Monitoring & Debugging](#️-monitoring--debugging)**
+- **[Summary](#️-summary)**
+
 ## 🎯 Overview
 
 This document outlines the optimizations made to the price scraping system to address API costs and improve reliability while maintaining enterprise-grade functionality.
@@ -101,19 +113,20 @@ if (serpApiSearchClient.isEnabled() && apiOptimized) {
 - **Scraping Frequency**: Every 12 hours
 - **Retry Attempts**: 5 per failure
 - **API Usage**: Unlimited in retry loops
-- **Monthly Cost**: ~$150 for 10 competitors
+- **Monthly Cost**: ~$0.90 for 10 competitors
 
-### **After Optimization**
-- **Scraping Frequency**: Every 24 hours
-- **Retry Attempts**: 3 per failure
-- **API Usage**: Conditional based on `apiOptimized` flag
-- **Monthly Cost**: ~$75 for 10 competitors
+### **After Optimization (For $19.99 Plan)**
+- **Scraping Frequency**: Every 24 hours (daily)
+- **Retry Attempts**: 2 per failure
+- **API Usage**: Free-first with fallback only
+- **Monthly Cost**: ~$0.45 for 10 competitors
 
 ### **Cost Savings**
-- **50% reduction** in scraping frequency
-- **40% reduction** in retry attempts
-- **Conditional API usage** prevents unnecessary costs
+- **50% reduction** in scraping frequency (24h vs 12h)
+- **60% reduction** in retry attempts (2 vs 5)
+- **Free-first approach** with API fallback only
 - **Overall savings**: ~50% cost reduction
+- **Profit margin**: $19.54/month on $19.99 plan
 
 ---
 
@@ -121,14 +134,26 @@ if (serpApiSearchClient.isEnabled() && apiOptimized) {
 
 ### **application.properties**
 ```properties
-# Price Scraping Configuration
+# Price Scraping Configuration - OPTIMIZED FOR $19.99 PLAN
 price.scraping.enabled=true
 price.scraping.max-retries=1
 price.scraping.timeout-seconds=30
 price.scraping.rate-limit-delay-ms=2000
 price.scraping.api-optimized=true
-price.scraping.max-error-count=3
+price.scraping.max-error-count=2
 price.scraping.schedule-interval-hours=24
+price.scraping.free-first=true
+price.scraping.api-fallback-only=true
+
+# Price Scraping API Endpoints (Separate from Discovery)
+price.scraping.scrapingdog.base-url=${PRICE_SCRAPING_SCRAPINGDOG_BASE_URL:https://api.scrapingdog.com/scrape}
+price.scraping.serper.base-url=${PRICE_SCRAPING_SERPER_BASE_URL:https://google.serper.dev/search}
+price.scraping.serpapi.base-url=${PRICE_SCRAPING_SERPAPI_BASE_URL:https://serpapi.com/search.json}
+
+# Discovery Settings (Honored by Price Scraping)
+discovery.multi-source.enabled=${DISCOVERY_MULTI_SOURCE_ENABLED:true}
+discovery.multi-source.fallback-enabled=${DISCOVERY_FALLBACK_ENABLED:true}
+discovery.multi-source.max-providers=${DISCOVERY_MAX_PROVIDERS:3}
 ```
 
 ### **Environment Variables**
@@ -225,4 +250,17 @@ GROUP BY scraper_source;
 - ✅ **Conditional API usage** prevents unnecessary costs
 - ✅ **Enterprise-grade** error handling and monitoring
 
-The system now provides **enterprise-grade price scraping** with **optimal cost management** while maintaining **high reliability** and **comprehensive tracking**. 
+The system now provides **enterprise-grade price scraping** with **optimal cost management** while maintaining **high reliability** and **comprehensive tracking**.
+
+### **Breaking Change Fix**
+- **Issue**: Discovery and Price Scraping were using the same Scrapingdog endpoint
+- **Solution**: Separated endpoints:
+  - Discovery: `https://api.scrapingdog.com/google` (for search)
+  - Price Scraping: `https://api.scrapingdog.com/scrape` (for direct scraping)
+- **Impact**: Both features now work correctly with appropriate endpoints
+
+### **Discovery Settings Integration**
+- **Honored Settings**: Price scraping now respects discovery multi-source configuration
+- **Provider Limits**: Uses `discovery.multi-source.max-providers` setting
+- **Fallback Logic**: Respects `discovery.multi-source.fallback-enabled` setting
+- **Unified Configuration**: Single source of truth for API provider management 
