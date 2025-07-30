@@ -2858,24 +2858,139 @@ public class CompetitorController {
     }
   }
 
-  /** Helper method to extract eBay product title from URL */
+  /** Helper method to extract eBay product title from URL with enhanced parsing */
   private String extractEbayTitle(String url) {
     try {
-      // URL slug extraction for eBay
-      // Example: https://www.ebay.com/itm/apple-macbook-air-13-inch-laptop/123456789012
+      // Enhanced URL slug extraction for eBay
+      // Examples: 
+      // https://www.ebay.com/itm/apple-macbook-air-13-inch-laptop/123456789012
+      // https://www.ebay.com/itm/iphone-14-pro-max-256gb-unlocked/123456789012
+      // https://www.ebay.com/itm/samsung-galaxy-s23-ultra-5g-512gb/123456789012
       if (url.contains("/itm/")) {
         String[] parts = url.split("/itm/");
         if (parts.length > 1) {
-          String productPath = parts[1].split("\\?")[0];
-          // Remove item ID and convert to title case
-          String productName = productPath.split("/")[0];
-          return cleanTitle(productName.replace("-", " ").replace("_", " "));
+          String productPath = parts[1].split("\\?")[0]; // Remove query parameters
+          productPath = productPath.split("#")[0]; // Remove hash fragments
+          
+          // Enhanced parsing to handle numbers in product names
+          String productName = extractEbayProductName(productPath);
+          return cleanTitle(productName);
         }
       }
       return extractTitleFromUrl(url);
     } catch (Exception e) {
       logger.debug("extractEbayTitle: Error extracting title from URL: {}", e.getMessage());
       return extractTitleFromUrl(url);
+    }
+  }
+
+  /** Enhanced method to extract eBay product name from URL path */
+  private String extractEbayProductName(String productPath) {
+    if (productPath == null || productPath.trim().isEmpty()) {
+      return "eBay Product";
+    }
+
+    // Split by forward slash to get path segments
+    String[] segments = productPath.split("/");
+    if (segments.length == 0) {
+      return "eBay Product";
+    }
+
+    // Get the first segment which contains the product name
+    String productSegment = segments[0];
+    
+    // Enhanced parsing to handle numbers and special characters
+    String cleanedName = formatEbayProductName(productSegment);
+    
+    return cleanedName;
+  }
+
+  /** Format eBay product name with intelligent parsing */
+  private String formatEbayProductName(String productSegment) {
+    if (productSegment == null || productSegment.trim().isEmpty()) {
+      return "eBay Product";
+    }
+
+    // Replace hyphens and underscores with spaces
+    String title = productSegment.replace("-", " ").replace("_", " ");
+
+    // Split into words for intelligent processing
+    String[] words = title.split("\\s+");
+    StringBuilder formattedTitle = new StringBuilder();
+    
+    // Common eBay product patterns to prioritize
+    String[] priorityTerms = {
+      "iphone", "ipad", "macbook", "air", "pro", "max", "mini", "apple", "samsung", 
+      "galaxy", "ultra", "plus", "note", "fold", "flip", "sony", "lg", "motorola",
+      "google", "pixel", "oneplus", "xiaomi", "huawei", "oppo", "vivo", "realme",
+      "laptop", "computer", "desktop", "tablet", "phone", "smartphone", "mobile",
+      "tv", "television", "monitor", "display", "speaker", "headphone", "earbuds",
+      "camera", "lens", "gaming", "console", "playstation", "xbox", "nintendo",
+      "switch", "controller", "accessory", "case", "cover", "protector", "charger",
+      "cable", "adapter", "dock", "stand", "keyboard", "mouse", "trackpad", "stylus"
+    };
+
+    // Build title with intelligent word selection
+    for (int i = 0; i < words.length; i++) {
+      String word = words[i].toLowerCase();
+      
+      // Skip very short words (likely noise)
+      if (word.length() < 2) continue;
+      
+      // Skip pure numbers unless they're part of a product name (like iPhone 14)
+      if (word.matches("^\\d+$")) {
+        // Check if previous word is a product term
+        if (i > 0) {
+          String prevWord = words[i-1].toLowerCase();
+          boolean isProductNumber = false;
+          for (String term : priorityTerms) {
+            if (prevWord.contains(term) || term.contains(prevWord)) {
+              isProductNumber = true;
+              break;
+            }
+          }
+          if (isProductNumber) {
+            if (formattedTitle.length() > 0) formattedTitle.append(" ");
+            formattedTitle.append(words[i]); // Keep the number
+          }
+        }
+        continue;
+      }
+      
+      // Check if this is a priority term
+      boolean isPriority = false;
+      for (String term : priorityTerms) {
+        if (word.contains(term) || term.contains(word)) {
+          isPriority = true;
+          break;
+        }
+      }
+      
+      // Include priority terms and meaningful words
+      if (isPriority || word.length() > 3) {
+        if (formattedTitle.length() > 0) formattedTitle.append(" ");
+        formattedTitle.append(words[i]);
+      }
+    }
+
+    // If we found meaningful content, use it; otherwise use a simplified version
+    if (formattedTitle.length() > 0) {
+      return formattedTitle.toString();
+    } else {
+      // Fallback: use first few meaningful words
+      String[] meaningfulWords = title.split("\\s+");
+      StringBuilder fallback = new StringBuilder();
+      int wordCount = 0;
+      
+      for (String word : meaningfulWords) {
+        if (word.length() > 2 && !word.matches("^\\d+$") && wordCount < 5) {
+          if (fallback.length() > 0) fallback.append(" ");
+          fallback.append(word);
+          wordCount++;
+        }
+      }
+      
+      return fallback.length() > 0 ? fallback.toString() : "eBay Product";
     }
   }
 
