@@ -645,7 +645,7 @@ const MobileCompetitorCard: React.FC<{
                 onClick={handleDelete}
                 sx={{ flex: 1 }}
               >
-                Remove
+                Archive
               </StyledActionButton>
             </ActionButtonGroup>
           </Stack>
@@ -833,7 +833,7 @@ const DesktopTableRow: React.FC<{
             </Tooltip>
           )}
           
-          <Tooltip title="Remove competitor">
+          <Tooltip title="Archive competitor">
             <IconButton 
               size="small" 
               color="error" 
