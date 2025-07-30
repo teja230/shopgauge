@@ -81,7 +81,7 @@ export const ProductSelector: React.FC<ProductSelectorProps> = ({
         const transformedProducts = productsData.map((product: any) => ({
           id: product.id,
           title: product.title,
-          handle: product.handle || product.id, // Use id as fallback for handle
+          handle: product.handle || generateHandleFromTitle(product.title) || product.id, // Generate handle from title if missing
           price: typeof product.price === 'string' ? parseFloat(product.price.replace('$', '')) : product.price
         }));
         
@@ -131,6 +131,18 @@ export const ProductSelector: React.FC<ProductSelectorProps> = ({
   }, [open, shop, isDemoMode]);
 
   const selectedProduct = products.find(p => p.id === value);
+
+  // Helper function to generate handle from title (Shopify-style)
+  const generateHandleFromTitle = (title: string): string => {
+    if (!title) return '';
+    return title
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '') // Remove special characters except spaces and hyphens
+      .replace(/\s+/g, '-') // Replace spaces with hyphens
+      .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
+      .trim()
+      .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
+  };
 
   return (
     <Box>
