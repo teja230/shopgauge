@@ -247,31 +247,31 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
 
   return (
     <Box>
-      {/* Header Section - Clean, Professional Design */}
+      {/* Single Integrated Card - Compact Design */}
       <Card sx={{ 
-        mb: 3, 
         background: 'white',
         border: '1px solid #e5e7eb',
         borderRadius: 2,
         boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)'
       }}>
-        <CardContent sx={{ py: 3 }}>
-          <Box display="flex" alignItems="center" gap={2}>
+        <CardContent sx={{ py: 2 }}>
+          {/* Header Row */}
+          <Box display="flex" alignItems="center" gap={2} sx={{ mb: 2 }}>
             <Box sx={{ 
-              p: 1, 
-              borderRadius: 2, 
+              p: 0.5, 
+              borderRadius: 1.5, 
               backgroundColor: '#f3f4f6',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center'
             }}>
-              <ArchiveIcon sx={{ fontSize: 24, color: '#6b7280' }} />
+              <ArchiveIcon sx={{ fontSize: 20, color: '#6b7280' }} />
             </Box>
             <Box flex={1}>
-              <Typography variant="h6" fontWeight="600" color="text.primary" gutterBottom>
+              <Typography variant="subtitle1" fontWeight="600" color="text.primary">
                 Deleted Competitors
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="caption" color="text.secondary">
                 Manage and restore deleted competitors with full price history preserved
               </Typography>
             </Box>
@@ -287,46 +287,24 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
               }}
             />
           </Box>
-        </CardContent>
-      </Card>
 
-      {deletedCompetitors.length === 0 ? (
-        /* Empty State - Clean, Informative Design */
-        <Card sx={{ 
-          background: 'white',
-          border: '1px solid #e5e7eb',
-          borderRadius: 2,
-          boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)'
-        }}>
-          <CardContent sx={{ py: 4, textAlign: 'center' }}>
+          {/* Content Section */}
+          {deletedCompetitors.length === 0 ? (
+            /* Compact Empty State */
             <Box sx={{ 
-              p: 2, 
-              borderRadius: 2, 
+              py: 3, 
+              textAlign: 'center',
               backgroundColor: '#f9fafb',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              mb: 2
+              borderRadius: 1,
+              border: '1px dashed #d1d5db'
             }}>
-              <ArchiveIcon sx={{ fontSize: 32, color: '#9ca3af' }} />
+              <ArchiveIcon sx={{ fontSize: 24, color: '#9ca3af', mb: 1 }} />
+              <Typography variant="body2" color="text.secondary">
+                No deleted competitors. All deleted competitors will appear here for 30 days.
+              </Typography>
             </Box>
-            <Typography variant="h6" fontWeight="600" color="text.primary" gutterBottom>
-              No Deleted Competitors
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 400, mx: 'auto' }}>
-              All deleted competitors will appear here for 30 days with full price history preserved.
-            </Typography>
-          </CardContent>
-        </Card>
-      ) : (
-        /* Deleted Competitors Table - Professional, Clean Design */
-        <Card sx={{ 
-          background: 'white',
-          border: '1px solid #e5e7eb',
-          borderRadius: 2,
-          boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)'
-        }}>
-          <CardContent sx={{ p: 0 }}>
+                    ) : (
+            /* Deleted Competitors Table - Integrated Design */
             <TableContainer>
               <Table>
                 <TableHead>
@@ -452,9 +430,9 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
                 </TableBody>
               </Table>
             </TableContainer>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </CardContent>
+      </Card>
 
       {/* Restore Dialog */}
       <Dialog open={restoreDialog.open} onClose={() => setRestoreDialog({ open: false, competitor: null, newLabel: '' })}>
