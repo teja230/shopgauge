@@ -136,7 +136,7 @@ const MarketIntelligenceDashboard: React.FC<MarketIntelligenceDashboardProps> = 
   const [testLoading, setTestLoading] = useState(false);
   const [resetCostsDialog, setResetCostsDialog] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'competitor-admin'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'competitor-admin' | 'deleted-competitors'>('dashboard');
   const cooldownRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchMetrics = async () => {
