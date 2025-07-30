@@ -221,7 +221,9 @@ public class SmartSnapshotService {
                 """;
             
             Integer count = jdbcTemplate.queryForObject(query, Integer.class, competitorId, minimumDays);
-            return count != null && count >= 2; // At least 2 data points for a meaningful graph
+            // Show graph if there's at least 1 snapshot within the time period
+            // This indicates price stability or recent activity
+            return count != null && count >= 1;
         } catch (Exception e) {
             logger.debug("Error checking history for competitor {}: {}", competitorId, e.getMessage());
             return false;
