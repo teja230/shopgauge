@@ -929,8 +929,16 @@ export default function CompetitorsPage() {
         }
         
         // Refresh data to show the new competitor with price information
-        setTimeout(() => {
-          fetchData(true); // Force refresh to get updated price data
+        setTimeout(async () => {
+          try {
+            await fetchData(true); // Force refresh to get updated price data
+          } catch (refreshError) {
+            // Don't show error for refresh - just log it
+            console.log('Data refresh after competitor addition failed:', refreshError);
+            debugLog.warn('Data refresh after competitor addition failed', {
+              error: refreshError instanceof Error ? refreshError.message : String(refreshError)
+            }, 'CompetitorsPage');
+          }
         }, 2000); // Wait 2 seconds for backend scraping to complete
         
         // Clear form and close after success
@@ -940,6 +948,27 @@ export default function CompetitorsPage() {
       }
     } catch (error: any) {
       console.error('handleAdd error:', error);
+      
+      // Check if this is a timeout error that might be from the refresh
+      if (error.message?.includes('timeout') || error.message?.includes('Request timed out')) {
+        // If we have a competitor in the list, this might be a refresh timeout, not a failure
+        const lastAddedCompetitor = competitors.find(c => c.url === url.trim());
+        if (lastAddedCompetitor) {
+          console.log('Timeout error detected but competitor was added successfully, showing success message');
+          notifications.showSuccess('Competitor added successfully! Price data will be updated shortly.', {
+            category: 'Competitors',
+            showToast: true,
+            persistent: false,
+            duration: 4000
+          });
+          
+          // Clear form and close
+          setUrl('');
+          setProductId('');
+          setShowAddForm(false);
+          return;
+        }
+      }
       
       // Log error to debug panel for production debugging
       debugLog.error('Competitor addition failed', {
@@ -955,6 +984,24 @@ export default function CompetitorsPage() {
       let userMessage = 'Unable to initiate competitor tracking at this time. Please try again.';
       let needsProductSync = false;
       let needsAuthentication = false;
+      
+      // Check if the competitor was actually added despite the error
+      const competitorWasAdded = competitors.some(c => c.url === url.trim());
+      if (competitorWasAdded) {
+        console.log('Competitor was added successfully despite error, showing success message');
+        notifications.showSuccess('Competitor added successfully! Price data will be updated shortly.', {
+          category: 'Competitors',
+          showToast: true,
+          persistent: false,
+          duration: 4000
+        });
+        
+        // Clear form and close
+        setUrl('');
+        setProductId('');
+        setShowAddForm(false);
+        return;
+      }
       
       if (error.needsProductSync) {
         needsProductSync = true;
