@@ -154,7 +154,7 @@ export const ProductSelector: React.FC<ProductSelectorProps> = ({
                       {option.title}
                     </Typography>
                     <Typography variant="caption" color="text.secondary" gutterBottom>
-                      /{option.handle}
+                      {option.handle ? `/${option.handle}` : 'No handle set'}
                     </Typography>
                     <Box display="flex" alignItems="center" gap={1}>
                       <AttachMoneyIcon style={{ fontSize: '1rem' }} color="primary" />

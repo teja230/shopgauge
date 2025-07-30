@@ -2202,7 +2202,7 @@ export default function CompetitorsPage() {
           {showAddForm && (
             <div className="mt-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
               <form onSubmit={handleAdd} className="flex flex-col sm:flex-row gap-3">
-                <div className="flex-1 relative">
+                <div className="w-full sm:w-1/2 relative">
                   <div className="relative url-tooltip-container">
                     <input
                       type="text"
@@ -2391,7 +2391,7 @@ export default function CompetitorsPage() {
                   )}
                 </div>
 
-                <div className="flex-1 relative">
+                <div className="w-full sm:w-1/2 relative">
                   <ProductSelector
                     value={productId}
                     onChange={setProductId}
