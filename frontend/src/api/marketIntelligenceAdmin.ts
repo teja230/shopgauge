@@ -166,6 +166,26 @@ export interface TriggerScrapingDebugInfo {
   };
   scrapingTriggered: boolean;
   message: string;
+  scrapingSuccess?: boolean;
+  scrapedPrice?: number;
+  failureReason?: string;
+  failureMessage?: string;
+  scrapingDuration?: number;
+  updatedStatus?: {
+    status: string;
+    last_successful_check: string | null;
+    error_count: number;
+    response_time_ms: number;
+  };
+  latestSnapshot?: {
+    price: number;
+    in_stock: boolean;
+    checked_at: string;
+    scraper_version: string;
+    platform: string;
+    scraper_source: string;
+    response_time_ms: number;
+  };
   priceSnapshots?: Array<{
     price: number;
     in_stock: boolean;

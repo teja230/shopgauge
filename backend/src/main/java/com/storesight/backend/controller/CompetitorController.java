@@ -381,7 +381,7 @@ public class CompetitorController {
                             "redirect_url", "/dashboard"));
               }
               productId = providedProductId;
-            } else {
+      } else {
               logger.warn("addCompetitor: No products found in cache for shop {}", shopDomain);
               return ResponseEntity.status(HttpStatus.PRECONDITION_REQUIRED)
                   .body(
@@ -449,15 +449,15 @@ public class CompetitorController {
               }
             } else {
               logger.warn("addCompetitor: No products found in cache for shop {}", shopDomain);
-              return ResponseEntity.status(HttpStatus.PRECONDITION_REQUIRED)
-                  .body(
-                      Map.of(
-                          "error", "PRODUCTS_SYNC_NEEDED",
-                          "message",
-                              "Please visit your Dashboard first to sync products from Shopify, then try adding competitors.",
-                          "action", "SYNC_PRODUCTS",
-                          "redirect_url", "/dashboard"));
-            }
+          return ResponseEntity.status(HttpStatus.PRECONDITION_REQUIRED)
+              .body(
+                  Map.of(
+                      "error", "PRODUCTS_SYNC_NEEDED",
+                      "message",
+                          "Please visit your Dashboard first to sync products from Shopify, then try adding competitors.",
+                      "action", "SYNC_PRODUCTS",
+                      "redirect_url", "/dashboard"));
+        }
           } catch (Exception e) {
             logger.warn("addCompetitor: Error parsing cached products data: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.PRECONDITION_REQUIRED)
@@ -509,11 +509,11 @@ public class CompetitorController {
       List<Map<String, Object>> existing;
       if (productId != null) {
         existing =
-            jdbcTemplate.queryForList(
-                "SELECT id FROM competitor_urls WHERE shop_id = ? AND shopify_product_id = ? AND url = ?",
-                shopId,
-                productId,
-                request.url);
+          jdbcTemplate.queryForList(
+              "SELECT id FROM competitor_urls WHERE shop_id = ? AND shopify_product_id = ? AND url = ?",
+              shopId,
+              productId,
+              request.url);
       } else {
         existing =
             jdbcTemplate.queryForList(
@@ -540,7 +540,7 @@ public class CompetitorController {
       } else {
         // Extract title from URL with enhanced platform support
         label = extractTitleByPlatform(request.url);
-        logger.info("addCompetitor: Extracted label '{}' for URL: {}", label, request.url);
+      logger.info("addCompetitor: Extracted label '{}' for URL: {}", label, request.url);
       }
 
       // Check if this URL was previously soft-deleted for this shop
@@ -613,12 +613,12 @@ public class CompetitorController {
       int rowsAffected;
       if (productId != null) {
         rowsAffected =
-            jdbcTemplate.update(
-                "INSERT INTO competitor_urls (shop_id, shopify_product_id, url, label, created_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)",
-                shopId,
-                productId,
-                request.url,
-                label);
+          jdbcTemplate.update(
+              "INSERT INTO competitor_urls (shop_id, shopify_product_id, url, label, created_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)",
+              shopId,
+              productId,
+              request.url,
+              label);
       } else {
         rowsAffected =
             jdbcTemplate.update(
@@ -636,11 +636,11 @@ public class CompetitorController {
       List<Map<String, Object>> newRecord;
       if (productId != null) {
         newRecord =
-            jdbcTemplate.queryForList(
-                "SELECT id, url, label FROM competitor_urls WHERE shop_id = ? AND shopify_product_id = ? AND url = ? ORDER BY created_at DESC LIMIT 1",
-                shopId,
-                productId,
-                request.url);
+          jdbcTemplate.queryForList(
+              "SELECT id, url, label FROM competitor_urls WHERE shop_id = ? AND shopify_product_id = ? AND url = ? ORDER BY created_at DESC LIMIT 1",
+              shopId,
+              productId,
+              request.url);
       } else {
         newRecord =
             jdbcTemplate.queryForList(
@@ -753,8 +753,8 @@ public class CompetitorController {
 
       // Delete related price snapshots first
       int deletedSnapshots =
-          jdbcTemplate.update(
-              "DELETE FROM price_snapshots WHERE competitor_url_id = ?", Long.parseLong(id));
+      jdbcTemplate.update(
+          "DELETE FROM price_snapshots WHERE competitor_url_id = ?", Long.parseLong(id));
       logger.info(
           "deleteCompetitor: Deleted {} price snapshots for competitor {}", deletedSnapshots, id);
 
@@ -1735,14 +1735,14 @@ public class CompetitorController {
   }
 
   public ResponseEntity<Map<String, Object>> debugTimestamps(HttpServletRequest request) {
-    Long shopId = getShopIdFromRequest(request);
+      Long shopId = getShopIdFromRequest(request);
     String shopDomain = shopId != null ? getShopDomainFromId(shopId) : null;
 
     Map<String, Object> debugInfo = new HashMap<>();
     debugInfo.put("shopId", shopId);
     debugInfo.put("shopDomain", shopDomain);
 
-    if (shopId != null) {
+      if (shopId != null) {
       try {
         // Get raw timestamp data from database
         String query =
@@ -1783,7 +1783,7 @@ public class CompetitorController {
         debugInfo.put("competitors", timestampData);
         debugInfo.put("count", timestampData.size());
 
-      } catch (Exception e) {
+        } catch (Exception e) {
         debugInfo.put("error", e.getMessage());
         debugInfo.put("errorType", e.getClass().getSimpleName());
       }
@@ -1819,7 +1819,7 @@ public class CompetitorController {
           jdbcTemplate.queryForList(
               "SELECT id, url, shopify_product_id FROM competitor_urls WHERE id = ? AND shop_id = ?",
               id,
-              shopId);
+                  shopId);
 
       if (competitorCheck.isEmpty()) {
         return ResponseEntity.notFound().build();
@@ -1906,7 +1906,7 @@ public class CompetitorController {
               "product_id", productId,
               "previous_product_id", currentProductId));
 
-    } catch (Exception e) {
+        } catch (Exception e) {
       logger.error(
           "Error associating product {} with competitor {}: {}", productId, id, e.getMessage());
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -2389,17 +2389,17 @@ public class CompetitorController {
   private String extractShopifyTitle(String url) {
     try {
       // URL slug extraction for Shopify
-      if (url.contains("/products/")) {
-        String[] parts = url.split("/products/");
-        if (parts.length > 1) {
-          String productSlug = parts[1].split("\\?")[0].split("/")[0];
+    if (url.contains("/products/")) {
+      String[] parts = url.split("/products/");
+      if (parts.length > 1) {
+        String productSlug = parts[1].split("\\?")[0].split("/")[0];
           return cleanTitle(productSlug.replace("-", " ").replace("_", " "));
-        }
       }
-      return extractTitleFromUrl(url);
+    }
+    return extractTitleFromUrl(url);
     } catch (Exception e) {
       logger.debug("extractShopifyTitle: Error extracting title from URL: {}", e.getMessage());
-      return extractTitleFromUrl(url);
+    return extractTitleFromUrl(url);
     }
   }
 
