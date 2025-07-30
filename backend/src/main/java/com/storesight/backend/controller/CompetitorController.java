@@ -193,10 +193,11 @@ public class CompetitorController {
                      COALESCE(ps.price, 0.0) as price,
                      COALESCE(ps.in_stock, true) as in_stock,
                      COALESCE(ps.checked_at, cu.created_at) as last_checked,
+                     COALESCE(ps.price_change_percent, 0.0) as price_change_percent,
                      p.title as product_title
               FROM competitor_urls cu
               LEFT JOIN (
-                  SELECT competitor_url_id, price, in_stock, checked_at,
+                  SELECT competitor_url_id, price, in_stock, checked_at, price_change_percent,
                          ROW_NUMBER() OVER (PARTITION BY competitor_url_id ORDER BY checked_at DESC) as rn
                   FROM price_snapshots
                   WHERE deleted_at IS NULL
@@ -236,16 +237,21 @@ public class CompetitorController {
                         row.get("product_title") != null
                             ? String.valueOf(row.get("product_title"))
                             : null;
+                    Double percentDiff =
+                        row.get("price_change_percent") != null 
+                            ? ((Number) row.get("price_change_percent")).doubleValue() 
+                            : 0.0;
 
                     logger.debug(
-                        "getCompetitors: Processing competitor ID {} with URL {}", id, url);
+                        "getCompetitors: Processing competitor ID {} with URL {} and price change {}%", 
+                        id, url, percentDiff);
                     return new CompetitorDto(
                         id,
                         url,
                         label,
                         price,
                         inStock,
-                        0.0,
+                        percentDiff,
                         lastChecked,
                         shopifyProductId,
                         productTitle);
