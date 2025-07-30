@@ -2267,7 +2267,9 @@ public class CompetitorController {
         || lowerHost.contains("magento")
         || lowerHost.contains("prestashop")
         || lowerHost.contains("opencart")
-        || lowerHost.contains("bestbuy")) {
+        || lowerHost.contains("bestbuy")
+        || lowerHost.contains("target")
+        || lowerHost.contains("walmart")) {
       return true;
     }
 
@@ -2764,24 +2766,87 @@ public class CompetitorController {
     }
   }
 
-  /** Helper method to extract Target product title from URL */
+  /** Helper method to extract Target product title from URL with enhanced parsing */
   private String extractTargetTitle(String url) {
     try {
       // URL slug extraction for Target
-      // Example: https://www.target.com/p/apple-macbook-air-13-inch-laptop/-/A-12345678
+      // Examples: 
+      // https://www.target.com/p/apple-macbook-air-13-inch-laptop/-/A-12345678
+      // https://www.target.com/p/viva-signature-cloth-choose-a-sheet-paper-towels/-/A-83372436?preselect=87450171#lnk=sametab
       if (url.contains("/p/")) {
         String[] parts = url.split("/p/");
         if (parts.length > 1) {
-          String productPath = parts[1].split("\\?")[0];
-          // Remove product ID and convert to title case
-          String productName = productPath.split("/")[0];
-          return cleanTitle(productName.replace("-", " ").replace("_", " "));
+          String productPath = parts[1].split("\\?")[0]; // Remove query parameters
+          productPath = productPath.split("#")[0]; // Remove hash fragments
+          
+          // Handle complex Target URL structure
+          String[] pathSegments = productPath.split("/");
+          if (pathSegments.length > 0) {
+            // Get the first segment which contains the product name
+            String productName = pathSegments[0];
+            
+            // If the product name is very long, try to extract key information
+            if (productName.length() > 50) {
+              return cleanTitle(formatTargetTitle(productName));
+            } else {
+              return cleanTitle(productName.replace("-", " ").replace("_", " "));
+            }
+          }
         }
       }
       return extractTitleFromUrl(url);
     } catch (Exception e) {
       logger.debug("extractTargetTitle: Error extracting title from URL: {}", e.getMessage());
       return extractTitleFromUrl(url);
+    }
+  }
+
+  /** Format Target product title to extract key information */
+  private String formatTargetTitle(String productName) {
+    if (productName == null || productName.trim().isEmpty()) {
+      return productName;
+    }
+
+    // Replace hyphens with spaces
+    String title = productName.replace("-", " ").replace("_", " ");
+
+    // Extract key product components
+    String[] words = title.split("\\s+");
+    StringBuilder keyInfo = new StringBuilder();
+    
+    // Common Target product patterns to prioritize
+    String[] priorityTerms = {
+      "viva", "signature", "cloth", "paper", "towels", "towel", "napkins", "napkin",
+      "tissue", "toilet", "bathroom", "kitchen", "cleaning", "household", "essentials",
+      "electronics", "clothing", "shoes", "accessories", "home", "garden", "toys",
+      "baby", "beauty", "health", "pharmacy", "grocery", "food", "beverages",
+      "sports", "outdoors", "automotive", "office", "school", "party", "holiday"
+    };
+
+    // Build title with priority terms first
+    for (String word : words) {
+      String lowerWord = word.toLowerCase();
+      
+      // Check if this is a priority term
+      boolean isPriority = false;
+      for (String term : priorityTerms) {
+        if (lowerWord.contains(term) || term.contains(lowerWord)) {
+          isPriority = true;
+          break;
+        }
+      }
+      
+      if (isPriority) {
+        if (keyInfo.length() > 0) keyInfo.append(" ");
+        keyInfo.append(word);
+      }
+    }
+
+    // If we found priority terms, use them; otherwise use the full title
+    if (keyInfo.length() > 0) {
+      return keyInfo.toString();
+    } else {
+      return title;
     }
   }
 
