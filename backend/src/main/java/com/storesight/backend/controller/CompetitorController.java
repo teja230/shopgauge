@@ -699,8 +699,8 @@ public class CompetitorController {
           e.getMessage(),
           e);
 
-      // Provide more specific error messages based on exception type
-      String errorMessage = "Failed to add competitor";
+      // Provide user-friendly error messages without exposing system internals
+      String errorMessage = "Unable to add competitor at this time. Please try again.";
       if (e.getMessage() != null) {
         if (e.getMessage().contains("duplicate key")
             || e.getMessage().contains("unique constraint")) {
@@ -709,9 +709,10 @@ public class CompetitorController {
             || e.getMessage().contains("product_id")) {
           errorMessage = "Invalid product reference. Please refresh the page and try again.";
         } else if (e.getMessage().contains("connection") || e.getMessage().contains("database")) {
-          errorMessage = "Database connection issue. Please try again in a moment.";
+          errorMessage = "Service temporarily unavailable. Please try again in a moment.";
         } else {
-          errorMessage = "Failed to add competitor: " + e.getMessage();
+          // Don't expose internal error messages to users
+          errorMessage = "Unable to add competitor at this time. Please try again.";
         }
       }
 
@@ -791,18 +792,19 @@ public class CompetitorController {
           e.getMessage(),
           e);
 
-      // Provide more specific error messages based on exception type
-      String errorMessage = "Failed to delete competitor";
+      // Provide user-friendly error messages without exposing system internals
+      String errorMessage = "Unable to remove competitor tracking at this time. Please try again.";
       if (e.getMessage() != null) {
         if (e.getMessage().contains("foreign key") || e.getMessage().contains("constraint")) {
           errorMessage =
-              "Unable to delete competitor due to database constraints. Please try again.";
+              "This competitor cannot be removed right now. It may be associated with other data. Please try again later.";
         } else if (e.getMessage().contains("connection") || e.getMessage().contains("database")) {
-          errorMessage = "Database connection issue. Please try again in a moment.";
+          errorMessage = "Service temporarily unavailable. Please try again in a moment.";
         } else if (e.getMessage().contains("timeout")) {
           errorMessage = "Request timed out. Please try again.";
         } else {
-          errorMessage = "Failed to delete competitor: " + e.getMessage();
+          // Don't expose internal error messages to users
+          errorMessage = "Unable to remove competitor tracking at this time. Please try again.";
         }
       }
 
