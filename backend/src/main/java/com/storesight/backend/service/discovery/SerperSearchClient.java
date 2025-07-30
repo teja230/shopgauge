@@ -32,6 +32,9 @@ public class SerperSearchClient implements SearchClient {
   @Value("${discovery.serper.max-results:10}")
   private int defaultMaxResults;
 
+  @Value("${discovery.serper.enabled:true}")
+  private boolean enabled;
+
   @Autowired private WebClient webClient;
 
   @Autowired private SecretService secretService;
@@ -56,7 +59,7 @@ public class SerperSearchClient implements SearchClient {
 
   @Override
   public boolean isEnabled() {
-    return apiKey != null && !apiKey.equals("dummy_serper_key");
+    return enabled && apiKey != null && !apiKey.equals("dummy_serper_key");
   }
 
   @Override
