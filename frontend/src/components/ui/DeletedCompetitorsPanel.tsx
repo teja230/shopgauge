@@ -249,14 +249,15 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
   }
 
   return (
-    <Box>
-      {/* Compact Integrated Design - Matches Main Table */}
+    <Box sx={{ width: '100%' }}>
+      {/* Full Width Design - Matches Main Table */}
       <Box sx={{ 
         background: 'white',
         border: '1px solid #e5e7eb',
         borderRadius: 2,
         boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        width: '100%'
       }}>
         {/* Compact Header */}
         <Box sx={{ 
@@ -301,12 +302,12 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
 
         {/* Content Section */}
         {deletedCompetitors.length === 0 ? (
-          /* Minimal Empty State */
+          /* Consistent Empty State */
           <Box sx={{ 
-            py: 2, 
+            py: 3, 
             px: 3,
             textAlign: 'center',
-            backgroundColor: '#fafafa'
+            backgroundColor: 'white'
           }}>
             <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
               No deleted competitors. All deleted competitors will appear here for 30 days.
