@@ -87,7 +87,72 @@ public void cleanupOldPriceSnapshots() {
 
 ## 💾 Storage Optimization Strategies
 
-### **1. Automatic Data Retention**
+### **1. Enhanced Price Change Calculation & Validation**
+
+#### **Recent Improvements (Latest Update)**
+The price change calculation system has been significantly enhanced to improve data accuracy and storage efficiency:
+
+#### **PriceChangeCalculationService**
+```java
+@Service
+public class PriceChangeCalculationService {
+    // Enhanced accuracy with historical data analysis
+    public Optional<BigDecimal> calculatePriceChangePercent(Long competitorId, BigDecimal newPrice)
+    
+    // Time-based price change analysis
+    public Optional<BigDecimal> calculatePriceChangeOverPeriod(Long competitorId, int days)
+    
+    // Comprehensive statistics
+    public Map<String, Object> getPriceChangeStatistics(Long competitorId)
+    
+    // Data validation and correction
+    public void validateAndFixPriceChanges(Long competitorId)
+    
+    // Trend analysis with confidence levels
+    public String getPriceTrend(Long competitorId, int days)
+}
+```
+
+#### **Database Migration V43**
+```sql
+-- Validation and fix function
+CREATE OR REPLACE FUNCTION validate_price_changes()
+RETURNS TABLE(competitor_id BIGINT, snapshot_id BIGINT, ...)
+
+-- Statistics function
+CREATE OR REPLACE FUNCTION get_price_change_statistics(p_competitor_id BIGINT)
+RETURNS TABLE(total_snapshots BIGINT, avg_change_percent DECIMAL(5,2), ...)
+
+-- Period analysis function
+CREATE OR REPLACE FUNCTION calculate_price_change_over_period(
+    p_competitor_id BIGINT, p_days INTEGER)
+RETURNS TABLE(current_price DECIMAL(10,2), historical_price DECIMAL(10,2), ...)
+
+-- Trend analysis function
+CREATE OR REPLACE FUNCTION get_price_trend(p_competitor_id BIGINT, p_days INTEGER DEFAULT 30)
+RETURNS TABLE(trend VARCHAR(20), change_percent DECIMAL(5,2), confidence_level VARCHAR(20))
+```
+
+#### **Performance Indexes**
+```sql
+-- Enhanced indexes for price change calculations
+CREATE INDEX IF NOT EXISTS idx_price_snapshots_competitor_checked 
+ON price_snapshots (competitor_url_id, checked_at DESC) 
+WHERE deleted_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_price_snapshots_change_percent 
+ON price_snapshots (competitor_url_id, price_change_percent) 
+WHERE deleted_at IS NULL AND price_change_percent IS NOT NULL;
+```
+
+#### **Key Benefits**
+- ✅ **Data Accuracy**: Historical analysis instead of just recent snapshots
+- ✅ **Validation**: Automatic detection and correction of inconsistent data
+- ✅ **Performance**: Optimized indexes for faster queries
+- ✅ **Analytics**: Comprehensive statistics and trend analysis
+- ✅ **Storage Efficiency**: Better data integrity reduces storage waste
+
+### **2. Automatic Data Retention**
 
 #### **Configuration**
 ```properties
