@@ -3,12 +3,12 @@ package com.storesight.backend.controller;
 import com.storesight.backend.service.CostOptimizationService;
 import com.storesight.backend.service.DataPrivacyService;
 import com.storesight.backend.service.DatabaseMonitoringService;
+import com.storesight.backend.service.PriceScrapingService;
 import com.storesight.backend.service.RedisHealthService;
 import com.storesight.backend.service.TransactionMonitoringService;
 import com.storesight.backend.service.discovery.CompetitorDiscoveryService;
 import com.storesight.backend.service.discovery.MultiSourceSearchClient;
 import com.storesight.backend.service.discovery.SearchClient;
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -47,6 +47,7 @@ public class MarketIntelligenceAdminController {
   @Autowired private TransactionMonitoringService transactionMonitoringService;
   @Autowired private DataPrivacyService dataPrivacyService;
   @Autowired private RedisTemplate<String, Object> redisTemplate;
+  @Autowired private PriceScrapingService priceScrapingService;
 
   @Value("${discovery.enabled:true}")
   private boolean discoveryEnabled;
@@ -915,11 +916,11 @@ public class MarketIntelligenceAdminController {
       String primaryCacheKey = "dashboard_cache_" + shopDomain + "_v3";
       String legacyCacheKey = "dashboard:products:" + shopDomain;
       String productsCacheKey = "products_cache_" + shopDomain;
-      
+
       debugInfo.put("primaryCacheKey", primaryCacheKey);
       debugInfo.put("legacyCacheKey", legacyCacheKey);
       debugInfo.put("productsCacheKey", productsCacheKey);
-      
+
       try {
         debugInfo.put("primaryCacheExists", redisTemplate.hasKey(primaryCacheKey));
         debugInfo.put("legacyCacheExists", redisTemplate.hasKey(legacyCacheKey));
@@ -939,19 +940,22 @@ public class MarketIntelligenceAdminController {
       // Get cache TTL
       try {
         var cacheTtl = redisTemplate.getExpire(cacheKey);
-        debugInfo.put(
-            "cacheTtl", cacheTtl != null ? (cacheTtl / 60) + " minutes" : "no TTL");
+        debugInfo.put("cacheTtl", cacheTtl != null ? (cacheTtl / 60) + " minutes" : "no TTL");
       } catch (Exception e) {
         log.warn("Failed to get cache TTL for key: {} - {}", cacheKey, e.getMessage());
         debugInfo.put("cacheTtl", "error: " + e.getMessage());
       }
 
       // Try to get raw cache data
+      Object rawCacheData = null;
       try {
-        var rawCacheData = redisTemplate.opsForValue().get(cacheKey);
+        rawCacheData = redisTemplate.opsForValue().get(cacheKey);
         debugInfo.put("hasRawCacheData", rawCacheData != null);
-        debugInfo.put("rawCacheDataLength", rawCacheData != null ? rawCacheData.toString().length() : 0);
-        log.debug("Raw cache data retrieved for key: {} - length: {}", cacheKey, 
+        debugInfo.put(
+            "rawCacheDataLength", rawCacheData != null ? rawCacheData.toString().length() : 0);
+        log.debug(
+            "Raw cache data retrieved for key: {} - length: {}",
+            cacheKey,
             rawCacheData != null ? rawCacheData.toString().length() : 0);
       } catch (Exception e) {
         log.warn("Failed to get raw cache data for key: {} - {}", cacheKey, e.getMessage());
@@ -994,8 +998,7 @@ public class MarketIntelligenceAdminController {
         List<Map<String, Object>> dbProducts =
             jdbcTemplate.queryForList(
                 "SELECT COUNT(*) as count FROM products WHERE shop_id = ?", shopId);
-        debugInfo.put(
-            "dbProductsCount", dbProducts.isEmpty() ? 0 : dbProducts.get(0).get("count"));
+        debugInfo.put("dbProductsCount", dbProducts.isEmpty() ? 0 : dbProducts.get(0).get("count"));
       } catch (Exception e) {
         debugInfo.put("dbError", e.getMessage());
       }
@@ -1009,10 +1012,12 @@ public class MarketIntelligenceAdminController {
     }
   }
 
-  /** Trigger immediate price scraping for debugging purposes */
+  /** Trigger immediate price scraping using unified multi-tier system */
   private void triggerImmediatePriceScraping(String competitorId, String url, Long shopId) {
     try {
-      log.info("triggerImmediatePriceScraping: Starting debug scraping for competitor ID: {}", competitorId);
+      log.info(
+          "triggerImmediatePriceScraping: Starting unified scraping for competitor ID: {}",
+          competitorId);
 
       // Check if we recently scraped this URL (within last 2 hours)
       String domain = extractDomain(url);
@@ -1034,12 +1039,19 @@ public class MarketIntelligenceAdminController {
       int immediateScrapingDelay = 5000; // 5 seconds delay
       redisTemplate
           .opsForValue()
-          .set(rateLimitKey, "1", immediateScrapingDelay, java.util.concurrent.TimeUnit.MILLISECONDS);
+          .set(
+              rateLimitKey,
+              "1",
+              immediateScrapingDelay,
+              java.util.concurrent.TimeUnit.MILLISECONDS);
 
       // Use cached price if available (fallback to scraping)
       java.math.BigDecimal cachedPrice = getCachedPriceForUrl(url);
       if (cachedPrice != null) {
-        log.info("triggerImmediatePriceScraping: Using cached price ${} for competitor {}", cachedPrice, competitorId);
+        log.info(
+            "triggerImmediatePriceScraping: Using cached price ${} for competitor {}",
+            cachedPrice,
+            competitorId);
 
         // Store cached price as initial snapshot
         jdbcTemplate.update(
@@ -1056,91 +1068,29 @@ public class MarketIntelligenceAdminController {
             Long.parseLong(competitorId));
 
         // Mark as recently scraped to prevent immediate re-scraping
-        redisTemplate.opsForValue().set(recentScrapeKey, "1", 2, java.util.concurrent.TimeUnit.HOURS);
+        redisTemplate
+            .opsForValue()
+            .set(recentScrapeKey, "1", 2, java.util.concurrent.TimeUnit.HOURS);
         return;
       }
 
-      // Only scrape if no cached data available
+      // Use enterprise-grade price scraping service
       try {
-        long startTime = System.currentTimeMillis();
-        String platform = identifyPlatform(url);
-        
-        // Enhanced scraping with multiple strategies
-        java.math.BigDecimal scrapedPrice = null;
-        boolean inStock = false;
-        String scraperSource = "direct";
-        String scraperVersion = "v2.0";
-        
-        // Strategy 1: Try Jsoup first (faster and cheaper)
-        try {
-          org.jsoup.nodes.Document doc =
-              org.jsoup.Jsoup.connect(url)
-                  .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-                  .timeout(10000) // 10 second timeout
-                  .followRedirects(true)
-                  .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8")
-                  .header("Accept-Language", "en-US,en;q=0.5")
-                  .header("Accept-Encoding", "gzip, deflate")
-                  .header("Connection", "keep-alive")
-                  .header("Upgrade-Insecure-Requests", "1")
-                  .get();
+        PriceScrapingService.PriceScrapingResult result =
+            priceScrapingService.scrapePriceWithMultiTier(url);
+        long responseTime = result.getResponseTime();
 
-          // Check if we got blocked (Amazon shows "Continue shopping" page)
-          String pageText = doc.text().toLowerCase();
-          if (pageText.contains("continue shopping") || pageText.contains("click the button below")) {
-            log.warn("triggerImmediatePriceScraping: Amazon blocking detected for URL: {}", url);
-            scraperSource = "blocked";
-            scraperVersion = "v2.0-blocked";
-          } else {
-            scrapedPrice = extractPriceFromDocument(doc, platform);
-            inStock = extractStockStatusFromDocument(doc, platform);
-            scraperSource = "jsoup";
-          }
-        } catch (Exception jsoupError) {
-          log.warn("triggerImmediatePriceScraping: Jsoup failed for URL {}: {}", url, jsoupError.getMessage());
-        }
-
-        // Strategy 2: If Jsoup failed, try with different user agent
-        if (scrapedPrice == null) {
-          try {
-            org.jsoup.nodes.Document doc =
-                org.jsoup.Jsoup.connect(url)
-                    .userAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-                    .timeout(15000) // 15 second timeout
-                    .followRedirects(true)
-                    .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
-                    .header("Accept-Language", "en-US,en;q=0.9")
-                    .header("Accept-Encoding", "gzip, deflate, br")
-                    .header("DNT", "1")
-                    .header("Connection", "keep-alive")
-                    .header("Upgrade-Insecure-Requests", "1")
-                    .get();
-
-            String pageText = doc.text().toLowerCase();
-            if (!pageText.contains("continue shopping") && !pageText.contains("click the button below")) {
-              scrapedPrice = extractPriceFromDocument(doc, platform);
-              inStock = extractStockStatusFromDocument(doc, platform);
-              scraperSource = "jsoup-fallback";
-            }
-          } catch (Exception fallbackError) {
-            log.warn("triggerImmediatePriceScraping: Jsoup fallback failed for URL {}: {}", url, fallbackError.getMessage());
-          }
-        }
-
-        long responseTime = System.currentTimeMillis() - startTime;
-
-        // Store the scraping result
-        if (scrapedPrice != null) {
+        if (result.isSuccess()) {
           // Success - store price snapshot
           jdbcTemplate.update(
               "INSERT INTO price_snapshots (competitor_url_id, price, in_stock, checked_at, scraper_version, scraper_source, platform, response_time_ms) "
                   + "VALUES (?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?)",
               Long.parseLong(competitorId),
-              scrapedPrice,
-              inStock,
-              scraperVersion,
-              scraperSource,
-              platform,
+              result.getPrice(),
+              result.isInStock(),
+              "v2.0-enterprise",
+              result.getScraperSource(),
+              result.getPlatform(),
               responseTime);
 
           // Update competitor URL status
@@ -1150,10 +1100,13 @@ public class MarketIntelligenceAdminController {
               Long.parseLong(competitorId));
 
           // Cache the successful price
-          cachePriceForUrl(url, scrapedPrice);
+          cachePriceForUrl(url, result.getPrice());
 
-          log.info("triggerImmediatePriceScraping: Successfully scraped price ${} for competitor {} in {}ms", 
-              scrapedPrice, competitorId, responseTime);
+          log.info(
+              "triggerImmediatePriceScraping: ✅ Enterprise scraping successful - Price ${} extracted via {} in {}ms",
+              result.getPrice(),
+              result.getScraperSource(),
+              responseTime);
         } else {
           // Failure - update error count and status
           jdbcTemplate.update(
@@ -1168,20 +1121,29 @@ public class MarketIntelligenceAdminController {
               Long.parseLong(competitorId),
               java.math.BigDecimal.ZERO, // No price found
               false, // Assume out of stock
-              scraperVersion,
-              scraperSource,
-              platform,
+              "v2.0-enterprise",
+              result.getScraperSource(),
+              result.getPlatform(),
               responseTime);
 
-          log.warn("triggerImmediatePriceScraping: Failed to scrape price for competitor {} in {}ms", competitorId, responseTime);
+          log.warn(
+              "triggerImmediatePriceScraping: ❌ Enterprise scraping failed in {}ms. Reason: {}",
+              responseTime,
+              result.getFailureReason());
         }
 
         // Mark as recently scraped to prevent immediate re-scraping
-        redisTemplate.opsForValue().set(recentScrapeKey, "1", 2, java.util.concurrent.TimeUnit.HOURS);
+        redisTemplate
+            .opsForValue()
+            .set(recentScrapeKey, "1", 2, java.util.concurrent.TimeUnit.HOURS);
 
       } catch (Exception scrapingError) {
-        log.error("triggerImmediatePriceScraping: Critical error scraping competitor {}: {}", competitorId, scrapingError.getMessage(), scrapingError);
-        
+        log.error(
+            "triggerImmediatePriceScraping: Critical error in enterprise scraping for competitor {}: {}",
+            competitorId,
+            scrapingError.getMessage(),
+            scrapingError);
+
         // Update competitor with error status
         jdbcTemplate.update(
             "UPDATE competitor_urls SET status = 'error', error_count = error_count + 1 WHERE id = ?",
@@ -1189,7 +1151,11 @@ public class MarketIntelligenceAdminController {
       }
 
     } catch (Exception e) {
-      log.error("triggerImmediatePriceScraping: Error in scraping process for competitor {}: {}", competitorId, e.getMessage(), e);
+      log.error(
+          "triggerImmediatePriceScraping: Error in unified scraping process for competitor {}: {}",
+          competitorId,
+          e.getMessage(),
+          e);
       throw e; // Re-throw to be handled by caller
     }
   }
@@ -1213,14 +1179,14 @@ public class MarketIntelligenceAdminController {
     try {
       String cacheKey = "price_cache:" + url.hashCode();
       // Cache for 24 hours to reduce scraping frequency
-      redisTemplate.opsForValue().set(cacheKey, price.toString(), 24, java.util.concurrent.TimeUnit.HOURS);
+      redisTemplate
+          .opsForValue()
+          .set(cacheKey, price.toString(), 24, java.util.concurrent.TimeUnit.HOURS);
       log.debug("cachePriceForUrl: Cached price ${} for URL: {}", price, url);
     } catch (Exception e) {
       log.debug("cachePriceForUrl: Error caching price: {}", e.getMessage());
     }
   }
-
-
 
   /** Identify platform from URL */
   private String identifyPlatform(String url) {
@@ -1255,7 +1221,8 @@ public class MarketIntelligenceAdminController {
   }
 
   /** Extract price from document using enhanced patterns */
-  private java.math.BigDecimal extractPriceFromDocument(org.jsoup.nodes.Document doc, String platform) {
+  private java.math.BigDecimal extractPriceFromDocument(
+      org.jsoup.nodes.Document doc, String platform) {
     // Enhanced price patterns with better specificity
     java.util.regex.Pattern[] patterns = {
       java.util.regex.Pattern.compile("\\$([0-9,]+\\.?[0-9]*)"),
@@ -1338,7 +1305,8 @@ public class MarketIntelligenceAdminController {
   }
 
   /** Extract price from text using regex patterns */
-  private java.math.BigDecimal extractPriceFromText(String text, java.util.regex.Pattern[] patterns) {
+  private java.math.BigDecimal extractPriceFromText(
+      String text, java.util.regex.Pattern[] patterns) {
     for (java.util.regex.Pattern pattern : patterns) {
       java.util.regex.Matcher matcher = pattern.matcher(text);
       if (matcher.find()) {
@@ -1351,6 +1319,45 @@ public class MarketIntelligenceAdminController {
       }
     }
     return null;
+  }
+
+  /** Scrapingdog API integration */
+  private java.math.BigDecimal scrapeWithScrapingdog(String url) {
+    try {
+      // Implementation would use Scrapingdog API
+      // For now, return null to avoid API costs
+      log.debug("Scrapingdog API not implemented - skipping to avoid costs");
+      return null;
+    } catch (Exception e) {
+      log.warn("Scrapingdog API failed for URL {}: {}", url, e.getMessage());
+      return null;
+    }
+  }
+
+  /** Serper API integration */
+  private java.math.BigDecimal scrapeWithSerper(String url) {
+    try {
+      // Implementation would use Serper API
+      // For now, return null to avoid API costs
+      log.debug("Serper API not implemented - skipping to avoid costs");
+      return null;
+    } catch (Exception e) {
+      log.warn("Serper API failed for URL {}: {}", url, e.getMessage());
+      return null;
+    }
+  }
+
+  /** SerpAPI integration */
+  private java.math.BigDecimal scrapeWithSerpAPI(String url) {
+    try {
+      // Implementation would use SerpAPI
+      // For now, return null to avoid API costs
+      log.debug("SerpAPI not implemented - skipping to avoid costs");
+      return null;
+    } catch (Exception e) {
+      log.warn("SerpAPI failed for URL {}: {}", url, e.getMessage());
+      return null;
+    }
   }
 
   /** Extract stock status from document */
@@ -1375,10 +1382,14 @@ public class MarketIntelligenceAdminController {
       org.jsoup.select.Elements elements = doc.select(selector);
       for (org.jsoup.nodes.Element element : elements) {
         String text = element.text().toLowerCase();
-        if (text.contains("in stock") || text.contains("available") || text.contains("add to cart")) {
+        if (text.contains("in stock")
+            || text.contains("available")
+            || text.contains("add to cart")) {
           return true;
         }
-        if (text.contains("out of stock") || text.contains("unavailable") || text.contains("sold out")) {
+        if (text.contains("out of stock")
+            || text.contains("unavailable")
+            || text.contains("sold out")) {
           return false;
         }
       }

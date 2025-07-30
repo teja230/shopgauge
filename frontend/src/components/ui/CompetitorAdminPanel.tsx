@@ -211,13 +211,15 @@ const CompetitorAdminPanel: React.FC<CompetitorAdminPanelProps> = ({
       setDebugDialogType('trigger-debug');
       setDebugDialogOpen(true);
       
-      // Show detailed success/failure message
+      // Show enterprise-grade success/failure messages
       if (result.scrapingSuccess) {
-        addNotification(`✅ Scraping successful! Price: $${result.scrapedPrice}`, 'success');
+        addNotification(`Price monitoring successful: $${result.scrapedPrice} retrieved via ${result.latestSnapshot?.scraper_source || 'direct scraping'}`, 'success');
       } else if (result.failureReason === 'Amazon blocking detected') {
-        addNotification('⚠️ Amazon is blocking scraping. Manual monitoring may be needed.', 'warning');
+        addNotification('Amazon has implemented anti-scraping measures. Consider manual price monitoring for this product.', 'warning');
+      } else if (result.failureReason === 'No price found in page content') {
+        addNotification('Unable to extract price from the product page. The page structure may have changed.', 'warning');
       } else {
-        addNotification('❌ Scraping failed. Check debug details for more info.', 'error');
+        addNotification('Price monitoring temporarily unavailable. Our systems will retry automatically.', 'error');
       }
     } catch (error) {
       addNotification('Failed to trigger debug scraping', 'error');
@@ -259,12 +261,12 @@ const CompetitorAdminPanel: React.FC<CompetitorAdminPanelProps> = ({
       });
 
       if (response.ok) {
-        addNotification('Competitor deleted successfully', 'success');
+        addNotification('Competitor tracking has been discontinued successfully', 'success');
         // Refresh the scraping status to update the list
         await loadScrapingStatus(selectedShopId as number);
       } else {
         const errorData = await response.json();
-        addNotification(`Failed to delete competitor: ${errorData.error || 'Unknown error'}`, 'error');
+        addNotification(`Unable to remove competitor tracking: ${errorData.error || 'Please try again'}`, 'error');
       }
     } catch (error) {
       addNotification('Failed to delete competitor', 'error');

@@ -46,6 +46,7 @@ public class CompetitorScraperWorker {
   @Autowired private RedisTemplate<String, Object> redisTemplate;
   @Autowired private AlertService alertService;
   @Autowired private AsyncProcessingService asyncProcessingService;
+  @Autowired private PriceScrapingService priceScrapingService;
 
   @Value("${selenium.enabled:true}")
   private boolean seleniumEnabled;
@@ -315,17 +316,18 @@ public class CompetitorScraperWorker {
       int optimizedDelay = Math.max(delayBetweenRequests, 10000); // At least 10 seconds
       redisTemplate.opsForValue().set(rateLimitKey, "1", optimizedDelay, TimeUnit.MILLISECONDS);
 
-      // Determine scraping method
-      boolean requiresJs = requiresJavaScript(url);
-      CompetitorData data = null;
+      // Use enterprise-grade price scraping service
+      PriceScrapingService.PriceScrapingResult result =
+          priceScrapingService.scrapePriceWithMultiTier(url);
 
-      if (requiresJs && seleniumEnabled) {
-        data = scrapeWithSelenium(url);
-      } else {
-        data = scrapeWithJsoup(url);
-      }
-
-      if (data != null) {
+      if (result.isSuccess()) {
+        CompetitorData data =
+            new CompetitorData(
+                result.getPrice(),
+                result.isInStock(),
+                result.getPlatform(),
+                result.getResponseTime(),
+                result.getScraperSource());
         // Store price snapshot
         storePriceSnapshot(competitorUrlId, data);
 
@@ -335,13 +337,17 @@ public class CompetitorScraperWorker {
         // Check for alerts
         checkPriceAlerts(competitorUrlId, shopId, shopDomain, data);
 
-        log.debug(
-            "[Worker] Successfully scraped {}: price=${}, inStock={}",
+        log.info(
+            "[Worker] ✅ Successfully scraped {}: price=${}, source={}, time={}ms",
             url,
             data.price,
-            data.inStock);
+            data.scraperSource,
+            data.responseTime);
       } else {
-        log.warn("[Worker] Failed to scrape data from: {}", url);
+        log.warn(
+            "[Worker] ❌ Failed to scrape data from: {} (reason: {})",
+            url,
+            result.getFailureReason());
       }
 
       // Mark as recently scraped to prevent immediate re-scraping
@@ -406,6 +412,121 @@ public class CompetitorScraperWorker {
   }
 
   /** Scrape using Jsoup (for static content) */
+  /** Unified multi-tier scraping with intelligent fallback */
+  private CompetitorData scrapeWithUnifiedMultiTier(String url) {
+    long startTime = System.currentTimeMillis();
+    String platform = identifyPlatform(url, null);
+
+    log.info(
+        "[Worker] Starting unified multi-tier scraping for URL: {} (platform: {})", url, platform);
+
+    // Tier 1: Direct Jsoup scraping (fastest, free)
+    try {
+      log.debug("[Worker] Tier 1: Attempting direct Jsoup scraping");
+      CompetitorData jsoupResult = scrapeWithJsoup(url);
+
+      if (jsoupResult != null
+          && jsoupResult.price != null
+          && jsoupResult.price.compareTo(BigDecimal.ZERO) > 0) {
+        log.info("[Worker] Tier 1 successful: Price ${} extracted via Jsoup", jsoupResult.price);
+        return jsoupResult;
+      }
+
+      // Check for Amazon blocking
+      if (platform.equals("amazon")
+          && jsoupResult != null
+          && jsoupResult.scraperSource != null
+          && jsoupResult.scraperSource.contains("failed")) {
+        log.warn("[Worker] Tier 1 failed: Amazon blocking detected");
+      } else {
+        log.warn("[Worker] Tier 1 failed: No price found via Jsoup");
+      }
+    } catch (Exception e) {
+      log.warn("[Worker] Tier 1 failed: Jsoup error - {}", e.getMessage());
+    }
+
+    // Tier 2: Enhanced Jsoup with different user agent
+    try {
+      log.debug("[Worker] Tier 2: Attempting enhanced Jsoup with Safari user agent");
+      Document doc =
+          Jsoup.connect(url)
+              .userAgent(
+                  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+              .timeout(timeoutSeconds * 1000)
+              .followRedirects(true)
+              .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+              .header("Accept-Language", "en-US,en;q=0.9")
+              .header("Accept-Encoding", "gzip, deflate, br")
+              .header("DNT", "1")
+              .header("Connection", "keep-alive")
+              .header("Upgrade-Insecure-Requests", "1")
+              .get();
+
+      long responseTime = System.currentTimeMillis() - startTime;
+      CompetitorData enhancedResult = parseCompetitorData(doc, url, responseTime);
+
+      if (enhancedResult != null
+          && enhancedResult.price != null
+          && enhancedResult.price.compareTo(BigDecimal.ZERO) > 0) {
+        log.info(
+            "[Worker] Tier 2 successful: Price ${} extracted via enhanced Jsoup",
+            enhancedResult.price);
+        return new CompetitorData(
+            enhancedResult.price,
+            enhancedResult.inStock,
+            enhancedResult.platform,
+            enhancedResult.responseTime,
+            "jsoup-enhanced");
+      }
+
+      log.warn("[Worker] Tier 2 failed: Enhanced Jsoup could not extract price");
+    } catch (Exception e) {
+      log.warn("[Worker] Tier 2 failed: Enhanced Jsoup error - {}", e.getMessage());
+    }
+
+    // Tier 3: Selenium (if enabled and requires JavaScript)
+    if (seleniumEnabled && requiresJavaScript(url)) {
+      try {
+        log.debug("[Worker] Tier 3: Attempting Selenium scraping");
+        CompetitorData seleniumResult = scrapeWithSelenium(url);
+
+        if (seleniumResult != null
+            && seleniumResult.price != null
+            && seleniumResult.price.compareTo(BigDecimal.ZERO) > 0) {
+          log.info(
+              "[Worker] Tier 3 successful: Price ${} extracted via Selenium", seleniumResult.price);
+          return seleniumResult;
+        }
+
+        log.warn("[Worker] Tier 3 failed: Selenium could not extract price");
+      } catch (Exception e) {
+        log.warn("[Worker] Tier 3 failed: Selenium error - {}", e.getMessage());
+      }
+    }
+
+    // Tier 4: External API fallbacks (cost-based, currently disabled)
+    // Note: These are commented out to avoid API costs. Uncomment and implement when needed.
+    /*
+    try {
+      log.debug("[Worker] Tier 4: Attempting Scrapingdog API fallback");
+      CompetitorData scrapingdogResult = scrapeWithScrapingdog(url);
+
+      if (scrapingdogResult != null && scrapingdogResult.price != null && scrapingdogResult.price.compareTo(BigDecimal.ZERO) > 0) {
+        log.info("[Worker] Tier 4 successful: Price ${} extracted via Scrapingdog", scrapingdogResult.price);
+        return scrapingdogResult;
+      }
+    } catch (Exception e) {
+      log.warn("[Worker] Tier 4 failed: Scrapingdog error - {}", e.getMessage());
+    }
+    */
+
+    // All tiers failed
+    long totalTime = System.currentTimeMillis() - startTime;
+    log.error("[Worker] All scraping tiers failed for URL: {} (total time: {}ms)", url, totalTime);
+
+    return new CompetitorData(null, false, platform, totalTime, "all-tiers-failed");
+  }
+
   private CompetitorData scrapeWithJsoup(String url) {
     long startTime = System.currentTimeMillis();
     try {
@@ -424,7 +545,7 @@ public class CompetitorScraperWorker {
     } catch (Exception e) {
       long responseTime = System.currentTimeMillis() - startTime;
       log.error("[Worker] Error scraping with Jsoup ({}ms): {}", responseTime, e.getMessage());
-      return null;
+      return new CompetitorData(null, false, "unknown", responseTime, "jsoup-failed");
     }
   }
 
