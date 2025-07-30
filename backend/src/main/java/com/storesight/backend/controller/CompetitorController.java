@@ -737,12 +737,12 @@ public class CompetitorController {
       // Verify the competitor belongs to this shop and get URL for audit logging
       List<Map<String, Object>> competitors =
           jdbcTemplate.queryForList(
-              "SELECT cu.id, cu.url FROM competitor_urls cu WHERE cu.id = ? AND cu.shop_id = ?",
+              "SELECT cu.id, cu.url FROM competitor_urls cu WHERE cu.id = ? AND cu.shop_id = ? AND cu.deleted_at IS NULL",
               Long.parseLong(id),
               shopId);
 
       if (competitors.isEmpty()) {
-        logger.warn("deleteCompetitor: Competitor {} not found for shop {}", id, shopId);
+        logger.warn("deleteCompetitor: Competitor {} not found for shop {} or already deleted", id, shopId);
         return ResponseEntity.notFound().build();
       }
 
@@ -1602,16 +1602,18 @@ public class CompetitorController {
                 String.format(
                     "https://%s.myshopify.com/admin/api/2023-10/products.json?limit=50",
                     shopDomain);
-            WebClient webClient = WebClient.builder().build();
+            
+            try {
+                WebClient webClient = WebClient.builder().build();
 
-            Map<String, Object> shopifyResponse =
-                webClient
-                    .get()
-                    .uri(url)
-                    .header("X-Shopify-Access-Token", token)
-                    .retrieve()
-                    .bodyToMono(Map.class)
-                    .block();
+                Map<String, Object> shopifyResponse =
+                    webClient
+                        .get()
+                        .uri(url)
+                        .header("X-Shopify-Access-Token", token)
+                        .retrieve()
+                        .bodyToMono(Map.class)
+                        .block();
 
             if (shopifyResponse != null && shopifyResponse.containsKey("products")) {
               @SuppressWarnings("unchecked")
@@ -1673,6 +1675,12 @@ public class CompetitorController {
               return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                   .body(
                       Map.of("error", "Failed to fetch products from Shopify. Please try again."));
+            }
+            } catch (Exception e) {
+              logger.error("Error calling Shopify API for shop {}: {}", shopDomain, e.getMessage());
+              return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                  .body(
+                      Map.of("error", "Failed to connect to Shopify. Please check your connection and try again."));
             }
 
           } catch (Exception e) {
