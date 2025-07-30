@@ -106,6 +106,14 @@ services:
       - key: SERPAPI_KEY
         sync: false  # Must be set in Render Dashboard
       
+      # API Provider Enable/Disable Flags
+      - key: SCRAPINGDOG_ENABLED
+        value: "true"
+      - key: SERPER_ENABLED
+        value: "true"
+      - key: SERPAPI_ENABLED
+        value: "true"
+      
       # Feature Flags
       - key: DISCOVERY_ENABLED
         value: "true"
