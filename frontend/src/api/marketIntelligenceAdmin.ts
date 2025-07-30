@@ -215,6 +215,12 @@ export interface ProductsDebugInfo {
   parseError?: string;
   dbProductsCount: number;
   dbError?: string;
+  // New unified products approach fields
+  unifiedProductsApproach?: boolean;
+  productsEndpoint?: string;
+  analyticsEndpoint?: string;
+  demoModeSupported?: boolean;
+  liveModeUsesAnalytics?: boolean;
 }
 
 export interface SearchTestResult {

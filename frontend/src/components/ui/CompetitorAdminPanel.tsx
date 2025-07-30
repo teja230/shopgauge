@@ -961,6 +961,21 @@ const CompetitorAdminPanel: React.FC<CompetitorAdminPanelProps> = ({
                   <Typography variant="body2">
                     <strong>Database Products Count:</strong> {productsDebugInfo.dbProductsCount}
                   </Typography>
+                  <Typography variant="body2">
+                    <strong>Unified Products Approach:</strong> {productsDebugInfo.unifiedProductsApproach ? 'Yes' : 'No'}
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>Products Endpoint:</strong> {productsDebugInfo.productsEndpoint}
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>Analytics Endpoint:</strong> {productsDebugInfo.analyticsEndpoint}
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>Demo Mode Supported:</strong> {productsDebugInfo.demoModeSupported ? 'Yes' : 'No'}
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>Live Mode Uses Analytics:</strong> {productsDebugInfo.liveModeUsesAnalytics ? 'Yes' : 'No'}
+                  </Typography>
                 </Stack>
               </Box>
 
