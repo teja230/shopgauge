@@ -928,6 +928,11 @@ export default function CompetitorsPage() {
           }
         }
         
+        // Refresh data to show the new competitor with price information
+        setTimeout(() => {
+          fetchData(true); // Force refresh to get updated price data
+        }, 2000); // Wait 2 seconds for backend scraping to complete
+        
         // Clear form and close after success
         setUrl('');
         setProductId('');
