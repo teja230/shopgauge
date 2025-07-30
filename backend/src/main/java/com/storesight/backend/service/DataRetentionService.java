@@ -63,6 +63,9 @@ public class DataRetentionService {
   @Value("${data.retention.enabled:true}")
   private boolean retentionEnabled;
 
+  @Value("${data.retention.price-snapshots.cleanup-frequency:bi-weekly}")
+  private String priceSnapshotCleanupFrequency;
+
   /** Daily cleanup task - runs at 2 AM */
   @Scheduled(cron = "0 0 2 * * ?")
   @Transactional
@@ -244,9 +247,10 @@ public class DataRetentionService {
 
     /**
      * Scheduled cleanup of old price snapshots
-     * Runs daily at 2 AM to minimize impact
+     * Runs bi-weekly at 4 AM to avoid conflicts with other DB operations
+     * Bi-weekly reduces database load while maintaining data hygiene
      */
-    @Scheduled(cron = "0 0 2 * * *") // Daily at 2 AM
+    @Scheduled(cron = "0 0 4 * * SUN") // Bi-weekly at 4 AM on Sundays
     public void cleanupOldPriceSnapshots() {
         if (!retentionEnabled) {
             logger.info("Data retention cleanup disabled");
@@ -254,7 +258,8 @@ public class DataRetentionService {
         }
 
         try {
-            logger.info("Starting price snapshot cleanup with {} days retention", priceSnapshotRetentionDays);
+            logger.info("Starting bi-weekly price snapshot cleanup with {} days retention (frequency: {})", 
+                priceSnapshotRetentionDays, priceSnapshotCleanupFrequency);
 
             // Clean up old active snapshots (keep latest per competitor)
             int deletedActiveSnapshots = jdbcTemplate.update(
