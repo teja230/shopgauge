@@ -622,12 +622,16 @@ public class CompetitorScraperWorker {
       boolean significantChange = false;
 
       if (data.price != null) {
-        Optional<BigDecimal> calculatedChange = priceChangeCalculationService.calculatePriceChangePercent(competitorUrlId, data.price);
+        Optional<BigDecimal> calculatedChange =
+            priceChangeCalculationService.calculatePriceChangePercent(competitorUrlId, data.price);
         if (calculatedChange.isPresent()) {
           priceChangePercent = calculatedChange.get();
-          significantChange = priceChangeCalculationService.isSignificantPriceChange(priceChangePercent, BigDecimal.valueOf(5));
-          
-          log.debug("[Worker] Calculated price change for competitor {}: {}% (significant: {})", 
+          significantChange =
+              priceChangeCalculationService.isSignificantPriceChange(
+                  priceChangePercent, BigDecimal.valueOf(5));
+
+          log.debug(
+              "[Worker] Calculated price change for competitor {}: {}% (significant: {})",
               competitorUrlId, priceChangePercent, significantChange);
         }
       }

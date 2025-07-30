@@ -10,10 +10,10 @@ import com.storesight.backend.service.CompetitorLimitService;
 import com.storesight.backend.service.DashboardCacheService;
 import com.storesight.backend.service.EnhancedRedisService;
 import com.storesight.backend.service.InputValidationService;
+import com.storesight.backend.service.PriceChangeCalculationService;
 import com.storesight.backend.service.PriceScrapingService;
 import com.storesight.backend.service.ShopService;
 import com.storesight.backend.service.SmartSnapshotService;
-import com.storesight.backend.service.PriceChangeCalculationService;
 import com.storesight.backend.service.discovery.CompetitorDiscoveryService;
 import com.storesight.backend.service.discovery.MultiSourceSearchClient;
 import jakarta.servlet.http.Cookie;
@@ -1644,7 +1644,8 @@ public class CompetitorController {
       List<Map<String, Object>> competitorCheck =
           jdbcTemplate.queryForList(
               "SELECT id FROM competitor_urls WHERE id = ? AND shop_id = ? AND deleted_at IS NULL",
-              Long.parseLong(id), shopId);
+              Long.parseLong(id),
+              shopId);
 
       if (competitorCheck.isEmpty()) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -1652,19 +1653,21 @@ public class CompetitorController {
       }
 
       Long competitorId = Long.parseLong(id);
-      
+
       // Validate and fix price changes
       priceChangeCalculationService.validateAndFixPriceChanges(competitorId);
-      
-      // Get updated statistics
-      Map<String, Object> statistics = priceChangeCalculationService.getPriceChangeStatistics(competitorId);
-      
-      logger.info("validatePriceChanges: Validated price changes for competitor {} for shop {}", id, shopId);
 
-      return ResponseEntity.ok(Map.of(
-          "message", "Price changes validated and fixed",
-          "statistics", statistics
-      ));
+      // Get updated statistics
+      Map<String, Object> statistics =
+          priceChangeCalculationService.getPriceChangeStatistics(competitorId);
+
+      logger.info(
+          "validatePriceChanges: Validated price changes for competitor {} for shop {}",
+          id,
+          shopId);
+
+      return ResponseEntity.ok(
+          Map.of("message", "Price changes validated and fixed", "statistics", statistics));
 
     } catch (Exception e) {
       logger.error("Error validating price changes: {}", e.getMessage(), e);
@@ -1691,7 +1694,8 @@ public class CompetitorController {
       List<Map<String, Object>> competitorCheck =
           jdbcTemplate.queryForList(
               "SELECT id FROM competitor_urls WHERE id = ? AND shop_id = ? AND deleted_at IS NULL",
-              Long.parseLong(id), shopId);
+              Long.parseLong(id),
+              shopId);
 
       if (competitorCheck.isEmpty()) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -1699,22 +1703,27 @@ public class CompetitorController {
       }
 
       Long competitorId = Long.parseLong(id);
-      
+
       // Get price trend analysis
       String trend = priceChangeCalculationService.getPriceTrend(competitorId, days);
-      Optional<BigDecimal> changeOverPeriod = priceChangeCalculationService.calculatePriceChangeOverPeriod(competitorId, days);
-      
+      Optional<BigDecimal> changeOverPeriod =
+          priceChangeCalculationService.calculatePriceChangeOverPeriod(competitorId, days);
+
       Map<String, Object> response = new HashMap<>();
       response.put("trend", trend);
       response.put("days", days);
-      
+
       if (changeOverPeriod.isPresent()) {
         response.put("changePercent", changeOverPeriod.get());
       } else {
         response.put("changePercent", null);
       }
-      
-      logger.info("getPriceTrend: Retrieved price trend for competitor {} over {} days: {}", id, days, trend);
+
+      logger.info(
+          "getPriceTrend: Retrieved price trend for competitor {} over {} days: {}",
+          id,
+          days,
+          trend);
 
       return ResponseEntity.ok(response);
 
