@@ -309,10 +309,10 @@ const getStatusColor = (inStock: boolean): 'success' | 'error' =>
 const getStatusLabel = (inStock: boolean): string => 
   inStock ? 'In Stock' : 'Out of Stock';
 
-const getPriceChangeColor = (percentDiff: number): 'warning' | 'info' | 'default' => {
-  if (Math.abs(percentDiff) >= 5) return 'warning'; // Significant change (any direction)
-  if (Math.abs(percentDiff) >= 1) return 'info'; // Moderate change
-  return 'default'; // Minimal or no change
+const getPriceChangeColor = (percentDiff: number): 'success' | 'error' | 'default' => {
+  if (percentDiff > 0) return 'success'; // Green for positive changes
+  if (percentDiff < 0) return 'error'; // Red for negative changes
+  return 'default'; // Default for no change
 };
 
 const getPriceChangeIcon = (percentDiff: number): React.ReactElement | undefined => {
