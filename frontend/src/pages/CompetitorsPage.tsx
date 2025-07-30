@@ -5,6 +5,7 @@ import { SuggestionDrawer } from '../components/ui/SuggestionDrawer';
 import { ProductAssociationModal } from '../components/ui/ProductAssociationModal';
 import { ProductSelector } from '../components/ui/ProductSelector';
 import { DeletedCompetitorsPanel } from '../components/ui/DeletedCompetitorsPanel';
+import { PriceHistoryModal } from '../components/ui/PriceHistoryModal';
 import { 
   getCompetitors, 
   deleteCompetitor,
@@ -2515,43 +2516,14 @@ export default function CompetitorsPage() {
       
       {/* Graph View Modal */}
       {showGraphView && selectedCompetitorForGraph && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-xl p-6 max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-semibold text-gray-900">
-                Price History: {selectedCompetitorForGraph.label}
-              </h3>
-              <button
-                onClick={() => {
-                  setShowGraphView(false);
-                  setSelectedCompetitorForGraph(null);
-                }}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <XMarkIcon className="h-6 w-6" />
-              </button>
-            </div>
-            
-            <div className="bg-gray-50 rounded-lg p-4 mb-4">
-              <p className="text-sm text-gray-600">
-                Price history graph for {selectedCompetitorForGraph.label} over the last 90 days.
-                This feature shows price trends and helps identify patterns in competitor pricing.
-              </p>
-            </div>
-            
-            {/* Placeholder for graph component */}
-            <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
-              <ChartBarIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-              <h4 className="text-lg font-medium text-gray-900 mb-2">Price History Graph</h4>
-              <p className="text-gray-500 mb-4">
-                Interactive price history visualization coming soon!
-              </p>
-              <div className="text-sm text-gray-400">
-                This will show price trends, significant changes, and market patterns.
-              </div>
-            </div>
-          </div>
-        </div>
+        <PriceHistoryModal
+          competitor={selectedCompetitorForGraph}
+          onClose={() => {
+            setShowGraphView(false);
+            setSelectedCompetitorForGraph(null);
+          }}
+          isDemoMode={isDemoMode}
+        />
       )}
       
       <SuggestionDrawer

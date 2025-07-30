@@ -624,9 +624,17 @@ const MobileCompetitorCard: React.FC<{
                   color="info"
                   startIcon={<BarChartIcon />}
                   onClick={() => onViewGraph(competitor)}
-                  sx={{ flex: 1 }}
+                  disabled={!competitor.lastChecked}
+                  sx={{ 
+                    flex: 1,
+                    opacity: competitor.lastChecked ? 1 : 0.4,
+                    '&:disabled': {
+                      opacity: 0.4,
+                      cursor: 'not-allowed'
+                    }
+                  }}
                 >
-                  View Graph
+                  {competitor.lastChecked ? 'View Graph' : 'No Data'}
                 </StyledActionButton>
               )}
               
@@ -804,12 +812,21 @@ const DesktopTableRow: React.FC<{
           )}
           
           {onViewGraph && (
-            <Tooltip title="View price history graph">
+            <Tooltip title={competitor.lastChecked ? "View price history graph" : "No price history available"}>
               <IconButton 
                 size="small" 
                 color="info"
                 onClick={() => onViewGraph(competitor)}
-                sx={{ minWidth: 36, minHeight: 36 }}
+                disabled={!competitor.lastChecked}
+                sx={{ 
+                  minWidth: 36, 
+                  minHeight: 36,
+                  opacity: competitor.lastChecked ? 1 : 0.4,
+                  '&:disabled': {
+                    opacity: 0.4,
+                    cursor: 'not-allowed'
+                  }
+                }}
               >
                 <BarChartIcon fontSize="small" />
               </IconButton>
