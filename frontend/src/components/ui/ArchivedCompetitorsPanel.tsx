@@ -103,7 +103,7 @@ const StyledTableCell = styled(TableCell)(({ theme }) => ({
   borderBottom: `1px solid ${theme.palette.divider}`,
 }));
 
-export const DeletedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> = ({ 
+export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> = ({ 
   shopId, 
   onCountChange,
   sectionTitle,
