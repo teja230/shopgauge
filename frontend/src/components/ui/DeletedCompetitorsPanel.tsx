@@ -376,7 +376,7 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
         </Box>
       ) : (
         /* Table - Matches CompetitorTable styling exactly */
-        <StyledTableContainer component={Paper} elevation={0}>
+        <StyledTableContainer>
           <Table>
             <StyledTableHead>
               <TableRow>
