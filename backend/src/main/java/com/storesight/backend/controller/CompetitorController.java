@@ -2815,26 +2815,22 @@ public class CompetitorController {
   /** Check if scraping is allowed for the shop (cost optimization) */
   private boolean isScrapingAllowed(Long shopId) {
     try {
-      // Check if shop has reached scraping limits
-      int currentCompetitors =
-          jdbcTemplate.queryForObject(
-              "SELECT COUNT(*) FROM competitor_urls WHERE shop_id = ? AND deleted_at IS NULL",
-              Integer.class,
-              shopId);
-
-      if (currentCompetitors > maxUrlsPerShop) {
+      // Use the proper limit service to check competitor limits
+      CompetitorLimitService.LimitCheckResult limitCheck = limitService.checkCompetitorLimit(shopId);
+      
+      if (!limitCheck.isCanAdd()) {
         logger.debug(
-            "triggerImmediatePriceScraping: Shop {} has too many competitors ({} > {})",
+            "triggerImmediatePriceScraping: Shop {} has reached competitor limit ({} >= {})",
             shopId,
-            currentCompetitors,
-            maxUrlsPerShop);
+            limitCheck.getCurrent(),
+            limitCheck.getLimit());
         return false;
       }
 
       return true;
     } catch (Exception e) {
       logger.warn(
-          "triggerImmediatePriceScraping: Error checking scraping limits: {}", e.getMessage());
+          "triggerImmediatePriceScraping: Error checking competitor limits: {}", e.getMessage());
       return true; // Allow scraping if check fails
     }
   }
