@@ -12,6 +12,7 @@ import com.storesight.backend.service.EnhancedRedisService;
 import com.storesight.backend.service.InputValidationService;
 import com.storesight.backend.service.PriceScrapingService;
 import com.storesight.backend.service.ShopService;
+import com.storesight.backend.service.SmartSnapshotService;
 import com.storesight.backend.service.discovery.CompetitorDiscoveryService;
 import com.storesight.backend.service.discovery.MultiSourceSearchClient;
 import jakarta.servlet.http.Cookie;
@@ -67,6 +68,7 @@ public class CompetitorController {
   @Autowired private RedisTemplate<String, Object> redisTemplate;
   @Autowired private EnhancedRedisService enhancedRedisService;
   @Autowired private PriceScrapingService priceScrapingService;
+  @Autowired private SmartSnapshotService smartSnapshotService;
 
   @Value("${competitor.scraping.max-urls-per-shop:10}")
   private int maxUrlsPerShop;
@@ -1404,6 +1406,178 @@ public class CompetitorController {
   }
 
   /** Check competitor tracking limits for the current shop */
+  @GetMapping("/competitors/deleted")
+  public ResponseEntity<Map<String, Object>> getDeletedCompetitors(HttpServletRequest request) {
+    Long shopId = getShopIdFromRequest(request);
+    if (shopId == null) {
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+          .body(Map.of("error", "Authentication required"));
+    }
+
+    try {
+      String query = """
+          SELECT 
+              cu.id,
+              cu.url,
+              cu.label,
+              cu.deleted_at,
+              cu.platform,
+              cu.domain,
+              cu.last_successful_check,
+              COUNT(ps.id) as price_snapshots_count
+          FROM competitor_urls cu
+          LEFT JOIN price_snapshots ps ON cu.id = ps.competitor_url_id AND ps.deleted_at IS NULL
+          WHERE cu.shop_id = ? AND cu.deleted_at IS NOT NULL
+          GROUP BY cu.id, cu.url, cu.label, cu.deleted_at, cu.platform, cu.domain, cu.last_successful_check
+          ORDER BY cu.deleted_at DESC
+          """;
+
+      List<Map<String, Object>> deletedCompetitors = jdbcTemplate.queryForList(query, shopId);
+
+      return ResponseEntity.ok(Map.of("competitors", deletedCompetitors));
+
+    } catch (Exception e) {
+      logger.error("Error getting deleted competitors for shop {}: {}", shopId, e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to retrieve deleted competitors"));
+    }
+  }
+
+  @PostMapping("/competitors/{id}/restore")
+  @Transactional
+  public ResponseEntity<Map<String, Object>> restoreCompetitor(
+      @PathVariable String id,
+      @RequestBody Map<String, String> request,
+      HttpServletRequest httpRequest) {
+    
+    Long shopId = getShopIdFromRequest(httpRequest);
+    if (shopId == null) {
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+          .body(Map.of("error", "Authentication required"));
+    }
+
+    try {
+      // Verify the competitor belongs to this shop and is deleted
+      List<Map<String, Object>> competitors = jdbcTemplate.queryForList(
+          "SELECT id, url, label FROM competitor_urls WHERE id = ? AND shop_id = ? AND deleted_at IS NOT NULL",
+          Long.parseLong(id), shopId);
+
+      if (competitors.isEmpty()) {
+        return ResponseEntity.notFound().build();
+      }
+
+      String newLabel = request.get("label");
+      if (newLabel == null || newLabel.trim().isEmpty()) {
+        newLabel = (String) competitors.get(0).get("label");
+      }
+
+      // Restore the competitor
+      jdbcTemplate.update(
+          "UPDATE competitor_urls SET deleted_at = NULL, label = ? WHERE id = ?",
+          newLabel, Long.parseLong(id));
+
+      // Restore associated price snapshots
+      jdbcTemplate.update(
+          "UPDATE price_snapshots SET deleted_at = NULL WHERE competitor_url_id = ? AND deleted_at IS NOT NULL",
+          Long.parseLong(id));
+
+      logger.info("Restored competitor {} for shop {}", id, shopId);
+      return ResponseEntity.ok(Map.of("success", true, "message", "Competitor restored successfully"));
+
+    } catch (Exception e) {
+      logger.error("Error restoring competitor {} for shop {}: {}", id, shopId, e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to restore competitor"));
+    }
+  }
+
+  @DeleteMapping("/competitors/{id}/permanent")
+  @Transactional
+  public ResponseEntity<Map<String, Object>> permanentlyDeleteCompetitor(
+      @PathVariable String id, 
+      HttpServletRequest request) {
+    
+    Long shopId = getShopIdFromRequest(request);
+    if (shopId == null) {
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+          .body(Map.of("error", "Authentication required"));
+    }
+
+    try {
+      // Verify the competitor belongs to this shop and is deleted
+      List<Map<String, Object>> competitors = jdbcTemplate.queryForList(
+          "SELECT id FROM competitor_urls WHERE id = ? AND shop_id = ? AND deleted_at IS NOT NULL",
+          Long.parseLong(id), shopId);
+
+      if (competitors.isEmpty()) {
+        return ResponseEntity.notFound().build();
+      }
+
+      // Permanently delete price snapshots
+      jdbcTemplate.update(
+          "DELETE FROM price_snapshots WHERE competitor_url_id = ?",
+          Long.parseLong(id));
+
+      // Permanently delete competitor
+      jdbcTemplate.update(
+          "DELETE FROM competitor_urls WHERE id = ?",
+          Long.parseLong(id));
+
+      logger.info("Permanently deleted competitor {} for shop {}", id, shopId);
+      return ResponseEntity.ok(Map.of("success", true, "message", "Competitor permanently deleted"));
+
+    } catch (Exception e) {
+      logger.error("Error permanently deleting competitor {} for shop {}: {}", id, shopId, e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to permanently delete competitor"));
+    }
+  }
+
+  @GetMapping("/competitors/{id}/price-history")
+  public ResponseEntity<Map<String, Object>> getPriceHistory(
+      @PathVariable String id,
+      @RequestParam(defaultValue = "90") int days,
+      HttpServletRequest request) {
+    
+    Long shopId = getShopIdFromRequest(request);
+    if (shopId == null) {
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+          .body(Map.of("error", "Authentication required"));
+    }
+
+    try {
+      // Verify the competitor belongs to this shop
+      List<Map<String, Object>> competitors = jdbcTemplate.queryForList(
+          "SELECT id FROM competitor_urls WHERE id = ? AND shop_id = ? AND deleted_at IS NULL",
+          Long.parseLong(id), shopId);
+
+      if (competitors.isEmpty()) {
+        return ResponseEntity.notFound().build();
+      }
+
+      // Get price history
+      List<Map<String, Object>> priceHistory = smartSnapshotService.getPriceHistory(Long.parseLong(id), days);
+      
+      // Get price statistics
+      Map<String, Object> statistics = smartSnapshotService.getPriceStatistics(Long.parseLong(id));
+      
+      // Check if there's sufficient history for graph overlay
+      boolean hasSufficientHistory = smartSnapshotService.hasSufficientHistory(Long.parseLong(id), 7); // At least 7 days
+
+      return ResponseEntity.ok(Map.of(
+          "priceHistory", priceHistory,
+          "statistics", statistics,
+          "hasSufficientHistory", hasSufficientHistory,
+          "days", days
+      ));
+
+    } catch (Exception e) {
+      logger.error("Error getting price history for competitor {}: {}", id, e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to retrieve price history"));
+    }
+  }
+
   @GetMapping("/competitors/{id}/price-status")
   public ResponseEntity<Map<String, Object>> getPriceStatus(
       @PathVariable String id, HttpServletRequest request) {
@@ -2762,16 +2936,21 @@ public class CompetitorController {
               result.getScraperSource(),
               result.getResponseTime());
 
-          // Store the price snapshot with comprehensive data
-          jdbcTemplate.update(
-              "INSERT INTO price_snapshots (competitor_url_id, price, in_stock, checked_at, scraper_version, platform, response_time_ms, scraper_source) "
-                  + "VALUES (?, ?, ?, CURRENT_TIMESTAMP, 'v2.0-unified', ?, ?, ?)",
-              Long.parseLong(competitorId),
-              result.getPrice(),
-              result.isInStock(),
-              result.getPlatform(),
-              (int) result.getResponseTime(),
-              result.getScraperSource());
+          // Use smart snapshot creation
+          if (smartSnapshotService.shouldCreateSnapshot(Long.parseLong(competitorId), result.getPrice(), result.isInStock())) {
+              jdbcTemplate.update(
+                  "INSERT INTO price_snapshots (competitor_url_id, price, in_stock, checked_at, scraper_version, platform, response_time_ms, scraper_source) "
+                      + "VALUES (?, ?, ?, CURRENT_TIMESTAMP, 'v2.0-unified', ?, ?, ?)",
+                  Long.parseLong(competitorId),
+                  result.getPrice(),
+                  result.isInStock(),
+                  result.getPlatform(),
+                  (int) result.getResponseTime(),
+                  result.getScraperSource());
+              logger.info("triggerImmediatePriceScraping: Created smart snapshot for competitor {}", competitorId);
+          } else {
+              logger.info("triggerImmediatePriceScraping: Skipped snapshot creation for competitor {} (no significant change)", competitorId);
+          }
 
           // Update competitor URL status on successful scrape with platform and domain info
           String platform = identifyPlatform(url);
