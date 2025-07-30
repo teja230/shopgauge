@@ -103,7 +103,7 @@ export const DeletedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> = 
   const [restoring, setRestoring] = useState<string | null>(null);
   const [restoreDialog, setRestoreDialog] = useState<{
     open: boolean;
-    competitor: DeletedCompetitor | null;
+    competitor: ArchivedCompetitor | null;
     newLabel: string;
   }>({
     open: false,
@@ -142,7 +142,7 @@ export const DeletedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> = 
       
       // Demo mode - simulate deleted competitors
       if (shopId === 'demo') {
-        const demoDeletedCompetitors: DeletedCompetitor[] = [
+        const demoDeletedCompetitors: ArchivedCompetitor[] = [
           {
             id: '1',
             url: 'https://amazon.com/dp/B0FK2RZ4T9',
