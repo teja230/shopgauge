@@ -37,6 +37,7 @@ import {
   Launch as LaunchIcon,
   Link as LinkIcon,
 } from '@mui/icons-material';
+import StoreLogo from './StoreLogo';
 
 import { styled } from '@mui/material/styles';
 import { format, parseISO } from 'date-fns';
@@ -394,14 +395,7 @@ const getDomainFromUrl = (url: string): string => {
   }
 };
 
-const getCompetitorInitials = (label: string): string => {
-  return label
-    .split(' ')
-    .map(word => word.charAt(0))
-    .join('')
-    .substring(0, 2)
-    .toUpperCase();
-};
+
 
 const getProductLink = (competitor: Competitor, shop: string | null): string | null => {
   if (competitor.shopifyProductId) {
@@ -468,17 +462,11 @@ const MobileCompetitorCard: React.FC<{
     <CompetitorCard onClick={handleCardClick}>
       <CardContent sx={{ pb: 1 }}>
         <CompetitorHeader>
-          <Avatar 
-            sx={{ 
-              bgcolor: 'primary.main', 
-              width: 40, 
-              height: 40,
-              fontSize: '0.875rem',
-              fontWeight: 600
-            }}
-          >
-            {getCompetitorInitials(competitor.label)}
-              </Avatar>
+          <StoreLogo 
+            url={competitor.url}
+            size={40}
+            label={competitor.label}
+          />
           
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography 
@@ -672,17 +660,11 @@ const DesktopTableRow: React.FC<{
     <StyledTableRow>
       <StyledTableCell>
         <Stack direction="row" spacing={2} alignItems="center">
-          <Avatar 
-            sx={{ 
-              bgcolor: 'primary.main', 
-              width: 32, 
-              height: 32,
-              fontSize: '0.75rem',
-              fontWeight: 600
-            }}
-          >
-            {getCompetitorInitials(competitor.label)}
-          </Avatar>
+          <StoreLogo 
+            url={competitor.url}
+            size={32}
+            label={competitor.label}
+          />
           <Box sx={{ minWidth: 0 }}>
             <Typography variant="subtitle2" fontWeight={600} noWrap>
               {competitor.label}
