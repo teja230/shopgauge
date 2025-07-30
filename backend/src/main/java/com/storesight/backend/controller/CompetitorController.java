@@ -1745,51 +1745,11 @@ public class CompetitorController {
           logger.info("Demo mode: Providing demo products for shop {}", shopDomain);
           availableProducts =
               List.of(
-                  Map.of(
-                      "id",
-                      "demo-product-1",
-                      "title",
-                      "Demo Product 1",
-                      "handle",
-                      "demo-product-1",
-                      "price",
-                      29.99),
-                  Map.of(
-                      "id",
-                      "demo-product-2",
-                      "title",
-                      "Demo Product 2",
-                      "handle",
-                      "demo-product-2",
-                      "price",
-                      49.99),
-                  Map.of(
-                      "id",
-                      "demo-product-3",
-                      "title",
-                      "Demo Product 3",
-                      "handle",
-                      "demo-product-3",
-                      "price",
-                      79.99),
-                  Map.of(
-                      "id",
-                      "demo-product-4",
-                      "title",
-                      "Demo Product 4",
-                      "handle",
-                      "demo-product-4",
-                      "price",
-                      99.99),
-                  Map.of(
-                      "id",
-                      "demo-product-5",
-                      "title",
-                      "Demo Product 5",
-                      "handle",
-                      "demo-product-5",
-                      "price",
-                      129.99));
+                  createDemoProduct("demo-product-1", "Demo Product 1", "demo-product-1", 29.99),
+                  createDemoProduct("demo-product-2", "Demo Product 2", "demo-product-2", 49.99),
+                  createDemoProduct("demo-product-3", "Demo Product 3", "demo-product-3", 79.99),
+                  createDemoProduct("demo-product-4", "Demo Product 4", "demo-product-4", 99.99),
+                  createDemoProduct("demo-product-5", "Demo Product 5", "demo-product-5", 129.99));
         } else {
           // Live mode: Try to refresh cache from Shopify first
           logger.info(
@@ -3304,5 +3264,14 @@ public class CompetitorController {
     }
 
     return request.getRemoteAddr();
+  }
+
+  private Map<String, Object> createDemoProduct(String id, String title, String handle, double price) {
+    Map<String, Object> product = new HashMap<>();
+    product.put("id", id);
+    product.put("title", title);
+    product.put("handle", handle);
+    product.put("price", price);
+    return product;
   }
 }
