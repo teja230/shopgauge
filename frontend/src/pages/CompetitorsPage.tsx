@@ -989,7 +989,7 @@ export default function CompetitorsPage() {
                 }
                 console.log(`Scheduling next poll in ${nextPollDelay / 1000} seconds`);
                 setTimeout(pollForPrice, nextPollDelay);
-              } else {
+        } else {
                 console.log('Max polling attempts reached, stopping');
                 // Stop loading state even if no price found
                 setCompetitors(prev => prev.map(c => 
@@ -1170,7 +1170,7 @@ export default function CompetitorsPage() {
           }
         });
         notifications.showInfo('To initiate competitor tracking, you must first authenticate your Shopify store. Click "Connect Store" above or visit the home page to authenticate.', {
-          category: 'Competitors',
+              category: 'Competitors',
           persistent: false,
           duration: 8000
         });
@@ -1188,7 +1188,7 @@ export default function CompetitorsPage() {
           }
         });
         notifications.showInfo('To initiate competitor tracking, you must first synchronize your product catalog. Click "Sync Products" above or visit your Dashboard to refresh your product data.', {
-            category: 'Competitors',
+          category: 'Competitors',
           persistent: false,
           duration: 8000
         });
@@ -1224,11 +1224,11 @@ export default function CompetitorsPage() {
       try {
         // Call API to actually delete from backend
         await deleteCompetitor(id);
-        
-        // Clear cache to force refresh
-        const cacheKey = `competitors_${shop}`;
-        cache.delete(cacheKey);
-        
+      
+      // Clear cache to force refresh
+      const cacheKey = `competitors_${shop}`;
+      cache.delete(cacheKey);
+      
         notifications.showSuccess('Competitor tracking has been discontinued', {
           category: 'Competitors',
           showToast: true // Force toast to show
@@ -2258,8 +2258,8 @@ export default function CompetitorsPage() {
                             <div className="flex items-start gap-3">
                               <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-orange-400 to-orange-600 rounded-lg flex items-center justify-center shadow-sm">
                                 <span className="text-xs font-bold text-white">A</span>
-                              </div>
-                              <div className="flex-1 min-w-0">
+                            </div>
+                            <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-1">
                                   <h5 className="text-xs font-semibold text-gray-900">Amazon</h5>
                                   <span className="px-1.5 py-0.5 bg-orange-100 text-orange-700 text-xs font-medium rounded-full">Popular</span>
@@ -2277,8 +2277,8 @@ export default function CompetitorsPage() {
                             <div className="flex items-start gap-3">
                               <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-lg flex items-center justify-center shadow-sm">
                                 <span className="text-xs font-bold text-white">B</span>
-                              </div>
-                              <div className="flex-1 min-w-0">
+                            </div>
+                            <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-1">
                                   <h5 className="text-xs font-semibold text-gray-900">Best Buy</h5>
                                   <span className="px-1.5 py-0.5 bg-yellow-100 text-yellow-700 text-xs font-medium rounded-full">Electronics</span>
@@ -2296,8 +2296,8 @@ export default function CompetitorsPage() {
                             <div className="flex items-start gap-3">
                               <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg flex items-center justify-center shadow-sm">
                                 <span className="text-xs font-bold text-white">W</span>
-                              </div>
-                              <div className="flex-1 min-w-0">
+                            </div>
+                            <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-1">
                                   <h5 className="text-xs font-semibold text-gray-900">Walmart</h5>
                                   <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">Retail</span>
@@ -2315,8 +2315,8 @@ export default function CompetitorsPage() {
                             <div className="flex items-start gap-3">
                               <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-red-400 to-red-600 rounded-lg flex items-center justify-center shadow-sm">
                                 <span className="text-xs font-bold text-white">T</span>
-                              </div>
-                              <div className="flex-1 min-w-0">
+                            </div>
+                            <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-1">
                                   <h5 className="text-xs font-semibold text-gray-900">Target</h5>
                                   <span className="px-1.5 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded-full">Retail</span>
@@ -2334,8 +2334,8 @@ export default function CompetitorsPage() {
                             <div className="flex items-start gap-3">
                               <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-green-400 to-green-600 rounded-lg flex items-center justify-center shadow-sm">
                                 <span className="text-xs font-bold text-white">E</span>
-                              </div>
-                              <div className="flex-1 min-w-0">
+                            </div>
+                            <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-1">
                                   <h5 className="text-xs font-semibold text-gray-900">eBay</h5>
                                   <span className="px-1.5 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded-full">Marketplace</span>
@@ -2353,8 +2353,8 @@ export default function CompetitorsPage() {
                             <div className="flex items-start gap-3">
                               <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-purple-400 to-purple-600 rounded-lg flex items-center justify-center shadow-sm">
                                 <span className="text-xs font-bold text-white">S</span>
-                              </div>
-                              <div className="flex-1 min-w-0">
+                            </div>
+                            <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-1">
                                   <h5 className="text-xs font-semibold text-gray-900">Shopify Stores</h5>
                                   <span className="px-1.5 py-0.5 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">E-commerce</span>
@@ -2389,12 +2389,12 @@ export default function CompetitorsPage() {
 
                 <div className="w-full sm:w-64">
                   <ProductSelector
-                    value={productId}
+                  value={productId}
                     onChange={setProductId}
-                    disabled={isAdding}
+                  disabled={isAdding}
                     shop={shop || undefined}
                     isDemoMode={isDemoMode}
-                  />
+                />
                 </div>
                 <button 
                   type="submit" 
