@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -47,6 +48,7 @@ public class CompetitorScraperWorker {
   @Autowired private AlertService alertService;
   @Autowired private AsyncProcessingService asyncProcessingService;
   @Autowired private PriceScrapingService priceScrapingService;
+  @Autowired private PriceChangeCalculationService priceChangeCalculationService;
 
   @Value("${selenium.enabled:true}")
   private boolean seleniumEnabled;
@@ -615,24 +617,18 @@ public class CompetitorScraperWorker {
   /** Store price snapshot in database with enhanced tracking */
   private void storePriceSnapshot(Long competitorUrlId, CompetitorData data) {
     try {
-      // Calculate price change percentage if previous price exists
+      // Use enhanced price change calculation service
       BigDecimal priceChangePercent = null;
       boolean significantChange = false;
 
-      List<Map<String, Object>> previousPrices =
-          jdbcTemplate.queryForList(
-              "SELECT price FROM price_snapshots WHERE competitor_url_id = ? AND price IS NOT NULL ORDER BY checked_at DESC LIMIT 1",
-              competitorUrlId);
-
-      if (!previousPrices.isEmpty() && data.price != null) {
-        BigDecimal previousPrice = (BigDecimal) previousPrices.get(0).get("price");
-        if (previousPrice != null && previousPrice.compareTo(BigDecimal.ZERO) > 0) {
-          BigDecimal priceDiff = data.price.subtract(previousPrice);
-          priceChangePercent =
-              priceDiff
-                  .divide(previousPrice, 4, BigDecimal.ROUND_HALF_UP)
-                  .multiply(BigDecimal.valueOf(100));
-          significantChange = priceChangePercent.abs().compareTo(BigDecimal.valueOf(5)) > 0;
+      if (data.price != null) {
+        Optional<BigDecimal> calculatedChange = priceChangeCalculationService.calculatePriceChangePercent(competitorUrlId, data.price);
+        if (calculatedChange.isPresent()) {
+          priceChangePercent = calculatedChange.get();
+          significantChange = priceChangeCalculationService.isSignificantPriceChange(priceChangePercent, BigDecimal.valueOf(5));
+          
+          log.debug("[Worker] Calculated price change for competitor {}: {}% (significant: {})", 
+              competitorUrlId, priceChangePercent, significantChange);
         }
       }
 
