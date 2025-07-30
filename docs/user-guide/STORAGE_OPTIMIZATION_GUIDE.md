@@ -113,24 +113,37 @@ public class PriceChangeCalculationService {
 }
 ```
 
-#### **Database Migration V43**
+#### **Database Migration V43 (Optimized for Minimal Data)**
 ```sql
--- Validation and fix function
-CREATE OR REPLACE FUNCTION validate_price_changes()
-RETURNS TABLE(competitor_id BIGINT, snapshot_id BIGINT, ...)
+-- Essential indexes for better price change calculations
+CREATE INDEX IF NOT EXISTS idx_price_snapshots_competitor_checked 
+ON price_snapshots (competitor_url_id, checked_at DESC) 
+WHERE deleted_at IS NULL;
 
--- Statistics function
+-- Index for price change percentage queries (only if data exists)
+CREATE INDEX IF NOT EXISTS idx_price_snapshots_change_percent 
+ON price_snapshots (competitor_url_id, price_change_percent) 
+WHERE deleted_at IS NULL AND price_change_percent IS NOT NULL;
+
+-- Simple statistics function (minimal data friendly)
 CREATE OR REPLACE FUNCTION get_price_change_statistics(p_competitor_id BIGINT)
-RETURNS TABLE(total_snapshots BIGINT, avg_change_percent DECIMAL(5,2), ...)
+RETURNS TABLE(
+    total_snapshots BIGINT,
+    snapshots_with_changes BIGINT,
+    avg_change_percent DECIMAL(5,2),
+    min_change_percent DECIMAL(5,2),
+    max_change_percent DECIMAL(5,2),
+    first_check TIMESTAMP,
+    last_check TIMESTAMP
+)
 
--- Period analysis function
-CREATE OR REPLACE FUNCTION calculate_price_change_over_period(
-    p_competitor_id BIGINT, p_days INTEGER)
-RETURNS TABLE(current_price DECIMAL(10,2), historical_price DECIMAL(10,2), ...)
-
--- Trend analysis function
+-- Simple trend analysis function (minimal data friendly)
 CREATE OR REPLACE FUNCTION get_price_trend(p_competitor_id BIGINT, p_days INTEGER DEFAULT 30)
-RETURNS TABLE(trend VARCHAR(20), change_percent DECIMAL(5,2), confidence_level VARCHAR(20))
+RETURNS TABLE(
+    trend VARCHAR(20),
+    change_percent DECIMAL(5,2),
+    confidence_level VARCHAR(20)
+)
 ```
 
 #### **Performance Indexes**
@@ -147,10 +160,11 @@ WHERE deleted_at IS NULL AND price_change_percent IS NOT NULL;
 
 #### **Key Benefits**
 - ✅ **Data Accuracy**: Historical analysis instead of just recent snapshots
-- ✅ **Validation**: Automatic detection and correction of inconsistent data
+- ✅ **Validation**: Automatic detection and correction of inconsistent data (limited to 10 snapshots)
 - ✅ **Performance**: Optimized indexes for faster queries
-- ✅ **Analytics**: Comprehensive statistics and trend analysis
+- ✅ **Analytics**: Basic statistics and trend analysis (minimal data friendly)
 - ✅ **Storage Efficiency**: Better data integrity reduces storage waste
+- ✅ **Test Data Optimized**: Designed for minimal test data scenarios
 
 ### **2. Automatic Data Retention**
 
