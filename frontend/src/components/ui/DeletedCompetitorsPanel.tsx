@@ -31,10 +31,13 @@ import {
   Visibility as ViewIcon,
   History as HistoryIcon,
   Archive as ArchiveIcon,
-  TrendingUp as TrendingUpIcon
+  TrendingUp as TrendingUpIcon,
+  OpenInNew as OpenInNewIcon,
+  BarChart as BarChartIcon
 } from '@mui/icons-material';
 import { useNotifications } from '../../hooks/useNotifications';
 import { fetchWithAuth } from '../../api';
+import StoreLogo from './StoreLogo';
 
 interface DeletedCompetitor {
   id: string;
@@ -151,9 +154,7 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
       } else {
         const response = await fetchWithAuth(`/api/competitors/${restoreDialog.competitor.id}/restore`, {
           method: 'POST',
-          body: JSON.stringify({
-            label: restoreDialog.newLabel
-          })
+          body: JSON.stringify({})
         });
         
         const data = await response.json();
@@ -249,6 +250,15 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
     return date.toLocaleDateString();
   };
 
+  const getDomainFromUrl = (url: string): string => {
+    try {
+      const domain = new URL(url).hostname.replace('www.', '');
+      return domain;
+    } catch {
+      return 'unknown';
+    }
+  };
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
@@ -328,12 +338,9 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
               <Table>
                 <TableHead>
                   <TableRow sx={{ backgroundColor: '#f9fafb' }}>
-                    <TableCell sx={{ color: '#374151', fontWeight: 600, fontSize: '0.875rem' }}>URL</TableCell>
-                    <TableCell sx={{ color: '#374151', fontWeight: 600, fontSize: '0.875rem' }}>Label</TableCell>
-                    <TableCell sx={{ color: '#374151', fontWeight: 600, fontSize: '0.875rem' }}>Platform</TableCell>
+                    <TableCell sx={{ color: '#374151', fontWeight: 600, fontSize: '0.875rem' }}>Competitor</TableCell>
                     <TableCell sx={{ color: '#374151', fontWeight: 600, fontSize: '0.875rem' }}>Deleted</TableCell>
                     <TableCell sx={{ color: '#374151', fontWeight: 600, fontSize: '0.875rem' }}>Last Check</TableCell>
-                    <TableCell sx={{ color: '#374151', fontWeight: 600, fontSize: '0.875rem' }}>Price History</TableCell>
                     <TableCell sx={{ color: '#374151', fontWeight: 600, fontSize: '0.875rem' }}>Actions</TableCell>
                   </TableRow>
                 </TableHead>
@@ -347,33 +354,17 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
                       }}
                     >
                       <TableCell>
-                        <Typography variant="body2" noWrap sx={{ maxWidth: 200, color: '#374151' }}>
-                          {competitor.url}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Chip 
-                          label={competitor.label || 'No Label'} 
-                          size="small" 
-                          sx={{ 
-                            backgroundColor: '#f3f4f6',
-                            color: '#374151',
-                            fontWeight: 500,
-                            border: '1px solid #e5e7eb'
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Chip 
-                          label={competitor.platform || 'Unknown'} 
-                          size="small" 
-                          sx={{ 
-                            backgroundColor: '#dbeafe',
-                            color: '#1e40af',
-                            fontWeight: 500,
-                            border: '1px solid #bfdbfe'
-                          }}
-                        />
+                        <Box display="flex" alignItems="center" gap={1}>
+                          <StoreLogo platform={competitor.platform} size={24} />
+                          <Box>
+                            <Typography variant="body2" fontWeight="500" color="text.primary">
+                              {competitor.label || 'Unnamed Competitor'}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {competitor.domain || getDomainFromUrl(competitor.url)}
+                            </Typography>
+                          </Box>
+                        </Box>
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2" color="text.secondary">
@@ -389,19 +380,19 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
                         </Typography>
                       </TableCell>
                       <TableCell>
-                        <Chip 
-                          label={`${competitor.price_snapshots_count} snapshots`}
-                          size="small"
-                          sx={{ 
-                            backgroundColor: '#fef3c7',
-                            color: '#92400e',
-                            fontWeight: 500,
-                            border: '1px solid #fbbf24'
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell>
                         <Box display="flex" gap={1}>
+                          <Tooltip title="Open URL">
+                            <IconButton
+                              size="small"
+                              onClick={() => window.open(competitor.url, '_blank')}
+                              sx={{ 
+                                color: '#6b7280',
+                                '&:hover': { backgroundColor: '#f3f4f6' }
+                              }}
+                            >
+                              <OpenInNewIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
                           <Tooltip title="Restore competitor">
                             <IconButton
                               size="small"
@@ -427,7 +418,7 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
                                 '&.Mui-disabled': { color: '#9ca3af' }
                               }}
                             >
-                              <HistoryIcon fontSize="small" />
+                              <BarChartIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
                           <Tooltip title="Permanently delete">
@@ -452,21 +443,16 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
           )}
         </Box>
 
-      {/* Restore Dialog */}
+      {/* Restore Confirmation Dialog */}
       <Dialog open={restoreDialog.open} onClose={() => setRestoreDialog({ open: false, competitor: null, newLabel: '' })}>
         <DialogTitle>Restore Competitor</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Restore "{restoreDialog.competitor?.label || 'Unnamed Competitor'}" with its full price history?
+            Are you sure you want to restore "{restoreDialog.competitor?.label || 'Unnamed Competitor'}"?
           </Typography>
-          <TextField
-            fullWidth
-            label="Label (optional)"
-            value={restoreDialog.newLabel}
-            onChange={(e) => setRestoreDialog(prev => ({ ...prev, newLabel: e.target.value }))}
-            placeholder="Enter a new label for the competitor"
-            sx={{ mt: 1 }}
-          />
+          <Typography variant="body2" color="text.secondary">
+            This will restore the competitor with its full price history and resume price monitoring.
+          </Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setRestoreDialog({ open: false, competitor: null, newLabel: '' })}>
