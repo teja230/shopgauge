@@ -47,7 +47,7 @@ import type { CostAnalytics, ProviderStats } from '../../api/marketIntelligenceA
 import RefreshHeader from './RefreshHeader';
 import { useNotifications } from '../../hooks/useNotifications';
 import CompetitorAdminPanel from './CompetitorAdminPanel';
-import { DeletedCompetitorsPanel } from './DeletedCompetitorsPanel';
+import { ArchivedCompetitorsPanel } from './ArchivedCompetitorsPanel';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 const fetchAdminEndpoint = async (endpoint: string, options?: RequestInit) => {
@@ -420,7 +420,7 @@ const MarketIntelligenceDashboard: React.FC<MarketIntelligenceDashboardProps> = 
       {activeTab === 'competitor-admin' ? (
         <CompetitorAdminPanel showActions={showActions} />
       ) : activeTab === 'deleted-competitors' ? (
-        <DeletedCompetitorsPanel shopId="demo" />
+                        <ArchivedCompetitorsPanel shopId="demo" />
       ) : (
         <>
           {/* System Status Alert */}

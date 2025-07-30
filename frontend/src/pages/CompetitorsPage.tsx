@@ -4,7 +4,7 @@ import type { Competitor } from '../components/ui/CompetitorTable';
 import { SuggestionDrawer } from '../components/ui/SuggestionDrawer';
 import { ProductAssociationModal } from '../components/ui/ProductAssociationModal';
 import { ProductSelector } from '../components/ui/ProductSelector';
-import { DeletedCompetitorsPanel } from '../components/ui/DeletedCompetitorsPanel';
+import { ArchivedCompetitorsPanel } from '../components/ui/ArchivedCompetitorsPanel';
 import { PriceHistoryModal } from '../components/ui/PriceHistoryModal';
 import { 
   getCompetitors, 
@@ -2551,15 +2551,15 @@ export default function CompetitorsPage() {
                 <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
                   {!deletedSectionCollapsed && (
                     <div className="overflow-x-auto competitor-table">
-                      <DeletedCompetitorsPanel 
-                        shopId={isDemoMode ? 'demo' : (shop || 'demo')} 
-                        onCountChange={setArchivedCount}
-                        sectionTitle="Archived"
-                        sectionCount={archivedCount}
-                        sectionColor="orange"
-                        onToggleCollapse={() => setDeletedSectionCollapsed(!deletedSectionCollapsed)}
-                        isCollapsed={deletedSectionCollapsed}
-                      />
+                                             <ArchivedCompetitorsPanel
+                         shopId={isDemoMode ? 'demo' : (shop || 'demo')}
+                         onCountChange={setArchivedCount}
+                         sectionTitle="Archived"
+                         sectionCount={archivedCount}
+                         sectionColor="orange"
+                         onToggleCollapse={() => setDeletedSectionCollapsed(!deletedSectionCollapsed)}
+                         isCollapsed={deletedSectionCollapsed}
+                       />
                     </div>
                   )}
                   {deletedSectionCollapsed && (
