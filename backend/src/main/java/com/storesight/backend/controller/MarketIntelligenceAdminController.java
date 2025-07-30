@@ -1003,6 +1003,13 @@ public class MarketIntelligenceAdminController {
         debugInfo.put("dbError", e.getMessage());
       }
 
+      // Add information about the new unified products approach
+      debugInfo.put("unifiedProductsApproach", true);
+      debugInfo.put("productsEndpoint", "/api/competitors/{id}/products");
+      debugInfo.put("analyticsEndpoint", "/api/analytics/products");
+      debugInfo.put("demoModeSupported", true);
+      debugInfo.put("liveModeUsesAnalytics", true);
+
       return ResponseEntity.ok(debugInfo);
 
     } catch (Exception e) {
