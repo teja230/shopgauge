@@ -396,7 +396,7 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
                 <TableCell>
                   <div className="flex items-center gap-2">
                     <span>Competitor</span>
-                    <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                    <div className="w-1.5 h-1.5 bg-orange-400 rounded-full opacity-60"></div>
                   </div>
                 </TableCell>
                 <TableCell>Deleted</TableCell>
