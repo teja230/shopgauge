@@ -111,8 +111,11 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
         setDeletedCompetitors(demoDeletedCompetitors);
       } else {
         const response = await api.get(`/competitors/deleted`);
-        if (response.data.success) {
+        if (response.data.competitors) {
           setDeletedCompetitors(response.data.competitors || []);
+        } else {
+          console.error('Unexpected response format:', response.data);
+          notifications.showError('Failed to load deleted competitors - unexpected response format');
         }
       }
     } catch (error) {
