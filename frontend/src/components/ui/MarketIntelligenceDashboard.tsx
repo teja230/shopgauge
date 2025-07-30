@@ -39,6 +39,7 @@ import {
   Settings as SettingsIcon,
   ShowChart as ShowChartIcon,
   BugReport as DebugIcon,
+  Archive as ArchiveIcon,
 } from '@mui/icons-material';
 import { XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import marketIntelligenceAdminAPI from '../../api/marketIntelligenceAdmin';
@@ -46,6 +47,7 @@ import type { CostAnalytics, ProviderStats } from '../../api/marketIntelligenceA
 import RefreshHeader from './RefreshHeader';
 import { useNotifications } from '../../hooks/useNotifications';
 import CompetitorAdminPanel from './CompetitorAdminPanel';
+import { DeletedCompetitorsPanel } from './DeletedCompetitorsPanel';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 const fetchAdminEndpoint = async (endpoint: string, options?: RequestInit) => {
@@ -404,12 +406,21 @@ const MarketIntelligenceDashboard: React.FC<MarketIntelligenceDashboardProps> = 
           >
             Competitor Admin
           </Button>
+          <Button
+            variant={activeTab === 'deleted-competitors' ? 'contained' : 'outlined'}
+            onClick={() => setActiveTab('deleted-competitors')}
+            startIcon={<ArchiveIcon />}
+          >
+            Deleted Competitors
+          </Button>
         </Box>
       </Box>
 
       {/* Tab Content */}
       {activeTab === 'competitor-admin' ? (
         <CompetitorAdminPanel showActions={showActions} />
+      ) : activeTab === 'deleted-competitors' ? (
+        <DeletedCompetitorsPanel shopId="demo" />
       ) : (
         <>
           {/* System Status Alert */}
