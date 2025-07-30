@@ -89,6 +89,101 @@ WHERE shop_id = ? AND deleted_at IS NULL
 | PREMIUM | 100 | Premium Plan | Enterprise ($49.99) |
 | ENTERPRISE | 500 | Enterprise Plan | Custom |
 
+### **Data Management & Soft Delete System**
+
+#### **Overview**
+The Market Intelligence system implements comprehensive soft delete functionality to preserve historical data and enable competitor reactivation. This ensures data integrity while providing better user experience.
+
+#### **Soft Delete Implementation**
+```sql
+-- Database Schema (V42 migration)
+ALTER TABLE price_snapshots 
+ADD COLUMN deleted_at TIMESTAMP NULL;
+
+CREATE INDEX IF NOT EXISTS idx_price_snapshots_deleted_at ON price_snapshots (deleted_at);
+```
+
+#### **Competitor Deletion Process**
+```java
+// Soft delete competitor and associated price snapshots
+// 1. Soft delete price snapshots
+jdbcTemplate.update(
+    "UPDATE price_snapshots SET deleted_at = CURRENT_TIMESTAMP WHERE competitor_url_id = ? AND deleted_at IS NULL", 
+    competitorId);
+
+// 2. Soft delete competitor URL
+jdbcTemplate.update(
+    "UPDATE competitor_urls SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?",
+    competitorId);
+```
+
+#### **Competitor Reactivation Process**
+```java
+// Check for existing soft-deleted competitor
+List<Map<String, Object>> existingSoftDeleted = jdbcTemplate.queryForList(
+    "SELECT id FROM competitor_urls WHERE shop_id = ? AND url = ? AND deleted_at IS NOT NULL",
+    shopId, request.url);
+
+if (!existingSoftDeleted.isEmpty()) {
+    // Reactivate competitor and price snapshots
+    competitorId = existingSoftDeleted.get(0).get("id").toString();
+    
+    // Reactivate competitor
+    jdbcTemplate.update(
+        "UPDATE competitor_urls SET deleted_at = NULL, label = ?, platform = ?, domain = ?, shopify_product_id = ? WHERE id = ?",
+        label, platform, domain, productId, Long.parseLong(competitorId));
+    
+    // Reactivate associated price snapshots
+    jdbcTemplate.update(
+        "UPDATE price_snapshots SET deleted_at = NULL WHERE competitor_url_id = ? AND deleted_at IS NOT NULL",
+        Long.parseLong(competitorId));
+}
+```
+
+#### **Data Query Filtering**
+```sql
+-- Only show active competitors and price snapshots
+SELECT cu.*, ps.* 
+FROM competitor_urls cu
+LEFT JOIN price_snapshots ps ON cu.id = ps.competitor_url_id
+WHERE cu.shop_id = ? 
+  AND cu.deleted_at IS NULL 
+  AND (ps.deleted_at IS NULL OR ps.deleted_at IS NULL)
+```
+
+#### **Benefits of Soft Delete System**
+| **Feature** | **Benefit** | **Implementation** |
+|-------------|-------------|-------------------|
+| **Historical Data Preservation** | Price history never lost | Soft delete price snapshots |
+| **Competitor Reactivation** | Can re-add deleted competitors | Check for soft-deleted records |
+| **ID Consistency** | Same competitor ID maintained | Reactivate existing record |
+| **Price History Restoration** | All previous prices restored | Reactivate price snapshots |
+| **Data Integrity** | Complete audit trail | Timestamp-based soft delete |
+| **User Experience** | No unique constraint errors | Seamless re-addition |
+
+#### **Soft Delete Monitoring**
+```sql
+-- Check soft-deleted records
+SELECT 
+    shop_id,
+    COUNT(*) as total_competitors,
+    COUNT(CASE WHEN deleted_at IS NULL THEN 1 END) as active_competitors,
+    COUNT(CASE WHEN deleted_at IS NOT NULL THEN 1 END) as deleted_competitors
+FROM competitor_urls 
+GROUP BY shop_id
+HAVING COUNT(CASE WHEN deleted_at IS NOT NULL THEN 1 END) > 0;
+
+-- Check soft-deleted price snapshots
+SELECT 
+    competitor_url_id,
+    COUNT(*) as total_snapshots,
+    COUNT(CASE WHEN deleted_at IS NULL THEN 1 END) as active_snapshots,
+    COUNT(CASE WHEN deleted_at IS NOT NULL THEN 1 END) as deleted_snapshots
+FROM price_snapshots 
+GROUP BY competitor_url_id
+HAVING COUNT(CASE WHEN deleted_at IS NOT NULL THEN 1 END) > 0;
+```
+
 ### **Current Configuration**
 ```properties
 # Price Scraping - OPTIMIZED FOR $19.99 PLAN
@@ -314,6 +409,47 @@ CompetitorLimitService.LimitCheckResult limitCheck = limitService.checkCompetito
 // NOT: if (currentCompetitors > maxUrlsPerShop)
 ```
 
+#### **6. Soft Delete Issues**
+```sql
+-- Check if soft-deleted records are being counted
+SELECT COUNT(*) FROM competitor_urls 
+WHERE shop_id = ? AND deleted_at IS NULL;
+
+-- Verify price snapshots are soft deleted
+SELECT COUNT(*) FROM price_snapshots 
+WHERE competitor_url_id = ? AND deleted_at IS NULL;
+
+-- Check for orphaned soft-deleted records
+SELECT cu.id, cu.url, COUNT(ps.id) as snapshot_count
+FROM competitor_urls cu
+LEFT JOIN price_snapshots ps ON cu.id = ps.competitor_url_id AND ps.deleted_at IS NULL
+WHERE cu.deleted_at IS NOT NULL
+GROUP BY cu.id, cu.url
+HAVING COUNT(ps.id) > 0;
+```
+
+#### **7. Competitor Reactivation Issues**
+```java
+// Ensure reactivation logic is working
+// Check for existing soft-deleted competitor
+List<Map<String, Object>> existingSoftDeleted = jdbcTemplate.queryForList(
+    "SELECT id FROM competitor_urls WHERE shop_id = ? AND url = ? AND deleted_at IS NOT NULL",
+    shopId, request.url);
+
+// Reactivate both competitor and price snapshots
+if (!existingSoftDeleted.isEmpty()) {
+    // Reactivate competitor
+    jdbcTemplate.update(
+        "UPDATE competitor_urls SET deleted_at = NULL WHERE id = ?",
+        Long.parseLong(competitorId));
+    
+    // Reactivate price snapshots
+    jdbcTemplate.update(
+        "UPDATE price_snapshots SET deleted_at = NULL WHERE competitor_url_id = ? AND deleted_at IS NOT NULL",
+        Long.parseLong(competitorId));
+}
+```
+
 ### **Debug Endpoints**
 ```bash
 # Check scraping status
@@ -375,9 +511,9 @@ GET /api/admin/market-intelligence/competitors/cache-debug
 - `PriceScrapingService.java` - Core scraping logic
 - `CompetitorDiscoveryService.java` - Discovery system
 - `CompetitorLimitService.java` - Limit enforcement system
-- `CompetitorController.java` - API endpoints
+- `CompetitorController.java` - API endpoints (includes soft delete & reactivation)
 - `application.properties` - Configuration
-- `V39-V41__*.sql` - Database migrations
+- `V39-V42__*.sql` - Database migrations (V42 adds soft delete to price_snapshots)
 
 ### **Frontend Files**
 - `CompetitorAdminPanel.tsx` - Admin UI
@@ -412,6 +548,9 @@ GET /api/admin/market-intelligence/competitors/cache-debug
 - [x] Daily price updates
 - [x] Comprehensive admin debugging tools
 - [x] User-friendly error handling
+- [x] Historical data preservation with soft delete
+- [x] Seamless competitor reactivation
+- [x] No data loss when deleting competitors
 
 ---
 
