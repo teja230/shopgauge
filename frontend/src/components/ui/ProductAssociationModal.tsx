@@ -343,6 +343,18 @@ export const ProductAssociationModal: React.FC<ProductAssociationModalProps> = (
 
   const selectedProduct = products.find(p => p.id === selectedProductId);
 
+  // Helper function to generate handle from title (Shopify-style)
+  const generateHandleFromTitle = (title: string): string => {
+    if (!title) return '';
+    return title
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '') // Remove special characters except spaces and hyphens
+      .replace(/\s+/g, '-') // Replace spaces with hyphens
+      .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
+      .trim()
+      .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
+  };
+
   return (
     <StyledDialog
       open={open}
@@ -585,7 +597,7 @@ export const ProductAssociationModal: React.FC<ProductAssociationModalProps> = (
                             {product.title}
                           </Typography>
                           <Typography variant="body2" color="#6b7280" gutterBottom sx={{ fontFamily: 'monospace' }}>
-                            {product.handle ? `/${product.handle}` : 'No handle set'}
+                            {product.handle ? `/${product.handle}` : `/${generateHandleFromTitle(product.title)}`}
                           </Typography>
                           <Box display="flex" alignItems="center" gap={1}>
                             <AttachMoneyIcon fontSize="small" sx={{ color: '#059669' }} />

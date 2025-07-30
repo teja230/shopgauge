@@ -438,6 +438,7 @@ public class AnalyticsController {
                     String productId = productIdObj.toString();
                     String title = (String) product.get("title");
                     String status = (String) product.get("status");
+                    String handle = (String) product.get("handle");
 
                     // Get variants for pricing and inventory
                     var variants = (List<Map<String, Object>>) product.get("variants");
@@ -474,6 +475,7 @@ public class AnalyticsController {
                     Map<String, Object> productData = new HashMap<>();
                     productData.put("id", productId);
                     productData.put("title", title);
+                    productData.put("handle", handle);
                     productData.put("price", price);
                     productData.put("inventory", totalInventory);
                     productData.put("status", inventoryStatus);
