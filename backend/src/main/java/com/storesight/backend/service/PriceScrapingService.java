@@ -300,7 +300,9 @@ public class PriceScrapingService {
         long responseTime = System.currentTimeMillis() - startTime;
 
         if (price != null && price.compareTo(BigDecimal.ZERO) > 0) {
-          return PriceScrapingResult.success(price, true, "unknown", "scrapingdog", responseTime);
+          // Use proper platform detection instead of hardcoded "unknown"
+          String platform = identifyPlatform(url);
+          return PriceScrapingResult.success(price, true, platform, "scrapingdog", responseTime);
         } else {
           return PriceScrapingResult.failure(
               "No price found in Scrapingdog response", "no-price-found", responseTime);
@@ -340,7 +342,9 @@ public class PriceScrapingService {
         long responseTime = System.currentTimeMillis() - startTime;
 
         if (price != null && price.compareTo(BigDecimal.ZERO) > 0) {
-          return PriceScrapingResult.success(price, true, "unknown", "serper", responseTime);
+          // Use proper platform detection instead of hardcoded "unknown"
+          String platform = identifyPlatform(url);
+          return PriceScrapingResult.success(price, true, platform, "serper", responseTime);
         } else {
           return PriceScrapingResult.failure(
               "No price found in Serper response", "no-price-found", responseTime);
@@ -383,7 +387,9 @@ public class PriceScrapingService {
         long responseTime = System.currentTimeMillis() - startTime;
 
         if (price != null && price.compareTo(BigDecimal.ZERO) > 0) {
-          return PriceScrapingResult.success(price, true, "unknown", "serpapi", responseTime);
+          // Use proper platform detection instead of hardcoded "unknown"
+          String platform = identifyPlatform(url);
+          return PriceScrapingResult.success(price, true, platform, "serpapi", responseTime);
         } else {
           return PriceScrapingResult.failure(
               "No price found in SerpAPI response", "no-price-found", responseTime);

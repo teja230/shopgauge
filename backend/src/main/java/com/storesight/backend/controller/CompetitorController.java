@@ -198,7 +198,7 @@ public class CompetitorController {
                      COALESCE(ps.checked_at, cu.created_at) as last_checked,
                      COALESCE(ps.price_change_percent, 0.0) as price_change_percent,
                      p.title as product_title
-              FROM competitor_urls cu
+          FROM competitor_urls cu
               LEFT JOIN (
                   SELECT competitor_url_id, price, in_stock, checked_at, price_change_percent,
                          ROW_NUMBER() OVER (PARTITION BY competitor_url_id ORDER BY checked_at DESC) as rn
@@ -207,8 +207,8 @@ public class CompetitorController {
               ) ps ON cu.id = ps.competitor_url_id AND ps.rn = 1
               LEFT JOIN products p ON cu.shopify_product_id = p.shopify_product_id
               WHERE cu.shop_id = ? AND cu.deleted_at IS NULL
-              ORDER BY cu.created_at DESC
-              """;
+          ORDER BY cu.created_at DESC
+          """;
 
       List<Map<String, Object>> rows = jdbcTemplate.queryForList(query, shopId);
 
