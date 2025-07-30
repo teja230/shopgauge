@@ -13,10 +13,12 @@ import com.storesight.backend.service.InputValidationService;
 import com.storesight.backend.service.PriceScrapingService;
 import com.storesight.backend.service.ShopService;
 import com.storesight.backend.service.SmartSnapshotService;
+import com.storesight.backend.service.PriceChangeCalculationService;
 import com.storesight.backend.service.discovery.CompetitorDiscoveryService;
 import com.storesight.backend.service.discovery.MultiSourceSearchClient;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -69,6 +71,7 @@ public class CompetitorController {
   @Autowired private EnhancedRedisService enhancedRedisService;
   @Autowired private PriceScrapingService priceScrapingService;
   @Autowired private SmartSnapshotService smartSnapshotService;
+  @Autowired private PriceChangeCalculationService priceChangeCalculationService;
 
   @Value("${competitor.scraping.max-urls-per-shop:10}")
   private int maxUrlsPerShop;
@@ -187,8 +190,8 @@ public class CompetitorController {
 
     try {
       // Get competitor URLs for this shop, joining with latest price snapshots and product info
-                String query =
-              """
+      String query =
+          """
               SELECT cu.id, cu.url, cu.label, cu.shopify_product_id,
                      COALESCE(ps.price, 0.0) as price,
                      COALESCE(ps.in_stock, true) as in_stock,
@@ -238,12 +241,12 @@ public class CompetitorController {
                             ? String.valueOf(row.get("product_title"))
                             : null;
                     Double percentDiff =
-                        row.get("price_change_percent") != null 
-                            ? ((Number) row.get("price_change_percent")).doubleValue() 
+                        row.get("price_change_percent") != null
+                            ? ((Number) row.get("price_change_percent")).doubleValue()
                             : 0.0;
 
                     logger.debug(
-                        "getCompetitors: Processing competitor ID {} with URL {} and price change {}%", 
+                        "getCompetitors: Processing competitor ID {} with URL {} and price change {}%",
                         id, url, percentDiff);
                     return new CompetitorDto(
                         id,
@@ -447,8 +450,9 @@ public class CompetitorController {
               if (shopifyId != null) {
                 productId = shopifyId.toString();
                 logger.info(
-                    "addCompetitor: Using random cached product (index {}) with Shopify ID: {}", 
-                    randomIndex, productId);
+                    "addCompetitor: Using random cached product (index {}) with Shopify ID: {}",
+                    randomIndex,
+                    productId);
               } else {
                 logger.warn("addCompetitor: First product has no ID");
                 return ResponseEntity.status(HttpStatus.PRECONDITION_REQUIRED)
@@ -622,46 +626,60 @@ public class CompetitorController {
 
       // Check if a soft-deleted competitor with the same URL exists and reactivate it
       logger.info("addCompetitor: Checking for existing soft-deleted competitor");
-      
-      List<Map<String, Object>> existingSoftDeleted = jdbcTemplate.queryForList(
-          "SELECT id FROM competitor_urls WHERE shop_id = ? AND url = ? AND deleted_at IS NOT NULL",
-          shopId, request.url);
-      
+
+      List<Map<String, Object>> existingSoftDeleted =
+          jdbcTemplate.queryForList(
+              "SELECT id FROM competitor_urls WHERE shop_id = ? AND url = ? AND deleted_at IS NOT NULL",
+              shopId,
+              request.url);
+
       int rowsAffected;
       String competitorId;
-      
+
       if (!existingSoftDeleted.isEmpty()) {
         // Reactivate the soft-deleted competitor
         competitorId = existingSoftDeleted.get(0).get("id").toString();
         logger.info("addCompetitor: Reactivating soft-deleted competitor ID: {}", competitorId);
-        
+
         String platform = identifyPlatform(request.url);
         String domain = extractDomain(request.url);
-        
-        logger.info("addCompetitor: Reactivating - Extracted platform: '{}', domain: '{}' from URL: {}", 
-            platform, domain, request.url);
-        
-        rowsAffected = jdbcTemplate.update(
-            "UPDATE competitor_urls SET deleted_at = NULL, label = ?, platform = ?, domain = ?, shopify_product_id = ? WHERE id = ?",
-            label, platform, domain, productId, Long.parseLong(competitorId));
-            
+
+        logger.info(
+            "addCompetitor: Reactivating - Extracted platform: '{}', domain: '{}' from URL: {}",
+            platform,
+            domain,
+            request.url);
+
+        rowsAffected =
+            jdbcTemplate.update(
+                "UPDATE competitor_urls SET deleted_at = NULL, label = ?, platform = ?, domain = ?, shopify_product_id = ? WHERE id = ?",
+                label,
+                platform,
+                domain,
+                productId,
+                Long.parseLong(competitorId));
+
         logger.info("addCompetitor: Reactivated {} competitor records", rowsAffected);
-        
+
         // Also reactivate associated price snapshots
-        int reactivatedSnapshots = jdbcTemplate.update(
-            "UPDATE price_snapshots SET deleted_at = NULL WHERE competitor_url_id = ? AND deleted_at IS NOT NULL",
-            Long.parseLong(competitorId));
+        int reactivatedSnapshots =
+            jdbcTemplate.update(
+                "UPDATE price_snapshots SET deleted_at = NULL WHERE competitor_url_id = ? AND deleted_at IS NOT NULL",
+                Long.parseLong(competitorId));
         logger.info("addCompetitor: Reactivated {} price snapshots", reactivatedSnapshots);
-        
+
       } else {
         // Insert new competitor URL with platform and domain info
         logger.info("addCompetitor: Inserting new competitor URL into database");
-        
+
         String platform = identifyPlatform(request.url);
         String domain = extractDomain(request.url);
-        
-        logger.info("addCompetitor: New competitor - Extracted platform: '{}', domain: '{}' from URL: {}", 
-            platform, domain, request.url);
+
+        logger.info(
+            "addCompetitor: New competitor - Extracted platform: '{}', domain: '{}' from URL: {}",
+            platform,
+            domain,
+            request.url);
 
         if (productId != null) {
           rowsAffected =
@@ -683,11 +701,13 @@ public class CompetitorController {
                   platform,
                   domain);
         }
-        
+
         // Get the newly inserted competitor ID
-        List<Map<String, Object>> newRecord = jdbcTemplate.queryForList(
-            "SELECT id FROM competitor_urls WHERE shop_id = ? AND url = ? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1",
-            shopId, request.url);
+        List<Map<String, Object>> newRecord =
+            jdbcTemplate.queryForList(
+                "SELECT id FROM competitor_urls WHERE shop_id = ? AND url = ? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1",
+                shopId,
+                request.url);
         competitorId = newRecord.get(0).get("id").toString();
       }
 
@@ -696,9 +716,10 @@ public class CompetitorController {
       // Get the competitor record details
       logger.info("addCompetitor: Retrieving competitor record details");
 
-      List<Map<String, Object>> competitorRecord = jdbcTemplate.queryForList(
-          "SELECT id, url, label FROM competitor_urls WHERE id = ?",
-          Long.parseLong(competitorId));
+      List<Map<String, Object>> competitorRecord =
+          jdbcTemplate.queryForList(
+              "SELECT id, url, label FROM competitor_urls WHERE id = ?",
+              Long.parseLong(competitorId));
 
       if (competitorRecord.isEmpty()) {
         logger.error("addCompetitor: Failed to retrieve competitor record");
@@ -807,10 +828,12 @@ public class CompetitorController {
       // Soft delete related price snapshots first
       int deletedSnapshots =
           jdbcTemplate.update(
-              "UPDATE price_snapshots SET deleted_at = CURRENT_TIMESTAMP WHERE competitor_url_id = ? AND deleted_at IS NULL", 
+              "UPDATE price_snapshots SET deleted_at = CURRENT_TIMESTAMP WHERE competitor_url_id = ? AND deleted_at IS NULL",
               Long.parseLong(id));
       logger.info(
-          "deleteCompetitor: Soft deleted {} price snapshots for competitor {}", deletedSnapshots, id);
+          "deleteCompetitor: Soft deleted {} price snapshots for competitor {}",
+          deletedSnapshots,
+          id);
 
       // Soft delete the competitor URL
       int deletedCompetitors =
@@ -1429,8 +1452,9 @@ public class CompetitorController {
     }
 
     try {
-      String query = """
-          SELECT 
+      String query =
+          """
+          SELECT
               cu.id,
               cu.url,
               cu.label,
@@ -1463,7 +1487,7 @@ public class CompetitorController {
       @PathVariable String id,
       @RequestBody Map<String, String> request,
       HttpServletRequest httpRequest) {
-    
+
     Long shopId = getShopIdFromRequest(httpRequest);
     if (shopId == null) {
       return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -1472,9 +1496,11 @@ public class CompetitorController {
 
     try {
       // Verify the competitor belongs to this shop and is deleted
-      List<Map<String, Object>> competitors = jdbcTemplate.queryForList(
-          "SELECT id, url, label FROM competitor_urls WHERE id = ? AND shop_id = ? AND deleted_at IS NOT NULL",
-          Long.parseLong(id), shopId);
+      List<Map<String, Object>> competitors =
+          jdbcTemplate.queryForList(
+              "SELECT id, url, label FROM competitor_urls WHERE id = ? AND shop_id = ? AND deleted_at IS NOT NULL",
+              Long.parseLong(id),
+              shopId);
 
       if (competitors.isEmpty()) {
         return ResponseEntity.notFound().build();
@@ -1488,7 +1514,8 @@ public class CompetitorController {
       // Restore the competitor
       jdbcTemplate.update(
           "UPDATE competitor_urls SET deleted_at = NULL, label = ? WHERE id = ?",
-          newLabel, Long.parseLong(id));
+          newLabel,
+          Long.parseLong(id));
 
       // Restore associated price snapshots
       jdbcTemplate.update(
@@ -1496,7 +1523,8 @@ public class CompetitorController {
           Long.parseLong(id));
 
       logger.info("Restored competitor {} for shop {}", id, shopId);
-      return ResponseEntity.ok(Map.of("success", true, "message", "Competitor restored successfully"));
+      return ResponseEntity.ok(
+          Map.of("success", true, "message", "Competitor restored successfully"));
 
     } catch (Exception e) {
       logger.error("Error restoring competitor {} for shop {}: {}", id, shopId, e.getMessage(), e);
@@ -1508,9 +1536,8 @@ public class CompetitorController {
   @DeleteMapping("/competitors/{id}/permanent")
   @Transactional
   public ResponseEntity<Map<String, Object>> permanentlyDeleteCompetitor(
-      @PathVariable String id, 
-      HttpServletRequest request) {
-    
+      @PathVariable String id, HttpServletRequest request) {
+
     Long shopId = getShopIdFromRequest(request);
     if (shopId == null) {
       return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -1519,9 +1546,11 @@ public class CompetitorController {
 
     try {
       // Verify the competitor belongs to this shop and is deleted
-      List<Map<String, Object>> competitors = jdbcTemplate.queryForList(
-          "SELECT id FROM competitor_urls WHERE id = ? AND shop_id = ? AND deleted_at IS NOT NULL",
-          Long.parseLong(id), shopId);
+      List<Map<String, Object>> competitors =
+          jdbcTemplate.queryForList(
+              "SELECT id FROM competitor_urls WHERE id = ? AND shop_id = ? AND deleted_at IS NOT NULL",
+              Long.parseLong(id),
+              shopId);
 
       if (competitors.isEmpty()) {
         return ResponseEntity.notFound().build();
@@ -1529,19 +1558,22 @@ public class CompetitorController {
 
       // Permanently delete price snapshots
       jdbcTemplate.update(
-          "DELETE FROM price_snapshots WHERE competitor_url_id = ?",
-          Long.parseLong(id));
+          "DELETE FROM price_snapshots WHERE competitor_url_id = ?", Long.parseLong(id));
 
       // Permanently delete competitor
-      jdbcTemplate.update(
-          "DELETE FROM competitor_urls WHERE id = ?",
-          Long.parseLong(id));
+      jdbcTemplate.update("DELETE FROM competitor_urls WHERE id = ?", Long.parseLong(id));
 
       logger.info("Permanently deleted competitor {} for shop {}", id, shopId);
-      return ResponseEntity.ok(Map.of("success", true, "message", "Competitor permanently deleted"));
+      return ResponseEntity.ok(
+          Map.of("success", true, "message", "Competitor permanently deleted"));
 
     } catch (Exception e) {
-      logger.error("Error permanently deleting competitor {} for shop {}: {}", id, shopId, e.getMessage(), e);
+      logger.error(
+          "Error permanently deleting competitor {} for shop {}: {}",
+          id,
+          shopId,
+          e.getMessage(),
+          e);
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
           .body(Map.of("error", "Failed to permanently delete competitor"));
     }
@@ -1552,7 +1584,7 @@ public class CompetitorController {
       @PathVariable String id,
       @RequestParam(defaultValue = "90") int days,
       HttpServletRequest request) {
-    
+
     Long shopId = getShopIdFromRequest(request);
     if (shopId == null) {
       return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -1561,34 +1593,135 @@ public class CompetitorController {
 
     try {
       // Verify the competitor belongs to this shop
-      List<Map<String, Object>> competitors = jdbcTemplate.queryForList(
-          "SELECT id FROM competitor_urls WHERE id = ? AND shop_id = ? AND deleted_at IS NULL",
-          Long.parseLong(id), shopId);
+      List<Map<String, Object>> competitors =
+          jdbcTemplate.queryForList(
+              "SELECT id FROM competitor_urls WHERE id = ? AND shop_id = ? AND deleted_at IS NULL",
+              Long.parseLong(id),
+              shopId);
 
       if (competitors.isEmpty()) {
         return ResponseEntity.notFound().build();
       }
 
       // Get price history
-      List<Map<String, Object>> priceHistory = smartSnapshotService.getPriceHistory(Long.parseLong(id), days);
-      
+      List<Map<String, Object>> priceHistory =
+          smartSnapshotService.getPriceHistory(Long.parseLong(id), days);
+
       // Get price statistics
       Map<String, Object> statistics = smartSnapshotService.getPriceStatistics(Long.parseLong(id));
-      
-      // Check if there's sufficient history for graph overlay
-      boolean hasSufficientHistory = smartSnapshotService.hasSufficientHistory(Long.parseLong(id), 7); // At least 7 days
 
-      return ResponseEntity.ok(Map.of(
-          "priceHistory", priceHistory,
-          "statistics", statistics,
-          "hasSufficientHistory", hasSufficientHistory,
-          "days", days
-      ));
+      // Check if there's sufficient history for graph overlay
+      boolean hasSufficientHistory =
+          smartSnapshotService.hasSufficientHistory(Long.parseLong(id), 7); // At least 7 days
+
+      return ResponseEntity.ok(
+          Map.of(
+              "priceHistory", priceHistory,
+              "statistics", statistics,
+              "hasSufficientHistory", hasSufficientHistory,
+              "days", days));
 
     } catch (Exception e) {
       logger.error("Error getting price history for competitor {}: {}", id, e.getMessage(), e);
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
           .body(Map.of("error", "Failed to retrieve price history"));
+    }
+  }
+
+  /** Validate and fix price change calculations for a competitor */
+  @PostMapping("/competitors/{id}/validate-price-changes")
+  public ResponseEntity<Map<String, Object>> validatePriceChanges(
+      @PathVariable String id, HttpServletRequest request) {
+
+    Long shopId = getShopIdFromRequest(request);
+    if (shopId == null) {
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+          .body(Map.of("error", "Authentication required"));
+    }
+
+    try {
+      // Check if competitor belongs to this shop
+      List<Map<String, Object>> competitorCheck =
+          jdbcTemplate.queryForList(
+              "SELECT id FROM competitor_urls WHERE id = ? AND shop_id = ? AND deleted_at IS NULL",
+              Long.parseLong(id), shopId);
+
+      if (competitorCheck.isEmpty()) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(Map.of("error", "Competitor not found"));
+      }
+
+      Long competitorId = Long.parseLong(id);
+      
+      // Validate and fix price changes
+      priceChangeCalculationService.validateAndFixPriceChanges(competitorId);
+      
+      // Get updated statistics
+      Map<String, Object> statistics = priceChangeCalculationService.getPriceChangeStatistics(competitorId);
+      
+      logger.info("validatePriceChanges: Validated price changes for competitor {} for shop {}", id, shopId);
+
+      return ResponseEntity.ok(Map.of(
+          "message", "Price changes validated and fixed",
+          "statistics", statistics
+      ));
+
+    } catch (Exception e) {
+      logger.error("Error validating price changes: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to validate price changes"));
+    }
+  }
+
+  /** Get price trend analysis for a competitor */
+  @GetMapping("/competitors/{id}/price-trend")
+  public ResponseEntity<Map<String, Object>> getPriceTrend(
+      @PathVariable String id,
+      @RequestParam(defaultValue = "30") int days,
+      HttpServletRequest request) {
+
+    Long shopId = getShopIdFromRequest(request);
+    if (shopId == null) {
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+          .body(Map.of("error", "Authentication required"));
+    }
+
+    try {
+      // Check if competitor belongs to this shop
+      List<Map<String, Object>> competitorCheck =
+          jdbcTemplate.queryForList(
+              "SELECT id FROM competitor_urls WHERE id = ? AND shop_id = ? AND deleted_at IS NULL",
+              Long.parseLong(id), shopId);
+
+      if (competitorCheck.isEmpty()) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(Map.of("error", "Competitor not found"));
+      }
+
+      Long competitorId = Long.parseLong(id);
+      
+      // Get price trend analysis
+      String trend = priceChangeCalculationService.getPriceTrend(competitorId, days);
+      Optional<BigDecimal> changeOverPeriod = priceChangeCalculationService.calculatePriceChangeOverPeriod(competitorId, days);
+      
+      Map<String, Object> response = new HashMap<>();
+      response.put("trend", trend);
+      response.put("days", days);
+      
+      if (changeOverPeriod.isPresent()) {
+        response.put("changePercent", changeOverPeriod.get());
+      } else {
+        response.put("changePercent", null);
+      }
+      
+      logger.info("getPriceTrend: Retrieved price trend for competitor {} over {} days: {}", id, days, trend);
+
+      return ResponseEntity.ok(response);
+
+    } catch (Exception e) {
+      logger.error("Error getting price trend: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to get price trend"));
     }
   }
 
@@ -1905,12 +2038,14 @@ public class CompetitorController {
             products.stream()
                 .map(
                     product -> {
-                        Map<String, Object> productMap = new HashMap<>();
-                        productMap.put("id", product.get("id"));
-                        productMap.put("title", product.get("title") != null ? product.get("title") : "");
-                        productMap.put("handle", product.get("handle") != null ? product.get("handle") : "");
-                        productMap.put("price", product.get("price"));
-                        return productMap;
+                      Map<String, Object> productMap = new HashMap<>();
+                      productMap.put("id", product.get("id"));
+                      productMap.put(
+                          "title", product.get("title") != null ? product.get("title") : "");
+                      productMap.put(
+                          "handle", product.get("handle") != null ? product.get("handle") : "");
+                      productMap.put("price", product.get("price"));
+                      return productMap;
                     })
                 .collect(Collectors.toList());
       }
@@ -2563,7 +2698,7 @@ public class CompetitorController {
 
     for (int i = 0; i < words.length; i++) {
       String word = words[i].toLowerCase();
-      
+
       // Skip empty words
       if (word.isEmpty()) continue;
 
@@ -2588,21 +2723,66 @@ public class CompetitorController {
   private String formatProductTerm(String word) {
     // Common product specifications that should be uppercase
     String[] uppercaseTerms = {
-      "gb", "tb", "mb", "gb", "tb", "mb", "gb", "tb", "mb", "gb", "tb", "mb",
-      "hd", "4k", "8k", "1080p", "720p", "wifi", "bluetooth", "usb", "hdmi",
-      "vga", "dvi", "dp", "thunderbolt", "lightning", "type-c", "type-c",
-      "oled", "lcd", "led", "ips", "va", "tn", "amd", "intel", "nvidia",
-      "apple", "samsung", "sony", "lg", "dell", "hp", "lenovo", "asus",
-      "acer", "msi", "gigabyte", "corsair", "logitech", "razer", "steelseries"
+      "gb",
+      "tb",
+      "mb",
+      "gb",
+      "tb",
+      "mb",
+      "gb",
+      "tb",
+      "mb",
+      "gb",
+      "tb",
+      "mb",
+      "hd",
+      "4k",
+      "8k",
+      "1080p",
+      "720p",
+      "wifi",
+      "bluetooth",
+      "usb",
+      "hdmi",
+      "vga",
+      "dvi",
+      "dp",
+      "thunderbolt",
+      "lightning",
+      "type-c",
+      "type-c",
+      "oled",
+      "lcd",
+      "led",
+      "ips",
+      "va",
+      "tn",
+      "amd",
+      "intel",
+      "nvidia",
+      "apple",
+      "samsung",
+      "sony",
+      "lg",
+      "dell",
+      "hp",
+      "lenovo",
+      "asus",
+      "acer",
+      "msi",
+      "gigabyte",
+      "corsair",
+      "logitech",
+      "razer",
+      "steelseries"
     };
 
     // Common words that should remain lowercase
     String[] lowercaseTerms = {
-      "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for",
-      "of", "with", "by", "from", "up", "about", "into", "through", "during",
-      "before", "after", "above", "below", "between", "among", "within",
-      "without", "against", "toward", "towards", "upon", "over", "under",
-      "inch", "inches", "foot", "feet", "cm", "mm", "kg", "lb", "lbs"
+      "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for", "of", "with", "by",
+      "from", "up", "about", "into", "through", "during", "before", "after", "above", "below",
+      "between", "among", "within", "without", "against", "toward", "towards", "upon", "over",
+      "under", "inch", "inches", "foot", "feet", "cm", "mm", "kg", "lb", "lbs"
     };
 
     String lowerWord = word.toLowerCase();
@@ -2692,7 +2872,7 @@ public class CompetitorController {
           String productPath = parts[1].split("\\?")[0];
           // Remove SKU and convert to title case
           String productName = productPath.split("/")[0];
-          
+
           // Extract key product information more intelligently
           String formattedTitle = formatBestBuyTitle(productName);
           return cleanTitle(formattedTitle);
@@ -2717,19 +2897,45 @@ public class CompetitorController {
     // Extract key product components
     String[] words = title.split("\\s+");
     StringBuilder keyInfo = new StringBuilder();
-    
+
     // Common product patterns to prioritize
     String[] priorityTerms = {
-      "macbook", "air", "pro", "laptop", "computer", "desktop", "tablet", "phone",
-      "iphone", "ipad", "apple", "samsung", "sony", "lg", "dell", "hp", "lenovo",
-      "tv", "television", "monitor", "display", "speaker", "headphone", "camera",
-      "gaming", "console", "playstation", "xbox", "nintendo", "switch"
+      "macbook",
+      "air",
+      "pro",
+      "laptop",
+      "computer",
+      "desktop",
+      "tablet",
+      "phone",
+      "iphone",
+      "ipad",
+      "apple",
+      "samsung",
+      "sony",
+      "lg",
+      "dell",
+      "hp",
+      "lenovo",
+      "tv",
+      "television",
+      "monitor",
+      "display",
+      "speaker",
+      "headphone",
+      "camera",
+      "gaming",
+      "console",
+      "playstation",
+      "xbox",
+      "nintendo",
+      "switch"
     };
 
     // Build title with priority terms first
     for (String word : words) {
       String lowerWord = word.toLowerCase();
-      
+
       // Check if this is a priority term
       boolean isPriority = false;
       for (String term : priorityTerms) {
@@ -2738,7 +2944,7 @@ public class CompetitorController {
           break;
         }
       }
-      
+
       if (isPriority) {
         if (keyInfo.length() > 0) keyInfo.append(" ");
         keyInfo.append(word);
@@ -2778,7 +2984,7 @@ public class CompetitorController {
   private String extractTargetTitle(String url) {
     try {
       // URL slug extraction for Target
-      // Examples: 
+      // Examples:
       // https://www.target.com/p/apple-macbook-air-13-inch-laptop/-/A-12345678
       // https://www.target.com/p/viva-signature-cloth-choose-a-sheet-paper-towels/-/A-83372436?preselect=87450171#lnk=sametab
       if (url.contains("/p/")) {
@@ -2786,13 +2992,13 @@ public class CompetitorController {
         if (parts.length > 1) {
           String productPath = parts[1].split("\\?")[0]; // Remove query parameters
           productPath = productPath.split("#")[0]; // Remove hash fragments
-          
+
           // Handle complex Target URL structure
           String[] pathSegments = productPath.split("/");
           if (pathSegments.length > 0) {
             // Get the first segment which contains the product name
             String productName = pathSegments[0];
-            
+
             // If the product name is very long, try to extract key information
             if (productName.length() > 50) {
               return cleanTitle(formatTargetTitle(productName));
@@ -2821,20 +3027,51 @@ public class CompetitorController {
     // Extract key product components
     String[] words = title.split("\\s+");
     StringBuilder keyInfo = new StringBuilder();
-    
+
     // Common Target product patterns to prioritize
     String[] priorityTerms = {
-      "viva", "signature", "cloth", "paper", "towels", "towel", "napkins", "napkin",
-      "tissue", "toilet", "bathroom", "kitchen", "cleaning", "household", "essentials",
-      "electronics", "clothing", "shoes", "accessories", "home", "garden", "toys",
-      "baby", "beauty", "health", "pharmacy", "grocery", "food", "beverages",
-      "sports", "outdoors", "automotive", "office", "school", "party", "holiday"
+      "viva",
+      "signature",
+      "cloth",
+      "paper",
+      "towels",
+      "towel",
+      "napkins",
+      "napkin",
+      "tissue",
+      "toilet",
+      "bathroom",
+      "kitchen",
+      "cleaning",
+      "household",
+      "essentials",
+      "electronics",
+      "clothing",
+      "shoes",
+      "accessories",
+      "home",
+      "garden",
+      "toys",
+      "baby",
+      "beauty",
+      "health",
+      "pharmacy",
+      "grocery",
+      "food",
+      "beverages",
+      "sports",
+      "outdoors",
+      "automotive",
+      "office",
+      "school",
+      "party",
+      "holiday"
     };
 
     // Build title with priority terms first
     for (String word : words) {
       String lowerWord = word.toLowerCase();
-      
+
       // Check if this is a priority term
       boolean isPriority = false;
       for (String term : priorityTerms) {
@@ -2843,7 +3080,7 @@ public class CompetitorController {
           break;
         }
       }
-      
+
       if (isPriority) {
         if (keyInfo.length() > 0) keyInfo.append(" ");
         keyInfo.append(word);
@@ -2862,7 +3099,7 @@ public class CompetitorController {
   private String extractEbayTitle(String url) {
     try {
       // Enhanced URL slug extraction for eBay
-      // Examples: 
+      // Examples:
       // https://www.ebay.com/itm/apple-macbook-air-13-inch-laptop/123456789012
       // https://www.ebay.com/itm/iphone-14-pro-max-256gb-unlocked/123456789012
       // https://www.ebay.com/itm/samsung-galaxy-s23-ultra-5g-512gb/123456789012
@@ -2871,7 +3108,7 @@ public class CompetitorController {
         if (parts.length > 1) {
           String productPath = parts[1].split("\\?")[0]; // Remove query parameters
           productPath = productPath.split("#")[0]; // Remove hash fragments
-          
+
           // Enhanced parsing to handle numbers in product names
           String productName = extractEbayProductName(productPath);
           return cleanTitle(productName);
@@ -2898,10 +3135,10 @@ public class CompetitorController {
 
     // Get the first segment which contains the product name
     String productSegment = segments[0];
-    
+
     // Enhanced parsing to handle numbers and special characters
     String cleanedName = formatEbayProductName(productSegment);
-    
+
     return cleanedName;
   }
 
@@ -2917,31 +3154,85 @@ public class CompetitorController {
     // Split into words for intelligent processing
     String[] words = title.split("\\s+");
     StringBuilder formattedTitle = new StringBuilder();
-    
+
     // Common eBay product patterns to prioritize
     String[] priorityTerms = {
-      "iphone", "ipad", "macbook", "air", "pro", "max", "mini", "apple", "samsung", 
-      "galaxy", "ultra", "plus", "note", "fold", "flip", "sony", "lg", "motorola",
-      "google", "pixel", "oneplus", "xiaomi", "huawei", "oppo", "vivo", "realme",
-      "laptop", "computer", "desktop", "tablet", "phone", "smartphone", "mobile",
-      "tv", "television", "monitor", "display", "speaker", "headphone", "earbuds",
-      "camera", "lens", "gaming", "console", "playstation", "xbox", "nintendo",
-      "switch", "controller", "accessory", "case", "cover", "protector", "charger",
-      "cable", "adapter", "dock", "stand", "keyboard", "mouse", "trackpad", "stylus"
+      "iphone",
+      "ipad",
+      "macbook",
+      "air",
+      "pro",
+      "max",
+      "mini",
+      "apple",
+      "samsung",
+      "galaxy",
+      "ultra",
+      "plus",
+      "note",
+      "fold",
+      "flip",
+      "sony",
+      "lg",
+      "motorola",
+      "google",
+      "pixel",
+      "oneplus",
+      "xiaomi",
+      "huawei",
+      "oppo",
+      "vivo",
+      "realme",
+      "laptop",
+      "computer",
+      "desktop",
+      "tablet",
+      "phone",
+      "smartphone",
+      "mobile",
+      "tv",
+      "television",
+      "monitor",
+      "display",
+      "speaker",
+      "headphone",
+      "earbuds",
+      "camera",
+      "lens",
+      "gaming",
+      "console",
+      "playstation",
+      "xbox",
+      "nintendo",
+      "switch",
+      "controller",
+      "accessory",
+      "case",
+      "cover",
+      "protector",
+      "charger",
+      "cable",
+      "adapter",
+      "dock",
+      "stand",
+      "keyboard",
+      "mouse",
+      "trackpad",
+      "stylus"
     };
 
     // Build title with intelligent word selection
     for (int i = 0; i < words.length; i++) {
       String word = words[i].toLowerCase();
-      
+
       // Skip very short words (likely noise)
       if (word.length() < 2) continue;
-      
+
       // Skip pure numbers unless they're part of a product name (like iPhone 14)
       if (word.matches("^\\d+$")) {
         // Check if previous word is a product term
         if (i > 0) {
-          String prevWord = words[i-1].toLowerCase();
+          String prevWord = words[i - 1].toLowerCase();
           boolean isProductNumber = false;
           for (String term : priorityTerms) {
             if (prevWord.contains(term) || term.contains(prevWord)) {
@@ -2956,7 +3247,7 @@ public class CompetitorController {
         }
         continue;
       }
-      
+
       // Check if this is a priority term
       boolean isPriority = false;
       for (String term : priorityTerms) {
@@ -2965,7 +3256,7 @@ public class CompetitorController {
           break;
         }
       }
-      
+
       // Include priority terms and meaningful words
       if (isPriority || word.length() > 3) {
         if (formattedTitle.length() > 0) formattedTitle.append(" ");
@@ -2981,7 +3272,7 @@ public class CompetitorController {
       String[] meaningfulWords = title.split("\\s+");
       StringBuilder fallback = new StringBuilder();
       int wordCount = 0;
-      
+
       for (String word : meaningfulWords) {
         if (word.length() > 2 && !word.matches("^\\d+$") && wordCount < 5) {
           if (fallback.length() > 0) fallback.append(" ");
@@ -2989,7 +3280,7 @@ public class CompetitorController {
           wordCount++;
         }
       }
-      
+
       return fallback.length() > 0 ? fallback.toString() : "eBay Product";
     }
   }
@@ -3218,19 +3509,24 @@ public class CompetitorController {
               result.getResponseTime());
 
           // Use smart snapshot creation
-          if (smartSnapshotService.shouldCreateSnapshot(Long.parseLong(competitorId), result.getPrice(), result.isInStock())) {
-              jdbcTemplate.update(
-                  "INSERT INTO price_snapshots (competitor_url_id, price, in_stock, checked_at, scraper_version, platform, response_time_ms, scraper_source) "
-                      + "VALUES (?, ?, ?, CURRENT_TIMESTAMP, 'v2.0-unified', ?, ?, ?)",
-                  Long.parseLong(competitorId),
-                  result.getPrice(),
-                  result.isInStock(),
-                  result.getPlatform(),
-                  (int) result.getResponseTime(),
-                  result.getScraperSource());
-              logger.info("triggerImmediatePriceScraping: Created smart snapshot for competitor {}", competitorId);
+          if (smartSnapshotService.shouldCreateSnapshot(
+              Long.parseLong(competitorId), result.getPrice(), result.isInStock())) {
+            jdbcTemplate.update(
+                "INSERT INTO price_snapshots (competitor_url_id, price, in_stock, checked_at, scraper_version, platform, response_time_ms, scraper_source) "
+                    + "VALUES (?, ?, ?, CURRENT_TIMESTAMP, 'v2.0-unified', ?, ?, ?)",
+                Long.parseLong(competitorId),
+                result.getPrice(),
+                result.isInStock(),
+                result.getPlatform(),
+                (int) result.getResponseTime(),
+                result.getScraperSource());
+            logger.info(
+                "triggerImmediatePriceScraping: Created smart snapshot for competitor {}",
+                competitorId);
           } else {
-              logger.info("triggerImmediatePriceScraping: Skipped snapshot creation for competitor {} (no significant change)", competitorId);
+            logger.info(
+                "triggerImmediatePriceScraping: Skipped snapshot creation for competitor {} (no significant change)",
+                competitorId);
           }
 
           // Update competitor URL status on successful scrape with platform and domain info
@@ -3587,7 +3883,8 @@ public class CompetitorController {
     return request.getRemoteAddr();
   }
 
-  private Map<String, Object> createDemoProduct(String id, String title, String handle, double price) {
+  private Map<String, Object> createDemoProduct(
+      String id, String title, String handle, double price) {
     Map<String, Object> product = new HashMap<>();
     product.put("id", id);
     product.put("title", title);
