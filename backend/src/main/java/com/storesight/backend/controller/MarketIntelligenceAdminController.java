@@ -1043,15 +1043,16 @@ public class MarketIntelligenceAdminController {
 
         // Store cached price as initial snapshot
         jdbcTemplate.update(
-            "INSERT INTO price_snapshots (competitor_url_id, price, in_stock, checked_at, scraper_version, scraper_source) "
-                + "VALUES (?, ?, ?, CURRENT_TIMESTAMP, 'v2.0-cached', 'cached')",
+            "INSERT INTO price_snapshots (competitor_url_id, price, in_stock, checked_at, scraper_version, scraper_source, platform, response_time_ms) "
+                + "VALUES (?, ?, ?, CURRENT_TIMESTAMP, 'v2.0-cached', 'cached', ?, 0)",
             Long.parseLong(competitorId),
             cachedPrice,
-            true); // Assume in stock for cached data
+            true, // Assume in stock for cached data
+            identifyPlatform(url));
 
         // Update competitor URL status on successful cached scrape
         jdbcTemplate.update(
-            "UPDATE competitor_urls SET status = 'active', last_successful_check = CURRENT_TIMESTAMP, error_count = 0 WHERE id = ?",
+            "UPDATE competitor_urls SET status = 'active', last_successful_check = CURRENT_TIMESTAMP, error_count = 0, response_time_ms = 0 WHERE id = ?",
             Long.parseLong(competitorId));
 
         // Mark as recently scraped to prevent immediate re-scraping
@@ -1062,65 +1063,134 @@ public class MarketIntelligenceAdminController {
       // Only scrape if no cached data available
       try {
         long startTime = System.currentTimeMillis();
+        String platform = identifyPlatform(url);
+        
+        // Enhanced scraping with multiple strategies
+        java.math.BigDecimal scrapedPrice = null;
+        boolean inStock = false;
+        String scraperSource = "direct";
+        String scraperVersion = "v2.0";
+        
+        // Strategy 1: Try Jsoup first (faster and cheaper)
+        try {
+          org.jsoup.nodes.Document doc =
+              org.jsoup.Jsoup.connect(url)
+                  .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                  .timeout(10000) // 10 second timeout
+                  .followRedirects(true)
+                  .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8")
+                  .header("Accept-Language", "en-US,en;q=0.5")
+                  .header("Accept-Encoding", "gzip, deflate")
+                  .header("Connection", "keep-alive")
+                  .header("Upgrade-Insecure-Requests", "1")
+                  .get();
 
-        // Use Jsoup for immediate scraping (faster and cheaper than Selenium)
-        org.jsoup.nodes.Document doc =
-            org.jsoup.Jsoup.connect(url)
-                .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-                .timeout(5000) // 5 second timeout
-                .followRedirects(true)
-                .get();
+          // Check if we got blocked (Amazon shows "Continue shopping" page)
+          String pageText = doc.text().toLowerCase();
+          if (pageText.contains("continue shopping") || pageText.contains("click the button below")) {
+            log.warn("triggerImmediatePriceScraping: Amazon blocking detected for URL: {}", url);
+            scraperSource = "blocked";
+            scraperVersion = "v2.0-blocked";
+          } else {
+            scrapedPrice = extractPriceFromDocument(doc, platform);
+            inStock = extractStockStatusFromDocument(doc, platform);
+            scraperSource = "jsoup";
+          }
+        } catch (Exception jsoupError) {
+          log.warn("triggerImmediatePriceScraping: Jsoup failed for URL {}: {}", url, jsoupError.getMessage());
+        }
+
+        // Strategy 2: If Jsoup failed, try with different user agent
+        if (scrapedPrice == null) {
+          try {
+            org.jsoup.nodes.Document doc =
+                org.jsoup.Jsoup.connect(url)
+                    .userAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                    .timeout(15000) // 15 second timeout
+                    .followRedirects(true)
+                    .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                    .header("Accept-Language", "en-US,en;q=0.9")
+                    .header("Accept-Encoding", "gzip, deflate, br")
+                    .header("DNT", "1")
+                    .header("Connection", "keep-alive")
+                    .header("Upgrade-Insecure-Requests", "1")
+                    .get();
+
+            String pageText = doc.text().toLowerCase();
+            if (!pageText.contains("continue shopping") && !pageText.contains("click the button below")) {
+              scrapedPrice = extractPriceFromDocument(doc, platform);
+              inStock = extractStockStatusFromDocument(doc, platform);
+              scraperSource = "jsoup-fallback";
+            }
+          } catch (Exception fallbackError) {
+            log.warn("triggerImmediatePriceScraping: Jsoup fallback failed for URL {}: {}", url, fallbackError.getMessage());
+          }
+        }
 
         long responseTime = System.currentTimeMillis() - startTime;
 
-        // Extract price using enhanced patterns
-        String platform = identifyPlatform(url);
-        log.info("triggerImmediatePriceScraping: Extracting price for platform: {}", platform);
-
-        java.math.BigDecimal price = extractPriceFromDocument(doc, platform);
-        boolean inStock = extractStockStatusFromDocument(doc, platform);
-
-        log.info("triggerImmediatePriceScraping: Extracted price: {}, inStock: {}, platform: {}", price, inStock, platform);
-
-        if (price != null) {
-          // Store the initial price snapshot with platform information, response time, and scraper source
+        // Store the scraping result
+        if (scrapedPrice != null) {
+          // Success - store price snapshot
           jdbcTemplate.update(
-              "INSERT INTO price_snapshots (competitor_url_id, price, in_stock, checked_at, scraper_version, platform, response_time_ms, scraper_source) "
-                  + "VALUES (?, ?, ?, CURRENT_TIMESTAMP, 'v2.0-immediate', ?, ?, 'direct')",
+              "INSERT INTO price_snapshots (competitor_url_id, price, in_stock, checked_at, scraper_version, scraper_source, platform, response_time_ms) "
+                  + "VALUES (?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?)",
               Long.parseLong(competitorId),
-              price,
+              scrapedPrice,
               inStock,
+              scraperVersion,
+              scraperSource,
               platform,
-              (int) responseTime);
+              responseTime);
 
-          // Update competitor URL status on successful scrape with response time
+          // Update competitor URL status
           jdbcTemplate.update(
               "UPDATE competitor_urls SET status = 'active', last_successful_check = CURRENT_TIMESTAMP, error_count = 0, response_time_ms = ? WHERE id = ?",
-              (int) responseTime,
+              responseTime,
               Long.parseLong(competitorId));
 
-          // Cache the price for future use
-          cachePriceForUrl(url, price);
+          // Cache the successful price
+          cachePriceForUrl(url, scrapedPrice);
 
-          log.info("triggerImmediatePriceScraping: Successfully scraped initial price ${} for competitor {}", price, competitorId);
+          log.info("triggerImmediatePriceScraping: Successfully scraped price ${} for competitor {} in {}ms", 
+              scrapedPrice, competitorId, responseTime);
         } else {
-          log.warn("triggerImmediatePriceScraping: Could not extract price from {}", url);
-          // Log page title for debugging
-          String pageTitle = doc.title();
-          log.debug("triggerImmediatePriceScraping: Page title: {}", pageTitle);
+          // Failure - update error count and status
+          jdbcTemplate.update(
+              "UPDATE competitor_urls SET status = 'error', error_count = error_count + 1, response_time_ms = ? WHERE id = ?",
+              responseTime,
+              Long.parseLong(competitorId));
+
+          // Store failed attempt for tracking
+          jdbcTemplate.update(
+              "INSERT INTO price_snapshots (competitor_url_id, price, in_stock, checked_at, scraper_version, scraper_source, platform, response_time_ms) "
+                  + "VALUES (?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?)",
+              Long.parseLong(competitorId),
+              java.math.BigDecimal.ZERO, // No price found
+              false, // Assume out of stock
+              scraperVersion,
+              scraperSource,
+              platform,
+              responseTime);
+
+          log.warn("triggerImmediatePriceScraping: Failed to scrape price for competitor {} in {}ms", competitorId, responseTime);
         }
 
         // Mark as recently scraped to prevent immediate re-scraping
         redisTemplate.opsForValue().set(recentScrapeKey, "1", 2, java.util.concurrent.TimeUnit.HOURS);
 
-      } catch (Exception e) {
-        log.error("triggerImmediatePriceScraping: Error scraping {}: {}", url, e.getMessage());
-        throw new RuntimeException("Error scraping URL: " + e.getMessage(), e);
+      } catch (Exception scrapingError) {
+        log.error("triggerImmediatePriceScraping: Critical error scraping competitor {}: {}", competitorId, scrapingError.getMessage(), scrapingError);
+        
+        // Update competitor with error status
+        jdbcTemplate.update(
+            "UPDATE competitor_urls SET status = 'error', error_count = error_count + 1 WHERE id = ?",
+            Long.parseLong(competitorId));
       }
 
     } catch (Exception e) {
-      log.error("triggerImmediatePriceScraping: Error in debug scraping: {}", e.getMessage(), e);
-      throw new RuntimeException("Error in debug scraping: " + e.getMessage(), e);
+      log.error("triggerImmediatePriceScraping: Error in scraping process for competitor {}: {}", competitorId, e.getMessage(), e);
+      throw e; // Re-throw to be handled by caller
     }
   }
 

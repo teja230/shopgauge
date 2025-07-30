@@ -45,6 +45,7 @@ import {
   Visibility as VisibilityIcon,
   Speed as SpeedIcon,
   Timeline as TimelineIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 import marketIntelligenceAdminAPI from '../../api/marketIntelligenceAdmin';
 import type { 
@@ -209,7 +210,15 @@ const CompetitorAdminPanel: React.FC<CompetitorAdminPanelProps> = ({
       setTriggerDebugResult(result);
       setDebugDialogType('trigger-debug');
       setDebugDialogOpen(true);
-      addNotification('Debug scraping triggered successfully', 'success');
+      
+      // Show detailed success/failure message
+      if (result.scrapingSuccess) {
+        addNotification(`✅ Scraping successful! Price: $${result.scrapedPrice}`, 'success');
+      } else if (result.failureReason === 'Amazon blocking detected') {
+        addNotification('⚠️ Amazon is blocking scraping. Manual monitoring may be needed.', 'warning');
+      } else {
+        addNotification('❌ Scraping failed. Check debug details for more info.', 'error');
+      }
     } catch (error) {
       addNotification('Failed to trigger debug scraping', 'error');
       console.error('Error triggering debug scraping:', error);
@@ -231,6 +240,35 @@ const CompetitorAdminPanel: React.FC<CompetitorAdminPanelProps> = ({
     } catch (error) {
       addNotification('Failed to load products debug info', 'error');
       console.error('Error loading products debug info:', error);
+    } finally {
+      setDebugLoading(false);
+    }
+  };
+
+  const handleDeleteCompetitor = async (competitorId: string) => {
+    if (!selectedShopId) return;
+
+    try {
+      setDebugLoading(true);
+      // Call the delete API endpoint
+      const response = await fetch(`/api/competitors/${competitorId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        addNotification('Competitor deleted successfully', 'success');
+        // Refresh the scraping status to update the list
+        await loadScrapingStatus(selectedShopId as number);
+      } else {
+        const errorData = await response.json();
+        addNotification(`Failed to delete competitor: ${errorData.error || 'Unknown error'}`, 'error');
+      }
+    } catch (error) {
+      addNotification('Failed to delete competitor', 'error');
+      console.error('Error deleting competitor:', error);
     } finally {
       setDebugLoading(false);
     }
@@ -303,8 +341,8 @@ const CompetitorAdminPanel: React.FC<CompetitorAdminPanelProps> = ({
           WebkitTextFillColor: 'transparent'
         }}>
           <DebugIcon sx={{ fontSize: 40 }} />
-          Competitor Admin Panel
-        </Typography>
+        Competitor Admin Panel
+      </Typography>
         <Typography variant="body1" color="text.secondary">
           Monitor and manage competitor scraping operations across all shops
         </Typography>
@@ -365,7 +403,7 @@ const CompetitorAdminPanel: React.FC<CompetitorAdminPanelProps> = ({
                       <Chip 
                         label={scrapingStatus.summary.active_status} 
                         color="success" 
-                        size="small"
+                        size="small" 
                         sx={{ fontWeight: 600 }}
                       />
                     </Box>
@@ -374,7 +412,7 @@ const CompetitorAdminPanel: React.FC<CompetitorAdminPanelProps> = ({
                       <Chip 
                         label={scrapingStatus.summary.error_status} 
                         color="error" 
-                        size="small"
+                        size="small" 
                         sx={{ fontWeight: 600 }}
                       />
                     </Box>
@@ -383,7 +421,7 @@ const CompetitorAdminPanel: React.FC<CompetitorAdminPanelProps> = ({
                       <Chip 
                         label={scrapingStatus.summary.due_for_scraping} 
                         color="warning" 
-                        size="small"
+                        size="small" 
                         sx={{ fontWeight: 600 }}
                       />
                     </Box>
@@ -431,7 +469,7 @@ const CompetitorAdminPanel: React.FC<CompetitorAdminPanelProps> = ({
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   Scroll horizontally to see all columns
-                </Typography>
+              </Typography>
               </Box>
               <TableContainer sx={{ borderRadius: 2, overflow: 'auto', maxWidth: '100%' }}>
                 <Table sx={{ minWidth: 1200 }}>
@@ -472,15 +510,20 @@ const CompetitorAdminPanel: React.FC<CompetitorAdminPanelProps> = ({
                           </Tooltip>
                         </TableCell>
                         <TableCell>
-                          <Tooltip title={`Error Count: ${competitor.error_count || 0}`}>
-                            <Chip
-                              icon={getStatusIcon(competitor.scraping_status)}
-                              label={competitor.scraping_status}
-                              color={getStatusColor(competitor.scraping_status) as any}
-                              size="small"
+                          <Tooltip title={`Error Count: ${competitor.error_count || 0} | Status: ${competitor.status || 'unknown'}`}>
+                          <Chip
+                            icon={getStatusIcon(competitor.scraping_status)}
+                            label={competitor.scraping_status}
+                            color={getStatusColor(competitor.scraping_status) as any}
+                            size="small"
                               sx={{ fontWeight: 600 }}
-                            />
+                          />
                           </Tooltip>
+                          {competitor.error_count > 0 && (
+                            <Typography variant="caption" color="error.main" sx={{ display: 'block', mt: 0.5 }}>
+                              {competitor.error_count} error{competitor.error_count > 1 ? 's' : ''}
+                            </Typography>
+                          )}
                         </TableCell>
                         <TableCell>
                           <Chip 
@@ -512,9 +555,9 @@ const CompetitorAdminPanel: React.FC<CompetitorAdminPanelProps> = ({
                         </TableCell>
                         <TableCell>
                           <Box sx={{ display: 'flex', gap: 1 }}>
-                            <Tooltip title="Trigger Scraping">
-                              <IconButton
-                                size="small"
+                          <Tooltip title="Trigger Scraping">
+                            <IconButton
+                              size="small"
                                 sx={{ 
                                   color: 'primary.main',
                                   '&:hover': { 
@@ -522,14 +565,14 @@ const CompetitorAdminPanel: React.FC<CompetitorAdminPanelProps> = ({
                                     color: 'white'
                                   }
                                 }}
-                                onClick={() => {
-                                  setSelectedCompetitor(competitor);
-                                  setTriggerDialogOpen(true);
-                                }}
-                              >
-                                <PlayArrowIcon />
-                              </IconButton>
-                            </Tooltip>
+                              onClick={() => {
+                                setSelectedCompetitor(competitor);
+                                setTriggerDialogOpen(true);
+                              }}
+                            >
+                              <PlayArrowIcon />
+                            </IconButton>
+                          </Tooltip>
                             <Tooltip title="Debug Scraping">
                               <IconButton
                                 size="small"
@@ -544,6 +587,26 @@ const CompetitorAdminPanel: React.FC<CompetitorAdminPanelProps> = ({
                                 disabled={debugLoading}
                               >
                                 <DebugIcon />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Delete Competitor">
+                              <IconButton
+                                size="small"
+                                sx={{ 
+                                  color: 'error.main',
+                                  '&:hover': { 
+                                    backgroundColor: 'error.main',
+                                    color: 'white'
+                                  }
+                                }}
+                                onClick={() => {
+                                  if (window.confirm(`Are you sure you want to delete competitor ID ${competitor.id}?`)) {
+                                    handleDeleteCompetitor(competitor.id.toString());
+                                  }
+                                }}
+                                disabled={debugLoading}
+                              >
+                                <DeleteIcon />
                               </IconButton>
                             </Tooltip>
                           </Box>
@@ -562,8 +625,8 @@ const CompetitorAdminPanel: React.FC<CompetitorAdminPanelProps> = ({
               <CardContent>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                   <Typography variant="h6" sx={{ fontWeight: 600, color: 'primary.main' }}>
-                    Cache Debug Information
-                  </Typography>
+                  Cache Debug Information
+                </Typography>
                   <AdminButton
                     variant="outlined"
                     size="small"
@@ -661,14 +724,14 @@ const CompetitorAdminPanel: React.FC<CompetitorAdminPanelProps> = ({
                 </Typography>
                 <Stack spacing={1}>
                   <Typography variant="body2">
-                    <strong>URL:</strong> {selectedCompetitor.url}
-                  </Typography>
+                <strong>URL:</strong> {selectedCompetitor.url}
+              </Typography>
                   <Typography variant="body2">
-                    <strong>Current Status:</strong> {selectedCompetitor.scraping_status}
-                  </Typography>
+                <strong>Current Status:</strong> {selectedCompetitor.scraping_status}
+              </Typography>
                   <Typography variant="body2">
-                    <strong>Last Check:</strong> {formatDate(selectedCompetitor.last_successful_check)}
-                  </Typography>
+                <strong>Last Check:</strong> {formatDate(selectedCompetitor.last_successful_check)}
+              </Typography>
                 </Stack>
               </Box>
               
