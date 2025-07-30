@@ -440,7 +440,8 @@ const LoadingSpinner: React.FC<{ size?: number; tooltip?: string }> = ({ size = 
 const MobileCompetitorCard: React.FC<{
   competitor: Competitor;
   onDelete: (id: string) => void;
-}> = ({ competitor, onDelete }) => {
+  onViewGraph?: (competitor: Competitor) => void;
+}> = ({ competitor, onDelete, onViewGraph }) => {
   const [expanded, setExpanded] = useState(false);
   const { shop } = useAuth();
 
@@ -616,6 +617,18 @@ const MobileCompetitorCard: React.FC<{
               >
                 Visit Site
               </StyledActionButton>
+              
+              {onViewGraph && (
+                <StyledActionButton
+                  variant="outlined"
+                  color="info"
+                  startIcon={<BarChartIcon />}
+                  onClick={() => onViewGraph(competitor)}
+                  sx={{ flex: 1 }}
+                >
+                  View Graph
+                </StyledActionButton>
+              )}
               
               <StyledActionButton
                 variant="outlined"
@@ -889,6 +902,7 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({
               key={competitor.id}
               competitor={competitor}
               onDelete={onDelete}
+              onViewGraph={onViewGraph}
             />
           ))}
         </Stack>
@@ -916,6 +930,7 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({
                   competitor={competitor}
                   onDelete={onDelete}
                   onLinkProduct={onLinkProduct}
+                  onViewGraph={onViewGraph}
                 />
               ))}
             </TableBody>
