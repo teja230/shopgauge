@@ -1284,9 +1284,9 @@ public class ShopService {
     }
   }
 
-  /** Clean up old inactive sessions - runs daily at 2 AM and 2 PM */
+  /** Clean up old inactive sessions - runs daily at 2:05 AM and 2:05 PM (staggered to avoid conflicts) */
   @Transactional
-  @Scheduled(cron = "0 0 2,14 * * *") // Run twice daily
+  @Scheduled(cron = "0 5 2,14 * * *") // Run twice daily (staggered)
   public void cleanupOldInactiveSessionsScheduled() {
     logger.info("Starting scheduled inactive session cleanup");
     cleanupInactiveSessions();

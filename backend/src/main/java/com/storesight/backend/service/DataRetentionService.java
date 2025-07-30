@@ -66,8 +66,8 @@ public class DataRetentionService {
   @Value("${data.retention.price-snapshots.cleanup-frequency:bi-weekly}")
   private String priceSnapshotCleanupFrequency;
 
-  /** Daily cleanup task - runs at 2 AM */
-  @Scheduled(cron = "0 0 2 * * ?")
+  /** Daily cleanup task - runs at 2:15 AM (staggered to avoid conflicts) */
+  @Scheduled(cron = "0 15 2 * * ?")
   @Transactional
   public void performDailyCleanup() {
     if (!cleanupEnabled) {
