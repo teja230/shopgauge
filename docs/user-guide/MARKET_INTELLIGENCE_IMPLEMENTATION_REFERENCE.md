@@ -38,6 +38,57 @@
 
 ## 🔧 Configuration Reference
 
+### **Competitor Limit Enforcement System**
+
+#### **Overview**
+The competitor limit enforcement ensures users can only track a specific number of active competitors based on their plan. The system uses a unified approach across all operations.
+
+#### **Limit Configuration**
+```properties
+# Plan-Based Competitor Limits
+competitor.limits.current-plan=${COMPETITOR_CURRENT_PLAN_LIMIT:10}
+competitor.limits.basic-tier=${COMPETITOR_BASIC_TIER_LIMIT:25}
+competitor.limits.premium-tier=${COMPETITOR_PREMIUM_TIER_LIMIT:100}
+competitor.limits.enterprise-tier=${COMPETITOR_ENTERPRISE_TIER_LIMIT:500}
+
+# Scraping Limits (Unified with plan limits)
+competitor.scraping.max-urls-per-shop=${COMPETITOR_MAX_URLS_PER_SHOP:10}
+```
+
+#### **Enforcement Points**
+1. **Competitor Addition**: `CompetitorLimitService.checkCompetitorLimit()`
+2. **Price Scraping**: `CompetitorLimitService.checkCompetitorLimit()`
+3. **Limit API**: `CompetitorLimitService.checkCompetitorLimit()`
+
+#### **Implementation Details**
+```java
+// Unified limit check across all operations
+CompetitorLimitService.LimitCheckResult limitCheck = limitService.checkCompetitorLimit(shopId);
+
+if (!limitCheck.isCanAdd()) {
+    throw new CompetitorLimitExceededException(
+        "Competitor limit reached for your plan",
+        limitCheck.getCurrent(),
+        limitCheck.getLimit(),
+        limitCheck.getPlanType().getDisplayName());
+}
+```
+
+#### **Soft-Delete Handling**
+```sql
+-- Only counts active competitors (excludes soft-deleted)
+SELECT COUNT(*) FROM competitor_urls 
+WHERE shop_id = ? AND deleted_at IS NULL
+```
+
+#### **Plan Types**
+| Plan Type | Limit | Display Name | Future Tier |
+|-----------|-------|--------------|-------------|
+| CURRENT | 10 | Current Plan | Basic ($9.99) |
+| BASIC | 25 | Basic Plan | Premium ($29.99) |
+| PREMIUM | 100 | Premium Plan | Enterprise ($49.99) |
+| ENTERPRISE | 500 | Enterprise Plan | Custom |
+
 ### **Current Configuration**
 ```properties
 # Price Scraping - OPTIMIZED FOR $19.99 PLAN
@@ -103,7 +154,18 @@ public class CompetitorDiscoveryService {
 }
 ```
 
-### **3. Plan Configuration System**
+### **3. Competitor Limit Service**
+```java
+@Service
+public class CompetitorLimitService {
+    // Unified limit enforcement across all operations
+    // Plan-based competitor limits (10, 25, 100, 500)
+    // Soft-delete aware counting
+    // Future tier expansion ready
+}
+```
+
+### **4. Plan Configuration System**
 ```java
 @Configuration
 public class PlanConfiguration {
@@ -151,6 +213,34 @@ FROM shop_plans sp
 JOIN competitor_urls cu ON sp.shop_id = cu.shop_id
 WHERE cu.deleted_at IS NULL
 GROUP BY plan_type;
+```
+
+### **Limit Enforcement Monitoring**
+```sql
+-- Check shops approaching limits
+SELECT 
+    shop_id,
+    COUNT(*) as current_competitors,
+    CASE 
+        WHEN COUNT(*) >= 10 THEN 'At Limit'
+        WHEN COUNT(*) >= 8 THEN 'Near Limit'
+        ELSE 'OK'
+    END as limit_status
+FROM competitor_urls 
+WHERE deleted_at IS NULL
+GROUP BY shop_id
+HAVING COUNT(*) >= 8
+ORDER BY current_competitors DESC;
+
+-- Verify soft-delete handling
+SELECT 
+    shop_id,
+    COUNT(*) as total_competitors,
+    COUNT(CASE WHEN deleted_at IS NULL THEN 1 END) as active_competitors,
+    COUNT(CASE WHEN deleted_at IS NOT NULL THEN 1 END) as deleted_competitors
+FROM competitor_urls 
+GROUP BY shop_id
+HAVING COUNT(CASE WHEN deleted_at IS NOT NULL THEN 1 END) > 0;
 ```
 
 ---
@@ -204,6 +294,24 @@ discovery.multi-source.fallback-enabled=true
 # Solution: Optimize timeouts
 price.scraping.timeout-seconds=30
 price.scraping.rate-limit-delay-ms=2000
+```
+
+#### **4. Competitor Limit Issues**
+```properties
+# Solution: Check plan configuration
+competitor.limits.current-plan=10
+competitor.scraping.max-urls-per-shop=10
+
+# Verify soft-delete handling
+SELECT COUNT(*) FROM competitor_urls 
+WHERE shop_id = ? AND deleted_at IS NULL
+```
+
+#### **5. Inconsistent Limit Enforcement**
+```java
+// Ensure all operations use CompetitorLimitService
+CompetitorLimitService.LimitCheckResult limitCheck = limitService.checkCompetitorLimit(shopId);
+// NOT: if (currentCompetitors > maxUrlsPerShop)
 ```
 
 ### **Debug Endpoints**
@@ -266,6 +374,7 @@ GET /api/admin/market-intelligence/competitors/cache-debug
 ### **Backend Files**
 - `PriceScrapingService.java` - Core scraping logic
 - `CompetitorDiscoveryService.java` - Discovery system
+- `CompetitorLimitService.java` - Limit enforcement system
 - `CompetitorController.java` - API endpoints
 - `application.properties` - Configuration
 - `V39-V41__*.sql` - Database migrations
