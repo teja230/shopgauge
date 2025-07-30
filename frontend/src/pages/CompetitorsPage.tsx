@@ -929,10 +929,10 @@ export default function CompetitorsPage() {
           }
         }
         
-        // Start polling for price updates for the new competitor
+        // Start polling for price updates for the new competitor (less aggressive)
         const startPricePolling = async (competitorId: string) => {
           let attempts = 0;
-          const maxAttempts = 10; // Poll for up to 20 seconds (10 * 2s)
+          const maxAttempts = 3; // Only 3 attempts total
           
           const pollForPrice = async () => {
             try {
@@ -964,9 +964,22 @@ export default function CompetitorsPage() {
                 return; // Stop polling
               }
               
-              // If we haven't reached max attempts, continue polling
+              // If we haven't reached max attempts, continue polling with longer intervals
               if (attempts < maxAttempts) {
-                setTimeout(pollForPrice, 2000); // Poll every 2 seconds
+                let nextPollDelay;
+                switch (attempts) {
+                  case 1:
+                    nextPollDelay = 30000; // 30 seconds
+                    break;
+                  case 2:
+                    nextPollDelay = 90000; // 90 seconds
+                    break;
+                  default:
+                    nextPollDelay = 180000; // 180 seconds (3 minutes)
+                    break;
+                }
+                console.log(`Scheduling next poll in ${nextPollDelay / 1000} seconds`);
+                setTimeout(pollForPrice, nextPollDelay);
               } else {
                 console.log('Max polling attempts reached, stopping');
                 // Stop loading state even if no price found
@@ -987,8 +1000,8 @@ export default function CompetitorsPage() {
             }
           };
           
-          // Start polling after a short delay
-          setTimeout(pollForPrice, 2000);
+          // Start polling after initial delay
+          setTimeout(pollForPrice, 30000); // Start after 30 seconds
         };
         
         // Start polling for the new competitor
