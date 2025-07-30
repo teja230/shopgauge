@@ -1501,8 +1501,7 @@ public class CompetitorController {
       competitorId = Long.parseLong(id);
     } catch (NumberFormatException e) {
       logger.error("Restore competitor: Invalid competitor ID format: {}", id);
-      return ResponseEntity.badRequest()
-          .body(Map.of("error", "Invalid competitor ID format"));
+      return ResponseEntity.badRequest().body(Map.of("error", "Invalid competitor ID format"));
     }
 
     try {
@@ -1515,7 +1514,10 @@ public class CompetitorController {
               shopId);
 
       if (competitors.isEmpty()) {
-        logger.warn("Restore competitor: No deleted competitor found with ID {} for shop {}", competitorId, shopId);
+        logger.warn(
+            "Restore competitor: No deleted competitor found with ID {} for shop {}",
+            competitorId,
+            shopId);
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
             .body(Map.of("error", "Competitor not found or not deleted"));
       }
@@ -1587,7 +1589,8 @@ public class CompetitorController {
           Map.of("success", true, "message", "Competitor restored successfully"));
 
     } catch (Exception e) {
-      logger.error("Error restoring competitor {} for shop {}: {}", competitorId, shopId, e.getMessage(), e);
+      logger.error(
+          "Error restoring competitor {} for shop {}: {}", competitorId, shopId, e.getMessage(), e);
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
           .body(Map.of("error", "Failed to restore competitor: " + e.getMessage()));
     }

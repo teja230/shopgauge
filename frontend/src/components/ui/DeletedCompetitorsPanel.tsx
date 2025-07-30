@@ -120,6 +120,16 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
     history: []
   });
 
+  const [permanentDeleteDialog, setPermanentDeleteDialog] = useState<{
+    open: boolean;
+    competitorId: string | null;
+    competitorLabel: string;
+  }>({
+    open: false,
+    competitorId: null,
+    competitorLabel: ''
+  });
+
   const notifications = useNotifications();
 
   useEffect(() => {
@@ -227,31 +237,39 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
     }
   };
 
-  const handlePermanentDelete = async (competitorId: string) => {
-    if (!window.confirm('Are you sure you want to permanently delete this competitor? This action cannot be undone.')) {
-      return;
-    }
+  const handlePermanentDelete = async (competitor: DeletedCompetitor) => {
+    setPermanentDeleteDialog({
+      open: true,
+      competitorId: competitor.id,
+      competitorLabel: competitor.label || 'Unnamed Competitor'
+    });
+  };
+
+  const confirmPermanentDelete = async () => {
+    if (!permanentDeleteDialog.competitorId) return;
 
     try {
       if (shopId === 'demo') {
         // Demo mode - simulate permanent delete
         await new Promise(resolve => setTimeout(resolve, 500));
-        setDeletedCompetitors(prev => prev.filter(c => c.id !== competitorId));
+        setDeletedCompetitors(prev => prev.filter(c => c.id !== permanentDeleteDialog.competitorId));
         notifications.showSuccess('Competitor permanently deleted');
       } else {
-        const response = await fetchWithAuth(`/api/competitors/${competitorId}/permanent`, {
+        const response = await fetchWithAuth(`/api/competitors/${permanentDeleteDialog.competitorId}/permanent`, {
           method: 'DELETE'
         });
         
         const data = await response.json();
         if (data.success) {
-          setDeletedCompetitors(prev => prev.filter(c => c.id !== competitorId));
+          setDeletedCompetitors(prev => prev.filter(c => c.id !== permanentDeleteDialog.competitorId));
           notifications.showSuccess('Competitor permanently deleted');
         }
       }
     } catch (error) {
       console.error('Error permanently deleting competitor:', error);
       notifications.showError('Failed to permanently delete competitor');
+    } finally {
+      setPermanentDeleteDialog({ open: false, competitorId: null, competitorLabel: '' });
     }
   };
 
@@ -455,7 +473,7 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
                         <IconButton
                           size="small"
                           color="error"
-                          onClick={() => handlePermanentDelete(competitor.id)}
+                          onClick={() => handlePermanentDelete(competitor)}
                           sx={{ minWidth: 36, minHeight: 36 }}
                         >
                           <DeleteIcon fontSize="small" />
@@ -492,6 +510,48 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
             disabled={restoring !== null}
           >
             {restoring ? 'Restoring...' : 'Restore'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Permanent Delete Confirmation Dialog */}
+      <Dialog open={permanentDeleteDialog.open} onClose={() => setPermanentDeleteDialog({ open: false, competitorId: null, competitorLabel: '' })}>
+        <DialogTitle sx={{ color: '#dc2626', fontWeight: 600 }}>
+          Permanently Delete Competitor
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Are you sure you want to permanently delete "{permanentDeleteDialog.competitorLabel}"?
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ 
+            backgroundColor: '#fef2f2', 
+            border: '1px solid #fecaca', 
+            borderRadius: 1, 
+            p: 2,
+            color: '#dc2626'
+          }}>
+            ⚠️ This action cannot be undone. The competitor and all associated price history will be permanently removed.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => setPermanentDeleteDialog({ open: false, competitorId: null, competitorLabel: '' })}
+            color="inherit"
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={confirmPermanentDelete} 
+            variant="contained" 
+            color="error"
+            sx={{ 
+              backgroundColor: '#dc2626',
+              '&:hover': {
+                backgroundColor: '#b91c1c'
+              }
+            }}
+          >
+            Permanently Delete
           </Button>
         </DialogActions>
       </Dialog>
