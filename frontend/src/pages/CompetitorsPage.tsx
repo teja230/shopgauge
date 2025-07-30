@@ -2490,18 +2490,24 @@ export default function CompetitorsPage() {
               )}
             </div>
           ) : (
-            <div className="overflow-x-auto competitor-table">
-              <CompetitorTable 
-                data={filteredCompetitors} 
-                onDelete={handleDelete} 
-                onLinkProduct={handleLinkProduct}
-                onViewGraph={(competitor) => {
-                  setSelectedCompetitorForGraph(competitor);
-                  setShowGraphView(true);
-                }}
-              />
-                         </div>
-           )}
+            <div>
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Active Competitors</h3>
+                <p className="text-sm text-gray-600">Monitor and manage your current market competitors</p>
+              </div>
+              <div className="overflow-x-auto competitor-table">
+                <CompetitorTable 
+                  data={filteredCompetitors} 
+                  onDelete={handleDelete} 
+                  onLinkProduct={handleLinkProduct}
+                  onViewGraph={(competitor) => {
+                    setSelectedCompetitorForGraph(competitor);
+                    setShowGraphView(true);
+                  }}
+                />
+              </div>
+            </div>
+          )}
            
            {/* Deleted Competitors Panel */}
            {showDeletedCompetitors && (
