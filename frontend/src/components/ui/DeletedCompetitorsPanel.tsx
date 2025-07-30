@@ -207,7 +207,7 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
       } else {
         const response = await fetchWithAuth(`/api/competitors/${restoreDialog.competitor.id}/restore`, {
           method: 'POST',
-          body: JSON.stringify({})
+          body: JSON.stringify({ label: restoreDialog.competitor.label })
         });
         
         const data = await response.json();
