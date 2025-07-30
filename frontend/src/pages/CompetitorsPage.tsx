@@ -4,6 +4,7 @@ import type { Competitor } from '../components/ui/CompetitorTable';
 import { SuggestionDrawer } from '../components/ui/SuggestionDrawer';
 import { ProductAssociationModal } from '../components/ui/ProductAssociationModal';
 import { ProductSelector } from '../components/ui/ProductSelector';
+import { DeletedCompetitorsPanel } from '../components/ui/DeletedCompetitorsPanel';
 import { 
   getCompetitors, 
   deleteCompetitor,
@@ -29,6 +30,7 @@ import {
   CogIcon,
   InformationCircleIcon,
   XMarkIcon,
+  ArchiveBoxIcon,
 } from '@heroicons/react/24/outline';
 import { useNotifications } from '../hooks/useNotifications';
 import { useNotificationSettings } from '../context/NotificationSettingsContext';
@@ -607,6 +609,13 @@ export default function CompetitorsPage() {
     open: false,
     competitor: null,
   });
+  
+  // Deleted competitors panel state
+  const [showDeletedCompetitors, setShowDeletedCompetitors] = useState(false);
+  
+  // Graph view state
+  const [showGraphView, setShowGraphView] = useState(false);
+  const [selectedCompetitorForGraph, setSelectedCompetitorForGraph] = useState<Competitor | null>(null);
   
   // Refs to prevent unnecessary re-renders and API calls
   const lastFetchTimeRef = useRef<number>(0);
@@ -2148,6 +2157,40 @@ export default function CompetitorsPage() {
                 )}
                 {isAdding ? 'Adding...' : 'Add'}
               </button>
+
+              {/* Deleted Competitors Button */}
+              <button
+                onClick={() => setShowDeletedCompetitors(!showDeletedCompetitors)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-md ${
+                  showDeletedCompetitors 
+                    ? 'bg-orange-600 text-white hover:bg-orange-700' 
+                    : 'bg-gray-600 text-white hover:bg-gray-700'
+                }`}
+                title="View and restore deleted competitors"
+              >
+                <ArchiveBoxIcon className="h-4 w-4" />
+                Deleted
+              </button>
+
+              {/* Graph View Button */}
+              <button
+                onClick={() => {
+                  if (filteredCompetitors.length > 0) {
+                    setSelectedCompetitorForGraph(filteredCompetitors[0]);
+                    setShowGraphView(true);
+                  }
+                }}
+                disabled={filteredCompetitors.length === 0}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-md ${
+                  filteredCompetitors.length === 0
+                    ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                }`}
+                title="View price history graphs"
+              >
+                <ChartBarIcon className="h-4 w-4" />
+                Graph
+              </button>
             </div>
           </div>
 
@@ -2453,6 +2496,54 @@ export default function CompetitorsPage() {
           )}
         </div>
       </div>
+      
+      {/* Deleted Competitors Panel */}
+      {showDeletedCompetitors && (
+        <div className="mt-8">
+          <DeletedCompetitorsPanel shopId={shop || 'demo'} />
+        </div>
+      )}
+      
+      {/* Graph View Modal */}
+      {showGraphView && selectedCompetitorForGraph && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-xl p-6 max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-semibold text-gray-900">
+                Price History: {selectedCompetitorForGraph.label}
+              </h3>
+              <button
+                onClick={() => {
+                  setShowGraphView(false);
+                  setSelectedCompetitorForGraph(null);
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <XMarkIcon className="h-6 w-6" />
+              </button>
+            </div>
+            
+            <div className="bg-gray-50 rounded-lg p-4 mb-4">
+              <p className="text-sm text-gray-600">
+                Price history graph for {selectedCompetitorForGraph.label} over the last 90 days.
+                This feature shows price trends and helps identify patterns in competitor pricing.
+              </p>
+            </div>
+            
+            {/* Placeholder for graph component */}
+            <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
+              <ChartBarIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+              <h4 className="text-lg font-medium text-gray-900 mb-2">Price History Graph</h4>
+              <p className="text-gray-500 mb-4">
+                Interactive price history visualization coming soon!
+              </p>
+              <div className="text-sm text-gray-400">
+                This will show price trends, significant changes, and market patterns.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       
       <SuggestionDrawer
         isOpen={showSuggestions}

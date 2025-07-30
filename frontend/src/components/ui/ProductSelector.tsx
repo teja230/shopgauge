@@ -65,8 +65,8 @@ export const ProductSelector: React.FC<ProductSelectorProps> = ({
     setError(null);
 
     try {
-      // Use the same endpoint as ProductAssociationModal
-      const response = await fetchWithAuth(`/api/competitors/products`, {
+      // Use the correct products endpoint
+      const response = await fetchWithAuth(`/api/products`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -75,9 +75,9 @@ export const ProductSelector: React.FC<ProductSelectorProps> = ({
 
       if (response.ok) {
         const data = await response.json();
-        setProducts(data.products || []);
+        setProducts(data.products || data || []);
         
-        if (!data.products || data.products.length === 0) {
+        if (!data.products && !data.length) {
           setError('No products found in your store. Please add products to your Shopify store first.');
         }
       } else {
