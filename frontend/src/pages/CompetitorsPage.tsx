@@ -928,18 +928,72 @@ export default function CompetitorsPage() {
           }
         }
         
-        // Refresh data to show the new competitor with price information
-        setTimeout(async () => {
-          try {
-            await fetchData(true); // Force refresh to get updated price data
-          } catch (refreshError) {
-            // Don't show error for refresh - just log it
-            console.log('Data refresh after competitor addition failed:', refreshError);
-            debugLog.warn('Data refresh after competitor addition failed', {
-              error: refreshError instanceof Error ? refreshError.message : String(refreshError)
-            }, 'CompetitorsPage');
-          }
-        }, 2000); // Wait 2 seconds for backend scraping to complete
+        // Start polling for price updates for the new competitor
+        const startPricePolling = async (competitorId: string) => {
+          let attempts = 0;
+          const maxAttempts = 10; // Poll for up to 20 seconds (10 * 2s)
+          
+          const pollForPrice = async () => {
+            try {
+              attempts++;
+              console.log(`Polling for price update, attempt ${attempts}/${maxAttempts}`);
+              
+              // Fetch fresh competitor data
+              await fetchData(true);
+              
+              // Check if the new competitor has a price by looking at current state
+              setCompetitors(prev => {
+                const updatedCompetitor = prev.find(c => c.id === competitorId);
+                if (updatedCompetitor && updatedCompetitor.price > 0) {
+                  console.log('Price found, stopping polling');
+                  // Update the competitor's loading state
+                  return prev.map(c => 
+                    c.id === competitorId 
+                      ? { ...c, priceLoading: false }
+                      : c
+                  );
+                }
+                return prev; // No changes needed
+              });
+              
+              // Check if we should stop polling
+              const currentCompetitor = competitors.find(c => c.id === competitorId);
+              if (currentCompetitor && currentCompetitor.price > 0) {
+                console.log('Price found, stopping polling');
+                return; // Stop polling
+              }
+              
+              // If we haven't reached max attempts, continue polling
+              if (attempts < maxAttempts) {
+                setTimeout(pollForPrice, 2000); // Poll every 2 seconds
+              } else {
+                console.log('Max polling attempts reached, stopping');
+                // Stop loading state even if no price found
+                setCompetitors(prev => prev.map(c => 
+                  c.id === competitorId 
+                    ? { ...c, priceLoading: false }
+                    : c
+                ));
+              }
+            } catch (error) {
+              console.log('Error during price polling:', error);
+              // Stop loading state on error
+              setCompetitors(prev => prev.map(c => 
+                c.id === competitorId 
+                  ? { ...c, priceLoading: false }
+                  : c
+              ));
+            }
+          };
+          
+          // Start polling after a short delay
+          setTimeout(pollForPrice, 2000);
+        };
+        
+        // Start polling for the new competitor
+        if (newCompetitor?.id) {
+          startPricePolling(newCompetitor.id);
+        }
         
         // Clear form and close after success
         setUrl('');
