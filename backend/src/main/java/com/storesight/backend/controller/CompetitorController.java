@@ -1568,6 +1568,16 @@ public class CompetitorController {
             newLabel,
             competitorId);
         logger.info("Restore: Triggering immediate scraping for competitor {}", competitorId);
+
+        // Get the competitor URL for immediate scraping
+        List<Map<String, Object>> competitorData =
+            jdbcTemplate.queryForList("SELECT url FROM competitor_urls WHERE id = ?", competitorId);
+
+        if (!competitorData.isEmpty()) {
+          String url = (String) competitorData.get(0).get("url");
+          // Trigger immediate price scraping
+          triggerImmediatePriceScraping(String.valueOf(competitorId), url, shopId);
+        }
       } else {
         // Keep the existing last_successful_check to respect the 24-hour schedule
         jdbcTemplate.update(
