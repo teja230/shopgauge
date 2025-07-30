@@ -2344,7 +2344,7 @@ export default function CompetitorsPage() {
                   )}
                 </div>
 
-                <div className="flex-1">
+                <div className="w-full sm:w-64">
                   <ProductSelector
                     value={productId}
                     onChange={setProductId}
