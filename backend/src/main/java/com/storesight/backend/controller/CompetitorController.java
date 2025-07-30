@@ -638,6 +638,9 @@ public class CompetitorController {
         String platform = identifyPlatform(request.url);
         String domain = extractDomain(request.url);
         
+        logger.info("addCompetitor: Reactivating - Extracted platform: '{}', domain: '{}' from URL: {}", 
+            platform, domain, request.url);
+        
         rowsAffected = jdbcTemplate.update(
             "UPDATE competitor_urls SET deleted_at = NULL, label = ?, platform = ?, domain = ?, shopify_product_id = ? WHERE id = ?",
             label, platform, domain, productId, Long.parseLong(competitorId));
@@ -656,6 +659,9 @@ public class CompetitorController {
         
         String platform = identifyPlatform(request.url);
         String domain = extractDomain(request.url);
+        
+        logger.info("addCompetitor: New competitor - Extracted platform: '{}', domain: '{}' from URL: {}", 
+            platform, domain, request.url);
 
         if (productId != null) {
           rowsAffected =
@@ -3221,17 +3227,17 @@ public class CompetitorController {
   /** Identify platform from URL */
   private String identifyPlatform(String url) {
     String lowerUrl = url.toLowerCase();
-    if (lowerUrl.contains("amazon.com")) {
+    if (lowerUrl.contains("amazon.")) {
       return "amazon";
-    } else if (lowerUrl.contains("walmart.com")) {
+    } else if (lowerUrl.contains("walmart.")) {
       return "walmart";
-    } else if (lowerUrl.contains("target.com")) {
+    } else if (lowerUrl.contains("target.")) {
       return "target";
-    } else if (lowerUrl.contains("bestbuy.com")) {
+    } else if (lowerUrl.contains("bestbuy.")) {
       return "bestbuy";
-    } else if (lowerUrl.contains("ebay.com")) {
+    } else if (lowerUrl.contains("ebay.")) {
       return "ebay";
-    } else if (lowerUrl.contains("etsy.com")) {
+    } else if (lowerUrl.contains("etsy.")) {
       return "etsy";
     } else if (lowerUrl.contains("shopify") || lowerUrl.contains("myshopify.com")) {
       return "shopify";
