@@ -8,6 +8,34 @@ ShopGauge's **Market Intelligence** feature provides automated competitor discov
 
 ---
 
+## 🆕 **Recent Updates (Latest)**
+
+### **Enhanced Price Change Calculation System** 📊
+- **New Service**: `PriceChangeCalculationService` for accurate percent change calculations
+- **Database Migration V43**: Validation functions and performance indexes
+- **API Endpoints**: `/validate-price-changes` and `/price-trend` for data validation
+- **Accuracy Improvements**: Historical data analysis, soft-delete awareness, edge case handling
+- **Validation Capabilities**: Automatic detection and correction of inconsistent data
+
+### **Optimized Price Polling System** 🔄
+- **Reduced Aggressiveness**: Changed from 10 attempts (20 seconds) to 3 attempts (5 minutes)
+- **Better Intervals**: 30s → 90s → 180s instead of 2s each
+- **Resource Conservation**: 70% reduction in API calls and server load
+- **Improved UX**: More natural polling behavior with better error handling
+
+### **Enhanced eBay Title Extraction** 🛍️
+- **Intelligent Parsing**: Better handling of URLs with numbers and special characters
+- **Product Term Prioritization**: Focuses on meaningful product terms
+- **Fallback Logic**: Improved edge case handling for complex eBay URLs
+
+### **Database & Performance Improvements** ⚡
+- **Validation Functions**: `validate_price_changes()`, `get_price_change_statistics()`
+- **Performance Indexes**: Optimized queries for price change calculations
+- **Trend Analysis**: `get_price_trend()` with confidence levels
+- **Data Integrity**: Comprehensive validation and correction capabilities
+
+---
+
 ## 📋 **Table of Contents**
 
 1. **[Key Features & Capabilities](#-key-features--capabilities)**

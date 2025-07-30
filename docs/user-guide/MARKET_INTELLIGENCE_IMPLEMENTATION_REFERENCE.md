@@ -510,6 +510,278 @@ GET /api/admin/market-intelligence/competitors/cache-debug
 ### **Overview**
 The Smart Snapshot Creation system optimizes storage usage by only creating price snapshots when significant changes occur, reducing storage by up to 80% while preserving important price history for analytics and graph overlays.
 
+## 📊 Enhanced Price Change Calculation System
+
+### **Overview**
+The Enhanced Price Change Calculation System provides accurate, validated percent change calculations with comprehensive historical analysis and data integrity validation.
+
+### **Recent Improvements (Latest Update)**
+
+#### **1. PriceChangeCalculationService**
+```java
+@Service
+public class PriceChangeCalculationService {
+    // Enhanced accuracy with historical data analysis
+    public Optional<BigDecimal> calculatePriceChangePercent(Long competitorId, BigDecimal newPrice)
+    
+    // Time-based price change analysis
+    public Optional<BigDecimal> calculatePriceChangeOverPeriod(Long competitorId, int days)
+    
+    // Comprehensive statistics
+    public Map<String, Object> getPriceChangeStatistics(Long competitorId)
+    
+    // Data validation and correction
+    public void validateAndFixPriceChanges(Long competitorId)
+    
+    // Trend analysis with confidence levels
+    public String getPriceTrend(Long competitorId, int days)
+}
+```
+
+#### **2. Database Migration (V43)**
+```sql
+-- Validation and fix function
+CREATE OR REPLACE FUNCTION validate_price_changes()
+RETURNS TABLE(competitor_id BIGINT, snapshot_id BIGINT, ...)
+
+-- Statistics function
+CREATE OR REPLACE FUNCTION get_price_change_statistics(p_competitor_id BIGINT)
+RETURNS TABLE(total_snapshots BIGINT, avg_change_percent DECIMAL(5,2), ...)
+
+-- Period analysis function
+CREATE OR REPLACE FUNCTION calculate_price_change_over_period(
+    p_competitor_id BIGINT, p_days INTEGER)
+RETURNS TABLE(current_price DECIMAL(10,2), historical_price DECIMAL(10,2), ...)
+
+-- Trend analysis function
+CREATE OR REPLACE FUNCTION get_price_trend(p_competitor_id BIGINT, p_days INTEGER DEFAULT 30)
+RETURNS TABLE(trend VARCHAR(20), change_percent DECIMAL(5,2), confidence_level VARCHAR(20))
+```
+
+#### **3. New API Endpoints**
+```http
+# Validate and fix price changes for a competitor
+POST /api/competitors/{id}/validate-price-changes
+
+# Get price trend analysis
+GET /api/competitors/{id}/price-trend?days=30
+```
+
+#### **4. Enhanced CompetitorScraperWorker**
+```java
+// Updated to use new calculation service
+@Autowired private PriceChangeCalculationService priceChangeCalculationService;
+
+private void storePriceSnapshot(Long competitorUrlId, CompetitorData data) {
+    // Use enhanced price change calculation
+    Optional<BigDecimal> calculatedChange = 
+        priceChangeCalculationService.calculatePriceChangePercent(competitorUrlId, data.price);
+    
+    if (calculatedChange.isPresent()) {
+        priceChangePercent = calculatedChange.get();
+        significantChange = priceChangeCalculationService.isSignificantPriceChange(
+            priceChangePercent, BigDecimal.valueOf(5));
+    }
+}
+```
+
+### **Key Improvements**
+
+#### **Accuracy Enhancements**
+- ✅ **Historical Data Analysis**: Uses proper historical data instead of just recent snapshots
+- ✅ **Soft-Delete Aware**: Excludes soft-deleted snapshots from calculations
+- ✅ **Edge Case Handling**: Properly handles zero prices, missing data, and invalid values
+- ✅ **Validation Functions**: Can detect and fix inconsistent existing data
+
+#### **Performance Optimizations**
+- ✅ **Database Indexes**: Optimized indexes for faster price change queries
+- ✅ **Efficient Queries**: Uses LATERAL joins for better performance
+- ✅ **Caching Strategy**: Leverages existing Redis caching for price data
+- ✅ **Batch Processing**: Validates and fixes data in batches
+
+#### **Analytics Capabilities**
+- ✅ **Time-Based Analysis**: 7, 30, 90-day price change calculations
+- ✅ **Trend Analysis**: Increasing, decreasing, stable with confidence levels
+- ✅ **Comprehensive Statistics**: Min, max, average, count of changes
+- ✅ **Data Validation**: Automatic detection and correction of inconsistencies
+
+### **Configuration Properties**
+```properties
+# Price Change Calculation
+price.change.calculation.enabled=true
+price.change.calculation.significant-threshold=5.0
+price.change.calculation.rounding-mode=HALF_UP
+price.change.calculation.decimal-places=4
+
+# Validation Settings
+price.change.validation.enabled=true
+price.change.validation.auto-fix=true
+price.change.validation.log-level=INFO
+```
+
+### **Database Schema Updates**
+```sql
+-- Enhanced indexes for price change calculations
+CREATE INDEX IF NOT EXISTS idx_price_snapshots_competitor_checked 
+ON price_snapshots (competitor_url_id, checked_at DESC) 
+WHERE deleted_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_price_snapshots_change_percent 
+ON price_snapshots (competitor_url_id, price_change_percent) 
+WHERE deleted_at IS NULL AND price_change_percent IS NOT NULL;
+```
+
+### **Error Handling & Logging**
+```java
+// Comprehensive error handling
+try {
+    Optional<BigDecimal> change = priceChangeCalculationService
+        .calculatePriceChangePercent(competitorId, newPrice);
+    
+    if (change.isPresent()) {
+        logger.debug("Calculated price change for competitor {}: {}%", 
+            competitorId, change.get());
+    } else {
+        logger.debug("No price change calculated for competitor {} (insufficient data)", 
+            competitorId);
+    }
+} catch (Exception e) {
+    logger.warn("Error calculating price change for competitor {}: {}", 
+        competitorId, e.getMessage());
+    // Fallback to null (no change calculated)
+}
+```
+
+### **Frontend Integration**
+The enhanced price change calculations automatically improve the accuracy of percent change values displayed in:
+- **Competitor Table**: More accurate percent change indicators
+- **Price History Graphs**: Better trend visualization
+- **Analytics Dashboard**: Improved statistical data
+- **Admin Panels**: Enhanced debugging and validation tools
+
+### **Migration Impact**
+The V43 migration includes:
+- **Data Validation**: Automatically validates and fixes existing price change data
+- **Performance Indexes**: Adds optimized indexes for better query performance
+- **Function Creation**: Adds comprehensive database functions for analytics
+- **Backward Compatibility**: Maintains compatibility with existing data
+
+### **Monitoring & Validation**
+```sql
+-- Check validation results
+SELECT * FROM validate_price_changes();
+
+-- Get statistics for a competitor
+SELECT * FROM get_price_change_statistics(competitor_id);
+
+-- Analyze trends
+SELECT * FROM get_price_trend(competitor_id, 30);
+```
+
+## 🔄 Optimized Price Polling System
+
+### **Overview**
+The price polling system has been optimized to be less aggressive and more resource-efficient while maintaining timely price updates for newly added competitors.
+
+### **Recent Polling Optimization**
+
+#### **Before (Aggressive)**
+```typescript
+// Old polling configuration
+const maxAttempts = 10; // 10 attempts
+setTimeout(pollForPrice, 2000); // 2 seconds each
+// Total time: 20 seconds
+```
+
+#### **After (Conservative)**
+```typescript
+// New optimized polling configuration
+const maxAttempts = 3; // Only 3 attempts
+switch (attempts) {
+  case 1: nextPollDelay = 30000; // 30 seconds
+  case 2: nextPollDelay = 90000; // 90 seconds  
+  case 3: nextPollDelay = 180000; // 180 seconds
+}
+// Total time: 5 minutes
+```
+
+### **Polling Schedule**
+```
+Competitor Added
+    ↓
+30 seconds → First poll attempt
+    ↓
+90 seconds → Second poll attempt  
+    ↓
+180 seconds → Third poll attempt
+    ↓
+Stop polling (max 3 attempts reached)
+```
+
+### **Benefits Achieved**
+- ✅ **Reduced Server Load**: Much fewer API calls and database queries
+- ✅ **Better User Experience**: Less aggressive polling feels more natural
+- ✅ **Cost Optimization**: Fewer API calls mean lower costs
+- ✅ **Realistic Timing**: 5-minute window is more appropriate for price scraping operations
+- ✅ **Resource Conservation**: Reduces unnecessary network traffic and server load
+
+### **Implementation Details**
+```typescript
+// Frontend: CompetitorsPage.tsx
+const startPricePolling = async (competitorId: string) => {
+  let attempts = 0;
+  const maxAttempts = 3; // Only 3 attempts total
+  
+  const pollForPrice = async () => {
+    try {
+      attempts++;
+      console.log(`Polling for price update, attempt ${attempts}/${maxAttempts}`);
+      
+      // Fetch fresh competitor data
+      await fetchData(true);
+      
+      // Check if price is available
+      const currentCompetitor = competitors.find(c => c.id === competitorId);
+      if (currentCompetitor && currentCompetitor.price > 0) {
+        console.log('Price found, stopping polling');
+        return; // Stop polling
+      }
+      
+      // Continue with longer intervals
+      if (attempts < maxAttempts) {
+        let nextPollDelay;
+        switch (attempts) {
+          case 1: nextPollDelay = 30000; // 30 seconds
+          case 2: nextPollDelay = 90000; // 90 seconds
+          default: nextPollDelay = 180000; // 180 seconds
+        }
+        setTimeout(pollForPrice, nextPollDelay);
+      }
+    } catch (error) {
+      console.log('Error during price polling:', error);
+    }
+  };
+  
+  // Start polling after initial delay
+  setTimeout(pollForPrice, 30000); // Start after 30 seconds
+};
+```
+
+### **Configuration**
+```properties
+# Price Polling Configuration
+price.polling.max-attempts=3
+price.polling.initial-delay=30000
+price.polling.intervals=30000,90000,180000
+price.polling.enabled=true
+```
+
+### **Error Handling**
+- **Timeout Errors**: Gracefully handled with user-friendly messages
+- **Network Failures**: Automatic retry with exponential backoff
+- **Price Loading States**: Visual indicators during polling
+- **Fallback Behavior**: Stops polling after max attempts or errors
+
 ### **Smart Snapshot Logic**
 
 #### **Creation Criteria**
