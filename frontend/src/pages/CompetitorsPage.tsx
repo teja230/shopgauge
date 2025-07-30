@@ -2500,19 +2500,23 @@ export default function CompetitorsPage() {
                   setShowGraphView(true);
                 }}
               />
-            </div>
-          )}
-        </div>
-      </div>
-      
-      {/* Deleted Competitors Panel */}
-      {showDeletedCompetitors && (
-        <div className="mt-8 deleted-competitors-panel">
-          <div className="overflow-x-auto competitor-table">
-            <DeletedCompetitorsPanel shopId={isDemoMode ? 'demo' : (shop || 'demo')} />
-          </div>
-        </div>
-      )}
+                         </div>
+           )}
+           
+           {/* Deleted Competitors Panel */}
+           {showDeletedCompetitors && (
+             <div className="mt-6">
+               <div className="mb-4">
+                 <h3 className="text-lg font-semibold text-gray-900 mb-2">Deleted Competitors</h3>
+                 <p className="text-sm text-gray-600">Restore or permanently delete removed competitors</p>
+               </div>
+               <div className="overflow-x-auto competitor-table">
+                 <DeletedCompetitorsPanel shopId={isDemoMode ? 'demo' : (shop || 'demo')} />
+               </div>
+             </div>
+           )}
+         </div>
+       </div>
       
       {/* Graph View Modal */}
       {showGraphView && selectedCompetitorForGraph && (
