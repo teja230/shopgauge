@@ -2513,7 +2513,7 @@ public class CompetitorController {
     }
   }
 
-  /** Clean and format the extracted title */
+  /** Clean and format the extracted title with improved formatting */
   private String cleanTitle(String title) {
     if (title == null || title.trim().isEmpty()) {
       return null;
@@ -2525,17 +2525,93 @@ public class CompetitorController {
     title = title.replaceAll("\\s+", " ").trim(); // Normalize whitespace
 
     // Remove common store names from title
-    String[] storeNames = {"amazon", "shopify", "etsy", "ebay", "walmart", "target"};
+    String[] storeNames = {"amazon", "shopify", "etsy", "ebay", "walmart", "target", "bestbuy"};
     for (String store : storeNames) {
       title = title.replaceAll("(?i)\\b" + store + "\\b", "").trim();
     }
 
-    // Limit length
-    if (title.length() > 100) {
-      title = title.substring(0, 97) + "...";
+    // Apply intelligent formatting
+    title = formatProductTitle(title);
+
+    // Limit length to 60 characters for better UI display
+    if (title.length() > 60) {
+      title = title.substring(0, 57) + "...";
     }
 
     return title.isEmpty() ? null : title;
+  }
+
+  /** Format product title with intelligent capitalization and structure */
+  private String formatProductTitle(String title) {
+    if (title == null || title.trim().isEmpty()) {
+      return title;
+    }
+
+    // Split into words and apply intelligent capitalization
+    String[] words = title.split("\\s+");
+    StringBuilder formatted = new StringBuilder();
+
+    for (int i = 0; i < words.length; i++) {
+      String word = words[i].toLowerCase();
+      
+      // Skip empty words
+      if (word.isEmpty()) continue;
+
+      // Capitalize first letter of each word
+      if (word.length() > 0) {
+        word = word.substring(0, 1).toUpperCase() + word.substring(1);
+      }
+
+      // Special handling for common product terms
+      word = formatProductTerm(word);
+
+      formatted.append(word);
+      if (i < words.length - 1) {
+        formatted.append(" ");
+      }
+    }
+
+    return formatted.toString().trim();
+  }
+
+  /** Format common product terms for better readability */
+  private String formatProductTerm(String word) {
+    // Common product specifications that should be uppercase
+    String[] uppercaseTerms = {
+      "gb", "tb", "mb", "gb", "tb", "mb", "gb", "tb", "mb", "gb", "tb", "mb",
+      "hd", "4k", "8k", "1080p", "720p", "wifi", "bluetooth", "usb", "hdmi",
+      "vga", "dvi", "dp", "thunderbolt", "lightning", "type-c", "type-c",
+      "oled", "lcd", "led", "ips", "va", "tn", "amd", "intel", "nvidia",
+      "apple", "samsung", "sony", "lg", "dell", "hp", "lenovo", "asus",
+      "acer", "msi", "gigabyte", "corsair", "logitech", "razer", "steelseries"
+    };
+
+    // Common words that should remain lowercase
+    String[] lowercaseTerms = {
+      "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for",
+      "of", "with", "by", "from", "up", "about", "into", "through", "during",
+      "before", "after", "above", "below", "between", "among", "within",
+      "without", "against", "toward", "towards", "upon", "over", "under",
+      "inch", "inches", "foot", "feet", "cm", "mm", "kg", "lb", "lbs"
+    };
+
+    String lowerWord = word.toLowerCase();
+
+    // Check for uppercase terms
+    for (String term : uppercaseTerms) {
+      if (lowerWord.equals(term)) {
+        return word.toUpperCase();
+      }
+    }
+
+    // Check for lowercase terms (except first word)
+    for (String term : lowercaseTerms) {
+      if (lowerWord.equals(term)) {
+        return word.toLowerCase();
+      }
+    }
+
+    return word;
   }
 
   /** Helper method to extract Amazon product title from URL */
@@ -2594,7 +2670,7 @@ public class CompetitorController {
     }
   }
 
-  /** Helper method to extract Best Buy product title from URL */
+  /** Helper method to extract Best Buy product title from URL with intelligent formatting */
   private String extractBestBuyTitle(String url) {
     try {
       // URL slug extraction for Best Buy
@@ -2606,13 +2682,64 @@ public class CompetitorController {
           String productPath = parts[1].split("\\?")[0];
           // Remove SKU and convert to title case
           String productName = productPath.split("/")[0];
-          return cleanTitle(productName.replace("-", " ").replace("_", " "));
+          
+          // Extract key product information more intelligently
+          String formattedTitle = formatBestBuyTitle(productName);
+          return cleanTitle(formattedTitle);
         }
       }
       return extractTitleFromUrl(url);
     } catch (Exception e) {
       logger.debug("extractBestBuyTitle: Error extracting title from URL: {}", e.getMessage());
       return extractTitleFromUrl(url);
+    }
+  }
+
+  /** Format Best Buy product title to extract key information */
+  private String formatBestBuyTitle(String productName) {
+    if (productName == null || productName.trim().isEmpty()) {
+      return productName;
+    }
+
+    // Replace hyphens with spaces
+    String title = productName.replace("-", " ").replace("_", " ");
+
+    // Extract key product components
+    String[] words = title.split("\\s+");
+    StringBuilder keyInfo = new StringBuilder();
+    
+    // Common product patterns to prioritize
+    String[] priorityTerms = {
+      "macbook", "air", "pro", "laptop", "computer", "desktop", "tablet", "phone",
+      "iphone", "ipad", "apple", "samsung", "sony", "lg", "dell", "hp", "lenovo",
+      "tv", "television", "monitor", "display", "speaker", "headphone", "camera",
+      "gaming", "console", "playstation", "xbox", "nintendo", "switch"
+    };
+
+    // Build title with priority terms first
+    for (String word : words) {
+      String lowerWord = word.toLowerCase();
+      
+      // Check if this is a priority term
+      boolean isPriority = false;
+      for (String term : priorityTerms) {
+        if (lowerWord.contains(term) || term.contains(lowerWord)) {
+          isPriority = true;
+          break;
+        }
+      }
+      
+      if (isPriority) {
+        if (keyInfo.length() > 0) keyInfo.append(" ");
+        keyInfo.append(word);
+      }
+    }
+
+    // If we found priority terms, use them; otherwise use the full title
+    if (keyInfo.length() > 0) {
+      return keyInfo.toString();
+    } else {
+      return title;
     }
   }
 
