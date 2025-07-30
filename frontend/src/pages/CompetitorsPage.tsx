@@ -3,6 +3,7 @@ import { CompetitorTable } from '../components/ui/CompetitorTable';
 import type { Competitor } from '../components/ui/CompetitorTable';
 import { SuggestionDrawer } from '../components/ui/SuggestionDrawer';
 import { ProductAssociationModal } from '../components/ui/ProductAssociationModal';
+import { ProductSelector } from '../components/ui/ProductSelector';
 import { 
   getCompetitors, 
   deleteCompetitor,
@@ -2330,16 +2331,15 @@ export default function CompetitorsPage() {
                   )}
                 </div>
 
-                <input
-                  type="text"
-                  placeholder="Your Shopify Product ID (optional)"
-                  value={productId}
-                  onChange={(e) => setProductId(e.target.value)}
-                  disabled={isAdding}
-                  className={`flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent outline-none transition text-sm ${
-                    isAdding ? 'bg-gray-100 cursor-not-allowed' : ''
-                  }`}
-                />
+                <div className="flex-1">
+                  <ProductSelector
+                    value={productId}
+                    onChange={setProductId}
+                    disabled={isAdding}
+                    shop={shop || undefined}
+                    isDemoMode={isDemoMode}
+                  />
+                </div>
                 <button 
                   type="submit" 
                   disabled={isAdding}

@@ -440,13 +440,15 @@ public class CompetitorController {
                 (List<Map<String, Object>>) productsData.get("products");
 
             if (products != null && !products.isEmpty()) {
-              // Use the first product's Shopify ID
-              Map<String, Object> firstProduct = products.get(0);
-              Object shopifyId = firstProduct.get("id");
+              // Use a random product instead of always the first one
+              int randomIndex = new java.util.Random().nextInt(products.size());
+              Map<String, Object> randomProduct = products.get(randomIndex);
+              Object shopifyId = randomProduct.get("id");
               if (shopifyId != null) {
                 productId = shopifyId.toString();
                 logger.info(
-                    "addCompetitor: Using first cached product with Shopify ID: {}", productId);
+                    "addCompetitor: Using random cached product (index {}) with Shopify ID: {}", 
+                    randomIndex, productId);
               } else {
                 logger.warn("addCompetitor: First product has no ID");
                 return ResponseEntity.status(HttpStatus.PRECONDITION_REQUIRED)
