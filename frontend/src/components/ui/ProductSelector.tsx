@@ -186,10 +186,30 @@ export const ProductSelector: React.FC<ProductSelectorProps> = ({
               ),
             }}
             sx={{
+              width: '100%',
               '& .MuiOutlinedInput-root': {
-                '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                  borderColor: 'primary.main',
+                borderRadius: '8px',
+                fontSize: '14px',
+                backgroundColor: 'white',
+                '& fieldset': {
+                  borderColor: '#d1d5db',
                 },
+                '&:hover fieldset': {
+                  borderColor: '#9ca3af',
+                },
+                '&.Mui-focused fieldset': {
+                  borderColor: '#3b82f6',
+                },
+                '&.Mui-focused': {
+                  '& .MuiOutlinedInput-notchedOutline': {
+                    borderColor: '#3b82f6',
+                    borderWidth: '2px',
+                  },
+                },
+                '&:hover': {
+                  backgroundColor: '#f9fafb',
+                },
+                transition: 'all 0.2s ease-in-out',
               },
             }}
           />
