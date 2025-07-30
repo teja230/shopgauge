@@ -202,6 +202,7 @@ export const ProductSelector: React.FC<ProductSelectorProps> = ({
                 borderRadius: '8px',
                 fontSize: '14px',
                 backgroundColor: 'white',
+                height: '40px', // Match the URL input height
                 '& fieldset': {
                   borderColor: '#d1d5db',
                 },
@@ -219,6 +220,10 @@ export const ProductSelector: React.FC<ProductSelectorProps> = ({
                 },
                 '&:hover': {
                   backgroundColor: '#f9fafb',
+                },
+                '& input': {
+                  padding: '8px 16px', // Match URL input padding
+                  fontSize: '14px',
                 },
                 transition: 'all 0.2s ease-in-out',
               },

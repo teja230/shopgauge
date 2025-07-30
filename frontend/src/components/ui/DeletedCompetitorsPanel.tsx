@@ -47,7 +47,7 @@ interface DeletedCompetitor {
   deleted_at: string;
   platform: string;
   domain: string;
-  last_successful_check: string;
+  last_successful_check: string | null;
   price_snapshots_count: number;
 }
 
@@ -135,23 +135,33 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
         const demoDeletedCompetitors: DeletedCompetitor[] = [
           {
             id: '1',
-            url: 'https://amazon.com/demo-product-1',
-            label: 'Demo Competitor 1',
-            deleted_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days ago
+            url: 'https://amazon.com/dp/B0FK2RZ4T9',
+            label: 'Amazon Product B0FK2RZ4T9',
+            deleted_at: new Date(Date.now() - 15 * 60 * 60 * 1000).toISOString(), // 15 hours ago
             platform: 'amazon',
             domain: 'amazon.com',
-            last_successful_check: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-            price_snapshots_count: 15
+            last_successful_check: null,
+            price_snapshots_count: 0
           },
           {
             id: '2',
-            url: 'https://walmart.com/demo-product-2',
-            label: 'Demo Competitor 2',
-            deleted_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
-            platform: 'walmart',
-            domain: 'walmart.com',
-            last_successful_check: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-            price_snapshots_count: 8
+            url: 'https://amazon.com/dp/B0CCFPN9QN',
+            label: 'Reef Mens Raglan Sandal Fossil',
+            deleted_at: new Date(Date.now() - 18 * 60 * 60 * 1000).toISOString(), // 18 hours ago
+            platform: 'amazon',
+            domain: 'amazon.com',
+            last_successful_check: null,
+            price_snapshots_count: 0
+          },
+          {
+            id: '3',
+            url: 'https://amazon.com/dp/B0CCFPN9QN',
+            label: 'Amazon Product B0CCFPN9QN',
+            deleted_at: new Date(Date.now() - 15 * 60 * 60 * 1000).toISOString(), // 15 hours ago
+            platform: 'amazon',
+            domain: 'amazon.com',
+            last_successful_check: null,
+            price_snapshots_count: 0
           }
         ];
         setDeletedCompetitors(demoDeletedCompetitors);
@@ -312,6 +322,36 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
 
   return (
     <Box>
+      {/* Demo Mode Indicator */}
+      {shopId === 'demo' && (
+        <Box sx={{ 
+          mb: 2, 
+          p: 2, 
+          backgroundColor: '#fef3c7', 
+          border: '1px solid #f59e0b',
+          borderRadius: 2,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1
+        }}>
+          <Box sx={{ 
+            p: 0.5, 
+            borderRadius: 1, 
+            backgroundColor: '#f59e0b',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, color: 'white' }}>
+              DEMO
+            </Typography>
+          </Box>
+          <Typography variant="body2" sx={{ color: '#92400e', fontSize: '0.875rem' }}>
+            Showing sample deleted competitors data
+          </Typography>
+        </Box>
+      )}
+      
       {/* Content Section */}
       {deletedCompetitors.length === 0 ? (
         /* Empty State */
