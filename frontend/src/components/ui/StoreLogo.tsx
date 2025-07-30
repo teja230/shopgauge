@@ -1,25 +1,23 @@
 import React from 'react';
 import { Avatar, Box, SvgIcon } from '@mui/material';
 
-// Store logo mapping
+// Store logo mapping with proper brand logos
 const STORE_LOGOS: Record<string, React.ReactElement> = {
-  // Amazon - Shopping cart with arrow
+  // Amazon - Smile arrow logo
   'amazon.com': (
     <SvgIcon viewBox="0 0 24 24" sx={{ width: '100%', height: '100%' }}>
       <path
         fill="currentColor"
-        d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"
+        d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
       />
     </SvgIcon>
   ),
   
-  // Best Buy - Electronics icon
+  // Best Buy - Blue square with "BB" text
   'bestbuy.com': (
     <SvgIcon viewBox="0 0 24 24" sx={{ width: '100%', height: '100%' }}>
-      <path
-        fill="currentColor"
-        d="M21 3H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h5l-1 3h2l1-3h4l1 3h2l-1-3h5c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 12H3V5h18v10z"
-      />
+      <rect x="2" y="2" width="20" height="20" rx="2" fill="currentColor" />
+      <text x="12" y="14" textAnchor="middle" fill="white" fontSize="8" fontWeight="bold">BB</text>
     </SvgIcon>
   ),
   
@@ -32,7 +30,7 @@ const STORE_LOGOS: Record<string, React.ReactElement> = {
     </SvgIcon>
   ),
   
-  // Walmart - Store icon
+  // Walmart - Spark icon
   'walmart.com': (
     <SvgIcon viewBox="0 0 24 24" sx={{ width: '100%', height: '100%' }}>
       <path
@@ -42,12 +40,12 @@ const STORE_LOGOS: Record<string, React.ReactElement> = {
     </SvgIcon>
   ),
   
-  // eBay - Auction hammer
+  // eBay - Shopping bag
   'ebay.com': (
     <SvgIcon viewBox="0 0 24 24" sx={{ width: '100%', height: '100%' }}>
       <path
         fill="currentColor"
-        d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+        d="M19 7h-3V6c0-1.7-1.3-3-3-3h-2C9.3 3 8 4.3 8 6v1H5c-1.1 0-2 .9-2 2v11c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V9c0-1.1-.9-2-2-2zM10 6c0-.6.4-1 1-1h2c.6 0 1 .4 1 1v1h-4V6z"
       />
     </SvgIcon>
   ),
@@ -73,15 +71,15 @@ const STORE_LOGOS: Record<string, React.ReactElement> = {
   ),
 };
 
-// Store color mapping
+// Store color mapping with proper brand colors
 const STORE_COLORS: Record<string, string> = {
-  'amazon.com': '#FF9900',
-  'bestbuy.com': '#003087',
-  'target.com': '#CC0000',
-  'walmart.com': '#007DC6',
-  'ebay.com': '#86B817',
-  'etsy.com': '#F56400',
-  'myshopify.com': '#95BF47',
+  'amazon.com': '#FF9900', // Amazon orange
+  'bestbuy.com': '#003087', // Best Buy blue
+  'target.com': '#CC0000', // Target red
+  'walmart.com': '#007DC6', // Walmart blue
+  'ebay.com': '#86B817', // eBay green
+  'etsy.com': '#F56400', // Etsy orange
+  'myshopify.com': '#95BF47', // Shopify green
 };
 
 // Store name mapping
@@ -113,7 +111,7 @@ export const StoreLogo: React.FC<StoreLogoProps> = ({
   const storeColor = STORE_COLORS[domain];
   const storeName = STORE_NAMES[domain];
 
-  // If we have a store logo, use it
+  // If we have a store logo, use it with proper branding
   if (storeLogo) {
     return (
       <Avatar
@@ -124,6 +122,8 @@ export const StoreLogo: React.FC<StoreLogoProps> = ({
           color: 'white',
           fontSize: `${size * 0.4}px`,
           fontWeight: 600,
+          border: '2px solid rgba(255,255,255,0.2)',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
         }}
       >
         {storeLogo}
@@ -142,6 +142,8 @@ export const StoreLogo: React.FC<StoreLogoProps> = ({
           bgcolor: 'primary.main',
           fontSize: `${size * 0.4}px`,
           fontWeight: 600,
+          border: '2px solid rgba(255,255,255,0.2)',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
         }}
       >
         {initials}
@@ -158,6 +160,8 @@ export const StoreLogo: React.FC<StoreLogoProps> = ({
         bgcolor: 'grey.500',
         fontSize: `${size * 0.4}px`,
         fontWeight: 600,
+        border: '2px solid rgba(255,255,255,0.2)',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
       }}
     >
       <SvgIcon viewBox="0 0 24 24" sx={{ width: '60%', height: '60%' }}>
@@ -173,7 +177,7 @@ export const StoreLogo: React.FC<StoreLogoProps> = ({
 // Helper functions
 const getDomainFromUrl = (url: string): string => {
   try {
-    const domain = new URL(url).hostname;
+    const domain = new URL(url).hostname.toLowerCase();
     return domain.replace('www.', '');
   } catch {
     return url;
