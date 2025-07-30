@@ -273,17 +273,17 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
       <Box sx={{ 
         background: 'white',
         border: '1px solid #e5e7eb',
-        borderRadius: 2,
-        boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+        borderRadius: 16,
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
         overflow: 'hidden',
         width: '100%'
       }}>
         {/* Compact Header */}
         <Box sx={{ 
           px: 3, 
-          py: 2, 
+          py: 2.5, 
           backgroundColor: '#f9fafb',
-          borderBottom: '1px solid #e5e7eb',
+          borderBottom: '2px solid #e5e7eb',
           display: 'flex',
           alignItems: 'center',
           gap: 2
@@ -338,10 +338,42 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
               <Table>
                 <TableHead>
                   <TableRow sx={{ backgroundColor: '#f9fafb' }}>
-                    <TableCell sx={{ color: '#374151', fontWeight: 600, fontSize: '0.875rem' }}>Competitor</TableCell>
-                    <TableCell sx={{ color: '#374151', fontWeight: 600, fontSize: '0.875rem' }}>Deleted</TableCell>
-                    <TableCell sx={{ color: '#374151', fontWeight: 600, fontSize: '0.875rem' }}>Last Check</TableCell>
-                    <TableCell sx={{ color: '#374151', fontWeight: 600, fontSize: '0.875rem' }}>Actions</TableCell>
+                    <TableCell sx={{ 
+                      color: '#374151', 
+                      fontWeight: 600, 
+                      fontSize: '0.875rem',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      padding: '16px',
+                      borderBottom: '2px solid #e5e7eb'
+                    }}>Competitor</TableCell>
+                    <TableCell sx={{ 
+                      color: '#374151', 
+                      fontWeight: 600, 
+                      fontSize: '0.875rem',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      padding: '16px',
+                      borderBottom: '2px solid #e5e7eb'
+                    }}>Deleted</TableCell>
+                    <TableCell sx={{ 
+                      color: '#374151', 
+                      fontWeight: 600, 
+                      fontSize: '0.875rem',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      padding: '16px',
+                      borderBottom: '2px solid #e5e7eb'
+                    }}>Last Check</TableCell>
+                    <TableCell sx={{ 
+                      color: '#374151', 
+                      fontWeight: 600, 
+                      fontSize: '0.875rem',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      padding: '16px',
+                      borderBottom: '2px solid #e5e7eb'
+                    }}>Actions</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -350,10 +382,14 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
                       key={competitor.id} 
                       sx={{ 
                         backgroundColor: index % 2 === 0 ? 'white' : '#f9fafb',
-                        '&:hover': { backgroundColor: '#f3f4f6' }
+                        '&:hover': { backgroundColor: '#f3f4f6' },
+                        transition: 'background-color 0.2s ease',
+                        '&:last-child .MuiTableCell-root': {
+                          borderBottom: 0,
+                        },
                       }}
                     >
-                      <TableCell>
+                      <TableCell sx={{ fontSize: '0.875rem', fontWeight: 500, padding: '16px' }}>
                         <Box display="flex" alignItems="center" gap={1}>
                           <StoreLogo url={competitor.url} size={24} />
                           <Box>
@@ -366,12 +402,12 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
                           </Box>
                         </Box>
                       </TableCell>
-                      <TableCell>
+                      <TableCell sx={{ fontSize: '0.875rem', fontWeight: 500, padding: '16px' }}>
                         <Typography variant="body2" color="text.secondary">
                           {formatDate(competitor.deleted_at)}
                         </Typography>
                       </TableCell>
-                      <TableCell>
+                      <TableCell sx={{ fontSize: '0.875rem', fontWeight: 500, padding: '16px' }}>
                         <Typography variant="body2" color="text.secondary">
                           {competitor.last_successful_check 
                             ? formatDate(competitor.last_successful_check)
@@ -379,7 +415,7 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
                           }
                         </Typography>
                       </TableCell>
-                      <TableCell>
+                      <TableCell sx={{ fontSize: '0.875rem', fontWeight: 500, padding: '16px' }}>
                         <Box display="flex" gap={1}>
                           <Tooltip title="Open URL">
                             <IconButton
