@@ -1133,8 +1133,12 @@ export default function CompetitorsPage() {
             errorMessage = 'Competitor not found. It may have already been deleted.';
           } else if (error.message.includes('timeout') || error.message.includes('Network Error')) {
             errorMessage = 'Request timed out. The competitor may have been deleted. Please refresh the page to confirm.';
-          } else if (error.message.includes('Failed to delete competitor')) {
+          } else if (error.message.includes('Failed to delete competitor') || error.message.includes('Unable to delete competitor')) {
             errorMessage = 'Unable to delete competitor at this time. Please try again.';
+          } else if (error.message.includes('foreign key') || error.message.includes('constraint')) {
+            errorMessage = 'Unable to delete competitor due to database constraints. Please try again.';
+          } else if (error.message.includes('connection') || error.message.includes('database')) {
+            errorMessage = 'Database connection issue. Please try again in a moment.';
           }
         }
         

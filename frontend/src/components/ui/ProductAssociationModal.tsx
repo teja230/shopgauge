@@ -143,19 +143,28 @@ export const ProductAssociationModal: React.FC<ProductAssociationModalProps> = (
           setError('No products found in your store. Please add products to your Shopify store first, then try again.');
         }
       } else {
-        const errorData = await response.json();
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (parseError) {
+          console.error('Failed to parse error response:', parseError);
+          errorData = { error: 'Unknown error occurred' };
+        }
+        
         console.error('API error:', errorData);
         
         // Provide more specific error messages based on the error
         let errorMessage = 'Failed to load products. Please try again.';
         
         if (errorData.error) {
-          if (errorData.error.includes('Shopify authentication')) {
+          if (errorData.error.includes('Shopify authentication') || errorData.error.includes('Authentication required')) {
             errorMessage = 'Shopify connection required. Please reconnect your store in the dashboard.';
-          } else if (errorData.error.includes('No products found')) {
+          } else if (errorData.error.includes('No products found') || errorData.error.includes('No products available')) {
             errorMessage = 'No products found in your store. Please add products to your Shopify store first.';
-          } else if (errorData.error.includes('sync')) {
+          } else if (errorData.error.includes('sync') || errorData.error.includes('PRODUCTS_SYNC_NEEDED')) {
             errorMessage = 'Products need to be synced. Please visit the dashboard to sync your products.';
+          } else if (errorData.error.includes('Failed to connect to Shopify')) {
+            errorMessage = 'Unable to connect to Shopify. Please check your internet connection and try again.';
           } else {
             errorMessage = errorData.error;
           }
