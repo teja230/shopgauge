@@ -201,9 +201,9 @@ public class CompetitorScraperWorker {
   }
 
   /** Scheduled task to scrape competitor prices (COST OPTIMIZED - runs every 12 hours) */
-  @Scheduled(cron = "0 0 */12 * * *")
+  @Scheduled(cron = "0 0 */24 * * *") // Changed to 24 hours for API cost optimization
   public void scrapeCompetitors() {
-    log.info("[Worker] Starting competitor scrape job");
+    log.info("[Worker] Starting competitor scrape job (24-hour interval)");
 
     try {
       // COST OPTIMIZATION: Get only competitors that need scraping (intelligent selection)
@@ -211,7 +211,8 @@ public class CompetitorScraperWorker {
           jdbcTemplate.queryForList(
               "SELECT cu.id, cu.url, cu.label, cu.shop_id, s.shopify_domain, "
                   + "COALESCE(ps.checked_at, cu.created_at) as last_checked, "
-                  + "COALESCE(ps.price, 0) as last_price "
+                  + "COALESCE(ps.price, 0) as last_price, "
+                  + "cu.error_count, cu.status "
                   + "FROM competitor_urls cu "
                   + "JOIN shops s ON cu.shop_id = s.id "
                   + "LEFT JOIN ("
@@ -220,8 +221,10 @@ public class CompetitorScraperWorker {
                   + "  FROM price_snapshots"
                   + ") ps ON cu.id = ps.competitor_url_id AND ps.rn = 1 "
                   + "WHERE cu.created_at >= NOW() - INTERVAL '30 days' "
+                  + "AND cu.deleted_at IS NULL "
                   + "AND (SELECT COUNT(*) FROM competitor_urls cu2 WHERE cu2.shop_id = s.id AND cu2.deleted_at IS NULL) <= ? "
-                  + "AND (ps.checked_at IS NULL OR ps.checked_at < NOW() - INTERVAL '12 hours') "
+                  + "AND (ps.checked_at IS NULL OR ps.checked_at < NOW() - INTERVAL '24 hours') "
+                  + "AND cu.error_count < 3 " // Only retry if error count is low
                   + "ORDER BY ps.checked_at ASC NULLS FIRST LIMIT ?",
               maxUrlsPerShop,
               maxUrlsPerShop);
@@ -737,10 +740,10 @@ public class CompetitorScraperWorker {
     } catch (Exception e) {
       log.error("[Worker] Error storing price snapshot: {}", e.getMessage());
 
-      // Update error count on failure
+      // Update error count on failure (API-optimized)
       try {
         jdbcTemplate.update(
-            "UPDATE competitor_urls SET error_count = COALESCE(error_count, 0) + 1, status = CASE WHEN COALESCE(error_count, 0) + 1 >= 5 THEN 'error' ELSE status END WHERE id = ?",
+            "UPDATE competitor_urls SET error_count = COALESCE(error_count, 0) + 1, status = CASE WHEN COALESCE(error_count, 0) + 1 >= 3 THEN 'error' ELSE status END WHERE id = ?",
             competitorUrlId);
       } catch (Exception updateError) {
         log.error(
