@@ -23,8 +23,10 @@ import {
   Card,
   CardContent,
   Divider,
-  Grid
+  Grid,
+  Stack
 } from '@mui/material';
+import { styled } from '@mui/material/styles';
 import {
   Restore as RestoreIcon,
   Delete as DeleteIcon,
@@ -53,6 +55,48 @@ interface DeletedCompetitor {
 interface DeletedCompetitorsPanelProps {
   shopId: string;
 }
+
+// Styled components to match CompetitorTable
+const StyledTableContainer = styled(TableContainer)(({ theme }) => ({
+  borderRadius: 16,
+  border: `1px solid ${theme.palette.divider}`,
+  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+  overflow: 'hidden',
+  backgroundColor: theme.palette.background.paper,
+}));
+
+const StyledTableHead = styled(TableHead)(({ theme }) => ({
+  backgroundColor: '#f9fafb',
+  '& .MuiTableCell-head': {
+    color: '#374151',
+    fontWeight: 600,
+    fontSize: '0.875rem',
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
+    padding: '16px',
+    borderBottom: `2px solid ${theme.palette.divider}`,
+  },
+}));
+
+const StyledTableRow = styled(TableRow)(({ theme }) => ({
+  '&:nth-of-type(even)': {
+    backgroundColor: '#f9fafb',
+  },
+  '&:hover': {
+    backgroundColor: '#f3f4f6',
+  },
+  transition: 'background-color 0.2s ease',
+  '&:last-child .MuiTableCell-root': {
+    borderBottom: 0,
+  },
+}));
+
+const StyledTableCell = styled(TableCell)(({ theme }) => ({
+  fontSize: '0.875rem',
+  fontWeight: 500,
+  padding: '16px',
+  borderBottom: `1px solid ${theme.palette.divider}`,
+}));
 
 export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = ({ shopId }) => {
   const [deletedCompetitors, setDeletedCompetitors] = useState<DeletedCompetitor[]>([]);
@@ -269,215 +313,167 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
 
   return (
     <Box sx={{ width: '100%' }}>
-      {/* Full Width Design - Matches Main Table */}
+      {/* Header Section - Matches CompetitorTable styling */}
       <Box sx={{ 
-        background: 'white',
-        border: '1px solid #e5e7eb',
-        borderRadius: 16,
-        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-        overflow: 'hidden',
-        width: '100%'
+        px: 3, 
+        py: 2.5, 
+        backgroundColor: '#f9fafb',
+        borderBottom: '2px solid #e5e7eb',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 2,
+        borderTopLeftRadius: 16,
+        borderTopRightRadius: 16,
+        border: '1px solid #e5e7eb'
       }}>
-        {/* Compact Header */}
         <Box sx={{ 
-          px: 3, 
-          py: 2.5, 
-          backgroundColor: '#f9fafb',
-          borderBottom: '2px solid #e5e7eb',
+          p: 0.5, 
+          borderRadius: 1.5, 
+          backgroundColor: '#e5e7eb',
           display: 'flex',
           alignItems: 'center',
-          gap: 2
+          justifyContent: 'center'
         }}>
-          <Box sx={{ 
-            p: 0.5, 
-            borderRadius: 1.5, 
-            backgroundColor: '#e5e7eb',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}>
-            <ArchiveIcon sx={{ fontSize: 18, color: '#6b7280' }} />
-          </Box>
-          <Box flex={1}>
-            <Typography variant="subtitle2" fontWeight="600" color="text.primary">
-              Deleted Competitors
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Manage and restore deleted competitors
-            </Typography>
-          </Box>
-          <Chip 
-            label={`${deletedCompetitors.length} deleted`}
-            size="small"
-            sx={{ 
-              backgroundColor: deletedCompetitors.length > 0 ? '#fef3c7' : '#f3f4f6',
-              color: deletedCompetitors.length > 0 ? '#92400e' : '#6b7280',
-              fontWeight: 500,
-              fontSize: '0.75rem',
-              height: 20
-            }}
-          />
+          <ArchiveIcon sx={{ fontSize: 18, color: '#6b7280' }} />
         </Box>
+        <Box flex={1}>
+          <Typography variant="subtitle2" fontWeight="600" color="text.primary">
+            Deleted Competitors
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Manage and restore deleted competitors
+          </Typography>
+        </Box>
+        <Chip 
+          label={`${deletedCompetitors.length} deleted`}
+          size="small"
+          sx={{ 
+            backgroundColor: deletedCompetitors.length > 0 ? '#fef3c7' : '#f3f4f6',
+            color: deletedCompetitors.length > 0 ? '#92400e' : '#6b7280',
+            fontWeight: 500,
+            fontSize: '0.75rem',
+            height: 20
+          }}
+        />
+      </Box>
 
-        {/* Content Section */}
-        {deletedCompetitors.length === 0 ? (
-          /* Consistent Empty State */
-          <Box sx={{ 
-            py: 3, 
-            px: 3,
-            textAlign: 'center',
-            backgroundColor: 'white'
-          }}>
-            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
-              No deleted competitors. All deleted competitors will appear here for 30 days.
-            </Typography>
-          </Box>
-                    ) : (
-            /* Deleted Competitors Table - Integrated Design */
-            <TableContainer>
-              <Table>
-                <TableHead>
-                  <TableRow sx={{ backgroundColor: '#f9fafb' }}>
-                    <TableCell sx={{ 
-                      color: '#374151', 
-                      fontWeight: 600, 
-                      fontSize: '0.875rem',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em',
-                      padding: '16px',
-                      borderBottom: '2px solid #e5e7eb'
-                    }}>Competitor</TableCell>
-                    <TableCell sx={{ 
-                      color: '#374151', 
-                      fontWeight: 600, 
-                      fontSize: '0.875rem',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em',
-                      padding: '16px',
-                      borderBottom: '2px solid #e5e7eb'
-                    }}>Deleted</TableCell>
-                    <TableCell sx={{ 
-                      color: '#374151', 
-                      fontWeight: 600, 
-                      fontSize: '0.875rem',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em',
-                      padding: '16px',
-                      borderBottom: '2px solid #e5e7eb'
-                    }}>Last Check</TableCell>
-                    <TableCell sx={{ 
-                      color: '#374151', 
-                      fontWeight: 600, 
-                      fontSize: '0.875rem',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em',
-                      padding: '16px',
-                      borderBottom: '2px solid #e5e7eb'
-                    }}>Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {deletedCompetitors.map((competitor, index) => (
-                    <TableRow 
-                      key={competitor.id} 
-                      sx={{ 
-                        backgroundColor: index % 2 === 0 ? 'white' : '#f9fafb',
-                        '&:hover': { backgroundColor: '#f3f4f6' },
-                        transition: 'background-color 0.2s ease',
-                        '&:last-child .MuiTableCell-root': {
-                          borderBottom: 0,
-                        },
-                      }}
-                    >
-                      <TableCell sx={{ fontSize: '0.875rem', fontWeight: 500, padding: '16px' }}>
-                        <Box display="flex" alignItems="center" gap={1}>
-                          <StoreLogo url={competitor.url} size={24} />
-                          <Box>
-                            <Typography variant="body2" fontWeight="500" color="text.primary">
-                              {competitor.label || 'Unnamed Competitor'}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {competitor.domain || getDomainFromUrl(competitor.url)}
-                            </Typography>
-                          </Box>
-                        </Box>
-                      </TableCell>
-                      <TableCell sx={{ fontSize: '0.875rem', fontWeight: 500, padding: '16px' }}>
-                        <Typography variant="body2" color="text.secondary">
-                          {formatDate(competitor.deleted_at)}
-                        </Typography>
-                      </TableCell>
-                      <TableCell sx={{ fontSize: '0.875rem', fontWeight: 500, padding: '16px' }}>
-                        <Typography variant="body2" color="text.secondary">
-                          {competitor.last_successful_check 
-                            ? formatDate(competitor.last_successful_check)
-                            : 'Never'
-                          }
-                        </Typography>
-                      </TableCell>
-                      <TableCell sx={{ fontSize: '0.875rem', fontWeight: 500, padding: '16px' }}>
-                        <Box display="flex" gap={1}>
-                          <Tooltip title="Open URL">
-                            <IconButton
-                              size="small"
-                              onClick={() => window.open(competitor.url, '_blank')}
-                              sx={{ 
-                                color: '#6b7280',
-                                '&:hover': { backgroundColor: '#f3f4f6' }
-                              }}
-                            >
-                              <OpenInNewIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Restore competitor">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleRestore(competitor)}
-                              disabled={restoring === competitor.id}
-                              sx={{ 
-                                color: '#059669',
-                                '&:hover': { backgroundColor: '#ecfdf5' },
-                                '&.Mui-disabled': { color: '#9ca3af' }
-                              }}
-                            >
-                              {restoring === competitor.id ? <CircularProgress size={16} /> : <RestoreIcon fontSize="small" />}
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="View price history">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleViewHistory(competitor.id)}
-                              disabled={competitor.price_snapshots_count === 0}
-                              sx={{ 
-                                color: '#2563eb',
-                                '&:hover': { backgroundColor: '#eff6ff' },
-                                '&.Mui-disabled': { color: '#9ca3af' }
-                              }}
-                            >
-                              <BarChartIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Permanently delete">
-                            <IconButton
-                              size="small"
-                              onClick={() => handlePermanentDelete(competitor.id)}
-                              sx={{ 
-                                color: '#dc2626',
-                                '&:hover': { backgroundColor: '#fef2f2' }
-                              }}
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
+      {/* Content Section */}
+      {deletedCompetitors.length === 0 ? (
+        /* Empty State */
+        <Box sx={{ 
+          py: 3, 
+          px: 3,
+          textAlign: 'center',
+          backgroundColor: 'white',
+          border: '1px solid #e5e7eb',
+          borderTop: 'none',
+          borderBottomLeftRadius: 16,
+          borderBottomRightRadius: 16
+        }}>
+          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
+            No deleted competitors. All deleted competitors will appear here for 30 days.
+          </Typography>
         </Box>
+      ) : (
+        /* Table - Matches CompetitorTable styling exactly */
+        <StyledTableContainer component={Paper} elevation={0}>
+          <Table>
+            <StyledTableHead>
+              <TableRow>
+                <TableCell>Competitor</TableCell>
+                <TableCell>Deleted</TableCell>
+                <TableCell>Last Check</TableCell>
+                <TableCell>Actions</TableCell>
+              </TableRow>
+            </StyledTableHead>
+            <TableBody>
+              {deletedCompetitors.map((competitor) => (
+                <StyledTableRow key={competitor.id}>
+                  <StyledTableCell>
+                    <Stack direction="row" spacing={2} alignItems="center">
+                      <StoreLogo url={competitor.url} size={32} />
+                      <Box>
+                        <Typography variant="body2" fontWeight="600" color="text.primary">
+                          {competitor.label || 'Unnamed Competitor'}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {competitor.domain || getDomainFromUrl(competitor.url)}
+                        </Typography>
+                      </Box>
+                    </Stack>
+                  </StyledTableCell>
+                  <StyledTableCell>
+                    <Typography variant="body2" color="text.secondary">
+                      {formatDate(competitor.deleted_at)}
+                    </Typography>
+                  </StyledTableCell>
+                  <StyledTableCell>
+                    <Typography variant="body2" color="text.secondary">
+                      {competitor.last_successful_check 
+                        ? formatDate(competitor.last_successful_check)
+                        : 'Never'
+                      }
+                    </Typography>
+                  </StyledTableCell>
+                  <StyledTableCell>
+                    <Stack direction="row" spacing={1}>
+                      <Tooltip title="Visit competitor website">
+                        <IconButton
+                          size="small"
+                          onClick={() => window.open(competitor.url, '_blank')}
+                          sx={{ minWidth: 36, minHeight: 36 }}
+                        >
+                          <OpenInNewIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Restore competitor">
+                        <IconButton
+                          size="small"
+                          color="success"
+                          onClick={() => handleRestore(competitor)}
+                          disabled={restoring === competitor.id}
+                          sx={{ minWidth: 36, minHeight: 36 }}
+                        >
+                          {restoring === competitor.id ? <CircularProgress size={16} /> : <RestoreIcon fontSize="small" />}
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="View price history">
+                        <IconButton
+                          size="small"
+                          color="info"
+                          onClick={() => handleViewHistory(competitor.id)}
+                          disabled={competitor.price_snapshots_count === 0}
+                          sx={{ 
+                            minWidth: 36, 
+                            minHeight: 36,
+                            opacity: competitor.price_snapshots_count > 0 ? 1 : 0.4,
+                            '&:disabled': {
+                              opacity: 0.4,
+                              cursor: 'not-allowed'
+                            }
+                          }}
+                        >
+                          <BarChartIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Permanently delete">
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => handlePermanentDelete(competitor.id)}
+                          sx={{ minWidth: 36, minHeight: 36 }}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Stack>
+                  </StyledTableCell>
+                </StyledTableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </StyledTableContainer>
+      )}
 
       {/* Restore Confirmation Dialog */}
       <Dialog open={restoreDialog.open} onClose={() => setRestoreDialog({ open: false, competitor: null, newLabel: '' })}>
