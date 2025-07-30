@@ -32,7 +32,6 @@ import {
   Delete as DeleteIcon,
   Visibility as ViewIcon,
   History as HistoryIcon,
-  Archive as ArchiveIcon,
   TrendingUp as TrendingUpIcon,
   OpenInNew as OpenInNewIcon,
   BarChart as BarChartIcon
@@ -312,51 +311,7 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
   }
 
   return (
-    <Box sx={{ width: '100%' }}>
-      {/* Header Section - Matches CompetitorTable styling */}
-      <Box sx={{ 
-        px: 3, 
-        py: 2.5, 
-        backgroundColor: '#f9fafb',
-        borderBottom: '2px solid #e5e7eb',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 2,
-        borderTopLeftRadius: 16,
-        borderTopRightRadius: 16,
-        border: '1px solid #e5e7eb'
-      }}>
-        <Box sx={{ 
-          p: 0.5, 
-          borderRadius: 1.5, 
-          backgroundColor: '#e5e7eb',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
-        }}>
-          <ArchiveIcon sx={{ fontSize: 18, color: '#6b7280' }} />
-        </Box>
-        <Box flex={1}>
-          <Typography variant="subtitle2" fontWeight="600" color="text.primary">
-            Deleted Competitors
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            Manage and restore deleted competitors
-          </Typography>
-        </Box>
-        <Chip 
-          label={`${deletedCompetitors.length} deleted`}
-          size="small"
-          sx={{ 
-            backgroundColor: deletedCompetitors.length > 0 ? '#fef3c7' : '#f3f4f6',
-            color: deletedCompetitors.length > 0 ? '#92400e' : '#6b7280',
-            fontWeight: 500,
-            fontSize: '0.75rem',
-            height: 20
-          }}
-        />
-      </Box>
-
+    <Box>
       {/* Content Section */}
       {deletedCompetitors.length === 0 ? (
         /* Empty State */
