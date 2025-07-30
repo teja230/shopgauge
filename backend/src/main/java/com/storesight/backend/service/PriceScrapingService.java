@@ -53,6 +53,12 @@ public class PriceScrapingService {
   @Value("${discovery.serpapi.base-url:https://serpapi.com/search.json}")
   private String serpApiBaseUrl;
 
+  @Value("${price.scraping.api-optimized:true}")
+  private boolean apiOptimized;
+
+  @Value("${price.scraping.max-error-count:3}")
+  private int maxErrorCount;
+
   // Price extraction patterns for different platforms
   private static final Map<String, Pattern[]> PRICE_PATTERNS = new HashMap<>();
   private static final Map<String, String[]> PRICE_SELECTORS = new HashMap<>();
@@ -126,8 +132,8 @@ public class PriceScrapingService {
       log.warn("Tier 1 failed: Jsoup error - {}", e.getMessage());
     }
 
-    // Tier 2: Scrapingdog API (cost-effective, compliant)
-    if (scrapingdogSearchClient.isEnabled()) {
+    // Tier 2: Scrapingdog API (cost-effective, compliant) - Only if API optimized
+    if (scrapingdogSearchClient.isEnabled() && apiOptimized) {
       try {
         log.debug("Tier 2: Attempting Scrapingdog API");
         PriceScrapingResult scrapingdogResult = scrapeWithScrapingdog(url);
@@ -145,8 +151,8 @@ public class PriceScrapingService {
       }
     }
 
-    // Tier 3: Serper API (fast fallback, compliant)
-    if (serperSearchClient.isEnabled()) {
+    // Tier 3: Serper API (fast fallback, compliant) - Only if API optimized
+    if (serperSearchClient.isEnabled() && apiOptimized) {
       try {
         log.debug("Tier 3: Attempting Serper API");
         PriceScrapingResult serperResult = scrapeWithSerper(url);
@@ -162,8 +168,8 @@ public class PriceScrapingService {
       }
     }
 
-    // Tier 4: SerpAPI (comprehensive, compliant)
-    if (serpApiSearchClient.isEnabled()) {
+    // Tier 4: SerpAPI (comprehensive, compliant) - Only if API optimized
+    if (serpApiSearchClient.isEnabled() && apiOptimized) {
       try {
         log.debug("Tier 4: Attempting SerpAPI");
         PriceScrapingResult serpApiResult = scrapeWithSerpAPI(url);
