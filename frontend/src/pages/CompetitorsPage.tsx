@@ -2209,7 +2209,7 @@ export default function CompetitorsPage() {
                       value={url}
                       onChange={(e) => setUrl(e.target.value)}
                       disabled={isAdding}
-                      className={`w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent outline-none transition text-sm ${
+                      className={`w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400 outline-none text-sm bg-white hover:bg-gray-50 transition-colors ${
                         isAdding ? 'bg-gray-100 cursor-not-allowed' : ''
                       }`}
                       required
@@ -2390,14 +2390,14 @@ export default function CompetitorsPage() {
                   )}
                 </div>
 
-                <div className="w-full sm:w-64">
+                <div className="flex-1 relative">
                   <ProductSelector
-                  value={productId}
+                    value={productId}
                     onChange={setProductId}
-                  disabled={isAdding}
+                    disabled={isAdding}
                     shop={shop || undefined}
                     isDemoMode={isDemoMode}
-                />
+                  />
                 </div>
                 <button 
                   type="submit" 
