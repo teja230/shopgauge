@@ -40,7 +40,7 @@ import { useNotifications } from '../../hooks/useNotifications';
 import { fetchWithAuth } from '../../api';
 import StoreLogo from './StoreLogo';
 
-interface DeletedCompetitor {
+interface ArchivedCompetitor {
   id: string;
   url: string;
   label: string;
@@ -51,7 +51,7 @@ interface DeletedCompetitor {
   price_snapshots_count: number;
 }
 
-interface DeletedCompetitorsPanelProps {
+interface ArchivedCompetitorsPanelProps {
   shopId: string;
 }
 
@@ -97,8 +97,8 @@ const StyledTableCell = styled(TableCell)(({ theme }) => ({
   borderBottom: `1px solid ${theme.palette.divider}`,
 }));
 
-export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = ({ shopId }) => {
-  const [deletedCompetitors, setDeletedCompetitors] = useState<DeletedCompetitor[]>([]);
+export const DeletedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> = ({ shopId }) => {
+  const [deletedCompetitors, setDeletedCompetitors] = useState<ArchivedCompetitor[]>([]);
   const [loading, setLoading] = useState(true);
   const [restoring, setRestoring] = useState<string | null>(null);
   const [restoreDialog, setRestoreDialog] = useState<{
@@ -193,7 +193,7 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
     }
   };
 
-  const handleRestore = async (competitor: DeletedCompetitor) => {
+  const handleRestore = async (competitor: ArchivedCompetitor) => {
     setRestoreDialog({
       open: true,
       competitor,
@@ -213,7 +213,7 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
         setDeletedCompetitors(prev => 
           prev.filter(c => c.id !== restoreDialog.competitor!.id)
         );
-        notifications.showSuccess('Competitor restored successfully');
+        notifications.showSuccess('Archived competitor restored successfully');
       } else {
         const response = await fetchWithAuth(`/api/competitors/${restoreDialog.competitor.id}/restore`, {
           method: 'POST',
@@ -225,19 +225,19 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
           setDeletedCompetitors(prev => 
             prev.filter(c => c.id !== restoreDialog.competitor!.id)
           );
-          notifications.showSuccess('Competitor restored successfully');
+          notifications.showSuccess('Archived competitor restored successfully');
         }
       }
     } catch (error) {
       console.error('Error restoring competitor:', error);
-      notifications.showError('Failed to restore competitor');
+      notifications.showError('Failed to restore archived competitor');
     } finally {
       setRestoring(null);
       setRestoreDialog({ open: false, competitor: null, newLabel: '' });
     }
   };
 
-  const handlePermanentDelete = async (competitor: DeletedCompetitor) => {
+  const handlePermanentDelete = async (competitor: ArchivedCompetitor) => {
     setPermanentDeleteDialog({
       open: true,
       competitorId: competitor.id,
@@ -253,7 +253,7 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
         // Demo mode - simulate permanent delete
         await new Promise(resolve => setTimeout(resolve, 500));
         setDeletedCompetitors(prev => prev.filter(c => c.id !== permanentDeleteDialog.competitorId));
-        notifications.showSuccess('Competitor permanently deleted');
+        notifications.showSuccess('Archived competitor permanently deleted');
       } else {
         const response = await fetchWithAuth(`/api/competitors/${permanentDeleteDialog.competitorId}/permanent`, {
           method: 'DELETE'
@@ -262,12 +262,12 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
         const data = await response.json();
         if (data.success) {
           setDeletedCompetitors(prev => prev.filter(c => c.id !== permanentDeleteDialog.competitorId));
-          notifications.showSuccess('Competitor permanently deleted');
+          notifications.showSuccess('Archived competitor permanently deleted');
         }
       }
     } catch (error) {
       console.error('Error permanently deleting competitor:', error);
-      notifications.showError('Failed to permanently delete competitor');
+      notifications.showError('Failed to permanently delete archived competitor');
     } finally {
       setPermanentDeleteDialog({ open: false, competitorId: null, competitorLabel: '' });
     }
@@ -384,7 +384,7 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
           borderBottomRightRadius: 16
         }}>
           <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
-            No deleted competitors. All deleted competitors will appear here for 30 days.
+            No archived competitors. All archived competitors will appear here for 30 days.
           </Typography>
         </Box>
       ) : (
@@ -399,7 +399,7 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
                     <div className="w-1.5 h-1.5 bg-orange-400 rounded-full opacity-60"></div>
                   </div>
                 </TableCell>
-                <TableCell>Deleted</TableCell>
+                <TableCell>Archived</TableCell>
                 <TableCell>Last Check</TableCell>
                 <TableCell>Actions</TableCell>
               </TableRow>
@@ -522,7 +522,7 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
       {/* Permanent Delete Confirmation Dialog */}
       <Dialog open={permanentDeleteDialog.open} onClose={() => setPermanentDeleteDialog({ open: false, competitorId: null, competitorLabel: '' })}>
         <DialogTitle sx={{ color: '#dc2626', fontWeight: 600 }}>
-          Permanently Delete Competitor
+          Permanently Delete Archived Competitor
         </DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -535,7 +535,7 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
             p: 2,
             color: '#dc2626'
           }}>
-            ⚠️ This action cannot be undone. The competitor and all associated price history will be permanently removed.
+            ⚠️ This action cannot be undone. The archived competitor and all associated price history will be permanently removed.
           </Typography>
         </DialogContent>
         <DialogActions>

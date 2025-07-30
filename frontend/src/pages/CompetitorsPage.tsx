@@ -2187,15 +2187,15 @@ export default function CompetitorsPage() {
               {/* Deleted Competitors Button */}
                             <button
                 onClick={() => setShowDeletedCompetitors(!showDeletedCompetitors)}
-                className={`deleted-competitors-button flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-md ${
+                className={`archived-competitors-button flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-md ${
                   showDeletedCompetitors
                     ? 'bg-orange-600 text-white hover:bg-orange-700'
                     : 'bg-gray-600 text-white hover:bg-gray-700'
                 }`}
-                title="View and restore deleted competitors"
+                title="View and restore archived competitors"
               >
                 <ArchiveBoxIcon className="h-4 w-4" />
-                Show Deleted
+                Show Archived
               </button>
 
 
