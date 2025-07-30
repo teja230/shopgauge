@@ -2507,7 +2507,9 @@ export default function CompetitorsPage() {
       {/* Deleted Competitors Panel */}
       {showDeletedCompetitors && (
         <div className="mt-8 deleted-competitors-panel">
-          <DeletedCompetitorsPanel shopId={shop || 'demo'} />
+          <div className="overflow-x-auto competitor-table">
+            <DeletedCompetitorsPanel shopId={shop || 'demo'} />
+          </div>
         </div>
       )}
       
