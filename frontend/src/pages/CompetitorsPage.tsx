@@ -639,6 +639,10 @@ export default function CompetitorsPage() {
   const [showGraphView, setShowGraphView] = useState(false);
   const [selectedCompetitorForGraph, setSelectedCompetitorForGraph] = useState<Competitor | null>(null);
   
+  // Collapsible sections state
+  const [activeSectionCollapsed, setActiveSectionCollapsed] = useState(false);
+  const [deletedSectionCollapsed, setDeletedSectionCollapsed] = useState(false);
+  
   // Refs to prevent unnecessary re-renders and API calls
   const lastFetchTimeRef = useRef<number>(0);
   const isInitialLoadRef = useRef<boolean>(true);
@@ -2490,41 +2494,77 @@ export default function CompetitorsPage() {
               )}
             </div>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-4">
               {/* Active Competitors Section */}
-              <div className="relative">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                    <h3 className="text-lg font-semibold text-gray-900">Active Competitors</h3>
-                    <span className="text-sm text-gray-500">({filteredCompetitors.length})</span>
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+                <div className="flex items-center justify-between p-4 border-b border-gray-100">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      <span className="text-sm font-medium text-gray-700">Active</span>
+                      <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                        {filteredCompetitors.length}
+                      </span>
+                    </div>
                   </div>
+                  <button
+                    onClick={() => setActiveSectionCollapsed(!activeSectionCollapsed)}
+                    className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    <svg
+                      className={`w-4 h-4 transform transition-transform ${activeSectionCollapsed ? 'rotate-180' : ''}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
                 </div>
-                <div className="overflow-x-auto competitor-table">
-                  <CompetitorTable 
-                    data={filteredCompetitors} 
-                    onDelete={handleDelete} 
-                    onLinkProduct={handleLinkProduct}
-                    onViewGraph={(competitor) => {
-                      setSelectedCompetitorForGraph(competitor);
-                      setShowGraphView(true);
-                    }}
-                  />
-                </div>
+                {!activeSectionCollapsed && (
+                  <div className="overflow-x-auto competitor-table">
+                    <CompetitorTable 
+                      data={filteredCompetitors} 
+                      onDelete={handleDelete} 
+                      onLinkProduct={handleLinkProduct}
+                      onViewGraph={(competitor) => {
+                        setSelectedCompetitorForGraph(competitor);
+                        setShowGraphView(true);
+                      }}
+                    />
+                  </div>
+                )}
               </div>
               
               {/* Deleted Competitors Panel */}
               {showDeletedCompetitors && (
-                <div className="relative">
-                  <div className="flex items-center gap-3 mb-4">
-                                      <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
-                    <h3 className="text-lg font-semibold text-gray-900">Deleted Competitors</h3>
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+                  <div className="flex items-center justify-between p-4 border-b border-gray-100">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                        <span className="text-sm font-medium text-gray-700">Archived</span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setDeletedSectionCollapsed(!deletedSectionCollapsed)}
+                      className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                      <svg
+                        className={`w-4 h-4 transform transition-transform ${deletedSectionCollapsed ? 'rotate-180' : ''}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
                   </div>
-                  </div>
-                  <div className="overflow-x-auto competitor-table">
-                    <DeletedCompetitorsPanel shopId={isDemoMode ? 'demo' : (shop || 'demo')} />
-                  </div>
+                  {!deletedSectionCollapsed && (
+                    <div className="overflow-x-auto competitor-table">
+                      <DeletedCompetitorsPanel shopId={isDemoMode ? 'demo' : (shop || 'demo')} />
+                    </div>
+                  )}
                 </div>
               )}
             </div>
