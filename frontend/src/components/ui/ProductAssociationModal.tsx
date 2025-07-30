@@ -38,7 +38,7 @@ interface Product {
   id: string;
   title: string;
   handle: string;
-  price: number;
+  price: number | string;
 }
 
 interface ProductAssociationModalProps {
@@ -582,12 +582,12 @@ export const ProductAssociationModal: React.FC<ProductAssociationModalProps> = (
                             {product.title}
                           </Typography>
                           <Typography variant="body2" color="#6b7280" gutterBottom sx={{ fontFamily: 'monospace' }}>
-                            /{product.handle}
+                            {product.handle ? `/${product.handle}` : '/no-handle'}
                           </Typography>
                           <Box display="flex" alignItems="center" gap={1}>
                             <AttachMoneyIcon fontSize="small" sx={{ color: '#059669' }} />
                             <Typography variant="body2" fontWeight="500" sx={{ color: '#059669' }}>
-                              ${product.price}
+                              ${typeof product.price === 'string' ? product.price.replace(/\$/g, '') : product.price.toFixed(2)}
                             </Typography>
                           </Box>
                         </Box>
