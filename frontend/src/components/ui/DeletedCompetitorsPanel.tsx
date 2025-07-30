@@ -355,7 +355,7 @@ export const DeletedCompetitorsPanel: React.FC<DeletedCompetitorsPanelProps> = (
                     >
                       <TableCell>
                         <Box display="flex" alignItems="center" gap={1}>
-                          <StoreLogo platform={competitor.platform} size={24} />
+                          <StoreLogo url={competitor.url} size={24} />
                           <Box>
                             <Typography variant="body2" fontWeight="500" color="text.primary">
                               {competitor.label || 'Unnamed Competitor'}
