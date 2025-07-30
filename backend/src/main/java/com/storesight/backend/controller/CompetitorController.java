@@ -778,7 +778,7 @@ public class CompetitorController {
           shopId, competitorUrl, "Competitor deletion completed successfully");
 
       logger.info("deleteCompetitor: Successfully deleted competitor {} for shop {}", id, shopId);
-      return ResponseEntity.ok().build();
+      return ResponseEntity.ok(Map.of("success", true, "message", "Competitor deleted successfully"));
 
     } catch (NumberFormatException e) {
       logger.error("deleteCompetitor: Invalid competitor ID format: {}", id);

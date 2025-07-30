@@ -438,9 +438,24 @@ async function handleResponse<T>(response: Response): Promise<T> {
     throw apiError;
   }
   
-  const data = await response.json();
-  console.log('API: Success response:', response.status, data);
-  return data;
+  // Check if response has content before trying to parse as JSON
+  const contentType = response.headers.get('content-type');
+  const contentLength = response.headers.get('content-length');
+  
+  // If response is empty or has no content, return undefined for void functions
+  if (contentLength === '0' || !contentType || !contentType.includes('application/json')) {
+    console.log('API: Empty response or non-JSON content, returning undefined');
+    return undefined as T;
+  }
+  
+  try {
+    const data = await response.json();
+    console.log('API: Success response:', response.status, data);
+    return data;
+  } catch (parseError) {
+    console.log('API: Failed to parse JSON response, returning undefined');
+    return undefined as T;
+  }
 }
 
 export async function getInsights(): Promise<Insight> {
