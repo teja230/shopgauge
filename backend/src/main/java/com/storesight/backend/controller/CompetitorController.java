@@ -1560,22 +1560,22 @@ public class CompetitorController {
         shouldTriggerImmediate = true; // No snapshots, trigger immediate
       }
 
-      // Restore the competitor with smart last_checked logic
+      // Restore the competitor with smart last_successful_check logic
       if (shouldTriggerImmediate) {
-        // Reset last_checked to trigger immediate scraping
+        // Reset last_successful_check to trigger immediate scraping
         jdbcTemplate.update(
-            "UPDATE competitor_urls SET deleted_at = NULL, label = ?, last_checked = NULL WHERE id = ?",
+            "UPDATE competitor_urls SET deleted_at = NULL, label = ?, last_successful_check = NULL WHERE id = ?",
             newLabel,
             competitorId);
         logger.info("Restore: Triggering immediate scraping for competitor {}", competitorId);
       } else {
-        // Keep the existing last_checked to respect the 24-hour schedule
+        // Keep the existing last_successful_check to respect the 24-hour schedule
         jdbcTemplate.update(
             "UPDATE competitor_urls SET deleted_at = NULL, label = ? WHERE id = ?",
             newLabel,
             competitorId);
         logger.info(
-            "Restore: Using existing last_checked for competitor {} (respecting 24-hour schedule)",
+            "Restore: Using existing last_successful_check for competitor {} (respecting 24-hour schedule)",
             competitorId);
       }
 
