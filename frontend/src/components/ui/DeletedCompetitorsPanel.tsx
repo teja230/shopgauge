@@ -54,6 +54,11 @@ interface ArchivedCompetitor {
 interface ArchivedCompetitorsPanelProps {
   shopId: string;
   onCountChange?: (count: number) => void;
+  sectionTitle?: string;
+  sectionCount?: number;
+  sectionColor?: 'green' | 'orange';
+  onToggleCollapse?: () => void;
+  isCollapsed?: boolean;
 }
 
 // Styled components to match CompetitorTable
@@ -98,7 +103,15 @@ const StyledTableCell = styled(TableCell)(({ theme }) => ({
   borderBottom: `1px solid ${theme.palette.divider}`,
 }));
 
-export const DeletedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> = ({ shopId, onCountChange }) => {
+export const DeletedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> = ({ 
+  shopId, 
+  onCountChange,
+  sectionTitle,
+  sectionCount,
+  sectionColor = 'orange',
+  onToggleCollapse,
+  isCollapsed = false,
+}) => {
   const [deletedCompetitors, setDeletedCompetitors] = useState<ArchivedCompetitor[]>([]);
   const [loading, setLoading] = useState(true);
   const [restoring, setRestoring] = useState<string | null>(null);
@@ -374,6 +387,63 @@ export const DeletedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> = 
           <Typography variant="body2" sx={{ color: '#92400e', fontSize: '0.875rem' }}>
             Showing sample deleted competitors data
           </Typography>
+        </Box>
+      )}
+      
+      {/* Integrated Section Header */}
+      {sectionTitle && (
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'space-between',
+          p: 2,
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+          backgroundColor: 'background.paper'
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            {onToggleCollapse && (
+              <IconButton
+                onClick={onToggleCollapse}
+                size="small"
+                sx={{ color: 'text.secondary' }}
+              >
+                <svg
+                  className={`w-4 h-4 transform transition-transform ${isCollapsed ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </IconButton>
+            )}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box 
+                sx={{ 
+                  width: 12, 
+                  height: 12, 
+                  borderRadius: '50%',
+                  backgroundColor: sectionColor === 'green' ? 'success.main' : 'warning.main'
+                }} 
+              />
+              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                {sectionTitle}
+              </Typography>
+              {sectionCount !== undefined && (
+                <Chip
+                  label={sectionCount}
+                  size="small"
+                  sx={{ 
+                    height: 20, 
+                    fontSize: '0.75rem',
+                    backgroundColor: 'grey.100',
+                    color: 'text.secondary'
+                  }}
+                />
+              )}
+            </Box>
+          </Box>
         </Box>
       )}
       
