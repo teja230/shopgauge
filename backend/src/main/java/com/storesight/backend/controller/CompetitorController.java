@@ -1756,12 +1756,14 @@ public class CompetitorController {
         availableProducts =
             products.stream()
                 .map(
-                    product ->
-                        Map.of(
-                            "id", product.get("id"),
-                            "title", product.get("title"),
-                            "handle", product.get("handle"),
-                            "price", product.get("price")))
+                    product -> {
+                        Map<String, Object> productMap = new HashMap<>();
+                        productMap.put("id", product.get("id"));
+                        productMap.put("title", product.get("title") != null ? product.get("title") : "");
+                        productMap.put("handle", product.get("handle") != null ? product.get("handle") : "");
+                        productMap.put("price", product.get("price"));
+                        return productMap;
+                    })
                 .collect(Collectors.toList());
       }
 
