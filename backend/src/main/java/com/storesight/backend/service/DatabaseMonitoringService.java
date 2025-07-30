@@ -757,7 +757,7 @@ public class DatabaseMonitoringService implements HealthIndicator {
   }
 
   /** Scheduled task to perform regular maintenance */
-  @Scheduled(cron = "0 0 2 * * ?") // Run at 2 AM daily
+  @Scheduled(cron = "0 45 2 * * ?") // Run at 2:45 AM daily (staggered to avoid conflicts)
   public void scheduledMaintenance() {
     logger.info("Starting scheduled database maintenance");
     Map<String, Object> results = performMaintenance();

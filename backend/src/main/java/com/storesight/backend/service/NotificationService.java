@@ -551,8 +551,8 @@ public class NotificationService {
         });
   }
 
-  /** Scheduled cleanup task - runs daily at 2 AM */
-  @Scheduled(cron = "0 0 2 * * ?")
+  /** Scheduled cleanup task - runs daily at 2:30 AM (staggered to avoid conflicts) */
+  @Scheduled(cron = "0 30 2 * * ?")
   public void scheduledCleanup() {
     log.info("Starting scheduled notification cleanup");
     cleanupOldNotifications()

@@ -408,8 +408,8 @@ public class DataPrivacyService {
     }
   }
 
-  /** Scheduled cleanup of old audit logs - runs daily at 2 AM */
-  @org.springframework.scheduling.annotation.Scheduled(cron = "0 0 2 * * *")
+  /** Scheduled cleanup of old audit logs - runs daily at 3:00 AM (staggered to avoid conflicts) */
+  @org.springframework.scheduling.annotation.Scheduled(cron = "0 0 3 * * *")
   public void scheduledAuditLogCleanup() {
     logger.info("Starting scheduled audit log cleanup...");
     cleanupOldAuditLogs();
