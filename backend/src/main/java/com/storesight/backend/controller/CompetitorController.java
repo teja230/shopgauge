@@ -2640,6 +2640,21 @@ public class CompetitorController {
         if (title.isEmpty()) {
           title = doc.select(".product-title h1").text();
         }
+      } else if (url.contains("etsy.com")) {
+        // Etsy-specific selectors
+        title = doc.select("h1[data-testid=listing-page-title]").text();
+        if (title.isEmpty()) {
+          title = doc.select("h1.wt-text-heading-01").text();
+        }
+        if (title.isEmpty()) {
+          title = doc.select(".listing-page-title h1").text();
+        }
+        if (title.isEmpty()) {
+          title = doc.select("h1[class*=title]").text();
+        }
+        if (title.isEmpty()) {
+          title = doc.select(".listing-page-title").text();
+        }
       } else {
         // Generic product selectors
         title = doc.select("h1.product-title").text();
@@ -3145,6 +3160,108 @@ public class CompetitorController {
     return cleanedName;
   }
 
+  /** Helper method to extract Etsy product title from URL with enhanced parsing */
+  private String extractEtsyTitle(String url) {
+    try {
+      // Enhanced URL slug extraction for Etsy
+      // Examples:
+      // https://www.etsy.com/listing/1716334357/linen-fabric-stella-pink-red-gingham-2cm
+      // https://www.etsy.com/listing/1234567890/handmade-jewelry-necklace
+      if (url.contains("/listing/")) {
+        String[] parts = url.split("/listing/");
+        if (parts.length > 1) {
+          String productPath = parts[1].split("\\?")[0]; // Remove query parameters
+          productPath = productPath.split("#")[0]; // Remove hash fragments
+
+          // Enhanced parsing to handle Etsy listing format
+          String productName = extractEtsyProductName(productPath);
+          return cleanTitle(productName);
+        }
+      }
+      return extractTitleFromUrl(url);
+    } catch (Exception e) {
+      logger.debug("extractEtsyTitle: Error extracting title from URL: {}", e.getMessage());
+      return extractTitleFromUrl(url);
+    }
+  }
+
+  /** Enhanced method to extract Etsy product name from URL path */
+  private String extractEtsyProductName(String productPath) {
+    if (productPath == null || productPath.trim().isEmpty()) {
+      return "Etsy Product";
+    }
+
+    // Split by forward slash to get path segments
+    String[] segments = productPath.split("/");
+    if (segments.length == 0) {
+      return "Etsy Product";
+    }
+
+    // Etsy URLs have format: listing_id/product-name-slug
+    // We want the product name slug (second part)
+    if (segments.length >= 2) {
+      String productSegment = segments[1];
+      return formatEtsyProductName(productSegment);
+    } else if (segments.length == 1) {
+      // Fallback: if only one segment, it might be the product name
+      String productSegment = segments[0];
+      return formatEtsyProductName(productSegment);
+    }
+
+    return "Etsy Product";
+  }
+
+  /** Format Etsy product name with intelligent parsing */
+  private String formatEtsyProductName(String productSegment) {
+    if (productSegment == null || productSegment.trim().isEmpty()) {
+      return "Etsy Product";
+    }
+
+    // Remove any listing ID if it's numeric
+    String[] parts = productSegment.split("-");
+    StringBuilder formattedTitle = new StringBuilder();
+    boolean foundNonNumeric = false;
+
+    for (String part : parts) {
+      // Skip purely numeric parts (likely listing IDs)
+      if (part.matches("^\\d+$")) {
+        continue;
+      }
+
+      // Skip very short parts (likely not meaningful)
+      if (part.length() < 2) {
+        continue;
+      }
+
+      // Add meaningful parts to the title
+      if (formattedTitle.length() > 0) {
+        formattedTitle.append(" ");
+      }
+      formattedTitle.append(formatProductTerm(part));
+      foundNonNumeric = true;
+    }
+
+    // If we found meaningful content, use it; otherwise use a simplified version
+    if (formattedTitle.length() > 0 && foundNonNumeric) {
+      return formattedTitle.toString();
+    } else {
+      // Fallback: use first few meaningful words
+      String[] meaningfulWords = productSegment.split("[-\\s]+");
+      StringBuilder fallback = new StringBuilder();
+      int wordCount = 0;
+
+      for (String word : meaningfulWords) {
+        if (word.length() > 2 && !word.matches("^\\d+$") && wordCount < 5) {
+          if (fallback.length() > 0) fallback.append(" ");
+          fallback.append(word);
+          wordCount++;
+        }
+      }
+
+      return fallback.length() > 0 ? fallback.toString() : "Etsy Product";
+    }
+  }
+
   /** Format eBay product name with intelligent parsing */
   private String formatEbayProductName(String productSegment) {
     if (productSegment == null || productSegment.trim().isEmpty()) {
@@ -3303,6 +3420,8 @@ public class CompetitorController {
         return extractTargetTitle(url);
       } else if (lowerUrl.contains("ebay.com")) {
         return extractEbayTitle(url);
+      } else if (lowerUrl.contains("etsy.com")) {
+        return extractEtsyTitle(url);
       } else if (lowerUrl.contains("shopify") || lowerUrl.contains("myshopify.com")) {
         return extractShopifyTitle(url);
       } else {
