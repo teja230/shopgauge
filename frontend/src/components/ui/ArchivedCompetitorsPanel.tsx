@@ -85,7 +85,7 @@ const StyledTableHead = styled(TableHead)(({ theme }) => ({
   },
 }));
 
-const StyledTableRow = styled(TableRow)(({ theme }) => ({
+const StyledTableRow = styled(TableRow)<{ $highlighted?: boolean; $highlightColor?: 'success' | 'warning' }>(({ theme, $highlighted, $highlightColor }) => ({
   '&:nth-of-type(even)': {
     backgroundColor: '#f9fafb',
   },
@@ -96,6 +96,22 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
   '&:last-child .MuiTableCell-root': {
     borderBottom: 0,
   },
+  // Highlight styles
+  ...($highlighted && {
+    backgroundColor: $highlightColor === 'success' 
+      ? 'rgba(34, 197, 94, 0.1)' // Green background for restore
+      : 'rgba(245, 158, 11, 0.1)', // Orange background for archive/delete
+    borderLeft: `4px solid ${
+      $highlightColor === 'success' 
+        ? theme.palette.success.main 
+        : theme.palette.warning.main
+    }`,
+    '&:hover': {
+      backgroundColor: $highlightColor === 'success' 
+        ? 'rgba(34, 197, 94, 0.15)' 
+        : 'rgba(245, 158, 11, 0.15)',
+    },
+  }),
 }));
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
@@ -120,6 +136,7 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
   const [deletedCompetitors, setDeletedCompetitors] = useState<ArchivedCompetitor[]>([]);
   const [loading, setLoading] = useState(true);
   const [restoring, setRestoring] = useState<string | null>(null);
+  const [highlightedRows, setHighlightedRows] = useState<Set<string>>(new Set());
   const [restoreDialog, setRestoreDialog] = useState<{
     open: boolean;
     competitor: ArchivedCompetitor | null;
@@ -141,6 +158,20 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
   });
 
   const notifications = useNotifications();
+
+  // Function to highlight a row briefly
+  const highlightRow = (competitorId: string, color: 'success' | 'warning') => {
+    setHighlightedRows(prev => new Set([...prev, competitorId]));
+    
+    // Remove highlight after 2 seconds
+    setTimeout(() => {
+      setHighlightedRows(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(competitorId);
+        return newSet;
+      });
+    }, 2000);
+  };
 
   useEffect(() => {
     loadDeletedCompetitors();
@@ -226,6 +257,10 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
       if (shopId === 'demo') {
         // Demo mode - simulate restore
         await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Highlight the row before removing it
+        highlightRow(restoreDialog.competitor!.id, 'success');
+        
         setDeletedCompetitors(prev => 
           prev.filter(c => c.id !== restoreDialog.competitor!.id)
         );
@@ -245,6 +280,9 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
         
         const data = await response.json();
         if (data.success) {
+          // Highlight the row before removing it
+          highlightRow(restoreDialog.competitor!.id, 'success');
+          
           setDeletedCompetitors(prev => 
             prev.filter(c => c.id !== restoreDialog.competitor!.id)
           );
@@ -284,6 +322,10 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
       if (shopId === 'demo') {
         // Demo mode - simulate permanent delete
         await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Highlight the row before removing it
+        highlightRow(permanentDeleteDialog.competitorId!, 'warning');
+        
         setDeletedCompetitors(prev => prev.filter(c => c.id !== permanentDeleteDialog.competitorId));
         notifications.showSuccess('Archived competitor permanently deleted', {
           showToast: true
@@ -295,6 +337,9 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
         
         const data = await response.json();
         if (data.success) {
+          // Highlight the row before removing it
+          highlightRow(permanentDeleteDialog.competitorId!, 'warning');
+          
           setDeletedCompetitors(prev => prev.filter(c => c.id !== permanentDeleteDialog.competitorId));
           notifications.showSuccess('Archived competitor permanently deleted', {
             showToast: true
@@ -477,7 +522,11 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
             </StyledTableHead>
             <TableBody>
               {deletedCompetitors.map((competitor) => (
-                <StyledTableRow key={competitor.id}>
+                <StyledTableRow 
+                  key={competitor.id}
+                  $highlighted={highlightedRows.has(competitor.id)}
+                  $highlightColor={highlightedRows.has(competitor.id) ? 'success' : undefined}
+                >
                   <StyledTableCell>
                     <Stack direction="row" spacing={2} alignItems="center">
                       <StoreLogo url={competitor.url} size={32} />
