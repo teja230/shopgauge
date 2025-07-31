@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.annotation.Order;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,6 +15,8 @@ import org.springframework.web.context.request.WebRequest;
 
 /** Centralized exception handler for Market Intelligence features */
 @ControllerAdvice
+@Order(-2000) // Higher priority than GlobalSessionExceptionHandler (-1000) to handle business
+// exceptions first
 public class MarketIntelligenceExceptionHandler {
   private static final Logger logger =
       LoggerFactory.getLogger(MarketIntelligenceExceptionHandler.class);
