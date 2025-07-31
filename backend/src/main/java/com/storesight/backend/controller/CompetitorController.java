@@ -1546,8 +1546,9 @@ public class CompetitorController {
             // Trigger immediate scraping only if last check was over 24 hours ago
             shouldTriggerImmediate = duration.toHours() > 24;
             logger.info(
-                "Restore: Last check was {} hours ago, immediate scraping: {}",
+                "Restore: Last check was {} hours ago ({} minutes), immediate scraping: {} (24-hour rule: > 24 hours)",
                 duration.toHours(),
+                duration.toMinutes(),
                 shouldTriggerImmediate);
           } catch (Exception e) {
             logger.warn("Restore: Could not parse last check time: {}", lastCheckedStr);
@@ -3510,26 +3511,52 @@ public class CompetitorController {
               result.getScraperSource(),
               result.getResponseTime());
 
-          // Use smart snapshot creation
-          if (smartSnapshotService.shouldCreateSnapshot(
-              Long.parseLong(competitorId), result.getPrice(), result.isInStock())) {
-            jdbcTemplate.update(
-                "INSERT INTO price_snapshots (competitor_url_id, price, in_stock, checked_at, scraper_version, platform, response_time_ms, scraper_source) "
-                    + "VALUES (?, ?, ?, CURRENT_TIMESTAMP, 'v2.0-unified', ?, ?, ?)",
-                Long.parseLong(competitorId),
-                result.getPrice(),
-                result.isInStock(),
-                result.getPlatform(),
-                (int) result.getResponseTime(),
-                result.getScraperSource());
-            logger.info(
-                "triggerImmediatePriceScraping: Created smart snapshot for competitor {}",
-                competitorId);
-          } else {
-            logger.info(
-                "triggerImmediatePriceScraping: Skipped snapshot creation for competitor {} (no significant change)",
-                competitorId);
+          // Store snapshot with proper data handling (same as CompetitorScraperWorker)
+          jdbcTemplate.update(
+              "INSERT INTO price_snapshots (competitor_url_id, price, in_stock, price_change_percent, significant_change, checked_at, scraper_version, platform, response_time_ms, scraper_source) "
+                  + "VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?)",
+              Long.parseLong(competitorId),
+              result.getPrice(),
+              result.isInStock(),
+              null, // Will calculate this after insertion
+              false, // Will update this after calculation
+              "v2.0-unified",
+              result.getPlatform(),
+              (int) result.getResponseTime(),
+              result.getScraperSource());
+
+          // Get the ID of the newly inserted snapshot
+          Long snapshotId = jdbcTemplate.queryForObject("SELECT LASTVAL()", Long.class);
+
+          // Calculate price change percentage using the enhanced service
+          if (result.getPrice() != null) {
+            Optional<BigDecimal> calculatedChange =
+                priceChangeCalculationService.calculatePriceChangePercent(
+                    Long.parseLong(competitorId), result.getPrice());
+            if (calculatedChange.isPresent()) {
+              BigDecimal priceChangePercent = calculatedChange.get();
+              boolean significantChange =
+                  priceChangeCalculationService.isSignificantPriceChange(
+                      priceChangePercent, BigDecimal.valueOf(5));
+
+              // Update the snapshot with the calculated percentage
+              jdbcTemplate.update(
+                  "UPDATE price_snapshots SET price_change_percent = ?, significant_change = ? WHERE id = ?",
+                  priceChangePercent,
+                  significantChange,
+                  snapshotId);
+
+              logger.info(
+                  "triggerImmediatePriceScraping: Calculated and updated price change for competitor {}: {}% (significant: {})",
+                  competitorId, priceChangePercent, significantChange);
+            }
           }
+
+          logger.info(
+              "triggerImmediatePriceScraping: Created snapshot for competitor {} with platform: {}, response_time: {}ms",
+              competitorId,
+              result.getPlatform(),
+              result.getResponseTime());
 
           // Update competitor URL status on successful scrape with platform and domain info
           String platform = identifyPlatform(url);
