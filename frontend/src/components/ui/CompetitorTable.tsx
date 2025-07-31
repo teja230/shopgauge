@@ -190,7 +190,7 @@ const StyledTableHead = styled(TableHead)(({ theme }) => ({
   },
 }));
 
-const StyledTableRow = styled(TableRow)(({ theme }) => ({
+const StyledTableRow = styled(TableRow)<{ $highlighted?: boolean; $highlightColor?: 'success' | 'warning' }>(({ theme, $highlighted, $highlightColor }) => ({
   transition: 'background-color 0.2s ease',
   '&:hover': {
     backgroundColor: theme.palette.action.hover,
@@ -198,6 +198,22 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
   '&:last-child .MuiTableCell-root': {
     borderBottom: 0,
   },
+  // Highlight styles
+  ...($highlighted && {
+    backgroundColor: $highlightColor === 'success' 
+      ? 'rgba(34, 197, 94, 0.1)' // Green background for restore
+      : 'rgba(245, 158, 11, 0.1)', // Orange background for archive/delete
+    borderLeft: `4px solid ${
+      $highlightColor === 'success' 
+        ? theme.palette.success.main 
+        : theme.palette.warning.main
+    }`,
+    '&:hover': {
+      backgroundColor: $highlightColor === 'success' 
+        ? 'rgba(34, 197, 94, 0.15)' 
+        : 'rgba(245, 158, 11, 0.15)',
+    },
+  }),
 }));
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
@@ -681,7 +697,9 @@ const DesktopTableRow: React.FC<{
   onDelete: (id: string) => void;
   onLinkProduct?: (competitor: Competitor) => void;
   onViewGraph?: (competitor: Competitor) => void;
-}> = ({ competitor, onDelete, onLinkProduct, onViewGraph }) => {
+  highlighted?: boolean;
+  highlightColor?: 'success' | 'warning';
+}> = ({ competitor, onDelete, onLinkProduct, onViewGraph, highlighted = false, highlightColor }) => {
   const percentChangeText = formatPercentChange(competitor.percentDiff);
   const { shop } = useAuth();
 
@@ -701,7 +719,10 @@ const DesktopTableRow: React.FC<{
   };
 
   return (
-    <StyledTableRow>
+    <StyledTableRow
+      $highlighted={highlighted}
+      $highlightColor={highlightColor}
+    >
       <StyledTableCell>
         <Stack direction="row" spacing={2} alignItems="center">
           <StoreLogo 
@@ -892,6 +913,27 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({
   onToggleCollapse,
   isCollapsed = false,
 }) => {
+  const [highlightedRows, setHighlightedRows] = useState<Set<string>>(new Set());
+
+  // Function to highlight a row briefly
+  const highlightRow = (competitorId: string, color: 'success' | 'warning') => {
+    setHighlightedRows(prev => new Set([...prev, competitorId]));
+    
+    // Remove highlight after 2 seconds
+    setTimeout(() => {
+      setHighlightedRows(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(competitorId);
+        return newSet;
+      });
+    }, 2000);
+  };
+
+  // Enhanced delete handler with highlighting
+  const handleDeleteWithHighlight = (competitorId: string) => {
+    highlightRow(competitorId, 'warning');
+    onDelete(competitorId);
+  };
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
@@ -1008,7 +1050,7 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({
             <MobileCompetitorCard
               key={competitor.id}
               competitor={competitor}
-              onDelete={onDelete}
+              onDelete={handleDeleteWithHighlight}
               onViewGraph={onViewGraph}
             />
           ))}
@@ -1037,9 +1079,11 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({
                 <DesktopTableRow
                   key={competitor.id}
                   competitor={competitor}
-                  onDelete={onDelete}
+                  onDelete={handleDeleteWithHighlight}
                   onLinkProduct={onLinkProduct}
                   onViewGraph={onViewGraph}
+                  highlighted={highlightedRows.has(competitor.id)}
+                  highlightColor={highlightedRows.has(competitor.id) ? 'warning' : undefined}
                 />
               ))}
             </TableBody>
