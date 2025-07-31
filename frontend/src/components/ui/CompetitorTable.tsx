@@ -25,6 +25,7 @@ import {
 } from '@mui/material';
 import {
   Delete as DeleteIcon,
+  Archive as ArchiveIcon,
   OpenInNew as OpenInNewIcon,
   ExpandMore as ExpandMoreIcon,
   AttachMoney as AttachMoneyIcon,
@@ -660,7 +661,7 @@ const MobileCompetitorCard: React.FC<{
               <StyledActionButton
                 variant="outlined"
                 color="error"
-                startIcon={<DeleteIcon />}
+                startIcon={<ArchiveIcon />}
                 onClick={handleDelete}
                 sx={{ flex: 1 }}
               >
@@ -867,7 +868,7 @@ const DesktopTableRow: React.FC<{
               onClick={handleDelete}
               sx={{ minWidth: 36, minHeight: 36 }}
             >
-              <DeleteIcon fontSize="small" />
+              <ArchiveIcon fontSize="small" />
             </IconButton>
           </Tooltip>
         </Stack>
