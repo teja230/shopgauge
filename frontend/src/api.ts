@@ -208,6 +208,42 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
       throw new Error('Authentication required');
     }
 
+    // Handle 429 Too Many Requests (including competitor limits)
+    if (response.status === 429) {
+      console.log('API: 429 response detected, checking for specific error types');
+      
+      try {
+        const errorData = await response.json();
+        console.log('API: 429 error data:', errorData);
+        
+        // Handle COMPETITOR_LIMIT_EXCEEDED error specifically
+        if (errorData.error === 'COMPETITOR_LIMIT_EXCEEDED') {
+          const limitError = new Error('You have reached the maximum competitor tracking limit for your current subscription tier.');
+          (limitError as any).status = 429;
+          (limitError as any).competitorLimitExceeded = true;
+          throw limitError;
+        }
+        
+        // Handle ARCHIVED_COMPETITOR_LIMIT_EXCEEDED error specifically
+        if (errorData.error === 'ARCHIVED_COMPETITOR_LIMIT_EXCEEDED') {
+          const archivedLimitError = new Error('You have reached the maximum archived competitor limit for your current subscription tier.');
+          (archivedLimitError as any).status = 429;
+          (archivedLimitError as any).archivedCompetitorLimitExceeded = true;
+          throw archivedLimitError;
+        }
+        
+        // Generic 429 error
+        const generic429Error = new Error('Too many requests. Please wait a moment before trying again.');
+        (generic429Error as any).status = 429;
+        throw generic429Error;
+      } catch (parseError) {
+        // If we can't parse the response, throw a generic 429 error
+        const generic429Error = new Error('Too many requests. Please wait a moment before trying again.');
+        (generic429Error as any).status = 429;
+        throw generic429Error;
+      }
+    }
+    
     // Generic non-OK status handler (after specific cases above)
     if (!response.ok) {
       const err = new Error(`HTTP ${response.status}`);
@@ -611,24 +647,8 @@ export async function addCompetitorIntelligent(url: string, productId?: string):
         throw new Error(errorMessage);
       }
       
-      if (response.status === 429) {
-        // Handle COMPETITOR_LIMIT_EXCEEDED error specifically
-        if (errorData.error === 'COMPETITOR_LIMIT_EXCEEDED') {
-          throw new Error('You have reached the maximum competitor tracking limit for your current subscription tier.');
-        }
-        // Handle ARCHIVED_COMPETITOR_LIMIT_EXCEEDED error specifically
-        if (errorData.error === 'ARCHIVED_COMPETITOR_LIMIT_EXCEEDED') {
-          throw new Error('You have reached the maximum archived competitor limit for your current subscription tier.');
-        }
-        throw new Error('Too many requests. Please wait a moment before trying again.');
-      }
-      
       if (response.status === 401) {
         throw new Error('Your session has expired. Please refresh the page and try again.');
-      }
-      
-      if (response.status === 429) {
-        throw new Error('Too many requests. Please wait a moment before trying again.');
       }
       
       if (response.status >= 500) {
