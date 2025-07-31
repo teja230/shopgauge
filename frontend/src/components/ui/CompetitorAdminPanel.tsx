@@ -356,7 +356,7 @@ const CompetitorAdminPanel: React.FC<CompetitorAdminPanelProps> = ({
       </Typography>
         <Typography variant="body1" color="text.secondary">
           Monitor and manage competitor scraping operations across all shops
-        </Typography>
+          </Typography>
       </Box>
 
 

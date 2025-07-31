@@ -1204,7 +1204,7 @@ export default function CompetitorsPage() {
           }
         });
                 notifications.showInfo('To initiate competitor tracking, you must first authenticate your Shopify store. Click "Connect Store" above or visit the home page to authenticate.', {
-          category: 'Competitors',
+              category: 'Competitors',
           persistent: false,
           showToast: true,
           duration: 8000
@@ -1212,7 +1212,7 @@ export default function CompetitorsPage() {
       } else if (needsProductSync) {
         debugLog.info('Showing product sync error notification');
                 notifications.showError('Product Catalog Synchronization Required', {
-          category: 'Competitors',
+            category: 'Competitors',
           persistent: true,
           showToast: true,
           action: {
@@ -1623,31 +1623,31 @@ export default function CompetitorsPage() {
         return;
       }
       
-              if (!cfg.enabled) {
-          console.warn(`[Discovery] Discovery disabled. Config:`, cfg);
-          const errorMessage = cfg.message || 'Competitor discovery is currently disabled. Please contact support.';
-          if (cfg.debugInfo) {
-            console.error('[Discovery] Debug info:', cfg.debugInfo);
-          }
+      if (!cfg.enabled) {
+        console.warn(`[Discovery] Discovery disabled. Config:`, cfg);
+        const errorMessage = cfg.message || 'Competitor discovery is currently disabled. Please contact support.';
+        if (cfg.debugInfo) {
+          console.error('[Discovery] Debug info:', cfg.debugInfo);
+        }
           notifications.showError(errorMessage, { 
             category: 'Discovery',
             showToast: true
           });
-          return;
-        }
+        return;
+      }
       
-              if (!cfg.configured) {
-          console.warn(`[Discovery] Discovery not configured. Config:`, cfg);
-          const errorMessage = cfg.message || 'Competitor discovery is not configured. Please set up your search API credentials.';
-          if (cfg.debugInfo) {
-            console.error('[Discovery] Debug info:', cfg.debugInfo);
-          }
+      if (!cfg.configured) {
+        console.warn(`[Discovery] Discovery not configured. Config:`, cfg);
+        const errorMessage = cfg.message || 'Competitor discovery is not configured. Please set up your search API credentials.';
+        if (cfg.debugInfo) {
+          console.error('[Discovery] Debug info:', cfg.debugInfo);
+        }
           notifications.showError(errorMessage, { 
             category: 'Discovery',
             showToast: true
           });
-          return;
-        }
+        return;
+      }
 
       console.log(`[Discovery] Configuration valid, triggering discovery...`);
 
@@ -2450,12 +2450,12 @@ export default function CompetitorsPage() {
 
                 <div className="w-full sm:w-1/2 relative">
                   <ProductSelector
-                    value={productId}
+                  value={productId}
                     onChange={setProductId}
-                    disabled={isAdding}
+                  disabled={isAdding}
                     shop={shop || undefined}
                     isDemoMode={isDemoMode}
-                  />
+                />
                 </div>
                 <button 
                   type="submit" 
@@ -2551,7 +2551,7 @@ export default function CompetitorsPage() {
               {/* Active Competitors Section */}
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
                 {!activeSectionCollapsed && (
-                  <div className="overflow-x-auto competitor-table">
+            <div className="overflow-x-auto competitor-table">
                     <CompetitorTable 
                       data={filteredCompetitors} 
                       onDelete={handleDelete} 
@@ -2566,8 +2566,8 @@ export default function CompetitorsPage() {
                       onToggleCollapse={() => setActiveSectionCollapsed(!activeSectionCollapsed)}
                       isCollapsed={activeSectionCollapsed}
                     />
-                  </div>
-                )}
+            </div>
+          )}
                 {activeSectionCollapsed && (
                   <div className="flex items-center justify-between p-4">
                     <div className="flex items-center gap-3">
@@ -2590,11 +2590,11 @@ export default function CompetitorsPage() {
                         <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
                           {filteredCompetitors.length}
                         </span>
-                      </div>
+        </div>
                     </div>
                   </div>
                 )}
-              </div>
+      </div>
               
               {/* Archived Competitors Panel */}
               {showDeletedCompetitors && (
