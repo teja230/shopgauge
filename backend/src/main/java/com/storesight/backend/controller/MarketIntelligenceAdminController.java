@@ -508,7 +508,7 @@ public class MarketIntelligenceAdminController {
   // ==================== COMPETITOR DEBUG ENDPOINTS ====================
 
   /** Get scraping status for a specific shop */
-  @GetMapping("/competitors/scraping-status")
+  @GetMapping("/scraping-status")
   public ResponseEntity<Map<String, Object>> getCompetitorScrapingStatus(
       @RequestParam(required = false) Long shopId) {
     try {
@@ -650,7 +650,7 @@ public class MarketIntelligenceAdminController {
   }
 
   /** Trigger immediate scraping for a specific competitor */
-  @PostMapping("/competitors/{id}/trigger-scraping")
+  @PostMapping("/{id}/trigger-scraping")
   public ResponseEntity<Map<String, Object>> triggerCompetitorScraping(
       @PathVariable String id, @RequestParam(required = false) Long shopId) {
     try {
@@ -723,7 +723,7 @@ public class MarketIntelligenceAdminController {
   }
 
   /** Get cache debug information for a shop */
-  @GetMapping("/competitors/cache-debug")
+  @GetMapping("/cache-debug")
   public ResponseEntity<Map<String, Object>> getCacheDebugInfo(
       @RequestParam(required = false) Long shopId) {
     try {
@@ -798,7 +798,7 @@ public class MarketIntelligenceAdminController {
   }
 
   /** Enhanced trigger scraping with detailed debug information */
-  @PostMapping("/competitors/{id}/trigger-scraping-debug")
+  @PostMapping("/{id}/trigger-scraping-debug")
   public ResponseEntity<Map<String, Object>> triggerScrapingDebug(
       @PathVariable String id, @RequestParam(required = false) Long shopId) {
     try {
@@ -899,7 +899,7 @@ public class MarketIntelligenceAdminController {
   }
 
   /** Enhanced products debug with comprehensive cache analysis */
-  @GetMapping("/competitors/products-debug")
+  @GetMapping("/products-debug")
   public ResponseEntity<Map<String, Object>> getProductsDebug(
       @RequestParam(required = false) Long shopId) {
     try {

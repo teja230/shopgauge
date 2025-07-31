@@ -302,32 +302,32 @@ export const marketIntelligenceAdminAPI = {
   // Competitor Debugging API Functions
   async getCompetitorScrapingStatus(shopId?: number): Promise<CompetitorScrapingStatus> {
     const url = shopId 
-      ? `/api/admin/market-intelligence/competitors/scraping-status?shopId=${shopId}`
-      : '/api/admin/market-intelligence/competitors/scraping-status';
+      ? `/api/admin/market-intelligence/scraping-status?shopId=${shopId}`
+      : '/api/admin/market-intelligence/scraping-status';
     return await fetchWithAdminAuth(url);
   },
 
   async triggerCompetitorScraping(competitorId: string, shopId?: number): Promise<CompetitorTriggerResponse> {
     const url = shopId 
-      ? `/api/admin/market-intelligence/competitors/${competitorId}/trigger-scraping?shopId=${shopId}`
-      : `/api/admin/market-intelligence/competitors/${competitorId}/trigger-scraping`;
+      ? `/api/admin/market-intelligence/${competitorId}/trigger-scraping?shopId=${shopId}`
+      : `/api/admin/market-intelligence/${competitorId}/trigger-scraping`;
     return await fetchWithAdminAuth(url, { method: 'POST' });
   },
 
   async getCacheDebugInfo(shopId: number): Promise<CacheDebugInfo> {
-    return await fetchWithAdminAuth(`/api/admin/market-intelligence/competitors/cache-debug?shopId=${shopId}`);
+    return await fetchWithAdminAuth(`/api/admin/market-intelligence/cache-debug?shopId=${shopId}`);
   },
 
   async triggerScrapingDebug(competitorId: string, shopId: number): Promise<TriggerScrapingDebugInfo> {
-    return await fetchWithAdminAuth(`/api/admin/market-intelligence/competitors/${competitorId}/trigger-scraping-debug?shopId=${shopId}`, { method: 'POST' });
+    return await fetchWithAdminAuth(`/api/admin/market-intelligence/${competitorId}/trigger-scraping-debug?shopId=${shopId}`, { method: 'POST' });
   },
 
   async getCompetitorDebugInfo(competitorId: string, shopId: number): Promise<any> {
-    return await fetchWithAdminAuth(`/api/admin/market-intelligence/competitors/${competitorId}/debug-info?shopId=${shopId}`);
+    return await fetchWithAdminAuth(`/api/admin/market-intelligence/${competitorId}/debug-info?shopId=${shopId}`);
   },
 
   async getProductsDebug(shopId: number): Promise<ProductsDebugInfo> {
-    return await fetchWithAdminAuth(`/api/admin/market-intelligence/competitors/products-debug?shopId=${shopId}`);
+    return await fetchWithAdminAuth(`/api/admin/market-intelligence/products-debug?shopId=${shopId}`);
   },
 
   async getAvailableShops(): Promise<Array<{ id: number; shopify_domain: string }>> {
