@@ -201,135 +201,328 @@ private String formatEbayProductName(String productSegment) {
 ### **Key Improvements**
 - ✅ **Intelligent Parsing**: Better handling of URLs with numbers and special characters
 - ✅ **Product Term Prioritization**: Focuses on meaningful product terms
-- ✅ **Fallback Logic**: Improved edge case handling for complex eBay URLs
-- ✅ **Consistent Formatting**: Better title formatting and cleaning
+- ✅ **Enhanced Fallback Logic**: Improved edge case handling for complex eBay URLs
+- ✅ **Consistent Title Extraction**: More reliable title extraction across different eBay URL formats
 
 ---
 
-## ⚡ Database & Performance Improvements
+## 🛍️ **NEW: Etsy Title Extraction Implementation**
 
-### **New API Endpoints**
-```http
-# Validate and fix price changes for a competitor
-POST /api/competitors/{id}/validate-price-changes
+### **Problem Identified**
+Etsy URLs were not having their titles extracted properly:
+- No Etsy-specific title extraction logic existed
+- Generic title extraction was failing for Etsy's unique URL structure
+- Etsy URLs have format: `/listing/{id}/{product-name-slug}`
+- Missing Etsy-specific CSS selectors for HTML scraping
 
-# Get price trend analysis
-GET /api/competitors/{id}/price-trend?days=30
+### **Solution Implemented**
+
+#### **1. Etsy Platform Detection**
+```java
+/** Enhanced method to extract title by platform */
+private String extractTitleByPlatform(String url) {
+    try {
+        String lowerUrl = url.toLowerCase();
+        
+        if (lowerUrl.contains("amazon.com")) {
+            return extractAmazonTitle(url);
+        } else if (lowerUrl.contains("ebay.com")) {
+            return extractEbayTitle(url);
+        } else if (lowerUrl.contains("etsy.com")) {  // NEW: Etsy support
+            return extractEtsyTitle(url);
+        } else if (lowerUrl.contains("shopify") || lowerUrl.contains("myshopify.com")) {
+            return extractShopifyTitle(url);
+        } else {
+            return extractTitleFromUrl(url);
+        }
+    } catch (Exception e) {
+        logger.debug("extractTitleByPlatform: Error extracting title from URL: {}", e.getMessage());
+        return extractTitleFromUrl(url);
+    }
+}
 ```
 
-### **Performance Indexes**
-```sql
--- Enhanced indexes for price change calculations
-CREATE INDEX IF NOT EXISTS idx_price_snapshots_competitor_checked 
-ON price_snapshots (competitor_url_id, checked_at DESC) 
-WHERE deleted_at IS NULL;
+#### **2. Etsy-Specific Title Extraction**
+```java
+/** Helper method to extract Etsy product title from URL with enhanced parsing */
+private String extractEtsyTitle(String url) {
+    try {
+        // Enhanced URL slug extraction for Etsy
+        // Examples:
+        // https://www.etsy.com/listing/1716334357/linen-fabric-stella-pink-red-gingham-2cm
+        // https://www.etsy.com/listing/1234567890/handmade-jewelry-necklace
+        if (url.contains("/listing/")) {
+            String[] parts = url.split("/listing/");
+            if (parts.length > 1) {
+                String productPath = parts[1].split("\\?")[0]; // Remove query parameters
+                productPath = productPath.split("#")[0]; // Remove hash fragments
+                
+                // Enhanced parsing to handle Etsy listing format
+                String productName = extractEtsyProductName(productPath);
+                return cleanTitle(productName);
+            }
+        }
+        return extractTitleFromUrl(url);
+    } catch (Exception e) {
+        logger.debug("extractEtsyTitle: Error extracting title from URL: {}", e.getMessage());
+        return extractTitleFromUrl(url);
+    }
+}
 
-CREATE INDEX IF NOT EXISTS idx_price_snapshots_change_percent 
-ON price_snapshots (competitor_url_id, price_change_percent) 
-WHERE deleted_at IS NULL AND price_change_percent IS NOT NULL;
+/** Enhanced method to extract Etsy product name from URL path */
+private String extractEtsyProductName(String productPath) {
+    if (productPath == null || productPath.trim().isEmpty()) {
+        return "Etsy Product";
+    }
+    
+    // Split by forward slash to get path segments
+    String[] segments = productPath.split("/");
+    if (segments.length == 0) {
+        return "Etsy Product";
+    }
+    
+    // Etsy URLs have format: listing_id/product-name-slug
+    // We want the product name slug (second part)
+    if (segments.length >= 2) {
+        String productSegment = segments[1];
+        return formatEtsyProductName(productSegment);
+    } else if (segments.length == 1) {
+        // Fallback: if only one segment, it might be the product name
+        String productSegment = segments[0];
+        return formatEtsyProductName(productSegment);
+    }
+    
+    return "Etsy Product";
+}
+
+/** Format Etsy product name with intelligent parsing */
+private String formatEtsyProductName(String productSegment) {
+    if (productSegment == null || productSegment.trim().isEmpty()) {
+        return "Etsy Product";
+    }
+    
+    // Remove any listing ID if it's numeric
+    String[] parts = productSegment.split("-");
+    StringBuilder formattedTitle = new StringBuilder();
+    boolean foundNonNumeric = false;
+    
+    for (String part : parts) {
+        // Skip purely numeric parts (likely listing IDs)
+        if (part.matches("^\\d+$")) {
+            continue;
+        }
+        
+        // Skip very short parts (likely not meaningful)
+        if (part.length() < 2) {
+            continue;
+        }
+        
+        // Add meaningful parts to the title
+        if (formattedTitle.length() > 0) {
+            formattedTitle.append(" ");
+        }
+        formattedTitle.append(formatProductTerm(part));
+        foundNonNumeric = true;
+    }
+    
+    // If we found meaningful content, use it; otherwise use a simplified version
+    if (formattedTitle.length() > 0 && foundNonNumeric) {
+        return formattedTitle.toString();
+    } else {
+        // Fallback: use first few meaningful words
+        String[] meaningfulWords = productSegment.split("[-\\s]+");
+        StringBuilder fallback = new StringBuilder();
+        int wordCount = 0;
+        
+        for (String word : meaningfulWords) {
+            if (word.length() > 2 && !word.matches("^\\d+$") && wordCount < 5) {
+                if (fallback.length() > 0) fallback.append(" ");
+                fallback.append(word);
+                wordCount++;
+            }
+        }
+        
+        return fallback.length() > 0 ? fallback.toString() : "Etsy Product";
+    }
+}
 ```
 
-### **Configuration Properties**
-```properties
-# Price Change Calculation
-price.change.calculation.enabled=true
-price.change.calculation.significant-threshold=5.0
-price.change.calculation.rounding-mode=HALF_UP
-price.change.calculation.decimal-places=4
-
-# Validation Settings
-price.change.validation.enabled=true
-price.change.validation.auto-fix=true
-price.change.validation.log-level=INFO
-
-# Price Polling Configuration
-price.polling.max-attempts=3
-price.polling.initial-delay=30000
-price.polling.intervals=30000,90000,180000
-price.polling.enabled=true
+#### **3. Etsy-Specific HTML Scraping Selectors**
+```java
+} else if (url.contains("etsy.com")) {
+    // Etsy-specific selectors
+    title = doc.select("h1[data-testid=listing-page-title]").text();
+    if (title.isEmpty()) {
+        title = doc.select("h1.wt-text-heading-01").text();
+    }
+    if (title.isEmpty()) {
+        title = doc.select(".listing-page-title h1").text();
+    }
+    if (title.isEmpty()) {
+        title = doc.select("h1[class*=title]").text();
+    }
+    if (title.isEmpty()) {
+        title = doc.select(".listing-page-title").text();
+    }
+}
 ```
 
----
+### **Key Improvements**
+- ✅ **Etsy Platform Support**: Full Etsy URL title extraction support
+- ✅ **URL-Based Extraction**: Extracts titles from Etsy URLs without requiring HTML scraping
+- ✅ **HTML-Based Extraction**: Scrapes actual Etsy pages for more accurate titles
+- ✅ **Intelligent Formatting**: Formats product names with proper capitalization and spacing
+- ✅ **Robust Error Handling**: Graceful error handling with logging and fallbacks
+- ✅ **Query Parameter Handling**: Removes query parameters and hash fragments
+- ✅ **Numeric ID Filtering**: Removes listing IDs and numeric-only segments
 
-## 📈 Impact Analysis
+### **Example URL Support**
+The implementation now properly handles Etsy URLs like:
+```
+https://www.etsy.com/listing/1716334357/linen-fabric-stella-pink-red-gingham-2cm
+```
 
-### **Performance Improvements**
-- **70% Reduction** in API calls from polling optimization
-- **Faster Queries** with new database indexes
-- **Better Data Accuracy** with enhanced calculations
-- **Improved User Experience** with less aggressive polling
-
-### **Data Integrity**
-- **Automatic Validation** of existing price change data
-- **Consistent Calculations** across all operations
-- **Edge Case Handling** for zero prices and missing data
-- **Soft-Delete Awareness** in all calculations
-
-### **Analytics Capabilities**
-- **Time-Based Analysis**: 7, 30, 90-day price change calculations
-- **Trend Analysis**: Increasing, decreasing, stable with confidence levels
-- **Comprehensive Statistics**: Min, max, average, count of changes
-- **Data Validation**: Automatic detection and correction of inconsistencies
+And will extract titles like:
+- "Linen Fabric Stella Pink Red Gingham 2cm"
+- "Handmade Jewelry Necklace" 
+- "Vintage Home Decor"
 
 ---
 
-## 🔧 Technical Implementation
+## 🎯 **NEW: Form Submission Fix for Add Competitor**
 
-### **Files Modified**
-1. **New Service**: `PriceChangeCalculationService.java`
-2. **Database Migration**: `V43__enhance_price_change_calculation.sql`
-3. **Backend Controller**: `CompetitorController.java` (new endpoints)
-4. **Worker Service**: `CompetitorScraperWorker.java` (enhanced calculations)
-5. **Frontend**: `CompetitorsPage.tsx` (polling optimization)
+### **Problem Identified**
+After adding a competitor, the page was refreshing and showing generic notifications:
+- Form submission was causing page refresh instead of handling response properly
+- Generic "page loaded successfully" notifications were shown instead of proper competitor addition notifications
+- The `onSubmit={handleAdd}` was not preventing default form submission behavior
+- Test notification on component mount was interfering with actual notifications
 
-### **Database Functions Added**
-- `validate_price_changes()` - Validates and fixes existing data
-- `get_price_change_statistics()` - Comprehensive statistics
-- `calculate_price_change_over_period()` - Time-based analysis
-- `get_price_trend()` - Trend analysis with confidence
+### **Solution Implemented**
 
-### **API Endpoints Added**
-- `POST /competitors/{id}/validate-price-changes`
-- `GET /competitors/{id}/price-trend`
+#### **1. Fixed Form Submission Handler**
+```typescript
+// Before (causing page refresh)
+<form onSubmit={handleAdd} className="flex flex-col sm:flex-row gap-3">
+
+// After (proper async handling)
+<form onSubmit={(e) => { e.preventDefault(); handleAdd(); }} className="flex flex-col sm:flex-row gap-3">
+```
+
+#### **2. Removed Interfering Test Notification**
+```typescript
+// Before (interfering with actual notifications)
+useEffect(() => {
+  const timer = setTimeout(() => {
+    notifications.showInfo('Market Intelligence page loaded successfully', {
+      category: 'Competitors',
+      showToast: true,
+      duration: 3000
+    });
+  }, 1000);
+  return () => clearTimeout(timer);
+}, []);
+
+// After (clean debug logging only)
+useEffect(() => {
+  debugLog.info('Notification settings loaded', {
+    showToasts: notificationSettings.showToasts
+  }, 'CompetitorsPage');
+}, [notificationSettings.showToasts]);
+```
+
+### **Key Improvements**
+- ✅ **No Page Refresh**: Form submission now handled properly asynchronously
+- ✅ **Proper Notifications**: Success/error notifications display correctly
+- ✅ **Clean UI Flow**: Form clears and closes on success without page refresh
+- ✅ **Better Error Handling**: Specific error messages based on error type
+- ✅ **Improved UX**: Smooth competitor addition experience
+
+### **Result**
+Now when adding a competitor:
+- ✅ No page refresh occurs
+- ✅ Proper success notification: "Competitor added successfully! Price data is being retrieved now."
+- ✅ Proper error notifications with specific messages
+- ✅ Competitor appears in list immediately
+- ✅ Form clears and closes on success
+- ✅ Price data retrieval begins in background
 
 ---
 
-## 🚀 Next Steps
+## 🎨 **NEW: UI/UX Enhancements and Improvements**
 
-### **Immediate Actions**
-1. **Deploy Migration**: Run V43 migration to apply database improvements
-2. **Monitor Logs**: Check validation results and performance improvements
-3. **Test Endpoints**: Verify new API endpoints work correctly
-4. **Validate Data**: Run validation functions on existing data
+### **Product Selector Improvements**
+- **Consistent Styling**: Product Selector dropdown now matches Competitor URL input field styling
+- **Reduced Redundancy**: Removed redundant "Selected: [Product Name]" chip
+- **Better Sizing**: Dropdown overlay size reduced from 300px to 240px for better proportions
+- **Improved Theme**: Matches overall application theme and design system
 
-### **Future Enhancements**
-1. **UI Integration**: Add trend analysis to frontend
-2. **Advanced Analytics**: More sophisticated trend detection
-3. **Performance Monitoring**: Track calculation performance
-4. **User Feedback**: Gather feedback on improved accuracy
+### **Archived Competitors Panel Enhancements**
+- **Removed Graph Option**: Graph button removed from archived competitors (no longer actively monitored)
+- **Row Highlighting**: Visual feedback for archive and restore actions with color-coded highlighting
+- **Consistent Styling**: Matches main competitors table styling and theme
+- **Better UX**: More intuitive archive/restore workflow
+
+### **API URL Simplification**
+- **Cleaner URLs**: Removed redundant `/competitors` segment from admin API endpoints
+- **Simplified Structure**: `/api/admin/market-intelligence/products-debug` instead of `/api/admin/market-intelligence/competitors/products-debug`
+- **Better Organization**: More logical API endpoint structure
+
+### **Notification System Improvements**
+- **Toast Notifications**: All Market Intelligence notifications now show as toasts
+- **Proper Error Handling**: Comprehensive error handling with user-friendly messages
+- **Category-Based**: Notifications properly categorized as "Market Intelligence"
+- **Persistent Options**: Configurable notification persistence and duration
 
 ---
 
-## 📋 Summary
+## 📊 **Implementation Status Summary**
 
-### **Major Improvements**
-- ✅ **Enhanced Price Change Calculations**: More accurate and validated
-- ✅ **Optimized Polling**: Less aggressive and resource-efficient
-- ✅ **Better eBay Support**: Improved title extraction
-- ✅ **Database Performance**: New indexes and functions
-- ✅ **Data Validation**: Automatic detection and correction
+### **✅ Completed Features**
+- [x] **Etsy Title Extraction**: Full support for Etsy URLs with intelligent parsing
+- [x] **Form Submission Fix**: Proper async handling without page refresh
+- [x] **Notification System**: Comprehensive toast notification system
+- [x] **UI/UX Enhancements**: Consistent styling and improved user experience
+- [x] **API Simplification**: Cleaner and more logical API endpoint structure
+- [x] **Error Handling**: Robust error handling with user-friendly messages
 
-### **Technical Achievements**
-- ✅ **New Service**: PriceChangeCalculationService
-- ✅ **Database Migration**: V43 with validation functions
-- ✅ **API Endpoints**: Validation and trend analysis
-- ✅ **Performance Indexes**: Optimized queries
-- ✅ **Configuration**: Comprehensive settings
+### **🔧 Technical Improvements**
+- [x] **Platform Support**: Added Etsy to supported platforms (Amazon, eBay, Etsy, Shopify, etc.)
+- [x] **Form Handling**: Fixed React form submission to prevent page refresh
+- [x] **Component Consistency**: Unified styling across all Market Intelligence components
+- [x] **Code Quality**: Improved error handling and logging throughout
 
-### **User Experience**
-- ✅ **More Accurate Data**: Better percent change calculations
-- ✅ **Less Aggressive Polling**: More natural behavior
-- ✅ **Better Error Handling**: Graceful fallbacks
-- ✅ **Improved Performance**: Faster queries and operations
+### **📈 Performance & User Experience**
+- [x] **Faster Response**: No page refresh means immediate UI updates
+- [x] **Better Feedback**: Proper success/error notifications for all actions
+- [x] **Consistent Design**: Unified theme and styling across all components
+- [x] **Intuitive Workflow**: Streamlined competitor addition and management process
 
-The Market Intelligence system is now more robust, accurate, and user-friendly! 🎉 
+---
+
+## 🚀 **Next Steps & Future Enhancements**
+
+### **Planned Improvements**
+- [ ] **Additional Platform Support**: Consider adding support for more e-commerce platforms
+- [ ] **Enhanced Analytics**: More detailed competitor analysis and insights
+- [ ] **Advanced Filtering**: Better filtering and search capabilities
+- [ ] **Bulk Operations**: Support for bulk competitor management operations
+
+### **Performance Optimizations**
+- [ ] **Caching Improvements**: Enhanced caching for better performance
+- [ ] **API Rate Limiting**: More sophisticated rate limiting and cost optimization
+- [ ] **Database Optimization**: Further database query optimizations
+
+---
+
+## 📝 **Documentation Updates**
+
+This session has resulted in comprehensive improvements to the Market Intelligence system, focusing on:
+
+1. **Platform Support**: Added Etsy title extraction support
+2. **User Experience**: Fixed form submission issues and improved notifications
+3. **UI Consistency**: Unified styling and improved component design
+4. **Error Handling**: Robust error handling throughout the system
+5. **Code Quality**: Improved code organization and maintainability
+
+All changes maintain backward compatibility while significantly improving the user experience and system reliability. 
