@@ -235,7 +235,9 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
         setDeletedCompetitors(prev => 
           prev.filter(c => c.id !== restoreDialog.competitor!.id)
         );
-        notifications.showSuccess('Archived competitor restored successfully');
+        notifications.showSuccess('Archived competitor restored successfully', {
+          showToast: true
+        });
         
         // Notify parent component to refresh active competitors
         if (onCompetitorRestored) {
@@ -252,7 +254,9 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
           setDeletedCompetitors(prev => 
             prev.filter(c => c.id !== restoreDialog.competitor!.id)
           );
-          notifications.showSuccess('Archived competitor restored successfully');
+          notifications.showSuccess('Archived competitor restored successfully', {
+            showToast: true
+          });
           
           // Notify parent component to refresh active competitors
           if (onCompetitorRestored) {
@@ -262,7 +266,9 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
       }
     } catch (error) {
       console.error('Error restoring competitor:', error);
-      notifications.showError('Failed to restore archived competitor');
+      notifications.showError('Failed to restore archived competitor', {
+        showToast: true
+      });
     } finally {
       setRestoring(null);
       setRestoreDialog({ open: false, competitor: null, newLabel: '' });
@@ -285,7 +291,9 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
         // Demo mode - simulate permanent delete
         await new Promise(resolve => setTimeout(resolve, 500));
         setDeletedCompetitors(prev => prev.filter(c => c.id !== permanentDeleteDialog.competitorId));
-        notifications.showSuccess('Archived competitor permanently deleted');
+        notifications.showSuccess('Archived competitor permanently deleted', {
+          showToast: true
+        });
       } else {
         const response = await fetchWithAuth(`/api/competitors/${permanentDeleteDialog.competitorId}/permanent`, {
           method: 'DELETE'
@@ -294,12 +302,16 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
         const data = await response.json();
         if (data.success) {
           setDeletedCompetitors(prev => prev.filter(c => c.id !== permanentDeleteDialog.competitorId));
-          notifications.showSuccess('Archived competitor permanently deleted');
+          notifications.showSuccess('Archived competitor permanently deleted', {
+            showToast: true
+          });
         }
       }
     } catch (error) {
       console.error('Error permanently deleting competitor:', error);
-      notifications.showError('Failed to permanently delete archived competitor');
+      notifications.showError('Failed to permanently delete archived competitor', {
+        showToast: true
+      });
     } finally {
       setPermanentDeleteDialog({ open: false, competitorId: null, competitorLabel: '' });
     }
@@ -335,7 +347,9 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
       }
     } catch (error) {
       console.error('Error loading price history:', error);
-      notifications.showError('Failed to load price history');
+              notifications.showError('Failed to load price history', {
+          showToast: true
+        });
     }
   };
 
