@@ -56,6 +56,9 @@ interface TransactionMetrics {
   sessionUpdateFailures: number;
   avgResponseTime: number;
   peakResponseTime: number;
+  successRate: number;
+  failureRate: number;
+  lastUpdated: string;
   violationsByType: Record<string, number>;
   errorsByCategory: Record<string, number>;
   hourlyMetrics: Array<{
@@ -73,6 +76,7 @@ interface TransactionAlert {
   timestamp: string;
   resolved: boolean;
   category: string;
+  severity?: string;
 }
 
 const MonitoringCard = styled(Card)(({ theme }) => ({
@@ -118,9 +122,10 @@ const TransactionMonitoring: React.FC = () => {
   const [health, setHealth] = useState<TransactionHealth | null>(null);
   const [metrics, setMetrics] = useState<TransactionMetrics | null>(null);
   const [alerts, setAlerts] = useState<TransactionAlert[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [resetting, setResetting] = useState(false);
   const [refreshCooldown, setRefreshCooldown] = useState(0);
   const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isMountedRef = useRef(true);
@@ -140,7 +145,7 @@ const TransactionMonitoring: React.FC = () => {
 
   const fetchTransactionHealth = async () => {
     try {
-      const response = await fetchWithAdminAuth('/api/health/transactions');
+      const response = await fetchWithAdminAuth('/api/admin/health/transactions');
       
       // Extract metrics from the nested response structure
       const transactionMetrics = response.transactionMetrics || {};
@@ -172,28 +177,31 @@ const TransactionMonitoring: React.FC = () => {
 
   const fetchTransactionMetrics = async () => {
     try {
-      const response = await fetchWithAdminAuth('/api/health/metrics/transactions');
+      const response = await fetchWithAdminAuth('/api/admin/health/metrics/transactions');
       
-      // Extract metrics from the nested response structure
-      const metrics = response.metrics || {};
-      const alerts = response.alerts || {};
-      
-      // Transform backend response to match frontend interface
-      const transformedMetrics: TransactionMetrics = {
-        totalTransactions: metrics.total_transactions || 0,
-        successfulTransactions: metrics.successful_transactions || 0,
-        failedTransactions: metrics.failed_transactions || 0,
-        readOnlyViolations: metrics.read_only_violations || 0,
-        sessionUpdateFailures: 0, // Not provided by backend
-        avgResponseTime: 0, // Not provided by backend
-        peakResponseTime: 0, // Not provided by backend
-        violationsByType: metrics.error_counts || {},
-        errorsByCategory: metrics.error_counts || {},
-        hourlyMetrics: [] // Not provided by backend
-      };
-      
-      if (isMountedRef.current) {
-        setMetrics(transformedMetrics);
+      if (response && response.metrics) {
+        const metrics = response.metrics;
+        
+        // Transform backend metrics to frontend format
+        const transformedMetrics: TransactionMetrics = {
+          totalTransactions: metrics.total_transactions || 0,
+          successfulTransactions: metrics.successful_transactions || 0,
+          failedTransactions: metrics.failed_transactions || 0,
+          readOnlyViolations: metrics.read_only_violations || 0,
+          sessionUpdateFailures: metrics.session_update_failures || 0,
+          avgResponseTime: metrics.avg_response_time || 0,
+          peakResponseTime: metrics.peak_response_time || 0,
+          successRate: metrics.success_rate || 0,
+          failureRate: metrics.failure_rate || 0,
+          lastUpdated: new Date().toISOString(),
+          violationsByType: metrics.violations_by_type || {},
+          errorsByCategory: metrics.errors_by_category || {},
+          hourlyMetrics: metrics.hourly_metrics || []
+        };
+        
+        if (isMountedRef.current) {
+          setMetrics(transformedMetrics);
+        }
       }
     } catch (err) {
       console.error('Failed to fetch transaction metrics:', err);
@@ -205,24 +213,25 @@ const TransactionMonitoring: React.FC = () => {
 
   const fetchTransactionAlerts = async () => {
     try {
-      // Get alerts from the metrics endpoint since alerts are included there
-      const response = await fetchWithAdminAuth('/api/health/metrics/transactions') as any;
+      const response = await fetchWithAdminAuth('/api/admin/health/metrics/transactions') as any;
       
-      // Extract alerts from the nested response structure
-      const alerts = response.alerts || {};
-      
-      // Transform backend alerts to match frontend interface
-      const transformedAlerts: TransactionAlert[] = Object.entries(alerts).map(([key, alert]: [string, any]) => ({
-        id: key,
-        type: alert.severity === 'CRITICAL' ? 'CRITICAL' : alert.severity === 'WARNING' ? 'WARNING' : 'INFO',
-        message: alert.message || 'Unknown alert',
-        timestamp: new Date().toISOString(),
-        resolved: false,
-        category: key
-      }));
-      
-      if (isMountedRef.current) {
-        setAlerts(transformedAlerts);
+      if (response && response.alerts) {
+        const alerts = response.alerts;
+        
+        // Transform backend alerts to frontend format
+        const transformedAlerts: TransactionAlert[] = Object.keys(alerts).map(key => ({
+          id: key,
+          type: 'WARNING' as const,
+          message: alerts[key]?.message || key,
+          timestamp: new Date().toISOString(),
+          resolved: false,
+          category: key,
+          severity: alerts[key]?.severity || 'medium'
+        }));
+        
+        if (isMountedRef.current) {
+          setAlerts(transformedAlerts);
+        }
       }
     } catch (err) {
       console.error('Failed to fetch transaction alerts:', err);
@@ -232,11 +241,10 @@ const TransactionMonitoring: React.FC = () => {
     }
   };
 
-  const resetMetrics = async () => {
-    if (!isMountedRef.current) return;
-    
+  const resetTransactionMetrics = async () => {
     try {
-      await fetchWithAdminAuth('/api/health/metrics/transactions/reset', {
+      setResetting(true);
+      await fetchWithAdminAuth('/api/admin/health/metrics/transactions/reset', {
         method: 'POST',
       });
       
@@ -277,7 +285,7 @@ const TransactionMonitoring: React.FC = () => {
         fetchTransactionAlerts(),
       ]);
       if (isMountedRef.current) {
-        setLastRefresh(new Date());
+        setLastUpdated(new Date());
       }
     } catch (err) {
       console.error('Failed to refresh monitoring data:', err);
@@ -329,18 +337,18 @@ const TransactionMonitoring: React.FC = () => {
           <Button
             variant="outlined"
             startIcon={<RestartAltIcon />}
-            onClick={resetMetrics}
+            onClick={resetTransactionMetrics}
             size="small"
             sx={{ borderRadius: 2 }}
           >
             Reset Metrics
           </Button>
           <RefreshHeader
-            lastUpdated={lastRefresh ? (() => {
-              const diff = Math.floor((Date.now() - lastRefresh.getTime()) / 1000);
+            lastUpdated={lastUpdated ? (() => {
+              const diff = Math.floor((Date.now() - lastUpdated.getTime()) / 1000);
               if (diff < 60) return 'Just now';
               if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
-              return lastRefresh.toLocaleString();
+              return lastUpdated.toLocaleString();
             })() : 'Never'}
             onRefresh={refreshAll}
             loading={loading}
@@ -373,7 +381,7 @@ const TransactionMonitoring: React.FC = () => {
                 />
               </Box>
             }
-            subheader={`Last updated: ${lastRefresh.toLocaleTimeString()}`}
+            subheader={`Last updated: ${lastUpdated ? lastUpdated.toLocaleTimeString() : 'Never'}`}
           />
           <CardContent>
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr 1fr' }, gap: 3 }}>

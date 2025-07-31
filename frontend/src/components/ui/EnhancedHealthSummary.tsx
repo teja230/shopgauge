@@ -335,7 +335,7 @@ const EnhancedHealthSummary: React.FC = () => {
       const [healthData, dbDetailsData, cacheData] = await Promise.all([
         fetchPublicEndpoint('/api/health/summary').then(res => res.json()),
         fetchPublicEndpoint('/api/health/database-pool').then(res => res.json()),
-        fetchPublicEndpoint('/api/health/cache-statistics').then(res => res.json()).catch(() => ({ hits: 0, misses: 0, total: 0, hitRate: 0, evictions: 0 }))
+        fetchPublicEndpoint('/api/health/cache').then(res => res.json()).catch(() => ({ hits: 0, misses: 0, total: 0, hitRate: 0, evictions: 0 }))
       ]);
       
       // Transform the data to match expected format
