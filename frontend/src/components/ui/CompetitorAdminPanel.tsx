@@ -100,16 +100,18 @@ const AdminButton = styled(Button)(({ theme }) => ({
 
 interface CompetitorAdminPanelProps {
   showActions?: boolean;
+  shopId?: number;
 }
 
 const CompetitorAdminPanel: React.FC<CompetitorAdminPanelProps> = ({
   showActions = true,
+  shopId,
 }) => {
   const { addNotification } = useNotifications();
   
   // State management
   const [loading, setLoading] = useState(false);
-  const [selectedShopId, setSelectedShopId] = useState<number | ''>('');
+  const [selectedShopId, setSelectedShopId] = useState<number | ''>(shopId || '');
   const [availableShops, setAvailableShops] = useState<Array<{ id: number; shopify_domain: string }>>([]);
   const [scrapingStatus, setScrapingStatus] = useState<CompetitorScrapingStatus | null>(null);
   const [cacheDebugInfo, setCacheDebugInfo] = useState<CacheDebugInfo | null>(null);
@@ -127,6 +129,13 @@ const CompetitorAdminPanel: React.FC<CompetitorAdminPanelProps> = ({
   useEffect(() => {
     loadAvailableShops();
   }, []);
+
+  // Update selectedShopId when shopId prop changes
+  useEffect(() => {
+    if (shopId) {
+      setSelectedShopId(shopId);
+    }
+  }, [shopId]);
 
   // Load scraping status when shop is selected
   useEffect(() => {
@@ -350,32 +359,7 @@ const CompetitorAdminPanel: React.FC<CompetitorAdminPanelProps> = ({
         </Typography>
       </Box>
 
-      {/* Shop Selection */}
-      <AdminCard sx={{ mb: 3 }}>
-        <CardContent>
-          <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: 'primary.main' }}>
-            Shop Selection
-          </Typography>
-          <FormControl fullWidth sx={{ mt: 2 }}>
-            <InputLabel>Select Shop</InputLabel>
-            <Select
-              value={selectedShopId}
-              onChange={(e) => setSelectedShopId(e.target.value as number)}
-              label="Select Shop"
-              sx={{ borderRadius: 2 }}
-            >
-              <MenuItem value="">
-                <em>Select a shop to debug</em>
-              </MenuItem>
-              {availableShops.map((shop) => (
-                <MenuItem key={shop.id} value={shop.id}>
-                  {shop.shopify_domain} (ID: {shop.id})
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </CardContent>
-      </AdminCard>
+
 
       {loading && (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
