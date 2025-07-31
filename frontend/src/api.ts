@@ -676,6 +676,11 @@ export async function addCompetitorIntelligent(url: string, productId?: string):
       throw error;
     }
     
+    // Preserve specific competitor limit error messages
+    if (error.competitorLimitExceeded || error.archivedCompetitorLimitExceeded) {
+      throw error; // Re-throw the specific error message as-is
+    }
+    
     // Handle network errors and cancelled requests
     if (error.name === 'TypeError' && error.message.includes('fetch')) {
       throw new Error('Connection issue detected. Please check your internet connection and try again.');
