@@ -569,24 +569,12 @@ export default function CompetitorsPage() {
     marketingNotifications: notificationSettings.marketingNotifications
   }, 'CompetitorsPage');
   
-  // Test notification on component mount - only run once
+  // Debug notification settings on component mount
   useEffect(() => {
-    debugLog.info('Testing notification system', {
+    debugLog.info('Notification settings loaded', {
       showToasts: notificationSettings.showToasts
     }, 'CompetitorsPage');
-    
-    // Test notification after a short delay
-    const timer = setTimeout(() => {
-      debugLog.info('Sending test notification', {}, 'CompetitorsPage');
-      notifications.showInfo('Market Intelligence page loaded successfully', {
-        category: 'Competitors',
-        showToast: true,
-        duration: 3000
-      });
-    }, 1000);
-    
-    return () => clearTimeout(timer);
-  }, []); // Empty dependency array - only run once on mount
+  }, [notificationSettings.showToasts]); // Only run when settings change
   
   // Show helpful message if not authenticated - only run once when auth state changes
   useEffect(() => {
@@ -2258,7 +2246,7 @@ export default function CompetitorsPage() {
           {/* Add Form */}
           {showAddForm && (
             <div className="mt-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
-              <form onSubmit={handleAdd} className="flex flex-col sm:flex-row gap-3">
+              <form onSubmit={(e) => { e.preventDefault(); handleAdd(); }} className="flex flex-col sm:flex-row gap-3">
                 <div className="w-full sm:w-1/2 relative">
                   <div className="relative url-tooltip-container">
                     <input
