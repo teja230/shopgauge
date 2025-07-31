@@ -167,12 +167,13 @@ const MarketIntelligenceDashboard: React.FC<MarketIntelligenceDashboardProps> = 
 
   const loadAvailableShops = async () => {
     try {
-      const response = await marketIntelligenceAdminAPI.getAvailableShops();
-      if (response && Array.isArray(response)) {
-        setAvailableShops(response);
+      // Use the same endpoint as competitor debug (which works)
+      const response = await marketIntelligenceAdminAPI.getCompetitorScrapingStatus();
+      if (response && response.availableShops && Array.isArray(response.availableShops)) {
+        setAvailableShops(response.availableShops);
         // Auto-select first shop if available
-        if (response.length > 0 && !selectedShopId) {
-          setSelectedShopId(response[0].id);
+        if (response.availableShops.length > 0 && !selectedShopId) {
+          setSelectedShopId(response.availableShops[0].id);
         }
       }
     } catch (error) {
@@ -416,14 +417,45 @@ const MarketIntelligenceDashboard: React.FC<MarketIntelligenceDashboardProps> = 
               value={selectedShopId}
               onChange={(e) => setSelectedShopId(e.target.value as number)}
               label="Select Shop"
-              sx={{ borderRadius: 2 }}
+              sx={{ 
+                borderRadius: 2,
+                '& .MuiSelect-select': {
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1
+                }
+              }}
+              MenuProps={{
+                PaperProps: {
+                  sx: {
+                    maxHeight: 300,
+                    '& .MuiMenuItem-root': {
+                      padding: '12px 16px',
+                      '&:hover': {
+                        backgroundColor: 'primary.light',
+                        color: 'primary.contrastText'
+                      }
+                    }
+                  }
+                }
+              }}
             >
               <MenuItem value="">
                 <em>Select a shop to manage</em>
               </MenuItem>
               {availableShops.map((shop) => (
                 <MenuItem key={shop.id} value={shop.id}>
-                  {shop.shopify_domain} (ID: {shop.id})
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+                    <StorefrontIcon sx={{ fontSize: 20, color: 'primary.main' }} />
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                        {shop.shopify_domain}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                        Shop ID: {shop.id}
+                      </Typography>
+                    </Box>
+                  </Box>
                 </MenuItem>
               ))}
             </Select>
@@ -465,7 +497,18 @@ const MarketIntelligenceDashboard: React.FC<MarketIntelligenceDashboardProps> = 
 
       {/* Tab Content */}
       {activeTab === 'competitor-admin' ? (
-        <CompetitorAdminPanel showActions={showActions} />
+        selectedShopId ? (
+          <CompetitorAdminPanel showActions={showActions} shopId={selectedShopId} />
+        ) : (
+          <Card sx={{ p: 3, textAlign: 'center' }}>
+            <Typography variant="h6" color="text.secondary" gutterBottom>
+              Select a Shop
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Please select a shop from the dropdown above to view competitor admin panel.
+            </Typography>
+          </Card>
+        )
       ) : activeTab === 'deleted-competitors' ? (
         selectedShopId ? (
           <ArchivedCompetitorsPanel shopId={selectedShopId.toString()} />
