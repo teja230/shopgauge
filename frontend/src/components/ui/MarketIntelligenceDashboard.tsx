@@ -23,6 +23,10 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import {
   Refresh as RefreshIcon,
@@ -126,6 +130,8 @@ const MarketIntelligenceDashboard: React.FC<MarketIntelligenceDashboardProps> = 
   const [metrics, setMetrics] = useState<MarketIntelligenceMetrics | null>(null);
   const [historicalData, setHistoricalData] = useState<HistoricalData[]>([]);
   const [shopId, setShopId] = useState<number | null>(null);
+  const [selectedShopId, setSelectedShopId] = useState<number | ''>('');
+  const [availableShops, setAvailableShops] = useState<Array<{ id: number; shopify_domain: string }>>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -138,6 +144,42 @@ const MarketIntelligenceDashboard: React.FC<MarketIntelligenceDashboardProps> = 
   const [resetLoading, setResetLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'competitor-admin' | 'deleted-competitors'>('dashboard');
   const cooldownRef = useRef<NodeJS.Timeout | null>(null);
+  const { addNotification } = useNotifications();
+
+  // Load available shops on component mount
+  useEffect(() => {
+    loadAvailableShops();
+  }, []);
+
+  // Update shopId when selectedShopId changes
+  useEffect(() => {
+    if (selectedShopId && typeof selectedShopId === 'number') {
+      setShopId(selectedShopId);
+    }
+  }, [selectedShopId]);
+
+  // Fetch metrics when shopId changes
+  useEffect(() => {
+    if (shopId) {
+      fetchMetrics();
+    }
+  }, [shopId]);
+
+  const loadAvailableShops = async () => {
+    try {
+      const response = await marketIntelligenceAdminAPI.getAvailableShops();
+      if (response && Array.isArray(response)) {
+        setAvailableShops(response);
+        // Auto-select first shop if available
+        if (response.length > 0 && !selectedShopId) {
+          setSelectedShopId(response[0].id);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load available shops:', error);
+      addNotification('Failed to load available shops', 'error');
+    }
+  };
 
   const fetchMetrics = async () => {
     try {
@@ -198,17 +240,10 @@ const MarketIntelligenceDashboard: React.FC<MarketIntelligenceDashboardProps> = 
       setMetrics(metrics);
       setLastUpdated(new Date());
 
-      // Get shop ID from database stats (assuming first active shop for demo)
-      // In a real implementation, this would come from user context or session
-      const activeShops = metrics.databaseStats?.activeShops || 0;
-      if (activeShops > 0) {
-        // For demo purposes, use shop ID 1 if there are active shops
-        // In production, this would be the actual shop ID from user session
-        setShopId(1);
-        
-        // Fetch real historical cost data
+      // Fetch historical cost data only if a shop is selected
+      if (shopId) {
         try {
-          const costHistory = await marketIntelligenceAdminAPI.getCostHistory(1, 30);
+          const costHistory = await marketIntelligenceAdminAPI.getCostHistory(shopId, 30);
           let historicalData: HistoricalData[] = [];
           if (Array.isArray(costHistory?.historicalData)) {
             historicalData = costHistory.historicalData.map(item => ({
@@ -217,41 +252,18 @@ const MarketIntelligenceDashboard: React.FC<MarketIntelligenceDashboardProps> = 
               requests: item.requests,
               discoveries: item.discoveries,
             }));
-          } else {
-            // fallback to sample data
-            historicalData = Array.from({ length: 30 }, (_, i) => ({
-              timestamp: new Date(Date.now() - (29 - i) * 24 * 60 * 60 * 1000).toISOString(),
-              dailyCost: Math.random() * 10 + 2,
-              requests: Math.floor(Math.random() * 1000) + 100,
-              discoveries: Math.floor(Math.random() * 50) + 10,
-            }));
           }
           setHistoricalData(historicalData);
-        } catch (error: any) {
-          setError('Failed to load historical cost data. Please try again later.');
-          // Fallback to sample data for display
-          const sampleHistoricalData: HistoricalData[] = Array.from({ length: 30 }, (_, i) => ({
-            timestamp: new Date(Date.now() - (29 - i) * 24 * 60 * 60 * 1000).toISOString(),
-            dailyCost: Math.random() * 10 + 2,
-            requests: Math.floor(Math.random() * 1000) + 100,
-            discoveries: Math.floor(Math.random() * 50) + 10,
-          }));
-          setHistoricalData(sampleHistoricalData);
+        } catch (error) {
+          console.error('Failed to fetch cost history:', error);
+          setHistoricalData([]);
         }
       } else {
-        // No active shops, use sample data
-        const sampleHistoricalData: HistoricalData[] = Array.from({ length: 30 }, (_, i) => ({
-          timestamp: new Date(Date.now() - (29 - i) * 24 * 60 * 60 * 1000).toISOString(),
-          dailyCost: Math.random() * 10 + 2,
-          requests: Math.floor(Math.random() * 1000) + 100,
-          discoveries: Math.floor(Math.random() * 50) + 10,
-        }));
-        setHistoricalData(sampleHistoricalData);
+        setHistoricalData([]);
       }
-
-    } catch (error) {
-      console.error('Error fetching market intelligence metrics:', error);
-      setError(error instanceof Error ? error.message : 'Failed to fetch metrics');
+    } catch (err) {
+      setError('Failed to load metrics');
+      console.error('Error fetching metrics:', err);
     } finally {
       setLoading(false);
     }
@@ -367,27 +379,62 @@ const MarketIntelligenceDashboard: React.FC<MarketIntelligenceDashboardProps> = 
     <Box sx={{ p: 3 }}>
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" fontWeight="bold">
-          Market Intelligence Dashboard
-        </Typography>
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          <RefreshHeader
-            lastUpdated={lastUpdated ? (() => {
-              const diff = Math.floor((Date.now() - lastUpdated.getTime()) / 1000);
-              if (diff < 5) return 'Just now';
-              if (diff < 60) return `${diff}s ago`;
-              if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
-              return lastUpdated.toLocaleString();
-            })() : 'Never'}
-            onRefresh={handleManualRefresh}
-            loading={loading}
-            cooldown={refreshCooldown > 0}
-            cooldownRemaining={refreshCooldown}
-            label="Refresh Market Intelligence"
-            tooltip="Refresh market intelligence metrics"
-          />
+        <Box>
+          <Typography variant="h4" fontWeight="bold" gutterBottom>
+            Market Intelligence Dashboard
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Monitor and manage Market Intelligence system performance, costs, and configurations
+          </Typography>
         </Box>
+        <RefreshHeader
+          lastUpdated={lastUpdated ? (() => {
+            const diff = Math.floor((Date.now() - lastUpdated.getTime()) / 1000);
+            if (diff < 5) return 'Just now';
+            if (diff < 60) return `${diff}s ago`;
+            if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+            return lastUpdated.toLocaleString();
+          })() : 'Never'}
+          onRefresh={handleManualRefresh}
+          loading={loading}
+          cooldown={refreshCooldown > 0}
+          cooldownRemaining={refreshCooldown}
+          label="Refresh Market Intelligence"
+          tooltip="Refresh market intelligence metrics"
+        />
       </Box>
+
+      {/* Store Selector */}
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: 'primary.main' }}>
+            Shop Selection
+          </Typography>
+          <FormControl fullWidth sx={{ mt: 2 }}>
+            <InputLabel>Select Shop</InputLabel>
+            <Select
+              value={selectedShopId}
+              onChange={(e) => setSelectedShopId(e.target.value as number)}
+              label="Select Shop"
+              sx={{ borderRadius: 2 }}
+            >
+              <MenuItem value="">
+                <em>Select a shop to manage</em>
+              </MenuItem>
+              {availableShops.map((shop) => (
+                <MenuItem key={shop.id} value={shop.id}>
+                  {shop.shopify_domain} (ID: {shop.id})
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          {selectedShopId && (
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+              Managing data for shop ID: {selectedShopId}
+            </Typography>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Tab Navigation */}
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
@@ -420,7 +467,18 @@ const MarketIntelligenceDashboard: React.FC<MarketIntelligenceDashboardProps> = 
       {activeTab === 'competitor-admin' ? (
         <CompetitorAdminPanel showActions={showActions} />
       ) : activeTab === 'deleted-competitors' ? (
-                        <ArchivedCompetitorsPanel shopId="demo" />
+        selectedShopId ? (
+          <ArchivedCompetitorsPanel shopId={selectedShopId.toString()} />
+        ) : (
+          <Card sx={{ p: 3, textAlign: 'center' }}>
+            <Typography variant="h6" color="text.secondary" gutterBottom>
+              Select a Shop
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Please select a shop from the dropdown above to view archived competitors.
+            </Typography>
+          </Card>
+        )
       ) : (
         <>
           {/* System Status Alert */}
@@ -774,7 +832,7 @@ const MarketIntelligenceDashboard: React.FC<MarketIntelligenceDashboardProps> = 
             </Typography>
           ) : (
             <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-              Showing sample data. Connect a shop to view real cost trends.
+              Please select a shop to view real cost trends.
             </Typography>
           )}
         </CardContent>
