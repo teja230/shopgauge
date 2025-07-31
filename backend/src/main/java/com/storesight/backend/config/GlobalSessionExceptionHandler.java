@@ -145,6 +145,10 @@ public class GlobalSessionExceptionHandler {
       HttpServletRequest httpRequest,
       HttpServletResponse httpResponse) {
 
+    logger.debug(
+        "GlobalSessionExceptionHandler: Processing exception: {} with order -1000",
+        e.getClass().getSimpleName());
+
     // Check if this is a session-related error in the cause chain
     if (isSessionRelatedError(e)) {
       String path = httpRequest.getRequestURI();

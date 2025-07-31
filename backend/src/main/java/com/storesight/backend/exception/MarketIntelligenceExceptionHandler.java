@@ -25,7 +25,10 @@ public class MarketIntelligenceExceptionHandler {
   public ResponseEntity<Map<String, Object>> handleCompetitorLimitExceeded(
       CompetitorLimitExceededException ex, WebRequest request) {
 
-    logger.warn("Competitor limit exceeded: {}", ex.getMessage());
+    logger.warn(
+        "MarketIntelligenceExceptionHandler: Competitor limit exceeded: {}", ex.getMessage());
+    logger.info(
+        "MarketIntelligenceExceptionHandler: Processing CompetitorLimitExceededException with order -2000");
 
     Map<String, Object> response = new HashMap<>();
     response.put("error", "COMPETITOR_LIMIT_EXCEEDED");
