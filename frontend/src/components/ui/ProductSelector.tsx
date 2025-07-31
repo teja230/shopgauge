@@ -6,9 +6,7 @@ import {
   CircularProgress,
   Typography,
   Alert,
-  Chip,
-  Card,
-  CardContent
+  Chip
 } from '@mui/material';
 import { CheckCircleIcon } from '@heroicons/react/24/outline';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
@@ -156,30 +154,39 @@ export const ProductSelector: React.FC<ProductSelectorProps> = ({
         options={products}
         getOptionLabel={(option) => `${option.title} ($${option.price})`}
         renderOption={(props, option) => (
-          <Box component="li" {...props}>
-            <Card variant="outlined" sx={{ width: '100%', mb: 1 }}>
-              <CardContent sx={{ py: 2, px: 2 }}>
-                <Box display="flex" alignItems="center" justifyContent="space-between">
-                  <Box flex={1}>
-                    <Typography variant="body2" fontWeight="medium" gutterBottom>
-                      {option.title}
+          <Box component="li" {...props} sx={{ py: 0.5 }}>
+            <Box sx={{ 
+              width: '100%', 
+              p: 1.5, 
+              borderRadius: '6px',
+              border: '1px solid #e5e7eb',
+              backgroundColor: 'white',
+              '&:hover': {
+                backgroundColor: '#f9fafb',
+                borderColor: '#d1d5db',
+              },
+              transition: 'all 0.2s ease-in-out'
+            }}>
+              <Box display="flex" alignItems="center" justifyContent="space-between">
+                <Box flex={1}>
+                  <Typography variant="body2" fontWeight="medium" sx={{ fontSize: '14px', mb: 0.5 }}>
+                    {option.title}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '12px', display: 'block', mb: 0.5 }}>
+                    {option.handle ? `/${option.handle}` : 'No handle set'}
+                  </Typography>
+                  <Box display="flex" alignItems="center" gap={0.5}>
+                    <AttachMoneyIcon style={{ fontSize: '0.875rem' }} color="primary" />
+                    <Typography variant="body2" color="primary" sx={{ fontSize: '14px' }}>
+                      ${option.price}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary" gutterBottom>
-                      {option.handle ? `/${option.handle}` : 'No handle set'}
-                    </Typography>
-                    <Box display="flex" alignItems="center" gap={1}>
-                      <AttachMoneyIcon style={{ fontSize: '1rem' }} color="primary" />
-                      <Typography variant="body2" color="primary">
-                        ${option.price}
-                      </Typography>
-                    </Box>
                   </Box>
-                  {value === option.id && (
-                    <CheckCircleIcon style={{ fontSize: '1.25rem' }} color="primary" />
-                  )}
                 </Box>
-              </CardContent>
-            </Card>
+                {value === option.id && (
+                  <CheckCircleIcon style={{ fontSize: '1rem' }} color="primary" />
+                )}
+              </Box>
+            </Box>
           </Box>
         )}
         renderInput={(params) => (
@@ -205,12 +212,14 @@ export const ProductSelector: React.FC<ProductSelectorProps> = ({
                 height: '40px', // Match the URL input height
                 '& fieldset': {
                   borderColor: '#d1d5db',
+                  borderWidth: '1px',
                 },
                 '&:hover fieldset': {
                   borderColor: '#9ca3af',
                 },
                 '&.Mui-focused fieldset': {
                   borderColor: '#3b82f6',
+                  borderWidth: '2px',
                 },
                 '&.Mui-focused': {
                   '& .MuiOutlinedInput-notchedOutline': {
@@ -226,6 +235,17 @@ export const ProductSelector: React.FC<ProductSelectorProps> = ({
                   fontSize: '14px',
                 },
                 transition: 'all 0.2s ease-in-out',
+              },
+              // Reduce dropdown overlay size to match URL input
+              '& .MuiAutocomplete-paper': {
+                maxHeight: '240px', // Reduce from 300px to make it more proportional
+                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                border: '1px solid #e5e7eb',
+                borderRadius: '8px',
+              },
+              // Make the dropdown options more compact
+              '& .MuiAutocomplete-listbox': {
+                padding: '4px',
               },
             }}
           />
