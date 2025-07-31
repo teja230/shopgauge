@@ -179,20 +179,6 @@ const StatusChip = styled(Chip)(({ theme }) => ({
   },
 }));
 
-const SummaryBanner = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  alignItems: 'center',
-  padding: theme.spacing(2, 3),
-  marginBottom: theme.spacing(3),
-  borderRadius: 12,
-  backgroundColor: `${theme.palette.info.main}08`,
-  border: `1px solid ${theme.palette.info.main}20`,
-  [theme.breakpoints.down('sm')]: {
-    padding: theme.spacing(1.5, 2),
-    marginBottom: theme.spacing(2),
-  },
-}));
-
 const ActionButton = styled(Button)(({ theme }) => ({
   borderRadius: 8,
   textTransform: 'none',
@@ -273,7 +259,7 @@ export const SessionLimitDialog: React.FC<SessionLimitDialogProps> = ({
     if (isLimitReached) {
       return `You can only have ${maxSessions} active sessions. Please remove some sessions to continue.`;
     } else {
-      return `You have ${currentSessionCount} active sessions. You can manage them here.`;
+      return `You have ${currentSessionCount} active sessions (${Math.max(0, maxSessions - currentSessionCount)} slots remaining). You can manage them here.`;
     }
   };
 
@@ -446,18 +432,6 @@ export const SessionLimitDialog: React.FC<SessionLimitDialogProps> = ({
       </StyledDialogTitle>
 
       <StyledDialogContent>
-        <SummaryBanner>
-          <InfoIcon sx={{ color: 'info.main', mr: 1.5, fontSize: '1.25rem' }} />
-          <Box>
-            <Typography variant="body2" fontWeight={600} color="info.main">
-              Active Sessions: {currentSessionCount}/{maxSessions}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              You have {Math.max(0, maxSessions - currentSessionCount)} session slots remaining
-            </Typography>
-          </Box>
-        </SummaryBanner>
-
         {loading ? (
           <Box>
             {[1, 2, 3].map((i) => (
@@ -482,27 +456,11 @@ export const SessionLimitDialog: React.FC<SessionLimitDialogProps> = ({
             sx={{ 
               mt: 2, 
               borderRadius: 2,
-              '& .MuiAlert-message': {
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                width: '100%',
-              },
             }}
           >
             <Typography variant="body2">
               {selectedSessions.size} session{selectedSessions.size !== 1 ? 's' : ''} selected for deletion
             </Typography>
-            <ActionButton
-              size="small"
-              variant="contained"
-              color="error"
-              onClick={handleDeleteSelected}
-              disabled={isDeleting}
-              startIcon={<DeleteIcon />}
-            >
-              {isDeleting ? 'Deleting...' : 'Delete Selected'}
-            </ActionButton>
           </Alert>
         )}
       </StyledDialogContent>
@@ -510,24 +468,32 @@ export const SessionLimitDialog: React.FC<SessionLimitDialogProps> = ({
       <StyledDialogActions>
         <Box display="flex" justifyContent="space-between" width="100%">
           <Box>
-            {!isLimitReached && (
-              <ActionButton
-                variant="outlined"
-                onClick={handleClose}
-                sx={{ mr: 1 }}
-              >
-                Close
-              </ActionButton>
-            )}
+            <ActionButton
+              variant="outlined"
+              onClick={handleClose}
+            >
+              Close
+            </ActionButton>
           </Box>
           
           <Box display="flex" gap={1}>
-            {isLimitReached && (
+            {selectedSessions.size > 0 && (
+              <ActionButton
+                variant="contained"
+                color="error"
+                onClick={handleDeleteSelected}
+                disabled={isDeleting}
+                startIcon={<DeleteIcon />}
+              >
+                {isDeleting ? 'Deleting...' : 'Delete Selected'}
+              </ActionButton>
+            )}
+            
+            {isLimitReached && selectedSessions.size === 0 && (
               <ActionButton
                 variant="contained"
                 color="primary"
                 onClick={onContinue}
-                disabled={selectedSessions.size === 0}
               >
                 Continue
               </ActionButton>
