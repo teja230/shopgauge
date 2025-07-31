@@ -45,13 +45,13 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
   useEffect(() => {
     const fetchPriceHistory = async () => {
       if (isDemoMode) {
-        // Demo data with varying prices to show min/max
+        // Demo data with varying prices to show min/max - in chronological order (oldest first)
         const demoHistory: PriceHistoryData[] = [
-          { checked_at: '2025-01-22T02:27:30Z', price: 999.00, in_stock: true },
-          { checked_at: '2025-01-21T02:27:30Z', price: 899.00, in_stock: true },
-          { checked_at: '2025-01-20T02:27:30Z', price: 949.00, in_stock: true },
-          { checked_at: '2025-01-19T02:27:30Z', price: 879.00, in_stock: true },
           { checked_at: '2025-01-18T02:27:30Z', price: 929.00, in_stock: true },
+          { checked_at: '2025-01-19T02:27:30Z', price: 879.00, in_stock: true },
+          { checked_at: '2025-01-20T02:27:30Z', price: 949.00, in_stock: true },
+          { checked_at: '2025-01-21T02:27:30Z', price: 899.00, in_stock: true },
+          { checked_at: '2025-01-22T02:27:30Z', price: 999.00, in_stock: true },
         ];
         setPriceHistory(demoHistory);
         setStatistics({
@@ -127,7 +127,7 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
       inStock: entry.in_stock,
       timestamp: new Date(entry.checked_at).getTime()
     };
-  }).reverse(); // Reverse to show oldest to newest
+  }); // Data is already in chronological order (oldest to newest)
 
   // Custom tooltip for the chart
   const CustomTooltip = ({ active, payload, label }: any) => {
@@ -359,7 +359,7 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
                   </ResponsiveContainer>
                 </div>
                 <div className="text-center text-sm text-gray-500 mt-4">
-                  {formatDate(priceHistory[priceHistory.length - 1].checked_at)} - {formatDate(priceHistory[0].checked_at)}
+                  {formatDate(priceHistory[0].checked_at)} - {formatDate(priceHistory[priceHistory.length - 1].checked_at)}
                 </div>
               </div>
             )}
