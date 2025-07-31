@@ -1,5 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { XMarkIcon, ChartBarIcon, ClockIcon, CurrencyDollarIcon } from '@heroicons/react/24/outline';
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Area,
+  AreaChart,
+} from 'recharts';
 import { fetchWithAuth } from '../../api';
 
 interface PriceHistoryData {
@@ -34,21 +45,20 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
   useEffect(() => {
     const fetchPriceHistory = async () => {
       if (isDemoMode) {
-        // Demo data
+        // Demo data with varying prices to show min/max
         const demoHistory: PriceHistoryData[] = [
-          { checked_at: '2025-01-22T02:27:30Z', price: 66.77, in_stock: true },
-          { checked_at: '2025-01-21T02:27:30Z', price: 66.77, in_stock: true },
-          { checked_at: '2025-01-20T02:27:30Z', price: 66.77, in_stock: true },
-          { checked_at: '2025-01-19T02:27:30Z', price: 66.77, in_stock: true },
-          { checked_at: '2025-01-18T02:27:30Z', price: 66.77, in_stock: true },
+          { checked_at: '2025-01-22T02:27:30Z', price: 999.00, in_stock: true },
+          { checked_at: '2025-01-21T02:27:30Z', price: 899.00, in_stock: true },
+          { checked_at: '2025-01-20T02:27:30Z', price: 949.00, in_stock: true },
+          { checked_at: '2025-01-19T02:27:30Z', price: 879.00, in_stock: true },
+          { checked_at: '2025-01-18T02:27:30Z', price: 929.00, in_stock: true },
         ];
         setPriceHistory(demoHistory);
         setStatistics({
-          minPrice: 66.77,
-          maxPrice: 66.77,
-          avgPrice: 66.77,
-          priceChange: 0,
-          dataPoints: 5
+          min_price: 879.00,
+          max_price: 999.00,
+          avg_price: 930.80,
+          total_snapshots: 5
         });
         setLoading(false);
         return;
@@ -99,6 +109,48 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
     if (change > 0) return '↗';
     if (change < 0) return '↘';
     return '→';
+  };
+
+  // Transform data for Recharts
+  const chartData = priceHistory.map((entry, index) => {
+    const prevPrice = index < priceHistory.length - 1 ? priceHistory[index + 1].price : entry.price;
+    const change = entry.price - prevPrice;
+    const changePercent = prevPrice > 0 ? (change / prevPrice) * 100 : 0;
+    
+    return {
+      date: new Date(entry.checked_at).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric'
+      }),
+      price: entry.price,
+      change: changePercent,
+      inStock: entry.in_stock,
+      timestamp: new Date(entry.checked_at).getTime()
+    };
+  }).reverse(); // Reverse to show oldest to newest
+
+  // Custom tooltip for the chart
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      return (
+        <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-lg">
+          <p className="font-medium text-gray-900">{label}</p>
+          <p className="text-blue-600 font-semibold">
+            Price: {formatPrice(data.price)}
+          </p>
+          {data.change !== 0 && (
+            <p className={`text-sm ${data.change > 0 ? 'text-red-600' : 'text-green-600'}`}>
+              {data.change > 0 ? '+' : ''}{data.change.toFixed(1)}% change
+            </p>
+          )}
+          <p className="text-sm text-gray-500">
+            Status: {data.inStock ? 'In Stock' : 'Out of Stock'}
+          </p>
+        </div>
+      );
+    }
+    return null;
   };
 
   return (
@@ -168,7 +220,7 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
                     <div>
                       <p className="text-sm text-green-600 font-medium">Lowest Price</p>
                       <p className="text-lg font-semibold text-green-900">
-                        {statistics.minPrice ? formatPrice(statistics.minPrice) : 'N/A'}
+                        {statistics.min_price ? formatPrice(statistics.min_price) : 'N/A'}
                       </p>
                     </div>
                   </div>
@@ -180,7 +232,7 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
                     <div>
                       <p className="text-sm text-red-600 font-medium">Highest Price</p>
                       <p className="text-lg font-semibold text-red-900">
-                        {statistics.maxPrice ? formatPrice(statistics.maxPrice) : 'N/A'}
+                        {statistics.max_price ? formatPrice(statistics.max_price) : 'N/A'}
                       </p>
                     </div>
                   </div>
@@ -191,7 +243,9 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
                     <ClockIcon className="h-5 w-5 text-purple-600 mr-2" />
                     <div>
                       <p className="text-sm text-purple-600 font-medium">Data Points</p>
-                      <p className="text-lg font-semibold text-purple-900">{priceHistory.length}</p>
+                      <p className="text-lg font-semibold text-purple-900">
+                        {statistics.total_snapshots || priceHistory.length}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -263,30 +317,46 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
               </div>
             </div>
 
-            {/* Simple Line Chart Visualization */}
+            {/* Price Trend Chart */}
             {priceHistory.length > 1 && (
               <div className="bg-white border border-gray-200 rounded-lg p-6">
                 <h4 className="text-lg font-medium text-gray-900 mb-4">Price Trend</h4>
-                <div className="h-64 flex items-end justify-between space-x-1">
-                  {priceHistory.slice().reverse().map((entry, index) => {
-                    const prices = priceHistory.map(e => e.price);
-                    const minPrice = Math.min(...prices);
-                    const maxPrice = Math.max(...prices);
-                    const priceRange = maxPrice - minPrice;
-                    const height = priceRange > 0 ? ((entry.price - minPrice) / priceRange) * 100 : 50;
-                    
-                    return (
-                      <div key={index} className="flex-1 flex flex-col items-center">
-                        <div 
-                          className="w-full bg-blue-500 rounded-t"
-                          style={{ height: `${height}%` }}
-                        ></div>
-                        <div className="text-xs text-gray-500 mt-2 transform -rotate-45 origin-left">
-                          {formatPrice(entry.price)}
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={chartData}>
+                      <defs>
+                        <linearGradient id="priceGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.1}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis 
+                        dataKey="date" 
+                        stroke="#6b7280"
+                        fontSize={12}
+                        tickLine={false}
+                        axisLine={false}
+                      />
+                      <YAxis 
+                        stroke="#6b7280"
+                        fontSize={12}
+                        tickLine={false}
+                        axisLine={false}
+                        tickFormatter={(value) => `$${value}`}
+                      />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Area
+                        type="monotone"
+                        dataKey="price"
+                        stroke="#3b82f6"
+                        strokeWidth={2}
+                        fill="url(#priceGradient)"
+                        dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }}
+                        activeDot={{ r: 6, stroke: '#3b82f6', strokeWidth: 2 }}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
                 </div>
                 <div className="text-center text-sm text-gray-500 mt-4">
                   {formatDate(priceHistory[priceHistory.length - 1].checked_at)} - {formatDate(priceHistory[0].checked_at)}
