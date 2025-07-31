@@ -267,7 +267,7 @@ export const ProductAssociationModal: React.FC<ProductAssociationModalProps> = (
     }
     
     try {
-      const response = await fetchWithAuth(`/api/competitors/${competitorId}/associate`, {
+      const response = await fetchWithAuth(`/api/competitors/${competitorId}/associate?isDemoMode=${isDemoMode}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -312,7 +312,7 @@ export const ProductAssociationModal: React.FC<ProductAssociationModalProps> = (
     }
     
     try {
-      const response = await fetchWithAuth(`/api/competitors/${competitorId}/disassociate`, {
+      const response = await fetchWithAuth(`/api/competitors/${competitorId}/disassociate?isDemoMode=${isDemoMode}`, {
         method: 'POST',
       });
       
