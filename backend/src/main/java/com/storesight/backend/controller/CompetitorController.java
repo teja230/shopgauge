@@ -1,5 +1,6 @@
 package com.storesight.backend.controller;
 
+import com.storesight.backend.exception.ArchivedCompetitorLimitExceededException;
 import com.storesight.backend.exception.CompetitorLimitExceededException;
 import com.storesight.backend.exception.DiscoveryServiceUnavailableException;
 import com.storesight.backend.model.CompetitorSuggestion;
@@ -1505,6 +1506,17 @@ public class CompetitorController {
     }
 
     try {
+
+      // Check archived competitor limits before restoring
+      CompetitorLimitService.LimitCheckResult archivedLimitCheck =
+          limitService.checkArchivedCompetitorLimit(shopId);
+      if (!archivedLimitCheck.isCanAdd()) {
+        throw new ArchivedCompetitorLimitExceededException(
+            "Archived competitor limit reached for your plan",
+            archivedLimitCheck.getCurrent(),
+            archivedLimitCheck.getLimit(),
+            archivedLimitCheck.getPlanType().getDisplayName());
+      }
 
       // Verify the competitor belongs to this shop and is deleted
       List<Map<String, Object>> competitors =
