@@ -515,12 +515,26 @@ const MobileCompetitorCard: React.FC<{
         </CompetitorHeader>
 
         <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }}>
-          {competitor.priceLoading || competitor.price === 0 ? (
+          {competitor.priceLoading ? (
             <MetricChip
-              label={formatPrice(0)}
+              label="Loading..."
               color="default"
               variant="outlined"
               icon={<LoadingSpinner size={16} tooltip="Fetching current price from competitor website..." />}
+            />
+          ) : !competitor.inStock && competitor.price === 0 ? (
+            <MetricChip
+              label="Out of Stock"
+              color="error"
+              variant="outlined"
+              icon={<CancelIcon />}
+            />
+          ) : competitor.price === 0 ? (
+            <MetricChip
+              label="Price Unavailable"
+              color="default"
+              variant="outlined"
+              icon={<AttachMoneyIcon />}
             />
           ) : (
             <MetricChip
@@ -706,10 +720,18 @@ const DesktopTableRow: React.FC<{
       </StyledTableCell>
 
       <StyledTableCell>
-        {competitor.priceLoading || competitor.price === 0 ? (
+        {competitor.priceLoading ? (
           <Box display="flex" alignItems="center" justifyContent="center">
             <LoadingSpinner size={20} tooltip="Fetching current price from competitor website..." />
           </Box>
+        ) : !competitor.inStock && competitor.price === 0 ? (
+          <Typography variant="body2" color="error" fontWeight={600}>
+            Out of Stock
+          </Typography>
+        ) : competitor.price === 0 ? (
+          <Typography variant="body2" color="text.secondary" fontWeight={600}>
+            Price Unavailable
+          </Typography>
         ) : (
           <Typography variant="body2" fontWeight={600} color="primary">
             {formatPrice(competitor.price)}

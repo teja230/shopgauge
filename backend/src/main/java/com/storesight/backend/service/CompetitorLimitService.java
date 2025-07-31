@@ -113,9 +113,7 @@ public class CompetitorLimitService {
     }
   }
 
-  /**
-   * Check archived competitor limits (half of active competitor limit)
-   */
+  /** Check archived competitor limits (half of active competitor limit) */
   public LimitCheckResult checkArchivedCompetitorLimit(Long shopId) {
     try {
       // Get current archived competitor count for this shop
