@@ -2559,6 +2559,7 @@ export default function CompetitorsPage() {
                          sectionColor="orange"
                          onToggleCollapse={() => setDeletedSectionCollapsed(!deletedSectionCollapsed)}
                          isCollapsed={deletedSectionCollapsed}
+                         onCompetitorRestored={fetchData}
                        />
                     </div>
                   )}
