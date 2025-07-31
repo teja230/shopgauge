@@ -25,9 +25,6 @@ import {
 import {
   Close as CloseIcon,
   Delete as DeleteIcon,
-  Computer as ComputerIcon,
-  Phone as PhoneIcon,
-  Tablet as TabletIcon,
   CheckCircle as CheckCircleIcon,
   Warning as WarningIcon,
   AccessTime as AccessTimeIcon,
@@ -66,89 +63,52 @@ interface SessionLimitDialogProps {
 
 const StyledDialog = styled(Dialog)(({ theme }) => ({
   '& .MuiDialog-paper': {
-    borderRadius: 20,
-    minWidth: 500,
-    maxWidth: 700,
-    width: '95vw',
-    maxHeight: '90vh',
+    borderRadius: 16,
+    minWidth: 480,
+    maxWidth: 640,
+    width: '90vw',
+    maxHeight: '85vh',
+    boxShadow: '0 20px 60px rgba(0, 0, 0, 0.12), 0 8px 24px rgba(0, 0, 0, 0.08)',
+    border: `1px solid ${theme.palette.divider}`,
     [theme.breakpoints.down('md')]: {
       minWidth: 400,
-    maxWidth: 600,
+      maxWidth: 560,
       width: '92vw',
     },
     [theme.breakpoints.down('sm')]: {
       margin: theme.spacing(1),
       width: `calc(100vw - ${theme.spacing(2)})`,
       maxWidth: 'none',
-      borderRadius: 16,
+      borderRadius: 12,
       minWidth: 'auto',
-      maxHeight: '95vh',
+      maxHeight: '90vh',
     },
   },
 }));
 
 const StyledDialogTitle = styled(DialogTitle)(({ theme }) => ({
-  padding: theme.spacing(3),
-  paddingBottom: theme.spacing(2),
+  padding: theme.spacing(3, 3, 2, 3),
   position: 'relative',
-  background: `linear-gradient(135deg, ${theme.palette.primary.main}15 0%, ${theme.palette.secondary.main}10 100%)`,
+  background: `linear-gradient(135deg, ${theme.palette.primary.main}08 0%, ${theme.palette.secondary.main}05 100%)`,
   borderBottom: `1px solid ${theme.palette.divider}`,
   [theme.breakpoints.down('sm')]: {
-    padding: theme.spacing(2.5),
-    paddingBottom: theme.spacing(1.5),
+    padding: theme.spacing(2.5, 2.5, 1.5, 2.5),
   },
 }));
 
-const SessionCard = styled(Card)(({ theme }) => ({
-  marginBottom: theme.spacing(1.5),
-  border: `1px solid ${theme.palette.divider}`,
-  borderRadius: 12,
-  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-  '&:hover': {
-    borderColor: theme.palette.primary.light,
-    boxShadow: theme.shadows[4],
-  },
-  '&.current-session': {
-    borderColor: theme.palette.success.main,
-    backgroundColor: `${theme.palette.success.main}08`,
-  },
-  '&.selected-for-deletion': {
-    borderColor: theme.palette.error.main,
-    backgroundColor: `${theme.palette.error.main}08`,
-  },
-}));
-
-const DeviceAvatar = styled(Avatar)(({ theme }) => ({
-  width: 48,
-  height: 48,
-  backgroundColor: theme.palette.action.hover,
-  color: theme.palette.text.secondary,
-  fontSize: '1.25rem',
+const StyledDialogContent = styled(DialogContent)(({ theme }) => ({
+  padding: theme.spacing(3),
   [theme.breakpoints.down('sm')]: {
-    width: 40,
-    height: 40,
-    fontSize: '1rem',
+    padding: theme.spacing(2),
   },
 }));
 
-const SessionDetails = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  alignItems: 'center',
-  gap: theme.spacing(1),
-  marginTop: theme.spacing(1),
-  flexWrap: 'wrap',
-}));
-
-const StatusChip = styled(Chip)(({ theme }) => ({
-  fontSize: '0.75rem',
-  height: 24,
-  '&.current': {
-    backgroundColor: theme.palette.success.main,
-    color: theme.palette.success.contrastText,
-  },
-  '&.active': {
-    backgroundColor: theme.palette.info.main,
-    color: theme.palette.info.contrastText,
+const StyledDialogActions = styled(DialogActions)(({ theme }) => ({
+  padding: theme.spacing(2, 3, 3, 3),
+  borderTop: `1px solid ${theme.palette.divider}`,
+  background: theme.palette.background.default,
+  [theme.breakpoints.down('sm')]: {
+    padding: theme.spacing(1.5, 2, 2, 2),
   },
 }));
 
@@ -156,13 +116,93 @@ const HeaderIcon = styled(Box)<{ $color: string; $bgColor: string }>(({ theme, $
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  width: 56,
-  height: 56,
-  borderRadius: 16,
+  width: 48,
+  height: 48,
+  borderRadius: 12,
   backgroundColor: $bgColor,
   color: $color,
+  marginRight: theme.spacing(2),
+  [theme.breakpoints.down('sm')]: {
+    width: 40,
+    height: 40,
+    marginRight: theme.spacing(1.5),
+  },
+}));
+
+const SessionCard = styled(Card)(({ theme }) => ({
   marginBottom: theme.spacing(2),
-  fontSize: '1.75rem',
+  borderRadius: 12,
+  border: `1px solid ${theme.palette.divider}`,
+  transition: 'all 0.2s ease-in-out',
+  '&:hover': {
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)',
+    transform: 'translateY(-1px)',
+  },
+  '&.current-session': {
+    border: `2px solid ${theme.palette.success.main}`,
+    backgroundColor: `${theme.palette.success.main}08`,
+    boxShadow: `0 0 0 1px ${theme.palette.success.main}20`,
+  },
+  '&.selected-for-deletion': {
+    border: `2px solid ${theme.palette.error.main}`,
+    backgroundColor: `${theme.palette.error.main}08`,
+    boxShadow: `0 0 0 1px ${theme.palette.error.main}20`,
+  },
+  [theme.breakpoints.down('sm')]: {
+    marginBottom: theme.spacing(1.5),
+    borderRadius: 10,
+  },
+}));
+
+const DeviceAvatar = styled(Avatar)(({ theme }) => ({
+  width: 48,
+  height: 48,
+  fontSize: '1.5rem',
+  borderRadius: 12,
+  [theme.breakpoints.down('sm')]: {
+    width: 40,
+    height: 40,
+    fontSize: '1.25rem',
+  },
+}));
+
+const StatusChip = styled(Chip)(({ theme }) => ({
+  height: 24,
+  fontSize: '0.75rem',
+  fontWeight: 600,
+  '&.current': {
+    backgroundColor: theme.palette.success.main,
+    color: theme.palette.success.contrastText,
+    '& .MuiChip-icon': {
+      color: theme.palette.success.contrastText,
+    },
+  },
+}));
+
+const SummaryBanner = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  alignItems: 'center',
+  padding: theme.spacing(2, 3),
+  marginBottom: theme.spacing(3),
+  borderRadius: 12,
+  backgroundColor: `${theme.palette.info.main}08`,
+  border: `1px solid ${theme.palette.info.main}20`,
+  [theme.breakpoints.down('sm')]: {
+    padding: theme.spacing(1.5, 2),
+    marginBottom: theme.spacing(2),
+  },
+}));
+
+const ActionButton = styled(Button)(({ theme }) => ({
+  borderRadius: 8,
+  textTransform: 'none',
+  fontWeight: 600,
+  padding: theme.spacing(1, 2.5),
+  minHeight: 40,
+  [theme.breakpoints.down('sm')]: {
+    padding: theme.spacing(0.75, 2),
+    minHeight: 36,
+  },
 }));
 
 export const SessionLimitDialog: React.FC<SessionLimitDialogProps> = ({
@@ -180,18 +220,14 @@ export const SessionLimitDialog: React.FC<SessionLimitDialogProps> = ({
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState<Set<string>>(new Set());
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  // Reset state when dialog opens/closes
-  useEffect(() => {
-    if (open) {
-      setSelectedSessions(new Set());
-      setDeleting(new Set());
-    }
-  }, [open]);
+  const currentSessionCount = sessions.length;
+  const isLimitReached = limitReached || currentSessionCount >= maxSessions;
 
   const handleSessionToggle = (sessionId: string, isCurrentSession: boolean) => {
-    if (isCurrentSession) return; // Can't delete current session
-
+    if (isCurrentSession) return;
+    
     const newSelected = new Set(selectedSessions);
     if (newSelected.has(sessionId)) {
       newSelected.delete(sessionId);
@@ -202,48 +238,28 @@ export const SessionLimitDialog: React.FC<SessionLimitDialogProps> = ({
   };
 
   const handleDeleteSelected = async () => {
-    if (selectedSessions.size === 0) return;
-
-    setDeleting(new Set(selectedSessions));
-
+    if (selectedSessions.size === 0 || !onSessionsDeleted) return;
+    
+    setIsDeleting(true);
     try {
-      if (onSessionsDeleted && selectedSessions.size > 1) {
-        // Use bulk delete for multiple sessions (sends one notification)
-        const sessionIds = Array.from(selectedSessions);
-        const result = await onSessionsDeleted(sessionIds);
-        
-        // Check if we have enough space now
-        if (result.success > 0) {
-          const remainingSessions = sessions.filter(s => !selectedSessions.has(s.sessionId));
-          if (remainingSessions.length < maxSessions) {
-            onContinue();
-          }
-        }
-      } else {
-        // Fallback to individual deletion for single session or when bulk delete not available
-        for (const sessionId of selectedSessions) {
-          await new Promise(resolve => setTimeout(resolve, 200)); // Small delay between requests
-          onSessionDeleted(sessionId);
-        }
-
-        // Check if we have enough space now
-        const remainingSessions = sessions.filter(s => !selectedSessions.has(s.sessionId));
-        if (remainingSessions.length < maxSessions) {
-          onContinue();
-        }
+      const sessionIds = Array.from(selectedSessions);
+      const result = await onSessionsDeleted(sessionIds);
+      
+      if (result.success > 0) {
+        setSelectedSessions(new Set());
       }
     } catch (error) {
-      console.error('Error deleting sessions:', error);
+      console.error('Failed to delete sessions:', error);
     } finally {
-      setDeleting(new Set());
-      setSelectedSessions(new Set());
+      setIsDeleting(false);
     }
   };
 
-  // Determine dialog content based on state
-  const isLimitReached = limitReached || sessions.length >= maxSessions;
-  const currentSessionCount = sessions.length;
-  const availableSlots = maxSessions - currentSessionCount;
+  const handleClose = () => {
+    setSelectedSessions(new Set());
+    setDeleting(new Set());
+    onClose();
+  };
 
   const getDialogTitle = () => {
     if (isLimitReached) {
@@ -279,9 +295,9 @@ export const SessionLimitDialog: React.FC<SessionLimitDialogProps> = ({
 
   const getHeaderIconBg = () => {
     if (isLimitReached) {
-      return `${theme.palette.warning.main}20`;
+      return `${theme.palette.warning.main}15`;
     } else {
-      return `${theme.palette.info.main}20`;
+      return `${theme.palette.info.main}15`;
     }
   };
 
@@ -293,24 +309,6 @@ export const SessionLimitDialog: React.FC<SessionLimitDialogProps> = ({
     const relativeTime = session.lastUsedFormatted || getRelativeTime(session.lastAccessedAt);
     const location = getLocationFromIP(session.ipAddress);
 
-    const getDeviceIcon = () => {
-      if (device.icon === '📱') {
-        return device.name.includes('iPad') || device.name.includes('Tablet') ? 
-          <TabletIcon /> : <PhoneIcon />;
-      }
-      return <ComputerIcon />;
-    };
-
-    const getDeviceColor = () => {
-      if (device.name.includes('iPad') || device.name.includes('Tablet')) {
-        return theme.palette.secondary.main;
-      } else if (device.name.includes('iPhone') || device.name.includes('Android')) {
-        return theme.palette.info.main;
-      } else {
-        return theme.palette.primary.main;
-      }
-    };
-
     const cardClass = isCurrent ? 'current-session' : isSelected ? 'selected-for-deletion' : '';
 
     return (
@@ -319,15 +317,19 @@ export const SessionLimitDialog: React.FC<SessionLimitDialogProps> = ({
           <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
             <Box display="flex" alignItems="flex-start">
               <DeviceAvatar sx={{ 
-                bgcolor: getDeviceColor() + '20', 
-                color: getDeviceColor(),
-                mr: 2 
+                bgcolor: 'grey.100', 
+                color: 'text.primary',
+                mr: 2,
+                fontSize: '1.5rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
               }}>
-                {getDeviceIcon()}
+                {device.icon}
               </DeviceAvatar>
 
               <Box flex={1} minWidth={0}>
-                <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
+                <Box display="flex" alignItems="center" justifyContent="space-between" mb={1.5}>
                   <Box>
                     <Typography variant="h6" fontWeight={600} noWrap>
                       {device.name}
@@ -348,7 +350,7 @@ export const SessionLimitDialog: React.FC<SessionLimitDialogProps> = ({
                     )}
                     
                     {!isCurrent && (
-                      <Button
+                      <ActionButton
                         size="small"
                         variant={isSelected ? "contained" : "outlined"}
                         color={isSelected ? "error" : "primary"}
@@ -365,7 +367,7 @@ export const SessionLimitDialog: React.FC<SessionLimitDialogProps> = ({
                         ) : (
                           'Select'
                         )}
-                      </Button>
+                      </ActionButton>
                     )}
                   </Box>
                 </Box>
@@ -376,6 +378,7 @@ export const SessionLimitDialog: React.FC<SessionLimitDialogProps> = ({
                     label={relativeTime}
                     size="small"
                     variant="outlined"
+                    sx={{ fontSize: '0.75rem' }}
                   />
                   
                   {location !== 'Unknown Location' && (
@@ -384,6 +387,7 @@ export const SessionLimitDialog: React.FC<SessionLimitDialogProps> = ({
                       label={location}
                       size="small"
                       variant="outlined"
+                      sx={{ fontSize: '0.75rem' }}
                     />
                   )}
 
@@ -393,6 +397,7 @@ export const SessionLimitDialog: React.FC<SessionLimitDialogProps> = ({
                       label={`IP: ${session.ipAddress}`}
                       size="small"
                       variant="outlined"
+                      sx={{ fontSize: '0.75rem' }}
                     />
                   )}
                 </Stack>
@@ -407,35 +412,32 @@ export const SessionLimitDialog: React.FC<SessionLimitDialogProps> = ({
   return (
     <StyledDialog
       open={open}
-      onClose={onClose}
-      maxWidth={false}
+      onClose={handleClose}
       TransitionComponent={Slide}
-      TransitionProps={{ direction: 'up' } as any}
+      transitionDuration={300}
+      fullWidth
+      maxWidth="md"
     >
       <StyledDialogTitle>
-        <Box display="flex" alignItems="center" justifyContent="space-between">
-          <Box>
-            <HeaderIcon $color={getHeaderIconColor()} $bgColor={getHeaderIconBg()}>
-              {getHeaderIcon()}
-            </HeaderIcon>
-            <Typography variant="h5" fontWeight={700} gutterBottom>
+        <Box display="flex" alignItems="center">
+          <HeaderIcon $color={getHeaderIconColor()} $bgColor={getHeaderIconBg()}>
+            {getHeaderIcon()}
+          </HeaderIcon>
+          <Box flex={1}>
+            <Typography variant="h5" fontWeight={700} gutterBottom={false}>
               {getDialogTitle()}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
               {getDialogDescription()}
             </Typography>
           </Box>
-          
-          <IconButton 
-            onClick={onClose}
-            sx={{ 
-              position: 'absolute',
-              right: 16,
-              top: 16,
-              [theme.breakpoints.down('sm')]: {
-                right: 12,
-                top: 12,
-              }
+          <IconButton
+            onClick={handleClose}
+            sx={{
+              color: 'text.secondary',
+              '&:hover': {
+                backgroundColor: 'action.hover',
+              },
             }}
           >
             <CloseIcon />
@@ -443,103 +445,96 @@ export const SessionLimitDialog: React.FC<SessionLimitDialogProps> = ({
         </Box>
       </StyledDialogTitle>
 
-      <DialogContent sx={{ p: 3, pt: 2 }}>
-        <Alert 
-          severity={isLimitReached ? "warning" : "info"}
-          sx={{ mb: 3, borderRadius: 2 }}
-          icon={isLimitReached ? <WarningIcon /> : <InfoIcon />}
-        >
-          <Typography variant="body2">
-            <strong>Active Sessions: {sessions.length}/{maxSessions}</strong>
-            {isLimitReached ? (
-              <>
-                <br />
-                Select sessions to remove. You cannot remove your current session.
-              </>
-            ) : (
-              <>
-                <br />
-                {availableSlots > 0 
-                  ? `You have ${availableSlots} session slot${availableSlots !== 1 ? 's' : ''} remaining.`
-                  : 'You are at the session limit.'
-                }
-              </>
-            )}
-          </Typography>
-        </Alert>
+      <StyledDialogContent>
+        <SummaryBanner>
+          <InfoIcon sx={{ color: 'info.main', mr: 1.5, fontSize: '1.25rem' }} />
+          <Box>
+            <Typography variant="body2" fontWeight={600} color="info.main">
+              Active Sessions: {currentSessionCount}/{maxSessions}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              You have {Math.max(0, maxSessions - currentSessionCount)} session slots remaining
+            </Typography>
+          </Box>
+        </SummaryBanner>
 
         {loading ? (
           <Box>
             {[1, 2, 3].map((i) => (
-              <Card key={i} sx={{ mb: 1.5, borderRadius: 2 }}>
-                <CardContent sx={{ p: 2.5 }}>
-                  <Box display="flex" alignItems="center">
-                    <Skeleton variant="rectangular" width={48} height={48} sx={{ borderRadius: 1.5, mr: 2 }} />
-                    <Box flex={1}>
-                      <Skeleton variant="text" width="60%" height={24} sx={{ mb: 0.5 }} />
-                      <Skeleton variant="text" width="80%" height={20} sx={{ mb: 1 }} />
-                      <Box display="flex" gap={1}>
-                        <Skeleton variant="rounded" width={80} height={24} />
-                        <Skeleton variant="rounded" width={100} height={24} />
-                      </Box>
-                    </Box>
-                  </Box>
-                </CardContent>
-              </Card>
+              <Box key={i} sx={{ mb: 2 }}>
+                <Skeleton variant="rectangular" height={120} sx={{ borderRadius: 2 }} />
+              </Box>
             ))}
           </Box>
+        ) : sessions.length === 0 ? (
+          <Alert severity="info" sx={{ borderRadius: 2 }}>
+            No active sessions found.
+          </Alert>
         ) : (
           <Box>
             {sessions.map(renderSessionItem)}
           </Box>
         )}
-      </DialogContent>
 
-      <Divider />
-
-      <DialogActions sx={{ p: 3, justifyContent: 'space-between' }}>
-        <Button 
-          onClick={onClose} 
-          variant="outlined"
-          size="large"
-        >
-          {isLimitReached ? 'Cancel' : 'Close'}
-        </Button>
-        
-        <Box display="flex" gap={2}>
-          {selectedSessions.size > 0 && (
-            <Button
-              onClick={handleDeleteSelected}
+        {selectedSessions.size > 0 && (
+          <Alert 
+            severity="warning" 
+            sx={{ 
+              mt: 2, 
+              borderRadius: 2,
+              '& .MuiAlert-message': {
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                width: '100%',
+              },
+            }}
+          >
+            <Typography variant="body2">
+              {selectedSessions.size} session{selectedSessions.size !== 1 ? 's' : ''} selected for deletion
+            </Typography>
+            <ActionButton
+              size="small"
               variant="contained"
               color="error"
-              size="large"
-              disabled={deleting.size > 0}
-              startIcon={deleting.size > 0 ? null : <DeleteIcon />}
+              onClick={handleDeleteSelected}
+              disabled={isDeleting}
+              startIcon={<DeleteIcon />}
             >
-              {deleting.size > 0 ? (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <LinearProgress sx={{ width: 40, height: 4 }} />
-                  Removing...
-                </Box>
-              ) : (
-                `Remove ${selectedSessions.size} Session${selectedSessions.size !== 1 ? 's' : ''}`
-              )}
-            </Button>
-          )}
+              {isDeleting ? 'Deleting...' : 'Delete Selected'}
+            </ActionButton>
+          </Alert>
+        )}
+      </StyledDialogContent>
+
+      <StyledDialogActions>
+        <Box display="flex" justifyContent="space-between" width="100%">
+          <Box>
+            {!isLimitReached && (
+              <ActionButton
+                variant="outlined"
+                onClick={handleClose}
+                sx={{ mr: 1 }}
+              >
+                Close
+              </ActionButton>
+            )}
+          </Box>
           
-          {isLimitReached && (
-            <Button
-              onClick={onContinue}
-              variant="contained"
-              size="large"
-              disabled={sessions.length >= maxSessions}
-              startIcon={<RefreshIcon />}
-            >
-              Continue
-            </Button>
-          )}
+          <Box display="flex" gap={1}>
+            {isLimitReached && (
+              <ActionButton
+                variant="contained"
+                color="primary"
+                onClick={onContinue}
+                disabled={selectedSessions.size === 0}
+              >
+                Continue
+              </ActionButton>
+            )}
+          </Box>
         </Box>
-      </DialogActions>
+      </StyledDialogActions>
     </StyledDialog>
   );
 };
