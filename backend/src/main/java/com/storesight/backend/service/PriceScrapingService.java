@@ -261,8 +261,20 @@ public class PriceScrapingService {
 
       long responseTime = System.currentTimeMillis() - startTime;
 
-      if (price != null && price.compareTo(BigDecimal.ZERO) > 0) {
-        return PriceScrapingResult.success(price, inStock, platform, "jsoup", responseTime);
+      // Handle out-of-stock items properly
+      if (price != null) {
+        if (price.compareTo(BigDecimal.ZERO) > 0) {
+          // Valid price found
+          return PriceScrapingResult.success(price, inStock, platform, "jsoup", responseTime);
+        } else if (!inStock) {
+          // Out of stock item - return success with price 0 and inStock false
+          return PriceScrapingResult.success(
+              BigDecimal.ZERO, false, platform, "jsoup", responseTime);
+        } else {
+          // Price is 0 but item is in stock - this is unusual, treat as no price found
+          return PriceScrapingResult.failure(
+              "No valid price found in page content", "no-price-found", responseTime);
+        }
       } else {
         return PriceScrapingResult.failure(
             "No price found in page content", "no-price-found", responseTime);
@@ -304,6 +316,11 @@ public class PriceScrapingService {
           // Use proper platform detection instead of hardcoded "unknown"
           String platform = identifyPlatform(url);
           return PriceScrapingResult.success(price, true, platform, "scrapingdog", responseTime);
+        } else if (price != null && price.compareTo(BigDecimal.ZERO) == 0) {
+          // Price is 0 - could be out of stock, return with inStock false
+          String platform = identifyPlatform(url);
+          return PriceScrapingResult.success(
+              BigDecimal.ZERO, false, platform, "scrapingdog", responseTime);
         } else {
           return PriceScrapingResult.failure(
               "No price found in Scrapingdog response", "no-price-found", responseTime);
@@ -346,6 +363,11 @@ public class PriceScrapingService {
           // Use proper platform detection instead of hardcoded "unknown"
           String platform = identifyPlatform(url);
           return PriceScrapingResult.success(price, true, platform, "serper", responseTime);
+        } else if (price != null && price.compareTo(BigDecimal.ZERO) == 0) {
+          // Price is 0 - could be out of stock, return with inStock false
+          String platform = identifyPlatform(url);
+          return PriceScrapingResult.success(
+              BigDecimal.ZERO, false, platform, "serper", responseTime);
         } else {
           return PriceScrapingResult.failure(
               "No price found in Serper response", "no-price-found", responseTime);
@@ -391,6 +413,11 @@ public class PriceScrapingService {
           // Use proper platform detection instead of hardcoded "unknown"
           String platform = identifyPlatform(url);
           return PriceScrapingResult.success(price, true, platform, "serpapi", responseTime);
+        } else if (price != null && price.compareTo(BigDecimal.ZERO) == 0) {
+          // Price is 0 - could be out of stock, return with inStock false
+          String platform = identifyPlatform(url);
+          return PriceScrapingResult.success(
+              BigDecimal.ZERO, false, platform, "serpapi", responseTime);
         } else {
           return PriceScrapingResult.failure(
               "No price found in SerpAPI response", "no-price-found", responseTime);
@@ -466,29 +493,66 @@ public class PriceScrapingService {
 
   /** Extract stock status from document */
   private boolean extractStockStatusFromDocument(Document doc, String platform) {
-    String[] stockSelectors = {
-      ".a-color-success",
-      ".a-color-price",
-      ".a-text-success", // Amazon
-      ".availability",
-      ".stock", // Generic
-      ".in-stock",
-      ".available", // Generic
-      ".out-of-stock",
-      ".unavailable",
-      ".sold-out" // Out of stock indicators
-    };
+    // Platform-specific stock selectors
+    String[] stockSelectors;
+    if ("amazon".equals(platform)) {
+      stockSelectors =
+          new String[] {
+            "#availability span",
+            ".a-size-medium.a-color-success",
+            ".a-size-medium.a-color-price",
+            ".a-size-medium.a-color-error",
+            ".a-size-medium.a-color-state",
+            "#availability",
+            ".a-color-success",
+            ".a-color-price",
+            ".a-color-error",
+            ".a-color-state",
+            ".a-text-success",
+            ".a-text-error",
+            ".a-text-warning",
+            ".a-text-price",
+            ".a-text-state",
+            ".a-text-availability",
+            ".a-text-stock",
+            ".a-text-inventory",
+            ".a-text-quantity",
+            ".a-text-status"
+          };
+    } else {
+      stockSelectors =
+          new String[] {
+            ".availability",
+            ".stock",
+            ".in-stock",
+            ".available",
+            ".out-of-stock",
+            ".unavailable",
+            ".sold-out",
+            ".status",
+            ".inventory",
+            ".quantity"
+          };
+    }
 
     for (String selector : stockSelectors) {
       Elements elements = doc.select(selector);
       for (Element element : elements) {
-        String text = element.text().toLowerCase();
+        String text = element.text().toLowerCase().trim();
 
         // Check for out of stock indicators
         if (text.contains("out of stock")
             || text.contains("unavailable")
             || text.contains("sold out")
-            || text.contains("not available")) {
+            || text.contains("not available")
+            || text.contains("currently unavailable")
+            || text.contains("temporarily out of stock")
+            || text.contains("we don't know when or if this item will be back in stock")
+            || text.contains("no longer available")
+            || text.contains("discontinued")
+            || text.contains("unavailable from this seller")
+            || text.contains("out of stock")
+            || text.contains("oos")) {
           return false;
         }
 
@@ -496,9 +560,38 @@ public class PriceScrapingService {
         if (text.contains("in stock")
             || text.contains("available")
             || text.contains("add to cart")
-            || text.contains("buy now")) {
+            || text.contains("buy now")
+            || text.contains("add to basket")
+            || text.contains("purchase")
+            || text.contains("order now")
+            || text.contains("get it")
+            || text.contains("shipping")
+            || text.contains("delivery")) {
           return true;
         }
+      }
+    }
+
+    // Also check for Amazon-specific patterns in the entire page
+    if ("amazon".equals(platform)) {
+      String pageText = doc.text().toLowerCase();
+
+      // Check for out of stock patterns in page text
+      if (pageText.contains("out of stock")
+          || pageText.contains("currently unavailable")
+          || pageText.contains("temporarily out of stock")
+          || pageText.contains("we don't know when or if this item will be back in stock")
+          || pageText.contains("no longer available")
+          || pageText.contains("discontinued")) {
+        return false;
+      }
+
+      // Check for in stock patterns in page text
+      if (pageText.contains("in stock")
+          || pageText.contains("add to cart")
+          || pageText.contains("buy now")
+          || pageText.contains("get it")) {
+        return true;
       }
     }
 
