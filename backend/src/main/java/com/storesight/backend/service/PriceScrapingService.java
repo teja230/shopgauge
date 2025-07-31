@@ -292,6 +292,10 @@ public class PriceScrapingService {
     long startTime = System.currentTimeMillis();
 
     try {
+      // Extract product info for search query
+      String productInfo = extractProductInfo(url);
+      String searchQuery = "price " + productInfo;
+
       String response =
           webClient
               .get()
@@ -299,9 +303,10 @@ public class PriceScrapingService {
                   scrapingdogBaseUrl
                       + "?api_key="
                       + scrapingdogKey
-                      + "&url="
-                      + java.net.URLEncoder.encode(url, "UTF-8")
-                      + "&country=us")
+                      + "&q="
+                      + java.net.URLEncoder.encode(searchQuery, "UTF-8")
+                      + "&gl=us"
+                      + "&num=5")
               .retrieve()
               .bodyToMono(String.class)
               .timeout(java.time.Duration.ofSeconds(30))
