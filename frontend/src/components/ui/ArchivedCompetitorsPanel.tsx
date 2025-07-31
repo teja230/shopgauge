@@ -59,6 +59,7 @@ interface ArchivedCompetitorsPanelProps {
   sectionColor?: 'green' | 'orange';
   onToggleCollapse?: () => void;
   isCollapsed?: boolean;
+  onCompetitorRestored?: () => void;
 }
 
 // Styled components to match CompetitorTable
@@ -111,6 +112,7 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
   sectionColor = 'orange',
   onToggleCollapse,
   isCollapsed = false,
+  onCompetitorRestored,
 }) => {
   const [deletedCompetitors, setDeletedCompetitors] = useState<ArchivedCompetitor[]>([]);
   const [loading, setLoading] = useState(true);
@@ -234,6 +236,11 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
           prev.filter(c => c.id !== restoreDialog.competitor!.id)
         );
         notifications.showSuccess('Archived competitor restored successfully');
+        
+        // Notify parent component to refresh active competitors
+        if (onCompetitorRestored) {
+          onCompetitorRestored();
+        }
       } else {
         const response = await fetchWithAuth(`/api/competitors/${restoreDialog.competitor.id}/restore`, {
           method: 'POST',
@@ -246,6 +253,11 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
             prev.filter(c => c.id !== restoreDialog.competitor!.id)
           );
           notifications.showSuccess('Archived competitor restored successfully');
+          
+          // Notify parent component to refresh active competitors
+          if (onCompetitorRestored) {
+            onCompetitorRestored();
+          }
         }
       }
     } catch (error) {
