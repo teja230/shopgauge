@@ -322,6 +322,10 @@ export const marketIntelligenceAdminAPI = {
     return await fetchWithAdminAuth(`/api/admin/market-intelligence/competitors/${competitorId}/trigger-scraping-debug?shopId=${shopId}`, { method: 'POST' });
   },
 
+  async getCompetitorDebugInfo(competitorId: string, shopId: number): Promise<any> {
+    return await fetchWithAdminAuth(`/api/admin/market-intelligence/competitors/${competitorId}/debug-info?shopId=${shopId}`);
+  },
+
   async getProductsDebug(shopId: number): Promise<ProductsDebugInfo> {
     return await fetchWithAdminAuth(`/api/admin/market-intelligence/competitors/products-debug?shopId=${shopId}`);
   },
