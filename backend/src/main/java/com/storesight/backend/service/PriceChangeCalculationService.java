@@ -19,7 +19,32 @@ public class PriceChangeCalculationService {
 
   @Autowired private JdbcTemplate jdbcTemplate;
 
-  /** Calculate price change percentage with enhanced accuracy */
+  /** Get the previous valid price for a competitor (second most recent) */
+  private Optional<BigDecimal> getPreviousValidPrice(Long competitorId) {
+    try {
+      String query =
+          """
+              SELECT price
+              FROM price_snapshots
+              WHERE competitor_url_id = ?
+              AND deleted_at IS NULL
+              AND price IS NOT NULL
+              AND price > 0
+              ORDER BY checked_at DESC
+              LIMIT 1 OFFSET 1
+              """;
+
+      BigDecimal price = jdbcTemplate.queryForObject(query, BigDecimal.class, competitorId);
+      return Optional.ofNullable(price);
+    } catch (Exception e) {
+      logger.debug(
+          "getPreviousValidPrice: No previous valid price found for competitor {}: {}",
+          competitorId,
+          e.getMessage());
+      return Optional.empty();
+    }
+  }
+
   public Optional<BigDecimal> calculatePriceChangePercent(Long competitorId, BigDecimal newPrice) {
     try {
       if (newPrice == null || newPrice.compareTo(BigDecimal.ZERO) <= 0) {
@@ -28,9 +53,8 @@ public class PriceChangeCalculationService {
         return Optional.empty();
       }
 
-      // Get the most recent valid price snapshot (excluding current snapshot being processed)
-      Optional<BigDecimal> lastPrice =
-          getLastValidPrice(competitorId, java.time.LocalDateTime.now());
+      // Get the previous valid price snapshot (second most recent)
+      Optional<BigDecimal> lastPrice = getPreviousValidPrice(competitorId);
       if (!lastPrice.isPresent()) {
         logger.debug(
             "calculatePriceChangePercent: No previous price found for competitor {}", competitorId);
