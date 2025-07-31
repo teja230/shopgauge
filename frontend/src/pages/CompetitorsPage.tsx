@@ -1123,7 +1123,13 @@ export default function CompetitorsPage() {
           error: error.message,
           url: url
         }, 'CompetitorsPage');
-      } else if (error.message?.includes('limit') || error.message?.includes('COMPETITOR_LIMIT_EXCEEDED') || error.message?.includes('ARCHIVED_COMPETITOR_LIMIT_EXCEEDED')) {
+      } else if (error.message?.includes('archived competitor limit') || error.message?.includes('ARCHIVED_COMPETITOR_LIMIT_EXCEEDED')) {
+        userMessage = 'You have reached the maximum archived competitor limit for your current subscription tier.';
+        debugLog.warn('Archived competitor limit reached', {
+          error: error.message,
+          url: url
+        }, 'CompetitorsPage');
+      } else if (error.message?.includes('limit') || error.message?.includes('COMPETITOR_LIMIT_EXCEEDED')) {
         userMessage = 'You have reached the maximum competitor tracking limit for your current subscription tier.';
         debugLog.warn('Competitor limit reached', {
           error: error.message,
@@ -1290,6 +1296,8 @@ export default function CompetitorsPage() {
             errorMessage = 'Unable to remove competitor tracking at this time. Please try again.';
           } else if (error.message.includes('foreign key') || error.message.includes('constraint') || error.message.includes('associated with other data')) {
             errorMessage = 'This competitor cannot be removed right now. It may be associated with other data. Please try again later.';
+          } else if (error.message.includes('archived competitor limit') || error.message.includes('ARCHIVED_COMPETITOR_LIMIT_EXCEEDED')) {
+            errorMessage = 'You have reached the maximum archived competitor limit for your current subscription tier.';
           } else if (error.message.includes('connection') || error.message.includes('database') || error.message.includes('Service temporarily unavailable')) {
             errorMessage = 'Service temporarily unavailable. Please try again in a moment.';
           }
