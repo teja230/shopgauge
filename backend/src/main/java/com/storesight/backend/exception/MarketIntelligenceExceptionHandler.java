@@ -36,6 +36,24 @@ public class MarketIntelligenceExceptionHandler {
     return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(response);
   }
 
+  @ExceptionHandler(ArchivedCompetitorLimitExceededException.class)
+  public ResponseEntity<Map<String, Object>> handleArchivedCompetitorLimitExceeded(
+      ArchivedCompetitorLimitExceededException ex, WebRequest request) {
+
+    logger.warn("Archived competitor limit exceeded: {}", ex.getMessage());
+
+    Map<String, Object> response = new HashMap<>();
+    response.put("error", "ARCHIVED_COMPETITOR_LIMIT_EXCEEDED");
+    response.put("message", ex.getMessage());
+    response.put("currentCount", ex.getCurrentCount());
+    response.put("limit", ex.getLimit());
+    response.put("planType", ex.getPlanType());
+    response.put("timestamp", LocalDateTime.now());
+    response.put("upgradeMessage", "Upgrade your plan to restore more archived competitors");
+
+    return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(response);
+  }
+
   @ExceptionHandler(BudgetExceededException.class)
   public ResponseEntity<Map<String, Object>> handleBudgetExceeded(
       BudgetExceededException ex, WebRequest request) {

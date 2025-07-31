@@ -614,9 +614,11 @@ export async function addCompetitorIntelligent(url: string, productId?: string):
       if (response.status === 429) {
         // Handle COMPETITOR_LIMIT_EXCEEDED error specifically
         if (errorData.error === 'COMPETITOR_LIMIT_EXCEEDED') {
-          const limitMessage = errorData.message || 'You have reached your competitor monitoring limit for your current plan.';
-          const upgradeMessage = errorData.upgradeMessage || 'Upgrade your plan to track more competitors.';
-          throw new Error(`${limitMessage} ${upgradeMessage}`);
+          throw new Error('You have reached the maximum competitor tracking limit for your current subscription tier.');
+        }
+        // Handle ARCHIVED_COMPETITOR_LIMIT_EXCEEDED error specifically
+        if (errorData.error === 'ARCHIVED_COMPETITOR_LIMIT_EXCEEDED') {
+          throw new Error('You have reached the maximum archived competitor limit for your current subscription tier.');
         }
         throw new Error('Too many requests. Please wait a moment before trying again.');
       }

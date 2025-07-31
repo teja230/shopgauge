@@ -231,6 +231,7 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
     } catch (Exception e) {
       // Check if this is a business rule exception that should not cause authentication failure
       if (e instanceof com.storesight.backend.exception.CompetitorLimitExceededException
+          || e instanceof com.storesight.backend.exception.ArchivedCompetitorLimitExceededException
           || e instanceof com.storesight.backend.exception.BudgetExceededException
           || e instanceof com.storesight.backend.exception.DiscoveryServiceUnavailableException) {
 
