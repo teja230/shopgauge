@@ -806,6 +806,17 @@ public class CompetitorController {
       logger.info(
           "deleteCompetitor: Starting deletion for competitor ID: {} for shop: {}", id, shopId);
 
+      // Check archived competitor limits before archiving
+      CompetitorLimitService.LimitCheckResult archivedLimitCheck =
+          limitService.checkArchivedCompetitorLimit(shopId);
+      if (!archivedLimitCheck.isCanAdd()) {
+        throw new ArchivedCompetitorLimitExceededException(
+            "Archived competitor limit reached for your plan",
+            archivedLimitCheck.getCurrent(),
+            archivedLimitCheck.getLimit(),
+            archivedLimitCheck.getPlanType().getDisplayName());
+      }
+
       // Verify the competitor belongs to this shop and get URL for audit logging
       List<Map<String, Object>> competitors =
           jdbcTemplate.queryForList(
