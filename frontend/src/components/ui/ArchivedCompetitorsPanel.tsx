@@ -301,8 +301,8 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
       
       // Handle specific error messages
       let errorMessage = 'Failed to restore archived competitor';
-      if (error.message?.includes('archived competitor limit') || error.message?.includes('ARCHIVED_COMPETITOR_LIMIT_EXCEEDED')) {
-        errorMessage = 'You have reached the maximum archived competitor limit for your current subscription tier.';
+      if (error.message?.includes('competitor limit') || error.message?.includes('COMPETITOR_LIMIT_EXCEEDED')) {
+        errorMessage = 'You have reached the maximum competitor tracking limit for your current subscription tier.';
       } else if (error.message?.includes('limit')) {
         errorMessage = 'You have reached the maximum competitor tracking limit for your current subscription tier.';
       }

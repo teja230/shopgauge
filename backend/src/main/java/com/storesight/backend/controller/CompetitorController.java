@@ -1518,15 +1518,16 @@ public class CompetitorController {
 
     try {
 
-      // Check archived competitor limits before restoring
-      CompetitorLimitService.LimitCheckResult archivedLimitCheck =
-          limitService.checkArchivedCompetitorLimit(shopId);
-      if (!archivedLimitCheck.isCanAdd()) {
-        throw new ArchivedCompetitorLimitExceededException(
-            "Archived competitor limit reached for your plan",
-            archivedLimitCheck.getCurrent(),
-            archivedLimitCheck.getLimit(),
-            archivedLimitCheck.getPlanType().getDisplayName());
+      // Check active competitor limits before restoring (since we're moving from archived to
+      // active)
+      CompetitorLimitService.LimitCheckResult activeLimitCheck =
+          limitService.checkCompetitorLimit(shopId);
+      if (!activeLimitCheck.isCanAdd()) {
+        throw new CompetitorLimitExceededException(
+            "Competitor limit reached for your plan",
+            activeLimitCheck.getCurrent(),
+            activeLimitCheck.getLimit(),
+            activeLimitCheck.getPlanType().getDisplayName());
       }
 
       // Verify the competitor belongs to this shop and is deleted
