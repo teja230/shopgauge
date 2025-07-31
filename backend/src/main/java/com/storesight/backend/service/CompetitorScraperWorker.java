@@ -617,7 +617,24 @@ public class CompetitorScraperWorker {
   /** Store price snapshot in database with enhanced tracking */
   private void storePriceSnapshot(Long competitorUrlId, CompetitorData data) {
     try {
-      // Use enhanced price change calculation service
+      // First, store the snapshot without price change percentage
+      jdbcTemplate.update(
+          "INSERT INTO price_snapshots (competitor_url_id, price, in_stock, price_change_percent, significant_change, checked_at, scraper_version, platform, response_time_ms, scraper_source) "
+              + "VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?)",
+          competitorUrlId,
+          data.price,
+          data.inStock,
+          null, // Will calculate this after insertion
+          false, // Will update this after calculation
+          "v2.0",
+          data.platform,
+          (int) data.responseTime,
+          data.scraperSource);
+
+      // Get the ID of the newly inserted snapshot
+      Long snapshotId = jdbcTemplate.queryForObject("SELECT LASTVAL()", Long.class);
+
+      // Now calculate price change percentage using the enhanced service
       BigDecimal priceChangePercent = null;
       boolean significantChange = false;
 
@@ -630,24 +647,18 @@ public class CompetitorScraperWorker {
               priceChangeCalculationService.isSignificantPriceChange(
                   priceChangePercent, BigDecimal.valueOf(5));
 
+          // Update the snapshot with the calculated percentage
+          jdbcTemplate.update(
+              "UPDATE price_snapshots SET price_change_percent = ?, significant_change = ? WHERE id = ?",
+              priceChangePercent,
+              significantChange,
+              snapshotId);
+
           log.debug(
-              "[Worker] Calculated price change for competitor {}: {}% (significant: {})",
+              "[Worker] Calculated and updated price change for competitor {}: {}% (significant: {})",
               competitorUrlId, priceChangePercent, significantChange);
         }
       }
-
-      jdbcTemplate.update(
-          "INSERT INTO price_snapshots (competitor_url_id, price, in_stock, price_change_percent, significant_change, checked_at, scraper_version, platform, response_time_ms, scraper_source) "
-              + "VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?)",
-          competitorUrlId,
-          data.price,
-          data.inStock,
-          priceChangePercent,
-          significantChange,
-          "v2.0",
-          data.platform,
-          (int) data.responseTime,
-          data.scraperSource);
 
       // Update competitor URL status on successful scrape with response time
       jdbcTemplate.update(
