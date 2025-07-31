@@ -847,31 +847,54 @@ public class MarketIntelligenceAdminController {
         debugInfo.put("currentStatus", currentStatus.get(0));
       }
 
-      // Trigger actual immediate scraping for debugging
-      try {
-        // Call the actual scraping logic from CompetitorController
-        triggerImmediatePriceScraping(id, url, shopId);
-        debugInfo.put("scrapingTriggered", true);
-        debugInfo.put("message", "Real scraping triggered successfully for debugging");
-      } catch (Exception scrapingError) {
-        debugInfo.put("scrapingTriggered", false);
-        debugInfo.put("scrapingError", scrapingError.getMessage());
-        debugInfo.put("message", "Failed to trigger real scraping: " + scrapingError.getMessage());
+      // Get latest price snapshot for analysis
+      List<Map<String, Object>> latestSnapshot =
+          jdbcTemplate.queryForList(
+              "SELECT price, in_stock, checked_at, scraper_version, platform, scraper_source, response_time_ms FROM price_snapshots WHERE competitor_url_id = ? ORDER BY checked_at DESC LIMIT 1",
+              Long.parseLong(id));
+
+      if (!latestSnapshot.isEmpty()) {
+        Map<String, Object> snapshot = latestSnapshot.get(0);
+        debugInfo.put("latestSnapshot", snapshot);
+
+        // Analyze the latest snapshot
+        BigDecimal price = (BigDecimal) snapshot.get("price");
+        if (price != null && price.compareTo(BigDecimal.ZERO) > 0) {
+          debugInfo.put("scrapingSuccess", true);
+          debugInfo.put("scrapedPrice", price);
+        } else {
+          debugInfo.put("scrapingSuccess", false);
+          debugInfo.put("failureReason", "No valid price found in latest snapshot");
+        }
+      } else {
+        debugInfo.put("scrapingSuccess", false);
+        debugInfo.put("failureReason", "No price snapshots found");
       }
 
-      // Check if price snapshots were created
-      List<Map<String, Object>> snapshots =
+      // Get recent price history for analysis
+      List<Map<String, Object>> priceHistory =
           jdbcTemplate.queryForList(
-              "SELECT price, in_stock, checked_at, scraper_version, platform, scraper_source FROM price_snapshots WHERE competitor_url_id = ? ORDER BY checked_at DESC LIMIT 1",
+              "SELECT price, in_stock, checked_at, scraper_version, platform, scraper_source FROM price_snapshots WHERE competitor_url_id = ? ORDER BY checked_at DESC LIMIT 5",
               Long.parseLong(id));
-      debugInfo.put("priceSnapshots", snapshots);
+      debugInfo.put("priceSnapshots", priceHistory);
+
+      // Check if scraping would be rate limited
+      boolean wouldBeRateLimited = redisTemplate.hasKey(rateLimitKey);
+      debugInfo.put("wouldBeRateLimited", wouldBeRateLimited);
+
+      // Check if recent scrape exists (would prevent immediate scraping)
+      boolean hasRecentScrape = redisTemplate.hasKey(recentScrapeKey);
+      debugInfo.put("hasRecentScrape", hasRecentScrape);
+
+      debugInfo.put("scrapingTriggered", false);
+      debugInfo.put("message", "Debug information collected - no actual scraping triggered");
 
       return ResponseEntity.ok(debugInfo);
 
     } catch (Exception e) {
       log.error("Error in trigger scraping debug: {}", e.getMessage(), e);
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-          .body(Map.of("error", "Failed to trigger scraping debug: " + e.getMessage()));
+          .body(Map.of("error", "Failed to get scraping debug info: " + e.getMessage()));
     }
   }
 

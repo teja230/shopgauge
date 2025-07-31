@@ -211,19 +211,19 @@ const CompetitorAdminPanel: React.FC<CompetitorAdminPanelProps> = ({
       setDebugDialogType('trigger-debug');
       setDebugDialogOpen(true);
       
-      // Show enterprise-grade success/failure messages
+      // Show debug information messages
       if (result.scrapingSuccess) {
-        addNotification(`Price monitoring successful: $${result.scrapedPrice} retrieved via ${result.latestSnapshot?.scraper_source || 'direct scraping'}`, 'success');
-      } else if (result.failureReason === 'Amazon blocking detected') {
-        addNotification('Amazon has implemented anti-scraping measures. Consider manual price monitoring for this product.', 'warning');
-      } else if (result.failureReason === 'No price found in page content') {
-        addNotification('Unable to extract price from the product page. The page structure may have changed.', 'warning');
+        addNotification(`Debug: Latest price $${result.scrapedPrice} found via ${result.latestSnapshot?.scraper_source || 'unknown source'}`, 'info');
+      } else if (result.failureReason === 'No price snapshots found') {
+        addNotification('Debug: No price snapshots found for this competitor', 'warning');
+      } else if (result.failureReason === 'No valid price found in latest snapshot') {
+        addNotification('Debug: Latest snapshot shows no valid price', 'warning');
       } else {
-        addNotification('Price monitoring temporarily unavailable. Our systems will retry automatically.', 'error');
+        addNotification('Debug: Analysis complete - check dialog for details', 'info');
       }
     } catch (error) {
-      addNotification('Failed to trigger debug scraping', 'error');
-      console.error('Error triggering debug scraping:', error);
+      addNotification('Failed to get debug information', 'error');
+      console.error('Error getting debug information:', error);
     } finally {
       setDebugLoading(false);
     }
@@ -575,13 +575,13 @@ const CompetitorAdminPanel: React.FC<CompetitorAdminPanelProps> = ({
                               <PlayArrowIcon />
                             </IconButton>
                           </Tooltip>
-                            <Tooltip title="Debug Scraping">
+                            <Tooltip title="Debug Info">
                               <IconButton
                                 size="small"
                                 sx={{ 
-                                  color: 'warning.main',
+                                  color: 'info.main',
                                   '&:hover': { 
-                                    backgroundColor: 'warning.main',
+                                    backgroundColor: 'info.main',
                                     color: 'white'
                                   }
                                 }}
@@ -818,7 +818,7 @@ const CompetitorAdminPanel: React.FC<CompetitorAdminPanelProps> = ({
           color: 'white',
           fontWeight: 600
         }}>
-          {debugDialogType === 'trigger-debug' ? 'Debug Scraping Results' : 'Products Debug Information'}
+          {debugDialogType === 'trigger-debug' ? 'Competitor Debug Information' : 'Products Debug Information'}
         </DialogTitle>
         <DialogContent sx={{ p: 3 }}>
           {debugDialogType === 'trigger-debug' && triggerDebugResult && (
