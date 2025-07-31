@@ -296,9 +296,18 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
           }
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error restoring competitor:', error);
-      notifications.showError('Failed to restore archived competitor', {
+      
+      // Handle specific error messages
+      let errorMessage = 'Failed to restore archived competitor';
+      if (error.message?.includes('archived competitor limit') || error.message?.includes('ARCHIVED_COMPETITOR_LIMIT_EXCEEDED')) {
+        errorMessage = 'You have reached the maximum archived competitor limit for your current subscription tier.';
+      } else if (error.message?.includes('limit')) {
+        errorMessage = 'You have reached the maximum competitor tracking limit for your current subscription tier.';
+      }
+      
+      notifications.showError(errorMessage, {
         showToast: true
       });
     } finally {
