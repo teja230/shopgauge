@@ -5,8 +5,7 @@ import {
   Autocomplete,
   CircularProgress,
   Typography,
-  Alert,
-  Chip
+  Alert
 } from '@mui/material';
 import { CheckCircleIcon } from '@heroicons/react/24/outline';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
@@ -269,18 +268,6 @@ export const ProductSelector: React.FC<ProductSelectorProps> = ({
           },
         }}
       />
-      
-      {selectedProduct && (
-        <Box mt={1}>
-          <Chip
-            label={`Selected: ${selectedProduct.title}`}
-            color="primary"
-            variant="outlined"
-            size="small"
-            onDelete={() => onChange('')}
-          />
-        </Box>
-      )}
     </Box>
   );
 }; 
