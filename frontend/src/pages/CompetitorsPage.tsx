@@ -595,6 +595,7 @@ export default function CompetitorsPage() {
       notifications.showInfo('Connect your Shopify store to initiate competitor tracking', {
         category: 'Competitors',
         persistent: true,
+        showToast: true,
         action: {
           label: 'Connect Store',
           onClick: () => {
@@ -879,7 +880,8 @@ export default function CompetitorsPage() {
   const handleAdd = useCallback(async () => {
     if (!url.trim()) {
       notifications.showError('Please provide a valid competitor URL to begin tracking', {
-        category: 'Competitors'
+        category: 'Competitors',
+        showToast: true
       });
       return;
     }
@@ -888,7 +890,8 @@ export default function CompetitorsPage() {
     const trimmedUrl = url.trim();
     if (trimmedUrl.includes('amazon.com') && !trimmedUrl.includes('/dp/') && !trimmedUrl.includes('/gp/product/')) {
       notifications.showError('Please provide a direct Amazon product page URL (should contain /dp/ or /gp/product/)', {
-        category: 'Competitors'
+        category: 'Competitors',
+        showToast: true
       });
       return;
     }
@@ -901,7 +904,8 @@ export default function CompetitorsPage() {
       if (!isDemoMode && limits) {
         if (!limits.competitorLimit.canAdd) {
           notifications.showError(limits.competitorLimit.message || 'Competitor limit reached', {
-            category: 'Competitors'
+            category: 'Competitors',
+            showToast: true
           });
           return;
         }
@@ -921,7 +925,8 @@ export default function CompetitorsPage() {
         };
         setCompetitors((prev) => [...prev, newCompetitor]);
         notifications.showSuccess('Demo competitor has been added to tracking', {
-          category: 'Competitors'
+          category: 'Competitors',
+          showToast: true
         });
       } else {
         // Intelligent competitor addition - let backend handle product selection
@@ -1190,7 +1195,7 @@ export default function CompetitorsPage() {
         notifications.showError('Store Authentication Required', {
           category: 'Competitors',
           persistent: true,
-          showToast: true, // Force toast to show
+          showToast: true,
           action: {
             label: 'Connect Store',
             onClick: () => {
@@ -1198,17 +1203,18 @@ export default function CompetitorsPage() {
             }
           }
         });
-        notifications.showInfo('To initiate competitor tracking, you must first authenticate your Shopify store. Click "Connect Store" above or visit the home page to authenticate.', {
-              category: 'Competitors',
+                notifications.showInfo('To initiate competitor tracking, you must first authenticate your Shopify store. Click "Connect Store" above or visit the home page to authenticate.', {
+          category: 'Competitors',
           persistent: false,
+          showToast: true,
           duration: 8000
         });
       } else if (needsProductSync) {
         debugLog.info('Showing product sync error notification');
-        notifications.showError('Product Catalog Synchronization Required', {
-            category: 'Competitors',
+                notifications.showError('Product Catalog Synchronization Required', {
+          category: 'Competitors',
           persistent: true,
-          showToast: true, // Force toast to show
+          showToast: true,
           action: {
             label: 'Sync Products',
             onClick: () => {
@@ -1219,6 +1225,7 @@ export default function CompetitorsPage() {
         notifications.showInfo('To initiate competitor tracking, you must first synchronize your product catalog. Click "Sync Products" above or visit your Dashboard to refresh your product data.', {
           category: 'Competitors',
           persistent: false,
+          showToast: true,
           duration: 8000
         });
       } else {
@@ -1227,7 +1234,7 @@ export default function CompetitorsPage() {
         }, 'CompetitorsPage');
         notifications.showError(userMessage, {
           category: 'Competitors',
-          showToast: true // Force toast to show for errors
+          showToast: true
         });
       }
     } finally {
@@ -1241,7 +1248,7 @@ export default function CompetitorsPage() {
         setCompetitors((prev) => prev.filter((c) => c.id !== id));
         notifications.showSuccess('Demo competitor has been removed from tracking', {
           category: 'Competitors',
-          showToast: true // Force toast to show
+          showToast: true
         });
         return;
       }
@@ -1260,7 +1267,7 @@ export default function CompetitorsPage() {
       
         notifications.showSuccess('Competitor tracking has been discontinued', {
           category: 'Competitors',
-          showToast: true // Force toast to show
+          showToast: true
         });
         
         debugLog.info('Competitor deleted successfully', { 
@@ -1464,7 +1471,8 @@ export default function CompetitorsPage() {
       }
       
       notifications.showSuccess('Switched to Live Mode - Real competitor tracking enabled', {
-        category: 'Mode'
+        category: 'Mode',
+        showToast: true
       });
       
       // Load real data after a brief delay to ensure state is stable
@@ -1490,7 +1498,8 @@ export default function CompetitorsPage() {
       }
       
       notifications.showSuccess('Switched to Demo Mode - Sample data enabled', {
-        category: 'Mode'
+        category: 'Mode',
+        showToast: true
       });
       
       // No fetchData call needed for demo mode - everything is already set
@@ -1501,14 +1510,16 @@ export default function CompetitorsPage() {
   const triggerManualDiscovery = useCallback(async () => {
     if (isDemoMode) {
       notifications.showInfo('Discovery is not available in demo mode', {
-        category: 'Discovery'
+        category: 'Discovery',
+        showToast: true
       });
       return;
     }
 
     if (!shop) {
       notifications.showError('No shop connected', {
-        category: 'Discovery'
+        category: 'Discovery',
+        showToast: true
       });
       return;
     }
@@ -1517,7 +1528,8 @@ export default function CompetitorsPage() {
     if (now - lastDiscoveryTime < DISCOVERY_COOLDOWN) {
       const hoursRemaining = Math.ceil((DISCOVERY_COOLDOWN - (now - lastDiscoveryTime)) / (60 * 60 * 1000));
       notifications.showError(`Discovery is on cooldown. Please wait ${hoursRemaining} more hours.`, {
-        category: 'Discovery'
+        category: 'Discovery',
+        showToast: true
       });
       return;
     }
@@ -1526,6 +1538,7 @@ export default function CompetitorsPage() {
 
     notifications.showInfo('Starting discovery process...', {
       category: 'Discovery',
+      showToast: true,
       duration: 2000
     });
 
@@ -1559,7 +1572,10 @@ export default function CompetitorsPage() {
             console.error(`[Discovery] Config check failed: ${cfgRes.status} ${cfgRes.statusText}`, cfg);
             const errorMessage = cfg.message || cfg.error || `Discovery configuration unavailable (${cfgRes.status})`;
             if (attempt === 3) {
-              notifications.showError(errorMessage, { category: 'Discovery' });
+              notifications.showError(errorMessage, { 
+                category: 'Discovery',
+                showToast: true
+              });
               return;
             }
             await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
@@ -1577,35 +1593,47 @@ export default function CompetitorsPage() {
       
       if (!cfg) {
         console.error('[Discovery] Final config check failed, cfg is undefined');
-        notifications.showError('Could not retrieve discovery configuration.', { category: 'Discovery' });
+        notifications.showError('Could not retrieve discovery configuration.', { 
+          category: 'Discovery',
+          showToast: true
+        });
         return;
       }
       
       if (cfg.error) {
         console.error(`[Discovery] Configuration error:`, cfg.error);
-        notifications.showError(`Discovery error: ${cfg.message || cfg.error}`, { category: 'Discovery' });
+        notifications.showError(`Discovery error: ${cfg.message || cfg.error}`, { 
+          category: 'Discovery',
+          showToast: true
+        });
         return;
       }
       
-      if (!cfg.enabled) {
-        console.warn(`[Discovery] Discovery disabled. Config:`, cfg);
-        const errorMessage = cfg.message || 'Competitor discovery is currently disabled. Please contact support.';
-        if (cfg.debugInfo) {
-          console.error('[Discovery] Debug info:', cfg.debugInfo);
+              if (!cfg.enabled) {
+          console.warn(`[Discovery] Discovery disabled. Config:`, cfg);
+          const errorMessage = cfg.message || 'Competitor discovery is currently disabled. Please contact support.';
+          if (cfg.debugInfo) {
+            console.error('[Discovery] Debug info:', cfg.debugInfo);
+          }
+          notifications.showError(errorMessage, { 
+            category: 'Discovery',
+            showToast: true
+          });
+          return;
         }
-        notifications.showError(errorMessage, { category: 'Discovery' });
-        return;
-      }
       
-      if (!cfg.configured) {
-        console.warn(`[Discovery] Discovery not configured. Config:`, cfg);
-        const errorMessage = cfg.message || 'Competitor discovery is not configured. Please set up your search API credentials.';
-        if (cfg.debugInfo) {
-          console.error('[Discovery] Debug info:', cfg.debugInfo);
+              if (!cfg.configured) {
+          console.warn(`[Discovery] Discovery not configured. Config:`, cfg);
+          const errorMessage = cfg.message || 'Competitor discovery is not configured. Please set up your search API credentials.';
+          if (cfg.debugInfo) {
+            console.error('[Discovery] Debug info:', cfg.debugInfo);
+          }
+          notifications.showError(errorMessage, { 
+            category: 'Discovery',
+            showToast: true
+          });
+          return;
         }
-        notifications.showError(errorMessage, { category: 'Discovery' });
-        return;
-      }
 
       console.log(`[Discovery] Configuration valid, triggering discovery...`);
 
@@ -1635,7 +1663,10 @@ export default function CompetitorsPage() {
           if (response.ok) {
             console.log(`[Discovery] Successfully triggered:`, result);
             setLastDiscoveryTime(Date.now());
-            notifications.showSuccess(result.message || 'Discovery started! Initial results may appear within hours.', { category: 'Discovery' });
+            notifications.showSuccess(result.message || 'Discovery started! Initial results may appear within hours.', { 
+              category: 'Discovery',
+              showToast: true
+            });
             fetchDiscoveryStatus();
             return;
           }
@@ -1686,7 +1717,10 @@ export default function CompetitorsPage() {
         userMessage = `Discovery failed: ${error.message}`;
       }
       
-      notifications.showError(userMessage, { category: 'Discovery' });
+              notifications.showError(userMessage, { 
+          category: 'Discovery',
+          showToast: true
+        });
     } finally {
       setIsDiscovering(false);
     }
@@ -1850,7 +1884,8 @@ export default function CompetitorsPage() {
       }
       notificationShownRef.current = true;
       notifications.showSuccess('Tutorial completed! You\'re ready to explore Market Intelligence.', {
-        category: 'Tutorial'
+        category: 'Tutorial',
+        showToast: true
       });
     } else if (status === 'skipped') {
       setShowTutorial(false);
@@ -1863,7 +1898,8 @@ export default function CompetitorsPage() {
       }
       notificationShownRef.current = true;
       notifications.showInfo('Tutorial skipped. You can restart it anytime from the tutorial button.', {
-        category: 'Tutorial'
+        category: 'Tutorial',
+        showToast: true
       });
     } else if (action === 'close') {
       setShowTutorial(false);
