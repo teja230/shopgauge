@@ -653,7 +653,7 @@ const MobileCompetitorCard: React.FC<{
                     }
                   }}
                 >
-                  {competitor.lastChecked ? 'View Graph' : 'No Data'}
+                  {competitor.lastChecked ? 'View History' : 'No Data'}
                 </StyledActionButton>
               )}
               
@@ -839,7 +839,7 @@ const DesktopTableRow: React.FC<{
           )}
           
           {onViewGraph && (
-            <Tooltip title={competitor.lastChecked ? "View price history graph" : "No price history available"}>
+            <Tooltip title={competitor.lastChecked ? "View price history" : "No price history available"}>
               <IconButton 
                 size="small" 
                 color="info"
