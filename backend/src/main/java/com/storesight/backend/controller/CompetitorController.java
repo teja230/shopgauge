@@ -1544,7 +1544,7 @@ public class CompetitorController {
             java.time.LocalDateTime now = java.time.LocalDateTime.now();
             java.time.Duration duration = java.time.Duration.between(lastChecked, now);
             // Trigger immediate scraping only if last check was over 24 hours ago
-            shouldTriggerImmediate = duration.toHours() >= 24;
+            shouldTriggerImmediate = duration.toHours() > 24;
             logger.info(
                 "Restore: Last check was {} hours ago, immediate scraping: {}",
                 duration.toHours(),

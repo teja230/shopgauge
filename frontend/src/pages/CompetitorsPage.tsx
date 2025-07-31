@@ -1398,6 +1398,12 @@ export default function CompetitorsPage() {
     fetchData(true);
   }, [fetchData]);
 
+  // Callback for when a competitor is restored from archived section
+  const handleCompetitorRestored = useCallback(() => {
+    console.log('Competitor restored, forcing refresh of active competitors');
+    fetchData(true); // Force refresh to update active competitors list
+  }, [fetchData]);
+
   // Limit display component
   const LimitDisplay = () => {
     if (isDemoMode || !limits) return null;
@@ -2603,7 +2609,7 @@ export default function CompetitorsPage() {
                         sectionColor="orange"
                         onToggleCollapse={() => setDeletedSectionCollapsed(!deletedSectionCollapsed)}
                         isCollapsed={deletedSectionCollapsed}
-                        onCompetitorRestored={fetchData}
+                        onCompetitorRestored={handleCompetitorRestored}
                         archivedLimit={limits?.archivedCompetitorLimit?.limit}
                         archivedCurrent={limits?.archivedCompetitorLimit?.currentCount}
                       />
