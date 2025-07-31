@@ -327,7 +327,7 @@ export const marketIntelligenceAdminAPI = {
   },
 
   async getProductsDebug(shopId: number): Promise<ProductsDebugInfo> {
-    return await fetchWithAdminAuth(`/api/admin/market-intelligence/products/debug?shopId=${shopId}`);
+    return await fetchWithAdminAuth(`/api/admin/market-intelligence/competitors/products-debug?shopId=${shopId}`);
   },
 
   async getAvailableShops(): Promise<Array<{ id: number; shopify_domain: string }>> {
