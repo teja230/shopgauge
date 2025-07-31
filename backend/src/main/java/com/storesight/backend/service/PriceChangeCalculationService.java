@@ -28,8 +28,9 @@ public class PriceChangeCalculationService {
         return Optional.empty();
       }
 
-      // Get the most recent valid price snapshot
-      Optional<BigDecimal> lastPrice = getLastValidPrice(competitorId);
+      // Get the most recent valid price snapshot (excluding current snapshot being processed)
+      Optional<BigDecimal> lastPrice =
+          getLastValidPrice(competitorId, java.time.LocalDateTime.now());
       if (!lastPrice.isPresent()) {
         logger.debug(
             "calculatePriceChangePercent: No previous price found for competitor {}", competitorId);
@@ -68,9 +69,33 @@ public class PriceChangeCalculationService {
 
   /** Get the last valid price for a competitor (excluding soft-deleted snapshots) */
   private Optional<BigDecimal> getLastValidPrice(Long competitorId) {
+    return getLastValidPrice(competitorId, null);
+  }
+
+  /** Get the last valid price for a competitor before a specific timestamp */
+  private Optional<BigDecimal> getLastValidPrice(
+      Long competitorId, java.time.LocalDateTime beforeTimestamp) {
     try {
-      String query =
-          """
+      String query;
+      Object[] params;
+
+      if (beforeTimestamp != null) {
+        query =
+            """
+                SELECT price
+                FROM price_snapshots
+                WHERE competitor_url_id = ?
+                AND deleted_at IS NULL
+                AND price IS NOT NULL
+                AND price > 0
+                AND checked_at < ?
+                ORDER BY checked_at DESC
+                LIMIT 1
+                """;
+        params = new Object[] {competitorId, beforeTimestamp};
+      } else {
+        query =
+            """
                 SELECT price
                 FROM price_snapshots
                 WHERE competitor_url_id = ?
@@ -80,8 +105,10 @@ public class PriceChangeCalculationService {
                 ORDER BY checked_at DESC
                 LIMIT 1
                 """;
+        params = new Object[] {competitorId};
+      }
 
-      BigDecimal price = jdbcTemplate.queryForObject(query, BigDecimal.class, competitorId);
+      BigDecimal price = jdbcTemplate.queryForObject(query, BigDecimal.class, params);
       return Optional.ofNullable(price);
     } catch (Exception e) {
       logger.debug(
