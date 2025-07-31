@@ -60,6 +60,8 @@ interface ArchivedCompetitorsPanelProps {
   onToggleCollapse?: () => void;
   isCollapsed?: boolean;
   onCompetitorRestored?: () => void;
+  archivedLimit?: number;
+  archivedCurrent?: number;
 }
 
 // Styled components to match CompetitorTable
@@ -113,6 +115,8 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
   onToggleCollapse,
   isCollapsed = false,
   onCompetitorRestored,
+  archivedLimit,
+  archivedCurrent,
 }) => {
   const [deletedCompetitors, setDeletedCompetitors] = useState<ArchivedCompetitor[]>([]);
   const [loading, setLoading] = useState(true);
@@ -465,6 +469,19 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
                     fontSize: '0.75rem',
                     backgroundColor: 'grey.100',
                     color: 'text.secondary'
+                  }}
+                />
+              )}
+              {archivedLimit !== undefined && archivedCurrent !== undefined && (
+                <Chip
+                  label={`${archivedCurrent}/${archivedLimit}`}
+                  size="small"
+                  sx={{ 
+                    height: 20, 
+                    fontSize: '0.75rem',
+                    backgroundColor: archivedCurrent >= archivedLimit * 0.8 ? 'warning.light' : 'success.light',
+                    color: archivedCurrent >= archivedLimit * 0.8 ? 'warning.dark' : 'success.dark',
+                    fontWeight: 600
                   }}
                 />
               )}

@@ -1402,7 +1402,7 @@ export default function CompetitorsPage() {
   const LimitDisplay = () => {
     if (isDemoMode || !limits) return null;
 
-    const { competitorLimit, suggestionLimit, discoveryLimit } = limits;
+    const { competitorLimit, archivedCompetitorLimit, suggestionLimit, discoveryLimit } = limits;
     
     return (
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
@@ -1416,15 +1416,22 @@ export default function CompetitorsPage() {
           </span>
         </div>
         
-        <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="mt-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="text-center">
             <div className="text-2xl font-bold text-blue-900">
               {competitorLimit.currentCount}/{competitorLimit.limit}
             </div>
-            <div className="text-xs text-blue-600">Competitors</div>
+            <div className="text-xs text-blue-600">Active Competitors</div>
             {competitorLimit.message && (
               <div className="text-xs text-blue-500 mt-1">{competitorLimit.message}</div>
             )}
+          </div>
+          
+          <div className="text-center">
+            <div className="text-2xl font-bold text-blue-900">
+              {archivedCompetitorLimit.currentCount}/{archivedCompetitorLimit.limit}
+            </div>
+            <div className="text-xs text-blue-600">Archived Competitors</div>
           </div>
           
           <div className="text-center">
@@ -1442,9 +1449,10 @@ export default function CompetitorsPage() {
           </div>
         </div>
         
-        {competitorLimit.currentCount >= competitorLimit.limit * 0.8 && (
+        {(competitorLimit.currentCount >= competitorLimit.limit * 0.8 || 
+          archivedCompetitorLimit.currentCount >= archivedCompetitorLimit.limit * 0.8) && (
           <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
-            ⚠️ You're approaching your competitor limit. Consider upgrading for unlimited tracking.
+            ⚠️ You're approaching your competitor limits. Consider upgrading for unlimited tracking.
           </div>
         )}
       </div>
@@ -2587,16 +2595,18 @@ export default function CompetitorsPage() {
                 <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
                   {!deletedSectionCollapsed && (
                     <div className="overflow-x-auto competitor-table">
-                                             <ArchivedCompetitorsPanel
-                         shopId={isDemoMode ? 'demo' : (shop || 'demo')}
-                         onCountChange={setArchivedCount}
-                         sectionTitle="Archived"
-                         sectionCount={archivedCount}
-                         sectionColor="orange"
-                         onToggleCollapse={() => setDeletedSectionCollapsed(!deletedSectionCollapsed)}
-                         isCollapsed={deletedSectionCollapsed}
-                         onCompetitorRestored={fetchData}
-                       />
+                                                                   <ArchivedCompetitorsPanel
+                        shopId={isDemoMode ? 'demo' : (shop || 'demo')}
+                        onCountChange={setArchivedCount}
+                        sectionTitle="Archived"
+                        sectionCount={archivedCount}
+                        sectionColor="orange"
+                        onToggleCollapse={() => setDeletedSectionCollapsed(!deletedSectionCollapsed)}
+                        isCollapsed={deletedSectionCollapsed}
+                        onCompetitorRestored={fetchData}
+                        archivedLimit={limits?.archivedCompetitorLimit?.limit}
+                        archivedCurrent={limits?.archivedCompetitorLimit?.currentCount}
+                      />
                     </div>
                   )}
                   {deletedSectionCollapsed && (
