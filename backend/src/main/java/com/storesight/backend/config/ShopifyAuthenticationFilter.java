@@ -229,6 +229,22 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
       filterChain.doFilter(request, response);
 
     } catch (Exception e) {
+      // Check if this is a business rule exception that should not cause authentication failure
+      if (e instanceof com.storesight.backend.exception.CompetitorLimitExceededException
+          || e instanceof com.storesight.backend.exception.BudgetExceededException
+          || e instanceof com.storesight.backend.exception.DiscoveryServiceUnavailableException) {
+
+        logger.debug(
+            "Business rule exception in authentication filter for path: {} - {}",
+            request.getRequestURI(),
+            e.getMessage());
+
+        // Allow business rule exceptions to pass through to proper exception handlers
+        // Don't clear security context or treat as authentication failure
+        filterChain.doFilter(request, response);
+        return;
+      }
+
       logger.error(
           "Authentication filter error for path: {} - {}",
           request.getRequestURI(),

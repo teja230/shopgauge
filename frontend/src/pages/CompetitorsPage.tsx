@@ -1123,8 +1123,8 @@ export default function CompetitorsPage() {
           error: error.message,
           url: url
         }, 'CompetitorsPage');
-      } else if (error.message?.includes('limit')) {
-        userMessage = 'You have reached the maximum competitor tracking limit for your current subscription tier.';
+      } else if (error.message?.includes('limit') || error.message?.includes('COMPETITOR_LIMIT_EXCEEDED')) {
+        userMessage = error.message || 'You have reached the maximum competitor tracking limit for your current subscription tier.';
         debugLog.warn('Competitor limit reached', {
           error: error.message,
           url: url

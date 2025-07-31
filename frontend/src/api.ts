@@ -611,6 +611,16 @@ export async function addCompetitorIntelligent(url: string, productId?: string):
         throw new Error(errorMessage);
       }
       
+      if (response.status === 429) {
+        // Handle COMPETITOR_LIMIT_EXCEEDED error specifically
+        if (errorData.error === 'COMPETITOR_LIMIT_EXCEEDED') {
+          const limitMessage = errorData.message || 'You have reached your competitor monitoring limit for your current plan.';
+          const upgradeMessage = errorData.upgradeMessage || 'Upgrade your plan to track more competitors.';
+          throw new Error(`${limitMessage} ${upgradeMessage}`);
+        }
+        throw new Error('Too many requests. Please wait a moment before trying again.');
+      }
+      
       if (response.status === 401) {
         throw new Error('Your session has expired. Please refresh the page and try again.');
       }
