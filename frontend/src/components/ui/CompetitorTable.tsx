@@ -660,7 +660,7 @@ const MobileCompetitorCard: React.FC<{
               
               <StyledActionButton
                 variant="outlined"
-                color="error"
+                color="warning"
                 startIcon={<ArchiveIcon />}
                 onClick={handleDelete}
                 sx={{ flex: 1 }}
@@ -864,7 +864,7 @@ const DesktopTableRow: React.FC<{
           <Tooltip title="Archive competitor">
             <IconButton 
               size="small" 
-              color="error" 
+              color="warning" 
               onClick={handleDelete}
               sx={{ minWidth: 36, minHeight: 36 }}
             >
