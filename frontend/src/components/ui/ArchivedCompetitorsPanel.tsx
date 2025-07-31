@@ -33,8 +33,7 @@ import {
   Visibility as ViewIcon,
   History as HistoryIcon,
   TrendingUp as TrendingUpIcon,
-  OpenInNew as OpenInNewIcon,
-  BarChart as BarChartIcon
+  OpenInNew as OpenInNewIcon
 } from '@mui/icons-material';
 import { useNotifications } from '../../hooks/useNotifications';
 import { fetchWithAuth } from '../../api';
@@ -129,15 +128,6 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
     open: false,
     competitor: null,
     newLabel: ''
-  });
-  const [viewHistoryDialog, setViewHistoryDialog] = useState<{
-    open: boolean;
-    competitorId: string | null;
-    history: any[];
-  }>({
-    open: false,
-    competitorId: null,
-    history: []
   });
 
   const [permanentDeleteDialog, setPermanentDeleteDialog] = useState<{
@@ -318,42 +308,6 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
       });
     } finally {
       setPermanentDeleteDialog({ open: false, competitorId: null, competitorLabel: '' });
-    }
-  };
-
-  const handleViewHistory = async (competitorId: string) => {
-    try {
-      if (shopId === 'demo') {
-        // Demo mode - simulate price history
-        const demoHistory = [
-          { date: '2024-01-15', price: 199.99, change: 0 },
-          { date: '2024-01-14', price: 189.99, change: -5.0 },
-          { date: '2024-01-13', price: 199.99, change: 5.3 },
-          { date: '2024-01-12', price: 189.99, change: -5.0 },
-          { date: '2024-01-11', price: 199.99, change: 5.3 }
-        ];
-        setViewHistoryDialog({
-          open: true,
-          competitorId,
-          history: demoHistory
-        });
-      } else {
-        const response = await fetchWithAuth(`/api/competitors/${competitorId}/price-history?days=30`);
-        const data = await response.json();
-        
-        if (data.success) {
-          setViewHistoryDialog({
-            open: true,
-            competitorId,
-            history: data.history || []
-          });
-        }
-      }
-    } catch (error) {
-      console.error('Error loading price history:', error);
-              notifications.showError('Failed to load price history', {
-          showToast: true
-        });
     }
   };
 
@@ -572,25 +526,6 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
                           {restoring === competitor.id ? <CircularProgress size={16} /> : <RestoreIcon fontSize="small" />}
                         </IconButton>
                       </Tooltip>
-                      <Tooltip title="View price history">
-                        <IconButton
-                          size="small"
-                          color="info"
-                          onClick={() => handleViewHistory(competitor.id)}
-                          disabled={competitor.price_snapshots_count === 0}
-                          sx={{ 
-                            minWidth: 36, 
-                            minHeight: 36,
-                            opacity: competitor.price_snapshots_count > 0 ? 1 : 0.4,
-                            '&:disabled': {
-                              opacity: 0.4,
-                              cursor: 'not-allowed'
-                            }
-                          }}
-                        >
-                          <BarChartIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
                       <Tooltip title="Permanently delete">
                         <IconButton
                           size="small"
@@ -674,58 +609,6 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
             }}
           >
             Permanently Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Price History Dialog */}
-      <Dialog 
-        open={viewHistoryDialog.open} 
-        onClose={() => setViewHistoryDialog({ open: false, competitorId: null, history: [] })}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>Price History</DialogTitle>
-        <DialogContent>
-          {viewHistoryDialog.history.length > 0 ? (
-            <TableContainer>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Date</TableCell>
-                    <TableCell>Price</TableCell>
-                    <TableCell>Change</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {viewHistoryDialog.history.map((entry, index) => (
-                    <TableRow key={index}>
-                      <TableCell>{entry.date}</TableCell>
-                      <TableCell>${entry.price}</TableCell>
-                      <TableCell>
-                        <Chip 
-                          label={`${entry.change > 0 ? '+' : ''}${entry.change}%`}
-                          size="small"
-                          sx={{ 
-                            backgroundColor: entry.change > 0 ? '#dcfce7' : entry.change < 0 ? '#fee2e2' : '#f3f4f6',
-                            color: entry.change > 0 ? '#166534' : entry.change < 0 ? '#dc2626' : '#374151'
-                          }}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          ) : (
-            <Typography variant="body2" color="text.secondary">
-              No price history available for this competitor.
-            </Typography>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setViewHistoryDialog({ open: false, competitorId: null, history: [] })}>
-            Close
           </Button>
         </DialogActions>
       </Dialog>
