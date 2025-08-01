@@ -3779,14 +3779,27 @@ public class CompetitorController {
 
         } else {
           logger.warn(
-              "triggerImmediatePriceScraping: FAILED - {} ({}ms)",
+              "triggerImmediatePriceScraping: FAILED - {} ({}ms) for competitor {}",
               result.getFailureReason(),
-              totalTime);
+              totalTime,
+              competitorId);
 
-          // Update competitor URL status on failed scrape
-          jdbcTemplate.update(
-              "UPDATE competitor_urls SET status = 'error', error_count = error_count + 1 WHERE id = ?",
-              Long.parseLong(competitorId));
+          // Update competitor URL status on failed scrape with more detailed logging
+          try {
+            int updatedRows =
+                jdbcTemplate.update(
+                    "UPDATE competitor_urls SET status = 'error', error_count = error_count + 1 WHERE id = ?",
+                    Long.parseLong(competitorId));
+            logger.info(
+                "triggerImmediatePriceScraping: Updated competitor {} error status - {} rows affected",
+                competitorId,
+                updatedRows);
+          } catch (Exception dbError) {
+            logger.error(
+                "triggerImmediatePriceScraping: Failed to update error status for competitor {}: {}",
+                competitorId,
+                dbError.getMessage());
+          }
         }
 
       } catch (Exception e) {

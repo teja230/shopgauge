@@ -222,10 +222,16 @@ public class PriceScrapingService {
 
     // All tiers failed
     long totalTime = System.currentTimeMillis() - startTime;
-    log.error("All price scraping tiers failed for URL: {} (total time: {}ms)", url, totalTime);
+    log.error(
+        "All price scraping tiers failed for URL: {} (total time: {}ms, platform: {})",
+        url,
+        totalTime,
+        platform);
 
     return PriceScrapingResult.failure(
-        "All scraping tiers exhausted", "all-tiers-failed", totalTime);
+        "All scraping tiers exhausted - likely blocked by anti-bot protection",
+        "all-tiers-failed",
+        totalTime);
   }
 
   /** Jsoup-based price scraping (Tier 1) Compliant with platform terms of service */
@@ -250,9 +256,15 @@ public class PriceScrapingService {
 
       // Check for blocking patterns
       String pageText = doc.text().toLowerCase();
-      if (pageText.contains("continue shopping") || pageText.contains("click the button below")) {
+      if (pageText.contains("continue shopping")
+          || pageText.contains("click the button below")
+          || pageText.contains("robot or human")
+          || pageText.contains("verify you are human")) {
         long responseTime = System.currentTimeMillis() - startTime;
-        return PriceScrapingResult.failure("Platform blocking detected", "blocked", responseTime);
+        log.warn(
+            "Platform blocking detected for URL: {} - page contains anti-bot verification", url);
+        return PriceScrapingResult.failure(
+            "Platform blocking detected - anti-bot verification required", "blocked", responseTime);
       }
 
       // Extract price using platform-specific patterns
