@@ -607,26 +607,23 @@ const MobileCompetitorCard: React.FC<{
             />
                    ) : competitor.price === 0 ? (
            <Tooltip title="Price information not available from this competitor">
-             <Chip
-               label="Price Unavailable"
-               color="default"
+             <IconButton
                size="small"
-               variant="outlined"
-               icon={<VisibilityOffIcon fontSize="small" />}
                sx={{
-                 backgroundColor: 'rgba(0, 0, 0, 0.04)',
-                 borderColor: 'rgba(0, 0, 0, 0.12)',
                  color: 'text.secondary',
-                 fontWeight: 500,
-                 '& .MuiChip-icon': {
-                   color: 'text.secondary',
-                 },
+                 backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                 border: '1px solid rgba(0, 0, 0, 0.12)',
+                 borderRadius: '4px',
+                 minWidth: 32,
+                 minHeight: 32,
                  '&:hover': {
                    backgroundColor: 'rgba(0, 0, 0, 0.08)',
                    borderColor: 'rgba(0, 0, 0, 0.24)',
                  },
                }}
-             />
+             >
+               <VisibilityOffIcon fontSize="small" />
+             </IconButton>
            </Tooltip>
                    ) : competitor.showingOldPrice ? (
            <Tooltip title="Showing last known price - item is currently out of stock">
@@ -851,26 +848,23 @@ const DesktopTableRow: React.FC<{
           </Typography>
                  ) : competitor.price === 0 ? (
            <Tooltip title="Price information not available from this competitor">
-             <Chip
-               label="Price Unavailable"
-               color="default"
+             <IconButton
                size="small"
-               variant="outlined"
-               icon={<VisibilityOffIcon fontSize="small" />}
                sx={{
-                 backgroundColor: 'rgba(0, 0, 0, 0.04)',
-                 borderColor: 'rgba(0, 0, 0, 0.12)',
                  color: 'text.secondary',
-                 fontWeight: 500,
-                 '& .MuiChip-icon': {
-                   color: 'text.secondary',
-                 },
+                 backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                 border: '1px solid rgba(0, 0, 0, 0.12)',
+                 borderRadius: '4px',
+                 minWidth: 32,
+                 minHeight: 32,
                  '&:hover': {
                    backgroundColor: 'rgba(0, 0, 0, 0.08)',
                    borderColor: 'rgba(0, 0, 0, 0.24)',
                  },
                }}
-             />
+             >
+               <VisibilityOffIcon fontSize="small" />
+             </IconButton>
            </Tooltip>
                  ) : competitor.showingOldPrice ? (
            <Tooltip title="Showing last known price - item is currently out of stock">
