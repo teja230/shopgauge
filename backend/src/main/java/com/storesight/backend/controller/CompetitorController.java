@@ -901,6 +901,9 @@ public class CompetitorController {
       return ResponseEntity.ok(
           Map.of("success", true, "message", "Competitor deleted successfully"));
 
+    } catch (ArchivedCompetitorLimitExceededException e) {
+      // Let the exception handler process this specific exception
+      throw e;
     } catch (NumberFormatException e) {
       logger.error("deleteCompetitor: Invalid competitor ID format: {}", id);
       return ResponseEntity.badRequest().body(Map.of("error", "Invalid competitor ID"));
