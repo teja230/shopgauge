@@ -154,66 +154,68 @@ public class PriceScrapingService {
       int maxProviders =
           Math.min(maxProvidersToTry, 3); // Allow all 3 providers (Scrapingdog, Serper, SerpAPI)
 
-      // Use APIs as fallback when Jsoup fails (free-first approach)
-      // This ensures we try free Jsoup first, then fall back to paid APIs
+      // Only use APIs if free-first is disabled or as fallback only
+      if (!freeFirst || apiFallbackOnly) {
 
-      // Try Scrapingdog API (primary - same cost as Serper: $0.001)
-      if (scrapingdogSearchClient.isEnabled() && providersTried < maxProviders) {
-        try {
-          log.debug("Tier 2: Attempting Scrapingdog API (cost: $0.001)");
-          PriceScrapingResult scrapingdogResult = scrapeWithScrapingdog(url);
+        // Try Scrapingdog API (primary - same cost as Serper: $0.001)
+        if (scrapingdogSearchClient.isEnabled() && providersTried < maxProviders) {
+          try {
+            log.debug("Tier 2: Attempting Scrapingdog API (cost: $0.001)");
+            PriceScrapingResult scrapingdogResult = scrapeWithScrapingdog(url);
 
-          if (scrapingdogResult.isSuccess()) {
-            log.info(
-                "Tier 2 successful: Price ${} extracted via Scrapingdog",
-                scrapingdogResult.getPrice());
-            return scrapingdogResult;
+            if (scrapingdogResult.isSuccess()) {
+              log.info(
+                  "Tier 2 successful: Price ${} extracted via Scrapingdog",
+                  scrapingdogResult.getPrice());
+              return scrapingdogResult;
+            }
+
+            log.warn("Tier 2 failed: {}", scrapingdogResult.getFailureReason());
+            providersTried++;
+          } catch (Exception e) {
+            log.warn("Tier 2 failed: Scrapingdog error - {}", e.getMessage());
+            providersTried++;
           }
-
-          log.warn("Tier 2 failed: {}", scrapingdogResult.getFailureReason());
-          providersTried++;
-        } catch (Exception e) {
-          log.warn("Tier 2 failed: Scrapingdog error - {}", e.getMessage());
-          providersTried++;
         }
-      }
 
-      // Try Serper API (fallback - same cost as Scrapingdog: $0.001)
-      if (serperSearchClient.isEnabled() && providersTried < maxProviders) {
-        try {
-          log.debug("Tier 3: Attempting Serper API (cost: $0.001)");
-          PriceScrapingResult serperResult = scrapeWithSerper(url);
+        // Try Serper API (fallback - same cost as Scrapingdog: $0.001)
+        if (serperSearchClient.isEnabled() && providersTried < maxProviders) {
+          try {
+            log.debug("Tier 3: Attempting Serper API (cost: $0.001)");
+            PriceScrapingResult serperResult = scrapeWithSerper(url);
 
-          if (serperResult.isSuccess()) {
-            log.info("Tier 3 successful: Price ${} extracted via Serper", serperResult.getPrice());
-            return serperResult;
+            if (serperResult.isSuccess()) {
+              log.info(
+                  "Tier 3 successful: Price ${} extracted via Serper", serperResult.getPrice());
+              return serperResult;
+            }
+
+            log.warn("Tier 3 failed: {}", serperResult.getFailureReason());
+            providersTried++;
+          } catch (Exception e) {
+            log.warn("Tier 3 failed: Serper error - {}", e.getMessage());
+            providersTried++;
           }
-
-          log.warn("Tier 3 failed: {}", serperResult.getFailureReason());
-          providersTried++;
-        } catch (Exception e) {
-          log.warn("Tier 3 failed: Serper error - {}", e.getMessage());
-          providersTried++;
         }
-      }
 
-      // Try SerpAPI as last resort (expensive but comprehensive: $0.015)
-      if (serpApiSearchClient.isEnabled() && providersTried < maxProviders) {
-        try {
-          log.debug("Tier 4: Attempting SerpAPI (cost: $0.015)");
-          PriceScrapingResult serpApiResult = scrapeWithSerpAPI(url);
+        // Try SerpAPI as last resort (expensive but comprehensive: $0.015)
+        if (serpApiSearchClient.isEnabled() && providersTried < maxProviders) {
+          try {
+            log.debug("Tier 4: Attempting SerpAPI (cost: $0.015)");
+            PriceScrapingResult serpApiResult = scrapeWithSerpAPI(url);
 
-          if (serpApiResult.isSuccess()) {
-            log.info(
-                "Tier 4 successful: Price ${} extracted via SerpAPI", serpApiResult.getPrice());
-            return serpApiResult;
+            if (serpApiResult.isSuccess()) {
+              log.info(
+                  "Tier 4 successful: Price ${} extracted via SerpAPI", serpApiResult.getPrice());
+              return serpApiResult;
+            }
+
+            log.warn("Tier 4 failed: {}", serpApiResult.getFailureReason());
+            providersTried++;
+          } catch (Exception e) {
+            log.warn("Tier 4 failed: SerpAPI error - {}", e.getMessage());
+            providersTried++;
           }
-
-          log.warn("Tier 4 failed: {}", serpApiResult.getFailureReason());
-          providersTried++;
-        } catch (Exception e) {
-          log.warn("Tier 4 failed: SerpAPI error - {}", e.getMessage());
-          providersTried++;
         }
       }
     }

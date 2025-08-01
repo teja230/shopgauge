@@ -203,16 +203,37 @@ public class CompetitorController {
               public ResponseEntity<?> execute() {
                 try {
                   // Get competitor URLs for this shop, joining with latest price snapshots and
-                  // product
-                  // info
+                  // product info, including last known price for out-of-stock items
                   String query =
                       """
               SELECT cu.id, cu.url, cu.label, cu.shopify_product_id,
-                     COALESCE(ps.price, 0.0) as price,
+                     CASE 
+                         WHEN ps.in_stock = false AND ps.price = 0 THEN
+                             -- For out-of-stock items, show the last known price if available
+                             COALESCE(
+                                 (SELECT price FROM price_snapshots 
+                                  WHERE competitor_url_id = cu.id 
+                                  AND deleted_at IS NULL 
+                                  AND price > 0 
+                                  ORDER BY checked_at DESC LIMIT 1), 
+                                 0.0
+                             )
+                         ELSE COALESCE(ps.price, 0.0)
+                     END as price,
                      COALESCE(ps.in_stock, true) as in_stock,
                      COALESCE(ps.checked_at, cu.created_at) as last_checked,
                      COALESCE(ps.price_change_percent, 0.0) as price_change_percent,
-                     p.title as product_title
+                     p.title as product_title,
+                     -- Add flag to indicate if we're showing old price for out-of-stock item
+                     CASE 
+                         WHEN ps.in_stock = false AND ps.price = 0 AND 
+                              EXISTS (SELECT 1 FROM price_snapshots 
+                                     WHERE competitor_url_id = cu.id 
+                                     AND deleted_at IS NULL 
+                                     AND price > 0)
+                         THEN true
+                         ELSE false
+                     END as showing_old_price
           FROM competitor_urls cu
               LEFT JOIN (
                   SELECT competitor_url_id, price, in_stock, checked_at, price_change_percent,
@@ -264,10 +285,14 @@ public class CompetitorController {
                                     row.get("price_change_percent") != null
                                         ? ((Number) row.get("price_change_percent")).doubleValue()
                                         : 0.0;
+                                Boolean showingOldPrice =
+                                    row.get("showing_old_price") != null
+                                        ? (Boolean) row.get("showing_old_price")
+                                        : false;
 
                                 logger.debug(
-                                    "getCompetitors: Processing competitor ID {} with URL {} and price change {}%",
-                                    id, url, percentDiff);
+                                    "getCompetitors: Processing competitor ID {} with URL {} and price change {}% (showing old price: {})",
+                                    id, url, percentDiff, showingOldPrice);
                                 return new CompetitorDto(
                                     id,
                                     url,
@@ -277,7 +302,8 @@ public class CompetitorController {
                                     percentDiff,
                                     lastChecked,
                                     shopifyProductId,
-                                    productTitle);
+                                    productTitle,
+                                    showingOldPrice);
                               })
                           .collect(Collectors.toList());
 
@@ -633,7 +659,8 @@ public class CompetitorController {
                   0.0, // No price difference initially
                   "Just reactivated",
                   productId, // shopifyProductId
-                  null); // productTitle - will be populated on next fetch
+                  null, // productTitle - will be populated on next fetch
+                  false); // showingOldPrice - not applicable for reactivated items
 
           // Start background price scraping for the reactivated competitor
           try {
@@ -774,7 +801,8 @@ public class CompetitorController {
               0.0, // No price difference initially
               "Just added",
               productId, // shopifyProductId
-              null); // productTitle - will be populated on next fetch
+              null, // productTitle - will be populated on next fetch
+              false); // showingOldPrice - not applicable for newly added items
 
       // Audit log the competitor addition
       competitorAuditService.logCompetitorAdded(shopId, request.url, label);
@@ -3587,6 +3615,7 @@ public class CompetitorController {
     public String lastChecked;
     public String shopifyProductId;
     public String productTitle;
+    public boolean showingOldPrice;
 
     public CompetitorDto(
         String id,
@@ -3597,7 +3626,8 @@ public class CompetitorController {
         double percentDiff,
         String lastChecked,
         String shopifyProductId,
-        String productTitle) {
+        String productTitle,
+        boolean showingOldPrice) {
       this.id = id;
       this.url = url;
       this.label = label;
@@ -3607,6 +3637,7 @@ public class CompetitorController {
       this.lastChecked = lastChecked;
       this.shopifyProductId = shopifyProductId;
       this.productTitle = productTitle;
+      this.showingOldPrice = showingOldPrice;
     }
   }
 

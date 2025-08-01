@@ -38,6 +38,8 @@ import {
   Launch as LaunchIcon,
   Link as LinkIcon,
   BarChart as BarChartIcon,
+  HelpOutline as HelpOutlineIcon,
+  History as HistoryIcon,
 } from '@mui/icons-material';
 import StoreLogo from './StoreLogo';
 
@@ -56,6 +58,7 @@ export interface Competitor {
   shopifyProductId?: string; // Optional field for product association
   productTitle?: string; // Product title for display
   priceLoading?: boolean; // Indicates if price is being fetched
+  showingOldPrice?: boolean; // Indicates if showing old price for out-of-stock item
 }
 
 interface CompetitorTableProps {
@@ -547,12 +550,23 @@ const MobileCompetitorCard: React.FC<{
               icon={<CancelIcon />}
             />
           ) : competitor.price === 0 ? (
-            <MetricChip
-              label="Price Unavailable"
-              color="default"
-              variant="outlined"
-              icon={<AttachMoneyIcon />}
-            />
+            <Tooltip title="Price information not available from this competitor">
+              <MetricChip
+                label="—"
+                color="default"
+                variant="outlined"
+                icon={<HelpOutlineIcon />}
+              />
+            </Tooltip>
+          ) : competitor.showingOldPrice ? (
+            <Tooltip title="Showing last known price - item is currently out of stock">
+              <MetricChip
+                label={formatPrice(competitor.price)}
+                color="warning"
+                variant="outlined"
+                icon={<HistoryIcon />}
+              />
+            </Tooltip>
           ) : (
             <MetricChip
               label={formatPrice(competitor.price)}
@@ -751,9 +765,23 @@ const DesktopTableRow: React.FC<{
             Out of Stock
           </Typography>
         ) : competitor.price === 0 ? (
-          <Typography variant="body2" color="text.secondary" fontWeight={600}>
-            Price Unavailable
-          </Typography>
+          <Tooltip title="Price information not available from this competitor">
+            <Box display="flex" alignItems="center" gap={0.5}>
+              <HelpOutlineIcon fontSize="small" color="action" />
+              <Typography variant="body2" color="text.secondary" fontWeight={600}>
+                —
+              </Typography>
+            </Box>
+          </Tooltip>
+        ) : competitor.showingOldPrice ? (
+          <Tooltip title="Showing last known price - item is currently out of stock">
+            <Box display="flex" alignItems="center" gap={0.5}>
+              <HistoryIcon fontSize="small" color="warning" />
+              <Typography variant="body2" fontWeight={600} color="warning.main">
+                {formatPrice(competitor.price)}
+              </Typography>
+            </Box>
+          </Tooltip>
         ) : (
           <Typography variant="body2" fontWeight={600} color="primary">
             {formatPrice(competitor.price)}
