@@ -343,23 +343,18 @@ export async function fetchWithAdminAuth(endpoint: string, options?: RequestInit
 
 export { fetchWithAuth }; 
 
-export const refreshCompetitorPrices = async (): Promise<{
+export async function refreshCompetitorPrices(): Promise<{
   message: string;
   updated_count: number;
   total_competitors: number;
   estimated_completion_time: string;
-}> => {
+}> {
   const response = await fetchWithAuth('/api/competitors/refresh-prices', {
     method: 'POST',
   });
   
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(error || 'Failed to refresh competitor prices');
-  }
-  
   return response.json();
-};
+}
 
 export const getPriceRefreshStatus = async (): Promise<{
   total_competitors: number;
@@ -371,11 +366,6 @@ export const getPriceRefreshStatus = async (): Promise<{
   last_refresh_available: string;
 }> => {
   const response = await fetchWithAuth('/api/competitors/refresh-status');
-  
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(error || 'Failed to get price refresh status');
-  }
   
   return response.json();
 }; 
