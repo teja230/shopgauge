@@ -123,14 +123,28 @@ const PriceRefreshButton: React.FC<{
   return (
     <Tooltip title={`Refresh prices for ${staleCount} competitors (older than 24 hours)`}>
       <Button
-        variant="outlined"
+        variant="contained"
         size="small"
         startIcon={isLoading ? <CircularProgress size={16} /> : <RefreshIcon />}
         onClick={onRefresh}
         disabled={isLoading}
         sx={{
           ml: 1,
-          minWidth: isMobile ? 'auto' : 120,
+          minWidth: isMobile ? 'auto' : 140,
+          height: 32,
+          borderRadius: 2,
+          textTransform: 'none',
+          fontWeight: 600,
+          fontSize: '0.875rem',
+          backgroundColor: 'primary.main',
+          color: 'primary.contrastText',
+          '&:hover': {
+            backgroundColor: 'primary.dark',
+          },
+          '&:disabled': {
+            backgroundColor: 'action.disabledBackground',
+            color: 'action.disabled',
+          },
           '& .MuiButton-startIcon': {
             mr: isMobile ? 0 : 0.5,
           },
@@ -594,24 +608,53 @@ const MobileCompetitorCard: React.FC<{
               variant="outlined"
               icon={<CancelIcon />}
             />
-          ) : competitor.price === 0 ? (
-            <Tooltip title="Price information not available from this competitor">
-              <MetricChip
-                label="—"
-                color="default"
-                variant="outlined"
-                icon={<HelpOutlineIcon />}
-              />
-            </Tooltip>
-          ) : competitor.showingOldPrice ? (
-            <Tooltip title="Showing last known price - item is currently out of stock">
-              <MetricChip
-                label={formatPrice(competitor.price)}
-                color="warning"
-                variant="outlined"
-                icon={<HistoryIcon />}
-              />
-            </Tooltip>
+                   ) : competitor.price === 0 ? (
+           <Tooltip title="Price information not available from this competitor">
+             <Box
+               sx={{
+                 display: 'flex',
+                 alignItems: 'center',
+                 gap: 1,
+                 px: 1.5,
+                 py: 0.5,
+                 borderRadius: 1,
+                 border: '1px solid',
+                 borderColor: 'divider',
+                 backgroundColor: 'background.paper',
+                 color: 'text.secondary',
+                 fontSize: '0.875rem',
+                 fontWeight: 500,
+                 minWidth: 60,
+                 justifyContent: 'center',
+               }}
+             >
+               —
+             </Box>
+           </Tooltip>
+                   ) : competitor.showingOldPrice ? (
+           <Tooltip title="Showing last known price - item is currently out of stock">
+             <Box
+               sx={{
+                 display: 'flex',
+                 alignItems: 'center',
+                 gap: 1,
+                 px: 1.5,
+                 py: 0.5,
+                 borderRadius: 1,
+                 border: '1px solid',
+                 borderColor: 'warning.main',
+                 backgroundColor: 'warning.light',
+                 color: 'warning.dark',
+                 fontSize: '0.875rem',
+                 fontWeight: 600,
+                 minWidth: 60,
+                 justifyContent: 'center',
+               }}
+             >
+               <HistoryIcon sx={{ fontSize: '1rem' }} />
+               {formatPrice(competitor.price)}
+             </Box>
+           </Tooltip>
           ) : (
             <MetricChip
               label={formatPrice(competitor.price)}
@@ -809,24 +852,51 @@ const DesktopTableRow: React.FC<{
           <Typography variant="body2" color="error" fontWeight={600}>
             Out of Stock
           </Typography>
-        ) : competitor.price === 0 ? (
-          <Tooltip title="Price information not available from this competitor">
-            <Box display="flex" alignItems="center" gap={0.5}>
-              <HelpOutlineIcon fontSize="small" color="action" />
-              <Typography variant="body2" color="text.secondary" fontWeight={600}>
-                —
-              </Typography>
-            </Box>
-          </Tooltip>
-        ) : competitor.showingOldPrice ? (
-          <Tooltip title="Showing last known price - item is currently out of stock">
-            <Box display="flex" alignItems="center" gap={0.5}>
-              <HistoryIcon fontSize="small" color="warning" />
-              <Typography variant="body2" fontWeight={600} color="warning.main">
-                {formatPrice(competitor.price)}
-              </Typography>
-            </Box>
-          </Tooltip>
+                 ) : competitor.price === 0 ? (
+           <Tooltip title="Price information not available from this competitor">
+             <Typography 
+               variant="body2" 
+               color="text.secondary" 
+               fontWeight={600}
+               sx={{
+                 px: 1.5,
+                 py: 0.5,
+                 borderRadius: 1,
+                 border: '1px solid',
+                 borderColor: 'divider',
+                 backgroundColor: 'background.paper',
+                 display: 'inline-block',
+                 minWidth: 60,
+                 textAlign: 'center',
+               }}
+             >
+               —
+             </Typography>
+           </Tooltip>
+                 ) : competitor.showingOldPrice ? (
+           <Tooltip title="Showing last known price - item is currently out of stock">
+             <Typography 
+               variant="body2" 
+               fontWeight={600} 
+               color="warning.dark"
+               sx={{
+                 px: 1.5,
+                 py: 0.5,
+                 borderRadius: 1,
+                 border: '1px solid',
+                 borderColor: 'warning.main',
+                 backgroundColor: 'warning.light',
+                 display: 'inline-flex',
+                 alignItems: 'center',
+                 gap: 0.5,
+                 minWidth: 60,
+                 textAlign: 'center',
+               }}
+             >
+               <HistoryIcon fontSize="small" />
+               {formatPrice(competitor.price)}
+             </Typography>
+           </Tooltip>
         ) : (
           <Typography variant="body2" fontWeight={600} color="primary">
             {formatPrice(competitor.price)}
