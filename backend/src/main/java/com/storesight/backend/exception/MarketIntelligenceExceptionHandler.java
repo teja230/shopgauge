@@ -150,17 +150,22 @@ public class MarketIntelligenceExceptionHandler {
         // Check if response stream has already been accessed
         try {
           response.getWriter();
-          logger.debug("Response writer already accessed - delegating to GlobalSessionExceptionHandler");
+          logger.debug(
+              "Response writer already accessed - delegating to GlobalSessionExceptionHandler");
           throw ex; // Re-throw to let GlobalSessionExceptionHandler handle it
         } catch (IllegalStateException writerException) {
           if (writerException.getMessage() != null
               && (writerException.getMessage().contains("getWriter() has already been called")
-                  || writerException.getMessage().contains("getOutputStream() has already been called"))) {
-            logger.debug("Response stream already accessed - delegating to GlobalSessionExceptionHandler");
+                  || writerException
+                      .getMessage()
+                      .contains("getOutputStream() has already been called"))) {
+            logger.debug(
+                "Response stream already accessed - delegating to GlobalSessionExceptionHandler");
             throw ex; // Re-throw to let GlobalSessionExceptionHandler handle it
           }
         } catch (IOException ioException) {
-          logger.debug("IOException when checking response writer - delegating to GlobalSessionExceptionHandler");
+          logger.debug(
+              "IOException when checking response writer - delegating to GlobalSessionExceptionHandler");
           throw ex; // Re-throw to let GlobalSessionExceptionHandler handle it
         }
       }
@@ -229,7 +234,8 @@ public class MarketIntelligenceExceptionHandler {
 
     // Check if this is a session-related error - delegate to GlobalSessionExceptionHandler
     if (ex.getMessage() != null && ex.getMessage().contains("Session was invalidated")) {
-      logger.debug("Session invalidation error in generic handler - delegating to GlobalSessionExceptionHandler");
+      logger.debug(
+          "Session invalidation error in generic handler - delegating to GlobalSessionExceptionHandler");
       throw new RuntimeException(ex); // Re-throw to let GlobalSessionExceptionHandler handle it
     }
 

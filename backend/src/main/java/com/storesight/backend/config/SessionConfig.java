@@ -276,7 +276,10 @@ public class SessionConfig {
 
       // For API endpoints, let GlobalSessionExceptionHandler handle them to ensure consistency
       if (path.startsWith("/api/")) {
-        filterLogger.debug("API session error - delegating to GlobalSessionExceptionHandler for {} {}", method, path);
+        filterLogger.debug(
+            "API session error - delegating to GlobalSessionExceptionHandler for {} {}",
+            method,
+            path);
         // Don't write response here, let GlobalSessionExceptionHandler handle it
         return;
       }

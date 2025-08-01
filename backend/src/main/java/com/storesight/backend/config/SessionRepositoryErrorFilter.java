@@ -180,7 +180,10 @@ public class SessionRepositoryErrorFilter extends OncePerRequestFilter {
     try {
       // For API endpoints, let GlobalSessionExceptionHandler handle them to ensure consistency
       if (path.startsWith("/api/")) {
-        logger.debug("API session error - delegating to GlobalSessionExceptionHandler for {} {}", method, path);
+        logger.debug(
+            "API session error - delegating to GlobalSessionExceptionHandler for {} {}",
+            method,
+            path);
         // Don't write response here, let GlobalSessionExceptionHandler handle it
         return;
       }
