@@ -2350,8 +2350,8 @@ export default function CompetitorsPage() {
                     : 'bg-blue-600 text-white hover:bg-blue-700'
                 }`}
                 title={refreshCooldown > 0 
-                  ? `Refresh available in ${Math.floor(refreshCooldown / 60)}m ${refreshCooldown % 60}s (only updates prices older than 24hrs)`
-                  : 'Refresh competitor data and prices (only updates prices older than 24hrs)'
+                  ? `Refresh available in ${Math.floor(refreshCooldown / 60)}m ${refreshCooldown % 60}s • Updates prices >24h old`
+                  : 'Refresh competitor data • Updates prices >24h old'
                 }
               >
                 {isRefreshing ? (
