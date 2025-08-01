@@ -32,6 +32,7 @@ import {
   InformationCircleIcon,
   XMarkIcon,
   ArchiveBoxIcon,
+  ArrowPathIcon,
 } from '@heroicons/react/24/outline';
 import { useNotifications } from '../hooks/useNotifications';
 import { useNotificationSettings } from '../context/NotificationSettingsContext';
@@ -612,6 +613,13 @@ export default function CompetitorsPage() {
   const [demoStartTime, setDemoStartTime] = useState<number>(0);
   const [limits, setLimits] = useState<LimitsResponse | null>(null);
   
+  // Refresh functionality state
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshCooldown, setRefreshCooldown] = useState(0);
+  const [lastRefreshTime, setLastRefreshTime] = useState<number>(0);
+  const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const refreshCooldownRef = useRef<NodeJS.Timeout | null>(null);
+  
   // Product association modal state
   const [productAssociationModal, setProductAssociationModal] = useState<{
     open: boolean;
@@ -783,6 +791,98 @@ export default function CompetitorsPage() {
       }
     }
   }, [shop, isAuthenticated, isAuthReady, fetchWithCache, userDisabledDemo, isDemoMode]);
+
+  // Refresh functionality with cooldown and debounce
+  const handleRefresh = useCallback(async () => {
+    const now = Date.now();
+    
+    // Check cooldown (30 seconds)
+    if (refreshCooldown > 0) {
+      debugLog.info('Refresh blocked by cooldown', { 
+        cooldownRemaining: refreshCooldown,
+        lastRefreshTime 
+      }, 'CompetitorsPage');
+      return;
+    }
+    
+    // Check debounce (2 seconds)
+    if (now - lastRefreshTime < 2000) {
+      debugLog.info('Refresh blocked by debounce', { 
+        timeSinceLastRefresh: now - lastRefreshTime 
+      }, 'CompetitorsPage');
+      return;
+    }
+    
+    // Prevent multiple simultaneous refreshes
+    if (isRefreshing) {
+      debugLog.info('Refresh blocked - already in progress', {}, 'CompetitorsPage');
+      return;
+    }
+    
+    setIsRefreshing(true);
+    setLastRefreshTime(now);
+    
+    try {
+      debugLog.info('Starting manual refresh', { 
+        isDemoMode, 
+        shop 
+      }, 'CompetitorsPage');
+      
+      // Force refresh data
+      await fetchData(true);
+      
+      // Show success notification
+      notifications.showSuccess('Competitor data refreshed successfully', {
+        category: 'Competitors',
+        showToast: true,
+        duration: 3000
+      });
+      
+      // Set cooldown (30 seconds)
+      setRefreshCooldown(30);
+      refreshCooldownRef.current = setTimeout(() => {
+        setRefreshCooldown(0);
+      }, 30000);
+      
+    } catch (error) {
+      debugLog.error('Refresh failed', { error }, 'CompetitorsPage');
+      notifications.showError('Failed to refresh competitor data. Please try again.', {
+        category: 'Competitors',
+        showToast: true
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [fetchData, isRefreshing, refreshCooldown, lastRefreshTime, isDemoMode, shop, notifications]);
+
+  // Countdown effect for refresh cooldown
+  useEffect(() => {
+    if (refreshCooldown > 0) {
+      const interval = setInterval(() => {
+        setRefreshCooldown(prev => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [refreshCooldown]);
+
+  // Cleanup refresh timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+      }
+      if (refreshCooldownRef.current) {
+        clearTimeout(refreshCooldownRef.current);
+      }
+    };
+  }, []);
 
   // Clear error states on component mount to prevent persistence from previous navigation
   useEffect(() => {
@@ -2240,8 +2340,35 @@ export default function CompetitorsPage() {
                 {isAdding ? 'Adding...' : 'Add'}
               </button>
 
+              {/* Refresh Button */}
+              <button
+                onClick={handleRefresh}
+                disabled={isRefreshing || refreshCooldown > 0}
+                className={`refresh-button flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-md ${
+                  isRefreshing || refreshCooldown > 0
+                    ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                }`}
+                title={refreshCooldown > 0 
+                  ? `Refresh available in ${refreshCooldown} seconds`
+                  : 'Refresh competitor data and prices'
+                }
+              >
+                {isRefreshing ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                ) : (
+                  <ArrowPathIcon className="h-4 w-4" />
+                )}
+                {isRefreshing 
+                  ? 'Refreshing...' 
+                  : refreshCooldown > 0
+                    ? `${refreshCooldown}s`
+                    : 'Refresh'
+                }
+              </button>
+
               {/* Deleted Competitors Button */}
-                            <button
+              <button
                 onClick={() => setShowDeletedCompetitors(!showDeletedCompetitors)}
                 className={`archived-competitors-button flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-md ${
                   showDeletedCompetitors
