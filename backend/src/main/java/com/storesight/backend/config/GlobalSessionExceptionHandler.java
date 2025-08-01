@@ -74,6 +74,14 @@ public class GlobalSessionExceptionHandler {
         return null; // Let the response complete normally
       } catch (IllegalStateException writerException) {
         if (writerException.getMessage() != null
+            && writerException.getMessage().contains("getWriter() has already been called")) {
+          logger.debug(
+              "Response writer already accessed for global session invalidation - allowing to complete normally for {} {}",
+              method,
+              path);
+          return null; // Let the response complete normally
+        }
+        if (writerException.getMessage() != null
             && writerException.getMessage().contains("getOutputStream() has already been called")) {
           logger.debug(
               "Response output stream already accessed for global session invalidation - allowing to complete normally for {} {}",
@@ -156,6 +164,15 @@ public class GlobalSessionExceptionHandler {
       String requestId = generateRequestId(httpRequest);
 
       logger.debug("Generic session error handled for {} {} - {}", method, path, e.getMessage());
+
+      // Special handling for OAuth flow to prevent cascade errors during initial login
+      if (path.contains("/api/auth/shopify/callback")
+          || path.contains("/api/auth/shopify/install")
+          || path.contains("/api/auth/shopify/me")) {
+        logger.info(
+            "Session error during OAuth flow - allowing to complete normally for path: {}", path);
+        return null; // Let the OAuth flow complete without interference
+      }
 
       // Check if response has already been written to by this handler
       AtomicBoolean responseWritten =

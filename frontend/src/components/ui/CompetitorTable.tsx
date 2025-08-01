@@ -19,13 +19,11 @@ import {
   Tooltip,
   useTheme,
   useMediaQuery,
-  Avatar,
   Collapse,
   Divider,
   CircularProgress,
 } from '@mui/material';
 import {
-  Delete as DeleteIcon,
   Archive as ArchiveIcon,
   OpenInNew as OpenInNewIcon,
   ExpandMore as ExpandMoreIcon,
@@ -39,10 +37,8 @@ import {
   Launch as LaunchIcon,
   Link as LinkIcon,
   BarChart as BarChartIcon,
-  HelpOutline as HelpOutlineIcon,
   History as HistoryIcon,
   Refresh as RefreshIcon,
-  Update as UpdateIcon,
 } from '@mui/icons-material';
 import StoreLogo from './StoreLogo';
 
