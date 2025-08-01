@@ -444,6 +444,26 @@ async function handleResponse<T>(response: Response): Promise<T> {
       }
     }
     
+    // Handle 412 PRODUCTS_SYNC_NEEDED error
+    if (response.status === 412) {
+      console.log('API: 412 response detected, handling as PRODUCTS_SYNC_NEEDED');
+      
+      try {
+        const errorData = await response.json();
+        console.log('API: 412 response data:', errorData);
+        
+        const userError = new Error('Your product catalog needs to be synchronized before adding competitors. Please sync your products first.');
+        (userError as any).userFriendly = true;
+        (userError as any).needsProductSync = true;
+        throw userError;
+      } catch (parseError) {
+        const userError = new Error('Your product catalog needs to be synchronized before adding competitors. Please sync your products first.');
+        (userError as any).userFriendly = true;
+        (userError as any).needsProductSync = true;
+        throw userError;
+      }
+    }
+    
     // Try to parse as JSON first, fallback to text
     let errorData: any;
     const contentType = response.headers.get('content-type');
@@ -610,55 +630,9 @@ export async function addCompetitorIntelligent(url: string, productId?: string):
     
     console.log('addCompetitorIntelligent: Response status:', response.status);
     
-    if (!response.ok) {
-      let errorData;
-      try {
-        errorData = await response.json();
-      } catch (e) {
-        errorData = { error: `HTTP ${response.status}` };
-      }
-      
-      console.error('addCompetitorIntelligent: Error response:', errorData);
-      
-      // Handle specific error cases
-      if (response.status === 412 || errorData.error === 'PRODUCTS_SYNC_NEEDED') {
-        debugLog.info('addCompetitorIntelligent: Detected PRODUCTS_SYNC_NEEDED error', {
-          status: response.status,
-          errorData: errorData,
-          url: url,
-          productId: productId
-        }, 'API');
-        const userError = new Error('Your product catalog needs to be synchronized before adding competitors. Please sync your products first.');
-        (userError as any).userFriendly = true;
-        (userError as any).needsProductSync = true;
-        throw userError;
-      }
-      
-      if (response.status === 400) {
-        const errorMessage = errorData.error || errorData.message || 'Invalid request';
-        if (errorMessage.includes('already being tracked')) {
-          throw new Error('This competitor is already being monitored for your products.');
-        }
-        if (errorMessage.includes('limit')) {
-          throw new Error('You have reached your competitor monitoring limit for your current plan.');
-        }
-        throw new Error(errorMessage);
-      }
-      
-      if (response.status === 401) {
-        throw new Error('Your session has expired. Please refresh the page and try again.');
-      }
-      
-      if (response.status >= 500) {
-        throw new Error('Our service is temporarily unavailable. Please try again in a few moments.');
-      }
-      
-      // Generic error
-      const errorMessage = errorData.error || errorData.message || `Request failed with status ${response.status}`;
-      throw new Error(errorMessage);
-    }
+    // Use handleResponse to properly handle 429 and other responses
+    const competitor = await handleResponse<Competitor>(response);
     
-    const competitor = await response.json();
     console.log('addCompetitorIntelligent: Success, received competitor:', competitor);
     debugLog.info('addCompetitorIntelligent: Successfully added competitor', {
       competitor: competitor,
