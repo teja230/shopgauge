@@ -382,24 +382,14 @@ public class GlobalExceptionHandler {
     // Special handling for response stream conflicts
     if (ex.getMessage() != null
         && ex.getMessage().contains("getOutputStream() has already been called")) {
-      logger.warn(
-          "Response stream conflict [{}]: {} on {}",
+      logger.debug(
+          "Response stream conflict detected in GlobalExceptionHandler - delegating to GlobalSessionExceptionHandler [{}]: {} on {}",
           correlationId,
           ex.getMessage(),
           request.getRequestURI());
 
-      ErrorResponse.ErrorDetails errorDetails =
-          new ErrorResponse.ErrorDetails(
-              "RESPONSE_CONFLICT",
-              "Response stream error",
-              "A response conflict occurred. Please try again.");
-      errorDetails.setCorrelationId(correlationId);
-      errorDetails.setPath(request.getRequestURI());
-      errorDetails.setStatus(HttpStatus.CONFLICT.value());
-      errorDetails.setRetryable(true);
-      errorDetails.setRetryAfter(5);
-
-      return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponse(errorDetails));
+      // Re-throw to let GlobalSessionExceptionHandler handle it
+      throw ex;
     }
 
     ErrorResponse.ErrorDetails errorDetails =

@@ -551,11 +551,26 @@ public class DatabaseMonitoringService implements HealthIndicator {
 
       // Refresh materialized view if it exists
       try {
-        jdbcTemplate.execute("REFRESH MATERIALIZED VIEW IF EXISTS competitor_performance_summary");
-        results.put("materializedViewRefresh", "completed");
+        // Check if materialized view exists first
+        String checkViewQuery =
+            """
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.views
+                WHERE table_name = 'competitor_performance_summary'
+                AND table_schema = 'public'
+            )
+            """;
+        Boolean viewExists = jdbcTemplate.queryForObject(checkViewQuery, Boolean.class);
+
+        if (viewExists != null && viewExists) {
+          jdbcTemplate.execute("REFRESH MATERIALIZED VIEW competitor_performance_summary");
+          results.put("materializedViewRefresh", "completed");
+        } else {
+          results.put("materializedViewRefresh", "skipped - view does not exist");
+        }
       } catch (Exception e) {
         logger.warn("Could not refresh materialized view: {}", e.getMessage());
-        results.put("materializedViewRefresh", "skipped - view does not exist");
+        results.put("materializedViewRefresh", "skipped - " + e.getMessage());
       }
 
       results.put("maintenanceCompleted", LocalDateTime.now());

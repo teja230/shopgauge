@@ -135,6 +135,15 @@ public class MarketIntelligenceExceptionHandler {
     if (ex.getMessage() != null && ex.getMessage().contains("Session was invalidated")) {
       logger.warn("Session invalidation error in Market Intelligence: {}", ex.getMessage());
 
+      // Check if this is a response stream conflict - if so, let GlobalSessionExceptionHandler
+      // handle it
+      if (ex.getMessage() != null
+          && ex.getMessage().contains("getWriter() has already been called")) {
+        logger.debug(
+            "Response stream conflict detected - delegating to GlobalSessionExceptionHandler");
+        throw ex; // Re-throw to let GlobalSessionExceptionHandler handle it
+      }
+
       Map<String, Object> response = new HashMap<>();
       response.put("error", "SESSION_INVALIDATED");
       response.put("message", "Your session has expired. Please refresh the page and try again.");
@@ -162,6 +171,15 @@ public class MarketIntelligenceExceptionHandler {
   @ExceptionHandler(Exception.class)
   public ResponseEntity<Map<String, Object>> handleGenericException(
       Exception ex, WebRequest request) {
+
+    // Check if this is a response stream conflict - if so, let GlobalSessionExceptionHandler handle
+    // it
+    if (ex.getMessage() != null
+        && ex.getMessage().contains("getWriter() has already been called")) {
+      logger.debug(
+          "Response stream conflict detected in generic handler - delegating to GlobalSessionExceptionHandler");
+      throw new RuntimeException(ex); // Re-throw to let GlobalSessionExceptionHandler handle it
+    }
 
     logger.error("Generic error in Market Intelligence: {}", ex.getMessage(), ex);
 
