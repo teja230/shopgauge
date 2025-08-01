@@ -509,6 +509,44 @@ public class SessionSynchronizationService {
   }
 
   /**
+   * Execute an operation with optional session locking. If session locking fails, the operation
+   * will still proceed. This is safer for normal operations that don't require strict session
+   * coordination.
+   *
+   * @param sessionId The session ID to lock
+   * @param operation The operation to execute
+   * @return The result of the operation
+   */
+  public <T> T executeWithOptionalSessionLock(String sessionId, SessionOperation<T> operation) {
+    boolean lockAcquired = false;
+
+    try {
+      // Check if session is being invalidated
+      if (isSessionInvalidating(sessionId)) {
+        logger.warn("Session {} is being invalidated, skipping operation", sessionId);
+        return null;
+      }
+
+      // Try to acquire lock, but don't fail if we can't
+      lockAcquired = acquireSessionLock(sessionId);
+      if (!lockAcquired) {
+        logger.debug("Could not acquire lock for session {}, proceeding without lock", sessionId);
+      }
+
+      // Execute operation regardless of lock status
+      return operation.execute();
+
+    } catch (Exception e) {
+      logger.error("Error executing session operation for {}: {}", sessionId, e.getMessage());
+      throw e;
+    } finally {
+      if (lockAcquired) {
+        releaseSessionLock(sessionId);
+      }
+    }
+  }
+
+  /**
    * Safely invalidate a session with proper coordination
    *
    * @param sessionId The session ID to invalidate
