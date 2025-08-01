@@ -39,6 +39,7 @@ import {
   BarChart as BarChartIcon,
   History as HistoryIcon,
   Refresh as RefreshIcon,
+  VisibilityOff as VisibilityOffIcon,
 } from '@mui/icons-material';
 import StoreLogo from './StoreLogo';
 
@@ -606,26 +607,26 @@ const MobileCompetitorCard: React.FC<{
             />
                    ) : competitor.price === 0 ? (
            <Tooltip title="Price information not available from this competitor">
-             <Box
+             <Chip
+               label="Price Unavailable"
+               color="default"
+               size="small"
+               variant="outlined"
+               icon={<VisibilityOffIcon fontSize="small" />}
                sx={{
-                 display: 'flex',
-                 alignItems: 'center',
-                 gap: 1,
-                 px: 1.5,
-                 py: 0.5,
-                 borderRadius: 1,
-                 border: '1px solid',
-                 borderColor: 'divider',
-                 backgroundColor: 'background.paper',
+                 backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                 borderColor: 'rgba(0, 0, 0, 0.12)',
                  color: 'text.secondary',
-                 fontSize: '0.875rem',
                  fontWeight: 500,
-                 minWidth: 60,
-                 justifyContent: 'center',
+                 '& .MuiChip-icon': {
+                   color: 'text.secondary',
+                 },
+                 '&:hover': {
+                   backgroundColor: 'rgba(0, 0, 0, 0.08)',
+                   borderColor: 'rgba(0, 0, 0, 0.24)',
+                 },
                }}
-             >
-               —
-             </Box>
+             />
            </Tooltip>
                    ) : competitor.showingOldPrice ? (
            <Tooltip title="Showing last known price - item is currently out of stock">
@@ -850,24 +851,26 @@ const DesktopTableRow: React.FC<{
           </Typography>
                  ) : competitor.price === 0 ? (
            <Tooltip title="Price information not available from this competitor">
-             <Typography 
-               variant="body2" 
-               color="text.secondary" 
-               fontWeight={600}
+             <Chip
+               label="Price Unavailable"
+               color="default"
+               size="small"
+               variant="outlined"
+               icon={<VisibilityOffIcon fontSize="small" />}
                sx={{
-                 px: 1.5,
-                 py: 0.5,
-                 borderRadius: 1,
-                 border: '1px solid',
-                 borderColor: 'divider',
-                 backgroundColor: 'background.paper',
-                 display: 'inline-block',
-                 minWidth: 60,
-                 textAlign: 'center',
+                 backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                 borderColor: 'rgba(0, 0, 0, 0.12)',
+                 color: 'text.secondary',
+                 fontWeight: 500,
+                 '& .MuiChip-icon': {
+                   color: 'text.secondary',
+                 },
+                 '&:hover': {
+                   backgroundColor: 'rgba(0, 0, 0, 0.08)',
+                   borderColor: 'rgba(0, 0, 0, 0.24)',
+                 },
                }}
-             >
-               —
-             </Typography>
+             />
            </Tooltip>
                  ) : competitor.showingOldPrice ? (
            <Tooltip title="Showing last known price - item is currently out of stock">
