@@ -414,11 +414,11 @@ async function handleResponse<T>(response: Response): Promise<T> {
     
     // Handle 429 responses (rate limits and business rules) as normal responses
     if (response.status === 429) {
-      console.log('API: 429 response detected, handling as business rule response');
+      debugLog.info('API: 429 response detected, handling as business rule response', {}, 'API');
       
       try {
         const errorData = await response.json();
-        console.log('API: 429 response data:', errorData);
+        debugLog.info('API: 429 response data', errorData, 'API');
         
         // Create a proper error with the specific message from the backend
         const businessRuleError = new Error(errorData.message || 'Rate limit exceeded');
@@ -430,14 +430,14 @@ async function handleResponse<T>(response: Response): Promise<T> {
         
         // Add specific flags for competitor limits
         if (errorData.error === 'COMPETITOR_LIMIT_EXCEEDED') {
-          console.log('API: Setting competitorLimitExceeded flag');
+          debugLog.info('API: Setting competitorLimitExceeded flag', {}, 'API');
           (businessRuleError as any).competitorLimitExceeded = true;
         } else if (errorData.error === 'ARCHIVED_COMPETITOR_LIMIT_EXCEEDED') {
-          console.log('API: Setting archivedCompetitorLimitExceeded flag');
+          debugLog.info('API: Setting archivedCompetitorLimitExceeded flag', {}, 'API');
           (businessRuleError as any).archivedCompetitorLimitExceeded = true;
         }
         
-        console.log('API: Throwing business rule error with message:', businessRuleError.message);
+        debugLog.info('API: Throwing business rule error with message', { message: businessRuleError.message }, 'API');
         throw businessRuleError;
       } catch (parseError) {
         // If we can't parse the response, throw a generic 429 error
@@ -644,13 +644,13 @@ export async function addCompetitorIntelligent(url: string, productId?: string):
     return competitor;
     
   } catch (error: any) {
-    console.error('addCompetitorIntelligent: Caught error:', error);
-    console.error('addCompetitorIntelligent: Error properties:', {
+    debugLog.error('addCompetitorIntelligent: Caught error', { error: error.message }, 'API');
+    debugLog.info('addCompetitorIntelligent: Error properties', {
       competitorLimitExceeded: error.competitorLimitExceeded,
       archivedCompetitorLimitExceeded: error.archivedCompetitorLimitExceeded,
       message: error.message,
       status: error.status
-    });
+    }, 'API');
     
     // Re-throw user-friendly errors as-is
     if (error.userFriendly || error.needsProductSync) {
@@ -659,7 +659,7 @@ export async function addCompetitorIntelligent(url: string, productId?: string):
     
     // Preserve specific competitor limit error messages
     if (error.competitorLimitExceeded || error.archivedCompetitorLimitExceeded) {
-      console.log('addCompetitorIntelligent: Re-throwing competitor limit error:', error.message);
+      debugLog.info('addCompetitorIntelligent: Re-throwing competitor limit error', { message: error.message }, 'API');
       throw error; // Re-throw the specific error message as-is
     }
     
