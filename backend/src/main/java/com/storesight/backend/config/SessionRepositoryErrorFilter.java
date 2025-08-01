@@ -106,12 +106,22 @@ public class SessionRepositoryErrorFilter extends OncePerRequestFilter {
     String path = request.getRequestURI();
     String method = request.getMethod();
     boolean isRedisKeyError = isRedisKeyError(e);
+    boolean isExpectedSessionExpiration = isExpectedSessionExpiration(request, e);
 
-    // Use appropriate log level based on error type
+    // Use appropriate log level based on error type and context
     if (isRedisKeyError) {
-      // Redis key errors are expected after inactivity - log at debug level to reduce noise
-      logger.debug(
-          "Session expired (Redis key missing) for {} {} - handling gracefully", method, path);
+      if (isExpectedSessionExpiration) {
+        // Expected session expiration after inactivity - log at debug level
+        logger.debug(
+            "Session expired (Redis key missing) for {} {} - handling gracefully", method, path);
+      } else {
+        // Unexpected Redis key error - log at warn level as it might indicate a problem
+        logger.warn(
+            "Unexpected Redis key error for {} {} - {} - investigating",
+            method,
+            path,
+            e.getMessage());
+      }
     } else {
       // Other session errors are less expected - log at info level
       logger.info("Session repository error handled for {} {} - {}", method, path, e.getMessage());
@@ -195,6 +205,54 @@ public class SessionRepositoryErrorFilter extends OncePerRequestFilter {
       cause = cause.getCause();
     }
 
+    return false;
+  }
+
+  private boolean isExpectedSessionExpiration(HttpServletRequest request, Exception e) {
+    // Check if this is likely an expected session expiration scenario
+
+    // 1. Check if user has been inactive (no recent activity headers)
+    String lastActivity = request.getHeader("X-Last-Activity");
+    if (lastActivity != null) {
+      try {
+        long lastActivityTime = Long.parseLong(lastActivity);
+        long currentTime = System.currentTimeMillis();
+        long inactiveDuration = currentTime - lastActivityTime;
+
+        // If user has been inactive for more than 30 minutes, this is likely expected
+        if (inactiveDuration > 30 * 60 * 1000) { // 30 minutes
+          return true;
+        }
+      } catch (NumberFormatException ignored) {
+        // Invalid timestamp, continue with other checks
+      }
+    }
+
+    // 2. Check if this is a session-related endpoint that commonly has expiration
+    String path = request.getRequestURI();
+    if (path.contains("/api/auth/")
+        || path.contains("/api/session/")
+        || path.contains("/api/user/")) {
+      return true;
+    }
+
+    // 3. Check if this is a GET request (read-only operations are less likely to cause unexpected
+    // errors)
+    if ("GET".equals(request.getMethod())) {
+      return true;
+    }
+
+    // 4. Check if the error message indicates a specific Redis key pattern that suggests session
+    // expiration
+    String errorMessage = e.getMessage();
+    if (errorMessage != null
+        && (errorMessage.contains("spring:session:storesight")
+            || errorMessage.contains("session:")
+            || errorMessage.contains("storesight"))) {
+      return true;
+    }
+
+    // If none of the above conditions are met, this might be an unexpected error
     return false;
   }
 
