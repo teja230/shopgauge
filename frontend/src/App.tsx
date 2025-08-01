@@ -321,9 +321,9 @@ const AppContent: React.FC = () => {
         });
       }, 1000);
 
-      // Log session status
-      const sessionStatus = getSessionStatus();
-      debugLog.debug('📊 Session status', sessionStatus, 'SessionManager');
+              // Log session status
+        const sessionStatus = getSessionStatus();
+        debugLog.debug('📊 Session status', sessionStatus, 'SessionManager');
       
       setSessionInitialized(true);
       
