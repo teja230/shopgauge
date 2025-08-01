@@ -261,6 +261,16 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
             "Session invalidation detected in authentication filter for path: {}",
             request.getRequestURI());
 
+        // Special handling for initial login/OAuth flow to prevent cascade errors
+        if (path.contains("/api/auth/shopify/callback")
+            || path.contains("/api/auth/shopify/install")
+            || path.contains("/api/auth/shopify/me")) {
+          logger.info(
+              "Session invalidation during OAuth flow - allowing to complete normally for path: {}",
+              path);
+          return; // Let the OAuth flow complete without interference
+        }
+
         // CRITICAL FIX: For session invalidation errors, don't immediately fail the request
         // Instead, try to recover gracefully and allow the request to continue
         try {
@@ -268,6 +278,34 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
           if (response.isCommitted()) {
             logger.debug(
                 "Response already committed during session invalidation - allowing to complete normally");
+            return;
+          }
+
+          // Check if response stream has already been accessed
+          try {
+            response.getWriter();
+            // Writer is available, we can proceed
+          } catch (IllegalStateException writerException) {
+            if (writerException.getMessage() != null
+                && writerException.getMessage().contains("getWriter() has already been called")) {
+              logger.debug(
+                  "Response writer already accessed during session invalidation - allowing to complete normally");
+              return;
+            }
+            if (writerException.getMessage() != null
+                && writerException
+                    .getMessage()
+                    .contains("getOutputStream() has already been called")) {
+              logger.debug(
+                  "Response output stream already accessed during session invalidation - allowing to complete normally");
+              return;
+            }
+            // Re-throw if it's a different IllegalStateException
+            throw writerException;
+          } catch (IOException ioException) {
+            logger.debug(
+                "IOException when checking response writer during session invalidation: {}",
+                ioException.getMessage());
             return;
           }
 
@@ -417,6 +455,32 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
     // Check if response has already been committed or written to
     if (response.isCommitted()) {
       logger.warn("Response already committed, cannot write authentication failure");
+      return;
+    }
+
+    // Check if response stream has already been accessed
+    try {
+      response.getWriter();
+      // Writer is available, we can proceed
+    } catch (IllegalStateException e) {
+      if (e.getMessage() != null
+          && e.getMessage().contains("getWriter() has already been called")) {
+        logger.warn(
+            "Response writer already accessed, cannot write authentication failure: {}",
+            e.getMessage());
+        return;
+      }
+      if (e.getMessage() != null
+          && e.getMessage().contains("getOutputStream() has already been called")) {
+        logger.warn(
+            "Response output stream already accessed, cannot write authentication failure: {}",
+            e.getMessage());
+        return;
+      }
+      // Re-throw if it's a different IllegalStateException
+      throw e;
+    } catch (IOException e) {
+      logger.warn("IOException when checking response writer: {}", e.getMessage());
       return;
     }
 

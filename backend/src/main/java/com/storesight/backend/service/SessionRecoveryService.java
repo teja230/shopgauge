@@ -98,14 +98,15 @@ public class SessionRecoveryService {
         if (fallbackSession.isPresent()) {
           ShopSession session = fallbackSession.get();
           logger.info("Using fallback session {} for shop {}", session.getSessionId(), shopDomain);
-          
+
           // Set a header to indicate session recovery was attempted
           // This will be checked by exception handlers to prevent cascade errors
           try {
-            jakarta.servlet.http.HttpServletRequest request = 
-                ((org.springframework.web.context.request.ServletWebRequest) 
-                 org.springframework.web.context.request.RequestContextHolder.currentRequestAttributes())
-                .getRequest();
+            jakarta.servlet.http.HttpServletRequest request =
+                ((org.springframework.web.context.request.ServletWebRequest)
+                        org.springframework.web.context.request.RequestContextHolder
+                            .currentRequestAttributes())
+                    .getRequest();
             request.setAttribute("X-Session-Recovery", "true");
           } catch (Exception e) {
             logger.debug("Could not set session recovery attribute: {}", e.getMessage());
