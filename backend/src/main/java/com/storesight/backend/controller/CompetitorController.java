@@ -1682,6 +1682,9 @@ public class CompetitorController {
       return ResponseEntity.ok(
           Map.of("success", true, "message", "Competitor restored successfully"));
 
+    } catch (CompetitorLimitExceededException e) {
+      // Let the exception handler process this specific exception
+      throw e;
     } catch (Exception e) {
       logger.error(
           "Error restoring competitor {} for shop {}: {}", competitorId, shopId, e.getMessage(), e);
