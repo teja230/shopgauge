@@ -154,68 +154,66 @@ public class PriceScrapingService {
       int maxProviders =
           Math.min(maxProvidersToTry, 3); // Allow all 3 providers (Scrapingdog, Serper, SerpAPI)
 
-      // Only use APIs if free-first is disabled or as fallback only
-      if (!freeFirst || apiFallbackOnly) {
+      // Use APIs as fallback when Jsoup fails (free-first approach)
+      // This ensures we try free Jsoup first, then fall back to paid APIs
 
-        // Try Scrapingdog API (primary - same cost as Serper: $0.001)
-        if (scrapingdogSearchClient.isEnabled() && providersTried < maxProviders) {
-          try {
-            log.debug("Tier 2: Attempting Scrapingdog API (cost: $0.001)");
-            PriceScrapingResult scrapingdogResult = scrapeWithScrapingdog(url);
+      // Try Scrapingdog API (primary - same cost as Serper: $0.001)
+      if (scrapingdogSearchClient.isEnabled() && providersTried < maxProviders) {
+        try {
+          log.debug("Tier 2: Attempting Scrapingdog API (cost: $0.001)");
+          PriceScrapingResult scrapingdogResult = scrapeWithScrapingdog(url);
 
-            if (scrapingdogResult.isSuccess()) {
-              log.info(
-                  "Tier 2 successful: Price ${} extracted via Scrapingdog",
-                  scrapingdogResult.getPrice());
-              return scrapingdogResult;
-            }
-
-            log.warn("Tier 2 failed: {}", scrapingdogResult.getFailureReason());
-            providersTried++;
-          } catch (Exception e) {
-            log.warn("Tier 2 failed: Scrapingdog error - {}", e.getMessage());
-            providersTried++;
+          if (scrapingdogResult.isSuccess()) {
+            log.info(
+                "Tier 2 successful: Price ${} extracted via Scrapingdog",
+                scrapingdogResult.getPrice());
+            return scrapingdogResult;
           }
+
+          log.warn("Tier 2 failed: {}", scrapingdogResult.getFailureReason());
+          providersTried++;
+        } catch (Exception e) {
+          log.warn("Tier 2 failed: Scrapingdog error - {}", e.getMessage());
+          providersTried++;
         }
+      }
 
-        // Try Serper API (fallback - same cost as Scrapingdog: $0.001)
-        if (serperSearchClient.isEnabled() && providersTried < maxProviders) {
-          try {
-            log.debug("Tier 3: Attempting Serper API (cost: $0.001)");
-            PriceScrapingResult serperResult = scrapeWithSerper(url);
+      // Try Serper API (fallback - same cost as Scrapingdog: $0.001)
+      if (serperSearchClient.isEnabled() && providersTried < maxProviders) {
+        try {
+          log.debug("Tier 3: Attempting Serper API (cost: $0.001)");
+          PriceScrapingResult serperResult = scrapeWithSerper(url);
 
-            if (serperResult.isSuccess()) {
-              log.info(
-                  "Tier 3 successful: Price ${} extracted via Serper", serperResult.getPrice());
-              return serperResult;
-            }
-
-            log.warn("Tier 3 failed: {}", serperResult.getFailureReason());
-            providersTried++;
-          } catch (Exception e) {
-            log.warn("Tier 3 failed: Serper error - {}", e.getMessage());
-            providersTried++;
+          if (serperResult.isSuccess()) {
+            log.info("Tier 3 successful: Price ${} extracted via Serper", serperResult.getPrice());
+            return serperResult;
           }
+
+          log.warn("Tier 3 failed: {}", serperResult.getFailureReason());
+          providersTried++;
+        } catch (Exception e) {
+          log.warn("Tier 3 failed: Serper error - {}", e.getMessage());
+          providersTried++;
         }
+      }
 
-        // Try SerpAPI as last resort (expensive but comprehensive: $0.015)
-        if (serpApiSearchClient.isEnabled() && providersTried < maxProviders) {
-          try {
-            log.debug("Tier 4: Attempting SerpAPI (cost: $0.015)");
-            PriceScrapingResult serpApiResult = scrapeWithSerpAPI(url);
+      // Try SerpAPI as last resort (expensive but comprehensive: $0.015)
+      if (serpApiSearchClient.isEnabled() && providersTried < maxProviders) {
+        try {
+          log.debug("Tier 4: Attempting SerpAPI (cost: $0.015)");
+          PriceScrapingResult serpApiResult = scrapeWithSerpAPI(url);
 
-            if (serpApiResult.isSuccess()) {
-              log.info(
-                  "Tier 4 successful: Price ${} extracted via SerpAPI", serpApiResult.getPrice());
-              return serpApiResult;
-            }
-
-            log.warn("Tier 4 failed: {}", serpApiResult.getFailureReason());
-            providersTried++;
-          } catch (Exception e) {
-            log.warn("Tier 4 failed: SerpAPI error - {}", e.getMessage());
-            providersTried++;
+          if (serpApiResult.isSuccess()) {
+            log.info(
+                "Tier 4 successful: Price ${} extracted via SerpAPI", serpApiResult.getPrice());
+            return serpApiResult;
           }
+
+          log.warn("Tier 4 failed: {}", serpApiResult.getFailureReason());
+          providersTried++;
+        } catch (Exception e) {
+          log.warn("Tier 4 failed: SerpAPI error - {}", e.getMessage());
+          providersTried++;
         }
       }
     }
@@ -299,24 +297,45 @@ public class PriceScrapingService {
     }
   }
 
-  /** Scrapingdog API integration (Tier 2) Uses existing configuration and is compliant */
+  /** Scrapingdog API integration (Tier 2) Uses platform-specific endpoints for better results */
   private PriceScrapingResult scrapeWithScrapingdog(String url) {
     long startTime = System.currentTimeMillis();
 
     try {
-      // Extract product info for search query
-      String productInfo = extractProductInfo(url);
-      String searchQuery = "price " + productInfo;
+      // Identify platform to use the correct endpoint
+      String platform = identifyPlatform(url);
+      String endpoint;
+      String queryParam;
+
+      // Use platform-specific endpoints for better results
+      if (platform.equals("amazon")) {
+        endpoint = "https://api.scrapingdog.com/amazon/product";
+        queryParam = "url";
+      } else if (platform.equals("walmart")) {
+        endpoint = "https://api.scrapingdog.com/walmart/search";
+        queryParam = "q";
+        // For Walmart, we need to extract product info for search
+        String productInfo = extractProductInfo(url);
+        url = "price " + productInfo;
+      } else {
+        // Use general endpoint for other platforms
+        endpoint = "https://api.scrapingdog.com/scrape";
+        queryParam = "q";
+        String productInfo = extractProductInfo(url);
+        url = "price " + productInfo;
+      }
 
       String response =
           webClient
               .get()
               .uri(
-                  scrapingdogBaseUrl
+                  endpoint
                       + "?api_key="
                       + scrapingdogKey
-                      + "&q="
-                      + java.net.URLEncoder.encode(searchQuery, "UTF-8")
+                      + "&"
+                      + queryParam
+                      + "="
+                      + java.net.URLEncoder.encode(url, "UTF-8")
                       + "&gl=us"
                       + "&num=5")
               .retrieve()
@@ -331,11 +350,9 @@ public class PriceScrapingService {
 
         if (price != null && price.compareTo(BigDecimal.ZERO) > 0) {
           // Use proper platform detection instead of hardcoded "unknown"
-          String platform = identifyPlatform(url);
           return PriceScrapingResult.success(price, true, platform, "scrapingdog", responseTime);
         } else if (price != null && price.compareTo(BigDecimal.ZERO) == 0) {
           // Price is 0 - could be out of stock, return with inStock false
-          String platform = identifyPlatform(url);
           return PriceScrapingResult.success(
               BigDecimal.ZERO, false, platform, "scrapingdog", responseTime);
         } else {
