@@ -135,6 +135,18 @@ public class MarketIntelligenceExceptionHandler {
     if (ex.getMessage() != null && ex.getMessage().contains("Session was invalidated")) {
       logger.warn("Session invalidation error in Market Intelligence: {}", ex.getMessage());
 
+      // Check if response has already been committed or stream has been used
+      if (request instanceof org.springframework.web.context.request.ServletWebRequest) {
+        org.springframework.web.context.request.ServletWebRequest servletRequest = 
+            (org.springframework.web.context.request.ServletWebRequest) request;
+        jakarta.servlet.http.HttpServletResponse response = servletRequest.getResponse();
+        
+        if (response != null && response.isCommitted()) {
+          logger.debug("Response already committed - delegating to GlobalSessionExceptionHandler");
+          throw ex; // Re-throw to let GlobalSessionExceptionHandler handle it
+        }
+      }
+
       // Check if this is a response stream conflict - if so, let GlobalSessionExceptionHandler
       // handle it
       if (ex.getMessage() != null
@@ -142,6 +154,25 @@ public class MarketIntelligenceExceptionHandler {
         logger.debug(
             "Response stream conflict detected - delegating to GlobalSessionExceptionHandler");
         throw ex; // Re-throw to let GlobalSessionExceptionHandler handle it
+      }
+
+      // Check if this is a session recovery scenario - if so, don't invalidate
+      if (request instanceof org.springframework.web.context.request.ServletWebRequest) {
+        org.springframework.web.context.request.ServletWebRequest servletRequest = 
+            (org.springframework.web.context.request.ServletWebRequest) request;
+        jakarta.servlet.http.HttpServletRequest httpRequest = servletRequest.getRequest();
+        
+        // Check if session recovery was attempted in this request
+        String recoveryHeader = httpRequest.getHeader("X-Session-Recovery");
+        if (recoveryHeader != null && "true".equals(recoveryHeader)) {
+          logger.debug("Session recovery detected - allowing request to proceed normally");
+          // Return success response instead of error
+          Map<String, Object> response = new HashMap<>();
+          response.put("status", "success");
+          response.put("message", "Session recovered successfully");
+          response.put("timestamp", LocalDateTime.now());
+          return ResponseEntity.ok(response);
+        }
       }
 
       Map<String, Object> response = new HashMap<>();
