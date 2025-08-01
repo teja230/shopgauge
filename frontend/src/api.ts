@@ -430,11 +430,14 @@ async function handleResponse<T>(response: Response): Promise<T> {
         
         // Add specific flags for competitor limits
         if (errorData.error === 'COMPETITOR_LIMIT_EXCEEDED') {
+          console.log('API: Setting competitorLimitExceeded flag');
           (businessRuleError as any).competitorLimitExceeded = true;
         } else if (errorData.error === 'ARCHIVED_COMPETITOR_LIMIT_EXCEEDED') {
+          console.log('API: Setting archivedCompetitorLimitExceeded flag');
           (businessRuleError as any).archivedCompetitorLimitExceeded = true;
         }
         
+        console.log('API: Throwing business rule error with message:', businessRuleError.message);
         throw businessRuleError;
       } catch (parseError) {
         // If we can't parse the response, throw a generic 429 error
@@ -642,6 +645,12 @@ export async function addCompetitorIntelligent(url: string, productId?: string):
     
   } catch (error: any) {
     console.error('addCompetitorIntelligent: Caught error:', error);
+    console.error('addCompetitorIntelligent: Error properties:', {
+      competitorLimitExceeded: error.competitorLimitExceeded,
+      archivedCompetitorLimitExceeded: error.archivedCompetitorLimitExceeded,
+      message: error.message,
+      status: error.status
+    });
     
     // Re-throw user-friendly errors as-is
     if (error.userFriendly || error.needsProductSync) {
@@ -650,6 +659,7 @@ export async function addCompetitorIntelligent(url: string, productId?: string):
     
     // Preserve specific competitor limit error messages
     if (error.competitorLimitExceeded || error.archivedCompetitorLimitExceeded) {
+      console.log('addCompetitorIntelligent: Re-throwing competitor limit error:', error.message);
       throw error; // Re-throw the specific error message as-is
     }
     
