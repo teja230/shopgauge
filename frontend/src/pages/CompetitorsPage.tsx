@@ -2568,6 +2568,10 @@ export default function CompetitorsPage() {
                       sectionColor="green"
                       onToggleCollapse={() => setActiveSectionCollapsed(!activeSectionCollapsed)}
                       isCollapsed={activeSectionCollapsed}
+                      onRefreshPrices={() => {
+                        // Refresh the competitors data
+                        fetchData();
+                      }}
                     />
             </div>
           )}
