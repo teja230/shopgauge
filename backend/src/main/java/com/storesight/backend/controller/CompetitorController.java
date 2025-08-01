@@ -194,17 +194,19 @@ public class CompetitorController {
     // Get session ID for locking
     String sessionId = request.getSession().getId();
 
-    // Use session synchronization to prevent race conditions
-    return sessionSynchronizationService.executeWithSessionLock(
-        sessionId,
-        new SessionSynchronizationService.SessionOperation<ResponseEntity<?>>() {
-          @Override
-          public ResponseEntity<?> execute() {
-            try {
-              // Get competitor URLs for this shop, joining with latest price snapshots and product
-              // info
-              String query =
-                  """
+    // Use optional session synchronization to prevent race conditions
+    ResponseEntity<?> result =
+        sessionSynchronizationService.executeWithOptionalSessionLock(
+            sessionId,
+            new SessionSynchronizationService.SessionOperation<ResponseEntity<?>>() {
+              @Override
+              public ResponseEntity<?> execute() {
+                try {
+                  // Get competitor URLs for this shop, joining with latest price snapshots and
+                  // product
+                  // info
+                  String query =
+                      """
               SELECT cu.id, cu.url, cu.label, cu.shopify_product_id,
                      COALESCE(ps.price, 0.0) as price,
                      COALESCE(ps.in_stock, true) as in_stock,
@@ -223,100 +225,112 @@ public class CompetitorController {
           ORDER BY cu.created_at DESC
           """;
 
-              List<Map<String, Object>> rows = jdbcTemplate.queryForList(query, shopId);
+                  List<Map<String, Object>> rows = jdbcTemplate.queryForList(query, shopId);
 
-              logger.info(
-                  "getCompetitors: Found {} competitor rows for shop {}", rows.size(), shopId);
+                  logger.info(
+                      "getCompetitors: Found {} competitor rows for shop {}", rows.size(), shopId);
 
-              List<CompetitorDto> competitors =
-                  rows.stream()
-                      .map(
-                          row -> {
-                            String id = String.valueOf(row.get("id"));
-                            String url = String.valueOf(row.get("url"));
-                            String label =
-                                row.get("label") != null
-                                    ? String.valueOf(row.get("label"))
-                                    : extractTitleFromUrl(url);
-                            Double price =
-                                row.get("price") != null
-                                    ? ((Number) row.get("price")).doubleValue()
-                                    : 0.0;
-                            Boolean inStock =
-                                row.get("in_stock") != null ? (Boolean) row.get("in_stock") : true;
-                            String lastChecked =
-                                row.get("last_checked") != null
-                                    ? row.get("last_checked").toString()
-                                    : "Never";
-                            String shopifyProductId =
-                                row.get("shopify_product_id") != null
-                                    ? String.valueOf(row.get("shopify_product_id"))
-                                    : null;
-                            String productTitle =
-                                row.get("product_title") != null
-                                    ? String.valueOf(row.get("product_title"))
-                                    : null;
-                            Double percentDiff =
-                                row.get("price_change_percent") != null
-                                    ? ((Number) row.get("price_change_percent")).doubleValue()
-                                    : 0.0;
+                  List<CompetitorDto> competitors =
+                      rows.stream()
+                          .map(
+                              row -> {
+                                String id = String.valueOf(row.get("id"));
+                                String url = String.valueOf(row.get("url"));
+                                String label =
+                                    row.get("label") != null
+                                        ? String.valueOf(row.get("label"))
+                                        : extractTitleFromUrl(url);
+                                Double price =
+                                    row.get("price") != null
+                                        ? ((Number) row.get("price")).doubleValue()
+                                        : 0.0;
+                                Boolean inStock =
+                                    row.get("in_stock") != null
+                                        ? (Boolean) row.get("in_stock")
+                                        : true;
+                                String lastChecked =
+                                    row.get("last_checked") != null
+                                        ? row.get("last_checked").toString()
+                                        : "Never";
+                                String shopifyProductId =
+                                    row.get("shopify_product_id") != null
+                                        ? String.valueOf(row.get("shopify_product_id"))
+                                        : null;
+                                String productTitle =
+                                    row.get("product_title") != null
+                                        ? String.valueOf(row.get("product_title"))
+                                        : null;
+                                Double percentDiff =
+                                    row.get("price_change_percent") != null
+                                        ? ((Number) row.get("price_change_percent")).doubleValue()
+                                        : 0.0;
 
-                            logger.debug(
-                                "getCompetitors: Processing competitor ID {} with URL {} and price change {}%",
-                                id, url, percentDiff);
-                            return new CompetitorDto(
-                                id,
-                                url,
-                                label,
-                                price,
-                                inStock,
-                                percentDiff,
-                                lastChecked,
-                                shopifyProductId,
-                                productTitle);
-                          })
-                      .collect(Collectors.toList());
+                                logger.debug(
+                                    "getCompetitors: Processing competitor ID {} with URL {} and price change {}%",
+                                    id, url, percentDiff);
+                                return new CompetitorDto(
+                                    id,
+                                    url,
+                                    label,
+                                    price,
+                                    inStock,
+                                    percentDiff,
+                                    lastChecked,
+                                    shopifyProductId,
+                                    productTitle);
+                              })
+                          .collect(Collectors.toList());
 
-              logger.info(
-                  "getCompetitors: Returning {} competitors for shop {}",
-                  competitors.size(),
-                  shopId);
-
-              // Check for and log any inconsistent data (competitors without price snapshots)
-              if (competitors.size() > 0) {
-                List<Map<String, Object>> inconsistentCompetitors =
-                    jdbcTemplate.queryForList(
-                        "SELECT cu.id, cu.url FROM competitor_urls cu "
-                            + "LEFT JOIN price_snapshots ps ON cu.id = ps.competitor_url_id "
-                            + "WHERE cu.shop_id = ? AND ps.id IS NULL",
-                        shopId);
-
-                if (!inconsistentCompetitors.isEmpty()) {
-                  logger.warn(
-                      "getCompetitors: Found {} competitors without price snapshots for shop {}",
-                      inconsistentCompetitors.size(),
+                  logger.info(
+                      "getCompetitors: Returning {} competitors for shop {}",
+                      competitors.size(),
                       shopId);
-                  for (Map<String, Object> comp : inconsistentCompetitors) {
-                    logger.warn(
-                        "getCompetitors: Inconsistent competitor - ID: {}, URL: {}",
-                        comp.get("id"),
-                        comp.get("url"));
+
+                  // Check for and log any inconsistent data (competitors without price snapshots)
+                  if (competitors.size() > 0) {
+                    List<Map<String, Object>> inconsistentCompetitors =
+                        jdbcTemplate.queryForList(
+                            "SELECT cu.id, cu.url FROM competitor_urls cu "
+                                + "LEFT JOIN price_snapshots ps ON cu.id = ps.competitor_url_id "
+                                + "WHERE cu.shop_id = ? AND ps.id IS NULL",
+                            shopId);
+
+                    if (!inconsistentCompetitors.isEmpty()) {
+                      logger.warn(
+                          "getCompetitors: Found {} competitors without price snapshots for shop {}",
+                          inconsistentCompetitors.size(),
+                          shopId);
+                      for (Map<String, Object> comp : inconsistentCompetitors) {
+                        logger.warn(
+                            "getCompetitors: Inconsistent competitor - ID: {}, URL: {}",
+                            comp.get("id"),
+                            comp.get("url"));
+                      }
+                    }
                   }
+
+                  // Audit log the data access
+                  competitorAuditService.logDataAccessed(
+                      shopId, "COMPETITOR_LIST", "User viewed competitor list");
+
+                  return ResponseEntity.ok(competitors);
+                } catch (Exception e) {
+                  logger.error("Error getting competitors: {}", e.getMessage(), e);
+                  return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                      .body(Map.of("error", "Failed to load competitors"));
                 }
               }
+            });
 
-              // Audit log the data access
-              competitorAuditService.logDataAccessed(
-                  shopId, "COMPETITOR_LIST", "User viewed competitor list");
+    // Handle case where session operation returns null (session being invalidated)
+    if (result == null) {
+      logger.warn(
+          "Session operation returned null for session {}, returning error response", sessionId);
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+          .body(Map.of("error", "Session expired", "requiresReauth", true));
+    }
 
-              return ResponseEntity.ok(competitors);
-            } catch (Exception e) {
-              logger.error("Error getting competitors: {}", e.getMessage(), e);
-              return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                  .body(Map.of("error", "Failed to load competitors"));
-            }
-          }
-        });
+    return result;
   }
 
   /** Add a new competitor manually */
@@ -1056,45 +1070,57 @@ public class CompetitorController {
     // Get session ID for locking
     String sessionId = request.getSession().getId();
 
-    // Use session synchronization to prevent race conditions
-    return sessionSynchronizationService.executeWithSessionLock(
-        sessionId,
-        new SessionSynchronizationService.SessionOperation<ResponseEntity<Map<String, Object>>>() {
-          @Override
-          public ResponseEntity<Map<String, Object>> execute() {
-            try {
-              // Check cache for this shop (Redis-based with proper invalidation)
-              Long cachedCount = getCachedSuggestionCount(shopId);
-              if (cachedCount != null) {
-                logger.info(
-                    "Returning cached suggestion count for shop {}: {}", shopId, cachedCount);
-                return ResponseEntity.ok(Map.of("newSuggestions", cachedCount));
+    // Use optional session synchronization to prevent race conditions
+    ResponseEntity<Map<String, Object>> result =
+        sessionSynchronizationService.executeWithOptionalSessionLock(
+            sessionId,
+            new SessionSynchronizationService.SessionOperation<
+                ResponseEntity<Map<String, Object>>>() {
+              @Override
+              public ResponseEntity<Map<String, Object>> execute() {
+                try {
+                  // Check cache for this shop (Redis-based with proper invalidation)
+                  Long cachedCount = getCachedSuggestionCount(shopId);
+                  if (cachedCount != null) {
+                    logger.info(
+                        "Returning cached suggestion count for shop {}: {}", shopId, cachedCount);
+                    return ResponseEntity.ok(Map.of("newSuggestions", cachedCount));
+                  }
+
+                  // Fetch fresh count
+                  long newCount =
+                      suggestionRepository.countByShopIdAndStatus(
+                          shopId, CompetitorSuggestion.Status.NEW);
+
+                  logger.info(
+                      "getSuggestionCount: Fresh count for shop {}: {} (cache was expired or missing)",
+                      shopId,
+                      newCount);
+
+                  // Update cache
+                  cacheSuggestionCount(shopId, newCount);
+
+                  logger.debug("Fresh suggestion count for shop {}: {}", shopId, newCount);
+                  return ResponseEntity.ok(Map.of("newSuggestions", newCount));
+
+                } catch (Exception e) {
+                  logger.error(
+                      "Error getting suggestion count for shop {}: {}", shopId, e.getMessage());
+                  return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                      .body(Map.of("error", "Database error", "newSuggestions", 0L));
+                }
               }
+            });
 
-              // Fetch fresh count
-              long newCount =
-                  suggestionRepository.countByShopIdAndStatus(
-                      shopId, CompetitorSuggestion.Status.NEW);
+    // Handle case where session operation returns null (session being invalidated)
+    if (result == null) {
+      logger.warn(
+          "Session operation returned null for session {}, returning error response", sessionId);
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+          .body(Map.of("error", "Session expired", "requiresReauth", true, "newSuggestions", 0L));
+    }
 
-              logger.info(
-                  "getSuggestionCount: Fresh count for shop {}: {} (cache was expired or missing)",
-                  shopId,
-                  newCount);
-
-              // Update cache
-              cacheSuggestionCount(shopId, newCount);
-
-              logger.debug("Fresh suggestion count for shop {}: {}", shopId, newCount);
-              return ResponseEntity.ok(Map.of("newSuggestions", newCount));
-
-            } catch (Exception e) {
-              logger.error(
-                  "Error getting suggestion count for shop {}: {}", shopId, e.getMessage());
-              return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                  .body(Map.of("error", "Database error", "newSuggestions", 0L));
-            }
-          }
-        });
+    return result;
   }
 
   /** Manual refresh endpoint for forcing cache invalidation */
