@@ -318,7 +318,7 @@ public class CompetitorController {
                         jdbcTemplate.queryForList(
                             "SELECT cu.id, cu.url FROM competitor_urls cu "
                                 + "LEFT JOIN price_snapshots ps ON cu.id = ps.competitor_url_id "
-                                + "WHERE cu.shop_id = ? AND ps.id IS NULL",
+                                + "WHERE cu.shop_id = ? AND cu.deleted_at IS NULL AND ps.id IS NULL",
                             shopId);
 
                     if (!inconsistentCompetitors.isEmpty()) {
