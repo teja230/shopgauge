@@ -26,15 +26,49 @@ public class PriceRefreshQueueService {
   @Autowired private PriceScrapingService priceScrapingService;
   @Autowired private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
-  // Configuration - these should be configurable per environment
-  @Value("${price.refresh.max-concurrent-domains:4}")
+  // Configuration - MEMORY OPTIMIZED FOR 512MB INSTANCE
+  @Value("${price.refresh.enabled:true}")
+  private boolean priceRefreshEnabled;
+
+  @Value("${price.refresh.max-concurrent-domains:2}")
   private int maxConcurrentDomains;
 
-  @Value("${price.refresh.batch-size:5}")
+  @Value("${price.refresh.batch-size:3}")
   private int batchSize;
 
-  @Value("${price.refresh.progress-update-interval:5}")
+  @Value("${price.refresh.progress-update-interval:10}")
   private int progressUpdateIntervalSeconds;
+
+  // Memory-efficient thread pool configuration
+  @Value("${price.refresh.thread-pool.core-size:2}")
+  private int coreThreads;
+
+  @Value("${price.refresh.thread-pool.max-size:3}")
+  private int maxThreads;
+
+  @Value("${price.refresh.thread-pool.queue-capacity:10}")
+  private int queueCapacity;
+
+  // Session management optimization
+  @Value("${price.refresh.session-cleanup-interval:300}")
+  private int sessionCleanupIntervalSeconds;
+
+  @Value("${price.refresh.session-max-age:1800}")
+  private int sessionMaxAgeSeconds;
+
+  // Memory monitoring
+  @Value("${price.refresh.memory-monitoring.enabled:true}")
+  private boolean memoryMonitoringEnabled;
+
+  @Value("${price.refresh.memory-threshold:85}")
+  private int memoryThresholdPercent;
+
+  // Graceful degradation
+  @Value("${price.refresh.fallback.enabled:true}")
+  private boolean fallbackEnabled;
+
+  @Value("${price.refresh.fallback.memory-threshold:90}")
+  private int fallbackMemoryThreshold;
 
   // Domain-specific rate limits (requests per minute)
   private static final Map<String, Integer> DOMAIN_RATE_LIMITS =
@@ -58,16 +92,41 @@ public class PriceRefreshQueueService {
   private final Map<String, RefreshProgress> activeRefreshSessions = new ConcurrentHashMap<>();
 
   public PriceRefreshQueueService() {
+    // Memory-optimized thread pools for 512MB instance
     this.domainExecutor =
-        Executors.newFixedThreadPool(
-            6, r -> new Thread(r, "price-refresh-domain-" + System.currentTimeMillis()));
+        new ThreadPoolExecutor(
+            coreThreads, // Core threads
+            maxThreads, // Max threads
+            60L,
+            TimeUnit.SECONDS, // Keep alive time
+            new LinkedBlockingQueue<>(queueCapacity), // Bounded queue
+            r -> {
+              Thread t = new Thread(r, "price-refresh-domain-" + System.currentTimeMillis());
+              t.setDaemon(true); // Allow JVM to exit
+              return t;
+            },
+            new ThreadPoolExecutor.CallerRunsPolicy() // Reject policy
+            );
+
     this.progressExecutor =
         Executors.newScheduledThreadPool(
-            2, r -> new Thread(r, "price-refresh-progress-" + System.currentTimeMillis()));
+            1, // Reduced from 2
+            r -> {
+              Thread t = new Thread(r, "price-refresh-progress-" + System.currentTimeMillis());
+              t.setDaemon(true);
+              t.setPriority(Thread.MIN_PRIORITY); // Lower priority
+              return t;
+            });
   }
 
   /** Main entry point: Start price refresh for a shop's competitors */
   public RefreshSession startPriceRefresh(Long shopId, List<CompetitorRefreshItem> competitors) {
+    // Check if price refresh is enabled
+    if (!priceRefreshEnabled) {
+      logger.warn("Price refresh is disabled, returning empty session");
+      return new RefreshSession("disabled", 0, 0);
+    }
+
     String sessionId = "refresh_" + shopId + "_" + System.currentTimeMillis();
 
     logger.info(
@@ -75,6 +134,16 @@ public class PriceRefreshQueueService {
         sessionId,
         shopId,
         competitors.size());
+
+    // Memory monitoring check
+    if (memoryMonitoringEnabled && isMemoryUsageHigh()) {
+      logger.warn("High memory usage detected, enabling fallback mode for session {}", sessionId);
+      if (fallbackEnabled) {
+        return startFallbackRefresh(sessionId, shopId, competitors);
+      } else {
+        throw new RuntimeException("Memory usage too high for price refresh operations");
+      }
+    }
 
     // Create progress tracker
     RefreshProgress progress = new RefreshProgress(sessionId, shopId, competitors.size());
@@ -89,13 +158,22 @@ public class PriceRefreshQueueService {
         competitorsByDomain.size(),
         competitorsByDomain.keySet());
 
-    // Submit domain processing tasks
+    // Submit domain processing tasks (limited by maxConcurrentDomains)
+    int submittedTasks = 0;
     for (Map.Entry<String, List<CompetitorRefreshItem>> entry : competitorsByDomain.entrySet()) {
+      if (submittedTasks >= maxConcurrentDomains) {
+        logger.info(
+            "Reached max concurrent domains limit ({}), queuing remaining tasks",
+            maxConcurrentDomains);
+        break;
+      }
+
       String domain = entry.getKey();
       List<CompetitorRefreshItem> domainCompetitors = entry.getValue();
 
       // Submit domain processing task
       domainExecutor.submit(() -> processDomainCompetitors(sessionId, domain, domainCompetitors));
+      submittedTasks++;
     }
 
     // Start progress broadcasting
@@ -338,6 +416,65 @@ public class PriceRefreshQueueService {
   /** Get current progress for a refresh session */
   public RefreshProgress getProgress(String sessionId) {
     return activeRefreshSessions.get(sessionId);
+  }
+
+  /** Check if memory usage is above threshold */
+  private boolean isMemoryUsageHigh() {
+    Runtime runtime = Runtime.getRuntime();
+    long usedMemory = runtime.totalMemory() - runtime.freeMemory();
+    long maxMemory = runtime.maxMemory();
+    double memoryUsagePercent = (double) usedMemory / maxMemory * 100;
+
+    logger.debug(
+        "Memory usage: {}/{} MB ({}%)",
+        usedMemory / 1024 / 1024,
+        maxMemory / 1024 / 1024,
+        String.format("%.1f", memoryUsagePercent));
+
+    return memoryUsagePercent > memoryThresholdPercent;
+  }
+
+  /** Start fallback refresh with reduced concurrency */
+  private RefreshSession startFallbackRefresh(
+      String sessionId, Long shopId, List<CompetitorRefreshItem> competitors) {
+    logger.info("Starting fallback refresh for session {} with reduced concurrency", sessionId);
+
+    // Create progress tracker
+    RefreshProgress progress = new RefreshProgress(sessionId, shopId, competitors.size());
+    activeRefreshSessions.put(sessionId, progress);
+
+    // Process sequentially with minimal concurrency
+    progressExecutor.schedule(
+        () -> {
+          for (CompetitorRefreshItem competitor : competitors) {
+            try {
+              // Simple sequential processing
+              PriceScrapingService.PriceScrapingResult result =
+                  priceScrapingService.scrapePriceWithMultiTier(competitor.url);
+
+              if (result.isSuccess()) {
+                storePriceSnapshot(competitor, result);
+                progress.incrementCompleted();
+              } else {
+                progress.incrementFailed();
+              }
+
+              // Small delay between requests
+              Thread.sleep(1000);
+
+            } catch (Exception e) {
+              logger.error(
+                  "Fallback processing failed for competitor {}: {}",
+                  competitor.id,
+                  e.getMessage());
+              progress.incrementFailed();
+            }
+          }
+        },
+        0,
+        TimeUnit.SECONDS);
+
+    return new RefreshSession(sessionId, competitors.size(), 1); // Single domain in fallback
   }
 
   /** Rate limiter implementation */

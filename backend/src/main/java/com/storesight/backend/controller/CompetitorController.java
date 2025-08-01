@@ -12,8 +12,8 @@ import com.storesight.backend.service.DashboardCacheService;
 import com.storesight.backend.service.EnhancedRedisService;
 import com.storesight.backend.service.InputValidationService;
 import com.storesight.backend.service.PriceChangeCalculationService;
-import com.storesight.backend.service.PriceRefreshQueueService;
 import com.storesight.backend.service.PriceScrapingService;
+import com.storesight.backend.service.RedisPriceRefreshQueueService;
 import com.storesight.backend.service.SessionSynchronizationService;
 import com.storesight.backend.service.ShopService;
 import com.storesight.backend.service.SmartSnapshotService;
@@ -4176,7 +4176,7 @@ public class CompetitorController {
     return product;
   }
 
-  @Autowired private PriceRefreshQueueService priceRefreshQueueService;
+  @Autowired private RedisPriceRefreshQueueService priceRefreshQueueService;
 
   /** Manual price scraping endpoint with scalable event-driven processing */
   @PostMapping("/competitors/refresh-prices")
@@ -4232,19 +4232,37 @@ public class CompetitorController {
           shopId);
 
       // Convert to refresh items
-      List<PriceRefreshQueueService.CompetitorRefreshItem> refreshItems =
+      List<RedisPriceRefreshQueueService.CompetitorRefreshItem> refreshItems =
           staleCompetitors.stream()
               .map(
                   competitor ->
-                      new PriceRefreshQueueService.CompetitorRefreshItem(
+                      new RedisPriceRefreshQueueService.CompetitorRefreshItem(
                           ((Number) competitor.get("id")).longValue(),
                           (String) competitor.get("url"),
                           (String) competitor.get("label")))
               .toList();
 
       // Start scalable queue-based refresh
-      PriceRefreshQueueService.RefreshSession session =
+      RedisPriceRefreshQueueService.RefreshSession session =
           priceRefreshQueueService.startPriceRefresh(shopId, refreshItems);
+
+      // Check if refresh is disabled
+      if (session.sessionId.equals("disabled")) {
+        return ResponseEntity.ok(
+            Map.of(
+                "message",
+                "Price refresh is currently disabled",
+                "updated_count",
+                0,
+                "total_competitors",
+                0,
+                "total_domains",
+                0,
+                "session_id",
+                "",
+                "estimated_completion_time",
+                "N/A"));
+      }
 
       logger.info(
           "refreshCompetitorPrices: Started queue-based refresh session {} for {} competitors across {} domains",
@@ -4293,7 +4311,7 @@ public class CompetitorController {
     }
 
     try {
-      PriceRefreshQueueService.RefreshProgress progress =
+      RedisPriceRefreshQueueService.RefreshProgress progress =
           priceRefreshQueueService.getProgress(sessionId);
 
       if (progress == null) {
