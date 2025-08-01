@@ -207,15 +207,15 @@ public class CompetitorController {
                   String query =
                       """
               SELECT cu.id, cu.url, cu.label, cu.shopify_product_id,
-                     CASE 
+                     CASE
                          WHEN ps.in_stock = false AND ps.price = 0 THEN
                              -- For out-of-stock items, show the last known price if available
                              COALESCE(
-                                 (SELECT price FROM price_snapshots 
-                                  WHERE competitor_url_id = cu.id 
-                                  AND deleted_at IS NULL 
-                                  AND price > 0 
-                                  ORDER BY checked_at DESC LIMIT 1), 
+                                 (SELECT price FROM price_snapshots
+                                  WHERE competitor_url_id = cu.id
+                                  AND deleted_at IS NULL
+                                  AND price > 0
+                                  ORDER BY checked_at DESC LIMIT 1),
                                  0.0
                              )
                          ELSE COALESCE(ps.price, 0.0)
@@ -225,11 +225,11 @@ public class CompetitorController {
                      COALESCE(ps.price_change_percent, 0.0) as price_change_percent,
                      p.title as product_title,
                      -- Add flag to indicate if we're showing old price for out-of-stock item
-                     CASE 
-                         WHEN ps.in_stock = false AND ps.price = 0 AND 
-                              EXISTS (SELECT 1 FROM price_snapshots 
-                                     WHERE competitor_url_id = cu.id 
-                                     AND deleted_at IS NULL 
+                     CASE
+                         WHEN ps.in_stock = false AND ps.price = 0 AND
+                              EXISTS (SELECT 1 FROM price_snapshots
+                                     WHERE competitor_url_id = cu.id
+                                     AND deleted_at IS NULL
                                      AND price > 0)
                          THEN true
                          ELSE false
@@ -4172,5 +4172,165 @@ public class CompetitorController {
     product.put("handle", handle);
     product.put("price", price);
     return product;
+  }
+
+  /** Manual price scraping endpoint - only updates items older than 24 hours */
+  @PostMapping("/competitors/refresh-prices")
+  public ResponseEntity<Map<String, Object>> refreshCompetitorPrices(HttpServletRequest request) {
+    Long shopId = getShopIdFromRequest(request);
+    if (shopId == null) {
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+          .body(Map.of("error", "Authentication required"));
+    }
+
+    try {
+      logger.info("refreshCompetitorPrices: Starting manual price refresh for shop {}", shopId);
+
+      // Get competitors that haven't been checked in 24+ hours
+      List<Map<String, Object>> staleCompetitors =
+          jdbcTemplate.queryForList(
+              """
+          SELECT cu.id, cu.url, cu.label, cu.shop_id, s.shopify_domain,
+                 COALESCE(ps.checked_at, cu.created_at) as last_checked,
+                 COALESCE(ps.price, 0) as last_price,
+                 cu.error_count, cu.status
+          FROM competitor_urls cu
+          JOIN shops s ON cu.shop_id = s.id
+          LEFT JOIN (
+              SELECT competitor_url_id, price, checked_at,
+                     ROW_NUMBER() OVER (PARTITION BY competitor_url_id ORDER BY checked_at DESC) as rn
+              FROM price_snapshots
+          ) ps ON cu.id = ps.competitor_url_id AND ps.rn = 1
+          WHERE cu.shop_id = ?
+          AND cu.deleted_at IS NULL
+          AND (ps.checked_at IS NULL OR ps.checked_at < NOW() - INTERVAL '24 hours')
+          AND cu.error_count < 3
+          ORDER BY ps.checked_at ASC NULLS FIRST
+          """,
+              shopId);
+
+      if (staleCompetitors.isEmpty()) {
+        return ResponseEntity.ok(
+            Map.of(
+                "message", "All competitors have recent price data (checked within 24 hours)",
+                "updated_count", 0,
+                "total_competitors", 0));
+      }
+
+      logger.info(
+          "refreshCompetitorPrices: Found {} stale competitors for shop {}",
+          staleCompetitors.size(),
+          shopId);
+
+      // Start background scraping for each stale competitor
+      int startedCount = 0;
+      for (Map<String, Object> competitor : staleCompetitors) {
+        try {
+          String url = (String) competitor.get("url");
+          Long competitorId = ((Number) competitor.get("id")).longValue();
+
+          // Start background price scraping
+          startBackgroundPriceScraping(competitorId.toString(), url, shopId);
+          startedCount++;
+
+          logger.debug(
+              "refreshCompetitorPrices: Started scraping for competitor {}: {}", competitorId, url);
+        } catch (Exception e) {
+          logger.warn(
+              "refreshCompetitorPrices: Failed to start scraping for competitor {}: {}",
+              competitor.get("id"),
+              e.getMessage());
+        }
+      }
+
+      return ResponseEntity.ok(
+          Map.of(
+              "message",
+              "Price refresh started for " + startedCount + " competitors",
+              "updated_count",
+              startedCount,
+              "total_competitors",
+              staleCompetitors.size(),
+              "estimated_completion_time",
+              "2-5 minutes"));
+
+    } catch (Exception e) {
+      logger.error(
+          "refreshCompetitorPrices: Error refreshing prices for shop {}: {}",
+          shopId,
+          e.getMessage(),
+          e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to refresh prices: " + e.getMessage()));
+    }
+  }
+
+  /** Get price refresh status for a shop */
+  @GetMapping("/competitors/refresh-status")
+  public ResponseEntity<Map<String, Object>> getPriceRefreshStatus(HttpServletRequest request) {
+    Long shopId = getShopIdFromRequest(request);
+    if (shopId == null) {
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+          .body(Map.of("error", "Authentication required"));
+    }
+
+    try {
+      // Get statistics about price freshness
+      List<Map<String, Object>> stats =
+          jdbcTemplate.queryForList(
+              """
+          SELECT
+              COUNT(*) as total_competitors,
+              COUNT(CASE WHEN ps.checked_at IS NULL OR ps.checked_at < NOW() - INTERVAL '24 hours' THEN 1 END) as stale_count,
+              COUNT(CASE WHEN ps.checked_at >= NOW() - INTERVAL '1 hour' THEN 1 END) as recent_count,
+              COUNT(CASE WHEN ps.checked_at >= NOW() - INTERVAL '6 hours' THEN 1 END) as today_count,
+              COUNT(CASE WHEN ps.checked_at >= NOW() - INTERVAL '24 hours' THEN 1 END) as last_24h_count
+          FROM competitor_urls cu
+          LEFT JOIN (
+              SELECT competitor_url_id, checked_at,
+                     ROW_NUMBER() OVER (PARTITION BY competitor_url_id ORDER BY checked_at DESC) as rn
+              FROM price_snapshots
+          ) ps ON cu.id = ps.competitor_url_id AND ps.rn = 1
+          WHERE cu.shop_id = ? AND cu.deleted_at IS NULL
+          """,
+              shopId);
+
+      if (stats.isEmpty()) {
+        return ResponseEntity.ok(
+            Map.of(
+                "total_competitors", 0,
+                "stale_count", 0,
+                "recent_count", 0,
+                "can_refresh", false));
+      }
+
+      Map<String, Object> stat = stats.get(0);
+      int totalCompetitors = ((Number) stat.get("total_competitors")).intValue();
+      int staleCount = ((Number) stat.get("stale_count")).intValue();
+      int recentCount = ((Number) stat.get("recent_count")).intValue();
+
+      return ResponseEntity.ok(
+          Map.of(
+              "total_competitors",
+              totalCompetitors,
+              "stale_count",
+              staleCount,
+              "recent_count",
+              recentCount,
+              "today_count",
+              ((Number) stat.get("today_count")).intValue(),
+              "last_24h_count",
+              ((Number) stat.get("last_24h_count")).intValue(),
+              "can_refresh",
+              staleCount > 0,
+              "last_refresh_available",
+              staleCount > 0 ? "Yes" : "No - all prices are recent"));
+
+    } catch (Exception e) {
+      logger.error(
+          "getPriceRefreshStatus: Error getting status for shop {}: {}", shopId, e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to get refresh status: " + e.getMessage()));
+    }
   }
 }

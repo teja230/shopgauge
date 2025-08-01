@@ -22,6 +22,7 @@ import {
   Avatar,
   Collapse,
   Divider,
+  CircularProgress,
 } from '@mui/material';
 import {
   Delete as DeleteIcon,
@@ -40,12 +41,15 @@ import {
   BarChart as BarChartIcon,
   HelpOutline as HelpOutlineIcon,
   History as HistoryIcon,
+  Refresh as RefreshIcon,
+  Update as UpdateIcon,
 } from '@mui/icons-material';
 import StoreLogo from './StoreLogo';
 
 import { styled } from '@mui/material/styles';
 import { format, parseISO } from 'date-fns';
 import { useAuth } from '../../context/AuthContext';
+import { refreshCompetitorPrices, getPriceRefreshStatus } from '../../api/index';
 
 export interface Competitor {
   id: string;
@@ -74,6 +78,7 @@ interface CompetitorTableProps {
   sectionColor?: 'green' | 'orange';
   onToggleCollapse?: () => void;
   isCollapsed?: boolean;
+  onRefreshPrices?: () => void;
 }
 
 // Mobile-first responsive container with improved performance
@@ -100,6 +105,46 @@ const ResponsiveContainer = styled(Box)(({ theme }) => ({
     },
   },
 }));
+
+// Price refresh button component
+const PriceRefreshButton: React.FC<{
+  onRefresh: () => void;
+  canRefresh: boolean;
+  staleCount: number;
+  isLoading?: boolean;
+}> = ({ onRefresh, canRefresh, staleCount, isLoading = false }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+
+  if (!canRefresh) {
+    return null;
+  }
+
+  return (
+    <Tooltip title={`Refresh prices for ${staleCount} competitors (older than 24 hours)`}>
+      <Button
+        variant="outlined"
+        size="small"
+        startIcon={isLoading ? <CircularProgress size={16} /> : <RefreshIcon />}
+        onClick={onRefresh}
+        disabled={isLoading}
+        sx={{
+          ml: 1,
+          minWidth: isMobile ? 'auto' : 120,
+          '& .MuiButton-startIcon': {
+            mr: isMobile ? 0 : 0.5,
+          },
+        }}
+      >
+        {isMobile ? (
+          <RefreshIcon />
+        ) : (
+          `Refresh (${staleCount})`
+        )}
+      </Button>
+    </Tooltip>
+  );
+};
 
 // Enhanced mobile card styling with better touch interactions
 const CompetitorCard = styled(Card)(({ theme }) => ({
@@ -940,7 +985,59 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({
   sectionColor = 'green',
   onToggleCollapse,
   isCollapsed = false,
+  onRefreshPrices,
 }) => {
+  const [refreshStatus, setRefreshStatus] = useState<{
+    can_refresh: boolean;
+    stale_count: number;
+    total_competitors: number;
+  } | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Load refresh status on mount
+  React.useEffect(() => {
+    const loadRefreshStatus = async () => {
+      try {
+        const status = await getPriceRefreshStatus();
+        setRefreshStatus({
+          can_refresh: status.can_refresh,
+          stale_count: status.stale_count,
+          total_competitors: status.total_competitors,
+        });
+      } catch (error) {
+        console.warn('Failed to load refresh status:', error);
+      }
+    };
+
+    loadRefreshStatus();
+  }, []);
+
+  const handleRefreshPrices = async () => {
+    if (isRefreshing) return;
+
+    setIsRefreshing(true);
+    try {
+      const result = await refreshCompetitorPrices();
+      console.log('Price refresh started:', result);
+      
+      // Update status after refresh
+      const newStatus = await getPriceRefreshStatus();
+      setRefreshStatus({
+        can_refresh: newStatus.can_refresh,
+        stale_count: newStatus.stale_count,
+        total_competitors: newStatus.total_competitors,
+      });
+
+      // Call parent callback if provided
+      if (onRefreshPrices) {
+        onRefreshPrices();
+      }
+    } catch (error) {
+      console.error('Failed to refresh prices:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
   const [highlightedRows, setHighlightedRows] = useState<Set<string>>(new Set());
 
   // Function to highlight a row briefly
@@ -1068,6 +1165,16 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({
               )}
             </Box>
           </Box>
+          
+          {/* Price Refresh Button */}
+          {refreshStatus && (
+            <PriceRefreshButton
+              onRefresh={handleRefreshPrices}
+              canRefresh={refreshStatus.can_refresh}
+              staleCount={refreshStatus.stale_count}
+              isLoading={isRefreshing}
+            />
+          )}
         </Box>
       )}
 

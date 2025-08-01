@@ -30,7 +30,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 /**
@@ -202,10 +201,10 @@ public class CompetitorScraperWorker {
         maxConcurrentScrapersLimit);
   }
 
-  /** Scheduled task to scrape competitor prices (COST OPTIMIZED - runs every 12 hours) */
-  @Scheduled(cron = "0 0 */24 * * *") // Changed to 24 hours for API cost optimization
+  /** Manual competitor scraping method (scheduled scraping disabled for cost optimization) */
+  // @Scheduled(cron = "0 0 */24 * * *") // DISABLED: Using manual refresh instead
   public void scrapeCompetitors() {
-    log.info("[Worker] Starting competitor scrape job (24-hour interval)");
+    log.info("[Worker] Starting competitor scrape job (manual trigger)");
 
     try {
       // COST OPTIMIZATION: Get only competitors that need scraping (intelligent selection)
