@@ -1,5 +1,6 @@
 package com.storesight.backend.exception;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
@@ -145,6 +146,23 @@ public class MarketIntelligenceExceptionHandler {
           logger.debug("Response already committed - delegating to GlobalSessionExceptionHandler");
           throw ex; // Re-throw to let GlobalSessionExceptionHandler handle it
         }
+
+        // Check if response stream has already been accessed
+        try {
+          response.getWriter();
+          logger.debug("Response writer already accessed - delegating to GlobalSessionExceptionHandler");
+          throw ex; // Re-throw to let GlobalSessionExceptionHandler handle it
+        } catch (IllegalStateException writerException) {
+          if (writerException.getMessage() != null
+              && (writerException.getMessage().contains("getWriter() has already been called")
+                  || writerException.getMessage().contains("getOutputStream() has already been called"))) {
+            logger.debug("Response stream already accessed - delegating to GlobalSessionExceptionHandler");
+            throw ex; // Re-throw to let GlobalSessionExceptionHandler handle it
+          }
+        } catch (IOException ioException) {
+          logger.debug("IOException when checking response writer - delegating to GlobalSessionExceptionHandler");
+          throw ex; // Re-throw to let GlobalSessionExceptionHandler handle it
+        }
       }
 
       // Check if this is a response stream conflict - if so, let GlobalSessionExceptionHandler
@@ -175,13 +193,10 @@ public class MarketIntelligenceExceptionHandler {
         }
       }
 
-      Map<String, Object> response = new HashMap<>();
-      response.put("error", "SESSION_INVALIDATED");
-      response.put("message", "Your session has expired. Please refresh the page and try again.");
-      response.put("timestamp", LocalDateTime.now());
-      response.put("requiresReauth", true);
-
-      return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+      // For session invalidation errors, delegate to GlobalSessionExceptionHandler
+      // to ensure consistent handling across the application
+      logger.debug("Delegating session invalidation error to GlobalSessionExceptionHandler");
+      throw ex; // Re-throw to let GlobalSessionExceptionHandler handle it
     }
 
     logger.error("Unexpected error in Market Intelligence: {}", ex.getMessage(), ex);
@@ -209,6 +224,12 @@ public class MarketIntelligenceExceptionHandler {
         && ex.getMessage().contains("getWriter() has already been called")) {
       logger.debug(
           "Response stream conflict detected in generic handler - delegating to GlobalSessionExceptionHandler");
+      throw new RuntimeException(ex); // Re-throw to let GlobalSessionExceptionHandler handle it
+    }
+
+    // Check if this is a session-related error - delegate to GlobalSessionExceptionHandler
+    if (ex.getMessage() != null && ex.getMessage().contains("Session was invalidated")) {
+      logger.debug("Session invalidation error in generic handler - delegating to GlobalSessionExceptionHandler");
       throw new RuntimeException(ex); // Re-throw to let GlobalSessionExceptionHandler handle it
     }
 

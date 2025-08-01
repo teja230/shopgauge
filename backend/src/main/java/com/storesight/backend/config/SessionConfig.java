@@ -274,15 +274,20 @@ public class SessionConfig {
         return;
       }
 
+      // For API endpoints, let GlobalSessionExceptionHandler handle them to ensure consistency
+      if (path.startsWith("/api/")) {
+        filterLogger.debug("API session error - delegating to GlobalSessionExceptionHandler for {} {}", method, path);
+        // Don't write response here, let GlobalSessionExceptionHandler handle it
+        return;
+      }
+
       // Log at info level only for uncommitted responses that need handling
       filterLogger.info(
           "Session error handled gracefully for {} {} - {}", method, path, e.getMessage());
 
       // Handle different request types appropriately
       try {
-        if (path.startsWith("/api/")) {
-          handleApiSessionError(response, path, method);
-        } else if (path.startsWith("/error")) {
+        if (path.startsWith("/error")) {
           handleErrorPageSessionError(response, path);
         } else {
           handleBrowserSessionError(response, path);
@@ -315,51 +320,27 @@ public class SessionConfig {
       }
     }
 
-    private void handleApiSessionError(HttpServletResponse response, String path, String method)
-        throws IOException {
-
-      filterLogger.debug(
-          "Session error on API endpoint - returning clean response for {} {}", method, path);
-
-      // For API endpoints, return success since the business operation likely succeeded
-      // The session invalidation happens during cleanup, not during the actual operation
-      response.setStatus(HttpServletResponse.SC_OK);
-      response.setContentType("application/json");
-      response.setCharacterEncoding("UTF-8");
-
-      // Add CORS headers
-      response.setHeader("Access-Control-Allow-Origin", "https://www.shopgaugeai.com");
-      response.setHeader("Access-Control-Allow-Credentials", "true");
-      response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-      response.setHeader("Access-Control-Allow-Headers", "*");
-
-      // Return a success response with a session warning
-      String jsonResponse =
-          "{\"success\":true,\"warning\":\"Session cleanup issue - please refresh if you experience problems\"}";
-      response.getWriter().write(jsonResponse);
-    }
-
     private void handleErrorPageSessionError(HttpServletResponse response, String path)
         throws IOException {
 
       filterLogger.debug("Session error on error page - preventing cascade for {}", path);
 
       response.setStatus(HttpServletResponse.SC_OK);
-      response.setContentType("text/html");
+      response.setContentType("text/plain");
       response.setCharacterEncoding("UTF-8");
-
-      String htmlResponse =
-          "<html><body><h1>Session Expired</h1><p>Your session has expired. Please refresh the page.</p></body></html>";
-      response.getWriter().write(htmlResponse);
+      response.getWriter().write("Session expired. Please refresh the page.");
     }
 
     private void handleBrowserSessionError(HttpServletResponse response, String path)
         throws IOException {
 
-      filterLogger.debug("Session error on browser endpoint - redirecting for {}", path);
+      filterLogger.debug("Session error on browser request - redirecting for {}", path);
 
-      // For browser requests, redirect to home page
-      response.sendRedirect("/");
+      response.setStatus(HttpServletResponse.SC_FOUND);
+      response.setHeader("Location", "/?sessionExpired=true");
+      response.setContentType("text/plain");
+      response.setCharacterEncoding("UTF-8");
+      response.getWriter().write("Session expired. Redirecting...");
     }
 
     @Override
