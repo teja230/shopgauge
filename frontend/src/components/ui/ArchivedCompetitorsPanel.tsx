@@ -499,108 +499,112 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
       )}
       
       {/* Content Section */}
-      {deletedCompetitors.length === 0 ? (
-        /* Empty State */
-        <Box sx={{ 
-          py: 3, 
-          px: 3,
-          textAlign: 'center',
-          backgroundColor: 'white',
-          border: '1px solid #e5e7eb',
-          borderTop: 'none',
-          borderBottomLeftRadius: 16,
-          borderBottomRightRadius: 16
-        }}>
-          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
-            No archived competitors. All archived competitors will appear here for 30 days.
-          </Typography>
-        </Box>
-      ) : (
-        /* Table - Matches CompetitorTable styling exactly */
-        <StyledTableContainer>
-          <Table>
-            <StyledTableHead>
-              <TableRow>
-                <TableCell>
-                                      <span>Competitor</span>
-                </TableCell>
-                <TableCell>Archived</TableCell>
-                <TableCell>Last Check</TableCell>
-                <TableCell>Actions</TableCell>
-              </TableRow>
-            </StyledTableHead>
-            <TableBody>
-              {deletedCompetitors.map((competitor) => (
-                <StyledTableRow 
-                  key={competitor.id}
-                  $highlighted={highlightedRows.has(competitor.id)}
-                  $highlightColor={highlightedRows.has(competitor.id) ? 'success' : undefined}
-                >
-                  <StyledTableCell>
-                    <Stack direction="row" spacing={2} alignItems="center">
-                      <StoreLogo url={competitor.url} size={32} />
-                      <Box>
-                        <Typography variant="body2" fontWeight="600" color="text.primary">
-                          {competitor.label || 'Unnamed Competitor'}
+      {!isCollapsed && (
+        <>
+          {deletedCompetitors.length === 0 ? (
+            /* Empty State */
+            <Box sx={{ 
+              py: 3, 
+              px: 3,
+              textAlign: 'center',
+              backgroundColor: 'white',
+              border: '1px solid #e5e7eb',
+              borderTop: 'none',
+              borderBottomLeftRadius: 16,
+              borderBottomRightRadius: 16
+            }}>
+              <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
+                No archived competitors. All archived competitors will appear here for 30 days.
+              </Typography>
+            </Box>
+          ) : (
+            /* Table - Matches CompetitorTable styling exactly */
+            <StyledTableContainer>
+              <Table>
+                <StyledTableHead>
+                  <TableRow>
+                    <TableCell>
+                      <span>Competitor</span>
+                    </TableCell>
+                    <TableCell>Archived</TableCell>
+                    <TableCell>Last Check</TableCell>
+                    <TableCell>Actions</TableCell>
+                  </TableRow>
+                </StyledTableHead>
+                <TableBody>
+                  {deletedCompetitors.map((competitor) => (
+                    <StyledTableRow 
+                      key={competitor.id}
+                      $highlighted={highlightedRows.has(competitor.id)}
+                      $highlightColor={highlightedRows.has(competitor.id) ? 'success' : undefined}
+                    >
+                      <StyledTableCell>
+                        <Stack direction="row" spacing={2} alignItems="center">
+                          <StoreLogo url={competitor.url} size={32} />
+                          <Box>
+                            <Typography variant="body2" fontWeight="600" color="text.primary">
+                              {competitor.label || 'Unnamed Competitor'}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {competitor.domain || getDomainFromUrl(competitor.url)}
+                            </Typography>
+                          </Box>
+                        </Stack>
+                      </StyledTableCell>
+                      <StyledTableCell>
+                        <Typography variant="body2" color="text.secondary">
+                          {formatDate(competitor.deleted_at)}
                         </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {competitor.domain || getDomainFromUrl(competitor.url)}
+                      </StyledTableCell>
+                      <StyledTableCell>
+                        <Typography variant="body2" color="text.secondary">
+                          {competitor.last_successful_check 
+                            ? formatDate(competitor.last_successful_check)
+                            : 'Never'
+                          }
                         </Typography>
-                      </Box>
-                    </Stack>
-                  </StyledTableCell>
-                  <StyledTableCell>
-                    <Typography variant="body2" color="text.secondary">
-                      {formatDate(competitor.deleted_at)}
-                    </Typography>
-                  </StyledTableCell>
-                  <StyledTableCell>
-                    <Typography variant="body2" color="text.secondary">
-                      {competitor.last_successful_check 
-                        ? formatDate(competitor.last_successful_check)
-                        : 'Never'
-                      }
-                    </Typography>
-                  </StyledTableCell>
-                  <StyledTableCell>
-                    <Stack direction="row" spacing={1}>
-                      <Tooltip title="Visit competitor website">
-                        <IconButton
-                          size="small"
-                          onClick={() => window.open(competitor.url, '_blank')}
-                          sx={{ minWidth: 36, minHeight: 36 }}
-                        >
-                          <OpenInNewIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Restore competitor">
-                        <IconButton
-                          size="small"
-                          color="success"
-                          onClick={() => handleRestore(competitor)}
-                          disabled={restoring === competitor.id}
-                          sx={{ minWidth: 36, minHeight: 36 }}
-                        >
-                          {restoring === competitor.id ? <CircularProgress size={16} /> : <RestoreIcon fontSize="small" />}
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Permanently delete">
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={() => handlePermanentDelete(competitor)}
-                          sx={{ minWidth: 36, minHeight: 36 }}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </Stack>
-                  </StyledTableCell>
-                </StyledTableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </StyledTableContainer>
+                      </StyledTableCell>
+                      <StyledTableCell>
+                        <Stack direction="row" spacing={1}>
+                          <Tooltip title="Visit competitor website">
+                            <IconButton
+                              size="small"
+                              onClick={() => window.open(competitor.url, '_blank')}
+                              sx={{ minWidth: 36, minHeight: 36 }}
+                            >
+                              <OpenInNewIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Restore competitor">
+                            <IconButton
+                              size="small"
+                              color="success"
+                              onClick={() => handleRestore(competitor)}
+                              disabled={restoring === competitor.id}
+                              sx={{ minWidth: 36, minHeight: 36 }}
+                            >
+                              {restoring === competitor.id ? <CircularProgress size={16} /> : <RestoreIcon fontSize="small" />}
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Permanently delete">
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => handlePermanentDelete(competitor)}
+                              sx={{ minWidth: 36, minHeight: 36 }}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Stack>
+                      </StyledTableCell>
+                    </StyledTableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </StyledTableContainer>
+          )}
+        </>
       )}
 
       {/* Restore Confirmation Dialog */}
