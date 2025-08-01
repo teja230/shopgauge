@@ -1156,6 +1156,13 @@ export default function CompetitorsPage() {
           error: error.message,
           url: url
         }, 'CompetitorsPage');
+      } else if (error.message?.includes('maximum competitor tracking limit') || error.message?.includes('maximum archived competitor limit')) {
+        // Use the specific error message from the backend
+        userMessage = error.message;
+        debugLog.warn('Competitor limit exceeded for competitor addition', {
+          error: error.message,
+          url: url
+        }, 'CompetitorsPage');
       } else if (error.message?.includes('Too many requests')) {
         userMessage = 'Rate limit exceeded. Please wait a moment before retrying.';
         debugLog.warn('Rate limit exceeded for competitor addition', {
