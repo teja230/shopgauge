@@ -2602,48 +2602,20 @@ export default function CompetitorsPage() {
               {/* Archived Competitors Panel */}
               {showDeletedCompetitors && (
                 <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-                  {!deletedSectionCollapsed && (
-                    <div className="overflow-x-auto competitor-table">
-                                                                   <ArchivedCompetitorsPanel
-                        shopId={isDemoMode ? 'demo' : (shop || 'demo')}
-                        onCountChange={setArchivedCount}
-                        sectionTitle="Archived"
-                        sectionCount={archivedCount}
-                        sectionColor="orange"
-                        onToggleCollapse={() => setDeletedSectionCollapsed(!deletedSectionCollapsed)}
-                        isCollapsed={deletedSectionCollapsed}
-                        onCompetitorRestored={handleCompetitorRestored}
-                        archivedLimit={limits?.archivedCompetitorLimit?.limit}
-                        archivedCurrent={limits?.archivedCompetitorLimit?.currentCount}
-                      />
-                    </div>
-                  )}
-                  {deletedSectionCollapsed && (
-                    <div className="flex items-center justify-between p-4">
-                      <div className="flex items-center gap-3">
-                        <button
-                          onClick={() => setDeletedSectionCollapsed(!deletedSectionCollapsed)}
-                          className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
-                        >
-                          <svg
-                            className={`w-4 h-4 transform transition-transform ${deletedSectionCollapsed ? 'rotate-180' : ''}`}
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </button>
-                        <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
-                          <span className="text-sm font-medium text-gray-700">Archived</span>
-                          <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-                            {archivedCount}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                  <div className="overflow-x-auto competitor-table">
+                    <ArchivedCompetitorsPanel
+                      shopId={isDemoMode ? 'demo' : (shop || 'demo')}
+                      onCountChange={setArchivedCount}
+                      sectionTitle="Archived"
+                      sectionCount={archivedCount}
+                      sectionColor="orange"
+                      onToggleCollapse={() => setDeletedSectionCollapsed(!deletedSectionCollapsed)}
+                      isCollapsed={deletedSectionCollapsed}
+                      onCompetitorRestored={handleCompetitorRestored}
+                      archivedLimit={limits?.archivedCompetitorLimit?.limit}
+                      archivedCurrent={limits?.archivedCompetitorLimit?.currentCount}
+                    />
+                  </div>
                 </div>
               )}
             </div>
