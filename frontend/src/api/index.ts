@@ -347,6 +347,8 @@ export async function refreshCompetitorPrices(): Promise<{
   message: string;
   updated_count: number;
   total_competitors: number;
+  total_domains: number;
+  session_id: string;
   estimated_completion_time: string;
 }> {
   const response = await fetchWithAuth('/api/competitors/refresh-prices', {
@@ -355,6 +357,22 @@ export async function refreshCompetitorPrices(): Promise<{
   
   return response.json();
 }
+
+export const getPriceRefreshProgress = async (sessionId: string): Promise<{
+  sessionId: string;
+  total: number;
+  completed: number;
+  failed: number;
+  skipped: number;
+  percentage: number;
+  status: string;
+  estimatedTimeRemaining: string;
+  isCompleted: boolean;
+}> => {
+  const response = await fetchWithAuth(`/api/competitors/refresh-progress/${sessionId}`);
+  
+  return response.json();
+};
 
 export const getPriceRefreshStatus = async (): Promise<{
   total_competitors: number;

@@ -12,6 +12,7 @@ import com.storesight.backend.service.DashboardCacheService;
 import com.storesight.backend.service.EnhancedRedisService;
 import com.storesight.backend.service.InputValidationService;
 import com.storesight.backend.service.PriceChangeCalculationService;
+import com.storesight.backend.service.PriceRefreshQueueService;
 import com.storesight.backend.service.PriceScrapingService;
 import com.storesight.backend.service.SessionSynchronizationService;
 import com.storesight.backend.service.ShopService;
@@ -25,6 +26,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -4174,7 +4176,9 @@ public class CompetitorController {
     return product;
   }
 
-  /** Manual price scraping endpoint - only updates items older than 24 hours */
+  @Autowired private PriceRefreshQueueService priceRefreshQueueService;
+
+  /** Manual price scraping endpoint with scalable event-driven processing */
   @PostMapping("/competitors/refresh-prices")
   public ResponseEntity<Map<String, Object>> refreshCompetitorPrices(HttpServletRequest request) {
     Long shopId = getShopIdFromRequest(request);
@@ -4184,7 +4188,7 @@ public class CompetitorController {
     }
 
     try {
-      logger.info("refreshCompetitorPrices: Starting manual price refresh for shop {}", shopId);
+      logger.info("refreshCompetitorPrices: Starting scalable price refresh for shop {}", shopId);
 
       // Get competitors that haven't been checked in 24+ hours
       List<Map<String, Object>> staleCompetitors =
@@ -4212,9 +4216,14 @@ public class CompetitorController {
       if (staleCompetitors.isEmpty()) {
         return ResponseEntity.ok(
             Map.of(
-                "message", "All competitors have recent price data (checked within 24 hours)",
-                "updated_count", 0,
-                "total_competitors", 0));
+                "message",
+                "All competitors have recent price data (checked within 24 hours)",
+                "updated_count",
+                0,
+                "total_competitors",
+                0,
+                "session_id",
+                ""));
       }
 
       logger.info(
@@ -4222,46 +4231,96 @@ public class CompetitorController {
           staleCompetitors.size(),
           shopId);
 
-      // Start background scraping for each stale competitor
-      int startedCount = 0;
-      for (Map<String, Object> competitor : staleCompetitors) {
-        try {
-          String url = (String) competitor.get("url");
-          Long competitorId = ((Number) competitor.get("id")).longValue();
+      // Convert to refresh items
+      List<PriceRefreshQueueService.CompetitorRefreshItem> refreshItems =
+          staleCompetitors.stream()
+              .map(
+                  competitor ->
+                      new PriceRefreshQueueService.CompetitorRefreshItem(
+                          ((Number) competitor.get("id")).longValue(),
+                          (String) competitor.get("url"),
+                          (String) competitor.get("label")))
+              .toList();
 
-          // Start background price scraping
-          startBackgroundPriceScraping(competitorId.toString(), url, shopId);
-          startedCount++;
+      // Start scalable queue-based refresh
+      PriceRefreshQueueService.RefreshSession session =
+          priceRefreshQueueService.startPriceRefresh(shopId, refreshItems);
 
-          logger.debug(
-              "refreshCompetitorPrices: Started scraping for competitor {}: {}", competitorId, url);
-        } catch (Exception e) {
-          logger.warn(
-              "refreshCompetitorPrices: Failed to start scraping for competitor {}: {}",
-              competitor.get("id"),
-              e.getMessage());
-        }
-      }
+      logger.info(
+          "refreshCompetitorPrices: Started queue-based refresh session {} for {} competitors across {} domains",
+          session.sessionId,
+          session.totalCompetitors,
+          session.totalDomains);
 
       return ResponseEntity.ok(
           Map.of(
               "message",
-              "Price refresh started for " + startedCount + " competitors",
+              "Scalable price refresh started for "
+                  + session.totalCompetitors
+                  + " competitors across "
+                  + session.totalDomains
+                  + " domains",
               "updated_count",
-              startedCount,
+              session.totalCompetitors,
               "total_competitors",
-              staleCompetitors.size(),
+              session.totalCompetitors,
+              "total_domains",
+              session.totalDomains,
+              "session_id",
+              session.sessionId,
               "estimated_completion_time",
-              "2-5 minutes"));
+              "3-8 minutes"));
 
     } catch (Exception e) {
       logger.error(
-          "refreshCompetitorPrices: Error refreshing prices for shop {}: {}",
+          "refreshCompetitorPrices: Error starting scalable refresh for shop {}: {}",
           shopId,
           e.getMessage(),
           e);
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-          .body(Map.of("error", "Failed to refresh prices: " + e.getMessage()));
+          .body(Map.of("error", "Failed to start price refresh: " + e.getMessage()));
+    }
+  }
+
+  /** Get price refresh progress for a session */
+  @GetMapping("/competitors/refresh-progress/{sessionId}")
+  public ResponseEntity<Map<String, Object>> getPriceRefreshProgress(
+      @PathVariable String sessionId, HttpServletRequest request) {
+    Long shopId = getShopIdFromRequest(request);
+    if (shopId == null) {
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+          .body(Map.of("error", "Authentication required"));
+    }
+
+    try {
+      PriceRefreshQueueService.RefreshProgress progress =
+          priceRefreshQueueService.getProgress(sessionId);
+
+      if (progress == null) {
+        return ResponseEntity.notFound().build();
+      }
+
+      // Verify session belongs to this shop
+      if (!Objects.equals(progress.shopId, shopId)) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Access denied"));
+      }
+
+      return ResponseEntity.ok(
+          Map.of(
+              "sessionId", progress.sessionId,
+              "total", progress.total,
+              "completed", progress.completed.get(),
+              "failed", progress.failed.get(),
+              "skipped", progress.skipped.get(),
+              "percentage", progress.getPercentage(),
+              "status", progress.getStatus(),
+              "estimatedTimeRemaining", progress.getEstimatedTimeRemaining(),
+              "isCompleted", progress.isCompleted()));
+
+    } catch (Exception e) {
+      logger.error("Error getting refresh progress for session {}: {}", sessionId, e.getMessage());
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to get refresh progress"));
     }
   }
 

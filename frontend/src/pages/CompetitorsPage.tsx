@@ -46,7 +46,7 @@ import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import { debugLog } from '../components/ui/DebugPanel';
 import { getSuggestionCount } from '../api';
-import { refreshCompetitorPrices } from '../api/index';
+import { refreshCompetitorPrices, getPriceRefreshProgress } from '../api/index';
 
 // Tutorial step types
 interface TutorialStep {
@@ -615,11 +615,26 @@ export default function CompetitorsPage() {
   const [limits, setLimits] = useState<LimitsResponse | null>(null);
   
   // Refresh functionality state
+  // Refresh state - enhanced with session tracking
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshCooldown, setRefreshCooldown] = useState(0);
   const [lastRefreshTime, setLastRefreshTime] = useState<number>(0);
+  const [refreshSession, setRefreshSession] = useState<{
+    sessionId: string;
+    totalCompetitors: number;
+    totalDomains: number;
+  } | null>(null);
+  const [refreshProgress, setRefreshProgress] = useState<{
+    completed: number;
+    failed: number;
+    skipped: number;
+    percentage: number;
+    estimatedTimeRemaining: string;
+    isCompleted: boolean;
+  } | null>(null);
   const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const refreshCooldownRef = useRef<NodeJS.Timeout | null>(null);
+  const progressPollingRef = useRef<NodeJS.Timeout | null>(null);
   
   // Product association modal state
   const [productAssociationModal, setProductAssociationModal] = useState<{
@@ -829,27 +844,32 @@ export default function CompetitorsPage() {
         shop 
       }, 'CompetitorsPage');
       
-      // Call the actual price refresh endpoint that triggers scraping
+      // Call the new scalable price refresh endpoint that triggers queue-based processing
       const refreshResult = await refreshCompetitorPrices();
       
-      debugLog.info('Price refresh completed', { 
+      debugLog.info('Scalable price refresh started', { 
         result: refreshResult 
       }, 'CompetitorsPage');
       
-      // Show success notification with details
+      // Store session info for progress tracking
+      setRefreshSession({
+        sessionId: refreshResult.session_id,
+        totalCompetitors: refreshResult.total_competitors,
+        totalDomains: refreshResult.total_domains
+      });
+      
+      // Start progress polling
+      startProgressPolling(refreshResult.session_id);
+      
+      // Show success notification with enhanced details
       notifications.showSuccess(
-        `Price refresh started for ${refreshResult.updated_count} competitors. ${refreshResult.message}`, 
+        `Scalable price refresh started for ${refreshResult.updated_count} competitors across ${refreshResult.total_domains} domains. ${refreshResult.message}`, 
         {
           category: 'Competitors',
           showToast: true,
-          duration: 5000
+          duration: 6000
         }
       );
-      
-      // Force refresh data after a short delay to show updated prices
-      setTimeout(async () => {
-        await fetchData(true);
-      }, 3000);
       
       // For now, just show a simple success message
       // notifications.showSuccess('Refresh functionality coming soon!', {
@@ -874,6 +894,86 @@ export default function CompetitorsPage() {
       setIsRefreshing(false);
     }
   }, [fetchData, isRefreshing, refreshCooldown, lastRefreshTime, isDemoMode, shop, notifications]);
+
+  // Progress polling functionality
+  const startProgressPolling = useCallback((sessionId: string) => {
+    debugLog.info('Starting progress polling for session', { sessionId }, 'CompetitorsPage');
+    
+    const pollProgress = async () => {
+      try {
+        const progress = await getPriceRefreshProgress(sessionId);
+        
+        debugLog.info('Progress update received', { progress }, 'CompetitorsPage');
+        
+        setRefreshProgress({
+          completed: progress.completed,
+          failed: progress.failed,
+          skipped: progress.skipped,
+          percentage: progress.percentage,
+          estimatedTimeRemaining: progress.estimatedTimeRemaining,
+          isCompleted: progress.isCompleted
+        });
+        
+        // Stop polling and refresh data when completed
+        if (progress.isCompleted) {
+          debugLog.info('Refresh session completed', { 
+            sessionId, 
+            completed: progress.completed,
+            failed: progress.failed,
+            skipped: progress.skipped
+          }, 'CompetitorsPage');
+          
+          // Clear polling
+          if (progressPollingRef.current) {
+            clearTimeout(progressPollingRef.current);
+            progressPollingRef.current = null;
+          }
+          
+          // Reset states
+          setIsRefreshing(false);
+          setRefreshSession(null);
+          
+          // Show completion notification
+          notifications.showSuccess(
+            `Price refresh completed! Updated ${progress.completed} competitors, ${progress.failed} failed, ${progress.skipped} skipped.`,
+            {
+              category: 'Competitors',
+              showToast: true,
+              duration: 5000
+            }
+          );
+          
+          // Refresh the competitor data
+          await fetchData(true);
+          
+          return; // Stop polling
+        }
+        
+        // Continue polling every 3 seconds
+        progressPollingRef.current = setTimeout(pollProgress, 3000);
+        
+      } catch (error) {
+        debugLog.error('Progress polling failed', { error }, 'CompetitorsPage');
+        
+        // Stop polling on error
+        if (progressPollingRef.current) {
+          clearTimeout(progressPollingRef.current);
+          progressPollingRef.current = null;
+        }
+        
+        setIsRefreshing(false);
+        setRefreshSession(null);
+        
+        notifications.showError('Lost connection to refresh progress. Please check results manually.', {
+          category: 'Competitors',
+          showToast: true
+        });
+      }
+    };
+    
+    // Start initial poll
+    pollProgress();
+  }, [notifications, fetchData]);
 
   // Countdown effect for refresh cooldown
   useEffect(() => {
@@ -2360,7 +2460,7 @@ export default function CompetitorsPage() {
                 {isAdding ? 'Adding...' : 'Add'}
               </button>
 
-              {/* Refresh Button */}
+              {/* Enhanced Refresh Button with Progress */}
               <button
                 onClick={handleRefresh}
                 disabled={isRefreshing || refreshCooldown > 0}
@@ -2369,9 +2469,12 @@ export default function CompetitorsPage() {
                     ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
                     : 'bg-blue-600 text-white hover:bg-blue-700'
                 }`}
-                title={refreshCooldown > 0 
-                  ? `Refresh available in ${Math.floor(refreshCooldown / 60)}m ${refreshCooldown % 60}s • Updates prices >24h old`
-                  : 'Refresh competitor data • Updates prices >24h old'
+                title={
+                  isRefreshing && refreshProgress 
+                    ? `Processing ${refreshProgress.percentage}% complete • ${refreshProgress.estimatedTimeRemaining} remaining • ${refreshSession?.totalDomains} domains`
+                    : refreshCooldown > 0 
+                      ? `Refresh available in ${Math.floor(refreshCooldown / 60)}m ${refreshCooldown % 60}s • Updates prices >24h old`
+                      : 'Refresh competitor data • Updates prices >24h old'
                 }
               >
                 {isRefreshing ? (
@@ -2379,11 +2482,13 @@ export default function CompetitorsPage() {
                 ) : (
                   <ArrowPathIcon className="h-4 w-4" />
                 )}
-                {isRefreshing 
-                  ? 'Refreshing...' 
-                  : refreshCooldown > 0
-                    ? `${Math.floor(refreshCooldown / 60)}m ${refreshCooldown % 60}s`
-                    : 'Refresh'
+                {isRefreshing && refreshProgress
+                  ? `${refreshProgress.percentage}% (${refreshProgress.completed}/${refreshSession?.totalCompetitors || 0})`
+                  : isRefreshing 
+                    ? 'Starting...' 
+                    : refreshCooldown > 0
+                      ? `${Math.floor(refreshCooldown / 60)}m ${refreshCooldown % 60}s`
+                      : 'Refresh'
                 }
               </button>
 
