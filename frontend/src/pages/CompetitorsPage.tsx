@@ -13,7 +13,6 @@ import {
   refreshSuggestionCount as refreshSuggestionCountAPI,
   addCompetitorIntelligent,
   getPriceStatus
-  // refreshCompetitorPrices - temporarily commented out due to TypeScript issue
 } from '../api';
 import { marketIntelligenceAPI, type LimitsResponse } from '../api/marketIntelligence';
 import { useAuth } from '../context/AuthContext';
@@ -47,6 +46,7 @@ import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import { debugLog } from '../components/ui/DebugPanel';
 import { getSuggestionCount } from '../api';
+import { refreshCompetitorPrices } from '../api/index';
 
 // Tutorial step types
 interface TutorialStep {
@@ -830,33 +830,33 @@ export default function CompetitorsPage() {
       }, 'CompetitorsPage');
       
       // Call the actual price refresh endpoint that triggers scraping
-      // const refreshResult = await refreshCompetitorPrices(); // Temporarily commented out
+      const refreshResult = await refreshCompetitorPrices();
       
-      // debugLog.info('Price refresh completed', { 
-      //   result: refreshResult 
-      // }, 'CompetitorsPage');
+      debugLog.info('Price refresh completed', { 
+        result: refreshResult 
+      }, 'CompetitorsPage');
       
       // Show success notification with details
-      // notifications.showSuccess(
-      //   `Price refresh started for ${refreshResult.updated_count} competitors. ${refreshResult.message}`, 
-      //   {
-      //     category: 'Competitors',
-      //     showToast: true,
-      //     duration: 5000
-      //   }
-      // );
+      notifications.showSuccess(
+        `Price refresh started for ${refreshResult.updated_count} competitors. ${refreshResult.message}`, 
+        {
+          category: 'Competitors',
+          showToast: true,
+          duration: 5000
+        }
+      );
       
       // Force refresh data after a short delay to show updated prices
-      // setTimeout(async () => {
-      //   await fetchData(true);
-      // }, 3000);
+      setTimeout(async () => {
+        await fetchData(true);
+      }, 3000);
       
       // For now, just show a simple success message
-      notifications.showSuccess('Refresh functionality coming soon!', {
-        category: 'Competitors',
-        showToast: true,
-        duration: 3000
-      });
+      // notifications.showSuccess('Refresh functionality coming soon!', {
+      //   category: 'Competitors',
+      //   showToast: true,
+      //   duration: 3000
+      // });
       
       // Set cooldown (5 minutes - since scraping only updates prices older than 24hrs)
       setRefreshCooldown(300);
