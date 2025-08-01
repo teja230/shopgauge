@@ -41,7 +41,13 @@ public class SessionRepositoryErrorFilter extends OncePerRequestFilter {
     try {
       filterChain.doFilter(request, response);
     } catch (IllegalStateException e) {
-      handleSessionError(request, response, e, responseWritten, requestId);
+      // Only handle session invalidation errors, delegate others to GlobalSessionExceptionHandler
+      if (isSessionError(e)) {
+        handleSessionError(request, response, e, responseWritten, requestId);
+      } else {
+        // For non-session IllegalStateExceptions, let GlobalSessionExceptionHandler handle them
+        throw e;
+      }
     } catch (ServletException e) {
       if (isSessionError(e)) {
         handleSessionError(request, response, e, responseWritten, requestId);
@@ -172,10 +178,15 @@ public class SessionRepositoryErrorFilter extends OncePerRequestFilter {
     }
 
     try {
-      // Handle different request types appropriately
+      // For API endpoints, let GlobalSessionExceptionHandler handle them to ensure consistency
       if (path.startsWith("/api/")) {
-        handleApiSessionError(response, path, method, isRedisKeyError);
-      } else if (path.startsWith("/error")) {
+        logger.debug("API session error - delegating to GlobalSessionExceptionHandler for {} {}", method, path);
+        // Don't write response here, let GlobalSessionExceptionHandler handle it
+        return;
+      }
+
+      // Handle different request types appropriately
+      if (path.startsWith("/error")) {
         handleErrorPageSessionError(response, path);
       } else {
         handleBrowserSessionError(response, path, isRedisKeyError);
@@ -256,69 +267,32 @@ public class SessionRepositoryErrorFilter extends OncePerRequestFilter {
     return false;
   }
 
-  private void handleApiSessionError(
-      HttpServletResponse response, String path, String method, boolean isRedisKeyError)
-      throws IOException {
-
-    logger.debug(
-        "Session repository error on API endpoint - returning clean response for {} {}",
-        method,
-        path);
-
-    // For API endpoints, return success since the business operation likely succeeded
-    response.setStatus(HttpServletResponse.SC_OK);
-    response.setContentType("application/json");
-    response.setCharacterEncoding("UTF-8");
-
-    // Add CORS headers
-    response.setHeader("Access-Control-Allow-Origin", "https://www.shopgaugeai.com");
-    response.setHeader("Access-Control-Allow-Credentials", "true");
-    response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-    response.setHeader("Access-Control-Allow-Headers", "*");
-
-    // Return appropriate response based on error type
-    String jsonResponse;
-    if (isRedisKeyError) {
-      // For Redis key errors (session expiration), provide a clear message
-      jsonResponse =
-          "{\"success\":true,\"sessionExpired\":true,\"message\":\"Session expired due to inactivity. Please refresh the page to continue.\"}";
-      response.setHeader("X-Session-Expired", "true");
-    } else {
-      // For other session errors, provide a generic message
-      jsonResponse =
-          "{\"success\":true,\"warning\":\"Session cleanup issue - please refresh if you experience problems\"}";
-    }
-    response.getWriter().write(jsonResponse);
-  }
-
   private void handleErrorPageSessionError(HttpServletResponse response, String path)
       throws IOException {
 
-    logger.debug("Session repository error on error page - preventing cascade for {}", path);
+    logger.debug("Session error on error page - preventing cascade for {}", path);
 
     response.setStatus(HttpServletResponse.SC_OK);
-    response.setContentType("text/html");
+    response.setContentType("text/plain");
     response.setCharacterEncoding("UTF-8");
-
-    String htmlResponse =
-        "<html><body><h1>Session Expired</h1><p>Your session has expired. Please refresh the page.</p></body></html>";
-    response.getWriter().write(htmlResponse);
+    response.getWriter().write("Session expired. Please refresh the page.");
   }
 
   private void handleBrowserSessionError(
       HttpServletResponse response, String path, boolean isRedisKeyError) throws IOException {
 
-    logger.debug("Session repository error on browser endpoint - redirecting for {}", path);
+    logger.debug("Session error on browser request - redirecting for {}", path);
 
+    response.setStatus(HttpServletResponse.SC_FOUND);
     if (isRedisKeyError) {
-      // For Redis key errors (session expiration), redirect with a clear message
-      response.setStatus(HttpServletResponse.SC_FOUND);
       response.setHeader("Location", "/?sessionExpired=true");
       response.setHeader("X-Session-Expired", "true");
     } else {
-      // For other session errors, redirect to home page
-      response.sendRedirect("/");
+      response.setHeader("Location", "/");
     }
+    response.setContentType("text/plain");
+    response.setCharacterEncoding("UTF-8");
+    response.getWriter().write("Session expired. Redirecting...");
   }
 
   @Override
