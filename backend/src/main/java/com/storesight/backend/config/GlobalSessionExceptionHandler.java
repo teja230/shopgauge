@@ -43,9 +43,20 @@ public class GlobalSessionExceptionHandler {
       String path = httpRequest.getRequestURI();
       String method = httpRequest.getMethod();
       String requestId = generateRequestId(httpRequest);
+      boolean isRedisKeyError = isRedisKeyError(e);
 
-      logger.debug(
-          "Global session invalidation error handled for {} {} - {}", method, path, e.getMessage());
+      // Use appropriate log level based on error type
+      if (isRedisKeyError) {
+        // Redis key errors are expected after inactivity - log at debug level to reduce noise
+        logger.debug(
+            "Session expired (Redis key missing) for {} {} - handling gracefully", method, path);
+      } else {
+        logger.debug(
+            "Global session invalidation error handled for {} {} - {}",
+            method,
+            path,
+            e.getMessage());
+      }
 
       // Check if response has already been written to by this handler
       AtomicBoolean responseWritten =
@@ -115,10 +126,18 @@ public class GlobalSessionExceptionHandler {
           httpResponse.setHeader("Access-Control-Allow-Origin", "https://www.shopgaugeai.com");
           httpResponse.setHeader("Access-Control-Allow-Credentials", "true");
 
-          return ResponseEntity.ok()
-              .header("X-Session-Warning", "Session cleanup issue")
-              .body(
-                  "{\"success\":true,\"warning\":\"Session cleanup issue - please refresh if you experience problems\"}");
+          if (isRedisKeyError) {
+            // For Redis key errors (session expiration), provide a clear message
+            return ResponseEntity.ok()
+                .header("X-Session-Expired", "true")
+                .body(
+                    "{\"success\":true,\"sessionExpired\":true,\"message\":\"Session expired due to inactivity. Please refresh the page to continue.\"}");
+          } else {
+            return ResponseEntity.ok()
+                .header("X-Session-Warning", "Session cleanup issue")
+                .body(
+                    "{\"success\":true,\"warning\":\"Session cleanup issue - please refresh if you experience problems\"}");
+          }
         }
 
         // For error pages, return a simple OK to prevent cascading
@@ -133,9 +152,18 @@ public class GlobalSessionExceptionHandler {
             "Session invalidation on non-API endpoint - suggesting redirect for {} {}",
             method,
             path);
-        return ResponseEntity.status(HttpStatus.FOUND)
-            .header("Location", "/")
-            .body("Session expired. Redirecting...");
+
+        if (isRedisKeyError) {
+          // For Redis key errors (session expiration), redirect with a clear message
+          return ResponseEntity.status(HttpStatus.FOUND)
+              .header("Location", "/?sessionExpired=true")
+              .header("X-Session-Expired", "true")
+              .body("Session expired due to inactivity. Redirecting...");
+        } else {
+          return ResponseEntity.status(HttpStatus.FOUND)
+              .header("Location", "/")
+              .body("Session expired. Redirecting...");
+        }
       } finally {
         // Clean up response state tracking
         responseStates.remove(requestId);
@@ -162,8 +190,16 @@ public class GlobalSessionExceptionHandler {
       String path = httpRequest.getRequestURI();
       String method = httpRequest.getMethod();
       String requestId = generateRequestId(httpRequest);
+      boolean isRedisKeyError = isRedisKeyError(e);
 
-      logger.debug("Generic session error handled for {} {} - {}", method, path, e.getMessage());
+      // Use appropriate log level based on error type
+      if (isRedisKeyError) {
+        // Redis key errors are expected after inactivity - log at debug level to reduce noise
+        logger.debug(
+            "Session expired (Redis key missing) for {} {} - handling gracefully", method, path);
+      } else {
+        logger.debug("Generic session error handled for {} {} - {}", method, path, e.getMessage());
+      }
 
       // Special handling for OAuth flow to prevent cascade errors during initial login
       if (path.contains("/api/auth/shopify/callback")
@@ -193,19 +229,35 @@ public class GlobalSessionExceptionHandler {
           httpResponse.setHeader("Access-Control-Allow-Origin", "https://www.shopgaugeai.com");
           httpResponse.setHeader("Access-Control-Allow-Credentials", "true");
 
-          return ResponseEntity.ok()
-              .header("X-Session-Warning", "Session issue resolved")
-              .body(
-                  "{\"success\":true,\"warning\":\"Session issue resolved - please refresh if you experience problems\"}");
+          if (isRedisKeyError) {
+            // For Redis key errors (session expiration), provide a clear message
+            return ResponseEntity.ok()
+                .header("X-Session-Expired", "true")
+                .body(
+                    "{\"success\":true,\"sessionExpired\":true,\"message\":\"Session expired due to inactivity. Please refresh the page to continue.\"}");
+          } else {
+            return ResponseEntity.ok()
+                .header("X-Session-Warning", "Session issue resolved")
+                .body(
+                    "{\"success\":true,\"warning\":\"Session issue resolved - please refresh if you experience problems\"}");
+          }
         }
 
         if (path.startsWith("/error")) {
           return ResponseEntity.ok().body("Session issue resolved. Please refresh the page.");
         }
 
-        return ResponseEntity.status(HttpStatus.FOUND)
-            .header("Location", "/")
-            .body("Session issue resolved. Redirecting...");
+        if (isRedisKeyError) {
+          // For Redis key errors (session expiration), redirect with a clear message
+          return ResponseEntity.status(HttpStatus.FOUND)
+              .header("Location", "/?sessionExpired=true")
+              .header("X-Session-Expired", "true")
+              .body("Session expired due to inactivity. Redirecting...");
+        } else {
+          return ResponseEntity.status(HttpStatus.FOUND)
+              .header("Location", "/")
+              .body("Session issue resolved. Redirecting...");
+        }
       } finally {
         // Clean up response state tracking
         responseStates.remove(requestId);
@@ -232,7 +284,27 @@ public class GlobalSessionExceptionHandler {
     while (cause != null) {
       if (cause.getMessage() != null
           && (cause.getMessage().contains("Session was invalidated")
-              || cause.getMessage().contains("RedisSessionRepository"))) {
+              || cause.getMessage().contains("RedisSessionRepository")
+              || cause.getMessage().contains("ERR no such key"))) {
+        return true;
+      }
+      cause = cause.getCause();
+    }
+
+    return false;
+  }
+
+  private boolean isRedisKeyError(Exception e) {
+    if (e.getMessage() != null && e.getMessage().contains("ERR no such key")) {
+      return true;
+    }
+
+    // Check cause chain for Redis key errors
+    Throwable cause = e.getCause();
+    while (cause != null) {
+      if (cause.getClass().getName().contains("RedisCommandExecutionException")
+          && cause.getMessage() != null
+          && cause.getMessage().contains("ERR no such key")) {
         return true;
       }
       cause = cause.getCause();

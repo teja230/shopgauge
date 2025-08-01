@@ -71,12 +71,23 @@ public class SessionRepositoryErrorFilter extends OncePerRequestFilter {
       return true;
     }
 
+    // Check for Redis "ERR no such key" errors which indicate session expiration
+    if (e.getMessage() != null && e.getMessage().contains("ERR no such key")) {
+      return true;
+    }
+
     // Check cause chain for session errors
     Throwable cause = e.getCause();
     while (cause != null) {
       if (cause instanceof IllegalStateException
           && cause.getMessage() != null
           && cause.getMessage().contains("Session was invalidated")) {
+        return true;
+      }
+      // Check for Redis command execution exceptions
+      if (cause.getClass().getName().contains("RedisCommandExecutionException")
+          && cause.getMessage() != null
+          && cause.getMessage().contains("ERR no such key")) {
         return true;
       }
       cause = cause.getCause();
@@ -94,8 +105,17 @@ public class SessionRepositoryErrorFilter extends OncePerRequestFilter {
 
     String path = request.getRequestURI();
     String method = request.getMethod();
+    boolean isRedisKeyError = isRedisKeyError(e);
 
-    logger.debug("Session repository error handled for {} {} - {}", method, path, e.getMessage());
+    // Use appropriate log level based on error type
+    if (isRedisKeyError) {
+      // Redis key errors are expected after inactivity - log at debug level to reduce noise
+      logger.debug(
+          "Session expired (Redis key missing) for {} {} - handling gracefully", method, path);
+    } else {
+      // Other session errors are less expected - log at info level
+      logger.info("Session repository error handled for {} {} - {}", method, path, e.getMessage());
+    }
 
     // Check if response has already been written to by this filter
     if (responseWritten.get()) {
@@ -144,11 +164,11 @@ public class SessionRepositoryErrorFilter extends OncePerRequestFilter {
     try {
       // Handle different request types appropriately
       if (path.startsWith("/api/")) {
-        handleApiSessionError(response, path, method);
+        handleApiSessionError(response, path, method, isRedisKeyError);
       } else if (path.startsWith("/error")) {
         handleErrorPageSessionError(response, path);
       } else {
-        handleBrowserSessionError(response, path);
+        handleBrowserSessionError(response, path, isRedisKeyError);
       }
     } catch (IOException ioException) {
       logger.warn(
@@ -159,7 +179,27 @@ public class SessionRepositoryErrorFilter extends OncePerRequestFilter {
     }
   }
 
-  private void handleApiSessionError(HttpServletResponse response, String path, String method)
+  private boolean isRedisKeyError(Exception e) {
+    if (e.getMessage() != null && e.getMessage().contains("ERR no such key")) {
+      return true;
+    }
+
+    // Check cause chain for Redis key errors
+    Throwable cause = e.getCause();
+    while (cause != null) {
+      if (cause.getClass().getName().contains("RedisCommandExecutionException")
+          && cause.getMessage() != null
+          && cause.getMessage().contains("ERR no such key")) {
+        return true;
+      }
+      cause = cause.getCause();
+    }
+
+    return false;
+  }
+
+  private void handleApiSessionError(
+      HttpServletResponse response, String path, String method, boolean isRedisKeyError)
       throws IOException {
 
     logger.debug(
@@ -178,9 +218,18 @@ public class SessionRepositoryErrorFilter extends OncePerRequestFilter {
     response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
     response.setHeader("Access-Control-Allow-Headers", "*");
 
-    // Return a success response with a session warning
-    String jsonResponse =
-        "{\"success\":true,\"warning\":\"Session cleanup issue - please refresh if you experience problems\"}";
+    // Return appropriate response based on error type
+    String jsonResponse;
+    if (isRedisKeyError) {
+      // For Redis key errors (session expiration), provide a clear message
+      jsonResponse =
+          "{\"success\":true,\"sessionExpired\":true,\"message\":\"Session expired due to inactivity. Please refresh the page to continue.\"}";
+      response.setHeader("X-Session-Expired", "true");
+    } else {
+      // For other session errors, provide a generic message
+      jsonResponse =
+          "{\"success\":true,\"warning\":\"Session cleanup issue - please refresh if you experience problems\"}";
+    }
     response.getWriter().write(jsonResponse);
   }
 
@@ -198,13 +247,20 @@ public class SessionRepositoryErrorFilter extends OncePerRequestFilter {
     response.getWriter().write(htmlResponse);
   }
 
-  private void handleBrowserSessionError(HttpServletResponse response, String path)
-      throws IOException {
+  private void handleBrowserSessionError(
+      HttpServletResponse response, String path, boolean isRedisKeyError) throws IOException {
 
     logger.debug("Session repository error on browser endpoint - redirecting for {}", path);
 
-    // For browser requests, redirect to home page
-    response.sendRedirect("/");
+    if (isRedisKeyError) {
+      // For Redis key errors (session expiration), redirect with a clear message
+      response.setStatus(HttpServletResponse.SC_FOUND);
+      response.setHeader("Location", "/?sessionExpired=true");
+      response.setHeader("X-Session-Expired", "true");
+    } else {
+      // For other session errors, redirect to home page
+      response.sendRedirect("/");
+    }
   }
 
   @Override
