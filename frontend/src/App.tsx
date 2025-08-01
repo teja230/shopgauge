@@ -227,6 +227,57 @@ const AppContent: React.FC = () => {
       });
     };
 
+    // Handle session expiration from backend responses
+    const handleSessionExpiration = () => {
+      // Check if we were redirected due to session expiration
+      const urlParams = new URLSearchParams(window.location.search);
+      const sessionExpired = urlParams.get('sessionExpired');
+      
+      if (sessionExpired === 'true') {
+        addNotification('Your session has expired due to inactivity. Please login again.', 'warning', {
+          duration: 8000,
+          category: 'Authentication',
+          action: {
+            label: 'Login',
+            onClick: () => window.location.href = '/'
+          }
+        });
+        
+        // Clean up the URL parameter
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.delete('sessionExpired');
+        window.history.replaceState({}, '', newUrl.toString());
+      }
+    };
+
+    // Check for session expiration on mount
+    handleSessionExpiration();
+
+    // Intercept fetch responses to check for session expiration headers
+    const originalFetch = window.fetch;
+    window.fetch = async (...args) => {
+      try {
+        const response = await originalFetch(...args);
+        
+        // Check for session expiration header
+        const sessionExpired = response.headers.get('X-Session-Expired');
+        if (sessionExpired === 'true') {
+          addNotification('Your session has expired due to inactivity. Please login again.', 'warning', {
+            duration: 8000,
+            category: 'Authentication',
+            action: {
+              label: 'Login',
+              onClick: () => window.location.href = '/'
+            }
+          });
+        }
+        
+        return response;
+      } catch (error) {
+        throw error;
+      }
+    };
+
     // Add event listeners
     window.addEventListener('sessionExtensionPrompt', handleSessionExtensionPrompt as EventListener);
     window.addEventListener('sessionExpired', handleSessionExpired as EventListener);
@@ -245,8 +296,11 @@ const AppContent: React.FC = () => {
       window.removeEventListener('sessionRefreshNeeded', handleSessionRefreshNeeded as EventListener);
       window.removeEventListener('sessionError', handleSessionError as EventListener);
       window.removeEventListener('sessionInvalidated', handleSessionInvalidated as EventListener);
+      
+      // Restore original fetch
+      window.fetch = originalFetch;
     };
-  }, [handleSessionExtension, handleSessionLogout]);
+  }, [handleSessionExtension, handleSessionLogout, addNotification]);
 
   // Initialize session management for authenticated users
   useEffect(() => {
