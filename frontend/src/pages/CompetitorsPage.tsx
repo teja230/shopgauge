@@ -796,7 +796,7 @@ export default function CompetitorsPage() {
   const handleRefresh = useCallback(async () => {
     const now = Date.now();
     
-    // Check cooldown (30 seconds)
+    // Check cooldown (5 minutes - since scraping only updates prices older than 24hrs)
     if (refreshCooldown > 0) {
       debugLog.info('Refresh blocked by cooldown', { 
         cooldownRemaining: refreshCooldown,
@@ -838,11 +838,11 @@ export default function CompetitorsPage() {
         duration: 3000
       });
       
-      // Set cooldown (30 seconds)
-      setRefreshCooldown(30);
+      // Set cooldown (5 minutes - since scraping only updates prices older than 24hrs)
+      setRefreshCooldown(300);
       refreshCooldownRef.current = setTimeout(() => {
         setRefreshCooldown(0);
-      }, 30000);
+      }, 300000);
       
     } catch (error) {
       debugLog.error('Refresh failed', { error }, 'CompetitorsPage');
@@ -2350,8 +2350,8 @@ export default function CompetitorsPage() {
                     : 'bg-blue-600 text-white hover:bg-blue-700'
                 }`}
                 title={refreshCooldown > 0 
-                  ? `Refresh available in ${refreshCooldown} seconds`
-                  : 'Refresh competitor data and prices'
+                  ? `Refresh available in ${Math.floor(refreshCooldown / 60)}m ${refreshCooldown % 60}s (only updates prices older than 24hrs)`
+                  : 'Refresh competitor data and prices (only updates prices older than 24hrs)'
                 }
               >
                 {isRefreshing ? (
@@ -2362,7 +2362,7 @@ export default function CompetitorsPage() {
                 {isRefreshing 
                   ? 'Refreshing...' 
                   : refreshCooldown > 0
-                    ? `${refreshCooldown}s`
+                    ? `${Math.floor(refreshCooldown / 60)}m ${refreshCooldown % 60}s`
                     : 'Refresh'
                 }
               </button>
