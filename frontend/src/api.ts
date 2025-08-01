@@ -210,12 +210,8 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
 
 
     
-    // Generic non-OK status handler (after specific cases above)
-    if (!response.ok) {
-      const err = new Error(`HTTP ${response.status}`);
-      (err as any).status = response.status;
-      throw err;
-    }
+    // Let handleResponse handle all other non-OK status codes (including 429)
+    // This allows handleResponse to properly process business rule responses
     
   return response;
   } catch (error: any) {
