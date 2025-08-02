@@ -103,12 +103,6 @@ public class SessionConfig {
     return new SessionErrorHandlingFilter(sessionSynchronizationService);
   }
 
-  @Bean
-  @Order(Ordered.HIGHEST_PRECEDENCE - 1) // Run before SessionRepositoryFilter
-  public SessionRepositoryErrorFilter sessionRepositoryErrorFilter() {
-    return new SessionRepositoryErrorFilter();
-  }
-
   /** Thread-safe session state tracking to prevent race conditions. */
   private static class SessionState {
     private final AtomicBoolean isInvalidating = new AtomicBoolean(false);
