@@ -1530,7 +1530,12 @@ export default function CompetitorsPage() {
         let errorMessage = 'Unable to discontinue competitor tracking at this time. Please try again.';
         
         if (error instanceof Error) {
-          if (error.message.includes('Authentication required') || error.message.includes('401')) {
+          // Check for specific error flags first
+          if ((error as any).archivedCompetitorLimitExceeded) {
+            errorMessage = 'You have reached the maximum archived competitor limit for your current subscription tier.';
+          } else if ((error as any).competitorLimitExceeded) {
+            errorMessage = 'You have reached the maximum competitor tracking limit for your current subscription tier.';
+          } else if (error.message.includes('Authentication required') || error.message.includes('401')) {
             errorMessage = 'Your session has expired. Please refresh the page and try again.';
           } else if (error.message.includes('404') || error.message.includes('Not Found')) {
             errorMessage = 'Competitor not found. It may have already been deleted.';
