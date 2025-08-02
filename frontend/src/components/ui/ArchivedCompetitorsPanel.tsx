@@ -61,6 +61,7 @@ interface ArchivedCompetitorsPanelProps {
   onCompetitorRestored?: (competitorId?: string) => void;
   archivedLimit?: number;
   archivedCurrent?: number;
+  refreshTrigger?: number; // Triggers refresh when value changes
 }
 
 // Styled components to match CompetitorTable
@@ -132,6 +133,7 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
   onCompetitorRestored,
   archivedLimit,
   archivedCurrent,
+  refreshTrigger,
 }) => {
   const [deletedCompetitors, setDeletedCompetitors] = useState<ArchivedCompetitor[]>([]);
   const [loading, setLoading] = useState(true);
@@ -182,6 +184,13 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
       onCountChange(deletedCompetitors.length);
     }
   }, [deletedCompetitors.length, onCountChange]);
+
+  // Refresh archived competitors when refreshTrigger changes
+  useEffect(() => {
+    if (refreshTrigger !== undefined) {
+      loadDeletedCompetitors();
+    }
+  }, [refreshTrigger]);
 
   const loadDeletedCompetitors = async () => {
     try {
