@@ -617,7 +617,16 @@ export default function CompetitorsPage() {
   // Refresh functionality state
   // Refresh state - enhanced with session tracking
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [refreshCooldown, setRefreshCooldown] = useState(0);
+  const [refreshCooldown, setRefreshCooldown] = useState(() => {
+    const saved = localStorage.getItem('refreshCooldown');
+    const savedTime = localStorage.getItem('refreshCooldownTime');
+    if (saved && savedTime) {
+      const elapsed = Math.floor((Date.now() - parseInt(savedTime)) / 1000);
+      const remaining = Math.max(0, parseInt(saved) - elapsed);
+      return remaining;
+    }
+    return 0;
+  });
   const [lastRefreshTime, setLastRefreshTime] = useState<number>(0);
   const [refreshSession, setRefreshSession] = useState<{
     sessionId: string;
@@ -879,10 +888,14 @@ export default function CompetitorsPage() {
       // });
       
       // Set cooldown (5 minutes - since scraping only updates prices older than 24hrs)
-      setRefreshCooldown(300);
-      refreshCooldownRef.current = setTimeout(() => {
-        setRefreshCooldown(0);
-      }, 300000);
+          setRefreshCooldown(300);
+    localStorage.setItem('refreshCooldown', '300');
+    localStorage.setItem('refreshCooldownTime', Date.now().toString());
+    refreshCooldownRef.current = setTimeout(() => {
+      setRefreshCooldown(0);
+      localStorage.removeItem('refreshCooldown');
+      localStorage.removeItem('refreshCooldownTime');
+    }, 300000);
       
     } catch (error) {
       debugLog.error('Refresh failed', { error }, 'CompetitorsPage');
@@ -982,9 +995,13 @@ export default function CompetitorsPage() {
         setRefreshCooldown(prev => {
           if (prev <= 1) {
             clearInterval(interval);
+            localStorage.removeItem('refreshCooldown');
+            localStorage.removeItem('refreshCooldownTime');
             return 0;
           }
-          return prev - 1;
+          const newValue = prev - 1;
+          localStorage.setItem('refreshCooldown', newValue.toString());
+          return newValue;
         });
       }, 1000);
       
