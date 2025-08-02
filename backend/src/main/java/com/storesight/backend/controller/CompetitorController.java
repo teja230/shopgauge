@@ -3628,38 +3628,36 @@ public class CompetitorController {
           "triggerImmediatePriceScraping: Starting ENTERPRISE-GRADE immediate scraping for competitor ID: {}",
           competitorId);
 
-      // COST OPTIMIZATION 0: Check if recent price snapshot exists (< 24 hours) - CRITICAL FIX
-      List<Map<String, Object>> latestSnapshot =
+      // COST OPTIMIZATION 0: Check if recent successful check exists (< 24 hours) - CRITICAL FIX
+      List<Map<String, Object>> competitorData =
           jdbcTemplate.queryForList(
               """
-          SELECT checked_at FROM price_snapshots
-          WHERE competitor_url_id = ?
-          ORDER BY checked_at DESC
-          LIMIT 1
+          SELECT last_successful_check FROM competitor_urls
+          WHERE id = ?
           """,
               Long.parseLong(competitorId));
 
-      if (!latestSnapshot.isEmpty()) {
-        String lastCheckedStr = (String) latestSnapshot.get(0).get("checked_at");
-        if (lastCheckedStr != null) {
+      if (!competitorData.isEmpty()) {
+        Object lastSuccessfulCheckObj = competitorData.get(0).get("last_successful_check");
+        if (lastSuccessfulCheckObj != null) {
           try {
-            java.time.LocalDateTime lastChecked =
-                java.time.LocalDateTime.parse(lastCheckedStr.replace(" ", "T"));
+            java.time.LocalDateTime lastSuccessfulCheck =
+                (java.time.LocalDateTime) lastSuccessfulCheckObj;
             java.time.LocalDateTime now = java.time.LocalDateTime.now();
-            java.time.Duration duration = java.time.Duration.between(lastChecked, now);
+            java.time.Duration duration = java.time.Duration.between(lastSuccessfulCheck, now);
 
-            // Skip scraping if last check was less than 24 hours ago
+            // Skip scraping if last successful check was less than 24 hours ago
             if (duration.toHours() < 24) {
               logger.info(
-                  "triggerImmediatePriceScraping: Skipping - Recent price data exists ({} hours ago) for competitor {}",
+                  "triggerImmediatePriceScraping: Skipping - Recent successful check exists ({} hours ago) for competitor {}",
                   duration.toHours(),
                   competitorId);
-              return; // Skip scraping if recent data exists
+              return; // Skip scraping if recent successful check exists
             }
           } catch (Exception e) {
             logger.warn(
-                "triggerImmediatePriceScraping: Could not parse last check time: {}",
-                lastCheckedStr);
+                "triggerImmediatePriceScraping: Could not parse last successful check time: {}",
+                lastSuccessfulCheckObj);
             // Continue with scraping if we can't parse the timestamp
           }
         }
