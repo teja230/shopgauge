@@ -54,6 +54,11 @@ public class SessionRepositoryErrorFilter extends OncePerRequestFilter {
       } else {
         throw e;
       }
+    } catch (org.springframework.data.redis.RedisSystemException e) {
+      // Handle Redis system exceptions as session errors - this is the key fix
+      logger.debug(
+          "Redis system exception caught in SessionRepositoryErrorFilter: {}", e.getMessage());
+      handleSessionError(request, response, e, responseWritten, requestId);
     } catch (Exception e) {
       if (isSessionError(e)) {
         handleSessionError(request, response, e, responseWritten, requestId);
@@ -79,6 +84,11 @@ public class SessionRepositoryErrorFilter extends OncePerRequestFilter {
 
     // Check for Redis "ERR no such key" errors which indicate session expiration
     if (e.getMessage() != null && e.getMessage().contains("ERR no such key")) {
+      return true;
+    }
+
+    // Check for Redis system exceptions
+    if (e instanceof org.springframework.data.redis.RedisSystemException) {
       return true;
     }
 
@@ -110,6 +120,10 @@ public class SessionRepositoryErrorFilter extends OncePerRequestFilter {
       if (cause instanceof IllegalStateException
           && cause.getMessage() != null
           && cause.getMessage().contains("getWriter() has already been called")) {
+        return true;
+      }
+      // Check for Redis system exceptions in cause chain
+      if (cause instanceof org.springframework.data.redis.RedisSystemException) {
         return true;
       }
       cause = cause.getCause();
