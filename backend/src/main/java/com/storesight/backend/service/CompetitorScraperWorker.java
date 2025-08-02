@@ -296,7 +296,7 @@ public class CompetitorScraperWorker {
     }
 
     // COST OPTIMIZATION 2: Check rate limiting with longer delays
-    String rateLimitKey = "scraper_rate_limit:" + domain;
+    String rateLimitKey = "market-intelligence:scraper_rate_limit:" + domain;
     if (redisTemplate.hasKey(rateLimitKey)) {
       log.debug("[Worker] Rate limit active for domain: {}", domain);
       return;
@@ -365,7 +365,7 @@ public class CompetitorScraperWorker {
   /** Get cached price for URL to reduce scraping costs */
   private BigDecimal getCachedPriceForUrl(String url) {
     try {
-      String cacheKey = "price_cache:" + url.hashCode();
+      String cacheKey = "market-intelligence:price_cache:" + url.hashCode();
       Object cached = redisTemplate.opsForValue().get(cacheKey);
       if (cached != null) {
         return new BigDecimal(cached.toString());
@@ -379,7 +379,7 @@ public class CompetitorScraperWorker {
   /** Cache price for URL to reduce future scraping costs */
   private void cachePriceForUrl(String url, BigDecimal price) {
     try {
-      String cacheKey = "price_cache:" + url.hashCode();
+      String cacheKey = "market-intelligence:price_cache:" + url.hashCode();
       // Cache for 24 hours to reduce scraping frequency
       redisTemplate.opsForValue().set(cacheKey, price.toString(), 24, TimeUnit.HOURS);
     } catch (Exception e) {
