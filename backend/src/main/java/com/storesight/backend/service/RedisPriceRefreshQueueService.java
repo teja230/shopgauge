@@ -143,9 +143,11 @@ public class RedisPriceRefreshQueueService {
       return new RefreshSession("disabled", 0, 0);
     }
 
-    // Check if Redis is enabled
-    if (!redisEnabled) {
-      logger.warn("Redis is disabled, falling back to in-memory processing");
+    // Check if Redis is available and enabled
+    boolean redisAvailable = redisEnabled && isRedisAvailable();
+
+    if (!redisAvailable) {
+      logger.warn("Redis is not available, using in-memory processing");
       return startInMemoryRefresh(shopId, competitors);
     }
 
@@ -219,10 +221,10 @@ public class RedisPriceRefreshQueueService {
       String queueKey = redisKeyPrefix + ":queue:" + sessionId;
 
       // Store session metadata
-      Map<String, Object> sessionData = new HashMap<>();
+      Map<String, String> sessionData = new HashMap<>();
       sessionData.put("sessionId", sessionId);
-      sessionData.put("shopId", shopId);
-      sessionData.put("totalCompetitors", competitors.size());
+      sessionData.put("shopId", String.valueOf(shopId));
+      sessionData.put("totalCompetitors", String.valueOf(competitors.size()));
       sessionData.put("createdAt", LocalDateTime.now().toString());
       sessionData.put("status", "STARTED");
 
@@ -230,11 +232,11 @@ public class RedisPriceRefreshQueueService {
       redisTemplate.expire(sessionKey, Duration.ofSeconds(redisTtlSeconds));
 
       // Store progress data
-      Map<String, Object> progressData = new HashMap<>();
-      progressData.put("completed", 0);
-      progressData.put("failed", 0);
-      progressData.put("skipped", 0);
-      progressData.put("total", competitors.size());
+      Map<String, String> progressData = new HashMap<>();
+      progressData.put("completed", "0");
+      progressData.put("failed", "0");
+      progressData.put("skipped", "0");
+      progressData.put("total", String.valueOf(competitors.size()));
       progressData.put("startTime", LocalDateTime.now().toString());
       progressData.put("lastUpdated", LocalDateTime.now().toString());
 
@@ -511,6 +513,18 @@ public class RedisPriceRefreshQueueService {
     return memoryUsagePercent > memoryThresholdPercent;
   }
 
+  /** Check if Redis is available */
+  private boolean isRedisAvailable() {
+    try {
+      redisTemplate.opsForValue().set("health_check", "ok", Duration.ofSeconds(5));
+      String result = (String) redisTemplate.opsForValue().get("health_check");
+      return "ok".equals(result);
+    } catch (Exception e) {
+      logger.warn("Redis health check failed: {}", e.getMessage());
+      return false;
+    }
+  }
+
   /** Group competitors by domain */
   private Map<String, List<CompetitorRefreshItem>> groupByDomain(
       List<CompetitorRefreshItem> competitors) {
@@ -566,7 +580,7 @@ public class RedisPriceRefreshQueueService {
       jdbcTemplate.update(
           """
           UPDATE competitor_urls
-          SET status = 'ACTIVE', error_count = 0, updated_at = NOW()
+          SET status = 'active', error_count = 0, last_successful_check = NOW()
           WHERE id = ?
           """,
           competitor.id);
