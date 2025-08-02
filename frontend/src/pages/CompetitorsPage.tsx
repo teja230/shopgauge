@@ -777,7 +777,7 @@ export default function CompetitorsPage() {
     
     try {
       const cacheKey = `competitors_${shop}`;
-      const suggestionCacheKey = `suggestions_${shop}`;
+      const suggestionCacheKey = `market-intelligence:suggestions_${shop}`;
       
       const [competitorsData, suggestionCountData] = await Promise.all([
         fetchWithCache(cacheKey, getCompetitors, forceRefresh ? 0 : CACHE_DURATION),
