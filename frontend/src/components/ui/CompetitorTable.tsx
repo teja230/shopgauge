@@ -1118,10 +1118,11 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({
   const [highlightedRows, setHighlightedRows] = useState<Set<string>>(new Set());
 
   // Function to highlight a row briefly
-  const highlightRow = (competitorId: string, color: 'success' | 'warning') => {
-    debugLog.info('highlightRow called', { competitorId, color }, 'CompetitorTable');
+  const highlightRow = (competitorId: string | number, color: 'success' | 'warning') => {
+    const competitorIdStr = String(competitorId);
+    debugLog.info('highlightRow called', { competitorId: competitorIdStr, color }, 'CompetitorTable');
     setHighlightedRows(prev => {
-      const newSet = new Set([...prev, competitorId]);
+      const newSet = new Set([...prev, competitorIdStr]);
       debugLog.info('Updated highlightedRows', { highlightedRows: Array.from(newSet) }, 'CompetitorTable');
       return newSet;
     });
@@ -1130,8 +1131,8 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({
     setTimeout(() => {
       setHighlightedRows(prev => {
         const newSet = new Set(prev);
-        newSet.delete(competitorId);
-        debugLog.info('Removed highlight for', { competitorId }, 'CompetitorTable');
+        newSet.delete(competitorIdStr);
+        debugLog.info('Removed highlight for', { competitorId: competitorIdStr }, 'CompetitorTable');
         return newSet;
       });
     }, 2000);
@@ -1156,7 +1157,7 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({
       }
       
       debugLog.info('Highlighting with color', { color }, 'CompetitorTable');
-      highlightRow(highlightedCompetitorId, color);
+      highlightRow(String(highlightedCompetitorId), color);
     }
   }, [highlightedCompetitorId, highlightAction]);
 
@@ -1168,7 +1169,7 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({
 
   const handleConfirmDelete = () => {
     if (competitorToDelete) {
-      highlightRow(competitorToDelete.id, 'warning');
+      highlightRow(String(competitorToDelete.id), 'warning');
       onDelete(competitorToDelete.id);
       setDeleteDialogOpen(false);
       setCompetitorToDelete(null);
