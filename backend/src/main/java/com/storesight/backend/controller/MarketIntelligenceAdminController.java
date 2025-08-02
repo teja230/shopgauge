@@ -827,7 +827,7 @@ public class MarketIntelligenceAdminController {
       // Check Redis keys before scraping
       String domain = extractDomain(url);
       String recentScrapeKey = "market-intelligence:recent_scrape:" + domain + ":" + url.hashCode();
-      String rateLimitKey = "scraper_rate_limit:" + domain;
+      String rateLimitKey = "market-intelligence:scraper_rate_limit:" + domain;
 
       debugInfo.put("competitorId", competitorId);
       debugInfo.put("url", url);
@@ -1094,7 +1094,7 @@ public class MarketIntelligenceAdminController {
       }
 
       // Check rate limiting with longer delays
-      String rateLimitKey = "scraper_rate_limit:" + domain;
+      String rateLimitKey = "market-intelligence:scraper_rate_limit:" + domain;
       if (redisTemplate.hasKey(rateLimitKey)) {
         log.debug("triggerImmediatePriceScraping: Rate limit active for domain: {}", domain);
         return; // Skip immediate scraping if rate limited
@@ -1228,7 +1228,7 @@ public class MarketIntelligenceAdminController {
   /** Get cached price for URL to reduce scraping costs */
   private java.math.BigDecimal getCachedPriceForUrl(String url) {
     try {
-      String cacheKey = "price_cache:" + url.hashCode();
+      String cacheKey = "market-intelligence:price_cache:" + url.hashCode();
       Object cached = redisTemplate.opsForValue().get(cacheKey);
       if (cached != null) {
         return new java.math.BigDecimal(cached.toString());
@@ -1242,7 +1242,7 @@ public class MarketIntelligenceAdminController {
   /** Cache price for URL to reduce future scraping costs */
   private void cachePriceForUrl(String url, java.math.BigDecimal price) {
     try {
-      String cacheKey = "price_cache:" + url.hashCode();
+      String cacheKey = "market-intelligence:price_cache:" + url.hashCode();
       // Cache for 24 hours to reduce scraping frequency
       redisTemplate
           .opsForValue()
