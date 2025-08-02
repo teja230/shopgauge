@@ -1343,9 +1343,16 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({
                 // Determine the correct highlight color based on the action
                 let highlightColor: 'success' | 'warning' | undefined = undefined;
                 if (isHighlighted) {
-                  // For now, we'll use 'warning' for archive actions
-                  // In the future, we could track the action type per competitor
-                  highlightColor = 'warning';
+                  // Determine color based on the current highlight action
+                  if (highlightAction === 'add') {
+                    highlightColor = 'success'; // Green for adding
+                  } else if (highlightAction === 'archive') {
+                    highlightColor = 'warning'; // Orange for archiving
+                  } else if (highlightAction === 'restore') {
+                    highlightColor = 'success'; // Green for restoring
+                  } else {
+                    highlightColor = 'success'; // Default to success
+                  }
                 }
                 return (
                   <DesktopTableRow
