@@ -172,7 +172,7 @@ public class SmartSnapshotService {
                 WHERE competitor_url_id = ?
                 AND deleted_at IS NULL
                 AND checked_at >= CURRENT_DATE - INTERVAL '1 day' * ?
-                ORDER BY checked_at ASC
+                ORDER BY checked_at DESC
                 """;
 
       return jdbcTemplate.queryForList(query, competitorId, days);
