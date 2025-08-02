@@ -22,6 +22,11 @@ import {
   Collapse,
   Divider,
   CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  DialogContentText,
 } from '@mui/material';
 import {
   Archive as ArchiveIcon,
@@ -520,7 +525,7 @@ const LoadingSpinner: React.FC<{ size?: number; tooltip?: string }> = ({ size = 
 // Mobile competitor card component
 const MobileCompetitorCard: React.FC<{
   competitor: Competitor;
-  onDelete: (id: string) => void;
+  onDelete: (competitor: Competitor) => void;
   onViewGraph?: (competitor: Competitor) => void;
 }> = ({ competitor, onDelete, onViewGraph }) => {
   const [expanded, setExpanded] = useState(false);
@@ -528,7 +533,7 @@ const MobileCompetitorCard: React.FC<{
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onDelete(competitor.id);
+    onDelete(competitor);
   };
 
   const handleOpenUrl = (e: React.MouseEvent) => {
@@ -790,7 +795,7 @@ const MobileCompetitorCard: React.FC<{
 // Desktop table row component
 const DesktopTableRow: React.FC<{
   competitor: Competitor;
-  onDelete: (id: string) => void;
+  onDelete: (competitor: Competitor) => void;
   onLinkProduct?: (competitor: Competitor) => void;
   onViewGraph?: (competitor: Competitor) => void;
   highlighted?: boolean;
@@ -800,7 +805,7 @@ const DesktopTableRow: React.FC<{
   const { shop } = useAuth();
 
   const handleDelete = () => {
-    onDelete(competitor.id);
+    onDelete(competitor);
   };
 
   const handleOpenUrl = () => {
@@ -1050,6 +1055,9 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({
   isCollapsed = false,
   onRefreshPrices,
 }) => {
+  // Confirmation dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [competitorToDelete, setCompetitorToDelete] = useState<Competitor | null>(null);
   const [refreshStatus, setRefreshStatus] = useState<{
     can_refresh: boolean;
     stale_count: number;
@@ -1117,10 +1125,32 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({
     }, 2000);
   };
 
-  // Enhanced delete handler with highlighting
+  // Confirmation dialog handlers
+  const handleDeleteClick = (competitor: Competitor) => {
+    setCompetitorToDelete(competitor);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (competitorToDelete) {
+      highlightRow(competitorToDelete.id, 'warning');
+      onDelete(competitorToDelete.id);
+      setDeleteDialogOpen(false);
+      setCompetitorToDelete(null);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteDialogOpen(false);
+    setCompetitorToDelete(null);
+  };
+
+  // Enhanced delete handler with highlighting (now uses confirmation)
   const handleDeleteWithHighlight = (competitorId: string) => {
-    highlightRow(competitorId, 'warning');
-    onDelete(competitorId);
+    const competitor = data.find(c => c.id === competitorId);
+    if (competitor) {
+      handleDeleteClick(competitor);
+    }
   };
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -1248,7 +1278,7 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({
             <MobileCompetitorCard
               key={competitor.id}
               competitor={competitor}
-              onDelete={handleDeleteWithHighlight}
+              onDelete={handleDeleteClick}
               onViewGraph={onViewGraph}
             />
           ))}
@@ -1277,7 +1307,7 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({
                 <DesktopTableRow
                   key={competitor.id}
                   competitor={competitor}
-                  onDelete={handleDeleteWithHighlight}
+                  onDelete={handleDeleteClick}
                   onLinkProduct={onLinkProduct}
                   onViewGraph={onViewGraph}
                   highlighted={highlightedRows.has(competitor.id)}
@@ -1288,6 +1318,34 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({
           </Table>
         </StyledTableContainer>
       </Box>
+
+      {/* Confirmation Dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={handleCancelDelete}
+        aria-labelledby="delete-dialog-title"
+        aria-describedby="delete-dialog-description"
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle id="delete-dialog-title">
+          Archive Competitor
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="delete-dialog-description">
+            Are you sure you want to archive <strong>{competitorToDelete?.label}</strong>? 
+            This will move the competitor to your archived list where you can restore it later if needed.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCancelDelete} color="primary">
+            Cancel
+          </Button>
+          <Button onClick={handleConfirmDelete} color="warning" variant="contained">
+            Archive
+          </Button>
+        </DialogActions>
+      </Dialog>
     </ResponsiveContainer>
   );
 };
