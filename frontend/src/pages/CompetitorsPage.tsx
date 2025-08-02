@@ -618,6 +618,9 @@ export default function CompetitorsPage() {
   const [highlightedCompetitorId, setHighlightedCompetitorId] = useState<string | undefined>();
   const [highlightAction, setHighlightAction] = useState<'add' | 'archive' | 'restore' | undefined>();
   
+  // Refresh trigger for archived competitors
+  const [archivedRefreshTrigger, setArchivedRefreshTrigger] = useState(0);
+  
   // Function to trigger row highlighting
   const triggerHighlight = (competitorId: string, action: 'add' | 'archive' | 'restore') => {
     setHighlightedCompetitorId(competitorId);
@@ -1530,6 +1533,9 @@ export default function CompetitorsPage() {
           category: 'Competitors',
           showToast: true
         });
+        
+        // Trigger refresh of archived competitors list
+        setArchivedRefreshTrigger(prev => prev + 1);
         
         debugLog.info('Competitor deleted successfully', { 
           competitorId: id,
@@ -2923,6 +2929,7 @@ export default function CompetitorsPage() {
                       onCompetitorRestored={handleCompetitorRestored}
                       archivedLimit={limits?.archivedCompetitorLimit?.limit}
                       archivedCurrent={limits?.archivedCompetitorLimit?.currentCount}
+                      refreshTrigger={archivedRefreshTrigger}
                     />
                   </div>
                 </div>
