@@ -19,6 +19,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -100,6 +101,12 @@ public class SessionConfig {
   @Order(1) // Highest priority to catch session errors first
   public SessionErrorHandlingFilter sessionErrorHandlingFilter() {
     return new SessionErrorHandlingFilter(sessionSynchronizationService);
+  }
+
+  @Bean
+  @Order(Ordered.HIGHEST_PRECEDENCE - 1) // Run before SessionRepositoryFilter
+  public SessionRepositoryErrorFilter sessionRepositoryErrorFilter() {
+    return new SessionRepositoryErrorFilter();
   }
 
   /** Thread-safe session state tracking to prevent race conditions. */

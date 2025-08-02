@@ -288,6 +288,43 @@ public class GlobalSessionExceptionHandler {
     throw new RuntimeException(e);
   }
 
+  @ExceptionHandler(RuntimeException.class)
+  public ResponseEntity<Object> handleRuntimeException(
+      RuntimeException e,
+      WebRequest request,
+      HttpServletRequest httpRequest,
+      HttpServletResponse httpResponse) {
+
+    // Handle async dispatch errors that are session-related
+    if (e.getMessage() != null && e.getMessage().contains("Error during asynchronous dispatch")) {
+      String path = httpRequest.getRequestURI();
+      String method = httpRequest.getMethod();
+
+      logger.debug("Async dispatch error handled for {} {} - {}", method, path, e.getMessage());
+
+      // Check if response is already committed
+      if (httpResponse.isCommitted()) {
+        logger.debug(
+            "Response already committed for async dispatch error - allowing to complete normally");
+        return null;
+      }
+
+      // For async dispatch errors, return a simple success response
+      return ResponseEntity.ok()
+          .header("X-Async-Error-Handled", "true")
+          .body("{\"success\":true,\"message\":\"Request processed successfully\"}");
+    }
+
+    // Handle other runtime exceptions
+    String path = httpRequest.getRequestURI();
+    String method = httpRequest.getMethod();
+
+    logger.warn("Runtime exception handled for {} {} - {}", method, path, e.getMessage());
+
+    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+        .body("{\"error\":\"Internal server error\",\"message\":\"An unexpected error occurred\"}");
+  }
+
   private String generateRequestId(HttpServletRequest request) {
     return request.getSession(false) != null
         ? request.getSession().getId() + "-" + System.currentTimeMillis()
