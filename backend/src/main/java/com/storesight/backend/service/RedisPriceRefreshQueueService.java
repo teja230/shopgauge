@@ -567,26 +567,51 @@ public class RedisPriceRefreshQueueService {
   private void storePriceSnapshot(
       CompetitorRefreshItem competitor, PriceScrapingService.PriceScrapingResult result) {
     try {
+      // Store comprehensive price snapshot data
       jdbcTemplate.update(
           """
-          INSERT INTO price_snapshots (competitor_url_id, price, checked_at, platform)
-          VALUES (?, ?, NOW(), ?)
+          INSERT INTO price_snapshots (
+              competitor_url_id,
+              price,
+              in_stock,
+              checked_at,
+              platform,
+              scraper_source,
+              response_time_ms,
+              scraper_version,
+              currency
+          ) VALUES (?, ?, ?, NOW(), ?, ?, ?, ?, ?)
           """,
           competitor.id,
           result.getPrice(),
-          result.getPlatform());
+          result.isInStock(),
+          result.getPlatform(),
+          result.getScraperSource(),
+          result.getResponseTime(),
+          "v2.0-unified",
+          "USD");
 
-      // Update competitor status
+      // Update competitor status with comprehensive tracking
       jdbcTemplate.update(
           """
           UPDATE competitor_urls
-          SET status = 'active', error_count = 0, last_successful_check = NOW()
+          SET status = 'active',
+              error_count = 0,
+              last_successful_check = NOW(),
+              response_time_ms = ?,
+              scraper_version = ?
           WHERE id = ?
           """,
+          result.getResponseTime(),
+          "v2.0-unified",
           competitor.id);
 
       logger.debug(
-          "Stored price snapshot for competitor {}: ${}", competitor.id, result.getPrice());
+          "Stored comprehensive price snapshot for competitor {}: ${} via {} ({}ms)",
+          competitor.id,
+          result.getPrice(),
+          result.getScraperSource(),
+          result.getResponseTime());
 
     } catch (Exception e) {
       logger.error(
