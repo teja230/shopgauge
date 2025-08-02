@@ -277,9 +277,11 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {priceHistory.map((entry, index) => {
-                      const prevPrice = index > 0 ? priceHistory[index - 1].price : entry.price;
-                      const change = entry.price - prevPrice;
-                      const changePercent = prevPrice > 0 ? (change / prevPrice) * 100 : 0;
+                      // Since data is ordered from latest to oldest (descending), 
+                      // we need to compare with the next entry (older) to show the change
+                      const nextPrice = index < priceHistory.length - 1 ? priceHistory[index + 1].price : entry.price;
+                      const change = entry.price - nextPrice;
+                      const changePercent = nextPrice > 0 ? (change / nextPrice) * 100 : 0;
                       
                       return (
                         <tr key={index} className="hover:bg-gray-50">
@@ -290,7 +292,7 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
                             {formatPrice(entry.price)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm">
-                            {index > 0 ? (
+                            {index < priceHistory.length - 1 ? (
                               <span className={`flex items-center ${getPriceChangeColor(changePercent)}`}>
                                 <span className="mr-1">{getPriceChangeIcon(changePercent)}</span>
                                 {changePercent !== 0 && `${changePercent > 0 ? '+' : ''}${changePercent.toFixed(1)}%`}
