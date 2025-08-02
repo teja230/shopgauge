@@ -279,7 +279,7 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
         });
         
         const data = await response.json();
-        if (data.success) {
+        if (response.ok && data.success) {
           // Highlight the row before removing it
           highlightRow(restoreDialog.competitor!.id, 'success');
           
@@ -294,6 +294,9 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
           if (onCompetitorRestored) {
             onCompetitorRestored();
           }
+        } else {
+          // Handle error response
+          throw new Error(data.error || data.message || 'Failed to restore competitor');
         }
       }
     } catch (error: any) {
@@ -301,8 +304,12 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
       
       // Handle specific error messages
       let errorMessage = 'Failed to restore archived competitor';
-      if (error.message?.includes('competitor limit') || error.message?.includes('COMPETITOR_LIMIT_EXCEEDED')) {
+      
+      // Check for the specific error format from backend
+      if (error.message?.includes('COMPETITOR_LIMIT_EXCEEDED') || error.message?.includes('competitor limit')) {
         errorMessage = 'You have reached the maximum competitor tracking limit for your current subscription tier.';
+      } else if (error.message?.includes('ARCHIVED_COMPETITOR_LIMIT_EXCEEDED') || error.message?.includes('archived competitor limit')) {
+        errorMessage = 'You have reached the maximum archived competitor limit for your current subscription tier.';
       } else if (error.message?.includes('limit')) {
         errorMessage = 'You have reached the maximum competitor tracking limit for your current subscription tier.';
       }
