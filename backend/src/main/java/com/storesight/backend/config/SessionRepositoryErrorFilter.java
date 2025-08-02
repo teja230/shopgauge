@@ -20,7 +20,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * <p>This filter works in conjunction with SessionConfig.SessionErrorHandlingFilter to provide
  * multiple layers of protection against session invalidation errors.
  */
-@Order(Ordered.HIGHEST_PRECEDENCE) // Run before SessionRepositoryFilter to catch errors early
+@Order(Ordered.HIGHEST_PRECEDENCE - 10) // Run before SessionRepositoryFilter to catch errors early
 public class SessionRepositoryErrorFilter extends OncePerRequestFilter {
 
   private static final Logger logger = LoggerFactory.getLogger(SessionRepositoryErrorFilter.class);

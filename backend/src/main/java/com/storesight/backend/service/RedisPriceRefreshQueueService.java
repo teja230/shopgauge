@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
+import jakarta.annotation.PostConstruct;
 
 @Service
 public class RedisPriceRefreshQueueService {
@@ -88,8 +89,8 @@ public class RedisPriceRefreshQueueService {
           );
 
   // Thread pools for concurrent domain processing
-  private final ExecutorService domainExecutor;
-  private final ScheduledExecutorService progressExecutor;
+  private ExecutorService domainExecutor;
+  private ScheduledExecutorService progressExecutor;
 
   // Rate limiters per domain (minimal in-memory storage)
   private final Map<String, RateLimiter> domainRateLimiters = new ConcurrentHashMap<>();
@@ -98,14 +99,22 @@ public class RedisPriceRefreshQueueService {
   private final ObjectMapper objectMapper = new ObjectMapper();
 
   public RedisPriceRefreshQueueService() {
+    // Constructor left empty - initialization moved to @PostConstruct
+  }
+
+  @PostConstruct
+  public void initialize() {
     // Memory-optimized thread pools for 512MB instance
+    // Ensure queueCapacity is valid (default to 10 if null or invalid)
+    int safeQueueCapacity = (queueCapacity > 0) ? queueCapacity : 10;
+    
     this.domainExecutor =
         new ThreadPoolExecutor(
             coreThreads, // Core threads
             maxThreads, // Max threads
             60L,
             TimeUnit.SECONDS, // Keep alive time
-            new LinkedBlockingQueue<>(queueCapacity), // Bounded queue
+            new LinkedBlockingQueue<>(safeQueueCapacity), // Bounded queue
             r -> {
               Thread t = new Thread(r, "redis-price-refresh-domain-" + System.currentTimeMillis());
               t.setDaemon(true); // Allow JVM to exit

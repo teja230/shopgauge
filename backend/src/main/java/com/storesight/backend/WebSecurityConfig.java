@@ -274,9 +274,7 @@ public class WebSecurityConfig implements WebMvcConfigurer {
             })
         .sessionManagement(
             session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
-        .addFilterBefore(
-            sessionRepositoryErrorFilter(),
-            org.springframework.security.web.context.SecurityContextHolderFilter.class)
+        // SessionRepositoryErrorFilter is now defined in SessionConfig.java to avoid bean conflicts
         .addFilterBefore(oAuthSessionFilter(), UsernamePasswordAuthenticationFilter.class)
         .addFilterBefore(adminAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
         .addFilterBefore(shopifyAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
@@ -308,10 +306,7 @@ public class WebSecurityConfig implements WebMvcConfigurer {
     return new com.storesight.backend.config.OAuthSessionFilter();
   }
 
-  @Bean
-  public com.storesight.backend.config.SessionRepositoryErrorFilter sessionRepositoryErrorFilter() {
-    return new com.storesight.backend.config.SessionRepositoryErrorFilter();
-  }
+
 
   /** Access Denied Handler */
   @Bean
