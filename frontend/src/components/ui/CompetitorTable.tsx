@@ -47,6 +47,7 @@ import {
   VisibilityOff as VisibilityOffIcon,
 } from '@mui/icons-material';
 import StoreLogo from './StoreLogo';
+import { debugLog } from './DebugPanel';
 
 import { styled } from '@mui/material/styles';
 import { format, parseISO } from 'date-fns';
@@ -1118,10 +1119,10 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({
 
   // Function to highlight a row briefly
   const highlightRow = (competitorId: string, color: 'success' | 'warning') => {
-    console.log('highlightRow called:', { competitorId, color });
+    debugLog.info('highlightRow called', { competitorId, color }, 'CompetitorTable');
     setHighlightedRows(prev => {
       const newSet = new Set([...prev, competitorId]);
-      console.log('Updated highlightedRows:', Array.from(newSet));
+      debugLog.info('Updated highlightedRows', { highlightedRows: Array.from(newSet) }, 'CompetitorTable');
       return newSet;
     });
     
@@ -1130,7 +1131,7 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({
       setHighlightedRows(prev => {
         const newSet = new Set(prev);
         newSet.delete(competitorId);
-        console.log('Removed highlight for:', competitorId);
+        debugLog.info('Removed highlight for', { competitorId }, 'CompetitorTable');
         return newSet;
       });
     }, 2000);
@@ -1139,7 +1140,7 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({
   // Handle external highlighting from props
   React.useEffect(() => {
     if (highlightedCompetitorId && highlightAction) {
-      console.log('Highlighting triggered:', { highlightedCompetitorId, highlightAction });
+      debugLog.info('Highlighting triggered', { highlightedCompetitorId, highlightAction }, 'CompetitorTable');
       
       // Determine color based on action and section
       let color: 'success' | 'warning';
@@ -1154,7 +1155,7 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({
         color = 'success';
       }
       
-      console.log('Highlighting with color:', color);
+      debugLog.info('Highlighting with color', { color }, 'CompetitorTable');
       highlightRow(highlightedCompetitorId, color);
     }
   }, [highlightedCompetitorId, highlightAction]);
