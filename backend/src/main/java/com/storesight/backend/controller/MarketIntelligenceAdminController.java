@@ -684,7 +684,7 @@ public class MarketIntelligenceAdminController {
 
       // Check Redis keys before scraping
       String domain = extractDomain(url);
-      String recentScrapeKey = "recent_scrape:" + domain + ":" + url.hashCode();
+      String recentScrapeKey = "market-intelligence:recent_scrape:" + domain + ":" + url.hashCode();
       String rateLimitKey = "scraper_rate_limit:" + domain;
 
       debugInfo.put("domain", domain);
@@ -826,7 +826,7 @@ public class MarketIntelligenceAdminController {
 
       // Check Redis keys before scraping
       String domain = extractDomain(url);
-      String recentScrapeKey = "recent_scrape:" + domain + ":" + url.hashCode();
+      String recentScrapeKey = "market-intelligence:recent_scrape:" + domain + ":" + url.hashCode();
       String rateLimitKey = "scraper_rate_limit:" + domain;
 
       debugInfo.put("competitorId", competitorId);
@@ -1086,7 +1086,7 @@ public class MarketIntelligenceAdminController {
 
       // Check if we recently scraped this URL (within last 2 hours)
       String domain = extractDomain(url);
-      String recentScrapeKey = "recent_scrape:" + domain + ":" + url.hashCode();
+      String recentScrapeKey = "market-intelligence:recent_scrape:" + domain + ":" + url.hashCode();
 
       if (redisTemplate.hasKey(recentScrapeKey)) {
         log.info("triggerImmediatePriceScraping: Skipping - URL scraped recently: {}", url);

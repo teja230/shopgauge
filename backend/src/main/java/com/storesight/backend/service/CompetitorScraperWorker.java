@@ -288,7 +288,7 @@ public class CompetitorScraperWorker {
 
     // COST OPTIMIZATION 1: Check if we recently scraped this URL
     String domain = extractDomain(url);
-    String recentScrapeKey = "recent_scrape:" + domain + ":" + url.hashCode();
+    String recentScrapeKey = "market-intelligence:recent_scrape:" + domain + ":" + url.hashCode();
 
     if (redisTemplate.hasKey(recentScrapeKey)) {
       log.info("[Worker] Skipping - URL scraped recently: {}", url);
