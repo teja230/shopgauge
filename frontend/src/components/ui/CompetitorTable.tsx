@@ -1118,13 +1118,19 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({
 
   // Function to highlight a row briefly
   const highlightRow = (competitorId: string, color: 'success' | 'warning') => {
-    setHighlightedRows(prev => new Set([...prev, competitorId]));
+    console.log('highlightRow called:', { competitorId, color });
+    setHighlightedRows(prev => {
+      const newSet = new Set([...prev, competitorId]);
+      console.log('Updated highlightedRows:', Array.from(newSet));
+      return newSet;
+    });
     
     // Remove highlight after 2 seconds
     setTimeout(() => {
       setHighlightedRows(prev => {
         const newSet = new Set(prev);
         newSet.delete(competitorId);
+        console.log('Removed highlight for:', competitorId);
         return newSet;
       });
     }, 2000);
@@ -1133,6 +1139,8 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({
   // Handle external highlighting from props
   React.useEffect(() => {
     if (highlightedCompetitorId && highlightAction) {
+      console.log('Highlighting triggered:', { highlightedCompetitorId, highlightAction });
+      
       // Determine color based on action and section
       let color: 'success' | 'warning';
       
@@ -1146,6 +1154,7 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({
         color = 'success';
       }
       
+      console.log('Highlighting with color:', color);
       highlightRow(highlightedCompetitorId, color);
     }
   }, [highlightedCompetitorId, highlightAction]);
@@ -1328,17 +1337,27 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({
               </TableRow>
             </StyledTableHead>
             <TableBody>
-              {data.map((competitor) => (
-                <DesktopTableRow
-                  key={competitor.id}
-                  competitor={competitor}
-                  onDelete={handleDeleteClick}
-                  onLinkProduct={onLinkProduct}
-                  onViewGraph={onViewGraph}
-                  highlighted={highlightedRows.has(competitor.id)}
-                  highlightColor={highlightedRows.has(competitor.id) ? 'warning' : undefined}
-                />
-              ))}
+              {data.map((competitor) => {
+                const isHighlighted = highlightedRows.has(competitor.id);
+                // Determine the correct highlight color based on the action
+                let highlightColor: 'success' | 'warning' | undefined = undefined;
+                if (isHighlighted) {
+                  // For now, we'll use 'warning' for archive actions
+                  // In the future, we could track the action type per competitor
+                  highlightColor = 'warning';
+                }
+                return (
+                  <DesktopTableRow
+                    key={competitor.id}
+                    competitor={competitor}
+                    onDelete={handleDeleteClick}
+                    onLinkProduct={onLinkProduct}
+                    onViewGraph={onViewGraph}
+                    highlighted={isHighlighted}
+                    highlightColor={highlightColor}
+                  />
+                );
+              })}
             </TableBody>
           </Table>
         </StyledTableContainer>
