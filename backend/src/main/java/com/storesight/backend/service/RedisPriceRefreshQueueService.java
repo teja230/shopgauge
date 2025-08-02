@@ -1,6 +1,7 @@
 package com.storesight.backend.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.PostConstruct;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -12,7 +13,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
-import jakarta.annotation.PostConstruct;
 
 @Service
 public class RedisPriceRefreshQueueService {
@@ -107,7 +107,7 @@ public class RedisPriceRefreshQueueService {
     // Memory-optimized thread pools for 512MB instance
     // Ensure queueCapacity is valid (default to 10 if null or invalid)
     int safeQueueCapacity = (queueCapacity > 0) ? queueCapacity : 10;
-    
+
     this.domainExecutor =
         new ThreadPoolExecutor(
             coreThreads, // Core threads
