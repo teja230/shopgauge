@@ -20,7 +20,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * <p>This filter works in conjunction with SessionConfig.SessionErrorHandlingFilter to provide
  * multiple layers of protection against session invalidation errors.
  */
-@Order(Ordered.HIGHEST_PRECEDENCE + 1) // Run after SessionErrorHandlingFilter
+@Order(Ordered.HIGHEST_PRECEDENCE) // Run before SessionRepositoryFilter to catch errors early
 public class SessionRepositoryErrorFilter extends OncePerRequestFilter {
 
   private static final Logger logger = LoggerFactory.getLogger(SessionRepositoryErrorFilter.class);
@@ -82,6 +82,16 @@ public class SessionRepositoryErrorFilter extends OncePerRequestFilter {
       return true;
     }
 
+    // Check for response stream conflicts that are session-related
+    if (e.getMessage() != null && e.getMessage().contains("getWriter() has already been called")) {
+      return true;
+    }
+
+    // Check for asynchronous dispatch errors that are session-related
+    if (e.getMessage() != null && e.getMessage().contains("Error during asynchronous dispatch")) {
+      return true;
+    }
+
     // Check cause chain for session errors
     Throwable cause = e.getCause();
     while (cause != null) {
@@ -94,6 +104,12 @@ public class SessionRepositoryErrorFilter extends OncePerRequestFilter {
       if (cause.getClass().getName().contains("RedisCommandExecutionException")
           && cause.getMessage() != null
           && cause.getMessage().contains("ERR no such key")) {
+        return true;
+      }
+      // Check for response stream conflicts in cause chain
+      if (cause instanceof IllegalStateException
+          && cause.getMessage() != null
+          && cause.getMessage().contains("getWriter() has already been called")) {
         return true;
       }
       cause = cause.getCause();
