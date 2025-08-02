@@ -3678,6 +3678,43 @@ public class CompetitorController {
           "triggerImmediatePriceScraping: Starting ENTERPRISE-GRADE immediate scraping for competitor ID: {}",
           competitorId);
 
+      // COST OPTIMIZATION 0: Check if recent price snapshot exists (< 24 hours) - CRITICAL FIX
+      List<Map<String, Object>> latestSnapshot =
+          jdbcTemplate.queryForList(
+              """
+          SELECT checked_at FROM price_snapshots
+          WHERE competitor_url_id = ?
+          ORDER BY checked_at DESC
+          LIMIT 1
+          """,
+              Long.parseLong(competitorId));
+
+      if (!latestSnapshot.isEmpty()) {
+        String lastCheckedStr = (String) latestSnapshot.get(0).get("checked_at");
+        if (lastCheckedStr != null) {
+          try {
+            java.time.LocalDateTime lastChecked =
+                java.time.LocalDateTime.parse(lastCheckedStr.replace(" ", "T"));
+            java.time.LocalDateTime now = java.time.LocalDateTime.now();
+            java.time.Duration duration = java.time.Duration.between(lastChecked, now);
+
+            // Skip scraping if last check was less than 24 hours ago
+            if (duration.toHours() < 24) {
+              logger.info(
+                  "triggerImmediatePriceScraping: Skipping - Recent price data exists ({} hours ago) for competitor {}",
+                  duration.toHours(),
+                  competitorId);
+              return; // Skip scraping if recent data exists
+            }
+          } catch (Exception e) {
+            logger.warn(
+                "triggerImmediatePriceScraping: Could not parse last check time: {}",
+                lastCheckedStr);
+            // Continue with scraping if we can't parse the timestamp
+          }
+        }
+      }
+
       // COST OPTIMIZATION 1: Check if we recently scraped this URL (within last 2 hours)
       String domain = extractDomain(url);
       String recentScrapeKey = "recent_scrape:" + domain + ":" + url.hashCode();
