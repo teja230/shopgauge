@@ -111,9 +111,9 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
     return '→';
   };
 
-  // Transform data for Recharts
+  // Transform data for Recharts - data is in descending order (latest first)
   const chartData = priceHistory.map((entry, index) => {
-    const prevPrice = index < priceHistory.length - 1 ? priceHistory[index + 1].price : entry.price;
+    const prevPrice = index > 0 ? priceHistory[index - 1].price : entry.price;
     const change = entry.price - prevPrice;
     const changePercent = prevPrice > 0 ? (change / prevPrice) * 100 : 0;
     
@@ -127,7 +127,7 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
       inStock: entry.in_stock,
       timestamp: new Date(entry.checked_at).getTime()
     };
-  }); // Data is already in chronological order (oldest to newest)
+  }); // Data is in descending order (latest first)
 
   // Custom tooltip for the chart
   const CustomTooltip = ({ active, payload, label }: any) => {
@@ -277,7 +277,7 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {priceHistory.map((entry, index) => {
-                      const prevPrice = index < priceHistory.length - 1 ? priceHistory[index + 1].price : entry.price;
+                      const prevPrice = index > 0 ? priceHistory[index - 1].price : entry.price;
                       const change = entry.price - prevPrice;
                       const changePercent = prevPrice > 0 ? (change / prevPrice) * 100 : 0;
                       
@@ -290,7 +290,7 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
                             {formatPrice(entry.price)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm">
-                            {index < priceHistory.length - 1 ? (
+                            {index > 0 ? (
                               <span className={`flex items-center ${getPriceChangeColor(changePercent)}`}>
                                 <span className="mr-1">{getPriceChangeIcon(changePercent)}</span>
                                 {changePercent !== 0 && `${changePercent > 0 ? '+' : ''}${changePercent.toFixed(1)}%`}
@@ -359,7 +359,7 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
                   </ResponsiveContainer>
                 </div>
                 <div className="text-center text-sm text-gray-500 mt-4">
-                  {formatDate(priceHistory[0].checked_at)} - {formatDate(priceHistory[priceHistory.length - 1].checked_at)}
+                  {formatDate(priceHistory[priceHistory.length - 1].checked_at)} - {formatDate(priceHistory[0].checked_at)}
                 </div>
               </div>
             )}
