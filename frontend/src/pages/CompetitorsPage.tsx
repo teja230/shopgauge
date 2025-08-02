@@ -614,6 +614,22 @@ export default function CompetitorsPage() {
   const [demoStartTime, setDemoStartTime] = useState<number>(0);
   const [limits, setLimits] = useState<LimitsResponse | null>(null);
   
+  // Highlighting state for row highlighting
+  const [highlightedCompetitorId, setHighlightedCompetitorId] = useState<string | undefined>();
+  const [highlightAction, setHighlightAction] = useState<'add' | 'archive' | 'restore' | undefined>();
+  
+  // Function to trigger row highlighting
+  const triggerHighlight = (competitorId: string, action: 'add' | 'archive' | 'restore') => {
+    setHighlightedCompetitorId(competitorId);
+    setHighlightAction(action);
+    
+    // Clear highlighting after 2 seconds
+    setTimeout(() => {
+      setHighlightedCompetitorId(undefined);
+      setHighlightAction(undefined);
+    }, 2000);
+  };
+  
   // Refresh functionality state
   // Refresh state - enhanced with session tracking
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -1167,6 +1183,9 @@ export default function CompetitorsPage() {
         // Set price loading state for the new competitor
         const competitorWithLoading = { ...newCompetitor, priceLoading: true };
         setCompetitors((prev) => [...prev, competitorWithLoading]);
+        
+        // Trigger highlighting for the newly added competitor
+        triggerHighlight(newCompetitor.id, 'add');
       
         // Clear cache to ensure fresh data on next load
         const cacheKey = `competitors_${shop}`;
@@ -1493,6 +1512,10 @@ export default function CompetitorsPage() {
       
       // Optimistically remove from UI for better UX
       const competitorToDelete = competitors.find(c => c.id === id);
+      
+      // Trigger highlighting for the archived competitor
+      triggerHighlight(id, 'archive');
+      
       setCompetitors((prev) => prev.filter((c) => c.id !== id));
       
       try {
@@ -1644,8 +1667,14 @@ export default function CompetitorsPage() {
   }, [fetchData]);
 
   // Callback for when a competitor is restored from archived section
-  const handleCompetitorRestored = useCallback(() => {
+  const handleCompetitorRestored = useCallback((competitorId?: string) => {
     console.log('Competitor restored, forcing refresh of active competitors');
+    
+    // Trigger highlighting for the restored competitor if ID is provided
+    if (competitorId) {
+      triggerHighlight(competitorId, 'restore');
+    }
+    
     fetchData(true); // Force refresh to update active competitors list
   }, [fetchData]);
 
@@ -2846,6 +2875,8 @@ export default function CompetitorsPage() {
                         // Refresh the competitors data
                         fetchData();
                       }}
+                      highlightedCompetitorId={highlightedCompetitorId}
+                      highlightAction={highlightAction}
                     />
             </div>
           )}

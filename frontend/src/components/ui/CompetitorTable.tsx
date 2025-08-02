@@ -81,6 +81,9 @@ interface CompetitorTableProps {
   onToggleCollapse?: () => void;
   isCollapsed?: boolean;
   onRefreshPrices?: () => void;
+  // Highlighting props for different actions
+  highlightedCompetitorId?: string;
+  highlightAction?: 'add' | 'archive' | 'restore';
 }
 
 // Mobile-first responsive container with improved performance
@@ -1054,6 +1057,8 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({
   onToggleCollapse,
   isCollapsed = false,
   onRefreshPrices,
+  highlightedCompetitorId,
+  highlightAction,
 }) => {
   // Confirmation dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -1124,6 +1129,26 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({
       });
     }, 2000);
   };
+
+  // Handle external highlighting from props
+  React.useEffect(() => {
+    if (highlightedCompetitorId && highlightAction) {
+      // Determine color based on action and section
+      let color: 'success' | 'warning';
+      
+      if (highlightAction === 'add') {
+        color = 'success'; // Green for adding
+      } else if (highlightAction === 'archive') {
+        color = 'warning'; // Orange for archiving
+      } else if (highlightAction === 'restore') {
+        color = 'success'; // Green for restoring
+      } else {
+        color = 'success';
+      }
+      
+      highlightRow(highlightedCompetitorId, color);
+    }
+  }, [highlightedCompetitorId, highlightAction]);
 
   // Confirmation dialog handlers
   const handleDeleteClick = (competitor: Competitor) => {
