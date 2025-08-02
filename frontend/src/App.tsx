@@ -93,7 +93,7 @@ const AppContent: React.FC = () => {
   const { isAuthenticated, authLoading, loading, hasInitiallyLoaded, shop } = useAuth();
   const { handleServiceError } = useServiceStatus();
     const { addNotification } = useNotifications();
-  const [showDebugPanel, setShowDebugPanel] = React.useState(true); // Enable debug panel for highlighting logs
+  const [showDebugPanel, setShowDebugPanel] = React.useState(false);
   
   // Session limit management
   const {
