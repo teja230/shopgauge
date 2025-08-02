@@ -306,8 +306,6 @@ public class WebSecurityConfig implements WebMvcConfigurer {
     return new com.storesight.backend.config.OAuthSessionFilter();
   }
 
-
-
   /** Access Denied Handler */
   @Bean
   public AccessDeniedHandler accessDeniedHandler() {
