@@ -1249,14 +1249,29 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({
           p: 2,
           borderBottom: '1px solid',
           borderColor: 'divider',
-          backgroundColor: 'background.paper'
+          backgroundColor: 'background.paper',
+          '@media (max-width: 600px)': {
+            p: 2.5,
+            minHeight: 56
+          }
         }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             {onToggleCollapse && (
               <IconButton
                 onClick={onToggleCollapse}
                 size="small"
-                sx={{ color: 'text.secondary' }}
+                sx={{ 
+                  color: 'text.secondary',
+                  minWidth: 44,
+                  minHeight: 44,
+                  '&:hover': {
+                    color: 'text.primary'
+                  },
+                  '@media (max-width: 600px)': {
+                    minWidth: 48,
+                    minHeight: 48,
+                  }
+                }}
               >
                 <svg
                   className={`w-4 h-4 transform transition-transform ${isCollapsed ? 'rotate-180' : ''}`}
@@ -1307,70 +1322,73 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({
         </Box>
       )}
 
-      {/* Mobile Cards */}
-      <Box className="mobile-cards">
-        <Stack spacing={2}>
-          {data.map((competitor) => (
-            <MobileCompetitorCard
-              key={competitor.id}
-              competitor={competitor}
-              onDelete={handleDeleteClick}
-              onViewGraph={onViewGraph}
-            />
-          ))}
-        </Stack>
-      </Box>
+      {/* Content Section - Collapsible */}
+      <Collapse in={!isCollapsed} timeout={300}>
+        {/* Mobile Cards */}
+        <Box className="mobile-cards">
+          <Stack spacing={2}>
+            {data.map((competitor) => (
+              <MobileCompetitorCard
+                key={competitor.id}
+                competitor={competitor}
+                onDelete={handleDeleteClick}
+                onViewGraph={onViewGraph}
+              />
+            ))}
+          </Stack>
+        </Box>
 
-      {/* Desktop Table */}
-      <Box className="desktop-table">
-        <StyledTableContainer>
-          <Table>
-            <StyledTableHead>
-              <TableRow>
-                <TableCell>
-                  <span>Competitor</span>
-                </TableCell>
-                <TableCell>Price</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Change</TableCell>
-                <TableCell>Product</TableCell>
-                <TableCell>Last Checked</TableCell>
-                <TableCell>Actions</TableCell>
-              </TableRow>
-            </StyledTableHead>
-            <TableBody>
-              {data.map((competitor) => {
-                const isHighlighted = highlightedRows.has(competitor.id);
-                // Determine the correct highlight color based on the action
-                let highlightColor: 'success' | 'warning' | undefined = undefined;
-                if (isHighlighted) {
-                  // Determine color based on the current highlight action
-                  if (highlightAction === 'add') {
-                    highlightColor = 'success'; // Green for adding
-                  } else if (highlightAction === 'archive') {
-                    highlightColor = 'warning'; // Orange for archiving
-                  } else if (highlightAction === 'restore') {
-                    highlightColor = 'success'; // Green for restoring
-                  } else {
-                    highlightColor = 'success'; // Default to success
+        {/* Desktop Table */}
+        <Box className="desktop-table">
+          <StyledTableContainer>
+            <Table>
+              <StyledTableHead>
+                <TableRow>
+                  <TableCell>
+                    <span>Competitor</span>
+                  </TableCell>
+                  <TableCell>Price</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Change</TableCell>
+                  <TableCell>Product</TableCell>
+                  <TableCell>Last Checked</TableCell>
+                  <TableCell>Actions</TableCell>
+                </TableRow>
+              </StyledTableHead>
+              <TableBody>
+                {data.map((competitor) => {
+                  const isHighlighted = highlightedRows.has(competitor.id);
+                  // Determine the correct highlight color based on the action
+                  let highlightColor: 'success' | 'warning' | undefined = undefined;
+                  if (isHighlighted) {
+                    // Determine color based on the current highlight action
+                    if (highlightAction === 'add') {
+                      highlightColor = 'success'; // Green for adding
+                    } else if (highlightAction === 'archive') {
+                      highlightColor = 'warning'; // Orange for archiving
+                    } else if (highlightAction === 'restore') {
+                      highlightColor = 'success'; // Green for restoring
+                    } else {
+                      highlightColor = 'success'; // Default to success
+                    }
                   }
-                }
-                return (
-                  <DesktopTableRow
-                    key={competitor.id}
-                    competitor={competitor}
-                    onDelete={handleDeleteClick}
-                    onLinkProduct={onLinkProduct}
-                    onViewGraph={onViewGraph}
-                    highlighted={isHighlighted}
-                    highlightColor={highlightColor}
-                  />
-                );
-              })}
-            </TableBody>
-          </Table>
-        </StyledTableContainer>
-      </Box>
+                  return (
+                    <DesktopTableRow
+                      key={competitor.id}
+                      competitor={competitor}
+                      onDelete={handleDeleteClick}
+                      onLinkProduct={onLinkProduct}
+                      onViewGraph={onViewGraph}
+                      highlighted={isHighlighted}
+                      highlightColor={highlightColor}
+                    />
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </StyledTableContainer>
+        </Box>
+      </Collapse>
 
       {/* Confirmation Dialog */}
       <Dialog
