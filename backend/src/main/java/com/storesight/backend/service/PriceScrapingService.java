@@ -221,17 +221,16 @@ public class PriceScrapingService {
     }
 
     // All tiers failed
-    long totalTime = System.currentTimeMillis() - startTime;
     log.error(
         "All price scraping tiers failed for URL: {} (total time: {}ms, platform: {})",
         url,
-        totalTime,
+        (System.currentTimeMillis() - startTime),
         platform);
 
     return PriceScrapingResult.failure(
         "All scraping tiers exhausted - likely blocked by anti-bot protection",
         "all-tiers-failed",
-        totalTime);
+        System.currentTimeMillis() - startTime);
   }
 
   /** Jsoup-based price scraping (Tier 1) Compliant with platform terms of service */

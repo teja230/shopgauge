@@ -169,9 +169,7 @@ public class DatabasePerformanceService {
       String sql =
           """
           SELECT schemaname, tablename, indexname, idx_scan, idx_tup_read, idx_tup_fetch,
-                 CASE WHEN idx_scan = 0 THEN 0.0
-                      ELSE ROUND((CAST(idx_tup_read AS DOUBLE PRECISION) / idx_scan), 2)
-                 END as usage_ratio
+                 ROUND((CAST(idx_tup_read AS DOUBLE PRECISION) / NULLIF(idx_scan, 0)), 2) AS usage_ratio
           FROM pg_stat_user_indexes
           WHERE schemaname = 'public'
             AND tablename IN ('competitor_urls', 'price_snapshots', 'competitor_suggestions',
