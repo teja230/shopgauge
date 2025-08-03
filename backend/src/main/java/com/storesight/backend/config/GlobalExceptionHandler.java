@@ -357,6 +357,41 @@ public class GlobalExceptionHandler {
 
     String correlationId = CorrelationIdUtil.getOrGenerateCorrelationId();
 
+    // Special handling for session invalidation errors
+    if (ex.getMessage() != null && ex.getMessage().contains("Session was invalidated")) {
+      logger.warn(
+          "Session invalidation error [{}]: {} on {}",
+          correlationId,
+          ex.getMessage(),
+          request.getRequestURI());
+
+      ErrorResponse.ErrorDetails errorDetails =
+          new ErrorResponse.ErrorDetails(
+              "SESSION_INVALIDATED",
+              "Session expired",
+              "Your session has expired. Please refresh the page and try again.");
+      errorDetails.setCorrelationId(correlationId);
+      errorDetails.setPath(request.getRequestURI());
+      errorDetails.setStatus(HttpStatus.UNAUTHORIZED.value());
+      errorDetails.setRetryable(false);
+      errorDetails.setMetadata(Map.of("requiresReauth", true));
+
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ErrorResponse(errorDetails));
+    }
+
+    // Special handling for response stream conflicts
+    if (ex.getMessage() != null
+        && ex.getMessage().contains("getOutputStream() has already been called")) {
+      logger.debug(
+          "Response stream conflict detected in GlobalExceptionHandler - delegating to GlobalSessionExceptionHandler [{}]: {} on {}",
+          correlationId,
+          ex.getMessage(),
+          request.getRequestURI());
+
+      // Re-throw to let GlobalSessionExceptionHandler handle it
+      throw ex;
+    }
+
     ErrorResponse.ErrorDetails errorDetails =
         new ErrorResponse.ErrorDetails("INVALID_STATE", "Invalid operation state", ex.getMessage());
     errorDetails.setCorrelationId(correlationId);

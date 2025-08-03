@@ -72,22 +72,38 @@ public class SessionSecurityService {
         // Use provided key
         byte[] keyBytes = Base64.getDecoder().decode(encryptionKeyBase64);
         if (keyBytes.length != 32) { // 256 bits
-          throw new IllegalArgumentException("Encryption key must be 256 bits (32 bytes)");
+          logger.warn(
+              "Invalid encryption key length: {} bytes. Expected 32 bytes (256 bits).",
+              keyBytes.length);
+          logger.warn("Generating new encryption key instead.");
+          generateNewEncryptionKey();
+        } else {
+          this.encryptionKey = new SecretKeySpec(keyBytes, ALGORITHM);
+          logger.info("Session encryption initialized with provided key");
         }
-        this.encryptionKey = new SecretKeySpec(keyBytes, ALGORITHM);
-        logger.info("Session encryption initialized with provided key");
       } else {
         // Generate new key
-        KeyGenerator keyGenerator = KeyGenerator.getInstance(ALGORITHM);
-        keyGenerator.init(KEY_LENGTH);
-        this.encryptionKey = keyGenerator.generateKey();
-
-        // Log key generation indicator for security (don't log the actual key)
-        logger.warn("Generated new session encryption key.");
-        logger.warn("Ensure the encryption key is securely configured in your environment.");
+        generateNewEncryptionKey();
       }
     } catch (Exception e) {
-      logger.error("Failed to initialize session encryption: {}", e.getMessage(), e);
+      logger.warn("Failed to initialize session encryption with provided key: {}", e.getMessage());
+      logger.warn("Generating new encryption key instead.");
+      generateNewEncryptionKey();
+    }
+  }
+
+  private void generateNewEncryptionKey() {
+    try {
+      KeyGenerator keyGenerator = KeyGenerator.getInstance(ALGORITHM);
+      keyGenerator.init(KEY_LENGTH);
+      this.encryptionKey = keyGenerator.generateKey();
+
+      // Log key generation indicator for security (don't log the actual key)
+      logger.warn("Generated new session encryption key.");
+      logger.warn(
+          "For production, set SESSION_SECURITY_ENCRYPTION_KEY environment variable with a 32-byte Base64-encoded key.");
+    } catch (Exception e) {
+      logger.error("Failed to generate new encryption key: {}", e.getMessage(), e);
       throw new RuntimeException("Session encryption initialization failed", e);
     }
   }

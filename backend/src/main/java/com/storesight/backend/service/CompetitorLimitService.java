@@ -79,10 +79,10 @@ public class CompetitorLimitService {
    */
   public LimitCheckResult checkCompetitorLimit(Long shopId) {
     try {
-      // Get current competitor count for this shop by joining with products table
+      // Get current competitor count for this shop using shop_id directly (excluding soft-deleted)
       Integer currentCount =
           jdbcTemplate.queryForObject(
-              "SELECT COUNT(*) FROM competitor_urls cu JOIN products p ON cu.product_id = p.id WHERE p.shop_id = ?",
+              "SELECT COUNT(*) FROM competitor_urls WHERE shop_id = ? AND deleted_at IS NULL",
               Integer.class,
               shopId);
 
@@ -110,6 +110,46 @@ public class CompetitorLimitService {
       log.error("Error checking competitor limit for shop {}: {}", shopId, e.getMessage());
       // Fail safe - allow addition if we can't check
       return new LimitCheckResult(true, 0, currentPlanLimit, currentPlanLimit, PlanType.CURRENT);
+    }
+  }
+
+  /** Check archived competitor limits (half of active competitor limit) */
+  public LimitCheckResult checkArchivedCompetitorLimit(Long shopId) {
+    try {
+      // Get current archived competitor count for this shop
+      Integer currentArchivedCount =
+          jdbcTemplate.queryForObject(
+              "SELECT COUNT(*) FROM competitor_urls WHERE shop_id = ? AND deleted_at IS NOT NULL",
+              Integer.class,
+              shopId);
+
+      if (currentArchivedCount == null) {
+        currentArchivedCount = 0;
+      }
+
+      // Get the active competitor limit and use half for archived
+      PlanType planType = getCurrentPlanType(shopId);
+      int activeLimit = getCompetitorLimit(planType);
+      int archivedLimit = activeLimit / 2; // Half of active limit
+
+      boolean canAdd = currentArchivedCount < archivedLimit;
+      int remaining = Math.max(0, archivedLimit - currentArchivedCount);
+
+      log.debug(
+          "Shop {} has {}/{} archived competitors (plan: {}, archived limit: {})",
+          shopId,
+          currentArchivedCount,
+          archivedLimit,
+          planType.getDisplayName(),
+          archivedLimit);
+
+      return new LimitCheckResult(canAdd, currentArchivedCount, archivedLimit, remaining, planType);
+
+    } catch (Exception e) {
+      log.error("Error checking archived competitor limit for shop {}: {}", shopId, e.getMessage());
+      // Fail safe - allow addition if we can't check
+      int archivedLimit = currentPlanLimit / 2;
+      return new LimitCheckResult(true, 0, archivedLimit, archivedLimit, PlanType.CURRENT);
     }
   }
 
@@ -183,11 +223,13 @@ public class CompetitorLimitService {
   /** Get comprehensive limits for a shop */
   public LimitsResponse getShopLimits(Long shopId) {
     LimitCheckResult competitorLimit = checkCompetitorLimit(shopId);
+    LimitCheckResult archivedCompetitorLimit = checkArchivedCompetitorLimit(shopId);
     LimitCheckResult suggestionLimit = checkSuggestionLimit(shopId);
     DiscoveryLimitResult discoveryLimit = checkDiscoveryLimit(shopId);
 
     return new LimitsResponse(
         competitorLimit,
+        archivedCompetitorLimit,
         suggestionLimit,
         discoveryLimit,
         maxSuggestionsPerProduct,
@@ -313,6 +355,7 @@ public class CompetitorLimitService {
 
   public static class LimitsResponse {
     private final LimitCheckResult competitorLimit;
+    private final LimitCheckResult archivedCompetitorLimit;
     private final LimitCheckResult suggestionLimit;
     private final DiscoveryLimitResult discoveryLimit;
     private final int maxSuggestionsPerProduct;
@@ -323,6 +366,7 @@ public class CompetitorLimitService {
 
     public LimitsResponse(
         LimitCheckResult competitorLimit,
+        LimitCheckResult archivedCompetitorLimit,
         LimitCheckResult suggestionLimit,
         DiscoveryLimitResult discoveryLimit,
         int maxSuggestionsPerProduct,
@@ -331,6 +375,7 @@ public class CompetitorLimitService {
         int maxConcurrentScrapers,
         String upgradeMessage) {
       this.competitorLimit = competitorLimit;
+      this.archivedCompetitorLimit = archivedCompetitorLimit;
       this.suggestionLimit = suggestionLimit;
       this.discoveryLimit = discoveryLimit;
       this.maxSuggestionsPerProduct = maxSuggestionsPerProduct;
@@ -342,6 +387,10 @@ public class CompetitorLimitService {
 
     public LimitCheckResult getCompetitorLimit() {
       return competitorLimit;
+    }
+
+    public LimitCheckResult getArchivedCompetitorLimit() {
+      return archivedCompetitorLimit;
     }
 
     public LimitCheckResult getSuggestionLimit() {

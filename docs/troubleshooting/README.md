@@ -15,6 +15,14 @@ Welcome to the ShopGauge Troubleshooting Guide. This section contains issue reso
 - **[SSE Refresh Loop Fix](SSE_REFRESH_LOOP_FIX.md)** - Server-sent events refresh loop resolution
 - **[SSE Frontend-Backend Compatibility](SSE_FRONTEND_BACKEND_COMPATIBILITY.md)** - Integration compatibility issues
 
+### 🧠 Market Intelligence Issues
+
+- **[Market Intelligence Troubleshooting](MARKET_INTELLIGENCE_TROUBLESHOOTING.md)** - Comprehensive Market Intelligence fixes and diagnostics
+
+### 🚀 Application Startup Issues
+
+- **[Startup Optimization Fix](STARTUP_OPTIMIZATION_FIX.md)** - Resolution for resource contention and performance issues during application startup
+
 ### 🖥️ Admin Interface Issues
 
 - **[Admin Tabs Refresh Fix](ADMIN_TABS_REFRESH_FIX.md)** - Admin interface tab refresh problems
@@ -47,6 +55,24 @@ Welcome to the ShopGauge Troubleshooting Guide. This section contains issue reso
 | **Slow API Responses** | High response times | Check database queries and Redis cache |
 | **Memory Leaks** | Increasing memory usage | Review session cleanup and object disposal |
 | **Database Locks** | Slow queries, timeouts | Check for long-running transactions |
+
+### Market Intelligence Issues
+
+| Issue | Symptoms | Quick Fix |
+|-------|----------|-----------|
+| **Session Validation Warnings** | "Session validation failed but token exists" | Check session recovery service and authentication filter |
+| **Database Cache Errors** | "Incorrect result size: expected 1, actual 0" | Check QueryResultCacheService configuration |
+| **API /:splat Errors** | "No static resource api/:splat" | Verify render.yaml redirect rules |
+| **Suggestions Not Displaying** | Market Intelligence shows count but no content | Check session recovery and API routing |
+
+### Application Startup Issues
+
+| Issue | Symptoms | Quick Fix |
+|-------|----------|-----------|
+| **High CPU Usage During Startup** | "Critical CPU usage detected: 100.00%" | Check startup optimization service and monitoring delays |
+| **Slow Startup Time** | "Started in 73+ seconds" | Verify startup delay configurations |
+| **System Health Failures** | "System health check failed with status: UNHEALTHY" | Check monitoring service startup delays |
+| **Resource Contention** | High disk usage, session lock failures | Enable startup optimization and staggered monitoring |
 
 ---
 
@@ -92,6 +118,9 @@ curl https://api.shopgaugeai.com/health
 
 # Check detailed health status
 curl https://api.shopgaugeai.com/actuator/health
+
+# Check Market Intelligence health
+curl https://api.shopgaugeai.com/api/admin/market-intelligence/health
 ```
 
 ### Database Queries
@@ -110,6 +139,18 @@ redis-cli ping
 
 # Monitor Redis commands
 redis-cli monitor
+```
+
+### Market Intelligence Health Checks
+```bash
+# Check Market Intelligence health
+curl https://api.shopgaugeai.com/api/admin/market-intelligence/health
+
+# Check discovery configuration
+curl https://api.shopgaugeai.com/api/competitors/discovery/config
+
+# Check for session validation issues in logs
+grep -i "session validation failed" backend/app.log
 ```
 
 ---

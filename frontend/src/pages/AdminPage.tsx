@@ -211,6 +211,15 @@ const AdminPage: React.FC = () => {
       // Create quick actions with proper navigation
       const quickActions = [
         {
+          id: 'enterprise-health',
+          title: 'Enterprise Health',
+          description: 'Comprehensive health with recommendations',
+          icon: <HealthIcon />,
+          action: () => handleSectionChange('enterprise-health'),
+          category: 'System Health',
+          color: '#2e7d32'
+        },
+        {
           id: 'health-summary',
           title: 'Health Summary',
           description: 'View system health status',
@@ -490,6 +499,7 @@ const AdminPage: React.FC = () => {
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
+          'X-Correlation-ID': `admin-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         },
       });
       
@@ -721,6 +731,7 @@ const AdminPage: React.FC = () => {
     // Update breadcrumbs based on section
     const sectionBreadcrumbs: Record<string, { label: string }[]> = {
       'dashboard': [{ label: 'Dashboard' }],
+      'enterprise-health': [{ label: 'System Health' }, { label: 'Enterprise Health' }],
       'health-summary': [{ label: 'System Health' }, { label: 'Health Summary' }],
       'connection-pool': [{ label: 'System Health' }, { label: 'Connection Pool' }],
       'emergency-status': [{ label: 'System Health' }, { label: 'Emergency Status' }],

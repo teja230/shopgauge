@@ -75,10 +75,14 @@ public class EnhancedConnectionPoolService implements HealthIndicator {
         getHealthCheckIntervalSeconds(),
         TimeUnit.SECONDS);
 
-    // Schedule periodic metrics collection
-    scheduler.scheduleAtFixedRate(this::collectMetrics, 60, 60, TimeUnit.SECONDS);
+    // Schedule periodic metrics collection - use configured interval (default: 6 hours)
+    long metricsIntervalSeconds = getHealthCheckIntervalSeconds() * 6; // 6x health check interval
+    scheduler.scheduleAtFixedRate(
+        this::collectMetrics, metricsIntervalSeconds, metricsIntervalSeconds, TimeUnit.SECONDS);
 
-    logger.info("Enhanced connection pool monitoring initialized");
+    logger.info(
+        "Enhanced connection pool monitoring initialized with metrics collection every {} seconds",
+        metricsIntervalSeconds);
   }
 
   @PreDestroy
@@ -217,15 +221,16 @@ public class EnhancedConnectionPoolService implements HealthIndicator {
       if (!overallHealthy && isHealthy) {
         // Health status changed from healthy to unhealthy
         logger.error(
-            "Connection pool health check failed - Connection: {}, Utilization: {:.2f}%, Waiting threads: {}",
+            "Connection pool health check failed - Connection: {}, Utilization: {}%, Waiting threads: {}",
             connectionHealthy,
-            stats.getUtilizationRatio() * 100,
+            String.format("%.2f", stats.getUtilizationRatio() * 100),
             stats.getThreadsAwaitingConnection());
 
         // Log critical alert (AlertingService will handle this automatically via monitoring)
         logger.error(
-            "Connection pool health critical - Utilization: {:.2f}%, Waiting threads: {}",
-            stats.getUtilizationRatio() * 100, stats.getThreadsAwaitingConnection());
+            "Connection pool health critical - Utilization: {}%, Waiting threads: {}",
+            String.format("%.2f", stats.getUtilizationRatio() * 100),
+            stats.getThreadsAwaitingConnection());
 
         // Attempt automatic recovery
         attemptRecovery();
@@ -235,7 +240,8 @@ public class EnhancedConnectionPoolService implements HealthIndicator {
       if (stats.getUtilizationRatio() >= getWarningThreshold()
           && stats.getUtilizationRatio() < getCriticalThreshold()) {
         logger.warn(
-            "Connection pool utilization is high: {:.2f}%", stats.getUtilizationRatio() * 100);
+            "Connection pool utilization is high: {}%",
+            String.format("%.2f", stats.getUtilizationRatio() * 100));
       }
 
       isHealthy = overallHealthy;
@@ -251,17 +257,37 @@ public class EnhancedConnectionPoolService implements HealthIndicator {
     try {
       ConnectionPoolStatistics stats = getStatistics();
 
-      logger.info(
-          "Connection Pool Metrics - Total: {}, Active: {}, Idle: {}, "
-              + "Utilization: {:.2f}%, Waiting: {}, Leaks: {}, Timeouts: {}, Recoveries: {}",
-          stats.getTotalConnections(),
-          stats.getActiveConnections(),
-          stats.getIdleConnections(),
-          stats.getUtilizationRatio() * 100,
-          stats.getThreadsAwaitingConnection(),
-          stats.getConnectionLeakCount(),
-          stats.getConnectionTimeoutCount(),
-          stats.getConnectionRecoveryCount());
+      // Only log if there are issues or high utilization
+      if (stats.getUtilizationRatio() > getWarningThreshold()
+          || stats.getThreadsAwaitingConnection() > 0
+          || stats.getConnectionLeakCount() > 0
+          || stats.getConnectionTimeoutCount() > 0) {
+
+        logger.warn(
+            "Connection Pool Metrics - Total: {}, Active: {}, Idle: {}, "
+                + "Utilization: {}%, Waiting: {}, Leaks: {}, Timeouts: {}, Recoveries: {}",
+            stats.getTotalConnections(),
+            stats.getActiveConnections(),
+            stats.getIdleConnections(),
+            String.format("%.2f", stats.getUtilizationRatio() * 100),
+            stats.getThreadsAwaitingConnection(),
+            stats.getConnectionLeakCount(),
+            stats.getConnectionTimeoutCount(),
+            stats.getConnectionRecoveryCount());
+      } else {
+        // Log at debug level for normal operation
+        logger.debug(
+            "Connection Pool Metrics - Total: {}, Active: {}, Idle: {}, "
+                + "Utilization: {}%, Waiting: {}, Leaks: {}, Timeouts: {}, Recoveries: {}",
+            stats.getTotalConnections(),
+            stats.getActiveConnections(),
+            stats.getIdleConnections(),
+            String.format("%.2f", stats.getUtilizationRatio() * 100),
+            stats.getThreadsAwaitingConnection(),
+            stats.getConnectionLeakCount(),
+            stats.getConnectionTimeoutCount(),
+            stats.getConnectionRecoveryCount());
+      }
 
     } catch (Exception e) {
       logger.error("Error collecting connection pool metrics", e);

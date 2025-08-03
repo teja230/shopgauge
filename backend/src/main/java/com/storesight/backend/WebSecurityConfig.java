@@ -3,6 +3,7 @@ package com.storesight.backend;
 import com.storesight.backend.config.AdminAuthenticationFilter;
 import com.storesight.backend.config.ShopifyAuthenticationFilter;
 import com.storesight.backend.service.RedisSessionService;
+import com.storesight.backend.service.SessionRecoveryService;
 import com.storesight.backend.service.SessionSecurityService;
 import com.storesight.backend.service.SessionSynchronizationService;
 import com.storesight.backend.service.ShopService;
@@ -52,6 +53,7 @@ public class WebSecurityConfig implements WebMvcConfigurer {
   private final SessionSynchronizationService sessionSynchronizationService;
   private final SessionSecurityService sessionSecurityService;
   private final RedisSessionService redisSessionService;
+  private final SessionRecoveryService sessionRecoveryService;
 
   @Value("${spring.profiles.active:dev}")
   private String activeProfile;
@@ -73,11 +75,13 @@ public class WebSecurityConfig implements WebMvcConfigurer {
       ShopService shopService,
       SessionSynchronizationService sessionSynchronizationService,
       SessionSecurityService sessionSecurityService,
-      RedisSessionService redisSessionService) {
+      RedisSessionService redisSessionService,
+      SessionRecoveryService sessionRecoveryService) {
     this.shopService = shopService;
     this.sessionSynchronizationService = sessionSynchronizationService;
     this.sessionSecurityService = sessionSecurityService;
     this.redisSessionService = redisSessionService;
+    this.sessionRecoveryService = sessionRecoveryService;
   }
 
   // Rate limit info holder
@@ -270,8 +274,11 @@ public class WebSecurityConfig implements WebMvcConfigurer {
             })
         .sessionManagement(
             session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
+        // SessionRepositoryErrorFilter is now defined in SessionConfig.java to avoid bean conflicts
+        .addFilterBefore(oAuthSessionFilter(), UsernamePasswordAuthenticationFilter.class)
         .addFilterBefore(adminAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
         .addFilterBefore(shopifyAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
+        // SessionErrorHandlingFilter is automatically registered by SessionConfig with @Order(1)
         .exceptionHandling(exceptions -> exceptions.accessDeniedHandler(accessDeniedHandler()));
 
     return http.build();
@@ -280,12 +287,23 @@ public class WebSecurityConfig implements WebMvcConfigurer {
   @Bean
   public ShopifyAuthenticationFilter shopifyAuthenticationFilter() {
     return new ShopifyAuthenticationFilter(
-        shopService, sessionSynchronizationService, sessionSecurityService, redisSessionService);
+        shopService,
+        sessionSynchronizationService,
+        sessionSecurityService,
+        redisSessionService,
+        sessionRecoveryService);
   }
 
   @Bean
   public AdminAuthenticationFilter adminAuthenticationFilter() {
     return new AdminAuthenticationFilter();
+  }
+
+  // SessionErrorHandlingFilter is now defined in SessionConfig.java to avoid bean conflicts
+
+  @Bean
+  public com.storesight.backend.config.OAuthSessionFilter oAuthSessionFilter() {
+    return new com.storesight.backend.config.OAuthSessionFilter();
   }
 
   /** Access Denied Handler */

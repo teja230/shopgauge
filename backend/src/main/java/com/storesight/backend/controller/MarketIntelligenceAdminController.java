@@ -3,6 +3,7 @@ package com.storesight.backend.controller;
 import com.storesight.backend.service.CostOptimizationService;
 import com.storesight.backend.service.DataPrivacyService;
 import com.storesight.backend.service.DatabaseMonitoringService;
+import com.storesight.backend.service.PriceScrapingService;
 import com.storesight.backend.service.RedisHealthService;
 import com.storesight.backend.service.TransactionMonitoringService;
 import com.storesight.backend.service.discovery.CompetitorDiscoveryService;
@@ -10,10 +11,12 @@ import com.storesight.backend.service.discovery.MultiSourceSearchClient;
 import com.storesight.backend.service.discovery.SearchClient;
 import java.math.BigDecimal;
 import java.util.*;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -31,13 +34,20 @@ public class MarketIntelligenceAdminController {
       LoggerFactory.getLogger(MarketIntelligenceAdminController.class);
 
   @Autowired private CostOptimizationService costOptimizationService;
-  @Autowired private CompetitorDiscoveryService discoveryService;
-  @Autowired private MultiSourceSearchClient multiSourceSearchClient;
+
+  @Autowired(required = false)
+  private CompetitorDiscoveryService discoveryService;
+
+  @Autowired(required = false)
+  private MultiSourceSearchClient multiSourceSearchClient;
+
   @Autowired private JdbcTemplate jdbcTemplate;
   @Autowired private DatabaseMonitoringService databaseMonitoringService;
   @Autowired private RedisHealthService redisHealthService;
   @Autowired private TransactionMonitoringService transactionMonitoringService;
   @Autowired private DataPrivacyService dataPrivacyService;
+  @Autowired private RedisTemplate<String, Object> redisTemplate;
+  @Autowired private PriceScrapingService priceScrapingService;
 
   @Value("${discovery.enabled:true}")
   private boolean discoveryEnabled;
@@ -62,12 +72,14 @@ public class MarketIntelligenceAdminController {
       }
 
       // Discovery stats
-      if (discoveryEnabled) {
+      if (discoveryEnabled && discoveryService != null) {
         dashboard.put("discoveryStats", discoveryService.getDiscoveryStats());
       }
 
       // Provider stats
-      dashboard.put("providerStats", multiSourceSearchClient.getProviderStats());
+      if (multiSourceSearchClient != null) {
+        dashboard.put("providerStats", multiSourceSearchClient.getProviderStats());
+      }
 
       // Database stats
       dashboard.put("databaseStats", getDatabaseStats());
@@ -112,6 +124,11 @@ public class MarketIntelligenceAdminController {
   /** Get provider performance comparison */
   @GetMapping("/provider-comparison")
   public ResponseEntity<Map<String, Object>> getProviderComparison() {
+    if (multiSourceSearchClient == null) {
+      return ResponseEntity.ok(
+          Map.of("enabled", false, "message", "Discovery services are disabled"));
+    }
+
     try {
       Map<String, Object> comparison = new HashMap<>();
       Map<String, Object> stats = multiSourceSearchClient.getProviderStats();
@@ -132,6 +149,11 @@ public class MarketIntelligenceAdminController {
   /** Test search providers */
   @PostMapping("/test-search")
   public ResponseEntity<Map<String, Object>> testSearch(@RequestBody Map<String, String> request) {
+    if (multiSourceSearchClient == null) {
+      return ResponseEntity.ok(
+          Map.of("enabled", false, "message", "Discovery services are disabled"));
+    }
+
     String keywords = request.get("keywords");
     if (keywords == null || keywords.trim().isEmpty()) {
       return ResponseEntity.badRequest().body(Map.of("error", "Keywords are required"));
@@ -166,7 +188,9 @@ public class MarketIntelligenceAdminController {
 
     try {
       costOptimizationService.resetDailyCosts();
-      multiSourceSearchClient.resetCostTracking();
+      if (multiSourceSearchClient != null) {
+        multiSourceSearchClient.resetCostTracking();
+      }
 
       return ResponseEntity.ok(
           Map.of("message", "Cost tracking reset successfully", "timestamp", new Date()));
@@ -185,9 +209,12 @@ public class MarketIntelligenceAdminController {
 
     config.put("discoveryEnabled", discoveryEnabled);
     config.put("costOptimizationEnabled", costOptimizationEnabled);
-    config.put("multiSourceConfig", multiSourceSearchClient.getProviderConfig());
 
-    if (discoveryEnabled) {
+    if (multiSourceSearchClient != null) {
+      config.put("multiSourceConfig", multiSourceSearchClient.getProviderConfig());
+    }
+
+    if (discoveryEnabled && discoveryService != null) {
       config.put("discoveryConfig", discoveryService.getDiscoveryConfig());
     }
 
@@ -476,5 +503,964 @@ public class MarketIntelligenceAdminController {
             "category", "Cost"));
 
     return activity.stream().limit(limit).toList();
+  }
+
+  // ==================== COMPETITOR DEBUG ENDPOINTS ====================
+
+  /** Get scraping status for a specific shop */
+  @GetMapping("/scraping-status")
+  public ResponseEntity<Map<String, Object>> getCompetitorScrapingStatus(
+      @RequestParam(required = false) Long shopId) {
+    try {
+      Map<String, Object> debugInfo = new HashMap<>();
+
+      if (shopId == null) {
+        // Get all shops if no specific shop provided
+        List<Map<String, Object>> shops =
+            jdbcTemplate.queryForList(
+                "SELECT id, shopify_domain FROM shops WHERE deleted_at IS NULL ORDER BY id");
+        debugInfo.put("availableShops", shops);
+        debugInfo.put("message", "No shop ID provided. Use ?shopId=X to get specific shop data.");
+        return ResponseEntity.ok(debugInfo);
+      }
+
+      // Get shop domain
+      String shopDomain = null;
+      try {
+        Map<String, Object> shop =
+            jdbcTemplate.queryForMap("SELECT shopify_domain FROM shops WHERE id = ?", shopId);
+        shopDomain = (String) shop.get("shopify_domain");
+      } catch (Exception e) {
+        return ResponseEntity.badRequest().body(Map.of("error", "Shop not found: " + shopId));
+      }
+
+      debugInfo.put("shopId", shopId);
+      debugInfo.put("shopDomain", shopDomain);
+
+      // Get comprehensive scraping status data
+      String query =
+          """
+          SELECT
+              cu.id,
+              cu.url,
+              cu.status,
+              cu.error_count,
+              cu.created_at as competitor_created,
+              cu.last_successful_check,
+              ps.checked_at as latest_price_check,
+              ps.price,
+              ps.in_stock,
+              ps.platform,
+              ps.scraper_source,
+              ps.response_time_ms,
+              CASE
+                  WHEN cu.error_count >= 5 THEN 'BLOCKED_BY_ERRORS'
+                  WHEN cu.status = 'error' THEN 'ERROR_STATUS'
+                  WHEN ps.checked_at IS NULL THEN 'NEVER_SCRAPED'
+                  WHEN ps.checked_at < NOW() - INTERVAL '12 hours' THEN 'DUE_FOR_SCRAPING'
+                  ELSE 'RECENTLY_SCRAPED'
+              END as scraping_status
+          FROM competitor_urls cu
+          LEFT JOIN (
+              SELECT competitor_url_id, price, in_stock, checked_at, platform, scraper_source, response_time_ms,
+                     ROW_NUMBER() OVER (PARTITION BY competitor_url_id ORDER BY checked_at DESC) as rn
+              FROM price_snapshots
+          ) ps ON cu.id = ps.competitor_url_id AND ps.rn = 1
+          WHERE cu.shop_id = ? AND cu.deleted_at IS NULL
+          ORDER BY cu.created_at DESC
+          """;
+
+      List<Map<String, Object>> rows = jdbcTemplate.queryForList(query, shopId);
+      List<Map<String, Object>> statusData = new ArrayList<>();
+
+      for (Map<String, Object> row : rows) {
+        Map<String, Object> competitorData = new HashMap<>();
+        competitorData.put("id", row.get("id"));
+        competitorData.put("url", row.get("url"));
+        competitorData.put("status", row.get("status"));
+        competitorData.put("error_count", row.get("error_count"));
+        competitorData.put("competitor_created", row.get("competitor_created"));
+        competitorData.put("last_successful_check", row.get("last_successful_check"));
+        competitorData.put("latest_price_check", row.get("latest_price_check"));
+        competitorData.put("price", row.get("price"));
+        competitorData.put("in_stock", row.get("in_stock"));
+        competitorData.put("platform", row.get("platform"));
+        competitorData.put("scraper_source", row.get("scraper_source"));
+        competitorData.put("response_time_ms", row.get("response_time_ms"));
+        competitorData.put("scraping_status", row.get("scraping_status"));
+        statusData.add(competitorData);
+      }
+
+      // Summary statistics
+      Map<String, Object> summary = new HashMap<>();
+      summary.put("total_competitors", statusData.size());
+      summary.put(
+          "active_status",
+          statusData.stream().filter(c -> "active".equals(c.get("status"))).count());
+      summary.put(
+          "error_status", statusData.stream().filter(c -> "error".equals(c.get("status"))).count());
+      summary.put(
+          "blocked_by_errors",
+          statusData.stream()
+              .filter(c -> "BLOCKED_BY_ERRORS".equals(c.get("scraping_status")))
+              .count());
+      summary.put(
+          "due_for_scraping",
+          statusData.stream()
+              .filter(c -> "DUE_FOR_SCRAPING".equals(c.get("scraping_status")))
+              .count());
+      summary.put(
+          "recently_scraped",
+          statusData.stream()
+              .filter(c -> "RECENTLY_SCRAPED".equals(c.get("scraping_status")))
+              .count());
+      summary.put(
+          "never_scraped",
+          statusData.stream()
+              .filter(c -> "NEVER_SCRAPED".equals(c.get("scraping_status")))
+              .count());
+
+      // Platform and scraper source analytics
+      Map<String, Long> platformStats =
+          statusData.stream()
+              .filter(c -> c.get("platform") != null)
+              .collect(
+                  Collectors.groupingBy(c -> (String) c.get("platform"), Collectors.counting()));
+
+      Map<String, Long> scraperSourceStats =
+          statusData.stream()
+              .filter(c -> c.get("scraper_source") != null)
+              .collect(
+                  Collectors.groupingBy(
+                      c -> (String) c.get("scraper_source"), Collectors.counting()));
+
+      summary.put("platform_stats", platformStats);
+      summary.put("scraper_source_stats", scraperSourceStats);
+
+      debugInfo.put("competitors", statusData);
+      debugInfo.put("summary", summary);
+
+      return ResponseEntity.ok(debugInfo);
+
+    } catch (Exception e) {
+      log.error("Error getting competitor scraping status: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to get scraping status: " + e.getMessage()));
+    }
+  }
+
+  /** Trigger immediate scraping for a specific competitor */
+  @PostMapping("/{id}/trigger-scraping")
+  public ResponseEntity<Map<String, Object>> triggerCompetitorScraping(
+      @PathVariable String id, @RequestParam(required = false) Long shopId) {
+    try {
+      Map<String, Object> debugInfo = new HashMap<>();
+      debugInfo.put("competitorId", id);
+      debugInfo.put("shopId", shopId);
+
+      // Get competitor details
+      List<Map<String, Object>> competitorData =
+          jdbcTemplate.queryForList(
+              "SELECT id, url, shop_id FROM competitor_urls WHERE id = ? AND deleted_at IS NULL",
+              Long.parseLong(id));
+
+      if (competitorData.isEmpty()) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(Map.of("error", "Competitor not found"));
+      }
+
+      Map<String, Object> competitor = competitorData.get(0);
+      String url = (String) competitor.get("url");
+      Long actualShopId = ((Number) competitor.get("shop_id")).longValue();
+
+      // Validate shop access if shopId provided
+      if (shopId != null && !shopId.equals(actualShopId)) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+            .body(Map.of("error", "Access denied to competitor from different shop"));
+      }
+
+      debugInfo.put("url", url);
+      debugInfo.put("actualShopId", actualShopId);
+
+      // Check Redis keys before scraping
+      String domain = extractDomain(url);
+      String recentScrapeKey = "market-intelligence:recent_scrape:" + domain + ":" + url.hashCode();
+      String rateLimitKey = "scraper_rate_limit:" + domain;
+
+      debugInfo.put("domain", domain);
+      debugInfo.put("recentScrapeKey", recentScrapeKey);
+      debugInfo.put("rateLimitKey", rateLimitKey);
+      debugInfo.put("recentScrapeExists", redisTemplate.hasKey(recentScrapeKey));
+      debugInfo.put("rateLimitExists", redisTemplate.hasKey(rateLimitKey));
+
+      // Check current competitor status
+      List<Map<String, Object>> currentStatus =
+          jdbcTemplate.queryForList(
+              "SELECT status, last_successful_check, error_count FROM competitor_urls WHERE id = ?",
+              Long.parseLong(id));
+      if (!currentStatus.isEmpty()) {
+        debugInfo.put("currentStatus", currentStatus.get(0));
+      }
+
+      // Trigger actual immediate scraping
+      try {
+        triggerImmediatePriceScraping(id, url, actualShopId);
+        debugInfo.put("scrapingTriggered", true);
+        debugInfo.put("message", "Real scraping triggered successfully");
+      } catch (Exception scrapingError) {
+        debugInfo.put("scrapingTriggered", false);
+        debugInfo.put("scrapingError", scrapingError.getMessage());
+        debugInfo.put("message", "Failed to trigger scraping: " + scrapingError.getMessage());
+      }
+
+      return ResponseEntity.ok(debugInfo);
+
+    } catch (Exception e) {
+      log.error("Error triggering competitor scraping: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to trigger scraping: " + e.getMessage()));
+    }
+  }
+
+  /** Get cache debug information for a shop */
+  @GetMapping("/cache-debug")
+  public ResponseEntity<Map<String, Object>> getCacheDebugInfo(
+      @RequestParam(required = false) Long shopId) {
+    try {
+      Map<String, Object> debugInfo = new HashMap<>();
+
+      if (shopId == null) {
+        return ResponseEntity.badRequest().body(Map.of("error", "shopId parameter required"));
+      }
+
+      // Get shop domain
+      String shopDomain = null;
+      try {
+        Map<String, Object> shop =
+            jdbcTemplate.queryForMap("SELECT shopify_domain FROM shops WHERE id = ?", shopId);
+        shopDomain = (String) shop.get("shopify_domain");
+      } catch (Exception e) {
+        return ResponseEntity.badRequest().body(Map.of("error", "Shop not found: " + shopId));
+      }
+
+      debugInfo.put("shopId", shopId);
+      debugInfo.put("shopDomain", shopDomain);
+
+      // Check Redis connectivity
+      try {
+        redisTemplate.opsForValue().set("test_key", "test_value", java.time.Duration.ofSeconds(10));
+        String testValue = (String) redisTemplate.opsForValue().get("test_key");
+        debugInfo.put("redisConnected", "test_value".equals(testValue));
+        debugInfo.put("redisError", null);
+      } catch (Exception e) {
+        debugInfo.put("redisConnected", false);
+        debugInfo.put("redisError", e.getMessage());
+      }
+
+      // Check cache keys
+      String cacheKey = "dashboard:products:" + shopDomain;
+      debugInfo.put("cacheKey", cacheKey);
+      debugInfo.put("cacheExists", redisTemplate.hasKey(cacheKey));
+
+      if (redisTemplate.hasKey(cacheKey)) {
+        Object cachedData = redisTemplate.opsForValue().get(cacheKey);
+        debugInfo.put("cachedData", cachedData);
+        debugInfo.put(
+            "cacheType", cachedData != null ? cachedData.getClass().getSimpleName() : "null");
+      }
+
+      // Get database product count
+      try {
+        Integer productCount =
+            jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM products WHERE shop_id = ?", Integer.class, shopId);
+        debugInfo.put("databaseProductCount", productCount);
+      } catch (Exception e) {
+        debugInfo.put("databaseProductCount", "Error: " + e.getMessage());
+      }
+
+      return ResponseEntity.ok(debugInfo);
+
+    } catch (Exception e) {
+      log.error("Error getting cache debug info: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to get cache debug info: " + e.getMessage()));
+    }
+  }
+
+  /** Helper method to extract domain from URL */
+  private String extractDomain(String url) {
+    try {
+      return url.replaceAll("https?://", "").replaceAll("/.*", "");
+    } catch (Exception e) {
+      return url;
+    }
+  }
+
+  /** Enhanced trigger scraping with detailed debug information */
+  @PostMapping("/{id}/trigger-scraping-debug")
+  public ResponseEntity<Map<String, Object>> triggerScrapingDebug(
+      @PathVariable String id, @RequestParam(required = false) Long shopId) {
+    try {
+      Map<String, Object> debugInfo = new HashMap<>();
+
+      if (shopId == null) {
+        return ResponseEntity.badRequest().body(Map.of("error", "shopId parameter required"));
+      }
+
+      // Get competitor URL data
+      List<Map<String, Object>> competitorData =
+          jdbcTemplate.queryForList(
+              "SELECT id, url, shop_id FROM competitor_urls WHERE id = ? AND shop_id = ? AND deleted_at IS NULL",
+              Long.parseLong(id),
+              shopId);
+
+      if (competitorData.isEmpty()) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(Map.of("error", "Competitor not found"));
+      }
+
+      Map<String, Object> competitor = competitorData.get(0);
+      String url = (String) competitor.get("url");
+      Long competitorId = ((Number) competitor.get("id")).longValue();
+
+      // Check Redis keys before scraping
+      String domain = extractDomain(url);
+      String recentScrapeKey = "market-intelligence:recent_scrape:" + domain + ":" + url.hashCode();
+      String rateLimitKey = "market-intelligence:scraper_rate_limit:" + domain;
+
+      debugInfo.put("competitorId", competitorId);
+      debugInfo.put("url", url);
+      debugInfo.put("shopId", shopId);
+      debugInfo.put("domain", domain);
+      debugInfo.put("recentScrapeKey", recentScrapeKey);
+      debugInfo.put("rateLimitKey", rateLimitKey);
+      debugInfo.put("recentScrapeExists", redisTemplate.hasKey(recentScrapeKey));
+      debugInfo.put("rateLimitExists", redisTemplate.hasKey(rateLimitKey));
+
+      // Check current competitor status
+      List<Map<String, Object>> currentStatus =
+          jdbcTemplate.queryForList(
+              "SELECT status, last_successful_check, error_count FROM competitor_urls WHERE id = ?",
+              Long.parseLong(id));
+      if (!currentStatus.isEmpty()) {
+        debugInfo.put("currentStatus", currentStatus.get(0));
+      }
+
+      // Get latest price snapshot for analysis
+      List<Map<String, Object>> latestSnapshot =
+          jdbcTemplate.queryForList(
+              "SELECT price, in_stock, checked_at, scraper_version, platform, scraper_source, response_time_ms FROM price_snapshots WHERE competitor_url_id = ? ORDER BY checked_at DESC LIMIT 1",
+              Long.parseLong(id));
+
+      if (!latestSnapshot.isEmpty()) {
+        Map<String, Object> snapshot = latestSnapshot.get(0);
+        debugInfo.put("latestSnapshot", snapshot);
+
+        // Analyze the latest snapshot
+        BigDecimal price = (BigDecimal) snapshot.get("price");
+        if (price != null && price.compareTo(BigDecimal.ZERO) > 0) {
+          debugInfo.put("scrapingSuccess", true);
+          debugInfo.put("scrapedPrice", price);
+        } else {
+          debugInfo.put("scrapingSuccess", false);
+          debugInfo.put("failureReason", "No valid price found in latest snapshot");
+        }
+      } else {
+        debugInfo.put("scrapingSuccess", false);
+        debugInfo.put("failureReason", "No price snapshots found");
+      }
+
+      // Get recent price history for analysis
+      List<Map<String, Object>> priceHistory =
+          jdbcTemplate.queryForList(
+              "SELECT price, in_stock, checked_at, scraper_version, platform, scraper_source FROM price_snapshots WHERE competitor_url_id = ? ORDER BY checked_at DESC LIMIT 5",
+              Long.parseLong(id));
+      debugInfo.put("priceSnapshots", priceHistory);
+
+      // Check if scraping would be rate limited
+      boolean wouldBeRateLimited = redisTemplate.hasKey(rateLimitKey);
+      debugInfo.put("wouldBeRateLimited", wouldBeRateLimited);
+
+      // Check if recent scrape exists (would prevent immediate scraping)
+      boolean hasRecentScrape = redisTemplate.hasKey(recentScrapeKey);
+      debugInfo.put("hasRecentScrape", hasRecentScrape);
+
+      debugInfo.put("scrapingTriggered", false);
+      debugInfo.put("message", "Debug information collected - no actual scraping triggered");
+
+      return ResponseEntity.ok(debugInfo);
+
+    } catch (Exception e) {
+      log.error("Error in trigger scraping debug: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to get scraping debug info: " + e.getMessage()));
+    }
+  }
+
+  /** Enhanced products debug with comprehensive cache analysis */
+  @GetMapping("/products-debug")
+  public ResponseEntity<Map<String, Object>> getProductsDebug(
+      @RequestParam(required = false) Long shopId) {
+    try {
+      Map<String, Object> debugInfo = new HashMap<>();
+
+      if (shopId == null) {
+        return ResponseEntity.badRequest().body(Map.of("error", "shopId parameter required"));
+      }
+
+      // Get shop domain
+      String shopDomain = null;
+      try {
+        Map<String, Object> shop =
+            jdbcTemplate.queryForMap("SELECT shopify_domain FROM shops WHERE id = ?", shopId);
+        shopDomain = (String) shop.get("shopify_domain");
+      } catch (Exception e) {
+        return ResponseEntity.badRequest().body(Map.of("error", "Shop not found: " + shopId));
+      }
+
+      debugInfo.put("shopId", shopId);
+      debugInfo.put("shopDomain", shopDomain);
+
+      // Test Redis connectivity
+      try {
+        redisTemplate.opsForValue().set("test_key", "test_value", java.time.Duration.ofSeconds(10));
+        String testValue = (String) redisTemplate.opsForValue().get("test_key");
+        debugInfo.put("redisConnected", "test_value".equals(testValue));
+        debugInfo.put("redisError", null);
+        log.debug("Redis connectivity test successful for shop: {}", shopDomain);
+      } catch (Exception e) {
+        debugInfo.put("redisConnected", false);
+        debugInfo.put("redisError", e.getMessage());
+        log.warn("Redis connectivity test failed for shop: {} - {}", shopDomain, e.getMessage());
+      }
+
+      // Check multiple cache key formats used by the system
+      String primaryCacheKey = "dashboard_cache_" + shopDomain + "_v3";
+      String legacyCacheKey = "dashboard:products:" + shopDomain;
+      String productsCacheKey = "products_cache_" + shopDomain;
+
+      debugInfo.put("primaryCacheKey", primaryCacheKey);
+      debugInfo.put("legacyCacheKey", legacyCacheKey);
+      debugInfo.put("productsCacheKey", productsCacheKey);
+
+      try {
+        debugInfo.put("primaryCacheExists", redisTemplate.hasKey(primaryCacheKey));
+        debugInfo.put("legacyCacheExists", redisTemplate.hasKey(legacyCacheKey));
+        debugInfo.put("productsCacheExists", redisTemplate.hasKey(productsCacheKey));
+        log.debug("Cache key checks completed for shop: {}", shopDomain);
+      } catch (Exception e) {
+        log.warn("Cache key checks failed for shop: {} - {}", shopDomain, e.getMessage());
+        debugInfo.put("primaryCacheExists", false);
+        debugInfo.put("legacyCacheExists", false);
+        debugInfo.put("productsCacheExists", false);
+        debugInfo.put("cacheCheckError", e.getMessage());
+      }
+
+      // Use the primary cache key for detailed analysis
+      String cacheKey = primaryCacheKey;
+
+      // Get cache TTL
+      try {
+        var cacheTtl = redisTemplate.getExpire(cacheKey);
+        debugInfo.put("cacheTtl", cacheTtl != null ? (cacheTtl / 60) + " minutes" : "no TTL");
+      } catch (Exception e) {
+        log.warn("Failed to get cache TTL for key: {} - {}", cacheKey, e.getMessage());
+        debugInfo.put("cacheTtl", "error: " + e.getMessage());
+      }
+
+      // Try to get raw cache data
+      Object rawCacheData = null;
+      try {
+        rawCacheData = redisTemplate.opsForValue().get(cacheKey);
+        debugInfo.put("hasRawCacheData", rawCacheData != null);
+        debugInfo.put(
+            "rawCacheDataLength", rawCacheData != null ? rawCacheData.toString().length() : 0);
+        log.debug(
+            "Raw cache data retrieved for key: {} - length: {}",
+            cacheKey,
+            rawCacheData != null ? rawCacheData.toString().length() : 0);
+      } catch (Exception e) {
+        log.warn("Failed to get raw cache data for key: {} - {}", cacheKey, e.getMessage());
+        debugInfo.put("hasRawCacheData", false);
+        debugInfo.put("rawCacheDataLength", 0);
+        debugInfo.put("rawDataError", e.getMessage());
+      }
+
+      // Try to parse the raw cache data to see what's stored
+      if (rawCacheData != null) {
+        try {
+          com.fasterxml.jackson.databind.ObjectMapper mapper =
+              new com.fasterxml.jackson.databind.ObjectMapper();
+          var parsedData = mapper.readValue(rawCacheData.toString(), java.util.Map.class);
+          debugInfo.put("parsedDataKeys", parsedData.keySet());
+          debugInfo.put("parsedDataType", parsedData.getClass().getSimpleName());
+
+          if (parsedData.containsKey("data")) {
+            var data = parsedData.get("data");
+            debugInfo.put("dataType", data.getClass().getSimpleName());
+            if (data instanceof java.util.Map) {
+              var dataMap = (java.util.Map) data;
+              debugInfo.put("dataKeys", dataMap.keySet());
+              if (dataMap.containsKey("products")) {
+                var products = dataMap.get("products");
+                debugInfo.put("productsType", products.getClass().getSimpleName());
+                if (products instanceof java.util.List) {
+                  debugInfo.put("productsListSize", ((java.util.List) products).size());
+                }
+              }
+            }
+          }
+        } catch (Exception e) {
+          debugInfo.put("parseError", e.getMessage());
+        }
+      }
+
+      // Check if products exist in database
+      try {
+        List<Map<String, Object>> dbProducts =
+            jdbcTemplate.queryForList(
+                "SELECT COUNT(*) as count FROM products WHERE shop_id = ?", shopId);
+        debugInfo.put("dbProductsCount", dbProducts.isEmpty() ? 0 : dbProducts.get(0).get("count"));
+      } catch (Exception e) {
+        debugInfo.put("dbError", e.getMessage());
+      }
+
+      // Add information about the new unified products approach
+      debugInfo.put("unifiedProductsApproach", true);
+      debugInfo.put("productsEndpoint", "/api/competitors/{id}/products");
+      debugInfo.put("analyticsEndpoint", "/api/analytics/products");
+      debugInfo.put("demoModeSupported", true);
+      debugInfo.put("liveModeUsesAnalytics", true);
+
+      return ResponseEntity.ok(debugInfo);
+
+    } catch (Exception e) {
+      log.error("Error getting products debug info: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to get products debug info: " + e.getMessage()));
+    }
+  }
+
+  /** Trigger immediate price scraping using unified multi-tier system */
+  private void triggerImmediatePriceScraping(String competitorId, String url, Long shopId) {
+    try {
+      log.info(
+          "triggerImmediatePriceScraping: Starting unified scraping for competitor ID: {}",
+          competitorId);
+
+      // COST OPTIMIZATION 0: Check if recent successful check exists (< 24 hours) - CRITICAL FIX
+      List<Map<String, Object>> competitorData =
+          jdbcTemplate.queryForList(
+              """
+          SELECT last_successful_check FROM competitor_urls
+          WHERE id = ?
+          """,
+              Long.parseLong(competitorId));
+
+      if (!competitorData.isEmpty()) {
+        Object lastSuccessfulCheckObj = competitorData.get(0).get("last_successful_check");
+        if (lastSuccessfulCheckObj != null) {
+          try {
+            java.time.LocalDateTime lastSuccessfulCheck =
+                (java.time.LocalDateTime) lastSuccessfulCheckObj;
+            java.time.LocalDateTime now = java.time.LocalDateTime.now();
+            java.time.Duration duration = java.time.Duration.between(lastSuccessfulCheck, now);
+
+            // Skip scraping if last successful check was less than 24 hours ago
+            if (duration.toHours() < 24) {
+              log.info(
+                  "triggerImmediatePriceScraping: Skipping - Recent successful check exists ({} hours ago) for competitor {}",
+                  duration.toHours(),
+                  competitorId);
+              return; // Skip scraping if recent successful check exists
+            }
+          } catch (Exception e) {
+            log.warn(
+                "triggerImmediatePriceScraping: Could not parse last successful check time: {}",
+                lastSuccessfulCheckObj);
+            // Continue with scraping if we can't parse the timestamp
+          }
+        }
+      }
+
+      // Check if we recently scraped this URL (within last 2 hours)
+      String domain = extractDomain(url);
+      String recentScrapeKey = "market-intelligence:recent_scrape:" + domain + ":" + url.hashCode();
+
+      if (redisTemplate.hasKey(recentScrapeKey)) {
+        log.info("triggerImmediatePriceScraping: Skipping - URL scraped recently: {}", url);
+        return; // Skip if we scraped this URL recently
+      }
+
+      // Check rate limiting with longer delays
+      String rateLimitKey = "market-intelligence:scraper_rate_limit:" + domain;
+      if (redisTemplate.hasKey(rateLimitKey)) {
+        log.debug("triggerImmediatePriceScraping: Rate limit active for domain: {}", domain);
+        return; // Skip immediate scraping if rate limited
+      }
+
+      // Longer rate limiting delays to reduce costs
+      int immediateScrapingDelay = 5000; // 5 seconds delay
+      redisTemplate
+          .opsForValue()
+          .set(
+              rateLimitKey,
+              "1",
+              immediateScrapingDelay,
+              java.util.concurrent.TimeUnit.MILLISECONDS);
+
+      // Use cached price if available (fallback to scraping)
+      java.math.BigDecimal cachedPrice = getCachedPriceForUrl(url);
+      if (cachedPrice != null) {
+        log.info(
+            "triggerImmediatePriceScraping: Using cached price ${} for competitor {}",
+            cachedPrice,
+            competitorId);
+
+        // Store cached price as initial snapshot
+        jdbcTemplate.update(
+            "INSERT INTO price_snapshots (competitor_url_id, price, in_stock, checked_at, scraper_version, scraper_source, platform, response_time_ms) "
+                + "VALUES (?, ?, ?, CURRENT_TIMESTAMP, 'v2.0-cached', 'cached', ?, 0)",
+            Long.parseLong(competitorId),
+            cachedPrice,
+            true, // Assume in stock for cached data
+            identifyPlatform(url));
+
+        // Update competitor URL status on successful cached scrape
+        jdbcTemplate.update(
+            "UPDATE competitor_urls SET status = 'active', last_successful_check = CURRENT_TIMESTAMP, error_count = 0, response_time_ms = 0 WHERE id = ?",
+            Long.parseLong(competitorId));
+
+        // Mark as recently scraped to prevent immediate re-scraping
+        redisTemplate
+            .opsForValue()
+            .set(recentScrapeKey, "1", 2, java.util.concurrent.TimeUnit.HOURS);
+        return;
+      }
+
+      // Use enterprise-grade price scraping service
+      try {
+        PriceScrapingService.PriceScrapingResult result =
+            priceScrapingService.scrapePriceWithMultiTier(url);
+        long responseTime = result.getResponseTime();
+
+        if (result.isSuccess()) {
+          // Success - store price snapshot
+          jdbcTemplate.update(
+              "INSERT INTO price_snapshots (competitor_url_id, price, in_stock, checked_at, scraper_version, scraper_source, platform, response_time_ms) "
+                  + "VALUES (?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?)",
+              Long.parseLong(competitorId),
+              result.getPrice(),
+              result.isInStock(),
+              "v2.0-enterprise",
+              result.getScraperSource(),
+              result.getPlatform(),
+              responseTime);
+
+          // Update competitor URL status
+          jdbcTemplate.update(
+              "UPDATE competitor_urls SET status = 'active', last_successful_check = CURRENT_TIMESTAMP, error_count = 0, response_time_ms = ? WHERE id = ?",
+              responseTime,
+              Long.parseLong(competitorId));
+
+          // Cache the successful price
+          cachePriceForUrl(url, result.getPrice());
+
+          log.info(
+              "triggerImmediatePriceScraping: ✅ Enterprise scraping successful - Price ${} extracted via {} in {}ms",
+              result.getPrice(),
+              result.getScraperSource(),
+              responseTime);
+        } else {
+          // Failure - update error count and status
+          jdbcTemplate.update(
+              "UPDATE competitor_urls SET status = 'error', error_count = error_count + 1, response_time_ms = ? WHERE id = ?",
+              responseTime,
+              Long.parseLong(competitorId));
+
+          // Store failed attempt for tracking
+          jdbcTemplate.update(
+              "INSERT INTO price_snapshots (competitor_url_id, price, in_stock, checked_at, scraper_version, scraper_source, platform, response_time_ms) "
+                  + "VALUES (?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?)",
+              Long.parseLong(competitorId),
+              java.math.BigDecimal.ZERO, // No price found
+              false, // Assume out of stock
+              "v2.0-enterprise",
+              result.getScraperSource(),
+              result.getPlatform(),
+              responseTime);
+
+          log.warn(
+              "triggerImmediatePriceScraping: ❌ Enterprise scraping failed in {}ms. Reason: {}",
+              responseTime,
+              result.getFailureReason());
+        }
+
+        // Mark as recently scraped to prevent immediate re-scraping
+        redisTemplate
+            .opsForValue()
+            .set(recentScrapeKey, "1", 2, java.util.concurrent.TimeUnit.HOURS);
+
+      } catch (Exception scrapingError) {
+        log.error(
+            "triggerImmediatePriceScraping: Critical error in enterprise scraping for competitor {}: {}",
+            competitorId,
+            scrapingError.getMessage(),
+            scrapingError);
+
+        // Update competitor with error status
+        jdbcTemplate.update(
+            "UPDATE competitor_urls SET status = 'error', error_count = error_count + 1 WHERE id = ?",
+            Long.parseLong(competitorId));
+      }
+
+    } catch (Exception e) {
+      log.error(
+          "triggerImmediatePriceScraping: Error in unified scraping process for competitor {}: {}",
+          competitorId,
+          e.getMessage(),
+          e);
+      throw e; // Re-throw to be handled by caller
+    }
+  }
+
+  /** Get cached price for URL to reduce scraping costs */
+  private java.math.BigDecimal getCachedPriceForUrl(String url) {
+    try {
+      String cacheKey = "market-intelligence:price_cache:" + url.hashCode();
+      Object cached = redisTemplate.opsForValue().get(cacheKey);
+      if (cached != null) {
+        return new java.math.BigDecimal(cached.toString());
+      }
+    } catch (Exception e) {
+      log.debug("getCachedPriceForUrl: Error getting cached price: {}", e.getMessage());
+    }
+    return null;
+  }
+
+  /** Cache price for URL to reduce future scraping costs */
+  private void cachePriceForUrl(String url, java.math.BigDecimal price) {
+    try {
+      String cacheKey = "market-intelligence:price_cache:" + url.hashCode();
+      // Cache for 24 hours to reduce scraping frequency
+      redisTemplate
+          .opsForValue()
+          .set(cacheKey, price.toString(), 24, java.util.concurrent.TimeUnit.HOURS);
+      log.debug("cachePriceForUrl: Cached price ${} for URL: {}", price, url);
+    } catch (Exception e) {
+      log.debug("cachePriceForUrl: Error caching price: {}", e.getMessage());
+    }
+  }
+
+  /** Identify platform from URL */
+  private String identifyPlatform(String url) {
+    String lowerUrl = url.toLowerCase();
+    if (lowerUrl.contains("amazon.com")) {
+      return "amazon";
+    } else if (lowerUrl.contains("walmart.com")) {
+      return "walmart";
+    } else if (lowerUrl.contains("target.com")) {
+      return "target";
+    } else if (lowerUrl.contains("bestbuy.com")) {
+      return "bestbuy";
+    } else if (lowerUrl.contains("ebay.com")) {
+      return "ebay";
+    } else if (lowerUrl.contains("etsy.com")) {
+      return "etsy";
+    } else if (lowerUrl.contains("shopify") || lowerUrl.contains("myshopify.com")) {
+      return "shopify";
+    } else if (lowerUrl.contains("woocommerce")) {
+      return "woocommerce";
+    } else if (lowerUrl.contains("bigcommerce")) {
+      return "bigcommerce";
+    } else if (lowerUrl.contains("magento")) {
+      return "magento";
+    } else if (lowerUrl.contains("prestashop")) {
+      return "prestashop";
+    } else if (lowerUrl.contains("opencart")) {
+      return "opencart";
+    } else {
+      return "other";
+    }
+  }
+
+  /** Extract price from document using enhanced patterns */
+  private java.math.BigDecimal extractPriceFromDocument(
+      org.jsoup.nodes.Document doc, String platform) {
+    // Enhanced price patterns with better specificity
+    java.util.regex.Pattern[] patterns = {
+      java.util.regex.Pattern.compile("\\$([0-9,]+\\.?[0-9]*)"),
+      java.util.regex.Pattern.compile("USD\\s*([0-9,]+\\.?[0-9]*)"),
+      java.util.regex.Pattern.compile("([0-9,]+\\.?[0-9]*)\\s*USD"),
+      java.util.regex.Pattern.compile("Price:\\s*\\$([0-9,]+\\.?[0-9]*)"),
+      java.util.regex.Pattern.compile("Cost:\\s*\\$([0-9,]+\\.?[0-9]*)"),
+      java.util.regex.Pattern.compile("\\$([0-9]+)\\s*USD"),
+      java.util.regex.Pattern.compile("([0-9,]+\\.?[0-9]*)\\s*\\$"),
+      java.util.regex.Pattern.compile("Price\\s*:\\s*([0-9,]+\\.?[0-9]*)"),
+      java.util.regex.Pattern.compile("Cost\\s*:\\s*([0-9,]+\\.?[0-9]*)")
+    };
+
+    // Platform-specific selectors
+    String[] selectors = {
+      // Amazon-specific (enhanced for current layout)
+      ".a-price .a-offscreen",
+      ".a-price-whole",
+      ".a-price .a-price-whole",
+      "[data-a-color='price'] .a-offscreen",
+      ".a-price-range .a-offscreen",
+      ".a-price .a-price-range .a-offscreen",
+      ".a-price-range .a-price-whole",
+      ".a-price .a-price-range .a-price-whole",
+      // Additional Amazon selectors
+      "[data-a-color='price'] .a-price-whole",
+      ".a-price-range .a-price-fraction",
+      ".a-price .a-price-range .a-price-fraction",
+      // New Amazon selectors based on current layout
+      ".a-price-current .a-offscreen",
+      ".a-price-current .a-price-whole",
+      ".a-price-current .a-price-fraction",
+      ".a-price-current .a-price-symbol + .a-price-whole",
+      ".a-price-current .a-price-symbol + .a-price-whole + .a-price-fraction",
+      // Price display patterns
+      "[data-a-color='price'] .a-price-current .a-offscreen",
+      "[data-a-color='price'] .a-price-current .a-price-whole",
+      // Fallback selectors for Amazon
+      ".a-price-current",
+      ".a-price-current .a-price",
+      ".a-price-current .a-price .a-offscreen",
+      // Enhanced Amazon selectors for dynamic content
+      "[data-a-price-whole]",
+      "[data-a-price-fraction]",
+      ".a-price .a-price-symbol + .a-price-whole",
+      ".a-price .a-price-whole + .a-price-fraction",
+      // Mobile Amazon selectors
+      ".a-price-mobile .a-offscreen",
+      ".a-price-mobile .a-price-whole",
+      // Generic
+      ".price",
+      ".product-price",
+      ".money",
+      "[data-price]",
+      ".cost",
+      ".amount",
+      ".price-current",
+      ".price-value",
+      ".product-cost",
+      ".item-price"
+    };
+
+    // Try CSS selectors first
+    for (String selector : selectors) {
+      org.jsoup.select.Elements elements = doc.select(selector);
+      for (org.jsoup.nodes.Element element : elements) {
+        String text = element.text().trim();
+        if (!text.isEmpty()) {
+          java.math.BigDecimal price = extractPriceFromText(text, patterns);
+          if (price != null) {
+            return price;
+          }
+        }
+      }
+    }
+
+    // Try patterns on entire page text as fallback
+    String pageText = doc.text();
+    return extractPriceFromText(pageText, patterns);
+  }
+
+  /** Extract price from text using regex patterns */
+  private java.math.BigDecimal extractPriceFromText(
+      String text, java.util.regex.Pattern[] patterns) {
+    for (java.util.regex.Pattern pattern : patterns) {
+      java.util.regex.Matcher matcher = pattern.matcher(text);
+      if (matcher.find()) {
+        try {
+          String priceStr = matcher.group(1).replaceAll(",", "");
+          return new java.math.BigDecimal(priceStr);
+        } catch (Exception e) {
+          log.debug("extractPriceFromText: Error parsing price from text: {}", e.getMessage());
+        }
+      }
+    }
+    return null;
+  }
+
+  /** Scrapingdog API integration */
+  private java.math.BigDecimal scrapeWithScrapingdog(String url) {
+    try {
+      // Implementation would use Scrapingdog API
+      // For now, return null to avoid API costs
+      log.debug("Scrapingdog API not implemented - skipping to avoid costs");
+      return null;
+    } catch (Exception e) {
+      log.warn("Scrapingdog API failed for URL {}: {}", url, e.getMessage());
+      return null;
+    }
+  }
+
+  /** Serper API integration */
+  private java.math.BigDecimal scrapeWithSerper(String url) {
+    try {
+      // Implementation would use Serper API
+      // For now, return null to avoid API costs
+      log.debug("Serper API not implemented - skipping to avoid costs");
+      return null;
+    } catch (Exception e) {
+      log.warn("Serper API failed for URL {}: {}", url, e.getMessage());
+      return null;
+    }
+  }
+
+  /** SerpAPI integration */
+  private java.math.BigDecimal scrapeWithSerpAPI(String url) {
+    try {
+      // Implementation would use SerpAPI
+      // For now, return null to avoid API costs
+      log.debug("SerpAPI not implemented - skipping to avoid costs");
+      return null;
+    } catch (Exception e) {
+      log.warn("SerpAPI failed for URL {}: {}", url, e.getMessage());
+      return null;
+    }
+  }
+
+  /** Extract stock status from document */
+  private boolean extractStockStatusFromDocument(org.jsoup.nodes.Document doc, String platform) {
+    // Platform-specific stock selectors
+    String[] stockSelectors = {
+      // Amazon
+      ".a-color-success",
+      ".a-color-price",
+      ".a-text-success",
+      ".availability",
+      ".stock",
+      ".in-stock",
+      ".out-of-stock",
+      // Generic
+      ".stock-status",
+      ".availability-status",
+      ".product-availability"
+    };
+
+    for (String selector : stockSelectors) {
+      org.jsoup.select.Elements elements = doc.select(selector);
+      for (org.jsoup.nodes.Element element : elements) {
+        String text = element.text().toLowerCase();
+        if (text.contains("in stock")
+            || text.contains("available")
+            || text.contains("add to cart")) {
+          return true;
+        }
+        if (text.contains("out of stock")
+            || text.contains("unavailable")
+            || text.contains("sold out")) {
+          return false;
+        }
+      }
+    }
+
+    // Default to true if we can't determine
+    return true;
   }
 }

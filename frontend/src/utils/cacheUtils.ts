@@ -7,13 +7,13 @@
  * Redis fallback, and invalidation behavior.
  */
 
-// Use a consistent version for the cache to allow for easy invalidation when the data structure changes.
-export const CACHE_VERSION = '2.1.0';
-export const CACHE_KEY_PREFIX = 'dashboard_cache';
+import { API_BASE_URL } from '../api';
 
-// Cache timing configuration (matches backend TTL)
-export const CACHE_DURATION_MS = 120 * 60 * 1000; // 2 hours in milliseconds
-export const CACHE_WARNING_THRESHOLD_MS = 100 * 60 * 1000; // Show warning when cache is 100+ minutes old
+// Cache configuration
+export const CACHE_VERSION = '2.0';
+const CACHE_KEY_PREFIX = 'dashboard_cache';
+const CACHE_DURATION_MS = 120 * 60 * 1000; // 120 minutes (2 hours)
+const CACHE_WARNING_THRESHOLD_MS = 60 * 60 * 1000; // 60 minutes (1 hour) - warn if cache is older than this
 
 /**
  * Cache entry interface for consistent data structure
@@ -73,6 +73,40 @@ export const getCacheAgeMinutes = (entry: CacheEntry<any>): number => {
 export const shouldShowCacheWarning = (entry: CacheEntry<any>): boolean => {
   const age = Date.now() - entry.timestamp;
   return age > CACHE_WARNING_THRESHOLD_MS && age < CACHE_DURATION_MS;
+};
+
+/**
+ * Check Redis cache status for a shop
+ * @param shop The shop domain
+ * @returns Cache status object or null if failed
+ */
+export const checkRedisCacheStatus = async (shop: string): Promise<any | null> => {
+  if (!shop) {
+    console.warn('checkRedisCacheStatus: No shop provided');
+    return null;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/analytics/cache/status`, {
+      method: 'GET',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      console.log(`🔍 Redis cache status for ${shop}:`, data.cacheStatus);
+      return data.cacheStatus;
+    } else {
+      console.warn(`Failed to check Redis cache status: ${response.status}`);
+      return null;
+    }
+  } catch (error) {
+    console.warn(`Error checking Redis cache status:`, error);
+    return null;
+  }
 };
 
 /**

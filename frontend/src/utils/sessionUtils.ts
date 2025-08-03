@@ -158,10 +158,13 @@ class SessionManager {
       return;
     }
     try {
-      const response = await fetch('/api/sessions/heartbeat', {
+      // Import API_BASE_URL to use the configured backend URL
+      const { API_BASE_URL } = await import('../api');
+      const response = await fetch(`${API_BASE_URL}/api/sessions/heartbeat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-Correlation-ID': `heartbeat-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         },
         credentials: 'include', // Include cookies
       });
@@ -357,13 +360,14 @@ class SessionManager {
     console.log('🔄 Attempting session refresh');
     
     try {
-      const response = await fetch('/api/sessions/refresh', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-      });
+          const response = await fetch('/api/sessions/refresh', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Correlation-ID': `session-refresh-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      },
+      credentials: 'include',
+    });
       
       if (response.ok) {
         const data = await response.json();
@@ -591,4 +595,4 @@ export function clearAllSessionCookies() {
 } 
 
 // SSE functionality has been moved to enterpriseSseHandler.ts
-// This file now only contains session management utilities 
+// This file now only contains session management utilities

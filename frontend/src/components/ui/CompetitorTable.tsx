@@ -19,12 +19,17 @@ import {
   Tooltip,
   useTheme,
   useMediaQuery,
-  Avatar,
   Collapse,
   Divider,
+  CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  DialogContentText,
 } from '@mui/material';
 import {
-  Delete as DeleteIcon,
+  Archive as ArchiveIcon,
   OpenInNew as OpenInNewIcon,
   ExpandMore as ExpandMoreIcon,
   AttachMoney as AttachMoneyIcon,
@@ -35,9 +40,19 @@ import {
   Group as GroupIcon,
   Schedule as ScheduleIcon,
   Launch as LaunchIcon,
+  Link as LinkIcon,
+  BarChart as BarChartIcon,
+  History as HistoryIcon,
+  Refresh as RefreshIcon,
+  VisibilityOff as VisibilityOffIcon,
 } from '@mui/icons-material';
+import StoreLogo from './StoreLogo';
+import { debugLog } from './DebugPanel';
+
 import { styled } from '@mui/material/styles';
 import { format, parseISO } from 'date-fns';
+import { useAuth } from '../../context/AuthContext';
+import { refreshCompetitorPrices, getPriceRefreshStatus } from '../../api/index';
 
 export interface Competitor {
   id: string;
@@ -47,14 +62,29 @@ export interface Competitor {
   inStock: boolean;
   percentDiff: number;
   lastChecked: string;
+  shopifyProductId?: string; // Optional field for product association
+  productTitle?: string; // Product title for display
+  priceLoading?: boolean; // Indicates if price is being fetched
+  showingOldPrice?: boolean; // Indicates if showing old price for out-of-stock item
 }
 
 interface CompetitorTableProps {
   data: Competitor[];
   onDelete: (id: string) => void;
+  onLinkProduct?: (competitor: Competitor) => void;
+  onViewGraph?: (competitor: Competitor) => void;
   loading?: boolean;
   error?: string | null;
   onRetry?: () => void;
+  sectionTitle?: string;
+  sectionCount?: number;
+  sectionColor?: 'green' | 'orange';
+  onToggleCollapse?: () => void;
+  isCollapsed?: boolean;
+  onRefreshPrices?: () => void;
+  // Highlighting props for different actions
+  highlightedCompetitorId?: string;
+  highlightAction?: 'add' | 'archive' | 'restore';
 }
 
 // Mobile-first responsive container with improved performance
@@ -81,6 +111,60 @@ const ResponsiveContainer = styled(Box)(({ theme }) => ({
     },
   },
 }));
+
+// Price refresh button component
+const PriceRefreshButton: React.FC<{
+  onRefresh: () => void;
+  canRefresh: boolean;
+  staleCount: number;
+  isLoading?: boolean;
+}> = ({ onRefresh, canRefresh, staleCount, isLoading = false }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+
+  if (!canRefresh) {
+    return null;
+  }
+
+  return (
+    <Tooltip title={`Refresh prices for ${staleCount} competitors (older than 24 hours)`}>
+      <Button
+        variant="contained"
+        size="small"
+        startIcon={isLoading ? <CircularProgress size={16} /> : <RefreshIcon />}
+        onClick={onRefresh}
+        disabled={isLoading}
+        sx={{
+          ml: 1,
+          minWidth: isMobile ? 'auto' : 140,
+          height: 32,
+          borderRadius: 2,
+          textTransform: 'none',
+          fontWeight: 600,
+          fontSize: '0.875rem',
+          backgroundColor: 'primary.main',
+          color: 'primary.contrastText',
+          '&:hover': {
+            backgroundColor: 'primary.dark',
+          },
+          '&:disabled': {
+            backgroundColor: 'action.disabledBackground',
+            color: 'action.disabled',
+          },
+          '& .MuiButton-startIcon': {
+            mr: isMobile ? 0 : 0.5,
+          },
+        }}
+      >
+        {isMobile ? (
+          <RefreshIcon />
+        ) : (
+          `Refresh (${staleCount})`
+        )}
+      </Button>
+    </Tooltip>
+  );
+};
 
 // Enhanced mobile card styling with better touch interactions
 const CompetitorCard = styled(Card)(({ theme }) => ({
@@ -174,7 +258,7 @@ const StyledTableHead = styled(TableHead)(({ theme }) => ({
   },
 }));
 
-const StyledTableRow = styled(TableRow)(({ theme }) => ({
+const StyledTableRow = styled(TableRow)<{ $highlighted?: boolean; $highlightColor?: 'success' | 'warning' }>(({ theme, $highlighted, $highlightColor }) => ({
   transition: 'background-color 0.2s ease',
   '&:hover': {
     backgroundColor: theme.palette.action.hover,
@@ -182,6 +266,22 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
   '&:last-child .MuiTableCell-root': {
     borderBottom: 0,
   },
+  // Highlight styles
+  ...($highlighted && {
+    backgroundColor: $highlightColor === 'success' 
+      ? 'rgba(34, 197, 94, 0.1)' // Green background for restore
+      : 'rgba(245, 158, 11, 0.1)', // Orange background for archive/delete
+    borderLeft: `4px solid ${
+      $highlightColor === 'success' 
+        ? theme.palette.success.main 
+        : theme.palette.warning.main
+    }`,
+    '&:hover': {
+      backgroundColor: $highlightColor === 'success' 
+        ? 'rgba(34, 197, 94, 0.15)' 
+        : 'rgba(245, 158, 11, 0.15)',
+    },
+  }),
 }));
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
@@ -299,10 +399,10 @@ const getStatusColor = (inStock: boolean): 'success' | 'error' =>
 const getStatusLabel = (inStock: boolean): string => 
   inStock ? 'In Stock' : 'Out of Stock';
 
-const getPriceChangeColor = (percentDiff: number): 'error' | 'success' | 'default' => {
-  if (percentDiff > 0) return 'error'; // Price increased (bad for competition)
-  if (percentDiff < 0) return 'success'; // Price decreased (good for competition)
-  return 'default';
+const getPriceChangeColor = (percentDiff: number): 'success' | 'error' | 'default' => {
+  if (percentDiff > 0) return 'success'; // Green for positive changes
+  if (percentDiff < 0) return 'error'; // Red for negative changes
+  return 'default'; // Default for no change
 };
 
 const getPriceChangeIcon = (percentDiff: number): React.ReactElement | undefined => {
@@ -327,19 +427,54 @@ const formatPercentChange = (percentDiff: number): string | null => {
 };
 
 const formatLastChecked = (lastChecked: string): string => {
+  // Handle special cases
+  if (lastChecked === 'Never' || lastChecked === 'Unknown' || !lastChecked) {
+    return 'Not checked yet';
+  }
+  
   try {
-    const date = parseISO(lastChecked);
+    let date: Date;
+    
+    // Handle different timestamp formats from backend
+    if (lastChecked.includes('T') && lastChecked.includes('Z')) {
+      // ISO format: "2025-07-29T17:59:19.391Z"
+      date = parseISO(lastChecked);
+    } else if (lastChecked.includes(' ') && lastChecked.includes(':')) {
+      // Database format: "2025-07-29 17:59:19.391"
+      date = new Date(lastChecked.replace(' ', 'T') + 'Z');
+    } else {
+      // Try direct parsing
+      date = new Date(lastChecked);
+    }
+    
+    // Validate the date
+    if (isNaN(date.getTime())) {
+      console.warn('Invalid date format for lastChecked:', lastChecked);
+      return 'Not checked yet';
+    }
+    
     const timeAgo = format(date, 'PPpp');
     
     // Show more precise time for recent checks
-    const minutesAgo = Math.floor((Date.now() - date.getTime()) / 60000);
+    const secondsAgo = Math.floor((Date.now() - date.getTime()) / 1000);
+    const minutesAgo = Math.floor(secondsAgo / 60);
+    const hoursAgo = Math.floor(minutesAgo / 60);
+    const daysAgo = Math.floor(hoursAgo / 24);
+    
+    if (secondsAgo < 30) return 'Just now';
+    if (secondsAgo < 60) return `${secondsAgo} seconds ago`;
     if (minutesAgo < 1) return 'Just now';
     if (minutesAgo === 1) return '1 minute ago';
     if (minutesAgo < 60) return `${minutesAgo} minutes ago`;
+    if (hoursAgo === 1) return '1 hour ago';
+    if (hoursAgo < 24) return `${hoursAgo} hours ago`;
+    if (daysAgo === 1) return '1 day ago';
+    if (daysAgo < 7) return `${daysAgo} days ago`;
     
     return timeAgo;
-  } catch {
-    return 'Unknown';
+  } catch (error) {
+    console.warn('Error parsing lastChecked timestamp:', lastChecked, error);
+    return 'Not checked yet';
   }
 };
 
@@ -352,25 +487,57 @@ const getDomainFromUrl = (url: string): string => {
   }
 };
 
-const getCompetitorInitials = (label: string): string => {
-  return label
-    .split(' ')
-    .map(word => word.charAt(0))
-    .join('')
-    .substring(0, 2)
-    .toUpperCase();
+
+
+const getProductLink = (competitor: Competitor, shop: string | null): string | null => {
+  if (competitor.shopifyProductId) {
+    // Only return link if we have a valid shop domain
+    if (shop && shop.includes('.myshopify.com')) {
+      // Use the same approach as Dashboard - create admin URL with product ID
+      return `https://${shop}/admin/products/${competitor.shopifyProductId}`;
+    }
+  }
+  return null;
 };
+
+// Modern loading spinner component with tooltip
+const LoadingSpinner: React.FC<{ size?: number; tooltip?: string }> = ({ size = 20, tooltip = "Loading price data..." }) => (
+  <Tooltip 
+    title={tooltip}
+    placement="top"
+    arrow
+  >
+    <Box
+      sx={{
+        width: size,
+        height: size,
+        borderRadius: '50%',
+        border: '2px solid',
+        borderColor: 'primary.light',
+        borderTopColor: 'primary.main',
+        animation: 'spin 1s linear infinite',
+        '@keyframes spin': {
+          '0%': { transform: 'rotate(0deg)' },
+          '100%': { transform: 'rotate(360deg)' }
+        },
+        cursor: 'help'
+      }}
+    />
+  </Tooltip>
+);
 
 // Mobile competitor card component
 const MobileCompetitorCard: React.FC<{
   competitor: Competitor;
-  onDelete: (id: string) => void;
-}> = ({ competitor, onDelete }) => {
+  onDelete: (competitor: Competitor) => void;
+  onViewGraph?: (competitor: Competitor) => void;
+}> = ({ competitor, onDelete, onViewGraph }) => {
   const [expanded, setExpanded] = useState(false);
+  const { shop } = useAuth();
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onDelete(competitor.id);
+    onDelete(competitor);
   };
 
   const handleOpenUrl = (e: React.MouseEvent) => {
@@ -388,17 +555,11 @@ const MobileCompetitorCard: React.FC<{
     <CompetitorCard onClick={handleCardClick}>
       <CardContent sx={{ pb: 1 }}>
         <CompetitorHeader>
-          <Avatar 
-            sx={{ 
-              bgcolor: 'primary.main', 
-              width: 40, 
-              height: 40,
-              fontSize: '0.875rem',
-              fontWeight: 600
-            }}
-          >
-            {getCompetitorInitials(competitor.label)}
-              </Avatar>
+          <StoreLogo 
+            url={competitor.url}
+            size={40}
+            label={competitor.label}
+          />
           
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography 
@@ -439,12 +600,72 @@ const MobileCompetitorCard: React.FC<{
         </CompetitorHeader>
 
         <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }}>
-          <MetricChip
-            label={formatPrice(competitor.price)}
-            color="primary"
-            variant="filled"
-            icon={<AttachMoneyIcon />}
-          />
+          {competitor.priceLoading ? (
+            <MetricChip
+              label="Loading..."
+              color="default"
+              variant="outlined"
+              icon={<LoadingSpinner size={16} tooltip="Fetching current price from competitor website..." />}
+            />
+          ) : !competitor.inStock && competitor.price === 0 ? (
+            <MetricChip
+              label="Out of Stock"
+              color="error"
+              variant="outlined"
+              icon={<CancelIcon />}
+            />
+                   ) : competitor.price === 0 ? (
+           <Tooltip title="Price information not available from this competitor">
+             <IconButton
+               size="small"
+               sx={{
+                 color: 'text.secondary',
+                 backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                 border: '1px solid rgba(0, 0, 0, 0.12)',
+                 borderRadius: '4px',
+                 minWidth: 32,
+                 minHeight: 32,
+                 '&:hover': {
+                   backgroundColor: 'rgba(0, 0, 0, 0.08)',
+                   borderColor: 'rgba(0, 0, 0, 0.24)',
+                 },
+               }}
+             >
+               <VisibilityOffIcon fontSize="small" />
+             </IconButton>
+           </Tooltip>
+                   ) : competitor.showingOldPrice ? (
+           <Tooltip title="Showing last known price - item is currently out of stock">
+             <Box
+               sx={{
+                 display: 'flex',
+                 alignItems: 'center',
+                 gap: 1,
+                 px: 1.5,
+                 py: 0.5,
+                 borderRadius: 1,
+                 border: '1px solid',
+                 borderColor: 'warning.main',
+                 backgroundColor: 'warning.light',
+                 color: 'warning.dark',
+                 fontSize: '0.875rem',
+                 fontWeight: 600,
+                 minWidth: 60,
+                 justifyContent: 'center',
+               }}
+             >
+               <HistoryIcon sx={{ fontSize: '1rem' }} />
+               {formatPrice(competitor.price)}
+             </Box>
+           </Tooltip>
+          ) : (
+            <MetricChip
+              label={formatPrice(competitor.price)}
+              color="primary"
+              variant="filled"
+              icon={<AttachMoneyIcon />}
+            />
+          )}
           
           <MetricChip
             label={getStatusLabel(competitor.inStock)}
@@ -469,6 +690,55 @@ const MobileCompetitorCard: React.FC<{
           <Stack spacing={2}>
             <Box>
               <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
+                Product Association
+              </Typography>
+              <Stack direction="row" spacing={1} alignItems="center">
+                {competitor.shopifyProductId ? (
+                  <Tooltip 
+                    title={
+                      <Box>
+                        <Typography variant="subtitle2" fontWeight={600}>
+                          {competitor.productTitle || 'Associated Product'}
+                        </Typography>
+                        <Typography variant="body2" sx={{ mt: 0.5 }}>
+                          Click to view in your store
+                        </Typography>
+                      </Box>
+                    }
+                    arrow
+                    placement="top"
+                  >
+                    <Chip
+                      label="Associated"
+                      color="success"
+                      size="small"
+                      variant="outlined"
+                      icon={<CheckCircleIcon />}
+                      onClick={() => {
+                        const productLink = getProductLink(competitor, shop);
+                        if (productLink) {
+                          window.open(productLink, '_blank', 'noopener,noreferrer');
+                        }
+                      }}
+                      sx={{ 
+                        cursor: 'pointer',
+                        '&:hover': {
+                          backgroundColor: 'success.light',
+                          color: 'success.contrastText'
+                        }
+                      }}
+                    />
+                  </Tooltip>
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    Auto-selected
+                  </Typography>
+                )}
+              </Stack>
+            </Box>
+
+            <Box>
+              <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
                 Last Checked
               </Typography>
               <Stack direction="row" spacing={1} alignItems="center">
@@ -489,14 +759,34 @@ const MobileCompetitorCard: React.FC<{
                 Visit Site
               </StyledActionButton>
               
+              {onViewGraph && (
+                <StyledActionButton
+                  variant="outlined"
+                  color="info"
+                  startIcon={<BarChartIcon />}
+                  onClick={() => onViewGraph(competitor)}
+                  disabled={!competitor.lastChecked}
+                  sx={{ 
+                    flex: 1,
+                    opacity: competitor.lastChecked ? 1 : 0.4,
+                    '&:disabled': {
+                      opacity: 0.4,
+                      cursor: 'not-allowed'
+                    }
+                  }}
+                >
+                  {competitor.lastChecked ? 'View History' : 'No Data'}
+                </StyledActionButton>
+              )}
+              
               <StyledActionButton
                 variant="outlined"
-                color="error"
-                startIcon={<DeleteIcon />}
+                color="warning"
+                startIcon={<ArchiveIcon />}
                 onClick={handleDelete}
                 sx={{ flex: 1 }}
               >
-                Remove
+                Archive
               </StyledActionButton>
             </ActionButtonGroup>
           </Stack>
@@ -509,33 +799,42 @@ const MobileCompetitorCard: React.FC<{
 // Desktop table row component
 const DesktopTableRow: React.FC<{
   competitor: Competitor;
-  onDelete: (id: string) => void;
-}> = ({ competitor, onDelete }) => {
+  onDelete: (competitor: Competitor) => void;
+  onLinkProduct?: (competitor: Competitor) => void;
+  onViewGraph?: (competitor: Competitor) => void;
+  highlighted?: boolean;
+  highlightColor?: 'success' | 'warning';
+}> = ({ competitor, onDelete, onLinkProduct, onViewGraph, highlighted = false, highlightColor }) => {
   const percentChangeText = formatPercentChange(competitor.percentDiff);
+  const { shop } = useAuth();
 
   const handleDelete = () => {
-    onDelete(competitor.id);
+    onDelete(competitor);
   };
 
   const handleOpenUrl = () => {
     window.open(competitor.url, '_blank', 'noopener,noreferrer');
   };
 
+  const handleProductClick = () => {
+    const productLink = getProductLink(competitor, shop);
+    if (productLink) {
+      window.open(productLink, '_blank', 'noopener,noreferrer');
+    }
+  };
+
   return (
-    <StyledTableRow>
+    <StyledTableRow
+      $highlighted={highlighted}
+      $highlightColor={highlightColor}
+    >
       <StyledTableCell>
         <Stack direction="row" spacing={2} alignItems="center">
-          <Avatar 
-            sx={{ 
-              bgcolor: 'primary.main', 
-              width: 32, 
-              height: 32,
-              fontSize: '0.75rem',
-              fontWeight: 600
-            }}
-          >
-            {getCompetitorInitials(competitor.label)}
-          </Avatar>
+          <StoreLogo 
+            url={competitor.url}
+            size={32}
+            label={competitor.label}
+          />
           <Box sx={{ minWidth: 0 }}>
             <Typography variant="subtitle2" fontWeight={600} noWrap>
               {competitor.label}
@@ -548,9 +847,63 @@ const DesktopTableRow: React.FC<{
       </StyledTableCell>
 
       <StyledTableCell>
-        <Typography variant="body2" fontWeight={600} color="primary">
-          {formatPrice(competitor.price)}
-        </Typography>
+        {competitor.priceLoading ? (
+          <Box display="flex" alignItems="center" justifyContent="center">
+            <LoadingSpinner size={20} tooltip="Fetching current price from competitor website..." />
+          </Box>
+        ) : !competitor.inStock && competitor.price === 0 ? (
+          <Typography variant="body2" color="error" fontWeight={600}>
+            Out of Stock
+          </Typography>
+                 ) : competitor.price === 0 ? (
+           <Tooltip title="Price information not available from this competitor">
+             <IconButton
+               size="small"
+               sx={{
+                 color: 'text.secondary',
+                 backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                 border: '1px solid rgba(0, 0, 0, 0.12)',
+                 borderRadius: '4px',
+                 minWidth: 32,
+                 minHeight: 32,
+                 '&:hover': {
+                   backgroundColor: 'rgba(0, 0, 0, 0.08)',
+                   borderColor: 'rgba(0, 0, 0, 0.24)',
+                 },
+               }}
+             >
+               <VisibilityOffIcon fontSize="small" />
+             </IconButton>
+           </Tooltip>
+                 ) : competitor.showingOldPrice ? (
+           <Tooltip title="Showing last known price - item is currently out of stock">
+             <Typography 
+               variant="body2" 
+               fontWeight={600} 
+               color="warning.dark"
+               sx={{
+                 px: 1.5,
+                 py: 0.5,
+                 borderRadius: 1,
+                 border: '1px solid',
+                 borderColor: 'warning.main',
+                 backgroundColor: 'warning.light',
+                 display: 'inline-flex',
+                 alignItems: 'center',
+                 gap: 0.5,
+                 minWidth: 60,
+                 textAlign: 'center',
+               }}
+             >
+               <HistoryIcon fontSize="small" />
+               {formatPrice(competitor.price)}
+             </Typography>
+           </Tooltip>
+        ) : (
+          <Typography variant="body2" fontWeight={600} color="primary">
+            {formatPrice(competitor.price)}
+          </Typography>
+        )}
       </StyledTableCell>
 
       <StyledTableCell>
@@ -580,6 +933,45 @@ const DesktopTableRow: React.FC<{
       </StyledTableCell>
 
       <StyledTableCell>
+        {competitor.shopifyProductId ? (
+          <Tooltip 
+            title={
+              <Box>
+                <Typography variant="subtitle2" fontWeight={600}>
+                  {competitor.productTitle || 'Associated Product'}
+                </Typography>
+                <Typography variant="body2" sx={{ mt: 0.5 }}>
+                  Click to view in your store
+                </Typography>
+              </Box>
+            }
+            arrow
+            placement="top"
+          >
+            <Chip
+              label="Associated"
+              color="success"
+              size="small"
+              variant="outlined"
+              icon={<CheckCircleIcon />}
+              onClick={handleProductClick}
+              sx={{ 
+                cursor: 'pointer',
+                '&:hover': {
+                  backgroundColor: 'success.light',
+                  color: 'success.contrastText'
+                }
+              }}
+            />
+          </Tooltip>
+        ) : (
+          <Typography variant="body2" color="text.secondary">
+            Auto-selected
+          </Typography>
+        )}
+      </StyledTableCell>
+
+      <StyledTableCell>
         <Stack direction="row" spacing={1} alignItems="center">
           <ScheduleIcon fontSize="small" color="action" />
           <Typography variant="body2" color="text.secondary">
@@ -600,14 +992,49 @@ const DesktopTableRow: React.FC<{
             </IconButton>
           </Tooltip>
           
-          <Tooltip title="Remove competitor">
+          {onLinkProduct && (
+            <Tooltip title={competitor.shopifyProductId ? "Change product association" : "Link to product"}>
+              <IconButton 
+                size="small" 
+                color="primary"
+                onClick={() => onLinkProduct(competitor)}
+                sx={{ minWidth: 36, minHeight: 36 }}
+              >
+                <LinkIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+          
+          {onViewGraph && (
+            <Tooltip title={competitor.lastChecked ? "View price history" : "No price history available"}>
+              <IconButton 
+                size="small" 
+                color="info"
+                onClick={() => onViewGraph(competitor)}
+                disabled={!competitor.lastChecked}
+                sx={{ 
+                  minWidth: 36, 
+                  minHeight: 36,
+                  opacity: competitor.lastChecked ? 1 : 0.4,
+                  '&:disabled': {
+                    opacity: 0.4,
+                    cursor: 'not-allowed'
+                  }
+                }}
+              >
+                <BarChartIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+          
+          <Tooltip title="Archive competitor">
             <IconButton 
               size="small" 
-              color="error" 
+              color="warning" 
               onClick={handleDelete}
               sx={{ minWidth: 36, minHeight: 36 }}
             >
-              <DeleteIcon fontSize="small" />
+              <ArchiveIcon fontSize="small" />
             </IconButton>
           </Tooltip>
         </Stack>
@@ -620,10 +1047,147 @@ const DesktopTableRow: React.FC<{
 export const CompetitorTable: React.FC<CompetitorTableProps> = ({ 
   data = [], 
   onDelete, 
+  onLinkProduct,
+  onViewGraph,
   loading = false,
   error = null,
   onRetry,
+  sectionTitle,
+  sectionCount,
+  sectionColor = 'green',
+  onToggleCollapse,
+  isCollapsed = false,
+  onRefreshPrices,
+  highlightedCompetitorId,
+  highlightAction,
 }) => {
+  // Confirmation dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [competitorToDelete, setCompetitorToDelete] = useState<Competitor | null>(null);
+  const [refreshStatus, setRefreshStatus] = useState<{
+    can_refresh: boolean;
+    stale_count: number;
+    total_competitors: number;
+  } | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Load refresh status on mount
+  React.useEffect(() => {
+    const loadRefreshStatus = async () => {
+      try {
+        const status = await getPriceRefreshStatus();
+        setRefreshStatus({
+          can_refresh: status.can_refresh,
+          stale_count: status.stale_count,
+          total_competitors: status.total_competitors,
+        });
+      } catch (error) {
+        console.warn('Failed to load refresh status:', error);
+      }
+    };
+
+    loadRefreshStatus();
+  }, []);
+
+  const handleRefreshPrices = async () => {
+    if (isRefreshing) return;
+
+    setIsRefreshing(true);
+    try {
+      const result = await refreshCompetitorPrices();
+      console.log('Price refresh started:', result);
+      
+      // Update status after refresh
+      const newStatus = await getPriceRefreshStatus();
+      setRefreshStatus({
+        can_refresh: newStatus.can_refresh,
+        stale_count: newStatus.stale_count,
+        total_competitors: newStatus.total_competitors,
+      });
+
+      // Call parent callback if provided
+      if (onRefreshPrices) {
+        onRefreshPrices();
+      }
+    } catch (error) {
+      console.error('Failed to refresh prices:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+  const [highlightedRows, setHighlightedRows] = useState<Set<string>>(new Set());
+
+  // Function to highlight a row briefly
+  const highlightRow = (competitorId: string | number, color: 'success' | 'warning') => {
+    const competitorIdStr = String(competitorId);
+    debugLog.info('highlightRow called', { competitorId: competitorIdStr, color }, 'CompetitorTable');
+    setHighlightedRows(prev => {
+      const newSet = new Set([...prev, competitorIdStr]);
+      debugLog.info('Updated highlightedRows', { highlightedRows: Array.from(newSet) }, 'CompetitorTable');
+      return newSet;
+    });
+    
+    // Remove highlight after 5 seconds (industry standard for UI feedback)
+    setTimeout(() => {
+      setHighlightedRows(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(competitorIdStr);
+        debugLog.info('Removed highlight for', { competitorId: competitorIdStr }, 'CompetitorTable');
+        return newSet;
+      });
+    }, 5000);
+  };
+
+  // Handle external highlighting from props
+  React.useEffect(() => {
+    if (highlightedCompetitorId && highlightAction) {
+      debugLog.info('Highlighting triggered', { highlightedCompetitorId, highlightAction }, 'CompetitorTable');
+      
+      // Determine color based on action and section
+      let color: 'success' | 'warning';
+      
+      if (highlightAction === 'add') {
+        color = 'success'; // Green for adding
+      } else if (highlightAction === 'archive') {
+        color = 'warning'; // Orange for archiving
+      } else if (highlightAction === 'restore') {
+        color = 'success'; // Green for restoring
+      } else {
+        color = 'success';
+      }
+      
+      debugLog.info('Highlighting with color', { color }, 'CompetitorTable');
+      highlightRow(String(highlightedCompetitorId), color);
+    }
+  }, [highlightedCompetitorId, highlightAction]);
+
+  // Confirmation dialog handlers
+  const handleDeleteClick = (competitor: Competitor) => {
+    setCompetitorToDelete(competitor);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (competitorToDelete) {
+      highlightRow(String(competitorToDelete.id), 'warning');
+      onDelete(competitorToDelete.id);
+      setDeleteDialogOpen(false);
+      setCompetitorToDelete(null);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteDialogOpen(false);
+    setCompetitorToDelete(null);
+  };
+
+  // Enhanced delete handler with highlighting (now uses confirmation)
+  const handleDeleteWithHighlight = (competitorId: string) => {
+    const competitor = data.find(c => c.id === competitorId);
+    if (competitor) {
+      handleDeleteClick(competitor);
+    }
+  };
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
@@ -676,45 +1240,183 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({
 
   return (
     <ResponsiveContainer>
-      {/* Mobile Cards */}
-      <Box className="mobile-cards">
-        <Stack spacing={2}>
-          {data.map((competitor) => (
-            <MobileCompetitorCard
-              key={competitor.id}
-              competitor={competitor}
-              onDelete={onDelete}
-            />
-          ))}
-        </Stack>
-      </Box>
-
-      {/* Desktop Table */}
-      <Box className="desktop-table">
-        <StyledTableContainer>
-          <Table>
-            <StyledTableHead>
-              <TableRow>
-                <TableCell>Competitor</TableCell>
-                <TableCell>Price</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Change</TableCell>
-                <TableCell>Last Checked</TableCell>
-                <TableCell>Actions</TableCell>
-              </TableRow>
-            </StyledTableHead>
-            <TableBody>
-              {data.map((competitor) => (
-                <DesktopTableRow
-                  key={competitor.id}
-                  competitor={competitor}
-                  onDelete={onDelete}
+      {/* Integrated Section Header */}
+      {sectionTitle && (
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'space-between',
+          p: 2,
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+          backgroundColor: 'background.paper',
+          '@media (max-width: 600px)': {
+            p: 2.5,
+            minHeight: 56
+          }
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            {onToggleCollapse && (
+              <IconButton
+                onClick={onToggleCollapse}
+                size="small"
+                sx={{ 
+                  color: 'text.secondary',
+                  minWidth: 44,
+                  minHeight: 44,
+                  '&:hover': {
+                    color: 'text.primary'
+                  },
+                  '@media (max-width: 600px)': {
+                    minWidth: 48,
+                    minHeight: 48,
+                  }
+                }}
+              >
+                <svg
+                  className={`w-4 h-4 transform transition-transform ${isCollapsed ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </IconButton>
+            )}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box 
+                sx={{ 
+                  width: 12, 
+                  height: 12, 
+                  borderRadius: '50%',
+                  backgroundColor: sectionColor === 'green' ? 'success.main' : 'warning.main'
+                }} 
+              />
+              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                {sectionTitle}
+              </Typography>
+              {sectionCount !== undefined && (
+                <Chip
+                  label={sectionCount}
+                  size="small"
+                  sx={{ 
+                    height: 20, 
+                    fontSize: '0.75rem',
+                    backgroundColor: 'grey.100',
+                    color: 'text.secondary'
+                  }}
                 />
-              ))}
-            </TableBody>
-          </Table>
-        </StyledTableContainer>
-      </Box>
+              )}
+            </Box>
+          </Box>
+          
+          {/* Price Refresh Button */}
+          {refreshStatus && (
+            <PriceRefreshButton
+              onRefresh={handleRefreshPrices}
+              canRefresh={refreshStatus.can_refresh}
+              staleCount={refreshStatus.stale_count}
+              isLoading={isRefreshing}
+            />
+          )}
+        </Box>
+      )}
+
+      {/* Content Section - Collapsible */}
+      <Collapse in={!isCollapsed} timeout={300}>
+        {/* Mobile Cards */}
+        <Box className="mobile-cards">
+          <Stack spacing={2}>
+            {data.map((competitor) => (
+              <MobileCompetitorCard
+                key={competitor.id}
+                competitor={competitor}
+                onDelete={handleDeleteClick}
+                onViewGraph={onViewGraph}
+              />
+            ))}
+          </Stack>
+        </Box>
+
+        {/* Desktop Table */}
+        <Box className="desktop-table">
+          <StyledTableContainer>
+            <Table>
+              <StyledTableHead>
+                <TableRow>
+                  <TableCell>
+                    <span>Competitor</span>
+                  </TableCell>
+                  <TableCell>Price</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Change</TableCell>
+                  <TableCell>Product</TableCell>
+                  <TableCell>Last Checked</TableCell>
+                  <TableCell>Actions</TableCell>
+                </TableRow>
+              </StyledTableHead>
+              <TableBody>
+                {data.map((competitor) => {
+                  const isHighlighted = highlightedRows.has(competitor.id);
+                  // Determine the correct highlight color based on the action
+                  let highlightColor: 'success' | 'warning' | undefined = undefined;
+                  if (isHighlighted) {
+                    // Determine color based on the current highlight action
+                    if (highlightAction === 'add') {
+                      highlightColor = 'success'; // Green for adding
+                    } else if (highlightAction === 'archive') {
+                      highlightColor = 'warning'; // Orange for archiving
+                    } else if (highlightAction === 'restore') {
+                      highlightColor = 'success'; // Green for restoring
+                    } else {
+                      highlightColor = 'success'; // Default to success
+                    }
+                  }
+                  return (
+                    <DesktopTableRow
+                      key={competitor.id}
+                      competitor={competitor}
+                      onDelete={handleDeleteClick}
+                      onLinkProduct={onLinkProduct}
+                      onViewGraph={onViewGraph}
+                      highlighted={isHighlighted}
+                      highlightColor={highlightColor}
+                    />
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </StyledTableContainer>
+        </Box>
+      </Collapse>
+
+      {/* Confirmation Dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={handleCancelDelete}
+        aria-labelledby="delete-dialog-title"
+        aria-describedby="delete-dialog-description"
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle id="delete-dialog-title">
+          Archive Competitor
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="delete-dialog-description">
+            Are you sure you want to archive <strong>{competitorToDelete?.label}</strong>? 
+            This will move the competitor to your archived list where you can restore it later if needed.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCancelDelete} color="primary">
+            Cancel
+          </Button>
+          <Button onClick={handleConfirmDelete} color="warning" variant="contained">
+            Archive
+          </Button>
+        </DialogActions>
+      </Dialog>
     </ResponsiveContainer>
   );
 };

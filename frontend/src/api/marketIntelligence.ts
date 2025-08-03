@@ -52,6 +52,7 @@ export interface DiscoveryLimitResult {
 
 export interface LimitsResponse {
   competitorLimit: LimitCheckResult;
+  archivedCompetitorLimit: LimitCheckResult;
   suggestionLimit: LimitCheckResult;
   discoveryLimit: DiscoveryLimitResult;
 }

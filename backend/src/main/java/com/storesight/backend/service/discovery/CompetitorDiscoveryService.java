@@ -4,6 +4,7 @@ import com.storesight.backend.model.CompetitorSuggestion;
 import com.storesight.backend.model.ShopSession;
 import com.storesight.backend.repository.CompetitorSuggestionRepository;
 import com.storesight.backend.repository.ShopSessionRepository;
+import com.storesight.backend.service.AsyncProcessingService;
 import com.storesight.backend.service.CostOptimizationService;
 import java.math.BigDecimal;
 import java.net.URI;
@@ -12,7 +13,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import org.slf4j.Logger;
@@ -51,6 +51,8 @@ public class CompetitorDiscoveryService {
 
   @Autowired private CostOptimizationService costOptimizationService;
 
+  @Autowired private AsyncProcessingService asyncProcessingService;
+
   /** Scheduled task to discover competitors for all active shops */
   @Scheduled(cron = "0 45 3 * * *") // Default: daily at 3:45 AM
   public void discoverCompetitorsForAllShops() {
@@ -73,17 +75,33 @@ public class CompetitorDiscoveryService {
         Long shopId = ((Number) shop.get("id")).longValue();
         String shopDomain = (String) shop.get("shopify_domain");
 
-        // Run discovery for each shop asynchronously
-        CompletableFuture.runAsync(
-            () -> {
-              try {
-                discoverCompetitorsForShop(shopId, shopDomain);
-              } catch (Exception e) {
-                log.error(
-                    "Error discovering competitors for shop {}: {}", shopDomain, e.getMessage(), e);
-              }
-            },
-            discoveryExecutor);
+        // Run discovery for each shop using enhanced async processing
+        String taskId = "discovery-" + shopDomain + "-" + System.currentTimeMillis();
+        asyncProcessingService
+            .submitDiscoveryTask(
+                taskId,
+                shopDomain,
+                shopId,
+                () -> {
+                  try {
+                    discoverCompetitorsForShop(shopId, shopDomain);
+                  } catch (Exception e) {
+                    log.error(
+                        "Error discovering competitors for shop {}: {}",
+                        shopDomain,
+                        e.getMessage(),
+                        e);
+                    throw new RuntimeException("Discovery failed for shop " + shopDomain, e);
+                  }
+                })
+            .exceptionally(
+                throwable -> {
+                  log.error(
+                      "Async discovery task failed for shop {}: {}",
+                      shopDomain,
+                      throwable.getMessage());
+                  return null;
+                });
       }
 
     } catch (Exception e) {

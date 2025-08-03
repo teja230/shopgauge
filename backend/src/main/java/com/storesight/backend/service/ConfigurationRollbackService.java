@@ -37,6 +37,20 @@ public class ConfigurationRollbackService {
 
   @EventListener(ApplicationReadyEvent.class)
   public void captureInitialConfiguration() {
+    // Check if memory optimization features are enabled
+    boolean memoryOptimizationEnabled =
+        featureFlagService.isScheduledSystemResourceMonitoringEnabled()
+            || featureFlagService.isScheduledDashboardCollectionEnabled()
+            || featureFlagService.isScheduledPerformanceMetricsEnabled()
+            || featureFlagService.isScheduledDatabaseMonitoringEnabled()
+            || featureFlagService.isScheduledAlertingEnabled();
+
+    if (!memoryOptimizationEnabled) {
+      logger.debug(
+          "Configuration rollback service disabled - memory optimization features not enabled");
+      return;
+    }
+
     logger.info("Capturing initial configuration snapshot...");
     currentSnapshot = captureCurrentConfiguration();
     lastKnownGoodSnapshot = currentSnapshot;

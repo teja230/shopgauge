@@ -343,6 +343,18 @@ CREATE TABLE audit_logs (
 - **Shopify Partner Account** with app credentials and API access
 - **Docker** (optional, for containerized development)
 
+### 🎛️ Resource Optimization
+
+ShopGauge includes intelligent memory management that automatically adapts to your server capacity:
+
+- **512MB Profile**: Emergency mode for Render Starter (throttling enabled)
+- **1GB Profile**: Balanced mode for Render Pro (recommended)
+- **2GB Profile**: Performance mode for high-traffic sites
+
+**Quick Setup**: Set `MEMORY_PROFILE=1GB` in your environment variables or use `./backend/switch-memory-profile.sh`
+
+📖 **[Complete Resource Optimization Guide](backend/docs/RESOURCE_OPTIMIZATION_GUIDE.md)**
+
 ### Local Development Setup
 
 1. **Clone the repository**

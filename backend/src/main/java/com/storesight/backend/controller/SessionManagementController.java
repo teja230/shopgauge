@@ -2,6 +2,8 @@ package com.storesight.backend.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.storesight.backend.model.ShopSession;
+import com.storesight.backend.service.AdminAuthService;
+import com.storesight.backend.service.FeatureFlagService;
 import com.storesight.backend.service.ShopService;
 import com.storesight.backend.service.SseService;
 import jakarta.servlet.http.Cookie;
@@ -34,6 +36,9 @@ public class SessionManagementController {
   private final ShopService shopService;
   private final RedisTemplate<String, String> redisTemplate;
   private final SseService sseService;
+  private final AdminAuthService adminAuthService;
+
+  @Autowired private FeatureFlagService featureFlagService;
 
   private static final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -44,10 +49,14 @@ public class SessionManagementController {
 
   @Autowired
   public SessionManagementController(
-      ShopService shopService, RedisTemplate<String, String> redisTemplate, SseService sseService) {
+      ShopService shopService,
+      RedisTemplate<String, String> redisTemplate,
+      SseService sseService,
+      AdminAuthService adminAuthService) {
     this.shopService = shopService;
     this.redisTemplate = redisTemplate;
     this.sseService = sseService;
+    this.adminAuthService = adminAuthService;
   }
 
   /** Get active sessions for the current shop */
@@ -767,11 +776,35 @@ public class SessionManagementController {
       return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
     }
 
+    logger.debug(
+        "Session limit check requested for shop: {} from IP: {}",
+        shop,
+        getClientIpAddress(request));
+
     try {
       // Use getSession(false) to avoid creating a new session if it doesn't exist
-      jakarta.servlet.http.HttpSession sessionObj = request.getSession(false);
-      String currentSessionId = (sessionObj != null) ? sessionObj.getId() : null;
+      String currentSessionId = null;
 
+      try {
+        jakarta.servlet.http.HttpSession sessionObj = request.getSession(false);
+        currentSessionId = (sessionObj != null) ? sessionObj.getId() : null;
+        logger.debug(
+            "Session limit check - current session ID: {} for shop: {}", currentSessionId, shop);
+      } catch (IllegalStateException sessionEx) {
+        if (sessionEx.getMessage() != null
+            && sessionEx.getMessage().contains("Session was invalidated")) {
+          logger.warn(
+              "Session was invalidated during limit check for shop: {} - continuing without session ID",
+              shop);
+          // Don't return 401 - continue with null session ID and let the endpoint work
+          currentSessionId = null;
+        } else {
+          throw sessionEx;
+        }
+      }
+
+      // Process session data with the current session ID
+      final String finalCurrentSessionId = currentSessionId; // Make it final for lambda expressions
       List<ShopSession> activeSessions = null;
       boolean currentSessionFound = false;
       int maxRetries = 3;
@@ -780,9 +813,9 @@ public class SessionManagementController {
       for (int attempt = 0; attempt < maxRetries; attempt++) {
         activeSessions = shopService.getActiveSessionsForShop(shop);
         currentSessionFound =
-            currentSessionId != null
+            finalCurrentSessionId != null
                 && activeSessions.stream()
-                    .anyMatch(session -> session.getSessionId().equals(currentSessionId));
+                    .anyMatch(session -> session.getSessionId().equals(finalCurrentSessionId));
 
         if (currentSessionFound || attempt == maxRetries - 1) {
           break; // Found current session or exhausted retries
@@ -801,16 +834,34 @@ public class SessionManagementController {
             attempt + 1,
             maxRetries,
             shop,
-            currentSessionId);
+            finalCurrentSessionId);
       }
 
       boolean limitReached = activeSessions.size() >= 5; // MAX_SESSIONS_PER_SHOP
+
+      // CRITICAL FIX: If limit is reached, trigger async cleanup instead of immediate invalidation
+      if (limitReached) {
+        logger.info(
+            "Session limit reached for shop: {} ({} sessions). Triggering async cleanup.",
+            shop,
+            activeSessions.size());
+
+        // Trigger async cleanup to prevent Spring Session conflicts
+        try {
+          shopService.cleanupExcessiveSessionsAsync(shop);
+        } catch (Exception cleanupError) {
+          logger.warn(
+              "Failed to trigger async session cleanup for shop {}: {}",
+              shop,
+              cleanupError.getMessage());
+        }
+      }
 
       response.put("limitReached", limitReached);
       response.put("maxSessions", 5);
       response.put("currentSessionCount", activeSessions.size());
       response.put("shop", shop);
-      response.put("currentSessionId", currentSessionId);
+      response.put("currentSessionId", finalCurrentSessionId);
       response.put("currentSessionFound", currentSessionFound);
 
       List<Map<String, Object>> sessionDetails =
@@ -821,8 +872,8 @@ public class SessionManagementController {
                     sessionInfo.put("sessionId", session.getSessionId());
                     sessionInfo.put(
                         "isCurrentSession",
-                        currentSessionId != null
-                            && session.getSessionId().equals(currentSessionId));
+                        finalCurrentSessionId != null
+                            && session.getSessionId().equals(finalCurrentSessionId));
                     sessionInfo.put(
                         "createdAt",
                         session.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
@@ -852,14 +903,14 @@ public class SessionManagementController {
               .collect(Collectors.toList());
 
       // Only add current session if it exists and is not found in DB
-      if (currentSessionId != null && !currentSessionFound) {
+      if (finalCurrentSessionId != null && !currentSessionFound) {
         logger.info(
             "Current session {} not found in database for shop {}, adding to response for UI highlighting",
-            currentSessionId,
+            finalCurrentSessionId,
             shop);
 
         Map<String, Object> currentSessionInfo = new HashMap<>();
-        currentSessionInfo.put("sessionId", currentSessionId);
+        currentSessionInfo.put("sessionId", finalCurrentSessionId);
         currentSessionInfo.put("isCurrentSession", true);
         currentSessionInfo.put(
             "createdAt", LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
@@ -887,15 +938,29 @@ public class SessionManagementController {
             "Added current session to response. Total sessions: {}, Current session count: {}",
             sessionDetails.size(),
             activeSessions.size() + 1);
-      } else if (currentSessionId != null) {
-        logger.debug("Current session {} found in database for shop {}", currentSessionId, shop);
+      } else if (finalCurrentSessionId != null) {
+        logger.debug(
+            "Current session {} found in database for shop {}", finalCurrentSessionId, shop);
       }
 
       response.put("sessions", sessionDetails);
       response.put("success", true);
       response.put("timestamp", System.currentTimeMillis());
 
-      return ResponseEntity.ok(response);
+      try {
+        return ResponseEntity.ok(response);
+      } catch (IllegalStateException e) {
+        if (e.getMessage() != null && e.getMessage().contains("Session was invalidated")) {
+          logger.warn(
+              "Session invalidation during response writing for shop: {} - allowing response to complete normally",
+              shop);
+          // Don't return 401 - the response was already successful, just log the issue
+          // The SessionErrorHandlingFilter will handle this gracefully
+          return ResponseEntity.ok(response);
+        } else {
+          throw e;
+        }
+      }
 
     } catch (Exception e) {
       logger.error("Error checking session limit for shop {}: {}", shop, e.getMessage(), e);
@@ -1012,6 +1077,34 @@ public class SessionManagementController {
     }
 
     return request.getRemoteAddr();
+  }
+
+  private String getCurrentUsername(HttpServletRequest request) {
+    String token = getAdminTokenFromRequest(request);
+    if (token != null) {
+      return adminAuthService.getUsernameFromToken(token);
+    }
+    return "unknown";
+  }
+
+  private String getAdminTokenFromRequest(HttpServletRequest request) {
+    // Check for admin token in cookie
+    jakarta.servlet.http.Cookie[] cookies = request.getCookies();
+    if (cookies != null) {
+      for (jakarta.servlet.http.Cookie cookie : cookies) {
+        if ("admin_token".equals(cookie.getName())) {
+          return cookie.getValue();
+        }
+      }
+    }
+
+    // Check for admin token in Authorization header
+    String authHeader = request.getHeader("Authorization");
+    if (authHeader != null && authHeader.startsWith("Bearer ")) {
+      return authHeader.substring(7);
+    }
+
+    return null;
   }
 
   // ==================== ADMIN SESSION ENDPOINTS ====================
@@ -1177,28 +1270,82 @@ public class SessionManagementController {
     }
   }
 
-  /** Admin: Invalidate all sessions for a specific shop */
+  /**
+   * Admin: Invalidate all sessions for a specific shop with enhanced notifications and audit
+   * logging
+   */
   @PostMapping("/admin/shop/{shopDomain}/invalidate")
   public ResponseEntity<Map<String, Object>> adminInvalidateShopSessions(
       @PathVariable String shopDomain,
+      @RequestBody(required = false) Map<String, String> requestBody,
       HttpServletRequest request,
       HttpServletResponse httpResponse) {
+
+    String clientIp = getClientIpAddress(request);
+    String adminUsername = getCurrentUsername(request);
+    String reason = requestBody != null ? requestBody.get("reason") : "Admin session invalidation";
 
     Map<String, Object> response = new HashMap<>();
 
     try {
-      // Get all sessions for the shop
+      logger.info(
+          "Admin {} initiating session invalidation for shop: {} - Reason: {}",
+          adminUsername,
+          shopDomain,
+          reason);
+
+      // Step 1: Get all active sessions for the shop
       List<ShopSession> allSessions = shopService.getActiveSessionsForShop(shopDomain);
 
-      // Remove all sessions with better error handling
+      if (allSessions.isEmpty()) {
+        response.put("success", true);
+        response.put("message", "No active sessions found for shop: " + shopDomain);
+        response.put("shopDomain", shopDomain);
+        response.put("invalidatedSessions", 0);
+        response.put("totalSessions", 0);
+        response.put("adminUsername", adminUsername);
+        response.put("reason", reason);
+        return ResponseEntity.ok(response);
+      }
+
+      // Step 2: Send pre-invalidation notification to all connected users
+      try {
+        String preMessage =
+            String.format(
+                "An administrator (%s) is about to invalidate your session. Reason: %s",
+                adminUsername, reason);
+
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("adminUsername", adminUsername);
+        metadata.put("reason", reason);
+        metadata.put("timestamp", System.currentTimeMillis());
+        metadata.put("type", "pre_invalidation");
+
+        sseService.broadcastToShop(
+            shopDomain, "session_pre_invalidation", preMessage, 5000, metadata);
+        logger.debug("Sent pre-invalidation notification to shop: {}", shopDomain);
+      } catch (Exception e) {
+        logger.warn(
+            "Failed to send pre-invalidation notification to shop {}: {}",
+            shopDomain,
+            e.getMessage());
+      }
+
+      // Step 3: Invalidate all sessions using forceInvalidateSession for proper cleanup
       int successfullyInvalidated = 0;
       for (ShopSession session : allSessions) {
         try {
-          shopService.removeSession(shopDomain, session.getSessionId());
+          // Use forceInvalidateSession instead of removeSession for proper cleanup
+          shopService.forceInvalidateSession(shopDomain, session.getSessionId());
           successfullyInvalidated++;
+
+          logger.debug(
+              "Successfully invalidated session {} for shop: {}",
+              session.getSessionId(),
+              shopDomain);
         } catch (Exception e) {
           logger.warn(
-              "Failed to remove session {} for shop {}: {}",
+              "Failed to invalidate session {} for shop {}: {}",
               session.getSessionId(),
               shopDomain,
               e.getMessage());
@@ -1206,37 +1353,90 @@ public class SessionManagementController {
         }
       }
 
-      // Clear shop cookie for this domain to force frontend logout
+      // Step 4: Force close all SSE connections for the shop
+      try {
+        sseService.forceCloseConnectionsForShop(shopDomain);
+        logger.info("Force closed all SSE connections for shop: {}", shopDomain);
+      } catch (Exception e) {
+        logger.warn(
+            "Failed to force close SSE connections for shop {}: {}", shopDomain, e.getMessage());
+      }
+
+      // Step 5: Send post-invalidation notification
+      try {
+        String postMessage =
+            String.format(
+                "Your session has been invalidated by administrator %s. Please re-authenticate.",
+                adminUsername);
+
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("adminUsername", adminUsername);
+        metadata.put("invalidatedCount", successfullyInvalidated);
+        metadata.put("timestamp", System.currentTimeMillis());
+        metadata.put("type", "post_invalidation");
+
+        sseService.broadcastToShop(shopDomain, "session_invalidated", postMessage, 10000, metadata);
+        logger.debug("Sent post-invalidation notification to shop: {}", shopDomain);
+      } catch (Exception e) {
+        logger.warn(
+            "Failed to send post-invalidation notification to shop {}: {}",
+            shopDomain,
+            e.getMessage());
+      }
+
+      // Step 6: Clear shop cookie for this domain to force frontend logout
       clearShopCookie(httpResponse, shopDomain);
 
+      // Step 7: Log the admin action for audit compliance
+      String auditMessage =
+          String.format(
+              "Admin %s invalidated %d sessions for shop %s - Reason: %s",
+              adminUsername, successfullyInvalidated, shopDomain, reason);
+
+      adminAuthService.logAuditEvent(
+          "ADMIN_SESSION_INVALIDATION", adminUsername, auditMessage, clientIp);
+
+      // Step 8: Prepare response
+      response.put("success", true);
+      response.put(
+          "message",
+          "Successfully invalidated "
+              + successfullyInvalidated
+              + " sessions for shop: "
+              + shopDomain);
       response.put("shopDomain", shopDomain);
       response.put("invalidatedSessions", successfullyInvalidated);
       response.put("totalSessions", allSessions.size());
-      response.put("success", true);
-      response.put("message", "All sessions for shop invalidated successfully");
+      response.put("adminUsername", adminUsername);
+      response.put("reason", reason);
       response.put("cookieCleared", true);
 
       logger.info(
-          "Admin invalidated {} of {} sessions for shop: {} and cleared cookies",
+          "Admin session invalidation completed: {} of {} sessions invalidated for shop: {}",
           successfullyInvalidated,
           allSessions.size(),
           shopDomain);
 
-      // Broadcast session invalidation asynchronously to prevent blocking
-      try {
-        broadcastSessionInvalidated(shopDomain);
-      } catch (Exception e) {
-        logger.warn(
-            "Failed to broadcast session invalidation for shop {}: {}", shopDomain, e.getMessage());
-        // Don't fail the entire operation if SSE broadcast fails
-      }
-
       return ResponseEntity.ok(response);
 
     } catch (Exception e) {
-      logger.error("Error invalidating sessions for shop {}: {}", shopDomain, e.getMessage(), e);
-      response.put("error", "Failed to invalidate shop sessions");
+      logger.error(
+          "Error during admin session invalidation for shop {}: {}", shopDomain, e.getMessage(), e);
+
+      // Log failed attempt for audit
+      try {
+        adminAuthService.logAuditEvent(
+            "ADMIN_SESSION_INVALIDATION_FAILED",
+            adminUsername,
+            "Failed to invalidate sessions for shop " + shopDomain + ": " + e.getMessage(),
+            clientIp);
+      } catch (Exception auditError) {
+        logger.warn(
+            "Failed to log audit event for failed invalidation: {}", auditError.getMessage());
+      }
+
       response.put("success", false);
+      response.put("error", "Failed to invalidate sessions: " + e.getMessage());
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
     }
   }
@@ -1400,6 +1600,23 @@ public class SessionManagementController {
   public SseEmitter subscribeToSessionEvents(
       @PathVariable String shopDomain, HttpServletRequest request) {
     logger.info("SSE connection request for shop: {}", shopDomain);
+
+    // Check if SSE is enabled via feature flag
+    if (!featureFlagService.isSseEnabled()) {
+      logger.info("SSE is disabled via feature flag for shop: {}", shopDomain);
+      SseEmitter emitter = new SseEmitter(120_000L);
+      try {
+        sseService.sendMinimalEvent(
+            emitter,
+            "sse_disabled",
+            "Server-Sent Events are currently disabled. Please use polling instead.",
+            30000);
+      } catch (Exception e) {
+        logger.warn("Error sending SSE disabled message: {}", e.getMessage());
+      }
+      emitter.complete();
+      return emitter;
+    }
 
     // CRITICAL FIX: Validate session before allowing SSE connection
     String sessionId = null;

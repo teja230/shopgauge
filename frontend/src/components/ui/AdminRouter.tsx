@@ -1,7 +1,8 @@
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense } from 'react';
 import { Box, Typography, CircularProgress } from '@mui/material';
 import DashboardOverview from './DashboardOverview';
 import EnhancedHealthSummary from './EnhancedHealthSummary';
+import EnterpriseHealthPanel from '../admin/EnterpriseHealthPanel';
 import ConnectionPoolDashboard from './ConnectionPoolDashboard';
 import TransactionMonitoring from './TransactionMonitoring';
 import SecurityDashboard from './SecurityDashboard';
@@ -11,13 +12,14 @@ import SuspiciousActivityMonitor from './SuspiciousActivityMonitor';
 import MarketIntelligenceDashboard from './MarketIntelligenceDashboard';
 import SseStatsCard from './SseStatsCard';
 import ComprehensiveMonitoringDashboard from './ComprehensiveMonitoringDashboard';
+import PerformanceMetricsDashboard from './PerformanceMetricsDashboard';
 import AdminSessionManager from './AdminSessionManager';
 import SessionManagementTools from './SessionManagementTools';
 import ModernDataTable from './ModernDataTable';
 import RefreshHeader from './RefreshHeader';
+import MemoryOptimizationManager from './MemoryOptimizationManager';
 
-// Lazy load components for better performance
-const DebugPanel = lazy(() => import('./DebugPanel'));
+
 
 // Loading fallback component
 const LoadingFallback = ({ title }: { title: string }) => (
@@ -161,6 +163,13 @@ const AdminRouter = React.memo<AdminRouterProps>(({
               onSectionChange={onSectionChange}
             />
           </Box>
+        );
+
+      case 'enterprise-health':
+        return (
+          <Suspense fallback={<LoadingFallback title="Enterprise Health" />}>
+            <EnterpriseHealthPanel onRefresh={() => {}} />
+          </Suspense>
         );
 
       case 'health-summary':
@@ -566,6 +575,18 @@ const AdminRouter = React.memo<AdminRouterProps>(({
           </Suspense>
         );
 
+      case 'performance-metrics':
+        return (
+          <Suspense fallback={<LoadingFallback title="Performance Metrics" />}>
+            <Box>
+              <Typography variant="h5" gutterBottom sx={{ mb: 3 }}>
+                Performance Metrics Dashboard
+              </Typography>
+              <PerformanceMetricsDashboard />
+            </Box>
+          </Suspense>
+        );
+
       case 'sse-statistics':
         return (
           <Suspense fallback={<LoadingFallback title="SSE Statistics" />}>
@@ -599,6 +620,13 @@ const AdminRouter = React.memo<AdminRouterProps>(({
               </Typography>
               <MarketIntelligenceDashboard />
             </Box>
+          </Suspense>
+        );
+
+      case 'memory-optimization':
+        return (
+          <Suspense fallback={<LoadingFallback title="Memory Optimization" />}>
+            <MemoryOptimizationManager />
           </Suspense>
         );
 
@@ -803,12 +831,15 @@ const AdminRouter = React.memo<AdminRouterProps>(({
 
       case 'debug-panel':
         return (
-          <Suspense fallback={<LoadingFallback title="Debug Panel" />}>
-            <DebugPanel 
-              isVisible={true}
-              onToggleVisibility={() => {}}
-            />
-          </Suspense>
+          <Box sx={{ p: 3, bgcolor: 'background.paper', borderRadius: 2, border: 1, borderColor: 'divider' }}>
+            <Typography variant="h5" gutterBottom>
+              Debug Panel
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Debug panel is available globally through the main application interface.
+              Use the debug panel toggle in the main navigation to access debugging features.
+            </Typography>
+          </Box>
         );
 
       case 'system-configuration':

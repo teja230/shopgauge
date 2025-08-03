@@ -24,6 +24,8 @@ import {
   Timeline as TimelineIcon,
   BugReport as BugIcon,
   Close as CloseIcon,
+  Speed as SpeedIcon,
+  Memory as MemoryIcon,
 } from '@mui/icons-material';
 import { useAdminNavigation } from '../../context/AdminNavigationContext';
 import { useKeyboardNavigation, useFocusAnnouncement } from '../../hooks/useKeyboardNavigation';
@@ -103,6 +105,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
       children: [
         { id: 'comprehensive-monitoring', label: 'Comprehensive Monitoring', icon: <MonitoringIcon />, path: '/admin/monitoring' },
         { id: 'transaction-monitoring', label: 'Transaction Monitoring', icon: <TimelineIcon />, path: '/admin/transactions' },
+        { id: 'performance-metrics', label: 'Performance Metrics', icon: <SpeedIcon />, path: '/admin/performance' },
         { id: 'sse-statistics', label: 'SSE Statistics', icon: <AssessmentIcon />, path: '/admin/sse-stats' },
         { id: 'market-intelligence', label: 'Market Intelligence', icon: <AssessmentIcon />, path: '/admin/market-intelligence' },
       ],
@@ -112,6 +115,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
       label: 'Settings',
       icon: <SettingsIcon />,
       children: [
+        { id: 'memory-optimization', label: 'Memory Optimization', icon: <MemoryIcon />, path: '/admin/memory-optimization' },
         { id: 'debug-panel', label: 'Debug Panel', icon: <BugIcon />, path: '/admin/debug' },
         { id: 'system-configuration', label: 'System Configuration', icon: <SettingsIcon />, path: '/admin/config' },
       ],

@@ -45,6 +45,9 @@ interface UnifiedAnalyticsData {
   period_days: number;
   total_revenue: number;
   total_orders: number;
+  recentRevenue?: number; // Add 7-day revenue from backend
+  recentOrders?: number; // Add 7-day orders from backend
+  recentConversionRate?: number; // Add 7-day conversion rate from backend
 }
 
 interface CacheEntry<T> {
@@ -69,6 +72,10 @@ interface UseUnifiedAnalyticsOptions {
   dashboardOrdersData?: any[];
   // Real conversion rate from dashboard
   realConversionRate?: number;
+  // Recent metrics from dashboard (7-day calculations)
+  recentRevenue?: number;
+  recentOrders?: number;
+  recentConversionRate?: number;
   // Note: Always computes max 90 days of predictions, filtering done in UI based on user selection
 }
 
@@ -457,6 +464,9 @@ const useUnifiedAnalytics = (
         period_days: days,
         total_revenue: validateData(totalRevenue),
         total_orders: validateData(totalOrders),
+        recentRevenue: options.recentRevenue, // Pass through from dashboard data
+        recentOrders: options.recentOrders, // Pass through from dashboard data
+        recentConversionRate: options.recentConversionRate, // Pass through from dashboard data
       };
       
       debugLog.info('🔄 UNIFIED_ANALYTICS: Conversion data summary:', {

@@ -32,6 +32,7 @@ class SseServiceTest {
   @Mock private MetricsCollectionService metricsCollectionService;
   @Mock private ApplicationConfigurationProperties config;
   @Mock private SseConfiguration sseConfig;
+  @Mock private FeatureFlagService featureFlagService;
 
   private SseService sseService;
   private ObjectMapper objectMapper;
@@ -48,9 +49,18 @@ class SseServiceTest {
       java.lang.reflect.Field configField = SseService.class.getDeclaredField("config");
       configField.setAccessible(true);
       configField.set(sseService, config);
+
+      // Inject the featureFlagService dependency
+      java.lang.reflect.Field featureFlagField =
+          SseService.class.getDeclaredField("featureFlagService");
+      featureFlagField.setAccessible(true);
+      featureFlagField.set(sseService, featureFlagService);
     } catch (Exception e) {
       throw new RuntimeException("Failed to inject dependencies", e);
     }
+
+    // Set up default feature flag behavior
+    when(featureFlagService.isScheduledSseCleanupEnabled()).thenReturn(true);
   }
 
   // ===== CONNECTION MANAGEMENT TESTS =====
@@ -323,6 +333,11 @@ class SseServiceTest {
 
   @Test
   void testSendHeartbeats() {
+    // Given
+    when(config.getSse()).thenReturn(sseConfig);
+    when(sseConfig.getHeartbeatInterval()).thenReturn(Duration.ofMinutes(2));
+
+    // When & Then
     assertDoesNotThrow(() -> sseService.sendHeartbeats());
   }
 

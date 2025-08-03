@@ -1,8 +1,9 @@
 # Multi-stage build for better caching and smaller final image
 FROM eclipse-temurin:17-jdk-alpine AS builder
 
-# Install dependencies for better caching
-RUN apk add --no-cache curl
+# Install dependencies for better caching and ensure network connectivity
+RUN apk add --no-cache curl && \
+    apk update
 
 # Set working directory
 WORKDIR /app
@@ -19,7 +20,7 @@ RUN chmod +x ./gradlew
 
 # Download dependencies first (better Docker layer caching)
 # This step will be cached unless dependencies change
-RUN ./gradlew dependencies --no-daemon --offline || true
+RUN ./gradlew dependencies --no-daemon --refresh-dependencies
 
 # Copy source code (this layer changes more frequently)
 COPY backend/src ./src

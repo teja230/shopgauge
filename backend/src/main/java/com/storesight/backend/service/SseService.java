@@ -51,6 +51,10 @@ public class SseService {
     return config.getSse().getHeartbeatInterval().toMillis();
   }
 
+  private boolean isHeartbeatEnabled() {
+    return getHeartbeatIntervalMs() > 0;
+  }
+
   private long getCleanupIntervalMs() {
     return config.getSse().getCleanupInterval().toMillis();
   }
@@ -130,6 +134,8 @@ public class SseService {
   private final RedisTemplate<String, String> redisTemplate;
   private final ObjectMapper objectMapper;
   private final MetricsCollectionService metricsCollectionService;
+
+  @Autowired private FeatureFlagService featureFlagService;
 
   @Autowired
   public SseService(
@@ -656,6 +662,39 @@ public class SseService {
     }
   }
 
+  /** Broadcast an event to all connected shops */
+  public void broadcastToAllShops(String eventType, String message, Integer reconnectMs) {
+    if (sseEmitters.isEmpty()) {
+      logger.debug("No SSE clients connected to any shop");
+      return;
+    }
+
+    logger.info("Broadcasting {} event to all {} connected shops", eventType, sseEmitters.size());
+
+    int totalClients = 0;
+    int successfulBroadcasts = 0;
+
+    for (String shopDomain : sseEmitters.keySet()) {
+      try {
+        CopyOnWriteArrayList<SseEmitter> emitters = sseEmitters.get(shopDomain);
+        if (emitters != null && !emitters.isEmpty()) {
+          totalClients += emitters.size();
+          broadcastToShop(shopDomain, eventType, message, reconnectMs);
+          successfulBroadcasts++;
+        }
+      } catch (Exception e) {
+        logger.warn(
+            "Failed to broadcast {} event to shop {}: {}", eventType, shopDomain, e.getMessage());
+      }
+    }
+
+    logger.info(
+        "Broadcast completed: {} event sent to {} shops with {} total clients",
+        eventType,
+        successfulBroadcasts,
+        totalClients);
+  }
+
   /** Send exponential backoff hint to client */
   public void sendExponentialBackoff(SseEmitter emitter, int failCount) {
     int backoffSeconds = Math.min((int) Math.pow(2, failCount - 1), 60);
@@ -792,36 +831,104 @@ public class SseService {
   /** Scheduled cleanup of stale connections */
   @Scheduled(fixedRateString = "#{@schedulingConfiguration.getCleanupIntervalMs()}")
   public void cleanupStaleConnections() {
+    // Check if scheduled SSE cleanup is enabled
+    if (!featureFlagService.isScheduledSseCleanupEnabled()) {
+      logger.debug("Scheduled SSE cleanup is disabled via feature flag");
+      return;
+    }
+
     try {
-      logger.debug("Starting SSE connection cleanup...");
-      int totalCleaned = 0;
+      logger.debug("Starting SSE connection cleanup");
 
-      for (Map.Entry<String, CopyOnWriteArrayList<SseEmitter>> entry : sseEmitters.entrySet()) {
-        String shopDomain = entry.getKey();
-        CopyOnWriteArrayList<SseEmitter> emitters = entry.getValue();
+      long now = System.currentTimeMillis();
+      long deadConnectionTimeout = getDeadConnectionTimeoutMs();
+      long connectionIdleTimeout = getConnectionIdleTimeoutMs();
 
-        if (emitters != null && !emitters.isEmpty()) {
-          List<SseEmitter> emittersCopy = new ArrayList<>(emitters);
+      int deadConnectionsRemoved = 0;
+      int idleConnectionsRemoved = 0;
+      int orphanedConnectionsRemoved = 0;
 
-          for (SseEmitter emitter : emittersCopy) {
-            try {
-              sendMinimalEvent(emitter, "ping", null, null);
-            } catch (Exception e) {
-              logger.debug(
-                  "Removing stale SSE connection for shop: {} - {}", shopDomain, e.getMessage());
+      // Clean up dead connections
+      for (Map.Entry<SseEmitter, ConnectionHealth> entry : connectionHealth.entrySet()) {
+        SseEmitter emitter = entry.getKey();
+        ConnectionHealth health = entry.getValue();
+
+        if (health.isDead() || health.shouldBeMarkedDead(this)) {
+          try {
+            String shopDomain = connectionShopMapping.get(emitter);
+            if (shopDomain != null) {
               removeConnection(shopDomain, emitter);
-              totalCleaned++;
+              deadConnectionsRemoved++;
             }
+          } catch (Exception e) {
+            logger.warn("Error removing dead SSE connection: {}", e.getMessage());
           }
         }
       }
 
-      if (totalCleaned > 0) {
-        logger.info(
-            "SSE connection cleanup completed - removed {} stale connections", totalCleaned);
-      } else {
-        logger.debug("SSE connection cleanup completed - no stale connections found");
+      // Clean up idle connections
+      for (Map.Entry<SseEmitter, Long> entry : connectionCreationTimes.entrySet()) {
+        SseEmitter emitter = entry.getKey();
+        Long creationTime = entry.getValue();
+
+        if (creationTime != null && (now - creationTime) > connectionIdleTimeout) {
+          try {
+            String shopDomain = connectionShopMapping.get(emitter);
+            if (shopDomain != null) {
+              // Send notification before closing
+              sendMinimalEvent(
+                  emitter,
+                  "connection_idle",
+                  "Connection idle for too long. Reconnecting...",
+                  5000);
+              removeConnection(shopDomain, emitter);
+              idleConnectionsRemoved++;
+            }
+          } catch (Exception e) {
+            logger.warn("Error removing idle SSE connection: {}", e.getMessage());
+          }
+        }
       }
+
+      // Clean up orphaned connections (no health tracking)
+      for (Map.Entry<String, CopyOnWriteArrayList<SseEmitter>> entry : sseEmitters.entrySet()) {
+        String shopDomain = entry.getKey();
+        CopyOnWriteArrayList<SseEmitter> emitters = entry.getValue();
+
+        List<SseEmitter> toRemove = new ArrayList<>();
+        for (SseEmitter emitter : emitters) {
+          if (!connectionHealth.containsKey(emitter)) {
+            toRemove.add(emitter);
+            orphanedConnectionsRemoved++;
+          }
+        }
+
+        for (SseEmitter emitter : toRemove) {
+          try {
+            removeConnection(shopDomain, emitter);
+          } catch (Exception e) {
+            logger.warn("Error removing orphaned SSE connection: {}", e.getMessage());
+          }
+        }
+      }
+
+      // Clean up empty shops
+      sseEmitters.entrySet().removeIf(entry -> entry.getValue().isEmpty());
+
+      if (deadConnectionsRemoved > 0
+          || idleConnectionsRemoved > 0
+          || orphanedConnectionsRemoved > 0) {
+        logger.info(
+            "SSE cleanup completed - Dead: {}, Idle: {}, Orphaned: {}",
+            deadConnectionsRemoved,
+            idleConnectionsRemoved,
+            orphanedConnectionsRemoved);
+        totalDeadConnectionsRemoved.addAndGet(
+            deadConnectionsRemoved + idleConnectionsRemoved + orphanedConnectionsRemoved);
+      } else {
+        logger.debug("SSE cleanup completed - no connections removed");
+      }
+
     } catch (Exception e) {
       logger.error("Error during SSE connection cleanup: {}", e.getMessage());
     }
@@ -830,6 +937,11 @@ public class SseService {
   /** Enhanced scheduled heartbeat with connection health tracking */
   @Scheduled(fixedRateString = "#{@schedulingConfiguration.getHeartbeatIntervalMs()}")
   public void sendHeartbeats() {
+    // Skip heartbeat if it's disabled (PT0S)
+    if (!isHeartbeatEnabled()) {
+      return;
+    }
+
     try {
       int totalHeartbeats = 0;
       int failedHeartbeats = 0;
@@ -893,7 +1005,7 @@ public class SseService {
   }
 
   /** Process pending batches (cleanup) */
-  @Scheduled(fixedRate = 5000) // Every 5 seconds
+  @Scheduled(fixedRate = 300000) // Every 5 minutes (reduced from 30 seconds)
   public void processPendingBatches() {
     try {
       for (String shopDomain : new ArrayList<>(batchTimers.keySet())) {

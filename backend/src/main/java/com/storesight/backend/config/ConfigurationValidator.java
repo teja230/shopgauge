@@ -91,7 +91,8 @@ public class ConfigurationValidator {
     }
 
     // Validate cleanup intervals
-    if (sse.getCleanupInterval().compareTo(sse.getHeartbeatInterval()) < 0) {
+    if (sse.getHeartbeatInterval().toMillis() > 0
+        && sse.getCleanupInterval().compareTo(sse.getHeartbeatInterval()) < 0) {
       warnings.add("SSE cleanup interval should be longer than heartbeat interval");
     }
   }

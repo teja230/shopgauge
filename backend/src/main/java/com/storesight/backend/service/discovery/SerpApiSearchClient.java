@@ -42,6 +42,9 @@ public class SerpApiSearchClient implements SearchClient {
   @Value("${discovery.serpapi.max-results:3}")
   private int serpapiMaxResults;
 
+  @Value("${discovery.serpapi.enabled:true}")
+  private boolean configEnabled;
+
   private boolean enabled;
 
   @Autowired
@@ -69,7 +72,10 @@ public class SerpApiSearchClient implements SearchClient {
     }
 
     this.enabled =
-        apiKey != null && !apiKey.trim().isEmpty() && !apiKey.equals("dummy_serpapi_key");
+        configEnabled
+            && apiKey != null
+            && !apiKey.trim().isEmpty()
+            && !apiKey.equals("dummy_serpapi_key");
 
     // Log final state
     log.info(
