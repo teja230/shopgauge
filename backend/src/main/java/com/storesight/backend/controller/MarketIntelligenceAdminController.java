@@ -3,7 +3,10 @@ package com.storesight.backend.controller;
 import com.storesight.backend.service.CostOptimizationService;
 import com.storesight.backend.service.DataPrivacyService;
 import com.storesight.backend.service.DatabaseMonitoringService;
+import com.storesight.backend.service.MarketIntelligenceBatchService;
 import com.storesight.backend.service.MarketIntelligenceCacheService;
+import com.storesight.backend.service.MarketIntelligenceEventHandler;
+import com.storesight.backend.service.MarketIntelligenceWriteService;
 import com.storesight.backend.service.PriceScrapingService;
 import com.storesight.backend.service.RedisHealthService;
 import com.storesight.backend.service.TransactionMonitoringService;
@@ -36,6 +39,9 @@ public class MarketIntelligenceAdminController {
 
   @Autowired private CostOptimizationService costOptimizationService;
   @Autowired private MarketIntelligenceCacheService marketIntelligenceCacheService;
+  @Autowired private MarketIntelligenceBatchService marketIntelligenceBatchService;
+  @Autowired private MarketIntelligenceWriteService marketIntelligenceWriteService;
+  @Autowired private MarketIntelligenceEventHandler marketIntelligenceEventHandler;
 
   @Autowired(required = false)
   private CompetitorDiscoveryService discoveryService;
@@ -207,6 +213,148 @@ public class MarketIntelligenceAdminController {
       log.error("Error invalidating cache for shop {}: {}", shopDomain, e.getMessage(), e);
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
           .body(Map.of("error", "Failed to invalidate cache: " + e.getMessage()));
+    }
+  }
+
+  // =====================================
+  // WRITE OPERATIONS AND BATCH PROCESSING
+  // =====================================
+
+  /** Get batch processing statistics */
+  @GetMapping("/batch/stats")
+  public ResponseEntity<Map<String, Object>> getBatchStatistics() {
+    try {
+      Map<String, Object> stats = marketIntelligenceBatchService.getBatchStatistics();
+      return ResponseEntity.ok(stats);
+    } catch (Exception e) {
+      log.error("Error getting batch statistics: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to get batch statistics: " + e.getMessage()));
+    }
+  }
+
+  /** Reset batch processing statistics */
+  @PostMapping("/batch/reset-stats")
+  public ResponseEntity<Map<String, Object>> resetBatchStatistics() {
+    try {
+      marketIntelligenceBatchService.resetBatchStatistics();
+      return ResponseEntity.ok(
+          Map.of("success", true, "message", "Batch statistics reset successfully"));
+    } catch (Exception e) {
+      log.error("Error resetting batch statistics: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to reset batch statistics: " + e.getMessage()));
+    }
+  }
+
+  /** Get write operation statistics */
+  @GetMapping("/write/stats")
+  public ResponseEntity<Map<String, Object>> getWriteStatistics() {
+    try {
+      Map<String, Object> stats = marketIntelligenceWriteService.getWriteStatistics();
+      return ResponseEntity.ok(stats);
+    } catch (Exception e) {
+      log.error("Error getting write statistics: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to get write statistics: " + e.getMessage()));
+    }
+  }
+
+  /** Reset write operation statistics */
+  @PostMapping("/write/reset-stats")
+  public ResponseEntity<Map<String, Object>> resetWriteStatistics() {
+    try {
+      marketIntelligenceWriteService.resetWriteStatistics();
+      return ResponseEntity.ok(
+          Map.of("success", true, "message", "Write statistics reset successfully"));
+    } catch (Exception e) {
+      log.error("Error resetting write statistics: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to reset write statistics: " + e.getMessage()));
+    }
+  }
+
+  /** Get event processing statistics */
+  @GetMapping("/events/stats")
+  public ResponseEntity<Map<String, Object>> getEventStatistics() {
+    try {
+      Map<String, Object> stats = marketIntelligenceEventHandler.getEventStatistics();
+      return ResponseEntity.ok(stats);
+    } catch (Exception e) {
+      log.error("Error getting event statistics: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to get event statistics: " + e.getMessage()));
+    }
+  }
+
+  /** Reset event processing statistics */
+  @PostMapping("/events/reset-stats")
+  public ResponseEntity<Map<String, Object>> resetEventStatistics() {
+    try {
+      marketIntelligenceEventHandler.resetEventStatistics();
+      return ResponseEntity.ok(
+          Map.of("success", true, "message", "Event statistics reset successfully"));
+    } catch (Exception e) {
+      log.error("Error resetting event statistics: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to reset event statistics: " + e.getMessage()));
+    }
+  }
+
+  /** Clear all batch queues (emergency operation) */
+  @PostMapping("/batch/clear-queues")
+  public ResponseEntity<Map<String, Object>> clearBatchQueues() {
+    try {
+      marketIntelligenceBatchService.clearAllBatchQueues();
+      return ResponseEntity.ok(
+          Map.of("success", true, "message", "All batch queues cleared successfully"));
+    } catch (Exception e) {
+      log.error("Error clearing batch queues: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to clear batch queues: " + e.getMessage()));
+    }
+  }
+
+  /** Get comprehensive optimization status */
+  @GetMapping("/optimization/status")
+  public ResponseEntity<Map<String, Object>> getOptimizationStatus() {
+    try {
+      Map<String, Object> status = new HashMap<>();
+
+      // Cache statistics
+      status.put("cacheStats", marketIntelligenceCacheService.getCacheStatistics());
+
+      // Batch processing statistics
+      status.put("batchStats", marketIntelligenceBatchService.getBatchStatistics());
+
+      // Write operation statistics
+      status.put("writeStats", marketIntelligenceWriteService.getWriteStatistics());
+
+      // Event processing statistics
+      status.put("eventStats", marketIntelligenceEventHandler.getEventStatistics());
+
+      // Health checks
+      Map<String, Object> health = new HashMap<>();
+      health.put(
+          "batchProcessingHealthy", marketIntelligenceBatchService.isBatchProcessingHealthy());
+      health.put(
+          "writeOperationsHealthy", marketIntelligenceWriteService.isWriteOperationsHealthy());
+      health.put(
+          "eventProcessingHealthy", marketIntelligenceEventHandler.isEventProcessingHealthy());
+      status.put("health", health);
+
+      // Overall optimization score
+      boolean allHealthy =
+          marketIntelligenceBatchService.isBatchProcessingHealthy()
+              && marketIntelligenceWriteService.isWriteOperationsHealthy()
+              && marketIntelligenceEventHandler.isEventProcessingHealthy();
+      status.put("optimizationScore", allHealthy ? "EXCELLENT" : "NEEDS_ATTENTION");
+
+      return ResponseEntity.ok(status);
+    } catch (Exception e) {
+      log.error("Error getting optimization status: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to get optimization status: " + e.getMessage()));
     }
   }
 
