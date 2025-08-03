@@ -10,6 +10,7 @@ import SessionSecurityManager from './SessionSecurityManager';
 import RateLimitManager from './RateLimitManager';
 import SuspiciousActivityMonitor from './SuspiciousActivityMonitor';
 import MarketIntelligenceDashboard from './MarketIntelligenceDashboard';
+import MarketIntelligenceOptimizationPanel from './MarketIntelligenceOptimizationPanel';
 import SseStatsCard from './SseStatsCard';
 import ComprehensiveMonitoringDashboard from './ComprehensiveMonitoringDashboard';
 import PerformanceMetricsDashboard from './PerformanceMetricsDashboard';
@@ -619,6 +620,18 @@ const AdminRouter = React.memo<AdminRouterProps>(({
                 Market Intelligence Dashboard
               </Typography>
               <MarketIntelligenceDashboard />
+            </Box>
+          </Suspense>
+        );
+
+      case 'market-intelligence-optimization':
+        return (
+          <Suspense fallback={<LoadingFallback title="Market Intelligence Optimization" />}>
+            <Box>
+              <Typography variant="h5" gutterBottom sx={{ mb: 3 }}>
+                Market Intelligence Optimization
+              </Typography>
+              <MarketIntelligenceOptimizationPanel />
             </Box>
           </Suspense>
         );

@@ -108,6 +108,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
         { id: 'performance-metrics', label: 'Performance Metrics', icon: <SpeedIcon />, path: '/admin/performance' },
         { id: 'sse-statistics', label: 'SSE Statistics', icon: <AssessmentIcon />, path: '/admin/sse-stats' },
         { id: 'market-intelligence', label: 'Market Intelligence', icon: <AssessmentIcon />, path: '/admin/market-intelligence' },
+        { id: 'market-intelligence-optimization', label: 'Market Intelligence Optimization', icon: <SettingsIcon />, path: '/admin/market-intelligence-optimization' },
       ],
     },
     {

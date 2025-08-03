@@ -492,6 +492,14 @@ const MarketIntelligenceDashboard: React.FC<MarketIntelligenceDashboardProps> = 
           >
             Deleted Competitors
           </Button>
+          <Button
+            variant="outlined"
+            onClick={() => window.location.href = '/admin/market-intelligence-optimization'}
+            startIcon={<SettingsIcon />}
+            sx={{ ml: 'auto' }}
+          >
+            Optimization
+          </Button>
         </Box>
       </Box>
 
