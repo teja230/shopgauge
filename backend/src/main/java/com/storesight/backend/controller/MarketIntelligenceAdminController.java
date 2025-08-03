@@ -5,6 +5,7 @@ import com.storesight.backend.service.DataPrivacyService;
 import com.storesight.backend.service.DatabaseMonitoringService;
 import com.storesight.backend.service.MarketIntelligenceBatchService;
 import com.storesight.backend.service.MarketIntelligenceCacheService;
+import com.storesight.backend.service.MarketIntelligenceCacheWarmingService;
 import com.storesight.backend.service.MarketIntelligenceEventHandler;
 import com.storesight.backend.service.MarketIntelligenceWriteService;
 import com.storesight.backend.service.PriceScrapingService;
@@ -42,6 +43,7 @@ public class MarketIntelligenceAdminController {
   @Autowired private MarketIntelligenceBatchService marketIntelligenceBatchService;
   @Autowired private MarketIntelligenceWriteService marketIntelligenceWriteService;
   @Autowired private MarketIntelligenceEventHandler marketIntelligenceEventHandler;
+  @Autowired private MarketIntelligenceCacheWarmingService marketIntelligenceCacheWarmingService;
 
   @Autowired(required = false)
   private CompetitorDiscoveryService discoveryService;
@@ -333,6 +335,9 @@ public class MarketIntelligenceAdminController {
       // Event processing statistics
       status.put("eventStats", marketIntelligenceEventHandler.getEventStatistics());
 
+      // Cache warming statistics
+      status.put("cacheWarmingStats", marketIntelligenceCacheWarmingService.getWarmingStatistics());
+
       // Health checks
       Map<String, Object> health = new HashMap<>();
       health.put(
@@ -341,13 +346,16 @@ public class MarketIntelligenceAdminController {
           "writeOperationsHealthy", marketIntelligenceWriteService.isWriteOperationsHealthy());
       health.put(
           "eventProcessingHealthy", marketIntelligenceEventHandler.isEventProcessingHealthy());
+      health.put(
+          "cacheWarmingHealthy", marketIntelligenceCacheWarmingService.isCacheWarmingHealthy());
       status.put("health", health);
 
       // Overall optimization score
       boolean allHealthy =
           marketIntelligenceBatchService.isBatchProcessingHealthy()
               && marketIntelligenceWriteService.isWriteOperationsHealthy()
-              && marketIntelligenceEventHandler.isEventProcessingHealthy();
+              && marketIntelligenceEventHandler.isEventProcessingHealthy()
+              && marketIntelligenceCacheWarmingService.isCacheWarmingHealthy();
       status.put("optimizationScore", allHealthy ? "EXCELLENT" : "NEEDS_ATTENTION");
 
       return ResponseEntity.ok(status);
@@ -594,6 +602,87 @@ public class MarketIntelligenceAdminController {
         "overall", Map.of("status", allHealthy ? "healthy" : "unhealthy", "timestamp", new Date()));
 
     return ResponseEntity.ok(health);
+  }
+
+  // =====================================
+  // CACHE WARMING ENDPOINTS
+  // =====================================
+
+  /** Get cache warming statistics */
+  @GetMapping("/cache/warming/stats")
+  public ResponseEntity<Map<String, Object>> getCacheWarmingStats() {
+    try {
+      Map<String, Object> stats = marketIntelligenceCacheWarmingService.getWarmingStatistics();
+      return ResponseEntity.ok(stats);
+    } catch (Exception e) {
+      log.error("Error getting cache warming statistics: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to get cache warming statistics: " + e.getMessage()));
+    }
+  }
+
+  /** Reset cache warming statistics */
+  @PostMapping("/cache/warming/reset-stats")
+  public ResponseEntity<Map<String, Object>> resetCacheWarmingStats() {
+    try {
+      marketIntelligenceCacheWarmingService.resetWarmingStatistics();
+      return ResponseEntity.ok(Map.of("message", "Cache warming statistics reset successfully"));
+    } catch (Exception e) {
+      log.error("Error resetting cache warming statistics: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to reset cache warming statistics: " + e.getMessage()));
+    }
+  }
+
+  /** Manually trigger cache warming for a specific shop */
+  @PostMapping("/cache/warming/trigger")
+  public ResponseEntity<Map<String, Object>> triggerCacheWarming(
+      @RequestParam(value = "shop", required = false, defaultValue = "admin") String shopDomain,
+      @RequestParam(value = "priority", required = false, defaultValue = "HIGH") String priority) {
+    try {
+      MarketIntelligenceCacheWarmingService.WarmingPriority warmingPriority;
+      try {
+        warmingPriority =
+            MarketIntelligenceCacheWarmingService.WarmingPriority.valueOf(priority.toUpperCase());
+      } catch (IllegalArgumentException e) {
+        return ResponseEntity.badRequest()
+            .body(Map.of("error", "Invalid priority. Valid values: CRITICAL, HIGH, MEDIUM, LOW"));
+      }
+
+      marketIntelligenceCacheWarmingService.warmShopCache(shopDomain, warmingPriority);
+
+      return ResponseEntity.ok(
+          Map.of(
+              "message", "Cache warming triggered successfully",
+              "shop", shopDomain,
+              "priority", priority));
+    } catch (Exception e) {
+      log.error("Error triggering cache warming for shop {}: {}", shopDomain, e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to trigger cache warming: " + e.getMessage()));
+    }
+  }
+
+  /** Check cache warming health status */
+  @GetMapping("/cache/warming/health")
+  public ResponseEntity<Map<String, Object>> getCacheWarmingHealth() {
+    try {
+      boolean isHealthy = marketIntelligenceCacheWarmingService.isCacheWarmingHealthy();
+      Map<String, Object> healthStatus = new HashMap<>();
+      healthStatus.put("healthy", isHealthy);
+      healthStatus.put("status", isHealthy ? "HEALTHY" : "UNHEALTHY");
+      healthStatus.put("timestamp", java.time.LocalDateTime.now().toString());
+
+      if (isHealthy) {
+        return ResponseEntity.ok(healthStatus);
+      } else {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(healthStatus);
+      }
+    } catch (Exception e) {
+      log.error("Error checking cache warming health: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to check cache warming health: " + e.getMessage()));
+    }
   }
 
   // Helper methods
