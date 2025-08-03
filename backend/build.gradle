@@ -6,6 +6,8 @@ plugins {
     id 'org.flywaydb.flyway' version '9.22.3'
 }
 
+// Plugin management moved to settings.gradle for proper Gradle structure
+
 group = 'com.storesight'
 version = '0.0.1-SNAPSHOT'
 
@@ -30,6 +32,8 @@ tasks.withType(Test) {
 
 repositories {
     mavenCentral()
+    maven { url 'https://repo.spring.io/milestone' }
+    maven { url 'https://repo.spring.io/snapshot' }
 }
 
 dependencyManagement {
@@ -55,7 +59,6 @@ dependencies {
     implementation 'org.jsoup:jsoup:1.17.2'
     implementation 'org.seleniumhq.selenium:selenium-java:4.21.0'
     implementation 'org.springframework.boot:spring-boot-starter'
-    implementation 'io.netty:netty-resolver-dns-native-macos:4.1.107.Final:osx-aarch_64'
     implementation 'jakarta.servlet:jakarta.servlet-api:6.0.0'
     implementation 'org.springframework.boot:spring-boot-starter-tomcat'
     runtimeOnly 'org.postgresql:postgresql'

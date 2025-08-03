@@ -1,13 +1,18 @@
-import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { CompetitorTable } from '../components/ui/CompetitorTable';
 import type { Competitor } from '../components/ui/CompetitorTable';
 import { SuggestionDrawer } from '../components/ui/SuggestionDrawer';
+import { ProductAssociationModal } from '../components/ui/ProductAssociationModal';
+import { ProductSelector } from '../components/ui/ProductSelector';
+import { ArchivedCompetitorsPanel } from '../components/ui/ArchivedCompetitorsPanel';
+import { PriceHistoryModal } from '../components/ui/PriceHistoryModal';
 import { 
   getCompetitors, 
-  addCompetitor, 
   deleteCompetitor,
   getDebouncedSuggestionCount,
-  refreshSuggestionCount as refreshSuggestionCountAPI
+  refreshSuggestionCount as refreshSuggestionCountAPI,
+  addCompetitorIntelligent,
+  getPriceStatus
 } from '../api';
 import { marketIntelligenceAPI, type LimitsResponse } from '../api/marketIntelligence';
 import { useAuth } from '../context/AuthContext';
@@ -26,17 +31,22 @@ import {
   CogIcon,
   InformationCircleIcon,
   XMarkIcon,
+  ArchiveBoxIcon,
+  ArrowPathIcon,
 } from '@heroicons/react/24/outline';
-import type { CompetitorSuggestion } from '../api';
 import { useNotifications } from '../hooks/useNotifications';
+import { useNotificationSettings } from '../context/NotificationSettingsContext';
 import { fetchWithAuth } from '../api/index';
-import { getSuggestionCount } from '../api';
 import { useNavigate } from 'react-router-dom';
-import IntelligentLoadingScreen from '../components/ui/IntelligentLoadingScreen';
 import Joyride from 'react-joyride';
-import type { CallBackProps, Step, TooltipRenderProps } from 'react-joyride';
+import type { CallBackProps, Step } from 'react-joyride';
 import ThemedJoyrideTooltip from '../components/ui/ThemedJoyrideTooltip';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import Typography from '@mui/material/Typography';
+import Box from '@mui/material/Box';
+import { debugLog } from '../components/ui/DebugPanel';
+import { getSuggestionCount } from '../api';
+import { refreshCompetitorPrices, getPriceRefreshProgress } from '../api/index';
 
 // Tutorial step types
 interface TutorialStep {
@@ -112,7 +122,7 @@ const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: 'add-competitor',
     title: 'Add Competitors',
-    description: 'Manually add competitors by entering their product URLs.',
+    description: 'Manually add competitors by entering their product URLs. Click the info icon to see supported URL formats for major e-commerce platforms.',
     target: '.add-competitor-button',
     position: 'bottom'
   },
@@ -121,6 +131,27 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     title: 'Competitor Table',
     description: 'View detailed pricing information, stock status, and price changes for all your competitors.',
     target: '.competitor-table',
+    position: 'top'
+  },
+  {
+    id: 'graph-button',
+    title: 'Price History Graphs',
+    description: 'Click the graph icon next to any competitor to view their price history and trends over time.',
+    target: '.competitor-table',
+    position: 'top'
+  },
+  {
+    id: 'deleted-competitors',
+    title: 'Deleted Competitors',
+    description: 'Access the "Deleted" button to view and restore previously deleted competitors with full price history preserved.',
+    target: '.deleted-competitors-button',
+    position: 'bottom'
+  },
+  {
+    id: 'restore-feature',
+    title: 'Restore Functionality',
+    description: 'Deleted competitors can be restored for up to 30 days. All price history and data is preserved during this period.',
+    target: '.deleted-competitors-panel',
     position: 'top'
   }
 ];
@@ -500,17 +531,70 @@ export default function CompetitorsPage() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestionCount, setSuggestionCount] = useState(0);
   const [isDemoMode, setIsDemoMode] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+
   const [isAdding, setIsAdding] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [url, setUrl] = useState('');
   const [productId, setProductId] = useState('');
   const [isDiscovering, setIsDiscovering] = useState(false);
+  const [showUrlTooltip, setShowUrlTooltip] = useState(false);
   const [filterStatus, setFilterStatus] = useState<'all' | 'inStock' | 'outOfStock'>('all');
+  const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
+  
+  // Close tooltip when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (showUrlTooltip && !target.closest('.url-tooltip-container')) {
+        setShowUrlTooltip(false);
+      }
+      if (filterDropdownOpen && !target.closest('.filter-dropdown')) {
+        setFilterDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showUrlTooltip, filterDropdownOpen]);
   const [searchQuery, setSearchQuery] = useState('');
   const [lastDiscoveryTime, setLastDiscoveryTime] = useState<number>(0);
   const [userDisabledDemo, setUserDisabledDemo] = useState<boolean>(false);
   const notifications = useNotifications();
+  const { settings: notificationSettings } = useNotificationSettings();
+  
+  // Debug notification settings
+  debugLog.info('Notification settings loaded', {
+    showToasts: notificationSettings.showToasts,
+    soundEnabled: notificationSettings.soundEnabled,
+    systemNotifications: notificationSettings.systemNotifications,
+    emailNotifications: notificationSettings.emailNotifications,
+    marketingNotifications: notificationSettings.marketingNotifications
+  }, 'CompetitorsPage');
+  
+  // Debug notification settings on component mount
+  useEffect(() => {
+    debugLog.info('Notification settings loaded', {
+      showToasts: notificationSettings.showToasts
+    }, 'CompetitorsPage');
+  }, [notificationSettings.showToasts]); // Only run when settings change
+  
+  // Show helpful message if not authenticated - only run once when auth state changes
+  useEffect(() => {
+    if (!isAuthenticated && !isDemoMode && isAuthReady && !notificationShownRef.current) {
+      notificationShownRef.current = true;
+      notifications.showInfo('Connect your Shopify store to initiate competitor tracking', {
+        category: 'Competitors',
+        persistent: true,
+        showToast: true,
+        action: {
+          label: 'Connect Store',
+          onClick: () => {
+            window.location.href = '/';
+          }
+        }
+      });
+    }
+  }, [isAuthenticated, isDemoMode, isAuthReady]); // Remove notifications from dependencies
   
   // New state for enhanced demo features
   const [showTutorial, setShowTutorial] = useState(false);
@@ -530,6 +614,79 @@ export default function CompetitorsPage() {
   const [demoStartTime, setDemoStartTime] = useState<number>(0);
   const [limits, setLimits] = useState<LimitsResponse | null>(null);
   
+  // Highlighting state for row highlighting
+  const [highlightedCompetitorId, setHighlightedCompetitorId] = useState<string | undefined>();
+  const [highlightAction, setHighlightAction] = useState<'add' | 'archive' | 'restore' | undefined>();
+  
+  // Refresh trigger for archived competitors
+  const [archivedRefreshTrigger, setArchivedRefreshTrigger] = useState(0);
+  
+  // Function to trigger row highlighting
+  const triggerHighlight = (competitorId: string, action: 'add' | 'archive' | 'restore') => {
+    setHighlightedCompetitorId(competitorId);
+    setHighlightAction(action);
+    
+    // Clear highlighting after 2 seconds
+    setTimeout(() => {
+      setHighlightedCompetitorId(undefined);
+      setHighlightAction(undefined);
+    }, 2000);
+  };
+  
+  // Refresh functionality state
+  // Refresh state - enhanced with session tracking
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshCooldown, setRefreshCooldown] = useState(() => {
+    const saved = localStorage.getItem('refreshCooldown');
+    const savedTime = localStorage.getItem('refreshCooldownTime');
+    if (saved && savedTime) {
+      const elapsed = Math.floor((Date.now() - parseInt(savedTime)) / 1000);
+      const remaining = Math.max(0, parseInt(saved) - elapsed);
+      return remaining;
+    }
+    return 0;
+  });
+  const [lastRefreshTime, setLastRefreshTime] = useState<number>(0);
+  const [refreshSession, setRefreshSession] = useState<{
+    sessionId: string;
+    totalCompetitors: number;
+    totalDomains: number;
+  } | null>(null);
+  const [refreshProgress, setRefreshProgress] = useState<{
+    completed: number;
+    failed: number;
+    skipped: number;
+    percentage: number;
+    estimatedTimeRemaining: string;
+    isCompleted: boolean;
+  } | null>(null);
+  const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const refreshCooldownRef = useRef<NodeJS.Timeout | null>(null);
+  const progressPollingRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Product association modal state
+  const [productAssociationModal, setProductAssociationModal] = useState<{
+    open: boolean;
+    competitor: Competitor | null;
+  }>({
+    open: false,
+    competitor: null,
+  });
+  
+  // Deleted competitors panel state
+  const [showDeletedCompetitors, setShowDeletedCompetitors] = useState(false);
+  
+  // Graph view state
+  const [showGraphView, setShowGraphView] = useState(false);
+  const [selectedCompetitorForGraph, setSelectedCompetitorForGraph] = useState<Competitor | null>(null);
+  
+  // Collapsible sections state
+  const [activeSectionCollapsed, setActiveSectionCollapsed] = useState(false);
+  const [deletedSectionCollapsed, setDeletedSectionCollapsed] = useState(false);
+  
+  // Archived competitors count
+  const [archivedCount, setArchivedCount] = useState(0);
+  
   // Refs to prevent unnecessary re-renders and API calls
   const lastFetchTimeRef = useRef<number>(0);
   const isInitialLoadRef = useRef<boolean>(true);
@@ -539,6 +696,8 @@ export default function CompetitorsPage() {
 
   // Track if tutorial is running to prevent duplicate notifications
   const [tutorialRunning, setTutorialRunning] = useState(false);
+
+
 
   useEffect(() => {
     setTutorialRunning(showTutorial);
@@ -605,7 +764,6 @@ export default function CompetitorsPage() {
         setSuggestionCount(getDemoData(DEFAULT_DEMO_PREFERENCES.category).suggestions.length);
       }
       
-      setIsLoading(false);
       return;
     }
     
@@ -618,10 +776,8 @@ export default function CompetitorsPage() {
     }
     
     try {
-      setIsLoading(true);
-      
       const cacheKey = `competitors_${shop}`;
-      const suggestionCacheKey = `suggestions_${shop}`;
+      const suggestionCacheKey = `market-intelligence:suggestions_${shop}`;
       
       const [competitorsData, suggestionCountData] = await Promise.all([
         fetchWithCache(cacheKey, getCompetitors, forceRefresh ? 0 : CACHE_DURATION),
@@ -629,6 +785,11 @@ export default function CompetitorsPage() {
       ]);
       
       // Set data first
+      console.log('fetchData: Received competitors data:', competitorsData);
+      debugLog.info('fetchData: Received competitors data', {
+        count: competitorsData.length,
+        competitors: competitorsData.map(c => ({ id: c.id, url: c.url, label: c.label }))
+      }, 'CompetitorsPage');
       setCompetitors(competitorsData);
       setSuggestionCount(suggestionCountData.newSuggestions);
       
@@ -672,10 +833,212 @@ export default function CompetitorsPage() {
       } else {
         console.log('fetchData: API failed but authenticated or demo disabled, showing error state');
       }
-    } finally {
-      setIsLoading(false);
     }
   }, [shop, isAuthenticated, isAuthReady, fetchWithCache, userDisabledDemo, isDemoMode]);
+
+  // Refresh functionality with cooldown and debounce
+  const handleRefresh = useCallback(async () => {
+    const now = Date.now();
+    
+    // Check cooldown (5 minutes - since scraping only updates prices older than 24hrs)
+    if (refreshCooldown > 0) {
+      debugLog.info('Refresh blocked by cooldown', { 
+        cooldownRemaining: refreshCooldown,
+        lastRefreshTime 
+      }, 'CompetitorsPage');
+      return;
+    }
+    
+    // Check debounce (2 seconds)
+    if (now - lastRefreshTime < 2000) {
+      debugLog.info('Refresh blocked by debounce', { 
+        timeSinceLastRefresh: now - lastRefreshTime 
+      }, 'CompetitorsPage');
+      return;
+    }
+    
+    // Prevent multiple simultaneous refreshes
+    if (isRefreshing) {
+      debugLog.info('Refresh blocked - already in progress', {}, 'CompetitorsPage');
+      return;
+    }
+    
+    setIsRefreshing(true);
+    setLastRefreshTime(now);
+    
+    try {
+      debugLog.info('Starting manual price refresh', { 
+        isDemoMode, 
+        shop 
+      }, 'CompetitorsPage');
+      
+      // Call the new scalable price refresh endpoint that triggers queue-based processing
+      const refreshResult = await refreshCompetitorPrices();
+      
+      debugLog.info('Scalable price refresh started', { 
+        result: refreshResult 
+      }, 'CompetitorsPage');
+      
+      // Store session info for progress tracking
+      setRefreshSession({
+        sessionId: refreshResult.session_id,
+        totalCompetitors: refreshResult.total_competitors,
+        totalDomains: refreshResult.total_domains
+      });
+      
+      // Start progress polling
+      startProgressPolling(refreshResult.session_id);
+      
+      // Show success notification with enhanced details
+      notifications.showSuccess(
+        `Scalable price refresh started for ${refreshResult.updated_count} competitors across ${refreshResult.total_domains} domains. ${refreshResult.message}`, 
+        {
+          category: 'Competitors',
+          showToast: true,
+          duration: 6000
+        }
+      );
+      
+      // For now, just show a simple success message
+      // notifications.showSuccess('Refresh functionality coming soon!', {
+      //   category: 'Competitors',
+      //   showToast: true,
+      //   duration: 3000
+      // });
+      
+      // Set cooldown (5 minutes - since scraping only updates prices older than 24hrs)
+          setRefreshCooldown(300);
+    localStorage.setItem('refreshCooldown', '300');
+    localStorage.setItem('refreshCooldownTime', Date.now().toString());
+    refreshCooldownRef.current = setTimeout(() => {
+      setRefreshCooldown(0);
+      localStorage.removeItem('refreshCooldown');
+      localStorage.removeItem('refreshCooldownTime');
+    }, 300000);
+      
+    } catch (error) {
+      debugLog.error('Refresh failed', { error }, 'CompetitorsPage');
+      notifications.showError('Failed to refresh competitor prices. Please try again.', {
+        category: 'Competitors',
+        showToast: true
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [fetchData, isRefreshing, refreshCooldown, lastRefreshTime, isDemoMode, shop, notifications]);
+
+  // Progress polling functionality
+  const startProgressPolling = useCallback((sessionId: string) => {
+    debugLog.info('Starting progress polling for session', { sessionId }, 'CompetitorsPage');
+    
+    const pollProgress = async () => {
+      try {
+        const progress = await getPriceRefreshProgress(sessionId);
+        
+        debugLog.info('Progress update received', { progress }, 'CompetitorsPage');
+        
+        setRefreshProgress({
+          completed: progress.completed,
+          failed: progress.failed,
+          skipped: progress.skipped,
+          percentage: progress.percentage,
+          estimatedTimeRemaining: progress.estimatedTimeRemaining,
+          isCompleted: progress.isCompleted
+        });
+        
+        // Stop polling and refresh data when completed
+        if (progress.isCompleted) {
+          debugLog.info('Refresh session completed', { 
+            sessionId, 
+            completed: progress.completed,
+            failed: progress.failed,
+            skipped: progress.skipped
+          }, 'CompetitorsPage');
+          
+          // Clear polling
+          if (progressPollingRef.current) {
+            clearTimeout(progressPollingRef.current);
+            progressPollingRef.current = null;
+          }
+          
+          // Reset states
+          setIsRefreshing(false);
+          setRefreshSession(null);
+          
+          // Show completion notification
+          notifications.showSuccess(
+            `Price refresh completed! Updated ${progress.completed} competitors, ${progress.failed} failed, ${progress.skipped} skipped.`,
+            {
+              category: 'Competitors',
+              showToast: true,
+              duration: 5000
+            }
+          );
+          
+          // Refresh the competitor data
+          await fetchData(true);
+          
+          return; // Stop polling
+        }
+        
+        // Continue polling every 3 seconds
+        progressPollingRef.current = setTimeout(pollProgress, 3000);
+        
+      } catch (error) {
+        debugLog.error('Progress polling failed', { error }, 'CompetitorsPage');
+        
+        // Stop polling on error
+        if (progressPollingRef.current) {
+          clearTimeout(progressPollingRef.current);
+          progressPollingRef.current = null;
+        }
+        
+        setIsRefreshing(false);
+        setRefreshSession(null);
+        
+        notifications.showError('Lost connection to refresh progress. Please check results manually.', {
+          category: 'Competitors',
+          showToast: true
+        });
+      }
+    };
+    
+    // Start initial poll
+    pollProgress();
+  }, [notifications, fetchData]);
+
+  // Countdown effect for refresh cooldown
+  useEffect(() => {
+    if (refreshCooldown > 0) {
+      const interval = setInterval(() => {
+        setRefreshCooldown(prev => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            localStorage.removeItem('refreshCooldown');
+            localStorage.removeItem('refreshCooldownTime');
+            return 0;
+          }
+          const newValue = prev - 1;
+          localStorage.setItem('refreshCooldown', newValue.toString());
+          return newValue;
+        });
+      }, 1000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [refreshCooldown]);
+
+  // Cleanup refresh timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+      }
+      if (refreshCooldownRef.current) {
+        clearTimeout(refreshCooldownRef.current);
+      }
+    };
+  }, []);
 
   // Clear error states on component mount to prevent persistence from previous navigation
   useEffect(() => {
@@ -760,8 +1123,19 @@ export default function CompetitorsPage() {
 
   const handleAdd = useCallback(async () => {
     if (!url.trim()) {
-      notifications.showError('Please enter a competitor URL', {
-        category: 'Competitors'
+      notifications.showError('Please provide a valid competitor URL to begin tracking', {
+        category: 'Competitors',
+        showToast: true
+      });
+      return;
+    }
+
+    // Enhanced URL validation for better user guidance
+    const trimmedUrl = url.trim();
+    if (trimmedUrl.includes('amazon.com') && !trimmedUrl.includes('/dp/') && !trimmedUrl.includes('/gp/product/')) {
+      notifications.showError('Please provide a direct Amazon product page URL (should contain /dp/ or /gp/product/)', {
+        category: 'Competitors',
+        showToast: true
       });
       return;
     }
@@ -774,7 +1148,8 @@ export default function CompetitorsPage() {
       if (!isDemoMode && limits) {
         if (!limits.competitorLimit.canAdd) {
           notifications.showError(limits.competitorLimit.message || 'Competitor limit reached', {
-            category: 'Competitors'
+            category: 'Competitors',
+            showToast: true
           });
           return;
         }
@@ -793,73 +1168,46 @@ export default function CompetitorsPage() {
           lastChecked: new Date().toISOString()
         };
         setCompetitors((prev) => [...prev, newCompetitor]);
-        notifications.showSuccess('Demo competitor added', {
-          category: 'Competitors'
+        notifications.showSuccess('Demo competitor has been added to tracking', {
+          category: 'Competitors',
+          showToast: true
         });
       } else {
-        // Intelligent competitor addition with automatic product syncing
+        // Intelligent competitor addition - let backend handle product selection
         let finalProductId = productId;
         
-        // If no productId provided, try to get products intelligently
+        // If no productId provided, let backend select from Redis cache
         if (!finalProductId) {
-          console.log('No productId provided, attempting to get products intelligently...');
-          
-          // First, try dashboard cache
-          const dashboardCache = sessionStorage.getItem('dashboard_cache_v2');
-          if (dashboardCache) {
-            try {
-              const cache = JSON.parse(dashboardCache);
-              if (cache.products?.data?.products?.length > 0) {
-                const age = Date.now() - cache.products.timestamp;
-                if (age < 30 * 60 * 1000) { // 30 minutes
-                  finalProductId = cache.products.data.products[0].id?.toString();
-                  console.log('Using product from dashboard cache:', finalProductId);
-                }
-              }
-            } catch (error) {
-              console.warn('Failed to parse dashboard cache:', error);
-            }
-          }
-          
-          // If still no product, try to fetch from API with better error handling
-          if (!finalProductId) {
-            try {
-              console.log('Fetching products from API for competitor addition');
-              const response = await fetchWithAuth('/api/analytics/products');
-              
-              if (response.ok) {
-                const data = await response.json();
-                if (data.products?.length > 0) {
-                  finalProductId = data.products[0].id?.toString();
-                  console.log('Using product from API:', finalProductId);
-                  
-                  // Update dashboard cache with fresh data
-                  const cacheData = {
-                    products: {
-                      data: data,
-                      timestamp: Date.now()
-                    }
-                  };
-                  sessionStorage.setItem('dashboard_cache_v2', JSON.stringify(cacheData));
-                } else {
-                  console.log('No products found in API response');
-                }
-              } else {
-                console.log('Products API returned status:', response.status);
-      }
-            } catch (error) {
-              console.error('Failed to fetch products:', error);
-            }
-          }
+          console.log('No productId provided, letting backend select product from cache');
         }
         
         // Add competitor with intelligent product handling
-        newCompetitor = await addCompetitor(url.trim(), finalProductId || '');
-        setCompetitors((prev) => [...prev, newCompetitor]);
+        newCompetitor = await addCompetitorIntelligent(url.trim(), finalProductId);
+        // Set price loading state for the new competitor
+        const competitorWithLoading = { ...newCompetitor, priceLoading: true };
+        setCompetitors((prev) => [...prev, competitorWithLoading]);
+        
+        // Trigger highlighting for the newly added competitor
+        triggerHighlight(newCompetitor.id, 'add');
       
         // Clear cache to ensure fresh data on next load
         const cacheKey = `competitors_${shop}`;
         cache.delete(cacheKey);
+        
+        // Show enterprise-grade success notification
+        debugLog.info('Showing success notification for competitor addition', {
+          message: 'Competitor added successfully! Price tracking will be activated shortly.',
+          category: 'Competitors'
+        }, 'CompetitorsPage');
+        
+        notifications.showSuccess('Competitor added successfully! Price data is being retrieved now.', {
+          category: 'Competitors',
+          showToast: true, // Force toast to show
+          persistent: false,
+          duration: 4000
+        });
+
+        // Backend now handles immediate scraping with API fallbacks - no polling needed
         
         // If we were in demo mode and successfully added a real competitor, switch to live mode
         if (isDemoMode) {
@@ -869,85 +1217,285 @@ export default function CompetitorsPage() {
           if (shop) {
             localStorage.setItem(`demoDisabled_${shop}`, 'true');
           }
-          notifications.showSuccess('Competitor added successfully! Switched to Live Mode.', {
-            category: 'Competitors'
-          });
-        } else {
-          notifications.showSuccess('Competitor added successfully', {
-            category: 'Competitors'
-          });
         }
+        
+        // Start polling for price updates for the new competitor (less aggressive)
+        const startPricePolling = async (competitorId: string) => {
+          let attempts = 0;
+          const maxAttempts = 3; // Only 3 attempts total
+          
+          const pollForPrice = async () => {
+            try {
+              attempts++;
+              console.log(`Polling for price update, attempt ${attempts}/${maxAttempts}`);
+              
+              // Fetch fresh competitor data
+              await fetchData(true);
+              
+              // Check if the new competitor has a price by looking at current state
+              setCompetitors(prev => {
+                const updatedCompetitor = prev.find(c => c.id === competitorId);
+                if (updatedCompetitor && updatedCompetitor.price > 0) {
+                  console.log('Price found, stopping polling');
+                  // Update the competitor's loading state
+                  return prev.map(c => 
+                    c.id === competitorId 
+                      ? { ...c, priceLoading: false }
+                      : c
+                  );
+                }
+                return prev; // No changes needed
+              });
+              
+              // Check if we should stop polling
+              const currentCompetitor = competitors.find(c => c.id === competitorId);
+              if (currentCompetitor && currentCompetitor.price > 0) {
+                console.log('Price found, stopping polling');
+                return; // Stop polling
+              }
+              
+              // If we haven't reached max attempts, continue polling with longer intervals
+              if (attempts < maxAttempts) {
+                let nextPollDelay;
+                switch (attempts) {
+                  case 1:
+                    nextPollDelay = 30000; // 30 seconds
+                    break;
+                  case 2:
+                    nextPollDelay = 90000; // 90 seconds
+                    break;
+                  default:
+                    nextPollDelay = 180000; // 180 seconds (3 minutes)
+                    break;
+                }
+                console.log(`Scheduling next poll in ${nextPollDelay / 1000} seconds`);
+                setTimeout(pollForPrice, nextPollDelay);
+        } else {
+                console.log('Max polling attempts reached, stopping');
+                // Stop loading state even if no price found
+                setCompetitors(prev => prev.map(c => 
+                  c.id === competitorId 
+                    ? { ...c, priceLoading: false }
+                    : c
+                ));
+              }
+            } catch (error) {
+              console.log('Error during price polling:', error);
+              // Stop loading state on error
+              setCompetitors(prev => prev.map(c => 
+                c.id === competitorId 
+                  ? { ...c, priceLoading: false }
+                  : c
+              ));
+            }
+          };
+          
+          // Start polling after initial delay
+          setTimeout(pollForPrice, 30000); // Start after 30 seconds
+        };
+        
+        // Start polling for the new competitor
+        if (newCompetitor?.id) {
+          startPricePolling(newCompetitor.id);
+        }
+        
+        // Clear form and close after success
+        setUrl('');
+        setProductId('');
+        setShowAddForm(false);
       }
-      
-      setUrl('');
-      setProductId('');
-      setShowAddForm(false);
     } catch (error: any) {
       console.error('handleAdd error:', error);
       
-      // Enhanced error handling with user-friendly messages
-      let userMessage = 'Failed to add competitor. Please try again.';
-      let needsProductSync = false;
-      
-      // Check for specific error conditions
-      if (error?.response?.status === 412 || 
-          error?.response?.data?.error === 'PRODUCTS_SYNC_NEEDED' ||
-          error?.needsProductSync) {
-        userMessage = 'Syncing your product catalog... Please try adding the competitor again in a moment.';
-        needsProductSync = true;
-      } else if (error.message) {
-        userMessage = error.message;
-      }
-      
-      // Never show raw JSON to users - additional safeguard
-      if (userMessage.includes('{') && userMessage.includes('}')) {
-        userMessage = 'Unable to add competitor at this time. Please try again in a moment.';
-        needsProductSync = true;
-      }
-      
-      // If product sync is needed, trigger it automatically
-      if (needsProductSync) {
-        // Trigger product sync in background with better feedback
-        notifications.showInfo('Syncing your product catalog in the background...', {
+      // Check if this is a timeout error that might be from the refresh
+      if (error.message?.includes('timeout') || error.message?.includes('Request timed out')) {
+        // If we have a competitor in the list, this might be a refresh timeout, not a failure
+        const lastAddedCompetitor = competitors.find(c => c.url === url.trim());
+        if (lastAddedCompetitor) {
+          console.log('Timeout error detected but competitor was added successfully, showing success message');
+          notifications.showSuccess('Competitor added successfully! Price data will be updated shortly.', {
             category: 'Competitors',
-          persistent: false
-        });
-        
-        fetchWithAuth('/api/analytics/products')
-        .then(response => {
-          if (response.ok) {
-            console.log('Background product sync completed successfully');
-            // Update cache with fresh data
-            return response.json();
-          } else {
-            console.log('Background product sync failed with status:', response.status);
-          }
-        })
-        .then(data => {
-          if (data?.products?.length > 0) {
-            const cacheData = {
-              products: {
-                data: data,
-                timestamp: Date.now()
-              }
-            };
-            sessionStorage.setItem('dashboard_cache_v2', JSON.stringify(cacheData));
-            console.log('Updated dashboard cache with fresh product data');
+            showToast: true,
+            persistent: false,
+            duration: 4000
+          });
+          
+          // Clear form and close
+          setUrl('');
+          setProductId('');
+          setShowAddForm(false);
+          return;
         }
-        })
-        .catch(error => {
-          console.error('Background product sync failed:', error);
+      }
+      
+      // Log error to debug panel for production debugging
+      debugLog.error('Competitor addition failed', {
+        error: error.message,
+        errorType: error.constructor.name,
+        needsProductSync: error.needsProductSync,
+        userFriendly: error.userFriendly,
+        url: url,
+        productId: productId
+      }, 'CompetitorsPage');
+      
+      // Enhanced error handling with enterprise-grade messages
+      let userMessage = 'Unable to initiate competitor tracking at this time. Please try again.';
+      let needsProductSync = false;
+      let needsAuthentication = false;
+      
+      // Check if the competitor was actually added despite the error
+      const competitorWasAdded = competitors.some(c => c.url === url.trim());
+      if (competitorWasAdded) {
+        console.log('Competitor was added successfully despite error, showing success message');
+        notifications.showSuccess('Competitor added successfully! Price data will be updated shortly.', {
+          category: 'Competitors',
+          showToast: true,
+          persistent: false,
+          duration: 4000
         });
         
-        notifications.showInfo(userMessage, {
+        // Clear form and close
+        setUrl('');
+        setProductId('');
+        setShowAddForm(false);
+        return;
+      }
+      
+      if (error.needsProductSync) {
+        needsProductSync = true;
+        userMessage = 'Product catalog synchronization is required before initiating competitor tracking. Please synchronize your product catalog first.';
+        debugLog.info('Detected PRODUCTS_SYNC_NEEDED error - user needs to sync products', {
+          error: error.message,
+          url: url
+        }, 'CompetitorsPage');
+      } else if (error.message?.includes('Authentication required') || error.message?.includes('401') || error.message?.includes('Authentication required. Please connect your Shopify store')) {
+        needsAuthentication = true;
+        userMessage = 'Store authentication is required to initiate competitor tracking. Please connect your Shopify store first.';
+        debugLog.warn('Authentication required for competitor addition', {
+          error: error.message,
+          url: url,
+          errorType: error.constructor.name
+        }, 'CompetitorsPage');
+      } else if (error.message?.includes('already being monitored')) {
+        userMessage = 'This competitor is already under active tracking for your product catalog.';
+        debugLog.info('Competitor already being monitored', {
+          error: error.message,
+          url: url
+        }, 'CompetitorsPage');
+      } else if (error.message?.includes('archived competitor limit') || error.message?.includes('ARCHIVED_COMPETITOR_LIMIT_EXCEEDED')) {
+        userMessage = 'You have reached the maximum archived competitor limit for your current subscription tier.';
+        debugLog.warn('Archived competitor limit reached', {
+          error: error.message,
+          url: url
+        }, 'CompetitorsPage');
+      } else if (error.message?.includes('limit') || error.message?.includes('COMPETITOR_LIMIT_EXCEEDED')) {
+        userMessage = 'You have reached the maximum competitor tracking limit for your current subscription tier.';
+        debugLog.warn('Competitor limit reached', {
+          error: error.message,
+          url: url
+        }, 'CompetitorsPage');
+      } else if (error.message?.includes('Invalid URL') || error.message?.includes('Unsupported platform')) {
+        userMessage = 'Please provide a valid competitor URL from a supported platform (Amazon, Best Buy, Shopify, etc.). Make sure it\'s a product page, not a search or category page.';
+        debugLog.warn('Invalid competitor URL provided', {
+          error: error.message,
+          url: url,
+          errorType: error.constructor.name
+        }, 'CompetitorsPage');
+      } else if (error.message?.includes('Connection issue') || error.message?.includes('fetch') || error.message?.includes('Network Error') || error.message?.includes('cancelled') || error.message?.includes('timeout') || error.name === 'AbortError') {
+        userMessage = 'Request timed out. Please try again.';
+        debugLog.error('Request cancelled/timeout', {
+          error: error.message,
+          errorName: error.name,
+          url: url,
+          errorType: error.constructor.name
+        }, 'CompetitorsPage');
+      } else if (error.message?.includes('session has expired')) {
+        userMessage = 'Your session has expired. Please refresh the page and re-authenticate.';
+        debugLog.warn('Session expired during competitor addition', {
+          error: error.message,
+          url: url
+        }, 'CompetitorsPage');
+      } else if (error.message?.includes('maximum competitor tracking limit') || error.message?.includes('maximum archived competitor limit')) {
+        // Use the specific error message from the backend
+        userMessage = error.message;
+        debugLog.warn('Competitor limit exceeded for competitor addition', {
+          error: error.message,
+          url: url
+        }, 'CompetitorsPage');
+      } else if (error.message?.includes('Too many requests')) {
+        userMessage = 'Rate limit exceeded. Please wait a moment before retrying.';
+        debugLog.warn('Rate limit exceeded for competitor addition', {
+          error: error.message,
+          url: url
+        }, 'CompetitorsPage');
+      } else if (error.message?.includes('temporarily unavailable')) {
+        userMessage = 'Service is temporarily unavailable. Please retry in a few moments.';
+        debugLog.error('Service temporarily unavailable', {
+          error: error.message,
+          url: url
+        }, 'CompetitorsPage');
+      } else if (error.userFriendly) {
+        userMessage = error.message;
+        debugLog.info('User-friendly error displayed', {
+          error: error.message,
+          url: url
+        }, 'CompetitorsPage');
+      }
+      
+      console.error('Competitor addition failed:', {
+        error: error.message,
+        needsProductSync,
+        needsAuthentication,
+        userMessage
+      });
+
+      // Show appropriate notification based on error type
+      if (needsAuthentication) {
+        debugLog.info('Showing authentication error notification');
+        notifications.showError('Store Authentication Required', {
           category: 'Competitors',
-          persistent: false
+          persistent: true,
+          showToast: true,
+          action: {
+            label: 'Connect Store',
+            onClick: () => {
+              window.location.href = '/';
+            }
+          }
+        });
+                notifications.showInfo('To initiate competitor tracking, you must first authenticate your Shopify store. Click "Connect Store" above or visit the home page to authenticate.', {
+              category: 'Competitors',
+          persistent: false,
+          showToast: true,
+          duration: 8000
+        });
+      } else if (needsProductSync) {
+        debugLog.info('Showing product sync error notification');
+                notifications.showError('Product Catalog Synchronization Required', {
+            category: 'Competitors',
+          persistent: true,
+          showToast: true,
+          action: {
+            label: 'Sync Products',
+            onClick: () => {
+              navigate('/dashboard?sync_products=true');
+            }
+          }
+        });
+        notifications.showInfo('To initiate competitor tracking, you must first synchronize your product catalog. Click "Sync Products" above or visit your Dashboard to refresh your product data.', {
+          category: 'Competitors',
+          persistent: false,
+          showToast: true,
+          duration: 8000
         });
       } else {
+        debugLog.info('Showing generic error notification', {
+          message: userMessage
+        }, 'CompetitorsPage');
         notifications.showError(userMessage, {
           category: 'Competitors',
-          persistent: false
-      });
+          showToast: true
+        });
       }
     } finally {
       setIsAdding(false);
@@ -958,56 +1506,189 @@ export default function CompetitorsPage() {
     try {
       if (isDemoMode) {
         setCompetitors((prev) => prev.filter((c) => c.id !== id));
-        notifications.showSuccess('Demo competitor removed', {
-          category: 'Competitors'
+        notifications.showSuccess('Demo competitor has been removed from tracking', {
+          category: 'Competitors',
+          showToast: true
         });
         return;
       }
       
-      await deleteCompetitor(id);
+      // Optimistically remove from UI for better UX
+      const competitorToDelete = competitors.find(c => c.id === id);
+      
+      // Trigger highlighting for the archived competitor
+      triggerHighlight(id, 'archive');
+      
       setCompetitors((prev) => prev.filter((c) => c.id !== id));
+      
+      try {
+        // Call API to actually delete from backend
+        await deleteCompetitor(id);
       
       // Clear cache to force refresh
       const cacheKey = `competitors_${shop}`;
       cache.delete(cacheKey);
       
-      notifications.showSuccess('Competitor deleted successfully', {
-        category: 'Competitors'
-      });
-    } catch {
-      notifications.showError('Failed to delete competitor', {
-        category: 'Competitors'
+        notifications.showSuccess('Competitor tracking has been discontinued', {
+          category: 'Competitors',
+          showToast: true
+        });
+        
+        // Trigger refresh of archived competitors list
+        setArchivedRefreshTrigger(prev => prev + 1);
+        
+        debugLog.info('Competitor deleted successfully', { 
+          competitorId: id,
+          competitorUrl: competitorToDelete?.url 
+        }, 'CompetitorsPage');
+        
+      } catch (error) {
+        console.error('Delete competitor error:', error);
+        debugLog.error('Delete competitor failed', { 
+          competitorId: id, 
+          error: error instanceof Error ? error.message : String(error),
+          errorType: error instanceof Error ? error.constructor.name : typeof error
+        }, 'CompetitorsPage');
+        
+        // Re-add the competitor to the UI since the API call failed
+        if (competitorToDelete) {
+          setCompetitors((prev) => [...prev, competitorToDelete]);
+        }
+        
+        // Show appropriate error message based on error type
+        let errorMessage = 'Unable to discontinue competitor tracking at this time. Please try again.';
+        
+        if (error instanceof Error) {
+          // Check for specific error flags first
+          if ((error as any).archivedCompetitorLimitExceeded) {
+            errorMessage = 'You have reached the maximum archived competitor limit for your current subscription tier.';
+          } else if ((error as any).competitorLimitExceeded) {
+            errorMessage = 'You have reached the maximum competitor tracking limit for your current subscription tier.';
+          } else if (error.message.includes('Authentication required') || error.message.includes('401')) {
+            errorMessage = 'Your session has expired. Please refresh the page and try again.';
+          } else if (error.message.includes('404') || error.message.includes('Not Found')) {
+            errorMessage = 'Competitor not found. It may have already been deleted.';
+          } else if (error.message.includes('timeout') || error.message.includes('Network Error')) {
+            errorMessage = 'Request timed out. The competitor may have been deleted. Please refresh the page to confirm.';
+          } else if (error.message.includes('Failed to delete competitor') || error.message.includes('Unable to delete competitor') || error.message.includes('Unable to remove competitor tracking')) {
+            errorMessage = 'Unable to remove competitor tracking at this time. Please try again.';
+          } else if (error.message.includes('foreign key') || error.message.includes('constraint') || error.message.includes('associated with other data')) {
+            errorMessage = 'This competitor cannot be removed right now. It may be associated with other data. Please try again later.';
+          } else if (error.message.includes('archived competitor limit') || error.message.includes('ARCHIVED_COMPETITOR_LIMIT_EXCEEDED')) {
+            errorMessage = 'You have reached the maximum archived competitor limit for your current subscription tier.';
+          } else if (error.message.includes('connection') || error.message.includes('database') || error.message.includes('Service temporarily unavailable')) {
+            errorMessage = 'Service temporarily unavailable. Please try again in a moment.';
+          }
+        }
+        
+        notifications.showError(errorMessage, {
+          category: 'Competitors',
+          showToast: true // Force toast to show
+        });
+      }
+    } catch (error) {
+      console.error('Unexpected error in handleDelete:', error);
+      debugLog.error('Unexpected error in handleDelete', { 
+        competitorId: id, 
+        error: error instanceof Error ? error.message : String(error)
+      }, 'CompetitorsPage');
+      
+      notifications.showError('An unexpected error occurred. Please try again.', {
+        category: 'Competitors',
+        showToast: true // Force toast to show
       });
     }
-  }, [isDemoMode, shop, notifications]);
+  }, [isDemoMode, shop, notifications, competitors]);
 
+  // Fetch suggestion count with debouncing and caching
+  const getDebouncedSuggestionCount = useCallback(async () => {
+    try {
+      debugLog.info('Fetching suggestion count', { shop, isDemoMode }, 'CompetitorsPage');
+      
+      if (isDemoMode) {
+        const demoCount = getDemoData(DEFAULT_DEMO_PREFERENCES.category).suggestions.length;
+        debugLog.info('Demo mode: returning demo suggestion count', { demoCount }, 'CompetitorsPage');
+        return { newSuggestions: demoCount };
+      }
+      
+      const response = await getSuggestionCount();
+      debugLog.info('Suggestion count response', { 
+        newSuggestions: response.newSuggestions,
+        response 
+      }, 'CompetitorsPage');
+      return response;
+    } catch (error) {
+      debugLog.error('Error fetching suggestion count', { error, shop }, 'CompetitorsPage');
+      return { newSuggestions: 0 };
+    }
+  }, [shop, isDemoMode]);
+
+  // Refresh suggestion count (for manual refresh)
   const refreshSuggestionCount = useCallback(async () => {
     try {
+      debugLog.info('Refreshing suggestion count', { shop, isDemoMode }, 'CompetitorsPage');
+      
       if (isDemoMode) {
-        setSuggestionCount(getDemoData(DEFAULT_DEMO_PREFERENCES.category).suggestions.length);
+        const demoCount = getDemoData(DEFAULT_DEMO_PREFERENCES.category).suggestions.length;
+        debugLog.info('Demo mode: setting demo suggestion count', { demoCount }, 'CompetitorsPage');
+        setSuggestionCount(demoCount);
         return;
       }
       
-      // Clear suggestion cache and get fresh count
-      const suggestionCacheKey = `suggestions_${shop}`;
-      cache.delete(suggestionCacheKey);
-      
       const response = await refreshSuggestionCountAPI();
+      debugLog.info('Refreshed suggestion count', { 
+        newSuggestions: response.newSuggestions,
+        response 
+      }, 'CompetitorsPage');
       setSuggestionCount(response.newSuggestions);
     } catch (error) {
-      console.error('Error refreshing suggestion count:', error);
-      // Fallback to cached or demo data
+      debugLog.error('Error refreshing suggestion count', { error, shop }, 'CompetitorsPage');
+      // Fallback to demo data if in demo mode
       if (isDemoMode) {
         setSuggestionCount(getDemoData(DEFAULT_DEMO_PREFERENCES.category).suggestions.length);
       }
     }
-  }, [isDemoMode, shop]);
+  }, [shop, isDemoMode]);
+
+  // Polling removed - backend now handles immediate scraping with API fallbacks
+
+  // Product association handlers
+  const handleLinkProduct = useCallback((competitor: Competitor) => {
+    setProductAssociationModal({
+      open: true,
+      competitor,
+    });
+  }, []);
+
+  const handleCloseProductAssociationModal = useCallback(() => {
+    setProductAssociationModal({
+      open: false,
+      competitor: null,
+    });
+  }, []);
+
+  const handleProductAssociationChange = useCallback(() => {
+    // Refresh the competitors list to show updated associations
+    fetchData(true);
+  }, [fetchData]);
+
+  // Callback for when a competitor is restored from archived section
+  const handleCompetitorRestored = useCallback((competitorId?: string) => {
+    console.log('Competitor restored, forcing refresh of active competitors');
+    
+    // Trigger highlighting for the restored competitor if ID is provided
+    if (competitorId) {
+      triggerHighlight(competitorId, 'restore');
+    }
+    
+    fetchData(true); // Force refresh to update active competitors list
+  }, [fetchData]);
 
   // Limit display component
   const LimitDisplay = () => {
     if (isDemoMode || !limits) return null;
 
-    const { competitorLimit, suggestionLimit, discoveryLimit } = limits;
+    const { competitorLimit, archivedCompetitorLimit, suggestionLimit, discoveryLimit } = limits;
     
     return (
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
@@ -1021,15 +1702,22 @@ export default function CompetitorsPage() {
           </span>
         </div>
         
-        <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="mt-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="text-center">
             <div className="text-2xl font-bold text-blue-900">
               {competitorLimit.currentCount}/{competitorLimit.limit}
             </div>
-            <div className="text-xs text-blue-600">Competitors</div>
+            <div className="text-xs text-blue-600">Active Competitors</div>
             {competitorLimit.message && (
               <div className="text-xs text-blue-500 mt-1">{competitorLimit.message}</div>
             )}
+          </div>
+          
+          <div className="text-center">
+            <div className="text-2xl font-bold text-blue-900">
+              {archivedCompetitorLimit.currentCount}/{archivedCompetitorLimit.limit}
+            </div>
+            <div className="text-xs text-blue-600">Archived Competitors</div>
           </div>
           
           <div className="text-center">
@@ -1047,9 +1735,10 @@ export default function CompetitorsPage() {
           </div>
         </div>
         
-        {competitorLimit.currentCount >= competitorLimit.limit * 0.8 && (
+        {(competitorLimit.currentCount >= competitorLimit.limit * 0.8 || 
+          archivedCompetitorLimit.currentCount >= archivedCompetitorLimit.limit * 0.8) && (
           <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
-            ⚠️ You're approaching your competitor limit. Consider upgrading for unlimited tracking.
+            ⚠️ You're approaching your competitor limits. Consider upgrading for unlimited tracking.
           </div>
         )}
       </div>
@@ -1075,8 +1764,9 @@ export default function CompetitorsPage() {
         console.log(`Persisted demoDisabled preference for shop: ${shop}`);
       }
       
-      notifications.showSuccess('Switched to Live Mode', {
-        category: 'Mode'
+      notifications.showSuccess('Switched to Live Mode - Real competitor tracking enabled', {
+        category: 'Mode',
+        showToast: true
       });
       
       // Load real data after a brief delay to ensure state is stable
@@ -1101,8 +1791,9 @@ export default function CompetitorsPage() {
         console.log(`Removed demoDisabled preference for shop: ${shop}`);
       }
       
-      notifications.showSuccess('Switched to Demo Mode', {
-        category: 'Mode'
+      notifications.showSuccess('Switched to Demo Mode - Sample data enabled', {
+        category: 'Mode',
+        showToast: true
       });
       
       // No fetchData call needed for demo mode - everything is already set
@@ -1113,14 +1804,16 @@ export default function CompetitorsPage() {
   const triggerManualDiscovery = useCallback(async () => {
     if (isDemoMode) {
       notifications.showInfo('Discovery is not available in demo mode', {
-        category: 'Discovery'
+        category: 'Discovery',
+        showToast: true
       });
       return;
     }
 
     if (!shop) {
       notifications.showError('No shop connected', {
-        category: 'Discovery'
+        category: 'Discovery',
+        showToast: true
       });
       return;
     }
@@ -1129,7 +1822,8 @@ export default function CompetitorsPage() {
     if (now - lastDiscoveryTime < DISCOVERY_COOLDOWN) {
       const hoursRemaining = Math.ceil((DISCOVERY_COOLDOWN - (now - lastDiscoveryTime)) / (60 * 60 * 1000));
       notifications.showError(`Discovery is on cooldown. Please wait ${hoursRemaining} more hours.`, {
-        category: 'Discovery'
+        category: 'Discovery',
+        showToast: true
       });
       return;
     }
@@ -1138,6 +1832,7 @@ export default function CompetitorsPage() {
 
     notifications.showInfo('Starting discovery process...', {
       category: 'Discovery',
+      showToast: true,
       duration: 2000
     });
 
@@ -1171,7 +1866,10 @@ export default function CompetitorsPage() {
             console.error(`[Discovery] Config check failed: ${cfgRes.status} ${cfgRes.statusText}`, cfg);
             const errorMessage = cfg.message || cfg.error || `Discovery configuration unavailable (${cfgRes.status})`;
             if (attempt === 3) {
-              notifications.showError(errorMessage, { category: 'Discovery' });
+              notifications.showError(errorMessage, { 
+                category: 'Discovery',
+                showToast: true
+              });
               return;
             }
             await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
@@ -1189,25 +1887,45 @@ export default function CompetitorsPage() {
       
       if (!cfg) {
         console.error('[Discovery] Final config check failed, cfg is undefined');
-        notifications.showError('Could not retrieve discovery configuration.', { category: 'Discovery' });
+        notifications.showError('Could not retrieve discovery configuration.', { 
+          category: 'Discovery',
+          showToast: true
+        });
         return;
       }
       
       if (cfg.error) {
         console.error(`[Discovery] Configuration error:`, cfg.error);
-        notifications.showError(`Discovery error: ${cfg.message || cfg.error}`, { category: 'Discovery' });
+        notifications.showError(`Discovery error: ${cfg.message || cfg.error}`, { 
+          category: 'Discovery',
+          showToast: true
+        });
         return;
       }
       
       if (!cfg.enabled) {
         console.warn(`[Discovery] Discovery disabled. Config:`, cfg);
-        notifications.showError(cfg.message || 'Competitor discovery is currently disabled. Please contact support.', { category: 'Discovery' });
+        const errorMessage = cfg.message || 'Competitor discovery is currently disabled. Please contact support.';
+        if (cfg.debugInfo) {
+          console.error('[Discovery] Debug info:', cfg.debugInfo);
+        }
+          notifications.showError(errorMessage, { 
+            category: 'Discovery',
+            showToast: true
+          });
         return;
       }
       
       if (!cfg.configured) {
         console.warn(`[Discovery] Discovery not configured. Config:`, cfg);
-        notifications.showError(cfg.message || 'Competitor discovery is not configured. Please set up your search API credentials.', { category: 'Discovery' });
+        const errorMessage = cfg.message || 'Competitor discovery is not configured. Please set up your search API credentials.';
+        if (cfg.debugInfo) {
+          console.error('[Discovery] Debug info:', cfg.debugInfo);
+        }
+          notifications.showError(errorMessage, { 
+            category: 'Discovery',
+            showToast: true
+          });
         return;
       }
 
@@ -1239,7 +1957,10 @@ export default function CompetitorsPage() {
           if (response.ok) {
             console.log(`[Discovery] Successfully triggered:`, result);
             setLastDiscoveryTime(Date.now());
-            notifications.showSuccess(result.message || 'Discovery started! Initial results may appear within hours.', { category: 'Discovery' });
+            notifications.showSuccess(result.message || 'Discovery started! Initial results may appear within hours.', { 
+              category: 'Discovery',
+              showToast: true
+            });
             fetchDiscoveryStatus();
             return;
           }
@@ -1290,7 +2011,10 @@ export default function CompetitorsPage() {
         userMessage = `Discovery failed: ${error.message}`;
       }
       
-      notifications.showError(userMessage, { category: 'Discovery' });
+              notifications.showError(userMessage, { 
+          category: 'Discovery',
+          showToast: true
+        });
     } finally {
       setIsDiscovering(false);
     }
@@ -1454,7 +2178,8 @@ export default function CompetitorsPage() {
       }
       notificationShownRef.current = true;
       notifications.showSuccess('Tutorial completed! You\'re ready to explore Market Intelligence.', {
-        category: 'Tutorial'
+        category: 'Tutorial',
+        showToast: true
       });
     } else if (status === 'skipped') {
       setShowTutorial(false);
@@ -1467,7 +2192,8 @@ export default function CompetitorsPage() {
       }
       notificationShownRef.current = true;
       notifications.showInfo('Tutorial skipped. You can restart it anytime from the tutorial button.', {
-        category: 'Tutorial'
+        category: 'Tutorial',
+        showToast: true
       });
     } else if (action === 'close') {
       setShowTutorial(false);
@@ -1622,31 +2348,82 @@ export default function CompetitorsPage() {
             <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center flex-1 filter-controls">
               <div className="flex items-center gap-2">
                 <FunnelIcon className="h-5 w-5 text-gray-500" />
-                <select
-                  value={filterStatus}
-                  onChange={(e) => {
-                    setFilterStatus(e.target.value as any);
+                <div className="relative filter-dropdown">
+                  <button
+                    onClick={() => setFilterDropdownOpen(!filterDropdownOpen)}
+                    className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white hover:bg-gray-50 focus:ring-2 focus:ring-blue-400 outline-none transition-colors"
+                  >
+                    <span className="text-gray-700">
+                      {filterStatus === 'all' && 'All Competitors'}
+                      {filterStatus === 'inStock' && 'In Stock Only'}
+                      {filterStatus === 'outOfStock' && 'Out of Stock'}
+                    </span>
+                    <svg 
+                      className={`h-4 w-4 text-gray-400 transition-transform ${filterDropdownOpen ? 'rotate-180' : ''}`} 
+                      fill="none" 
+                      viewBox="0 0 24 24" 
+                      stroke="currentColor"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  
+                  {filterDropdownOpen && (
+                    <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                      <div className="py-1">
+                        <button
+                          onClick={() => {
+                            setFilterStatus('all');
+                            setFilterDropdownOpen(false);
                     trackDemoInteraction('filter_status');
                   }}
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none"
-                >
-                  <option value="all">All Competitors</option>
-                  <option value="inStock">In Stock Only</option>
-                  <option value="outOfStock">Out of Stock</option>
-                </select>
+                          className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${
+                            filterStatus === 'all' ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
+                          }`}
+                        >
+                          All Competitors
+                        </button>
+                        <button
+                          onClick={() => {
+                            setFilterStatus('inStock');
+                            setFilterDropdownOpen(false);
+                            trackDemoInteraction('filter_status');
+                          }}
+                          className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${
+                            filterStatus === 'inStock' ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
+                          }`}
+                        >
+                          In Stock Only
+                        </button>
+                        <button
+                          onClick={() => {
+                            setFilterStatus('outOfStock');
+                            setFilterDropdownOpen(false);
+                            trackDemoInteraction('filter_status');
+                          }}
+                          className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${
+                            filterStatus === 'outOfStock' ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
+                          }`}
+                        >
+                          Out of Stock
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
               
               <div className="flex-1 relative min-w-64">
-                <MagnifyingGlassIcon className="h-5 w-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+                <MagnifyingGlassIcon className="h-5 w-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none" />
                 <input
                   type="text"
-                  placeholder="Search competitors..."
+                  placeholder="Search..."
                   value={searchQuery}
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
                     if (e.target.value) trackDemoInteraction('search_competitors');
                   }}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none text-sm"
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400 outline-none text-sm bg-white hover:bg-gray-50 transition-colors"
                 />
               </div>
             </div>
@@ -1706,7 +2483,14 @@ export default function CompetitorsPage() {
               {/* Suggestions Button */}
               {suggestionCount > 0 && (
                 <button
-                  onClick={() => setShowSuggestions(true)}
+                  onClick={() => {
+                    debugLog.info('Suggestions button clicked', { 
+                      suggestionCount, 
+                      isDemoMode,
+                      shop 
+                    }, 'CompetitorsPage');
+                    setShowSuggestions(true);
+                  }}
                   className="relative flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-all shadow-md suggestions-button"
                 >
                   <SparklesIcon className="h-4 w-4" />
@@ -1718,43 +2502,300 @@ export default function CompetitorsPage() {
               {/* Add Competitor Button */}
               <button
                 onClick={() => setShowAddForm(!showAddForm)}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-all shadow-md add-competitor-button"
+                disabled={isAdding}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-md add-competitor-button ${
+                  isAdding 
+                    ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
+                    : 'bg-green-600 text-white hover:bg-green-700'
+                }`}
               >
-                <PlusIcon className="h-4 w-4" />
-                Add
+                {isAdding ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                ) : (
+                  <PlusIcon className="h-4 w-4" />
+                )}
+                {isAdding ? 'Adding...' : 'Add'}
               </button>
+
+              {/* Enhanced Refresh Button with Progress */}
+              <button
+                onClick={handleRefresh}
+                disabled={isRefreshing || refreshCooldown > 0}
+                className={`refresh-button flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-md ${
+                  isRefreshing || refreshCooldown > 0
+                    ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                }`}
+                title={
+                  isRefreshing && refreshProgress 
+                    ? `Processing ${refreshProgress.percentage}% complete • ${refreshProgress.estimatedTimeRemaining} remaining • ${refreshSession?.totalDomains} domains`
+                    : refreshCooldown > 0 
+                      ? `Refresh available in ${Math.floor(refreshCooldown / 60)}m ${refreshCooldown % 60}s • Updates prices >24h old`
+                      : 'Refresh competitor data • Updates prices >24h old'
+                }
+              >
+                {isRefreshing ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                ) : (
+                  <ArrowPathIcon className="h-4 w-4" />
+                )}
+                {isRefreshing && refreshProgress
+                  ? `${refreshProgress.percentage}% (${refreshProgress.completed}/${refreshSession?.totalCompetitors || 0})`
+                  : isRefreshing 
+                    ? 'Starting...' 
+                    : refreshCooldown > 0
+                      ? `${Math.floor(refreshCooldown / 60)}m ${refreshCooldown % 60}s`
+                      : 'Refresh'
+                }
+              </button>
+
+              {/* Deleted Competitors Button */}
+              <button
+                onClick={() => setShowDeletedCompetitors(!showDeletedCompetitors)}
+                className={`archived-competitors-button flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-md ${
+                  showDeletedCompetitors
+                    ? 'bg-orange-600 text-white hover:bg-orange-700'
+                    : 'bg-gray-600 text-white hover:bg-gray-700'
+                }`}
+                title="View and restore archived competitors"
+              >
+                <ArchiveBoxIcon className="h-4 w-4" />
+                Show Archived
+              </button>
+
+
             </div>
           </div>
 
           {/* Add Form */}
           {showAddForm && (
             <div className="mt-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
-              <form onSubmit={handleAdd} className="flex flex-col sm:flex-row gap-3">
-                <input
-                  type="text"
-                  placeholder="Competitor URL (e.g., https://amazon.com/dp/...)"
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent outline-none transition"
-                  required
-                />
-                <input
-                  type="text"
-                  placeholder="Product ID (optional)"
+              <form onSubmit={(e) => { e.preventDefault(); handleAdd(); }} className="flex flex-col sm:flex-row gap-3">
+                <div className="w-full sm:w-1/2 relative">
+                  <div className="relative url-tooltip-container">
+                    <input
+                      type="text"
+                      placeholder="Competitor URL (e.g., https://amazon.com/dp/B07D3HG1SD)"
+                      value={url}
+                      onChange={(e) => setUrl(e.target.value)}
+                      disabled={isAdding}
+                      className={`w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400 outline-none text-sm bg-white hover:bg-gray-50 transition-colors ${
+                        isAdding ? 'bg-gray-100 cursor-not-allowed' : ''
+                      }`}
+                      required
+                      onFocus={() => setShowUrlTooltip(true)}
+                      onBlur={() => setTimeout(() => setShowUrlTooltip(false), 200)}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowUrlTooltip(!showUrlTooltip)}
+                      disabled={isAdding}
+                      className={`absolute right-3 top-1/2 transform -translate-y-1/2 p-1.5 rounded-lg transition-all duration-200 ${
+                        showUrlTooltip 
+                          ? 'bg-blue-100 text-blue-600 shadow-sm' 
+                          : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+                      } disabled:opacity-50`}
+                      title="Show supported URL formats"
+                    >
+                      <InformationCircleIcon className="h-5 w-5" />
+                    </button>
+                  </div>
+                  
+                  {/* Enhanced URL format tooltip with modern design */}
+                  {showUrlTooltip && (
+                    <div className="url-tooltip-container absolute z-50 mt-3 w-full max-w-md bg-white border border-gray-200 rounded-xl shadow-2xl sm:left-0 sm:right-auto backdrop-blur-sm">
+                      <div className="p-4">
+                        {/* Header */}
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                              <SparklesIcon className="h-3 w-3 text-white" />
+                            </div>
+                            <div>
+                              <h4 className="text-base font-semibold text-gray-900">Supported Platforms</h4>
+                              <p className="text-xs text-gray-500">Copy URLs from these e-commerce sites</p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => setShowUrlTooltip(false)}
+                            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-all duration-200"
+                          >
+                            <XMarkIcon className="h-4 w-4" />
+                          </button>
+                        </div>
+                        
+                        {/* Platform Grid */}
+                        <div className="grid grid-cols-1 gap-3 max-h-64 overflow-y-auto pr-2">
+                          {/* Amazon */}
+                          <div className="group relative bg-gradient-to-r from-orange-50 to-orange-100 border border-orange-200 rounded-lg p-3 hover:shadow-md transition-all duration-200">
+                            <div className="flex items-start gap-3">
+                              <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-orange-400 to-orange-600 rounded-lg flex items-center justify-center shadow-sm">
+                                <span className="text-xs font-bold text-white">A</span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h5 className="text-xs font-semibold text-gray-900">Amazon</h5>
+                                  <span className="px-1.5 py-0.5 bg-orange-100 text-orange-700 text-xs font-medium rounded-full">Popular</span>
+                                </div>
+                                <p className="text-xs text-gray-600 font-mono break-all bg-white px-2 py-1 rounded border">
+                                  amazon.com/dp/PRODUCT_ID
+                                </p>
+                                <p className="text-xs text-gray-500 mt-1">All Amazon domains supported</p>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Best Buy */}
+                          <div className="group relative bg-gradient-to-r from-yellow-50 to-yellow-100 border border-yellow-200 rounded-lg p-3 hover:shadow-md transition-all duration-200">
+                            <div className="flex items-start gap-3">
+                              <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-lg flex items-center justify-center shadow-sm">
+                                <span className="text-xs font-bold text-white">B</span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h5 className="text-xs font-semibold text-gray-900">Best Buy</h5>
+                                  <span className="px-1.5 py-0.5 bg-yellow-100 text-yellow-700 text-xs font-medium rounded-full">Electronics</span>
+                                </div>
+                                <p className="text-xs text-gray-600 font-mono break-all bg-white px-2 py-1 rounded border">
+                                  bestbuy.com/site/PRODUCT_NAME
+                                </p>
+                                <p className="text-xs text-gray-500 mt-1">Product pages only</p>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Walmart */}
+                          <div className="group relative bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-lg p-3 hover:shadow-md transition-all duration-200">
+                            <div className="flex items-start gap-3">
+                              <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg flex items-center justify-center shadow-sm">
+                                <span className="text-xs font-bold text-white">W</span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h5 className="text-xs font-semibold text-gray-900">Walmart</h5>
+                                  <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">Retail</span>
+                                </div>
+                                <p className="text-xs text-gray-600 font-mono break-all bg-white px-2 py-1 rounded border">
+                                  walmart.com/ip/PRODUCT_NAME
+                                </p>
+                                <p className="text-xs text-gray-500 mt-1">Product pages only</p>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Target */}
+                          <div className="group relative bg-gradient-to-r from-red-50 to-red-100 border border-red-200 rounded-lg p-3 hover:shadow-md transition-all duration-200">
+                            <div className="flex items-start gap-3">
+                              <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-red-400 to-red-600 rounded-lg flex items-center justify-center shadow-sm">
+                                <span className="text-xs font-bold text-white">T</span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h5 className="text-xs font-semibold text-gray-900">Target</h5>
+                                  <span className="px-1.5 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded-full">Retail</span>
+                                </div>
+                                <p className="text-xs text-gray-600 font-mono break-all bg-white px-2 py-1 rounded border">
+                                  target.com/p/PRODUCT_NAME
+                                </p>
+                                <p className="text-xs text-gray-500 mt-1">Product pages only</p>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* eBay */}
+                          <div className="group relative bg-gradient-to-r from-green-50 to-green-100 border border-green-200 rounded-lg p-3 hover:shadow-md transition-all duration-200">
+                            <div className="flex items-start gap-3">
+                              <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-green-400 to-green-600 rounded-lg flex items-center justify-center shadow-sm">
+                                <span className="text-xs font-bold text-white">E</span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h5 className="text-xs font-semibold text-gray-900">eBay</h5>
+                                  <span className="px-1.5 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded-full">Marketplace</span>
+                                </div>
+                                <p className="text-xs text-gray-600 font-mono break-all bg-white px-2 py-1 rounded border">
+                                  ebay.com/itm/ITEM_ID
+                                </p>
+                                <p className="text-xs text-gray-500 mt-1">Individual listings</p>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Shopify */}
+                          <div className="group relative bg-gradient-to-r from-purple-50 to-purple-100 border border-purple-200 rounded-lg p-3 hover:shadow-md transition-all duration-200">
+                            <div className="flex items-start gap-3">
+                              <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-purple-400 to-purple-600 rounded-lg flex items-center justify-center shadow-sm">
+                                <span className="text-xs font-bold text-white">S</span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h5 className="text-xs font-semibold text-gray-900">Shopify Stores</h5>
+                                  <span className="px-1.5 py-0.5 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">E-commerce</span>
+                                </div>
+                                <p className="text-xs text-gray-600 font-mono break-all bg-white px-2 py-1 rounded border">
+                                  store.myshopify.com/products/PRODUCT
+                                </p>
+                                <p className="text-xs text-gray-500 mt-1">All Shopify stores supported</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Footer with enhanced tip */}
+                        <div className="mt-4 pt-3 border-t border-gray-100">
+                          <div className="flex items-start gap-2 p-2 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
+                            <div className="flex-shrink-0 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
+                              <span className="text-xs font-bold text-white">💡</span>
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium text-blue-900 mb-0.5">Pro Tip</p>
+                              <p className="text-xs text-blue-700">
+                                Copy the URL directly from your competitor's product page. Make sure it's a product page, not a category or search page.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="w-full sm:w-1/2 relative">
+                  <ProductSelector
                   value={productId}
-                  onChange={(e) => setProductId(e.target.value)}
-                  className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent outline-none transition"
+                    onChange={setProductId}
+                  disabled={isAdding}
+                    shop={shop || undefined}
+                    isDemoMode={isDemoMode}
                 />
+                </div>
                 <button 
                   type="submit" 
-                  className="bg-green-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-green-700 transition-all shadow-md"
+                  disabled={isAdding}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-md ${
+                    isAdding 
+                      ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
+                      : 'bg-green-600 text-white hover:bg-green-700'
+                  }`}
                 >
-                  Add
+                  {isAdding ? (
+                    <div className="flex items-center gap-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                      Adding...
+                    </div>
+                  ) : (
+                    'Add'
+                  )}
                 </button>
                 <button 
                   type="button"
                   onClick={() => setShowAddForm(false)}
-                  className="bg-gray-500 text-white px-6 py-3 rounded-lg font-medium hover:bg-gray-600 transition-all"
+                  disabled={isAdding}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    isAdding 
+                      ? 'bg-gray-300 text-gray-400 cursor-not-allowed' 
+                      : 'bg-gray-500 text-white hover:bg-gray-600'
+                  }`}
                 >
                   Cancel
                 </button>
@@ -1764,7 +2805,18 @@ export default function CompetitorsPage() {
         </div>
 
         {/* Competitors Table */}
-        <div className="bg-white rounded-xl shadow overflow-hidden">
+        <div className="bg-white rounded-xl shadow overflow-hidden relative">
+          {/* Loading overlay during competitor addition */}
+          {isAdding && (
+            <div className="absolute inset-0 bg-white bg-opacity-75 z-10 flex items-center justify-center">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
+                <p className="text-gray-600 font-medium">Adding competitor...</p>
+                <p className="text-sm text-gray-500 mt-1">Please wait while we process your request</p>
+              </div>
+            </div>
+          )}
+          
           <div className="p-6 border-b border-gray-200">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
@@ -1776,9 +2828,7 @@ export default function CompetitorsPage() {
             </div>
           </div>
           
-          {isLoading ? (
-            <IntelligentLoadingScreen fastMode={true} message="Loading market intelligence..." />
-          ) : filteredCompetitors.length === 0 ? (
+          {filteredCompetitors.length === 0 ? (
             <div className="text-center py-16">
               <ChartBarIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
               <h3 className="text-xl font-medium text-gray-900 mb-2">
@@ -1809,16 +2859,81 @@ export default function CompetitorsPage() {
               )}
             </div>
           ) : (
-            <div className="overflow-x-auto competitor-table">
-              <CompetitorTable data={filteredCompetitors} onDelete={handleDelete} />
+            <div className="space-y-4">
+              {/* Active Competitors Section */}
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+                <div className="overflow-x-auto competitor-table">
+                  <CompetitorTable 
+                    data={filteredCompetitors} 
+                    onDelete={handleDelete} 
+                    onLinkProduct={handleLinkProduct}
+                    onViewGraph={(competitor) => {
+                      setSelectedCompetitorForGraph(competitor);
+                      setShowGraphView(true);
+                    }}
+                    sectionTitle="Active"
+                    sectionCount={filteredCompetitors.length}
+                    sectionColor="green"
+                    onToggleCollapse={() => setActiveSectionCollapsed(!activeSectionCollapsed)}
+                    isCollapsed={activeSectionCollapsed}
+                    onRefreshPrices={() => {
+                      // Refresh the competitors data
+                      fetchData();
+                    }}
+                    highlightedCompetitorId={highlightedCompetitorId}
+                    highlightAction={highlightAction}
+                  />
+                </div>
+              </div>
+              
+              {/* Archived Competitors Panel */}
+              {showDeletedCompetitors && (
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+                  <div className="overflow-x-auto competitor-table">
+                    <ArchivedCompetitorsPanel
+                      shopId={isDemoMode ? 'demo' : (shop || 'demo')}
+                      onCountChange={setArchivedCount}
+                      sectionTitle="Archived"
+                      sectionCount={archivedCount}
+                      sectionColor="orange"
+                      onToggleCollapse={() => setDeletedSectionCollapsed(!deletedSectionCollapsed)}
+                      isCollapsed={deletedSectionCollapsed}
+                      onCompetitorRestored={handleCompetitorRestored}
+                      archivedLimit={limits?.archivedCompetitorLimit?.limit}
+                      archivedCurrent={limits?.archivedCompetitorLimit?.currentCount}
+                      refreshTrigger={archivedRefreshTrigger}
+                      highlightedCompetitorId={highlightedCompetitorId}
+                      highlightAction={highlightAction}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           )}
-        </div>
-      </div>
+         </div>
+       </div>
+      
+      {/* Graph View Modal */}
+      {showGraphView && selectedCompetitorForGraph && (
+        <PriceHistoryModal
+          competitor={selectedCompetitorForGraph}
+          onClose={() => {
+            setShowGraphView(false);
+            setSelectedCompetitorForGraph(null);
+          }}
+          isDemoMode={isDemoMode}
+        />
+      )}
       
       <SuggestionDrawer
         isOpen={showSuggestions}
-        onClose={() => setShowSuggestions(false)}
+        onClose={() => {
+          debugLog.info('SuggestionDrawer closed', { 
+            wasOpen: showSuggestions,
+            suggestionCount 
+          }, 'CompetitorsPage');
+          setShowSuggestions(false);
+        }}
         onSuggestionUpdate={refreshSuggestionCount}
         isDemoMode={isDemoMode}
         demoSuggestions={getDemoData(demoPreferences.category).suggestions}
@@ -2015,6 +3130,22 @@ export default function CompetitorsPage() {
           <HelpOutlineIcon sx={{ fontSize: 24 }} />
         </button>
       </div>
+
+      {/* Product Association Modal */}
+      {productAssociationModal.competitor && (
+        <ProductAssociationModal
+          open={productAssociationModal.open}
+          onClose={handleCloseProductAssociationModal}
+          competitorId={productAssociationModal.competitor.id}
+          competitorUrl={productAssociationModal.competitor.url}
+          competitorLabel={productAssociationModal.competitor.label}
+          currentProductId={productAssociationModal.competitor.shopifyProductId}
+          currentProductTitle={productAssociationModal.competitor.productTitle}
+          onAssociationChange={handleProductAssociationChange}
+          isDemoMode={isDemoMode}
+        />
+      )}
+
     </div>
   );
 }

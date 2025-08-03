@@ -17,6 +17,7 @@ import {
   getCacheKey,
   invalidateCache,
   CACHE_VERSION,
+  checkRedisCacheStatus,
 } from '../utils/cacheUtils'; // Import from shared utils
 import IntelligentLoadingScreen from '../components/ui/IntelligentLoadingScreen';
 import ErrorBoundary from '../components/ErrorBoundary';
@@ -330,6 +331,9 @@ interface RevenueData {
 interface DashboardInsight {
   totalRevenue: number;
   revenue?: number;
+  recentRevenue?: number; // Add 7-day revenue
+  recentOrders?: number; // Add 7-day orders
+  recentConversionRate?: number; // Add 7-day conversion rate
   newProducts: number;
   abandonedCarts: number;
   lowInventory: number;
@@ -850,6 +854,9 @@ const DashboardPage = () => {
     dashboardRevenueData: stableTimeseriesData, // Use stable reference
     dashboardOrdersData: stableTimeseriesData, // Use stable reference
     realConversionRate: insights?.conversionRate, // Pass real conversion rate from dashboard
+    recentRevenue: insights?.recentRevenue, // Pass 7-day revenue from dashboard
+    recentOrders: insights?.recentOrders, // Pass 7-day orders from dashboard
+    recentConversionRate: insights?.recentConversionRate, // Pass 7-day conversion rate from dashboard
     // Note: Always computes 90 days max, filtering done in PredictionViewContainer
   });
 
@@ -1173,19 +1180,37 @@ const DashboardPage = () => {
           console.log(`🔄 Same shop re-authentication detected: ${shop} (with session cache)`);
           isFreshLoginRef.current = false;
         } else {
-          // No session cache, so this is likely a new browser session
-          console.log(`🆕 Fresh login detected for shop: ${shop} (new browser session, no session cache)`);
-          isFreshLoginRef.current = true;
+          // No session cache, check Redis cache status to make informed decision
+          console.log(`🆕 New browser session detected: ${shop} (no session cache, checking Redis status)`);
           
-          // Reset fresh login flag after initial data loading
-          setTimeout(() => {
+          // Check Redis cache status asynchronously
+          checkRedisCacheStatus(shop).then(redisStatus => {
+            if (redisStatus) {
+              const hasRedisCache = Object.values(redisStatus).some((value: any) => 
+                typeof value === 'boolean' && value === true
+              );
+              
+              if (hasRedisCache) {
+                console.log(`✅ Redis cache available for ${shop}, will use Redis-first strategy`);
+                isFreshLoginRef.current = false; // Use Redis cache
+              } else {
+                console.log(`❌ No Redis cache available for ${shop}, will make fresh API calls`);
+                isFreshLoginRef.current = false; // Still don't skip Redis, but expect cache miss
+              }
+            } else {
+              console.log(`⚠️ Could not check Redis cache status for ${shop}, proceeding with normal strategy`);
+              isFreshLoginRef.current = false;
+            }
+          }).catch(error => {
+            console.warn(`Error checking Redis cache status:`, error);
             isFreshLoginRef.current = false;
-            console.log(`✅ Fresh login period ended for shop: ${shop}`);
-          }, 3000);
+          });
         }
       }
     }
   }, [shop, isAuthenticated]);
+
+  // Dashboard handles all data loading including products - no special competitor logic needed
 
   // Stable cache check function with optimal strategy
   const checkCacheAndFetch = useCallback(async (
@@ -1213,33 +1238,32 @@ const DashboardPage = () => {
       cachedEntry.version === CACHE_VERSION &&
       cachedEntry.shop === shop;
     
-    // OPTIMAL STRATEGY: Different cache check order based on context
+    // OPTIMAL STRATEGY: Session cache first, then Redis via backend
     const isFreshLogin = isFreshLoginRef.current;
     
     if (isFreshLogin) {
-      // LOGIN STRATEGY: Redis Cache First, Session Second
-      console.log(`🔄 ${cacheKey.toUpperCase()}: Fresh login detected - checking Redis cache first`);
-      
-      // For fresh login, skip session cache and go directly to backend (which checks Redis first)
-      // This ensures we get the most up-to-date data from Redis cache
+      // SHOP CHANGE STRATEGY: Skip session cache, go directly to backend (which checks Redis first)
+      console.log(`🔄 ${cacheKey.toUpperCase()}: Shop change detected - checking Redis cache first via backend`);
     } else {
       // NORMAL STRATEGY: Session First, Redis Second (to prevent continuous Redis hits)
       if (!forceRefresh && isSessionFresh) {
-      const ageMinutes = Math.round((Date.now() - cachedEntry.timestamp) / (1000 * 60));
+        const ageMinutes = Math.round((Date.now() - cachedEntry.timestamp) / (1000 * 60));
         console.log(`✅ ${cacheKey.toUpperCase()}: Using session cached data (${ageMinutes}min old)`);
-      setCache(prev => ({ ...prev, [cacheKey]: cachedEntry }));
-      return cachedEntry.data;
+        setCache(prev => ({ ...prev, [cacheKey]: cachedEntry }));
+        return cachedEntry.data;
       }
       
       if (!forceRefresh && !isSessionFresh && cachedEntry) {
-        console.log(`🔄 ${cacheKey.toUpperCase()}: Session cache expired, checking Redis cache...`);
+        console.log(`🔄 ${cacheKey.toUpperCase()}: Session cache expired, checking Redis cache via backend...`);
+      } else if (!forceRefresh && !cachedEntry) {
+        console.log(`🔄 ${cacheKey.toUpperCase()}: No session cache, checking Redis cache via backend...`);
       }
     }
     
     // Create and track the fetch promise to prevent concurrent fetches
     const fetchPromise = (async () => {
       try {
-        const context = isFreshLogin ? 'fresh login' : 'normal action';
+        const context = isFreshLogin ? 'shop change' : 'normal action';
         console.log(`🔄 ${cacheKey.toUpperCase()}: Fetching data from API (${context} - backend will check Redis cache first)`);
         const freshData = await fetchFunction();
         const now = new Date();
@@ -1268,8 +1292,8 @@ const DashboardPage = () => {
     // Track this fetch to prevent concurrent calls
     activeFetches.current.set(fetchKey, fetchPromise);
     
-    return await fetchPromise;
-  }, [shop, cache]); // Only depends on shop and cache now
+    return fetchPromise;
+  }, [shop, setCache]);
 
   // Get the most recent update time across all cache entries
   const getMostRecentUpdateTime = useCallback((): Date | null => {
@@ -1395,9 +1419,15 @@ const DashboardPage = () => {
       // Handle successful data response
       let timeseriesData = data.timeseries || [];
       const totalRevenue = data.totalRevenue || data.revenue || 0;
+      const recentRevenue = data.recentRevenue || 0; // Use backend-calculated 7-day revenue
+      const recentOrders = data.recentOrders || 0; // Use backend-calculated 7-day orders
+      const recentConversionRate = data.recentConversionRate || 0; // Use backend-calculated 7-day conversion rate
       
       console.log('Revenue API response:', {
         totalRevenue,
+        recentRevenue,
+        recentOrders,
+        recentConversionRate,
         timeseriesLength: timeseriesData.length,
         periodDays: data.period_days,
         ordersCount: data.orders_count
@@ -1418,6 +1448,9 @@ const DashboardPage = () => {
       
       setInsights(mergeInsights({
         totalRevenue: data.rate_limited ? 0 : totalRevenue,
+        recentRevenue: data.rate_limited ? 0 : recentRevenue,
+        recentOrders: data.rate_limited ? 0 : recentOrders,
+        recentConversionRate: data.rate_limited ? 0 : recentConversionRate,
         timeseries: data.rate_limited ? [] : timeseriesData
       }));
       
@@ -1463,6 +1496,23 @@ const DashboardPage = () => {
         const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/products'));
         const jsonData = await response.json();
         console.log('📊 Dashboard: Products API response:', jsonData);
+        
+        // Populate session storage for products data (used by dashboard and other components)
+        if (jsonData.products && Array.isArray(jsonData.products) && jsonData.products.length > 0) {
+          console.log('✅ Dashboard: Products data loaded -', jsonData.products.length, 'products');
+          
+          // Cache in session storage for other components to use
+          const sessionKey = `products_cache_${shop}`;
+          const cacheData = {
+            products: jsonData.products,
+            timestamp: Date.now()
+          };
+          sessionStorage.setItem(sessionKey, JSON.stringify(cacheData));
+          console.log('✅ Dashboard: Products cached in session storage');
+        } else {
+          console.warn('⚠️ Dashboard: Products API returned no products');
+        }
+        
         return jsonData;
       }, forceRefresh);
       
@@ -2199,6 +2249,7 @@ const DashboardPage = () => {
     const reauth = searchParams.get('reauth');
     const forceRefresh = searchParams.get('force_refresh');
     const clearCache = searchParams.get('clear_cache');
+    const syncProducts = searchParams.get('sync_products');
 
     // Optimized: Skip heavy loading animations if coming from OAuth
     if (skipLoading === 'true') {
@@ -2296,6 +2347,29 @@ const DashboardPage = () => {
       // Clean up URL
       const newUrl = new URL(window.location.href);
       newUrl.searchParams.delete('force_refresh');
+      window.history.replaceState({}, document.title, newUrl.toString());
+    }
+
+    // Handle product sync request from competitors page
+    if (syncProducts === 'true') {
+      const notificationKey = `sync-products-${shop || 'sync'}`;
+      if (!notificationShownRef.current.has(notificationKey)) {
+        markNotificationShown(notificationKey);
+        
+        notifications.showInfo('🔄 Syncing your product catalog for competitor tracking...', {
+          category: 'Product Sync',
+          duration: 3000
+        });
+        
+        // Force refresh products data
+        setTimeout(() => {
+          handleCardLoad('products', true);
+        }, 500);
+      }
+      
+      // Clean up URL
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('sync_products');
       window.history.replaceState({}, document.title, newUrl.toString());
     }
   }, [location.search, notifications, markNotificationShown, handleRefreshAll]);
@@ -2584,6 +2658,7 @@ const DashboardPage = () => {
             error={cardErrors.revenue}
             onRetry={() => handleCardLoad('revenue')}
             onLoad={() => handleCardLoad('revenue')}
+            helpText={insights?.totalRevenue === 0 ? "No revenue data available. Make sure your Shopify store has sales and the app has revenue permissions." : undefined}
           />
           <MetricCard
             key="conversion-rate"

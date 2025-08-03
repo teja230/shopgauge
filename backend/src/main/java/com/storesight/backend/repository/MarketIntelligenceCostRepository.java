@@ -59,4 +59,13 @@ public interface MarketIntelligenceCostRepository
 
   /** Count total records for a shop */
   long countByShopId(Long shopId);
+
+  /** Find all cost data for a shop */
+  List<MarketIntelligenceCost> findByShopId(Long shopId);
+
+  /** Delete all cost data for a shop */
+  void deleteByShopId(Long shopId);
+
+  /** Count records before a specific date */
+  long countByDateBefore(LocalDate date);
 }

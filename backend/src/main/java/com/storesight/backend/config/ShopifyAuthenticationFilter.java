@@ -1,6 +1,7 @@
 package com.storesight.backend.config;
 
 import com.storesight.backend.service.RedisSessionService;
+import com.storesight.backend.service.SessionRecoveryService;
 import com.storesight.backend.service.SessionSecurityService;
 import com.storesight.backend.service.SessionSynchronizationService;
 import com.storesight.backend.service.ShopService;
@@ -28,16 +29,19 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
   private final SessionSynchronizationService sessionSynchronizationService;
   private final SessionSecurityService sessionSecurityService;
   private final RedisSessionService redisSessionService;
+  private final SessionRecoveryService sessionRecoveryService;
 
   public ShopifyAuthenticationFilter(
       ShopService shopService,
       SessionSynchronizationService sessionSynchronizationService,
       SessionSecurityService sessionSecurityService,
-      RedisSessionService redisSessionService) {
+      RedisSessionService redisSessionService,
+      SessionRecoveryService sessionRecoveryService) {
     this.shopService = shopService;
     this.sessionSynchronizationService = sessionSynchronizationService;
     this.sessionSecurityService = sessionSecurityService;
     this.redisSessionService = redisSessionService;
+    this.sessionRecoveryService = sessionRecoveryService;
   }
 
   @Override
@@ -137,23 +141,70 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
                   shopDomain,
                   sessionId,
                   isOAuthValidation);
+
+              // Set authentication context
+              UsernamePasswordAuthenticationToken authentication =
+                  new UsernamePasswordAuthenticationToken(
+                      shopDomain, null, AuthorityUtils.createAuthorityList("ROLE_SHOP"));
+              SecurityContextHolder.getContext().setAuthentication(authentication);
+
+              logger.debug(
+                  "Authentication set for shop: {} with session: {}", shopDomain, sessionId);
             } else {
               logger.warn(
-                  "Session validation failed for shop: {} and session: {} - but token exists, allowing access (OAuth: {})",
+                  "Session validation failed for shop: {} and session: {} - token exists but session invalid (OAuth: {})",
                   shopDomain,
                   sessionId,
                   isOAuthValidation);
-              // Don't immediately fail - the token exists, so the session might be valid but
-              // validation is being overly strict
+
+              // For OAuth validation endpoints, be more lenient
+              if (isOAuthValidation) {
+                logger.debug(
+                    "Allowing OAuth validation despite session issues for shop: {}", shopDomain);
+                UsernamePasswordAuthenticationToken authentication =
+                    new UsernamePasswordAuthenticationToken(
+                        shopDomain, null, AuthorityUtils.createAuthorityList("ROLE_SHOP"));
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+              } else {
+                // For regular API calls, attempt session recovery first
+                logger.debug(
+                    "Attempting session recovery for shop: {} and session: {}",
+                    shopDomain,
+                    sessionId);
+
+                // Use async session recovery to prevent blocking response writing
+                try {
+                  boolean recoverySuccessful =
+                      sessionRecoveryService.attemptSessionRecovery(shopDomain, sessionId);
+
+                  if (recoverySuccessful) {
+                    logger.info(
+                        "Session recovery successful for shop: {} and session: {}",
+                        shopDomain,
+                        sessionId);
+                    UsernamePasswordAuthenticationToken authentication =
+                        new UsernamePasswordAuthenticationToken(
+                            shopDomain, null, AuthorityUtils.createAuthorityList("ROLE_SHOP"));
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                  } else {
+                    // Recovery failed, reject the request
+                    logger.warn(
+                        "Session recovery failed, rejecting request for shop: {}", shopDomain);
+                    // Don't call safeSessionCleanup here to prevent response conflicts
+                    handleAuthenticationFailure(
+                        response, "Session expired. Please re-authenticate.");
+                    return;
+                  }
+                } catch (Exception recoveryError) {
+                  logger.warn(
+                      "Session recovery error for shop: {} - {}",
+                      shopDomain,
+                      recoveryError.getMessage());
+                  handleAuthenticationFailure(response, "Session expired. Please re-authenticate.");
+                  return;
+                }
+              }
             }
-
-            // Set authentication context
-            UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken(
-                    shopDomain, null, AuthorityUtils.createAuthorityList("ROLE_SHOP"));
-            SecurityContextHolder.getContext().setAuthentication(authentication);
-
-            logger.debug("Authentication set for shop: {} with session: {}", shopDomain, sessionId);
           } else {
             logger.warn("No valid token found for shop: {} and session: {}", shopDomain, sessionId);
             // Perform safe cleanup before authentication failure
@@ -178,6 +229,23 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
       filterChain.doFilter(request, response);
 
     } catch (Exception e) {
+      // Check if this is a business rule exception that should not cause authentication failure
+      if (e instanceof com.storesight.backend.exception.CompetitorLimitExceededException
+          || e instanceof com.storesight.backend.exception.ArchivedCompetitorLimitExceededException
+          || e instanceof com.storesight.backend.exception.BudgetExceededException
+          || e instanceof com.storesight.backend.exception.DiscoveryServiceUnavailableException) {
+
+        logger.debug(
+            "Business rule exception in authentication filter for path: {} - {}",
+            request.getRequestURI(),
+            e.getMessage());
+
+        // Allow business rule exceptions to pass through to proper exception handlers
+        // Don't clear security context or treat as authentication failure
+        filterChain.doFilter(request, response);
+        return;
+      }
+
       logger.error(
           "Authentication filter error for path: {} - {}",
           request.getRequestURI(),
@@ -187,7 +255,91 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
       // Clear authentication context to prevent session issues
       SecurityContextHolder.clearContext();
 
-      handleAuthenticationFailure(response, "Authentication error occurred. Please try again.");
+      // Check if this is a session invalidation error
+      if (e.getMessage() != null && e.getMessage().contains("Session was invalidated")) {
+        logger.warn(
+            "Session invalidation detected in authentication filter for path: {}",
+            request.getRequestURI());
+
+        // Special handling for initial login/OAuth flow to prevent cascade errors
+        if (path.contains("/api/auth/shopify/callback")
+            || path.contains("/api/auth/shopify/install")
+            || path.contains("/api/auth/shopify/me")) {
+          logger.info(
+              "Session invalidation during OAuth flow - allowing to complete normally for path: {}",
+              path);
+          return; // Let the OAuth flow complete without interference
+        }
+
+        // CRITICAL FIX: For session invalidation errors, don't immediately fail the request
+        // Instead, try to recover gracefully and allow the request to continue
+        try {
+          // Check if response is already committed
+          if (response.isCommitted()) {
+            logger.debug(
+                "Response already committed during session invalidation - allowing to complete normally");
+            return;
+          }
+
+          // Check if response stream has already been accessed
+          try {
+            response.getWriter();
+            // Writer is available, we can proceed
+          } catch (IllegalStateException writerException) {
+            if (writerException.getMessage() != null
+                && writerException.getMessage().contains("getWriter() has already been called")) {
+              logger.debug(
+                  "Response writer already accessed during session invalidation - allowing to complete normally");
+              return;
+            }
+            if (writerException.getMessage() != null
+                && writerException
+                    .getMessage()
+                    .contains("getOutputStream() has already been called")) {
+              logger.debug(
+                  "Response output stream already accessed during session invalidation - allowing to complete normally");
+              return;
+            }
+            // Re-throw if it's a different IllegalStateException
+            throw writerException;
+          } catch (IOException ioException) {
+            logger.debug(
+                "IOException when checking response writer during session invalidation: {}",
+                ioException.getMessage());
+            return;
+          }
+
+          // For API requests, return a more graceful error
+          if (path.startsWith("/api/")) {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json");
+            response.setCharacterEncoding("UTF-8");
+
+            // Add CORS headers for error responses
+            response.setHeader("Access-Control-Allow-Origin", "https://www.shopgaugeai.com");
+            response.setHeader("Access-Control-Allow-Credentials", "true");
+            response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+            response.setHeader("Access-Control-Allow-Headers", "*");
+
+            String jsonResponse =
+                String.format(
+                    "{\"error\":\"session_invalidated\",\"message\":\"Session has been invalidated. Please refresh the page and try again.\",\"timestamp\":%d}",
+                    System.currentTimeMillis());
+
+            response.getWriter().write(jsonResponse);
+            response.getWriter().flush();
+            return;
+          }
+        } catch (Exception responseError) {
+          logger.warn(
+              "Failed to write session invalidation response: {}", responseError.getMessage());
+        }
+
+        handleAuthenticationFailure(
+            response, "Session has been invalidated. Please re-authenticate.");
+      } else {
+        handleAuthenticationFailure(response, "Authentication error occurred. Please try again.");
+      }
     }
   }
 
@@ -300,22 +452,61 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
     // Clear any authentication context to prevent session issues
     SecurityContextHolder.clearContext();
 
-    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-    response.setContentType("application/json");
-    response.setCharacterEncoding("UTF-8");
+    // Check if response has already been committed or written to
+    if (response.isCommitted()) {
+      logger.warn("Response already committed, cannot write authentication failure");
+      return;
+    }
 
-    // Add CORS headers for error responses
-    response.setHeader("Access-Control-Allow-Origin", "https://www.shopgaugeai.com");
-    response.setHeader("Access-Control-Allow-Credentials", "true");
-    response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-    response.setHeader("Access-Control-Allow-Headers", "*");
+    // Check if response stream has already been accessed
+    try {
+      response.getWriter();
+      // Writer is available, we can proceed
+    } catch (IllegalStateException e) {
+      if (e.getMessage() != null
+          && e.getMessage().contains("getWriter() has already been called")) {
+        logger.warn(
+            "Response writer already accessed, cannot write authentication failure: {}",
+            e.getMessage());
+        return;
+      }
+      if (e.getMessage() != null
+          && e.getMessage().contains("getOutputStream() has already been called")) {
+        logger.warn(
+            "Response output stream already accessed, cannot write authentication failure: {}",
+            e.getMessage());
+        return;
+      }
+      // Re-throw if it's a different IllegalStateException
+      throw e;
+    } catch (IOException e) {
+      logger.warn("IOException when checking response writer: {}", e.getMessage());
+      return;
+    }
 
-    String jsonResponse =
-        String.format(
-            "{\"error\":\"Authentication required\",\"message\":\"%s\",\"timestamp\":%d}",
-            message, System.currentTimeMillis());
+    try {
+      response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+      response.setContentType("application/json");
+      response.setCharacterEncoding("UTF-8");
 
-    response.getWriter().write(jsonResponse);
-    response.getWriter().flush();
+      // Add CORS headers for error responses
+      response.setHeader("Access-Control-Allow-Origin", "https://www.shopgaugeai.com");
+      response.setHeader("Access-Control-Allow-Credentials", "true");
+      response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+      response.setHeader("Access-Control-Allow-Headers", "*");
+
+      String jsonResponse =
+          String.format(
+              "{\"error\":\"Authentication required\",\"message\":\"%s\",\"timestamp\":%d}",
+              message, System.currentTimeMillis());
+
+      response.getWriter().write(jsonResponse);
+      response.getWriter().flush();
+    } catch (IllegalStateException e) {
+      // Response stream already used, log and continue
+      logger.warn("Cannot write to response stream: {}", e.getMessage());
+    } catch (Exception e) {
+      logger.error("Error writing authentication failure response: {}", e.getMessage());
+    }
   }
 }

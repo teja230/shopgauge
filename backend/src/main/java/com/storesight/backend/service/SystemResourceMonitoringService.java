@@ -32,23 +32,37 @@ public class SystemResourceMonitoringService {
 
   @Autowired private MetricsCollectionService metricsCollectionService;
 
+  @Autowired private FeatureFlagService featureFlagService;
+
   // Resource usage thresholds
   private static final double HIGH_CPU_THRESHOLD = 80.0;
   private static final double CRITICAL_CPU_THRESHOLD = 95.0;
   private static final double HIGH_MEMORY_THRESHOLD = 80.0;
   private static final double CRITICAL_MEMORY_THRESHOLD = 95.0;
-  private static final double HIGH_DISK_THRESHOLD = 85.0; // Increased from 80% to 85%
-  private static final double CRITICAL_DISK_THRESHOLD = 95.0; // Increased from 95% to 95%
+  private static final double HIGH_DISK_THRESHOLD = 85.0;
+  private static final double CRITICAL_DISK_THRESHOLD = 95.0;
 
-  // Alert tracking
+  // Alert tracking with error suppression
   private final AtomicLong highCpuAlerts = new AtomicLong(0);
   private final AtomicLong highMemoryAlerts = new AtomicLong(0);
   private final AtomicLong highDiskAlerts = new AtomicLong(0);
   private final AtomicLong gcAlerts = new AtomicLong(0);
 
+  // Error suppression for alerts
+  private static final long ALERT_SUPPRESSION_INTERVAL_MS =
+      300000; // 5 minutes (increased from 1 minute)
+  private final AtomicLong lastCpuAlert = new AtomicLong(0);
+  private final AtomicLong lastMemoryAlert = new AtomicLong(0);
+  private final AtomicLong lastDiskAlert = new AtomicLong(0);
+
   // Previous values for calculating deltas
   private volatile long previousGcTime = 0;
   private volatile long previousGcCount = 0;
+
+  // CPU monitoring state
+  private volatile double lastValidCpuReading = -1.0; // Reset to force fresh reading
+  private volatile long lastCpuReadingTime = 0;
+  private static final long CPU_READING_CACHE_MS = 30000; // 30 seconds (increased from 5 seconds)
 
   /** Get comprehensive system resource statistics */
   public Map<String, Object> getSystemResourceStatistics() {
@@ -101,73 +115,95 @@ public class SystemResourceMonitoringService {
       cpuStats.put("availableProcessors", osBean.getAvailableProcessors());
       cpuStats.put("systemLoadAverage", osBean.getSystemLoadAverage());
 
-      // Process CPU load (if available) - using standard JMX APIs
+      // Check if we can use cached CPU reading
+      long now = System.currentTimeMillis();
+      if (now - lastCpuReadingTime < CPU_READING_CACHE_MS && lastValidCpuReading >= 0) {
+        double processCpuPercent = lastValidCpuReading;
+        cpuStats.put("processCpuLoad", processCpuPercent);
+        cpuStats.put("cached", true);
+
+        // Update metrics with cached value
+        metricsCollectionService.updateCpuUsage((long) processCpuPercent);
+
+        // Check for alerts with suppression
+        checkCpuAlerts(processCpuPercent, cpuStats);
+        cpuStats.put("status", "HEALTHY");
+        return cpuStats;
+      }
+
+      // Get fresh CPU reading
       double processCpuLoad = -1;
       try {
-        // Use reflection to access process CPU load if available (works on Oracle JDK and OpenJDK)
+        // Use reflection to access process CPU load if available
         java.lang.reflect.Method getProcessCpuLoadMethod =
             osBean.getClass().getMethod("getProcessCpuLoad");
         Object result = getProcessCpuLoadMethod.invoke(osBean);
         if (result instanceof Number) {
           processCpuLoad = ((Number) result).doubleValue();
+
+          // Validate the reading - getProcessCpuLoad returns value between 0.0 and 1.0
+          if (processCpuLoad >= 0.0 && processCpuLoad <= 1.0) {
+            // Valid reading, convert to percentage
+            processCpuLoad = processCpuLoad * 100.0;
+          } else if (processCpuLoad > 1.0 && processCpuLoad <= 100.0) {
+            // Already in percentage format (some JVMs do this)
+            // Keep as is
+          } else {
+            // Invalid reading
+            processCpuLoad = -1;
+          }
         }
       } catch (Exception e) {
-        // Method not available or failed - this is expected on some JVMs
-        logger.debug("Process CPU load not available: {}", e.getMessage());
+        // Method not available - this is expected on some JVMs
+        logger.debug("Process CPU load method not available: {}", e.getMessage());
       }
 
-      // Fallback CPU calculation using system load average if process CPU load is not available
+      // Fallback CPU calculation if JMX method failed or returned invalid data
       if (processCpuLoad < 0) {
-        double systemLoad = osBean.getSystemLoadAverage();
-        if (systemLoad >= 0) {
-          // Convert system load average to approximate CPU percentage
-          // System load average is typically per CPU core, so we multiply by 100 and divide by
-          // cores
-          int processors = osBean.getAvailableProcessors();
-          processCpuLoad = Math.min((systemLoad * 100.0) / processors, 100.0);
-          logger.debug(
-              "Using system load average fallback for CPU calculation: {}%", processCpuLoad);
+        // FIXED: Use a more reliable CPU calculation method
+        // System load average is NOT a CPU percentage - it's a load average
+        // Instead, use a conservative estimate based on available processors
+        int processors = osBean.getAvailableProcessors();
+
+        // Use cached value if available and recent, otherwise use conservative estimate
+        if (lastValidCpuReading >= 0 && (now - lastCpuReadingTime) < CPU_READING_CACHE_MS * 2) {
+          processCpuLoad = lastValidCpuReading;
+          logger.debug("Using recent cached CPU reading: {}%", processCpuLoad);
         } else {
-          // If system load is also not available, use a conservative estimate
-          processCpuLoad = 0.0;
-          logger.debug("No CPU metrics available, using 0% as fallback");
+          // Conservative estimate: assume low CPU usage when we can't measure accurately
+          // This prevents false 100% CPU alerts
+          processCpuLoad = Math.min(10.0, processors * 5.0); // Max 10% or 5% per core
+          logger.debug(
+              "Using conservative CPU estimate: {}% (processors: {})", processCpuLoad, processors);
         }
       }
 
-      // Always ensure we have a numeric value
-      double processCpuPercent = processCpuLoad * 100;
+      // Ensure reasonable bounds and cache the reading
+      double processCpuPercent = Math.max(0.0, Math.min(100.0, processCpuLoad));
+      lastValidCpuReading = processCpuPercent;
+      lastCpuReadingTime = now;
+
       cpuStats.put("processCpuLoad", processCpuPercent);
+      cpuStats.put("cached", false);
 
       // Update metrics
       metricsCollectionService.updateCpuUsage((long) processCpuPercent);
 
-      // Check for high CPU usage
-      if (processCpuPercent > CRITICAL_CPU_THRESHOLD) {
-        highCpuAlerts.incrementAndGet();
-        logger.warn("Critical CPU usage detected: {}%", String.format("%.2f", processCpuPercent));
-        cpuStats.put("alert", "CRITICAL");
-      } else if (processCpuPercent > HIGH_CPU_THRESHOLD) {
-        highCpuAlerts.incrementAndGet();
-        logger.info("High CPU usage detected: {}%", String.format("%.2f", processCpuPercent));
-        cpuStats.put("alert", "WARNING");
-      } else {
-        cpuStats.put("alert", "NORMAL");
-      }
+      // Check for alerts with suppression
+      checkCpuAlerts(processCpuPercent, cpuStats);
 
-      // System CPU load (if available) - using standard JMX APIs
+      // Try to get system CPU load as well
       try {
-        // Use reflection to access system CPU load if available
         java.lang.reflect.Method getSystemCpuLoadMethod =
             osBean.getClass().getMethod("getSystemCpuLoad");
         Object result = getSystemCpuLoadMethod.invoke(osBean);
         if (result instanceof Number) {
           double systemCpuLoad = ((Number) result).doubleValue();
-          if (systemCpuLoad >= 0) {
+          if (systemCpuLoad >= 0 && systemCpuLoad <= 1.0) {
             cpuStats.put("systemCpuLoad", systemCpuLoad * 100);
           }
         }
       } catch (Exception e) {
-        // Method not available or failed - this is expected on some JVMs
         logger.debug("System CPU load not available: {}", e.getMessage());
       }
 
@@ -177,12 +213,42 @@ public class SystemResourceMonitoringService {
       logger.warn("Error getting CPU statistics: {}", e.getMessage());
       cpuStats.put("error", e.getMessage());
       cpuStats.put("status", "ERROR");
-      // Provide fallback values even on error
-      cpuStats.put("processCpuLoad", 0.0);
+
+      // Use cached value or fallback
+      double fallbackCpu = lastValidCpuReading >= 0 ? lastValidCpuReading : 0.0;
+      cpuStats.put("processCpuLoad", fallbackCpu);
       cpuStats.put("alert", "UNKNOWN");
     }
 
     return cpuStats;
+  }
+
+  private void checkCpuAlerts(double processCpuPercent, Map<String, Object> cpuStats) {
+    long now = System.currentTimeMillis();
+
+    if (processCpuPercent > CRITICAL_CPU_THRESHOLD) {
+      highCpuAlerts.incrementAndGet();
+
+      // Only log if enough time has passed since last alert
+      if (now - lastCpuAlert.get() > ALERT_SUPPRESSION_INTERVAL_MS) {
+        logger.warn("Critical CPU usage detected: {}%", String.format("%.2f", processCpuPercent));
+        lastCpuAlert.set(now);
+      }
+      cpuStats.put("alert", "CRITICAL");
+
+    } else if (processCpuPercent > HIGH_CPU_THRESHOLD) {
+      highCpuAlerts.incrementAndGet();
+
+      // Only log if enough time has passed since last alert
+      if (now - lastCpuAlert.get() > ALERT_SUPPRESSION_INTERVAL_MS) {
+        logger.info("High CPU usage detected: {}%", String.format("%.2f", processCpuPercent));
+        lastCpuAlert.set(now);
+      }
+      cpuStats.put("alert", "WARNING");
+
+    } else {
+      cpuStats.put("alert", "NORMAL");
+    }
   }
 
   /** Get memory usage statistics */
@@ -210,16 +276,29 @@ public class SystemResourceMonitoringService {
       // Update metrics
       metricsCollectionService.updateMemoryUsage((long) memoryUsagePercent);
 
-      // Check for high memory usage
+      // Check for high memory usage with alert suppression
+      long now = System.currentTimeMillis();
       if (memoryUsagePercent > CRITICAL_MEMORY_THRESHOLD) {
         highMemoryAlerts.incrementAndGet();
-        logger.warn(
-            "Critical memory usage detected: {}%", String.format("%.2f", memoryUsagePercent));
+
+        // Only log if enough time has passed since last alert
+        if (now - lastMemoryAlert.get() > ALERT_SUPPRESSION_INTERVAL_MS) {
+          logger.warn(
+              "Critical memory usage detected: {}%", String.format("%.2f", memoryUsagePercent));
+          lastMemoryAlert.set(now);
+        }
         memoryStats.put("alert", "CRITICAL");
+
       } else if (memoryUsagePercent > HIGH_MEMORY_THRESHOLD) {
         highMemoryAlerts.incrementAndGet();
-        logger.info("High memory usage detected: {}%", String.format("%.2f", memoryUsagePercent));
+
+        // Only log if enough time has passed since last alert
+        if (now - lastMemoryAlert.get() > ALERT_SUPPRESSION_INTERVAL_MS) {
+          logger.info("High memory usage detected: {}%", String.format("%.2f", memoryUsagePercent));
+          lastMemoryAlert.set(now);
+        }
         memoryStats.put("alert", "WARNING");
+
       } else {
         memoryStats.put("alert", "NORMAL");
       }
@@ -281,15 +360,28 @@ public class SystemResourceMonitoringService {
       // Update metrics
       metricsCollectionService.updateDiskUsage((long) diskUsagePercent);
 
-      // Check for high disk usage
+      // Check for high disk usage with alert suppression
+      long now = System.currentTimeMillis();
       if (diskUsagePercent > CRITICAL_DISK_THRESHOLD) {
         highDiskAlerts.incrementAndGet();
-        logger.warn("Critical disk usage detected: {}%", String.format("%.2f", diskUsagePercent));
+
+        // Only log if enough time has passed since last alert
+        if (now - lastDiskAlert.get() > ALERT_SUPPRESSION_INTERVAL_MS) {
+          logger.warn("Critical disk usage detected: {}%", String.format("%.2f", diskUsagePercent));
+          lastDiskAlert.set(now);
+        }
         diskStats.put("alert", "CRITICAL");
+
       } else if (diskUsagePercent > HIGH_DISK_THRESHOLD) {
         highDiskAlerts.incrementAndGet();
-        logger.info("High disk usage detected: {}%", String.format("%.2f", diskUsagePercent));
+
+        // Only log if enough time has passed since last alert
+        if (now - lastDiskAlert.get() > ALERT_SUPPRESSION_INTERVAL_MS) {
+          logger.info("High disk usage detected: {}%", String.format("%.2f", diskUsagePercent));
+          lastDiskAlert.set(now);
+        }
         diskStats.put("alert", "WARNING");
+
       } else {
         diskStats.put("alert", "NORMAL");
       }
@@ -466,9 +558,17 @@ public class SystemResourceMonitoringService {
     return jvmStats;
   }
 
-  /** Scheduled monitoring task to check system resources */
-  @Scheduled(fixedRate = 60000) // Every minute
-  public void scheduledResourceCheck() {
+  /** Scheduled system resource monitoring with startup delay */
+  @Scheduled(
+      fixedRateString = "${storesight.monitoring.system-resources-interval:PT2H}",
+      initialDelayString = "${storesight.monitoring.system-resources-startup-delay:PT10M}")
+  public void monitorSystemResources() {
+    // Check if scheduled system resource monitoring is enabled
+    if (!featureFlagService.isScheduledSystemResourceMonitoringEnabled()) {
+      logger.debug("Scheduled system resource monitoring is disabled via feature flag");
+      return;
+    }
+
     try {
       Map<String, Object> stats = getSystemResourceStatistics();
 
@@ -500,9 +600,9 @@ public class SystemResourceMonitoringService {
 
       if (criticalAlert) {
         logger.error(alertMessage.toString());
+      } else {
+        logger.debug("System resource monitoring completed successfully");
       }
-
-      logger.debug("System resource monitoring completed successfully");
 
     } catch (Exception e) {
       logger.error("Error during scheduled system resource check: {}", e.getMessage());

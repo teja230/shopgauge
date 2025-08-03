@@ -35,6 +35,9 @@ public class ScrapingdogSearchClient implements SearchClient {
   @Value("${discovery.scrapingdog.max-results:10}")
   private int defaultMaxResults;
 
+  @Value("${discovery.scrapingdog.enabled:true}")
+  private boolean enabled;
+
   @Autowired private WebClient webClient;
 
   @Autowired private SecretService secretService;
@@ -59,7 +62,7 @@ public class ScrapingdogSearchClient implements SearchClient {
 
   @Override
   public boolean isEnabled() {
-    return apiKey != null && !apiKey.equals("dummy_scrapingdog_key");
+    return enabled && apiKey != null && !apiKey.equals("dummy_scrapingdog_key");
   }
 
   @Override

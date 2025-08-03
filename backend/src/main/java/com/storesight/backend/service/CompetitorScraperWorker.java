@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -29,7 +30,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 /**
@@ -45,6 +45,9 @@ public class CompetitorScraperWorker {
   @Autowired private JdbcTemplate jdbcTemplate;
   @Autowired private RedisTemplate<String, Object> redisTemplate;
   @Autowired private AlertService alertService;
+  @Autowired private AsyncProcessingService asyncProcessingService;
+  @Autowired private PriceScrapingService priceScrapingService;
+  @Autowired private PriceChangeCalculationService priceChangeCalculationService;
 
   @Value("${selenium.enabled:true}")
   private boolean seleniumEnabled;
@@ -198,24 +201,32 @@ public class CompetitorScraperWorker {
         maxConcurrentScrapersLimit);
   }
 
-  /** Scheduled task to scrape competitor prices (runs every 4 hours) */
-  @Scheduled(cron = "0 15 */4 * * *")
+  /** Manual competitor scraping method (scheduled scraping disabled for cost optimization) */
+  // @Scheduled(cron = "0 0 */24 * * *") // DISABLED: Using manual refresh instead
   public void scrapeCompetitors() {
-    log.info("[Worker] Starting competitor scrape job");
+    log.info("[Worker] Starting competitor scrape job (manual trigger)");
 
     try {
-      // Get all active competitor URLs with shop-based limits
+      // COST OPTIMIZATION: Get only competitors that need scraping (intelligent selection)
       List<Map<String, Object>> competitorUrls =
           jdbcTemplate.queryForList(
-              "SELECT cu.id, cu.url, cu.label, p.shop_id, s.shopify_domain "
+              "SELECT cu.id, cu.url, cu.label, cu.shop_id, s.shopify_domain, "
+                  + "COALESCE(ps.checked_at, cu.created_at) as last_checked, "
+                  + "COALESCE(ps.price, 0) as last_price, "
+                  + "cu.error_count, cu.status "
                   + "FROM competitor_urls cu "
-                  + "JOIN products p ON cu.product_id = p.id "
-                  + "JOIN shops s ON p.shop_id = s.id "
+                  + "JOIN shops s ON cu.shop_id = s.id "
+                  + "LEFT JOIN ("
+                  + "  SELECT competitor_url_id, price, checked_at, "
+                  + "         ROW_NUMBER() OVER (PARTITION BY competitor_url_id ORDER BY checked_at DESC) as rn "
+                  + "  FROM price_snapshots"
+                  + ") ps ON cu.id = ps.competitor_url_id AND ps.rn = 1 "
                   + "WHERE cu.created_at >= NOW() - INTERVAL '30 days' "
-                  + "AND (SELECT COUNT(*) FROM competitor_urls cu2 "
-                  + "      JOIN products p2 ON cu2.product_id = p2.id "
-                  + "      WHERE p2.shop_id = s.id) <= ? "
-                  + "ORDER BY cu.created_at DESC LIMIT ?",
+                  + "AND cu.deleted_at IS NULL "
+                  + "AND (SELECT COUNT(*) FROM competitor_urls cu2 WHERE cu2.shop_id = s.id AND cu2.deleted_at IS NULL) <= ? "
+                  + "AND (ps.checked_at IS NULL OR ps.checked_at < NOW() - INTERVAL '24 hours') "
+                  + "AND cu.error_count < 3 " // Only retry if error count is low
+                  + "ORDER BY ps.checked_at ASC NULLS FIRST LIMIT ?",
               maxUrlsPerShop,
               maxUrlsPerShop);
 
@@ -226,19 +237,35 @@ public class CompetitorScraperWorker {
 
       log.info("[Worker] Found {} competitor URLs to scrape", competitorUrls.size());
 
-      // Process each URL
+      // Process each URL using enhanced async processing
       for (Map<String, Object> urlData : competitorUrls) {
-        scrapeExecutor.submit(
-            () -> {
-              try {
-                scrapeCompetitorUrl(urlData);
-              } catch (Exception e) {
-                log.error(
-                    "[Worker] Error scraping competitor URL {}: {}",
-                    urlData.get("url"),
-                    e.getMessage());
-              }
-            });
+        String url = (String) urlData.get("url");
+        Long shopId = ((Number) urlData.get("shop_id")).longValue();
+        String shopDomain = (String) urlData.get("shopify_domain");
+        String taskId =
+            "scraping-" + shopId + "-" + urlData.get("id") + "-" + System.currentTimeMillis();
+
+        asyncProcessingService
+            .submitScrapingTask(
+                taskId,
+                shopDomain,
+                shopId,
+                () -> {
+                  try {
+                    scrapeCompetitorUrl(urlData);
+                  } catch (Exception e) {
+                    log.error("[Worker] Error scraping competitor URL {}: {}", url, e.getMessage());
+                    throw new RuntimeException("Scraping failed for URL " + url, e);
+                  }
+                })
+            .exceptionally(
+                throwable -> {
+                  log.error(
+                      "[Worker] Async scraping task failed for URL {}: {}",
+                      url,
+                      throwable.getMessage());
+                  return null;
+                });
       }
 
       log.info("[Worker] Submitted {} competitor URLs for scraping", competitorUrls.size());
@@ -248,56 +275,115 @@ public class CompetitorScraperWorker {
     }
   }
 
-  /** Scrape a single competitor URL */
+  /** Scrape a single competitor URL with COST OPTIMIZATION */
   private void scrapeCompetitorUrl(Map<String, Object> urlData) {
     String url = (String) urlData.get("url");
     Long competitorUrlId = ((Number) urlData.get("id")).longValue();
     Long shopId = ((Number) urlData.get("shop_id")).longValue();
     String shopDomain = (String) urlData.get("shopify_domain");
+    Object lastCheckedObj = urlData.get("last_checked");
+    Object lastPriceObj = urlData.get("last_price");
 
     log.debug("[Worker] Scraping competitor URL: {}", url);
 
-    // Check rate limiting
-    String rateLimitKey = "scraper_rate_limit:" + extractDomain(url);
+    // COST OPTIMIZATION 1: Check if we recently scraped this URL
+    String domain = extractDomain(url);
+    String recentScrapeKey = "market-intelligence:recent_scrape:" + domain + ":" + url.hashCode();
+
+    if (redisTemplate.hasKey(recentScrapeKey)) {
+      log.info("[Worker] Skipping - URL scraped recently: {}", url);
+      return;
+    }
+
+    // COST OPTIMIZATION 2: Check rate limiting with longer delays
+    String rateLimitKey = "market-intelligence:scraper_rate_limit:" + domain;
     if (redisTemplate.hasKey(rateLimitKey)) {
-      log.debug("[Worker] Rate limit active for domain: {}", extractDomain(url));
+      log.debug("[Worker] Rate limit active for domain: {}", domain);
+      return;
+    }
+
+    // COST OPTIMIZATION 3: Use cached price if available
+    BigDecimal cachedPrice = getCachedPriceForUrl(url);
+    if (cachedPrice != null) {
+      log.info("[Worker] Using cached price ${} for URL: {}", cachedPrice, url);
+
+      // Store cached price as snapshot
+      storePriceSnapshot(competitorUrlId, new CompetitorData(cachedPrice, true, "cached"));
+
+      // Mark as recently scraped
+      redisTemplate.opsForValue().set(recentScrapeKey, "1", 2, TimeUnit.HOURS);
       return;
     }
 
     try {
-      // Set rate limit
-      redisTemplate
-          .opsForValue()
-          .set(rateLimitKey, "1", delayBetweenRequests, TimeUnit.MILLISECONDS);
+      // Set rate limit with longer delays for cost optimization
+      int optimizedDelay = Math.max(delayBetweenRequests, 10000); // At least 10 seconds
+      redisTemplate.opsForValue().set(rateLimitKey, "1", optimizedDelay, TimeUnit.MILLISECONDS);
 
-      // Determine scraping method
-      boolean requiresJs = requiresJavaScript(url);
-      CompetitorData data = null;
+      // Use enterprise-grade price scraping service
+      PriceScrapingService.PriceScrapingResult result =
+          priceScrapingService.scrapePriceWithMultiTier(url);
 
-      if (requiresJs && seleniumEnabled) {
-        data = scrapeWithSelenium(url);
-      } else {
-        data = scrapeWithJsoup(url);
-      }
-
-      if (data != null) {
+      if (result.isSuccess()) {
+        CompetitorData data =
+            new CompetitorData(
+                result.getPrice(),
+                result.isInStock(),
+                result.getPlatform(),
+                result.getResponseTime(),
+                result.getScraperSource());
         // Store price snapshot
         storePriceSnapshot(competitorUrlId, data);
+
+        // COST OPTIMIZATION 4: Cache the price for future use
+        cachePriceForUrl(url, data.price);
 
         // Check for alerts
         checkPriceAlerts(competitorUrlId, shopId, shopDomain, data);
 
-        log.debug(
-            "[Worker] Successfully scraped {}: price=${}, inStock={}",
+        log.info(
+            "[Worker] ✅ Successfully scraped {}: price=${}, source={}, time={}ms",
             url,
             data.price,
-            data.inStock);
+            data.scraperSource,
+            data.responseTime);
       } else {
-        log.warn("[Worker] Failed to scrape data from: {}", url);
+        log.warn(
+            "[Worker] ❌ Failed to scrape data from: {} (reason: {})",
+            url,
+            result.getFailureReason());
       }
+
+      // Mark as recently scraped to prevent immediate re-scraping
+      redisTemplate.opsForValue().set(recentScrapeKey, "1", 2, TimeUnit.HOURS);
 
     } catch (Exception e) {
       log.error("[Worker] Error scraping {}: {}", url, e.getMessage());
+    }
+  }
+
+  /** Get cached price for URL to reduce scraping costs */
+  private BigDecimal getCachedPriceForUrl(String url) {
+    try {
+      String cacheKey = "market-intelligence:price_cache:" + url.hashCode();
+      Object cached = redisTemplate.opsForValue().get(cacheKey);
+      if (cached != null) {
+        return new BigDecimal(cached.toString());
+      }
+    } catch (Exception e) {
+      log.debug("[Worker] Error getting cached price: {}", e.getMessage());
+    }
+    return null;
+  }
+
+  /** Cache price for URL to reduce future scraping costs */
+  private void cachePriceForUrl(String url, BigDecimal price) {
+    try {
+      String cacheKey = "market-intelligence:price_cache:" + url.hashCode();
+      // Cache for 24 hours to reduce scraping frequency
+      redisTemplate.opsForValue().set(cacheKey, price.toString(), 24, TimeUnit.HOURS);
+    } catch (Exception e) {
+      log.debug("[Worker] Error caching price: {}", e.getMessage());
     }
   }
 
@@ -330,7 +416,41 @@ public class CompetitorScraperWorker {
   }
 
   /** Scrape using Jsoup (for static content) */
+  /** Unified multi-tier scraping with intelligent fallback */
+  private CompetitorData scrapeWithUnifiedMultiTier(String url) {
+    log.info("[Worker] Starting ENTERPRISE-GRADE unified scraping for URL: {}", url);
+
+    // Use the new PriceScrapingService for reliable 4-tier scraping
+    try {
+      PriceScrapingService.PriceScrapingResult result =
+          priceScrapingService.scrapePriceWithMultiTier(url);
+
+      if (result.isSuccess()) {
+        log.info(
+            "[Worker] SUCCESS - Price ${} extracted via {} ({}ms)",
+            result.getPrice(),
+            result.getScraperSource(),
+            result.getResponseTime());
+
+        return new CompetitorData(
+            result.getPrice(),
+            result.isInStock(),
+            result.getPlatform(),
+            result.getResponseTime(),
+            result.getScraperSource());
+      } else {
+        log.warn(
+            "[Worker] FAILED - {} ({}ms)", result.getFailureReason(), result.getResponseTime());
+        return null;
+      }
+    } catch (Exception e) {
+      log.error("[Worker] Exception during unified scraping: {}", e.getMessage());
+      return null;
+    }
+  }
+
   private CompetitorData scrapeWithJsoup(String url) {
+    long startTime = System.currentTimeMillis();
     try {
       Document doc =
           Jsoup.connect(url)
@@ -339,23 +459,35 @@ public class CompetitorScraperWorker {
               .followRedirects(true)
               .get();
 
-      return parseCompetitorData(doc, url);
+      long responseTime = System.currentTimeMillis() - startTime;
+      log.debug("[Worker] Jsoup scraping completed in {}ms for URL: {}", responseTime, url);
+
+      return parseCompetitorData(doc, url, responseTime);
 
     } catch (Exception e) {
-      log.error("[Worker] Error scraping with Jsoup: {}", e.getMessage());
-      return null;
+      long responseTime = System.currentTimeMillis() - startTime;
+      log.error("[Worker] Error scraping with Jsoup ({}ms): {}", responseTime, e.getMessage());
+      return new CompetitorData(null, false, "unknown", responseTime, "jsoup-failed");
     }
   }
 
   /** Parse competitor data from HTML document */
   private CompetitorData parseCompetitorData(Document doc, String url) {
+    return parseCompetitorData(doc, url, 0); // Default response time for backward compatibility
+  }
+
+  /** Parse competitor data from HTML document with response time */
+  private CompetitorData parseCompetitorData(Document doc, String url, long responseTime) {
     String domain = extractDomain(url);
     String platform = identifyPlatform(url, doc);
+
+    log.info(
+        "[Worker] Parsing data for platform: {} from URL: {} ({}ms)", platform, url, responseTime);
 
     BigDecimal price = parsePrice(doc, platform);
     boolean inStock = parseStockStatus(doc, platform);
 
-    return new CompetitorData(price, inStock);
+    return new CompetitorData(price, inStock, platform, responseTime);
   }
 
   /** Parse price from document */
@@ -435,12 +567,32 @@ public class CompetitorScraperWorker {
 
     if (lowerUrl.contains("amazon.com")) {
       return "amazon";
-    } else if (lowerUrl.contains("shopify") || doc.select("[data-shopify]").size() > 0) {
+    } else if (lowerUrl.contains("walmart.com")) {
+      return "walmart";
+    } else if (lowerUrl.contains("target.com")) {
+      return "target";
+    } else if (lowerUrl.contains("bestbuy.com")) {
+      return "bestbuy";
+    } else if (lowerUrl.contains("ebay.com")) {
+      return "ebay";
+    } else if (lowerUrl.contains("etsy.com")) {
+      return "etsy";
+    } else if (lowerUrl.contains("shopify")
+        || lowerUrl.contains("myshopify.com")
+        || doc.select("[data-shopify]").size() > 0) {
       return "shopify";
-    } else if (doc.select(".woocommerce").size() > 0) {
+    } else if (doc.select(".woocommerce").size() > 0 || lowerUrl.contains("woocommerce")) {
       return "woocommerce";
+    } else if (lowerUrl.contains("bigcommerce")) {
+      return "bigcommerce";
+    } else if (lowerUrl.contains("magento")) {
+      return "magento";
+    } else if (lowerUrl.contains("prestashop")) {
+      return "prestashop";
+    } else if (lowerUrl.contains("opencart")) {
+      return "opencart";
     } else {
-      return "generic";
+      return "other";
     }
   }
 
@@ -461,21 +613,74 @@ public class CompetitorScraperWorker {
     }
   }
 
-  /** Store price snapshot in database */
+  /** Store price snapshot in database with enhanced tracking */
   private void storePriceSnapshot(Long competitorUrlId, CompetitorData data) {
     try {
+      // First, store the snapshot without price change percentage
       jdbcTemplate.update(
-          "INSERT INTO price_snapshots (competitor_url_id, price, in_stock, checked_at) "
-              + "VALUES (?, ?, ?, CURRENT_TIMESTAMP)",
+          "INSERT INTO price_snapshots (competitor_url_id, price, in_stock, price_change_percent, significant_change, checked_at, scraper_version, platform, response_time_ms, scraper_source) "
+              + "VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?)",
           competitorUrlId,
           data.price,
-          data.inStock);
+          data.inStock,
+          null, // Will calculate this after insertion
+          false, // Will update this after calculation
+          "v2.0",
+          data.platform,
+          (int) data.responseTime,
+          data.scraperSource);
+
+      // Get the ID of the newly inserted snapshot
+      Long snapshotId = jdbcTemplate.queryForObject("SELECT LASTVAL()", Long.class);
+
+      // Now calculate price change percentage using the enhanced service
+      BigDecimal priceChangePercent = null;
+      boolean significantChange = false;
+
+      if (data.price != null) {
+        Optional<BigDecimal> calculatedChange =
+            priceChangeCalculationService.calculatePriceChangePercent(competitorUrlId, data.price);
+        if (calculatedChange.isPresent()) {
+          priceChangePercent = calculatedChange.get();
+          significantChange =
+              priceChangeCalculationService.isSignificantPriceChange(
+                  priceChangePercent, BigDecimal.valueOf(5));
+
+          // Update the snapshot with the calculated percentage
+          jdbcTemplate.update(
+              "UPDATE price_snapshots SET price_change_percent = ?, significant_change = ? WHERE id = ?",
+              priceChangePercent,
+              significantChange,
+              snapshotId);
+
+          log.debug(
+              "[Worker] Calculated and updated price change for competitor {}: {}% (significant: {})",
+              competitorUrlId, priceChangePercent, significantChange);
+        }
+      }
+
+      // Update competitor URL status on successful scrape with response time
+      jdbcTemplate.update(
+          "UPDATE competitor_urls SET status = 'active', last_successful_check = CURRENT_TIMESTAMP, error_count = 0, response_time_ms = ? WHERE id = ?",
+          (int) data.responseTime,
+          competitorUrlId);
+
     } catch (Exception e) {
       log.error("[Worker] Error storing price snapshot: {}", e.getMessage());
+
+      // Update error count on failure (API-optimized)
+      try {
+        jdbcTemplate.update(
+            "UPDATE competitor_urls SET error_count = COALESCE(error_count, 0) + 1, status = CASE WHEN COALESCE(error_count, 0) + 1 >= 3 THEN 'error' ELSE status END WHERE id = ?",
+            competitorUrlId);
+      } catch (Exception updateError) {
+        log.error(
+            "[Worker] Error updating competitor URL error count: {}", updateError.getMessage());
+      }
     }
   }
 
-  /** Check for price alerts */
+  /** Check for price alerts with enhanced tracking */
   private void checkPriceAlerts(
       Long competitorUrlId, Long shopId, String shopDomain, CompetitorData data) {
     try {
@@ -499,30 +704,80 @@ public class CompetitorScraperWorker {
                   .divide(previousPrice, 4, BigDecimal.ROUND_HALF_UP)
                   .multiply(BigDecimal.valueOf(100));
 
+          // Significant price change threshold (5%)
           if (percentChange.abs().compareTo(BigDecimal.valueOf(5)) > 0) {
+            String alertType =
+                percentChange.compareTo(BigDecimal.ZERO) > 0 ? "price_increase" : "price_drop";
             String direction =
                 percentChange.compareTo(BigDecimal.ZERO) > 0 ? "increased" : "decreased";
+
+            // Create price alert record
+            createPriceAlert(
+                competitorUrlId, shopId, previousPrice, data.price, percentChange, alertType);
+
+            // Send notification
             String message =
                 String.format(
                     "Competitor price %s by %.1f%% (from $%.2f to $%.2f)",
                     direction, percentChange.abs(), previousPrice, data.price);
 
             alertService.triggerBusinessEvent(shopDomain, "Competitor Price Change", message);
+
+            log.info(
+                "[Worker] Price alert triggered for competitor {}: {} by {}%",
+                competitorUrlId, direction, percentChange.abs());
           }
         }
 
         // Check for stock changes
         if (previousInStock != null && previousInStock != data.inStock) {
+          String alertType = data.inStock ? "back_in_stock" : "out_of_stock";
           String message =
               data.inStock
                   ? "Competitor product is now back in stock"
                   : "Competitor product is now out of stock";
 
+          // Create stock alert record
+          createPriceAlert(competitorUrlId, shopId, null, null, null, alertType);
+
+          // Send notification
           alertService.triggerBusinessEvent(shopDomain, "Competitor Stock Change", message);
+
+          log.info(
+              "[Worker] Stock alert triggered for competitor {}: {}", competitorUrlId, alertType);
         }
       }
     } catch (Exception e) {
       log.error("[Worker] Error checking price alerts: {}", e.getMessage());
+    }
+  }
+
+  /** Create price alert record in database */
+  private void createPriceAlert(
+      Long competitorUrlId,
+      Long shopId,
+      BigDecimal oldPrice,
+      BigDecimal newPrice,
+      BigDecimal changePercent,
+      String alertType) {
+    try {
+      jdbcTemplate.update(
+          "INSERT INTO price_alerts (competitor_url_id, shop_id, old_price, new_price, change_percent, alert_type, notification_sent, created_at) "
+              + "VALUES (?, ?, ?, ?, ?, ?, true, CURRENT_TIMESTAMP)",
+          competitorUrlId,
+          shopId,
+          oldPrice,
+          newPrice,
+          changePercent,
+          alertType);
+
+      log.debug(
+          "[Worker] Created price alert record: competitorUrlId={}, alertType={}, changePercent={}",
+          competitorUrlId,
+          alertType,
+          changePercent);
+    } catch (Exception e) {
+      log.error("[Worker] Error creating price alert record: {}", e.getMessage());
     }
   }
 
@@ -565,10 +820,29 @@ public class CompetitorScraperWorker {
   private static class CompetitorData {
     final BigDecimal price;
     final boolean inStock;
+    final String platform;
+    final long responseTime;
+    final String scraperSource;
 
-    CompetitorData(BigDecimal price, boolean inStock) {
+    CompetitorData(BigDecimal price, boolean inStock, String platform) {
+      this(price, inStock, platform, 0, "direct");
+    }
+
+    CompetitorData(BigDecimal price, boolean inStock, String platform, long responseTime) {
+      this(price, inStock, platform, responseTime, "direct");
+    }
+
+    CompetitorData(
+        BigDecimal price,
+        boolean inStock,
+        String platform,
+        long responseTime,
+        String scraperSource) {
       this.price = price;
       this.inStock = inStock;
+      this.platform = platform;
+      this.responseTime = responseTime;
+      this.scraperSource = scraperSource;
     }
   }
 }

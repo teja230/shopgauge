@@ -73,4 +73,7 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
 
   /** Find audit logs created after a specific date */
   List<AuditLog> findByCreatedAtAfterOrderByCreatedAtDesc(LocalDateTime date);
+
+  /** Count audit logs by shop ID, action, and created after a specific date */
+  long countByShopIdAndActionAndCreatedAtAfter(Long shopId, String action, LocalDateTime date);
 }

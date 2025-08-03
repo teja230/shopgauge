@@ -171,6 +171,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             headers: {
               'Accept': 'application/json',
               'Content-Type': 'application/json',
+              'X-Correlation-ID': `auth-check-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             },
             credentials: 'include',
             cache: 'no-cache',

@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.slf4j.Logger;
@@ -35,6 +36,7 @@ public class SessionSynchronizationService {
   private static final String SESSION_LOCK_PREFIX = "session_lock:";
   private static final String SESSION_STATE_PREFIX = "session_state:";
   private static final String SESSION_INVALIDATION_PREFIX = "session_invalidation:";
+  private static final String SESSION_ACTIVE_PREFIX = "session_active:";
 
   @Autowired private ApplicationConfigurationProperties config;
 
@@ -354,6 +356,58 @@ public class SessionSynchronizationService {
   }
 
   /**
+   * Check if a session is currently being used in an active request This helps prevent invalidation
+   * during active operations
+   *
+   * @param sessionId The session ID to check
+   * @return true if session is actively being used, false otherwise
+   */
+  public boolean isSessionActive(String sessionId) {
+    try {
+      String activeKey = SESSION_ACTIVE_PREFIX + sessionId;
+      return enhancedRedisService.hasKey(activeKey);
+    } catch (Exception e) {
+      logger.warn("Error checking if session {} is active: {}", sessionId, e.getMessage());
+      totalRedisOperationFailures.incrementAndGet();
+      return false;
+    }
+  }
+
+  /**
+   * Mark session as active for the duration of a request This prevents invalidation during active
+   * operations
+   *
+   * @param sessionId The session ID to mark as active
+   * @param duration Duration to keep the session marked as active
+   */
+  public void markSessionActive(String sessionId, Duration duration) {
+    try {
+      String activeKey = SESSION_ACTIVE_PREFIX + sessionId;
+      enhancedRedisService.setWithTtl(activeKey, "active", duration);
+      logger.debug("Marked session {} as active for {}", sessionId, duration);
+    } catch (Exception e) {
+      logger.warn("Error marking session {} as active: {}", sessionId, e.getMessage());
+      totalRedisOperationFailures.incrementAndGet();
+    }
+  }
+
+  /**
+   * Clear session active marker
+   *
+   * @param sessionId The session ID to clear active marker for
+   */
+  public void clearSessionActive(String sessionId) {
+    try {
+      String activeKey = SESSION_ACTIVE_PREFIX + sessionId;
+      enhancedRedisService.delete(activeKey);
+      logger.debug("Cleared active marker for session {}", sessionId);
+    } catch (Exception e) {
+      logger.warn("Error clearing active marker for session {}: {}", sessionId, e.getMessage());
+      totalRedisOperationFailures.incrementAndGet();
+    }
+  }
+
+  /**
    * Clear session invalidation markers
    *
    * @param sessionId The session ID to clear markers for
@@ -442,6 +496,44 @@ public class SessionSynchronizationService {
       }
 
       // Execute operation
+      return operation.execute();
+
+    } catch (Exception e) {
+      logger.error("Error executing session operation for {}: {}", sessionId, e.getMessage());
+      throw e;
+    } finally {
+      if (lockAcquired) {
+        releaseSessionLock(sessionId);
+      }
+    }
+  }
+
+  /**
+   * Execute an operation with optional session locking. If session locking fails, the operation
+   * will still proceed. This is safer for normal operations that don't require strict session
+   * coordination.
+   *
+   * @param sessionId The session ID to lock
+   * @param operation The operation to execute
+   * @return The result of the operation
+   */
+  public <T> T executeWithOptionalSessionLock(String sessionId, SessionOperation<T> operation) {
+    boolean lockAcquired = false;
+
+    try {
+      // Check if session is being invalidated
+      if (isSessionInvalidating(sessionId)) {
+        logger.warn("Session {} is being invalidated, skipping operation", sessionId);
+        return null;
+      }
+
+      // Try to acquire lock, but don't fail if we can't
+      lockAcquired = acquireSessionLock(sessionId);
+      if (!lockAcquired) {
+        logger.debug("Could not acquire lock for session {}, proceeding without lock", sessionId);
+      }
+
+      // Execute operation regardless of lock status
       return operation.execute();
 
     } catch (Exception e) {
@@ -587,22 +679,23 @@ public class SessionSynchronizationService {
     }
   }
 
-  /**
-   * Scheduled cleanup of expired locks and markers Runs every 30 minutes to prevent memory leaks
-   */
-  @Scheduled(fixedRate = 1800000) // 30 minutes
+  /** Scheduled cleanup of expired locks and markers Runs every 2 hours to prevent memory leaks */
+  @Scheduled(
+      fixedRateString = "#{@sessionSchedulingConfiguration.getSynchronizationCleanupIntervalMs()}",
+      initialDelayString =
+          "#{@sessionSchedulingConfiguration.getSynchronizationCleanupStartupDelayMs()}")
   public void scheduledCleanup() {
     try {
       totalScheduledCleanupRuns.incrementAndGet();
       totalCleanupOperations.incrementAndGet();
 
-      logger.info(
+      logger.debug(
           "Starting scheduled cleanup of session synchronization (run #{})",
           totalScheduledCleanupRuns.get());
 
       cleanupExpiredLocks();
 
-      logger.info("Scheduled cleanup of session synchronization completed successfully");
+      logger.debug("Scheduled cleanup of session synchronization completed successfully");
     } catch (Exception e) {
       logger.warn("Error during scheduled cleanup: {}", e.getMessage());
       totalRedisOperationFailures.incrementAndGet();
@@ -610,65 +703,117 @@ public class SessionSynchronizationService {
   }
 
   /**
-   * Scheduled cleanup of stuck session markers Runs every 5 minutes to prevent sessions from
+   * Scheduled cleanup of stuck session markers Runs every 30 minutes to prevent sessions from
    * getting permanently stuck
    */
-  @Scheduled(fixedRate = 300000) // 5 minutes
+  @Scheduled(
+      fixedRateString = "#{@sessionSchedulingConfiguration.getStuckMarkersCleanupIntervalMs()}",
+      initialDelayString =
+          "#{@sessionSchedulingConfiguration.getStuckMarkersCleanupStartupDelayMs()}")
   public void cleanupStuckSessionMarkers() {
     try {
-      LocalDateTime now = LocalDateTime.now();
-      int stuckSessionsCleared = 0;
+      logger.debug("Starting cleanup of stuck session markers");
+      final AtomicInteger markersCleared = new AtomicInteger(0);
+      final AtomicInteger locksCleared = new AtomicInteger(0);
 
-      logger.debug("Running stuck session markers cleanup");
-
-      // Clean up sessions that have been invalidating for too long
+      // Clean up stuck invalidation markers
       invalidationStartTimes
           .entrySet()
           .removeIf(
               entry -> {
                 String sessionId = entry.getKey();
-                LocalDateTime invalidationStartTime = entry.getValue();
+                LocalDateTime startTime = entry.getValue();
 
-                if (Duration.between(invalidationStartTime, now).compareTo(getStuckSessionTimeout())
+                if (Duration.between(startTime, LocalDateTime.now())
+                        .compareTo(getStuckSessionTimeout())
                     > 0) {
                   logger.warn(
-                      "Clearing stuck session: {} (invalidating for {} minutes)",
+                      "Clearing stuck invalidation marker for session: {} (stuck for {} minutes)",
                       sessionId,
-                      Duration.between(invalidationStartTime, now).toMinutes());
+                      Duration.between(startTime, LocalDateTime.now()).toMinutes());
 
-                  // Force clear the stuck session
                   clearStuckSessionMarkers(sessionId);
+                  markersCleared.incrementAndGet();
                   return true;
                 }
                 return false;
               });
 
-      // Also scan Redis for any stuck invalidation markers that might not be in our local tracking
-      try {
-        Set<String> invalidationKeys = redisTemplate.keys(SESSION_INVALIDATION_PREFIX + "*");
-        if (invalidationKeys != null) {
-          for (String key : invalidationKeys) {
-            String sessionId = key.substring(SESSION_INVALIDATION_PREFIX.length());
+      // Clean up stuck locks
+      lockAcquisitionTimes
+          .entrySet()
+          .removeIf(
+              entry -> {
+                String sessionId = entry.getKey();
+                LocalDateTime acquisitionTime = entry.getValue();
 
-            // Check if this session has been invalidating for too long
-            if (!invalidationStartTimes.containsKey(sessionId)) {
-              // This is an orphaned invalidation marker, clear it
-              logger.warn("Clearing orphaned invalidation marker for session: {}", sessionId);
-              clearStuckSessionMarkers(sessionId);
-              stuckSessionsCleared++;
-            }
-          }
-        }
-      } catch (Exception e) {
-        logger.warn("Error scanning Redis for stuck invalidation markers: {}", e.getMessage());
-      }
+                if (Duration.between(acquisitionTime, LocalDateTime.now())
+                        .compareTo(getOrphanedLockTimeout())
+                    > 0) {
+                  logger.warn(
+                      "Clearing stuck lock for session: {} (held for {} minutes)",
+                      sessionId,
+                      Duration.between(acquisitionTime, LocalDateTime.now()).toMinutes());
 
-      if (stuckSessionsCleared > 0) {
-        logger.info("Cleared {} stuck session markers during cleanup", stuckSessionsCleared);
+                  clearStuckSessionMarkers(sessionId);
+                  locksCleared.incrementAndGet();
+                  return true;
+                }
+                return false;
+              });
+
+      if (markersCleared.get() > 0 || locksCleared.get() > 0) {
+        logger.info(
+            "Cleaned up {} stuck markers and {} stuck locks during cleanup",
+            markersCleared.get(),
+            locksCleared.get());
+        totalStuckSessionsCleared.addAndGet(markersCleared.get() + locksCleared.get());
       }
 
     } catch (Exception e) {
-      logger.warn("Error during stuck session markers cleanup: {}", e.getMessage());
+      logger.warn("Error cleaning up stuck session markers: {}", e.getMessage());
+    }
+  }
+
+  @Scheduled(
+      fixedRateString =
+          "#{@sessionSchedulingConfiguration.getCriticalStuckMarkersCleanupIntervalMs()}",
+      initialDelayString =
+          "#{@sessionSchedulingConfiguration.getCriticalStuckMarkersCleanupStartupDelayMs()}")
+  public void cleanupCriticalStuckMarkers() {
+    try {
+      // Only clean up markers that have been stuck for a very long time (10+ minutes)
+      Duration criticalTimeout = Duration.ofMinutes(10);
+      final AtomicInteger criticalMarkersCleared = new AtomicInteger(0);
+
+      invalidationStartTimes
+          .entrySet()
+          .removeIf(
+              entry -> {
+                String sessionId = entry.getKey();
+                LocalDateTime startTime = entry.getValue();
+
+                if (Duration.between(startTime, LocalDateTime.now()).compareTo(criticalTimeout)
+                    > 0) {
+                  logger.warn(
+                      "Clearing CRITICAL stuck marker for session: {} (stuck for {} minutes)",
+                      sessionId,
+                      Duration.between(startTime, LocalDateTime.now()).toMinutes());
+
+                  clearStuckSessionMarkers(sessionId);
+                  criticalMarkersCleared.incrementAndGet();
+                  return true;
+                }
+                return false;
+              });
+
+      if (criticalMarkersCleared.get() > 0) {
+        logger.info("Cleaned up {} critical stuck markers", criticalMarkersCleared.get());
+        totalStuckSessionsCleared.addAndGet(criticalMarkersCleared.get());
+      }
+
+    } catch (Exception e) {
+      logger.warn("Error cleaning up critical stuck markers: {}", e.getMessage());
     }
   }
 

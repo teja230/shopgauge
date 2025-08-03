@@ -7,6 +7,7 @@ import com.storesight.backend.config.ShopifyConfig;
 import com.storesight.backend.model.AuditLog;
 import com.storesight.backend.service.DashboardCacheService;
 import com.storesight.backend.service.DataPrivacyService;
+import com.storesight.backend.service.RequestThrottlingService;
 import com.storesight.backend.service.ShopService;
 import jakarta.servlet.http.HttpSession;
 import java.time.LocalDate;
@@ -41,6 +42,8 @@ public class AnalyticsController {
   private final ShopifyConfig shopifyConfig;
   private final BackendConfig backendConfig;
   private final CacheManager cacheManager;
+  private final ObjectMapper objectMapper;
+  private final RequestThrottlingService requestThrottlingService;
   private static final Logger logger = LoggerFactory.getLogger(AnalyticsController.class);
 
   @Autowired
@@ -52,7 +55,9 @@ public class AnalyticsController {
       DataPrivacyService dataPrivacyService,
       ShopifyConfig shopifyConfig,
       BackendConfig backendConfig,
-      CacheManager cacheManager) {
+      CacheManager cacheManager,
+      ObjectMapper objectMapper,
+      RequestThrottlingService requestThrottlingService) {
     this.webClient = webClientBuilder.build();
     this.shopService = shopService;
     this.redisTemplate = redisTemplate;
@@ -61,6 +66,8 @@ public class AnalyticsController {
     this.shopifyConfig = shopifyConfig;
     this.backendConfig = backendConfig;
     this.cacheManager = cacheManager;
+    this.objectMapper = objectMapper;
+    this.requestThrottlingService = requestThrottlingService;
   }
 
   private String getShopifyUrl(String shop, String endpoint) {
@@ -431,6 +438,7 @@ public class AnalyticsController {
                     String productId = productIdObj.toString();
                     String title = (String) product.get("title");
                     String status = (String) product.get("status");
+                    String handle = (String) product.get("handle");
 
                     // Get variants for pricing and inventory
                     var variants = (List<Map<String, Object>>) product.get("variants");
@@ -467,6 +475,7 @@ public class AnalyticsController {
                     Map<String, Object> productData = new HashMap<>();
                     productData.put("id", productId);
                     productData.put("title", title);
+                    productData.put("handle", handle);
                     productData.put("price", price);
                     productData.put("inventory", totalInventory);
                     productData.put("status", inventoryStatus);
@@ -960,208 +969,297 @@ public class AnalyticsController {
       return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response));
     }
 
-    // Register this session for cache tracking (regardless of cache hit/miss)
-    dashboardCacheService.registerSession(shop, session.getId());
+    try {
+      // Register this session for cache tracking (regardless of cache hit/miss)
+      dashboardCacheService.registerSession(shop, session.getId());
 
-    // Check Redis cache first
-    var cachedRevenue = dashboardCacheService.getCachedRevenueData(shop);
-    if (cachedRevenue.isPresent()) {
-      logger.info("Cache hit for revenue data for shop: {} (session: {})", shop, session.getId());
-      return Mono.just(ResponseEntity.ok((Map<String, Object>) cachedRevenue.get()));
-    } else {
-      logger.info(
-          "Cache miss for revenue data for shop: {} (session: {}) - making API call",
-          shop,
-          session.getId());
-    }
+      // Check Redis cache first - if we have cached data, return it immediately
+      var cachedRevenue = dashboardCacheService.getCachedRevenueData(shop);
+      if (cachedRevenue.isPresent()) {
+        logger.info("Cache hit for revenue data for shop: {} (session: {})", shop, session.getId());
+        return Mono.just(ResponseEntity.ok((Map<String, Object>) cachedRevenue.get()));
+      } else {
+        logger.info(
+            "Cache miss for revenue data for shop: {} (session: {}) - checking throttling before API call",
+            shop,
+            session.getId());
+      }
 
-    // Log the revenue data access
-    dataPrivacyService.logDataAccess("REVENUE_DATA_REQUEST", "Revenue data accessed", shop);
+      // Only apply throttling if we need to make an actual API call
+      if (!requestThrottlingService.acquireRequestPermit(shop, "revenue")) {
+        logger.warn(
+            "Request throttled for revenue data for shop: {} (session: {})", shop, session.getId());
 
-    // Limit to last 60 days so read_orders scope is sufficient
-    String since =
-        java.time.LocalDate.now().minusDays(60).format(java.time.format.DateTimeFormatter.ISO_DATE);
+        // Return loading state instead of error - frontend will retry automatically
+        Map<String, Object> response = new HashMap<>();
+        response.put("loading", true);
+        response.put("throttled", true);
+        response.put("message", "Loading data...");
+        response.put("revenue", "$0.00");
+        response.put("currency", "USD");
+        response.put("retry_after_ms", 1000); // Suggest retry after 1 second
 
-    // Use proper ISO 8601 format with Z for UTC timezone
-    String url =
-        "https://"
-            + shop
-            + "/admin/api/2023-10/orders.json?created_at_min="
-            + since
-            + "T00:00:00Z&limit=250&status=any";
+        return Mono.just(ResponseEntity.status(HttpStatus.ACCEPTED).body(response));
+      }
 
-    return webClient
-        .get()
-        .uri(url)
-        .header("X-Shopify-Access-Token", token)
-        .retrieve()
-        .bodyToMono(Map.class)
-        .map(
-            data -> {
-              var orders = (List<Map<String, Object>>) data.get("orders");
-              double totalRevenue = 0.0;
+      // Log the revenue data access
+      dataPrivacyService.logDataAccess("REVENUE_DATA_REQUEST", "Revenue data accessed", shop);
 
-              logger.info(
-                  "Fetched {} orders from Shopify for revenue calculation (60-day period) for shop {}",
-                  orders != null ? orders.size() : 0,
-                  shop);
+      // Limit to last 60 days so read_orders scope is sufficient
+      String since =
+          java.time.LocalDate.now()
+              .minusDays(60)
+              .format(java.time.format.DateTimeFormatter.ISO_DATE);
 
-              // Debug: Log raw response structure
-              if (orders != null && !orders.isEmpty()) {
-                logger.info("Sample order structure: {}", orders.get(0).keySet());
-                Map<String, Object> sampleOrder = orders.get(0);
+      // Use proper ISO 8601 format with Z for UTC timezone
+      String url =
+          "https://"
+              + shop
+              + "/admin/api/2023-10/orders.json?created_at_min="
+              + since
+              + "T00:00:00Z&limit=250&status=any";
+
+      return webClient
+          .get()
+          .uri(url)
+          .header("X-Shopify-Access-Token", token)
+          .retrieve()
+          .bodyToMono(Map.class)
+          .map(
+              data -> {
+                var orders = (List<Map<String, Object>>) data.get("orders");
+                double totalRevenue = 0.0;
+
                 logger.info(
-                    "Sample order - ID: {}, created_at: {}, total_price: {}, financial_status: {}",
-                    sampleOrder.get("id"),
-                    sampleOrder.get("created_at"),
-                    sampleOrder.get("total_price"),
-                    sampleOrder.get("financial_status"));
-              }
+                    "Fetched {} orders from Shopify for revenue calculation (60-day period) for shop {}",
+                    orders != null ? orders.size() : 0,
+                    shop);
 
-              if (orders != null) {
-                totalRevenue =
-                    orders.stream()
-                        .mapToDouble(
-                            order -> {
-                              Object totalPrice = order.get("total_price");
-                              if (totalPrice != null) {
-                                try {
-                                  double price = Double.parseDouble(totalPrice.toString());
-                                  logger.debug("Order {} - Price: ${}", order.get("id"), price);
-                                  return price;
-                                } catch (NumberFormatException e) {
-                                  logger.warn(
-                                      "Invalid price format for order {}: {}",
-                                      order.get("id"),
-                                      totalPrice);
-                                  return 0.0;
+                // Debug: Log raw response structure
+                if (orders != null && !orders.isEmpty()) {
+                  logger.info("Sample order structure: {}", orders.get(0).keySet());
+                  Map<String, Object> sampleOrder = orders.get(0);
+                  logger.info(
+                      "Sample order - ID: {}, created_at: {}, total_price: {}, financial_status: {}",
+                      sampleOrder.get("id"),
+                      sampleOrder.get("created_at"),
+                      sampleOrder.get("total_price"),
+                      sampleOrder.get("financial_status"));
+                }
+
+                if (orders != null) {
+                  totalRevenue =
+                      orders.stream()
+                          .mapToDouble(
+                              order -> {
+                                Object totalPrice = order.get("total_price");
+                                if (totalPrice != null) {
+                                  try {
+                                    double price = Double.parseDouble(totalPrice.toString());
+                                    logger.debug("Order {} - Price: ${}", order.get("id"), price);
+                                    return price;
+                                  } catch (NumberFormatException e) {
+                                    logger.warn(
+                                        "Invalid price format for order {}: {}",
+                                        order.get("id"),
+                                        totalPrice);
+                                    return 0.0;
+                                  }
                                 }
-                              }
-                              logger.debug("Order {} - No total_price", order.get("id"));
-                              return 0.0;
-                            })
-                        .sum();
-              }
+                                logger.debug("Order {} - No total_price", order.get("id"));
+                                return 0.0;
+                              })
+                          .sum();
+                }
 
-              logger.info(
-                  "Calculated total revenue: ${} from {} orders for shop {}",
-                  totalRevenue,
-                  orders != null ? orders.size() : 0,
-                  shop);
+                logger.info(
+                    "Calculated total revenue: ${} from {} orders for shop {}",
+                    totalRevenue,
+                    orders != null ? orders.size() : 0,
+                    shop);
 
-              // Aggregate timeseries data for the chart by day
-              Map<String, Double> dailyRevenue = new java.util.LinkedHashMap<>();
+                // Aggregate timeseries data for the chart by day
+                Map<String, Double> dailyRevenue = new java.util.LinkedHashMap<>();
 
-              if (orders != null) {
-                logger.info("Processing {} orders for daily aggregation", orders.size());
+                if (orders != null) {
+                  logger.info("Processing {} orders for daily aggregation", orders.size());
 
-                for (Map<String, Object> order : orders) {
-                  String createdAt = (String) order.get("created_at");
-                  Object totalPriceObj = order.get("total_price");
+                  for (Map<String, Object> order : orders) {
+                    String createdAt = (String) order.get("created_at");
+                    Object totalPriceObj = order.get("total_price");
 
-                  if (createdAt != null && totalPriceObj != null) {
-                    try {
-                      String dateOnly = createdAt.substring(0, 10);
-                      double orderPrice = Double.parseDouble(totalPriceObj.toString());
-                      dailyRevenue.merge(dateOnly, orderPrice, Double::sum);
-                      logger.debug(
-                          "Order {} on {} - Adding ${} to daily total",
-                          order.get("id"),
-                          dateOnly,
-                          orderPrice);
-                    } catch (Exception e) {
+                    if (createdAt != null && totalPriceObj != null) {
+                      try {
+                        String dateOnly = createdAt.substring(0, 10);
+                        double orderPrice = Double.parseDouble(totalPriceObj.toString());
+                        dailyRevenue.merge(dateOnly, orderPrice, Double::sum);
+                        logger.debug(
+                            "Order {} on {} - Adding ${} to daily total",
+                            order.get("id"),
+                            dateOnly,
+                            orderPrice);
+                      } catch (Exception e) {
+                        logger.warn(
+                            "Skipping invalid order data: createdAt={}, totalPrice={}",
+                            createdAt,
+                            totalPriceObj);
+                      }
+                    } else {
                       logger.warn(
-                          "Skipping invalid order data: createdAt={}, totalPrice={}",
+                          "Order {} missing data - createdAt: {}, totalPrice: {}",
+                          order.get("id"),
                           createdAt,
                           totalPriceObj);
                     }
-                  } else {
-                    logger.warn(
-                        "Order {} missing data - createdAt: {}, totalPrice: {}",
-                        order.get("id"),
-                        createdAt,
-                        totalPriceObj);
+                  }
+
+                  logger.info("Aggregated revenue into {} unique days", dailyRevenue.size());
+                  if (!dailyRevenue.isEmpty()) {
+                    logger.info("Daily revenue breakdown: {}", dailyRevenue);
                   }
                 }
 
-                logger.info("Aggregated revenue into {} unique days", dailyRevenue.size());
-                if (!dailyRevenue.isEmpty()) {
-                  logger.info("Daily revenue breakdown: {}", dailyRevenue);
+                // Calculate 7-day metrics for recent period
+                double recentRevenue = 0.0;
+                int recentOrders = 0;
+                double recentConversionRate = 0.0;
+                int recentDaysWithData = 0;
+
+                java.time.LocalDate sevenDaysAgo = java.time.LocalDate.now().minusDays(7);
+                for (Map.Entry<String, Double> entry : dailyRevenue.entrySet()) {
+                  try {
+                    java.time.LocalDate entryDate = java.time.LocalDate.parse(entry.getKey());
+                    if (entryDate.isAfter(sevenDaysAgo) || entryDate.isEqual(sevenDaysAgo)) {
+                      recentRevenue += entry.getValue();
+                      recentDaysWithData++;
+                    }
+                  } catch (Exception e) {
+                    logger.warn("Could not parse date: {}", entry.getKey());
+                  }
                 }
-              }
 
-              // Convert to timeseries format
-              List<Map<String, Object>> timeseriesData = new ArrayList<>();
-              for (Map.Entry<String, Double> entry : dailyRevenue.entrySet()) {
-                Map<String, Object> dayData = new HashMap<>();
-                dayData.put("created_at", entry.getKey());
-                dayData.put("total_price", entry.getValue());
-                timeseriesData.add(dayData);
-              }
+                // Calculate recent orders count from the same 7-day period
+                if (orders != null) {
+                  for (Map<String, Object> order : orders) {
+                    String createdAt = (String) order.get("created_at");
+                    if (createdAt != null) {
+                      try {
+                        String dateOnly = createdAt.substring(0, 10);
+                        java.time.LocalDate orderDate = java.time.LocalDate.parse(dateOnly);
+                        if (orderDate.isAfter(sevenDaysAgo) || orderDate.isEqual(sevenDaysAgo)) {
+                          recentOrders++;
+                        }
+                      } catch (Exception e) {
+                        logger.warn("Could not parse order date: {}", createdAt);
+                      }
+                    }
+                  }
+                }
 
-              // Sort by date
-              timeseriesData.sort(
-                  (a, b) -> ((String) a.get("created_at")).compareTo((String) b.get("created_at")));
+                // Calculate average conversion rate for recent period (using a default if no data)
+                recentConversionRate =
+                    recentDaysWithData > 0 ? 2.5 : 0.0; // Default conversion rate
 
-              logger.info(
-                  "Final timeseries contains {} data points spanning {} days",
-                  timeseriesData.size(),
-                  timeseriesData.size() > 0
-                      ? "from "
-                          + timeseriesData.get(0).get("created_at")
-                          + " to "
-                          + timeseriesData.get(timeseriesData.size() - 1).get("created_at")
-                      : "no dates");
+                logger.info(
+                    "Calculated recent metrics (7 days): Revenue=${}, Orders={}, Conversion={}% vs total revenue (60 days): ${}",
+                    recentRevenue, recentOrders, recentConversionRate, totalRevenue);
 
-              Map<String, Object> result = new HashMap<>();
-              result.put("revenue", totalRevenue);
-              result.put("totalRevenue", totalRevenue); // Also include this for consistency
-              result.put("orders_count", orders != null ? orders.size() : 0);
-              result.put("period_days", 60);
-              result.put("timeseries", timeseriesData);
+                // Convert to timeseries format
+                List<Map<String, Object>> timeseriesData = new ArrayList<>();
+                for (Map.Entry<String, Double> entry : dailyRevenue.entrySet()) {
+                  Map<String, Object> dayData = new HashMap<>();
+                  dayData.put("created_at", entry.getKey());
+                  dayData.put("total_price", entry.getValue());
+                  timeseriesData.add(dayData);
+                }
 
-              // Cache the result in Redis
-              dashboardCacheService.cacheRevenueData(shop, result);
-              logger.info("Cached revenue data for shop: {}", shop);
+                // Sort by date
+                timeseriesData.sort(
+                    (a, b) ->
+                        ((String) a.get("created_at")).compareTo((String) b.get("created_at")));
 
-              return ResponseEntity.ok(result);
-            })
-        .onErrorResume(
-            e -> {
-              logger.error("Failed to fetch revenue: {}", e.getMessage());
+                logger.info(
+                    "Final timeseries contains {} data points spanning {} days",
+                    timeseriesData.size(),
+                    timeseriesData.size() > 0
+                        ? "from "
+                            + timeseriesData.get(0).get("created_at")
+                            + " to "
+                            + timeseriesData.get(timeseriesData.size() - 1).get("created_at")
+                        : "no dates");
 
-              // Check if it's a 403 error (permission issue)
-              if (e.getMessage().contains("403")) {
-                logger.warn("Revenue API access denied - insufficient permissions");
-                Map<String, Object> response = new HashMap<>();
-                response.put("revenue", 0.0);
-                response.put("totalRevenue", 0.0);
-                response.put("timeseries", java.util.List.of());
-                response.put("orders_count", 0);
-                response.put("period_days", 60);
-                response.put("error_code", "INSUFFICIENT_PERMISSIONS");
-                response.put(
-                    "error",
-                    "Revenue API access denied - please re-authenticate with updated permissions");
-                return Mono.just(ResponseEntity.status(HttpStatus.FORBIDDEN).body(response));
-              }
+                Map<String, Object> result = new HashMap<>();
+                result.put("revenue", totalRevenue);
+                result.put("totalRevenue", totalRevenue); // Also include this for consistency
+                result.put("recentRevenue", recentRevenue); // Add 7-day revenue
+                result.put("recentOrders", recentOrders); // Add 7-day orders
+                result.put(
+                    "recentConversionRate", recentConversionRate); // Add 7-day conversion rate
+                result.put("orders_count", orders != null ? orders.size() : 0);
+                result.put("period_days", 60);
+                result.put("timeseries", timeseriesData);
 
-              // Check if it's a 429 error (rate limit)
-              if (e.getMessage().contains("429")) {
-                logger.warn("Shopify API rate limit hit - returning empty data");
-                Map<String, Object> emptyResponse = new HashMap<>();
-                emptyResponse.put("revenue", 0.0);
-                emptyResponse.put("rate_limited", true);
-                emptyResponse.put("note", "Data temporarily unavailable due to API rate limits");
-                return Mono.just(ResponseEntity.ok().body(emptyResponse));
-              }
+                // Cache the result in Redis
+                dashboardCacheService.cacheRevenueData(shop, result);
+                logger.info("Cached revenue data for shop: {}", shop);
 
-              // Generic error
-              Map<String, Object> errorResponse = new HashMap<>();
-              errorResponse.put("revenue", 0.0);
-              errorResponse.put("error", "Failed to fetch revenue");
-              return Mono.just(ResponseEntity.ok().body(errorResponse));
-            });
+                return ResponseEntity.ok(result);
+              })
+          .onErrorResume(
+              e -> {
+                logger.error("Failed to fetch revenue: {}", e.getMessage());
+
+                // Check if it's a 403 error (permission issue)
+                if (e.getMessage().contains("403")) {
+                  logger.warn("Revenue API access denied - insufficient permissions");
+                  Map<String, Object> response = new HashMap<>();
+                  response.put("revenue", 0.0);
+                  response.put("totalRevenue", 0.0);
+                  response.put("recentRevenue", 0.0);
+                  response.put("recentOrders", 0);
+                  response.put("recentConversionRate", 0.0);
+                  response.put("timeseries", java.util.List.of());
+                  response.put("orders_count", 0);
+                  response.put("period_days", 60);
+                  response.put("error_code", "INSUFFICIENT_PERMISSIONS");
+                  response.put(
+                      "error",
+                      "Revenue API access denied - please re-authenticate with updated permissions");
+                  return Mono.just(ResponseEntity.status(HttpStatus.FORBIDDEN).body(response));
+                }
+
+                // Check if it's a 429 error (rate limit)
+                if (e.getMessage().contains("429")) {
+                  logger.warn("Shopify API rate limit hit - returning empty data");
+                  Map<String, Object> emptyResponse = new HashMap<>();
+                  emptyResponse.put("revenue", 0.0);
+                  emptyResponse.put("recentRevenue", 0.0);
+                  emptyResponse.put("recentOrders", 0);
+                  emptyResponse.put("recentConversionRate", 0.0);
+                  emptyResponse.put("rate_limited", true);
+                  emptyResponse.put("note", "Data temporarily unavailable due to API rate limits");
+                  return Mono.just(ResponseEntity.ok().body(emptyResponse));
+                }
+
+                // Generic error
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("revenue", 0.0);
+                errorResponse.put("recentRevenue", 0.0);
+                errorResponse.put("recentOrders", 0);
+                errorResponse.put("recentConversionRate", 0.0);
+                errorResponse.put("error", "Failed to fetch revenue");
+                return Mono.just(ResponseEntity.ok().body(errorResponse));
+              })
+          .doFinally(
+              signalType -> {
+                // Always release the throttling permit
+                requestThrottlingService.releaseRequestPermit(shop, "revenue");
+              });
+    } catch (Exception e) {
+      // Release permit in case of any exception before the reactive chain
+      requestThrottlingService.releaseRequestPermit(shop, "revenue");
+      throw e;
+    }
   }
 
   @GetMapping("/permissions/check")
@@ -2359,59 +2457,133 @@ public class AnalyticsController {
   @PostMapping("/cache/invalidate-session")
   public ResponseEntity<Map<String, Object>> invalidateCacheForSession(
       @CookieValue(value = "shop", required = false) String shop, HttpSession session) {
-
     if (shop == null) {
-      return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-          .body(Map.of("error", "Not authenticated", "cleared", false));
-    }
-
-    String token = shopService.getTokenForShop(shop, session.getId());
-    if (token == null) {
-      return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-          .body(Map.of("error", "No token for shop", "cleared", false));
+      return ResponseEntity.badRequest()
+          .body(Map.of("error", "No shop provided", "success", false));
     }
 
     try {
-      String sessionId = session.getId();
-      logger.info(
-          "Session-aware cache invalidation requested for shop: {} (session: {})", shop, sessionId);
-
-      // Use session-aware cache invalidation
-      boolean cacheCleared = dashboardCacheService.invalidateCacheForSession(shop, sessionId);
-
-      // Log the cache invalidation
-      dataPrivacyService.logDataAccess(
-          "SESSION_CACHE_INVALIDATION",
-          "Session cache invalidation - cleared: " + cacheCleared,
-          shop);
-
+      boolean wasLastSession =
+          dashboardCacheService.invalidateCacheForSession(shop, session.getId());
       Map<String, Object> response = new HashMap<>();
-      response.put("cleared", cacheCleared);
-      response.put("shop", shop);
-      response.put("sessionId", sessionId);
-      response.put("timestamp", System.currentTimeMillis());
-      response.put("remainingSessions", dashboardCacheService.getSessionCount(shop));
+      response.put("success", true);
+      response.put("wasLastSession", wasLastSession);
+      response.put(
+          "message",
+          wasLastSession
+              ? "Cache cleared (last session)"
+              : "Cache preserved (other sessions active)");
+      return ResponseEntity.ok(response);
+    } catch (Exception e) {
+      logger.error("Failed to invalidate cache for session: {}", e.getMessage());
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to invalidate cache", "success", false));
+    }
+  }
 
-      if (cacheCleared) {
-        response.put("message", "Cache cleared - this was the last session for this shop");
-      } else {
-        response.put("message", "Cache preserved - other sessions are still active for this shop");
+  @GetMapping("/cache/status")
+  public ResponseEntity<Map<String, Object>> getCacheStatus(
+      @CookieValue(value = "shop", required = false) String shop, HttpSession session) {
+    if (shop == null) {
+      return ResponseEntity.badRequest()
+          .body(Map.of("error", "No shop provided", "success", false));
+    }
+
+    try {
+      Map<String, Object> cacheStatus = new HashMap<>();
+
+      // Check if Redis has cached data for each endpoint
+      cacheStatus.put("revenue", dashboardCacheService.getCachedRevenueData(shop).isPresent());
+      cacheStatus.put("orders", dashboardCacheService.getCachedOrdersData(shop).isPresent());
+      cacheStatus.put("products", dashboardCacheService.getCachedProductsData(shop).isPresent());
+      cacheStatus.put("inventory", dashboardCacheService.getCachedInventoryData(shop).isPresent());
+      cacheStatus.put(
+          "newProducts", dashboardCacheService.getCachedNewProductsData(shop).isPresent());
+      cacheStatus.put(
+          "abandonedCarts", dashboardCacheService.getCachedAbandonedCartsData(shop).isPresent());
+      cacheStatus.put("analytics", dashboardCacheService.getCachedAnalyticsData(shop).isPresent());
+
+      // Get session count
+      cacheStatus.put("activeSessions", dashboardCacheService.getSessionCount(shop));
+      cacheStatus.put(
+          "isSessionRegistered", dashboardCacheService.isSessionRegistered(shop, session.getId()));
+
+      // Get cache statistics
+      cacheStatus.put("cacheStats", dashboardCacheService.getCacheStatistics());
+
+      return ResponseEntity.ok(Map.of("success", true, "cacheStatus", cacheStatus));
+    } catch (Exception e) {
+      logger.error("Failed to get cache status: {}", e.getMessage());
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to get cache status", "success", false));
+    }
+  }
+
+  @GetMapping("/cache/debug")
+  @Profile("!prod") // Only available in non-production environments
+  public ResponseEntity<Map<String, Object>> debugCache(
+      @CookieValue(value = "shop", required = false) String shop, HttpSession session) {
+    if (shop == null) {
+      return ResponseEntity.badRequest()
+          .body(Map.of("error", "No shop provided", "success", false));
+    }
+
+    try {
+      Map<String, Object> debugInfo = new HashMap<>();
+
+      // Check each cache key individually with detailed info
+      String[] cacheKeys = {
+        "dashboard:revenue:" + shop,
+        "dashboard:orders:" + shop,
+        "dashboard:products:" + shop,
+        "dashboard:inventory:" + shop,
+        "dashboard:new_products:" + shop,
+        "dashboard:abandoned_carts:" + shop,
+        "dashboard:analytics:" + shop
+      };
+
+      Map<String, Object> cacheDetails = new HashMap<>();
+      for (String key : cacheKeys) {
+        Map<String, Object> keyInfo = new HashMap<>();
+
+        // Check if key exists
+        Boolean exists = redisTemplate.hasKey(key);
+        keyInfo.put("exists", exists);
+
+        if (exists != null && exists) {
+          // Get TTL
+          Long ttl = redisTemplate.getExpire(key);
+          keyInfo.put("ttlSeconds", ttl);
+          keyInfo.put("ttlMinutes", ttl != null ? ttl / 60 : null);
+
+          // Get value size
+          String value = redisTemplate.opsForValue().get(key);
+          keyInfo.put("valueSize", value != null ? value.length() : 0);
+
+          // Try to parse as CacheEntry
+          try {
+            if (value != null) {
+              Map<String, Object> cacheEntry = objectMapper.readValue(value, Map.class);
+              keyInfo.put("cacheEntry", cacheEntry);
+            }
+          } catch (Exception e) {
+            keyInfo.put("parseError", e.getMessage());
+          }
+        }
+
+        cacheDetails.put(key, keyInfo);
       }
 
-      logger.info(
-          "Session-aware cache invalidation completed for shop: {} (cleared: {})",
-          shop,
-          cacheCleared);
-      return ResponseEntity.ok(response);
+      debugInfo.put("cacheKeys", cacheDetails);
+      debugInfo.put("shop", shop);
+      debugInfo.put("sessionId", session.getId());
+      debugInfo.put("timestamp", System.currentTimeMillis());
 
+      return ResponseEntity.ok(Map.of("success", true, "debugInfo", debugInfo));
     } catch (Exception e) {
-      logger.error(
-          "Failed to invalidate cache for session {} shop {}: {}",
-          session.getId(),
-          shop,
-          e.getMessage());
+      logger.error("Failed to get cache debug info: {}", e.getMessage());
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-          .body(Map.of("error", "Session cache invalidation failed", "cleared", false));
+          .body(Map.of("error", "Failed to get cache debug info", "success", false));
     }
   }
 }

@@ -92,7 +92,7 @@ const RouteErrorCleaner: React.FC = () => {
 const AppContent: React.FC = () => {
   const { isAuthenticated, authLoading, loading, hasInitiallyLoaded, shop } = useAuth();
   const { handleServiceError } = useServiceStatus();
-  const { addNotification } = useNotifications();
+    const { addNotification } = useNotifications();
   const [showDebugPanel, setShowDebugPanel] = React.useState(false);
   
   // Session limit management
@@ -227,26 +227,76 @@ const AppContent: React.FC = () => {
       });
     };
 
+    // Handle session expiration from backend responses
+    const handleSessionExpiration = () => {
+      // Check if we were redirected due to session expiration
+      const urlParams = new URLSearchParams(window.location.search);
+      const sessionExpired = urlParams.get('sessionExpired');
+      
+      if (sessionExpired === 'true') {
+        addNotification('Your session has expired due to inactivity. Please login again.', 'warning', {
+          duration: 8000,
+          category: 'Authentication',
+          action: {
+            label: 'Login',
+            onClick: () => window.location.href = '/'
+          }
+        });
+        
+        // Clean up the URL parameter
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.delete('sessionExpired');
+        window.history.replaceState({}, '', newUrl.toString());
+      }
+    };
+
+    // Check for session expiration on mount
+    handleSessionExpiration();
+
+    // Intercept fetch responses to check for session expiration headers
+    const originalFetch = window.fetch;
+    window.fetch = async (...args) => {
+      const response = await originalFetch(...args);
+      
+      // Check for session expiration header
+      const sessionExpired = response.headers.get('X-Session-Expired');
+      if (sessionExpired === 'true') {
+        addNotification('Your session has expired due to inactivity. Please login again.', 'warning', {
+          duration: 8000,
+          category: 'Authentication',
+          action: {
+            label: 'Login',
+            onClick: () => window.location.href = '/'
+          }
+        });
+      }
+      
+      return response;
+    };
+
     // Add event listeners
-    window.addEventListener('sessionExtensionPrompt', handleSessionExtensionPrompt as EventListener);
-    window.addEventListener('sessionExpired', handleSessionExpired as EventListener);
-    window.addEventListener('sessionExtended', handleSessionExtended as EventListener);
-    window.addEventListener('sessionExpiring', handleSessionExpiring as EventListener);
-    window.addEventListener('sessionRefreshNeeded', handleSessionRefreshNeeded as EventListener);
-    window.addEventListener('sessionError', handleSessionError as EventListener);
-    window.addEventListener('sessionInvalidated', handleSessionInvalidated as EventListener);
+    window.addEventListener('sessionExtensionPrompt', handleSessionExtensionPrompt as any);
+    window.addEventListener('sessionExpired', handleSessionExpired as any);
+    window.addEventListener('sessionExtended', handleSessionExtended as any);
+    window.addEventListener('sessionExpiring', handleSessionExpiring as any);
+    window.addEventListener('sessionRefreshNeeded', handleSessionRefreshNeeded as any);
+    window.addEventListener('sessionError', handleSessionError as any);
+    window.addEventListener('sessionInvalidated', handleSessionInvalidated as any);
 
     // Cleanup function
     return () => {
-      window.removeEventListener('sessionExtensionPrompt', handleSessionExtensionPrompt as EventListener);
-      window.removeEventListener('sessionExpired', handleSessionExpired as EventListener);
-      window.removeEventListener('sessionExtended', handleSessionExtended as EventListener);
-      window.removeEventListener('sessionExpiring', handleSessionExpiring as EventListener);
-      window.removeEventListener('sessionRefreshNeeded', handleSessionRefreshNeeded as EventListener);
-      window.removeEventListener('sessionError', handleSessionError as EventListener);
-      window.removeEventListener('sessionInvalidated', handleSessionInvalidated as EventListener);
+      window.removeEventListener('sessionExtensionPrompt', handleSessionExtensionPrompt as any);
+      window.removeEventListener('sessionExpired', handleSessionExpired as any);
+      window.removeEventListener('sessionExtended', handleSessionExtended as any);
+      window.removeEventListener('sessionExpiring', handleSessionExpiring as any);
+      window.removeEventListener('sessionRefreshNeeded', handleSessionRefreshNeeded as any);
+      window.removeEventListener('sessionError', handleSessionError as any);
+      window.removeEventListener('sessionInvalidated', handleSessionInvalidated as any);
+      
+      // Restore original fetch
+      window.fetch = originalFetch;
     };
-  }, [handleSessionExtension, handleSessionLogout]);
+  }, [handleSessionExtension, handleSessionLogout, addNotification]);
 
   // Initialize session management for authenticated users
   useEffect(() => {
@@ -267,9 +317,9 @@ const AppContent: React.FC = () => {
         });
       }, 1000);
 
-      // Log session status
-      const sessionStatus = getSessionStatus();
-      debugLog.debug('📊 Session status', sessionStatus, 'SessionManager');
+              // Log session status
+        const sessionStatus = getSessionStatus();
+        debugLog.debug('📊 Session status', sessionStatus, 'SessionManager');
       
       setSessionInitialized(true);
       
@@ -300,7 +350,7 @@ const AppContent: React.FC = () => {
     <div className="min-h-screen bg-gray-50 flex flex-col animate-fadeIn">
       <CommandPalette />
       <RouteErrorCleaner />
-      <NavBar />
+            <NavBar />
       <PrivacyBanner />
       <DebugPanel 
         isVisible={showDebugPanel} 

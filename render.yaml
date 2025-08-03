@@ -11,6 +11,14 @@ databases:
     postgresMajorVersion: "16"
 
 services:
+  - type: redis
+    name: storesight-redis
+    plan: free
+    region: oregon
+    ipAllowList:
+      - source: 0.0.0.0/0
+        description: everywhere
+
   - type: web
     name: storesight-backend
     runtime: docker
@@ -71,6 +79,8 @@ services:
         sync: false  # Must be set in Render Dashboard
       - key: ADMIN_JWT_SECRET
         sync: false  # Must be set in Render Dashboard
+      - key: SESSION_SECURITY_ENCRYPTION_KEY
+        sync: false  # Must be set in Render Dashboard (32-byte Base64-encoded key)
       
       # Admin Authentication Configuration
       - key: ADMIN_AUTH_ENABLED
@@ -96,6 +106,14 @@ services:
       - key: SERPAPI_KEY
         sync: false  # Must be set in Render Dashboard
       
+      # API Provider Enable/Disable Flags
+      - key: SCRAPINGDOG_ENABLED
+        value: "true"
+      - key: SERPER_ENABLED
+        value: "true"
+      - key: SERPAPI_ENABLED
+        value: "true"
+      
       # Feature Flags
       - key: DISCOVERY_ENABLED
         value: "true"
@@ -112,6 +130,28 @@ services:
       - key: SMS_NOTIFICATIONS_ENABLED
         value: "true"
       
+      # Memory Optimization Feature Flags - Disabled by default for 512MB plan
+      - key: FEATURE_SSE_ENABLED
+        value: "false"
+      - key: FEATURE_SCHEDULED_SYSTEM_RESOURCE_MONITORING
+        value: "false"
+      - key: FEATURE_SCHEDULED_DASHBOARD_COLLECTION
+        value: "false"
+      - key: FEATURE_SCHEDULED_PERFORMANCE_METRICS
+        value: "false"
+      - key: FEATURE_SCHEDULED_DATABASE_MONITORING
+        value: "false"
+      - key: FEATURE_SCHEDULED_REDIS_MONITORING
+        value: "false"
+      - key: FEATURE_SCHEDULED_ALERTING
+        value: "false"
+      - key: FEATURE_SCHEDULED_CACHE_CLEANUP
+        value: "false"
+      - key: FEATURE_SCHEDULED_SESSION_CLEANUP
+        value: "false"
+      - key: FEATURE_SCHEDULED_SSE_CLEANUP
+        value: "false"
+      
       # Logging Configuration (Enhanced for debugging)
       - key: LOGGING_LEVEL_ROOT
         value: "INFO"
@@ -127,6 +167,8 @@ services:
     dockerContext: .
     dockerfilePath: backend/Dockerfile.prod
     autoDeployTrigger: "on"
+    healthCheckPath: "/api/health/live"
+    numInstances: 2
     
   - type: web
     name: storesight
@@ -141,19 +183,6 @@ services:
     rootDir: frontend
     # Configure redirects for SPA routing
     redirects:
-      - source: "/api/*"
-        destination: "https://api.shopgaugeai.com/api/:splat"
-        action: "rewrite"
       - source: "/*"
         destination: "/index.html"
         action: "rewrite"
-
-  - type: keyvalue
-    name: storesight-redis
-    plan: free
-    region: oregon
-    maxmemoryPolicy: allkeys-lru
-    ipAllowList:
-      - source: 0.0.0.0/0
-        description: Allow all connections (configure specific IPs in Render Dashboard)
-    version: "1"

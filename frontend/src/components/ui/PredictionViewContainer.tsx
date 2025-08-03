@@ -87,6 +87,9 @@ interface UnifiedAnalyticsData {
   }>;
   total_revenue?: number;
   total_orders?: number;
+  recentRevenue?: number; // Add 7-day revenue from backend
+  recentOrders?: number; // Add 7-day orders from backend
+  recentConversionRate?: number; // Add 7-day conversion rate from backend
   period_days?: number;
 }
 
@@ -623,26 +626,47 @@ const PredictionViewContainer = memo(({
                   Recent {activeView === 'revenue' ? 'Revenue' : activeView === 'orders' ? 'Orders' : 'Conversion'} (7d)
                 </Typography>
                 <Typography variant="h6" fontWeight={700} color="text.primary" sx={{ fontSize: isMobile ? '0.9rem' : '1.25rem' }}>
-                                      {(() => {
-                      const recentData = data.historical.slice(-7); // Last 7 days
-                      switch (activeView) {
-                        case 'revenue': {
-                          const totalRevenue = recentData.reduce((sum, d) => sum + (d.revenue || 0), 0);
-                          return `$${totalRevenue.toLocaleString()}`;
-                        }
-                        case 'orders': {
-                          const totalOrders = recentData.reduce((sum, d) => sum + (d.orders_count || 0), 0);
-                          return totalOrders.toLocaleString();
-                        }
-                        case 'conversion': {
-                          const avgConversion = recentData.length > 0 ? 
-                            recentData.reduce((sum, d) => sum + (d.conversion_rate || 0), 0) / recentData.length : 0;
-                          return formatConversionPercentage(avgConversion);
-                        }
-                        default:
-                          return 'N/A';
+                  {(() => {
+                    // Use backend-calculated recent metrics if available, otherwise fall back to frontend calculation
+                    if (data.recentRevenue !== undefined && activeView === 'revenue') {
+                      return `$${data.recentRevenue.toLocaleString()}`;
+                    }
+                    if (data.recentOrders !== undefined && activeView === 'orders') {
+                      return data.recentOrders.toLocaleString();
+                    }
+                    if (data.recentConversionRate !== undefined && activeView === 'conversion') {
+                      return formatConversionPercentage(data.recentConversionRate);
+                    }
+                    
+                    // Fallback: Calculate metrics for the actual last 7 days from today
+                    const today = new Date();
+                    const sevenDaysAgo = new Date(today);
+                    sevenDaysAgo.setDate(today.getDate() - 7);
+                    
+                    // Filter historical data for the last 7 days
+                    const recentData = data.historical.filter(item => {
+                      const itemDate = new Date(item.date);
+                      return itemDate >= sevenDaysAgo && itemDate <= today;
+                    });
+                    
+                    switch (activeView) {
+                      case 'revenue': {
+                        const totalRevenue = recentData.reduce((sum, d) => sum + (d.revenue || 0), 0);
+                        return `$${totalRevenue.toLocaleString()}`;
                       }
-                    })()}
+                      case 'orders': {
+                        const totalOrders = recentData.reduce((sum, d) => sum + (d.orders_count || 0), 0);
+                        return totalOrders.toLocaleString();
+                      }
+                      case 'conversion': {
+                        const avgConversion = recentData.length > 0 ? 
+                          recentData.reduce((sum, d) => sum + (d.conversion_rate || 0), 0) / recentData.length : 0;
+                        return formatConversionPercentage(avgConversion);
+                      }
+                      default:
+                        return 'N/A';
+                    }
+                  })()}
                 </Typography>
               </Box>
 

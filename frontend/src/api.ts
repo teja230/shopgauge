@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { debugLog } from './components/ui/DebugPanel';
 
 // Enterprise-grade: never hard-code hostnames. Prefer environment config and, in dev, fallback to relative API proxy.
 export const API_BASE_URL: string = (
@@ -10,8 +11,8 @@ if (!import.meta.env.VITE_API_BASE_URL) {
   // but avoid leaking details or crashing the app.
   // eslint-disable-next-line no-console
   console.warn(
-    'VITE_API_BASE_URL is not defined – using relative URLs for API calls. ' +
-    'Ensure this variable is set in production (e.g., https://api.shopgaugeai.com)'
+    'VITE_API_BASE_URL is not defined – using fallback backend URL. ' +
+    'Set VITE_API_BASE_URL=https://api.shopgaugeai.com in production'
   );
 }
 
@@ -39,6 +40,31 @@ export const getApiAuthState = () => ({
   shop: currentShop
 });
 
+// Correlation ID management
+let currentCorrelationId: string | null = null;
+
+// Generate a new correlation ID
+const generateCorrelationId = (): string => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
+
+// Get or generate correlation ID
+const getOrGenerateCorrelationId = (): string => {
+  if (!currentCorrelationId) {
+    currentCorrelationId = generateCorrelationId();
+  }
+  return currentCorrelationId;
+};
+
+// Clear correlation ID (useful for new user sessions)
+export const clearCorrelationId = (): void => {
+  currentCorrelationId = null;
+};
+
 const defaultOptions: RequestInit = {
   credentials: 'include',
   headers: {
@@ -55,7 +81,15 @@ export const api = axios.create({
   }
 });
 
-// Add axios interceptor for logging
+// Add correlation ID to all axios requests
+api.interceptors.request.use(request => {
+  const correlationId = getOrGenerateCorrelationId();
+  request.headers['X-Correlation-ID'] = correlationId;
+  console.log('API: Starting Request:', request.method?.toUpperCase(), request.url, 'Correlation ID:', correlationId);
+  return request;
+});
+
+// Add axios interceptor for logging (correlation ID already added above)
 api.interceptors.request.use(request => {
   console.log('API: Starting Request:', request.method?.toUpperCase(), request.url);
   return request;
@@ -94,7 +128,8 @@ api.interceptors.response.use(
 // Enhanced fetchWithAuth with authentication pre-checks
 export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
   const fullUrl = `${API_BASE_URL}${url}`;
-  console.log('API: Fetching:', fullUrl);
+  const correlationId = getOrGenerateCorrelationId();
+  console.log('API: Fetching:', fullUrl, 'Correlation ID:', correlationId);
   
   // Pre-flight authentication check
   if (!isApiAuthenticated || !currentShop) {
@@ -109,6 +144,7 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
     headers: {
       'Accept': 'application/json',
       'Content-Type': 'application/json',
+      'X-Correlation-ID': correlationId,
       ...options.headers,
     },
   });
@@ -172,7 +208,16 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
       throw new Error('Authentication required');
     }
 
-    // Generic non-OK status handler (after specific cases above)
+
+    
+    // Handle 429 responses specially - let them pass through to handleResponse
+    // for proper business rule processing, but handle other errors generically
+    if (response.status === 429) {
+      // Let 429 responses pass through to handleResponse for proper processing
+      return response;
+    }
+    
+    // Generic non-OK status handler (for all other status codes)
     if (!response.ok) {
       const err = new Error(`HTTP ${response.status}`);
       (err as any).status = response.status;
@@ -217,12 +262,14 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
 // Admin-specific fetch function with enhanced logging and error handling
 export const fetchWithAdminAuth = async (endpoint: string, options?: RequestInit) => {
   const fullUrl = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
+  const correlationId = getOrGenerateCorrelationId();
 
   console.log(`API: Admin request to ${endpoint}`, { 
     endpoint, 
     fullUrl, 
     method: options?.method || 'GET',
-    hasBody: !!options?.body 
+    hasBody: !!options?.body,
+    correlationId
   });
 
   try {
@@ -231,6 +278,7 @@ export const fetchWithAdminAuth = async (endpoint: string, options?: RequestInit
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
+        'X-Correlation-ID': correlationId,
         ...(options?.headers || {})
       },
       ...options,
@@ -337,6 +385,8 @@ export interface Competitor {
   inStock: boolean;
   percentDiff: number;
   lastChecked: string;
+  shopifyProductId?: string; // Optional field for product association
+  productTitle?: string; // Product title for display
 }
 
 // Enhanced error handling to prevent raw JSON errors
@@ -369,6 +419,61 @@ async function handleResponse<T>(response: Response): Promise<T> {
       throw new Error('Authentication required');
     }
     
+    // Handle 429 responses (rate limits and business rules) as normal responses
+    if (response.status === 429) {
+      debugLog.info('API: 429 response detected, handling as business rule response', {}, 'API');
+      
+      try {
+        const errorData = await response.json();
+        debugLog.info('API: 429 response data', errorData, 'API');
+        
+        // Create a proper error with the specific message from the backend
+        const businessRuleError = new Error(errorData.message || 'Rate limit exceeded');
+        (businessRuleError as any).status = 429;
+        (businessRuleError as any).response = {
+          status: 429,
+          data: errorData
+        };
+        
+        // Add specific flags for competitor limits
+        if (errorData.error === 'COMPETITOR_LIMIT_EXCEEDED') {
+          debugLog.info('API: Setting competitorLimitExceeded flag', {}, 'API');
+          (businessRuleError as any).competitorLimitExceeded = true;
+        } else if (errorData.error === 'ARCHIVED_COMPETITOR_LIMIT_EXCEEDED') {
+          debugLog.info('API: Setting archivedCompetitorLimitExceeded flag', {}, 'API');
+          (businessRuleError as any).archivedCompetitorLimitExceeded = true;
+        }
+        
+        debugLog.info('API: Throwing business rule error with message', { message: businessRuleError.message }, 'API');
+        throw businessRuleError;
+      } catch (parseError) {
+        // If we can't parse the response, throw a generic 429 error
+        const generic429Error = new Error('Rate limit exceeded. Please wait a moment before retrying.');
+        (generic429Error as any).status = 429;
+        throw generic429Error;
+      }
+    }
+    
+    // Handle 412 PRODUCTS_SYNC_NEEDED error
+    if (response.status === 412) {
+      console.log('API: 412 response detected, handling as PRODUCTS_SYNC_NEEDED');
+      
+      try {
+        const errorData = await response.json();
+        console.log('API: 412 response data:', errorData);
+        
+        const userError = new Error('Your product catalog needs to be synchronized before adding competitors. Please sync your products first.');
+        (userError as any).userFriendly = true;
+        (userError as any).needsProductSync = true;
+        throw userError;
+      } catch (parseError) {
+        const userError = new Error('Your product catalog needs to be synchronized before adding competitors. Please sync your products first.');
+        (userError as any).userFriendly = true;
+        (userError as any).needsProductSync = true;
+        throw userError;
+      }
+    }
+    
     // Try to parse as JSON first, fallback to text
     let errorData: any;
     const contentType = response.headers.get('content-type');
@@ -397,9 +502,24 @@ async function handleResponse<T>(response: Response): Promise<T> {
     throw apiError;
   }
   
-  const data = await response.json();
-  console.log('API: Success response:', response.status, data);
-  return data;
+  // Check if response has content before trying to parse as JSON
+  const contentType = response.headers.get('content-type');
+  const contentLength = response.headers.get('content-length');
+  
+  // If response is empty or has no content, return undefined for void functions
+  if (contentLength === '0' || !contentType || !contentType.includes('application/json')) {
+    console.log('API: Empty response or non-JSON content, returning undefined');
+    return undefined as T;
+  }
+  
+  try {
+    const data = await response.json();
+    console.log('API: Success response:', response.status, data);
+    return data;
+  } catch (parseError) {
+    console.log('API: Failed to parse JSON response, returning undefined');
+    return undefined as T;
+  }
 }
 
 export async function getInsights(): Promise<Insight> {
@@ -412,93 +532,161 @@ export async function getCompetitors(): Promise<Competitor[]> {
   return handleResponse<Competitor[]>(res);
 }
 
-// Get products from dashboard cache or API
+// Get products from session storage first, then Redis fallback
 async function getProductsIntelligently(): Promise<any[]> {
-  // First, try to get products from dashboard cache
-  const dashboardCache = sessionStorage.getItem('dashboard_cache_v2');
-  if (dashboardCache) {
+  const shop = getApiAuthState().shop;
+  if (!shop) {
+    console.log('No shop available for product cache lookup');
+    return [];
+  }
+
+  // First, try session storage (fastest) - use same key format as backend
+  const sessionKey = `dashboard_cache_${shop}_v3`;
+  const sessionData = sessionStorage.getItem(sessionKey);
+  
+  if (sessionData) {
     try {
-      const cache = JSON.parse(dashboardCache);
-      if (cache.products && cache.products.data && Array.isArray(cache.products.data.products)) {
-        const age = Date.now() - cache.products.timestamp;
-        // Use cache if less than 30 minutes old
-        if (age < 30 * 60 * 1000) {
-          console.log('Using products from dashboard cache');
-          return cache.products.data.products;
+      const cache = JSON.parse(sessionData);
+      const age = Date.now() - cache.timestamp;
+      const maxAge = 30 * 60 * 1000; // 30 minutes
+      
+      if (age < maxAge) {
+        console.log('Using products from session storage cache');
+        // Handle both old format and new dashboard format
+        if (cache.products && Array.isArray(cache.products)) {
+          // Old format: direct array
+          return cache.products;
+        } else if (cache.products && cache.products.data) {
+          // New dashboard format: nested data
+          return cache.products.data || [];
         }
+        return [];
+      } else {
+        console.log('Session storage cache expired, removing');
+        sessionStorage.removeItem(sessionKey);
       }
     } catch (error) {
-      console.warn('Failed to parse dashboard cache:', error);
+      console.warn('Failed to parse session storage cache:', error);
+      sessionStorage.removeItem(sessionKey);
     }
   }
   
-  // If no cache, try to fetch products directly
+  // Try Redis fallback via API (avoids direct Redis calls)
   try {
-    console.log('Fetching products from API for competitor addition');
-    const response = await fetch(`${API_BASE_URL}/api/analytics/products`, defaultOptions);
-    const data = await handleResponse<{ products: any[] }>(response);
-    return data.products || [];
+    console.log('Checking Redis cache for products via API');
+    const response = await fetchWithAuth('/api/analytics/products');
+    if (response.ok) {
+      const data = await response.json();
+      if (data.products && Array.isArray(data.products)) {
+        // Cache in session storage for future use - use same format as dashboard
+        const cacheData = {
+          products: {
+            data: data.products,
+            timestamp: Date.now(),
+            lastUpdated: new Date(),
+            version: "v2.0",
+            shop: shop
+          },
+          timestamp: Date.now()
+        };
+        sessionStorage.setItem(sessionKey, JSON.stringify(cacheData));
+        console.log('Cached products from Redis in session storage');
+        return data.products;
+      } else {
+        console.warn('Products API returned no products or invalid format:', data);
+      }
+    } else {
+      console.warn('Products API failed with status:', response.status);
+    }
   } catch (error) {
-    console.error('Failed to fetch products:', error);
-    return [];
+    console.warn('Redis fallback failed:', error);
   }
+  
+  // If no cache available, return empty array and let backend handle product selection
+  console.log('No cached products available, letting backend handle product selection');
+  return [];
 }
 
 // Intelligent competitor addition with automatic product syncing
 export async function addCompetitorIntelligent(url: string, productId?: string): Promise<Competitor> {
+  debugLog.info('addCompetitorIntelligent: Starting competitor addition', {
+    url: url,
+    productId: productId || 'not provided'
+  }, 'API');
+  
+  console.log('addCompetitorIntelligent: Starting with URL:', url, 'productId:', productId);
+  
   try {
-    // If no productId provided, try to get products and use the first one
+    // If no productId provided, let backend handle product selection from cache
     let finalProductId = productId;
     
     if (!finalProductId) {
-      console.log('No productId provided, attempting to get products intelligently...');
-      const products = await getProductsIntelligently();
-      
-      if (products.length > 0) {
-        finalProductId = products[0].id?.toString();
-        console.log('Using first available product:', finalProductId);
-      }
+      console.log('No productId provided, letting backend select product from cache');
     }
     
-    // Attempt to add competitor
-  const res = await fetch(`${API_BASE_URL}/api/competitors`, {
-    ...defaultOptions,
-    method: 'POST',
-      body: JSON.stringify({ url, productId: finalProductId }),
-  });
+    // Prepare request payload
+    const payload = { url: url.trim(), productId: finalProductId || '' };
+    console.log('addCompetitorIntelligent: Sending payload:', payload);
     
-  return handleResponse<Competitor>(res);
+    // Use fetchWithAuth for proper authentication handling with extended timeout
+    const response = await fetchWithAuth('/api/competitors', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(30000), // Increased timeout for complex URLs like Amazon
+    });
+    
+    console.log('addCompetitorIntelligent: Response status:', response.status);
+    
+    // Use handleResponse to properly handle 429 and other responses
+    const competitor = await handleResponse<Competitor>(response);
+    
+    console.log('addCompetitorIntelligent: Success, received competitor:', competitor);
+    debugLog.info('addCompetitorIntelligent: Successfully added competitor', {
+      competitor: competitor,
+      url: url
+    }, 'API');
+    return competitor;
+    
   } catch (error: any) {
-    // Enhanced error handling to prevent raw JSON display
-    console.error('addCompetitorIntelligent error:', error);
+    debugLog.error('addCompetitorIntelligent: Caught error', { error: error.message }, 'API');
+    debugLog.info('addCompetitorIntelligent: Error properties', {
+      competitorLimitExceeded: error.competitorLimitExceeded,
+      archivedCompetitorLimitExceeded: error.archivedCompetitorLimitExceeded,
+      message: error.message,
+      status: error.status
+    }, 'API');
     
-    // Check for specific error types and provide user-friendly messages
-    if (error.response?.status === 412 || error.response?.data?.error === 'PRODUCTS_SYNC_NEEDED') {
-      // Don't throw an error that would trigger redirects - just return a user-friendly error
-      const userError = new Error('Please visit your Dashboard first to sync your product catalog, then try adding competitors again.');
-      (userError as any).userFriendly = true;
-      (userError as any).needsProductSync = true;
-      throw userError;
+    // Re-throw user-friendly errors as-is
+    if (error.userFriendly || error.needsProductSync) {
+      throw error;
     }
     
-    if (error.response?.status === 400) {
-      const errorMessage = error.response?.data?.message || error.message;
-      if (errorMessage.includes('already being tracked')) {
-        throw new Error('This competitor is already being tracked for your products.');
-      }
-      throw new Error(errorMessage || 'Invalid competitor URL. Please check the URL and try again.');
+    // Preserve specific competitor limit error messages
+    if (error.competitorLimitExceeded || error.archivedCompetitorLimitExceeded) {
+      debugLog.info('addCompetitorIntelligent: Re-throwing competitor limit error', { message: error.message }, 'API');
+      throw error; // Re-throw the specific error message as-is
     }
     
-    if (error.response?.status === 401) {
-      throw new Error('Authentication required. Please log in again.');
+    // Handle network errors and cancelled requests
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      throw new Error('Connection issue detected. Please check your internet connection and try again.');
     }
     
-    if (error.response?.status >= 500) {
-      throw new Error('Service temporarily unavailable. Please try again in a few moments.');
+    // Handle AbortError (cancelled requests)
+    if (error.name === 'AbortError') {
+      throw new Error('Request was cancelled due to timeout. Please try again.');
     }
     
-    // Generic fallback for any other errors
-    const fallbackMessage = error.response?.data?.message || error.message || 'Failed to add competitor. Please try again.';
+    // Handle authentication errors
+    if (error.message.includes('Authentication required') || error.message.includes('401')) {
+      throw new Error('Your session has expired. Please refresh the page and try again.');
+    }
+    
+    // Generic fallback
+    const fallbackMessage = error.message || 'Unable to add competitor at this time. Please try again.';
     throw new Error(fallbackMessage);
   }
 }
@@ -509,11 +697,27 @@ export async function addCompetitor(url: string, productId: string): Promise<Com
 }
 
 export async function deleteCompetitor(id: string): Promise<void> {
-  const res = await fetch(`${API_BASE_URL}/api/competitors/${id}`, {
-    ...defaultOptions,
+  const res = await fetchWithAuth(`/api/competitors/${id}`, {
     method: 'DELETE',
   });
   return handleResponse<void>(res);
+}
+
+export async function getPriceStatus(id: string): Promise<{
+  hasPrice: boolean;
+  price?: number;
+  inStock?: boolean;
+  lastChecked?: string;
+  message?: string;
+}> {
+  const res = await fetchWithAuth(`/api/competitors/${id}/price-status`);
+  return handleResponse<{
+    hasPrice: boolean;
+    price?: number;
+    inStock?: boolean;
+    lastChecked?: string;
+    message?: string;
+  }>(res);
 }
 
 // New competitor suggestion interfaces and functions
@@ -536,19 +740,18 @@ export interface SuggestionResponse {
 }
 
 export async function getCompetitorSuggestions(page: number = 0, size: number = 10, status: string = 'NEW'): Promise<SuggestionResponse> {
-  const res = await fetch(`${API_BASE_URL}/api/competitors/suggestions?page=${page}&size=${size}&status=${status}`, defaultOptions);
+  const res = await fetchWithAuth(`/api/competitors/suggestions?page=${page}&size=${size}&status=${status}`);
   return handleResponse<SuggestionResponse>(res);
 }
 
 export async function getSuggestionCount(): Promise<{ newSuggestions: number }> {
-  const res = await fetch(`${API_BASE_URL}/api/competitors/suggestions/count`, defaultOptions);
+  const res = await fetchWithAuth(`/api/competitors/suggestions/count`);
   return handleResponse<{ newSuggestions: number }>(res);
 }
 
 // Manual refresh endpoint for forcing fresh data
 export async function refreshSuggestionCount(): Promise<{ newSuggestions: number }> {
-  const res = await fetch(`${API_BASE_URL}/api/competitors/suggestions/refresh-count`, {
-    ...defaultOptions,
+  const res = await fetchWithAuth(`/api/competitors/suggestions/refresh-count`, {
     method: 'POST',
   });
   return handleResponse<{ newSuggestions: number }>(res);
@@ -574,16 +777,14 @@ export function getDebouncedSuggestionCount(): Promise<{ newSuggestions: number 
 }
 
 export async function approveSuggestion(id: number): Promise<{ message: string }> {
-  const res = await fetch(`${API_BASE_URL}/api/competitors/suggestions/${id}/approve`, {
-    ...defaultOptions,
+  const res = await fetchWithAuth(`/api/competitors/suggestions/${id}/approve`, {
     method: 'POST',
   });
   return handleResponse<{ message: string }>(res);
 }
 
 export async function ignoreSuggestion(id: number): Promise<{ message: string }> {
-  const res = await fetch(`${API_BASE_URL}/api/competitors/suggestions/${id}/ignore`, {
-    ...defaultOptions,
+  const res = await fetchWithAuth(`/api/competitors/suggestions/${id}/ignore`, {
     method: 'POST',
   });
   return handleResponse<{ message: string }>(res);
@@ -682,7 +883,7 @@ export const getStoreStats = async () => {
 };
 
 export const forceDisconnectShop = async (shop: string) => {
-  const response = await fetchWithAuth('/auth/shopify/profile/force-disconnect', {
+  const response = await fetchWithAuth('/api/auth/shopify/profile/force-disconnect', {
     method: 'POST',
     body: JSON.stringify({ shop }),
   });
@@ -707,4 +908,4 @@ export const getPrivacyReport = async () => {
   return handleResponse<any>(response);
 };
 
-export default api; 
+export default api;

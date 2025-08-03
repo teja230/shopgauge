@@ -144,7 +144,7 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
         ),
         fetchWithAdminAuth('/api/health/redis'),
         fetchWithAdminAuth('/api/health/system'),
-        fetchWithAdminAuth('/api/health/transactions'),
+        fetchWithAdminAuth('/api/admin/health/transactions'),
         fetchWithAdminAuth('/api/admin/session-statistics').catch(() => null)
       ]);
 
@@ -255,7 +255,7 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
 
   const performEmergencyCleanup = async () => {
     try {
-      const result = await fetchWithAdminAuth('/api/health/emergency-cleanup', {
+      const result = await fetchWithAdminAuth('/api/admin/health/emergency-cleanup', {
         method: 'POST',
       });
       
@@ -276,7 +276,7 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
 
   const performComprehensiveCleanup = async () => {
     try {
-      const result = await fetchWithAdminAuth('/api/health/comprehensive-cleanup', {
+      const result = await fetchWithAdminAuth('/api/admin/health/comprehensive-cleanup', {
         method: 'POST',
       });
       

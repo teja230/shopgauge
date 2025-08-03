@@ -69,6 +69,8 @@ public class AlertingService {
   @Autowired private DashboardCacheService dashboardCacheService;
   @Autowired private SessionSynchronizationService sessionSynchronizationService;
 
+  @Autowired private FeatureFlagService featureFlagService;
+
   // Alert tracking
   private final ConcurrentHashMap<String, AlertState> activeAlerts = new ConcurrentHashMap<>();
   private final AtomicLong totalAlertsGenerated = new AtomicLong(0);
@@ -142,9 +144,17 @@ public class AlertingService {
     }
   }
 
-  /** Comprehensive monitoring and alerting check */
-  @Scheduled(fixedRateString = "${monitoring.system-resources.interval:60000}")
-  public void performComprehensiveMonitoring() {
+  /** Comprehensive monitoring and alerting with startup delay */
+  @Scheduled(
+      fixedRateString = "${storesight.monitoring.health-check-interval:PT6H}",
+      initialDelayString = "${storesight.monitoring.alerting-startup-delay:PT18M}")
+  public void comprehensiveMonitoring() {
+    // Check if scheduled alerting is enabled
+    if (!featureFlagService.isScheduledAlertingEnabled()) {
+      logger.debug("Scheduled alerting is disabled via feature flag");
+      return;
+    }
+
     try {
       logger.debug("Starting comprehensive monitoring and alerting check");
 

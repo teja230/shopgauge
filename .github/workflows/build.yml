@@ -50,6 +50,8 @@ jobs:
       SENDGRID_API_KEY: test_sendgrid_key
       TWILIO_ACCOUNT_SID: test_twilio_sid
       TWILIO_AUTH_TOKEN: test_twilio_token
+      # Admin JWT secret for tests
+      ADMIN_JWT_SECRET: test-jwt-secret-key-for-ci-cd-only
       
     steps:
       - uses: actions/checkout@v4
@@ -69,7 +71,7 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
         working-directory: backend
-      - name: Run tests and checks
+      - name: Run tests
         run: ./gradlew test
         working-directory: backend
       - name: Run spotless check

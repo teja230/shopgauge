@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
+    <!-- Reduce logback's own logging noise -->
+    <statusListener class="ch.qos.logback.core.status.NopStatusListener" />
+
     <!-- Define log pattern with correlation ID -->
     <property name="LOG_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{correlationId:-no-correlation-id}] %logger{36} - %msg%n"/>
     
@@ -91,14 +94,14 @@
     
     <!-- Profile-specific configurations -->
     <springProfile name="dev,local">
-        <root level="DEBUG">
+        <root level="INFO">
             <appender-ref ref="CONSOLE"/>
-            <appender-ref ref="FILE"/>
+            <appender-ref ref="ASYNC_FILE"/>
             <appender-ref ref="ERROR_FILE"/>
         </root>
         
         <!-- Reduce noise from Spring and Hibernate in development -->
-        <logger name="org.springframework" level="INFO"/>
+        <logger name="org.springframework" level="WARN"/>
         <logger name="org.hibernate" level="INFO"/>
         <logger name="com.zaxxer.hikari" level="INFO"/>
         <logger name="org.apache.http" level="INFO"/>
@@ -120,6 +123,7 @@
     
     <springProfile name="prod,production">
         <root level="WARN">
+            <appender-ref ref="CONSOLE"/>
             <appender-ref ref="ASYNC_FILE"/>
             <appender-ref ref="ERROR_FILE"/>
             <appender-ref ref="ASYNC_JSON"/>
@@ -140,13 +144,22 @@
         <logger name="com.storesight.backend.service.SessionSynchronizationService" level="INFO"/>
         <logger name="com.storesight.backend.service.EnhancedRedisService" level="INFO"/>
         <logger name="com.storesight.backend.service.DashboardCacheService" level="INFO"/>
+
+        <!-- Reduce Spring Boot startup noise -->
+        <logger name="org.springframework.boot" level="WARN"/>
+        <logger name="org.springframework.context" level="WARN"/>
+        <logger name="org.springframework.beans" level="WARN"/>
+        <logger name="org.springframework.core" level="WARN"/>
+        <logger name="org.springframework.web" level="WARN"/>
     </springProfile>
     
     <!-- Specific logger configurations -->
     <logger name="com.storesight.backend.util.CircuitBreaker" level="INFO"/>
     <logger name="com.storesight.backend.util.RetryUtil" level="INFO"/>
-    <logger name="com.storesight.backend.config.CorrelationIdFilter" level="DEBUG"/>
+    <logger name="com.storesight.backend.config.CorrelationIdFilter" level="WARN"/>
     <logger name="com.storesight.backend.config.AsyncExceptionHandler" level="INFO"/>
+    <logger name="com.storesight.backend.config.StartupOptimizationConfig" level="INFO"/>
+    <logger name="com.storesight.backend.config.ConfigurationValidator" level="INFO"/>
     
     <!-- Database and Redis logging -->
     <logger name="org.springframework.data.redis" level="WARN"/>
@@ -161,4 +174,12 @@
     <logger name="com.storesight.backend.service.MetricsCollectionService" level="INFO"/>
     <logger name="com.storesight.backend.service.MonitoringDashboardService" level="INFO"/>
     <logger name="com.storesight.backend.service.AlertingService" level="INFO"/>
+
+    <!-- Suppress common noise -->
+    <logger name="org.springframework" level="WARN"/>
+    <logger name="org.hibernate" level="WARN"/>
+    <logger name="com.zaxxer.hikari" level="WARN"/>
+    <logger name="org.apache.catalina" level="WARN"/>
+    <logger name="org.apache.coyote" level="WARN"/>
+    <logger name="org.apache.tomcat" level="WARN"/>
 </configuration>
