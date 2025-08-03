@@ -3,6 +3,7 @@ package com.storesight.backend.controller;
 import com.storesight.backend.service.CostOptimizationService;
 import com.storesight.backend.service.DataPrivacyService;
 import com.storesight.backend.service.DatabaseMonitoringService;
+import com.storesight.backend.service.MarketIntelligenceCacheService;
 import com.storesight.backend.service.PriceScrapingService;
 import com.storesight.backend.service.RedisHealthService;
 import com.storesight.backend.service.TransactionMonitoringService;
@@ -34,6 +35,7 @@ public class MarketIntelligenceAdminController {
       LoggerFactory.getLogger(MarketIntelligenceAdminController.class);
 
   @Autowired private CostOptimizationService costOptimizationService;
+  @Autowired private MarketIntelligenceCacheService marketIntelligenceCacheService;
 
   @Autowired(required = false)
   private CompetitorDiscoveryService discoveryService;
@@ -55,37 +57,107 @@ public class MarketIntelligenceAdminController {
   @Value("${cost.optimization.enabled:true}")
   private boolean costOptimizationEnabled;
 
-  /** Get comprehensive Market Intelligence dashboard */
+  /** Get comprehensive Market Intelligence dashboard with intelligent caching */
   @GetMapping("/dashboard")
-  public ResponseEntity<Map<String, Object>> getDashboard() {
+  public ResponseEntity<Map<String, Object>> getDashboard(
+      @RequestParam(value = "shop", required = false) String shopDomain) {
     try {
+      // Use default shop if not provided (for admin dashboard)
+      if (shopDomain == null || shopDomain.trim().isEmpty()) {
+        shopDomain = "admin";
+      }
+
+      // Try to get dashboard from cache first
+      Optional<Object> cachedDashboard =
+          marketIntelligenceCacheService.getCachedDashboard(shopDomain);
+      if (cachedDashboard.isPresent()) {
+        log.debug("Returning cached dashboard for shop: {}", shopDomain);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> dashboard = (Map<String, Object>) cachedDashboard.get();
+        dashboard.put("cached", true);
+        dashboard.put("cacheSource", "redis");
+        return ResponseEntity.ok(dashboard);
+      }
+
+      // Cache miss - build dashboard from fresh data
+      log.info("Cache miss for dashboard, building fresh data for shop: {}", shopDomain);
+      marketIntelligenceCacheService.recordDatabaseCall();
+
       Map<String, Object> dashboard = new HashMap<>();
 
-      // System status
-      dashboard.put("systemStatus", getSystemStatus());
+      // System status (check cache first)
+      Optional<Object> cachedSystemStatus =
+          marketIntelligenceCacheService.getCachedSystemStatus(shopDomain);
+      if (cachedSystemStatus.isPresent()) {
+        dashboard.put("systemStatus", cachedSystemStatus.get());
+      } else {
+        Object systemStatus = getSystemStatus();
+        dashboard.put("systemStatus", systemStatus);
+        marketIntelligenceCacheService.cacheSystemStatus(shopDomain, systemStatus);
+      }
 
-      // Cost analytics
+      // Cost analytics (check cache first)
       if (costOptimizationEnabled) {
-        dashboard.put("costAnalytics", costOptimizationService.getCostAnalytics());
+        Optional<Object> cachedCostAnalytics =
+            marketIntelligenceCacheService.getCachedCostAnalytics(shopDomain);
+        if (cachedCostAnalytics.isPresent()) {
+          dashboard.put("costAnalytics", cachedCostAnalytics.get());
+        } else {
+          Object costAnalytics = costOptimizationService.getCostAnalytics();
+          dashboard.put("costAnalytics", costAnalytics);
+          marketIntelligenceCacheService.cacheCostAnalytics(shopDomain, costAnalytics);
+        }
         dashboard.put(
             "costRecommendations", costOptimizationService.getOptimizationRecommendations());
       }
 
-      // Discovery stats
+      // Discovery stats (check cache first)
       if (discoveryEnabled && discoveryService != null) {
-        dashboard.put("discoveryStats", discoveryService.getDiscoveryStats());
+        Optional<Object> cachedDiscoveryStats =
+            marketIntelligenceCacheService.getCachedDiscoveryStats(shopDomain);
+        if (cachedDiscoveryStats.isPresent()) {
+          dashboard.put("discoveryStats", cachedDiscoveryStats.get());
+        } else {
+          Object discoveryStats = discoveryService.getDiscoveryStats();
+          dashboard.put("discoveryStats", discoveryStats);
+          marketIntelligenceCacheService.cacheDiscoveryStats(shopDomain, discoveryStats);
+        }
       }
 
-      // Provider stats
+      // Provider stats (check cache first)
       if (multiSourceSearchClient != null) {
-        dashboard.put("providerStats", multiSourceSearchClient.getProviderStats());
+        Optional<Object> cachedProviderStats =
+            marketIntelligenceCacheService.getCachedProviderStats(shopDomain);
+        if (cachedProviderStats.isPresent()) {
+          dashboard.put("providerStats", cachedProviderStats.get());
+        } else {
+          Object providerStats = multiSourceSearchClient.getProviderStats();
+          dashboard.put("providerStats", providerStats);
+          marketIntelligenceCacheService.cacheProviderStats(shopDomain, providerStats);
+        }
       }
 
-      // Database stats
+      // Database stats (always fresh for monitoring purposes)
       dashboard.put("databaseStats", getDatabaseStats());
 
-      // Performance metrics
-      dashboard.put("performanceMetrics", getPerformanceMetrics());
+      // Performance metrics (check cache first)
+      Optional<Object> cachedPerformanceMetrics =
+          marketIntelligenceCacheService.getCachedPerformanceMetrics(shopDomain);
+      if (cachedPerformanceMetrics.isPresent()) {
+        dashboard.put("performanceMetrics", cachedPerformanceMetrics.get());
+      } else {
+        Object performanceMetrics = getPerformanceMetrics();
+        dashboard.put("performanceMetrics", performanceMetrics);
+        marketIntelligenceCacheService.cachePerformanceMetrics(shopDomain, performanceMetrics);
+      }
+
+      // Add cache metadata
+      dashboard.put("cached", false);
+      dashboard.put("cacheSource", "fresh");
+      dashboard.put("generatedAt", System.currentTimeMillis());
+
+      // Cache the complete dashboard
+      marketIntelligenceCacheService.cacheDashboard(shopDomain, dashboard);
 
       return ResponseEntity.ok(dashboard);
 
@@ -93,6 +165,48 @@ public class MarketIntelligenceAdminController {
       log.error("Error getting Market Intelligence dashboard: {}", e.getMessage(), e);
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
           .body(Map.of("error", "Failed to load dashboard: " + e.getMessage()));
+    }
+  }
+
+  /** Get Market Intelligence cache statistics */
+  @GetMapping("/cache/stats")
+  public ResponseEntity<Map<String, Object>> getCacheStatistics() {
+    try {
+      Map<String, Object> stats = marketIntelligenceCacheService.getCacheStatistics();
+      return ResponseEntity.ok(stats);
+    } catch (Exception e) {
+      log.error("Error getting cache statistics: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to get cache statistics: " + e.getMessage()));
+    }
+  }
+
+  /** Reset Market Intelligence cache statistics */
+  @PostMapping("/cache/reset-stats")
+  public ResponseEntity<Map<String, Object>> resetCacheStatistics() {
+    try {
+      marketIntelligenceCacheService.resetCacheStatistics();
+      return ResponseEntity.ok(
+          Map.of("success", true, "message", "Cache statistics reset successfully"));
+    } catch (Exception e) {
+      log.error("Error resetting cache statistics: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to reset cache statistics: " + e.getMessage()));
+    }
+  }
+
+  /** Invalidate cache for a specific shop */
+  @PostMapping("/cache/invalidate")
+  public ResponseEntity<Map<String, Object>> invalidateShopCache(
+      @RequestParam("shop") String shopDomain) {
+    try {
+      marketIntelligenceCacheService.invalidateShopCache(shopDomain);
+      return ResponseEntity.ok(
+          Map.of("success", true, "message", "Cache invalidated for shop: " + shopDomain));
+    } catch (Exception e) {
+      log.error("Error invalidating cache for shop {}: {}", shopDomain, e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to invalidate cache: " + e.getMessage()));
     }
   }
 
