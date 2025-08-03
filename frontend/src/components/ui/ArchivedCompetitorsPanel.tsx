@@ -33,7 +33,9 @@ import {
   Visibility as ViewIcon,
   History as HistoryIcon,
   TrendingUp as TrendingUpIcon,
-  OpenInNew as OpenInNewIcon
+  OpenInNew as OpenInNewIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon
 } from '@mui/icons-material';
 import { useNotifications } from '../../hooks/useNotifications';
 import { fetchWithAuth } from '../../api';
@@ -73,6 +75,13 @@ const StyledTableContainer = styled(TableContainer)(({ theme }) => ({
   boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
   overflow: 'hidden',
   backgroundColor: theme.palette.background.paper,
+  '@media (max-width: 600px)': {
+    borderRadius: 12,
+    margin: '0 -8px',
+    '& .MuiTable-root': {
+      minWidth: 'auto',
+    },
+  },
 }));
 
 const StyledTableHead = styled(TableHead)(({ theme }) => ({
@@ -478,23 +487,33 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
           p: 2,
           borderBottom: '1px solid',
           borderColor: 'divider',
-          backgroundColor: 'background.paper'
-        }}>
+          backgroundColor: 'background.paper',
+          cursor: onToggleCollapse ? 'pointer' : 'default',
+          '&:hover': onToggleCollapse ? {
+            backgroundColor: 'action.hover'
+          } : {}
+        }}
+        onClick={onToggleCollapse}
+      >
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             {onToggleCollapse && (
               <IconButton
-                onClick={onToggleCollapse}
-                size="small"
-                sx={{ color: 'text.secondary' }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleCollapse();
+                }}
+                size="medium"
+                sx={{ 
+                  color: 'text.secondary',
+                  minWidth: 44,
+                  minHeight: 44,
+                  '@media (max-width: 600px)': {
+                    minWidth: 48,
+                    minHeight: 48,
+                  }
+                }}
               >
-                <svg
-                  className={`w-4 h-4 transform transition-transform ${isCollapsed ? 'rotate-180' : ''}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
+                {isCollapsed ? <ExpandMoreIcon /> : <ExpandLessIcon />}
               </IconButton>
             )}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
