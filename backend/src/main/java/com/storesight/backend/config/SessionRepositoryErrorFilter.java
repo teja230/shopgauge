@@ -20,7 +20,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * <p>This filter works in conjunction with SessionConfig.SessionErrorHandlingFilter to provide
  * multiple layers of protection against session invalidation errors.
  */
-@Order(Ordered.HIGHEST_PRECEDENCE - 10) // Run before SessionRepositoryFilter to catch errors early
+@Order(Ordered.HIGHEST_PRECEDENCE + 10) // Run after SessionRepositoryFilter to catch its errors
 public class SessionRepositoryErrorFilter extends OncePerRequestFilter {
 
   private static final Logger logger = LoggerFactory.getLogger(SessionRepositoryErrorFilter.class);
@@ -43,6 +43,13 @@ public class SessionRepositoryErrorFilter extends OncePerRequestFilter {
     } catch (IllegalStateException e) {
       // Only handle session invalidation errors, delegate others to GlobalSessionExceptionHandler
       if (isSessionError(e)) {
+        // Log at appropriate level based on whether this is expected
+        boolean isExpected = isExpectedSessionExpiration(request, e);
+        if (isExpected) {
+          logger.debug("Expected session invalidation caught in filter: {}", e.getMessage());
+        } else {
+          logger.warn("Unexpected session invalidation caught in filter: {}", e.getMessage());
+        }
         handleSessionError(request, response, e, responseWritten, requestId);
       } else {
         // For non-session IllegalStateExceptions, let GlobalSessionExceptionHandler handle them
@@ -56,8 +63,12 @@ public class SessionRepositoryErrorFilter extends OncePerRequestFilter {
       }
     } catch (org.springframework.data.redis.RedisSystemException e) {
       // Handle Redis system exceptions as session errors - this is the key fix
-      logger.debug(
-          "Redis system exception caught in SessionRepositoryErrorFilter: {}", e.getMessage());
+      boolean isExpected = isExpectedSessionExpiration(request, e);
+      if (isExpected) {
+        logger.debug("Expected Redis session error caught in filter: {}", e.getMessage());
+      } else {
+        logger.warn("Unexpected Redis session error caught in filter: {}", e.getMessage());
+      }
       handleSessionError(request, response, e, responseWritten, requestId);
     } catch (Exception e) {
       if (isSessionError(e)) {
