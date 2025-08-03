@@ -2862,57 +2862,29 @@ export default function CompetitorsPage() {
             <div className="space-y-4">
               {/* Active Competitors Section */}
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-                {!activeSectionCollapsed && (
-            <div className="overflow-x-auto competitor-table">
-                    <CompetitorTable 
-                      data={filteredCompetitors} 
-                      onDelete={handleDelete} 
-                      onLinkProduct={handleLinkProduct}
-                      onViewGraph={(competitor) => {
-                        setSelectedCompetitorForGraph(competitor);
-                        setShowGraphView(true);
-                      }}
-                      sectionTitle="Active"
-                      sectionCount={filteredCompetitors.length}
-                      sectionColor="green"
-                      onToggleCollapse={() => setActiveSectionCollapsed(!activeSectionCollapsed)}
-                      isCollapsed={activeSectionCollapsed}
-                      onRefreshPrices={() => {
-                        // Refresh the competitors data
-                        fetchData();
-                      }}
-                      highlightedCompetitorId={highlightedCompetitorId}
-                      highlightAction={highlightAction}
-                    />
-            </div>
-          )}
-                {activeSectionCollapsed && (
-                  <div className="flex items-center justify-between p-4">
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => setActiveSectionCollapsed(!activeSectionCollapsed)}
-                        className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
-                      >
-                        <svg
-                          className={`w-4 h-4 transform transition-transform ${activeSectionCollapsed ? 'rotate-180' : ''}`}
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </button>
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                        <span className="text-sm font-medium text-gray-700">Active</span>
-                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-                          {filteredCompetitors.length}
-                        </span>
-        </div>
-                    </div>
-                  </div>
-                )}
-      </div>
+                <div className="overflow-x-auto competitor-table">
+                  <CompetitorTable 
+                    data={filteredCompetitors} 
+                    onDelete={handleDelete} 
+                    onLinkProduct={handleLinkProduct}
+                    onViewGraph={(competitor) => {
+                      setSelectedCompetitorForGraph(competitor);
+                      setShowGraphView(true);
+                    }}
+                    sectionTitle="Active"
+                    sectionCount={filteredCompetitors.length}
+                    sectionColor="green"
+                    onToggleCollapse={() => setActiveSectionCollapsed(!activeSectionCollapsed)}
+                    isCollapsed={activeSectionCollapsed}
+                    onRefreshPrices={() => {
+                      // Refresh the competitors data
+                      fetchData();
+                    }}
+                    highlightedCompetitorId={highlightedCompetitorId}
+                    highlightAction={highlightAction}
+                  />
+                </div>
+              </div>
               
               {/* Archived Competitors Panel */}
               {showDeletedCompetitors && (
