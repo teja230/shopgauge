@@ -1127,7 +1127,7 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({
       return newSet;
     });
     
-    // Remove highlight after 2 seconds
+    // Remove highlight after 3 seconds (increased from 2 seconds)
     setTimeout(() => {
       setHighlightedRows(prev => {
         const newSet = new Set(prev);
@@ -1135,7 +1135,7 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({
         debugLog.info('Removed highlight for', { competitorId: competitorIdStr }, 'CompetitorTable');
         return newSet;
       });
-    }, 2000);
+    }, 3000);
   };
 
   // Handle external highlighting from props

@@ -62,6 +62,8 @@ interface ArchivedCompetitorsPanelProps {
   archivedLimit?: number;
   archivedCurrent?: number;
   refreshTrigger?: number; // Triggers refresh when value changes
+  highlightedCompetitorId?: string | number; // External highlighting support
+  highlightAction?: 'add' | 'archive' | 'restore'; // External highlighting support
 }
 
 // Styled components to match CompetitorTable
@@ -134,6 +136,8 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
   archivedLimit,
   archivedCurrent,
   refreshTrigger,
+  highlightedCompetitorId,
+  highlightAction,
 }) => {
   const [deletedCompetitors, setDeletedCompetitors] = useState<ArchivedCompetitor[]>([]);
   const [loading, setLoading] = useState(true);
@@ -162,17 +166,18 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
   const notifications = useNotifications();
 
   // Function to highlight a row briefly
-  const highlightRow = (competitorId: string, color: 'success' | 'warning') => {
-    setHighlightedRows(prev => new Set([...prev, competitorId]));
+  const highlightRow = (competitorId: string | number, color: 'success' | 'warning') => {
+    const competitorIdStr = String(competitorId);
+    setHighlightedRows(prev => new Set([...prev, competitorIdStr]));
     
-    // Remove highlight after 2 seconds
+    // Remove highlight after 3 seconds (increased from 2 seconds)
     setTimeout(() => {
       setHighlightedRows(prev => {
         const newSet = new Set(prev);
-        newSet.delete(competitorId);
+        newSet.delete(competitorIdStr);
         return newSet;
       });
-    }, 2000);
+    }, 3000);
   };
 
   useEffect(() => {
@@ -191,6 +196,26 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
       loadDeletedCompetitors();
     }
   }, [refreshTrigger]);
+
+  // Handle external highlighting from props
+  useEffect(() => {
+    if (highlightedCompetitorId && highlightAction) {
+      // Determine color based on action
+      let color: 'success' | 'warning';
+      
+      if (highlightAction === 'add') {
+        color = 'success'; // Green for adding
+      } else if (highlightAction === 'archive') {
+        color = 'warning'; // Orange for archiving
+      } else if (highlightAction === 'restore') {
+        color = 'success'; // Green for restoring
+      } else {
+        color = 'success';
+      }
+      
+      highlightRow(highlightedCompetitorId, color);
+    }
+  }, [highlightedCompetitorId, highlightAction]);
 
   const loadDeletedCompetitors = async () => {
     try {

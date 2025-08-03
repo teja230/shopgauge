@@ -2930,6 +2930,8 @@ export default function CompetitorsPage() {
                       archivedLimit={limits?.archivedCompetitorLimit?.limit}
                       archivedCurrent={limits?.archivedCompetitorLimit?.currentCount}
                       refreshTrigger={archivedRefreshTrigger}
+                      highlightedCompetitorId={highlightedCompetitorId}
+                      highlightAction={highlightAction}
                     />
                   </div>
                 </div>
