@@ -7,6 +7,7 @@ import static org.mockito.Mockito.*;
 import com.storesight.backend.service.CostOptimizationService;
 import com.storesight.backend.service.DataPrivacyService;
 import com.storesight.backend.service.DatabaseMonitoringService;
+import com.storesight.backend.service.MarketIntelligenceCacheService;
 import com.storesight.backend.service.RedisHealthService;
 import com.storesight.backend.service.TransactionMonitoringService;
 import com.storesight.backend.service.discovery.CompetitorDiscoveryService;
@@ -32,6 +33,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 class MarketIntelligenceAdminControllerTest {
 
   @Mock private CostOptimizationService costOptimizationService;
+  @Mock private MarketIntelligenceCacheService marketIntelligenceCacheService;
   @Mock private CompetitorDiscoveryService discoveryService;
   @Mock private MultiSourceSearchClient multiSourceSearchClient;
   @Mock private JdbcTemplate jdbcTemplate;
@@ -75,8 +77,23 @@ class MarketIntelligenceAdminControllerTest {
     when(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM price_snapshots", Integer.class))
         .thenReturn(100);
 
+    // Mock cache service to return empty cache (cache miss)
+    when(marketIntelligenceCacheService.getCachedDashboard(anyString()))
+        .thenReturn(Optional.empty());
+    when(marketIntelligenceCacheService.getCachedSystemStatus(anyString()))
+        .thenReturn(Optional.empty());
+    when(marketIntelligenceCacheService.getCachedCostAnalytics(anyString()))
+        .thenReturn(Optional.empty());
+    when(marketIntelligenceCacheService.getCachedDiscoveryStats(anyString()))
+        .thenReturn(Optional.empty());
+    when(marketIntelligenceCacheService.getCachedProviderStats(anyString()))
+        .thenReturn(Optional.empty());
+    when(marketIntelligenceCacheService.getCachedPerformanceMetrics(anyString()))
+        .thenReturn(Optional.empty());
+
     // When
-    ResponseEntity<Map<String, Object>> response = controller.getDashboard();
+    ResponseEntity<Map<String, Object>> response =
+        controller.getDashboard("test-shop.myshopify.com");
 
     // Then
     assertEquals(HttpStatus.OK, response.getStatusCode());
