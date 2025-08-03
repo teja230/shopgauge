@@ -271,8 +271,9 @@ public class InputValidationService {
   }
 
   /** Check if host is localhost or private IP */
-  private static final Pattern PRIVATE_IP_PATTERN = Pattern.compile(
-      "^(10\\.|192\\.168\\.|172\\.(1[6-9]|2[0-9]|3[0-1])\\.|127\\.|0\\.|::1|fc00:|fd00:).*");
+  private static final Pattern PRIVATE_IP_PATTERN =
+      Pattern.compile(
+          "^(10\\.|192\\.168\\.|172\\.(1[6-9]|2[0-9]|3[0-1])\\.|127\\.|0\\.|::1|fc00:|fd00:).*");
 
   private boolean isLocalOrPrivateHost(String host) {
     return PRIVATE_IP_PATTERN.matcher(host).find();
