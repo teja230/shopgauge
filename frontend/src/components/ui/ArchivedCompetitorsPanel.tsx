@@ -478,14 +478,29 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
           p: 2,
           borderBottom: '1px solid',
           borderColor: 'divider',
-          backgroundColor: 'background.paper'
+          backgroundColor: 'background.paper',
+          '@media (max-width: 600px)': {
+            p: 2.5,
+            minHeight: 56
+          }
         }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             {onToggleCollapse && (
               <IconButton
                 onClick={onToggleCollapse}
                 size="small"
-                sx={{ color: 'text.secondary' }}
+                sx={{ 
+                  color: 'text.secondary',
+                  minWidth: 44,
+                  minHeight: 44,
+                  '&:hover': {
+                    color: 'text.primary'
+                  },
+                  '@media (max-width: 600px)': {
+                    minWidth: 48,
+                    minHeight: 48,
+                  }
+                }}
               >
                 <svg
                   className={`w-4 h-4 transform transition-transform ${isCollapsed ? 'rotate-180' : ''}`}
