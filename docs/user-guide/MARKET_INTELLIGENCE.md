@@ -2348,3 +2348,330 @@ Even if `{PROVIDER}_ENABLED=true`, the provider will be disabled if:
 ---
 
 **This tiered architecture provides a scalable, cost-optimized foundation for market intelligence that grows with business needs while maintaining profitability across all plan levels.** 🚀 
+
+## 🚀 **Enhanced Architecture with Optimization Implementation**
+
+### **Complete System Architecture (2024)**
+
+```mermaid
+graph TB
+    subgraph "Frontend Layer"
+        UI[Competitors Page]
+        ADMIN_UI[Admin Dashboard]
+        OPT_UI[Optimization Panel]
+        API[Market Intelligence API]
+        CACHE[Cache Utils]
+    end
+    
+    subgraph "API Gateway"
+        CONTROLLER[CompetitorController]
+        ADMIN[MarketIntelligenceAdminController]
+        LIMITS[CompetitorLimitService]
+    end
+    
+    subgraph "Optimization Services"
+        CACHE_SVC[MarketIntelligenceCacheService]
+        BATCH_SVC[MarketIntelligenceBatchService]
+        WRITE_SVC[MarketIntelligenceWriteService]
+        EVENT_SVC[MarketIntelligenceEventHandler]
+        WARMING_SVC[MarketIntelligenceCacheWarmingService]
+    end
+    
+    subgraph "Core Services"
+        KEYWORDS[ProductAwareKeywordBuilder]
+        DISCOVERY[CompetitorDiscoveryService]
+        SCRAPER[CompetitorScraperWorker]
+        COST[CostOptimizationService]
+    end
+    
+    subgraph "Data Layer"
+        CACHE_REDIS[(Redis Cache)]
+        DB[(PostgreSQL)]
+        PRODUCTS[Product Cache]
+        MATERIALIZED_VIEWS[Materialized Views]
+    end
+    
+    subgraph "External APIs"
+        SHOPIFY[Shopify API]
+        SCRAPINGDOG[Scrapingdog]
+        SERPER[Serper]
+        SERPAPI[SerpAPI]
+    end
+    
+    %% Frontend connections
+    UI --> API
+    ADMIN_UI --> API
+    OPT_UI --> API
+    
+    %% API Gateway connections
+    API --> CONTROLLER
+    API --> ADMIN
+    CONTROLLER --> LIMITS
+    
+    %% Optimization services connections
+    ADMIN --> CACHE_SVC
+    ADMIN --> BATCH_SVC
+    ADMIN --> WRITE_SVC
+    ADMIN --> EVENT_SVC
+    ADMIN --> WARMING_SVC
+    
+    %% Core services connections
+    CONTROLLER --> DISCOVERY
+    CONTROLLER --> SCRAPER
+    DISCOVERY --> KEYWORDS
+    KEYWORDS --> PRODUCTS
+    PRODUCTS --> SHOPIFY
+    PRODUCTS --> CACHE_REDIS
+    
+    DISCOVERY --> COST
+    COST --> SCRAPINGDOG
+    COST --> SERPER
+    COST --> SERPAPI
+    
+    %% Data layer connections
+    SCRAPER --> DB
+    SCRAPER --> CACHE_REDIS
+    LIMITS --> DB
+    ADMIN --> COST
+    ADMIN --> DB
+    
+    %% Optimization data connections
+    CACHE_SVC --> CACHE_REDIS
+    BATCH_SVC --> DB
+    WRITE_SVC --> DB
+    WRITE_SVC --> CACHE_REDIS
+    EVENT_SVC --> CACHE_REDIS
+    WARMING_SVC --> CACHE_REDIS
+    WARMING_SVC --> DB
+    MATERIALIZED_VIEWS --> DB
+```
+
+### **Multi-Tier Caching Architecture**
+
+```mermaid
+graph TB
+    subgraph "L1 Cache (Frontend)"
+        SESSION[Session Storage]
+        LOCAL[Local Storage]
+    end
+    
+    subgraph "L2 Cache (Backend)"
+        REDIS[(Redis Cache)]
+        CACHE_SVC[MarketIntelligenceCacheService]
+    end
+    
+    subgraph "L3 Cache (Database)"
+        DB[(PostgreSQL)]
+        MATERIALIZED[Materialized Views]
+        DB_CACHE[Database Cache]
+    end
+    
+    subgraph "Cache Warming"
+        WARMING[Cache Warming Service]
+        SCHEDULER[Scheduled Tasks]
+        TRIGGER[Manual Triggers]
+    end
+    
+    subgraph "Cache Invalidation"
+        EVENT[Event Handler]
+        WRITE[Write Service]
+        BATCH[Batch Service]
+    end
+    
+    %% Cache flow
+    SESSION --> REDIS
+    LOCAL --> REDIS
+    REDIS --> CACHE_SVC
+    CACHE_SVC --> DB
+    DB --> MATERIALIZED
+    DB --> DB_CACHE
+    
+    %% Warming flow
+    WARMING --> REDIS
+    SCHEDULER --> WARMING
+    TRIGGER --> WARMING
+    
+    %% Invalidation flow
+    EVENT --> REDIS
+    WRITE --> REDIS
+    BATCH --> REDIS
+```
+
+### **Optimization Flow Architecture**
+
+```mermaid
+sequenceDiagram
+    participant User as User
+    participant UI as Frontend
+    participant API as Backend API
+    participant Cache as Cache Service
+    participant Batch as Batch Service
+    participant Write as Write Service
+    participant Event as Event Handler
+    participant Warming as Warming Service
+    participant Redis as Redis Cache
+    participant DB as Database
+    
+    User->>UI: Access Market Intelligence
+    UI->>API: GET /dashboard
+    API->>Cache: Check Cache
+    alt Cache Hit
+        Cache->>API: Return Cached Data
+    else Cache Miss
+        API->>DB: Fetch Fresh Data
+        DB->>API: Data
+        API->>Cache: Store in Cache
+    end
+    API->>UI: Dashboard Data
+    
+    User->>UI: Add Competitor
+    UI->>API: POST /competitors
+    API->>Write: Process Write Operation
+    Write->>DB: Store Competitor
+    Write->>Cache: Invalidate Related Caches
+    Write->>Event: Publish Event
+    Event->>Cache: Invalidate Specific Caches
+    API->>UI: Success Response
+    
+    User->>UI: Trigger Batch Processing
+    UI->>API: POST /batch/process
+    API->>Batch: Queue Operations
+    Batch->>DB: Process Batch
+    Batch->>Cache: Update Cache
+    API->>UI: Batch Complete
+    
+    User->>UI: Trigger Cache Warming
+    UI->>API: POST /warming/trigger
+    API->>Warming: Warm Cache
+    Warming->>DB: Fetch Critical Data
+    Warming->>Redis: Pre-load Cache
+    API->>UI: Warming Complete
+```
+
+### **Memory Profile Optimization Architecture**
+
+```mermaid
+graph TB
+    subgraph "512MB Memory Profile"
+        THROTTLE[Request Throttling]
+        BATCH[Batch Processing]
+        COMPRESS[Cache Compression]
+        EVICT[Smart Eviction]
+    end
+    
+    subgraph "Memory Management"
+        MONITOR[Memory Monitor]
+        LIMITS[Memory Limits]
+        ALERTS[Memory Alerts]
+    end
+    
+    subgraph "Performance Optimization"
+        ASYNC[Async Processing]
+        QUEUE[Queue Management]
+        CACHE[Cache Optimization]
+    end
+    
+    subgraph "Resource Allocation"
+        REDIS_MEM[Redis Memory: 128MB]
+        APP_MEM[App Memory: 256MB]
+        DB_MEM[DB Memory: 128MB]
+    end
+    
+    THROTTLE --> MONITOR
+    BATCH --> MONITOR
+    COMPRESS --> MONITOR
+    EVICT --> MONITOR
+    
+    MONITOR --> LIMITS
+    LIMITOR --> ALERTS
+    
+    ASYNC --> QUEUE
+    QUEUE --> CACHE
+    
+    REDIS_MEM --> LIMITS
+    APP_MEM --> LIMITS
+    DB_MEM --> LIMITS
+```
+
+### **Event-Driven Cache Invalidation Architecture**
+
+```mermaid
+stateDiagram-v2
+    [*] --> Idle
+    
+    Idle --> WriteOperation: User Action
+    WriteOperation --> CacheInvalidation: Event Triggered
+    CacheInvalidation --> CacheUpdate: Invalidate Specific Keys
+    CacheUpdate --> CacheWarming: Check Warming Needed
+    CacheWarming --> Idle: Warming Complete
+    
+    Idle --> BatchProcessing: Scheduled/Manual
+    BatchProcessing --> CacheUpdate: Batch Complete
+    CacheUpdate --> Idle: Update Complete
+    
+    Idle --> ManualWarming: Admin Trigger
+    ManualWarming --> CacheWarming: Priority Set
+    CacheWarming --> Idle: Warming Complete
+    
+    WriteOperation --> Error: Operation Failed
+    Error --> Idle: Error Handled
+    
+    CacheInvalidation --> Error: Invalidation Failed
+    Error --> Idle: Error Handled
+```
+
+### **Admin Panel Architecture**
+
+```mermaid
+graph TB
+    subgraph "Admin Interface"
+        DASHBOARD[Market Intelligence Dashboard]
+        OPT_PANEL[Optimization Panel]
+        CACHE_MGMT[Cache Management]
+        BATCH_MGMT[Batch Management]
+        WARMING_MGMT[Cache Warming]
+    end
+    
+    subgraph "Monitoring Services"
+        STATS[Statistics Service]
+        HEALTH[Health Checks]
+        METRICS[Performance Metrics]
+    end
+    
+    subgraph "Control Services"
+        RESET[Reset Services]
+        TRIGGER[Trigger Services]
+        CLEAR[Clear Services]
+    end
+    
+    subgraph "Data Sources"
+        CACHE_DATA[Cache Statistics]
+        BATCH_DATA[Batch Statistics]
+        WRITE_DATA[Write Statistics]
+        WARMING_DATA[Warming Statistics]
+    end
+    
+    DASHBOARD --> STATS
+    OPT_PANEL --> STATS
+    CACHE_MGMT --> STATS
+    BATCH_MGMT --> STATS
+    WARMING_MGMT --> STATS
+    
+    STATS --> CACHE_DATA
+    STATS --> BATCH_DATA
+    STATS --> WRITE_DATA
+    STATS --> WARMING_DATA
+    
+    CACHE_MGMT --> RESET
+    BATCH_MGMT --> RESET
+    WARMING_MGMT --> RESET
+    
+    CACHE_MGMT --> TRIGGER
+    BATCH_MGMT --> TRIGGER
+    WARMING_MGMT --> TRIGGER
+    
+    CACHE_MGMT --> CLEAR
+    BATCH_MGMT --> CLEAR
+```
+
+### Data Flow Architecture
