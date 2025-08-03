@@ -179,14 +179,14 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
     const competitorIdStr = String(competitorId);
     setHighlightedRows(prev => new Set([...prev, competitorIdStr]));
     
-    // Remove highlight after 3 seconds (increased from 2 seconds)
+    // Remove highlight after 5 seconds (industry standard for UI feedback)
     setTimeout(() => {
       setHighlightedRows(prev => {
         const newSet = new Set(prev);
         newSet.delete(competitorIdStr);
         return newSet;
       });
-    }, 3000);
+    }, 5000);
   };
 
   useEffect(() => {
