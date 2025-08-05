@@ -2,6 +2,7 @@ package com.storesight.backend.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.storesight.backend.service.MarketIntelligenceCacheTypes.*;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -267,82 +268,87 @@ public class MarketIntelligenceCacheService {
   // CACHE OPERATIONS FOR DIFFERENT DATA TYPES
   // =====================================
 
-  /** Cache dashboard data */
+  /** Cache dashboard data (accepts Object for backward compatibility, DashboardData preferred) */
   public void cacheDashboard(String shopDomain, Object data) {
     cacheData(DASHBOARD_CACHE_PREFIX + shopDomain, data, shopDomain, DASHBOARD_TTL);
   }
 
-  /** Get cached dashboard data */
+  /** Get cached dashboard data (returns Object for backward compatibility) */
   public Optional<Object> getCachedDashboard(String shopDomain) {
     return getCachedData(DASHBOARD_CACHE_PREFIX + shopDomain, Object.class);
   }
 
-  /** Cache cost analytics data */
+  /**
+   * Cache cost analytics data (accepts Object for backward compatibility, CostAnalytics preferred)
+   */
   public void cacheCostAnalytics(String shopDomain, Object data) {
     cacheData(COST_ANALYTICS_PREFIX + shopDomain, data, shopDomain, COST_ANALYTICS_TTL);
   }
 
-  /** Get cached cost analytics */
+  /** Get cached cost analytics (returns Object for backward compatibility) */
   public Optional<Object> getCachedCostAnalytics(String shopDomain) {
     return getCachedData(COST_ANALYTICS_PREFIX + shopDomain, Object.class);
   }
 
-  /** Cache discovery stats */
+  /** Cache discovery stats (accepts Object for backward compatibility, DiscoveryStats preferred) */
   public void cacheDiscoveryStats(String shopDomain, Object data) {
     cacheData(DISCOVERY_STATS_PREFIX + shopDomain, data, shopDomain, DISCOVERY_STATS_TTL);
   }
 
-  /** Get cached discovery stats */
+  /** Get cached discovery stats (returns Object for backward compatibility) */
   public Optional<Object> getCachedDiscoveryStats(String shopDomain) {
     return getCachedData(DISCOVERY_STATS_PREFIX + shopDomain, Object.class);
   }
 
-  /** Cache provider stats */
+  /** Cache provider stats (accepts Object for backward compatibility, ProviderStats preferred) */
   public void cacheProviderStats(String shopDomain, Object data) {
     cacheData(PROVIDER_STATS_PREFIX + shopDomain, data, shopDomain, PROVIDER_STATS_TTL);
   }
 
-  /** Get cached provider stats */
+  /** Get cached provider stats (returns Object for backward compatibility) */
   public Optional<Object> getCachedProviderStats(String shopDomain) {
     return getCachedData(PROVIDER_STATS_PREFIX + shopDomain, Object.class);
   }
 
-  /** Cache competitor data */
+  /** Cache competitor data (accepts Object for backward compatibility, CompetitorData preferred) */
   public void cacheCompetitorData(String shopDomain, Object data) {
     cacheData(COMPETITOR_DATA_PREFIX + shopDomain, data, shopDomain, COMPETITOR_DATA_TTL);
   }
 
-  /** Get cached competitor data */
+  /** Get cached competitor data (returns Object for backward compatibility) */
   public Optional<Object> getCachedCompetitorData(String shopDomain) {
     return getCachedData(COMPETITOR_DATA_PREFIX + shopDomain, Object.class);
   }
 
-  /** Cache price history data */
+  /** Cache price history data (accepts Object for backward compatibility, PriceData preferred) */
   public void cachePriceHistory(String shopDomain, Object data) {
     cacheData(PRICE_HISTORY_PREFIX + shopDomain, data, shopDomain, PRICE_HISTORY_TTL);
   }
 
-  /** Get cached price history */
+  /** Get cached price history (returns Object for backward compatibility) */
   public Optional<Object> getCachedPriceHistory(String shopDomain) {
     return getCachedData(PRICE_HISTORY_PREFIX + shopDomain, Object.class);
   }
 
-  /** Cache performance metrics */
+  /**
+   * Cache performance metrics (accepts Object for backward compatibility, PerformanceMetrics
+   * preferred)
+   */
   public void cachePerformanceMetrics(String shopDomain, Object data) {
     cacheData(PERFORMANCE_METRICS_PREFIX + shopDomain, data, shopDomain, PERFORMANCE_METRICS_TTL);
   }
 
-  /** Get cached performance metrics */
+  /** Get cached performance metrics (returns Object for backward compatibility) */
   public Optional<Object> getCachedPerformanceMetrics(String shopDomain) {
     return getCachedData(PERFORMANCE_METRICS_PREFIX + shopDomain, Object.class);
   }
 
-  /** Cache system status */
+  /** Cache system status (accepts Object for backward compatibility, SystemStatus preferred) */
   public void cacheSystemStatus(String shopDomain, Object data) {
     cacheData(SYSTEM_STATUS_PREFIX + shopDomain, data, shopDomain, SYSTEM_STATUS_TTL);
   }
 
-  /** Get cached system status */
+  /** Get cached system status (returns Object for backward compatibility) */
   public Optional<Object> getCachedSystemStatus(String shopDomain) {
     return getCachedData(SYSTEM_STATUS_PREFIX + shopDomain, Object.class);
   }
@@ -351,7 +357,30 @@ public class MarketIntelligenceCacheService {
   // CORE CACHING METHODS
   // =====================================
 
-  /** Generic method to cache data */
+  /** Type-safe generic method to cache data */
+  private <T> void cacheTypedData(String key, T data, String shopDomain, Duration ttl) {
+    try {
+      if (!isRedisAvailable()) {
+        logger.warn("Redis not available, skipping cache for key: {}", key);
+        return;
+      }
+
+      CacheEntry<T> entry = new CacheEntry<>(data, shopDomain, ttl.toSeconds(), "redis");
+      String serializedData = objectMapper.writeValueAsString(entry);
+
+      enhancedRedisService.setWithTtl(key, serializedData, ttl);
+      enhancedRedisService.setWithTtl(key + METADATA_SUFFIX, serializedData, ttl);
+
+      logger.debug("Cached typed data for key: {} (TTL: {} minutes)", key, ttl.toMinutes());
+      recordCacheWrite();
+    } catch (JsonProcessingException e) {
+      logger.error("Failed to serialize typed data for caching key: {} - {}", key, e.getMessage());
+    } catch (Exception e) {
+      logger.warn("Failed to cache typed data for key: {} - {}", key, e.getMessage());
+    }
+  }
+
+  /** Generic method to cache data (backward compatibility) */
   private void cacheData(String key, Object data, String shopDomain, Duration ttl) {
     try {
       if (!isRedisAvailable()) {
@@ -374,7 +403,67 @@ public class MarketIntelligenceCacheService {
     }
   }
 
-  /** Generic method to get cached data */
+  /** Type-safe method to get cached data */
+  private <T> Optional<T> getCachedTypedData(String key, Class<T> dataType) {
+    try {
+      // Check if there's an active fetch for this key
+      if (activeFetches.containsKey(key)) {
+        logger.debug("Waiting for active fetch for key: {}", key);
+        CompletableFuture<Object> future = activeFetches.get(key);
+        if (future != null) {
+          Object result = future.get();
+          return Optional.of(dataType.cast(result));
+        }
+      }
+
+      // Use enhanced Redis service with circuit breaker
+      Optional<String> serializedDataOpt = enhancedRedisService.get(key);
+
+      if (serializedDataOpt.isEmpty()) {
+        logger.info("No cached data found for key: {} (cache miss)", key);
+        recordCacheMiss();
+        return Optional.empty();
+      }
+
+      String serializedData = serializedDataOpt.get();
+      // Use proper type handling with Jackson
+      CacheEntry<T> entry =
+          objectMapper.readValue(
+              serializedData,
+              objectMapper.getTypeFactory().constructParametricType(CacheEntry.class, dataType));
+
+      // Check if cache is expired
+      if (entry.isExpired()) {
+        logger.debug(
+            "Cache entry expired for key: {} (age: {} minutes)", key, entry.getAgeMinutes());
+        recordCacheMiss();
+        invalidateCache(key);
+        return Optional.empty();
+      }
+
+      logger.info(
+          "Cache hit for key: {} (age: {} minutes, source: {})",
+          key,
+          entry.getAgeMinutes(),
+          entry.getSource());
+      recordCacheHit();
+      return Optional.of(entry.getData());
+
+    } catch (JsonProcessingException e) {
+      logger.error("Failed to deserialize cached typed data for key: {} - {}", key, e.getMessage());
+      recordCacheMiss();
+      invalidateCache(key);
+      return Optional.empty();
+    } catch (Exception e) {
+      logger.warn(
+          "Redis unavailable for typed cache retrieval - falling back to fresh data: {}",
+          e.getMessage());
+      recordCacheMiss();
+      return Optional.empty();
+    }
+  }
+
+  /** Generic method to get cached data (backward compatibility) */
   private <T> Optional<T> getCachedData(String key, Class<T> dataType) {
     try {
       // Check if there's an active fetch for this key
