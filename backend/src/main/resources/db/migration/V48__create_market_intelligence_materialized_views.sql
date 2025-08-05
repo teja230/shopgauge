@@ -1,370 +1,220 @@
--- Market Intelligence Materialized Views for Performance Optimization
--- Phase 3: Advanced Features - Complex Analytics Views
+-- ====================================================================
+-- CORRECTED Market Intelligence Materialized Views Migration
+-- ====================================================================
+-- This migration creates materialized views for analytics dashboards
+-- using only tables that actually exist in the database schema.
+-- ====================================================================
 
--- =============================================
--- Cost Analytics Materialized View
--- =============================================
-
--- Create materialized view for market intelligence cost summary
-CREATE MATERIALIZED VIEW IF NOT EXISTS mv_market_intelligence_cost_summary AS
+-- Discovery Performance Summary View
+-- Uses competitor_urls and price_snapshots data for performance analytics
+CREATE MATERIALIZED VIEW mv_discovery_performance_summary AS
 SELECT 
-    shop_id,
-    DATE_TRUNC('day', created_at) as day,
-    provider,
-    SUM(daily_cost) as total_cost,
-    SUM(daily_requests) as total_requests,
-    COUNT(DISTINCT competitive_url_id) as unique_competitors,
-    AVG(daily_cost / NULLIF(daily_requests, 0)) as avg_cost_per_request,
-    MIN(daily_cost) as min_daily_cost,
-    MAX(daily_cost) as max_daily_cost,
-    COUNT(*) as total_records
-FROM market_intelligence_costs 
-WHERE created_at >= CURRENT_DATE - INTERVAL '30 days'
-GROUP BY shop_id, DATE_TRUNC('day', created_at), provider
-ORDER BY shop_id, day DESC, provider;
+    'discovery_performance' as metric_type,
+    COUNT(DISTINCT cu.id) as total_competitors,
+    COUNT(DISTINCT cu.shop_id) as total_shops,
+    COUNT(DISTINCT CASE WHEN cu.status = 'active' THEN cu.id END) as active_competitors,
+    COUNT(DISTINCT ps.id) as total_price_checks,
+    COALESCE(AVG(ps.response_time_ms), 0) as avg_response_time,
+    COUNT(DISTINCT CASE WHEN ps.checked_at > NOW() - INTERVAL '24 hours' THEN ps.id END) as recent_checks,
+    COUNT(DISTINCT CASE WHEN cu.error_count > 0 THEN cu.id END) as competitors_with_errors,
+    CURRENT_TIMESTAMP as last_updated
+FROM competitor_urls cu
+LEFT JOIN price_snapshots ps ON cu.id = ps.competitor_url_id AND ps.deleted_at IS NULL
+WHERE cu.deleted_at IS NULL;
 
--- Create unique index for fast lookups
-CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_mi_cost_summary_unique 
-ON mv_market_intelligence_cost_summary (shop_id, day, provider);
+-- Create index for performance
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_mv_discovery_performance_summary_last_updated 
+ON mv_discovery_performance_summary(last_updated);
 
--- Create additional indexes for common queries
-CREATE INDEX IF NOT EXISTS idx_mv_mi_cost_summary_shop_day 
-ON mv_market_intelligence_cost_summary (shop_id, day);
-
-CREATE INDEX IF NOT EXISTS idx_mv_mi_cost_summary_provider 
-ON mv_market_intelligence_cost_summary (provider);
-
--- =============================================
--- Competitor Performance Materialized View
--- =============================================
-
--- Create materialized view for competitor performance analytics
-CREATE MATERIALIZED VIEW IF NOT EXISTS mv_competitor_performance_summary AS
+-- Competitor Analytics Summary View  
+-- Aggregates competitor data by shop and platform
+CREATE MATERIALIZED VIEW mv_competitor_analytics_summary AS
 SELECT 
     cu.shop_id,
-    cu.id as competitor_id,
-    cu.url as competitor_url,
-    cu.label as competitor_label,
     cu.platform,
-    cu.scraper_source,
-    
-    -- Price statistics
-    COUNT(ps.id) as total_price_snapshots,
+    COUNT(cu.id) as competitor_count,
+    COUNT(CASE WHEN cu.status = 'active' THEN 1 END) as active_count,
+    COUNT(CASE WHEN cu.status = 'inactive' THEN 1 END) as inactive_count,
+    AVG(cu.error_count) as avg_error_count,
+    MAX(cu.last_successful_check) as last_successful_check,
+    COUNT(CASE WHEN cu.last_successful_check > NOW() - INTERVAL '24 hours' THEN 1 END) as recent_activity_count,
+    CURRENT_TIMESTAMP as last_updated
+FROM competitor_urls cu
+WHERE cu.deleted_at IS NULL
+GROUP BY cu.shop_id, cu.platform;
+
+-- Create index for performance
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_mv_competitor_analytics_summary_shop_platform 
+ON mv_competitor_analytics_summary(shop_id, platform);
+
+-- Price Analytics Summary View
+-- Aggregates price data for trend analysis
+CREATE MATERIALIZED VIEW mv_price_analytics_summary AS
+SELECT 
+    ps.competitor_url_id,
+    cu.shop_id,
+    cu.platform,
+    COUNT(ps.id) as total_price_checks,
     AVG(ps.price) as avg_price,
     MIN(ps.price) as min_price,
     MAX(ps.price) as max_price,
-    STDDEV(ps.price) as price_volatility,
-    
-    -- Recent price data (last 7 days)
-    COUNT(CASE WHEN ps.created_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END) as recent_snapshots,
-    AVG(CASE WHEN ps.created_at >= CURRENT_DATE - INTERVAL '7 days' THEN ps.price END) as recent_avg_price,
-    
-    -- Last successful scrape
-    MAX(ps.created_at) as last_price_update,
-    
-    -- Success rate calculation
-    COUNT(CASE WHEN ps.price IS NOT NULL AND ps.price > 0 THEN 1 END)::DECIMAL / NULLIF(COUNT(ps.id), 0) * 100 as success_rate,
-    
-    -- Status information
-    cu.is_active,
-    cu.deleted_at,
-    cu.created_at as competitor_added_date,
-    
-    -- Calculated fields
-    CASE 
-        WHEN cu.deleted_at IS NOT NULL THEN 'ARCHIVED'
-        WHEN MAX(ps.created_at) < CURRENT_DATE - INTERVAL '7 days' THEN 'STALE'
-        WHEN cu.is_active = true THEN 'ACTIVE'
-        ELSE 'INACTIVE'
-    END as status,
-    
-    -- Days since last update
-    EXTRACT(DAYS FROM (CURRENT_TIMESTAMP - MAX(ps.created_at))) as days_since_last_update
-
-FROM competitor_urls cu
-LEFT JOIN price_snapshots ps ON cu.id = ps.competitive_url_id
-WHERE cu.created_at >= CURRENT_DATE - INTERVAL '90 days'  -- Focus on recent competitors
-GROUP BY cu.shop_id, cu.id, cu.url, cu.label, cu.platform, cu.scraper_source, cu.is_active, cu.deleted_at, cu.created_at
-ORDER BY cu.shop_id, total_price_snapshots DESC;
-
--- Create indexes for competitor performance view
-CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_competitor_performance_unique 
-ON mv_competitor_performance_summary (shop_id, competitor_id);
-
-CREATE INDEX IF NOT EXISTS idx_mv_competitor_performance_shop_status 
-ON mv_competitor_performance_summary (shop_id, status);
-
-CREATE INDEX IF NOT EXISTS idx_mv_competitor_performance_platform 
-ON mv_competitor_performance_summary (platform);
-
-CREATE INDEX IF NOT EXISTS idx_mv_competitor_performance_last_update 
-ON mv_competitor_performance_summary (last_price_update);
-
--- =============================================
--- Price Trend Analytics Materialized View
--- =============================================
-
--- Create materialized view for price trend analysis
-CREATE MATERIALIZED VIEW IF NOT EXISTS mv_price_trend_analytics AS
-WITH price_changes AS (
-    SELECT 
-        ps.competitive_url_id,
-        cu.shop_id,
-        cu.platform,
-        ps.price,
-        ps.created_at,
-        LAG(ps.price) OVER (PARTITION BY ps.competitive_url_id ORDER BY ps.created_at) as prev_price,
-        LAG(ps.created_at) OVER (PARTITION BY ps.competitive_url_id ORDER BY ps.created_at) as prev_date
-    FROM price_snapshots ps
-    JOIN competitor_urls cu ON ps.competitive_url_id = cu.id
-    WHERE ps.created_at >= CURRENT_DATE - INTERVAL '30 days'
-    AND ps.price IS NOT NULL 
-    AND ps.price > 0
-),
-trend_calculations AS (
-    SELECT 
-        shop_id,
-        competitive_url_id,
-        platform,
-        created_at,
-        price,
-        prev_price,
-        CASE 
-            WHEN prev_price IS NOT NULL AND prev_price > 0 THEN
-                ((price - prev_price) / prev_price * 100)
-            ELSE 0
-        END as price_change_percent,
-        CASE 
-            WHEN prev_price IS NOT NULL THEN
-                EXTRACT(DAYS FROM (created_at - prev_date))
-            ELSE NULL
-        END as days_between_updates
-    FROM price_changes
-    WHERE prev_price IS NOT NULL
-)
-SELECT 
-    shop_id,
-    competitive_url_id,
-    platform,
-    DATE_TRUNC('day', created_at) as day,
-    
-    -- Price statistics for the day
-    COUNT(*) as daily_updates,
-    AVG(price) as avg_price,
-    MIN(price) as min_price,
-    MAX(price) as max_price,
-    
-    -- Price change statistics
-    AVG(price_change_percent) as avg_price_change_percent,
-    MIN(price_change_percent) as min_price_change_percent,
-    MAX(price_change_percent) as max_price_change_percent,
-    COUNT(CASE WHEN price_change_percent > 5 THEN 1 END) as significant_increases,
-    COUNT(CASE WHEN price_change_percent < -5 THEN 1 END) as significant_decreases,
-    
-    -- Update frequency
-    AVG(days_between_updates) as avg_days_between_updates,
-    
-    -- Trend indicators
-    CASE 
-        WHEN AVG(price_change_percent) > 2 THEN 'INCREASING'
-        WHEN AVG(price_change_percent) < -2 THEN 'DECREASING'
-        ELSE 'STABLE'
-    END as trend_direction,
-    
-    -- Volatility indicator
-    CASE 
-        WHEN STDDEV(price_change_percent) > 10 THEN 'HIGH'
-        WHEN STDDEV(price_change_percent) > 5 THEN 'MEDIUM'
-        ELSE 'LOW'
-    END as volatility_level
-
-FROM trend_calculations
-GROUP BY shop_id, competitive_url_id, platform, DATE_TRUNC('day', created_at)
-ORDER BY shop_id, day DESC, competitive_url_id;
-
--- Create indexes for price trend analytics
-CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_price_trend_unique 
-ON mv_price_trend_analytics (shop_id, competitive_url_id, day);
-
-CREATE INDEX IF NOT EXISTS idx_mv_price_trend_shop_day 
-ON mv_price_trend_analytics (shop_id, day);
-
-CREATE INDEX IF NOT EXISTS idx_mv_price_trend_platform 
-ON mv_price_trend_analytics (platform);
-
-CREATE INDEX IF NOT EXISTS idx_mv_price_trend_direction 
-ON mv_price_trend_analytics (trend_direction);
-
--- =============================================
--- System Performance Materialized View
--- =============================================
-
--- Create materialized view for system performance analytics
-CREATE MATERIALIZED VIEW IF NOT EXISTS mv_system_performance_summary AS
-SELECT 
-    DATE_TRUNC('hour', created_at) as hour,
-    
-    -- Request volume statistics
-    COUNT(*) as total_requests,
-    COUNT(CASE WHEN scraper_source = 'jsoup' THEN 1 END) as jsoup_requests,
-    COUNT(CASE WHEN scraper_source = 'scrapingdog' THEN 1 END) as scrapingdog_requests,
-    COUNT(CASE WHEN scraper_source = 'serper' THEN 1 END) as serper_requests,
-    COUNT(CASE WHEN scraper_source = 'serpapi' THEN 1 END) as serpapi_requests,
-    
-    -- Success rate by source
-    COUNT(CASE WHEN scraper_source = 'jsoup' AND price IS NOT NULL AND price > 0 THEN 1 END)::DECIMAL / 
-        NULLIF(COUNT(CASE WHEN scraper_source = 'jsoup' THEN 1 END), 0) * 100 as jsoup_success_rate,
-    
-    COUNT(CASE WHEN scraper_source = 'scrapingdog' AND price IS NOT NULL AND price > 0 THEN 1 END)::DECIMAL / 
-        NULLIF(COUNT(CASE WHEN scraper_source = 'scrapingdog' THEN 1 END), 0) * 100 as scrapingdog_success_rate,
-    
-    COUNT(CASE WHEN scraper_source = 'serper' AND price IS NOT NULL AND price > 0 THEN 1 END)::DECIMAL / 
-        NULLIF(COUNT(CASE WHEN scraper_source = 'serper' THEN 1 END), 0) * 100 as serper_success_rate,
-    
-    COUNT(CASE WHEN scraper_source = 'serpapi' AND price IS NOT NULL AND price > 0 THEN 1 END)::DECIMAL / 
-        NULLIF(COUNT(CASE WHEN scraper_source = 'serpapi' THEN 1 END), 0) * 100 as serpapi_success_rate,
-    
-    -- Overall success rate
-    COUNT(CASE WHEN price IS NOT NULL AND price > 0 THEN 1 END)::DECIMAL / 
-        NULLIF(COUNT(*), 0) * 100 as overall_success_rate,
-    
-    -- Platform distribution
-    COUNT(CASE WHEN platform = 'amazon' THEN 1 END) as amazon_requests,
-    COUNT(CASE WHEN platform = 'walmart' THEN 1 END) as walmart_requests,
-    COUNT(CASE WHEN platform = 'ebay' THEN 1 END) as ebay_requests,
-    COUNT(CASE WHEN platform = 'shopify' THEN 1 END) as shopify_requests,
-    COUNT(CASE WHEN platform = 'other' THEN 1 END) as other_platform_requests,
-    
-    -- Error analysis
-    COUNT(CASE WHEN price IS NULL OR price = 0 THEN 1 END) as failed_requests,
-    
-    -- Performance indicators
-    COUNT(DISTINCT cu.shop_id) as active_shops,
-    COUNT(DISTINCT ps.competitive_url_id) as active_competitors,
-    
-    -- Calculate average processing time per hour (estimated)
-    EXTRACT(EPOCH FROM (MAX(ps.created_at) - MIN(ps.created_at))) / NULLIF(COUNT(*), 0) as avg_processing_interval_seconds
-
+    COUNT(CASE WHEN ps.price_change_percent IS NOT NULL THEN 1 END) as price_changes,
+    AVG(CASE WHEN ps.price_change_percent IS NOT NULL THEN ps.price_change_percent END) as avg_price_change_percent,
+    COUNT(CASE WHEN ps.significant_change = true THEN 1 END) as significant_changes,
+    COUNT(CASE WHEN ps.in_stock = true THEN 1 END) as in_stock_count,
+    COUNT(CASE WHEN ps.in_stock = false THEN 1 END) as out_of_stock_count,
+    MAX(ps.checked_at) as last_price_check,
+    AVG(ps.response_time_ms) as avg_response_time,
+    CURRENT_TIMESTAMP as last_updated
 FROM price_snapshots ps
-JOIN competitor_urls cu ON ps.competitive_url_id = cu.id
-WHERE ps.created_at >= CURRENT_DATE - INTERVAL '7 days'
-GROUP BY DATE_TRUNC('hour', created_at)
-ORDER BY hour DESC;
+JOIN competitor_urls cu ON ps.competitor_url_id = cu.id
+WHERE ps.deleted_at IS NULL 
+  AND cu.deleted_at IS NULL
+GROUP BY ps.competitor_url_id, cu.shop_id, cu.platform;
 
--- Create indexes for system performance view
-CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_system_performance_unique 
-ON mv_system_performance_summary (hour);
+-- Create index for performance
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_mv_price_analytics_summary_competitor_shop 
+ON mv_price_analytics_summary(competitor_url_id, shop_id);
 
-CREATE INDEX IF NOT EXISTS idx_mv_system_performance_hour 
-ON mv_system_performance_summary (hour DESC);
+-- System Performance Summary View
+-- System-wide performance metrics without referencing non-existent tables
+CREATE MATERIALIZED VIEW mv_system_performance_summary AS
+SELECT 
+    'system_performance' as metric_type,
+    COUNT(DISTINCT cu.shop_id) as total_active_shops,
+    COUNT(cu.id) as total_competitors,
+    COUNT(ps.id) as total_price_snapshots,
+    COUNT(pa.id) as total_price_alerts,
+    AVG(ps.response_time_ms) as avg_response_time,
+    COUNT(CASE WHEN cu.error_count = 0 THEN 1 END) as healthy_competitors,
+    COUNT(CASE WHEN cu.error_count > 0 THEN 1 END) as unhealthy_competitors,
+    COUNT(CASE WHEN ps.checked_at > NOW() - INTERVAL '1 hour' THEN 1 END) as recent_activity_1h,
+    COUNT(CASE WHEN ps.checked_at > NOW() - INTERVAL '24 hours' THEN 1 END) as recent_activity_24h,
+    CURRENT_TIMESTAMP as last_updated
+FROM competitor_urls cu
+LEFT JOIN price_snapshots ps ON cu.id = ps.competitor_url_id AND ps.deleted_at IS NULL
+LEFT JOIN price_alerts pa ON cu.id = pa.competitor_url_id
+WHERE cu.deleted_at IS NULL;
 
--- =============================================
--- Refresh Functions for Materialized Views
--- =============================================
+-- Create index for performance
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_mv_system_performance_summary_last_updated 
+ON mv_system_performance_summary(last_updated);
 
--- Function to refresh market intelligence cost summary
-CREATE OR REPLACE FUNCTION refresh_mi_cost_summary()
+-- ====================================================================
+-- MATERIALIZED VIEW REFRESH FUNCTIONS (WITHOUT audit_logs)
+-- ====================================================================
+
+-- Function to refresh discovery performance summary
+CREATE OR REPLACE FUNCTION refresh_mv_discovery_performance_summary()
 RETURNS void AS $$
 BEGIN
-    REFRESH MATERIALIZED VIEW CONCURRENTLY mv_market_intelligence_cost_summary;
-    -- Log the refresh
-    INSERT INTO system_logs (level, message, created_at) 
-    VALUES ('INFO', 'Refreshed mv_market_intelligence_cost_summary', CURRENT_TIMESTAMP);
+    REFRESH MATERIALIZED VIEW CONCURRENTLY mv_discovery_performance_summary;
+    
+    -- Log to application logs (remove audit_logs reference)
+    RAISE NOTICE 'Refreshed mv_discovery_performance_summary at %', NOW();
 EXCEPTION
     WHEN OTHERS THEN
-        -- Log any errors
-        INSERT INTO system_logs (level, message, created_at) 
-        VALUES ('ERROR', 'Failed to refresh mv_market_intelligence_cost_summary: ' || SQLERRM, CURRENT_TIMESTAMP);
+        RAISE WARNING 'Failed to refresh mv_discovery_performance_summary: %', SQLERRM;
 END;
 $$ LANGUAGE plpgsql;
 
--- Function to refresh competitor performance summary
-CREATE OR REPLACE FUNCTION refresh_competitor_performance_summary()
+-- Function to refresh competitor analytics summary
+CREATE OR REPLACE FUNCTION refresh_mv_competitor_analytics_summary()
 RETURNS void AS $$
 BEGIN
-    REFRESH MATERIALIZED VIEW CONCURRENTLY mv_competitor_performance_summary;
-    INSERT INTO system_logs (level, message, created_at) 
-    VALUES ('INFO', 'Refreshed mv_competitor_performance_summary', CURRENT_TIMESTAMP);
+    REFRESH MATERIALIZED VIEW CONCURRENTLY mv_competitor_analytics_summary;
+    
+    -- Log to application logs
+    RAISE NOTICE 'Refreshed mv_competitor_analytics_summary at %', NOW();
 EXCEPTION
     WHEN OTHERS THEN
-        INSERT INTO system_logs (level, message, created_at) 
-        VALUES ('ERROR', 'Failed to refresh mv_competitor_performance_summary: ' || SQLERRM, CURRENT_TIMESTAMP);
+        RAISE WARNING 'Failed to refresh mv_competitor_analytics_summary: %', SQLERRM;
 END;
 $$ LANGUAGE plpgsql;
 
--- Function to refresh price trend analytics
-CREATE OR REPLACE FUNCTION refresh_price_trend_analytics()
+-- Function to refresh price analytics summary
+CREATE OR REPLACE FUNCTION refresh_mv_price_analytics_summary()
 RETURNS void AS $$
 BEGIN
-    REFRESH MATERIALIZED VIEW CONCURRENTLY mv_price_trend_analytics;
-    INSERT INTO system_logs (level, message, created_at) 
-    VALUES ('INFO', 'Refreshed mv_price_trend_analytics', CURRENT_TIMESTAMP);
+    REFRESH MATERIALIZED VIEW CONCURRENTLY mv_price_analytics_summary;
+    
+    -- Log to application logs
+    RAISE NOTICE 'Refreshed mv_price_analytics_summary at %', NOW();
 EXCEPTION
     WHEN OTHERS THEN
-        INSERT INTO system_logs (level, message, created_at) 
-        VALUES ('ERROR', 'Failed to refresh mv_price_trend_analytics: ' || SQLERRM, CURRENT_TIMESTAMP);
+        RAISE WARNING 'Failed to refresh mv_price_analytics_summary: %', SQLERRM;
 END;
 $$ LANGUAGE plpgsql;
 
 -- Function to refresh system performance summary
-CREATE OR REPLACE FUNCTION refresh_system_performance_summary()
+CREATE OR REPLACE FUNCTION refresh_mv_system_performance_summary()
 RETURNS void AS $$
 BEGIN
     REFRESH MATERIALIZED VIEW CONCURRENTLY mv_system_performance_summary;
-    INSERT INTO system_logs (level, message, created_at) 
-    VALUES ('INFO', 'Refreshed mv_system_performance_summary', CURRENT_TIMESTAMP);
+    
+    -- Log to application logs
+    RAISE NOTICE 'Refreshed mv_system_performance_summary at %', NOW();
 EXCEPTION
     WHEN OTHERS THEN
-        INSERT INTO system_logs (level, message, created_at) 
-        VALUES ('ERROR', 'Failed to refresh mv_system_performance_summary: ' || SQLERRM, CURRENT_TIMESTAMP);
+        RAISE WARNING 'Failed to refresh mv_system_performance_summary: %', SQLERRM;
 END;
 $$ LANGUAGE plpgsql;
 
--- Master function to refresh all market intelligence views
-CREATE OR REPLACE FUNCTION refresh_all_mi_materialized_views()
+-- Function to refresh all materialized views
+CREATE OR REPLACE FUNCTION refresh_all_market_intelligence_views()
 RETURNS void AS $$
 BEGIN
-    -- Refresh all views in sequence
-    PERFORM refresh_mi_cost_summary();
-    PERFORM refresh_competitor_performance_summary();
-    PERFORM refresh_price_trend_analytics();
-    PERFORM refresh_system_performance_summary();
+    PERFORM refresh_mv_discovery_performance_summary();
+    PERFORM refresh_mv_competitor_analytics_summary();
+    PERFORM refresh_mv_price_analytics_summary();
+    PERFORM refresh_mv_system_performance_summary();
     
-    -- Log completion
-    INSERT INTO system_logs (level, message, created_at) 
-    VALUES ('INFO', 'Completed refresh of all Market Intelligence materialized views', CURRENT_TIMESTAMP);
+    RAISE NOTICE 'Refreshed all Market Intelligence materialized views at %', NOW();
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE WARNING 'Failed to refresh some Market Intelligence materialized views: %', SQLERRM;
 END;
 $$ LANGUAGE plpgsql;
 
--- =============================================
--- Grant Permissions
--- =============================================
+-- ====================================================================
+-- INITIAL DATA POPULATION
+-- ====================================================================
+
+-- Refresh all views to populate with initial data
+SELECT refresh_all_market_intelligence_views();
+
+-- ====================================================================
+-- GRANTS AND PERMISSIONS
+-- ====================================================================
 
 -- Grant read access to materialized views
-GRANT SELECT ON mv_market_intelligence_cost_summary TO PUBLIC;
-GRANT SELECT ON mv_competitor_performance_summary TO PUBLIC;
-GRANT SELECT ON mv_price_trend_analytics TO PUBLIC;
-GRANT SELECT ON mv_system_performance_summary TO PUBLIC;
+GRANT SELECT ON mv_discovery_performance_summary TO storesight;
+GRANT SELECT ON mv_competitor_analytics_summary TO storesight;
+GRANT SELECT ON mv_price_analytics_summary TO storesight;
+GRANT SELECT ON mv_system_performance_summary TO storesight;
 
--- =============================================
--- Comments for Documentation
--- =============================================
+-- Grant execute permissions on refresh functions
+GRANT EXECUTE ON FUNCTION refresh_mv_discovery_performance_summary() TO storesight;
+GRANT EXECUTE ON FUNCTION refresh_mv_competitor_analytics_summary() TO storesight;
+GRANT EXECUTE ON FUNCTION refresh_mv_price_analytics_summary() TO storesight;
+GRANT EXECUTE ON FUNCTION refresh_mv_system_performance_summary() TO storesight;
+GRANT EXECUTE ON FUNCTION refresh_all_market_intelligence_views() TO storesight;
 
-COMMENT ON MATERIALIZED VIEW mv_market_intelligence_cost_summary IS 
-'Aggregated cost analytics for Market Intelligence operations, refreshed daily. Includes cost per provider, request statistics, and performance metrics for the last 30 days.';
+-- ====================================================================
+-- COMMENTS FOR DOCUMENTATION
+-- ====================================================================
 
-COMMENT ON MATERIALIZED VIEW mv_competitor_performance_summary IS 
-'Comprehensive competitor performance analytics including price statistics, success rates, and status tracking. Updated every 4 hours to maintain current data.';
+COMMENT ON MATERIALIZED VIEW mv_discovery_performance_summary IS 
+'Aggregated performance metrics for discovery operations across all shops';
 
-COMMENT ON MATERIALIZED VIEW mv_price_trend_analytics IS 
-'Price trend analysis with change calculations, volatility indicators, and trend directions. Provides insights into price movements and market dynamics.';
+COMMENT ON MATERIALIZED VIEW mv_competitor_analytics_summary IS 
+'Summary of competitor data by shop and platform for analytics dashboard';
+
+COMMENT ON MATERIALIZED VIEW mv_price_analytics_summary IS 
+'Price analytics aggregated by competitor URL for trend analysis';
 
 COMMENT ON MATERIALIZED VIEW mv_system_performance_summary IS 
-'System-wide performance metrics including success rates by scraper source, platform distribution, and hourly processing statistics. Refreshed every hour.';
+'System-wide performance and health metrics for monitoring dashboard';
 
--- =============================================
--- Initial Data Population
--- =============================================
-
--- Populate materialized views with initial data
-SELECT refresh_all_mi_materialized_views();
+COMMENT ON FUNCTION refresh_all_market_intelligence_views() IS 
+'Refreshes all Market Intelligence materialized views in the correct order';

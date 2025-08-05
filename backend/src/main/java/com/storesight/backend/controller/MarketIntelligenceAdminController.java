@@ -336,7 +336,7 @@ public class MarketIntelligenceAdminController {
       status.put("eventStats", marketIntelligenceEventHandler.getEventStatistics());
 
       // Cache warming statistics
-      status.put("cacheWarmingStats", marketIntelligenceCacheWarmingService.getWarmingStatistics());
+      status.put("cacheWarmingStats", marketIntelligenceCacheWarmingService.getWarmingStats());
 
       // Health checks
       Map<String, Object> health = new HashMap<>();
@@ -347,7 +347,7 @@ public class MarketIntelligenceAdminController {
       health.put(
           "eventProcessingHealthy", marketIntelligenceEventHandler.isEventProcessingHealthy());
       health.put(
-          "cacheWarmingHealthy", marketIntelligenceCacheWarmingService.isCacheWarmingHealthy());
+          "cacheWarmingHealthy", !marketIntelligenceCacheWarmingService.isWarmingInProgress());
       status.put("health", health);
 
       // Overall optimization score
@@ -355,7 +355,7 @@ public class MarketIntelligenceAdminController {
           marketIntelligenceBatchService.isBatchProcessingHealthy()
               && marketIntelligenceWriteService.isWriteOperationsHealthy()
               && marketIntelligenceEventHandler.isEventProcessingHealthy()
-              && marketIntelligenceCacheWarmingService.isCacheWarmingHealthy();
+              && !marketIntelligenceCacheWarmingService.isWarmingInProgress();
       status.put("optimizationScore", allHealthy ? "EXCELLENT" : "NEEDS_ATTENTION");
 
       return ResponseEntity.ok(status);
@@ -612,7 +612,7 @@ public class MarketIntelligenceAdminController {
   @GetMapping("/cache/warming/stats")
   public ResponseEntity<Map<String, Object>> getCacheWarmingStats() {
     try {
-      Map<String, Object> stats = marketIntelligenceCacheWarmingService.getWarmingStatistics();
+      Map<String, Object> stats = marketIntelligenceCacheWarmingService.getWarmingStats();
       return ResponseEntity.ok(stats);
     } catch (Exception e) {
       log.error("Error getting cache warming statistics: {}", e.getMessage(), e);
@@ -625,7 +625,7 @@ public class MarketIntelligenceAdminController {
   @PostMapping("/cache/warming/reset-stats")
   public ResponseEntity<Map<String, Object>> resetCacheWarmingStats() {
     try {
-      marketIntelligenceCacheWarmingService.resetWarmingStatistics();
+      marketIntelligenceCacheWarmingService.resetWarmingStats();
       return ResponseEntity.ok(Map.of("message", "Cache warming statistics reset successfully"));
     } catch (Exception e) {
       log.error("Error resetting cache warming statistics: {}", e.getMessage(), e);
@@ -649,7 +649,7 @@ public class MarketIntelligenceAdminController {
             .body(Map.of("error", "Invalid priority. Valid values: CRITICAL, HIGH, MEDIUM, LOW"));
       }
 
-      marketIntelligenceCacheWarmingService.warmShopCache(shopDomain, warmingPriority);
+      marketIntelligenceCacheWarmingService.warmShopCache(shopDomain);
 
       return ResponseEntity.ok(
           Map.of(
@@ -667,7 +667,7 @@ public class MarketIntelligenceAdminController {
   @GetMapping("/cache/warming/health")
   public ResponseEntity<Map<String, Object>> getCacheWarmingHealth() {
     try {
-      boolean isHealthy = marketIntelligenceCacheWarmingService.isCacheWarmingHealthy();
+      boolean isHealthy = !marketIntelligenceCacheWarmingService.isWarmingInProgress();
       Map<String, Object> healthStatus = new HashMap<>();
       healthStatus.put("healthy", isHealthy);
       healthStatus.put("status", isHealthy ? "HEALTHY" : "UNHEALTHY");
