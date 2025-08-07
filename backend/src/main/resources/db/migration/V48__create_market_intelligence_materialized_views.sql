@@ -7,6 +7,12 @@
 
 -- Discovery Performance Summary View
 -- Uses competitor_urls and price_snapshots data for performance analytics
+-- Ensure idempotency if views were partially created in a previous failed run
+DROP MATERIALIZED VIEW IF EXISTS mv_discovery_performance_summary CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS mv_competitor_analytics_summary CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS mv_price_analytics_summary CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS mv_system_performance_summary CASCADE;
+
 CREATE MATERIALIZED VIEW mv_discovery_performance_summary AS
 SELECT 
     'discovery_performance' as metric_type,
@@ -20,7 +26,8 @@ SELECT
     CURRENT_TIMESTAMP as last_updated
 FROM competitor_urls cu
 LEFT JOIN price_snapshots ps ON cu.id = ps.competitor_url_id AND ps.deleted_at IS NULL
-WHERE cu.deleted_at IS NULL;
+WHERE cu.deleted_at IS NULL
+WITH NO DATA;
 
 -- Create index for performance
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_mv_discovery_performance_summary_last_updated 
@@ -41,7 +48,8 @@ SELECT
     CURRENT_TIMESTAMP as last_updated
 FROM competitor_urls cu
 WHERE cu.deleted_at IS NULL
-GROUP BY cu.shop_id, cu.platform;
+GROUP BY cu.shop_id, cu.platform
+WITH NO DATA;
 
 -- Create index for performance
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_mv_competitor_analytics_summary_shop_platform 
@@ -70,7 +78,8 @@ FROM price_snapshots ps
 JOIN competitor_urls cu ON ps.competitor_url_id = cu.id
 WHERE ps.deleted_at IS NULL 
   AND cu.deleted_at IS NULL
-GROUP BY ps.competitor_url_id, cu.shop_id, cu.platform;
+GROUP BY ps.competitor_url_id, cu.shop_id, cu.platform
+WITH NO DATA;
 
 -- Create index for performance
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_mv_price_analytics_summary_competitor_shop 
@@ -94,7 +103,8 @@ SELECT
 FROM competitor_urls cu
 LEFT JOIN price_snapshots ps ON cu.id = ps.competitor_url_id AND ps.deleted_at IS NULL
 LEFT JOIN price_alerts pa ON cu.id = pa.competitor_url_id
-WHERE cu.deleted_at IS NULL;
+WHERE cu.deleted_at IS NULL
+WITH NO DATA;
 
 -- Create index for performance
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_mv_system_performance_summary_last_updated 
