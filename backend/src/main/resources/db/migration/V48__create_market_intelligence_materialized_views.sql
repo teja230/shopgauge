@@ -177,11 +177,10 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- ====================================================================
--- INITIAL DATA POPULATION
+-- INITIAL DATA POPULATION (DISABLED)
 -- ====================================================================
-
--- Refresh all views to populate with initial data
-SELECT refresh_all_market_intelligence_views();
+-- Note: Do not populate data during migration to avoid startup stalls on small instances.
+-- Admin can trigger refresh on-demand after deployment when needed.
 
 -- ====================================================================
 -- GRANTS AND PERMISSIONS
