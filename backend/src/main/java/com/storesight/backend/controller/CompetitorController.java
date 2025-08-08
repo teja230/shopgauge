@@ -1185,8 +1185,28 @@ public class CompetitorController {
             ex.getMessage());
       }
 
+      // Include fresh counts for consistent UI
+      Integer activeCount =
+          jdbcTemplate.queryForObject(
+              "SELECT COUNT(*) FROM competitor_urls WHERE shop_id = ? AND deleted_at IS NULL",
+              Integer.class,
+              shopId);
+      Integer archivedCount =
+          jdbcTemplate.queryForObject(
+              "SELECT COUNT(*) FROM competitor_urls WHERE shop_id = ? AND deleted_at IS NOT NULL",
+              Integer.class,
+              shopId);
+
       return ResponseEntity.ok(
-          Map.of("success", true, "message", "Competitor deleted successfully"));
+          Map.of(
+              "success",
+              true,
+              "message",
+              "Competitor deleted successfully",
+              "activeCount",
+              activeCount == null ? 0 : activeCount,
+              "archivedCount",
+              archivedCount == null ? 0 : archivedCount));
 
     } catch (ArchivedCompetitorLimitExceededException e) {
       // Let the exception handler process this specific exception
