@@ -236,7 +236,9 @@ const MetricChip = styled(Chip)(({ theme }) => ({
 const StyledTableContainer = styled(TableContainer)(({ theme }) => ({
   borderRadius: 16,
   boxShadow: theme.shadows[2],
-  overflow: 'hidden',
+  // Allow horizontal scroll on tighter layouts so action buttons aren't clipped
+  overflowX: 'auto',
+  overflowY: 'hidden',
   border: `1px solid ${theme.palette.divider}`,
   backgroundColor: theme.palette.background.paper,
 }));
@@ -359,7 +361,7 @@ const CompetitorSkeleton: React.FC = () => {
 
   return (
     <StyledTableContainer>
-      <Table>
+              <Table sx={{ tableLayout: 'fixed', minWidth: 920 }}>
         <StyledTableHead>
           <TableRow>
             <StyledTableCell>Competitor</StyledTableCell>
@@ -981,7 +983,7 @@ const DesktopTableRow: React.FC<{
       </StyledTableCell>
 
       <StyledTableCell>
-        <Stack direction="row" spacing={1}>
+        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 0.5 }}>
           <Tooltip title="Visit competitor website">
             <IconButton 
               size="small" 
@@ -1344,15 +1346,15 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({
             <Table>
               <StyledTableHead>
                 <TableRow>
-                  <TableCell>
+                  <TableCell sx={{ width: 240 }}>
                     <span>Competitor</span>
                   </TableCell>
-                  <TableCell>Price</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Change</TableCell>
-                  <TableCell>Product</TableCell>
-                  <TableCell>Last Checked</TableCell>
-                  <TableCell>Actions</TableCell>
+                  <TableCell sx={{ width: 100 }}>Price</TableCell>
+                  <TableCell sx={{ width: 110 }}>Status</TableCell>
+                  <TableCell sx={{ width: 110 }}>Change</TableCell>
+                  <TableCell sx={{ width: 140 }}>Product</TableCell>
+                  <TableCell sx={{ width: 150 }}>Last Checked</TableCell>
+                  <TableCell sx={{ width: 180, position: 'sticky', right: 0, backgroundColor: 'background.paper' }}>Actions</TableCell>
                 </TableRow>
               </StyledTableHead>
               <TableBody>
