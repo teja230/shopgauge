@@ -1070,6 +1070,35 @@ public class CompetitorController {
       // Write-through cache update after deletion
       String shopDomain = resolveShopDomain(shopId);
       refreshCompetitorCacheForShop(shopId, shopDomain);
+      // Also refresh archived list cache to reflect newly archived item
+      try {
+        String archivedQuery =
+            """
+            SELECT
+                cu.id,
+                cu.url,
+                cu.label,
+                cu.deleted_at,
+                cu.platform,
+                cu.domain,
+                cu.last_successful_check,
+                COUNT(ps.id) as price_snapshots_count
+            FROM competitor_urls cu
+            LEFT JOIN price_snapshots ps ON cu.id = ps.competitor_url_id AND ps.deleted_at IS NULL
+            WHERE cu.shop_id = ? AND cu.deleted_at IS NOT NULL
+            GROUP BY cu.id, cu.url, cu.label, cu.deleted_at, cu.platform, cu.domain, cu.last_successful_check
+            ORDER BY cu.deleted_at DESC
+            """;
+        List<Map<String, Object>> archivedCompetitorsList =
+            jdbcTemplate.queryForList(archivedQuery, shopId);
+        marketIntelligenceCacheService.cacheArchivedCompetitorData(
+            shopDomain, archivedCompetitorsList);
+      } catch (Exception ex) {
+        logger.warn(
+            "Failed to refresh archived competitors cache for shop {}: {}",
+            shopDomain,
+            ex.getMessage());
+      }
 
       return ResponseEntity.ok(
           Map.of("success", true, "message", "Competitor deleted successfully"));

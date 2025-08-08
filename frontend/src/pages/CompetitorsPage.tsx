@@ -776,8 +776,8 @@ export default function CompetitorsPage() {
     }
     
     try {
-      const cacheKey = `competitors_${shop}`;
-      const suggestionCacheKey = `market-intelligence:suggestions_${shop}`;
+      const cacheKey = `mi_competitors_${shop}`;
+      const suggestionCacheKey = `mi_suggestions_${shop}`;
       
       const [competitorsData, suggestionCountData] = await Promise.all([
         fetchWithCache(cacheKey, getCompetitors, forceRefresh ? 0 : CACHE_DURATION),
@@ -1190,9 +1190,15 @@ export default function CompetitorsPage() {
         // Trigger highlighting for the newly added competitor
         triggerHighlight(newCompetitor.id, 'add');
       
-        // Clear cache to ensure fresh data on next load
-        const cacheKey = `competitors_${shop}`;
+        // Clear session cache and refetch to ensure fresh data on next load
+        const cacheKey = `mi_competitors_${shop}`;
+        try {
+          sessionStorage.removeItem(cacheKey);
+        } catch (e) {
+          void 0;
+        }
         cache.delete(cacheKey);
+        await fetchData(true);
         
         // Show enterprise-grade success notification
         debugLog.info('Showing success notification for competitor addition', {
@@ -1525,9 +1531,16 @@ export default function CompetitorsPage() {
         // Call API to actually delete from backend
         await deleteCompetitor(id);
       
-      // Clear cache to force refresh
-      const cacheKey = `competitors_${shop}`;
+      // Clear session cache and force a refetch so UI reflects write-through immediately
+      const cacheKey = `mi_competitors_${shop}`;
+      try {
+        sessionStorage.removeItem(cacheKey);
+      } catch (e) {
+        void 0;
+      }
       cache.delete(cacheKey);
+      // Refetch from server/Redis to repopulate cache and state
+      await fetchData(true);
       
         notifications.showSuccess('Competitor tracking has been discontinued', {
           category: 'Competitors',
