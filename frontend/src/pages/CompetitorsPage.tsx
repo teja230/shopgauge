@@ -975,6 +975,17 @@ export default function CompetitorsPage() {
             }
           );
           
+          // Invalidate session + in-memory caches before fetching fresh data
+          try {
+            if (shop) {
+              const cacheKey = `mi_competitors_${shop}`;
+              sessionStorage.removeItem(cacheKey);
+              cache.delete(cacheKey);
+            }
+          } catch (_) {
+            // ignore cache errors
+          }
+
           // Refresh the competitor data
           await fetchData(true);
           

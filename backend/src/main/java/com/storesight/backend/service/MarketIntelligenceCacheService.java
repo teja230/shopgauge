@@ -105,6 +105,92 @@ public class MarketIntelligenceCacheService {
     initializeCacheStatistics();
   }
 
+  /**
+   * Update a single competitor entry inside the cached competitors list for a shop.
+   *
+   * <p>This performs an in-place update to avoid invalidating the entire list cache.
+   *
+   * @param shopDomain the shop domain for the cached list key
+   * @param competitorId the competitor id to update
+   * @param fields map of fields to update (e.g., price, inStock, lastChecked, percentDiff)
+   * @return true if cache was updated, false if list cache missing or update failed
+   */
+  public boolean updateCompetitorListEntry(
+      String shopDomain, long competitorId, Map<String, Object> fields) {
+    final String key = COMPETITOR_DATA_PREFIX + shopDomain;
+    try {
+      Optional<String> serializedOpt = enhancedRedisService.get(key);
+      if (serializedOpt.isEmpty()) {
+        logger.debug("updateCompetitorListEntry: no list cache present for shop {}", shopDomain);
+        return false;
+      }
+
+      // Preserve TTL if present
+      Optional<java.time.Duration> ttlOpt = enhancedRedisService.getTtl(key);
+
+      // Deserialize cache entry with generic List payload
+      com.fasterxml.jackson.databind.JavaType listType =
+          objectMapper
+              .getTypeFactory()
+              .constructParametricType(java.util.List.class, java.util.Map.class);
+      com.fasterxml.jackson.databind.JavaType entryType =
+          objectMapper.getTypeFactory().constructParametricType(CacheEntry.class, listType);
+
+      @SuppressWarnings("unchecked")
+      CacheEntry<java.util.List<java.util.Map<String, Object>>> entry =
+          (CacheEntry<java.util.List<java.util.Map<String, Object>>>)
+              objectMapper.readValue(serializedOpt.get(), entryType);
+
+      java.util.List<java.util.Map<String, Object>> list = entry.getData();
+      if (list == null || list.isEmpty()) {
+        return false;
+      }
+
+      String targetId = String.valueOf(competitorId);
+      boolean updated = false;
+      for (java.util.Map<String, Object> item : list) {
+        Object idObj = item.get("id");
+        if (idObj != null && targetId.equals(String.valueOf(idObj))) {
+          // Apply provided fields
+          for (Map.Entry<String, Object> patch : fields.entrySet()) {
+            item.put(patch.getKey(), patch.getValue());
+          }
+          updated = true;
+          break;
+        }
+      }
+
+      if (!updated) {
+        logger.debug(
+            "updateCompetitorListEntry: competitor {} not found in list cache for shop {}",
+            competitorId,
+            shopDomain);
+        return false;
+      }
+
+      // Bump metadata and re-cache preserving TTL
+      entry.setLastUpdated(LocalDateTime.now().toString());
+      String updatedSerialized = objectMapper.writeValueAsString(entry);
+      java.time.Duration ttl = ttlOpt.orElse(COMPETITOR_DATA_TTL);
+      enhancedRedisService.setWithTtl(key, updatedSerialized, ttl);
+      enhancedRedisService.setWithTtl(key + METADATA_SUFFIX, updatedSerialized, ttl);
+      recordCacheWrite();
+      logger.debug(
+          "Updated competitor {} in list cache for shop {} (TTL: {}m)",
+          competitorId,
+          shopDomain,
+          ttl.toMinutes());
+      return true;
+    } catch (Exception e) {
+      logger.warn(
+          "Failed to update competitor {} in list cache for shop {}: {}",
+          competitorId,
+          shopDomain,
+          e.getMessage());
+      return false;
+    }
+  }
+
   /** Initialize cache statistics from persistent storage */
   private void initializeCacheStatistics() {
     try {
