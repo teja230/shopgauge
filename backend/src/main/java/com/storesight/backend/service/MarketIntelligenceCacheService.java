@@ -32,21 +32,22 @@ public class MarketIntelligenceCacheService {
       LoggerFactory.getLogger(MarketIntelligenceCacheService.class);
 
   // Cache key prefixes for different data types (shop-specific)
-  private static final String DASHBOARD_CACHE_PREFIX = "mi:dashboard:";
-  private static final String COST_ANALYTICS_PREFIX = "mi:cost_analytics:";
-  private static final String DISCOVERY_STATS_PREFIX = "mi:discovery_stats:";
-  private static final String PROVIDER_STATS_PREFIX = "mi:provider_stats:";
+  // Admin dashboard-related caches under mi:admin:* namespace
+  private static final String DASHBOARD_CACHE_PREFIX = "mi:admin:dashboard:";
+  private static final String COST_ANALYTICS_PREFIX = "mi:admin:cost_analytics:";
+  private static final String DISCOVERY_STATS_PREFIX = "mi:admin:discovery_stats:";
+  private static final String PROVIDER_STATS_PREFIX = "mi:admin:provider_stats:";
   private static final String COMPETITOR_DATA_PREFIX = "mi:competitor_data:";
   private static final String ARCHIVED_COMPETITOR_DATA_PREFIX = "mi:archived_competitor_data:";
   private static final String PRICE_HISTORY_PREFIX = "mi:price_history:";
   private static final String PRICE_TREND_PREFIX = "mi:price_trend:";
   private static final String PRICE_STATUS_PREFIX = "mi:price_status:";
-  private static final String PERFORMANCE_METRICS_PREFIX = "mi:performance:";
-  private static final String SYSTEM_STATUS_PREFIX = "mi:system_status:";
+  private static final String PERFORMANCE_METRICS_PREFIX = "mi:admin:performance:";
+  private static final String SYSTEM_STATUS_PREFIX = "mi:admin:system_status:";
 
   // Session tracking prefixes
-  private static final String SESSION_TRACKING_PREFIX = "mi:sessions:";
-  private static final String SESSION_COUNT_PREFIX = "mi:session_count:";
+  private static final String SESSION_TRACKING_PREFIX = "mi:admin:sessions:";
+  private static final String SESSION_COUNT_PREFIX = "mi:admin:session_count:";
 
   // TTL Configuration (512MB optimized)
   private static final Duration DASHBOARD_TTL = Duration.ofMinutes(30); // Frequent updates
@@ -78,12 +79,12 @@ public class MarketIntelligenceCacheService {
   private final AtomicLong databaseCalls = new AtomicLong(0);
 
   // Persistent cache statistics keys
-  private static final String CACHE_STATS_HITS_KEY = "mi:cache:stats:hits";
-  private static final String CACHE_STATS_MISSES_KEY = "mi:cache:stats:misses";
-  private static final String CACHE_STATS_EVICTIONS_KEY = "mi:cache:stats:evictions";
-  private static final String CACHE_STATS_WRITES_KEY = "mi:cache:stats:writes";
-  private static final String CACHE_STATS_DB_CALLS_KEY = "mi:cache:stats:db_calls";
-  private static final String CACHE_STATS_LAST_RESET_KEY = "mi:cache:stats:last_reset";
+  private static final String CACHE_STATS_HITS_KEY = "mi:admin:cache:stats:hits";
+  private static final String CACHE_STATS_MISSES_KEY = "mi:admin:cache:stats:misses";
+  private static final String CACHE_STATS_EVICTIONS_KEY = "mi:admin:cache:stats:evictions";
+  private static final String CACHE_STATS_WRITES_KEY = "mi:admin:cache:stats:writes";
+  private static final String CACHE_STATS_DB_CALLS_KEY = "mi:admin:cache:stats:db_calls";
+  private static final String CACHE_STATS_LAST_RESET_KEY = "mi:admin:cache:stats:last_reset";
 
   // Active fetches tracking to prevent duplicate requests
   private final Map<String, CompletableFuture<Object>> activeFetches = new ConcurrentHashMap<>();

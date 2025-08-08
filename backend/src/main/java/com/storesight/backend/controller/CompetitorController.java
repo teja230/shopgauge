@@ -86,10 +86,9 @@ public class CompetitorController {
   private int maxUrlsPerShop;
 
   // Redis-based suggestion count cache with proper invalidation
-  private static final String SUGGESTION_COUNT_CACHE_PREFIX =
-      "market-intelligence:suggestion_count:";
+  private static final String SUGGESTION_COUNT_CACHE_PREFIX = "mi:suggestion_count:";
   private static final String SUGGESTION_CACHE_INVALIDATION_KEY =
-      "market-intelligence:suggestion_cache_invalidation";
+      "mi:suggestion_cache_invalidation";
   private static final int CACHE_TTL_MINUTES =
       120; // 120 minutes cache duration (consistent with other caches)
 
@@ -3881,7 +3880,7 @@ public class CompetitorController {
 
       // COST OPTIMIZATION 1: Check if we recently scraped this URL (within last 2 hours)
       String domain = extractDomain(url);
-      String recentScrapeKey = "market-intelligence:recent_scrape:" + domain + ":" + url.hashCode();
+      String recentScrapeKey = "mi:recent_scrape:" + domain + ":" + url.hashCode();
 
       if (redisTemplate.hasKey(recentScrapeKey)) {
         logger.info("triggerImmediatePriceScraping: Skipping - URL scraped recently: {}", url);
@@ -3889,7 +3888,7 @@ public class CompetitorController {
       }
 
       // COST OPTIMIZATION 2: Check rate limiting with longer delays
-      String rateLimitKey = "market-intelligence:scraper_rate_limit:" + domain;
+      String rateLimitKey = "mi:scraper_rate_limit:" + domain;
       if (redisTemplate.hasKey(rateLimitKey)) {
         logger.debug("triggerImmediatePriceScraping: Rate limit active for domain: {}", domain);
         return; // Skip immediate scraping if rate limited
@@ -4059,7 +4058,7 @@ public class CompetitorController {
   /** Get cached price for URL to reduce scraping costs */
   private java.math.BigDecimal getCachedPriceForUrl(String url) {
     try {
-      String cacheKey = "market-intelligence:price_cache:" + url.hashCode();
+      String cacheKey = "mi:price_cache:" + url.hashCode();
       Optional<String> cachedOpt = enhancedRedisService.get(cacheKey);
       if (cachedOpt.isPresent()) {
         return new java.math.BigDecimal(cachedOpt.get());
@@ -4073,7 +4072,7 @@ public class CompetitorController {
   /** Cache price for URL to reduce future scraping costs */
   private void cachePriceForUrl(String url, java.math.BigDecimal price) {
     try {
-      String cacheKey = "market-intelligence:price_cache:" + url.hashCode();
+      String cacheKey = "mi:price_cache:" + url.hashCode();
       // Cache for 24 hours to reduce scraping frequency
       boolean success =
           enhancedRedisService.setWithTtl(
