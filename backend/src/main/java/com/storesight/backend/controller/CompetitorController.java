@@ -78,6 +78,10 @@ public class CompetitorController {
   @Autowired private SmartSnapshotService smartSnapshotService;
   @Autowired private PriceChangeCalculationService priceChangeCalculationService;
 
+  @Autowired
+  private com.storesight.backend.service.MarketIntelligenceCacheService
+      marketIntelligenceCacheService;
+
   @Value("${competitor.scraping.max-urls-per-shop:10}")
   private int maxUrlsPerShop;
 
@@ -88,6 +92,121 @@ public class CompetitorController {
       "market-intelligence:suggestion_cache_invalidation";
   private static final int CACHE_TTL_MINUTES =
       120; // 120 minutes cache duration (consistent with other caches)
+
+  /** Resolve shop domain by ID for cache key construction */
+  private String resolveShopDomain(Long shopId) {
+    try {
+      Map<String, Object> shop =
+          jdbcTemplate.queryForMap("SELECT shopify_domain FROM shops WHERE id = ?", shopId);
+      Object domain = shop.get("shopify_domain");
+      return domain != null ? domain.toString() : "unknown";
+    } catch (Exception e) {
+      logger.warn("Failed to resolve shop domain for id {}: {}", shopId, e.getMessage());
+      return "unknown";
+    }
+  }
+
+  /** Refresh competitors cache for a shop by querying DB and writing through to Redis */
+  private void refreshCompetitorCacheForShop(Long shopId, String shopDomain) {
+    try {
+      String query =
+          """
+              SELECT cu.id, cu.url, cu.label, cu.shopify_product_id,
+                     CASE
+                         WHEN ps.in_stock = false AND ps.price = 0 THEN
+                             COALESCE(
+                                 (SELECT price FROM price_snapshots
+                                  WHERE competitor_url_id = cu.id
+                                  AND deleted_at IS NULL
+                                  AND price > 0
+                                  ORDER BY checked_at DESC LIMIT 1),
+                                 0.0
+                             )
+                         ELSE COALESCE(ps.price, 0.0)
+                     END as price,
+                     COALESCE(ps.in_stock, true) as in_stock,
+                     COALESCE(ps.checked_at, cu.created_at) as last_checked,
+                     COALESCE(ps.price_change_percent, 0.0) as price_change_percent,
+                     p.title as product_title,
+                     CASE
+                         WHEN ps.in_stock = false AND ps.price = 0 AND
+                              EXISTS (SELECT 1 FROM price_snapshots
+                                     WHERE competitor_url_id = cu.id
+                                     AND deleted_at IS NULL
+                                     AND price > 0)
+                         THEN true
+                         ELSE false
+                     END as showing_old_price
+          FROM competitor_urls cu
+              LEFT JOIN (
+                  SELECT competitor_url_id, price, in_stock, checked_at, price_change_percent,
+                         ROW_NUMBER() OVER (PARTITION BY competitor_url_id ORDER BY checked_at DESC) as rn
+                  FROM price_snapshots
+                  WHERE deleted_at IS NULL
+              ) ps ON cu.id = ps.competitor_url_id AND ps.rn = 1
+              LEFT JOIN products p ON cu.shopify_product_id = p.shopify_product_id
+              WHERE cu.shop_id = ? AND cu.deleted_at IS NULL
+          ORDER BY cu.created_at DESC
+          """;
+
+      List<Map<String, Object>> rows = jdbcTemplate.queryForList(query, shopId);
+      List<CompetitorDto> competitors =
+          rows.stream()
+              .map(
+                  row -> {
+                    String id = String.valueOf(row.get("id"));
+                    String url = String.valueOf(row.get("url"));
+                    String label =
+                        row.get("label") != null
+                            ? String.valueOf(row.get("label"))
+                            : extractTitleFromUrl(url);
+                    Double price =
+                        row.get("price") != null ? ((Number) row.get("price")).doubleValue() : 0.0;
+                    Boolean inStock =
+                        row.get("in_stock") != null ? (Boolean) row.get("in_stock") : true;
+                    String lastChecked =
+                        row.get("last_checked") != null
+                            ? row.get("last_checked").toString()
+                            : "Never";
+                    String shopifyProductId =
+                        row.get("shopify_product_id") != null
+                            ? String.valueOf(row.get("shopify_product_id"))
+                            : null;
+                    String productTitle =
+                        row.get("product_title") != null
+                            ? String.valueOf(row.get("product_title"))
+                            : null;
+                    Double percentDiff =
+                        row.get("price_change_percent") != null
+                            ? ((Number) row.get("price_change_percent")).doubleValue()
+                            : 0.0;
+                    Boolean showingOldPrice =
+                        row.get("showing_old_price") != null
+                            ? (Boolean) row.get("showing_old_price")
+                            : false;
+
+                    return new CompetitorDto(
+                        id,
+                        url,
+                        label,
+                        price,
+                        inStock,
+                        percentDiff,
+                        lastChecked,
+                        shopifyProductId,
+                        productTitle,
+                        showingOldPrice);
+                  })
+              .collect(Collectors.toList());
+
+      marketIntelligenceCacheService.cacheCompetitorData(shopDomain, competitors);
+      logger.debug(
+          "Refreshed competitors cache for shop {} ({} items)", shopDomain, competitors.size());
+    } catch (Exception e) {
+      logger.warn(
+          "Failed to refresh competitors cache for shop {}: {}", shopDomain, e.getMessage());
+    }
+  }
 
   /** Get cached suggestion count with Redis-based caching and proper invalidation */
   private Long getCachedSuggestionCount(Long shopId) {
@@ -206,6 +325,16 @@ public class CompetitorController {
               @Override
               public ResponseEntity<?> execute() {
                 try {
+                  final String shopDomain = resolveShopDomain(shopId);
+
+                  // L1: Session cache handled by frontend. L2: Redis cache here. L3: DB fallback.
+                  java.util.Optional<Object> cachedCompetitors =
+                      marketIntelligenceCacheService.getCachedCompetitorData(shopDomain);
+                  if (cachedCompetitors.isPresent()) {
+                    logger.debug("Returning cached competitors for shop: {}", shopDomain);
+                    return ResponseEntity.ok(cachedCompetitors.get());
+                  }
+
                   // Get competitor URLs for this shop, joining with latest price snapshots and
                   // product info, including last known price for out-of-stock items
                   String query =
@@ -315,6 +444,9 @@ public class CompetitorController {
                       "getCompetitors: Returning {} competitors for shop {}",
                       competitors.size(),
                       shopId);
+
+                  // Write-through: cache fresh result in Redis
+                  marketIntelligenceCacheService.cacheCompetitorData(shopDomain, competitors);
 
                   // Check for and log any inconsistent data (competitors without price snapshots)
                   if (competitors.size() > 0) {
@@ -825,6 +957,11 @@ public class CompetitorController {
 
       logger.info(
           "addCompetitor: Successfully added competitor {} for shop {}", request.url, shopId);
+
+      // Write-through cache update for competitors list
+      shopDomain = resolveShopDomain(shopId);
+      refreshCompetitorCacheForShop(shopId, shopDomain);
+
       return ResponseEntity.ok(competitor);
 
     } catch (Exception e) {
@@ -930,6 +1067,11 @@ public class CompetitorController {
           shopId, competitorUrl, "Competitor deletion completed successfully");
 
       logger.info("deleteCompetitor: Successfully deleted competitor {} for shop {}", id, shopId);
+
+      // Write-through cache update after deletion
+      String shopDomain = resolveShopDomain(shopId);
+      refreshCompetitorCacheForShop(shopId, shopDomain);
+
       return ResponseEntity.ok(
           Map.of("success", true, "message", "Competitor deleted successfully"));
 
