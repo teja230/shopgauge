@@ -191,6 +191,62 @@ public class MarketIntelligenceCacheService {
     }
   }
 
+  /** Remove a competitor entry from archived list cache, if present */
+  public boolean removeFromArchivedList(String shopDomain, long competitorId) {
+    final String key = ARCHIVED_COMPETITOR_DATA_PREFIX + shopDomain;
+    try {
+      Optional<String> serializedOpt = enhancedRedisService.get(key);
+      if (serializedOpt.isEmpty()) {
+        return false;
+      }
+
+      Optional<java.time.Duration> ttlOpt = enhancedRedisService.getTtl(key);
+
+      // Deserialize list entry
+      com.fasterxml.jackson.databind.JavaType listType =
+          objectMapper
+              .getTypeFactory()
+              .constructParametricType(java.util.List.class, java.util.Map.class);
+      com.fasterxml.jackson.databind.JavaType entryType =
+          objectMapper.getTypeFactory().constructParametricType(CacheEntry.class, listType);
+
+      @SuppressWarnings("unchecked")
+      CacheEntry<java.util.List<java.util.Map<String, Object>>> entry =
+          (CacheEntry<java.util.List<java.util.Map<String, Object>>>)
+              objectMapper.readValue(serializedOpt.get(), entryType);
+
+      java.util.List<java.util.Map<String, Object>> list = entry.getData();
+      if (list == null || list.isEmpty()) {
+        return false;
+      }
+
+      String targetId = String.valueOf(competitorId);
+      int before = list.size();
+      list.removeIf(item -> targetId.equals(String.valueOf(item.get("id"))));
+      int after = list.size();
+
+      if (after == before) {
+        return false; // nothing removed
+      }
+
+      entry.setData(list);
+      entry.setLastUpdated(LocalDateTime.now().toString());
+      String updatedSerialized = objectMapper.writeValueAsString(entry);
+      java.time.Duration ttl = ttlOpt.orElse(COMPETITOR_DATA_TTL);
+      enhancedRedisService.setWithTtl(key, updatedSerialized, ttl);
+      enhancedRedisService.setWithTtl(key + METADATA_SUFFIX, updatedSerialized, ttl);
+      recordCacheWrite();
+      return true;
+    } catch (Exception e) {
+      logger.warn(
+          "Failed to remove competitor {} from archived list cache for shop {}: {}",
+          competitorId,
+          shopDomain,
+          e.getMessage());
+      return false;
+    }
+  }
+
   /** Initialize cache statistics from persistent storage */
   private void initializeCacheStatistics() {
     try {

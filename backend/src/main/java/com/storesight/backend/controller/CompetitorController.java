@@ -1931,13 +1931,64 @@ public class CompetitorController {
           "UPDATE price_snapshots SET deleted_at = NULL WHERE competitor_url_id = ? AND deleted_at IS NOT NULL",
           competitorId);
 
+      // Patch caches: remove from archived list cache; active list will be refetched by client
+      try {
+        String shopDomain = resolveShopDomain(shopId);
+        marketIntelligenceCacheService.removeFromArchivedList(shopDomain, competitorId);
+      } catch (Exception ignore) {
+      }
+
+      // Return fresh counts from DB for consistent UX
+      Integer activeCount =
+          jdbcTemplate.queryForObject(
+              "SELECT COUNT(*) FROM competitor_urls WHERE shop_id = ? AND deleted_at IS NULL",
+              Integer.class,
+              shopId);
+      Integer archivedCount =
+          jdbcTemplate.queryForObject(
+              "SELECT COUNT(*) FROM competitor_urls WHERE shop_id = ? AND deleted_at IS NOT NULL",
+              Integer.class,
+              shopId);
+
       logger.info("Restored competitor {} for shop {}", competitorId, shopId);
       return ResponseEntity.ok(
-          Map.of("success", true, "message", "Competitor restored successfully"));
+          Map.of(
+              "success",
+              true,
+              "message",
+              "Competitor restored successfully",
+              "activeCount",
+              activeCount == null ? 0 : activeCount,
+              "archivedCount",
+              archivedCount == null ? 0 : archivedCount));
 
     } catch (CompetitorLimitExceededException e) {
-      // Let the exception handler process this specific exception
-      throw e;
+      // Include current counts in error response for UX consistency
+      try {
+        Integer activeCount =
+            jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM competitor_urls WHERE shop_id = ? AND deleted_at IS NULL",
+                Integer.class,
+                shopId);
+        Integer archivedCount =
+            jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM competitor_urls WHERE shop_id = ? AND deleted_at IS NOT NULL",
+                Integer.class,
+                shopId);
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+            .body(
+                Map.of(
+                    "error",
+                    "COMPETITOR_LIMIT_EXCEEDED",
+                    "message",
+                    e.getMessage(),
+                    "activeCount",
+                    activeCount == null ? 0 : activeCount,
+                    "archivedCount",
+                    archivedCount == null ? 0 : archivedCount));
+      } catch (Exception ignore) {
+        throw e;
+      }
     } catch (Exception e) {
       logger.error(
           "Error restoring competitor {} for shop {}: {}", competitorId, shopId, e.getMessage(), e);
