@@ -320,6 +320,10 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
           setDeletedCompetitors(prev => 
             prev.filter(c => c.id !== restoreDialog.competitor!.id)
           );
+          // Update header counts if provided by backend
+          if (typeof data.activeCount === 'number' && typeof data.archivedCount === 'number' && onCountChange) {
+            onCountChange(data.archivedCount);
+          }
           notifications.showSuccess('Archived competitor restored successfully', {
             showToast: true
           });
@@ -330,6 +334,10 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
           }
         } else {
           // Handle error response
+          // If backend provided counts in error, reflect archived count for UX consistency
+          if (typeof data?.activeCount === 'number' && typeof data?.archivedCount === 'number' && onCountChange) {
+            onCountChange(data.archivedCount);
+          }
           throw new Error(data.error || data.message || 'Failed to restore competitor');
         }
       }
