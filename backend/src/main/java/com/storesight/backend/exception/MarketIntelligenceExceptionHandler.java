@@ -1,5 +1,7 @@
 package com.storesight.backend.exception;
 
+import com.storesight.backend.controller.CompetitorController;
+import com.storesight.backend.controller.MarketIntelligenceAdminController;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -15,7 +17,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.context.request.WebRequest;
 
 /** Centralized exception handler for Market Intelligence features */
-@ControllerAdvice
+@ControllerAdvice(
+    assignableTypes = {CompetitorController.class, MarketIntelligenceAdminController.class})
 @Order(-2000) // Higher priority than GlobalSessionExceptionHandler (-1000) to handle business
 // exceptions first
 public class MarketIntelligenceExceptionHandler {
