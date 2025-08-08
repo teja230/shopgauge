@@ -1737,12 +1737,12 @@ public class CompetitorController {
               cu.deleted_at,
               cu.platform,
               cu.domain,
-              cu.last_successful_check,
+              COALESCE(cu.last_successful_check, MAX(ps.checked_at)) AS last_successful_check,
               COUNT(ps.id) as price_snapshots_count
           FROM competitor_urls cu
           LEFT JOIN price_snapshots ps ON cu.id = ps.competitor_url_id AND ps.deleted_at IS NULL
           WHERE cu.shop_id = ? AND cu.deleted_at IS NOT NULL
-          GROUP BY cu.id, cu.url, cu.label, cu.deleted_at, cu.platform, cu.domain, cu.last_successful_check
+          GROUP BY cu.id, cu.url, cu.label, cu.deleted_at, cu.platform, cu.domain
           ORDER BY cu.deleted_at DESC
           """;
 
