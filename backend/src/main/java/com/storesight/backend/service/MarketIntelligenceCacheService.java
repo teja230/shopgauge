@@ -37,7 +37,10 @@ public class MarketIntelligenceCacheService {
   private static final String DISCOVERY_STATS_PREFIX = "mi:discovery_stats:";
   private static final String PROVIDER_STATS_PREFIX = "mi:provider_stats:";
   private static final String COMPETITOR_DATA_PREFIX = "mi:competitor_data:";
+  private static final String ARCHIVED_COMPETITOR_DATA_PREFIX = "mi:archived_competitor_data:";
   private static final String PRICE_HISTORY_PREFIX = "mi:price_history:";
+  private static final String PRICE_TREND_PREFIX = "mi:price_trend:";
+  private static final String PRICE_STATUS_PREFIX = "mi:price_status:";
   private static final String PERFORMANCE_METRICS_PREFIX = "mi:performance:";
   private static final String SYSTEM_STATUS_PREFIX = "mi:system_status:";
 
@@ -52,6 +55,9 @@ public class MarketIntelligenceCacheService {
   private static final Duration PROVIDER_STATS_TTL = Duration.ofMinutes(15); // External API data
   private static final Duration COMPETITOR_DATA_TTL = Duration.ofHours(4); // Slow-changing data
   private static final Duration PRICE_HISTORY_TTL = Duration.ofHours(6); // Historical data
+  private static final Duration PRICE_TREND_TTL =
+      Duration.ofHours(6); // Trend data similar to history
+  private static final Duration PRICE_STATUS_TTL = Duration.ofMinutes(15); // Near real-time status
   private static final Duration PERFORMANCE_METRICS_TTL =
       Duration.ofMinutes(10); // Frequent monitoring
   private static final Duration SYSTEM_STATUS_TTL = Duration.ofMinutes(5); // Real-time status
@@ -328,6 +334,56 @@ public class MarketIntelligenceCacheService {
   /** Get cached price history (returns Object for backward compatibility) */
   public Optional<Object> getCachedPriceHistory(String shopDomain) {
     return getCachedData(PRICE_HISTORY_PREFIX + shopDomain, Object.class);
+  }
+
+  /** Cache archived competitor data list for a shop */
+  public void cacheArchivedCompetitorData(String shopDomain, Object data) {
+    cacheData(ARCHIVED_COMPETITOR_DATA_PREFIX + shopDomain, data, shopDomain, COMPETITOR_DATA_TTL);
+  }
+
+  /** Get cached archived competitor data list */
+  public Optional<Object> getCachedArchivedCompetitorData(String shopDomain) {
+    return getCachedData(ARCHIVED_COMPETITOR_DATA_PREFIX + shopDomain, Object.class);
+  }
+
+  /** Cache price history for a specific competitor and days */
+  public void cachePriceHistoryForCompetitor(
+      String shopDomain, long competitorId, int days, Object data) {
+    String key = PRICE_HISTORY_PREFIX + shopDomain + ":" + competitorId + ":" + days;
+    cacheData(key, data, shopDomain, PRICE_HISTORY_TTL);
+  }
+
+  /** Get cached price history for a specific competitor and days */
+  public Optional<Object> getCachedPriceHistoryForCompetitor(
+      String shopDomain, long competitorId, int days) {
+    String key = PRICE_HISTORY_PREFIX + shopDomain + ":" + competitorId + ":" + days;
+    return getCachedData(key, Object.class);
+  }
+
+  /** Cache price trend for a specific competitor and days */
+  public void cachePriceTrendForCompetitor(
+      String shopDomain, long competitorId, int days, Object data) {
+    String key = PRICE_TREND_PREFIX + shopDomain + ":" + competitorId + ":" + days;
+    cacheData(key, data, shopDomain, PRICE_TREND_TTL);
+  }
+
+  /** Get cached price trend for a specific competitor and days */
+  public Optional<Object> getCachedPriceTrendForCompetitor(
+      String shopDomain, long competitorId, int days) {
+    String key = PRICE_TREND_PREFIX + shopDomain + ":" + competitorId + ":" + days;
+    return getCachedData(key, Object.class);
+  }
+
+  /** Cache price status (latest snapshot) for a specific competitor */
+  public void cachePriceStatusForCompetitor(String shopDomain, long competitorId, Object data) {
+    String key = PRICE_STATUS_PREFIX + shopDomain + ":" + competitorId;
+    cacheData(key, data, shopDomain, PRICE_STATUS_TTL);
+  }
+
+  /** Get cached price status (latest snapshot) for a specific competitor */
+  public Optional<Object> getCachedPriceStatusForCompetitor(String shopDomain, long competitorId) {
+    String key = PRICE_STATUS_PREFIX + shopDomain + ":" + competitorId;
+    return getCachedData(key, Object.class);
   }
 
   /**

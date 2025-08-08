@@ -1718,9 +1718,22 @@ public class CompetitorController {
           ORDER BY cu.deleted_at DESC
           """;
 
-      List<Map<String, Object>> deletedCompetitors = jdbcTemplate.queryForList(query, shopId);
+      String shopDomain = resolveShopDomain(shopId);
 
-      return ResponseEntity.ok(Map.of("competitors", deletedCompetitors));
+      // Try Redis first
+      Optional<Object> cached =
+          marketIntelligenceCacheService.getCachedArchivedCompetitorData(shopDomain);
+      if (cached.isPresent()) {
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> deletedCompetitors = (List<Map<String, Object>>) cached.get();
+        return ResponseEntity.ok(Map.of("competitors", deletedCompetitors, "cached", true));
+      }
+
+      // DB fallback and write-through
+      List<Map<String, Object>> deletedCompetitors = jdbcTemplate.queryForList(query, shopId);
+      marketIntelligenceCacheService.cacheArchivedCompetitorData(shopDomain, deletedCompetitors);
+
+      return ResponseEntity.ok(Map.of("competitors", deletedCompetitors, "cached", false));
 
     } catch (Exception e) {
       logger.error("Error getting deleted competitors for shop {}: {}", shopId, e.getMessage(), e);
@@ -1890,7 +1903,31 @@ public class CompetitorController {
         return ResponseEntity.notFound().build();
       }
 
-      // Get price history
+      String shopDomain = resolveShopDomain(shopId);
+
+      // Try Redis cache first
+      Optional<Object> cached =
+          marketIntelligenceCacheService.getCachedPriceHistoryForCompetitor(
+              shopDomain, Long.parseLong(id), days);
+      if (cached.isPresent()) {
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> priceHistory = (List<Map<String, Object>>) cached.get();
+
+        Map<String, Object> statistics =
+            smartSnapshotService.getPriceStatistics(Long.parseLong(id));
+        boolean hasSufficientHistory =
+            smartSnapshotService.hasSufficientHistory(Long.parseLong(id), 7);
+
+        return ResponseEntity.ok(
+            Map.of(
+                "priceHistory", priceHistory,
+                "statistics", statistics,
+                "hasSufficientHistory", hasSufficientHistory,
+                "days", days,
+                "cached", true));
+      }
+
+      // DB/Service fallback
       List<Map<String, Object>> priceHistory =
           smartSnapshotService.getPriceHistory(Long.parseLong(id), days);
 
@@ -1901,12 +1938,17 @@ public class CompetitorController {
       boolean hasSufficientHistory =
           smartSnapshotService.hasSufficientHistory(Long.parseLong(id), 7); // At least 7 days
 
+      // Write-through to Redis
+      marketIntelligenceCacheService.cachePriceHistoryForCompetitor(
+          shopDomain, Long.parseLong(id), days, priceHistory);
+
       return ResponseEntity.ok(
           Map.of(
               "priceHistory", priceHistory,
               "statistics", statistics,
               "hasSufficientHistory", hasSufficientHistory,
-              "days", days));
+              "days", days,
+              "cached", false));
 
     } catch (Exception e) {
       logger.error("Error getting price history for competitor {}: {}", id, e.getMessage(), e);
@@ -1990,6 +2032,17 @@ public class CompetitorController {
       }
 
       Long competitorId = Long.parseLong(id);
+      String shopDomain = resolveShopDomain(shopId);
+
+      // Try Redis first
+      Optional<Object> cached =
+          marketIntelligenceCacheService.getCachedPriceTrendForCompetitor(
+              shopDomain, competitorId, days);
+      if (cached.isPresent()) {
+        @SuppressWarnings("unchecked")
+        Map<String, Object> cachedTrend = (Map<String, Object>) cached.get();
+        return ResponseEntity.ok(cachedTrend);
+      }
 
       // Get price trend analysis
       String trend = priceChangeCalculationService.getPriceTrend(competitorId, days);
@@ -2012,6 +2065,9 @@ public class CompetitorController {
           days,
           trend);
 
+      // Write-through
+      marketIntelligenceCacheService.cachePriceTrendForCompetitor(
+          shopDomain, competitorId, days, response);
       return ResponseEntity.ok(response);
 
     } catch (Exception e) {
@@ -2031,6 +2087,18 @@ public class CompetitorController {
     }
 
     try {
+      String shopDomain = resolveShopDomain(shopId);
+
+      // Try Redis cache first (latest snapshot status)
+      Optional<Object> cached =
+          marketIntelligenceCacheService.getCachedPriceStatusForCompetitor(
+              shopDomain, Long.parseLong(id));
+      if (cached.isPresent()) {
+        @SuppressWarnings("unchecked")
+        Map<String, Object> snapshot = (Map<String, Object>) cached.get();
+        return ResponseEntity.ok(snapshot);
+      }
+
       // Check if competitor has any price snapshots
       List<Map<String, Object>> snapshots =
           jdbcTemplate.queryForList(
@@ -2039,12 +2107,16 @@ public class CompetitorController {
 
       if (!snapshots.isEmpty()) {
         Map<String, Object> snapshot = snapshots.get(0);
-        return ResponseEntity.ok(
+        Map<String, Object> response =
             Map.of(
                 "hasPrice", true,
                 "price", snapshot.get("price"),
                 "inStock", snapshot.get("in_stock"),
-                "lastChecked", snapshot.get("checked_at")));
+                "lastChecked", snapshot.get("checked_at"));
+        // Write-through
+        marketIntelligenceCacheService.cachePriceStatusForCompetitor(
+            shopDomain, Long.parseLong(id), response);
+        return ResponseEntity.ok(response);
       } else {
         return ResponseEntity.ok(
             Map.of("hasPrice", false, "message", "Price tracking is being activated"));
