@@ -52,7 +52,8 @@ import { debugLog } from './DebugPanel';
 import { styled } from '@mui/material/styles';
 import { format, parseISO } from 'date-fns';
 import { useAuth } from '../../context/AuthContext';
-import { refreshCompetitorPrices, getPriceRefreshStatus } from '../../api/index';
+import { refreshCompetitorPrices, getPriceRefreshStatus, refreshSingleCompetitor } from '../../api/index';
+import { getPriceStatus } from '../../api';
 
 export interface Competitor {
   id: string;
@@ -825,6 +826,52 @@ const DesktopTableRow: React.FC<{
     }
   };
 
+  const [rowRefreshing, setRowRefreshing] = React.useState(false);
+  const handleRowRefresh = async () => {
+    if (rowRefreshing) return;
+    setRowRefreshing(true);
+    try {
+      // Start per-competitor refresh
+      await refreshSingleCompetitor(competitor.id);
+
+      // Fetch latest status for this competitor and patch session cache entry
+      const status = await getPriceStatus(competitor.id);
+
+      // Optimistically update UI for this row
+      competitor.price = status.price ?? competitor.price;
+      competitor.inStock = status.inStock ?? competitor.inStock;
+      competitor.lastChecked = status.lastChecked ?? competitor.lastChecked;
+
+      // Update sessionStorage list cache in-place
+      const shopDomain = shop || '';
+      if (shopDomain) {
+        const cacheKey = `mi_competitors_${shopDomain}`;
+        try {
+          const raw = sessionStorage.getItem(cacheKey);
+          if (raw) {
+            const arr = JSON.parse(raw) as any[];
+            const idx = arr.findIndex((c: any) => String(c.id) === String(competitor.id));
+            if (idx >= 0) {
+              arr[idx] = {
+                ...arr[idx],
+                price: competitor.price,
+                inStock: competitor.inStock,
+                lastChecked: competitor.lastChecked,
+              };
+              sessionStorage.setItem(cacheKey, JSON.stringify(arr));
+            }
+          }
+        } catch (_) {
+          // ignore session errors
+        }
+      }
+    } catch (e) {
+      // noop; UI will remain unchanged on error
+    } finally {
+      setRowRefreshing(false);
+    }
+  };
+
   return (
     <StyledTableRow
       $highlighted={highlighted}
@@ -984,6 +1031,18 @@ const DesktopTableRow: React.FC<{
 
       <StyledTableCell>
         <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 0.5 }}>
+          <Tooltip title="Refresh this competitor">
+            <span>
+              <IconButton
+                size="small"
+                onClick={handleRowRefresh}
+                disabled={rowRefreshing}
+                sx={{ minWidth: 36, minHeight: 36 }}
+              >
+                {rowRefreshing ? <CircularProgress size={16} /> : <RefreshIcon fontSize="small" />}
+              </IconButton>
+            </span>
+          </Tooltip>
           <Tooltip title="Visit competitor website">
             <IconButton 
               size="small" 

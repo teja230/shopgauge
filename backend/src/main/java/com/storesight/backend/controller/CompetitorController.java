@@ -494,6 +494,91 @@ public class CompetitorController {
     return result;
   }
 
+  /** Per-competitor on-demand refresh with targeted cache patching */
+  @PostMapping("/competitors/{id}/refresh")
+  public ResponseEntity<Map<String, Object>> refreshSingleCompetitor(
+      @PathVariable String id, HttpServletRequest request) {
+    Long shopId = getShopIdFromRequest(request);
+    if (shopId == null) {
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+          .body(Map.of("error", "Authentication required"));
+    }
+
+    long competitorId;
+    try {
+      competitorId = Long.parseLong(id);
+    } catch (NumberFormatException e) {
+      return ResponseEntity.badRequest().body(Map.of("error", "Invalid competitor id"));
+    }
+
+    try {
+      // Ensure competitor belongs to this shop and is active (not archived)
+      List<Map<String, Object>> rows =
+          jdbcTemplate.queryForList(
+              "SELECT id, url, label FROM competitor_urls WHERE id = ? AND shop_id = ? AND deleted_at IS NULL",
+              competitorId,
+              shopId);
+      if (rows.isEmpty()) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(Map.of("error", "Competitor not found"));
+      }
+
+      Map<String, Object> record = rows.get(0);
+      String url = (String) record.get("url");
+      String label = record.get("label") != null ? record.get("label").toString() : url;
+
+      // Use the same queue-based infrastructure but with a single item
+      RedisPriceRefreshQueueService.CompetitorRefreshItem item =
+          new RedisPriceRefreshQueueService.CompetitorRefreshItem(competitorId, url, label);
+
+      RedisPriceRefreshQueueService.RefreshSession session =
+          priceRefreshQueueService.startPriceRefresh(shopId, java.util.List.of(item));
+
+      String shopDomain = resolveShopDomain(shopId);
+
+      // Best-effort: If we already have a latest snapshot, patch list cache immediately
+      // The queue will update DB and caches again when it completes
+      try {
+        List<Map<String, Object>> latest =
+            jdbcTemplate.queryForList(
+                "SELECT price, in_stock, checked_at FROM price_snapshots WHERE competitor_url_id = ? AND deleted_at IS NULL ORDER BY checked_at DESC LIMIT 1",
+                competitorId);
+        if (!latest.isEmpty()) {
+          Map<String, Object> snap = latest.get(0);
+          Map<String, Object> patch = new java.util.HashMap<>();
+          patch.put("price", snap.getOrDefault("price", java.math.BigDecimal.ZERO));
+          patch.put("inStock", snap.getOrDefault("in_stock", Boolean.TRUE));
+          patch.put(
+              "lastChecked",
+              snap.get("checked_at") != null
+                  ? snap.get("checked_at").toString()
+                  : java.time.LocalDateTime.now().toString());
+          // percentDiff recomputation is skipped here; UI can recompute or will be corrected on
+          // next load
+          marketIntelligenceCacheService.updateCompetitorListEntry(shopDomain, competitorId, patch);
+        }
+      } catch (Exception ignore) {
+        // Non-blocking cache patch
+      }
+
+      return ResponseEntity.ok(
+          Map.of(
+              "message", "Refresh started",
+              "session_id", session.sessionId,
+              "total", session.totalCompetitors));
+
+    } catch (Exception e) {
+      logger.error(
+          "Error starting single competitor refresh for {} on shop {}: {}",
+          competitorId,
+          shopId,
+          e.getMessage(),
+          e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to start competitor refresh"));
+    }
+  }
+
   /** Add a new competitor manually */
   @PostMapping("/competitors")
   public ResponseEntity<?> addCompetitor(
