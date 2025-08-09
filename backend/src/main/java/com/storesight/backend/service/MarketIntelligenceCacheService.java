@@ -880,6 +880,31 @@ public class MarketIntelligenceCacheService {
     }
   }
 
+  /** Invalidate cache for a specific competitor's price-related data */
+  public void invalidateCompetitorPriceCaches(String shopDomain, long competitorId) {
+    try {
+      // Invalidate history keys for common windows
+      int[] windows = new int[] {7, 30, 60, 90};
+      for (int days : windows) {
+        invalidateCache(PRICE_HISTORY_PREFIX + shopDomain + ":" + competitorId + ":" + days);
+      }
+
+      // Invalidate generic history/trend/status keys
+      invalidateCache(PRICE_HISTORY_PREFIX + shopDomain);
+      invalidateCache(PRICE_TREND_PREFIX + shopDomain + ":" + competitorId + ":30");
+      invalidateCache(PRICE_STATUS_PREFIX + shopDomain + ":" + competitorId);
+
+      logger.debug(
+          "Invalidated price caches for competitor {} on shop {}", competitorId, shopDomain);
+    } catch (Exception e) {
+      logger.warn(
+          "Failed to invalidate price caches for competitor {} on shop {}: {}",
+          competitorId,
+          shopDomain,
+          e.getMessage());
+    }
+  }
+
   /** Check if cache is fresh */
   public boolean hasFreshCache(String key) {
     try {

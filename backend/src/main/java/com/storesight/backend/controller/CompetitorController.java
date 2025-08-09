@@ -537,7 +537,8 @@ public class CompetitorController {
       String shopDomain = resolveShopDomain(shopId);
 
       // Best-effort: If we already have a latest snapshot, patch list cache immediately
-      // The queue will update DB and caches again when it completes
+      // and invalidate history/trend caches so graphs reload. The queue will update DB and
+      // caches again when it completes
       try {
         List<Map<String, Object>> latest =
             jdbcTemplate.queryForList(
@@ -556,6 +557,9 @@ public class CompetitorController {
           // percentDiff recomputation is skipped here; UI can recompute or will be corrected on
           // next load
           marketIntelligenceCacheService.updateCompetitorListEntry(shopDomain, competitorId, patch);
+
+          // Invalidate price caches so the modal/trend refetches
+          marketIntelligenceCacheService.invalidateCompetitorPriceCaches(shopDomain, competitorId);
         }
       } catch (Exception ignore) {
         // Non-blocking cache patch
