@@ -1102,6 +1102,7 @@ const DesktopTableRow: React.FC<{
                 onClick={handleRowRefresh}
                 disabled={rowRefreshing}
                 aria-label="Refresh price"
+                color="primary"
               
               >
                 {rowRefreshing ? <CircularProgress size={16} /> : <RefreshIcon fontSize="small" />}
@@ -1117,7 +1118,8 @@ const DesktopTableRow: React.FC<{
                 onClick={() => onViewGraph && onViewGraph(competitor)}
                 disabled={!onViewGraph || !competitor.lastChecked}
                 aria-label="View price history"
-              sx={{ opacity: competitor.lastChecked ? 1 : 0.4 }}
+                color="info"
+                sx={{ opacity: competitor.lastChecked ? 1 : 0.4 }}
               >
                 <BarChartIcon fontSize="small" />
               </IconButton>
