@@ -218,6 +218,15 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
     }
   }, [highlightedCompetitorId, highlightAction]);
 
+  // If external highlight id arrives before data, apply highlight when data loads
+  useEffect(() => {
+    if (highlightedCompetitorId && deletedCompetitors.some(c => String(c.id) === String(highlightedCompetitorId))) {
+      const color: 'success' | 'warning' = highlightAction === 'archive' ? 'warning' : 'success';
+      highlightRow(highlightedCompetitorId, color);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deletedCompetitors.length, highlightedCompetitorId]);
+
   const loadDeletedCompetitors = async () => {
     try {
       setLoading(true);

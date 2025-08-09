@@ -1560,7 +1560,9 @@ export default function CompetitorsPage() {
       // Delay removal slightly to allow highlight animation
       setTimeout(() => {
         setCompetitors((prev) => prev.filter((c) => c.id !== id));
-      }, 250);
+        // Trigger archived panel refresh immediately so highlight can apply when it appears
+        setArchivedRefreshTrigger(prev => prev + 1);
+      }, 200);
       
       try {
         // Call API to actually delete from backend
@@ -1584,8 +1586,8 @@ export default function CompetitorsPage() {
           showToast: true
         });
         
-        // Trigger refresh of archived competitors list
-        setArchivedRefreshTrigger(prev => prev + 1);
+      // Ensure archived list refreshed (second signal after API completes)
+      setArchivedRefreshTrigger(prev => prev + 1);
         
         debugLog.info('Competitor deleted successfully', { 
           competitorId: id,
