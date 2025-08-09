@@ -778,9 +778,7 @@ public class RedisPriceRefreshQueueService {
         marketIntelligenceCacheService.updateCompetitorListEntry(shopDomain, competitor.id, patch);
       } catch (Exception cacheErr) {
         logger.debug(
-            "write-through cache update failed for {}: {}",
-            competitor.id,
-            cacheErr.getMessage());
+            "write-through cache update failed for {}: {}", competitor.id, cacheErr.getMessage());
       }
 
     } catch (Exception e) {
