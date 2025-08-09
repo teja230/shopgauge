@@ -71,7 +71,7 @@ public class RedisPriceRefreshQueueService {
   @Value("${price.refresh.redis.enabled:true}")
   private boolean redisEnabled;
 
-  @Value("${price.refresh.redis.key-prefix:price_refresh}")
+  @Value("${price.refresh.redis.key-prefix:mi:price_refresh}")
   private String redisKeyPrefix;
 
   @Value("${price.refresh.redis.ttl:3600}")
@@ -297,14 +297,24 @@ public class RedisPriceRefreshQueueService {
           continue;
         }
 
-        // Scrape price
-        PriceScrapingService.PriceScrapingResult result =
-            priceScrapingService.scrapePriceWithMultiTier(competitor.url);
+        // Shared cache reuse: if we recently scraped this canonical URL, try to reuse
+        String urlKey = normalizeUrlToKey(competitor.url);
+        PriceScrapingService.PriceScrapingResult result;
+        if (wasRecentlyScraped(competitor.url)) {
+          result =
+              priceScrapingService
+                  .getCachedPriceResult(urlKey)
+                  .orElseGet(() -> priceScrapingService.scrapePriceWithMultiTier(competitor.url));
+        } else {
+          result = priceScrapingService.scrapePriceWithMultiTier(competitor.url);
+        }
 
         if (result.isSuccess()) {
           // Store price snapshot
           storePriceSnapshot(competitor, result);
           incrementProgress(sessionId, "completed");
+          // Publish shared cache so other shops with the same URL can reuse
+          priceScrapingService.cachePriceResult(urlKey, result, Duration.ofMinutes(30));
           markAsRecentlyScraped(competitor.url);
         } else {
           logger.warn(
@@ -394,7 +404,7 @@ public class RedisPriceRefreshQueueService {
   /** Check if URL was recently scraped using Redis cache */
   private boolean wasRecentlyScraped(String url) {
     try {
-      String cacheKey = redisKeyPrefix + ":cache:" + url.hashCode();
+      String cacheKey = redisKeyPrefix + ":cache:" + normalizeUrlToKey(url);
       return Boolean.TRUE.equals(redisTemplate.hasKey(cacheKey));
     } catch (Exception e) {
       logger.debug("Failed to check cache for URL {}: {}", url, e.getMessage());
@@ -405,10 +415,59 @@ public class RedisPriceRefreshQueueService {
   /** Mark URL as recently scraped in Redis cache */
   private void markAsRecentlyScraped(String url) {
     try {
-      String cacheKey = redisKeyPrefix + ":cache:" + url.hashCode();
+      String cacheKey = redisKeyPrefix + ":cache:" + normalizeUrlToKey(url);
       redisTemplate.opsForValue().set(cacheKey, "true", Duration.ofMinutes(30));
     } catch (Exception e) {
       logger.debug("Failed to mark URL as recently scraped: {}", e.getMessage());
+    }
+  }
+
+  /** Normalize a competitor URL to a canonical cache key (stable across shops) */
+  private String normalizeUrlToKey(String rawUrl) {
+    try {
+      java.net.URI uri = new java.net.URI(rawUrl);
+      String host = (uri.getHost() != null) ? uri.getHost().toLowerCase() : "";
+      String path = (uri.getPath() != null) ? uri.getPath() : "";
+      // Drop tracking params that shouldn't affect price page identity
+      java.util.Set<String> drop =
+          java.util.Set.of(
+              "utm_source",
+              "utm_medium",
+              "utm_campaign",
+              "utm_term",
+              "utm_content",
+              "tag",
+              "affid",
+              "aff",
+              "ascsubtag",
+              "_encoding",
+              "ref",
+              "ref_",
+              "pf_rd_p",
+              "pf_rd_r",
+              "qid",
+              "sr",
+              "srsltid");
+      String query = uri.getQuery();
+      String keptQuery = null;
+      if (query != null && !query.isEmpty()) {
+        String[] parts = query.split("&");
+        StringBuilder sb = new StringBuilder();
+        for (String part : parts) {
+          int eq = part.indexOf('=');
+          String key = eq >= 0 ? part.substring(0, eq) : part;
+          if (!drop.contains(key)) {
+            if (sb.length() > 0) sb.append('&');
+            sb.append(part);
+          }
+        }
+        keptQuery = sb.length() > 0 ? sb.toString() : null;
+      }
+      String canonical = host + path + (keptQuery != null ? ("?" + keptQuery) : "");
+      return Integer.toHexString(canonical.hashCode());
+    } catch (Exception e) {
+      // Fallback to simple hash on failure
+      return Integer.toHexString(String.valueOf(rawUrl).hashCode());
     }
   }
 
