@@ -778,7 +778,22 @@ export default function CompetitorsPage() {
     try {
       const cacheKey = `mi_competitors_${shop}`;
       const suggestionCacheKey = `mi_suggestions_${shop}`;
-      
+
+      // L1: Session storage read (non-blocking): if present and not forcing, seed UI immediately
+      if (!forceRefresh) {
+        try {
+          const sessionData = sessionStorage.getItem(cacheKey);
+          if (sessionData) {
+            const seeded = JSON.parse(sessionData);
+            if (Array.isArray(seeded) && seeded.length >= 0) {
+              setCompetitors(seeded);
+            }
+          }
+        } catch (_) {
+          // ignore session parse errors
+        }
+      }
+
       const [competitorsData, suggestionCountData] = await Promise.all([
         fetchWithCache(cacheKey, getCompetitors, forceRefresh ? 0 : CACHE_DURATION),
         fetchWithCache(suggestionCacheKey, getDebouncedSuggestionCount, forceRefresh ? 0 : SUGGESTION_COUNT_CACHE_DURATION)
@@ -791,6 +806,12 @@ export default function CompetitorsPage() {
         competitors: competitorsData.map(c => ({ id: c.id, url: c.url, label: c.label }))
       }, 'CompetitorsPage');
       setCompetitors(competitorsData);
+      // L1: Write-through to session storage for subsequent loads
+      try {
+        sessionStorage.setItem(cacheKey, JSON.stringify(competitorsData));
+      } catch (_) {
+        // ignore storage quota errors
+      }
       setSuggestionCount(suggestionCountData.newSuggestions);
       
       // Handle demo mode logic - respect user preference above all
@@ -1708,7 +1729,10 @@ export default function CompetitorsPage() {
       triggerHighlight(competitorId, 'restore');
     }
     
-    fetchData(true); // Force refresh to update active competitors list
+    // Force refresh to update active competitors list and clear search/filter that could hide it
+    setFilterStatus('all');
+    setSearchQuery('');
+    fetchData(true);
   }, [fetchData]);
 
   // Limit display component
