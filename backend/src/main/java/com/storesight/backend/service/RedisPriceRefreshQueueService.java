@@ -776,6 +776,8 @@ public class RedisPriceRefreshQueueService {
         patch.put("inStock", result.isInStock());
         patch.put("lastChecked", java.time.LocalDateTime.now().toString());
         marketIntelligenceCacheService.updateCompetitorListEntry(shopDomain, competitor.id, patch);
+        // Ensure charts and history refetch fresh data
+        marketIntelligenceCacheService.invalidateCompetitorPriceCaches(shopDomain, competitor.id);
       } catch (Exception cacheErr) {
         logger.debug(
             "write-through cache update failed for {}: {}", competitor.id, cacheErr.getMessage());
