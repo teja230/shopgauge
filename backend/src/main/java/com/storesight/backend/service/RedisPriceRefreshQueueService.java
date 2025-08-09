@@ -24,6 +24,7 @@ public class RedisPriceRefreshQueueService {
   @Autowired private PriceScrapingService priceScrapingService;
   @Autowired private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
   @Autowired private PriceChangeCalculationService priceChangeCalculationService;
+  @Autowired private MarketIntelligenceCacheService marketIntelligenceCacheService;
 
   // Configuration - MEMORY OPTIMIZED FOR 512MB INSTANCE
   @Value("${price.refresh.enabled:true}")
@@ -82,6 +83,7 @@ public class RedisPriceRefreshQueueService {
   // Manual refresh throttling (per-competitor refresh button)
   @Value("${price.refresh.manual-minimum-interval-hours:24}")
   private int manualRefreshMinimumIntervalHours;
+
   @Value("${price.refresh.manual-enforce-interval:true}")
   private boolean manualRefreshEnforceInterval;
 
@@ -405,7 +407,8 @@ public class RedisPriceRefreshQueueService {
       return hours < manualRefreshMinimumIntervalHours;
 
     } catch (Exception e) {
-      logger.debug("hasRecentSuccessfulCheck: fallback false for {}: {}", competitorId, e.getMessage());
+      logger.debug(
+          "hasRecentSuccessfulCheck: fallback false for {}: {}", competitorId, e.getMessage());
       return false;
     }
   }
@@ -723,10 +726,7 @@ public class RedisPriceRefreshQueueService {
 
             logger.debug(
                 "Stored price change percent for competitor {} snapshot {}: {}% (significant: {})",
-                competitor.id,
-                snapshotId,
-                priceChangePercent,
-                significantChange);
+                competitor.id, snapshotId, priceChangePercent, significantChange);
           }
         } catch (Exception calcError) {
           logger.debug(
@@ -757,6 +757,31 @@ public class RedisPriceRefreshQueueService {
           result.getPrice(),
           result.getScraperSource(),
           result.getResponseTime());
+
+      // Write-through: patch list cache so UI reflects latest price/inStock immediately
+      try {
+        String shopDomain = "unknown";
+        try {
+          Map<String, Object> row =
+              jdbcTemplate.queryForMap(
+                  "SELECT s.shopify_domain FROM shops s JOIN competitor_urls cu ON cu.shop_id = s.id WHERE cu.id = ?",
+                  competitor.id);
+          Object domainObj = row.get("shopify_domain");
+          if (domainObj != null) shopDomain = domainObj.toString();
+        } catch (Exception ignore) {
+        }
+
+        java.util.Map<String, Object> patch = new java.util.HashMap<>();
+        patch.put("price", result.getPrice());
+        patch.put("inStock", result.isInStock());
+        patch.put("lastChecked", java.time.LocalDateTime.now().toString());
+        marketIntelligenceCacheService.updateCompetitorListEntry(shopDomain, competitor.id, patch);
+      } catch (Exception cacheErr) {
+        logger.debug(
+            "write-through cache update failed for {}: {}",
+            competitor.id,
+            cacheErr.getMessage());
+      }
 
     } catch (Exception e) {
       logger.error(
