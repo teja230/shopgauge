@@ -18,6 +18,7 @@ interface PriceHistoryData {
   price: number;
   in_stock: boolean;
   price_change_percent?: number;
+  significant_change?: boolean;
 }
 
 interface PriceHistoryModalProps {
@@ -114,9 +115,13 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
   // Transform data for Recharts - data is in descending order (latest first)
   const chartData = priceHistory.map((entry, index) => {
     const prevPrice = index > 0 ? priceHistory[index - 1].price : entry.price;
-    const change = entry.price - prevPrice;
-    const changePercent = prevPrice > 0 ? (change / prevPrice) * 100 : 0;
-    
+    const persistedChange =
+      entry.price_change_percent !== undefined && entry.price_change_percent !== null
+        ? Number(entry.price_change_percent)
+        : undefined;
+    const fallbackChange = prevPrice > 0 ? ((entry.price - prevPrice) / prevPrice) * 100 : 0;
+    const changePercent = persistedChange !== undefined ? persistedChange : fallbackChange;
+
     return {
       date: new Date(entry.checked_at).toLocaleDateString('en-US', {
         month: 'short',
@@ -277,12 +282,15 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {priceHistory.map((entry, index) => {
-                      // Since data is ordered from latest to oldest (descending), 
-                      // we need to compare with the next entry (older) to show the change
+                      // Since data is ordered from latest to oldest (descending), use persisted change if available
+                      const persisted =
+                        entry.price_change_percent !== undefined && entry.price_change_percent !== null
+                          ? Number(entry.price_change_percent)
+                          : undefined;
                       const nextPrice = index < priceHistory.length - 1 ? priceHistory[index + 1].price : entry.price;
-                      const change = entry.price - nextPrice;
-                      const changePercent = nextPrice > 0 ? (change / nextPrice) * 100 : 0;
-                      
+                      const fallback = nextPrice > 0 ? ((entry.price - nextPrice) / nextPrice) * 100 : 0;
+                      const changePercent = persisted !== undefined ? persisted : fallback;
+
                       return (
                         <tr key={index} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
