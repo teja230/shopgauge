@@ -27,6 +27,10 @@ import {
   DialogContent,
   DialogActions,
   DialogContentText,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
 } from '@mui/material';
 import {
   Archive as ArchiveIcon,
@@ -45,6 +49,8 @@ import {
   History as HistoryIcon,
   Refresh as RefreshIcon,
   VisibilityOff as VisibilityOffIcon,
+  MoreVert as MoreVertIcon,
+  ContentCopy as ContentCopyIcon,
 } from '@mui/icons-material';
 import StoreLogo from './StoreLogo';
 import { debugLog } from './DebugPanel';
@@ -68,6 +74,60 @@ export interface Competitor {
   priceLoading?: boolean; // Indicates if price is being fetched
   showingOldPrice?: boolean; // Indicates if showing old price for out-of-stock item
 }
+
+// Secondary actions consolidated in an overflow menu for clarity
+const RowOverflowMenu: React.FC<{
+  competitor: Competitor;
+  onOpenSite: () => void;
+  onLinkProduct?: (c: Competitor) => void;
+}> = ({ competitor, onOpenSite, onLinkProduct }) => {
+  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+  const open = Boolean(anchorEl);
+  const handleOpen = (e: React.MouseEvent<HTMLElement>) => setAnchorEl(e.currentTarget);
+  const handleClose = () => setAnchorEl(null);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(competitor.url);
+    } catch (_) {
+      // ignore copy errors
+    } finally {
+      handleClose();
+    }
+  };
+
+  return (
+    <>
+      <Tooltip title="More actions">
+        <IconButton size="small" aria-label="More actions" onClick={handleOpen}>
+          <MoreVertIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
+      <Menu anchorEl={anchorEl} open={open} onClose={handleClose} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} transformOrigin={{ vertical: 'top', horizontal: 'right' }}>
+        <MenuItem onClick={() => { onOpenSite(); handleClose(); }}>
+          <ListItemIcon>
+            <LaunchIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText primary="Visit site" />
+        </MenuItem>
+        {onLinkProduct && (
+          <MenuItem onClick={() => { onLinkProduct(competitor); handleClose(); }}>
+            <ListItemIcon>
+              <LinkIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText primary={competitor.shopifyProductId ? 'Change product link' : 'Link to product'} />
+          </MenuItem>
+        )}
+        <MenuItem onClick={handleCopy}>
+          <ListItemIcon>
+            <ContentCopyIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText primary="Copy URL" />
+        </MenuItem>
+      </Menu>
+    </>
+  );
+};
 
 interface CompetitorTableProps {
   data: Competitor[];
@@ -1030,74 +1090,48 @@ const DesktopTableRow: React.FC<{
       </StyledTableCell>
 
       <StyledTableCell>
-        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 0.5 }}>
-          <Tooltip title="Refresh this competitor">
+        <Stack direction="row" spacing={0.5} alignItems="center">
+          {/* Primary action: Refresh */}
+          <Tooltip title="Refresh price for this competitor">
             <span>
               <IconButton
                 size="small"
                 onClick={handleRowRefresh}
                 disabled={rowRefreshing}
-                sx={{ minWidth: 36, minHeight: 36 }}
+                aria-label="Refresh price"
               >
                 {rowRefreshing ? <CircularProgress size={16} /> : <RefreshIcon fontSize="small" />}
               </IconButton>
             </span>
           </Tooltip>
-          <Tooltip title="Visit competitor website">
-            <IconButton 
-              size="small" 
-              onClick={handleOpenUrl}
-              sx={{ minWidth: 36, minHeight: 36 }}
-            >
-              <LaunchIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          
-          {onLinkProduct && (
-            <Tooltip title={competitor.shopifyProductId ? "Change product association" : "Link to product"}>
-              <IconButton 
-                size="small" 
-                color="primary"
-                onClick={() => onLinkProduct(competitor)}
-                sx={{ minWidth: 36, minHeight: 36 }}
-              >
-                <LinkIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          )}
-          
-          {onViewGraph && (
-            <Tooltip title={competitor.lastChecked ? "View price history" : "No price history available"}>
-              <IconButton 
-                size="small" 
-                color="info"
-                onClick={() => onViewGraph(competitor)}
-                disabled={!competitor.lastChecked}
-                sx={{ 
-                  minWidth: 36, 
-                  minHeight: 36,
-                  opacity: competitor.lastChecked ? 1 : 0.4,
-                  '&:disabled': {
-                    opacity: 0.4,
-                    cursor: 'not-allowed'
-                  }
-                }}
+
+          {/* Primary action: View history (when available) */}
+          <Tooltip title={competitor.lastChecked ? "View price history" : "No price history available"}>
+            <span>
+              <IconButton
+                size="small"
+                onClick={() => onViewGraph && onViewGraph(competitor)}
+                disabled={!onViewGraph || !competitor.lastChecked}
+                aria-label="View price history"
               >
                 <BarChartIcon fontSize="small" />
               </IconButton>
-            </Tooltip>
-          )}
-          
+            </span>
+          </Tooltip>
+
+          {/* Primary action: Archive */}
           <Tooltip title="Archive competitor">
-            <IconButton 
-              size="small" 
-              color="warning" 
-              onClick={handleDelete}
-              sx={{ minWidth: 36, minHeight: 36 }}
-            >
+            <IconButton size="small" color="warning" onClick={handleDelete} aria-label="Archive competitor">
               <ArchiveIcon fontSize="small" />
             </IconButton>
           </Tooltip>
+
+          {/* Overflow menu for secondary actions */}
+          <RowOverflowMenu
+            competitor={competitor}
+            onOpenSite={handleOpenUrl}
+            onLinkProduct={onLinkProduct}
+          />
         </Stack>
       </StyledTableCell>
     </StyledTableRow>
