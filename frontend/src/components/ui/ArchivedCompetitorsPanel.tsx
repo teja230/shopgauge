@@ -47,6 +47,7 @@ interface ArchivedCompetitor {
   platform: string;
   domain: string;
   last_successful_check: string | null;
+  latest_snapshot_at?: string | null;
   price_snapshots_count: number;
 }
 
@@ -625,10 +626,11 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
                       </StyledTableCell>
                       <StyledTableCell>
                         <Typography variant="body2" color="text.secondary">
-                          {competitor.last_successful_check 
+                          {competitor.last_successful_check
                             ? formatDate(competitor.last_successful_check)
-                            : 'Never'
-                          }
+                            : competitor.latest_snapshot_at
+                              ? formatDate(competitor.latest_snapshot_at)
+                              : 'No snapshots'}
                         </Typography>
                       </StyledTableCell>
                       <StyledTableCell>

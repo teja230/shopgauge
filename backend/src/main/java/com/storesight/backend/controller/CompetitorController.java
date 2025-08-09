@@ -1843,6 +1843,11 @@ public class CompetitorController {
               cu.platform,
               cu.domain,
               cu.last_successful_check,
+              (
+                SELECT MAX(ps2.checked_at)
+                FROM price_snapshots ps2
+                WHERE ps2.competitor_url_id = cu.id AND ps2.deleted_at IS NULL
+              ) AS latest_snapshot_at,
               COUNT(ps.id) as price_snapshots_count
           FROM competitor_urls cu
           LEFT JOIN price_snapshots ps ON cu.id = ps.competitor_url_id AND ps.deleted_at IS NULL
