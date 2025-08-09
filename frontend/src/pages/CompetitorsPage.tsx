@@ -1732,7 +1732,12 @@ export default function CompetitorsPage() {
     // Force refresh to update active competitors list and clear search/filter that could hide it
     setFilterStatus('all');
     setSearchQuery('');
-    fetchData(true);
+    fetchData(true).then(() => {
+      if (competitorId) {
+        // Re-trigger highlight once data is in the table so the row is visible
+        setTimeout(() => triggerHighlight(competitorId, 'restore'), 100);
+      }
+    });
   }, [fetchData]);
 
   // Limit display component
