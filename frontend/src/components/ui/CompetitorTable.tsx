@@ -75,6 +75,9 @@ export interface Competitor {
   showingOldPrice?: boolean; // Indicates if showing old price for out-of-stock item
 }
 
+// Revert to colored icon style consistent with main branch (no muted ghost look)
+const actionIconButtonSx = undefined as unknown as any;
+
 // Secondary actions consolidated in an overflow menu for clarity
 const RowOverflowMenu: React.FC<{
   competitor: Competitor;
@@ -1099,6 +1102,7 @@ const DesktopTableRow: React.FC<{
                 onClick={handleRowRefresh}
                 disabled={rowRefreshing}
                 aria-label="Refresh price"
+              
               >
                 {rowRefreshing ? <CircularProgress size={16} /> : <RefreshIcon fontSize="small" />}
               </IconButton>
@@ -1113,6 +1117,7 @@ const DesktopTableRow: React.FC<{
                 onClick={() => onViewGraph && onViewGraph(competitor)}
                 disabled={!onViewGraph || !competitor.lastChecked}
                 aria-label="View price history"
+              sx={{ opacity: competitor.lastChecked ? 1 : 0.4 }}
               >
                 <BarChartIcon fontSize="small" />
               </IconButton>
@@ -1121,7 +1126,7 @@ const DesktopTableRow: React.FC<{
 
           {/* Primary action: Archive */}
           <Tooltip title="Archive competitor">
-            <IconButton size="small" color="warning" onClick={handleDelete} aria-label="Archive competitor">
+            <IconButton size="small" onClick={handleDelete} aria-label="Archive competitor" color="warning">
               <ArchiveIcon fontSize="small" />
             </IconButton>
           </Tooltip>
