@@ -1574,8 +1574,10 @@ export default function CompetitorsPage() {
         void 0;
       }
       cache.delete(cacheKey);
-      // Refetch from server/Redis to repopulate cache and state
-      await fetchData(true);
+      // Refetch from server/Redis to repopulate cache and state, but delay slightly so the archived panel highlight is visible
+      setTimeout(async () => {
+        await fetchData(true);
+      }, 500);
       
         notifications.showSuccess('Competitor tracking has been discontinued', {
           category: 'Competitors',
