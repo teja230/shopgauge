@@ -1951,10 +1951,13 @@ public class CompetitorController {
           "UPDATE price_snapshots SET deleted_at = NULL WHERE competitor_url_id = ? AND deleted_at IS NOT NULL",
           competitorId);
 
-      // Patch caches: remove from archived list cache; active list will be refetched by client
+      // Patch caches: remove from archived list cache and refresh active list for immediate
+      // consistency on subsequent reads
       try {
         String shopDomain = resolveShopDomain(shopId);
         marketIntelligenceCacheService.removeFromArchivedList(shopDomain, competitorId);
+        // Rebuild active competitors cache from DB so UI immediately sees the restored item
+        refreshCompetitorCacheForShop(shopId, shopDomain);
       } catch (Exception ignore) {
       }
 

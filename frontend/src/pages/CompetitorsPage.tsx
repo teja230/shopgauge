@@ -1536,7 +1536,10 @@ export default function CompetitorsPage() {
       // Trigger highlighting for the archived competitor
       triggerHighlight(id, 'archive');
       
-      setCompetitors((prev) => prev.filter((c) => c.id !== id));
+      // Delay removal slightly to allow highlight animation
+      setTimeout(() => {
+        setCompetitors((prev) => prev.filter((c) => c.id !== id));
+      }, 250);
       
       try {
         // Call API to actually delete from backend
