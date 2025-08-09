@@ -317,9 +317,12 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
           // Highlight the row before removing it
           highlightRow(restoreDialog.competitor!.id, 'success');
           
-          setDeletedCompetitors(prev => 
-            prev.filter(c => c.id !== restoreDialog.competitor!.id)
-          );
+          // Delay removal slightly so highlight is visible
+          setTimeout(() => {
+            setDeletedCompetitors(prev => 
+              prev.filter(c => c.id !== restoreDialog.competitor!.id)
+            );
+          }, 250);
           // Update header counts if provided by backend
           if (typeof data.activeCount === 'number' && typeof data.archivedCount === 'number' && onCountChange) {
             onCountChange(data.archivedCount);
@@ -328,9 +331,9 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
             showToast: true
           });
           
-          // Notify parent component to refresh active competitors
+          // Notify parent component to refresh active competitors after delay
           if (onCompetitorRestored) {
-            onCompetitorRestored(restoreDialog.competitor!.id);
+            setTimeout(() => onCompetitorRestored(restoreDialog.competitor!.id), 250);
           }
         } else {
           // Handle error response
