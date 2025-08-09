@@ -2920,7 +2920,7 @@ export default function CompetitorsPage() {
             <div className="space-y-4">
               {/* Active Competitors Section */}
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-                <div className="overflow-x-auto competitor-table">
+                <div className="competitor-table">
                   <CompetitorTable 
                     data={filteredCompetitors} 
                     onDelete={handleDelete} 
@@ -2947,7 +2947,7 @@ export default function CompetitorsPage() {
               {/* Archived Competitors Panel */}
               {showDeletedCompetitors && (
                 <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-                  <div className="overflow-x-auto competitor-table">
+                  <div className="competitor-table">
                     <ArchivedCompetitorsPanel
                       shopId={isDemoMode ? 'demo' : (shop || 'demo')}
                       onCountChange={setArchivedCount}
