@@ -112,9 +112,10 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
     return '→';
   };
 
-  // Transform data for Recharts - data is in descending order (latest first)
-  const chartData = priceHistory.map((entry, index) => {
-    const prevPrice = index > 0 ? priceHistory[index - 1].price : entry.price;
+  // Transform data for Recharts - render in chronological order (oldest -> newest)
+  const sortedHistory = [...priceHistory].reverse();
+  const chartData = sortedHistory.map((entry, index) => {
+    const prevPrice = index > 0 ? sortedHistory[index - 1].price : entry.price;
     const persistedChange =
       entry.price_change_percent !== undefined && entry.price_change_percent !== null
         ? Number(entry.price_change_percent)
@@ -132,7 +133,7 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
       inStock: entry.in_stock,
       timestamp: new Date(entry.checked_at).getTime()
     };
-  }); // Data is in descending order (latest first)
+  });
 
   // Custom tooltip for the chart
   const CustomTooltip = ({ active, payload, label }: any) => {
@@ -369,7 +370,7 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
                   </ResponsiveContainer>
                 </div>
                 <div className="text-center text-sm text-gray-500 mt-4">
-                  {formatDate(priceHistory[priceHistory.length - 1].checked_at)} - {formatDate(priceHistory[0].checked_at)}
+                  {formatDate(sortedHistory[0].checked_at)} - {formatDate(sortedHistory[sortedHistory.length - 1].checked_at)}
                 </div>
               </div>
             )}
