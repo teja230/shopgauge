@@ -353,9 +353,6 @@ const StyledTableRow = styled(TableRow)<{ $highlighted?: boolean; $highlightColo
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
   fontSize: '0.875rem',
   fontWeight: 500,
-  whiteSpace: 'nowrap',
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
   [theme.breakpoints.down('lg')]: {
     fontSize: '0.8125rem',
     padding: theme.spacing(1.5),
@@ -586,6 +583,22 @@ const MobileCompetitorCard: React.FC<{
 }> = ({ competitor, onDelete, onViewGraph }) => {
   const [expanded, setExpanded] = useState(false);
   const { shop } = useAuth();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const handleRowRefresh = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    try {
+      await refreshSingleCompetitor(competitor.id);
+      const status = await getPriceStatus(competitor.id);
+      competitor.price = status.price ?? competitor.price;
+      competitor.inStock = status.inStock ?? competitor.inStock;
+      competitor.lastChecked = status.lastChecked ?? competitor.lastChecked;
+    } catch (error) {
+      console.error('Failed to refresh competitor price:', error);
+    }
+    setIsRefreshing(false);
+  };
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -649,6 +662,21 @@ const MobileCompetitorCard: React.FC<{
           >
             <ExpandMoreIcon />
           </IconButton>
+
+          {/* Mobile per-row refresh */}
+          <Tooltip title="Refresh price">
+            <span>
+              <IconButton
+                size="small"
+                onClick={handleRowRefresh}
+                disabled={isRefreshing}
+                sx={{ ml: 0.5, minWidth: 36, minHeight: 36 }}
+                aria-label="Refresh price"
+              >
+                {isRefreshing ? <CircularProgress size={16} /> : <RefreshIcon fontSize="small" />}
+              </IconButton>
+            </span>
+          </Tooltip>
         </CompetitorHeader>
 
         <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }}>
@@ -1429,18 +1457,18 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({
         {/* Desktop Table */}
         <Box className="desktop-table">
           <StyledTableContainer>
-            <Table>
+            <Table sx={{ tableLayout: 'fixed', width: '100%' }}>
               <StyledTableHead>
                 <TableRow>
-                  <TableCell sx={{ width: 240 }}>
+                  <TableCell sx={{ width: { xs: 200, md: 240 }, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     <span>Competitor</span>
                   </TableCell>
-                  <TableCell sx={{ width: 100 }}>Price</TableCell>
-                  <TableCell sx={{ width: 110 }}>Status</TableCell>
-                  <TableCell sx={{ width: 110 }}>Change</TableCell>
-                  <TableCell sx={{ width: 140 }}>Product</TableCell>
-                  <TableCell sx={{ width: 150 }}>Last Checked</TableCell>
-                  <TableCell sx={{ width: 180, position: 'sticky', right: 0, backgroundColor: 'background.paper' }}>Actions</TableCell>
+                  <TableCell sx={{ width: { xs: 80, md: 100 } }}>Price</TableCell>
+                  <TableCell sx={{ width: { xs: 90, md: 110 } }}>Status</TableCell>
+                  <TableCell sx={{ width: { xs: 90, md: 110 } }}>Change</TableCell>
+                  <TableCell sx={{ width: { xs: 120, md: 140 } }}>Product</TableCell>
+                  <TableCell sx={{ width: { xs: 120, md: 150 } }}>Last Checked</TableCell>
+                  <TableCell sx={{ width: { xs: 140, md: 180 }, position: 'sticky', right: 0, backgroundColor: 'background.paper' }}>Actions</TableCell>
                 </TableRow>
               </StyledTableHead>
               <TableBody>

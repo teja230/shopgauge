@@ -24,8 +24,11 @@ import {
   CardContent,
   Divider,
   Grid,
-  Stack
+  Stack,
+  Collapse,
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import { styled } from '@mui/material/styles';
 import {
   Restore as RestoreIcon,
@@ -35,6 +38,7 @@ import {
   TrendingUp as TrendingUpIcon,
   OpenInNew as OpenInNewIcon
 } from '@mui/icons-material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useNotifications } from '../../hooks/useNotifications';
 import { fetchWithAuth } from '../../api';
 import StoreLogo from './StoreLogo';
@@ -140,10 +144,13 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
   highlightedCompetitorId,
   highlightAction,
 }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [deletedCompetitors, setDeletedCompetitors] = useState<ArchivedCompetitor[]>([]);
   const [loading, setLoading] = useState(true);
   const [restoring, setRestoring] = useState<string | null>(null);
   const [highlightedRows, setHighlightedRows] = useState<Set<string>>(new Set());
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [restoreDialog, setRestoreDialog] = useState<{
     open: boolean;
     competitor: ArchivedCompetitor | null;
@@ -226,6 +233,14 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deletedCompetitors.length, highlightedCompetitorId]);
+
+  const toggleExpanded = (id: string) => {
+    setExpandedRows(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
 
   const loadDeletedCompetitors = async () => {
     try {
@@ -595,7 +610,47 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
               </Typography>
             </Box>
           ) : (
-            /* Table - Matches CompetitorTable styling exactly */
+            /* Mobile cards or desktop table */
+            isMobile ? (
+              <Box sx={{ p: 2 }}>
+                <Stack spacing={2}>
+                  {deletedCompetitors.map((c) => (
+                    <Card key={c.id} onClick={() => toggleExpanded(c.id)} sx={{ borderRadius: 2 }}>
+                      <CardContent>
+                        <Stack direction="row" spacing={2} alignItems="center">
+                          <StoreLogo url={c.url} size={40} />
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Typography variant="subtitle1" fontWeight={600} noWrap>
+                              {c.label || 'Unnamed Competitor'}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" noWrap>
+                              {c.domain || getDomainFromUrl(c.url)}
+                            </Typography>
+                          </Box>
+                          <IconButton size="small" aria-label="expand">
+                            <ExpandMoreIcon sx={{ transform: expandedRows.has(c.id) ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
+                          </IconButton>
+                        </Stack>
+                        <Collapse in={expandedRows.has(c.id)} timeout={200}>
+                          <Divider sx={{ my: 1.5 }} />
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>Archived</Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>{formatDate(c.deleted_at)}</Typography>
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>Last Check</Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                            {c.last_successful_check ? formatDate(c.last_successful_check) : c.latest_snapshot_at ? formatDate(c.latest_snapshot_at) : '-'}
+                          </Typography>
+                          <Stack direction="row" spacing={1}>
+                            <Button variant="outlined" startIcon={<OpenInNewIcon />} onClick={(e) => { e.stopPropagation(); window.open(c.url, '_blank'); }} sx={{ flex: 1 }}>Visit Site</Button>
+                            <Button variant="outlined" color="success" startIcon={<RestoreIcon />} onClick={(e) => { e.stopPropagation(); handleRestore(c); }} sx={{ flex: 1 }}>Restore</Button>
+                            <Button variant="outlined" color="error" startIcon={<DeleteIcon />} onClick={(e) => { e.stopPropagation(); handlePermanentDelete(c); }} sx={{ flex: 1 }}>Delete</Button>
+                          </Stack>
+                        </Collapse>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </Stack>
+              </Box>
+            ) : (
             <StyledTableContainer>
               <Table>
                 <StyledTableHead>
@@ -639,7 +694,7 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
                             ? formatDate(competitor.last_successful_check)
                             : competitor.latest_snapshot_at
                               ? formatDate(competitor.latest_snapshot_at)
-                              : 'No snapshots'}
+                              : '-'}
                         </Typography>
                       </StyledTableCell>
                       <StyledTableCell>
@@ -681,6 +736,7 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
                 </TableBody>
               </Table>
             </StyledTableContainer>
+            )
           )}
         </>
       )}
