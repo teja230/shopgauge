@@ -300,9 +300,7 @@ const MetricChip = styled(Chip)(({ theme }) => ({
 const StyledTableContainer = styled(TableContainer)(({ theme }) => ({
   borderRadius: 16,
   boxShadow: theme.shadows[2],
-  // Prevent horizontal scroll in desktop layout
-  overflowX: 'hidden',
-  overflowY: 'hidden',
+  overflow: 'hidden',
   border: `1px solid ${theme.palette.divider}`,
   backgroundColor: theme.palette.background.paper,
 }));
@@ -424,18 +422,18 @@ const CompetitorSkeleton: React.FC = () => {
   }
 
   return (
-    <StyledTableContainer>
-              <Table sx={{ tableLayout: 'fixed', width: '100%' }}>
-        <StyledTableHead>
-          <TableRow>
-            <StyledTableCell>Competitor</StyledTableCell>
-            <StyledTableCell>Price</StyledTableCell>
-            <StyledTableCell>Status</StyledTableCell>
-            <StyledTableCell>Change</StyledTableCell>
-            <StyledTableCell>Last Checked</StyledTableCell>
-            <StyledTableCell>Actions</StyledTableCell>
-          </TableRow>
-        </StyledTableHead>
+            <StyledTableContainer>
+          <Table>
+            <StyledTableHead>
+              <TableRow>
+                <StyledTableCell>Competitor</StyledTableCell>
+                <StyledTableCell>Price</StyledTableCell>
+                <StyledTableCell>Status</StyledTableCell>
+                <StyledTableCell>Change</StyledTableCell>
+                <StyledTableCell>Last Checked</StyledTableCell>
+                <StyledTableCell>Actions</StyledTableCell>
+              </TableRow>
+            </StyledTableHead>
         <TableBody>
           {[...Array(3)].map((_, index) => (
             <StyledTableRow key={index}>
@@ -1457,18 +1455,18 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({
         {/* Desktop Table */}
         <Box className="desktop-table">
           <StyledTableContainer>
-            <Table sx={{ tableLayout: 'fixed', width: '100%' }}>
+            <Table>
               <StyledTableHead>
                 <TableRow>
-                  <TableCell sx={{ width: { xs: 200, md: 240 }, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <TableCell>
                     <span>Competitor</span>
                   </TableCell>
-                  <TableCell sx={{ width: { xs: 80, md: 100 } }}>Price</TableCell>
-                  <TableCell sx={{ width: { xs: 90, md: 110 } }}>Status</TableCell>
-                  <TableCell sx={{ width: { xs: 90, md: 110 } }}>Change</TableCell>
-                  <TableCell sx={{ width: { xs: 120, md: 140 } }}>Product</TableCell>
-                  <TableCell sx={{ width: { xs: 120, md: 150 } }}>Last Checked</TableCell>
-                  <TableCell sx={{ width: { xs: 140, md: 180 }, position: 'sticky', right: 0, backgroundColor: 'background.paper' }}>Actions</TableCell>
+                  <TableCell>Price</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Change</TableCell>
+                  <TableCell>Product</TableCell>
+                  <TableCell>Last Checked</TableCell>
+                  <TableCell>Actions</TableCell>
                 </TableRow>
               </StyledTableHead>
               <TableBody>
