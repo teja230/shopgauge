@@ -2921,7 +2921,7 @@ export default function CompetitorsPage() {
           ) : (
             <div className="space-y-4">
               {/* Active Competitors Section */}
-              <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-hidden">
                 <div className="competitor-table">
                   <CompetitorTable 
                     data={filteredCompetitors} 
