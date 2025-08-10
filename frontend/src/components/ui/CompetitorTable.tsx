@@ -300,8 +300,8 @@ const MetricChip = styled(Chip)(({ theme }) => ({
 const StyledTableContainer = styled(TableContainer)(({ theme }) => ({
   borderRadius: 16,
   boxShadow: theme.shadows[2],
-  // Allow horizontal scroll on tighter layouts so action buttons aren't clipped
-  overflowX: 'auto',
+  // Prevent horizontal scroll in desktop layout
+  overflowX: 'hidden',
   overflowY: 'hidden',
   border: `1px solid ${theme.palette.divider}`,
   backgroundColor: theme.palette.background.paper,
@@ -353,6 +353,9 @@ const StyledTableRow = styled(TableRow)<{ $highlighted?: boolean; $highlightColo
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
   fontSize: '0.875rem',
   fontWeight: 500,
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
   [theme.breakpoints.down('lg')]: {
     fontSize: '0.8125rem',
     padding: theme.spacing(1.5),
@@ -425,7 +428,7 @@ const CompetitorSkeleton: React.FC = () => {
 
   return (
     <StyledTableContainer>
-              <Table sx={{ tableLayout: 'fixed', minWidth: 920 }}>
+              <Table sx={{ tableLayout: 'fixed', width: '100%' }}>
         <StyledTableHead>
           <TableRow>
             <StyledTableCell>Competitor</StyledTableCell>

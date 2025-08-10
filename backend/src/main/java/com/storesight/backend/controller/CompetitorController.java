@@ -1850,7 +1850,7 @@ public class CompetitorController {
               (
                 SELECT MAX(ps2.checked_at)
                 FROM price_snapshots ps2
-                WHERE ps2.competitor_url_id = cu.id AND ps2.deleted_at IS NULL
+                WHERE ps2.competitor_url_id = cu.id
               ) AS latest_snapshot_at,
               COUNT(ps.id) as price_snapshots_count
           FROM competitor_urls cu
