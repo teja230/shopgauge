@@ -661,20 +661,7 @@ const MobileCompetitorCard: React.FC<{
             <ExpandMoreIcon />
           </IconButton>
 
-          {/* Mobile per-row refresh */}
-          <Tooltip title="Refresh price">
-            <span>
-              <IconButton
-                size="small"
-                onClick={handleRowRefresh}
-                disabled={isRefreshing}
-                sx={{ ml: 0.5, minWidth: 36, minHeight: 36 }}
-                aria-label="Refresh price"
-              >
-                {isRefreshing ? <CircularProgress size={16} /> : <RefreshIcon fontSize="small" />}
-              </IconButton>
-            </span>
-          </Tooltip>
+
         </CompetitorHeader>
 
         <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }}>
@@ -827,46 +814,76 @@ const MobileCompetitorCard: React.FC<{
               </Stack>
             </Box>
 
-            <ActionButtonGroup>
-              <StyledActionButton
-                variant="outlined"
-                startIcon={<OpenInNewIcon />}
-                onClick={handleOpenUrl}
-                sx={{ flex: 1 }}
-              >
-                Visit Site
-              </StyledActionButton>
-              
-              {onViewGraph && (
-                <StyledActionButton
-                  variant="outlined"
-                  color="info"
-                  startIcon={<BarChartIcon />}
-                  onClick={() => onViewGraph(competitor)}
-                  disabled={!competitor.lastChecked}
+            {/* Mobile: Icon-only buttons for compact layout */}
+            <Stack direction="row" spacing={1} justifyContent="center" sx={{ mt: 2 }}>
+              <Tooltip title="Visit Site">
+                <IconButton
+                  size="medium"
+                  onClick={handleOpenUrl}
                   sx={{ 
-                    flex: 1,
-                    opacity: competitor.lastChecked ? 1 : 0.4,
-                    '&:disabled': {
-                      opacity: 0.4,
-                      cursor: 'not-allowed'
-                    }
+                    backgroundColor: 'primary.light',
+                    color: 'primary.contrastText',
+                    '&:hover': { backgroundColor: 'primary.main' }
                   }}
                 >
-                  {competitor.lastChecked ? 'View History' : 'No Data'}
-                </StyledActionButton>
+                  <OpenInNewIcon />
+                </IconButton>
+              </Tooltip>
+              
+              <Tooltip title="Refresh Price">
+                <IconButton
+                  size="medium"
+                  onClick={handleRowRefresh}
+                  disabled={isRefreshing}
+                  sx={{ 
+                    backgroundColor: 'info.light',
+                    color: 'info.contrastText',
+                    '&:hover': { backgroundColor: 'info.main' },
+                    '&:disabled': { opacity: 0.6 }
+                  }}
+                >
+                  {isRefreshing ? <CircularProgress size={20} /> : <RefreshIcon />}
+                </IconButton>
+              </Tooltip>
+              
+              {onViewGraph && (
+                <Tooltip title={competitor.lastChecked ? "View History" : "No Data Available"}>
+                  <span>
+                    <IconButton
+                      size="medium"
+                      onClick={() => onViewGraph(competitor)}
+                      disabled={!competitor.lastChecked}
+                      sx={{ 
+                        backgroundColor: 'success.light',
+                        color: 'success.contrastText',
+                        '&:hover': { backgroundColor: 'success.main' },
+                        '&:disabled': { 
+                          opacity: 0.4,
+                          backgroundColor: 'grey.300',
+                          color: 'grey.500'
+                        }
+                      }}
+                    >
+                      <BarChartIcon />
+                    </IconButton>
+                  </span>
+                </Tooltip>
               )}
               
-              <StyledActionButton
-                variant="outlined"
-                color="warning"
-                startIcon={<ArchiveIcon />}
-                onClick={handleDelete}
-                sx={{ flex: 1 }}
-              >
-                Archive
-              </StyledActionButton>
-            </ActionButtonGroup>
+              <Tooltip title="Archive">
+                <IconButton
+                  size="medium"
+                  onClick={handleDelete}
+                  sx={{ 
+                    backgroundColor: 'warning.light',
+                    color: 'warning.contrastText',
+                    '&:hover': { backgroundColor: 'warning.main' }
+                  }}
+                >
+                  <ArchiveIcon />
+                </IconButton>
+              </Tooltip>
+            </Stack>
           </Stack>
         </Collapse>
       </CardContent>
