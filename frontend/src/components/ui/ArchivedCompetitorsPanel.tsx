@@ -639,10 +639,51 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
                           <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
                             {c.last_successful_check ? formatDate(c.last_successful_check) : c.latest_snapshot_at ? formatDate(c.latest_snapshot_at) : '-'}
                           </Typography>
-                          <Stack direction="row" spacing={1}>
-                            <Button variant="outlined" startIcon={<OpenInNewIcon />} onClick={(e) => { e.stopPropagation(); window.open(c.url, '_blank'); }} sx={{ flex: 1 }}>Visit Site</Button>
-                            <Button variant="outlined" color="success" startIcon={<RestoreIcon />} onClick={(e) => { e.stopPropagation(); handleRestore(c); }} sx={{ flex: 1 }}>Restore</Button>
-                            <Button variant="outlined" color="error" startIcon={<DeleteIcon />} onClick={(e) => { e.stopPropagation(); handlePermanentDelete(c); }} sx={{ flex: 1 }}>Delete</Button>
+                          {/* Mobile: Icon-only buttons for compact layout */}
+                          <Stack direction="row" spacing={1} justifyContent="center" sx={{ mt: 2 }}>
+                            <Tooltip title="Visit Site">
+                              <IconButton
+                                size="medium"
+                                onClick={(e) => { e.stopPropagation(); window.open(c.url, '_blank'); }}
+                                sx={{ 
+                                  backgroundColor: 'primary.light',
+                                  color: 'primary.contrastText',
+                                  '&:hover': { backgroundColor: 'primary.main' }
+                                }}
+                              >
+                                <OpenInNewIcon />
+                              </IconButton>
+                            </Tooltip>
+                            
+                            <Tooltip title="Restore">
+                              <IconButton
+                                size="medium"
+                                onClick={(e) => { e.stopPropagation(); handleRestore(c); }}
+                                disabled={restoring === c.id}
+                                sx={{ 
+                                  backgroundColor: 'success.light',
+                                  color: 'success.contrastText',
+                                  '&:hover': { backgroundColor: 'success.main' },
+                                  '&:disabled': { opacity: 0.6 }
+                                }}
+                              >
+                                {restoring === c.id ? <CircularProgress size={20} /> : <RestoreIcon />}
+                              </IconButton>
+                            </Tooltip>
+                            
+                            <Tooltip title="Delete Permanently">
+                              <IconButton
+                                size="medium"
+                                onClick={(e) => { e.stopPropagation(); handlePermanentDelete(c); }}
+                                sx={{ 
+                                  backgroundColor: 'error.light',
+                                  color: 'error.contrastText',
+                                  '&:hover': { backgroundColor: 'error.main' }
+                                }}
+                              >
+                                <DeleteIcon />
+                              </IconButton>
+                            </Tooltip>
                           </Stack>
                         </Collapse>
                       </CardContent>
