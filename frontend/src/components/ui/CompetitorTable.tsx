@@ -814,31 +814,17 @@ const MobileCompetitorCard: React.FC<{
               </Stack>
             </Box>
 
-            {/* Mobile: Icon-only buttons for compact layout */}
+            {/* Mobile: Icon-only buttons matching desktop layout */}
             <Stack direction="row" spacing={1} justifyContent="center" sx={{ mt: 2 }}>
-              <Tooltip title="Visit Site">
-                <IconButton
-                  size="medium"
-                  onClick={handleOpenUrl}
-                  sx={{ 
-                    backgroundColor: 'primary.light',
-                    color: 'primary.contrastText',
-                    '&:hover': { backgroundColor: 'primary.main' }
-                  }}
-                >
-                  <OpenInNewIcon />
-                </IconButton>
-              </Tooltip>
-              
               <Tooltip title="Refresh Price">
                 <IconButton
                   size="medium"
                   onClick={handleRowRefresh}
                   disabled={isRefreshing}
                   sx={{ 
-                    backgroundColor: 'info.light',
-                    color: 'info.contrastText',
-                    '&:hover': { backgroundColor: 'info.main' },
+                    backgroundColor: 'primary.light',
+                    color: 'primary.contrastText',
+                    '&:hover': { backgroundColor: 'primary.main' },
                     '&:disabled': { opacity: 0.6 }
                   }}
                 >
@@ -854,9 +840,9 @@ const MobileCompetitorCard: React.FC<{
                       onClick={() => onViewGraph(competitor)}
                       disabled={!competitor.lastChecked}
                       sx={{ 
-                        backgroundColor: 'success.light',
-                        color: 'success.contrastText',
-                        '&:hover': { backgroundColor: 'success.main' },
+                        backgroundColor: 'info.light',
+                        color: 'info.contrastText',
+                        '&:hover': { backgroundColor: 'info.main' },
                         '&:disabled': { 
                           opacity: 0.4,
                           backgroundColor: 'grey.300',
@@ -881,6 +867,75 @@ const MobileCompetitorCard: React.FC<{
                   }}
                 >
                   <ArchiveIcon />
+                </IconButton>
+              </Tooltip>
+              
+              {/* Overflow menu for secondary actions (Visit Site, Link Product, Copy URL) */}
+              <Tooltip title="More Actions">
+                <IconButton
+                  size="medium"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // Create a simple dropdown menu for mobile
+                    const menu = document.createElement('div');
+                    menu.style.position = 'fixed';
+                    menu.style.top = `${e.clientY}px`;
+                    menu.style.left = `${e.clientX}px`;
+                    menu.style.zIndex = '9999';
+                    menu.style.backgroundColor = 'white';
+                    menu.style.border = '1px solid #ccc';
+                    menu.style.borderRadius = '4px';
+                    menu.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
+                    menu.style.padding = '4px 0';
+                    
+                    const visitItem = document.createElement('div');
+                    visitItem.textContent = 'Visit Site';
+                    visitItem.style.padding = '8px 16px';
+                    visitItem.style.cursor = 'pointer';
+                    visitItem.style.fontSize = '14px';
+                    visitItem.onclick = () => {
+                      window.open(competitor.url, '_blank', 'noopener,noreferrer');
+                      document.body.removeChild(menu);
+                    };
+                    visitItem.onmouseenter = () => visitItem.style.backgroundColor = '#f5f5f5';
+                    visitItem.onmouseleave = () => visitItem.style.backgroundColor = 'white';
+                    
+                    const copyItem = document.createElement('div');
+                    copyItem.textContent = 'Copy URL';
+                    copyItem.style.padding = '8px 16px';
+                    copyItem.style.cursor = 'pointer';
+                    copyItem.style.fontSize = '14px';
+                    copyItem.onclick = async () => {
+                      try {
+                        await navigator.clipboard.writeText(competitor.url);
+                      } catch (_) {
+                        // ignore copy errors
+                      }
+                      document.body.removeChild(menu);
+                    };
+                    copyItem.onmouseenter = () => copyItem.style.backgroundColor = '#f5f5f5';
+                    copyItem.onmouseleave = () => copyItem.style.backgroundColor = 'white';
+                    
+                    menu.appendChild(visitItem);
+                    menu.appendChild(copyItem);
+                    
+                    const closeMenu = () => {
+                      if (document.body.contains(menu)) {
+                        document.body.removeChild(menu);
+                      }
+                      document.removeEventListener('click', closeMenu);
+                    };
+                    
+                    document.body.appendChild(menu);
+                    document.addEventListener('click', closeMenu);
+                  }}
+                  sx={{ 
+                    backgroundColor: 'grey.300',
+                    color: 'grey.700',
+                    '&:hover': { backgroundColor: 'grey.400' }
+                  }}
+                >
+                  <MoreVertIcon />
                 </IconButton>
               </Tooltip>
             </Stack>
