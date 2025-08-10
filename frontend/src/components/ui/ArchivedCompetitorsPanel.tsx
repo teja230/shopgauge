@@ -639,17 +639,14 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
                           <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
                             {c.last_successful_check ? formatDate(c.last_successful_check) : c.latest_snapshot_at ? formatDate(c.latest_snapshot_at) : '-'}
                           </Typography>
-                          {/* Mobile: Icon-only buttons for compact layout */}
+                          {/* Mobile: Icon-only buttons matching desktop theme */}
                           <Stack direction="row" spacing={1} justifyContent="center" sx={{ mt: 2 }}>
                             <Tooltip title="Visit Site">
                               <IconButton
                                 size="medium"
                                 onClick={(e) => { e.stopPropagation(); window.open(c.url, '_blank'); }}
-                                sx={{ 
-                                  backgroundColor: 'primary.light',
-                                  color: 'primary.contrastText',
-                                  '&:hover': { backgroundColor: 'primary.main' }
-                                }}
+                                color="primary"
+                                aria-label="Visit competitor website"
                               >
                                 <OpenInNewIcon />
                               </IconButton>
@@ -660,12 +657,8 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
                                 size="medium"
                                 onClick={(e) => { e.stopPropagation(); handleRestore(c); }}
                                 disabled={restoring === c.id}
-                                sx={{ 
-                                  backgroundColor: 'success.light',
-                                  color: 'success.contrastText',
-                                  '&:hover': { backgroundColor: 'success.main' },
-                                  '&:disabled': { opacity: 0.6 }
-                                }}
+                                color="success"
+                                aria-label="Restore competitor"
                               >
                                 {restoring === c.id ? <CircularProgress size={20} /> : <RestoreIcon />}
                               </IconButton>
@@ -675,11 +668,8 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
                               <IconButton
                                 size="medium"
                                 onClick={(e) => { e.stopPropagation(); handlePermanentDelete(c); }}
-                                sx={{ 
-                                  backgroundColor: 'error.light',
-                                  color: 'error.contrastText',
-                                  '&:hover': { backgroundColor: 'error.main' }
-                                }}
+                                color="error"
+                                aria-label="Permanently delete"
                               >
                                 <DeleteIcon />
                               </IconButton>

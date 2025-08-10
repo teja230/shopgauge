@@ -814,19 +814,15 @@ const MobileCompetitorCard: React.FC<{
               </Stack>
             </Box>
 
-            {/* Mobile: Icon-only buttons matching desktop layout */}
+            {/* Mobile: Icon-only buttons matching desktop theme */}
             <Stack direction="row" spacing={1} justifyContent="center" sx={{ mt: 2 }}>
               <Tooltip title="Refresh Price">
                 <IconButton
                   size="medium"
                   onClick={handleRowRefresh}
                   disabled={isRefreshing}
-                  sx={{ 
-                    backgroundColor: 'primary.light',
-                    color: 'primary.contrastText',
-                    '&:hover': { backgroundColor: 'primary.main' },
-                    '&:disabled': { opacity: 0.6 }
-                  }}
+                  color="primary"
+                  aria-label="Refresh price"
                 >
                   {isRefreshing ? <CircularProgress size={20} /> : <RefreshIcon />}
                 </IconButton>
@@ -839,16 +835,9 @@ const MobileCompetitorCard: React.FC<{
                       size="medium"
                       onClick={() => onViewGraph(competitor)}
                       disabled={!competitor.lastChecked}
-                      sx={{ 
-                        backgroundColor: 'info.light',
-                        color: 'info.contrastText',
-                        '&:hover': { backgroundColor: 'info.main' },
-                        '&:disabled': { 
-                          opacity: 0.4,
-                          backgroundColor: 'grey.300',
-                          color: 'grey.500'
-                        }
-                      }}
+                      color="info"
+                      aria-label="View price history"
+                      sx={{ opacity: competitor.lastChecked ? 1 : 0.4 }}
                     >
                       <BarChartIcon />
                     </IconButton>
@@ -860,11 +849,8 @@ const MobileCompetitorCard: React.FC<{
                 <IconButton
                   size="medium"
                   onClick={handleDelete}
-                  sx={{ 
-                    backgroundColor: 'warning.light',
-                    color: 'warning.contrastText',
-                    '&:hover': { backgroundColor: 'warning.main' }
-                  }}
+                  color="warning"
+                  aria-label="Archive competitor"
                 >
                   <ArchiveIcon />
                 </IconButton>
@@ -929,11 +915,7 @@ const MobileCompetitorCard: React.FC<{
                     document.body.appendChild(menu);
                     document.addEventListener('click', closeMenu);
                   }}
-                  sx={{ 
-                    backgroundColor: 'grey.300',
-                    color: 'grey.700',
-                    '&:hover': { backgroundColor: 'grey.400' }
-                  }}
+                  aria-label="More actions"
                 >
                   <MoreVertIcon />
                 </IconButton>
