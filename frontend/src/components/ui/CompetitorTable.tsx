@@ -495,22 +495,34 @@ const formatLastChecked = (lastChecked: string): string => {
   if (lastChecked === 'Never' || lastChecked === 'Unknown' || !lastChecked) {
     return 'Not checked yet';
   }
+  // If backend already provided a relative string, return it as-is
+  if (/ago|just now|less than a minute/i.test(lastChecked)) {
+    return lastChecked;
+  }
   
   try {
     let date: Date;
+    let parsedAs: 'utc' | 'local' | 'unknown' = 'unknown';
     
     // Handle different timestamp formats from backend
     if (lastChecked.includes('T') && lastChecked.includes('Z')) {
       // ISO format: "2025-07-29T17:59:19.391Z"
       date = parseISO(lastChecked);
+      parsedAs = 'utc';
     } else if (lastChecked.includes(' ') && lastChecked.includes(':')) {
       // Database format: "2025-07-29 17:59:19.391"
-      // Treat as LOCAL time (no timezone suffix). This matches main branch behavior
-      // and prevents UTC conversion that could push the time into the future for the user.
+      // Attempt LOCAL parse first (matches main branch behavior)
       date = new Date(lastChecked.replace(' ', 'T'));
+      parsedAs = 'local';
+      // If invalid, try UTC fallback
+      if (isNaN(date.getTime())) {
+        date = new Date(lastChecked.replace(' ', 'T') + 'Z');
+        parsedAs = 'utc';
+      }
     } else {
       // Try direct parsing
       date = new Date(lastChecked);
+      parsedAs = 'unknown';
     }
     
     // Validate the date
@@ -519,12 +531,27 @@ const formatLastChecked = (lastChecked: string): string => {
       return 'Not checked yet';
     }
     
-    // Clamp future timestamps to now to avoid "in X hours" due to server/user TZ drift
+    // Heuristic: If parsed time is in the future by more than 2 minutes,
+    // re-interpret using the opposite timezone assumption (UTC vs local).
     const now = new Date();
-    if (date.getTime() > now.getTime()) {
-      date = now;
+    const futureSkewMs = date.getTime() - now.getTime();
+    if (futureSkewMs > 2 * 60 * 1000) {
+      if (parsedAs === 'local') {
+        const utcAlt = new Date(lastChecked.replace(' ', 'T') + 'Z');
+        if (!isNaN(utcAlt.getTime()) && utcAlt.getTime() <= now.getTime()) {
+          date = utcAlt;
+        }
+      } else if (parsedAs === 'utc') {
+        const localAlt = new Date(lastChecked.replace(' ', 'T'));
+        if (!isNaN(localAlt.getTime()) && localAlt.getTime() <= now.getTime()) {
+          date = localAlt;
+        }
+      } else {
+        // As a last resort, clamp
+        date = now;
+      }
     }
-
+ 
     // Use relative time like main branch
     return formatDistanceToNow(date, { addSuffix: true });
   } catch (error) {
