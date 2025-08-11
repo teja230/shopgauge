@@ -102,6 +102,15 @@ public class MarketIntelligenceExceptionHandler {
   public ResponseEntity<Map<String, Object>> handleDataAccessException(
       DataAccessException ex, WebRequest request) {
 
+    // Delegate Redis session key issues to the global session handler so it can gracefully return
+    // a 200 with session-expired hint, preventing cascades in API flows
+    if (ex.getCause() != null
+        && ex.getCause().getClass().getName().contains("RedisCommandExecutionException")
+        && ex.getCause().getMessage() != null
+        && ex.getCause().getMessage().contains("ERR no such key")) {
+      throw ex;
+    }
+
     logger.error("Database error in Market Intelligence: {}", ex.getMessage(), ex);
 
     Map<String, Object> response = new HashMap<>();
@@ -109,7 +118,6 @@ public class MarketIntelligenceExceptionHandler {
     response.put("message", "A database error occurred. Please try again.");
     response.put("timestamp", LocalDateTime.now());
 
-    // Don't expose internal database details in production
     if (logger.isDebugEnabled()) {
       response.put("details", ex.getMessage());
     }
