@@ -505,7 +505,9 @@ const formatLastChecked = (lastChecked: string): string => {
       date = parseISO(lastChecked);
     } else if (lastChecked.includes(' ') && lastChecked.includes(':')) {
       // Database format: "2025-07-29 17:59:19.391"
-      date = new Date(lastChecked.replace(' ', 'T') + 'Z');
+      // Treat as LOCAL time (no timezone suffix). This matches main branch behavior
+      // and prevents UTC conversion that could push the time into the future for the user.
+      date = new Date(lastChecked.replace(' ', 'T'));
     } else {
       // Try direct parsing
       date = new Date(lastChecked);
@@ -517,6 +519,12 @@ const formatLastChecked = (lastChecked: string): string => {
       return 'Not checked yet';
     }
     
+    // Clamp future timestamps to now to avoid "in X hours" due to server/user TZ drift
+    const now = new Date();
+    if (date.getTime() > now.getTime()) {
+      date = now;
+    }
+
     // Use relative time like main branch
     return formatDistanceToNow(date, { addSuffix: true });
   } catch (error) {
