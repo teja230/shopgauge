@@ -273,7 +273,10 @@ public class WebSecurityConfig implements WebMvcConfigurer {
                   .authenticated(); // Only API endpoints require authentication
             })
         .sessionManagement(
-            session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
+            session ->
+                session
+                    .sessionFixation(sessionFixation -> sessionFixation.none())
+                    .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
         // SessionRepositoryErrorFilter is now defined in SessionConfig.java to avoid bean conflicts
         .addFilterBefore(oAuthSessionFilter(), UsernamePasswordAuthenticationFilter.class)
         .addFilterBefore(adminAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)

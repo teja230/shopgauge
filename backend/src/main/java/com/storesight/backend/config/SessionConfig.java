@@ -102,6 +102,15 @@ public class SessionConfig {
     return new SessionErrorHandlingFilter(sessionSynchronizationService);
   }
 
+  /**
+   * Filter that runs right after Spring's SessionRepositoryFilter to catch low-level Redis/session
+   * errors (including ERR no such key) and prevent cascades.
+   */
+  @Bean
+  public SessionRepositoryErrorFilter sessionRepositoryErrorFilter() {
+    return new SessionRepositoryErrorFilter();
+  }
+
   /** Thread-safe session state tracking to prevent race conditions. */
   private static class SessionState {
     private final AtomicBoolean isInvalidating = new AtomicBoolean(false);
@@ -227,16 +236,33 @@ public class SessionConfig {
     }
 
     private boolean isSessionError(Exception e) {
+      // Direct session invalidation
       if (e.getMessage() != null && e.getMessage().contains("Session was invalidated")) {
         return true;
       }
 
-      // Check cause chain for session errors
+      // Redis session/storage errors
+      if (e instanceof org.springframework.data.redis.RedisSystemException) {
+        return true;
+      }
+      if (e.getMessage() != null && e.getMessage().contains("ERR no such key")) {
+        return true;
+      }
+
+      // Check cause chain for session/Redis errors
       Throwable cause = e.getCause();
       while (cause != null) {
         if (cause instanceof IllegalStateException
             && cause.getMessage() != null
             && cause.getMessage().contains("Session was invalidated")) {
+          return true;
+        }
+        if (cause instanceof org.springframework.data.redis.RedisSystemException) {
+          return true;
+        }
+        if (cause.getClass().getName().contains("RedisCommandExecutionException")
+            && cause.getMessage() != null
+            && cause.getMessage().contains("ERR no such key")) {
           return true;
         }
         cause = cause.getCause();
