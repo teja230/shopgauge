@@ -149,7 +149,7 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
   const [deletedCompetitors, setDeletedCompetitors] = useState<ArchivedCompetitor[]>([]);
   const [loading, setLoading] = useState(true);
   const [restoring, setRestoring] = useState<string | null>(null);
-  const [highlightedRows, setHighlightedRows] = useState<Set<string>>(new Set());
+  const [highlightedRows, setHighlightedRows] = useState<Map<string, 'success' | 'warning'>>(new Map());
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [restoreDialog, setRestoreDialog] = useState<{
     open: boolean;
@@ -173,17 +173,21 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
 
   const notifications = useNotifications();
 
-  // Function to highlight a row briefly
+  // Function to highlight a row briefly, with color persistence
   const highlightRow = (competitorId: string | number, color: 'success' | 'warning') => {
     const competitorIdStr = String(competitorId);
-    setHighlightedRows(prev => new Set([...prev, competitorIdStr]));
-    
+    setHighlightedRows(prev => {
+      const next = new Map(prev);
+      next.set(competitorIdStr, color);
+      return next;
+    });
+
     // Remove highlight after 5 seconds (industry standard for UI feedback)
     setTimeout(() => {
       setHighlightedRows(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(competitorIdStr);
-        return newSet;
+        const next = new Map(prev);
+        next.delete(competitorIdStr);
+        return next;
       });
     }, 5000);
   };
@@ -695,11 +699,15 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
                   </TableRow>
                 </StyledTableHead>
                 <TableBody>
-                  {deletedCompetitors.map((competitor) => (
+                  {deletedCompetitors.map((competitor) => {
+                    const idStr = String(competitor.id);
+                    const isHighlighted = highlightedRows.has(idStr);
+                    const rowColor = isHighlighted ? highlightedRows.get(idStr) : undefined;
+                    return (
                     <StyledTableRow 
                       key={competitor.id}
-                      $highlighted={highlightedRows.has(competitor.id)}
-                      $highlightColor={highlightedRows.has(competitor.id) ? 'success' : undefined}
+                      $highlighted={isHighlighted}
+                      $highlightColor={rowColor}
                     >
                       <StyledTableCell>
                         <Stack direction="row" spacing={2} alignItems="center">
@@ -763,7 +771,7 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
                         </Stack>
                       </StyledTableCell>
                     </StyledTableRow>
-                  ))}
+                  );})}
                 </TableBody>
               </Table>
             </StyledTableContainer>

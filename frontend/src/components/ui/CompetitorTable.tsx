@@ -1352,7 +1352,8 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({
       if (highlightAction === 'add') {
         color = 'success'; // Green for adding
       } else if (highlightAction === 'archive') {
-        color = 'warning'; // Orange for archiving
+        // Do not highlight in Active section when archiving
+        return;
       } else if (highlightAction === 'restore') {
         color = 'success'; // Green for restoring
       } else {
@@ -1568,7 +1569,8 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({
                     if (highlightAction === 'add') {
                       highlightColor = 'success'; // Green for adding
                     } else if (highlightAction === 'archive') {
-                      highlightColor = 'warning'; // Orange for archiving
+                      // Skip highlight color for archive in Active section
+                      highlightColor = undefined;
                     } else if (highlightAction === 'restore') {
                       highlightColor = 'success'; // Green for restoring
                     } else {
