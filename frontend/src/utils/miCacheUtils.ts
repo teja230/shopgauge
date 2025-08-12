@@ -12,7 +12,8 @@ export interface MiCacheEntry<T> {
 
 const MI_CACHE_VERSION = '1.0';
 
-export const getMiCacheKey = (shop: string): string => `mi_cache_${shop}_v1`;
+// Price history session root key (renamed from mi_cache_<shop>_v1)
+export const getMiCacheKey = (shop: string): string => `mi_pricehistory_${shop}`;
 
 export const isExpired = (entry?: MiCacheEntry<any>): boolean => {
   if (!entry || !entry.ttlSeconds) return false;
