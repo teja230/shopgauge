@@ -1569,23 +1569,55 @@ export default function CompetitorsPage() {
       try {
         // Call API to actually delete from backend
         await deleteCompetitor(id);
-      
-      // Clear session cache and force a refetch so UI reflects write-through immediately
-      const cacheKey = `mi_competitors_${shop}`;
-      const archivedKey = `mi_archived_${shop}`;
-      try {
-        sessionStorage.removeItem(cacheKey);
-        // Also clear archived list cache to force a fresh L2 read
-        sessionStorage.removeItem(archivedKey);
-      } catch (e) {
-        void 0;
-      }
-      cache.delete(cacheKey);
-      // Refetch from server/Redis to repopulate cache and state, but delay slightly so the archived panel highlight is visible
-      setTimeout(async () => {
-        await fetchData(true);
-      }, 500);
-      
+
+        // L1 session cache: surgical updates for efficiency
+        const cacheKey = `mi_competitors_${shop}`;
+        const archivedKey = `mi_archived_${shop}`;
+        try {
+          // Remove from active list cache
+          const rawActive = sessionStorage.getItem(cacheKey);
+          if (rawActive) {
+            const arr = JSON.parse(rawActive);
+            if (Array.isArray(arr)) {
+              const nextActive = arr.filter((c: any) => String(c.id) !== String(id));
+              sessionStorage.setItem(cacheKey, JSON.stringify(nextActive));
+            }
+          }
+
+          // Append to archived list cache (best-effort stub, backend will refresh shortly)
+          const rawArchived = sessionStorage.getItem(archivedKey);
+          const archivedArr = rawArchived ? JSON.parse(rawArchived) : [];
+          const toArchive = competitorToDelete
+            ? {
+                id: competitorToDelete.id,
+                url: competitorToDelete.url,
+                label: competitorToDelete.label,
+                deleted_at: new Date().toISOString(),
+                platform: (competitorToDelete as any).platform || 'unknown',
+                domain: (() => { try { return new URL(competitorToDelete.url).hostname.replace('www.', ''); } catch { return undefined; } })(),
+                last_successful_check: null,
+                latest_snapshot_at: null,
+                price_snapshots_count: 0,
+              }
+            : null;
+          if (toArchive) {
+            const nextArchived = [toArchive, ...(Array.isArray(archivedArr) ? archivedArr : [])];
+            sessionStorage.setItem(archivedKey, JSON.stringify(nextArchived));
+          }
+        } catch (_) {
+          // ignore session errors
+        }
+
+        // Also update in-memory cache map for active list
+        try {
+          cache.delete(cacheKey);
+        } catch (_) {}
+
+        // Refetch from server/Redis in background to reconcile with authoritative data
+        setTimeout(async () => {
+          await fetchData(true);
+        }, 500);
+
         notifications.showSuccess('Competitor tracking has been discontinued', {
           category: 'Competitors',
           showToast: true
