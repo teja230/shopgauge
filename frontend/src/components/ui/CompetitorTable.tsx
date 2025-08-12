@@ -75,8 +75,7 @@ export interface Competitor {
   showingOldPrice?: boolean; // Indicates if showing old price for out-of-stock item
 }
 
-// Revert to colored icon style consistent with main branch (no muted ghost look)
-const actionIconButtonSx = undefined as unknown as any;
+// Icon buttons now use explicit MUI color props per action (consistent with main branch)
 
 // Secondary actions consolidated in an overflow menu for clarity
 const RowOverflowMenu: React.FC<{
