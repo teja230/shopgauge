@@ -196,6 +196,135 @@ graph LR
     TTL --> COST
 ```
 
+## 🧭 Frontend User-Facing Optimizations (L1 Session Cache)
+
+This section documents the latest user-facing improvements implemented in the frontend L1 (session) cache and related UX flows. These optimizations provide instant UI feedback while keeping data consistent with L2 (Redis) and L3 (DB).
+
+### L1 Session Cache: Key Design
+
+Frontend session storage now holds a minimal, shop-scoped L1 cache for Market Intelligence:
+
+```javascript
+// Active competitors list (array)
+"mi_competitors_<shop>"
+
+// Archived competitors list (array)
+"mi_archived_<shop>"
+
+// Price history root (object) holding per-item entries
+"mi_pricehistory_<shop>"  // contains keys like: "price_history_<competitorId>_90"
+```
+
+Notes:
+- Shop is derived from auth context/cookies; no `current_shop` session entry is used.
+- Session cache is an optimization layer. On failure or absence, the UI falls back to L2/L3.
+
+### Surgical Cache Updates (Archive/Restore)
+
+Archive and restore flows avoid full-list clears in session storage. Instead, we update only the affected item and reconcile in the background with L2/L3.
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant A as Active UI
+    participant S as L1 Session
+    participant API as Backend API
+    participant R as Redis (L2)
+    participant DB as Database (L3)
+    participant AR as Archived UI
+
+    U->>A: Click "Archive" on competitor
+    A->>S: Remove competitor from mi_competitors_<shop>
+    A->>AR: Prepend stub to mi_archived_<shop> (highlight: orange)
+    A->>API: POST /competitors/{id}/archive
+    API->>R: Invalidate relevant MI keys
+    API->>DB: Persist archive
+    A->>API: Background refetch (debounced)
+    API->>R: Serve fresh data (fallback DB)
+    API->>AR: Replace stub with authoritative data
+```
+
+Restore mirrors the archive flow:
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant AR as Archived UI
+    participant S as L1 Session
+    participant API as Backend API
+    participant R as Redis (L2)
+    participant DB as Database (L3)
+    participant A as Active UI
+
+    U->>AR: Click "Restore" on competitor
+    AR->>S: Remove competitor from mi_archived_<shop>
+    AR->>API: POST /competitors/{id}/restore
+    API->>R: Invalidate relevant MI keys
+    API->>DB: Persist restore
+    A->>API: Background refetch (debounced)
+    API->>A: Updated list; UI highlights restored row (green)
+```
+
+UX highlighting rules:
+- Archive: highlight in Archived section only (orange). Active section does not highlight.
+- Restore: highlight in Active section (green).
+
+### Price History Session Caching
+
+The Price History modal seeds from L1 session cache for instant rendering and writes through after API fetch:
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant M as PriceHistoryModal
+    participant S as L1 Session
+    participant API as Backend API
+    participant R as Redis (L2)
+
+    U->>M: Open Price History
+    M->>S: Read mi_pricehistory_<shop>["price_history_<id>_90"]
+    alt Entry present
+        S-->>M: Seed chart/table instantly
+    else No entry
+        M-->>M: Show loader
+    end
+    M->>API: GET /competitors/{id}/price-history?days=90
+    API->>R: Serve cached (fallback DB)
+    API-->>M: Data + statistics
+    M->>S: Write-through to mi_pricehistory_<shop>
+```
+
+Key details:
+- Session root renamed from `mi_cache_<shop>_v1` to `mi_pricehistory_<shop>` (no backward compatibility needed).
+- Per-item entries use `price_history_<competitorId>_90` and may persist lightweight stats alongside (e.g., `${key}_stats`).
+- Shop context is sourced from `useAuth()` (cookie-backed); no session duplication.
+
+### Frontend Cache Key Reference
+
+```javascript
+// Session (L1)
+"mi_competitors_<shop>"           // Active competitors
+"mi_archived_<shop>"              // Archived competitors
+"mi_pricehistory_<shop>"          // Price history root { price_history_<id>_90: { data, ... } }
+
+// Redis (L2)
+"mi:dashboard:{shopDomain}"
+"mi:competitor_data:{shopDomain}"
+"mi:discovery_stats:{shopDomain}"
+"mi:price_history:{shopDomain}"
+"mi:cost_analytics:{shopDomain}"
+"mi:system_status:{shopDomain}"
+"mi:performance_metrics:{shopDomain}"
+```
+
+### UI Correctness Enhancements
+
+- Relative time accuracy for "Last Checked":
+  - DB timestamps `yyyy-MM-dd HH:mm:ss.SSS` are treated as local time.
+  - ISO timestamps with `Z` are parsed as UTC.
+  - Future-dated values are clamped to `now` to avoid "in about X hours" artifacts.
+  - If a relative string is already returned by the backend, it is displayed as-is.
+
 ## ⚡ Performance Optimization Architecture
 
 ### **512MB Memory Profile Architecture**
