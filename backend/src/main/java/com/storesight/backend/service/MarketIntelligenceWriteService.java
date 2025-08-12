@@ -386,58 +386,32 @@ public class MarketIntelligenceWriteService {
 
   /** Write competitor data to database */
   private void writeCompetitorDataToDatabase(String shopDomain, Object data) {
-    // Implementation would use actual repository
+    // TODO: Implement actual repository write
     logger.debug("Database write: competitor data for shop {}", shopDomain);
-    // Simulate database operation
-    try {
-      Thread.sleep(10); // Simulate DB latency
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-    }
   }
 
   /** Write price data to database */
   private void writePriceDataToDatabase(String shopDomain, Object data) {
-    // Implementation would use actual repository
+    // TODO: Implement actual repository write
     logger.debug("Database write: price data for shop {}", shopDomain);
-    try {
-      Thread.sleep(15); // Simulate DB latency
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-    }
   }
 
   /** Write cost analytics to database */
   private void writeCostAnalyticsToDatabase(String shopDomain, Object data) {
-    // Implementation would use actual repository
+    // TODO: Implement actual repository write
     logger.debug("Database write: cost analytics for shop {}", shopDomain);
-    try {
-      Thread.sleep(8); // Simulate DB latency
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-    }
   }
 
   /** Write system status to database */
   private void writeSystemStatusToDatabase(String shopDomain, Object data) {
-    // Implementation would use actual repository
+    // TODO: Implement actual repository write
     logger.debug("Database write: system status for shop {}", shopDomain);
-    try {
-      Thread.sleep(5); // Simulate DB latency
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-    }
   }
 
   /** Write performance metrics to database */
   private void writePerformanceMetricsToDatabase(String shopDomain, Object data) {
-    // Implementation would use actual repository
+    // TODO: Implement actual repository write
     logger.debug("Database write: performance metrics for shop {}", shopDomain);
-    try {
-      Thread.sleep(12); // Simulate DB latency
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-    }
   }
 
   // =====================================
