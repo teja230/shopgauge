@@ -13,6 +13,7 @@ import {
 } from 'recharts';
 import { fetchWithAuth } from '../../api';
 import { getMiCacheKey } from '../../utils/miCacheUtils';
+import { useAuth } from '../../context/AuthContext';
 
 interface PriceHistoryData {
   checked_at: string;
@@ -39,6 +40,7 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
   onClose,
   isDemoMode = false
 }) => {
+  const { shop } = useAuth();
   const [priceHistory, setPriceHistory] = useState<PriceHistoryData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -69,7 +71,6 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
       try {
         // L1: session seed
         try {
-          const shop = sessionStorage.getItem('current_shop') || '';
           if (shop) {
             const sessionKey = getMiCacheKey(shop);
             const raw = sessionStorage.getItem(sessionKey);
@@ -94,7 +95,6 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
           setStatistics(data.statistics || {});
           // L1: write-through to MI session cache
           try {
-            const shop = sessionStorage.getItem('current_shop') || '';
             if (shop) {
               const sessionKey = getMiCacheKey(shop);
               const raw = sessionStorage.getItem(sessionKey);

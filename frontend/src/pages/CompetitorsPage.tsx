@@ -806,14 +806,12 @@ export default function CompetitorsPage() {
         competitors: competitorsData.map(c => ({ id: c.id, url: c.url, label: c.label }))
       }, 'CompetitorsPage');
       setCompetitors(competitorsData);
-      // L1: Write-through to session storage for subsequent loads
-      try {
-        sessionStorage.setItem(cacheKey, JSON.stringify(competitorsData));
-        // touch shop for other MI consumers
-        sessionStorage.setItem('current_shop', shop || '');
-      } catch (_) {
-        // ignore storage quota errors
-      }
+              // L1: Write-through to session storage for subsequent loads
+        try {
+          sessionStorage.setItem(cacheKey, JSON.stringify(competitorsData));
+        } catch (_) {
+          // ignore storage quota errors
+        }
       setSuggestionCount(suggestionCountData.newSuggestions);
       
       // Handle demo mode logic - respect user preference above all
