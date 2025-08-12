@@ -1611,7 +1611,9 @@ export default function CompetitorsPage() {
         // Also update in-memory cache map for active list
         try {
           cache.delete(cacheKey);
-        } catch (_) {}
+        } catch (_) {
+          // Ignore cache deletion errors
+        }
 
         // Refetch from server/Redis in background to reconcile with authoritative data
         setTimeout(async () => {
