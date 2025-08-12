@@ -172,6 +172,21 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
   });
 
   const notifications = useNotifications();
+  const sessionKey = React.useMemo(() => `mi_archived_${shopId}`, [shopId]);
+
+  const seedFromSession = React.useCallback(() => {
+    try {
+      const raw = sessionStorage.getItem(sessionKey);
+      if (raw) {
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr)) {
+          setDeletedCompetitors(arr);
+        }
+      }
+    } catch (_) {
+      // ignore session parse errors
+    }
+  }, [sessionKey]);
 
   // Function to highlight a row briefly, with color persistence
   const highlightRow = (competitorId: string | number, color: 'success' | 'warning') => {
@@ -193,6 +208,9 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
   };
 
   useEffect(() => {
+    // L1: seed from session immediately
+    seedFromSession();
+    // L2/L3: fetch and write-through to session
     loadDeletedCompetitors();
   }, [shopId]);
 
@@ -205,9 +223,11 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
   // Refresh archived competitors when refreshTrigger changes
   useEffect(() => {
     if (refreshTrigger !== undefined) {
+      // Seed from session first, then fetch
+      seedFromSession();
       loadDeletedCompetitors();
     }
-  }, [refreshTrigger]);
+  }, [refreshTrigger, seedFromSession]);
 
   // Handle external highlighting from props
   useEffect(() => {
@@ -289,7 +309,14 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
         const response = await fetchWithAuth(`/api/competitors/deleted`);
         const data = await response.json();
         if (data.competitors) {
-          setDeletedCompetitors(data.competitors || []);
+          const list = data.competitors || [];
+          setDeletedCompetitors(list);
+          // L1: write-through to session
+          try {
+            sessionStorage.setItem(sessionKey, JSON.stringify(list));
+          } catch (_) {
+            // ignore quota errors
+          }
         } else {
           console.error('Unexpected response format:', data);
           notifications.showError('Failed to load deleted competitors - unexpected response format');
@@ -351,6 +378,19 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
             setDeletedCompetitors(prev => 
               prev.filter(c => c.id !== restoreDialog.competitor!.id)
             );
+            // L1: update session cache
+            try {
+              const raw = sessionStorage.getItem(sessionKey);
+              if (raw) {
+                const arr = JSON.parse(raw);
+                if (Array.isArray(arr)) {
+                  const next = arr.filter((c: any) => String(c.id) !== String(restoreDialog.competitor!.id));
+                  sessionStorage.setItem(sessionKey, JSON.stringify(next));
+                }
+              }
+            } catch (_) {
+              // ignore session errors
+            }
           }, 250);
           // Update header counts if provided by backend
           if (typeof data.activeCount === 'number' && typeof data.archivedCount === 'number' && onCountChange) {

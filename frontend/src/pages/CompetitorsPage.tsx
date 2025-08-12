@@ -809,6 +809,8 @@ export default function CompetitorsPage() {
       // L1: Write-through to session storage for subsequent loads
       try {
         sessionStorage.setItem(cacheKey, JSON.stringify(competitorsData));
+        // touch shop for other MI consumers
+        sessionStorage.setItem('current_shop', shop || '');
       } catch (_) {
         // ignore storage quota errors
       }
@@ -1570,8 +1572,11 @@ export default function CompetitorsPage() {
       
       // Clear session cache and force a refetch so UI reflects write-through immediately
       const cacheKey = `mi_competitors_${shop}`;
+      const archivedKey = `mi_archived_${shop}`;
       try {
         sessionStorage.removeItem(cacheKey);
+        // Also clear archived list cache to force a fresh L2 read
+        sessionStorage.removeItem(archivedKey);
       } catch (e) {
         void 0;
       }

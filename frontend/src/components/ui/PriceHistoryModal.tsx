@@ -12,6 +12,7 @@ import {
   AreaChart,
 } from 'recharts';
 import { fetchWithAuth } from '../../api';
+import { getMiCacheKey } from '../../utils/miCacheUtils';
 
 interface PriceHistoryData {
   checked_at: string;
@@ -66,11 +67,54 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
       }
 
       try {
+        // L1: session seed
+        try {
+          const shop = sessionStorage.getItem('current_shop') || '';
+          if (shop) {
+            const sessionKey = getMiCacheKey(shop);
+            const raw = sessionStorage.getItem(sessionKey);
+            if (raw) {
+              const cache = JSON.parse(raw);
+              const phKey = `price_history_${competitor.id}_90`;
+              const entry = cache[phKey];
+              if (entry && Array.isArray(entry.data)) {
+                setPriceHistory(entry.data);
+                setStatistics(entry.statistics || {});
+              }
+            }
+          }
+        } catch (_) {
+          // ignore session errors
+        }
+
         const response = await fetchWithAuth(`/api/competitors/${competitor.id}/price-history?days=90`);
         if (response.ok) {
           const data = await response.json();
           setPriceHistory(data.priceHistory || []);
           setStatistics(data.statistics || {});
+          // L1: write-through to MI session cache
+          try {
+            const shop = sessionStorage.getItem('current_shop') || '';
+            if (shop) {
+              const sessionKey = getMiCacheKey(shop);
+              const raw = sessionStorage.getItem(sessionKey);
+              const cache = raw ? JSON.parse(raw) : { version: '1.0', shop };
+              const phKey = `price_history_${competitor.id}_90`;
+              cache[phKey] = {
+                data: data.priceHistory || [],
+                timestamp: Date.now(),
+                lastUpdated: new Date().toISOString(),
+                version: '1.0',
+                shop,
+                source: 'redis'
+              };
+              // also persist a small stats object if present
+              cache[`${phKey}_stats`] = data.statistics || {};
+              sessionStorage.setItem(sessionKey, JSON.stringify(cache));
+            }
+          } catch (_) {
+            // ignore quota errors
+          }
         } else {
           setError('Failed to load price history');
         }
