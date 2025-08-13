@@ -4,12 +4,14 @@ import com.storesight.backend.service.NotificationService;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/admin-refactor/integrations")
 @Validated
+@PreAuthorize("hasRole('ADMIN')")
 public class AdminIntegrationsController {
   private final NotificationService notificationService;
 
