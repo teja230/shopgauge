@@ -215,6 +215,17 @@ public class AdminAuthController {
     }
   }
 
+  @PostMapping("/rotate-keys")
+  public ResponseEntity<Map<String, Object>> rotateJwtKeys() {
+    try {
+      adminAuthService.rotateSigningKey();
+      return ResponseEntity.ok(Map.of("success", true, "message", "JWT signing key rotated"));
+    } catch (Exception e) {
+      logger.error("Failed to rotate JWT signing key: {}", e.getMessage());
+      return ResponseEntity.status(500).body(Map.of("success", false, "error", e.getMessage()));
+    }
+  }
+
   @GetMapping("/rate-limit-status")
   public ResponseEntity<Map<String, Object>> getRateLimitStatus(HttpServletRequest request) {
     String clientIp = getClientIpAddress(request);

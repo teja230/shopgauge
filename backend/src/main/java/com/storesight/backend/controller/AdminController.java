@@ -1182,6 +1182,17 @@ public class AdminController {
     }
   }
 
+  // Deprecated SSE/session endpoints now live under SessionManagementController and SseController
+  @GetMapping("/sse/stats")
+  public ResponseEntity<Map<String, Object>> deprecatedSseStatsRedirect() {
+    return ResponseEntity.status(410)
+        .body(
+            Map.of(
+                "error", "deprecated",
+                "message", "Use /api/sessions/admin/sse/stats",
+                "redirect", "/api/sessions/admin/sse/stats"));
+  }
+
   /** MONITORING ENDPOINT: Get error pattern analysis */
   @GetMapping("/monitoring/error-patterns")
   public ResponseEntity<Map<String, Object>> getErrorPatterns() {

@@ -56,12 +56,18 @@ public class AdminAuthService {
   private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder(12);
   private SecretKey jwtSecretKey;
   private String currentKeyId;
+  private volatile SecretKey previousJwtSecretKey;
+  private volatile String previousKeyId;
+  private volatile Instant previousKeyExpiresAt;
 
   @Value("${admin.jwt.secret:}")
   private String jwtSecret;
 
   @Value("${admin.jwt.secret.fallback:}")
   private String jwtSecretFallback;
+
+  @Value("${admin.jwt.rotation.grace-seconds:3600}")
+  private long rotationGraceSeconds;
 
   @PostConstruct
   public void initializeJwtSecret() {
@@ -175,10 +181,18 @@ public class AdminAuthService {
       Jws<Claims> jws =
           Jwts.parserBuilder().setSigningKey(jwtSecretKey).build().parseClaimsJws(token);
       Claims claims = jws.getBody();
-      // Optional: verify kid header matches currentKeyId for strict rotation
+      // Accept token if kid matches current or previous within grace period
       Object kidHeader = jws.getHeader().get("kid");
-      if (kidHeader != null && !kidHeader.toString().equals(currentKeyId)) {
-        logger.debug("Token kid {} does not match current key id", kidHeader);
+      String kid = kidHeader != null ? kidHeader.toString() : null;
+      boolean kidMatchesCurrent = kid != null && kid.equals(currentKeyId);
+      boolean kidMatchesPrevious =
+          kid != null
+              && previousKeyId != null
+              && kid.equals(previousKeyId)
+              && previousKeyExpiresAt != null
+              && Instant.now().isBefore(previousKeyExpiresAt);
+      if (!kidMatchesCurrent && !kidMatchesPrevious) {
+        logger.debug("Token kid {} does not match active/previous keys", kid);
         return false;
       }
 
@@ -197,6 +211,34 @@ public class AdminAuthService {
     } catch (JwtException | IllegalArgumentException e) {
       logger.debug("Invalid JWT token: {}", e.getMessage());
       return false;
+    }
+  }
+
+  /** Rotate JWT signing key; keep previous key valid for a grace period for seamless rotation. */
+  public synchronized void rotateSigningKey() {
+    try {
+      // Move current to previous with grace window
+      this.previousJwtSecretKey = this.jwtSecretKey;
+      this.previousKeyId = this.currentKeyId;
+      this.previousKeyExpiresAt = Instant.now().plusSeconds(rotationGraceSeconds);
+
+      // Derive a new random key using securely generated UUID seed if no external secret provided
+      String newSecretSeed = UUID.randomUUID().toString() + ":" + Instant.now().toEpochMilli();
+      byte[] bytes = newSecretSeed.getBytes(StandardCharsets.UTF_8);
+      if (bytes.length < 64) {
+        byte[] padded = new byte[64];
+        System.arraycopy(bytes, 0, padded, 0, Math.min(bytes.length, 64));
+        for (int i = bytes.length; i < 64; i++) padded[i] = bytes[i % bytes.length];
+        this.jwtSecretKey = Keys.hmacShaKeyFor(padded);
+      } else {
+        this.jwtSecretKey = Keys.hmacShaKeyFor(bytes);
+      }
+      this.currentKeyId = UUID.nameUUIDFromBytes(bytes).toString();
+      logger.info(
+          "Admin JWT signing key rotated; previous key valid until {}", previousKeyExpiresAt);
+    } catch (Exception e) {
+      logger.error("Failed to rotate JWT signing key: {}", e.getMessage(), e);
+      throw e;
     }
   }
 

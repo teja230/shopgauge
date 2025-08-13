@@ -55,4 +55,3 @@ public class AdminSecretsController {
     return ResponseEntity.ok(list);
   }
 }
-

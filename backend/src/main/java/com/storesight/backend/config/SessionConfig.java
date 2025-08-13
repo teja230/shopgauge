@@ -49,7 +49,9 @@ public class SessionConfig {
 
   private static final Logger logger = LoggerFactory.getLogger(SessionConfig.class);
 
-  // Thread-safe session state tracking to prevent race conditions
+  // WARNING: Process-local state is not cluster-safe. Retained only for minimal in-node
+  // coordination.
+  // For cross-node fencing, EnhancedRedisService locks are used around critical sections.
   private static final ConcurrentHashMap<String, SessionState> sessionStates =
       new ConcurrentHashMap<>();
 
