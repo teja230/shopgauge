@@ -145,13 +145,8 @@ public class WebSecurityConfig implements WebMvcConfigurer {
 
   @Override
   public void addInterceptors(InterceptorRegistry registry) {
-    // Apply rate limiting to all API endpoints
-    registry
-        .addInterceptor(rateLimitInterceptor())
-        .addPathPatterns("/api/**")
-        .excludePathPatterns("/api/health/**", "/health/**");
-
-    // Apply input validation to all endpoints
+    // Consolidated rate limiting handled via dedicated services/filters; no global interceptor
+    // Apply only minimal input validation scaffolding
     registry.addInterceptor(inputValidationInterceptor()).addPathPatterns("/**");
   }
 
