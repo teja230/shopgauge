@@ -147,28 +147,28 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     id: 'row-refresh',
     title: 'Refresh a Single Competitor',
     description: 'Use the refresh icon to update the latest price for a specific competitor.',
-    target: '.desktop-row-refresh-button, .row-refresh-button',
+    target: '.desktop-row-refresh-button',
     position: 'top'
   },
   {
     id: 'row-graph',
     title: 'Price History Graph',
     description: 'Click the graph icon to view detailed price history and trends for this competitor.',
-    target: '.desktop-row-graph-button, .row-graph-button',
+    target: '.desktop-row-graph-button',
     position: 'top'
   },
   {
     id: 'row-archive',
     title: 'Archive a Competitor',
     description: 'Use the archive icon to move a competitor to the archived list. You can restore it later.',
-    target: '.desktop-row-archive-button, .row-archive-button',
+    target: '.desktop-row-archive-button',
     position: 'top'
   },
   {
     id: 'more-actions',
     title: 'More Actions',
     description: 'Open the menu for secondary actions like visiting the site or copying the URL.',
-    target: '.desktop-row-more-actions-button, .row-more-actions-button',
+    target: '.desktop-row-more-actions-button',
     position: 'top'
   },
   {
@@ -2333,15 +2333,23 @@ export default function CompetitorsPage() {
     const { action, index, status, type } = data;
     console.log('Market Intelligence Joyride callback:', { action, index, status, type });
     
-    // Debug: Check if target elements exist
+    // Ensure desktop table is expanded before row-action steps
     if (type === 'step:before' && typeof index === 'number') {
-      const step = TUTORIAL_STEPS[index];
-      if (step) {
-        const targetElement = document.querySelector(step.target);
-        console.log(`Step ${index} (${step.id}): Target element exists:`, !!targetElement, 'Target:', step.target);
-        if (targetElement) {
-          console.log('Target element:', targetElement);
-        }
+      const stepId = TUTORIAL_STEPS[index]?.id;
+      if (stepId && ['row-refresh','row-graph','row-archive','more-actions'].includes(stepId)) {
+        try {
+          const expander = document.querySelector('.competitor-table .desktop-table');
+          if (expander) {
+            // Ensure section is expanded if collapsible
+            const collapse = expander.closest('[data-testid="competitor-section"]');
+            if (collapse) {
+              const toggle = collapse.querySelector('button');
+              if (toggle && collapse.getAttribute('data-collapsed') === 'true') {
+                (toggle as HTMLButtonElement).click();
+              }
+            }
+          }
+        } catch (_) {}
       }
     }
 
