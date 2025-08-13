@@ -1,5 +1,6 @@
 package com.storesight.backend.controller;
 
+import com.storesight.backend.dto.AdminLoginRequest;
 import com.storesight.backend.service.AdminAuthService;
 import com.storesight.backend.service.AdminRateLimitingService;
 import com.storesight.backend.service.SseService;
@@ -14,10 +15,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/admin")
+@Validated
 public class AdminAuthController {
 
   private static final Logger logger = LoggerFactory.getLogger(AdminAuthController.class);
@@ -31,12 +34,12 @@ public class AdminAuthController {
 
   @PostMapping("/login")
   public ResponseEntity<Map<String, Object>> adminLogin(
-      @RequestBody Map<String, String> loginRequest,
+      @RequestBody @Validated AdminLoginRequest loginRequest,
       HttpServletRequest request,
       HttpServletResponse response) {
 
-    String username = loginRequest.get("username");
-    String password = loginRequest.get("password");
+    String username = loginRequest.username;
+    String password = loginRequest.password;
 
     Map<String, Object> result = new HashMap<>();
 
