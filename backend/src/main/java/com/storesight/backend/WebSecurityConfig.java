@@ -13,7 +13,6 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,6 +20,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -45,6 +45,7 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
  */
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 public class WebSecurityConfig implements WebMvcConfigurer {
 
   private static final Logger logger = LoggerFactory.getLogger(WebSecurityConfig.class);
@@ -114,34 +115,16 @@ public class WebSecurityConfig implements WebMvcConfigurer {
       public boolean preHandle(
           HttpServletRequest request, HttpServletResponse response, Object handler)
           throws Exception {
-        if (!rateLimitEnabled) {
+        // Keep basic headers but rely on centralized AdminRateLimitingService for admin paths
+        String uri = request.getRequestURI();
+        if (!uri.startsWith("/api/")) {
           return true;
         }
-
-        String clientIp = getClientIpAddress(request);
-        String key = clientIp + ":" + request.getRequestURI();
-
-        RateLimitInfo rateLimitInfo = rateLimitMap.computeIfAbsent(key, k -> new RateLimitInfo());
-
-        if (rateLimitInfo.isAllowed(requestsPerMinute)) {
-          // Add rate limit headers
-          response.setHeader(
-              "X-Rate-Limit-Remaining",
-              String.valueOf(rateLimitInfo.getRemainingRequests(requestsPerMinute)));
-          response.setHeader(
-              "X-Rate-Limit-Reset", String.valueOf(System.currentTimeMillis() + 60000));
-          return true;
-        } else {
-          logger.warn(
-              "Rate limit exceeded for IP: {} on endpoint: {}", clientIp, request.getRequestURI());
-          response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
-          response.setContentType("application/json");
-          response
-              .getWriter()
-              .write(
-                  "{\"error\":\"Rate limit exceeded\",\"message\":\"Too many requests. Please try again later.\"}");
-          return false;
-        }
+        // Only annotate headers; enforcement happens in dedicated services/filters
+        response.setHeader("X-Rate-Limit-Remaining", "NA");
+        response.setHeader(
+            "X-Rate-Limit-Reset", String.valueOf(System.currentTimeMillis() + 60000));
+        return true;
       }
     };
   }
@@ -150,73 +133,12 @@ public class WebSecurityConfig implements WebMvcConfigurer {
   @Bean
   public HandlerInterceptor inputValidationInterceptor() {
     return new HandlerInterceptor() {
-      private final Pattern SQL_INJECTION_PATTERN =
-          Pattern.compile(
-              "(?i)(union|select|insert|update|delete|drop|create|alter|exec|script|javascript|vbscript|onload|onerror)",
-              Pattern.CASE_INSENSITIVE);
-
-      private final Pattern XSS_PATTERN =
-          Pattern.compile(
-              "(?i)(<script|</script|javascript:|vbscript:|onload=|onerror=|alert\\(|confirm\\(|prompt\\()",
-              Pattern.CASE_INSENSITIVE);
-
       @Override
       public boolean preHandle(
           HttpServletRequest request, HttpServletResponse response, Object handler)
           throws Exception {
-        // Validate query parameters
-        if (request.getQueryString() != null) {
-          String queryString = request.getQueryString();
-
-          if (containsSqlInjection(queryString) || containsXss(queryString)) {
-            logger.warn(
-                "Malicious request detected from IP: {} - Query: {}",
-                getClientIpAddress(request),
-                queryString);
-            response.setStatus(HttpStatus.BAD_REQUEST.value());
-            response.setContentType("application/json");
-            response
-                .getWriter()
-                .write(
-                    "{\"error\":\"Invalid request\",\"message\":\"Request contains invalid characters.\"}");
-            return false;
-          }
-        }
-
-        // Validate common parameters
-        String shop = request.getParameter("shop");
-        if (shop != null && !isValidShopDomain(shop)) {
-          logger.warn(
-              "Invalid shop parameter from IP: {} - Shop: {}", getClientIpAddress(request), shop);
-          response.setStatus(HttpStatus.BAD_REQUEST.value());
-          response.setContentType("application/json");
-          response
-              .getWriter()
-              .write(
-                  "{\"error\":\"Invalid shop parameter\",\"message\":\"Shop domain format is invalid.\"}");
-          return false;
-        }
-
+        // Remove WAF-like regex checks; rely on @Validated DTOs and serializers
         return true;
-      }
-
-      private boolean containsSqlInjection(String input) {
-        return SQL_INJECTION_PATTERN.matcher(input).find();
-      }
-
-      private boolean containsXss(String input) {
-        return XSS_PATTERN.matcher(input).find();
-      }
-
-      private boolean isValidShopDomain(String shop) {
-        if (shop == null || shop.trim().isEmpty()) {
-          return false;
-        }
-
-        // Basic Shopify domain validation
-        Pattern shopPattern =
-            Pattern.compile("^[a-zA-Z0-9][a-zA-Z0-9\\-]*[a-zA-Z0-9](\\.myshopify\\.com)?$");
-        return shopPattern.matcher(shop.trim()).matches() && shop.length() <= 100;
       }
     };
   }
@@ -247,8 +169,8 @@ public class WebSecurityConfig implements WebMvcConfigurer {
                     .contentSecurityPolicy(
                         cspConfig ->
                             cspConfig.policyDirectives(
-                                "default-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.shopify.com https://*.shopify.com https://shopgaugeai.com https://api.shopgaugeai.com; "
-                                    + "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.shopify.com https://*.shopify.com https://shopgaugeai.com; "
+                                "default-src 'self' https://cdn.shopify.com https://*.shopify.com https://shopgaugeai.com https://api.shopgaugeai.com; "
+                                    + "script-src 'self' https://cdn.shopify.com https://*.shopify.com https://shopgaugeai.com; "
                                     + "style-src 'self' 'unsafe-inline' https://cdn.shopify.com https://*.shopify.com https://fonts.googleapis.com; "
                                     + "font-src 'self' https://fonts.gstatic.com https://cdn.shopify.com; "
                                     + "img-src 'self' data: https: blob:; "
@@ -266,7 +188,10 @@ public class WebSecurityConfig implements WebMvcConfigurer {
                       "/health/**",
                       "/api/health/**",
                       "/",
-                      "/api/admin/login") // Allow admin login endpoint
+                      "/api/admin/login",
+                      "/v3/api-docs/**",
+                      "/swagger-ui.html",
+                      "/swagger-ui/**")
                   .permitAll();
 
               auth.requestMatchers("/api/**")

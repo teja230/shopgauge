@@ -4,6 +4,7 @@ import com.storesight.backend.model.AuditLog;
 import com.storesight.backend.service.AlertingService;
 import com.storesight.backend.service.DataPrivacyService;
 import com.storesight.backend.service.DatabaseMonitoringService;
+import com.storesight.backend.service.EnhancedRedisService;
 import com.storesight.backend.service.FeatureFlagService;
 import com.storesight.backend.service.MetricsCollectionService;
 import com.storesight.backend.service.MonitoringConfigurationService;
@@ -30,12 +31,12 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import com.storesight.backend.service.EnhancedRedisService;
 
 @RestController
 @RequestMapping("/api/admin")
 public class AdminController {
   private static final Logger logger = LoggerFactory.getLogger(AdminController.class);
+  // NOTE: This controller is being decomposed. New endpoints live in dedicated controllers.
 
   private final SecretService secretService;
   private final NotificationService notificationService;
@@ -121,14 +122,9 @@ public class AdminController {
     return ResponseEntity.ok(list);
   }
 
-  @GetMapping("/integrations/status")
-  public ResponseEntity<Map<String, Boolean>> getIntegrationStatus() {
-    return ResponseEntity.ok(
-        Map.of(
-            "sendGridEnabled", notificationService.isSendGridEnabled(),
-            "twilioEnabled", notificationService.isTwilioEnabled()));
-  }
+  // Moved to AdminIntegrationsController
 
+  // Moved to AdminIntegrationsController
   @PostMapping("/integrations/test-email")
   public ResponseEntity<Map<String, Object>> testEmail(@RequestBody Map<String, String> request) {
     String to = request.get("to");
@@ -151,6 +147,7 @@ public class AdminController {
     }
   }
 
+  // Moved to AdminIntegrationsController
   @PostMapping("/integrations/test-sms")
   public ResponseEntity<Map<String, Object>> testSms(@RequestBody Map<String, String> request) {
     String to = request.get("to");
@@ -171,6 +168,7 @@ public class AdminController {
     }
   }
 
+  // Moved to AdminDataPrivacyController
   @GetMapping("/audit-logs/deleted-shops")
   public ResponseEntity<Map<String, Object>> getAuditLogsFromDeletedShops(
       @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "50") int size) {
@@ -342,6 +340,7 @@ public class AdminController {
     }
   }
 
+  // Moved to AdminDataPrivacyController
   @GetMapping("/audit-logs/active-shops")
   public ResponseEntity<Map<String, Object>> getAuditLogsFromActiveShops(
       @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "50") int size) {
@@ -395,6 +394,7 @@ public class AdminController {
    * EMERGENCY ENDPOINT: Works when connection pool is exhausted Uses direct database connection
    * with minimal operations
    */
+  // Moved to AdminEmergencyController
   @GetMapping("/emergency/status")
   public ResponseEntity<Map<String, Object>> getEmergencyStatus() {
     Map<String, Object> status = new HashMap<>();
