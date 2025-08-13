@@ -101,7 +101,7 @@ const RowOverflowMenu: React.FC<{
   return (
     <>
       <Tooltip title="More actions">
-        <IconButton size="small" aria-label="More actions" onClick={handleOpen}>
+        <IconButton size="small" aria-label="More actions" onClick={handleOpen} className="row-more-actions-button">
           <MoreVertIcon fontSize="small" />
         </IconButton>
       </Tooltip>
@@ -194,6 +194,7 @@ const PriceRefreshButton: React.FC<{
       <Button
         variant="contained"
         size="small"
+        className="mi-refresh-button"
         startIcon={isLoading ? <CircularProgress size={16} /> : <RefreshIcon />}
         onClick={onRefresh}
         disabled={isLoading}
@@ -857,6 +858,7 @@ const MobileCompetitorCard: React.FC<{
                   disabled={isRefreshing}
                   color="primary"
                   aria-label="Refresh price"
+                  className="row-refresh-button"
                 >
                   {isRefreshing ? <CircularProgress size={20} /> : <RefreshIcon />}
                 </IconButton>
@@ -872,6 +874,7 @@ const MobileCompetitorCard: React.FC<{
                       color="info"
                       aria-label="View price history"
                       sx={{ opacity: competitor.lastChecked ? 1 : 0.4 }}
+                      className="row-graph-button"
                     >
                       <BarChartIcon />
                     </IconButton>
@@ -885,6 +888,7 @@ const MobileCompetitorCard: React.FC<{
                   onClick={handleDelete}
                   color="warning"
                   aria-label="Archive competitor"
+                  className="row-archive-button"
                 >
                   <ArchiveIcon />
                 </IconButton>
@@ -950,6 +954,7 @@ const MobileCompetitorCard: React.FC<{
                     document.addEventListener('click', closeMenu);
                   }}
                   aria-label="More actions"
+                  className="row-more-actions-button"
                 >
                   <MoreVertIcon />
                 </IconButton>
@@ -1203,6 +1208,7 @@ const DesktopTableRow: React.FC<{
                 disabled={rowRefreshing}
                 aria-label="Refresh price"
                 color="primary"
+                className="row-refresh-button"
               
               >
                 {rowRefreshing ? <CircularProgress size={16} /> : <RefreshIcon fontSize="small" />}
@@ -1220,6 +1226,7 @@ const DesktopTableRow: React.FC<{
                 aria-label="View price history"
                 color="info"
                 sx={{ opacity: competitor.lastChecked ? 1 : 0.4 }}
+                className="row-graph-button"
               >
                 <BarChartIcon fontSize="small" />
               </IconButton>
@@ -1228,7 +1235,7 @@ const DesktopTableRow: React.FC<{
 
           {/* Primary action: Archive */}
           <Tooltip title="Archive competitor">
-            <IconButton size="small" onClick={handleDelete} aria-label="Archive competitor" color="warning">
+            <IconButton size="small" onClick={handleDelete} aria-label="Archive competitor" color="warning" className="row-archive-button">
               <ArchiveIcon fontSize="small" />
             </IconButton>
           </Tooltip>
