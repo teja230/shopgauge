@@ -57,26 +57,19 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          vendor: ['react', 'react-dom'],
-          ui: ['@mui/material', '@mui/icons-material'],
+          react: ['react', 'react-dom', 'react-router-dom'],
+          mui: ['@mui/material', '@mui/icons-material', '@emotion/react', '@emotion/styled'],
+          charts: ['recharts'],
           utils: ['axios', 'date-fns'],
         },
-        // Add cache busting with timestamp
-        assetFileNames: (assetInfo) => {
-          if (!assetInfo.name) return 'assets/[name]-[hash].[ext]';
-          const info = assetInfo.name.split('.');
-          const ext = info[info.length - 1];
-          if (/\.(css|js)$/.test(assetInfo.name)) {
-            return `assets/[name]-[hash].${ext}`;
-          }
-          return `assets/[name]-[hash].${ext}`;
-        },
+        assetFileNames: 'assets/[name]-[hash].[ext]',
         chunkFileNames: 'assets/[name]-[hash].js',
         entryFileNames: 'assets/[name]-[hash].js',
       },
+      treeshake: true,
     },
     // Reduce build size
-    chunkSizeWarningLimit: 2000,
+    chunkSizeWarningLimit: 1600,
   },
   server: {
     proxy: {

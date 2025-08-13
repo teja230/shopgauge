@@ -1,4 +1,30 @@
 import '@testing-library/jest-dom';
+import { afterEach as vitestAfterEach, vi as vitestVi } from 'vitest';
+import { cleanup } from '@testing-library/react';
+
+vitestAfterEach(() => {
+  cleanup();
+});
+
+// Provide NodeJS types to satisfy references in code under test
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+type _NodeJS = typeof import('node');
+
+// Alias jest -> vi for tests that still reference jest globals
+// @ts-ignore
+globalThis.jest = vitestVi;
+
+// Auto-wrap RTL render with unified providers
+vitestVi.mock('@testing-library/react', async () => {
+  const actual = await vi.importActual<any>('@testing-library/react');
+  const harness = await import('./setupTestHarness');
+  const TestHarness = harness.TestHarness;
+  return {
+    ...actual,
+    render: (ui: any, options?: any) => actual.render(ui, { wrapper: TestHarness, ...options }),
+  };
+});
+import '@testing-library/jest-dom';
 import { vi } from 'vitest';
 
 // Mock matchMedia for responsive tests
