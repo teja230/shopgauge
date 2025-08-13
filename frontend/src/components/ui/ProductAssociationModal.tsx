@@ -41,6 +41,12 @@ interface Product {
   price: number | string;
 }
 
+interface ProductAssociationChange {
+  competitorId: string;
+  productId?: string;
+  productTitle?: string;
+}
+
 interface ProductAssociationModalProps {
   open: boolean;
   onClose: () => void;
@@ -49,7 +55,7 @@ interface ProductAssociationModalProps {
   competitorLabel: string;
   currentProductId?: string;
   currentProductTitle?: string;
-  onAssociationChange: () => void;
+  onAssociationChange: (change?: ProductAssociationChange) => void;
   isDemoMode?: boolean;
 }
 
@@ -258,7 +264,7 @@ export const ProductAssociationModal: React.FC<ProductAssociationModalProps> = (
     if (isDemoMode) {
       // In demo mode, simulate successful association
       setSuccess('Demo product associated successfully');
-      onAssociationChange();
+      onAssociationChange({ competitorId, productId: selectedProductId, productTitle: selectedProduct?.title });
       setTimeout(() => {
         onClose();
       }, 1500);
@@ -278,7 +284,7 @@ export const ProductAssociationModal: React.FC<ProductAssociationModalProps> = (
       if (response.ok) {
         const data = await response.json();
         setSuccess(data.message || 'Product associated successfully');
-        onAssociationChange();
+        onAssociationChange({ competitorId, productId: selectedProductId, productTitle: selectedProduct?.title });
         // Close modal after a short delay to show success message
         setTimeout(() => {
           onClose();
@@ -303,7 +309,7 @@ export const ProductAssociationModal: React.FC<ProductAssociationModalProps> = (
       // In demo mode, simulate successful disassociation
       setSuccess('Demo association removed successfully');
       setSelectedProductId(undefined);
-      onAssociationChange();
+      onAssociationChange({ competitorId, productId: undefined, productTitle: undefined });
       setTimeout(() => {
         onClose();
       }, 1500);
@@ -320,7 +326,7 @@ export const ProductAssociationModal: React.FC<ProductAssociationModalProps> = (
         const data = await response.json();
         setSuccess(data.message || 'Product association removed');
         setSelectedProductId(undefined);
-        onAssociationChange();
+        onAssociationChange({ competitorId, productId: undefined, productTitle: undefined });
         // Close modal after a short delay to show success message
         setTimeout(() => {
           onClose();

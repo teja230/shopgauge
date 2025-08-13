@@ -36,6 +36,9 @@ public class FeatureFlagConfiguration {
   /** Discovery feature flags */
   private DiscoveryFeatures discovery = new DiscoveryFeatures();
 
+  /** Market Intelligence feature flags */
+  private MarketIntelligenceFeatures marketIntelligence = new MarketIntelligenceFeatures();
+
   /** Gradual rollout configuration */
   private GradualRollout rollout = new GradualRollout();
 
@@ -86,6 +89,14 @@ public class FeatureFlagConfiguration {
 
   public void setDiscovery(DiscoveryFeatures discovery) {
     this.discovery = discovery;
+  }
+
+  public MarketIntelligenceFeatures getMarketIntelligence() {
+    return marketIntelligence;
+  }
+
+  public void setMarketIntelligence(MarketIntelligenceFeatures marketIntelligence) {
+    this.marketIntelligence = marketIntelligence;
   }
 
   public GradualRollout getRollout() {
@@ -731,6 +742,82 @@ public class FeatureFlagConfiguration {
 
     public void setRolloutCriteria(Map<String, String> rolloutCriteria) {
       this.rolloutCriteria = rolloutCriteria;
+    }
+  }
+
+  /** Market Intelligence feature flags */
+  public static class MarketIntelligenceFeatures {
+    private boolean cacheEnabled = true;
+    private boolean batchProcessingEnabled = true;
+    private boolean writeOperationsEnabled = true;
+    private boolean cacheWarmingEnabled = false; // Disabled by default for 512MB instances
+    private boolean materializedViewsEnabled = true;
+    private boolean eventDrivenInvalidationEnabled = true;
+    private boolean scheduledRefreshEnabled = false; // Disabled by default, use on-demand
+    private boolean performanceMonitoringEnabled = true;
+
+    public boolean isCacheEnabled() {
+      return cacheEnabled;
+    }
+
+    public void setCacheEnabled(boolean cacheEnabled) {
+      this.cacheEnabled = cacheEnabled;
+    }
+
+    public boolean isBatchProcessingEnabled() {
+      return batchProcessingEnabled;
+    }
+
+    public void setBatchProcessingEnabled(boolean batchProcessingEnabled) {
+      this.batchProcessingEnabled = batchProcessingEnabled;
+    }
+
+    public boolean isWriteOperationsEnabled() {
+      return writeOperationsEnabled;
+    }
+
+    public void setWriteOperationsEnabled(boolean writeOperationsEnabled) {
+      this.writeOperationsEnabled = writeOperationsEnabled;
+    }
+
+    public boolean isCacheWarmingEnabled() {
+      return cacheWarmingEnabled;
+    }
+
+    public void setCacheWarmingEnabled(boolean cacheWarmingEnabled) {
+      this.cacheWarmingEnabled = cacheWarmingEnabled;
+    }
+
+    public boolean isMaterializedViewsEnabled() {
+      return materializedViewsEnabled;
+    }
+
+    public void setMaterializedViewsEnabled(boolean materializedViewsEnabled) {
+      this.materializedViewsEnabled = materializedViewsEnabled;
+    }
+
+    public boolean isEventDrivenInvalidationEnabled() {
+      return eventDrivenInvalidationEnabled;
+    }
+
+    public void setEventDrivenInvalidationEnabled(boolean eventDrivenInvalidationEnabled) {
+      this.eventDrivenInvalidationEnabled = eventDrivenInvalidationEnabled;
+    }
+
+    public boolean isScheduledRefreshEnabled() {
+      return scheduledRefreshEnabled;
+    }
+
+    public void setScheduledRefreshEnabled(boolean scheduledRefreshEnabled) {
+      this.scheduledRefreshEnabled = scheduledRefreshEnabled;
+    }
+
+    public boolean isPerformanceMonitoringEnabled() {
+      return performanceMonitoringEnabled;
+    }
+
+    public void setPerformanceMonitoringEnabled(boolean performanceMonitoringEnabled) {
+      this.performanceMonitoringEnabled = performanceMonitoringEnabled;
     }
   }
 

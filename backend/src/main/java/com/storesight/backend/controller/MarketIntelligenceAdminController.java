@@ -3,6 +3,11 @@ package com.storesight.backend.controller;
 import com.storesight.backend.service.CostOptimizationService;
 import com.storesight.backend.service.DataPrivacyService;
 import com.storesight.backend.service.DatabaseMonitoringService;
+import com.storesight.backend.service.MarketIntelligenceBatchService;
+import com.storesight.backend.service.MarketIntelligenceCacheService;
+import com.storesight.backend.service.MarketIntelligenceCacheWarmingService;
+import com.storesight.backend.service.MarketIntelligenceEventHandler;
+import com.storesight.backend.service.MarketIntelligenceWriteService;
 import com.storesight.backend.service.PriceScrapingService;
 import com.storesight.backend.service.RedisHealthService;
 import com.storesight.backend.service.TransactionMonitoringService;
@@ -34,6 +39,11 @@ public class MarketIntelligenceAdminController {
       LoggerFactory.getLogger(MarketIntelligenceAdminController.class);
 
   @Autowired private CostOptimizationService costOptimizationService;
+  @Autowired private MarketIntelligenceCacheService marketIntelligenceCacheService;
+  @Autowired private MarketIntelligenceBatchService marketIntelligenceBatchService;
+  @Autowired private MarketIntelligenceWriteService marketIntelligenceWriteService;
+  @Autowired private MarketIntelligenceEventHandler marketIntelligenceEventHandler;
+  @Autowired private MarketIntelligenceCacheWarmingService marketIntelligenceCacheWarmingService;
 
   @Autowired(required = false)
   private CompetitorDiscoveryService discoveryService;
@@ -55,37 +65,107 @@ public class MarketIntelligenceAdminController {
   @Value("${cost.optimization.enabled:true}")
   private boolean costOptimizationEnabled;
 
-  /** Get comprehensive Market Intelligence dashboard */
+  /** Get comprehensive Market Intelligence dashboard with intelligent caching */
   @GetMapping("/dashboard")
-  public ResponseEntity<Map<String, Object>> getDashboard() {
+  public ResponseEntity<Map<String, Object>> getDashboard(
+      @RequestParam(value = "shop", required = false) String shopDomain) {
     try {
+      // Use default shop if not provided (for admin dashboard)
+      if (shopDomain == null || shopDomain.trim().isEmpty()) {
+        shopDomain = "admin";
+      }
+
+      // Try to get dashboard from cache first
+      Optional<Object> cachedDashboard =
+          marketIntelligenceCacheService.getCachedDashboard(shopDomain);
+      if (cachedDashboard.isPresent()) {
+        log.debug("Returning cached dashboard for shop: {}", shopDomain);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> dashboard = (Map<String, Object>) cachedDashboard.get();
+        dashboard.put("cached", true);
+        dashboard.put("cacheSource", "redis");
+        return ResponseEntity.ok(dashboard);
+      }
+
+      // Cache miss - build dashboard from fresh data
+      log.info("Cache miss for dashboard, building fresh data for shop: {}", shopDomain);
+      marketIntelligenceCacheService.recordDatabaseCall();
+
       Map<String, Object> dashboard = new HashMap<>();
 
-      // System status
-      dashboard.put("systemStatus", getSystemStatus());
+      // System status (check cache first)
+      Optional<Object> cachedSystemStatus =
+          marketIntelligenceCacheService.getCachedSystemStatus(shopDomain);
+      if (cachedSystemStatus.isPresent()) {
+        dashboard.put("systemStatus", cachedSystemStatus.get());
+      } else {
+        Object systemStatus = getSystemStatus();
+        dashboard.put("systemStatus", systemStatus);
+        marketIntelligenceCacheService.cacheSystemStatus(shopDomain, systemStatus);
+      }
 
-      // Cost analytics
+      // Cost analytics (check cache first)
       if (costOptimizationEnabled) {
-        dashboard.put("costAnalytics", costOptimizationService.getCostAnalytics());
+        Optional<Object> cachedCostAnalytics =
+            marketIntelligenceCacheService.getCachedCostAnalytics(shopDomain);
+        if (cachedCostAnalytics.isPresent()) {
+          dashboard.put("costAnalytics", cachedCostAnalytics.get());
+        } else {
+          Object costAnalytics = costOptimizationService.getCostAnalytics();
+          dashboard.put("costAnalytics", costAnalytics);
+          marketIntelligenceCacheService.cacheCostAnalytics(shopDomain, costAnalytics);
+        }
         dashboard.put(
             "costRecommendations", costOptimizationService.getOptimizationRecommendations());
       }
 
-      // Discovery stats
+      // Discovery stats (check cache first)
       if (discoveryEnabled && discoveryService != null) {
-        dashboard.put("discoveryStats", discoveryService.getDiscoveryStats());
+        Optional<Object> cachedDiscoveryStats =
+            marketIntelligenceCacheService.getCachedDiscoveryStats(shopDomain);
+        if (cachedDiscoveryStats.isPresent()) {
+          dashboard.put("discoveryStats", cachedDiscoveryStats.get());
+        } else {
+          Object discoveryStats = discoveryService.getDiscoveryStats();
+          dashboard.put("discoveryStats", discoveryStats);
+          marketIntelligenceCacheService.cacheDiscoveryStats(shopDomain, discoveryStats);
+        }
       }
 
-      // Provider stats
+      // Provider stats (check cache first)
       if (multiSourceSearchClient != null) {
-        dashboard.put("providerStats", multiSourceSearchClient.getProviderStats());
+        Optional<Object> cachedProviderStats =
+            marketIntelligenceCacheService.getCachedProviderStats(shopDomain);
+        if (cachedProviderStats.isPresent()) {
+          dashboard.put("providerStats", cachedProviderStats.get());
+        } else {
+          Object providerStats = multiSourceSearchClient.getProviderStats();
+          dashboard.put("providerStats", providerStats);
+          marketIntelligenceCacheService.cacheProviderStats(shopDomain, providerStats);
+        }
       }
 
-      // Database stats
+      // Database stats (always fresh for monitoring purposes)
       dashboard.put("databaseStats", getDatabaseStats());
 
-      // Performance metrics
-      dashboard.put("performanceMetrics", getPerformanceMetrics());
+      // Performance metrics (check cache first)
+      Optional<Object> cachedPerformanceMetrics =
+          marketIntelligenceCacheService.getCachedPerformanceMetrics(shopDomain);
+      if (cachedPerformanceMetrics.isPresent()) {
+        dashboard.put("performanceMetrics", cachedPerformanceMetrics.get());
+      } else {
+        Object performanceMetrics = getPerformanceMetrics();
+        dashboard.put("performanceMetrics", performanceMetrics);
+        marketIntelligenceCacheService.cachePerformanceMetrics(shopDomain, performanceMetrics);
+      }
+
+      // Add cache metadata
+      dashboard.put("cached", false);
+      dashboard.put("cacheSource", "fresh");
+      dashboard.put("generatedAt", System.currentTimeMillis());
+
+      // Cache the complete dashboard
+      marketIntelligenceCacheService.cacheDashboard(shopDomain, dashboard);
 
       return ResponseEntity.ok(dashboard);
 
@@ -93,6 +173,196 @@ public class MarketIntelligenceAdminController {
       log.error("Error getting Market Intelligence dashboard: {}", e.getMessage(), e);
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
           .body(Map.of("error", "Failed to load dashboard: " + e.getMessage()));
+    }
+  }
+
+  /** Get Market Intelligence cache statistics */
+  @GetMapping("/cache/stats")
+  public ResponseEntity<Map<String, Object>> getCacheStatistics() {
+    try {
+      Map<String, Object> stats = marketIntelligenceCacheService.getCacheStatistics();
+      return ResponseEntity.ok(stats);
+    } catch (Exception e) {
+      log.error("Error getting cache statistics: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to get cache statistics: " + e.getMessage()));
+    }
+  }
+
+  /** Reset Market Intelligence cache statistics */
+  @PostMapping("/cache/reset-stats")
+  public ResponseEntity<Map<String, Object>> resetCacheStatistics() {
+    try {
+      marketIntelligenceCacheService.resetCacheStatistics();
+      return ResponseEntity.ok(
+          Map.of("success", true, "message", "Cache statistics reset successfully"));
+    } catch (Exception e) {
+      log.error("Error resetting cache statistics: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to reset cache statistics: " + e.getMessage()));
+    }
+  }
+
+  /** Invalidate cache for a specific shop */
+  @PostMapping("/cache/invalidate")
+  public ResponseEntity<Map<String, Object>> invalidateShopCache(
+      @RequestParam("shop") String shopDomain) {
+    try {
+      marketIntelligenceCacheService.invalidateShopCache(shopDomain);
+      return ResponseEntity.ok(
+          Map.of("success", true, "message", "Cache invalidated for shop: " + shopDomain));
+    } catch (Exception e) {
+      log.error("Error invalidating cache for shop {}: {}", shopDomain, e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to invalidate cache: " + e.getMessage()));
+    }
+  }
+
+  // =====================================
+  // WRITE OPERATIONS AND BATCH PROCESSING
+  // =====================================
+
+  /** Get batch processing statistics */
+  @GetMapping("/batch/stats")
+  public ResponseEntity<Map<String, Object>> getBatchStatistics() {
+    try {
+      Map<String, Object> stats = marketIntelligenceBatchService.getBatchStatistics();
+      return ResponseEntity.ok(stats);
+    } catch (Exception e) {
+      log.error("Error getting batch statistics: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to get batch statistics: " + e.getMessage()));
+    }
+  }
+
+  /** Reset batch processing statistics */
+  @PostMapping("/batch/reset-stats")
+  public ResponseEntity<Map<String, Object>> resetBatchStatistics() {
+    try {
+      marketIntelligenceBatchService.resetBatchStatistics();
+      return ResponseEntity.ok(
+          Map.of("success", true, "message", "Batch statistics reset successfully"));
+    } catch (Exception e) {
+      log.error("Error resetting batch statistics: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to reset batch statistics: " + e.getMessage()));
+    }
+  }
+
+  /** Get write operation statistics */
+  @GetMapping("/write/stats")
+  public ResponseEntity<Map<String, Object>> getWriteStatistics() {
+    try {
+      Map<String, Object> stats = marketIntelligenceWriteService.getWriteStatistics();
+      return ResponseEntity.ok(stats);
+    } catch (Exception e) {
+      log.error("Error getting write statistics: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to get write statistics: " + e.getMessage()));
+    }
+  }
+
+  /** Reset write operation statistics */
+  @PostMapping("/write/reset-stats")
+  public ResponseEntity<Map<String, Object>> resetWriteStatistics() {
+    try {
+      marketIntelligenceWriteService.resetWriteStatistics();
+      return ResponseEntity.ok(
+          Map.of("success", true, "message", "Write statistics reset successfully"));
+    } catch (Exception e) {
+      log.error("Error resetting write statistics: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to reset write statistics: " + e.getMessage()));
+    }
+  }
+
+  /** Get event processing statistics */
+  @GetMapping("/events/stats")
+  public ResponseEntity<Map<String, Object>> getEventStatistics() {
+    try {
+      Map<String, Object> stats = marketIntelligenceEventHandler.getEventStatistics();
+      return ResponseEntity.ok(stats);
+    } catch (Exception e) {
+      log.error("Error getting event statistics: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to get event statistics: " + e.getMessage()));
+    }
+  }
+
+  /** Reset event processing statistics */
+  @PostMapping("/events/reset-stats")
+  public ResponseEntity<Map<String, Object>> resetEventStatistics() {
+    try {
+      marketIntelligenceEventHandler.resetEventStatistics();
+      return ResponseEntity.ok(
+          Map.of("success", true, "message", "Event statistics reset successfully"));
+    } catch (Exception e) {
+      log.error("Error resetting event statistics: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to reset event statistics: " + e.getMessage()));
+    }
+  }
+
+  /** Clear all batch queues (emergency operation) */
+  @PostMapping("/batch/clear-queues")
+  public ResponseEntity<Map<String, Object>> clearBatchQueues() {
+    try {
+      marketIntelligenceBatchService.clearAllBatchQueues();
+      return ResponseEntity.ok(
+          Map.of("success", true, "message", "All batch queues cleared successfully"));
+    } catch (Exception e) {
+      log.error("Error clearing batch queues: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to clear batch queues: " + e.getMessage()));
+    }
+  }
+
+  /** Get comprehensive optimization status */
+  @GetMapping("/optimization/status")
+  public ResponseEntity<Map<String, Object>> getOptimizationStatus() {
+    try {
+      Map<String, Object> status = new HashMap<>();
+
+      // Cache statistics
+      status.put("cacheStats", marketIntelligenceCacheService.getCacheStatistics());
+
+      // Batch processing statistics
+      status.put("batchStats", marketIntelligenceBatchService.getBatchStatistics());
+
+      // Write operation statistics
+      status.put("writeStats", marketIntelligenceWriteService.getWriteStatistics());
+
+      // Event processing statistics
+      status.put("eventStats", marketIntelligenceEventHandler.getEventStatistics());
+
+      // Cache warming statistics
+      status.put("cacheWarmingStats", marketIntelligenceCacheWarmingService.getWarmingStats());
+
+      // Health checks
+      Map<String, Object> health = new HashMap<>();
+      health.put(
+          "batchProcessingHealthy", marketIntelligenceBatchService.isBatchProcessingHealthy());
+      health.put(
+          "writeOperationsHealthy", marketIntelligenceWriteService.isWriteOperationsHealthy());
+      health.put(
+          "eventProcessingHealthy", marketIntelligenceEventHandler.isEventProcessingHealthy());
+      health.put(
+          "cacheWarmingHealthy", !marketIntelligenceCacheWarmingService.isWarmingInProgress());
+      status.put("health", health);
+
+      // Overall optimization score
+      boolean allHealthy =
+          marketIntelligenceBatchService.isBatchProcessingHealthy()
+              && marketIntelligenceWriteService.isWriteOperationsHealthy()
+              && marketIntelligenceEventHandler.isEventProcessingHealthy()
+              && !marketIntelligenceCacheWarmingService.isWarmingInProgress();
+      status.put("optimizationScore", allHealthy ? "EXCELLENT" : "NEEDS_ATTENTION");
+
+      return ResponseEntity.ok(status);
+    } catch (Exception e) {
+      log.error("Error getting optimization status: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to get optimization status: " + e.getMessage()));
     }
   }
 
@@ -332,6 +602,87 @@ public class MarketIntelligenceAdminController {
         "overall", Map.of("status", allHealthy ? "healthy" : "unhealthy", "timestamp", new Date()));
 
     return ResponseEntity.ok(health);
+  }
+
+  // =====================================
+  // CACHE WARMING ENDPOINTS
+  // =====================================
+
+  /** Get cache warming statistics */
+  @GetMapping("/cache/warming/stats")
+  public ResponseEntity<Map<String, Object>> getCacheWarmingStats() {
+    try {
+      Map<String, Object> stats = marketIntelligenceCacheWarmingService.getWarmingStats();
+      return ResponseEntity.ok(stats);
+    } catch (Exception e) {
+      log.error("Error getting cache warming statistics: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to get cache warming statistics: " + e.getMessage()));
+    }
+  }
+
+  /** Reset cache warming statistics */
+  @PostMapping("/cache/warming/reset-stats")
+  public ResponseEntity<Map<String, Object>> resetCacheWarmingStats() {
+    try {
+      marketIntelligenceCacheWarmingService.resetWarmingStats();
+      return ResponseEntity.ok(Map.of("message", "Cache warming statistics reset successfully"));
+    } catch (Exception e) {
+      log.error("Error resetting cache warming statistics: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to reset cache warming statistics: " + e.getMessage()));
+    }
+  }
+
+  /** Manually trigger cache warming for a specific shop */
+  @PostMapping("/cache/warming/trigger")
+  public ResponseEntity<Map<String, Object>> triggerCacheWarming(
+      @RequestParam(value = "shop", required = false, defaultValue = "admin") String shopDomain,
+      @RequestParam(value = "priority", required = false, defaultValue = "HIGH") String priority) {
+    try {
+      MarketIntelligenceCacheWarmingService.WarmingPriority warmingPriority;
+      try {
+        warmingPriority =
+            MarketIntelligenceCacheWarmingService.WarmingPriority.valueOf(priority.toUpperCase());
+      } catch (IllegalArgumentException e) {
+        return ResponseEntity.badRequest()
+            .body(Map.of("error", "Invalid priority. Valid values: CRITICAL, HIGH, MEDIUM, LOW"));
+      }
+
+      marketIntelligenceCacheWarmingService.warmShopCache(shopDomain);
+
+      return ResponseEntity.ok(
+          Map.of(
+              "message", "Cache warming triggered successfully",
+              "shop", shopDomain,
+              "priority", priority));
+    } catch (Exception e) {
+      log.error("Error triggering cache warming for shop {}: {}", shopDomain, e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to trigger cache warming: " + e.getMessage()));
+    }
+  }
+
+  /** Check cache warming health status */
+  @GetMapping("/cache/warming/health")
+  public ResponseEntity<Map<String, Object>> getCacheWarmingHealth() {
+    try {
+      boolean isHealthy = !marketIntelligenceCacheWarmingService.isWarmingInProgress();
+      Map<String, Object> healthStatus = new HashMap<>();
+      healthStatus.put("healthy", isHealthy);
+      healthStatus.put("status", isHealthy ? "HEALTHY" : "UNHEALTHY");
+      healthStatus.put("timestamp", java.time.LocalDateTime.now().toString());
+
+      if (isHealthy) {
+        return ResponseEntity.ok(healthStatus);
+      } else {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(healthStatus);
+      }
+    } catch (Exception e) {
+      log.error("Error checking cache warming health: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to check cache warming health: " + e.getMessage()));
+    }
   }
 
   // Helper methods
@@ -684,8 +1035,8 @@ public class MarketIntelligenceAdminController {
 
       // Check Redis keys before scraping
       String domain = extractDomain(url);
-      String recentScrapeKey = "market-intelligence:recent_scrape:" + domain + ":" + url.hashCode();
-      String rateLimitKey = "scraper_rate_limit:" + domain;
+      String recentScrapeKey = "mi:recent_scrape:" + domain + ":" + url.hashCode();
+      String rateLimitKey = "mi:scraper_rate_limit:" + domain;
 
       debugInfo.put("domain", domain);
       debugInfo.put("recentScrapeKey", recentScrapeKey);
@@ -826,8 +1177,8 @@ public class MarketIntelligenceAdminController {
 
       // Check Redis keys before scraping
       String domain = extractDomain(url);
-      String recentScrapeKey = "market-intelligence:recent_scrape:" + domain + ":" + url.hashCode();
-      String rateLimitKey = "market-intelligence:scraper_rate_limit:" + domain;
+      String recentScrapeKey = "mi:recent_scrape:" + domain + ":" + url.hashCode();
+      String rateLimitKey = "mi:scraper_rate_limit:" + domain;
 
       debugInfo.put("competitorId", competitorId);
       debugInfo.put("url", url);
@@ -1086,7 +1437,7 @@ public class MarketIntelligenceAdminController {
 
       // Check if we recently scraped this URL (within last 2 hours)
       String domain = extractDomain(url);
-      String recentScrapeKey = "market-intelligence:recent_scrape:" + domain + ":" + url.hashCode();
+      String recentScrapeKey = "mi:recent_scrape:" + domain + ":" + url.hashCode();
 
       if (redisTemplate.hasKey(recentScrapeKey)) {
         log.info("triggerImmediatePriceScraping: Skipping - URL scraped recently: {}", url);
@@ -1094,7 +1445,7 @@ public class MarketIntelligenceAdminController {
       }
 
       // Check rate limiting with longer delays
-      String rateLimitKey = "market-intelligence:scraper_rate_limit:" + domain;
+      String rateLimitKey = "mi:scraper_rate_limit:" + domain;
       if (redisTemplate.hasKey(rateLimitKey)) {
         log.debug("triggerImmediatePriceScraping: Rate limit active for domain: {}", domain);
         return; // Skip immediate scraping if rate limited
@@ -1228,7 +1579,7 @@ public class MarketIntelligenceAdminController {
   /** Get cached price for URL to reduce scraping costs */
   private java.math.BigDecimal getCachedPriceForUrl(String url) {
     try {
-      String cacheKey = "market-intelligence:price_cache:" + url.hashCode();
+      String cacheKey = "mi:price_cache:" + url.hashCode();
       Object cached = redisTemplate.opsForValue().get(cacheKey);
       if (cached != null) {
         return new java.math.BigDecimal(cached.toString());
@@ -1242,7 +1593,7 @@ public class MarketIntelligenceAdminController {
   /** Cache price for URL to reduce future scraping costs */
   private void cachePriceForUrl(String url, java.math.BigDecimal price) {
     try {
-      String cacheKey = "market-intelligence:price_cache:" + url.hashCode();
+      String cacheKey = "mi:price_cache:" + url.hashCode();
       // Cache for 24 hours to reduce scraping frequency
       redisTemplate
           .opsForValue()

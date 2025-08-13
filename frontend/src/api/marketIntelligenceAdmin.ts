@@ -333,6 +333,74 @@ export const marketIntelligenceAdminAPI = {
   async getAvailableShops(): Promise<Array<{ id: number; shopify_domain: string }>> {
     return await fetchWithAdminAuth('/api/admin/market-intelligence/shops');
   },
+
+  // Cache Management API Functions
+  async getCacheStats(): Promise<any> {
+    return await fetchWithAdminAuth('/api/admin/market-intelligence/cache/stats');
+  },
+
+  async resetCacheStats(): Promise<{ message: string; timestamp: string }> {
+    return await fetchWithAdminAuth('/api/admin/market-intelligence/cache/reset-stats', {
+      method: 'POST'
+    });
+  },
+
+  async invalidateCache(shopDomain?: string): Promise<{ success: boolean; message: string }> {
+    const url = shopDomain 
+      ? `/api/admin/market-intelligence/cache/invalidate?shop=${shopDomain}`
+      : '/api/admin/market-intelligence/cache/invalidate';
+    return await fetchWithAdminAuth(url, { method: 'POST' });
+  },
+
+  // Batch Processing API Functions
+  async getBatchStats(): Promise<any> {
+    return await fetchWithAdminAuth('/api/admin/market-intelligence/batch/stats');
+  },
+
+  async resetBatchStats(): Promise<{ message: string; timestamp: string }> {
+    return await fetchWithAdminAuth('/api/admin/market-intelligence/batch/reset-stats', {
+      method: 'POST'
+    });
+  },
+
+  async clearBatchQueues(): Promise<{ success: boolean; message: string }> {
+    return await fetchWithAdminAuth('/api/admin/market-intelligence/batch/clear-queues', {
+      method: 'POST'
+    });
+  },
+
+  // Write Operations API Functions
+  async getWriteStats(): Promise<any> {
+    return await fetchWithAdminAuth('/api/admin/market-intelligence/write/stats');
+  },
+
+  async resetWriteStats(): Promise<{ message: string; timestamp: string }> {
+    return await fetchWithAdminAuth('/api/admin/market-intelligence/write/reset-stats', {
+      method: 'POST'
+    });
+  },
+
+  // Cache Warming API Functions
+  async getCacheWarmingStats(): Promise<any> {
+    return await fetchWithAdminAuth('/api/admin/market-intelligence/cache/warming/stats');
+  },
+
+  async triggerCacheWarming(shopDomain: string, priority: string): Promise<{ message: string; shop: string; priority: string }> {
+    return await fetchWithAdminAuth('/api/admin/market-intelligence/cache/warming/trigger', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ shop: shopDomain, priority })
+    });
+  },
+
+  async getCacheWarmingHealth(): Promise<any> {
+    return await fetchWithAdminAuth('/api/admin/market-intelligence/cache/warming/health');
+  },
+
+  // Comprehensive Optimization Status
+  async getOptimizationStatus(): Promise<any> {
+    return await fetchWithAdminAuth('/api/admin/market-intelligence/optimization/status');
+  },
 };
 
 export default marketIntelligenceAdminAPI; 
