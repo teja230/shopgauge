@@ -23,6 +23,7 @@ public class AdminRateLimitingService {
   private static final Logger logger = LoggerFactory.getLogger(AdminRateLimitingService.class);
 
   @Autowired private RedisTemplate<String, Object> redisTemplate;
+  @Autowired private EnhancedRedisService enhancedRedisService;
 
   // Admin rate limit configurations
   @Value("${admin.rate-limit.requests-per-minute:10}")
@@ -178,9 +179,15 @@ public class AdminRateLimitingService {
       String loginPattern = "admin:rate_limit:login:" + ipAddress;
       String sensitivePattern = "admin:rate_limit:sensitive:" + ipAddress + ":*";
 
-      redisTemplate.delete(redisTemplate.keys(generalPattern));
+      var generalKeys = enhancedRedisService.scanKeys(generalPattern);
+      if (generalKeys != null && !generalKeys.isEmpty()) {
+        redisTemplate.delete(generalKeys);
+      }
       redisTemplate.delete(loginPattern);
-      redisTemplate.delete(redisTemplate.keys(sensitivePattern));
+      var sensitiveKeys = enhancedRedisService.scanKeys(sensitivePattern);
+      if (sensitiveKeys != null && !sensitiveKeys.isEmpty()) {
+        redisTemplate.delete(sensitiveKeys);
+      }
 
       logger.info("Cleared rate limiting for IP: {}", ipAddress);
     } catch (Exception e) {

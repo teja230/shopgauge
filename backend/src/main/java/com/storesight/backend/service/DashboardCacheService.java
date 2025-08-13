@@ -409,7 +409,7 @@ public class DashboardCacheService {
   public void invalidateShopCache(String shopDomain) {
     try {
       String pattern = "*:" + shopDomain;
-      var keys = redisTemplate.keys(pattern);
+      var keys = enhancedRedisService.scanKeys(pattern);
 
       if (keys != null && !keys.isEmpty()) {
         redisTemplate.delete(keys);
@@ -571,8 +571,8 @@ public class DashboardCacheService {
   /** Update cache size metrics */
   private void updateCacheSizeMetrics() {
     try {
-      // Get approximate cache size by counting keys with dashboard prefix
-      Set<String> cacheKeys = redisTemplate.keys("dashboard:*");
+      // Get approximate cache size by counting keys with dashboard prefix (SCAN-based)
+      Set<String> cacheKeys = enhancedRedisService.scanKeys("dashboard:*");
       long currentCacheSize = cacheKeys != null ? cacheKeys.size() : 0;
       metricsCollectionService.updateCacheSize(currentCacheSize);
     } catch (Exception e) {

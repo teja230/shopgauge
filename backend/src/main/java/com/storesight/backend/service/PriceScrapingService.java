@@ -37,7 +37,30 @@ public class PriceScrapingService {
   @Autowired private SerpApiSearchClient serpApiSearchClient;
   @Autowired private WebClient webClient;
   @Autowired private org.springframework.data.redis.core.StringRedisTemplate stringRedisTemplate;
+  @Autowired private MetricsCollectionService metricsCollectionService;
   private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
+
+  // Headless scraping toggle and client (placeholder interface)
+  @Value("${price.scraping.headless.enabled:false}")
+  private boolean headlessEnabled;
+
+  /** Minimal headless client abstraction (implemented elsewhere or stubbed). */
+  public interface HeadlessScrapingClient {
+    HeadlessResult fetchRenderedHtml(String url);
+  }
+
+  public static class HeadlessResult {
+    public final String html;
+    public final long responseTimeMs;
+
+    public HeadlessResult(String html, long responseTimeMs) {
+      this.html = html;
+      this.responseTimeMs = responseTimeMs;
+    }
+  }
+
+  @Autowired(required = false)
+  private HeadlessScrapingClient headlessScrapingClient;
 
   @Value("${discovery.scrapingdog.key:${SCRAPINGDOG_KEY:dummy_scrapingdog_key}}")
   private String scrapingdogKey;
@@ -140,16 +163,47 @@ public class PriceScrapingService {
     // Tier 1: Direct Jsoup scraping (fastest, free, compliant)
     try {
       log.debug("Tier 1: Attempting direct Jsoup scraping");
+      var jsoupLatency = metricsCollectionService.startScrapingLatency("jsoup");
       PriceScrapingResult jsoupResult = scrapeWithJsoup(url, platform);
+      metricsCollectionService.recordScrapingLatency(jsoupLatency, "jsoup");
 
       if (jsoupResult.isSuccess()) {
+        metricsCollectionService.recordScrapingSuccess("jsoup");
         log.info("Tier 1 successful: Price ${} extracted via Jsoup", jsoupResult.getPrice());
         return jsoupResult;
       }
 
+      metricsCollectionService.recordScrapingFailure("jsoup");
       log.warn("Tier 1 failed: {}", jsoupResult.getFailureReason());
     } catch (Exception e) {
+      metricsCollectionService.recordScrapingFailure("jsoup");
       log.warn("Tier 1 failed: Jsoup error - {}", e.getMessage());
+    }
+
+    // Optional Headless Tier: handle dynamic pages blocked by anti-bot, gated by flag
+    if (headlessEnabled && headlessScrapingClient != null) {
+      try {
+        log.debug("Headless Tier: Attempting headless-rendered fetch");
+        var headlessLatency = metricsCollectionService.startScrapingLatency("headless");
+        long start = System.currentTimeMillis();
+        HeadlessResult res = headlessScrapingClient.fetchRenderedHtml(url);
+        metricsCollectionService.recordScrapingLatency(headlessLatency, "headless");
+
+        if (res != null && res.html != null && !res.html.isBlank()) {
+          org.jsoup.nodes.Document doc = org.jsoup.Jsoup.parse(res.html);
+          java.math.BigDecimal price = extractPriceFromDocument(doc, platform);
+          boolean inStock = extractStockStatusFromDocument(doc, platform);
+          long responseTime = res.responseTimeMs > 0 ? res.responseTimeMs : (System.currentTimeMillis() - start);
+          if (price != null) {
+            metricsCollectionService.recordScrapingSuccess("headless");
+            return PriceScrapingResult.success(price, inStock, platform, "headless", responseTime);
+          }
+        }
+        metricsCollectionService.recordScrapingFailure("headless");
+      } catch (Exception e) {
+        metricsCollectionService.recordScrapingFailure("headless");
+        log.warn("Headless scraping failed: {}", e.getMessage());
+      }
     }
 
     // Tier 2-4: API-based scraping (COST-OPTIMIZED for $19.99 plan)
@@ -165,18 +219,23 @@ public class PriceScrapingService {
         if (scrapingdogSearchClient.isEnabled() && providersTried < maxProviders) {
           try {
             log.debug("Tier 2: Attempting Scrapingdog API (cost: $0.001)");
+            var latency = metricsCollectionService.startScrapingLatency("scrapingdog");
             PriceScrapingResult scrapingdogResult = scrapeWithScrapingdog(url);
+            metricsCollectionService.recordScrapingLatency(latency, "scrapingdog");
 
             if (scrapingdogResult.isSuccess()) {
+              metricsCollectionService.recordScrapingSuccess("scrapingdog");
               log.info(
                   "Tier 2 successful: Price ${} extracted via Scrapingdog",
                   scrapingdogResult.getPrice());
               return scrapingdogResult;
             }
 
+            metricsCollectionService.recordScrapingFailure("scrapingdog");
             log.warn("Tier 2 failed: {}", scrapingdogResult.getFailureReason());
             providersTried++;
           } catch (Exception e) {
+            metricsCollectionService.recordScrapingFailure("scrapingdog");
             log.warn("Tier 2 failed: Scrapingdog error - {}", e.getMessage());
             providersTried++;
           }
@@ -186,17 +245,22 @@ public class PriceScrapingService {
         if (serperSearchClient.isEnabled() && providersTried < maxProviders) {
           try {
             log.debug("Tier 3: Attempting Serper API (cost: $0.001)");
+            var latency = metricsCollectionService.startScrapingLatency("serper");
             PriceScrapingResult serperResult = scrapeWithSerper(url);
+            metricsCollectionService.recordScrapingLatency(latency, "serper");
 
             if (serperResult.isSuccess()) {
+              metricsCollectionService.recordScrapingSuccess("serper");
               log.info(
                   "Tier 3 successful: Price ${} extracted via Serper", serperResult.getPrice());
               return serperResult;
             }
 
+            metricsCollectionService.recordScrapingFailure("serper");
             log.warn("Tier 3 failed: {}", serperResult.getFailureReason());
             providersTried++;
           } catch (Exception e) {
+            metricsCollectionService.recordScrapingFailure("serper");
             log.warn("Tier 3 failed: Serper error - {}", e.getMessage());
             providersTried++;
           }
@@ -206,17 +270,22 @@ public class PriceScrapingService {
         if (serpApiSearchClient.isEnabled() && providersTried < maxProviders) {
           try {
             log.debug("Tier 4: Attempting SerpAPI (cost: $0.015)");
+            var latency = metricsCollectionService.startScrapingLatency("serpapi");
             PriceScrapingResult serpApiResult = scrapeWithSerpAPI(url);
+            metricsCollectionService.recordScrapingLatency(latency, "serpapi");
 
             if (serpApiResult.isSuccess()) {
+              metricsCollectionService.recordScrapingSuccess("serpapi");
               log.info(
                   "Tier 4 successful: Price ${} extracted via SerpAPI", serpApiResult.getPrice());
               return serpApiResult;
             }
 
+            metricsCollectionService.recordScrapingFailure("serpapi");
             log.warn("Tier 4 failed: {}", serpApiResult.getFailureReason());
             providersTried++;
           } catch (Exception e) {
+            metricsCollectionService.recordScrapingFailure("serpapi");
             log.warn("Tier 4 failed: SerpAPI error - {}", e.getMessage());
             providersTried++;
           }

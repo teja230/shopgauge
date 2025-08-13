@@ -971,8 +971,8 @@ public class SessionSynchronizationService {
 
       // Scan and clean up any orphaned Redis keys
       try {
-        // Clean up orphaned lock keys
-        Set<String> lockKeys = redisTemplate.keys(SESSION_LOCK_PREFIX + "*");
+        // Clean up orphaned lock keys using SCAN to avoid blocking
+        Set<String> lockKeys = enhancedRedisService.scanKeys(SESSION_LOCK_PREFIX + "*");
         if (lockKeys != null) {
           for (String lockKey : lockKeys) {
             String sessionId = lockKey.substring(SESSION_LOCK_PREFIX.length());
@@ -984,8 +984,8 @@ public class SessionSynchronizationService {
           }
         }
 
-        // Clean up orphaned invalidation markers
-        Set<String> invalidationKeys = redisTemplate.keys(SESSION_INVALIDATION_PREFIX + "*");
+        // Clean up orphaned invalidation markers using SCAN
+        Set<String> invalidationKeys = enhancedRedisService.scanKeys(SESSION_INVALIDATION_PREFIX + "*");
         if (invalidationKeys != null) {
           for (String invalidationKey : invalidationKeys) {
             String sessionId = invalidationKey.substring(SESSION_INVALIDATION_PREFIX.length());
@@ -997,8 +997,8 @@ public class SessionSynchronizationService {
           }
         }
 
-        // Clean up orphaned state markers
-        Set<String> stateKeys = redisTemplate.keys(SESSION_STATE_PREFIX + "*");
+        // Clean up orphaned state markers using SCAN
+        Set<String> stateKeys = enhancedRedisService.scanKeys(SESSION_STATE_PREFIX + "*");
         if (stateKeys != null) {
           for (String stateKey : stateKeys) {
             String sessionId = stateKey.substring(SESSION_STATE_PREFIX.length());

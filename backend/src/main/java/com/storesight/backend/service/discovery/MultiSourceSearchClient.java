@@ -38,6 +38,7 @@ public class MultiSourceSearchClient implements SearchClient {
 
   @Autowired private List<SearchClient> searchClients;
   @Autowired private CostOptimizationService costOptimizationService;
+  @Autowired private com.storesight.backend.service.MetricsCollectionService metricsCollectionService;
 
   private List<SearchClient> sortedProviders;
 
@@ -155,6 +156,13 @@ public class MultiSourceSearchClient implements SearchClient {
 
       try {
         log.info("Trying provider {} for keywords: '{}'", provider.getProviderName(), keywords);
+        if (metricsCollectionService != null) {
+          metricsCollectionService.recordProviderRequest(provider.getProviderName());
+        }
+        var latencySample =
+            metricsCollectionService != null
+                ? metricsCollectionService.startProviderLatency(provider.getProviderName())
+                : null;
 
         List<SearchResult> results;
         if (fallbackEnabled) {
@@ -165,6 +173,9 @@ public class MultiSourceSearchClient implements SearchClient {
                   .join();
         } else {
           results = provider.search(keywords, maxResults);
+        }
+        if (metricsCollectionService != null && latencySample != null) {
+          metricsCollectionService.recordProviderLatency(latencySample, provider.getProviderName());
         }
 
         // Track cost
@@ -208,6 +219,9 @@ public class MultiSourceSearchClient implements SearchClient {
             provider.getProviderName(),
             keywords,
             e.getMessage());
+        if (metricsCollectionService != null) {
+          metricsCollectionService.recordProviderFailure(provider.getProviderName());
+        }
 
         // Continue to next provider if fallback is enabled
         if (!fallbackEnabled) {

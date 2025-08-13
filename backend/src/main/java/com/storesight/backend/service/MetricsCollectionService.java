@@ -58,6 +58,16 @@ public class MetricsCollectionService {
   private final Timer databaseQueryDuration;
   private final Counter connectionPoolExhaustion;
 
+  // Provider selection telemetry
+  private final Map<String, Counter> providerRequests = new HashMap<>();
+  private final Map<String, Counter> providerFailures = new HashMap<>();
+  private final Map<String, Timer> providerLatency = new HashMap<>();
+
+  // Scraping provider telemetry
+  private final Map<String, Counter> scrapingProviderSuccess = new HashMap<>();
+  private final Map<String, Counter> scrapingProviderFailure = new HashMap<>();
+  private final Map<String, Timer> scrapingProviderLatency = new HashMap<>();
+
   // System health metrics
   private final AtomicLong memoryUsage = new AtomicLong(0);
   private final AtomicLong cpuUsage = new AtomicLong(0);
@@ -308,6 +318,90 @@ public class MetricsCollectionService {
 
   public void recordConnectionPoolExhaustion() {
     connectionPoolExhaustion.increment();
+  }
+
+  // Provider selection telemetry methods
+  public void recordProviderRequest(String provider) {
+    providerRequests
+        .computeIfAbsent(
+            provider,
+            p ->
+                Counter.builder("discovery.provider.requests")
+                    .tag("provider", p)
+                    .description("Discovery provider requests")
+                    .register(meterRegistry))
+        .increment();
+  }
+
+  public void recordProviderFailure(String provider) {
+    providerFailures
+        .computeIfAbsent(
+            provider,
+            p ->
+                Counter.builder("discovery.provider.failures")
+                    .tag("provider", p)
+                    .description("Discovery provider failures")
+                    .register(meterRegistry))
+        .increment();
+  }
+
+  public Timer.Sample startProviderLatency(String provider) {
+    Timer timer =
+        providerLatency.computeIfAbsent(
+            provider,
+            p ->
+                Timer.builder("discovery.provider.latency")
+                    .tag("provider", p)
+                    .description("Discovery provider latency")
+                    .register(meterRegistry));
+    return Timer.start(meterRegistry);
+  }
+
+  public void recordProviderLatency(Timer.Sample sample, String provider) {
+    Timer timer = providerLatency.get(provider);
+    if (timer != null) sample.stop(timer);
+  }
+
+  // Scraping provider telemetry methods
+  public void recordScrapingSuccess(String provider) {
+    scrapingProviderSuccess
+        .computeIfAbsent(
+            provider,
+            p ->
+                Counter.builder("scraping.provider.success")
+                    .tag("provider", p)
+                    .description("Scraping success by provider")
+                    .register(meterRegistry))
+        .increment();
+  }
+
+  public void recordScrapingFailure(String provider) {
+    scrapingProviderFailure
+        .computeIfAbsent(
+            provider,
+            p ->
+                Counter.builder("scraping.provider.failure")
+                    .tag("provider", p)
+                    .description("Scraping failures by provider")
+                    .register(meterRegistry))
+        .increment();
+  }
+
+  public Timer.Sample startScrapingLatency(String provider) {
+    Timer timer =
+        scrapingProviderLatency.computeIfAbsent(
+            provider,
+            p ->
+                Timer.builder("scraping.provider.latency")
+                    .tag("provider", p)
+                    .description("Scraping provider latency")
+                    .register(meterRegistry));
+    return Timer.start(meterRegistry);
+  }
+
+  public void recordScrapingLatency(Timer.Sample sample, String provider) {
+    Timer timer = scrapingProviderLatency.get(provider);
+    if (timer != null) sample.stop(timer);
   }
 
   // System health metrics methods
