@@ -147,28 +147,28 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     id: 'row-refresh',
     title: 'Refresh a Single Competitor',
     description: 'Use the refresh icon to update the latest price for a specific competitor.',
-    target: '.row-refresh-button',
+    target: '.competitor-table .row-refresh-button',
     position: 'top'
   },
   {
     id: 'row-graph',
     title: 'Price History Graph',
     description: 'Click the graph icon to view detailed price history and trends for this competitor.',
-    target: '.row-graph-button',
+    target: '.competitor-table .row-graph-button',
     position: 'top'
   },
   {
     id: 'row-archive',
     title: 'Archive a Competitor',
     description: 'Use the archive icon to move a competitor to the archived list. You can restore it later.',
-    target: '.row-archive-button',
+    target: '.competitor-table .row-archive-button',
     position: 'top'
   },
   {
     id: 'more-actions',
     title: 'More Actions',
     description: 'Open the menu for secondary actions like visiting the site or copying the URL.',
-    target: '.row-more-actions-button',
+    target: '.competitor-table .row-more-actions-button',
     position: 'top'
   },
   {
@@ -2332,6 +2332,18 @@ export default function CompetitorsPage() {
   const handleJoyrideCallback = (data: CallBackProps) => {
     const { action, index, status, type } = data;
     console.log('Market Intelligence Joyride callback:', { action, index, status, type });
+    
+    // Debug: Check if target elements exist
+    if (type === 'step:before' && typeof index === 'number') {
+      const step = TUTORIAL_STEPS[index];
+      if (step) {
+        const targetElement = document.querySelector(step.target);
+        console.log(`Step ${index} (${step.id}): Target element exists:`, !!targetElement, 'Target:', step.target);
+        if (targetElement) {
+          console.log('Target element:', targetElement);
+        }
+      }
+    }
 
     // Prevent duplicate notifications
     if (notificationShownRef.current) return;
@@ -2378,7 +2390,7 @@ export default function CompetitorsPage() {
       // Don't show notification for close action to avoid duplicates
     }
     // Handle step navigation - let Joyride handle navigation internally
-  else if (type === 'step:after' && typeof index === 'number') {
+    else if (type === 'step:after' && typeof index === 'number') {
       const stepId = TUTORIAL_STEPS[index]?.id;
       if (stepId === 'show-archived') {
         setShowDeletedCompetitors(true);
