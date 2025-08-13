@@ -396,12 +396,10 @@ public class EnhancedRedisService {
   public CircuitBreakerConfig getCircuitBreakerConfig() {
     return circuitBreaker.getCircuitBreakerConfig();
   }
-<<<<<<< Current (Your changes)
-=======
 
   /**
-   * SCAN for keys matching a pattern without blocking Redis like KEYS.
-   * Returns up to maxCount keys if specified (>0), otherwise scans all.
+   * SCAN for keys matching a pattern without blocking Redis like KEYS. Returns up to maxCount keys
+   * if specified (>0), otherwise scans all.
    */
   public java.util.Set<String> scanKeys(String pattern) {
     return scanKeys(pattern, 0);
@@ -439,8 +437,8 @@ public class EnhancedRedisService {
   }
 
   /**
-   * Delete all keys that match a pattern using SCAN to avoid blocking.
-   * Returns the number of keys deleted.
+   * Delete all keys that match a pattern using SCAN to avoid blocking. Returns the number of keys
+   * deleted.
    */
   public long deleteByPattern(String pattern) {
     java.util.Set<String> keys = scanKeys(pattern);
@@ -452,5 +450,4 @@ public class EnhancedRedisService {
         },
         () -> 0L);
   }
->>>>>>> Incoming (Background Agent changes)
 }

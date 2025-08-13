@@ -12,6 +12,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import javax.crypto.SecretKey;
 import org.slf4j.Logger;
@@ -54,6 +55,7 @@ public class AdminAuthService {
 
   private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder(12);
   private SecretKey jwtSecretKey;
+  private String currentKeyId;
 
   @Value("${admin.jwt.secret:}")
   private String jwtSecret;
@@ -93,6 +95,9 @@ public class AdminAuthService {
       this.jwtSecretKey = Keys.hmacShaKeyFor(secretBytes);
       logger.info("JWT secret configured with {} bits", secretBytes.length * 8);
     }
+
+    // Generate a key id for rotation support
+    this.currentKeyId = UUID.nameUUIDFromBytes(secret.getBytes(StandardCharsets.UTF_8)).toString();
 
     logger.info("Admin JWT secret configured successfully");
 
@@ -160,14 +165,22 @@ public class AdminAuthService {
         .setExpiration(Date.from(expiry))
         .claim("role", "ROLE_ADMIN")
         .claim("type", "admin")
+        .setHeaderParam("kid", currentKeyId)
         .signWith(jwtSecretKey, SignatureAlgorithm.HS512)
         .compact();
   }
 
   public boolean validateJwtToken(String token) {
     try {
-      Claims claims =
-          Jwts.parserBuilder().setSigningKey(jwtSecretKey).build().parseClaimsJws(token).getBody();
+      Jws<Claims> jws =
+          Jwts.parserBuilder().setSigningKey(jwtSecretKey).build().parseClaimsJws(token);
+      Claims claims = jws.getBody();
+      // Optional: verify kid header matches currentKeyId for strict rotation
+      Object kidHeader = jws.getHeader().get("kid");
+      if (kidHeader != null && !kidHeader.toString().equals(currentKeyId)) {
+        logger.debug("Token kid {} does not match current key id", kidHeader);
+        return false;
+      }
 
       // Check if token is expired
       if (claims.getExpiration().before(new Date())) {

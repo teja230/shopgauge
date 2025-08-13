@@ -305,7 +305,11 @@ public class RedisPriceRefreshQueueService {
 
   /** Process a batch of competitors */
   private void processBatch(
-      String sessionId, String domain, List<CompetitorRefreshItem> batch, RateLimiter rateLimiter, Long shopId) {
+      String sessionId,
+      String domain,
+      List<CompetitorRefreshItem> batch,
+      RateLimiter rateLimiter,
+      Long shopId) {
 
     for (CompetitorRefreshItem competitor : batch) {
       try {

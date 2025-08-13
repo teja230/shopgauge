@@ -13,6 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -31,6 +32,7 @@ public class AdminAuditController {
 
   /** Get recent admin audit logs with filtering and pagination */
   @GetMapping("/logs")
+  @PreAuthorize("hasRole('ADMIN')")
   public ResponseEntity<Map<String, Object>> getAuditLogs(
       @RequestParam(defaultValue = "24") int hours,
       @RequestParam(defaultValue = "100") int limit,
@@ -110,6 +112,7 @@ public class AdminAuditController {
 
   /** Get security statistics and metrics */
   @GetMapping("/security-stats")
+  @PreAuthorize("hasRole('ADMIN')")
   public ResponseEntity<Map<String, Object>> getSecurityStats(
       @RequestParam(defaultValue = "24") int hours, HttpServletRequest request) {
 
@@ -178,6 +181,7 @@ public class AdminAuditController {
 
   /** Get suspicious activity report */
   @GetMapping("/suspicious-activity")
+  @PreAuthorize("hasRole('ADMIN')")
   public ResponseEntity<Map<String, Object>> getSuspiciousActivity(
       @RequestParam(defaultValue = "24") int hours, HttpServletRequest request) {
 
@@ -265,6 +269,7 @@ public class AdminAuditController {
 
   /** Clear rate limiting for an IP address (emergency use) */
   @PostMapping("/clear-rate-limit")
+  @PreAuthorize("hasRole('ADMIN')")
   public ResponseEntity<Map<String, Object>> clearRateLimit(
       @RequestBody Map<String, String> request, HttpServletRequest httpRequest) {
 
@@ -317,6 +322,7 @@ public class AdminAuditController {
 
   /** Force logout all admin sessions (emergency use) */
   @PostMapping("/force-logout-all")
+  @PreAuthorize("hasRole('ADMIN')")
   public ResponseEntity<Map<String, Object>> forceLogoutAll(
       @RequestBody Map<String, String> request, HttpServletRequest httpRequest) {
 

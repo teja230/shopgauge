@@ -217,8 +217,10 @@ class CompetitorScraperWorkerTest {
   @Test
   void testEnforceMaxConcurrentScrapersLimit() {
     // Given
-    int configuredLimit = (Integer) ReflectionTestUtils.getField(scraperWorker, "maxConcurrentScrapersLimit");
-    java.util.concurrent.atomic.AtomicInteger concurrent = new java.util.concurrent.atomic.AtomicInteger();
+    int configuredLimit =
+        (Integer) ReflectionTestUtils.getField(scraperWorker, "maxConcurrentScrapersLimit");
+    java.util.concurrent.atomic.AtomicInteger concurrent =
+        new java.util.concurrent.atomic.AtomicInteger();
 
     // Simulate runnable tasks and ensure we never exceed limit when starting tasks sequentially
     java.util.List<Runnable> tasks = new java.util.ArrayList<>();

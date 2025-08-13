@@ -380,8 +380,7 @@ public class ShopifyAuthController {
             frontendUrl
                 + "/?error=hmac_validation&error_message="
                 + java.net.URLEncoder.encode(
-                    "Security validation error. Please restart the installation.",
-                    "UTF-8");
+                    "Security validation error. Please restart the installation.", "UTF-8");
         response.sendRedirect(redirectUrl);
         return;
       }
@@ -700,16 +699,16 @@ public class ShopifyAuthController {
       throw new RuntimeException("Shopify API secret is not configured");
     }
 
-          String url = "https://" + shop + "/admin/oauth/access_token";
-      Map<String, String> body =
-          Map.of("client_id", apiKey, "client_secret", apiSecret, "code", code);
+    String url = "https://" + shop + "/admin/oauth/access_token";
+    Map<String, String> body =
+        Map.of("client_id", apiKey, "client_secret", apiSecret, "code", code);
 
-      logger.info("Making token exchange request to: {}", url);
-      logger.info(
-          "Request body parameters: client_id={}, client_secret=REDACTED, code={}",
-          apiKey.substring(0, Math.min(8, apiKey.length())) + "...",
-          "REDACTED",
-          code != null ? code.substring(0, Math.min(8, code.length())) + "..." : "null");
+    logger.info("Making token exchange request to: {}", url);
+    logger.info(
+        "Request body parameters: client_id={}, client_secret=REDACTED, code={}",
+        apiKey.substring(0, Math.min(8, apiKey.length())) + "...",
+        "REDACTED",
+        code != null ? code.substring(0, Math.min(8, code.length())) + "..." : "null");
 
     // Single attempt - no retries since authorization codes are single-use
     try {

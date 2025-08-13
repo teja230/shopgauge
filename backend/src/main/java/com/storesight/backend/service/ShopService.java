@@ -2396,7 +2396,8 @@ public class ShopService {
 
       // Clear session locks for this shop
       try {
-        Set<String> lockKeys = enhancedRedisService.scanKeys("*session_lock*" + shopifyDomain + "*");
+        Set<String> lockKeys =
+            enhancedRedisService.scanKeys("*session_lock*" + shopifyDomain + "*");
         if (lockKeys != null && !lockKeys.isEmpty()) {
           redisTemplate.delete(lockKeys);
           clearedCount += lockKeys.size();

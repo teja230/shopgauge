@@ -1,5 +1,6 @@
 package com.storesight.backend.controller;
 
+import com.storesight.backend.dto.AdminLoginRequest;
 import com.storesight.backend.service.AdminAuthService;
 import com.storesight.backend.service.AdminRateLimitingService;
 import com.storesight.backend.service.SseService;
@@ -12,11 +13,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/admin")
+@Validated
 public class AdminAuthController {
 
   private static final Logger logger = LoggerFactory.getLogger(AdminAuthController.class);
@@ -30,12 +34,12 @@ public class AdminAuthController {
 
   @PostMapping("/login")
   public ResponseEntity<Map<String, Object>> adminLogin(
-      @RequestBody Map<String, String> loginRequest,
+      @RequestBody @Validated AdminLoginRequest loginRequest,
       HttpServletRequest request,
       HttpServletResponse response) {
 
-    String username = loginRequest.get("username");
-    String password = loginRequest.get("password");
+    String username = loginRequest.username;
+    String password = loginRequest.password;
 
     Map<String, Object> result = new HashMap<>();
 
@@ -57,15 +61,17 @@ public class AdminAuthController {
       // Generate JWT token
       String token = adminAuthService.generateJwtToken(username);
 
-      // Set admin token cookie with secure settings
-      Cookie adminCookie = new Cookie("admin_token", token);
-      adminCookie.setPath("/");
-      adminCookie.setHttpOnly(true);
-      adminCookie.setMaxAge(60 * 60 * 24 * 7); // 7 days
-      adminCookie.setSecure(requireHttps);
-      adminCookie.setAttribute("SameSite", "Strict");
-      adminCookie.setDomain(getBaseDomain(request.getServerName()));
-      response.addCookie(adminCookie);
+      // Set admin token cookie with secure settings via ResponseCookie
+      ResponseCookie adminCookie =
+          ResponseCookie.from("admin_token", token)
+              .httpOnly(true)
+              .secure(requireHttps)
+              .sameSite("Strict")
+              .path("/")
+              .maxAge(60L * 60 * 24 * 7)
+              .domain(getBaseDomain(request.getServerName()))
+              .build();
+      response.addHeader("Set-Cookie", adminCookie.toString());
 
       // Clear any failed login attempts
       adminAuthService.clearFailedLoginAttempts(clientIp);
@@ -181,14 +187,16 @@ public class AdminAuthController {
       adminAuthService.invalidateToken(token);
 
       // Set new admin token cookie
-      Cookie adminCookie = new Cookie("admin_token", newToken);
-      adminCookie.setPath("/");
-      adminCookie.setHttpOnly(true);
-      adminCookie.setMaxAge(60 * 60 * 24 * 7); // 7 days
-      adminCookie.setSecure(requireHttps);
-      adminCookie.setAttribute("SameSite", "Strict");
-      adminCookie.setDomain(getBaseDomain(request.getServerName()));
-      response.addCookie(adminCookie);
+      ResponseCookie adminCookie =
+          ResponseCookie.from("admin_token", newToken)
+              .httpOnly(true)
+              .secure(requireHttps)
+              .sameSite("Strict")
+              .path("/")
+              .maxAge(60L * 60 * 24 * 7)
+              .domain(getBaseDomain(request.getServerName()))
+              .build();
+      response.addHeader("Set-Cookie", adminCookie.toString());
 
       result.put("success", true);
       result.put("message", "Token refreshed successfully");

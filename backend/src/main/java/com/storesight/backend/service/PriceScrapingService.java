@@ -193,7 +193,8 @@ public class PriceScrapingService {
           org.jsoup.nodes.Document doc = org.jsoup.Jsoup.parse(res.html);
           java.math.BigDecimal price = extractPriceFromDocument(doc, platform);
           boolean inStock = extractStockStatusFromDocument(doc, platform);
-          long responseTime = res.responseTimeMs > 0 ? res.responseTimeMs : (System.currentTimeMillis() - start);
+          long responseTime =
+              res.responseTimeMs > 0 ? res.responseTimeMs : (System.currentTimeMillis() - start);
           if (price != null) {
             metricsCollectionService.recordScrapingSuccess("headless");
             return PriceScrapingResult.success(price, inStock, platform, "headless", responseTime);
